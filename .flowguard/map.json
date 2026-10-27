@@ -83,7 +83,7 @@
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
-        "annotate planned target breakage and ARCH lines in check, change and release",
+        "annotate planned target breakage and ARCH lines in check, change and release; show fingerprint-format reminders in change",
         "run release with the system root counted and optional whole-suite shards",
         "run bound tests and, on request, the checks an edit needs",
         "write templates and their aliases into the active target when one exists",
@@ -135,7 +135,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1486bb15c624e14c1223407e5967399db55fd86c3a3f02a8292ca03624c973bb"
+      "fingerprint": "sha256:e01b8ceb9b52baf93be1c36cbc0599a81a1fa59321173ffddf2d95132d177d85"
     },
     {
       "id": "public-api",
@@ -288,7 +288,7 @@
         "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
         "resolve component parents in one layer without loops",
         "merge the target overlay, validate its remove intents and compare it with current",
-        "compute component fingerprints that detect stale descriptions",
+        "compute component fingerprints that detect stale descriptions and identify formula edits without a corresponding format change",
         "register contract models, build the model tree and locate siblings whose parent projection ignores a newly received value",
         "count import-like strings and injected attribute calls as dependency evidence",
         "Reuse component file matches, test calls and read-only model trees for identical content within one command, returning fresh mutable call/file collections."
@@ -332,7 +332,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:00c9ce56555b2fc42fb2ee17b876c0c205bbcb7b9b08802fa397d0ed991f84f5"
+      "fingerprint": "sha256:1ffe86b7c7fa4877118133ebf52737e84d1a4e36aef7c16379a26b6c33db6ef9"
     },
     {
       "id": "map-discover",
@@ -381,7 +381,7 @@
         "mark only the breakage of a changed subject as moving to target",
         "refuse a target that changes nothing, drops a promise or leaves it untied",
         "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions",
-        "warn about earlier findings, stale debts, untested rules and siblings that project newly received parent values without reading their field",
+        "warn about earlier findings, stale debts, untested rules, fingerprint-format changes and siblings that ignore a newly received parent field",
         "include function-selected models and tests in the single promotion check"
       ],
       "files": [
@@ -422,7 +422,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:047a7aad9c5637276178ff1113c36d231703ac303eba7f0de16a16ea9d30c0f2"
+      "fingerprint": "sha256:da9f50dd6dd25b490258906233b65e7021119f56024339ee6d5e64547f5bf91f"
     },
     {
       "id": "map-proof",
@@ -914,7 +914,7 @@
     ".flowguard/models/read_show.py": "20adc28f32a92c1c27dd77fc565f630bb6bbfd63d71ef7a362a6f684ce8681ab",
     ".flowguard/models/relation_graph.py": "ceb79195f86546ac0cf3543b26644f2e7bb9277dadcca1ca6631ced26a7c6464",
     ".flowguard/models/release_gate.py": "38b884f3999c3a8624ee61edead154224bd977ef8a5c77f89c246388a733a659",
-    ".flowguard/models/release_neutral_fingerprint.py": "60854075ea9031f571e1e11e3e977ac9ebf8af6322e559942b2d64dacc39bec7",
+    ".flowguard/models/release_neutral_fingerprint.py": "96e8b0639d451e729081386ccd40cfcf04839a9f9fa05eee39426592e6019b36",
     ".flowguard/models/replay_conformance.py": "311629f611c211acfecac54cd2d745cec295cc820fcf1b6c104f3f355441b97b",
     ".flowguard/models/scan_coverage.py": "9464fdc7a25c57416a63985ea556cb73dbb2eab2ae367831da3ad15ee68d5136",
     ".flowguard/models/shard_partition.py": "f7cec42b49262133823cdb509ff0831485df5c65aad748ade5f0a08a3c56a179",

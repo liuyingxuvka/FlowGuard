@@ -253,9 +253,20 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     view = build_target_view(root, current, target)
     inv = build_inventory(root, ignore_patterns(view.data), write_cache=False, import_roots=tuple(view.data.get("import_roots", ())))
     tree = build_tree(root, view.data, inv, view=view)
+    base = _target_base(root) if not tests else {}
+    formula_path = "flowguard/map/mapfile.py"
+    if formula_path in inv.source:
+        from .common import read_source
+        from .mapfile import format_guard
+        if base.get("git"):
+            previous = _git(root, "show", base["git"] + ":" + formula_path)
+            if previous is not None and previous.returncode == 0:
+                message = format_guard(previous.stdout.decode("utf-8"), read_source(root / formula_path))
+                if message:
+                    report.warnings.append(TargetFinding("target", "fingerprint_format_unchanged", message.removeprefix("fingerprint_format_unchanged: ")))
     changed_paths = target_model_paths(root, current, target)
     target_ids = {mid for mid, node in tree.nodes.items() if node.path in changed_paths}
-    code_changes = _code_changes(root, tree, target_ids) if not tests and models else {}
+    code_changes = _code_changes(root, tree, target_ids, base=base) if not tests and models else {}
     code_changed = set(code_changes)
     seen = set()
 
@@ -835,12 +846,17 @@ def _record_base(root):
     (root / TARGET_RELDIR / "base.json").write_text(json.dumps(data, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _code_changes(root, tree, model_ids):
-    """Changed source symbols relevant to each target's owned and consumed anchors."""
+def _target_base(root):
+    """Read target input identity once for design diagnostics, never promotion."""
     try:
-        base = json.loads((root / TARGET_RELDIR / "base.json").read_text(encoding="utf-8"))
+        return json.loads((root / TARGET_RELDIR / "base.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        base = {"git": "HEAD"} if _git_head(root) else {}
+        return {"git": "HEAD"} if _git_head(root) else {}
+
+
+def _code_changes(root, tree, model_ids, *, base=None):
+    """Changed source symbols relevant to each target's owned and consumed anchors."""
+    base = _target_base(root) if base is None else base
     if "git" not in base and "files" not in base:
         return {}
     anchors = {}

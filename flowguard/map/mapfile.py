@@ -21,6 +21,8 @@ from pathlib import Path
 from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_digest, normalize_newlines, is_test_file, matches_any, read_source
 from .inventory import Inventory
 
+FINGERPRINT_FORMAT = 2
+
 TOP_KEYS = {"large_test_seconds", "large_model_seconds", "import_roots", "schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format", "model_digests"}
 COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
                   "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint", "parent"}
@@ -44,9 +46,9 @@ def validate_map(data: object) -> list[str]:
         errors.append(f"schema must be {SCHEMA!r}")
     errors += [f"unknown top-level key {k!r}" for k in sorted(set(data) - TOP_KEYS)]
     fmt = data.get("fingerprint_format", 1)
-    if type(fmt) is not int or fmt not in (1, 2):
-        errors.append(f"fingerprint_format {fmt} is newer than this FlowGuard (2); install a newer FlowGuard"
-                      if type(fmt) is int and fmt > 2 else "fingerprint_format must be 1 or 2")
+    if type(fmt) is not int or fmt not in (1, FINGERPRINT_FORMAT):
+        errors.append(f"fingerprint_format {fmt} is newer than this FlowGuard ({FINGERPRINT_FORMAT}); install a newer FlowGuard"
+                      if type(fmt) is int and fmt > FINGERPRINT_FORMAT else f"fingerprint_format must be 1 or {FINGERPRINT_FORMAT}")
     digests = data.get("model_digests", {})
     if not isinstance(digests, dict) or not all(isinstance(k, str) and k.startswith(".flowguard/models/")
             and k.count("/") == 2 and "\\" not in k and k.endswith(".py") and not Path(k).name.startswith("_")
@@ -287,6 +289,42 @@ def _release_neutral(path: Path, content: bytes) -> bytes:
     return content
 
 
+def format_guard(before: str, after: str) -> str | None:
+    """Name changes to the stored-fingerprint formula when its format is unchanged.
+
+    Changes in dependencies such as normalize_newlines remain covered by the
+    executable release-neutral model; this guard compares only these two owners.
+    """
+    from .inventory import function_digests, syntax_tree
+
+    def format_value(text):
+        for node in syntax_tree(text).body:
+            value = None
+            if isinstance(node, ast.Assign) and any(isinstance(item, ast.Name) and item.id == "FINGERPRINT_FORMAT" for item in node.targets):
+                value = node.value
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == "FINGERPRINT_FORMAT":
+                value = node.value
+            if isinstance(value, ast.Constant) and type(value.value) is int:
+                return value.value
+        return None
+
+    try:
+        old_format, new_format = format_value(before), format_value(after)
+        if old_format is None or old_format != new_format:
+            return None
+        old = function_digests(before)["functions"]
+        new = function_digests(after)["functions"]
+    except (SyntaxError, ValueError, TypeError):
+        return None
+    changed = [name for name in ("fingerprint", "_release_neutral") if old.get(name) != new.get(name)]
+    if not changed:
+        return None
+    return ("fingerprint_format_unchanged: the target changes flowguard/map/mapfile.py:" + ", ".join(changed)
+            + f", which computes stored fingerprints, but FINGERPRINT_FORMAT stays {new_format}; "
+            "if a stored fingerprint changes value, bump FINGERPRINT_FORMAT and give component_state a migrate path "
+            "for the old format; otherwise say in the commit message that stored fingerprints keep their value")
+
+
 def fingerprint(root: Path, files: list[str]) -> str:
     h = hashlib.sha256()
     for f in sorted(files):
@@ -304,7 +342,7 @@ def component_state(root: Path, comp: dict, inv: Inventory, data: dict) -> str:
     files = component_files(comp, inv)
     if comp.get("fingerprint") == fingerprint(root, files):
         return "current"
-    if data.get("fingerprint_format", 1) < 2:
+    if data.get("fingerprint_format", 1) < FINGERPRINT_FORMAT:
         legacy = hashlib.sha256()
         for path in sorted(files):
             try:

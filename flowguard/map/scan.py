@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .common import SCHEMA
 from .inventory import Inventory
-from .mapfile import component_files, component_graph
+from .mapfile import FINGERPRINT_FORMAT, component_files, component_graph
 
 MAX_DIR_FILES = 8    # a directory with more source files than this is split by name prefix, then per file
 
@@ -93,7 +93,7 @@ def new_map(root: Path, inv: Inventory, max_components: int = 40) -> dict:
     for c in comps:
         c["tests"] = guess_tests(component_files(c, inv), inv.tests, inv)
     from .mapfile import model_digests
-    data = {"model_digests": model_digests(root), "fingerprint_format": 2, "schema": SCHEMA, "project": root.resolve().name, "layers": [], "ignore": [],
+    data = {"model_digests": model_digests(root), "fingerprint_format": FINGERPRINT_FORMAT, "schema": SCHEMA, "project": root.resolve().name, "layers": [], "ignore": [],
             "test_command": "", "components": comps, "flows": [], "accepted_debts": []}
     graph = component_graph(data, inv)
     for c in comps:

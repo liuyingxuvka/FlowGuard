@@ -1,14 +1,19 @@
 """Tests grouped by their model or native component."""
 from __future__ import annotations
-import pytest,os,json
+import json
+import os
+import pytest
 from pathlib import Path
 
+
+from _fg_helpers import (
+    map__release_project as _release_project,
+)
 
 @pytest.mark.parametrize("filename", ["pkg/__init__.py", "pyproject.toml", "VERSION"])
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_version_only_bump_keeps_components_current(tmp_path, filename, newline):
     from flowguard.map.inventory import build_inventory
-    from _fg_helpers import map__release_project as _release_project
     from flowguard.map.mapfile import component_state
     from flowguard.map.check import run_check
     data, comp = _release_project(tmp_path)
@@ -23,7 +28,6 @@ def test_version_only_bump_keeps_components_current(tmp_path, filename, newline)
     ("pyproject.toml", '"app"', '"other"'), ("pyproject.toml", '"stable"', '"changed"')])
 def test_non_version_edit_in_version_file_is_stale(tmp_path, filename, old, new):
     from flowguard.map.inventory import build_inventory
-    from _fg_helpers import map__release_project as _release_project
     from flowguard.map.mapfile import component_state
     data, comp = _release_project(tmp_path)
     path = tmp_path / filename
@@ -34,7 +38,6 @@ def test_non_version_edit_in_version_file_is_stale(tmp_path, filename, old, new)
 def test_format1_map_migrates_once(tmp_path):
     from flowguard.map import cli
     from flowguard.map.inventory import build_inventory
-    from _fg_helpers import map__release_project as _release_project
     from flowguard.map.check import run_check
     from flowguard.map.mapfile import component_state, load_map
     data, comp = _release_project(tmp_path, legacy=True)
@@ -50,8 +53,23 @@ def test_format1_map_migrates_once(tmp_path):
 
 def test_format2_map_with_format1_value_is_stale(tmp_path):
     from flowguard.map.inventory import build_inventory
-    from _fg_helpers import map__release_project as _release_project
     from flowguard.map.mapfile import component_state
     data, comp = _release_project(tmp_path, legacy=True)
     data["fingerprint_format"] = 2
     assert component_state(tmp_path, comp, build_inventory(tmp_path, []), data) == "stale"
+
+
+def test_formula_change_without_format_bump_warns():
+    from flowguard.map.mapfile import format_guard
+    before = "FINGERPRINT_FORMAT = 2\ndef fingerprint(root, files): return 1\ndef _release_neutral(path, content): return content\ndef owner_index(): return {}\n"
+    after = before.replace("return content", "return content.strip()")
+    for newline in ("\n", "\r\n"):
+        original = before.replace("\n", newline)
+        changed = after.replace("\n", newline)
+        message = format_guard(original, changed)
+        assert message is not None
+        assert "flowguard/map/mapfile.py:_release_neutral" in message
+        assert "FINGERPRINT_FORMAT stays 2" in message
+        assert format_guard(original, changed.replace("FINGERPRINT_FORMAT = 2", "FINGERPRINT_FORMAT = 3")) is None
+        assert format_guard(original, original.replace("return {}", "return dict()")) is None
+        assert format_guard(original, original) is None

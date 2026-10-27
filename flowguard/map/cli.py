@@ -30,7 +30,7 @@ from .common import MAP_RELPATH, print_findings, quiet_broken_pipe, safe_stdio
 from .impact import run_commands, changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
-from .mapfile import MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
+from .mapfile import FINGERPRINT_FORMAT, format_guard, MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
 from .proof import DEFAULT_JOBS, render_results, run_models
 from .scan import new_map
 from .tree import build_tree
@@ -245,6 +245,14 @@ def cmd_change(root: Path, a) -> int:
     data, inv = _context(root)
     changes = a.files or changed_files(root, a.base, data=data, inv=inv)
     findings = run_check(root, data, inv)
+    formula_path = "flowguard/map/mapfile.py"
+    if formula_path in changes and formula_path in inv.source:
+        from .common import Finding, read_source
+        previous = subprocess.run(["git", "show", a.base + ":" + formula_path], cwd=root, capture_output=True)
+        if previous.returncode == 0:
+            message = format_guard(previous.stdout.decode("utf-8"), read_source(root / formula_path))
+            if message:
+                findings.append(Finding("warn", "fingerprint_format_unchanged", "map-file", message.removeprefix("fingerprint_format_unchanged: ")))
     imp = compute_impact(root, data, inv, changes, base=a.base, broad=getattr(a, "broad", False))
     architecture = scoped_architecture_findings(root, data, inv, imp.direct)
     target = _active_target(root, data)
@@ -353,9 +361,9 @@ def cmd_confirm(root: Path, a) -> int:
         c["status"], c["fingerprint"] = "confirmed", fingerprint(root, component_files(c, inv))
     if all(c.get("status") != "confirmed" or c.get("fingerprint") == fingerprint(root, component_files(c, inv))
            for c in data["components"]):
-        data["fingerprint_format"] = 2
+        data["fingerprint_format"] = FINGERPRINT_FORMAT
     save_map(root, data)
-    suffix = "; map fingerprint_format 2" if data.get("fingerprint_format") == 2 else ""
+    suffix = f"; map fingerprint_format {FINGERPRINT_FORMAT}" if data.get("fingerprint_format") == FINGERPRINT_FORMAT else ""
     print(f"confirmed {len(ids)} component(s){suffix}")
     return 0
 

@@ -11,26 +11,28 @@ from flowguard.map.facts import CodeFactsReport, Fact
 
 MODEL_ID = "release_neutral_fingerprint"
 PARENT = "map-file"
-IMPLEMENTED_BY = {'ReleaseNeutral': 'flowguard/map/mapfile.py:_release_neutral', 'ComponentState': 'flowguard/map/mapfile.py:component_state', 'Fingerprint': 'flowguard/map/mapfile.py:fingerprint'}
-TESTED_BY = {'version_only_change_is_current': ['tests/test_release_neutral_fingerprint.py:test_version_only_bump_keeps_components_current'], 'other_edit_is_stale': ['tests/test_release_neutral_fingerprint.py:test_non_version_edit_in_version_file_is_stale'], 'format_one_map_migrates_once': ['tests/test_release_neutral_fingerprint.py:test_format1_map_migrates_once', 'tests/test_release_neutral_fingerprint.py:test_format2_map_with_format1_value_is_stale']}
+IMPLEMENTED_BY = {'ReleaseNeutral': 'flowguard/map/mapfile.py:_release_neutral', 'ComponentState': 'flowguard/map/mapfile.py:component_state', 'Fingerprint': 'flowguard/map/mapfile.py:fingerprint', 'FormatGuard': 'flowguard/map/mapfile.py:format_guard'}
+TESTED_BY = {'version_only_change_is_current': ['tests/test_release_neutral_fingerprint.py:test_version_only_bump_keeps_components_current'], 'other_edit_is_stale': ['tests/test_release_neutral_fingerprint.py:test_non_version_edit_in_version_file_is_stale'], 'format_one_map_migrates_once': ['tests/test_release_neutral_fingerprint.py:test_format1_map_migrates_once', 'tests/test_release_neutral_fingerprint.py:test_format2_map_with_format1_value_is_stale'], 'formula_change_names_format': ['tests/test_release_neutral_fingerprint.py:test_formula_change_without_format_bump_warns']}
 CASES = ("version_py", "version_toml", "version_file", "docstring", "other_py", "other_name", "other_tool",
-         "legacy_format1", "legacy_format2")
+         "legacy_format1", "legacy_format2", "formula_edit_same_format", "formula_edit_bumped", "other_function_edit")
 EXPECTED = {case: "current" if case.startswith("version_") or case == "docstring" else "stale" for case in CASES}
 EXPECTED["legacy_format1"] = "migrate"
+EXPECTED.update(formula_edit_same_format="warn", formula_edit_bumped="none", other_function_edit="none")
 
 
 @dataclass(frozen=True)
 class State:
     case: str = ""
     fingerprint: str = ""
+    format_notice: str = ""
     @property
-    def status(self): return self.fingerprint
+    def status(self): return self.format_notice or self.fingerprint
 
 
 class Step:
     name = "Fingerprint"
     reads = ()
-    writes = ("case", "fingerprint")
+    writes = ("case", "fingerprint", "format_notice")
 
     def __init__(self, defect=""):
         self.defect = defect
@@ -43,6 +45,10 @@ class Step:
             status = "current"
         if self.defect == "migrates_forever" and event == "legacy_format2":
             status = "migrate"
+        if event in {"formula_edit_same_format", "formula_edit_bumped", "other_function_edit"}:
+            if self.defect == "silent_formula_change" and event == "formula_edit_same_format":
+                status = "none"
+            return (FunctionResult(status, State(event, "", status), label=event),)
         return (FunctionResult(status, State(event, status), label=event),)
 
 
@@ -57,6 +63,8 @@ INVARIANTS = (
               lambda s, t: _holds(s, ("other_py", "other_name", "other_tool"))),
     Invariant("format_one_map_migrates_once", "legacy pointers migrate only in format one",
               lambda s, t: _holds(s, ("legacy_format1", "legacy_format2"))),
+    Invariant("formula_change_names_format", "a change to fingerprint or _release_neutral without a FINGERPRINT_FORMAT change is warned",
+              lambda s, t: _holds(s, ("formula_edit_same_format", "formula_edit_bumped", "other_function_edit"))),
 )
 
 
@@ -70,7 +78,7 @@ def build_explorer():
 
 
 def broken_variants():
-    return {name: _explorer(name) for name in ("stale_on_version_bump", "blanks_every_version_line", "migrates_forever")}
+    return {name: _explorer(name) for name in ("stale_on_version_bump", "blanks_every_version_line", "migrates_forever", "silent_formula_change")}
 
 
 def conformance():
@@ -83,6 +91,17 @@ def conformance():
         return CodeFactsReport((Fact("native_fingerprint_api", False, "release-neutral API has not been written"),))
     facts = []
     for case in CASES:
+        if case in {"formula_edit_same_format", "formula_edit_bumped", "other_function_edit"}:
+            before = "FINGERPRINT_FORMAT = 2\ndef fingerprint(root, files): return 1\ndef _release_neutral(path, content): return content\ndef owner_index(): return {}\n"
+            after = before.replace("return content", "return content.strip()")
+            if case == "formula_edit_bumped":
+                after = after.replace("FINGERPRINT_FORMAT = 2", "FINGERPRINT_FORMAT = 3")
+            elif case == "other_function_edit":
+                after = before.replace("return {}", "return dict()")
+            message = mapfile.format_guard(before, after)
+            observed = "warn" if message else "none"
+            facts.append(Fact(case, observed == EXPECTED[case] and (not message or "_release_neutral" in message and "stays 2" in message), repr(message)))
+            continue
         with TemporaryDirectory(prefix="fg-neutral-") as directory:
             root = Path(directory)
             files = {"pkg/__init__.py": '\"\"\"__version__ = "inside documentation" note.\"\"\"\n__version__ = "1.0.0"\nX = 1\n',
