@@ -736,6 +736,19 @@ def find_owners(data: dict, inv: Inventory, words: list[str], limit: int = 5) ->
     scored.sort(key=lambda x: (-x[0], -sum(len(_find_words(tokens(r)) & query) for r in x[2]), x[1]))
     return scored[:limit]
 
+def locate_words(root: Path, tree, component: dict, inv: Inventory, words: list[str]) -> str:
+    """Prefer the model owning the joined symbol, then its rules and tree depth."""
+    named = {f"{path}:{symbol}" for symbol, path in defined_symbols(component, inv, words)}
+    query = set(tokens(" ".join(words)))
+    ranked = []
+    for node in tree.models_for_component(component["id"]):
+        owns = bool(named & set(node.contract.get("IMPLEMENTED_BY", {}).values()))
+        facts = model_facets(root, node)
+        score = len(query & set(tokens(" ".join([*facts.rules, *(facts.rule_notes or ())]))))
+        ranked.append((not owns, -score, -len(tree.ancestors(node.id)), node.id))
+    return min(ranked)[3] if ranked else "none"
+
+
 def render_locate(root: Path, data: dict, inv: Inventory, location: str) -> str:
     """Static code/test lookup: ownership wins over reachability, bounded to 2,000 characters."""
     from .common import norm, matches_any

@@ -86,13 +86,13 @@ from _read_fixture import ReadCase, JointState, Bridge, legacy_cases, legacy_con
 from _read_fixture import _flows, _focused, _layer_order, _model_contract, _names, _ranked, _recipes, _relied, _static, _summary, _true_strengths, _word_forms
 MODEL_ID='read_find'
 PARENT = 'read_command'
-IMPLEMENTED_BY={'Find': 'flowguard/map/views.py:find_owners', 'Locate': 'flowguard/map/views.py:render_locate'}
+IMPLEMENTED_BY = {'Find': 'flowguard/map/views.py:find_owners', 'Locate': 'flowguard/map/views.py:render_locate', 'LocateWords': 'flowguard/map/views.py:locate_words'}
 USES = {
     'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
     'Main': 'flowguard/__main__.py:main',
     'RenderShow': 'flowguard/map/views.py:render_show',
 }
-TESTED_BY = {'locate_prefers_owner': ['tests/test_read_find.py:test_locate_prefers_the_owner_over_a_deeper_reacher'], 'test_location_shows_models_and_code': ['tests/test_read_find.py:test_locate_bound_test_shows_model_rule_and_code'], 'find_view_uncut': ['tests/test_read_find.py:test_locate_output_is_complete'], 'find_ranks_duty_owner_first': ['tests/test_read_find.py:test_find_bonus_needs_the_joined_query'], 'find_exact_symbol_first': ['tests/test_read_find.py:test_find_ranks_the_component_that_defines_an_exact_symbol_first'], 'find_matches_word_forms': ['tests/test_read_find.py:test_find_matches_word_forms'], 'find_view_imports_no_model': ['tests/test_read_command.py:test_find_view_imports_no_model']}
+TESTED_BY = {'locate_prefers_owner': ['tests/test_read_find.py:test_locate_prefers_the_owner_over_a_deeper_reacher'], 'test_location_shows_models_and_code': ['tests/test_read_find.py:test_locate_bound_test_shows_model_rule_and_code'], 'find_view_uncut': ['tests/test_read_find.py:test_locate_output_is_complete'], 'find_ranks_duty_owner_first': ['tests/test_read_find.py:test_find_bonus_needs_the_joined_query'], 'find_exact_symbol_first': ['tests/test_read_find.py:test_find_ranks_the_component_that_defines_an_exact_symbol_first', 'tests/test_read_find.py:test_word_locate_names_the_symbol_owner'], 'find_matches_word_forms': ['tests/test_read_find.py:test_find_matches_word_forms'], 'find_view_imports_no_model': ['tests/test_read_command.py:test_find_view_imports_no_model']}
 MOVED_RULES=(
 Invariant('find_matches_word_forms', 'a query word matches a duty word that differs only by a common ending', lambda state, trace: _word_forms(state)),
 )
@@ -153,3 +153,21 @@ _previous_conformance = conformance
 def conformance():
     previous = _previous_conformance()
     return CodeFactsReport(tuple(previous.facts) + complete_view_facts('find'))
+
+
+_previous_word_conformance = conformance
+def conformance():
+    from _read_dispatch_fixture import call
+    import json
+    facts = list(_previous_word_conformance().facts)
+    with TemporaryDirectory(prefix='fg-word-owner-') as directory:
+        root = Path(directory)
+        models = root / '.flowguard/models'
+        models.mkdir(parents=True)
+        (root / 'api.py').write_text('def add_model(): return 1\ndef promote_target(): return 2\n')
+        for mid, symbol, rule, note in [('a_add','add_model','add_never_promote_target','adding a model must not promote the target'), ('z_promotion','promote_target','promote_only_clean_target','promote only a clean target')]:
+            (models / (mid + '.py')).write_text(f'MODEL_ID={mid!r}\nPARENT="app"\nIMPLEMENTED_BY={{"Run":{("api.py:" + symbol)!r}}}\nRULES=(Invariant({rule!r},{note!r},None),)\ndef build_explorer(): pass\n')
+        (root / '.flowguard/map.json').write_text(json.dumps(dict(schema='flowguard.map.v1', components=[dict(id='app', files=['api.py'], summary='promote target', responsibilities=['promote target'], status='draft', tests=[], models=[])])))
+        code, text = call(root, '--find', 'promote', 'target')
+        facts.append(Fact('words_name_symbol_owner', code == 0 and text.rstrip().endswith('locate: z_promotion'), text))
+    return CodeFactsReport(tuple(facts))

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Word lookup names the model that owns the matching symbol before comparing rule words and model depth.
+
 - Command help is generated from the real argparse options and shows every daily verb flag.
 
 - Projects using FlowGuard: replay_call_undeclared warns when a model replays a product function without an anchor and prints the USES declaration needed to include it after edits.

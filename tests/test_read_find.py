@@ -4,6 +4,7 @@ import pytest,os,json
 from pathlib import Path
 
 
+
 from _fg_helpers import (
     view__component as _component,
     view__inventory as _inventory,
@@ -108,3 +109,49 @@ def test_locate_output_is_complete(tmp_path):
         assert not any(line.endswith("...") for line in text.splitlines()), (case, text)
         if "next:" in text:
             assert text.splitlines()[-1].startswith("next:")
+
+
+def test_word_locate_names_the_symbol_owner(tmp_path, capsys):
+    from flowguard.__main__ import main
+
+    model = (
+        'MODEL_ID={mid!r}\nPARENT="app"\nIMPLEMENTED_BY={{"Run":{anchor!r}}}\n'
+        "RULES=(Invariant({rule!r},{note!r},None),)\ndef build_explorer(): pass\n"
+    )
+    files = {
+        "api.py": "def add_model(): return 1\ndef promote_target(): return 2\n",
+        ".flowguard/models/a_add.py": model.format(
+            mid="a_add",
+            anchor="api.py:add_model",
+            rule="add_never_promote_target",
+            note="adding a model must not promote the target",
+        ),
+        ".flowguard/models/z_promotion.py": model.format(
+            mid="z_promotion",
+            anchor="api.py:promote_target",
+            rule="promote_only_clean_target",
+            note="promote only a clean target",
+        ),
+        ".flowguard/map.json": json.dumps(
+            dict(
+                schema="flowguard.map.v1",
+                components=[
+                    dict(
+                        id="app",
+                        files=["api.py"],
+                        summary="promote target",
+                        responsibilities=["promote target"],
+                        status="draft",
+                        tests=[],
+                        models=[],
+                    )
+                ],
+            )
+        ),
+    }
+    for name, text in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    assert main(["read", "--root", str(tmp_path), "--find", "promote", "target"]) == 0
+    assert capsys.readouterr().out.rstrip().endswith("locate: z_promotion")
