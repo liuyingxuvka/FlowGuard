@@ -260,8 +260,9 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     from .facets import goal_rules_line
 
     report.goal_rules, goal, promises = goal_rules_line(root, current, target, view)
-    from .facets import target_promise_notes
-    report.promise_lines, removed_promises = target_promise_notes(root,current,target,view)
+    from .facets import target_promise_notes, promise_records
+    records = (promise_records(root,current), promise_records(root,view.data,view))
+    report.promise_lines, removed_promises = target_promise_notes(root,current,target,view,records=records)
     for finding in removed_promises:
         add('warnings','model '+finding['component'],finding['code'],finding['message'])
     if target_is_noop(root, current, target):
@@ -304,10 +305,11 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     old_tree = build_tree(root, current, inv)
     from .facets import moved_model_rules
     from .testtree import test_file_not_split_findings
-    for finding in test_file_not_split_findings(root,current,inv,old_tree,tree,moved_model_rules(root,current,target,view)):
+    for finding in test_file_not_split_findings(root,current,inv,old_tree,tree,moved_model_rules(root,current,target,view,records=records)):
         add('todos','test '+finding.component,finding.code,finding.message)
     ports = {mid: node.contract["port"] for mid, node in tree.nodes.items() if "port" in node.contract}
-    target_ids = {mid for mid, node in tree.nodes.items() if node.path in target_model_paths(root, current, target)}
+    changed_paths = target_model_paths(root, current, target)
+    target_ids = {mid for mid, node in tree.nodes.items() if node.path in changed_paths}
     for mid, line, chosen, (before, after, description) in _target_ports(root, old_tree, target, tree):
         if '(no model consumer)' in line:
             from .discover import discover_inventory
@@ -334,7 +336,7 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
         selected = sorted(set(selected) | (set(impact.model_ids) & set(tree.nodes)))
     # [] means "all" to model execution; an empty target selection means none.
     results = run_models(root, selected, tests=tests, view=view, inv=inv) if selected else []
-    untouched, old = _unchanged_models(root, current, target, inv, tree, selected)
+    untouched, old = _unchanged_models(root, current, target, inv, tree, selected, changed_paths=changed_paths)
     for result in results:
         node = "model " + result.model
         problems = list(result.problems)
@@ -413,14 +415,14 @@ OLD_NOTE = ("(already in the current tree; the target does not change this model
             "fix it in its own change or target)")
 
 
-def _unchanged_models(root, current, target, inv, tree, selected):
+def _unchanged_models(root, current, target, inv, tree, selected, *, changed_paths=None):
     """(models the target does not change, the subset whose anchored code is also unchanged).
 
     Unchanged: neither the model file nor a model file it imports is replaced, added or removed by the target.
     Old: additionally every IMPLEMENTED_BY anchor lies in a component that is not stale."""
     from .mapfile import is_stale, owner_index
 
-    changed = target_model_paths(root, current, target)      # replaced, added or removed model files
+    changed = target_model_paths(root, current, target) if changed_paths is None else changed_paths
     owner, _ = owner_index(current, inv)
     components = {c["id"]: c for c in current["components"]}
     current_tree = build_tree(root, current, inv)

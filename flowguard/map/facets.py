@@ -416,9 +416,8 @@ def promise_records(root, data, view=None):
     return found
 
 
-def target_promise_notes(root, current, target, view):
-    before=promise_records(root,current)
-    after=promise_records(root,view.data,view)
+def target_promise_notes(root, current, target, view, *, records=None):
+    before,after = records if records is not None else (promise_records(root,current), promise_records(root,view.data,view))
     paths={'.flowguard/models/'+filename for filename in target.models}
     changed={mid for mid,record in {**before,**after}.items() if record[5] in paths}|set(target.remove['model'])
     # A changed shared rule helper can remove a real rule from one of its importers.
@@ -426,9 +425,9 @@ def target_promise_notes(root, current, target, view):
     return promise_changes(before,after,changed)
 
 
-def moved_model_rules(root,current,target,view):
+def moved_model_rules(root,current,target,view, *, records=None):
     """Structured donors/receivers from the same movement owner as goal lines."""
-    before=promise_records(root,current);after=promise_records(root,view.data,view)
+    before,after = records if records is not None else (promise_records(root,current), promise_records(root,view.data,view))
     paths={'.flowguard/models/'+filename for filename in target.models}
     recipients=[mid for mid,record in after.items() if record[5] in paths]
     moved=_moved_names(before,after,recipients,kinds=(0,))

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reuse read-only syntax, component file matches and model trees within a command; cold inventories and test analysis share parsing without changing results.
+
 - Check skill routes for duplicated paragraphs, broken links and missing command names; report text size without rejecting useful content.
 
 ## v0.70.13 - 2026-10-27 - Model ports and a smaller workflow

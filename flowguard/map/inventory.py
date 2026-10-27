@@ -16,11 +16,18 @@ import re
 import subprocess
 import sys
 import time
+from functools import lru_cache
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .common import atomic_write_text, cache_dir, CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_paths, is_test_file, matches_any, norm, read_source, sha256_bytes
+
+@lru_cache(maxsize=4096)
+def syntax_tree(text):
+    """Read-only syntax shared by inventory and test analysis in this process."""
+    return ast.parse(text)
+
 
 CACHE_SCHEMA = "flowguard.map.inventory_cache.v5"
 # A parse cache is reused only by the exact parser code that wrote it (upgrades never keep stale parses).
@@ -124,7 +131,7 @@ def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = T
         return info
     info.loc = sum(1 for line in text.splitlines() if line.strip() and not line.strip().startswith("#"))
     try:
-        tree = ast.parse(text)
+        tree = syntax_tree(text)
     except SyntaxError as exc:
         info.parse_error = f"SyntaxError: {exc.msg} line {exc.lineno}"
         return info
@@ -387,7 +394,7 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, 
 
 def function_digests(text):
     """AST identities for lexical functions, classes and module bindings; never persisted."""
-    tree = ast.parse(text)
+    tree = syntax_tree(text)
     result = {'functions': {}, 'classes': {}, 'bindings': {}, 'statements': []}
     def digest(value):
         if isinstance(value, ast.AST): value = ast.dump(value, include_attributes=False)

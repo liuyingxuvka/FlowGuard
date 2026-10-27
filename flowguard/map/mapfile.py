@@ -139,7 +139,30 @@ def ignore_patterns(data: dict | None) -> list[str]:
     return DEFAULT_IGNORE + list((data or {}).get("ignore", []))
 
 
+def inventory_memo(inv: Inventory, name: str, depends_on=()) -> dict:
+    """Content-dependent working data for this inventory only; never persisted."""
+    memos = inv.__dict__.setdefault('_flowguard_memo', {})
+    dependencies = inv.__dict__.setdefault('_flowguard_memo_dependencies', {})
+    current = tuple(depends_on)
+    previous = dependencies.get(name)
+    if previous is None or not (len(previous) == len(current) and
+            all(left is right for left, right in zip(previous, current))):
+        if previous is None or previous != current:
+            memos[name] = {}
+        dependencies[name] = current
+    return memos.setdefault(name, {})
+
+
 def component_files(comp: dict, inv: Inventory) -> list[str]:
+    """Return a fresh file list, computing one immutable result per component pattern."""
+    memo = inventory_memo(inv, 'component_files', (inv.source, inv.files))
+    key = tuple(comp.get('files', ()))
+    if key not in memo:
+        memo[key] = tuple(_component_files(comp, inv))
+    return list(memo[key])
+
+
+def _component_files(comp: dict, inv: Inventory) -> list[str]:
     """Code matched by globs, plus exact registered non-ignored resource files."""
     pats = comp.get("files", [])
     exact = {p for p in pats if not any(char in p for char in "*?[")}
@@ -230,7 +253,7 @@ def _release_neutral(path: Path, content: bytes) -> bytes:
     """Mask only release declarations, preserving every other normalized byte."""
     if path.name == "VERSION":
         return b"<version>\n"
-    if path.suffix == ".py":
+    if path.suffix == ".py" and b"__version__" in content:
         try:
             tree = ast.parse(content)
         except (SyntaxError, ValueError, UnicodeError):

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import ast
+import hashlib
+import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .common import Finding, matches_any, read_source
 from .inventory import Inventory
-from .mapfile import component_ancestors, component_scope, component_subtree, component_files, local_imports, model_registry, owner_index, read_model_contract, resolve_model_path, top_level_imports
+from .mapfile import inventory_memo, component_ancestors, component_scope, component_subtree, component_files, local_imports, model_registry, owner_index, read_model_contract, resolve_model_path, top_level_imports
 
 
 @dataclass
@@ -133,6 +135,26 @@ def scope_findings(data: dict, inv: Inventory, tree: ModelTree) -> list[Finding]
 
 
 def build_tree(root: Path, data: dict, inv: Inventory, *,
+               historical_imports: dict[str, list[str]] | None = None, view=None) -> ModelTree:
+    """Reuse the read-only tree while all map, view and model bytes stay identical."""
+    if historical_imports is not None:
+        return _build_tree(root, data, inv, historical_imports=historical_imports, view=view)
+    paths = set((root / '.flowguard/models').glob('*.py'))
+    paths.update((root / '.flowguard/target').rglob('*.py'))
+    try:
+        models = tuple((path.relative_to(root).as_posix(), hashlib.sha256(path.read_bytes()).digest())
+                       for path in sorted(paths) if path.is_file())
+    except OSError:
+        return _build_tree(root, data, inv, view=view)
+    key = (hashlib.sha256(json.dumps(data, sort_keys=True).encode()).digest(),
+           json.dumps(view.to_payload(), sort_keys=True) if view is not None else '', models)
+    memo = inventory_memo(inv, 'model_tree')
+    if key not in memo:
+        memo[key] = _build_tree(root, data, inv, view=view)
+    return memo[key]
+
+
+def _build_tree(root: Path, data: dict, inv: Inventory, *,
                historical_imports: dict[str, list[str]] | None = None, view=None) -> ModelTree:
     """Resolve each model's parent once; report invalid nesting and fall back finitely."""
     registry = model_registry(root, data, view=view)

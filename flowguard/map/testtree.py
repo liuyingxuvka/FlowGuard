@@ -1,9 +1,11 @@
 """Read-only test functions, exact anchors and statically resolved project calls."""
 from __future__ import annotations
 import ast
+import hashlib
 from pathlib import Path
 from .common import read_source
-from .inventory import resolve_module
+from .inventory import resolve_module, syntax_tree as _syntax
+from .mapfile import inventory_memo
 
 
 def _class_methods(syntax):
@@ -21,7 +23,7 @@ def _class_methods(syntax):
 
 def test_functions(text):
     """Qualified test function names mapped to their syntax nodes; no imports or execution."""
-    try: tree=ast.parse(text)
+    try: tree=_syntax(text)
     except SyntaxError: return {}
     classes={n.name:n for n in tree.body if isinstance(n,ast.ClassDef)}
     def name(n):
@@ -51,8 +53,17 @@ def resolve_test_anchor(path, symbol, *, functions=None):
 
 
 def test_calls(path, text, inv):
+    """One content-keyed call scan per inventory, with fresh mutable results for callers."""
+    memo = inventory_memo(inv, 'test_calls')
+    key = (path, hashlib.sha256(text.encode('utf-8')).digest())
+    if key not in memo:
+        memo[key] = _test_calls(path, text, inv)
+    return {test: set(calls) for test, calls in memo[key].items()}
+
+
+def _test_calls(path, text, inv):
     """Per-test direct project calls, including one same-file helper level and constructors."""
-    try: tree=ast.parse(text)
+    try: tree=_syntax(text)
     except SyntaxError: return {}
     def dotted(n):
         if isinstance(n,ast.Name): return n.id
@@ -85,7 +96,7 @@ def test_calls(path, text, inv):
         if target not in classes:
             classes[target] = set()
             try:
-                syntax = ast.parse(read_source(inv.root / target))
+                syntax = _syntax(read_source(inv.root / target))
             except (OSError, SyntaxError):
                 return False
             def collect(nodes, prefix=""):
@@ -97,15 +108,19 @@ def test_calls(path, text, inv):
                         collect(item.body, name + ".")
             collect(syntax.body)
         return symbol in classes[target]
+    walked = {}
     def calls(node, env, owner, depth):
-        result=set(); env=imports(ast.walk(node),env)
+        if id(node) not in walked:
+            walked[id(node)] = list(ast.walk(node))
+        nodes = walked[id(node)]
+        result=set(); env=imports(nodes,env)
         instances={}
-        for n in ast.walk(node):
+        for n in nodes:
             if isinstance(n,ast.Assign) and isinstance(n.value,ast.Call):
                 origin=dotted(n.value.func)
                 for target in n.targets:
                     if isinstance(target,ast.Name): instances[target.id]=origin
-        for n in ast.walk(node):
+        for n in nodes:
             if not isinstance(n,ast.Call): continue
             name=dotted(n.func); first,_,rest=name.partition('.')
             if first in instances:

@@ -151,3 +151,32 @@ def test_large_test_seconds_is_validated():
     for value in (0,-1,'60',True,float('inf'),float('nan')):
         assert 'large_test_seconds must be a positive number' in validate_map(dict(base,large_test_seconds=value))
     assert not validate_map(dict(base,large_test_seconds=.01))
+
+
+def test_each_test_file_parsed_once_per_command(project, monkeypatch, capsys):
+    import ast
+    from collections import Counter
+    from flowguard.__main__ import main
+    from flowguard.map import testtree
+    from _fg_helpers import map_run, map_fill, map_write
+    map_write(project, 'tests/test_api.py', 'def test_api():\n    assert 3 == 3\n')
+    map_run(project, 'scan')
+    map_fill(project)
+    texts = {(project / path).read_text() for path in
+             ('tests/test_api.py', 'tests/test_orders.py', 'tests/test_storage.py')}
+    original = ast.parse
+    counts = Counter()
+    def counted(source, *args, **kwargs):
+        text = source.decode('utf-8') if isinstance(source, bytes) else source
+        if isinstance(text, str) and text in texts:
+            counts[text] += 1
+        return original(source, *args, **kwargs)
+    monkeypatch.setattr(ast, 'parse', counted)
+    for command in (['read'], ['read', '--find', 'shop/storage.py:save'],
+                    ['read', '--component', 'storage'], ['change']):
+        if hasattr(testtree, '_syntax'):
+            testtree._syntax.cache_clear()
+        counts.clear()
+        assert main([*command, '--root', str(project)]) == 0
+        capsys.readouterr()
+        assert counts and all(count <= 1 for count in counts.values()), (command, counts)

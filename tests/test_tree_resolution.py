@@ -378,3 +378,31 @@ def test_component_parent_nests_and_rolls_up(tmp_path, capsys):
     assert all(re.search(r'\bc_' + name + r'\[', subsystem) for name in ('records', 'catalog', 'loans'))
     assert not marker.exists()
     assert not any(name.startswith('view232_') for name in sys.modules)
+
+
+def test_build_tree_memo_is_not_mutated(tmp_path, monkeypatch, capsys):
+    import copy
+    from flowguard.__main__ import main
+    from flowguard.map import tree
+    from _fg_helpers import target_shelf_project
+    root = target_shelf_project(tmp_path)
+    original = tree._build_tree
+    snapshots = []
+    def built(root, data, inv, **kwargs):
+        result = original(root, data, inv, **kwargs)
+        snapshots.append((root, copy.deepcopy(data), inv, dict(kwargs), result))
+        return result
+    monkeypatch.setattr(tree, '_build_tree', built)
+    assert main(['read', '--root', str(root)]) == 0
+    assert main(['target', 'start', 'readonly tree', '--root', str(root)]) == 0
+    assert main(['target', 'add', 'lending', '--root', str(root)]) == 0
+    # A noop target still traverses native current and target tree views.
+    assert main(['target', 'check', '--root', str(root)]) == 1
+    capsys.readouterr()
+    assert snapshots
+    def projection(value):
+        return {mid: (node.path, node.parent, node.parent_kind, node.contract,
+                      tuple(child.id for child in value.children(mid, 'model')))
+                for mid, node in value.nodes.items()}
+    for root, data, inv, kwargs, memoized in snapshots:
+        assert projection(memoized) == projection(original(root, data, inv, **kwargs))

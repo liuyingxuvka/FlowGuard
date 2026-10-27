@@ -247,7 +247,8 @@
         "handle a closed output pipe quietly for every command line entry",
         "build a read-only inventory without creating or writing caches on request",
         "parse bound-test item selectors as plain strings",
-        "derive lexical function, class and module-binding digests from source on demand"
+        "derive lexical function, class and module-binding digests from source on demand",
+        "Share content-keyed read-only Python syntax with test analysis within the command; keep persisted inventory invalidation tied to parser identity."
       ],
       "files": [
         "flowguard/map/common.py",
@@ -277,7 +278,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:226074da974655fe3e64364352f863b47f06599b8d2223c621ba63a416f12715"
+      "fingerprint": "sha256:ebe89fa00d0ceac89189ed630f119cb144b2a917208bf2bf6d8f29a5b85fbbc3"
     },
     {
       "id": "map-file",
@@ -289,7 +290,8 @@
         "merge the target overlay, validate its remove intents and compare it with current",
         "compute component fingerprints that detect stale descriptions",
         "register contract models and build the model tree with its nesting errors",
-        "count import-like strings and injected attribute calls as dependency evidence"
+        "count import-like strings and injected attribute calls as dependency evidence",
+        "Reuse component file matches, test calls and read-only model trees for identical content within one command, returning fresh mutable call/file collections."
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -330,7 +332,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:409c592510c31bda0f3c002612ff5b066f9777a204390279fa1aec743b146a0c"
+      "fingerprint": "sha256:01c2f9c2b9b257fba5fc515aebc579ed804b3b2c9bbd27fcd99d811865c468a1"
     },
     {
       "id": "map-discover",
@@ -420,7 +422,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:a3f9ad8214865a163b50f6b2d455fe1cb5af988710969abaae27281ec4e2ba80"
+      "fingerprint": "sha256:3c57673074775aea9e2ea3dc79d4d7b8176d1439a412b25ff731bc6f4effc145"
     },
     {
       "id": "map-proof",
@@ -756,7 +758,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f3ed315c84a22daff05fcde0a5881b4f68681c6c1cd4419c504e67022c20b9f2"
+      "fingerprint": "sha256:49ca0a6603750805fcc270bba9a066889c5a6c7ca194451a780c9a74d6bfe893"
     },
     {
       "id": "map-impact",

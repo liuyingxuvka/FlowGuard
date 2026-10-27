@@ -488,3 +488,21 @@ class DiscoveryBoundaryTests(unittest.TestCase):
             self.assertEqual(["tests/test_api.py"], guess_tests(["pkg/part0/mod0.py"], inv.tests, inv))
             with self.assertRaisesRegex(ValueError, "at least 1"):
                 propose_components(inv, max_components=0)
+
+
+def test_component_files_computed_once_per_component(project, monkeypatch, capsys):
+    from collections import Counter
+    from flowguard.__main__ import main
+    from flowguard.map import mapfile
+    from _fg_helpers import map_run, map_fill
+    map_run(project, 'scan')
+    data = map_fill(project)
+    original = mapfile._component_files
+    calls = Counter()
+    def computed(component, inventory):
+        calls[component['id']] += 1
+        return original(component, inventory)
+    monkeypatch.setattr(mapfile, '_component_files', computed)
+    assert main(['read', '--root', str(project)]) == 0
+    capsys.readouterr()
+    assert calls == Counter({component['id']: 1 for component in data['components']})
