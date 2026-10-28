@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 
+
 from _fg_helpers import (
     view__fg232_count_discovery as _fg232_count_discovery,
     view__fg232_view_project as _fg232_view_project,
@@ -351,7 +352,7 @@ def test_coverage_line_counts_explained_entrypoints(tmp_path, monkeypatch):
 
 
 def test_replay_call_undeclared_reports_fixture_replays(tmp_path):
-    from flowguard.map.modelstatic import replay_call_findings
+    from flowguard.map.replay_lint import replay_call_findings
     from flowguard.map.inventory import build_inventory
     from flowguard.map.tree import build_tree
     from flowguard.map.discover import discover_inventory
@@ -373,8 +374,7 @@ def test_replay_call_undeclared_reports_fixture_replays(tmp_path):
 from native import other
 class Replay:
     def __init__(self):
-        self.callback = used
-        self.unused_callback = other
+        self.callback, self.unused_callback = used, other
     def apply_step(self, event): return self.callback()
     def convenience(self): return other()
 def choose(kind):
