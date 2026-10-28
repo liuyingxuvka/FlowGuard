@@ -4,6 +4,7 @@ import pytest,os,json
 from pathlib import Path
 
 
+
 from _fg_helpers import (
     view__HELPER_SPLIT_MODELS as _HELPER_SPLIT_MODELS,
     view__PROBE_HEAD as _PROBE_HEAD,
@@ -235,3 +236,36 @@ def test_component_view_names_subtree_once(tmp_path):
     assert set(own_starts) == {"parent", "a", "b", "c", "remote_model"}
     assert " (home remote)" in text
     assert all("## " + name + " [" in text for name in ("group", "own", "sibling"))
+
+
+def test_target_component_view_names_subtree_once(tmp_path):
+    import re
+    from test_read_command import _complete_read_project
+    from flowguard.map.targetfile import Target
+    from flowguard.map.views import render_show
+
+    data, inv = _complete_read_project(tmp_path)
+    replacement = {**data["components"][0], "summary": "Changed group purpose"}
+    replacement.pop("status")
+    target = Target(
+        "change group purpose",
+        dict(
+            schema="flowguard.target.v1",
+            goal="change group purpose",
+            components=[replacement],
+            flows=[],
+            remove=[],
+        ),
+        {},
+        {"component": set(), "model": set(), "flow": set()},
+    )
+    text = render_show(tmp_path, data, inv, component="group", detail=False, target=target)
+    ids = re.findall(r"^\s*model ([\w.-]+):", text, re.M)
+    assert len(ids) == len(set(ids)), ids
+    assert set(ids) == {"parent", "sibling_model", "remote_model"}, text
+    assert "+3 stage children: a, b, c" in text
+    assert text.count("(home remote)") == 1
+    assert all(
+        re.search(r"^\s*## [~+-]? ?" + component + r" \[", text, re.M)
+        for component in ("group", "own", "sibling")
+    )

@@ -310,3 +310,167 @@ def _component_block(lines, depth):
 def _tidy(text: str) -> str:
     """At most one blank line between blocks."""
     return re.sub(r"\n{3,}", "\n\n", text)
+
+from .discover import discover_inventory, relied_models
+from .facets import _test_function_index, coverage_facts
+from .mapfile import component_subtree, flow_step_parts
+from .lint import shape_findings
+
+
+def _read_facts(root, data, inv, tree, *, raw=None, source_cache=None, view=None):
+    """One discovery graph per view; indexes retain the actual inventory scope."""
+    if raw is None:
+        raw = discover_inventory(root, inv, write_cache=view is None, data=data)
+    cache = source_cache if source_cache is not None else {}
+    from .testtree import TestIndex
+
+    functions = TestIndex(
+        root, data, inv, tree, _test_function_index(root, inv, source_cache=cache)
+    )
+    coverage = coverage_facts(root, data, inv, tree, raw, source_cache=cache)
+    return raw, functions, coverage
+
+
+def _relied_lines(data, inv, raw, tree, facets, cid, limit=5):
+    """``relies on:`` lines: models of other components whose anchored code this component calls."""
+    anchors = {
+        mid: list(node.contract.get("IMPLEMENTED_BY", {}).values())
+        for mid, node in tree.nodes.items()
+    }
+    found = relied_models(raw, data, inv, anchors, component=cid)
+    lines = []
+    for mid in sorted(found)[:limit]:
+        fact = facets.get(mid)
+        rules = (
+            ", ".join(fact.rules)
+            if fact is not None and fact.rule_count is not None and fact.rules
+            else "?"
+        )
+        owners = defaultdict(set)
+        for owner, symbol in found[mid]:
+            owners[owner].add(symbol)
+        via = "; ".join(
+            f"{owner}: {', '.join(sorted(symbols))}" for owner, symbols in sorted(owners.items())
+        )
+        lines.append(f"  relies on: model {mid} ({rules}) via {via}")
+    if len(found) > limit:
+        lines.append(f"  relies on: +{len(found) - limit} more models")
+    return lines
+
+
+def _flow_lines(data, tree, facets, cid, limit=5):
+    """``flows:`` lines: every flow with a step in this component's subtree, its model and rules."""
+    members = {c["id"] for c in component_subtree(data, cid)}
+    model_ids = {node.path: node.id for node in tree.nodes.values()}
+    lines = []
+    flows = [
+        flow
+        for flow in data.get("flows", [])
+        if any(flow_step_parts(step)[0] in members for step in flow.get("steps", []))
+    ]
+    for flow in flows[:limit]:
+        steps = flow.get("steps", [])
+        numbers = ", ".join(
+            str(index) for index, step in enumerate(steps, 1) if flow_step_parts(step)[0] in members
+        )
+        if flow.get("model"):
+            mid = model_ids.get(flow["model"], flow["model"])
+            fact = facets.get(mid)
+            rules = (
+                ", ".join(fact.rules)
+                if fact is not None and fact.rule_count is not None and fact.rules
+                else "?"
+            )
+            about = f"model {mid}: {rules}"
+        else:
+            about = "no model"
+        lines.append(f"  flows: {flow['id']} (step {numbers} of {len(steps)}; {about})")
+    if len(flows) > limit:
+        lines.append(f"  flows: +{len(flows) - limit} more")
+    return lines
+
+
+def _show_header(data, graph, inv, *, architecture=None, debts=None):
+    """Errors from the cheap structural rules; warnings only from the map-and-size checks (no code scan)."""
+    if architecture is None:
+        architecture, debts, _ = _architecture(data, graph)
+    shapes, shape_debts = apply_accepted_debts(
+        shape_findings(data, inv, graph), normalized_debts(data)
+    )
+    head = f"# {data.get('project', '')}: system, {len(data['components'])} components"
+    head += (
+        ", layers (top > bottom) " + " > ".join(data["layers"])
+        if data.get("layers")
+        else ", layers: none"
+    )
+    errors, warnings = sum(f.level == "error" for f in architecture), sum(
+        f.level == "warn" for f in shapes
+    )
+    used = set(debts or ()) | set(shape_debts)  # debts covering a structural or a size/test warning
+    return head + (
+        f"; architecture: {errors} error(s), {warnings} warning(s), {len(data.get('accepted_debts', []))} accepted debt(s)"
+        + ("; python -m flowguard read --review ranks them" if errors or warnings else "")
+    )
+
+
+def relations_line(data, tree, graph):
+    from .mapfile import process_model_reason
+
+    process = sum(bool(process_model_reason(data, node.contract)) for node in tree.nodes.values())
+    placed = [node for node in tree.nodes.values() if node.parent_kind != "model"]
+    parents = {parent for parent, child, kind in graph.composition}
+    dispatched = {parent for parent, child, kind in graph.composition if kind.startswith("branch ")}
+    hubs = sum(graph.hub.values())
+    depth = max((len(tree.ancestors(mid)) + 1 for mid in tree.nodes), default=0)
+    return (
+        f"relations: {len(tree.nodes)} models"
+        + (f" (process {process})" if process else "")
+        + f"; placement {len(placed)} under {len({node.parent for node in placed})} components; "
+        + f"composition {len(parents)} parents ({len(parents-dispatched)} staged, {len(dispatched)} dispatch), "
+        + f"{len(graph.composition)} child edges, depth {depth}; consumption {len(graph.consumption)} edges; hubs {hubs}"
+        + (" (python -m flowguard read --review)" if hubs else "")
+    )
+
+
+def hub_lines(tree, graph):
+    hubs = sorted(
+        (mid for mid, hub in graph.hub.items() if hub),
+        key=lambda mid: (-len(graph.ripple[mid]), -len(graph.callers[mid]), mid),
+    )
+    caller_only = [mid for mid in hubs if not graph.consumed_by[mid] and not graph.ripple[mid]]
+    hubs = [mid for mid in hubs if mid not in caller_only]
+    if not hubs and not caller_only:
+        return [
+            "hubs: none (no model is consumed by 2 or more models or has code with 8 or more callers)"
+        ]
+    lines = [
+        f"hubs: {len(hubs)} models (consumed by 2 or more models, or code with 8 or more callers)"
+    ]
+
+    def names(items):
+        items = list(items)
+        return ", ".join(items[:4]) + (f", +{len(items)-4}" if len(items) > 4 else "")
+
+    for mid in hubs[:5]:
+        consumers = sorted(graph.consumed_by[mid])
+        ripple = graph.ripple[mid]
+        lines.append(
+            f"  {mid} ({tree.nodes[mid].home}): consumed by {len(consumers)}"
+            + (f" ({names(consumers)})" if consumers else "")
+            + f"; {len(graph.callers[mid])} code callers in {len(graph.caller_components[mid])} components; ripple {len(ripple)}"
+            + (": " + names(f"{other} ({why})" for other, why in ripple) if ripple else "")
+            + f"; a code edit selects {graph.selects[mid]} models"
+        )
+    if len(hubs) > 5:
+        lines.append(f"  +{len(hubs)-5} more")
+    if caller_only:
+        entries = [
+            f"{mid} ({len(graph.callers[mid])} code callers in {len(graph.caller_components[mid])} components)"
+            for mid in caller_only[:5]
+        ]
+        lines.append(
+            "most called: "
+            + ", ".join(entries)
+            + (f", +{len(caller_only)-5} more" if len(caller_only) > 5 else "")
+        )
+    return lines

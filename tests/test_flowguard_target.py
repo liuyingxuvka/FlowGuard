@@ -4,12 +4,39 @@ import pytest,os,json
 from pathlib import Path
 
 
+from _fg_helpers import (
+    target_SHELF_AFTER as SHELF_AFTER,
+    target_SHELF_BASE as SHELF_BASE,
+    target_SHELF_TARGET as SHELF_TARGET,
+    target__assert_current_lending as _assert_current_lending,
+    target__check_without_writes as _check_without_writes,
+    target__fg403_clean_target as _fg403_clean_target,
+    target__fg403_helpers as _fg403_helpers,
+    target__install_shelf_target as _install_shelf_target,
+    target__load_map as _load_map,
+    target__namespace_project as _namespace_project,
+    target__project_snapshot as _project_snapshot,
+    target__promote_with_real_check as _promote_with_real_check,
+    target__run as _run,
+    target__run_models_with_results as _run_models_with_results,
+    target__static_target_read as _static_target_read,
+    target__target_life_cycle_fixture_helpers as _target_life_cycle_fixture_helpers,
+    target__target_with as _target_with,
+    target_shelf_project as shelf_project,
+    target__run,
+    target_shelf_project,
+)
+
 @pytest.mark.usefixtures("_no_model_execution")
 def test_target_overlay_is_independent_and_rejects_invalid_fields(tmp_path, capsys):
     import json
-    from _fg_helpers import target__load_map as _load_map, target_shelf_project as shelf_project
     import copy
-    from flowguard.map.targetfile import load_target, merge_target_map, target_node_changes, validate_target
+    from flowguard.map.targetfile import (
+        load_target,
+        merge_target_map,
+        target_node_changes,
+        validate_target,
+    )
 
     root = shelf_project(tmp_path)
     capsys.readouterr()
@@ -19,8 +46,15 @@ def test_target_overlay_is_independent_and_rejects_invalid_fields(tmp_path, caps
     for field in ("status", "fingerprint", "_hint"):
         loans.pop(field, None)
     loans["summary"] = "Loan service with future holds"
-    draft = {"schema": "flowguard.target.v1", "goal": "holds", "components": [loans], "flows": [],
-             "remove": ["flow:borrow"], "layers": ["records", "lending", "interface"], "accepted_debts": []}
+    draft = {
+        "schema": "flowguard.target.v1",
+        "goal": "holds",
+        "components": [loans],
+        "flows": [],
+        "remove": ["flow:borrow"],
+        "layers": ["records", "lending", "interface"],
+        "accepted_debts": [],
+    }
     directory = root / ".flowguard/target"
     directory.mkdir()
     path = directory / "map.json"
@@ -32,8 +66,16 @@ def test_target_overlay_is_independent_and_rejects_invalid_fields(tmp_path, caps
     replacement = next(c for c in merged["components"] if c["id"] == "loans")
     assert replacement["summary"] == "Loan service with future holds"
     assert replacement["status"] == "draft" and "fingerprint" not in replacement
-    assert merged["flows"] == [] and merged["layers"] == draft["layers"] and merged["accepted_debts"] == []
-    assert target_node_changes(root, current, target) == {"+": [], "~": ["component:loans"], "-": ["flow:borrow"]}
+    assert (
+        merged["flows"] == []
+        and merged["layers"] == draft["layers"]
+        and merged["accepted_debts"] == []
+    )
+    assert target_node_changes(root, current, target) == {
+        "+": [],
+        "~": ["component:loans"],
+        "-": ["flow:borrow"],
+    }
     replacement["responsibilities"].append("only in the returned overlay")
     assert current == before and target.data == draft
     invalid = [
@@ -44,31 +86,42 @@ def test_target_overlay_is_independent_and_rejects_invalid_fields(tmp_path, caps
         {**draft, "remove": ["component:loans"]},
         {**draft, "flows": [{"id": "future", "steps": [123]}]},
         {**draft, "flows": [{"id": "future", "steps": [], "model": 123}]},
-        *[{**draft, "flows": [{"id": "future", "steps": [], "model": value}]}
-          for value in ("other/foo.py", "foo.py", ".flowguard/target/models/lending.py")]]
+        *[
+            {**draft, "flows": [{"id": "future", "steps": [], "model": value}]}
+            for value in ("other/foo.py", "foo.py", ".flowguard/target/models/lending.py")
+        ],
+    ]
     for payload in invalid:
         path.write_text(json.dumps(payload))
-        assert "target_invalid" in {issue.code for issue in validate_target(root, current, load_target(root))}
+        assert "target_invalid" in {
+            issue.code for issue in validate_target(root, current, load_target(root))
+        }
     path.write_text(json.dumps({**draft, "components": [{**loans, "summary": ""}]}))
-    assert "target_component_incomplete" in {issue.code for issue in validate_target(root, current, load_target(root))}
+    assert "target_component_incomplete" in {
+        issue.code for issue in validate_target(root, current, load_target(root))
+    }
     path.write_text(json.dumps(draft))
     (directory / "models").mkdir()
     model = (root / ".flowguard/models/lending.py").read_text()
     (directory / "models/lending2.py").write_text(model)
     assert {"target_model_id_clash"} <= {
-        issue.code for issue in validate_target(root, current, load_target(root))}
+        issue.code for issue in validate_target(root, current, load_target(root))
+    }
     assert current == before
 
 
-@pytest.mark.parametrize(("mutation", "finding"), [
-    ("passing_bad", "known-bad variant 'return_ignores_holds' passed"),
-    ("unknown_remove", "target_invalid"),
-    ("id_clash", "target_model_id_clash"),
-    ("duplicate_responsibility", "duplicate_owner"),
-])
+@pytest.mark.parametrize(
+    ("mutation", "finding"),
+    [
+        ("passing_bad", "known-bad variant 'return_ignores_holds' passed"),
+        ("unknown_remove", "target_invalid"),
+        ("id_clash", "target_model_id_clash"),
+        ("duplicate_responsibility", "duplicate_owner"),
+    ],
+)
 def test_target_check_rejects_real_design_errors(tmp_path, capsys, mutation, finding):
     import json
-    from _fg_helpers import target__check_without_writes as _check_without_writes, target__install_shelf_target as _install_shelf_target, target__assert_current_lending as _assert_current_lending, target_shelf_project as shelf_project
+
     root = shelf_project(tmp_path)
     capsys.readouterr()
     directory = _install_shelf_target(root)
@@ -81,8 +134,10 @@ def test_target_check_rejects_real_design_errors(tmp_path, capsys, mutation, fin
             source = original_model.decode("utf-8")
             old = '"return_ignores_holds": _explorer(BorrowBlock(), GiveBackOld())'
             assert source.count(old) == 1
-            model_path.write_text(source.replace(old, '"return_ignores_holds": _explorer(BorrowBlock())'),
-                                  encoding="utf-8")
+            model_path.write_text(
+                source.replace(old, '"return_ignores_holds": _explorer(BorrowBlock())'),
+                encoding="utf-8",
+            )
         elif mutation == "unknown_remove":
             target["remove"] = ["component:nope"]
         elif mutation == "id_clash":
@@ -92,7 +147,9 @@ def test_target_check_rejects_real_design_errors(tmp_path, capsys, mutation, fin
         map_path.write_text(json.dumps(target), encoding="utf-8")
         code, output, errors = _check_without_writes(root, capsys)
         assert code == 1 and not errors, (output, errors)
-        assert any(line.startswith("ERROR ") and finding in line for line in output.splitlines()), output
+        assert any(
+            line.startswith("ERROR ") and finding in line for line in output.splitlines()
+        ), output
         assert "next: fix the target design (ERROR lines)" in output
     finally:
         map_path.write_bytes(original_map)
@@ -103,7 +160,6 @@ def test_target_check_rejects_real_design_errors(tmp_path, capsys, mutation, fin
 
 
 def test_target_check_distinguishes_absence_from_malformed_existing_target(tmp_path, capsys):
-    from _fg_helpers import target__check_without_writes as _check_without_writes, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     code, output, errors = _check_without_writes(root, capsys)
@@ -117,7 +173,6 @@ def test_target_check_distinguishes_absence_from_malformed_existing_target(tmp_p
 
 
 def test_target_view_restores_imports_and_preserves_canonical_root_and_child_port(tmp_path, capsys):
-    from _fg_helpers import target__run_models_with_results as _run_models_with_results, target__namespace_project as _namespace_project, target__load_map as _load_map
     import sys
     from flowguard.map.proof import run_model_in_process
     from flowguard.map.targetfile import build_target_view, load_target
@@ -128,8 +183,14 @@ def test_target_view_restores_imports_and_preserves_canonical_root_and_child_por
     assert code == 0 and results[0].rules == ["one_step_1"], (output, errors)
     view = build_target_view(root, _load_map(root), load_target(root))
     path_before = list(sys.path)
-    names = ("ns_parent", "ns_child", "_view_setting", "namespace_subject",
-             "_flowguard_model_ns_parent", "_flowguard_model_ns_child")
+    names = (
+        "ns_parent",
+        "ns_child",
+        "_view_setting",
+        "namespace_subject",
+        "_flowguard_model_ns_parent",
+        "_flowguard_model_ns_child",
+    )
     modules_before = {name: sys.modules.get(name) for name in names}
     for name in ("ns_parent", "ns_child"):
         result = run_model_in_process(root, root / f".flowguard/models/{name}.py", view=view)
@@ -147,7 +208,7 @@ def test_target_view_restores_imports_and_preserves_canonical_root_and_child_por
 
 def test_target_removed_model_cannot_fall_back_to_current_disk(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run_models_with_results as _run_models_with_results, target__check_without_writes as _check_without_writes, target__namespace_project as _namespace_project
+
     root = _namespace_project(tmp_path)
     capsys.readouterr()
     directory = root / ".flowguard/target"
@@ -162,7 +223,9 @@ def test_target_removed_model_cannot_fall_back_to_current_disk(tmp_path, capsys)
     old_child = (root / ".flowguard/models/ns_child.py").read_bytes()
     code, output, errors = _check_without_writes(root, capsys)
     assert code == 1 and not errors, (output, errors)
-    assert any(line.startswith("ERROR ") and "ns_child" in line for line in output.splitlines()), output
+    assert any(
+        line.startswith("ERROR ") and "ns_child" in line for line in output.splitlines()
+    ), output
     assert (root / ".flowguard/models/ns_child.py").read_bytes() == old_child
     code, output, errors, results = _run_models_with_results(root, capsys, "ns_parent")
     assert code == 0 and results[0].rules == ["one_step_1"], (output, errors)
@@ -170,7 +233,6 @@ def test_target_removed_model_cannot_fall_back_to_current_disk(tmp_path, capsys)
 
 def test_impact_skips_target_changes_before_test_content_lookup(tmp_path, capsys, monkeypatch):
     from pathlib import Path
-    from _fg_helpers import target__install_shelf_target as _install_shelf_target, target__load_map as _load_map, target_shelf_project as shelf_project
     from flowguard.map import impact
     from flowguard.map.inventory import build_inventory
     from flowguard.map.mapfile import ignore_patterns
@@ -190,38 +252,65 @@ def test_impact_skips_target_changes_before_test_content_lookup(tmp_path, capsys
 
     with monkeypatch.context() as scoped:
         scoped.setattr(impact, "read_source", observe_read)
-        result = impact.compute_impact(root, data, inventory,
-            [".flowguard/target/models/lending.py", ".flowguard/target/map.json"], base="HEAD")
-    assert not result.changed and not result.tests and not result.models and not result.unmapped, result
+        result = impact.compute_impact(
+            root,
+            data,
+            inventory,
+            [".flowguard/target/models/lending.py", ".flowguard/target/map.json"],
+            base="HEAD",
+        )
+    assert (
+        not result.changed and not result.tests and not result.models and not result.unmapped
+    ), result
     assert not result.blocked and not read_tests, (result, read_tests)
 
 
-def test_read_target_shows_holds_facets_from_target_bytes_and_keeps_current_read(tmp_path, capsys, monkeypatch):
-    from _fg_helpers import target__static_target_read as _static_target_read, target__install_shelf_target as _install_shelf_target, target_shelf_project as shelf_project
+def test_read_target_shows_holds_facets_from_target_bytes_and_keeps_current_read(
+    tmp_path, capsys, monkeypatch
+):
     root = shelf_project(tmp_path)
     capsys.readouterr()
     directory = _install_shelf_target(root)
     model = directory / "models/lending.py"
     source = model.read_text(encoding="utf-8")
     first_line = source.splitlines()[0]
-    model.write_text(source.replace(first_line, '"""Target-only reservation policy.', 1)
-                     + '\nraise AssertionError("a read imported the target model")\n', encoding="utf-8")
+    model.write_text(
+        source.replace(first_line, '"""Target-only reservation policy.', 1)
+        + '\nraise AssertionError("a read imported the target model")\n',
+        encoding="utf-8",
+    )
     current_bytes = (root / ".flowguard/models/lending.py").read_bytes()
     code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
-    assert code == 0 and not errors and 'truncated' not in output, (output, errors)
-    for text in ("## ~ loans", "~ model lending", "rules + no_idle_copy_while_held",
-                 "known-bad + return_ignores_holds", "code + Hold -> shelf/loans.py:LoanService.hold",
-                 "tests + no_idle_copy_while_held -> tests/test_loans.py:test_hold_gets_returned_copy",
-                 "state + holds per book in order", "unchanged: 3 component(s)"):
+    assert code == 0 and not errors and "truncated" not in output, (output, errors)
+    for text in (
+        "## ~ loans",
+        "~ model lending",
+        "rules + no_idle_copy_while_held",
+        "known-bad + return_ignores_holds",
+        "code + Hold -> shelf/loans.py:LoanService.hold",
+        "tests + no_idle_copy_while_held -> tests/test_loans.py:test_hold_gets_returned_copy",
+        "state + holds per book in order",
+        "unchanged: 3 component(s)",
+    ):
         assert text in output, (text, output)
     assert "Target-only reservation policy." in output
     assert "## catalog" not in output and "## members" not in output
 
-    code, detail, errors = _static_target_read(root, capsys, monkeypatch,
-                                              "read", "--target", "--component", "loans")
+    code, detail, errors = _static_target_read(
+        root, capsys, monkeypatch, "read", "--target", "--component", "loans"
+    )
     assert code == 0 and not errors, (detail, errors)
     detail = "\n".join(line for line in detail.splitlines() if not line.startswith("goal rules:"))
-    component, model_text = detail.split("model lending:", 1)
+    component, foreign_line = detail.split("model lending:", 1)
+    assert "(home cli)" in foreign_line and "purpose:" not in foreign_line
+    code, home_detail, errors = _static_target_read(
+        root, capsys, monkeypatch, "read", "--target", "--component", "cli"
+    )
+    assert code == 0 and not errors, (home_detail, errors)
+    home_detail = "\n".join(
+        line for line in home_detail.splitlines() if not line.startswith("goal rules:")
+    )
+    model_text = home_detail.split("model lending:", 1)[1]
     labels = ("purpose:", "rules:", "known-bad:", "code:", "tests:")
     for section in (component, model_text):
         positions = [section.index(label) for label in labels]
@@ -233,17 +322,19 @@ def test_read_target_shows_holds_facets_from_target_bytes_and_keeps_current_read
     assert "was:" in component.split("rules:", 1)[1].split("known-bad:", 1)[0]
     assert "was:" in model_text.split("known-bad:", 1)[1].split("code:", 1)[0]
     assert "was:" in model_text.split("tests:", 1)[1]
-    code, current, errors = _static_target_read(root, capsys, monkeypatch,
-                                               "read", "--component", "loans")
+    code, current, errors = _static_target_read(
+        root, capsys, monkeypatch, "read", "--component", "loans"
+    )
     assert code == 0 and not errors, (current, errors)
     assert "no_idle_copy_while_held" not in current and "return_ignores_holds" not in current
     assert "Target-only reservation policy." not in current
     assert (root / ".flowguard/models/lending.py").read_bytes() == current_bytes
 
 
-def test_read_target_added_removed_flows_and_mermaid_use_real_node_identity(tmp_path, capsys, monkeypatch):
+def test_read_target_added_removed_flows_and_mermaid_use_real_node_identity(
+    tmp_path, capsys, monkeypatch
+):
     import json
-    from _fg_helpers import target__static_target_read as _static_target_read, target__install_shelf_target as _install_shelf_target, target_SHELF_TARGET as SHELF_TARGET, target_shelf_project as shelf_project
     import re
 
     root = shelf_project(tmp_path)
@@ -254,72 +345,122 @@ def test_read_target_added_removed_flows_and_mermaid_use_real_node_identity(tmp_
     data["components"].extend(json.loads(SHELF_TARGET["map_reports.json"])["components"])
     data["remove"] = ["component:cli"]
     data["flows"] = [
-        {"id": "borrow", "summary": "Borrow with future holds.", "steps": ["loans:LoanService.hold"]},
-        {"id": "overdue", "summary": "List overdue loans.", "steps": ["reports:overdue"]}]
+        {
+            "id": "borrow",
+            "summary": "Borrow with future holds.",
+            "steps": ["loans:LoanService.hold"],
+        },
+        {"id": "overdue", "summary": "List overdue loans.", "steps": ["reports:overdue"]},
+    ]
     path.write_text(json.dumps(data), encoding="utf-8")
     code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
     assert code == 0 and not errors, (output, errors)
-    for text in ("## + reports", "## - cli", "(removed by the target)", "> ~ flow borrow:", "> + flow overdue:"):
+    for text in (
+        "## + reports",
+        "## - cli",
+        "(removed by the target)",
+        "> ~ flow borrow:",
+        "> + flow overdue:",
+    ):
         assert text in output, (text, output)
     removed = output.split("## - cli", 1)[1].split("\n## ", 1)[0]
     assert "purpose:" not in removed and "changes:" not in removed
-    code, diagram, errors = _static_target_read(root, capsys, monkeypatch,
-                                               "read", "--mermaid", "--target")
+    code, diagram, errors = _static_target_read(
+        root, capsys, monkeypatch, "read", "--mermaid", "--target"
+    )
     assert code == 0 and not errors and diagram.startswith("flowchart TD\n"), (diagram, errors)
     for style in ("added", "changed", "removed"):
         assert f"classDef {style} " in diagram
-    assert "stroke-dasharray" in next(line for line in diagram.splitlines() if "classDef removed " in line)
+    assert "stroke-dasharray" in next(
+        line for line in diagram.splitlines() if "classDef removed " in line
+    )
+
     # Resolve IDs from actual definitions, rather than assume the renderer's sanitizer.
     def component_id(label):
         matches = re.findall(r'^\s*(\w+)\["' + re.escape(label) + r'<br/>[^"\n]*"\]', diagram, re.M)
         assert len(matches) == 1, (label, diagram)
         return matches[0]
+
     loans, reports, removed_cli = (component_id(label) for label in ("loans", "reports", "cli"))
     models = re.findall(r'^\s*(\w+)\(\["model lending<br/>[^"\n]*"\]\)', diagram, re.M)
     assert len(models) == 1, diagram
     lending = models[0]
-    for node, style in ((loans, "changed"), (lending, "changed"), (reports, "added"), (removed_cli, "removed")):
-        assert any(line.strip().rstrip(";") == f"class {node} {style}" for line in diagram.splitlines()), diagram
+    for node, style in (
+        (loans, "changed"),
+        (lending, "changed"),
+        (reports, "added"),
+        (removed_cli, "removed"),
+    ):
+        assert any(
+            line.strip().rstrip(";") == f"class {node} {style}" for line in diagram.splitlines()
+        ), diagram
     desk = re.findall(r'^\s*(\w+)\(\["model desk<br/>[^"\n]*"\]\)', diagram, re.M)
     assert len(desk) == 1
     assert f"{desk[0]} ==> {lending}" in diagram
     assert f"root_system --> {reports}" in diagram
-    code, focused, errors = _static_target_read(root, capsys, monkeypatch,
-        "read", "--target", "--mermaid", "--component", "loans")
-    assert code == 0 and "loans<br/>" in focused and "model lending" not in focused and not errors, (focused, errors)
+    code, focused, errors = _static_target_read(
+        root, capsys, monkeypatch, "read", "--target", "--mermaid", "--component", "loans"
+    )
+    assert (
+        code == 0 and "loans<br/>" in focused and "model lending" not in focused and not errors
+    ), (focused, errors)
     assert "reports<br/>" not in focused and "cli<br/>" not in focused
 
 
 def test_read_target_comments_do_not_invent_facet_changes(tmp_path, capsys, monkeypatch):
     import json
-    from _fg_helpers import target__static_target_read as _static_target_read, target_SHELF_BASE as SHELF_BASE, target_shelf_project as shelf_project
+
     root = shelf_project(tmp_path)
     capsys.readouterr()
     directory = root / ".flowguard/target"
     (directory / "models").mkdir(parents=True)
-    (directory / "map.json").write_text(json.dumps({"schema": "flowguard.target.v1", "goal": "explain lending",
-        "components": [], "flows": [], "remove": []}), encoding="utf-8")
+    (directory / "map.json").write_text(
+        json.dumps(
+            {
+                "schema": "flowguard.target.v1",
+                "goal": "explain lending",
+                "components": [],
+                "flows": [],
+                "remove": [],
+            }
+        ),
+        encoding="utf-8",
+    )
     (directory / "models/lending.py").write_text(
-        SHELF_BASE[".flowguard/models/lending.py"] + "\n# Explanation only, no declared fact changed.\n", encoding="utf-8")
+        SHELF_BASE[".flowguard/models/lending.py"]
+        + "\n# Explanation only, no declared fact changed.\n",
+        encoding="utf-8",
+    )
     code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
     assert code == 0 and "model lending" in output and not errors, (output, errors)
     assert "goal rules: none (no promise changes" in output
     output = "\n".join(line for line in output.splitlines() if not line.startswith("goal rules:"))
     assert "changes:" not in output and "was:" not in output
     (directory / "models/lending.py").unlink()
-    (directory / "map.json").write_text(json.dumps({"schema": "flowguard.target.v1", "goal": "retire lending",
-        "components": [], "flows": [], "remove": ["component:loans", "model:lending"]}), encoding="utf-8")
+    (directory / "map.json").write_text(
+        json.dumps(
+            {
+                "schema": "flowguard.target.v1",
+                "goal": "retire lending",
+                "components": [],
+                "flows": [],
+                "remove": ["component:loans", "model:lending"],
+            }
+        ),
+        encoding="utf-8",
+    )
     code, removed, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
     assert code == 0 and not errors, (removed, errors)
     assert "## - loans" in removed and "\n  - model lending:" in removed, removed
     assert removed.count("(removed by the target)") == 2, removed
     removed = "\n".join(line for line in removed.splitlines() if not line.startswith("goal rules:"))
-    assert not any(label in removed for label in ("purpose:", "rules:", "known-bad:", "code:", "tests:")), removed
+    assert not any(
+        label in removed for label in ("purpose:", "rules:", "known-bad:", "code:", "tests:")
+    ), removed
 
 
 @pytest.mark.parametrize("state", ["absent", "invalid"])
 def test_read_target_absent_or_invalid_is_not_a_current_view(tmp_path, capsys, monkeypatch, state):
-    from _fg_helpers import target__static_target_read as _static_target_read, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     if state == "invalid":
@@ -338,7 +479,7 @@ def test_read_target_absent_or_invalid_is_not_a_current_view(tmp_path, capsys, m
 
 def test_read_target_conflicts_only_with_find(tmp_path, capsys, monkeypatch):
     import pytest
-    from _fg_helpers import target__static_target_read as _static_target_read, target__install_shelf_target as _install_shelf_target, target_shelf_project as shelf_project
+
     root = shelf_project(tmp_path)
     capsys.readouterr()
     _install_shelf_target(root)
@@ -347,19 +488,21 @@ def test_read_target_conflicts_only_with_find(tmp_path, capsys, monkeypatch):
     assert error.value.code == 2
     capsys.readouterr()
 
-    code,output,errors=_static_target_read(root,capsys,monkeypatch,'read','--target')
-    assert code==0 and not errors and '## ~ loans' in output, (output,errors)
+    code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
+    assert code == 0 and not errors and "## ~ loans" in output, (output, errors)
 
 
-def test_target_promote_refuses_a_model_that_edits_its_checked_source(tmp_path, capsys, monkeypatch):
-    from _fg_helpers import target__install_shelf_target as _install_shelf_target, target_SHELF_AFTER as SHELF_AFTER, target__project_snapshot as _project_snapshot, target_shelf_project as shelf_project, target__promote_with_real_check as _promote_with_real_check
+def test_target_promote_refuses_a_model_that_edits_its_checked_source(
+    tmp_path, capsys, monkeypatch
+):
     root = shelf_project(tmp_path)
     capsys.readouterr()
     directory = _install_shelf_target(root)
     for relative in ("shelf/loans.py", "tests/test_loans.py"):
         (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
     model = directory / "models/lending.py"
-    model.write_text(model.read_text(encoding="utf-8") + '''
+    model.write_text(
+        model.read_text(encoding="utf-8") + """
 _original_conformance = conformance
 
 def conformance():
@@ -369,23 +512,31 @@ def conformance():
     with target.open("a", encoding="utf-8", newline="\\n") as stream:
         stream.write("\\n# edited during the real conformance check\\n")
     return report
-''', encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
     before_files, before_dirs = _project_snapshot(root)
     code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
     assert code == 1 and "promote refused:" in output + errors, (output, errors)
     assert "changed" in (output + errors).lower()
     after_files, after_dirs = _project_snapshot(root)
     relative = ".flowguard/target/models/lending.py"
-    assert after_files[relative][0] == before_files[relative][0] + b"\n# edited during the real conformance check\n"
+    assert (
+        after_files[relative][0]
+        == before_files[relative][0] + b"\n# edited during the real conformance check\n"
+    )
     # The real model's explicit edit survives; the promoter writes nothing else.
     assert {p: v for p, v in after_files.items() if p != relative} == {
-        p: v for p, v in before_files.items() if p != relative}
+        p: v for p, v in before_files.items() if p != relative
+    }
     assert after_dirs == before_dirs and directory.is_dir()
 
 
-def test_target_promote_reports_real_write_failure_without_backup_or_automatic_git(tmp_path, capsys, monkeypatch):
+def test_target_promote_reports_real_write_failure_without_backup_or_automatic_git(
+    tmp_path, capsys, monkeypatch
+):
     from pathlib import Path
-    from _fg_helpers import target__install_shelf_target as _install_shelf_target, target_SHELF_AFTER as SHELF_AFTER, target__project_snapshot as _project_snapshot, target_shelf_project as shelf_project, target__promote_with_real_check as _promote_with_real_check
+
     root = shelf_project(tmp_path)
     capsys.readouterr()
     directory = _install_shelf_target(root)
@@ -406,24 +557,29 @@ def test_target_promote_reports_real_write_failure_without_backup_or_automatic_g
         scoped.setattr(Path, "write_bytes", fail_destination)
         code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
     assert attempted == [destination]
-    assert code == 2 and "injected target destination write failure" in output + errors, (output, errors)
+    assert code == 2 and "injected target destination write failure" in output + errors, (
+        output,
+        errors,
+    )
     assert "restore with: git checkout -- .flowguard && git clean -fd .flowguard" in output + errors
     assert directory.is_dir()
     after_files, after_dirs = _project_snapshot(root)
     backup = directory / ".replaced/models/lending.py"
-    assert backup.is_file() and backup.read_bytes() == before_files[".flowguard/models/lending.py"][0]
+    assert (
+        backup.is_file() and backup.read_bytes() == before_files[".flowguard/models/lending.py"][0]
+    )
     assert (directory / "models/lending.py").is_file()
     assert "promote stopped:" in output + errors
     # git restore/clean is guidance only: no index, ref, log or object changes.
     assert {p: v for p, v in after_files.items() if p.startswith(".git/")} == {
-        p: v for p, v in before_files.items() if p.startswith(".git/")}
+        p: v for p, v in before_files.items() if p.startswith(".git/")
+    }
 
 
 
 
 def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
     import json
-    from _fg_helpers import target__target_life_cycle_fixture_helpers as _target_life_cycle_fixture_helpers
     import json
     from flowguard.map import target as native
     from flowguard.map.mapfile import load_map
@@ -443,21 +599,28 @@ def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
     original_code, original_model = code_path.read_bytes(), model_path.read_bytes()
     logical_model = root / ".flowguard/models/shelf_rule.py"
 
-    code_path.write_text(original_code.decode().replace("value + capacity()", "value + capacity() + 1"), encoding="utf-8")
+    code_path.write_text(
+        original_code.decode().replace("value + capacity()", "value + capacity() + 1"),
+        encoding="utf-8",
+    )
     view = build_target_view(root, load_map(root), load_target(root))
     result = prove(root, logical_model, view=view)
     assert result.status == "fail" and result.code_gaps, result
     assert set(result.code_gaps) <= set(result.problems)
     report = native.check_target(root)
     for message in result.code_gaps:
-        assert any(f.node == "model shelf_rule" and f.message == message for f in report.todos), report
+        assert any(
+            f.node == "model shelf_rule" and f.message == message for f in report.todos
+        ), report
         assert not any(f.message == message for f in report.errors + report.warnings), report
 
     code_path.write_bytes(original_code)
     source = original_model.decode()
     assert source.count('return {"advance_twice": make(2)}') == 1
-    model_path.write_text(source.replace('return {"advance_twice": make(2)}',
-                                         'return {"advance_twice": make(1)}'), encoding="utf-8")
+    model_path.write_text(
+        source.replace('return {"advance_twice": make(2)}', 'return {"advance_twice": make(1)}'),
+        encoding="utf-8",
+    )
     view = build_target_view(root, load_map(root), load_target(root))
     result = prove(root, logical_model, view=view)
     assert result.status == "fail" and not result.code_gaps, result
@@ -465,12 +628,16 @@ def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
     assert design_failures, result
     report = native.check_target(root)
     for message in design_failures:
-        assert any(f.node == "model shelf_rule" and f.message == message for f in report.errors), report
+        assert any(
+            f.node == "model shelf_rule" and f.message == message for f in report.errors
+        ), report
         assert not any(f.message == message for f in report.todos + report.warnings), report
 
     partial = original_model.decode().replace("invariants=(RULE,)", "invariants=(RULE, SECOND)")
-    partial += ('\nTESTED_BY = {"one_loan_step": ["tests/test_shelf.py:test_advance"]}\n'
-                'SECOND = Invariant("at_most_one", "no double advance", lambda s,t: s <= 1)\n')
+    partial += (
+        '\nTESTED_BY = {"one_loan_step": ["tests/test_shelf.py:test_advance"]}\n'
+        'SECOND = Invariant("at_most_one", "no double advance", lambda s,t: s <= 1)\n'
+    )
     model_path.write_text(partial, encoding="utf-8")
     partial_model = model_path.read_bytes()
     view = build_target_view(root, load_map(root), load_target(root))
@@ -479,11 +646,12 @@ def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
     assert any(w.startswith("invariant_untested:") for w in result.warnings), result
     report = native.check_target(root)
     assert not report.errors and not report.todos, report
-    assert any(f.node == "model shelf_rule" and f.code == "invariant_untested" for f in report.warnings), report
+    assert any(
+        f.node == "model shelf_rule" and f.code == "invariant_untested" for f in report.warnings
+    ), report
     assert not any(f.code == "invariant_untested" for f in report.errors + report.todos), report
     assert native.main(["check", "--root", str(root)]) == 0
     assert code_path.read_bytes() == original_code and model_path.read_bytes() == partial_model
-
 
     # Two actual hard boundaries must remain ERROR, independently of TODO
     # allowances for missing future code. Each case starts from new real files.
@@ -511,7 +679,7 @@ def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
 def test_read_target_changes_skip_computed_coverage(tmp_path, capsys, monkeypatch):
     """A target that adds one entrypoint reports that entrypoint, not recomputed coverage text."""
     import json
-    from _fg_helpers import target__static_target_read as _static_target_read, target_SHELF_TARGET as SHELF_TARGET, target_shelf_project as shelf_project
+
     root = shelf_project(tmp_path)
     capsys.readouterr()
     target = json.loads(SHELF_TARGET["map.json"])
@@ -520,7 +688,9 @@ def test_read_target_changes_skip_computed_coverage(tmp_path, capsys, monkeypatc
     loans["state"] = ["current loans"]
     target["goal"] = "one more loans entrypoint"
     (root / ".flowguard/target").mkdir()
-    (root / ".flowguard/target/map.json").write_text(json.dumps(target, indent=2) + "\n", encoding="utf-8")
+    (root / ".flowguard/target/map.json").write_text(
+        json.dumps(target, indent=2) + "\n", encoding="utf-8"
+    )
     code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
     assert code == 0 and not errors, (output, errors)
     changes = [line for line in output.splitlines() if line.strip().startswith("changes:")]
@@ -531,7 +701,7 @@ def test_read_target_changes_skip_computed_coverage(tmp_path, capsys, monkeypatc
 
 def test_behaviour_target_without_a_rule_is_untied(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__target_with as _target_with, target__check_without_writes as _check_without_writes, target_shelf_project as shelf_project
+
     root = shelf_project(tmp_path)
     capsys.readouterr()
     path = _target_with(root, capsys, "loans can renew", "loans")
@@ -539,27 +709,38 @@ def test_behaviour_target_without_a_rule_is_untied(tmp_path, capsys):
     data["components"][0]["entrypoints"].append("shelf/loans.py:LoanService.renew")
     path.write_text(json.dumps(data), encoding="utf-8")
     code, output, errors = _check_without_writes(root, capsys)
-    assert code == 1 and "ERROR target: target_goal_untied: the target changes a promise (entrypoints: " \
-        "shelf/loans.py:LoanService.renew)" in output, output
+    assert (
+        code == 1
+        and "ERROR target: target_goal_untied: the target changes a promise (entrypoints: "
+        "shelf/loans.py:LoanService.renew)" in output
+    ), output
     assert "goal rules: none\n" in output and "target_noop" not in output
     code, output, errors = _run(root, capsys, "target", "add", "lending")
     assert code == 0, (output, errors)
     model = root / ".flowguard/target/models/lending.py"
     source = model.read_text(encoding="utf-8")
-    model.write_text(source.replace(
-        '              Invariant("limit_respected", "a member holds at most LIMIT loans", _limit))',
-        '              Invariant("limit_respected", "a member holds at most LIMIT loans", _limit),\n'
-        '              Invariant("renewal_keeps_limit", "a renewal never exceeds LIMIT", _limit))'), encoding="utf-8")
+    model.write_text(
+        source.replace(
+            '              Invariant("limit_respected", "a member holds at most LIMIT loans", _limit))',
+            '              Invariant("limit_respected", "a member holds at most LIMIT loans", _limit),\n'
+            '              Invariant("renewal_keeps_limit", "a renewal never exceeds LIMIT", _limit))',
+        ),
+        encoding="utf-8",
+    )
     from flowguard.map.target import check_target, render_target_report
-    output = render_target_report(check_target(root, models=False))      # goal rules are static
-    assert "target_goal_untied" not in output and "goal rules: model lending: +renewal_keeps_limit" in output, output
+
+    output = render_target_report(check_target(root, models=False))  # goal rules are static
+    assert (
+        "target_goal_untied" not in output
+        and "goal rules: model lending: +renewal_keeps_limit" in output
+    ), output
     code, shown, errors = _run(root, capsys, "read", "--target")
     assert "goal rules: model lending: +renewal_keeps_limit" in shown, shown
 
 
 def test_structure_only_target_prints_structure_goal(tmp_path, capsys):
     import json
-    from _fg_helpers import target__target_with as _target_with, target__check_without_writes as _check_without_writes, target_shelf_project as shelf_project
+
     root = shelf_project(tmp_path)
     capsys.readouterr()
     path = _target_with(root, capsys, "reword and move", "loans", "catalog")
@@ -581,12 +762,14 @@ def test_structure_only_target_prints_structure_goal(tmp_path, capsys):
     data["remove"] = ["entrypoint:shelf/loans.py:LoanService.give_back"]
     path.write_text(json.dumps(data), encoding="utf-8")
     code, output, errors = _check_without_writes(root, capsys)
-    assert "target_goal_untied" not in output and "goal rules: none (no promise changes" in output, output
+    assert (
+        "target_goal_untied" not in output and "goal rules: none (no promise changes" in output
+    ), output
 
 
 def test_removed_component_file_hint_says_delete(tmp_path, capsys):
     import json
-    from _fg_helpers import target__target_with as _target_with, target__check_without_writes as _check_without_writes, target_shelf_project as shelf_project
+
     root = shelf_project(tmp_path)
     capsys.readouterr()
     path = _target_with(root, capsys, "retire members", "loans")
@@ -595,55 +778,60 @@ def test_removed_component_file_hint_says_delete(tmp_path, capsys):
     data["components"][0]["depends_on"].remove("members")
     path.write_text(json.dumps(data), encoding="utf-8")
     code, output, errors = _check_without_writes(root, capsys)
-    unmapped = [line for line in output.splitlines() if line.startswith("TO-DO ") and "file_unmapped" in line
-                and "shelf/members.py" in line]
-    assert unmapped and unmapped[0].endswith("(delete the file, or give it an owner in the target)"), output
+    unmapped = [
+        line
+        for line in output.splitlines()
+        if line.startswith("TO-DO ") and "file_unmapped" in line and "shelf/members.py" in line
+    ]
+    assert unmapped and unmapped[0].endswith(
+        "(delete the file, or give it an owner in the target)"
+    ), output
 
 
 def test_rule_reading_a_changed_table_is_changed():
-    from _fg_helpers import target__fg403_helpers as _fg403_helpers
     result = _fg403_helpers()["native_case"]("table")
     assert "~answer" in str(result["goal"]) and "EXPECTED GAP one:" in result["text"]
 
 
 def test_kit_model_binding_edit_prints_no_rule_change():
-    from _fg_helpers import target__fg403_helpers as _fg403_helpers
     result = _fg403_helpers()["native_case"]("kit_binding")
     assert "no rule change: one" in result["text"] and not result["errors"]
 
 
 def test_kit_feature_table_change_changes_the_rules(tmp_path):
-    from _fg_helpers import target__fg403_helpers as _fg403_helpers
     from flowguard.map import target as native
     from flowguard.map.facets import target_goal_rules
     from flowguard.map.targetfile import load_target
+
     helpers = _fg403_helpers()
     source = helpers["KIT_SOURCE"]
     helpers["make_project"](tmp_path, source)
     native.start_target(tmp_path, "change a kit feature")
     native.add_to_target(tmp_path, "one")
-    (tmp_path / ".flowguard/target/models/one.py").write_text(source.replace("lambda value: 1", "lambda value: 2"))
+    (tmp_path / ".flowguard/target/models/one.py").write_text(
+        source.replace("lambda value: 1", "lambda value: 2")
+    )
     goal = target_goal_rules(tmp_path, load_target(tmp_path))
     assert len(goal) == 1 and "~" in goal[0], goal
 
 
 @pytest.mark.parametrize("case", ["remove_clean", "remove_gap"])
 def test_removed_rule_only_prints_no_rule_change(case):
-    from _fg_helpers import target__fg403_helpers as _fg403_helpers
     result = _fg403_helpers()["native_case"](case)
     assert "no rule change: one" in result["text"]
     assert ("code gap(s) are TO-DO" in result["text"]) == (case == "remove_gap")
 
 
 def test_name_added_to_two_models_moves_into_one():
-    from _fg_helpers import target__fg403_helpers as _fg403_helpers
     result = _fg403_helpers()["native_case"]("move_twice")
-    assert "moved rules only: moved" in result["text"] and "model second: +positive" in str(result["goal"])
+    assert "moved rules only: moved" in result["text"] and "model second: +positive" in str(
+        result["goal"]
+    )
 
 
 def test_writes_only_target_prints_no_rule_change(tmp_path):
-    from _fg_helpers import target__fg403_helpers as _fg403_helpers
     from flowguard.map import target as native
+
     helpers = _fg403_helpers()
     helpers["make_project"](tmp_path, helpers["regular_source"]())
     native.start_target(tmp_path, "declare the write footprint")
@@ -656,7 +844,7 @@ def test_writes_only_target_prints_no_rule_change(tmp_path):
 
 def test_promote_oserror_keeps_replaced_files(tmp_path, monkeypatch, capsys):
     from pathlib import Path
-    from _fg_helpers import target__fg403_helpers as _fg403_helpers, target__fg403_clean_target as _fg403_clean_target
+
     native = _fg403_clean_target(tmp_path)
     helpers = _fg403_helpers()
     second = tmp_path / ".flowguard/models/moved.py"
@@ -666,10 +854,12 @@ def test_promote_oserror_keeps_replaced_files(tmp_path, monkeypatch, capsys):
     before = (tmp_path / ".flowguard/models/one.py").read_bytes()
     second_before = second.read_bytes()
     write_bytes = Path.write_bytes
+
     def interrupted(path, content):
         if path == second.with_name("moved.py.tmp"):
             raise OSError("injected second model replacement")
         return write_bytes(path, content)
+
     monkeypatch.setattr(Path, "write_bytes", interrupted)
     assert native.promote_target(tmp_path) == 2
     assert (tmp_path / ".flowguard/target/.replaced/models/one.py").read_bytes() == before
@@ -681,8 +871,8 @@ def test_promote_oserror_keeps_replaced_files(tmp_path, monkeypatch, capsys):
 
 
 def test_shelf_without_git_runs_the_whole_route(tmp_path):
-    from _fg_helpers import target__target_life_cycle_fixture_helpers as _target_life_cycle_fixture_helpers
     from flowguard.map import target as native
+
     helpers = _target_life_cycle_fixture_helpers()
     root = helpers["make_project"](tmp_path / "shelf")
     old = (root / ".flowguard/models/shelf_rule.py").read_bytes()
@@ -698,9 +888,9 @@ def test_shelf_without_git_runs_the_whole_route(tmp_path):
 
 
 def test_in_place_edit_without_target_is_named(tmp_path):
-    from _fg_helpers import target__fg403_helpers as _fg403_helpers, target__load_map as _load_map
     from flowguard.map.check import model_edit_findings
     from flowguard.map.common import content_digest
+
     helpers = _fg403_helpers()
     helpers["make_project"](tmp_path, helpers["regular_source"]())
     p = tmp_path / ".flowguard/models/one.py"
@@ -713,34 +903,37 @@ def test_in_place_edit_without_target_is_named(tmp_path):
 
 def test_promote_runs_what_function_selection_reaches(tmp_path):
     """A real direct-calling test outside TESTED_BY must prevent promotion on failure."""
-    from _fg_helpers import target__target_life_cycle_fixture_helpers as _target_life_cycle_fixture_helpers
     from flowguard.map import target as native
-    helpers=_target_life_cycle_fixture_helpers()
-    root=helpers['make_project'](tmp_path/'selection')
-    helpers['stage_target'](root);helpers['edit_missing_method'](root);helpers['write_method'](root)
-    path=root/'tests/test_extra.py'
-    path.write_text('from shelf.loans import advance\ndef test_extra():\n    advance(0)\n    assert False, "direct caller failed"\n')
+
+    helpers = _target_life_cycle_fixture_helpers()
+    root = helpers["make_project"](tmp_path / "selection")
+    helpers["stage_target"](root)
+    helpers["edit_missing_method"](root)
+    helpers["write_method"](root)
+    path = root / "tests/test_extra.py"
+    path.write_text(
+        'from shelf.loans import advance\ndef test_extra():\n    advance(0)\n    assert False, "direct caller failed"\n'
+    )
     # No git uses the conservative file fallback; this test actually calls an anchor.
-    assert native.promote_target(root)==1
-    assert (root/'.flowguard/target').exists()
+    assert native.promote_target(root) == 1
+    assert (root / ".flowguard/target").exists()
 
 
-def test_shelf_port_change_escalates_to_desk(tmp_path,capsys):
-    from _fg_helpers import target_shelf_project,target__run
-    root=target_shelf_project(tmp_path)
+def test_shelf_port_change_escalates_to_desk(tmp_path, capsys):
+    root = target_shelf_project(tmp_path)
     capsys.readouterr()
-    assert target__run(root,capsys,'target','start','extend lending answer')[0]==0
-    assert target__run(root,capsys,'target','add','lending')[0]==0
-    path=root/'.flowguard/target/models/lending.py'
-    source=path.read_text()
-    old='OUTPUTS = {"answer":("lent","refused")}'
+    assert target__run(root, capsys, "target", "start", "extend lending answer")[0] == 0
+    assert target__run(root, capsys, "target", "add", "lending")[0] == 0
+    path = root / ".flowguard/target/models/lending.py"
+    source = path.read_text()
+    old = 'OUTPUTS = {"answer":("lent","refused")}'
     assert old in source
-    path.write_text(source.replace(old,'OUTPUTS = {"answer":("lent","refused","waitlisted")}'))
-    code,text,error=target__run(root,capsys,'target','check')
-    assert code==1 and not error
-    assert 'port changed: lending out +waitlisted -> verify desk (parent)' in text
-    assert 'port_changed_parent_missing' in text
-    assert target__run(root,capsys,'target','add','desk')[0]==0
-    code,text,error=target__run(root,capsys,'target','check')
-    assert code==1 and not error
-    assert 'handoff_output_unhandled' in text and "waitlisted" in text
+    path.write_text(source.replace(old, 'OUTPUTS = {"answer":("lent","refused","waitlisted")}'))
+    code, text, error = target__run(root, capsys, "target", "check")
+    assert code == 1 and not error
+    assert "port changed: lending out +waitlisted -> verify desk (parent)" in text
+    assert "port_changed_parent_missing" in text
+    assert target__run(root, capsys, "target", "add", "desk")[0] == 0
+    code, text, error = target__run(root, capsys, "target", "check")
+    assert code == 1 and not error
+    assert "handoff_output_unhandled" in text and "waitlisted" in text

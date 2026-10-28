@@ -468,14 +468,17 @@ def view__fg232_view_project(tmp_path):
     return (data, build_inventory(tmp_path, DEFAULT_IGNORE), marker)
 
 def view__fg232_count_discovery(monkeypatch):
-    from flowguard.map import views
+    from flowguard.map import views, view_format, view_target
+
     calls = []
     original = views.discover_inventory
 
     def _fg232_counted_discovery(*args, **kwargs):
         calls.append((args, kwargs))
         return original(*args, **kwargs)
-    monkeypatch.setattr(views, 'discover_inventory', _fg232_counted_discovery)
+
+    for owner in (views, view_format, view_target):
+        monkeypatch.setattr(owner, "discover_inventory", _fg232_counted_discovery)
     return calls
 
 def view__fg233_nested_project(tmp_path):
