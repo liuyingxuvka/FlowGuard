@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.70.14 - 2026-10-28 - Ports reach consumers, phase-aware checks and a complete read
 
 - Projects using FlowGuard: release, map models, target check and target promote run models in parallel by default; --jobs 1 stays serial in the calling thread.
 - Reuse read-only syntax, component file matches and model trees within a command; model subprocesses receive parsed ports and locations without rebuilding the project inventory.
