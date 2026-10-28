@@ -1101,23 +1101,46 @@ def relations_line(data, tree, graph):
 
 
 def hub_lines(tree, graph):
-    hubs = sorted((mid for mid, hub in graph.hub.items() if hub),
-                  key=lambda mid: (-len(graph.ripple[mid]), -len(graph.callers[mid]), mid))
-    if not hubs:
-        return ['hubs: none (no model is consumed by 2 or more models or has code with 8 or more callers)']
-    lines = [f'hubs: {len(hubs)} models (consumed by 2 or more models, or code with 8 or more callers)']
+    hubs = sorted(
+        (mid for mid, hub in graph.hub.items() if hub),
+        key=lambda mid: (-len(graph.ripple[mid]), -len(graph.callers[mid]), mid),
+    )
+    caller_only = [mid for mid in hubs if not graph.consumed_by[mid] and not graph.ripple[mid]]
+    hubs = [mid for mid in hubs if mid not in caller_only]
+    if not hubs and not caller_only:
+        return [
+            "hubs: none (no model is consumed by 2 or more models or has code with 8 or more callers)"
+        ]
+    lines = [
+        f"hubs: {len(hubs)} models (consumed by 2 or more models, or code with 8 or more callers)"
+    ]
+
     def names(items):
         items = list(items)
-        return ', '.join(items[:4])+(f', +{len(items)-4}' if len(items)>4 else '')
+        return ", ".join(items[:4]) + (f", +{len(items)-4}" if len(items) > 4 else "")
+
     for mid in hubs[:5]:
         consumers = sorted(graph.consumed_by[mid])
         ripple = graph.ripple[mid]
-        lines.append(f'  {mid} ({tree.nodes[mid].home}): consumed by {len(consumers)}'
-                     +(f' ({names(consumers)})' if consumers else '')
-                     +f'; {len(graph.callers[mid])} code callers in {len(graph.caller_components[mid])} components; ripple {len(ripple)}'
-                     +(': '+names(f'{other} ({why})' for other, why in ripple) if ripple else '')
-                     +f'; a code edit selects {graph.selects[mid]} models')
-    if len(hubs)>5: lines.append(f'  +{len(hubs)-5} more')
+        lines.append(
+            f"  {mid} ({tree.nodes[mid].home}): consumed by {len(consumers)}"
+            + (f" ({names(consumers)})" if consumers else "")
+            + f"; {len(graph.callers[mid])} code callers in {len(graph.caller_components[mid])} components; ripple {len(ripple)}"
+            + (": " + names(f"{other} ({why})" for other, why in ripple) if ripple else "")
+            + f"; a code edit selects {graph.selects[mid]} models"
+        )
+    if len(hubs) > 5:
+        lines.append(f"  +{len(hubs)-5} more")
+    if caller_only:
+        entries = [
+            f"{mid} ({len(graph.callers[mid])} code callers in {len(graph.caller_components[mid])} components)"
+            for mid in caller_only[:5]
+        ]
+        lines.append(
+            "most called: "
+            + ", ".join(entries)
+            + (f", +{len(caller_only)-5} more" if len(caller_only) > 5 else "")
+        )
     return lines
 
 

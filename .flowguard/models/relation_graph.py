@@ -10,12 +10,7 @@ MODEL_ID='relation_graph'
 PARENT='map-read'
 IMPLEMENTED_BY={'Relations':'flowguard/map/views.py:relations'}
 USES={'Show':'flowguard/map/views.py:render_show','Mermaid':'flowguard/map/views.py:render_mermaid','Review':'flowguard/map/review.py:render_review','Escalation':'flowguard/map/port.py:escalation_set'}
-TESTED_BY={
- 'one_kind_per_edge':['tests/test_relation_graph.py:test_three_relation_kinds_are_shown_distinctly'],
- 'views_show_kinds_distinctly':['tests/test_relation_graph.py:test_three_relation_kinds_are_shown_distinctly'],
- 'hub_listed_at_threshold':['tests/test_relation_graph.py:test_hubs_are_listed_at_the_thresholds'],
- 'ripple_is_the_escalation_set':['tests/test_relation_graph.py:test_ripple_is_the_escalation_set'],
-}
+TESTED_BY = {'one_kind_per_edge': ['tests/test_relation_graph.py:test_three_relation_kinds_are_shown_distinctly'], 'views_show_kinds_distinctly': ['tests/test_relation_graph.py:test_three_relation_kinds_are_shown_distinctly'], 'hub_listed_at_threshold': ['tests/test_relation_graph.py:test_hubs_are_listed_at_the_thresholds', 'tests/test_relation_graph.py:test_caller_only_hubs_share_one_line'], 'ripple_is_the_escalation_set': ['tests/test_relation_graph.py:test_ripple_is_the_escalation_set']}
 EXPECTED={'placed':('placement',False,0),'stage':('stage',False,1),'branch':('branch x',False,1),'two_consumers':('consumption',True,2),'many_callers':('placement',True,0),'ordinary':('placement',False,1),'reading_parent':('stage',False,4),'consumed_child':('stage',True,2)}
 @dataclass(frozen=True)
 class State:
@@ -62,5 +57,5 @@ def conformance():
         facts=[Fact('views','stage children:' in show and 'branch children:' in show and 'consumes: P.value -> value' in show and 'm_desk ==> m_lending' in mermaid and 'm_cmd ==>|"x"| m_a' in mermaid and 'm_P --o|"value"| m_K1' in mermaid,show+'\n'+mermaid)]
         if actual is None:facts.append(Fact('relations',False,'relations is absent'))
         else:
-            facts.extend((Fact('placement',('extra','W') in actual.placement,repr(actual.placement)),Fact('hub',actual.hub['P'] and actual.hub['Q'] and actual.hub['Q8'] and not actual.hub['R'],review),Fact('ripple',actual.ripple['T']==ripple and ripple==[('V','parent'),('KT','HANDOFF')],repr(actual.ripple)),Fact('reading_parent',len(actual.ripple['U'])==4,repr(actual.ripple['U'])),Fact('review','hubs:' in review and 'Q8 (extra)' in review,review)))
+            facts.extend((Fact('placement',('extra','W') in actual.placement,repr(actual.placement)),Fact('hub',actual.hub['P'] and actual.hub['Q'] and actual.hub['Q8'] and not actual.hub['R'],review),Fact('ripple',actual.ripple['T']==ripple and ripple==[('V','parent'),('KT','HANDOFF')],repr(actual.ripple)),Fact('reading_parent',len(actual.ripple['U'])==4,repr(actual.ripple['U'])),Fact('review','hubs:' in review and 'most called:' in review and 'Q8 (8 code callers' in review,review)))
         return CodeFactsReport(tuple(facts))

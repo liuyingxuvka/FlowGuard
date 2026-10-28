@@ -44,7 +44,7 @@ def test_hubs_are_listed_at_the_thresholds(tmp_path):
     assert len(graph.callers["Q8"]) == 8 and len(graph.callers["R"]) == 7
     assert graph.hub["P"] and graph.hub["Q8"] and not graph.hub["R"]
     text = render_review(tmp_path, data, inv)
-    assert "P (extra): consumed by 2" in text and "Q8 (extra)" in text
+    assert "P (extra): consumed by 2" in text and "Q8 (8 code callers" in text
     assert "\n  R (extra)" not in text
     from flowguard.map.discover import select_model_functions
 
@@ -99,3 +99,35 @@ def test_hubs_and_relations_line_always_shown(tmp_path):
     assert "\n".join(hub_lines(tree, graph)) in review
     shown = render_show(tmp_path, data, inv, component=None, detail=False)
     assert "\nrelations:" in shown and "truncated" not in shown
+
+
+def test_caller_only_hubs_share_one_line(tmp_path):
+    from flowguard.map.views import hub_lines
+
+    data, inv, tree, graph = fixture(tmp_path)
+    lines = hub_lines(tree, graph)
+    caller_line = next((line for line in lines if line.startswith("most called:")), "")
+    assert f'Q8 (8 code callers in {len(graph.caller_components["Q8"])} components)' in caller_line
+    assert not any(line.startswith("  Q8 ") for line in lines)
+    expected = sum(
+        hub and bool(graph.consumed_by[mid] or graph.ripple[mid]) for mid, hub in graph.hub.items()
+    )
+    assert lines[0].startswith(f"hubs: {expected} models")
+    assert graph.hub["Q8"] and not graph.hub["R"]
+    for index in range(6):
+        mid = f"busy{index}"
+        graph.hub[mid] = True
+        graph.consumed_by[mid] = set()
+        graph.ripple[mid] = []
+        graph.callers[mid] = set(range(20 + index))
+        graph.caller_components[mid] = {"app"}
+    caller_line = next(line for line in hub_lines(tree, graph) if line.startswith("most called:"))
+    assert "busy5 (25 code callers in 1 components)" in caller_line
+    remaining = (
+        sum(
+            hub and not graph.consumed_by[mid] and not graph.ripple[mid]
+            for mid, hub in graph.hub.items()
+        )
+        - 5
+    )
+    assert "busy0" not in caller_line and f"+{remaining} more" in caller_line
