@@ -198,7 +198,37 @@ class StaticModel:
 
     def _definition(self, node, scope):
         """Semantic rule inputs: local helpers and constants, never imported product code."""
+        import copy
+
+        def normalized(value, home):
+            class OwnInputs(ast.NodeTransformer):
+                def visit_Subscript(self, item):
+                    item = self.generic_visit(item)
+                    index = item.slice
+                    base = item.value
+                    if isinstance(base, ast.Name):
+                        found = self_outer._lookup(base.id, home)
+                        if found:
+                            base = found[0]
+                    if isinstance(index, ast.Constant):
+                        if (
+                            isinstance(base, (ast.Tuple, ast.List))
+                            and isinstance(index.value, int)
+                            and -len(base.elts) <= index.value < len(base.elts)
+                        ):
+                            return self.visit(copy.deepcopy(base.elts[index.value]))
+                        if isinstance(base, ast.Dict):
+                            for key, selected in zip(base.keys, base.values):
+                                if isinstance(key, ast.Constant) and key.value == index.value:
+                                    return self.visit(copy.deepcopy(selected))
+                    return item
+
+            self_outer = self
+            return OwnInputs().visit(copy.deepcopy(value))
+
+        node = normalized(node, scope)
         dependencies, visited = [], set()
+
         def lookup(name, home, kind, seen):
             key = (id(home), name, kind)
             if key in seen:
@@ -219,17 +249,27 @@ class StaticModel:
                     if found:
                         return found
             return None
+
         def names(value, bound=frozenset()):
             if isinstance(value, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
                 args = value.args
                 local = {a.arg for a in args.posonlyargs + args.args + args.kwonlyargs}
                 local.update(a.arg for a in (args.vararg, args.kwarg) if a)
-                local.update(n.id for n in ast.walk(value) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store))
+                local.update(
+                    n.id
+                    for n in ast.walk(value)
+                    if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)
+                )
                 bound = bound | local
-            if isinstance(value, ast.Name) and isinstance(value.ctx, ast.Load) and value.id not in bound:
+            if (
+                isinstance(value, ast.Name)
+                and isinstance(value.ctx, ast.Load)
+                and value.id not in bound
+            ):
                 yield value.id
             for child in ast.iter_child_nodes(value):
                 yield from names(child, bound)
+
         def visit(value, home):
             for name in names(value):
                 for kind in ("assigns", "functions"):
@@ -240,8 +280,10 @@ class StaticModel:
                     key = (id(owner), name, kind)
                     if key not in visited:
                         visited.add(key)
+                        definition = normalized(definition, owner)
                         dependencies.append((name, kind, ast.dump(definition)))
                         visit(definition, owner)
+
         visit(node, scope)
         return repr((ast.dump(node), sorted(dependencies)))
 

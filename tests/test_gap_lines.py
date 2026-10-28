@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 
+
 from _fg_helpers import (
     target__fg403_helpers as _fg403_helpers,
     target__load_map as _load_map,
@@ -91,3 +92,39 @@ def test_missing_anchor_names_symbol_without_claiming_conformance():
     assert "only the missing anchor symbol 'future_value' in native.py" in result["text"]
     assert "conformance did not run" in result["text"]
     assert result["todos"] and not result["errors"]
+
+
+def test_helper_table_identity_ignores_unused_entries(tmp_path):
+    from flowguard.map.facets import target_goal_rules
+    from flowguard.map import target as native
+    from flowguard.map.targetfile import load_target
+
+    source = _fg403_helpers()["regular_source"](positive=True)
+    source = source.replace('EXPECTED = {"answer": 1}', 'EXPECTED = {"answer": 1, "floor": 0}')
+    source = source.replace(
+        "def _positive(s): return s >= 0", 'def _positive(s): return s >= EXPECTED["floor"]'
+    )
+    _fg403_helpers()["make_project"](tmp_path, source)
+    native.start_target(tmp_path, "preserve per-rule dependencies in a helper")
+    native.add_to_target(tmp_path, "one")
+    model = tmp_path / ".flowguard/target/models/one.py"
+    model.write_text(source.replace('"floor": 0}', '"floor": 0, "unused": 9}'))
+    assert target_goal_rules(tmp_path, load_target(tmp_path)) == []
+    model.write_text(source.replace('"floor": 0}', '"floor": 1}'))
+    lines = target_goal_rules(tmp_path, load_target(tmp_path))
+    rules = [
+        item
+        for line in lines
+        for item in line.partition(": ")[2].split(", ")
+        if not item.endswith("(known-bad)")
+    ]
+    assert rules == ["~positive"], lines
+    model.write_text(source.replace('s >= EXPECTED["floor"]', 's > EXPECTED["floor"]'))
+    lines = target_goal_rules(tmp_path, load_target(tmp_path))
+    rules = [
+        item
+        for line in lines
+        for item in line.partition(": ")[2].split(", ")
+        if not item.endswith("(known-bad)")
+    ]
+    assert rules == ["~positive"], lines

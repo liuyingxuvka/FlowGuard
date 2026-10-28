@@ -254,28 +254,8 @@ def system_facets(data: dict, inv: Inventory, tree, graph, functions, *, coverag
 
 
 def _named_definition(static, node, scope):
-    """Resolve a rule's literal tuple/dict item without including its unrelated siblings."""
-    import copy
-
-    class OwnInputs(ast.NodeTransformer):
-        def visit_Subscript(self, value):
-            value = self.generic_visit(value)
-            index = value.slice
-            base = value.value
-            if isinstance(base, ast.Name):
-                found = static._lookup(base.id, scope)
-                if found:
-                    base = found[0]
-            if isinstance(index, ast.Constant):
-                if isinstance(base, (ast.Tuple, ast.List)) and isinstance(index.value, int) and -len(base.elts) <= index.value < len(base.elts):
-                    return self.visit(copy.deepcopy(base.elts[index.value]))
-                if isinstance(base, ast.Dict):
-                    for key, item in zip(base.keys, base.values):
-                        if isinstance(key, ast.Constant) and key.value == index.value:
-                            return self.visit(copy.deepcopy(item))
-            return value
-
-    return static._definition(OwnInputs().visit(copy.deepcopy(node)), scope)
+    """Use the shared semantic identity for the rule and each referenced helper."""
+    return static._definition(node, scope)
 
 
 def _definitions(root: Path, logical: str, syntax, view=None):
