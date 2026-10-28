@@ -2,38 +2,22 @@
 
 ## Unreleased
 
-- Model subprocesses receive parsed ports and locations from their parent instead of rebuilding the project inventory and tree.
-
-- Projects using FlowGuard: `template cases` creates a named case table, a real-function replay and matching tests.
-
-- Word lookup names the model that owns the matching symbol before comparing rule words and model depth.
-
-- Command help is generated from the real argparse options and shows every daily verb flag.
-
-- Projects using FlowGuard: replay_call_undeclared warns when a model replays a product function without an anchor and prints the USES declaration needed to include it after edits.
-
-- Projects using FlowGuard: a helper edit selects a flow model only when the helper lies on the static path between its steps; direct callers remain selected.
-
-- Projects using FlowGuard: removed literals name code sites first; moved values stay quiet and settings-only map edits select only newly mapped tests.
-
-- Projects using FlowGuard: read and map show print complete views without --budget; every component and model is named, with child models folded into their parent.
-
-- Projects using FlowGuard: accepted debts are counted once and remain listed by map lint --debts; change --verbose shows exact test commands while normal change gives a counted summary.
-
-- Check the model scheduler with one real fixture and report models above the timing advice in one counted line per advice value.
-
-- Projects using FlowGuard: changing the stored-fingerprint formula without updating its format now produces a warning; ordinary version bumps remain neutral.
-
-- Projects using FlowGuard: when a child adds a received parent value, target check warns about siblings that start from those states without reading the changed field.
-
-- Projects using FlowGuard: after code changes, target check names open or closed gaps and runs the target models' own bound tests; a missing anchor no longer claims conformance ran.
-
-- Projects using FlowGuard: a changed output that an escalated consumer never receives is an error; target promotion refuses it instead of treating it as an old finding.
-
 - Projects using FlowGuard: release, map models, target check and target promote run models in parallel by default; --jobs 1 stays serial in the calling thread.
-
-- Reuse read-only syntax, component file matches and model trees within a command; cold inventories and test analysis share parsing without changing results.
-
+- Reuse read-only syntax, component file matches and model trees within a command; model subprocesses receive parsed ports and locations without rebuilding the project inventory.
+- Projects using FlowGuard: a changed output that an escalated consumer never receives is an error, and target promotion refuses it.
+- Projects using FlowGuard: after code changes, target check names open or closed gaps and runs the target models’ own bound tests; a missing anchor no longer claims conformance ran.
+- Projects using FlowGuard: when a child adds a received parent value, target check names siblings that start from those states without reading the changed field.
+- Projects using FlowGuard: changing the stored fingerprint formula without updating its format produces a warning; ordinary version bumps remain neutral.
+- Check the model scheduler with one real fixture and group models above the timing advice in one counted line per advice value.
+- Projects using FlowGuard: accepted debts are counted once and remain listed by map lint --debts; change --verbose shows exact test commands while normal change gives a counted summary.
+- Projects using FlowGuard: read and map show print complete views without --budget; every component and model is named, with child models folded into their parent. Target component views show each related model once.
+- Projects using FlowGuard: removed literals name code sites first; moved values stay quiet and settings-only map edits select only newly mapped tests.
+- Projects using FlowGuard: a helper edit selects a flow model when the helper lies on the static path between its steps; direct callers remain selected.
+- Projects using FlowGuard: replay_call_undeclared warns when a model replays an unanchored product function and prints the needed USES declaration. Storing callbacks in tuple assignments does not claim they ran.
+- Rule identity follows the literal entries used by shared helpers, so adding an unused entry does not change an unrelated rule.
+- Command help shows the real argparse options; word lookup prioritizes the model owning a matching symbol, and unowned code suggestions show each model’s full purpose.
+- Projects using FlowGuard: template cases creates a named case table, a real-function replay and matching tests. Hub views show callers as well as lenders.
+- Skip repeated path classification within each model audit while keeping every watched anchor checked; model and test subprocesses preserve existing PYTHONPATH entries.
 - Check skill routes for duplicated paragraphs, broken links and missing command names; report text size without rejecting useful content.
 
 ## v0.70.13 - 2026-10-27 - Model ports and a smaller workflow
