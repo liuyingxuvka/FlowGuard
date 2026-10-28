@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-514: align caller-only hub display with unchanged graph classification",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
