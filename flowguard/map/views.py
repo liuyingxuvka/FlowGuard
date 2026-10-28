@@ -1,4 +1,4 @@
-"""Token-bounded views for an AI session: show (the map) and find (owner lookup); digest lives in digest.py."""
+"""Complete views for an AI session: show (the map) and find (owner lookup); digest lives in digest.py."""
 
 from __future__ import annotations
 

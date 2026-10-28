@@ -229,7 +229,8 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
                                    f"fingerprint formula changed (format 1 -> 2): confirm {cid} once"))
             elif state == "stale":
                 out.append(Finding(stale_level, "stale", cid, "owned files changed since last confirm; re-read them, update the description if behavior changed, then confirm"))
-    from .lint import apply_accepted_debts, entrypoint_coverage_findings, model_coverage, model_writer_findings
+    from .lint import apply_accepted_debts
+    from .lint_models import entrypoint_coverage_findings, model_coverage, model_writer_findings
     covered, not_modeled = model_coverage(root, data, registry, view=view)
     entry_findings = entrypoint_coverage_findings(raw, data, inv, covered, not_modeled=not_modeled,
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in data["components"]})
@@ -238,7 +239,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     for directory in data.get("import_roots", []):
         if not (root / directory).is_dir():
             out.append(Finding("warn", "import_root_missing", "", f"import root directory missing: {directory}"))
-    from .lint import model_size_findings
+    from .lint_models import model_size_findings
     out.extend(apply_accepted_debts(model_size_findings(root,data,inv,view=view,tree=tree),data.get('accepted_debts',[]))[0])
     from .testtree import test_file_findings
     out.extend(apply_accepted_debts(test_file_findings(root,data,inv,tree),data.get('accepted_debts',[]))[0])

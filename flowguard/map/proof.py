@@ -509,7 +509,8 @@ def run_model_in_process(root: Path, path: Path, *, view=None, port_request=None
                 )
             report = design.explore()
             result.sequences = report.explored_sequence_count
-            from .lint import size_finding, apply_accepted_debts
+            from .lint import apply_accepted_debts
+            from .lint_models import size_finding
 
             finding = size_finding(result.model, "sequences", result.sequences)
             if finding:

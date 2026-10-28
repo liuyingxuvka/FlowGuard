@@ -30,7 +30,7 @@ def _capped(items, limit: int) -> str:
     return shown + (f" +{len(items) - limit} more" if len(items) > limit else "")
 
 def _shown_lists(facets) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Displayed code/tests items: every list-like facet is capped, even within budget."""
+    """Displayed code/tests items use the shared full-view policy."""
     code = []
     for item in facets.code:
         if item.startswith("files: "):
