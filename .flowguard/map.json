@@ -333,7 +333,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:7977efaa8432ae52ecef5de138097d79c6523b8e448de908eb01ca8bdf292d9a"
+      "fingerprint": "sha256:f837d3f1341ec400fb692a6c23323f486f1cf57f44f35208f06bc11193e3fa93"
     },
     {
       "id": "map-discover",
@@ -473,7 +473,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:2e1660b8d896f0acac9822cd22e084cbc1726bdba9631521a41f6288028dfb73"
+      "fingerprint": "sha256:e0d9f938a7b96674370e992123f2082a9ed2d602c0a763a3f5c3a4378c84256b"
     },
     {
       "id": "engine-explore",
@@ -946,6 +946,12 @@
       "component": "map-check",
       "contains": "lint.py",
       "reason": "Laying out the modified lint owner exposes its accumulated size. Extract cohesive model lint findings in FG-515 and remove this temporary debt before publication; keep the 800 LOC diagnostic."
+    },
+    {
+      "code": "large_file",
+      "component": "map-proof",
+      "contains": "proof.py",
+      "reason": "Adding the current-port subprocess request and expanding the touched proof functions exposes proof.py growth. During FG-515 extract cohesive request serialization and bound-test execution under map-proof and remove this temporary debt before publication; retain the 800 LOC diagnostic."
     }
   ],
   "fingerprint_format": 2,

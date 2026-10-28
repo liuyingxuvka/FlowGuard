@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Model subprocesses receive parsed ports and locations from their parent instead of rebuilding the project inventory and tree.
+
 - Projects using FlowGuard: `template cases` creates a named case table, a real-function replay and matching tests.
 
 - Word lookup names the model that owns the matching symbol before comparing rule words and model depth.

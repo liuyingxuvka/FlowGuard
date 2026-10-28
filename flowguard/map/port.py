@@ -25,6 +25,53 @@ class Port:
     declared_parent: tuple[str, ...] = ()
 
 
+
+def port_to_payload(port: Port) -> dict:
+    """Encode static port literals without changing their Python container types."""
+
+    def encode(value):
+        if value is Ellipsis:
+            return {"type": "ellipsis"}
+        if isinstance(value, bytes):
+            return {"type": "bytes", "value": value.hex()}
+        if isinstance(value, complex):
+            return {"type": "complex", "value": [value.real, value.imag]}
+        if isinstance(value, dict):
+            return {
+                "type": "dict",
+                "value": [[encode(key), encode(item)] for key, item in value.items()],
+            }
+        if isinstance(value, (tuple, list, set, frozenset)):
+            return {"type": type(value).__name__, "value": [encode(item) for item in value]}
+        if value is None or type(value) in (str, int, float, bool):
+            return value
+        raise TypeError(f"unsupported static port literal: {type(value).__name__}")
+
+    return {item.name: encode(getattr(port, item.name)) for item in fields(Port)}
+
+
+def port_from_payload(payload: dict) -> Port:
+    """Restore a port from a fresh request; the payload contains no proof result."""
+
+    def decode(value):
+        if not isinstance(value, dict):
+            return value
+        kind = value["type"]
+        if kind == "ellipsis":
+            return Ellipsis
+        items = value["value"]
+        if kind == "bytes":
+            return bytes.fromhex(items)
+        if kind == "complex":
+            return complex(*items)
+        if kind == "dict":
+            return {decode(key): decode(item) for key, item in items}
+        constructors = {"tuple": tuple, "list": list, "set": set, "frozenset": frozenset}
+        return constructors[kind](decode(item) for item in items)
+
+    return Port(**{key: decode(value) for key, value in payload.items()})
+
+
 class _Syntax:
     def __init__(self, text):
         self.tree = text if isinstance(text, ast.Module) else ast.parse(text)
