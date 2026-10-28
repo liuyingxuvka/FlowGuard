@@ -4,6 +4,7 @@ import pytest,os,json
 from pathlib import Path
 
 
+
 from _fg_helpers import (
     proof_FIXED as FIXED,
     proof_MODEL as MODEL,
@@ -149,3 +150,34 @@ def test_port_payload_keeps_static_literal_types():
     assert type(restored.state) is tuple
     assert type(restored.outputs["value"][1]) is bytes
     assert type(restored.handoff["producer"]["answer"][1][("a", 1)]) is frozenset
+
+
+def test_project_scripts_package_wins_over_flowguard_parent(shop, tmp_path, monkeypatch):
+    from flowguard.map.cli import _context
+    from flowguard.map.proof import run_models
+
+    package = tmp_path / "project_pythonpath"
+    (package / "scripts").mkdir(parents=True)
+    (package / "scripts/__init__.py").write_text("")
+    (package / "scripts/x.py").write_text('VALUE = "project"\n')
+    monkeypatch.setenv("PYTHONPATH", str(package))
+    proof_write(shop, "shop/orders.py", proof_FIXED)
+    model = shop / proof_MODEL
+    model_source = model.read_text()
+    future = "from __future__ import annotations\n"
+    assert future in model_source
+    model_source = model_source.replace(future, future + "from scripts.x import VALUE\n", 1)
+    model_source = model_source.replace(
+        "def conformance():", 'def conformance():\n    assert VALUE == "project"'
+    )
+    model_source += (
+        '\nTESTED_BY = {"one_charge_per_order": ["tests/test_orders.py:test_place_once"]}\n'
+    )
+    model.write_text(model_source)
+    test = shop / "tests/test_orders.py"
+    test.write_text('from scripts.x import VALUE\nassert VALUE == "project"\n' + test.read_text())
+    data, inv = _context(shop)
+    results = run_models(shop, [model.stem], inv=inv, tests=True, jobs=1)
+    assert results and all(
+        result.status == "pass" and result.test_seconds is not None for result in results
+    ), [(result.model, result.problems) for result in results]
