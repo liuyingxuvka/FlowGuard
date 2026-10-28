@@ -14,7 +14,7 @@ USES = {
     'RenderTargetReport': 'flowguard/map/target.py:render_target_report',
     'StartTarget': 'flowguard/map/target.py:start_target',
 }
-TESTED_BY = {'changed_rule_gap_is_expected': ['tests/test_gap_lines.py:test_rule_broken_by_old_code_is_an_expected_gap', 'tests/test_gap_lines.py:test_missing_bound_test_is_never_a_gap', 'tests/test_gap_lines.py:test_shared_rule_tuple_marks_only_changed_names'], 'moved_rules_expect_no_gap': ['tests/test_gap_lines.py:test_split_into_child_prints_moved_rules_only'], 'recorded_rule_prints_no_gap': ['tests/test_gap_lines.py:test_recorded_rule_prints_no_gap'], 'exception_through_anchor_is_code_gap': ['tests/test_gap_lines.py:test_exception_classification'], 'missing_anchor_gap_names_the_symbol': ['tests/test_gap_lines.py:test_missing_anchor_names_symbol_without_claiming_conformance'], 'after_code_gap_names_changed_symbols': ['tests/test_gap_lines.py:test_rule_broken_by_old_code_is_an_expected_gap']}
+TESTED_BY = {'changed_rule_gap_is_expected': ['tests/test_gap_lines.py:test_rule_broken_by_old_code_is_an_expected_gap', 'tests/test_gap_lines.py:test_missing_bound_test_is_never_a_gap', 'tests/test_gap_lines.py:test_shared_rule_tuple_marks_only_changed_names', 'tests/test_gap_lines.py:test_helper_table_identity_ignores_unused_entries'], 'moved_rules_expect_no_gap': ['tests/test_gap_lines.py:test_split_into_child_prints_moved_rules_only'], 'recorded_rule_prints_no_gap': ['tests/test_gap_lines.py:test_recorded_rule_prints_no_gap'], 'exception_through_anchor_is_code_gap': ['tests/test_gap_lines.py:test_exception_classification'], 'missing_anchor_gap_names_the_symbol': ['tests/test_gap_lines.py:test_missing_anchor_names_symbol_without_claiming_conformance'], 'after_code_gap_names_changed_symbols': ['tests/test_gap_lines.py:test_rule_broken_by_old_code_is_an_expected_gap']}
 EXPECTED = {"anchor_only": "EXPECTED GAP (only the missing anchor symbol)", "closed": "GAP CLOSED",
             "open": "GAP OPEN", "shared_tuple": "one name changed", "native": "EXPECTED GAP", "missing_test": "NO GAP", "moved": "moved rules only",
             "recorded": "NO GAP", "anchor_exception": "EXPECTED GAP", "engine_exception": "ERROR"}
@@ -93,3 +93,30 @@ def conformance():
 PARENT = 'target_findings'
 
 OUTPUTS = {'gap': ('expected_gap', 'no_gap', 'moved_only', 'no_rule_change')}
+
+
+_previous_helper_identity_conformance = conformance
+def conformance():
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+    from _gap_cases import regular_source, make_project
+    from flowguard.map import target as native
+    from flowguard.map.facets import target_goal_rules
+    from flowguard.map.targetfile import load_target
+    facts = list(_previous_helper_identity_conformance().facts)
+    with TemporaryDirectory(prefix='fg-helper-rule-inputs-') as directory:
+        root = Path(directory)
+        source = regular_source(positive=True)
+        source = source.replace('EXPECTED = {"answer": 1}', 'EXPECTED = {"answer": 1, "floor": 0}')
+        source = source.replace('def _positive(s): return s >= 0', 'def _positive(s): return s >= EXPECTED["floor"]')
+        make_project(root, source)
+        with redirect_stdout(StringIO()):
+            native.start_target(root, 'preserve helper rule inputs')
+            native.add_to_target(root, 'one')
+        path = root / '.flowguard/target/models/one.py'
+        path.write_text(source.replace('"floor": 0}', '"floor": 0, "unused": 9}'))
+        lines = target_goal_rules(root, load_target(root))
+        facts.append(Fact('unused_helper_table_item_is_not_a_rule_change', not lines, repr(lines)))
+    return CodeFactsReport(tuple(facts))

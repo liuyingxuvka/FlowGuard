@@ -49,7 +49,7 @@ USES = {
     'Main': 'flowguard/__main__.py:main',
     'Show': 'flowguard/map/views.py:render_show',
 }
-TESTED_BY = {'port_line_shown': ['tests/test_read_component.py:test_read_component_prints_one_port_line_per_model'], 'focused_component_visible': ['tests/test_read_component.py:test_read_component_never_hides_the_requested_component'], 'relied_rules_shown': ['tests/test_read_component.py:test_read_component_lists_the_rules_it_relies_on'], 'component_flows_shown': ['tests/test_read_component.py:test_read_component_lists_its_flows_and_their_rules'], 'static_rules_match_model': ['tests/test_read_component.py:test_static_rules_follow_helpers_and_wrappers', 'tests/test_read_component.py:test_static_known_bad_follow_loops_and_tuple_targets', 'tests/test_read_component.py:test_kit_model_facets_are_static_and_complete'], 'component_view_imports_no_model': ['tests/test_read_command.py:test_read_component_names_the_symbols_used_on_each_edge'], 'component_view_complete': ['tests/test_read_component.py:test_read_component_never_hides_the_requested_component', 'tests/test_read_component.py:test_component_view_names_subtree_once']}
+TESTED_BY = {'port_line_shown': ['tests/test_read_component.py:test_read_component_prints_one_port_line_per_model'], 'focused_component_visible': ['tests/test_read_component.py:test_read_component_never_hides_the_requested_component'], 'relied_rules_shown': ['tests/test_read_component.py:test_read_component_lists_the_rules_it_relies_on'], 'component_flows_shown': ['tests/test_read_component.py:test_read_component_lists_its_flows_and_their_rules'], 'static_rules_match_model': ['tests/test_read_component.py:test_static_rules_follow_helpers_and_wrappers', 'tests/test_read_component.py:test_static_known_bad_follow_loops_and_tuple_targets', 'tests/test_read_component.py:test_kit_model_facets_are_static_and_complete'], 'component_view_imports_no_model': ['tests/test_read_command.py:test_read_component_names_the_symbols_used_on_each_edge'], 'component_view_complete': ['tests/test_read_component.py:test_read_component_never_hides_the_requested_component', 'tests/test_read_component.py:test_component_view_names_subtree_once', 'tests/test_read_component.py:test_target_component_view_names_subtree_once']}
 NOT_MODELED={'flowguard/map/modelstatic.py:StaticModel._module': 'memoizes one parsed helper file per read; the names it yields are what static_rules_match_model checks on real render_show output', 'flowguard/map/modelstatic.py:StaticModel.explorer_rules': 'remembers the kit case table found while reading rules; the cases line is checked by static_rules_match_model through the kit probe', 'flowguard/map/modelstatic.py:StaticModel._defined': "records the AST of each rule's defining call so goal rules can compare versions; tests/test_flowguard_target.py:test_behaviour_target_without_a_rule_is_untied checks that line", 'flowguard/map/modelstatic.py:StaticModel.bad_keys': 'collects known-bad names written by loops and comprehensions; tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets checks them'}
 MOVED_RULES=(
 Invariant('static_rules_match_model', "static rule and known-bad names and counts equal the model's explorer and variants", lambda state, trace: _static(state)),
@@ -115,3 +115,37 @@ _previous_conformance = conformance
 def conformance():
     previous = _previous_conformance()
     return CodeFactsReport(tuple(previous.facts) + complete_view_facts('component'))
+
+
+_previous_target_component_conformance = conformance
+def conformance():
+    import json
+    import re
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.targetfile import Target
+    from flowguard.map.views import render_show
+    facts = list(_previous_target_component_conformance().facts)
+    with TemporaryDirectory(prefix='fg-target-subtree-') as directory:
+        root = Path(directory)
+        data = make_port_project(root)
+        data['layers'] = ['shared']
+        for comp in data['components']:
+            comp['parent'] = 'group'
+            comp['layer'] = 'shared'
+        (root / 'group.py').write_text('def run(): return True\n')
+        group = dict(id='group', layer='shared', summary='Group the shelf components',
+                     responsibilities=[], files=['group.py'], tests=[], models=[], depends_on=[], status='draft')
+        data['components'].insert(0, group)
+        (root / '.flowguard/map.json').write_text(json.dumps(data))
+        inv = build_inventory(root, DEFAULT_IGNORE, write_cache=False)
+        changed = {key: value for key, value in group.items() if key != 'status'}
+        changed['summary'] = 'Changed shelf group purpose'
+        target = Target('change group purpose', dict(schema='flowguard.target.v1', goal='change group purpose',
+                        components=[changed], flows=[], remove=[]), {},
+                        {'component': set(), 'model': set(), 'flow': set()})
+        text = render_show(root, data, inv, component='group', detail=False, target=target)
+        ids = re.findall(r'^\s*model ([\w.-]+):', text, re.M)
+        correct = len(ids) == len(set(ids)) and 'desk' in ids and '+1 stage children: lending' in text
+        facts.append(Fact('target_subtree_models_once', correct, text))
+    return CodeFactsReport(tuple(facts))

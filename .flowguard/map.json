@@ -283,7 +283,7 @@
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs. Own the shared static call-graph reachability and model selection used by discovery and model replay lint.",
+      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs. Own shared static call-graph reachability and model selection.",
       "responsibilities": [
         "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
         "resolve component parents in one layer without loops",
@@ -333,7 +333,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:f837d3f1341ec400fb692a6c23323f486f1cf57f44f35208f06bc11193e3fa93"
+      "fingerprint": "sha256:a33ec544c1e7de8da1cfcfa7fc80062ee93928e974990b1c9698d75b61f0c83a"
     },
     {
       "id": "map-discover",
@@ -386,7 +386,8 @@
         "include function-selected models and tests in the single promotion check"
       ],
       "files": [
-        "flowguard/map/target.py"
+        "flowguard/map/target.py",
+        "flowguard/map/target_identity.py"
       ],
       "entrypoints": [
         "flowguard/map/target.py:main",
@@ -423,7 +424,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:da9f50dd6dd25b490258906233b65e7021119f56024339ee6d5e64547f5bf91f"
+      "fingerprint": "sha256:754554c7731a5f27b43ed1cd82e9f820393a9b2769b367984f4bced68cf16bac"
     },
     {
       "id": "map-proof",
@@ -443,7 +444,9 @@
         "flowguard/map/runner.py",
         "flowguard/map/facts.py",
         "flowguard/map/system_model.py",
-        "flowguard/map/testreach.py"
+        "flowguard/map/testreach.py",
+        "flowguard/map/proof_request.py",
+        "flowguard/map/proof_tests.py"
       ],
       "entrypoints": [
         "flowguard/map/proof.py:run_models",
@@ -473,7 +476,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:393d774241f33b38210a3720e3db30d4ac80a1925d330ae9cd3c8958f953d2a9"
+      "fingerprint": "sha256:2adc08dc2e31acf8170cfcb384febe578fd5a51c7c768a47d873063beb1d12cb"
     },
     {
       "id": "engine-explore",
@@ -686,7 +689,7 @@
     {
       "id": "map-check",
       "layer": "map",
-      "summary": "Check structural bindings, fixed model/test sizes and model-edit guards; only reasoned soft findings can be waived. Warn about product replays outside a model anchor reach and name the missing USES declarations.",
+      "summary": "Check architecture, implementation coverage, model bindings, size and declared replay calls against the current source.",
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
         "report one owner per entrypoint, responsibility, state and side effect",
@@ -695,7 +698,9 @@
       ],
       "files": [
         "flowguard/map/check.py",
-        "flowguard/map/lint.py"
+        "flowguard/map/lint.py",
+        "flowguard/map/replay_lint.py",
+        "flowguard/map/lint_models.py"
       ],
       "entrypoints": [
         "flowguard/map/check.py:run_check",
@@ -722,7 +727,7 @@
         ".flowguard/models/private_use.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:fe088a56bbe0ca4fbb676bd06c569efa89d01005fe7acb367be1c892041d9d1f"
+      "fingerprint": "sha256:05a6a8860fc3c7b4998750ad267bd208d2f692002b798699e542daa6257f0f33"
     },
     {
       "id": "map-read",
@@ -739,7 +744,9 @@
         "flowguard/map/facets.py",
         "flowguard/map/review.py",
         "flowguard/map/digest.py",
-        "flowguard/map/view_format.py"
+        "flowguard/map/view_format.py",
+        "flowguard/map/view_target.py",
+        "flowguard/map/view_field.py"
       ],
       "entrypoints": [],
       "state": [],
@@ -760,7 +767,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9308cf000dfe0d2595007087dd46709d0529fd4876746406ce21b3d68f6e873d"
+      "fingerprint": "sha256:f49bf16f0e7964a53e912c0c30020a1f4bc68956e448cf33a00ac6bbdd1c854b"
     },
     {
       "id": "map-impact",
@@ -773,7 +780,8 @@
       ],
       "files": [
         "flowguard/map/impact.py",
-        "flowguard/map/impact_history.py"
+        "flowguard/map/impact_history.py",
+        "flowguard/map/impact_scope.py"
       ],
       "entrypoints": [
         "flowguard/map/impact.py:compute_impact"
@@ -798,7 +806,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:841ab4e2509f35783acd91ed7ab03a896c3987b4f789aaf9b326e41016928daf"
+      "fingerprint": "sha256:9c523e8b5943dd9a717d02127c4566aa1358e1158b77ec38b2b19f185c619373"
     }
   ],
   "flows": [
@@ -880,21 +888,6 @@
       "reason": "text templates and packaging scripts: no state to explore; tests/test_public_templates.py and tests/test_skill_package.py cover them"
     },
     {
-      "code": "large_file",
-      "component": "map-target",
-      "reason": "Target check now tracks source identity and runs own bound tests. Keep these changes under the existing owner while round-10 target features are completed; extract the pure identity/change helpers during FG-515 before publication."
-    },
-    {
-      "code": "large_file",
-      "component": "map-impact",
-      "reason": "Counted command summaries add presentation work to the current owner. FG-515 will extract cohesive impact presentation helpers before publication, after the round-10 selection changes settle; retain the existing 800 LOC diagnostic."
-    },
-    {
-      "code": "large_file",
-      "component": "map-read",
-      "reason": "Removing budget cuts and laying out the changed functions exposes presentation growth in views.py. Extract cohesive read presentation and location helpers under this owner during FG-515 and remove this temporary debt before publication; keep the 800 LOC diagnostic."
-    },
-    {
       "code": "replay_call_undeclared",
       "component": "read_component",
       "contains": "replays flowguard/map/review.py:render_review",
@@ -929,29 +922,6 @@
       "component": "read_show",
       "contains": "replays flowguard/map/views.py:find_owners",
       "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs"
-    },
-    {
-      "code": "large_component",
-      "component": "map-file",
-      "reason": "The new static replay reader and shared selection expose growth in the map subsystem. FG-515 will move pure test AST collectors to the existing inventory owner and remove this temporary debt before publication; keep the 3000 LOC diagnostic."
-    },
-    {
-      "code": "large_file",
-      "component": "map-file",
-      "contains": "modelstatic.py",
-      "reason": "Static replay analysis was added under the existing static model reader. Extract the cohesive replay visitor during FG-515 and remove this temporary debt before publication; keep the 800 LOC diagnostic."
-    },
-    {
-      "code": "large_file",
-      "component": "map-check",
-      "contains": "lint.py",
-      "reason": "Laying out the modified lint owner exposes its accumulated size. Extract cohesive model lint findings in FG-515 and remove this temporary debt before publication; keep the 800 LOC diagnostic."
-    },
-    {
-      "code": "large_file",
-      "component": "map-proof",
-      "contains": "proof.py",
-      "reason": "Adding the current-port subprocess request and expanding the touched proof functions exposes proof.py growth. During FG-515 extract cohesive request serialization and bound-test execution under map-proof and remove this temporary debt before publication; retain the 800 LOC diagnostic."
     }
   ],
   "fingerprint_format": 2,
@@ -964,7 +934,7 @@
     ".flowguard/models/edge_coverage.py": "d704e0678b313aa3eec0b492f09dcd2612f3129137da284f37286a41b3b49ca9",
     ".flowguard/models/engine_explore.py": "aa460232d21b3ce47a41404e553c1d733aec394a2ebf7df8e22f125ec84e832f",
     ".flowguard/models/function_selection.py": "115752544a30b4ec68af1c06f1f896307ea9ba2313c5931a2eed1c0e64cf38b3",
-    ".flowguard/models/gap_lines.py": "4fc3e5da11e2a17903f5d36fcfae572ebd1a2243d2c9509bb19e620df828e9f0",
+    ".flowguard/models/gap_lines.py": "e3611757ac167ba8d49c44a655ff00ba631d967d195c44c74d5b27d06866ab49",
     ".flowguard/models/job_matching_example.py": "66d13d40bcbda27be232ecc68713eccd913a46190ba2bc68a5bba805fc9c0971",
     ".flowguard/models/literal_consumers.py": "04dc183c41363d2cc23fb62e6f5d26f30775b5ef466fdbba9462cdeeeac8f84c",
     ".flowguard/models/map_binding.py": "5234e58ea5796c52a4775930cf3e8bafb6d9dd1f212acefbb37021f81351a1cc",
@@ -976,7 +946,7 @@
     ".flowguard/models/port_escalation.py": "3390a4a2df0bb70c06550beb0dddfffc421cf4272c40f55901ca3758795a445f",
     ".flowguard/models/private_use.py": "bcc77ce1b99c7213882642cd79662ff8574c5c042e6ce54d9f97fa741b6c6d83",
     ".flowguard/models/read_command.py": "c61f0695ffd9375de9336ab6398b19599981f3a798553c45e150e605b15e459b",
-    ".flowguard/models/read_component.py": "a8f930d4d2fa101965d9a3c39de5a84fd8870509d69470072bb3e53c108a3740",
+    ".flowguard/models/read_component.py": "9bdc2915cf6f838642dcbe4e80f12fe7e29981558c6795bbc2cc31c13dfeb268",
     ".flowguard/models/read_field.py": "54714f87d18261182f1a40a96eb5135fac6c2b6614189cf15b903675c319f834",
     ".flowguard/models/read_find.py": "61fa4d1b06df7c44dc84def6905d21ff984a26164f4d02e8dfc371e65ab62fc1",
     ".flowguard/models/read_mermaid.py": "3a3e2229280cb72de81b57212a62ea9365905d5e52ddb2006b0e723bd18bb0c9",
