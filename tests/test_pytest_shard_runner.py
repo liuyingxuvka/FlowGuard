@@ -12,6 +12,11 @@ from pathlib import Path
 import flowguard.pytest_shards_cli as shard_runner
 
 
+from _fg_helpers import (
+    process_cleanup_case,
+    target__target_life_cycle_fixture_helpers,
+)
+
 def test_pytest_shard_runner_has_one_absolute_invocation_deadline(tmp_path, monkeypatch):
     """A spent invocation budget blocks before collection and never retries."""
 
@@ -43,8 +48,7 @@ def test_pytest_shard_runner_has_one_absolute_invocation_deadline(tmp_path, monk
 @pytest.mark.skipif(os.name == "nt", reason="POSIX process-group cleanup")
 @pytest.mark.parametrize("parent_exits", [False, True])
 def test_process_owner_cleans_children_even_after_parent_exit(tmp_path, parent_exits):
-    from _fg_helpers import process_cleanup_case
-    process_cleanup_case(tmp_path,parent_exits)
+    process_cleanup_case(tmp_path, parent_exits)
 
 
 def test_default_output_is_a_short_summary(tmp_path, monkeypatch, capsys):
@@ -321,35 +325,43 @@ def test_record_is_written_after_a_run_and_not_when_blocked(tmp_path):
 
 
 def test_suite_fails_when_one_shard_fails(tmp_path):
-    from _fg_helpers import target__target_life_cycle_fixture_helpers
-    target__target_life_cycle_fixture_helpers('_testtree_fixture')['runner_fixture'](tmp_path)
-    (tmp_path/'tests/test_one.py').write_text('def test_a(): assert False\ndef test_b(): assert True\n')
-    code,payload=shard_runner.run(shard_runner.build_parser().parse_args(['--root',str(tmp_path),'--shards','2']))
-    assert code!=0 and payload['status']=='fail'
-    assert any(row['status']=='fail' for row in payload['shards'])
-    assert payload['pytest_execution']['failed']==1
+    target__target_life_cycle_fixture_helpers("_testtree_fixture")["runner_fixture"](tmp_path)
+    (tmp_path / "tests/test_one.py").write_text(
+        "def test_a(): assert False\ndef test_b(): assert True\n"
+    )
+    code, payload = shard_runner.run(
+        shard_runner.build_parser().parse_args(["--root", str(tmp_path), "--shards", "2"])
+    )
+    assert code != 0 and payload["status"] == "fail"
+    assert any(row["status"] == "fail" for row in payload["shards"])
+    assert payload["pytest_execution"]["failed"] == 1
 
 
-@pytest.mark.parametrize('case,expected',(('all_pass','pass'),('one_fails','fail'),('one_skips','partial')))
-def test_one_shard_status_follows_its_tests(tmp_path,case,expected):
-    from _fg_helpers import target__target_life_cycle_fixture_helpers
-    row,projection,nodes=target__target_life_cycle_fixture_helpers('_shard_fixture')['one_shard'](tmp_path,case)
-    assert row['status']==expected
-    assert row['executed_count']==len(nodes)
-    assert projection['failed']==int(case=='one_fails')
+@pytest.mark.parametrize(
+    "case,expected", (("all_pass", "pass"), ("one_fails", "fail"), ("one_skips", "partial"))
+)
+def test_one_shard_status_follows_its_tests(tmp_path, case, expected):
+    row, projection, nodes = target__target_life_cycle_fixture_helpers("_shard_fixture")[
+        "one_shard"
+    ](tmp_path, case)
+    assert row["status"] == expected
+    assert row["executed_count"] == len(nodes)
+    assert projection["failed"] == int(case == "one_fails")
 
 
 def test_one_shard_past_its_deadline_is_a_timeout(tmp_path):
-    from _fg_helpers import target__target_life_cycle_fixture_helpers
-    row,projection,nodes=target__target_life_cycle_fixture_helpers('_shard_fixture')['one_shard'](tmp_path,'past_deadline')
-    assert row['status']=='blocked' and row['deadline_exhausted']
-    assert row['executed_count']==0 and projection is None
-    assert not Path(row['stdout_path']).exists()
+    row, projection, nodes = target__target_life_cycle_fixture_helpers("_shard_fixture")[
+        "one_shard"
+    ](tmp_path, "past_deadline")
+    assert row["status"] == "blocked" and row["deadline_exhausted"]
+    assert row["executed_count"] == 0 and projection is None
+    assert not Path(row["stdout_path"]).exists()
 
 
 def test_one_shard_runs_exactly_its_nodes(tmp_path):
-    from _fg_helpers import target__target_life_cycle_fixture_helpers
-    row,projection,nodes=target__target_life_cycle_fixture_helpers('_shard_fixture')['one_shard'](tmp_path,'all_pass')
-    assert row['status']=='pass' and row['exact_selection']
-    assert row['requested_count']==row['selected_count']==row['executed_count']==len(nodes)
-    assert set(projection['node_ids'])==set(nodes)
+    row, projection, nodes = target__target_life_cycle_fixture_helpers("_shard_fixture")[
+        "one_shard"
+    ](tmp_path, "all_pass")
+    assert row["status"] == "pass" and row["exact_selection"]
+    assert row["requested_count"] == row["selected_count"] == row["executed_count"] == len(nodes)
+    assert set(projection["node_ids"]) == set(nodes)
