@@ -39,12 +39,19 @@ def _module_files() -> set[str]:
 
 
 def _on_audit(event: str, args: tuple) -> None:
-    if event != "open" or not _ACTIVE or not args or not isinstance(args[0], (str, bytes, os.PathLike)):
+    if (
+        event != "open"
+        or not _ACTIVE
+        or not args
+        or not isinstance(args[0], (str, bytes, os.PathLike))
+    ):
+        return
+    if all(watch._opened.issuperset(watch._files) for watch in _ACTIVE):
         return
     for watch in list(_ACTIVE):
         if watch is not _ACTIVE[-1] and not watch.test_call:
             continue
-        if watch._busy:
+        if watch._busy or watch._opened.issuperset(watch._files):
             continue
         watch._busy = True
         try:
