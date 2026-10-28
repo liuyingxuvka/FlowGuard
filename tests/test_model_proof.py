@@ -152,13 +152,17 @@ def test_port_payload_keeps_static_literal_types():
     assert type(restored.handoff["producer"]["answer"][1][("a", 1)]) is frozenset
 
 
-def test_project_scripts_package_wins_over_flowguard_parent(shop, tmp_path, monkeypatch):
+@pytest.mark.parametrize("regular_package", [True, False])
+def test_project_scripts_package_wins_over_flowguard_parent(
+    shop, tmp_path, monkeypatch, regular_package
+):
     from flowguard.map.cli import _context
     from flowguard.map.proof import run_models
 
     package = tmp_path / "project_pythonpath"
     (package / "scripts").mkdir(parents=True)
-    (package / "scripts/__init__.py").write_text("")
+    if regular_package:
+        (package / "scripts/__init__.py").write_text("")
     (package / "scripts/x.py").write_text('VALUE = "project"\n')
     monkeypatch.setenv("PYTHONPATH", str(package))
     proof_write(shop, "shop/orders.py", proof_FIXED)

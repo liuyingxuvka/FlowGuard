@@ -17,7 +17,8 @@
 - Rule identity follows the literal entries used by shared helpers, so adding an unused entry does not change an unrelated rule.
 - Command help shows the real argparse options; word lookup prioritizes the model owning a matching symbol, and unowned code suggestions show each model’s full purpose.
 - Projects using FlowGuard: template cases creates a named case table, a real-function replay and matching tests. Hub views show callers as well as lenders.
-- Skip repeated path classification within each model audit while keeping every watched anchor checked; model and test subprocesses preserve existing PYTHONPATH entries.
+- Skip repeated path classification within each model audit while keeping every watched anchor checked.
+- Projects using FlowGuard: model and test subprocesses preserve existing PYTHONPATH entries and project script namespaces when running from a source checkout.
 - Check skill routes for duplicated paragraphs, broken links and missing command names; report text size without rejecting useful content.
 
 ## v0.70.13 - 2026-10-27 - Model ports and a smaller workflow

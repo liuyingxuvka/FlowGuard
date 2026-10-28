@@ -54,7 +54,7 @@
     {
       "id": "tooling",
       "layer": "examples",
-      "summary": "Installs or checks the packaged skill and verifies portable public vocabulary.",
+      "summary": "Installs or checks the packaged skill and verifies portable public vocabulary. Repository helper scripts use a namespace so project script modules remain importable in child runs.",
       "responsibilities": [
         "install the packaged skill into a skills directory, or check an installed copy"
       ],
@@ -74,7 +74,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ad80192704c1b8faa6047a2ca6b2d7338d8059d7b9ec139f9b0d7feab102f3f6"
+      "fingerprint": "sha256:bd9ee81ef55af8e1cee4d81c86ae765a17c6de3a4f969a4ac6de869a1826b753"
     },
     {
       "id": "cli",
