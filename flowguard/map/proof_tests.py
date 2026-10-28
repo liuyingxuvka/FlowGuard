@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from .common import child_pytest_environment, parse_test_anchor
 from .mapfile import read_model_contract, resolve_model_path
-from .runner import run_isolated_process
 
 if TYPE_CHECKING:
     from .proof import ModelResult
@@ -26,6 +25,8 @@ def _run_bound_tests(
     statuses: dict[str, str] | None = None,
     view=None,
     _fail,
+    _project_missing,
+    run_isolated_process,
 ) -> None:
     """Run a model's unique bound Python nodes once, then judge every actual item independently."""
     started = time.monotonic()

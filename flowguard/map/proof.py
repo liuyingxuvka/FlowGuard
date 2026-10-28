@@ -230,7 +230,15 @@ def run_bound_tests(
     from .proof_tests import _run_bound_tests
 
     return _run_bound_tests(
-        root, path, result, timeout=timeout, statuses=statuses, view=view, _fail=_fail
+        root,
+        path,
+        result,
+        timeout=timeout,
+        statuses=statuses,
+        view=view,
+        _fail=_fail,
+        _project_missing=_project_missing,
+        run_isolated_process=run_isolated_process,
     )
 
 
