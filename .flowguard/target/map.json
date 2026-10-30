@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-613: a target names its request and promote records its completion",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
