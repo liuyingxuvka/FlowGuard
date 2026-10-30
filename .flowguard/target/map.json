@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-606: a committed promoted target and a deleted unstaged target are errors",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
