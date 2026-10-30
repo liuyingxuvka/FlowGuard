@@ -1,7 +1,0 @@
-{
-  "schema": "flowguard.target.v1",
-  "goal": "FG-609: an unavailable selected test names test_commands as the way out",
-  "components": [],
-  "flows": [],
-  "remove": []
-}

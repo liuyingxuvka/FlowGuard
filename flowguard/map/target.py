@@ -561,7 +561,7 @@ def _todo_next(code, deleting=False):
     return "change the code until it replays the target model"
 
 
-def render_target_report(report: TargetReport) -> str:
+def render_target_report(report: TargetReport, *, root: Path | None = None) -> str:
     changes = report.changes
     lines = [f'target: "{report.goal}" (+{len(changes["+"])} ~{len(changes["~"])} -{len(changes["-"])} nodes)']
     if report.goal_rules:
@@ -580,10 +580,19 @@ def render_target_report(report: TargetReport) -> str:
                  + (f" ({report.old} old)" if report.old else ""))
     test_errors = {"model_test_broken", "tested_by_failed", "tested_by_misses_anchor", "test_missing"}
     tests_only = report.errors and all(finding.code in test_errors for finding in report.errors)
-    lines.append("next: " + ("write or fix the bound tests named in the ERROR lines, then python -m flowguard target check" if tests_only else
-                            "fix the target design (ERROR lines) in .flowguard/target/ first" if report.errors else
-                            "write the code and tests until no TO-DO remains, then python -m flowguard target promote" if report.todos else
-                            "python -m flowguard target promote"))
+    unavailable_only = report.errors and all(finding.code == "selected_tests_unavailable" for finding in report.errors)
+    if unavailable_only:
+        import shlex
+        project = Path(root or Path.cwd()).resolve()
+        lines.append(f'note: declare "test_commands" for the listed test files in {project / ".flowguard/map.json"}, '
+                     'or bind them to a test FlowGuard can run, then run target promote')
+        next_step = shlex.join(["python", "-m", "flowguard", "target", "promote", "--root", str(project)])
+    else:
+        next_step = ("write or fix the bound tests named in the ERROR lines, then python -m flowguard target check" if tests_only else
+                     "fix the target design (ERROR lines) in .flowguard/target/ first" if report.errors else
+                     "write the code and tests until no TO-DO remains, then python -m flowguard target promote" if report.todos else
+                     "python -m flowguard target promote")
+    lines.append("next: " + next_step)
     if report.own_tests:
         lines.append("bound tests: ran for " + ", ".join(report.own_tests) + " (code changed since target start); target promote runs the function-selected tests once")
     elif not report.bound_tests:
@@ -692,10 +701,14 @@ def promote_target(root: Path, *, jobs: int = 1) -> int:
                     result=subprocess.run(argv+remaining[offset:offset+50],cwd=root,capture_output=True,text=True,encoding='utf-8',errors='replace',env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1',GIT_OPTIONAL_LOCKS='0'))
                     if result.returncode:
                         report.errors.append(TargetFinding('target','selected_tests_failed','function-selected tests failed: '+' '.join(remaining[offset:offset+50])+'\n'+(result.stdout+result.stderr)[-5000:]))
-            if missing:
-                report.errors.append(TargetFinding('target','selected_tests_unavailable',', '.join(missing)))
+            for path in missing:
+                name = Path(path).name
+                _, dot, suffix = name.partition(".")
+                kind = "*." + suffix if dot else path
+                report.errors.append(TargetFinding('target', 'selected_tests_unavailable',
+                                    f'{path}; declare "test_commands" for {kind} in {root / ".flowguard/map.json"}'))
         if report.errors or report.todos:
-            print(render_target_report(report))
+            print(render_target_report(report, root=root))
             print(f"promote refused: {len(report.errors)} error(s), {len(report.todos)} to-do")
             return 1
         if not prepared or not staged_matches or _promotion_inputs(root, current) != inputs:

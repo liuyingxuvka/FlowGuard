@@ -31,7 +31,8 @@ TESTED_BY = {
     'promote_makes_current_equal_merged': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
     'promote_leaves_no_target': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
     'changed_components_become_draft': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
-    'refusal_shows_findings': ['tests/test_target_life_cycle.py:test_refused_promote_prints_the_report'],
+    'refusal_shows_findings': ['tests/test_target_life_cycle.py:test_refused_promote_prints_the_report',
+                              'tests/test_target_life_cycle.py:test_unavailable_tests_next_names_test_commands'],
     'changed_inputs_refuse_promotion': ['tests/test_target_life_cycle.py:test_promote_refuses_inputs_changed_after_its_check',
                                        'tests/test_model_edits.py:test_in_place_edit_of_staged_model_refused'],
     'promote_names_target_deletion': [
@@ -79,6 +80,10 @@ class Promote:
         self.defect = defect
 
     def apply(self, event, state):
+        if event == "REFUSE_UNAVAILABLE" and state.target_count and not (state.edited or state.current_edited):
+            new = replace(state, action=event, status="refused_error",
+                          findings_shown=self.defect not in ("refuses_silently", "unavailable_tests_point_at_design"))
+            return (FunctionResult(new.status, new, label=event),)
         if event == "REFUSE_ERROR" and state.target_count:
             new = replace(state, action=event, status="refused_error", findings_shown=self.defect != "refuses_silently")
             return (FunctionResult(new.status, new, label=event),)
@@ -125,7 +130,7 @@ INVARIANTS = (
                                  "the promotion guidance omitted the target deletion or a usable next step")),
     Invariant("promote_names_stale_components", "confirmation guidance includes changed confirmed components",
               lambda s,t: _holds(s.status != "promoted" or s.stale_components_named, "stale component missing from confirmation")),
-    Invariant("refusal_shows_findings", "refusal shows the actual design error and changes no current bytes",
+    Invariant("refusal_shows_findings", "refusal shows the actual error and changes no current bytes; an unavailable test names test_commands",
               lambda s, t: _holds(s.status != "refused_error" or s.findings_shown, "refusal hid its findings")),
     Invariant("promote_makes_current_equal_merged", "both current map and models equal the prepared merge",
               lambda s, t: _holds(s.status != "promoted" or
@@ -143,7 +148,7 @@ INVARIANTS = (
 
 
 def _explorer(defect=""):
-    return Explorer(Workflow((Promote(defect),)), _starts(), ("PROMOTE", "EDIT_AFTER_CHECK", "EDIT_CURRENT", "REFUSE_ERROR"),
+    return Explorer(Workflow((Promote(defect),)), _starts(), ("PROMOTE", "EDIT_AFTER_CHECK", "EDIT_CURRENT", "REFUSE_ERROR", "REFUSE_UNAVAILABLE"),
                     invariants=INVARIANTS, max_sequence_length=2, progress_steps=0)
 
 
@@ -153,7 +158,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only", "staging_line_omits_target", "promote_overwrites_in_place_edit")}
+            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only", "staging_line_omits_target", "promote_overwrites_in_place_edit", "unavailable_tests_point_at_design")}
 
 
 class RealPromotion:
@@ -178,7 +183,40 @@ class RealPromotion:
         event = step.function_input
         state = replace(self.state, action=event)
         exists = (self.root / ".flowguard/target").exists()
-        if event == "REFUSE_ERROR" and exists:
+        if event == "REFUSE_UNAVAILABLE" and exists and not (self.edit or self.current_edit):
+            import json
+            import shlex
+            missing = "tests/desk.test.js"
+            test = self.root / missing
+            test.write_text("// requires the project's declared test command\n")
+            maps = [self.root / ".flowguard/map.json", self.root / ".flowguard/target/map.json"]
+            saved = {path: path.read_bytes() for path in maps}
+            try:
+                for path in maps:
+                    data = json.loads(path.read_text())
+                    next(component for component in data["components"] if component["id"] == "loans")["tests"].append(missing)
+                    path.write_text(json.dumps(data))
+                paths = [*maps, test, *(self.root / ".flowguard/models").glob("*.py"),
+                         *(self.root / ".flowguard/target/models").glob("*.py")]
+                before = {path: path.read_bytes() for path in paths}
+                output = StringIO()
+                with redirect_stdout(output), redirect_stderr(StringIO()):
+                    code = native.promote_target(self.root)
+                text = output.getvalue()
+                next_line = next((line for line in text.splitlines() if line.startswith("next: ")), "")
+                command = shlex.split(next_line.removeprefix("next: "))
+                shown = (code == 1 and "ERROR target: selected_tests_unavailable:" in text
+                         and 'declare "test_commands" for *.test.js' in text
+                         and str(maps[0].resolve()) in text
+                         and "or bind them to a test FlowGuard can run" in text
+                         and command == ["python", "-m", "flowguard", "target", "promote", "--root", str(self.root.resolve())]
+                         and all(path.exists() and path.read_bytes() == content for path, content in before.items()))
+            finally:
+                for path, content in saved.items():
+                    path.write_bytes(content)
+                test.unlink()
+            state = replace(state, status="refused_error" if code == 1 else "unexpected_success", findings_shown=shown)
+        elif event == "REFUSE_ERROR" and exists:
             import json
             target_map = self.root / ".flowguard/target/map.json"
             saved = target_map.read_bytes()

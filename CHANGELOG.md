@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: a selected test with no command names the project's test_commands setting and gives a runnable promotion command after you declare it, instead of sending you back to the target design.
+
 - Projects using FlowGuard: target promotion rejects a model failure caused by changed shared source, as release does, and names that source; only genuinely unchanged findings remain old warnings.
 
 - Projects using FlowGuard: editing a current model or helper while its target copy exists is an error; promotion refuses to overwrite the edit and points to both files. New targets also protect helper additions and deletions; older targets with an unknown helper baseline ask you to preserve both versions and reopen safely.

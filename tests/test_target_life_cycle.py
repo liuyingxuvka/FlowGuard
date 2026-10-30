@@ -431,6 +431,51 @@ def test_promote_refuses_inputs_changed_after_its_check(tmp_path, capsys, monkey
     assert (root / ".flowguard/target").is_dir() and (root / ".flowguard/map.json").read_bytes() == current
 
 
+def test_unavailable_tests_next_names_test_commands(tmp_path, capsys):
+    import shlex
+    import subprocess
+    import sys
+    from flowguard.map import target as native
+
+    helpers = _target_life_cycle_fixture_helpers()
+    root = helpers["make_project"](tmp_path / "test commands project")
+    helpers["stage_target"](root)
+    helpers["edit_missing_method"](root)
+    helpers["write_method"](root)
+    missing = ["tests/desk.test.js", "tests/desk.spec.js"]
+    for relative in missing:
+        (root / relative).write_text("// caller-declared test command required\n")
+    current_path = root / ".flowguard/map.json"
+    target_path = root / ".flowguard/target/map.json"
+    for path in (current_path, target_path):
+        data = json.loads(path.read_text())
+        next(component for component in data["components"] if component["id"] == "loans")["tests"].extend(missing)
+        path.write_text(json.dumps(data))
+    healthy = native.check_target(root)
+    assert not healthy.errors and not healthy.todos, healthy
+    watched = [current_path, target_path, *sorted((root / ".flowguard/models").glob("*.py")),
+               *sorted((root / ".flowguard/target/models").glob("*.py"))]
+    before = {path: path.read_bytes() for path in watched}
+    capsys.readouterr()
+    assert native.promote_target(root) == 1
+    output = capsys.readouterr().out
+    errors = [line for line in output.splitlines() if line.startswith("ERROR target: selected_tests_unavailable:")]
+    assert len(errors) == 2
+    for relative, kind in zip(missing, ("*.test.js", "*.spec.js")):
+        assert any(relative in line and f'declare "test_commands" for {kind}' in line
+                   and str(current_path.resolve()) in line for line in errors), output
+    assert "or bind them to a test FlowGuard can run" in output
+    command = shlex.split(next(line.removeprefix("next: ") for line in output.splitlines() if line.startswith("next: ")))
+    assert command == ["python", "-m", "flowguard", "target", "promote", "--root", str(root.resolve())]
+    assert all(path.read_bytes() == content for path, content in before.items())
+    data = json.loads(current_path.read_text())
+    data["test_commands"] = {"tests/*.js": "python -c pass"}
+    current_path.write_text(json.dumps(data))
+    result = subprocess.run([sys.executable, *command[1:]], cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not (root / ".flowguard/target").exists()
+
+
 def test_refused_promote_prints_the_report(tmp_path, monkeypatch, capsys):
     import json
     from flowguard.map import target
