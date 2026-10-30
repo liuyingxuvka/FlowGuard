@@ -7,7 +7,7 @@ description: "Start software changes from the living map, executable models and 
 
 ## Start from the model
 
-Read `python -m flowguard read` before source. No map: `map scan`; `references/first_map.md`. Install only `git+https://github.com/liuyingxuvka/FlowGuard.git@<tag>`; tests need pytest>=8.
+At the start of a session and after any loss of context, run `python -m flowguard status` before anything else; follow its NEXT for an open target. Read `python -m flowguard read` before source. No map: `map scan`; `references/first_map.md`. Install only `git+https://github.com/liuyingxuvka/FlowGuard.git@<tag>`; tests need pytest>=8.
 
 1. **node**: one tree rooted at system.
 2. **parent**: `parent`/`PARENT`; omitted: inferred, shown by read.
@@ -28,10 +28,10 @@ Models, tests and code grow together. Split a model that is too big, staged or d
 
 1. `python -m flowguard read --find <words | path:function | path::test>` → deepest owner.
 2. Code only: edit; `python -m flowguard change --run`; re-read stale owners/update changed descriptions; `python -m flowguard map confirm <ids>`; commit.
-3. Model change: `python -m flowguard target start "<goal>"`, `python -m flowguard target add <model>`; edit its `.flowguard/target/models/<model>.py` copy.
-4. `python -m flowguard target check`: fix ERROR; `port_changed_parent_missing` / `port_changed_consumer_unhandled`: `target add` the named model and make it receive the value. Before code: `EXPECTED GAP`; except `moved rules only` or `NO GAP` (no code for that rule; commit `records existing behaviour: <rule>`). Commit the target if planned.
+3. Model change: store only the owner's request once as received with `python -m flowguard req add <file|-> --id <id>` (reuse its ID if stored; never edit `.flowguard/requests/`); `python -m flowguard target start "<goal>" --request <id>`, `python -m flowguard target add <model>`; edit its `.flowguard/target/models/<model>.py` copy. In `.flowguard/target/PLAN.txt`, name changed rules that show NO GAP and functions the change must reach (`changes:` and `touch: <path>:<qualified name>`).
+4. `python -m flowguard target check`: fix ERROR; `port_changed_parent_missing` / `port_changed_consumer_unhandled`: `target add` the named model and make it receive the value. Before code, each changed model shows `EXPECTED GAP`, `moved rules only`, `no rule change` or `NO GAP`. For every changed rule showing NO GAP, put `changes: <model>.<rule> by <id> "<quote>"` (verbatim owner words) or `changes: <model>.<rule> because "<reason>"` in `.flowguard/target/PLAN.txt`; `rule_changed_without_line` names a missing line. Commit the target if planned.
 5. Write code and bound tests; check until no TO-DO remains: after code `target check` prints `GAP CLOSED`/`GAP OPEN` and runs the target models' bound tests.
-6. `python -m flowguard target promote`: one full check; its `map confirm`; commit what its last guidance names, the deletion of `.flowguard/target/` included. Run its absolute `git -C <root> add -A` staging command (POSIX shell quoting), then commit; without Git, preserve those files/deletions and run the printed verification command.
+6. `python -m flowguard target promote`: one full check; its `map confirm`; commit what its last guidance names, the deletion of `.flowguard/target/` included. Run its absolute `git -C <root> add -A` staging command (POSIX shell quoting), then commit; without Git, preserve those files/deletions and run the printed verification command. Paste its owner block, when printed, unchanged into your final message.
 
 change and target promote run a test with a model only when the test is in that model's TESTED_BY or calls the changed function directly; a test that checks a model through the command line must be bound, or only CI runs it (the also reached: line counts them).
 

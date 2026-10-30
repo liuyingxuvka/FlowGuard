@@ -6,7 +6,8 @@ on itself.
 
 ## Every task in this repository
 
-1. `python -m flowguard read` - read the map first; open only the files of the components you touch.
+1. At the start of a session and after any loss of context, run `python -m flowguard status` before anything else.
+   Read `python -m flowguard read` before opening source; open only the files of the components you touch.
 2. Behaviour or structure change: target first (`target start`, `target add`, `target check`, then `target promote`); code-only change: edit directly. Keep responsibilities single-owned; extend the existing owner instead of adding a second one.
 3. `python -m flowguard change` - fix every check error; run the tests and models it lists.
 4. Update the description of every component listed as REVIEW, then `python -m flowguard map confirm <id>`.

@@ -173,7 +173,7 @@
     {
       "id": "templates",
       "layer": "interface",
-      "summary": "Generate model starters, case tests and adoption files; keep existing Claude instructions.",
+      "summary": "Generate model starters, case tests and six adoption rules that start and resume with status, preserve owner requests, name PLAN/check exits and keep existing Claude instructions.",
       "responsibilities": [
         "write each model starter into an open target, or record its current-model digest",
         "make placeholder code and test anchors fail until the user fills them"
@@ -199,7 +199,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:30f1eb6eb00b37f9e045b54503e9e5b67b491134e6d0fbda488f4c24c94a1a67"
+      "fingerprint": "sha256:3bd1a4747540df2a2d3ac1e8d82ea6461913bbc733f750820e52db6a84fd5f52"
     },
     {
       "id": "test-mesh",

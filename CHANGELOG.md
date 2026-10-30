@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: refresh the six adoption rules to start and resume with status, preserve requests as received, name PLAN touch points and the four legal target-check exits, and quote the actual printed owner block unchanged.
+
 - Add a read-only static status command that resumes open plans, keeps unclaimed requests visible with their original context, and names one absolute next command. Hook mode stays silent outside a project; the legacy runtime does not store verdicts or start jobs.
 
 - The adoption template creates CLAUDE.md with @AGENTS.md when missing and preserves existing instructions even with --force. The skill description names when to use the other Guard skills.

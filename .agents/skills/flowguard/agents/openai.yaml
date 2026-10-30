@@ -3,7 +3,9 @@ interface:
   short_description: "Living model tree: map, executable models, tests bound to code"
   default_prompt: >-
     Use $flowguard at the start of every coding session and after every edit.
-    Start with `python -m flowguard read` (the project map), look up existing
+    At session start and after any loss of context, run `python -m flowguard status`
+    first and follow its NEXT for an open target. Read `python -m flowguard read`
+    (the project map) before source, look up existing
     owners with `read --find`, and open only the files of the components you
     touch. Behaviour or structure changes start as a target (`python -m
     flowguard target start`, `target check`, then `target promote` when the

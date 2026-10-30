@@ -33,7 +33,7 @@ def _parse_documented_command_arguments(command: str) -> None:
     verb, rest = words[0], words[1:]
     if verb == "map":
         parser = build_parser()
-    elif verb in {"read", "change", "release", "template", "target", "req"}:
+    elif verb in {"read", "change", "release", "template", "target", "req", "status"}:
         parser = _verb_parser(verb)
     else:
         raise ValueError(f"no documented argument parser for {verb!r}")
@@ -42,6 +42,45 @@ def _parse_documented_command_arguments(command: str) -> None:
 
 
 class SkillPackageTests(unittest.TestCase):
+    def test_template_rule_and_skill_name_the_same_exits(self) -> None:
+        from flowguard.templates import adoption_template_files
+        rules = next(file.content for file in adoption_template_files()
+                     if file.path == 'docs/flowguard_agents_rules.md')
+        numbered = re.findall(r'^\d\. .+$', rules, re.M)
+        self.assertEqual(6, len(numbered))
+        first = ('1. At the start of a session and after any loss of context, '
+                 'run `python -m flowguard status` before anything else.')
+        self.assertEqual(first, numbered[0])
+        own_first = re.search(r'^1\. .+$', (ROOT / 'AGENTS.md').read_text(), re.M)
+        self.assertEqual(first, own_first.group())
+        skill = (SKILL / 'SKILL.md').read_text()
+        prompt = (SKILL / 'agents/openai.yaml').read_text().split('default_prompt:', 1)[1]
+        self.assertLess(prompt.index('python -m flowguard status'), prompt.index('python -m flowguard read'))
+        self.assertIn('after any loss of context', prompt)
+        self.assertIn('NEXT', prompt)
+        loop = skill.split('## The loop\n', 1)[1].split('\n## ', 1)[0]
+        steps = dict(re.findall(r'^(\d)\. (.+)$', loop, re.M))
+        self.assertIn('python -m flowguard status', skill.split('## The loop', 1)[0])
+        for text in (numbered[1], steps['4']):
+            for word in ('EXPECTED GAP', 'moved rules only', 'no rule change', 'NO GAP', 'PLAN.txt', 'changes:', 'because'):
+                self.assertIn(word, text)
+            self.assertNotIn('changes.txt', text)
+        for text in (numbered[1], steps['3']):
+            for word in ('req add <file|-> --id <id>', '--request <id>', 'as received', 'touch:'):
+                self.assertIn(word, text)
+        for text in (numbered[1], steps['6']):
+            self.assertIn('when printed', text)
+            self.assertIn('owner block', text)
+            self.assertIn('unchanged', text)
+
+    def test_request_and_status_documented_arguments_use_actual_parsers(self) -> None:
+        for command in ('req add <file|-> --id <id>', 'req add - --kind glossary --id Words',
+                        'status', 'status --root <root> --json --hook --wait 0'):
+            _parse_documented_command_arguments(command)
+        for command in ('req add --id R7', 'status --not-an-option'):
+            with self.assertRaises(SystemExit):
+                _parse_documented_command_arguments(command)
+
     def test_skill_entry_describes_the_tree(self) -> None:
         text=(SKILL/'SKILL.md').read_text(encoding='utf-8')
         headings=re.findall(r'^## ([^\n]+)',text,re.M)
@@ -121,9 +160,10 @@ class SkillPackageTests(unittest.TestCase):
             for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                 for match in re.finditer(r"python -m flowguard ([^`\n]*)", line):
                     command = re.sub(r"(?<=\S)[.,;:)]+$", "", match.group(1).split("#", 1)[0].strip())
-                    if not command or any(mark in command for mark in ("|", "[", "...")):
+                    illustration = command.replace('<file|->', 'FILE')
+                    if not command or any(mark in illustration for mark in ("|", "[", "...")):
                         continue                      # illustrative alternatives and optional parts
-                    if command.split()[0] not in {"map", "read", "change", "release", "template", "target"}:
+                    if command.split()[0] not in {"map", "read", "change", "release", "template", "target", "req", "status"}:
                         continue                      # top-level flags have no verb argument parser
                     try:
                         _parse_documented_command_arguments(command)
@@ -231,7 +271,7 @@ class SkillPackageTests(unittest.TestCase):
             return found
 
         flags = set().union(*(options(parser) for parser in
-            [*(_verb_parser(verb) for verb in ('read', 'change', 'release', 'template')),
+            [*(_verb_parser(verb) for verb in ('read', 'change', 'release', 'template', 'req', 'status')),
              target_parser(), map_parser()]))
         source = "\n".join(path.read_text(encoding='utf-8')
             for directory in (ROOT / 'flowguard', ROOT / '.flowguard/models')
