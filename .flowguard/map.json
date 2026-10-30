@@ -79,7 +79,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch read, change, map, target, request and release commands with stable exits, typed verdicts and advice.",
+      "summary": "Dispatch public commands with stable exits, typed verdicts and advice; report adoption writes and preserved instructions.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
         "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
@@ -138,7 +138,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fc94561ad8dc65b3c15125d92ed122fa77e84c0bdf2b59a0205a2ebf1f4ec305"
+      "fingerprint": "sha256:070f3468371df1903504aab9e0e7d3fbeb5310e8a03d344b3998f9874ca487ba"
     },
     {
       "id": "public-api",
@@ -173,7 +173,7 @@
     {
       "id": "templates",
       "layer": "interface",
-      "summary": "Generate starter models, matching case tests and adoption rules; put model files in an open target.",
+      "summary": "Generate model starters, case tests and adoption files; keep existing Claude instructions.",
       "responsibilities": [
         "write each model starter into an open target, or record its current-model digest",
         "make placeholder code and test anchors fail until the user fills them"
@@ -199,7 +199,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ce53519ee9a260bc48b56098dfb5addb1c6f59ad931453cad7972e919900a66f"
+      "fingerprint": "sha256:30f1eb6eb00b37f9e045b54503e9e5b67b491134e6d0fbda488f4c24c94a1a67"
     },
     {
       "id": "test-mesh",

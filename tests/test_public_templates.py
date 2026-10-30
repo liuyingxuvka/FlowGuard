@@ -216,7 +216,7 @@ class PublicTemplateTests(unittest.TestCase):
             paths = [file.path for file in factory()]
             self.assertFalse(any(path.endswith("/run_checks.py") for path in paths), name)
             if name == "adoption":
-                self.assertEqual(["docs/flowguard_agents_rules.md"], paths)
+                self.assertEqual(["docs/flowguard_agents_rules.md", "CLAUDE.md"], paths)
             else:
                 models = [p for p in paths if p.startswith(".flowguard/models/") and p.count("/") == 2]
                 self.assertEqual(1, len(models), name)

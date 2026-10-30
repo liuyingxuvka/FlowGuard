@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The adoption template creates CLAUDE.md with @AGENTS.md when missing and preserves existing instructions even with --force. The skill description names when to use the other Guard skills.
+
 - Promotion shows the original PLAN lines, readable old and new rules and the glossary entries used. Requests stored during a change keep their real origin visible; the same owner block is saved in the commit message and returned with JSON output.
 
 - A changed existing rule that shows NO GAP requires an explicit PLAN.txt request quote or reason. Quotes match the stored owner text and a rule term, including confirmed glossary mappings; planned function touches require a real code change.

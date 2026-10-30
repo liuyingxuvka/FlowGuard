@@ -1,6 +1,6 @@
 ---
 name: flowguard
-description: "Start software changes from the living map, executable models and bound tests; extend the owner and verify affected checks."
+description: "Start software changes from the living map, executable models and bound tests; extend the owner and verify affected checks. Use it for any change to code, its behaviour or its structure. Not for: simulation or calculation results → physicsguard; causal claims → researchguard; story or plan consistency → worldguard; long texts → logicwriting."
 ---
 
 # FlowGuard

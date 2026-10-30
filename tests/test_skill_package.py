@@ -144,7 +144,7 @@ class SkillPackageTests(unittest.TestCase):
             self.assertNotEqual(0, bad.returncode)
             self.assertIn("environment variable is unset", bad.stderr)
 
-    def test_adoption_generates_six_project_rules_without_editing_agent_instructions(self) -> None:
+    def test_adoption_generates_six_project_rules_and_claude_md(self) -> None:
         from flowguard.templates import adoption_template_files
         rules = next(f for f in adoption_template_files() if f.path == "docs/flowguard_agents_rules.md")
         self.assertEqual(6, len(re.findall(r"^\d\. ", rules.content, re.M)))
@@ -156,8 +156,32 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn('extend it',target_rule)
         after_rule=next(line for line in rules.content.splitlines() if line.startswith('4. '))
         for required in ('port changed','consumes','promises:','grow together'):self.assertIn(required,after_rule)
-        self.assertFalse(any(f.path in ("AGENTS.md", "CLAUDE.md") for f in adoption_template_files()))
-        self.assertEqual(["docs/flowguard_agents_rules.md"], [f.path for f in adoption_template_files()])
+        self.assertFalse(any(f.path == "AGENTS.md" for f in adoption_template_files()))
+        self.assertEqual(["docs/flowguard_agents_rules.md", "CLAUDE.md"], [f.path for f in adoption_template_files()])
+        self.assertEqual("@AGENTS.md\n", next(f.content for f in adoption_template_files() if f.path == "CLAUDE.md"))
+        from flowguard.__main__ import main
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(0, main(["template", "adoption", "--write", directory]))
+            claude = root / "CLAUDE.md"
+            self.assertEqual(b"@AGENTS.md\n", claude.read_bytes())
+            original = "# Existing instructions\r\n保持原文。\r\n".encode()
+            claude.write_bytes(original)
+            stamp = claude.stat().st_mtime_ns
+            (root / "docs/flowguard_agents_rules.md").write_text("replace this generated file", encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(0, main(["template", "adoption", "--write", directory, "--force"]))
+            self.assertEqual(original, claude.read_bytes())
+            self.assertEqual(stamp, claude.stat().st_mtime_ns)
+            self.assertEqual(rules.content, (root / "docs/flowguard_agents_rules.md").read_text(encoding="utf-8"))
+            self.assertIn("kept CLAUDE.md (it exists): make sure it holds the line @AGENTS.md", output.getvalue())
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(0, main(["template", "adoption"]))
+        self.assertIn("===== CLAUDE.md =====\n@AGENTS.md\n", output.getvalue())
 
     def test_installer_copies_the_skill(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

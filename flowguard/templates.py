@@ -34,6 +34,7 @@ Copy these six rules into the project's AGENTS.md or CLAUDE.md:
 5. Re-read each REVIEW component, update its description if behavior changed, then `python -m flowguard map confirm ID`.
 6. At final release, freeze the source and run the full suite and `python -m flowguard release` once on that revision (same-SHA CI may provide this); report failures and unrun checks honestly.
 """),
+        TemplateFile("CLAUDE.md", "@AGENTS.md\n"),
     )
 
 
@@ -142,10 +143,20 @@ def write_template_files(
         staged = (target_root / ".flowguard/target").is_dir() and file.path.startswith(".flowguard/models/")
         relative = file.path.replace(".flowguard/models/", ".flowguard/target/models/", 1) if staged else file.path
         target = target_root / relative
+        protected = file.path == "CLAUDE.md"
+        if protected and (target.exists() or target.is_symlink()):
+            continue
         if target.exists() and not overwrite:
             raise FileExistsError(f"template target already exists: {target}")
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(file.content, encoding="utf-8")
+        if protected:
+            try:
+                with target.open("xb") as stream:
+                    stream.write(file.content.encode("utf-8"))
+            except FileExistsError:
+                continue
+        else:
+            target.write_text(file.content, encoding="utf-8")
         written.append(target)
     if any(p.parent == target_root / ".flowguard/models" for p in written) and (target_root / ".flowguard/map.json").is_file():
         from .map.mapfile import load_map, model_digests, save_map
