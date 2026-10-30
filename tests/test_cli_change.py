@@ -97,6 +97,7 @@ def test_change_prints_info_only_for_changed_owners(tmp_path, capsys):
     )
     data["accepted_debts"] = [
         {
+            "expires": "9999-12-31",
             "code": "entrypoint_unmodeled",
             "component": "lib",
             "reason": "covered by an integration test",

@@ -333,7 +333,7 @@ def test_settings_only_map_edit_is_not_structure(tmp_path):
     )
     data["components"][0].setdefault("tests", []).append("tests/test_more.py")
     data.setdefault("accepted_debts", []).append(
-        dict(code="high_fan_out", component=data["components"][0]["id"], reason="probe")
+        dict(expires='9999-12-31', code="high_fan_out", component=data["components"][0]["id"], reason="probe")
     )
     (tmp_path / ".flowguard/map.json").write_text(json.dumps(data))
     impact = compute_impact(

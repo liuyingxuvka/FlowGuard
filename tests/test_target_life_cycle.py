@@ -289,7 +289,7 @@ def test_target_check_warns_about_debts_it_makes_stale(tmp_path, capsys):
     import json
     root = shelf_project(tmp_path)
     data = _load_map(root)
-    data["accepted_debts"] = [{"code": "untested_component", "component": "members",
+    data["accepted_debts"] = [{"expires": "9999-12-31", "code": "untested_component", "component": "members",
                                "reason": "members are tested through the loans tests"}]
     _write_map(root, data)
     capsys.readouterr()

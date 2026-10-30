@@ -118,7 +118,7 @@ def model_facets(root: Path, node, *, view=None) -> Facets:
     bad = known if literal_bad else ()
     from .mapfile import load_map, MapError, process_model_reason
     try:
-        reason = process_model_reason(view.data if view is not None else load_map(root), contract)
+        reason = process_model_reason(view.data if view is not None else load_map(root), contract, root=root)
     except MapError:
         reason = ""
     code = [f"{block} -> {anchor}" for block, anchor in sorted(contract.get("IMPLEMENTED_BY", {}).items())]
@@ -239,7 +239,7 @@ def component_facets(root: Path, data: dict, inv: Inventory, component: dict, tr
     rules = responsibilities + (
         f"layer {component.get('layer') or '-'} may use: " + (", ".join(scoped.get("depends_on", [])) or "-"),)
     return Facets(component.get("summary") or "(no summary yet)", rules, "map",
-                  tuple(dict.fromkeys(name for member in members for name, _, _ in architecture_variants(data, graph, only=member["id"]))), "system", tuple(code), tests,
+                  tuple(dict.fromkeys(name for member in members for name, _, _ in architecture_variants(data, graph, only=member["id"], root=root))), "system", tuple(code), tests,
                   len(responsibilities), count)
 
 
@@ -248,7 +248,7 @@ def system_facets(data: dict, inv: Inventory, tree, graph, functions, *, coverag
     return Facets(f"{data.get('project', '')}: {len(data['components'])} components",
                   ("layers order: " + (" > ".join(data.get("layers", [])) or "none"),
                    "no unaccepted dependency cycle", "one owner per responsibility"), "map",
-                  tuple(name for name, _, _ in architecture_variants(data, graph)), "system-root",
+                  tuple(name for name, _, _ in architecture_variants(data, graph, root=inv.root)), "system-root",
                   (f"{len(data['components'])} components, {len(inv.source)} source files",)
                   + ((coverage_line(coverage, summary=True),) if coverage is not None else ()), tests, 3, count)
 

@@ -276,7 +276,7 @@ def test_read_header_keeps_size_advice_out_of_warning_count(tmp_path):
     head = render_show(tmp_path, data, inv, component=None, detail=False).splitlines()[0]
     assert "0 warning(s), 0 accepted debt(s)" in head, head
     data["accepted_debts"] = [
-        dict(code="too_many_responsibilities", component="busy", reason="one table of duties")
+        dict(expires='9999-12-31', code="too_many_responsibilities", component="busy", reason="one table of duties")
     ]
     head = render_show(tmp_path, data, inv, component=None, detail=False).splitlines()[0]
     assert "0 warning(s), 1 accepted debt(s)" in head, head

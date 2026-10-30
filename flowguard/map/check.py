@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .common import Finding, glob_match, is_test_file, read_source, matches_any, parse_test_anchor
 from .inventory import Inventory
+from .debts import evaluate_debts
 from .mapfile import MapError, load_map, component_files, component_graph, component_scope, component_state, dependency_evidence, flow_step_parts, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
 from .tree import component_parent_findings
 
@@ -54,8 +55,9 @@ def anchor_problems(root: Path, anchors) -> dict[str, str]:
     return {anchor: problem for anchor in anchors if (problem := anchor_problem(root, inv, anchor))}
 
 
-def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, view=None) -> list[Finding]:
-    out: list[Finding] = []
+def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, view=None, evaluation=None) -> list[Finding]:
+    evaluation = evaluation if evaluation is not None else evaluate_debts(root, data)
+    out: list[Finding] = evaluation.diagnostics(strict=strict)
     out.extend(component_parent_findings(data))
     by_id = {c["id"]: c for c in data["components"]}
     children = {c.get("parent") for c in data["components"] if c.get("parent") in by_id}
@@ -123,7 +125,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
             if "MODEL_ID" not in contract or "build_explorer" not in contract["functions"]:
                 out.append(Finding("error", "model_contract", "", f"{rel}: needs MODEL_ID and def build_explorer()"))
         from .mapfile import process_model_reason
-        process = process_model_reason(data, contract)
+        process = process_model_reason(data, contract, root=root, evaluation=evaluation)
         if not contract.get("IMPLEMENTED_BY"):
             out.append(Finding("error", "model_anchor_missing", entry.id,
                                f"{rel}: declares no IMPLEMENTED_BY anchors; name the real code it checks "
@@ -168,10 +170,10 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     graph = component_graph(data, inv)
     from .discover import discover_inventory
     raw = discover_inventory(root, inv, write_cache=view is None, data=data)
-    evidence_graph = dependency_evidence(data, inv, raw)
+    evidence_graph = dependency_evidence(data, inv, raw, evaluation=evaluation)
     from .lint import apply_accepted_debts, duplicate_owner_findings, normalized_debts, structural_findings
     out.extend(apply_accepted_debts(structural_findings(data, graph, root=root, inv=inv) + duplicate_owner_findings(data),
-                                    normalized_debts(data))[0])
+                                    normalized_debts(data), evaluation=evaluation)[0])
     declared_entries: dict[str, set[str]] = {}
     for component in data["components"]:
         for anchor in component.get("entrypoints", []):
@@ -235,18 +237,20 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     entry_findings = entrypoint_coverage_findings(raw, data, inv, covered, not_modeled=not_modeled,
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in data["components"]})
     entry_findings.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
-    out.extend(apply_accepted_debts(entry_findings, data.get("accepted_debts", []))[0])
+    out.extend(apply_accepted_debts(entry_findings, data.get("accepted_debts", []), evaluation=evaluation)[0])
     for directory in data.get("import_roots", []):
         if not (root / directory).is_dir():
             out.append(Finding("warn", "import_root_missing", "", f"import root directory missing: {directory}"))
     from .lint_models import model_size_findings
-    out.extend(apply_accepted_debts(model_size_findings(root,data,inv,view=view,tree=tree),data.get('accepted_debts',[]))[0])
+    out.extend(apply_accepted_debts(model_size_findings(root, data, inv, view=view, tree=tree),
+                                    data.get('accepted_debts', []), evaluation=evaluation)[0])
     from .testtree import test_file_findings
-    out.extend(apply_accepted_debts(test_file_findings(root,data,inv,tree),data.get('accepted_debts',[]))[0])
+    out.extend(apply_accepted_debts(test_file_findings(root, data, inv, tree),
+                                    data.get('accepted_debts', []), evaluation=evaluation)[0])
     out.extend(model_edit_findings(root, load_map(root) if view is not None else data, stale_level))
     for finding in out:
         if finding.code == "model_anchor_missing":
-            apply_accepted_debts([finding], data.get("accepted_debts", []))
+            apply_accepted_debts([finding], data.get("accepted_debts", []), evaluation=evaluation)
     return out
 
 

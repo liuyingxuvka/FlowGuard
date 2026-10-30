@@ -54,7 +54,7 @@ def render_show(
         comps = [c for c in comps if c["id"] in descendants or c["id"].startswith(component + ".")]
         if not comps:
             return f"no component {component!r}; run 'python -m flowguard read' to list components"
-    architecture, debts, problems = _architecture(data, graph)
+    architecture, debts, problems = _architecture(data, graph, root=root)
     head = _show_header(data, graph, inv, architecture=architecture, debts=debts)
     model_ids = {node.path: node.id for node in tree.nodes.values()}
     flows = (
@@ -109,7 +109,7 @@ def render_show(
         " (python -m flowguard read --find <test path>)"
     )
     relation = relations(root, data, inv, tree, raw)
-    models_line = relations_line(data, tree, relation)
+    models_line = relations_line(data, tree, relation, root=root)
     essential = "\n".join(
         [
             head,
@@ -262,7 +262,7 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
         records = {**old, **new}
         model_data = {mid: record[1] for (kind, mid), record in records.items() if kind == "model"}
         component_data = {c["id"]: records[("component", c["id"])][1] for c in comps}
-    _, _, problems = _architecture(data, graph)
+    _, _, problems = _architecture(data, graph, root=root)
     homes = {c["id"] for c in comps}
     all_models = list(tree.nodes.values())
     if target is not None:

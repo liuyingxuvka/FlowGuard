@@ -10,7 +10,7 @@ from .mapfile import component_files, component_scope, component_subtree, compon
 
 LIST_LIMITS = {"model_tests": 3, "test_files": 5, "code_files": 8}
 
-def _architecture(data: dict, graph: dict[str, set[str]]):
+def _architecture(data: dict, graph: dict[str, set[str]], *, root=None):
     """Only cheap cycle/layer/duplicate-owner rules; share full debt normalization with lint."""
     findings, by_component = structural_findings(data, graph) + duplicate_owner_findings(data), defaultdict(list)
     for finding in findings:
@@ -20,7 +20,7 @@ def _architecture(data: dict, graph: dict[str, set[str]]):
             members = finding.message.split(";", 1)[0].split(" <-> ") if finding.code == "dependency_cycle" else [finding.component]
         for cid in members:
             by_component[cid].append(finding)
-    findings, used = apply_accepted_debts(findings, normalized_debts(data))
+    findings, used = apply_accepted_debts(findings, normalized_debts(data), root=root)
     return findings, used, by_component
 
 def _capped(items, limit: int) -> str:
@@ -393,9 +393,9 @@ def _flow_lines(data, tree, facets, cid, limit=5):
 def _show_header(data, graph, inv, *, architecture=None, debts=None):
     """Errors from the cheap structural rules; warnings only from the map-and-size checks (no code scan)."""
     if architecture is None:
-        architecture, debts, _ = _architecture(data, graph)
+        architecture, debts, _ = _architecture(data, graph, root=inv.root)
     shapes, shape_debts = apply_accepted_debts(
-        shape_findings(data, inv, graph), normalized_debts(data)
+        shape_findings(data, inv, graph), normalized_debts(data), root=inv.root
     )
     head = f"# {data.get('project', '')}: system, {len(data['components'])} components"
     head += (
@@ -413,10 +413,10 @@ def _show_header(data, graph, inv, *, architecture=None, debts=None):
     )
 
 
-def relations_line(data, tree, graph):
+def relations_line(data, tree, graph, *, root=None):
     from .mapfile import process_model_reason
 
-    process = sum(bool(process_model_reason(data, node.contract)) for node in tree.nodes.values())
+    process = sum(bool(process_model_reason(data, node.contract, root=root)) for node in tree.nodes.values())
     placed = [node for node in tree.nodes.values() if node.parent_kind != "model"]
     parents = {parent for parent, child, kind in graph.composition}
     dispatched = {parent for parent, child, kind in graph.composition if kind.startswith("branch ")}

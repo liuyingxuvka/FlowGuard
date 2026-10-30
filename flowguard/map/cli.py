@@ -224,18 +224,28 @@ def cmd_check(root: Path, a) -> int:
 
 
 def cmd_lint(root: Path, a) -> int:
+    from .debts import evaluate_debts
+
     data, inv = _context(root)
+    evaluation = evaluate_debts(root, data)
     limits = Limits()
-    findings = run_lint(root, data, inv, limits)
+    findings = run_lint(root, data, inv, limits, evaluation=evaluation)
     if getattr(a, "debts", False):
         from .review import declined_debts
         matched = declined_debts(root, data, inv)
-        for debt in data.get("accepted_debts", []):
+        for state, debt in zip(evaluation.states, data.get("accepted_debts", [])):
             used = any(f.code == debt["code"] and f.component == debt.get("component", f.component)
                        and "(accepted debt:" in f.message for f in findings)
             if debt.get("code") in {"unmodeled_owner", "hub", "flow_without_model", "unbound_models"}:
                 used = (debt["code"], debt.get("component", "")) in matched
-            print(f"{debt['code']} {debt.get('component', '')}: {debt['reason']}" + ("" if used else " (unused)"))
+            used = used and state.status == "active"
+            print(f"{debt['code']} {debt.get('component', '*')}: {debt.get('reason', '')}"
+                  f" (expires {debt.get('expires', '')})"
+                  + (" (expired)" if state.status == "expired" else "")
+                  + ("" if used else " (unused)"))
+        deadlines = [finding for finding in findings if finding.code in {"debt_without_expiry", "debt_expired"}]
+        if deadlines:
+            print_findings(deadlines, "debt deadlines", as_json=False, limit=a.limit)
         return int(any(f.level == "error" for f in findings))
     counts = print_findings(findings, "lint", as_json=a.json, limit=a.limit)
     return 1 if counts["error"] else 0
@@ -437,6 +447,8 @@ def cmd_models(root: Path, a) -> int:
 
 
 def cmd_verify(root: Path, a) -> int:
+    from .debts import evaluate_debts
+
     if (root / TARGET_RELDIR).exists():
         try:
             target = load_target(root)
@@ -445,8 +457,9 @@ def cmd_verify(root: Path, a) -> int:
             goal = "<invalid target>"
         print(f'warning: target "{goal}" exists: release checks only the current tree; promote or drop the target before releasing')
     data, inv = _context(root)
-    check = print_findings(run_check(root, data, inv, strict=True), "check --strict", as_json=False, limit=a.limit)
-    findings = run_lint(root, data, inv)
+    evaluation = evaluate_debts(root, data)
+    check = print_findings(run_check(root, data, inv, strict=True, evaluation=evaluation), "check --strict", as_json=False, limit=a.limit)
+    findings = run_lint(root, data, inv, evaluation=evaluation)
     lint = {level: sum(f.level == level for f in findings) for level in ("error", "warn", "info")}
     print(f"lint: {lint['error']} error(s) gating; {lint['warn']} warning(s), {lint['info']} info not gating (run python -m flowguard map lint)")
     if lint["error"]:

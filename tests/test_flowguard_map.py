@@ -444,7 +444,7 @@ def test_check_and_lint_report_cycles_with_the_shortest_import_path(tmp_path, ca
     out = capsys.readouterr().out
     assert code == 1 and out.count("dependency_cycle") == 1
     assert "ARCH ERROR dependency_cycle" in out
-    debt = {"code": "dependency_cycle", "reason": "preserve this existing cycle"}
+    debt = {"expires": "9999-12-31", "code": "dependency_cycle", "reason": "preserve this existing cycle"}
     debt.update(
         {"members": ["a", "b", "c"]}
         if debt_style == "members"
@@ -695,8 +695,8 @@ def test_debt_findings_hidden_outside_lint_debts(tmp_path, capsys):
         "schema": "flowguard.map.v1",
         "components": components,
         "accepted_debts": [
-            {"code": "dependency_cycle", "members": ["a", "b"], "reason": "first existing cycle"},
-            {"code": "dependency_cycle", "members": ["c", "d"], "reason": "second existing cycle"},
+            {"expires": "9999-12-31", "code": "dependency_cycle", "members": ["a", "b"], "reason": "first existing cycle"},
+            {"expires": "9999-12-31", "code": "dependency_cycle", "members": ["c", "d"], "reason": "second existing cycle"},
         ],
     }
     (directory / "map.json").write_text(json.dumps(data))

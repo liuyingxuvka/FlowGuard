@@ -52,7 +52,7 @@ def test_shape_findings_are_advice(tmp_path, capsys, monkeypatch):
     assert "lint: 0 error(s) gating; 0 warning(s)," in output, output
 
     data["accepted_debts"] = [{"code": "large_file", "component": "app",
-                               "reason": "one actual unit of work"}]
+                               "reason": "one actual unit of work", "expires": "9999-12-31"}]
     save(tmp_path, data)
     loaded, inv = cli._context(tmp_path)
     findings = lint.run_lint(tmp_path, loaded, inv)
@@ -66,6 +66,77 @@ def test_shape_findings_are_advice(tmp_path, capsys, monkeypatch):
     missing_tests["components"][0]["tests"] = []
     assert any(finding.code == "untested_component" and finding.level == "warn"
                for finding in lint.shape_findings(missing_tests, inv, {"app": {"lib"}, "lib": set()}))
+
+
+def test_debt_without_expiry_refused(tmp_path, capsys):
+    data = project(tmp_path)
+    assert main(["map", "--root", str(tmp_path), "confirm", "all"]) == 0
+    data = json.loads((tmp_path / ".flowguard/map.json").read_text())
+    invalid = [
+        {"reason": "covered elsewhere"},
+        {"expires": "9999-12-31"},
+        {"expires": "v1.0.0"},
+        {"reason": "  ", "expires": "9999-12-31"},
+        {"reason": ["not text"], "expires": "9999-12-31"},
+        {"reason": "covered elsewhere", "expires": "tomorrow"},
+        {"reason": "covered elsewhere", "expires": "2026-02-30"},
+        {"reason": "covered elsewhere", "expires": "20261030"},
+        {"reason": "covered elsewhere", "expires": "v1.0.0"},
+    ]
+    for fields in invalid:
+        data["accepted_debts"] = [{"code": "entrypoint_unmodeled", "component": "app", **fields}]
+        save(tmp_path, data)
+        for arguments in (("check",), ("check", "--strict"), ("lint",)):
+            assert main(["map", "--root", str(tmp_path), *arguments]) == 1, fields
+            output = capsys.readouterr().out
+            assert "debt_without_expiry: accepted debt entrypoint_unmodeled app needs reason and expires" in output
+            if fields.get("expires") == "v1.0.0":
+                assert "this project has no version in pyproject.toml: use a date" in output
+    data["accepted_debts"] = [{"code": "entrypoint_unmodeled", "component": "app",
+                               "reason": "covered elsewhere", "expires": "9999-12-31"}]
+    save(tmp_path, data)
+    assert main(["map", "--root", str(tmp_path), "check", "--strict"]) == 0
+    assert "debt_without_expiry" not in capsys.readouterr().out
+
+
+def test_expired_debt_fails_release(tmp_path, capsys):
+    from datetime import date, timedelta
+
+    data = project(tmp_path)
+    (tmp_path / "tests/test_app.py").unlink()
+    data["components"][0]["tests"] = []
+    save(tmp_path, data)
+    assert main(["map", "--root", str(tmp_path), "confirm", "all"]) == 0
+    data = json.loads((tmp_path / ".flowguard/map.json").read_text())
+    for deadline in (date.today() - timedelta(days=1), date.today()):
+        data["accepted_debts"] = [{"code": "untested_component", "component": "app",
+                                   "reason": "verified through callers", "expires": deadline.isoformat()}]
+        save(tmp_path, data)
+        loaded, inv = _context(tmp_path)
+        findings = run_check(tmp_path, loaded, inv)
+        assert any(f.code == "debt_expired" and f.level == "warn" for f in findings)
+        assert any(f.code == "debt_expired" and f.level == "error"
+                   for f in run_check(tmp_path, loaded, inv, strict=True))
+        lint = run_lint(tmp_path, loaded, inv)
+        assert any(f.code == "untested_component" and f.level == "warn" for f in lint)
+        assert not any(f.code == "debt_stale" for f in lint)
+        assert main(["map", "--root", str(tmp_path), "check", "--strict"]) == 1
+        assert "debt_expired: untested_component app expired at " + deadline.isoformat() in capsys.readouterr().out
+        assert main(["release", "--root", str(tmp_path)]) == 1
+        assert "verify: FAIL" in capsys.readouterr().out
+    data["accepted_debts"][0]["expires"] = (date.today() + timedelta(days=1)).isoformat()
+    save(tmp_path, data)
+    assert main(["map", "--root", str(tmp_path), "check", "--strict"]) == 0
+    assert main(["release", "--root", str(tmp_path)]) == 0
+    assert "debt_expired" not in capsys.readouterr().out
+
+    write(tmp_path, "pyproject.toml", '[project]\nname = "expiry-probe"\nversion = "1.2.3"\n')
+    for deadline, expired in (("v1.2.2", True), ("v1.2.3", True), ("v1.2.4", False)):
+        data["accepted_debts"][0]["expires"] = deadline
+        save(tmp_path, data)
+        loaded, inv = _context(tmp_path)
+        findings = run_check(tmp_path, loaded, inv, strict=True)
+        assert any(f.code == "debt_expired" for f in findings) is expired
 
 def test_identical_info_grouped_into_one_line(capsys, tmp_path, monkeypatch):
     import json
@@ -145,11 +216,13 @@ def test_accepted_debts_mean_the_same_in_check_and_lint(tmp_path):
             "component": "app",
             "contains": "lib",
             "reason": "loaded by path at runtime",
+            "expires": "9999-12-31",
         },
         {
             "code": "entrypoint_unmodeled",
             "component": "app",
             "reason": "file output is covered by an integration test",
+            "expires": "9999-12-31",
         },
     ]
     save(tmp_path, data)
@@ -315,6 +388,7 @@ class Other:
             component="proxy",
             contains=symbol,
             reason="An existing ordering path awaits model extension",
+            expires="9999-12-31",
         )
         for symbol in ["Proxy.move_to_end", "Proxy.__delitem__"]
     ]

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .common import Finding, matches_any, read_source, tokens
+from .debts import evaluate_debts
 from .discover import anchor_state_writes, discover_inventory, reachable_effects
 from .inventory import Inventory, is_type_checking_guard, parse_python, resolve_import
 from .tree import build_tree
@@ -101,7 +102,10 @@ def normalized_debts(data: dict) -> list[dict]:
             for debt in data.get("accepted_debts", [])]
 
 
-def apply_accepted_debts(findings: list[Finding], debts: list[dict]) -> tuple[list[Finding], set[int]]:
+def apply_accepted_debts(findings: list[Finding], debts: list[dict], *,
+                         root=None, evaluation=None) -> tuple[list[Finding], set[int]]:
+    evaluation = evaluation if evaluation is not None else evaluate_debts(root, {"accepted_debts": debts})
+    eligible = evaluation.active_indices
     used = set()
     component_ids = {f.component for f in findings}
     for finding in findings:
@@ -117,7 +121,7 @@ def apply_accepted_debts(findings: list[Finding], debts: list[dict]) -> tuple[li
         if f.code == "dependency_cycle":
             members = _cycle_members(f.message)
             matches = [(index, _debt_members(debt, component_ids)) for index, debt in enumerate(debts)
-                       if debt.get("code") == f.code]
+                       if index in eligible and debt.get("code") == f.code]
             matches = [(index, group) for index, group in matches
                        if group and (members <= group or group <= members)]
             used.update(index for index, _ in matches)
@@ -133,6 +137,8 @@ def apply_accepted_debts(findings: list[Finding], debts: list[dict]) -> tuple[li
                               f"new members {', '.join(sorted(members - group))}")
             continue
         for index, debt in enumerate(debts):
+            if index not in eligible:
+                continue
             if f.code == debt["code"] and debt.get("component", f.component) == f.component \
                     and debt.get("contains", "") in f.message:
                 used.add(index)
@@ -213,9 +219,9 @@ def dropped_owner_findings(current_data: dict, merged_data: dict, target) -> lis
     return out
 
 
-def architecture_findings(data, graph, *, root=None, inv=None):
+def architecture_findings(data, graph, *, root=None, inv=None, evaluation=None):
     raw = structural_findings(data, graph, root=root, inv=inv) + duplicate_owner_findings(data)
-    return apply_accepted_debts(raw, normalized_debts(data))[0]
+    return apply_accepted_debts(raw, normalized_debts(data), root=root, evaluation=evaluation)[0]
 
 
 def reachable(graph, start, target):
@@ -230,7 +236,7 @@ def reachable(graph, start, target):
     return False
 
 
-def architecture_variants(data, graph, *, only=None):
+def architecture_variants(data, graph, *, only=None, root=None):
     """At most one new layer edge, closing edge and copied claim per component.
 
     Only a positive accepted-debt finding skips a mutation. Missing rule output
@@ -249,7 +255,7 @@ def architecture_variants(data, graph, *, only=None):
                 continue
             changed = {key: set(values) for key, values in graph.items()}
             changed[src].add(dst)
-            matching = [f for f in architecture_findings(data, changed) if f.code == "layer_violation"
+            matching = [f for f in architecture_findings(data, changed, root=root) if f.code == "layer_violation"
                         and f.component == src and f"({dst}):" in f.message]
             if matching and all(f.level == "info" for f in matching):
                 continue
@@ -260,7 +266,7 @@ def architecture_variants(data, graph, *, only=None):
                 continue
             changed = {key: set(values) for key, values in graph.items()}
             changed[dst].add(src)
-            matching = [f for f in architecture_findings(data, changed) if f.code == "dependency_cycle"
+            matching = [f for f in architecture_findings(data, changed, root=root) if f.code == "dependency_cycle"
                         and {src, dst} <= set(f.message.split(";", 1)[0].split(" <-> "))]
             if matching and all(f.level == "info" for f in matching):
                 continue
@@ -277,7 +283,7 @@ def architecture_variants(data, graph, *, only=None):
                 continue
             changed_data = deepcopy(data)
             next(c for c in changed_data["components"] if c["id"] == dst)["responsibilities"].append(claim)
-            matching = [f for f in architecture_findings(changed_data, graph) if f.code == "duplicate_owner"
+            matching = [f for f in architecture_findings(changed_data, graph, root=root) if f.code == "duplicate_owner"
                         and repr(" ".join(sorted(tokens(claim)))) in f.message]
             if matching and all(f.level == "info" for f in matching):
                 continue
@@ -330,9 +336,11 @@ def run_lint(
     *,
     view=None,
     write_cache: bool | None = None,
+    evaluation=None,
 ) -> list[Finding]:
     """All architecture findings; disposable caches are written only for the current tree unless write_cache=False."""
     write_cache = view is None if write_cache is None else write_cache
+    evaluation = evaluation if evaluation is not None else evaluate_debts(root, data)
     limits = limits or Limits()
     comps = data["components"]
     graph = component_graph(data, inv)
@@ -510,8 +518,9 @@ def run_lint(
                     f"{entry.path}: no implementation anchors",
                 )
             )
-    out, used = apply_accepted_debts(out, normalized_debts(data))
-    out.extend(stale_debt_findings(data, inv, raw, used))
+    out, used = apply_accepted_debts(out, normalized_debts(data), evaluation=evaluation)
+    out.extend(stale_debt_findings(data, inv, raw, used, evaluation=evaluation))
+    out.extend(evaluation.diagnostics())
     return out
 
 
@@ -519,17 +528,19 @@ REVIEW_DEBTS = {"unmodeled_owner", "hub", "flow_without_model", "never_imported"
 CLOSABLE_DEBTS = REVIEW_DEBTS | {"large_model", "large_test_file", "test_file_mixes_models"}
 
 
-def stale_debt_findings(data: dict, inv: Inventory, raw: dict, used: set[int]) -> list[Finding]:
+def stale_debt_findings(data: dict, inv: Inventory, raw: dict, used: set[int], *, evaluation=None) -> list[Finding]:
     """WARN debt_stale for each accepted debt that matched no finding (``used`` from apply_accepted_debts)."""
     debts = normalized_debts(data)
+    evaluation = evaluation if evaluation is not None else evaluate_debts(inv.root, data)
+    eligible = evaluation.active_indices
     # A dep_unused debt is used by check while its declared edge has no other evidence.
     bare = dependency_evidence({**data, "accepted_debts": []}, inv, raw)
     declared = {c["id"]: set(c.get("depends_on", [])) for c in data["components"]}
-    used = set(used) | {index for index, debt in enumerate(debts) if debt.get("code") == "dep_unused"
+    used = set(used) | {index for index, debt in enumerate(debts) if index in eligible and debt.get("code") == "dep_unused"
                         and debt.get("contains") in declared.get(debt.get("component"), set())
                         and debt.get("contains") not in bare.get(debt.get("component"), set())}
     return [Finding("warn", "debt_stale", debt.get("component", ""), f"accepted debt matches no finding: {debt['reason']}")
-            for index, debt in enumerate(debts) if index not in used and debt.get("code") not in REVIEW_DEBTS]
+            for index, debt in enumerate(debts) if index in eligible and index not in used and debt.get("code") not in REVIEW_DEBTS]
 
 
 def test_source(root, path, source_cache=None):

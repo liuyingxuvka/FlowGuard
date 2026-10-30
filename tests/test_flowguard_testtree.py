@@ -69,7 +69,7 @@ def test_mixed_file_and_large_file_are_named(tmp_path):
     assert len(mixed)==2 and all(row.level=='warn' for row in mixed)
     assert mixed[0].message=="tests/test_mix.py: move A's 3 bound test(s) to tests/test_A.py (6 test functions in the file; split before 6 per subtree)"
     assert len(large)==1 and large[0].message=='tests/test_big.py: 41 test functions (soft limit 40; split before 60); split it by model: - bound; 41 unbound (move each by the split rule of references/routes.md#Split a test file)'
-    debts=[dict(code=row.code,component=row.component,reason='finite fixture') for row in rows]
+    debts=[dict(expires='9999-12-31', code=row.code,component=row.component,reason='finite fixture') for row in rows]
     assert all(row.level=='info' for row in apply_accepted_debts(rows,debts)[0])
     # Both unrelated roots now bind six functions; the size file also crosses 60.
     mix=tmp_path/'tests/test_mix.py'

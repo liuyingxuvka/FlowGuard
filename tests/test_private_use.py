@@ -58,6 +58,7 @@ def test_lint_reports_private_names_used_across_components(tmp_path):
     assert "_helper" in messages and "_other" in messages and "a/x.py:1" in messages, messages
     assert "__version__" not in messages and "b/z.py" not in messages and "tests/" not in messages
     debt = {
+        "expires": "9999-12-31",
         "code": "private_cross_component_use",
         "component": "a",
         "contains": "_helper",

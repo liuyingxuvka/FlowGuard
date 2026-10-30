@@ -93,8 +93,10 @@ def _defect_lines(findings) -> list[str]:
 
 
 def _candidates(findings, data, inv, graph, tree, coverage, rows, *, matched=None):
+    from .debts import active_debts
+
     steps = []
-    closed = {(debt.get("code"), debt.get("component")) for debt in data.get("accepted_debts", [])}
+    closed = {(debt.get("code"), debt.get("component")) for debt in active_debts(data, root=inv.root)}
     matched = matched if matched is not None else set()
     def offer(kind, component, detail, size, **kw):
         code = kw.get("code") or kind
@@ -142,6 +144,8 @@ def _candidates(findings, data, inv, graph, tree, coverage, rows, *, matched=Non
 
 
 def render_review(root: Path, data: dict, inv: Inventory, *, _declined=None) -> str:
+    from .debts import active_debts
+
     graph = component_graph(data, inv)
     tree = build_tree(root, data, inv)
     model_data = {mid: model_facets(root, node) for mid, node in tree.nodes.items()}
@@ -235,7 +239,7 @@ def render_review(root: Path, data: dict, inv: Inventory, *, _declined=None) -> 
         "components: id layer files/loc duties uses/used-by models(rules/known-bad) tests(bound/functions) unexplained",
     ]
     after = ["optimise next:" + ("" if ranked else " nothing to rank"), *ranked]
-    decisions = [d for d in debts if d.get("code") in CLOSABLE_DEBTS]
+    decisions = [d for d in active_debts(data, root=root) if d.get("code") in CLOSABLE_DEBTS]
     unused = sum((d.get("code"), d.get("component")) not in matched for d in decisions)
     after.append(f"declined: {len(decisions)} (accepted debts; {unused} no longer arise)")
     from .views import relations, hub_lines

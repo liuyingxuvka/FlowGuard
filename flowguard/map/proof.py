@@ -479,7 +479,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None, port_request=None
             data = view.data if view is not None else load_map(root)
         except MapError:
             data = {}
-        result.process_reason = process_model_reason(data, contract)
+        result.process_reason = process_model_reason(data, contract, root=root)
         result.advice_limit = data.get("large_model_seconds", 10)
         started = time.time()
         phase = "design"
@@ -523,7 +523,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None, port_request=None
 
             finding = size_finding(result.model, "sequences", result.sequences)
             if finding:
-                finding = apply_accepted_debts([finding], data.get("accepted_debts", []))[0][0]
+                finding = apply_accepted_debts([finding], data.get("accepted_debts", []), root=root)[0][0]
                 if finding.level == "error":
                     _fail(result, "large_model: " + finding.message)
                 elif finding.level == "warn":

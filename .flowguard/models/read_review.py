@@ -29,7 +29,7 @@ def base_variants():
 def make_fixture(root):
     (root / 'app.py').write_text('def run(): return True\n')
     (root / '.flowguard').mkdir(exist_ok=True)
-    data = dict(schema='flowguard.map.v1', project='review', components=[dict(id='app', summary='Text templates', responsibilities=['Serve templates'], files=['app.py'], state=['text'], models=[], tests=[], status='draft')], accepted_debts=[dict(code='unmodeled_owner', component='app', reason='static text; no state to explore')])
+    data = dict(schema='flowguard.map.v1', project='review', components=[dict(id='app', summary='Text templates', responsibilities=['Serve templates'], files=['app.py'], state=['text'], models=[], tests=[], status='draft')], accepted_debts=[dict(code='unmodeled_owner', component='app', reason='static text; no state to explore', expires='9999-12-31')])
     (root / '.flowguard/map.json').write_text(json.dumps(data))
     return data
 

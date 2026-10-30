@@ -436,6 +436,7 @@ def test_show_renders_the_model_tree_and_cheap_debt_rules(tmp_path, monkeypatch)
         flows=[dict(id="request", steps=["app:run"], model=".flowguard/models/parent.py")],
         accepted_debts=[
             dict(
+                expires='9999-12-31',
                 code="dependency_cycle",
                 component="app",
                 contains="store spare",
@@ -467,7 +468,7 @@ def test_show_renders_the_model_tree_and_cheap_debt_rules(tmp_path, monkeypatch)
         tmp_path, data, inv, component="app", detail=False
     )
     data["accepted_debts"].append(
-        dict(code="dependency_cycle", members=["app", "store"], reason="Exact scope")
+        dict(expires='9999-12-31', code="dependency_cycle", members=["app", "store"], reason="Exact scope")
     )
     assert "1 error(s), 3 warning(s), 2 accepted debt(s)" in render_show(
         tmp_path, data, inv, component=None, detail=False
@@ -522,6 +523,7 @@ def test_unbound_models_debt_closes_only_models_no_test_calls(tmp_path):
     path.write_text(source)
     data["accepted_debts"] = [
         dict(
+            expires='9999-12-31',
             code="unbound_models",
             component="probe",
             reason="abstract parent; its children have tests",
@@ -664,6 +666,7 @@ class DiscoveryBoundaryTests(unittest.TestCase):
             self.assertIn("a.py:1 import b", layer.message)
             data["accepted_debts"] = [
                 {
+                    "expires": "9999-12-31",
                     "code": "dependency_cycle",
                     "component": "a",
                     "contains": "a <-> b",

@@ -307,8 +307,8 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
                 add("warnings", "component " + finding.component if finding.component else "target", "debt_stale",
                     finding.message + " (remove the debt in the target's accepted_debts)")
     graph = component_graph(view.data, inv)
-    for name, changed, edges in architecture_variants(view.data, graph):
-        if not any(f.level == "error" for f in architecture_findings(changed, edges)):
+    for name, changed, edges in architecture_variants(view.data, graph, root=root):
+        if not any(f.level == "error" for f in architecture_findings(changed, edges, root=root)):
             add("errors", "target", "known_bad_passed", f"generated known-bad variant {name!r} passed: architecture rules do not catch it")
     from .port import escalation_set, port_delta
     old_tree = build_tree(root, current, inv)
@@ -442,7 +442,7 @@ def gap_lines(root, target, view, report, results, *, goal=None, code_changes=No
         mid = entry.id
         from .mapfile import process_model_reason, read_model_contract, resolve_model_path
         contract = read_model_contract(resolve_model_path(root, entry.path, view=view))
-        if process_model_reason(view.data, contract):
+        if process_model_reason(view.data, contract, root=root):
             output.append(f"process model: {mid} (no code yet; no gap expected)")
             continue
         delta = changes.get(mid, "")

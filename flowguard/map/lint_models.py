@@ -41,7 +41,7 @@ def model_binding_notes(
         node
         for node in tree.nodes.values()
         if not any(node.contract.get("TESTED_BY", {}).values())
-        and not process_model_reason(data, node.contract)
+        and not process_model_reason(data, node.contract, root=root)
     ]
     if not unbound:
         return out

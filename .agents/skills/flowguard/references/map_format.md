@@ -29,10 +29,20 @@
      "model": ".flowguard/models/order_placement.py"}
   ],
   "accepted_debts": [
-    {"code": "dependency_cycle", "members": ["orders", "payments"], "reason": "split planned"}
+    {"code": "dependency_cycle", "members": ["orders", "payments"], "reason": "split planned", "expires": "v1.0.0"}
   ]
 }
 ```
+
+Every accepted debt needs a `code`, a nonempty string `reason` and an explicit
+`expires`. Use a real calendar date (`YYYY-MM-DD`) or a version (`vX.Y.Z`). A
+date expires on that date; a version expires when this project's
+`pyproject.toml` `[project].version` reaches it, including equality. If the
+project has no comparable version there, use a date. FlowGuard never adds a
+default deadline. Invalid records are errors. Expired records no longer
+suppress findings or close review suggestions: ordinary checks and lint warn,
+while strict checks and release fail. `map lint --debts` shows each deadline
+and marks expired records.
 
 A flow of separate commands that hand over a file writes the later steps as `reads` steps:
 `"steps": ["plan:main", "check:main reads plan.json"]`.

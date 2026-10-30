@@ -62,6 +62,7 @@ def test_check_and_change_report_duplicate_owner(tmp_path, capsys):
     assert run("map", "models", "system")[1].count("duplicate_owner catalog") == 1
     data["accepted_debts"] = [
         {
+            "expires": "9999-12-31",
             "code": "duplicate_owner",
             "component": "catalog",
             "contains": "current loans",

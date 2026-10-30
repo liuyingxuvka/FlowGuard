@@ -333,7 +333,7 @@ def observe_case(case):
         elif case.name == "debt_made_stale":
             current = json.loads((root / ".flowguard/map.json").read_text(encoding="utf-8"))
             current["accepted_debts"] = [dict(code="untested_component", component="catalog",
-                                              reason="catalog is covered through the loans tests")]
+                                              reason="catalog is covered through the loans tests", expires="9999-12-31")]
             write_json(root / ".flowguard/map.json", current)
             catalog = dict(next(c for c in current["components"] if c["id"] == "catalog"), tests=["tests/test_shelf.py"])
             catalog.pop("status", None)

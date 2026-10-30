@@ -362,14 +362,15 @@ def test_review_ranks_defects_and_states_true_strengths(tmp_path):
 
 
 def test_closing_debt_hides_one_suggestion(tmp_path):
-    import pytest, os, json
-    from pathlib import Path
+    from datetime import date, timedelta
     from flowguard.map.review import render_review
     from flowguard.map.lint import run_lint
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
 
     data = _quiet_fixture("read_review")["make_fixture"](tmp_path)
+    for debt in data["accepted_debts"]:
+        debt["expires"] = "9999-12-31"
     inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
     before = render_review(tmp_path, {**data, "accepted_debts": []}, inv)
     assert "model app:" in before
@@ -377,6 +378,11 @@ def test_closing_debt_hides_one_suggestion(tmp_path):
     assert "model app:" not in after
     assert after.splitlines()[-1] == "declined: 1 (accepted debts; 0 no longer arise)"
     assert not any(f.code == "debt_stale" for f in run_lint(tmp_path, data, inv))
+    data["accepted_debts"][0]["expires"] = (date.today() - timedelta(days=1)).isoformat()
+    expired = render_review(tmp_path, data, inv)
+    assert "model app:" in expired
+    assert expired.splitlines()[-1] == "declined: 0 (accepted debts; 0 no longer arise)"
+    data["accepted_debts"][0]["expires"] = "9999-12-31"
     data["components"][0].pop("state")
     assert "declined: 1 (accepted debts; 1 no longer arise)" in render_review(tmp_path, data, inv)
 

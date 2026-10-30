@@ -52,7 +52,7 @@ def test_sequence_soft_limit_warns(tmp_path):
     assert len([w for w in result.warnings if w.startswith('large_model:')])==1
     assert 'warning: large_model: 3,279 explored sequences' in render_results([result])
     import json
-    p=tmp_path/'.flowguard/map.json';data=json.loads(p.read_text());data['accepted_debts']=[dict(code='large_model',component='sized',reason='one bounded table')];p.write_text(json.dumps(data))
+    p=tmp_path/'.flowguard/map.json';data=json.loads(p.read_text());data['accepted_debts']=[dict(expires='9999-12-31', code='large_model',component='sized',reason='one bounded table')];p.write_text(json.dumps(data))
     result=run_models(tmp_path,['sized'])[0]
     assert result.status=='pass' and not any(w.startswith('large_model:') for w in result.warnings)
 

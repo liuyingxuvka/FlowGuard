@@ -20,10 +20,10 @@ def run_system_model(root, data, inv, *, view=None):
     result.problems.extend(f"{f.code} {f.component}: {f.message}"
                            for f in architecture_findings(data, graph, root=root, inv=inv) if f.level == "error")
     generated = 0
-    for name, changed_data, changed_graph in architecture_variants(data, graph):
+    for name, changed_data, changed_graph in architecture_variants(data, graph, root=root):
         generated += 1
         result.known_bad.append(str(name))
-        if not any(f.level == "error" for f in architecture_findings(changed_data, changed_graph)):
+        if not any(f.level == "error" for f in architecture_findings(changed_data, changed_graph, root=root)):
             result.problems.append(f"generated known-bad variant '{name}' passed: the architecture rules do not catch it")
     result.known_bad.sort()
     consistency = run_check(root, data, inv, view=view)

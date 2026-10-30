@@ -84,7 +84,7 @@
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
         "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
         "annotate planned target breakage and ARCH lines in check, change and release; show fingerprint-format reminders in change",
-        "run release with the system root counted and optional whole-suite shards",
+        "run release with the system root counted and optional whole-suite shards; reject expired debts in strict release checks and display explicit debt deadlines",
         "run bound tests and, on request, the checks an edit needs",
         "write templates and their aliases into the active target when one exists",
         "hint splits for large scan drafts and say when discovery finds nothing"
@@ -136,7 +136,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e68876fe8f909e19c83c3d63c68114343ce64eee045482cca9ff324b0f04e14e"
+      "fingerprint": "sha256:4d9449017920aaffa990c1a374f5c822847c274f569a4e012bd8a7c33dd2d806"
     },
     {
       "id": "public-api",
@@ -289,7 +289,7 @@
       "layer": "map",
       "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs. Own shared static call-graph reachability and model selection.",
       "responsibilities": [
-        "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
+        "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity; classify explicit debt reasons and date or project-root version deadlines once per evaluation without persisting a verdict",
         "resolve component parents in one layer without loops",
         "merge the target overlay, validate its remove intents and compare it with current",
         "compute component fingerprints that detect stale descriptions and identify formula edits without a corresponding format change",
@@ -305,7 +305,8 @@
         "flowguard/map/testtree.py",
         "flowguard/map/port.py",
         "flowguard/map/modelstatic.py",
-        "flowguard/map/selection.py"
+        "flowguard/map/selection.py",
+        "flowguard/map/debts.py"
       ],
       "entrypoints": [
         "flowguard/map/mapfile.py:load_map",
@@ -337,7 +338,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:a33ec544c1e7de8da1cfcfa7fc80062ee93928e974990b1c9698d75b61f0c83a"
+      "fingerprint": "sha256:51ff8cfadb9159f8c271ed906328fd5b9e22b8addf82f6970d9dd3025558a46a"
     },
     {
       "id": "map-discover",
@@ -386,7 +387,7 @@
         "mark only the breakage of a changed subject as moving to target",
         "refuse a target that changes nothing, drops a promise or leaves it untied",
         "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions",
-        "warn about earlier findings, stale debts, untested rules, fingerprint-format changes and siblings that ignore a newly received parent field",
+        "warn about earlier findings, stale active debts, untested rules, fingerprint-format changes and siblings that ignore a newly received parent field; evaluate version debts against the actual project root",
         "include function-selected models and tests in the single promotion check"
       ],
       "files": [
@@ -428,14 +429,14 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:754554c7731a5f27b43ed1cd82e9f820393a9b2769b367984f4bced68cf16bac"
+      "fingerprint": "sha256:906d26b37887023b5031a3c8e46aa5c751540b3489db1b91ffc2ab48d98765ba"
     },
     {
       "id": "map-proof",
       "layer": "map",
       "summary": "Run fresh model proofs and bound tests, clean owned process groups within the outer session deadline, and report time as advice. Model and bound-test children share the project-first import path owner.",
       "responsibilities": [
-        "run every model, system included, with known-bad and conformance checks Run independent model subprocesses with explicit concurrency and retain registry order, with system last.",
+        "run every model, system included, with known-bad and conformance checks; run independent model subprocesses with explicit concurrency and retain registry order, with system last; use only active no-code reasons and soft-warning debts from the project root",
         "fail a model whose rule no known-bad variant breaks",
         "read code facts for conformance and fail missing or unconsulted anchors; count child projections from one fresh parent exploration per sibling group",
         "clean up model and pytest shard subprocesses in bounded time",
@@ -480,7 +481,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:c34caa8a5b54dd775cc69567b58d92df0a9d7fc26202fd82f10df4ef5d9ed2eb"
+      "fingerprint": "sha256:187945d744e0bd9ce63fd3b7670792903d5e68e773e79bdf22b26b45c3a50be5"
     },
     {
       "id": "engine-explore",
@@ -697,7 +698,7 @@
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
         "report one owner per entrypoint, responsibility, state and side effect",
-        "lint cycles, layers, sizes and private names, then apply accepted debts",
+        "lint cycles, layers, sizes and private names, then apply only active accepted debts while keeping original record indices; report invalid deadlines as errors and expired deadlines as warnings, or errors in strict checks",
         "explain entrypoints and state writers by model, test or reason",
         "report file and component sizes, duty counts and fan-out as non-gating facts without debt coverage"
       ],
@@ -732,7 +733,7 @@
         ".flowguard/models/private_use.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:d417c734dcf0a8203d679d1045aee7e8f112fc62db84f8e1174373fddb22563c"
+      "fingerprint": "sha256:b4b7dcae99f25a7ae35580792fe746e92db2d5b5dfba6870ead728c349b8d097"
     },
     {
       "id": "map-read",
@@ -742,7 +743,7 @@
         "show the tree, Mermaid and digests with static facets and coverage; find owners by word form and rank architecture defects and strengths; compare current and target rules and known-bad definitions by name",
         "find owners by word form and rank architecture defects and strengths",
         "compare current and target facets and list the rules a target changes",
-        "show the model rules and flows each component relies on"
+        "show the model rules and flows each component relies on; count process reasons and close review suggestions only with active accepted debts"
       ],
       "files": [
         "flowguard/map/views.py",
@@ -772,7 +773,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:45e5b8483bef3d32ca35182d5e2f9d987a3093e171ea945407feac2035d77624"
+      "fingerprint": "sha256:834151878d070e1ae30dbcfdcfd19c19659110e534a540a2f78d188b2c1586a5"
     },
     {
       "id": "map-impact",
@@ -880,48 +881,56 @@
     {
       "code": "unmodeled_owner",
       "component": "templates",
-      "reason": "text templates and packaging scripts: no state to explore; tests/test_public_templates.py and tests/test_skill_package.py cover them"
+      "reason": "text templates and packaging scripts: no state to explore; tests/test_public_templates.py and tests/test_skill_package.py cover them",
+      "expires": "v1.0.0"
     },
     {
       "code": "unmodeled_owner",
       "component": "tooling",
-      "reason": "text templates and packaging scripts: no state to explore; tests/test_public_templates.py and tests/test_skill_package.py cover them"
+      "reason": "text templates and packaging scripts: no state to explore; tests/test_public_templates.py and tests/test_skill_package.py cover them",
+      "expires": "v1.0.0"
     },
     {
       "code": "replay_call_undeclared",
       "component": "read_component",
       "contains": "replays flowguard/map/review.py:render_review",
-      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs"
+      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs",
+      "expires": "v1.0.0"
     },
     {
       "code": "replay_call_undeclared",
       "component": "read_find",
       "contains": "replays flowguard/map/review.py:render_review",
-      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs"
+      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs",
+      "expires": "v1.0.0"
     },
     {
       "code": "replay_call_undeclared",
       "component": "read_show",
       "contains": "replays flowguard/map/review.py:render_review",
-      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs"
+      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs",
+      "expires": "v1.0.0"
     },
     {
       "code": "replay_call_undeclared",
       "component": "read_component",
       "contains": "replays flowguard/map/views.py:find_owners",
-      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs"
+      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs",
+      "expires": "v1.0.0"
     },
     {
       "code": "replay_call_undeclared",
       "component": "read_review",
       "contains": "replays flowguard/map/views.py:find_owners",
-      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs"
+      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs",
+      "expires": "v1.0.0"
     },
     {
       "code": "replay_call_undeclared",
       "component": "read_show",
       "contains": "replays flowguard/map/views.py:find_owners",
-      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs"
+      "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs",
+      "expires": "v1.0.0"
     }
   ],
   "fingerprint_format": 2,
@@ -938,7 +947,7 @@
     ".flowguard/models/job_matching_example.py": "66d13d40bcbda27be232ecc68713eccd913a46190ba2bc68a5bba805fc9c0971",
     ".flowguard/models/literal_consumers.py": "04dc183c41363d2cc23fb62e6f5d26f30775b5ef466fdbba9462cdeeeac8f84c",
     ".flowguard/models/map_binding.py": "5234e58ea5796c52a4775930cf3e8bafb6d9dd1f212acefbb37021f81351a1cc",
-    ".flowguard/models/map_check.py": "641c6325ace93524151e5188b1baf3942b916b5f29566712ed41d2dc9325d399",
+    ".flowguard/models/map_check.py": "6b0a577c58b0c0385bb403b783b6ad290a6898382228a00a2deeef3aa7d2abcd",
     ".flowguard/models/model_proof.py": "b8ff72110c36b0843d7da451c8615f24c596b7ea1d49ae595bf9ddffae050627",
     ".flowguard/models/model_runs.py": "b3fbf03bc3e83d982094b398ee1326478816b4583fbadb48c86b12560af56c3f",
     ".flowguard/models/model_scope.py": "6dd76b266a4e60fd63bbcb4d9a93f5d52b6de3d44aa72ff25002e3b126473307",
@@ -950,10 +959,10 @@
     ".flowguard/models/read_field.py": "54714f87d18261182f1a40a96eb5135fac6c2b6614189cf15b903675c319f834",
     ".flowguard/models/read_find.py": "61fa4d1b06df7c44dc84def6905d21ff984a26164f4d02e8dfc371e65ab62fc1",
     ".flowguard/models/read_mermaid.py": "3a3e2229280cb72de81b57212a62ea9365905d5e52ddb2006b0e723bd18bb0c9",
-    ".flowguard/models/read_review.py": "bffe12ec7d5aff6cef1414b8812a024bd467898238f2c549e67a0dc69835fd1c",
+    ".flowguard/models/read_review.py": "70cc52cc776e431a27a0a52c64af36ad7ac089b4768d4c7620ec13827343d82d",
     ".flowguard/models/read_show.py": "95268a18ba6054926543127ce947e267bee62843b75fefc8a49f9bdd00d30927",
     ".flowguard/models/relation_graph.py": "7c7839800bc2ffd986e1348ed44a51500dce1d1a466ff59ee74d8ef9ef2fe551",
-    ".flowguard/models/release_gate.py": "c926026eec5bc317f95ece8a0fb06c8fd861020a797966e1714d6a5864ac4e15",
+    ".flowguard/models/release_gate.py": "f630dd024c7af1ee40e9b198547f857d4f0ad0a99fd49eca0781105457cbd2bd",
     ".flowguard/models/release_neutral_fingerprint.py": "51d5ae79b7f14473299562517b8acbc5b62004e7641f905364ad954dd4621948",
     ".flowguard/models/replay_conformance.py": "311629f611c211acfecac54cd2d745cec295cc820fcf1b6c104f3f355441b97b",
     ".flowguard/models/scan_coverage.py": "8fcd28bbc5f6ca58f83bc6d06426919fb752113c8c68c9684f10e517f2b4b4c8",
@@ -961,7 +970,7 @@
     ".flowguard/models/shard_run.py": "d3eff6beecfebe5d53844e5f5bed5f2b985137d3aaf78b22df6e6abe926e022e",
     ".flowguard/models/shard_suite.py": "befb5f91139ce4d74fcc7a9ab5ecd5927c759a94e005e6063dc6e9492cbc7333",
     ".flowguard/models/target_add.py": "b38f68d292ca7996cf46785aa6ccafe0f3f30a5b0e00d9f5329de74e4f4ed120",
-    ".flowguard/models/target_findings.py": "5df2906e6b949dff4469af6cf8df1e428209b8f01893dc58d549708d29553f77",
+    ".flowguard/models/target_findings.py": "349e345e321958b271a225ad2c6ca3a16a6785f440a522cef506c94e26141eb3",
     ".flowguard/models/target_life_cycle.py": "4da3ade6494392f3ab962bd184f30a1f56d03608d6c4d591473c7ef0958aa16e",
     ".flowguard/models/target_promotion.py": "c325132800112e80117adfc2102b3a8bed185c51a0c9a46755434034e43f4845",
     ".flowguard/models/test_binding.py": "01f20ff65edb30f6c9bb2d53628704362f379656838734aad4978bcb608fee3f",

@@ -102,8 +102,8 @@ def validate_map(data: object) -> list[str]:
         if not isinstance(flow, dict) or not isinstance(flow.get("id"), str) or not isinstance(flow.get("steps", []), list):
             errors.append(f"flows[{i}] needs a string id and a list of steps 'component' or 'component:symbol'")
     for i, debt in enumerate(data.get("accepted_debts", [])):
-        if not isinstance(debt, dict) or not debt.get("code") or not debt.get("reason"):
-            errors.append(f"accepted_debts[{i}] needs at least 'code' and 'reason'")
+        if not isinstance(debt, dict) or not isinstance(debt.get("code"), str) or not debt["code"].strip():
+            errors.append(f"accepted_debts[{i}] needs a nonempty string 'code'")
         if isinstance(debt, dict) and "members" in debt and (
                 not isinstance(debt["members"], list) or not all(isinstance(x, str) for x in debt["members"])):
             errors.append(f"accepted_debts[{i}].members must be a list of strings")
@@ -470,7 +470,7 @@ def read_model_syntax(path: Path, *, copy_tree=True):
     return copy.deepcopy(_MODEL_CONTRACT_CACHE[key][1]) if copy_tree else _MODEL_CONTRACT_CACHE[key][1]
 
 
-def dependency_evidence(data: dict, inv: Inventory, raw: dict | None = None) -> dict[str, set[str]]:
+def dependency_evidence(data: dict, inv: Inventory, raw: dict | None = None, *, evaluation=None) -> dict[str, set[str]]:
     """Actual imports plus import-like literals, injected collaborators and explicitly justified debts.
 
     Literal evidence validates declarations; it is not itself a caller edge. ``raw`` (discovery) adds
@@ -500,7 +500,8 @@ def dependency_evidence(data: dict, inv: Inventory, raw: dict | None = None) -> 
             other = owner.get(target.partition("#")[0])
             if cid is not None and other is not None and other != cid:
                 graph[cid].add(other)
-    for debt in data.get("accepted_debts", []):
+    from .debts import active_debts
+    for debt in active_debts(data, root=inv.root, evaluation=evaluation):
         if debt.get("code") == "dep_unused" and debt.get("component") in graph and debt.get("reason"):
             cid = debt["component"]
             for target in graph:
@@ -615,10 +616,11 @@ def model_digests(root: Path, *, view=None) -> dict[str, str]:
     return result
 
 
-def process_model_reason(data, contract):
+def process_model_reason(data, contract, *, root=None, evaluation=None):
     """An explicit no-code debt applies only until implementation anchors exist."""
     if contract.get("IMPLEMENTED_BY"):
         return ""
-    return next((debt.get("reason", "") for debt in data.get("accepted_debts", [])
+    from .debts import active_debts
+    return next((debt.get("reason", "") for debt in active_debts(data, root=root, evaluation=evaluation)
                  if debt.get("code") == "model_anchor_missing" and
                  debt.get("component") == contract.get("MODEL_ID")), "")

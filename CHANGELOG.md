@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: accepted debts need a nonempty reason and an explicit date or project-version expiry. Expired debts restore their findings and review suggestions; strict checks and release reject them, and map lint --debts shows their deadlines.
+
 - Projects using FlowGuard: large_file, large_component, too_many_responsibilities and high_fan_out are info advice "(advice, not a gate)"; an accepted debt for one of them now matches nothing and is reported debt_stale, so remove such debts.
 
 - Projects using FlowGuard: model and bound-test subprocesses import the project's own packages first (the project root, import_roots and src/) and see only the flowguard package of FlowGuard, never its repository root.

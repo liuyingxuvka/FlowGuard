@@ -75,7 +75,7 @@ def test_accepted_debt_downgrades_a_lint_error(shop, capsys):
     write(shop, "billing/pay.py", "def pay():\n    return 1\n")
     (shop / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
     assert cli.main(["--root", str(shop), "lint"]) == 1
-    data["accepted_debts"] = [{"code": "duplicate_owner", "reason": "billing split planned for Q3"}]
+    data["accepted_debts"] = [{"expires": "9999-12-31", "code": "duplicate_owner", "reason": "billing split planned for Q3"}]
     (shop / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
     capsys.readouterr()
     assert cli.main(["--root", str(shop), "lint"]) == 0
@@ -297,9 +297,9 @@ def test_system_variants_only_skip_positive_accepted_debt_findings(monkeypatch):
     assert all(any(f.level == "error" for f in system_model.architecture_findings(changed, edges))
                for _, changed, edges in variants)
     accepted = {**data, "accepted_debts": [
-        {"code": "dependency_cycle", "members": ["a", "b"], "reason": "existing cycle policy"},
-        {"code": "layer_violation", "reason": "existing boundary policy"},
-        {"code": "duplicate_owner", "reason": "existing shared responsibility"}]}
+        {"expires": "9999-12-31", "code": "dependency_cycle", "members": ["a", "b"], "reason": "existing cycle policy"},
+        {"expires": "9999-12-31", "code": "layer_violation", "reason": "existing boundary policy"},
+        {"expires": "9999-12-31", "code": "duplicate_owner", "reason": "existing shared responsibility"}]}
     assert list(system_model.architecture_variants(accepted, graph)) == []
     # A missing architecture rule is not evidence that a mutation was debt-accepted.
     monkeypatch.setattr(lint, "structural_findings", lambda *args, **kwargs: [])
@@ -516,7 +516,7 @@ def test_process_model_passes_with_its_debt_and_goes_stale_once_anchored(tmp_pat
     source = source[:source.index("def conformance():")]
     path.write_text(source)
     data = json.loads((tmp_path / ".flowguard/map.json").read_text())
-    data["accepted_debts"] = [dict(code="model_anchor_missing", component="first", reason="future first-value workflow; native.py will implement it")]
+    data["accepted_debts"] = [dict(expires='9999-12-31', code="model_anchor_missing", component="first", reason="future first-value workflow; native.py will implement it")]
     (tmp_path / ".flowguard/map.json").write_text(json.dumps(data))
     inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
     findings = run_check(tmp_path, data, inv)
@@ -555,7 +555,7 @@ def test_nine_rule_model_warns_and_a_debt_closes_it(tmp_path):
     rows=[finding for finding in run_lint(tmp_path,data,inv) if finding.code=='large_model']
     assert len(rows)==1 and rows[0].level=='warn'
     assert rows[0].message=='9 rules (soft limit 8; split before 12): '+split_recipe('sized')
-    data['accepted_debts']=[dict(code='large_model',component='sized',reason='one finite decision table')]
+    data['accepted_debts']=[dict(expires='9999-12-31', code='large_model',component='sized',reason='one finite decision table')]
     rows=[finding for finding in run_lint(tmp_path,data,inv) if finding.code=='large_model']
     assert len(rows)==1 and rows[0].level=='info'
     assert 'accepted debt: one finite decision table' in rows[0].message
@@ -568,7 +568,7 @@ def test_thirteen_rule_model_fails_map_check_and_no_debt_closes_it(tmp_path):
     from flowguard.map.check import run_check
     from flowguard.map.lint import run_lint
     data=_size_project(tmp_path,rules=13)
-    data['accepted_debts']=[dict(code='large_model',component='sized',reason='cannot override a hard limit')]
+    data['accepted_debts']=[dict(expires='9999-12-31', code='large_model',component='sized',reason='cannot override a hard limit')]
     inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
     for findings in (run_check(tmp_path,data,inv),run_lint(tmp_path,data,inv)):
         rows=[f for f in findings if f.code=='large_model']
