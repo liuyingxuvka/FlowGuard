@@ -213,11 +213,14 @@ def test_strict_check_refuses_committed_promoted_target(tmp_path, capsys):
     path.write_text(json.dumps(original))
     shutil.rmtree(tmp_path / ".flowguard/target")
     git(tmp_path, "add", "-A", ".flowguard")
-    shutil.rmtree(tmp_path / ".git")
-    assert main(["target", "start", "gitless unchanged app", "--root", str(tmp_path)]) == 0
-    assert main(["target", "add", "component:app", "--root", str(tmp_path)]) == 0
+    # Keep the no-Git input independent; Git's object files can be read-only on Windows.
+    gitless = tmp_path.parent / (tmp_path.name + "-gitless")
+    project(gitless)
+    assert main(["map", "confirm", "all", "--root", str(gitless)]) == 0
+    assert main(["target", "start", "gitless unchanged app", "--root", str(gitless)]) == 0
+    assert main(["target", "add", "component:app", "--root", str(gitless)]) == 0
     capsys.readouterr()
-    assert main(["map", "check", "--strict", "--root", str(tmp_path)]) == 0
+    assert main(["map", "check", "--strict", "--root", str(gitless)]) == 0
     output = capsys.readouterr().out
     assert "WARN" in output and "target_noop: target changes nothing: drop it or add work" in output
 
