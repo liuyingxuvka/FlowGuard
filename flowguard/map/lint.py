@@ -108,6 +108,8 @@ def apply_accepted_debts(findings: list[Finding], debts: list[dict]) -> tuple[li
         if finding.code == "dependency_cycle":
             component_ids.update(_cycle_members(finding.message))
     for f in findings:
+        if f.code in SHAPE_ADVICE_CODES:
+            continue
         if f.level == "error" and f.code in {"large_model", "large_test_file", "test_file_mixes_models"}:
             continue
         if f.code == "unexplained" or (f.code == "unbound_models" and "test functions call its code" in f.message):
@@ -284,26 +286,31 @@ def architecture_variants(data, graph, *, only=None):
 
 
 SHAPE_CODES = ("large_component", "too_many_responsibilities", "untested_component", "high_fan_out", "large_file")
+SHAPE_ADVICE_CODES = frozenset({"large_component", "large_file", "too_many_responsibilities", "high_fan_out"})
 
 
 def shape_findings(data: dict, inv: Inventory, graph: dict[str, set[str]], limits: Limits | None = None) -> list[Finding]:
-    """Size and test warnings computed from the map and line counts alone (no code scan); debts not applied."""
+    """Size advice and missing-test warnings from map facts; debts are applied separately."""
     limits = limits or Limits()
     out = []
     for c in data["components"]:
         files = component_files(c, inv)
         loc = sum(inv.loc.get(f, 0) for f in files)
         if loc > limits.max_component_loc:
-            out.append(Finding("warn", "large_component", c["id"], f"{loc} LOC in {len(files)} files (limit {limits.max_component_loc}); consider splitting"))
+            out.append(Finding("info", "large_component", c["id"],
+                               f"{loc} lines in {len(files)} files (advice, not a gate)"))
         if len(c.get("responsibilities", [])) > limits.max_responsibilities:
-            out.append(Finding("warn", "too_many_responsibilities", c["id"], f"{len(c['responsibilities'])} responsibilities (limit {limits.max_responsibilities})"))
+            out.append(Finding("info", "too_many_responsibilities", c["id"],
+                               f"{len(c['responsibilities'])} responsibilities (advice, not a gate)"))
         if not c.get("tests"):
             out.append(Finding("warn", "untested_component", c["id"], "no tests mapped"))
         if len(graph.get(c["id"], ())) > limits.max_fan_out:
-            out.append(Finding("warn", "high_fan_out", c["id"], f"depends on {len(graph[c['id']])} components (limit {limits.max_fan_out})"))
+            out.append(Finding("info", "high_fan_out", c["id"],
+                               f"depends on {len(graph[c['id']])} components (advice, not a gate)"))
         for f in files:
             if inv.loc.get(f, 0) > limits.max_file_loc:
-                out.append(Finding("warn", "large_file", c["id"], f"{f}: {inv.loc[f]} LOC (limit {limits.max_file_loc})"))
+                out.append(Finding("info", "large_file", c["id"],
+                                   f"{f} has {inv.loc[f]} lines (advice, not a gate)"))
     return out
 
 

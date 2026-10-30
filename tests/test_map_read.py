@@ -264,7 +264,7 @@ def test_tests_facet_lists_bindable_tests(tmp_path):
     assert "bindable:" not in detail and "unbound:" not in detail
 
 
-def test_read_header_counts_debts_that_cover_size_warnings(tmp_path):
+def test_read_header_keeps_size_advice_out_of_warning_count(tmp_path):
     import pytest, os, json
     from pathlib import Path
     from flowguard.map.views import render_show
@@ -274,9 +274,18 @@ def test_read_header_counts_debts_that_cover_size_warnings(tmp_path):
     data = dict(project="demo", components=[busy], flows=[])
     inv = _inventory(tmp_path)
     head = render_show(tmp_path, data, inv, component=None, detail=False).splitlines()[0]
-    assert "1 warning(s), 0 accepted debt(s)" in head, head
+    assert "0 warning(s), 0 accepted debt(s)" in head, head
     data["accepted_debts"] = [
         dict(code="too_many_responsibilities", component="busy", reason="one table of duties")
     ]
     head = render_show(tmp_path, data, inv, component=None, detail=False).splitlines()[0]
     assert "0 warning(s), 1 accepted debt(s)" in head, head
+    from flowguard.map.lint import apply_accepted_debts, shape_findings
+
+    findings, used = apply_accepted_debts(
+        shape_findings(data, inv, {"busy": set()}), data["accepted_debts"]
+    )
+    assert not used
+    assert any(finding.code == "too_many_responsibilities" and finding.level == "info"
+               and "(advice, not a gate)" in finding.message for finding in findings)
+    assert all("accepted debt:" not in finding.message for finding in findings)

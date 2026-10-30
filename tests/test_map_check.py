@@ -16,6 +16,57 @@ from _fg_helpers import (
     flowguard_map_contracts421_write as write,
 )
 
+
+def test_shape_findings_are_advice(tmp_path, capsys, monkeypatch):
+    from copy import deepcopy
+    from flowguard.map import cli, lint
+
+    data = project(tmp_path)
+    write(tmp_path, "app.py", "from lib import answer\n\ndef run():\n    return answer()\n")
+    write(tmp_path, "lib.py", "def answer():\n    return True\n")
+    data["components"][0]["responsibilities"] = ["serve the provider answer", "present availability"]
+    data["components"][0]["depends_on"] = ["lib"]
+    data["components"].append({
+        "id": "lib", "summary": "Provide an immutable answer",
+        "responsibilities": ["supply the shared result"], "files": ["lib.py"],
+        "tests": ["tests/test_app.py"], "models": [], "depends_on": [], "status": "draft",
+    })
+    save(tmp_path, data)
+    limits = lint.Limits(max_component_loc=1, max_file_loc=1,
+                         max_responsibilities=1, max_fan_out=0)
+    monkeypatch.setattr(lint, "Limits", lambda: limits)
+    monkeypatch.setattr(cli, "Limits", lambda: limits)
+    loaded, inv = cli._context(tmp_path)
+    shape_codes = {"large_component", "large_file", "too_many_responsibilities", "high_fan_out"}
+    findings = lint.run_lint(tmp_path, loaded, inv)
+    advice = [finding for finding in findings if finding.code in shape_codes]
+    assert {finding.code for finding in advice} == shape_codes
+    assert all(finding.level == "info" and "(advice, not a gate)" in finding.message
+               for finding in advice), advice
+    assert cli.main(["--root", str(tmp_path), "lint"]) == 0
+    output = capsys.readouterr().out
+    assert "0 warning(s)" in output and "INFO" in output
+    assert cli.main(["--root", str(tmp_path), "confirm", "all"]) == 0
+    assert main(["release", "--root", str(tmp_path)]) == 0
+    output = capsys.readouterr().out
+    assert "lint: 0 error(s) gating; 0 warning(s)," in output, output
+
+    data["accepted_debts"] = [{"code": "large_file", "component": "app",
+                               "reason": "one actual unit of work"}]
+    save(tmp_path, data)
+    loaded, inv = cli._context(tmp_path)
+    findings = lint.run_lint(tmp_path, loaded, inv)
+    assert any(finding.code == "debt_stale" and finding.level == "warn" for finding in findings)
+    assert all("accepted debt:" not in finding.message
+               for finding in findings if finding.code in shape_codes)
+    assert cli.main(["--root", str(tmp_path), "lint"]) == 0
+    assert "debt_stale" in capsys.readouterr().out
+
+    missing_tests = deepcopy(loaded)
+    missing_tests["components"][0]["tests"] = []
+    assert any(finding.code == "untested_component" and finding.level == "warn"
+               for finding in lint.shape_findings(missing_tests, inv, {"app": {"lib"}, "lib": set()}))
+
 def test_identical_info_grouped_into_one_line(capsys, tmp_path, monkeypatch):
     import json
     from pathlib import Path
