@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-608: a model that reaches a changed file is judged by promote as release judges it",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
