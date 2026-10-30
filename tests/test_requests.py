@@ -413,6 +413,42 @@ def test_owner_text_edited_with_and_without_git(tmp_path, capsys, has_git):
         assert "owner_text_edited" in _call(clone, capsys, "map", "check", "--strict")[1]
 
 
+def test_request_receipts_survive_git_init(tmp_path, capsys):
+    root = _project(tmp_path / 'project', capsys)
+    source = tmp_path / 'owner.md'
+    source.write_bytes(b'Keep the original request across git init.\r\n')
+    assert _call(root, capsys, 'req', 'add', str(source), '--id', 'RTransition')[0] == 0
+    body = root / '.flowguard/requests/RTransition.md'
+    meta = body.with_suffix('.json')
+    original = body.read_bytes(), meta.read_bytes()
+    assert _call(root, capsys, 'map', 'check', '--strict')[0] == 0
+    _git(root, 'init', '-q')
+    assert _call(root, capsys, 'map', 'check', '--strict')[0] == 0
+    from flowguard.map.records import _written_path
+    common = Path(_git(root, 'rev-parse', '--git-common-dir').decode().strip())
+    if not common.is_absolute():
+        common = root / common
+    competing = _written_path(root, body, common)
+    competing.parent.mkdir(parents=True, exist_ok=True)
+    competing.write_text(json.dumps(dict(path=body.as_posix(), sha256='0' * 64)), encoding='ascii')
+    code, output, _ = _call(root, capsys, 'map', 'check', '--strict')
+    assert code == 1 and 'conflicting first-write receipts' in output
+    competing.unlink()
+    body.write_bytes(original[0] + b'edited')
+    item = json.loads(original[1])
+    item.update(sha256=hashlib.sha256(body.read_bytes()).hexdigest(), bytes=len(body.read_bytes()))
+    meta.write_bytes(json.dumps(item).encode())
+    code, output, _ = _call(root, capsys, 'map', 'check', '--strict')
+    assert code == 1 and 'owner_text_edited' in output and 'request_meta_edited' in output
+    body.unlink()
+    meta.unlink()
+    code, output, _ = _call(root, capsys, 'map', 'check', '--strict')
+    assert code == 1 and 'owner_text_edited' in output and 'request_meta_edited' in output
+    code, _, errors = _call(root, capsys, 'req', 'add', str(source), '--id', 'RTransition')
+    assert code == 2 and 'request_exists' in errors
+    assert not body.exists() and not meta.exists()
+
+
 def test_open_request_without_target_is_listed(tmp_path, capsys):
     root = _project(tmp_path / "project", capsys)
     source = tmp_path / "owner.md"

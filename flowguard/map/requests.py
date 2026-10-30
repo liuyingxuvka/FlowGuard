@@ -62,7 +62,8 @@ def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind
     received = datetime.now(timezone.utc).isoformat()
     digest = sha256_bytes(raw)
     directory = root / REQUEST_DIR
-    exists = lambda value: any((directory / (value + suffix)).exists() for suffix in ('.md', '.json'))
+    existing = set(_identifiers(root))
+    exists = lambda value: value in existing
     if identifier is None:
         prefix = 'R' + received[:10].replace('-', '') + '-'
         identifier = prefix + digest[:4]

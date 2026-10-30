@@ -46,8 +46,20 @@ def _written_directory(root: Path, common):
     return (common / "flowguard" if common is not None else root / ".flowguard/cache") / "written"
 
 
+def _written_directories(root: Path, common):
+    """Git initialization does not retire the original nongit receipts."""
+    current = _written_directory(root, common)
+    previous = _written_directory(root, None)
+    return (current,) if current == previous else (current, previous)
+
+
 def _written_path(root: Path, path: Path, common):
     return _written_directory(root, common) / sha256_bytes(_canonical_path(path).encode("utf-8"))
+
+
+def _written_paths(root: Path, path: Path, common):
+    name = _written_path(root, path, common).name
+    return tuple(directory / name for directory in _written_directories(root, common))
 
 
 def _receipt(path: Path):
@@ -95,8 +107,9 @@ def _new_file(root, relative_path):
     problem = _attribute_problem(root, relative, common)
     if problem:
         raise MapError(problem)
-    written = _written_path(root, path, common)
-    if path.exists() or written.exists():
+    candidates = _written_paths(root, path, common)
+    written = candidates[0]
+    if path.exists() or any(candidate.exists() for candidate in candidates):
         raise MapError(f"immutable file already exists or was written before: {relative}")
     if _first_blob(root, relative, common) is not None:
         raise MapError(f"immutable file was committed before: {relative}")
@@ -145,9 +158,12 @@ def integrity_problem(root, relative_path):
     if problem:
         return problem
     raw = path.read_bytes()
-    written = _written_path(root, path, common)
-    if written.is_file():
-        expected = _receipt(written).get("sha256")
+    receipts = [_receipt(written).get("sha256") for written in _written_paths(root, path, common)
+                if written.is_file()]
+    if receipts:
+        expected = receipts[0]
+        if any(value != expected for value in receipts[1:]):
+            return f"immutable file has conflicting first-write receipts: {relative}"
     else:
         first = _first_blob(root, relative, common)
         if first is None:
@@ -192,25 +208,25 @@ def protected_paths(root, relative_dir) -> set[str]:
         log = ("log", "--relative", "--format=", "--name-only", "--diff-filter=A", "-z")
         current = _named_paths(root, *log, "--", relative)
         paths.update(current)
-    receipt_directory = _written_directory(root, common)
-    for written in receipt_directory.iterdir() if receipt_directory.is_dir() else ():
-        if not written.is_file():
-            continue
-        receipt = _receipt(written)
-        absolute = receipt.get("path")
-        if not isinstance(absolute, str):
-            continue
-        try:
-            Path(absolute).relative_to(directory)
-            candidate = Path(absolute).relative_to(root).as_posix()
-        except ValueError:
-            continue
-        if common is not None and not Path(absolute).exists() and candidate not in paths:
-            if historical is None:
-                historical = _named_paths(root, *log, "--all", "--", relative)
-            if candidate in historical and _committed_digest(root, candidate, receipt.get("sha256")):
+    for receipt_directory in _written_directories(root, common):
+        for written in receipt_directory.iterdir() if receipt_directory.is_dir() else ():
+            if not written.is_file():
                 continue
-        paths.add(candidate)
+            receipt = _receipt(written)
+            absolute = receipt.get("path")
+            if not isinstance(absolute, str):
+                continue
+            try:
+                Path(absolute).relative_to(directory)
+                candidate = Path(absolute).relative_to(root).as_posix()
+            except ValueError:
+                continue
+            if common is not None and not Path(absolute).exists() and candidate not in paths:
+                if historical is None:
+                    historical = _named_paths(root, *log, "--all", "--", relative)
+                if candidate in historical and _committed_digest(root, candidate, receipt.get("sha256")):
+                    continue
+            paths.add(candidate)
     return {path for path in paths if Path(path).name != ".gitattributes"}
 
 

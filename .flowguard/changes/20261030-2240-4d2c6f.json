@@ -1,0 +1,33 @@
+{
+  "kind": "change",
+  "goal": "Keep immutable request protection when a plain folder becomes a Git worktree",
+  "requests": [
+    {
+      "id": "R1",
+      "part": true
+    },
+    {
+      "id": "R600",
+      "part": true
+    }
+  ],
+  "base": "e0339d4c40856f233c0c208837057a1ebb47e55d",
+  "tree": "4d2c6fd6acecc98756cff1786aabe8eb6e13a7e8d083e51a4fc35e23750bea3f",
+  "promoted": "2026-10-30T22:40:51.247230+00:00",
+  "plan": [],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/map/records.py:_new_file",
+    "flowguard/map/records.py:_written_directories",
+    "flowguard/map/records.py:_written_paths",
+    "flowguard/map/records.py:integrity_problem",
+    "flowguard/map/records.py:protected_paths",
+    "flowguard/map/requests.py:store_request",
+    "tests/test_requests.py:test_request_receipts_survive_git_init"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. PLAN lines, rule provenance, acceptances, existing-item clearance and new-action judgments are not assessed by this record producer; their lists are empty."
+}

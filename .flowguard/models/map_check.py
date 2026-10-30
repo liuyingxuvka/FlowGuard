@@ -12,7 +12,7 @@ from flowguard.map.facts import CodeFactsReport, Fact
 
 MODEL_ID = 'map_check'
 PARENT = 'map-check'
-COMPONENTS = ['map-check', 'map-inventory', 'map-file']
+COMPONENTS = ['map-check', 'map-inventory', 'map-file', 'map-requests']
 IMPLEMENTED_BY = {
     'Check': 'flowguard/map/check.py:run_check',
     'PrintFindings': 'flowguard/map/common.py:print_findings',
@@ -24,11 +24,14 @@ USES = {
     'Command': 'flowguard/map/cli.py:cmd_check',
     'Main': 'flowguard/__main__.py:main',
     'Promote': 'flowguard/map/target.py:promote_target',
+    'WrittenIntegrity': 'flowguard/map/records.py:integrity_problem',
+    'ProtectedPaths': 'flowguard/map/records.py:protected_paths',
 }
 NOT_MODELED = {}
 OUTPUTS = {'check': ('error', 'stale', 'clean')}
 TESTED_BY = {'error_finding_fails_check': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm',
- 'tests/test_cli_main.py:test_json_verdict_only_with_flag'],
+ 'tests/test_cli_main.py:test_json_verdict_only_with_flag',
+ 'tests/test_requests.py:test_request_receipts_survive_git_init'],
  'strict_makes_draft_and_stale_errors': ['tests/test_cli_main.py:test_new_target_file_is_moving_but_strict_remains_an_error'],
  'identical_info_grouped': ['tests/test_map_check.py:test_identical_info_grouped_into_one_line'],
  'debt_needs_reason_and_expiry': ['tests/test_map_check.py:test_debt_without_expiry_refused'],
@@ -42,7 +45,7 @@ class Case:
     count: int = 1
     seam: str = ''
 
-ERRORS = ('anchor_broken', 'component_parent_cycle', 'anchor_outside_home', 'handoff_output_unhandled', 'debt_without_expiry')
+ERRORS = ('anchor_broken', 'component_parent_cycle', 'anchor_outside_home', 'handoff_output_unhandled', 'debt_without_expiry', 'owner_text_edited', 'request_meta_edited', 'record_edited')
 CASES = tuple(Case(mode, (), status) for mode in ('check', 'strict') for status in ('', 'draft', 'stale', 'fingerprint_migrate')) + tuple(Case(mode, (code,)) for mode in ('check', 'strict') for code in ERRORS) + tuple(Case(mode, codes, 'stale') for mode in ('check', 'strict') for codes in (ERRORS[:2], ERRORS[2:])) + (Case('check', count=3), Case('check', count=24))
 CASES += tuple(Case(mode, seam=code) for mode in ('check', 'strict')
                for code in ('target_already_promoted', 'target_deleted_not_staged'))
@@ -78,6 +81,8 @@ class Aggregate:
         errors = state.errors
         if self.defect == 'ignores_edge_errors':
             errors = tuple(code for code in errors if code != 'handoff_output_unhandled')
+        if self.defect == 'ignores_immutable_errors':
+            errors = tuple(code for code in errors if code not in ('owner_text_edited', 'request_meta_edited', 'record_edited'))
         if self.defect == 'debt_without_expiry_passes':
             errors = tuple(code for code in errors if code != 'debt_without_expiry')
         strict = state.mode == 'strict' and bool(state.unconfirmed) and self.defect != 'strict_keeps_stale_warning'
@@ -114,7 +119,7 @@ def make(defect=''):
                     invariants=INVARIANTS, max_sequence_length=2, progress_steps=0)
 def build_explorer(): return make()
 def broken_variants():
-    return {name: make(name) for name in ('ignores_edge_errors', 'strict_keeps_stale_warning', 'prints_each_info_line', 'debt_without_expiry_passes', 'promoted_target_passes_check')}
+    return {name: make(name) for name in ('ignores_edge_errors', 'strict_keeps_stale_warning', 'prints_each_info_line', 'debt_without_expiry_passes', 'promoted_target_passes_check', 'ignores_immutable_errors')}
 
 def conformance():
     import shutil
@@ -252,4 +257,51 @@ def conformance():
         print_findings([Finding('info', 'same', str(i), 'note') for i in range(3)], 'check', as_json=False, limit=80)
     rows = [line for line in output.getvalue().splitlines() if line.startswith('INFO')]
     facts.append(Fact('grouped_info', len(rows) == 1 and 'x3:' in rows[0], output.getvalue()))
-    return CodeFactsReport(tuple(facts))
+    return CodeFactsReport(tuple(facts) + _immutable_request_facts())
+
+
+def _immutable_request_facts():
+    """Replay the same immutable-error cases at the actual check boundary."""
+    import hashlib
+    import subprocess
+    from flowguard.map.check import run_check
+    from flowguard.map.cli import cmd_confirm
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import load_map, ignore_patterns, MapError
+    from flowguard.map.requests import store_request
+    from _target_fixture import make_project
+
+    facts = []
+    with TemporaryDirectory(prefix='fg-check-request-transition-') as directory:
+        root = make_project(Path(directory))
+        with redirect_stdout(StringIO()):
+            cmd_confirm(root, SimpleNamespace(ids=['loans', 'catalog']))
+        store_request(root, b'Keep owner bytes when Git is introduced.\r\n', identifier='RTransition')
+        body = root / '.flowguard/requests/RTransition.md'
+        meta = body.with_suffix('.json')
+        original = body.read_bytes(), meta.read_bytes()
+        data = load_map(root)
+        def observe(name, expected):
+            inventory = build_inventory(root, ignore_patterns(data), write_cache=False)
+            findings = run_check(root, data, inventory, strict=True)
+            codes = {finding.code for finding in findings if finding.level == 'error'}
+            facts.append(Fact(name, codes == expected, repr(sorted(codes))))
+        observe('immutable_before_git_is_clean', set())
+        subprocess.run(['git', '-C', str(root), 'init', '-q'], check=True, capture_output=True)
+        observe('immutable_after_git_init_is_clean', set())
+        body.write_bytes(original[0] + b'edited')
+        item = json.loads(original[1])
+        item.update(sha256=hashlib.sha256(body.read_bytes()).hexdigest(), bytes=len(body.read_bytes()))
+        meta.write_bytes(json.dumps(item).encode())
+        observe('immutable_same_edit_still_fails', {'owner_text_edited', 'request_meta_edited'})
+        body.unlink()
+        meta.unlink()
+        observe('immutable_deleted_pair_still_fails', {'owner_text_edited', 'request_meta_edited'})
+        refused = False
+        try:
+            store_request(root, original[0], identifier='RTransition')
+        except MapError:
+            refused = True
+        facts.append(Fact('immutable_deleted_id_cannot_be_reused', refused and not body.exists() and not meta.exists(),
+                          'The previous receipt protects the missing pair.'))
+    return tuple(facts)

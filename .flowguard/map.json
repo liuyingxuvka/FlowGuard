@@ -831,7 +831,7 @@
     {
       "id": "map-requests",
       "layer": "map",
-      "summary": "Preserve immutable requests and records, check PLAN evidence and expose the same derived request states to read and status.",
+      "summary": "Preserve immutable owner requests and change records through Git initialization; derive static request states and check PLAN evidence without changing the stored originals.",
       "responsibilities": [
         "preserve original owner request bytes and sidecars",
         "protect immutable tool-written files",
@@ -865,7 +865,7 @@
         "writes request files, change record pairs, raw-byte guards and independent written receipts"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:c78a262991e32669dd382882cb7a163d03e0e2a14bebbe01cc88976acb0229ca"
+      "fingerprint": "sha256:e61d1b86f276f3af77ad1e7b77692ec081f11b40e94f55be4490f13c7357693a"
     }
   ],
   "flows": [
@@ -1006,7 +1006,7 @@
     ".flowguard/models/job_matching_example.py": "66d13d40bcbda27be232ecc68713eccd913a46190ba2bc68a5bba805fc9c0971",
     ".flowguard/models/literal_consumers.py": "04dc183c41363d2cc23fb62e6f5d26f30775b5ef466fdbba9462cdeeeac8f84c",
     ".flowguard/models/map_binding.py": "5234e58ea5796c52a4775930cf3e8bafb6d9dd1f212acefbb37021f81351a1cc",
-    ".flowguard/models/map_check.py": "a9c3d1f40c2eda24c048f063902e10127733316c9fcfc1c6eddfc29fd8f767b5",
+    ".flowguard/models/map_check.py": "25cf6fd0078e087951a48e86a1d07ad5654afdec077f286441ea20709fc6afa0",
     ".flowguard/models/model_proof.py": "b8ff72110c36b0843d7da451c8615f24c596b7ea1d49ae595bf9ddffae050627",
     ".flowguard/models/model_runs.py": "dab67fcecee8f475f6189cab0107e30fa667e70249de38eeeae3a9b677505814",
     ".flowguard/models/model_scope.py": "6dd76b266a4e60fd63bbcb4d9a93f5d52b6de3d44aa72ff25002e3b126473307",
