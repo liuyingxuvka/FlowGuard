@@ -1,0 +1,62 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-603: an accepted debt needs a reason and an expiry that release enforces",
+  "components": [
+    {
+      "id": "map-file",
+      "layer": "map",
+      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs. Own shared static call-graph reachability and model selection.",
+      "responsibilities": [
+        "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
+        "resolve component parents in one layer without loops",
+        "merge the target overlay, validate its remove intents and compare it with current",
+        "compute component fingerprints that detect stale descriptions and identify formula edits without a corresponding format change",
+        "register contract models, build the model tree and locate siblings whose parent projection ignores a newly received value",
+        "count import-like strings and injected attribute calls as dependency evidence",
+        "Reuse component file matches, test calls and read-only model trees for identical content within one command, returning fresh mutable call/file collections."
+      ],
+      "files": [
+        "flowguard/map/mapfile.py",
+        "flowguard/map/scan.py",
+        "flowguard/map/tree.py",
+        "flowguard/map/targetfile.py",
+        "flowguard/map/testtree.py",
+        "flowguard/map/port.py",
+        "flowguard/map/modelstatic.py",
+        "flowguard/map/selection.py",
+        "flowguard/map/debts.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/mapfile.py:load_map",
+        "flowguard/map/scan.py:new_map"
+      ],
+      "state": [
+        "map.json components",
+        "canonical current-model digests"
+      ],
+      "side_effects": [
+        "writes .flowguard/map.json"
+      ],
+      "depends_on": [
+        "engine-conformance",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_component_pointer.py",
+        "tests/test_edge_coverage.py",
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_testtree.py",
+        "tests/test_map_file.py",
+        "tests/test_model_scope.py",
+        "tests/test_release_neutral_fingerprint.py",
+        "tests/test_scan_coverage.py",
+        "tests/test_tree_resolution.py"
+      ],
+      "models": [
+        ".flowguard/models/release_neutral_fingerprint.py"
+      ]
+    }
+  ],
+  "flows": [],
+  "remove": []
+}
