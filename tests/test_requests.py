@@ -30,6 +30,101 @@ def _git(root, *arguments):
                            "-C", str(root), *arguments], check=True, capture_output=True).stdout
 
 
+def _request_target(root, capsys, link):
+    code, output, errors = _call(root, capsys, "target", "start", "extend shelf", "--request", link)
+    assert code == 0 and not errors, (output, errors)
+    assert _call(root, capsys, "target", "add", "loans")[0] == 0
+    assert _call(root, capsys, "target", "add", "shelf_rule")[0] == 0
+    model = root / ".flowguard/target/models/shelf_rule.py"
+    model.write_text(model.read_text() + "\nTARGET_REVISION = 2\n", encoding="utf-8")
+
+
+def test_promote_marks_linked_request_done(tmp_path, capsys):
+    from flowguard.map.requests import store_request, request_rows
+
+    for partial in (False, True):
+        root = _project(tmp_path / str(partial), capsys)
+        store_request(root, b"extend shelf\r\n", identifier="R1")
+        store_request(root, b"leave this request visible\n", identifier="R2")
+        originals = {p.name: p.read_bytes() for p in (root / ".flowguard/requests").glob("R*.*")}
+        _request_target(root, capsys, "R1:part" if partial else "R1")
+        data = json.loads((root / ".flowguard/target/map.json").read_bytes())
+        assert data["requests"] == [{"id": "R1", "part": partial}]
+        assert any("R1 in this change" in row for row in request_rows(root))
+        code, output, errors = _call(root, capsys, "target", "promote")
+        assert code == 0 and not errors, (output, errors)
+        records = list((root / ".flowguard/changes").glob("*.json"))
+        assert len(records) == 1
+        item = json.loads(records[0].read_bytes())
+        assert item["kind"] == "change" and item["requests"] == data["requests"]
+        assert records[0].with_suffix(".msg").is_file()
+        rows = request_rows(root)
+        assert any(("R1 open since" if partial else "R1 done (change ") in row for row in rows)
+        assert any("R2 open since" in row for row in rows)
+        assert {p.name: p.read_bytes() for p in (root / ".flowguard/requests").glob("R*.*")} == originals
+        if not partial:
+            from flowguard.map.records import change_records, record_findings
+            records[0].write_bytes(records[0].read_bytes() + b" ")
+            assert change_records(root) == []
+            assert any(item.code == "record_edited" for item in record_findings(root))
+            assert any("R1 open since" in row for row in request_rows(root))
+
+
+def test_request_link_refusal_and_failed_record_do_not_complete(tmp_path, capsys, monkeypatch):
+    from flowguard.map import records
+    from flowguard.map.requests import store_request, request_rows
+
+    root = _project(tmp_path / "project", capsys)
+    code, output, errors = _call(root, capsys, "target", "start", "unknown", "--request", "R9")
+    assert code == 2 and "R9 is not stored" in errors and "--id R9" in errors
+    assert not (root / ".flowguard/target").exists()
+    store_request(root, b"complete this request\n", identifier="R1")
+    code, _, errors = _call(root, capsys, "target", "start", "duplicate", "--request", "R1", "--request", "R1:part")
+    assert code == 2 and "duplicate request R1" in errors
+    _request_target(root, capsys, "R1")
+    path = root / ".flowguard/target/map.json"
+    target = json.loads(path.read_bytes())
+    target["requests"][0]["id"] = "R9"
+    path.write_text(json.dumps(target), encoding="utf-8")
+    code, output, errors = _call(root, capsys, "target", "promote")
+    assert code == 1 and "request_unknown" in output
+    assert not list((root / ".flowguard/changes").glob("*.json"))
+    target["requests"][0]["id"] = "R1"
+    path.write_text(json.dumps(target), encoding="utf-8")
+    original = records.write_once
+    def fail_json(root, path, raw, **kwargs):
+        if Path(path).parent == records.CHANGE_DIR and Path(path).suffix == ".json":
+            raise OSError("record writer unavailable")
+        return original(root, path, raw, **kwargs)
+    monkeypatch.setattr(records, "write_once", fail_json)
+    code, output, errors = _call(root, capsys, "target", "promote", "--json")
+    verdict = json.loads(output)
+    assert code == 2 and verdict["verdict"] == "FAIL"
+    assert any(item["code"] == "operation_failed" for item in verdict["codes"])
+    assert "tree was applied" in errors and "no complete change record" in errors
+    assert not (root / ".flowguard/target").exists()
+    assert records.change_records(root) == [] and records.record_findings(root) == []
+    assert not list((root / records.CHANGE_DIR).glob("*.msg"))
+    assert any("R1 open since" in row for row in request_rows(root))
+
+
+def test_request_state_prefers_this_target_then_other_worktree(tmp_path, capsys):
+    from flowguard.map.requests import store_request, request_rows
+
+    root = _project(tmp_path / "repository/project", capsys)
+    _git(root.parent, "init", "-q")
+    store_request(root, b"a shared request\n", identifier="R1")
+    _git(root, "add", "--", ".flowguard/map.json", ".flowguard/models", ".flowguard/requests", "shelf", "tests")
+    _git(root, "commit", "-qm", "shared request")
+    peer_root = tmp_path / "peer"
+    _git(root, "worktree", "add", "-qb", "peer", str(peer_root))
+    peer = peer_root / "project"
+    assert _call(peer, capsys, "target", "start", "peer change", "--request", "R1:part")[0] == 0
+    assert any(f"R1 in another change ({peer})" in row for row in request_rows(root))
+    assert _call(root, capsys, "target", "start", "this change", "--request", "R1")[0] == 0
+    assert any("R1 in this change" in row for row in request_rows(root))
+
+
 def test_req_add_stores_bytes_and_digest(tmp_path, capsys):
     root = _project(tmp_path / "project", capsys)
     _git(root, "init", "-q")

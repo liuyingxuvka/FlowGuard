@@ -340,7 +340,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:5396e3aec6806802785008f26fa95650f23e3dad1328c62768749eba6050ac61"
+      "fingerprint": "sha256:79e2c3e9b1a513ebe50857844835cef68bc7e8bc1ac133e8971d963e732d1d2d"
     },
     {
       "id": "map-discover",
@@ -382,7 +382,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Manage one target, its actual start/source baselines and checked inputs; promote only fresh complete code/model/test proofs without overwriting intent.",
+      "summary": "Manage one target, link stored requests and promote a checked tree with an immutable change record.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and native gaps before or after code changes; run the changed target models own bound tests and reject unreceived escalated outputs",
@@ -390,7 +390,8 @@
         "refuse a target that changes nothing, drops a promise or leaves it untied",
         "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions; print absolute literal-file staging guidance including target deletion, or honest no-Git preservation and verification guidance, without changing the Git index",
         "warn about earlier findings, stale active debts, untested rules, fingerprint-format changes and siblings that ignore a newly received parent field; evaluate version debts against the actual project root",
-        "include function-selected models and tests in the single promotion check"
+        "include function-selected models and tests in the single promotion check",
+        "link stored requests to the target and publish an immutable change record after successful application and target cleanup"
       ],
       "files": [
         "flowguard/map/target.py",
@@ -408,7 +409,8 @@
       ],
       "side_effects": [
         "writes and deletes .flowguard/target/",
-        "writes current .flowguard/map.json and .flowguard/models/ only after a clean target check"
+        "writes current .flowguard/map.json and .flowguard/models/ only after a clean target check",
+        "publishes immutable change record pairs after successful application and target cleanup"
       ],
       "depends_on": [
         "map-check",
@@ -417,7 +419,8 @@
         "map-impact",
         "map-inventory",
         "map-proof",
-        "map-read"
+        "map-read",
+        "map-requests"
       ],
       "tests": [
         "tests/test_flowguard_target.py",
@@ -426,14 +429,15 @@
         "tests/test_target_add.py",
         "tests/test_target_life_cycle.py",
         "tests/test_model_edits.py",
-        "tests/test_cli_main.py"
+        "tests/test_cli_main.py",
+        "tests/test_requests.py"
       ],
       "models": [
         ".flowguard/models/target_add.py",
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:395b045e57d300953bca46f2f502f84389434d6563f3f1fe6a7f74ec9d17ff0d"
+      "fingerprint": "sha256:439140b3200c933902e51f436178fed6073774ca35b044d08f6a8dafb8761748"
     },
     {
       "id": "map-proof",
@@ -698,7 +702,7 @@
     {
       "id": "map-check",
       "layer": "map",
-      "summary": "Check map/code ownership, contracts, target seams and immutable request bytes, retaining strict severity.",
+      "summary": "Check map/code ownership, contracts, target seams and immutable request/record bytes, retaining severity and debt provenance.",
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity. Enforce target commit-seam failures only in strict mode, retaining working-mode and Gitless no-op warnings.",
         "report one owner per entrypoint, responsibility, state and side effect",
@@ -738,7 +742,7 @@
         ".flowguard/models/private_use.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:306a83526e2d9424e1f7bce81ed7cbd6e00c93cef087f9960b67fc3094403484"
+      "fingerprint": "sha256:0a0a6fd67a35962b0e048503942c40b11dfa671537b48cf88f4c4bbbb682daa9"
     },
     {
       "id": "map-read",
@@ -824,7 +828,7 @@
     {
       "id": "map-requests",
       "layer": "map",
-      "summary": "Store owner requests byte for byte and keep immutable request/record identities.",
+      "summary": "Store owner requests byte for byte, protect immutable change records and derive request state from targets and complete records.",
       "responsibilities": [
         "preserve original owner request bytes and sidecars",
         "protect immutable tool-written files",
@@ -848,13 +852,14 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a0fae741b09de72c0ed0cb33ce987b6fa019e55bdbdfbd59c4a16618d53a7fc3",
+      "fingerprint": "sha256:bec3bd957c29ffaf3b839b2c637c7cd302406886dcc0d25915e4e44fd1430e22",
       "state": [
         "original owner request bytes and immutable sidecars",
-        "independent first-write byte identities"
+        "independent first-write byte identities",
+        "immutable successful change records"
       ],
       "side_effects": [
-        "writes request files, raw-byte guards and independent written receipts"
+        "writes request files, change record pairs, raw-byte guards and independent written receipts"
       ]
     }
   ],
@@ -1020,7 +1025,7 @@
     ".flowguard/models/shard_suite.py": "befb5f91139ce4d74fcc7a9ab5ecd5927c759a94e005e6063dc6e9492cbc7333",
     ".flowguard/models/target_add.py": "b38f68d292ca7996cf46785aa6ccafe0f3f30a5b0e00d9f5329de74e4f4ed120",
     ".flowguard/models/target_findings.py": "8d0628fe4f4ad798734919d74423468d22769207fc690ad003f6f562e801b2fd",
-    ".flowguard/models/target_life_cycle.py": "fb3dc6d7c0875f786dde2787143be7d3cdee846c910a7b14b25d5dcd69c94ace",
+    ".flowguard/models/target_life_cycle.py": "b8f71219f9681d8bef4c77472569eaa281ffe57e6c8e0440e1a2e3b9e962350c",
     ".flowguard/models/target_promotion.py": "d8688296cd339fbd181378110384f85dfd6248641b23b7da94f1eec774a304c1",
     ".flowguard/models/test_binding.py": "01f20ff65edb30f6c9bb2d53628704362f379656838734aad4978bcb608fee3f",
     ".flowguard/models/test_selection.py": "b09e7005f72ab0e2bff84821e091d898ccaf7acd8bbbfc749b8ed254b89d7b86",

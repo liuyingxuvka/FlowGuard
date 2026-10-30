@@ -43,6 +43,8 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command")
     start = commands.add_parser("start", help="start one target draft")
     start.add_argument("goal")
+    start.add_argument("--request", action="append", default=[], metavar="ID[:part]",
+                       help="link a stored request; :part leaves it open after promotion")
     add = commands.add_parser("add", help="copy a current node into the target")
     add.add_argument("node")
     drop = commands.add_parser("drop", help="preview or delete the target")
@@ -239,6 +241,12 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     problems = validate_target(root, current, target)
     if problems:
         report.errors.extend(TargetFinding("target", item.code, item.message) for item in problems)
+        return report
+    from .requests import validate_request_links
+    try:
+        validate_request_links(root, target.data.get("requests", []))
+    except MapError as exc:
+        report.errors.append(TargetFinding("target", str(exc).split(":", 1)[0], str(exc)))
         return report
     report.changes = target_node_changes(root, current, target)
     view = build_target_view(root, current, target)
@@ -655,6 +663,7 @@ def _promotion_next(root, data, inputs, selected_tests):
 def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
     """Check once, revalidate the checked bytes, then apply a prepared write plan."""
     root = root.resolve()
+    applied = False
     try:
         if not (root / TARGET_RELDIR).exists():
             raise MapError('no target; start one with python -m flowguard target start "<goal>"')
@@ -745,6 +754,30 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
                 print("promote refused: " + "; ".join(problems))
             return 1
         selected_tests = set(impact.tests) | {node.split("::", 1)[0] for node in tested}
+        from .records import prepare_change, publish_change
+        from .impact_history import read_git_paths
+        base = _target_base(root)
+        source_paths = None
+        if base.get("git"):
+            try:
+                source_paths = set(read_git_paths(root, "diff", "--relative", "--name-only", "-z", base["git"], "--", "."))
+                source_paths.update(set(read_git_paths(root, "ls-files", "--others", "--exclude-standard", "-z")) & set(inputs))
+            except (OSError, subprocess.CalledProcessError):
+                source_paths = None
+        prepared_record = prepare_change(
+            root, goal=target.goal, links=target.data.get("requests", []), base=base,
+            inputs=inputs, merged=merged, model_bytes=model_bytes, deleted=deleted,
+            changed_paths=source_paths,
+            checked=("This promotion ran one fresh target check with bound tests and the remaining "
+                     f"function-selected tests; {len(report.warnings)} warning(s) remained. "
+                     "The tree identifies the checked post-promotion content, before later component confirmation."))
+        expected_inputs = {prepared_record["guard_path"]: prepared_record["guard_sha256"], **inputs}
+        if _promotion_inputs(root, current) != expected_inputs:
+            if as_json:
+                print_verdict("target promote", 1, [dict(level="error", code="checked_inputs_changed", subject="target")])
+            else:
+                print("promote refused: checked inputs changed; run python -m flowguard target check")
+            return 1
         next_lines = _promotion_next(root, merged, inputs, selected_tests)
         backup = root / TARGET_RELDIR / ".replaced"
         for rel in [".flowguard/map.json", *[".flowguard/models/" + name for name in model_bytes], *deleted]:
@@ -763,7 +796,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
         for path in deleted:
             (root / path).unlink()
         temporary = root / ".flowguard/map.json.tmp"
-        temporary.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.write_bytes(prepared_record["map_bytes"])
         os.replace(temporary, root / ".flowguard/map.json")
         directory = root / TARGET_RELDIR
         for child in directory.iterdir():
@@ -776,6 +809,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
         if backup.exists():
             shutil.rmtree(backup, onerror=_remove_readonly)
         directory.rmdir()
+        applied = True
         from .mapfile import is_stale
         inv = build_inventory(root, ignore_patterns(merged), write_cache=False, import_roots=tuple(merged.get("import_roots", ())))
         drafts = sorted(set(drafts) | {c["id"] for c in merged["components"] if is_stale(root, c, inv)})
@@ -784,26 +818,36 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             items = [symbol + entry.split(":", 1)[1] for symbol in ("+", "~", "-")
                      for entry in changes[symbol] if entry.startswith(kind + ":")]
             summaries.append(label + " " + (" ".join(items) or "-"))
+        publish_change(root, prepared_record)
         if as_json:
             print_verdict("target promote", 0, _target_codes(report), next_lines[-1])
         else:
             print(f'promoted "{target.goal}": ' + "; ".join(summaries))
             for line in reread:
                 print(line)
+            for link in target.data.get("requests", []):
+                state = "partial; remains open" if link["part"] else "done"
+                print(f"request {link['id']}: {state} (change {prepared_record['id']})")
             if drafts:
                 print(render_advice(advice("confirm", "python -m flowguard map confirm " + " ".join(drafts))))
             for line in next_lines:
                 print(render_advice(line) if isinstance(line, dict) else line)
         return 0
     except OSError as exc:
-        print(f"promote stopped: {exc}; the target is intact in .flowguard/target/ and the replaced files are in .flowguard/target/.replaced/; copy them back into .flowguard/ to restore, then run python -m flowguard target promote again", file=sys.stderr)
-        if _git_head(root):
-            print("restore with: git checkout -- .flowguard && git clean -fd .flowguard", file=sys.stderr)
+        if applied:
+            message = "the tree was applied, but no complete change record was published; do not mark its requests done"
+        else:
+            message = (f"inspect {root / TARGET_RELDIR} and recovery copies under "
+                       f"{root / TARGET_RELDIR / '.replaced'}; copy them back into .flowguard/ to restore, "
+                       "preserving original requests and existing records, then retry promotion")
+        print(f"promote stopped: {exc}; {message}", file=sys.stderr)
         if as_json:
             print_verdict("target promote", 2, [dict(level="error", code="operation_failed", subject="target")])
         return 2
     except MapError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        if applied:
+            print("the tree was applied, but no complete change record was published; do not mark its requests done", file=sys.stderr)
         if as_json:
             print_verdict("target promote", 2, [dict(level="error", code="invalid_target", subject="target")])
         return 2
@@ -904,7 +948,7 @@ def _add(root: Path, data: dict, target, requested: str) -> None:
 
 
 
-def start_target(root: Path, goal: str) -> int:
+def start_target(root: Path, goal: str, *, requests=()) -> int:
     """Create the one target draft; refuse a second target or an empty goal."""
     target = load_target(root)
     if target is not None:
@@ -912,10 +956,15 @@ def start_target(root: Path, goal: str) -> int:
                        'or drop it (python -m flowguard target drop --yes)')
     if not goal.strip():
         raise MapError("the goal must be a nonempty sentence")
+    from .requests import request_links
+    links = request_links(root, requests)
     directory = root / TARGET_RELDIR
     directory.mkdir(parents=True)
     (directory / "models").mkdir()
-    _save(root, dict(schema=TARGET_SCHEMA, goal=goal, components=[], flows=[], remove=[]))
+    data = dict(schema=TARGET_SCHEMA, goal=goal, components=[], flows=[], remove=[])
+    if links:
+        data["requests"] = links
+    _save(root, data)
     _record_base(root)
     print(f'target started: "{goal}"')
     if not _git_head(root):
@@ -980,7 +1029,7 @@ def main(argv: list[str] | None = None) -> int:
             return code
         load_map(root)
         if args.command == "start":
-            return start_target(root, args.goal)
+            return start_target(root, args.goal, requests=args.request)
         if args.command == "drop":
             return drop_target(root, yes=args.yes)
         return add_to_target(root, args.node)

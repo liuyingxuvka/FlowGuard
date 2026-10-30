@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import re
+import subprocess
 
 from .common import Finding, sha256_bytes
 from .mapfile import MapError
@@ -135,12 +137,94 @@ def request_findings(root: Path) -> list[Finding]:
 
 
 def request_rows(root: Path) -> list[str]:
-    """At this stage no target/record claims a request; never persist its status."""
+    """Derive current links, other worktrees and completed records; write nothing."""
+    from .records import change_records
+
+    root = Path(root).resolve()
+    current = {link['id'] for link in _target_links(root)}
+    others = {}
+    for worktree in _other_worktrees(root):
+        for link in _target_links(worktree):
+            others.setdefault(link['id'], str(worktree))
+    done = {link['id']: identifier for identifier, record in change_records(root)
+            for link in record['requests'] if not link['part']}
     rows = []
-    for identifier in _identifiers(Path(root)):
+    for identifier in _identifiers(root):
         try:
-            item = _metadata(Path(root) / REQUEST_DIR / (identifier + '.json'), identifier)
-            rows.append((item['received'], f"{identifier} open since {item['received'][:10]} (no target)"))
+            item = _metadata(root / REQUEST_DIR / (identifier + '.json'), identifier)
+            state = ('in this change' if identifier in current else
+                     f'in another change ({others[identifier]})' if identifier in others else
+                     f'done (change {done[identifier]})' if identifier in done else
+                     f"open since {item['received'][:10]} (no target)")
+            rows.append((item['received'], f'{identifier} {state}'))
         except (OSError, ValueError, KeyError, TypeError, OverflowError):
             rows.append(('', f'{identifier} invalid (run map check)'))
     return [row for _, row in sorted(rows)]
+
+
+def request_links(root: Path, values) -> list[dict]:
+    """Parse CLI links once; request sidecars never store target or done state."""
+    links = []
+    for value in values:
+        identifier, separator, suffix = value.partition(':')
+        if not REQUEST_ID.fullmatch(identifier) or separator and suffix != 'part':
+            raise MapError(f'request_link_invalid: {value!r}; use ID or ID:part')
+        if any(link['id'] == identifier for link in links):
+            raise MapError(f'request_link_invalid: duplicate request {identifier}')
+        links.append(dict(id=identifier, part=bool(separator)))
+    validate_request_links(root, links)
+    return links
+
+
+def validate_request_links(root: Path, links) -> None:
+    """Require real stored owner bytes, not just a syntactically valid target id."""
+    import shlex
+
+    root = Path(root).resolve()
+    for link in links:
+        identifier = link['id']
+        if not REQUEST_ID.fullmatch(identifier):
+            raise MapError(f'request_link_invalid: {identifier!r}; use a stored request ID')
+        body = REQUEST_DIR / (identifier + '.md')
+        meta = body.with_suffix('.json')
+        if not (root / body).is_file() or not (root / meta).is_file():
+            command = shlex.join(['python', '-m', 'flowguard', 'req', 'add', '<owner-file>',
+                                  '--id', identifier, '--root', str(root)])
+            raise MapError(f'request_unknown: {identifier} is not stored; store it first: {command}')
+        for path, code in ((body, 'owner_text_edited'), (meta, 'request_meta_edited')):
+            problem = integrity_problem(root, path)
+            if problem:
+                raise MapError(f'{code}: {problem}')
+        try:
+            item = _metadata(root / meta, identifier)
+            raw = (root / body).read_bytes()
+            if sha256_bytes(raw) != item['sha256'] or len(raw) != item['bytes']:
+                raise ValueError('owner bytes differ from the sidecar')
+        except (ValueError, KeyError, TypeError, OverflowError) as error:
+            raise MapError(f'request_meta_edited: {identifier}: {error}') from error
+
+
+def _target_links(root: Path):
+    try:
+        target = json.loads((root / '.flowguard/target/map.json').read_bytes())
+        links = target.get('requests', [])
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [link for link in links if isinstance(link, dict)
+            and isinstance(link.get('id'), str) and type(link.get('part')) is bool] if isinstance(links, list) else []
+
+
+def _other_worktrees(root: Path):
+    try:
+        top = subprocess.run(['git', '-C', str(root), 'rev-parse', '--show-toplevel'], capture_output=True)
+        if top.returncode:
+            return []
+        prefix = root.relative_to(Path(os.fsdecode(top.stdout).strip()).resolve())
+        result = subprocess.run(['git', '-C', str(root), 'worktree', 'list', '--porcelain', '-z'],
+                                capture_output=True)
+    except (OSError, ValueError):
+        return []
+    if result.returncode:
+        return []
+    return [path for field in result.stdout.split(b'\0') if field.startswith(b'worktree ')
+            and (path := (Path(os.fsdecode(field[9:])) / prefix).resolve()) != root]

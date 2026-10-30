@@ -1,0 +1,54 @@
+{
+  "kind": "change",
+  "goal": "FG-613: a target names its request and promote records its completion",
+  "requests": [
+    {
+      "id": "R1",
+      "part": true
+    },
+    {
+      "id": "R600",
+      "part": true
+    }
+  ],
+  "base": "fe49ba1f2d7ee7c4350fbf488e0bbfdc076dd53d",
+  "tree": "40755d472db571c6f164def6283518901314b8ce8021a68292c348b1dfeb24e0",
+  "promoted": "2026-10-30T19:57:24.292351+00:00",
+  "plan": [],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/map/check.py:run_check",
+    "flowguard/map/records.py:_change_record",
+    "flowguard/map/records.py:_diff_provenance",
+    "flowguard/map/records.py:_record_identifiers",
+    "flowguard/map/records.py:change_records",
+    "flowguard/map/records.py:prepare_change",
+    "flowguard/map/records.py:publish_change",
+    "flowguard/map/records.py:record_findings",
+    "flowguard/map/records.py:write_once",
+    "flowguard/map/requests.py:_other_worktrees",
+    "flowguard/map/requests.py:_target_links",
+    "flowguard/map/requests.py:request_links",
+    "flowguard/map/requests.py:request_rows",
+    "flowguard/map/requests.py:validate_request_links",
+    "flowguard/map/target.py:build_parser",
+    "flowguard/map/target.py:check_target",
+    "flowguard/map/target.py:main",
+    "flowguard/map/target.py:promote_target",
+    "flowguard/map/target.py:start_target",
+    "flowguard/map/targetfile.py:validate_target",
+    "tests/test_flowguard_target.py:test_target_promote_reports_real_write_failure_without_backup_or_automatic_git",
+    "tests/test_requests.py:_request_target",
+    "tests/test_requests.py:test_promote_marks_linked_request_done",
+    "tests/test_requests.py:test_request_link_refusal_and_failed_record_do_not_complete",
+    "tests/test_requests.py:test_request_link_refusal_and_failed_record_do_not_complete.fail_json",
+    "tests/test_requests.py:test_request_state_prefers_this_target_then_other_worktree",
+    "tests/test_target_life_cycle.py:test_promote_refuses_inputs_changed_after_its_check",
+    "tests/test_target_life_cycle.py:test_promote_refuses_inputs_changed_after_its_check.prepare_then_edit"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 3 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. PLAN lines, rule provenance, acceptances, existing-item clearance and new-action judgments are not assessed by this record producer; their lists are empty."
+}

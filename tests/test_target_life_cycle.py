@@ -409,7 +409,7 @@ def test_target_check_reports_unwritten_code_as_todo(tmp_path, capsys):
     assert not any(f.code == "anchor_broken" for f in report.errors), report
 
 
-@pytest.mark.parametrize("relative", ["models/shelf_rule.py", "base.json"])
+@pytest.mark.parametrize("relative", ["models/shelf_rule.py", "base.json", "record_guard"])
 def test_promote_refuses_inputs_changed_after_its_check(tmp_path, capsys, monkeypatch, relative):
     """promote_target checks once; when a checked input changes afterwards it refuses and writes nothing."""
     from pathlib import Path
@@ -420,16 +420,24 @@ def test_promote_refuses_inputs_changed_after_its_check(tmp_path, capsys, monkey
     helpers["stage_target"](root)
     helpers["edit_missing_method"](root)
     helpers["write_method"](root)
-    original = native.check_target
-
-    def check_then_edit(checked_root, **options):
-        report = original(checked_root, **options)
-        path = Path(checked_root) / ".flowguard/target" / relative
-        suffix = "\n# edited after the check\n" if path.suffix == ".py" else "\n "
-        path.write_text(path.read_text(encoding="utf-8") + suffix, encoding="utf-8")
-        return report
-
-    monkeypatch.setattr(native, "check_target", check_then_edit)
+    if relative == "record_guard":
+        from flowguard.map import records
+        records.prepare_directory(root, records.CHANGE_DIR, (".json", ".msg"))
+        original = records.prepare_change
+        def prepare_then_edit(checked_root, **options):
+            path = checked_root / records.CHANGE_DIR / ".gitattributes"
+            path.write_bytes(path.read_bytes() + b"# edited after the check\n")
+            return original(checked_root, **options)
+        monkeypatch.setattr(records, "prepare_change", prepare_then_edit)
+    else:
+        original = native.check_target
+        def check_then_edit(checked_root, **options):
+            report = original(checked_root, **options)
+            path = Path(checked_root) / ".flowguard/target" / relative
+            suffix = "\n# edited after the check\n" if path.suffix == ".py" else "\n "
+            path.write_text(path.read_text(encoding="utf-8") + suffix, encoding="utf-8")
+            return report
+        monkeypatch.setattr(native, "check_target", check_then_edit)
     current = (root / ".flowguard/map.json").read_bytes()
     capsys.readouterr()
     assert native.promote_target(root) == 1

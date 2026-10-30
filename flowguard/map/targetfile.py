@@ -14,7 +14,7 @@ from .mapfile import COMPONENT_KEYS, ID_RE, MapError, model_registry, read_model
 
 TARGET_RELDIR = ".flowguard/target"
 TARGET_SCHEMA = "flowguard.target.v1"
-TARGET_KEYS = {"schema", "goal", "components", "flows", "layers", "accepted_debts", "remove"}
+TARGET_KEYS = {"schema", "goal", "components", "flows", "layers", "accepted_debts", "remove", "requests"}
 
 
 @dataclass(frozen=True)
@@ -166,6 +166,20 @@ def validate_target(root: Path, current_data: dict, target: Target, *,
         invalid("goal must be a nonempty sentence")
     for key in sorted(set(data) - TARGET_KEYS):
         invalid(f"unknown target key {key!r}")
+    links = data.get("requests", [])
+    if not isinstance(links, list):
+        invalid("requests must be a list of {id, part} objects")
+    else:
+        seen_requests = set()
+        for link in links:
+            if (not isinstance(link, dict) or set(link) != {"id", "part"}
+                    or not isinstance(link["id"], str) or not link["id"]
+                    or type(link["part"]) is not bool):
+                invalid("each request needs a string id and a boolean part")
+            elif link["id"] in seen_requests:
+                invalid(f"duplicate request id {link['id']!r}")
+            else:
+                seen_requests.add(link["id"])
     for plural, kind, keys in (("components", "component", COMPONENT_KEYS - {"status", "fingerprint", "_hint"}),
                                ("flows", "flow", {"id", "summary", "steps", "model"})):
         values = data.get(plural, [])

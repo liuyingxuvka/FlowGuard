@@ -63,6 +63,8 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     out: list[Finding] = evaluation.diagnostics(strict=strict)
     from .requests import request_findings
     out.extend(request_findings(root))
+    from .records import record_findings
+    out.extend(record_findings(root))
     target_state = target_state if target_state is not None else target_seam(root, load_map(root) if view is not None else data)
     level = "error" if strict else "warn"
     if target_state.missing_indexed:

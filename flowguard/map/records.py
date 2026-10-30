@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
-from .common import sha256_bytes
+from .common import Finding, normalize_newlines, sha256_bytes
 from .mapfile import MapError
 
 
@@ -107,14 +109,18 @@ def validate_new_files(root, relative_paths):
         _new_file(root, path)
 
 
-def write_once(root, relative_path, raw):
+def write_once(root, relative_path, raw, *, _created=None):
     """Save exact bytes once and protect them outside editable sidecar metadata."""
     path, written = _new_file(root, relative_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("xb") as stream:
+        if _created is not None:
+            _created.append(path)
         stream.write(raw)
     written.parent.mkdir(parents=True, exist_ok=True)
     with written.open("x", encoding="ascii") as stream:
+        if _created is not None:
+            _created.append(written)
         stream.write(json.dumps({"path": path.as_posix(), "sha256": sha256_bytes(raw)}) + "\n")
 
 
@@ -206,3 +212,163 @@ def protected_paths(root, relative_dir) -> set[str]:
                 continue
         paths.add(candidate)
     return {path for path in paths if Path(path).name != ".gitattributes"}
+
+
+CHANGE_DIR = Path(".flowguard/changes")
+_RECORD_LISTS = ("requests", "plan", "rules", "acceptances", "existing_cleared",
+                 "implemented_by", "new_actions", "corrections")
+
+
+def _diff_provenance(root, base, inputs, changed_paths):
+    """Read actual base-to-worktree source changes, without an authored claim."""
+    from difflib import SequenceMatcher
+    from .inventory import function_digests
+
+    commit = base.get("git")
+    if not isinstance(commit, str):
+        return [], [], "Exact changed functions and correction before-images are unavailable without a Git base."
+    if changed_paths is None:
+        return [], [], "The Git base diff is unavailable; implementation and correction provenance are unknown."
+    paths = set(changed_paths)
+    implemented, corrections = [], []
+    for relative in sorted(paths):
+        correction = relative == ".flowguard/skeleton.py" or Path(relative).name in {"world.py", "machine.py"}
+        if not relative.endswith(".py") or relative.startswith(".flowguard/") and not correction:
+            continue
+        previous = _git(root, "show", f"{commit}:./{relative}")
+        before = previous.stdout if previous is not None and not previous.returncode else b""
+        path = root / relative
+        after = path.read_bytes() if path.is_file() else b""
+        try:
+            old = normalize_newlines(before).decode("utf-8")
+            new = normalize_newlines(after).decode("utf-8")
+            left = function_digests(old)["functions"]
+            right = function_digests(new)["functions"]
+        except (UnicodeError, SyntaxError, ValueError):
+            continue
+        if not relative.startswith(".flowguard/"):
+            implemented.extend(relative + ":" + name for name in sorted(left.keys() | right.keys())
+                               if left.get(name) != right.get(name))
+        if correction:
+            old_lines, new_lines = old.splitlines(), new.splitlines()
+            for operation, first, last, start, end in SequenceMatcher(None, old_lines, new_lines).get_opcodes():
+                if operation != "equal":
+                    corrections.append(dict(path=relative, old="\n".join(old_lines[first:last]),
+                                            new="\n".join(new_lines[start:end])))
+    return implemented, corrections, "Implementation provenance lists changed Python function definitions from the Git diff."
+
+
+def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, deleted, checked,
+                   changed_paths=None):
+    """Prepare a final immutable pair and the exact checked post-promotion view."""
+    root = Path(root).resolve()
+    prepare_directory(root, CHANGE_DIR, (".json", ".msg"))
+    guard = (CHANGE_DIR / ".gitattributes").as_posix()
+    guard_hash = sha256_bytes((root / guard).read_bytes())
+    view = {path: digest for path, digest in inputs.items()
+            if not path.startswith((".flowguard/target/", ".flowguard/cache/", ".git/"))}
+    map_bytes = (json.dumps(merged, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    view[".flowguard/map.json"] = sha256_bytes(map_bytes)
+    view[guard] = guard_hash
+    for name, raw in model_bytes.items():
+        view[".flowguard/models/" + name] = sha256_bytes(raw)
+    for path in deleted:
+        view.pop(path, None)
+    tree = sha256_bytes(json.dumps(sorted(view.items()), ensure_ascii=False,
+                                  separators=(",", ":")).encode("utf-8"))
+    now = datetime.now(timezone.utc)
+    identifier = now.strftime("%Y%m%d-%H%M-") + tree[:6]
+    implemented, corrections, provenance = _diff_provenance(root, base, inputs, changed_paths)
+    record = dict(kind="change", goal=goal, requests=links, base=base.get("git"), tree=tree,
+                  promoted=now.isoformat(), plan=[], rules=[], acceptances=[], existing_cleared=[],
+                  implemented_by=implemented, new_actions=[], corrections=corrections,
+                  checked=checked + " " + provenance +
+                  " PLAN lines, rule provenance, acceptances, existing-item clearance and new-action judgments are not assessed by this record producer; their lists are empty.")
+    raw = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    message = (goal + "\n\n" + record["checked"] + "\n").encode("utf-8")
+    validate_new_files(root, (CHANGE_DIR / (identifier + ".msg"), CHANGE_DIR / (identifier + ".json")))
+    return dict(id=identifier, record=record, json=raw, msg=message, map_bytes=map_bytes,
+                guard_path=guard, guard_sha256=guard_hash)
+
+
+def publish_change(root, prepared):
+    """Publish JSON last; a failed new pair never becomes a successful record."""
+    created = []
+    try:
+        for extension in ("msg", "json"):
+            write_once(root, CHANGE_DIR / (prepared["id"] + "." + extension),
+                       prepared[extension], _created=created)
+    except (OSError, MapError):
+        for path in reversed(created):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass  # An incomplete pair remains an explicit record_edited finding.
+        raise
+
+
+def _record_identifiers(root):
+    paths = {path for pattern in ("*.json", "*.msg") for path in (root / CHANGE_DIR).glob(pattern)}
+    paths.update(Path(path) for path in protected_paths(root, CHANGE_DIR)
+                 if Path(path).suffix in {".json", ".msg"})
+    return sorted({path.stem for path in paths})
+
+
+def _change_record(root, identifier):
+    if not re.fullmatch(r"[0-9]{8}-[0-9]{4}-[0-9a-f]{6}", identifier):
+        raise ValueError("invalid change record name")
+    for extension in ("msg", "json"):
+        problem = integrity_problem(root, CHANGE_DIR / (identifier + "." + extension))
+        if problem:
+            raise ValueError(problem)
+    item = json.loads((root / CHANGE_DIR / (identifier + ".json")).read_bytes())
+    if (not isinstance(item, dict) or item.get("kind") != "change"
+            or not isinstance(item.get("goal"), str) or not item["goal"].strip()
+            or not re.fullmatch(r"[0-9a-f]{64}", str(item.get("tree", "")))
+            or "base" not in item
+            or item.get("base") is not None and not isinstance(item["base"], str)
+            or not isinstance(item.get("checked"), str) or not item["checked"].strip()
+            or any(not isinstance(item.get(key), list) for key in _RECORD_LISTS)):
+        raise ValueError("invalid change record fields")
+    moment = datetime.fromisoformat(item["promoted"])
+    if moment.tzinfo is None or moment.utcoffset().total_seconds() != 0:
+        raise ValueError("promoted must be UTC")
+    seen = set()
+    for link in item["requests"]:
+        if (not isinstance(link, dict) or set(link) != {"id", "part"}
+                or not isinstance(link["id"], str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", link["id"])
+                or type(link["part"]) is not bool or link["id"] in seen):
+            raise ValueError("invalid change request link")
+        seen.add(link["id"])
+    return item
+
+
+def change_records(root):
+    """Read only complete, schema-valid, byte-protected successful records."""
+    root = Path(root).resolve()
+    records = []
+    for identifier in _record_identifiers(root):
+        try:
+            records.append((identifier, _change_record(root, identifier)))
+        except (OSError, ValueError, KeyError, TypeError, OverflowError):
+            continue
+    return records
+
+
+def record_findings(root):
+    """Fresh pair integrity; missing, orphaned and edited records remain errors."""
+    import shlex
+
+    root = Path(root).resolve()
+    findings = []
+    for identifier in _record_identifiers(root):
+        try:
+            _change_record(root, identifier)
+        except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
+            restore = shlex.join(["git", "-C", str(root), "checkout", "--",
+                                  (CHANGE_DIR / (identifier + ".json")).as_posix(),
+                                  (CHANGE_DIR / (identifier + ".msg")).as_posix()])
+            findings.append(Finding("error", "record_edited", identifier,
+                                    f"{root / CHANGE_DIR / identifier}: {error}; records are written once; "
+                                    f"restore the original pair ({restore} when committed)"))
+    return findings

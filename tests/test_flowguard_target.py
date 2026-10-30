@@ -536,9 +536,11 @@ def test_target_promote_reports_real_write_failure_without_backup_or_automatic_g
     tmp_path, capsys, monkeypatch
 ):
     from pathlib import Path
+    from flowguard.map.requests import store_request
 
     root = shelf_project(tmp_path)
     capsys.readouterr()
+    store_request(root, b"The original owner request must survive recovery.\r\n", identifier="RPreserve")
     directory = _install_shelf_target(root)
     for relative in ("shelf/loans.py", "tests/test_loans.py"):
         (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
@@ -561,9 +563,14 @@ def test_target_promote_reports_real_write_failure_without_backup_or_automatic_g
         output,
         errors,
     )
-    assert "restore with: git checkout -- .flowguard && git clean -fd .flowguard" in output + errors
+    assert str(directory / ".replaced") in output + errors
+    assert "preserving original requests and existing records" in output + errors
+    assert "git clean" not in output + errors
     assert directory.is_dir()
     after_files, after_dirs = _project_snapshot(root)
+    assert {p: v for p, v in after_files.items() if p.startswith(".flowguard/requests/")} == {
+        p: v for p, v in before_files.items() if p.startswith(".flowguard/requests/")
+    }
     backup = directory / ".replaced/models/lending.py"
     assert (
         backup.is_file() and backup.read_bytes() == before_files[".flowguard/models/lending.py"][0]

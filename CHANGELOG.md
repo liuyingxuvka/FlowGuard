@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Stored requests can be linked to a target with --request ID[:part]. Read derives their state from active worktrees and complete immutable promotion records, without rewriting owner text or metadata.
+
 - Store owner requests byte for byte with req add, explicit or collision-resistant IDs, immutable sidecars and optional glossary/adoption kinds. Read keeps unclaimed requests visible; checks refuse edited request or metadata bytes, including before their first commit and in fresh clones.
 
 - Projects using FlowGuard: --json on map check, map lint, target check, target promote and release prints exactly one JSON line {command, verdict, codes, next}; every next line reads next[<id>]: with a stable advice id.
