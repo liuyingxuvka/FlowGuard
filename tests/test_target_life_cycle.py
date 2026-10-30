@@ -37,7 +37,7 @@ def test_target_start_add_drop_and_read_line(tmp_path, capsys):
     code, output, errors = _run(root, capsys, "target", "start", "holds")
     assert code == 0 and not errors
     assert 'target started: "holds"' in output
-    assert "next: python -m flowguard target add" in output
+    assert "next[add]: python -m flowguard target add" in output
     directory = root / ".flowguard/target"
     target_path = directory / "map.json"
     assert target_path.is_file() and (directory / "models").is_dir()
@@ -133,7 +133,7 @@ def test_change_marks_only_planned_breakage_and_keeps_tests(tmp_path, capsys, mo
     assert any(line.startswith('TARGET "') and "0 design error(s)" in line for line in output.splitlines()), output
 
 
-def test_target_small_promotion_preserves_map_and_model_bytes(tmp_path):
+def test_target_small_promotion_preserves_map_and_model_bytes(tmp_path, capsys):
     from flowguard.map import target as native
     from flowguard.map.mapfile import load_map
     from flowguard.map.targetfile import build_target_view, load_target
@@ -157,7 +157,13 @@ def test_target_small_promotion_preserves_map_and_model_bytes(tmp_path):
     expected = build_target_view(root, current, draft).data
     expected_models = {name: (root / rel).read_bytes() for name, rel in draft.models.items()}
     assert expected_models and expected_models["shelf_rule.py"] != (root / ".flowguard/models/shelf_rule.py").read_bytes()
-    assert native.promote_target(root) == 0
+    capsys.readouterr()
+    assert native.promote_target(root, as_json=True) == 0
+    output = capsys.readouterr()
+    assert not output.err and len(output.out.splitlines()) == 1
+    verdict = json.loads(output.out)
+    assert verdict["command"] == "target promote" and verdict["verdict"] == "PASS"
+    assert verdict["next"]["id"] == "check" and str(root.resolve()) in verdict["next"]["command"]
     assert load_map(root) == expected
     assert all((root / ".flowguard/models" / name).read_bytes() == content
                for name, content in expected_models.items())
@@ -323,7 +329,7 @@ def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
     old_lines = [line for line in output.splitlines() if line.startswith("WARN  model loan_count: old_finding: ")]
     assert code == 0 and len(old_lines) == 1 and "uncovered_invariant: invariant 'never_negative'" in old_lines[0], output
     assert "(already in the current tree; the target does not change this model or its code;" in old_lines[0]
-    assert any("(1 old)" in line for line in output.splitlines()) and "next: python -m flowguard target promote" in output
+    assert any("(1 old)" in line for line in output.splitlines()) and "next[promote]: python -m flowguard target promote" in output
 
     def classify():
         current = json.loads((root / ".flowguard/map.json").read_text(encoding="utf-8"))
@@ -465,7 +471,7 @@ def test_unavailable_tests_next_names_test_commands(tmp_path, capsys):
         assert any(relative in line and f'declare "test_commands" for {kind}' in line
                    and str(current_path.resolve()) in line for line in errors), output
     assert "or bind them to a test FlowGuard can run" in output
-    command = shlex.split(next(line.removeprefix("next: ") for line in output.splitlines() if line.startswith("next: ")))
+    command = shlex.split(next(line.removeprefix("next[test_command]: ") for line in output.splitlines() if line.startswith("next[test_command]: ")))
     assert command == ["python", "-m", "flowguard", "target", "promote", "--root", str(root.resolve())]
     assert all(path.read_bytes() == content for path, content in before.items())
     data = json.loads(current_path.read_text())
@@ -554,7 +560,7 @@ def test_promote_next_line_names_target_deletion(tmp_path, capsys):
     output = capsys.readouterr().out
     assert index.read_bytes() == before, "promote must leave staging to the user"
     last = output.splitlines()[-1]
-    prefix = ("next: commit the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/ "
+    prefix = ("next[commit]: commit the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/ "
               "and the deletion of .flowguard/target/ together: ")
     assert last.startswith(prefix), output
     command = last[len(prefix):]
@@ -586,7 +592,7 @@ def test_promote_without_git_keeps_usable_next_step(tmp_path, capsys, monkeypatc
     assert native.promote_target(root) == 0
     output = capsys.readouterr().out
     assert "no Git worktree" in output and "deletion of .flowguard/target/" in output
-    argv = shlex.split(output.splitlines()[-1].removeprefix("next: "))
+    argv = shlex.split(output.splitlines()[-1].removeprefix("next[check]: "))
     assert argv[:4] == ["python", "-m", "flowguard", "map"]
     assert argv[4:] == ["check", "--strict", "--root", str(root.resolve())]
     assert "git -C" not in output and " -F " not in output
@@ -604,7 +610,7 @@ def test_promote_names_stale_component_to_confirm(tmp_path, capsys):
     path.write_text(path.read_text() + "\n# source changed after confirmation\n")
     capsys.readouterr()
     assert native.promote_target(tmp_path) == 0
-    assert "next: python -m flowguard map confirm app" in capsys.readouterr().out
+    assert "next[confirm]: python -m flowguard map confirm app" in capsys.readouterr().out
 
 
 def test_port_change_without_parent_is_an_error(tmp_path):

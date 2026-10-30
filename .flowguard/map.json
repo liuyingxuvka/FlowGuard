@@ -79,7 +79,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch supported read, change, target and release commands with fixed defaults; map aliases retain the same owners. Show actual static debt use and when model execution must judge a size debt.",
+      "summary": "Dispatch read, change, map, target and release commands. Preserve exits and verification defaults; emit the same typed verdict as text or one JSON line, with stable advice identifiers.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
         "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
@@ -137,7 +137,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:759aa59740f4fb6915bce4ef73cceacfa9776ea4d7fcfc3eaf83bc02b8a6aa2f"
+      "fingerprint": "sha256:6165b43a1ff21611599356b70c4f24393cbafcc158d11c31fe46b337e8653fd7"
     },
     {
       "id": "public-api",
@@ -243,7 +243,7 @@
     {
       "id": "map-inventory",
       "layer": "map",
-      "summary": "Inventory source and imports; derive per-function signatures, bodies, class shape and module binding digests. Text findings count accepted debts once while JSON retains each finding. Choose project-first child import roots with a command-scoped engine-only location.",
+      "summary": "Inventory source, imports and function identities. Own normalized source bytes, project-first child imports, shared finding output and stable verdict/advice payloads.",
       "responsibilities": [
         "inventory files, symbols and imports, including literal import calls Replace inventory caches atomically; shared source decoding can use an already-read exact byte snapshot.",
         "handle a closed output pipe quietly for every command line entry",
@@ -283,7 +283,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:bac0e7cdd183eaffd23b3be8fdf5b323e643f1fc822804dbaba498eb5e5676c4"
+      "fingerprint": "sha256:5042d4dab60180a3e0e56b0b73c4d9646efbe4b3fbf70007f3899f297f920788"
     },
     {
       "id": "map-file",
@@ -381,7 +381,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Manage one target, classify current findings and native gaps, and promote only fresh complete code/model/test checks. Keep responsibility rewording advice in the warning bucket. Capture helpers when starting a target and watch the baseline bytes during promotion. Reject changed-source regressions in untouched contracts while preserving truly old warnings and planned target code gaps. Name test_commands for unavailable selected tests and give an executable verification exit.",
+      "summary": "Manage one target and its source baselines; classify current findings and native gaps. Promote only fresh complete code/model/test checks, preserving both intent and checked bytes; share typed verdict/advice between text and JSON.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and native gaps before or after code changes; run the changed target models own bound tests and reject unreceived escalated outputs",
@@ -424,14 +424,15 @@
         "tests/test_map_target.py",
         "tests/test_target_add.py",
         "tests/test_target_life_cycle.py",
-        "tests/test_model_edits.py"
+        "tests/test_model_edits.py",
+        "tests/test_cli_main.py"
       ],
       "models": [
         ".flowguard/models/target_add.py",
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:e519d6ea73f2f99ad3cd2ee553dcbe318523d57555826dda21baf46ee5d81212"
+      "fingerprint": "sha256:6db99ea098bf1b10eff790c14958edee9a6973182f7953f2009e67a750b2b79c"
     },
     {
       "id": "map-proof",
@@ -740,7 +741,7 @@
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Show complete component and model views, field lifecycles, exact code ownership, distinct model relations and counted test positions without importing models. Name effectively applied committed targets as stale, including targets whose removals are already fulfilled.",
+      "summary": "Show complete component/model views, field lifecycles, code ownership, model relations and test positions without importing models. Render actionable owner and binding advice with stable identifiers.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage; find owners by word form and rank architecture defects and strengths; compare current and target rules and known-bad definitions by name",
         "find owners by word form and rank architecture defects and strengths",
@@ -775,7 +776,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3a3ea1b878ec0b4b91fb1fc5c879c3c69527cf046eeb2f4a1349dd26e1ea8fcc"
+      "fingerprint": "sha256:071ba845ac617ed6d468feb4b31d3d77d032605e4c992eadde784c5790eedc1d"
     },
     {
       "id": "map-impact",
@@ -938,7 +939,7 @@
   "fingerprint_format": 2,
   "model_digests": {
     ".flowguard/models/anchor_watch.py": "3eb7b22687c506dbbd7ae24db0bc0181547a30eb7b8972168f470c85e97ef16e",
-    ".flowguard/models/change_command.py": "d605b0162e2690da931477bd1d08616201d26c36525c5c67b878f8d05594439b",
+    ".flowguard/models/change_command.py": "175be2ad69b25d0eb35754302716e1f1e14db3d9e68d1034b739da897e19569b",
     ".flowguard/models/change_selection.py": "1d06075c320ff551e87cc5153629a9c9fa2886cfe7c32af8ac157d246725bc97",
     ".flowguard/models/component_pointer.py": "49bcc6584e9f3977ccfc42990c7b746affe9c8195ffe71e2954759e64c2a9219",
     ".flowguard/models/discovery.py": "9a6e98e058dadc6ce2bacacb64d4f9d805f47a326ac84523a1a4e3fce760832e",
@@ -949,7 +950,7 @@
     ".flowguard/models/job_matching_example.py": "66d13d40bcbda27be232ecc68713eccd913a46190ba2bc68a5bba805fc9c0971",
     ".flowguard/models/literal_consumers.py": "04dc183c41363d2cc23fb62e6f5d26f30775b5ef466fdbba9462cdeeeac8f84c",
     ".flowguard/models/map_binding.py": "5234e58ea5796c52a4775930cf3e8bafb6d9dd1f212acefbb37021f81351a1cc",
-    ".flowguard/models/map_check.py": "57b6fce6e78e6e81eb8dd2d6b72f0c2b4f41d6e667047230286e8f2ea1b81916",
+    ".flowguard/models/map_check.py": "a9c3d1f40c2eda24c048f063902e10127733316c9fcfc1c6eddfc29fd8f767b5",
     ".flowguard/models/model_proof.py": "b8ff72110c36b0843d7da451c8615f24c596b7ea1d49ae595bf9ddffae050627",
     ".flowguard/models/model_runs.py": "dab67fcecee8f475f6189cab0107e30fa667e70249de38eeeae3a9b677505814",
     ".flowguard/models/model_scope.py": "6dd76b266a4e60fd63bbcb4d9a93f5d52b6de3d44aa72ff25002e3b126473307",
@@ -959,12 +960,12 @@
     ".flowguard/models/read_command.py": "c61f0695ffd9375de9336ab6398b19599981f3a798553c45e150e605b15e459b",
     ".flowguard/models/read_component.py": "9bdc2915cf6f838642dcbe4e80f12fe7e29981558c6795bbc2cc31c13dfeb268",
     ".flowguard/models/read_field.py": "54714f87d18261182f1a40a96eb5135fac6c2b6614189cf15b903675c319f834",
-    ".flowguard/models/read_find.py": "61fa4d1b06df7c44dc84def6905d21ff984a26164f4d02e8dfc371e65ab62fc1",
+    ".flowguard/models/read_find.py": "b4490d05a42ef37468d9d9f205abccc72b753bceacb9fc0511ccb426e54cac71",
     ".flowguard/models/read_mermaid.py": "3a3e2229280cb72de81b57212a62ea9365905d5e52ddb2006b0e723bd18bb0c9",
     ".flowguard/models/read_review.py": "70cc52cc776e431a27a0a52c64af36ad7ac089b4768d4c7620ec13827343d82d",
     ".flowguard/models/read_show.py": "95268a18ba6054926543127ce947e267bee62843b75fefc8a49f9bdd00d30927",
     ".flowguard/models/relation_graph.py": "7c7839800bc2ffd986e1348ed44a51500dce1d1a466ff59ee74d8ef9ef2fe551",
-    ".flowguard/models/release_gate.py": "a54f3bc0563d9bb93ab945b4f7f1eda7014a118ed3c4c56675870f91987da933",
+    ".flowguard/models/release_gate.py": "00b1bc63d554ebf7551c34689f9498c3124fb96a6f2f70c3072d6f1747fbce6c",
     ".flowguard/models/release_neutral_fingerprint.py": "51d5ae79b7f14473299562517b8acbc5b62004e7641f905364ad954dd4621948",
     ".flowguard/models/replay_conformance.py": "311629f611c211acfecac54cd2d745cec295cc820fcf1b6c104f3f355441b97b",
     ".flowguard/models/scan_coverage.py": "8fcd28bbc5f6ca58f83bc6d06426919fb752113c8c68c9684f10e517f2b4b4c8",
@@ -973,8 +974,8 @@
     ".flowguard/models/shard_suite.py": "befb5f91139ce4d74fcc7a9ab5ecd5927c759a94e005e6063dc6e9492cbc7333",
     ".flowguard/models/target_add.py": "b38f68d292ca7996cf46785aa6ccafe0f3f30a5b0e00d9f5329de74e4f4ed120",
     ".flowguard/models/target_findings.py": "8d0628fe4f4ad798734919d74423468d22769207fc690ad003f6f562e801b2fd",
-    ".flowguard/models/target_life_cycle.py": "4da3ade6494392f3ab962bd184f30a1f56d03608d6c4d591473c7ef0958aa16e",
-    ".flowguard/models/target_promotion.py": "dcf029c70c8fd88136f1767e4b5ed7b037cb942872a6a9e7367f64bd2ad81f80",
+    ".flowguard/models/target_life_cycle.py": "fb3dc6d7c0875f786dde2787143be7d3cdee846c910a7b14b25d5dcd69c94ace",
+    ".flowguard/models/target_promotion.py": "d8688296cd339fbd181378110384f85dfd6248641b23b7da94f1eec774a304c1",
     ".flowguard/models/test_binding.py": "01f20ff65edb30f6c9bb2d53628704362f379656838734aad4978bcb608fee3f",
     ".flowguard/models/test_selection.py": "b09e7005f72ab0e2bff84821e091d898ccaf7acd8bbbfc749b8ed254b89d7b86",
     ".flowguard/models/test_tree.py": "da3f88507f04301d0e93c874c9daaf1a874ba2324f4849548ca69812b2e2e6dd",

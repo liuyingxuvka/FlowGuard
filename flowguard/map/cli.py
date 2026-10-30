@@ -26,7 +26,8 @@ from dataclasses import replace
 from pathlib import Path
 
 from .check import run_check
-from .common import MAP_RELPATH, print_findings, quiet_broken_pipe, safe_stdio
+from .common import (MAP_RELPATH, advice, finding_codes, print_findings, print_verdict,
+                     quiet_broken_pipe, render_advice, safe_stdio)
 from .impact import run_commands, changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
@@ -66,7 +67,7 @@ def cmd_scan(root: Path, a) -> int:
         if len(files) >= 6 and len({Path(path).parent.as_posix() for path in files}) == 1:
             print(f"hint: draft {component['id']} holds {len(files)} files of one directory; split it by responsibility "
                   f"(python -m flowguard map digest {component['id']} lists each file's API)")
-    print("next: digest all -> merge/describe components -> deps --write -> check -> confirm")
+    print(render_advice(advice("describe", "digest all -> merge/describe components -> deps --write -> check -> confirm")))
     return 0
 
 
@@ -190,7 +191,7 @@ def cmd_find(root: Path, a) -> int:
             if by_id[cid].get(key):
                 print(f"     {label}: {'; '.join(by_id[cid][key])}")
     print(
-        "next: extend the owner above that already holds this behavior; create a new component only when none does"
+        render_advice(advice("extend", "extend the owner above that already holds this behavior; create a new component only when none does"))
     )
     from .views import locate_words
 
@@ -219,7 +220,7 @@ def cmd_check(root: Path, a) -> int:
     findings = run_check(root, data, inv, strict=a.strict)
     if not a.strict:
         findings = moving_to_target(findings, root, data, _active_target(root, data))
-    counts = print_findings(findings, "check", as_json=a.json, limit=a.limit)
+    counts = print_findings(findings, "check", as_json=getattr(a, "json", False), limit=a.limit, command="map check")
     return 1 if counts["error"] else 0
 
 
@@ -231,7 +232,7 @@ def cmd_lint(root: Path, a) -> int:
     limits = Limits()
     used_debts = set()
     findings = run_lint(root, data, inv, limits, evaluation=evaluation, used_debts=used_debts)
-    if getattr(a, "debts", False):
+    if getattr(a, "debts", False) and not getattr(a, "json", False):
         from .review import declined_debts
         matched = declined_debts(root, data, inv)
         for state, debt in zip(evaluation.states, data.get("accepted_debts", [])):
@@ -248,7 +249,7 @@ def cmd_lint(root: Path, a) -> int:
         if deadlines:
             print_findings(deadlines, "debt deadlines", as_json=False, limit=a.limit)
         return int(any(f.level == "error" for f in findings))
-    counts = print_findings(findings, "lint", as_json=a.json, limit=a.limit)
+    counts = print_findings(findings, "lint", as_json=getattr(a, "json", False), limit=a.limit, command="map lint")
     return 1 if counts["error"] else 0
 
 
@@ -365,7 +366,7 @@ def cmd_change(root: Path, a) -> int:
 
     stale = sorted(c["id"] for c in data["components"] if is_stale(root, c, inv))
     if stale:
-        print("next: python -m flowguard map confirm " + " ".join(stale))
+        print(render_advice(advice("confirm", "python -m flowguard map confirm " + " ".join(stale))))
     return result
 
 
@@ -452,51 +453,77 @@ def cmd_verify(root: Path, a) -> int:
     from .targetfile import target_seam
 
     data, inv = _context(root)
+    as_json = getattr(a, "json", False)
+    codes = []
     target_state = target_seam(root, data)
     if (root / TARGET_RELDIR).exists() and not target_state.already_promoted and not target_state.missing_indexed:
         goal = target_state.target.goal if target_state.target is not None else "<invalid target>"
-        print(f'warning: target "{goal}" exists: release checks only the current tree; promote or drop the target before releasing')
+        codes.append(dict(level="warn", code="target_open", subject="target"))
+        if not as_json:
+            print(f'warning: target "{goal}" exists: release checks only the current tree; promote or drop the target before releasing')
     evaluation = evaluate_debts(root, data)
-    check = print_findings(run_check(root, data, inv, strict=True, evaluation=evaluation, target_state=target_state), "check --strict", as_json=False, limit=a.limit)
+    check_findings = run_check(root, data, inv, strict=True, evaluation=evaluation, target_state=target_state)
+    check = {level: sum(f.level == level for f in check_findings) for level in ("error", "warn", "info")}
+    codes.extend(finding_codes(check_findings))
+    if not as_json:
+        print_findings(check_findings, "check --strict", as_json=False, limit=a.limit)
     findings = run_lint(root, data, inv, evaluation=evaluation)
     lint = {level: sum(f.level == level for f in findings) for level in ("error", "warn", "info")}
-    print(f"lint: {lint['error']} error(s) gating; {lint['warn']} warning(s), {lint['info']} info not gating (run python -m flowguard map lint)")
-    if lint["error"]:
-        print_findings([finding for finding in findings if finding.level == "error"],
-                       "lint errors", as_json=False, limit=a.limit)
-    debts = data.get("accepted_debts", [])
-    print(f"accepted debts: {len(debts)} (python -m flowguard map lint --debts)")
+    codes.extend(finding_codes(findings))
+    if not as_json:
+        print(f"lint: {lint['error']} error(s) gating; {lint['warn']} warning(s), {lint['info']} info not gating (run python -m flowguard map lint)")
+        if lint["error"]:
+            print_findings([finding for finding in findings if finding.level == "error"],
+                           "lint errors", as_json=False, limit=a.limit)
+        debts = data.get("accepted_debts", [])
+        print(f"accepted debts: {len(debts)} (python -m flowguard map lint --debts)")
     registry = model_registry(root, data)
     results = run_models(root, [], tests=True, jobs=getattr(a, "jobs", DEFAULT_JOBS))
-    if results:
+    if results and not as_json:
         print(render_results(results))
+    for result in results:
+        if result.status != "pass":
+            codes.extend(dict(level="error", code="model_proof", subject=result.model)
+                         for _ in result.problems or [result.status])
+        codes.extend(dict(level="warn", code="model_warning", subject=result.model)
+                     for _ in result.warnings)
     expected = {(entry.id, entry.path) for entry in registry.entries}
     expected.add(("system", ".flowguard/map.json"))
     executed = [(result.model, result.file) for result in results]
     complete = len(executed) == len(set(executed)) and set(executed) == expected
-    print(f"models: {len(expected)} declared, {len(executed)} executed" +
-          ("; no model proof" if not expected else ""))
+    if not as_json:
+        print(f"models: {len(expected)} declared, {len(executed)} executed" +
+              ("; no model proof" if not expected else ""))
     if not complete:
-        print(f"model execution mismatch: missing={sorted(expected - set(executed))}, unexpected={sorted(set(executed) - expected)}")
+        codes.append(dict(level="error", code="model_execution_mismatch", subject="system"))
+        if not as_json:
+            print(f"model execution mismatch: missing={sorted(expected - set(executed))}, unexpected={sorted(set(executed) - expected)}")
     failed = check["error"] + lint["error"] + sum(r.status != "pass" for r in results) + int(not complete)
     if a.shards is not None:
         if failed:
-            print("suite: not run (fix the failures above first)")
+            if not as_json:
+                print("suite: not run (fix the failures above first)")
         else:
             suite = subprocess.run(
                 [sys.executable, "-m", "flowguard.pytest_shards_cli", "--root", str(root),
                  "--shards", str(a.shards)], capture_output=True, text=True,
             )
             for line in suite.stdout.splitlines():
-                print(f"suite: {line}")
+                print(f"suite: {line}", file=sys.stderr if as_json else sys.stdout)
             for line in suite.stderr.splitlines():
                 print(f"suite: {line}", file=sys.stderr)
             failed += int(suite.returncode != 0)
-        print(f"verify: {'PASS' if not failed else 'FAIL'}")
-    else:
+            if suite.returncode:
+                codes.append(dict(level="error", code="suite_failed", subject="suite"))
+        if not as_json:
+            print(f"verify: {'PASS' if not failed else 'FAIL'}")
+    elif not as_json:
         print(f"verify: {'PASS' if not failed else 'FAIL'}"
               " (only TESTED_BY tests ran; run the whole suite with python -m flowguard release --shards 4, or in CI)")
-    return 1 if failed else 0
+    code = int(bool(failed))
+    if as_json:
+        print_verdict("release", code, codes)
+    return code
 
 
 
@@ -564,6 +591,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="run each model's bound tests and check actual anchor reach",
     )
     s = sub.add_parser("verify")
+    s.add_argument("--json", action="store_true")
     s.add_argument("--limit", type=int, default=80)
     s.add_argument(
         "--jobs",
@@ -601,4 +629,7 @@ def main(argv: list[str] | None = None) -> int:
         return HANDLERS[args.cmd](root, args)
     except (MapError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        command = {"check": "map check", "lint": "map lint", "verify": "release"}.get(args.cmd)
+        if command and getattr(args, "json", False):
+            print_verdict(command, 2, [dict(level="error", code="runtime_error", subject="map")])
         return 2

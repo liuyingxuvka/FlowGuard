@@ -572,7 +572,7 @@ def test_locate_unowned_function_says_no_model_owns(tmp_path):
     assert code == 0 and text.splitlines() == [
         "no model owns api.py:unowned (component app); reached by: none",
         "models of app: deeper ((no purpose line: add a module docstring)), owner ((no purpose line: add a module docstring))",
-        "next: add the rule to a model of app; a separate aspect gets its own model there (references/routes.md#New function)",
+        "next[rule]: add the rule to a model of app; a separate aspect gets its own model there (references/routes.md#New function)",
     ]
 
 

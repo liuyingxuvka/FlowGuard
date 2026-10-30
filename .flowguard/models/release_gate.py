@@ -21,7 +21,8 @@ TESTED_BY = {'release_passes_only_when_every_gate_passes': ['tests/test_flowguar
  'open_target_is_warned': ['tests/test_cli_main.py:test_release_warns_first_but_runs_the_same_current_models',
  'tests/test_release_gate.py:test_open_target_is_release_warning'],
  'advice_never_gates': ['tests/test_map_check.py:test_shape_findings_are_advice'],
- 'expired_debt_fails_release': ['tests/test_map_check.py:test_expired_debt_fails_release']}
+ 'expired_debt_fails_release': ['tests/test_map_check.py:test_expired_debt_fails_release'],
+ 'json_prints_one_verdict_line': ['tests/test_cli_main.py:test_json_verdict_only_with_flag']}
 @dataclass(frozen=True)
 class Case:
     target_open:bool
@@ -31,9 +32,12 @@ class Case:
     models:str
     suite:str
     expired_debt: bool = False
+    as_json: bool = False
 CASES=tuple(Case(target,shards,lint,check,models,suite,expired) for target in (False,True) for lint in ('clean','advice','error') for check in ('clean','error') for models in ('pass','fail') for shards,suites in ((False,('pass',)),(True,('pass','fail','partial','blocked'))) for suite in suites for expired in (False,True))
 CASES += tuple(Case(False, True, 'clean', reason, 'pass', 'pass')
                for reason in ('target_already_promoted', 'target_deleted_not_staged'))
+CASES += tuple(Case(False, False, 'clean', 'clean', models, 'pass', as_json=True)
+               for models in ('pass', 'fail'))
 @dataclass(frozen=True)
 class State:
     target_open:bool=False
@@ -47,15 +51,18 @@ class State:
     verdict:str='pass'
     exit_code:int=0
     expired_debt: bool = False
+    as_json: bool = False
+    json_lines: int = 0
+    json_verdict: str = ''
 class TakeRequest:
     name='TakeRequest'
     reads=()
-    writes = ('target_open', 'shards', 'lint', 'expired_debt')
+    writes = ('target_open', 'shards', 'lint', 'expired_debt', 'as_json')
 
     def apply(self, event, state):
         return (FunctionResult(event, replace(state, target_open=event.target_open,
                                               shards=event.shards, lint=event.lint,
-                                              expired_debt=event.expired_debt)),)
+                                              expired_debt=event.expired_debt, as_json=event.as_json)),)
 class Warn:
     name='Warn'
     reads=('target_open',)
@@ -88,8 +95,8 @@ class Suite:
         return (FunctionResult(event, replace(state, suite=event.suite, suite_ran=True), label=event.suite),)
 class Verdict:
     name='Verdict'
-    reads=('lint','check','models','shards','suite','expired_debt')
-    writes=('verdict','exit_code')
+    reads=('lint','check','models','shards','suite','expired_debt','as_json')
+    writes=('verdict','exit_code','json_lines','json_verdict')
     def __init__(self,defect=''):self.defect=defect
     def apply(self, event, state):
         lint_clean = state.lint in ('clean', 'advice')
@@ -100,8 +107,14 @@ class Verdict:
                   and (state.models == 'pass' or self.defect == 'ignores_failed_model')
                   and (not state.shards or not state.suite_ran or state.suite == 'pass'))
         return (FunctionResult(int(not passed), replace(state, verdict='pass' if passed else 'fail',
-                                                        exit_code=int(not passed))),)
+                                                        exit_code=int(not passed),
+                                                        json_lines=(2 if self.defect == 'json_mixed_with_text' else 1) if state.as_json else 0,
+                                                        json_verdict=('PASS' if passed else 'FAIL') if state.as_json else '')),)
 RULES=(
+ Invariant('json_prints_one_verdict_line',
+           'with --json a command prints exactly one JSON line whose verdict matches its exit code; without it no JSON line',
+           lambda s,t: (s.json_lines == 1 and s.json_verdict == ('PASS' if s.exit_code == 0 else 'FAIL'))
+           if s.as_json else s.json_lines == 0),
  Invariant('expired_debt_fails_release', 'release fails while an accepted debt has expired',
            lambda s,t: not s.expired_debt or s.verdict == 'fail'),
  Invariant('advice_never_gates',
@@ -116,7 +129,7 @@ def make(defect=''):return Explorer(Workflow((TakeRequest(),Warn(defect),CheckGa
 def build_explorer():return make()
 def broken_variants():
     return {name: make(name) for name in ('ignores_failed_model', 'runs_suite_after_failure',
-                                        'silent_on_open_target', 'advice_gates_release', 'expired_debt_passes_release')}
+                                        'silent_on_open_target', 'advice_gates_release', 'expired_debt_passes_release', 'json_mixed_with_text')}
 def conformance():
     import json
     import shutil
@@ -130,10 +143,10 @@ def conformance():
     from _target_fixture import make_project, call_target
 
     facts = []
-    for case in ('clean', 'failed', 'target', 'suite_blocked', 'advice', 'expired', 'target_already_promoted', 'target_deleted_not_staged'):
+    for case in ('clean', 'failed', 'target', 'suite_blocked', 'advice', 'expired', 'target_already_promoted', 'target_deleted_not_staged', 'json', 'json_failed'):
         with TemporaryDirectory(prefix='fg-release-gate-') as directory:
             root = make_project(Path(directory))
-            if case in ('failed', 'suite_blocked'):
+            if case in ('failed', 'suite_blocked', 'json_failed'):
                 path = root / 'shelf/loans.py'
                 path.write_text(path.read_text().replace('value + capacity()', 'value + capacity() + 1'))
             if case == 'advice':
@@ -169,6 +182,8 @@ def conformance():
                 if case == 'target_deleted_not_staged':
                     shutil.rmtree(root / '.flowguard/target')
             args = ['release', '--root', str(root)]
+            if case in ('json', 'json_failed'):
+                args += ['--json']
             if case in ('suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged'):
                 args += ['--shards', '2']
             limits = lint.Limits(max_component_loc=1, max_file_loc=1,
@@ -176,7 +191,10 @@ def conformance():
             output = StringIO()
             fixture_limits = patch.object(lint, 'Limits', return_value=limits) if case == 'advice' else nullcontext()
             with fixture_limits, redirect_stdout(output), redirect_stderr(output):
-                code = main(args)
+                try:
+                    code = main(args)
+                except SystemExit as error:
+                    code = error.code
                 shape = []
                 if case == 'advice':
                     data, inventory = _context(root)
@@ -184,8 +202,19 @@ def conformance():
                              if finding.code in {'large_component', 'large_file',
                                                  'too_many_responsibilities', 'high_fan_out'}]
             text = output.getvalue()
-            failing = case in ('failed', 'suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged')
+            failing = case in ('failed', 'suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged', 'json_failed')
             valid = code == int(failing) and ('verify: FAIL' if failing else 'verify: PASS') in text
+            if case in ('json', 'json_failed'):
+                try:
+                    payload = json.loads(text)
+                    valid = (len(text.splitlines()) == 1 and code == int(failing)
+                             and payload['command'] == 'release'
+                             and payload['verdict'] == ('FAIL' if failing else 'PASS')
+                             and isinstance(payload['codes'], list) and payload['next'] is None)
+                except (ValueError, TypeError, KeyError):
+                    valid = False
+            else:
+                valid = valid and not any(line.startswith('{') for line in text.splitlines())
             if case == 'target':
                 valid = valid and text.startswith('warning: target "open plan" exists:')
             if case in ('suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged'):

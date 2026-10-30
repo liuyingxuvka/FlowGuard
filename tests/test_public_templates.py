@@ -329,7 +329,7 @@ class PublicTemplateTests(unittest.TestCase):
             target = root / ".flowguard/target/models/order_placement.py"
             self.assertEqual(behaviour_template_files()[0].content, target.read_text(encoding="utf-8"))
             self.assertFalse((root / ".flowguard/models/order_placement.py").exists())
-            self.assertIn("next: python -m flowguard target check", stdout)
+            self.assertIn("next[check]: python -m flowguard target check", stdout)
             self.assertNotIn("python -m flowguard map models order_placement", stdout)
 
             # Target relocation happens before the existing no-overwrite/force check.

@@ -27,7 +27,8 @@ USES = {
 }
 NOT_MODELED = {}
 OUTPUTS = {'check': ('error', 'stale', 'clean')}
-TESTED_BY = {'error_finding_fails_check': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm'],
+TESTED_BY = {'error_finding_fails_check': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm',
+ 'tests/test_cli_main.py:test_json_verdict_only_with_flag'],
  'strict_makes_draft_and_stale_errors': ['tests/test_cli_main.py:test_new_target_file_is_moving_but_strict_remains_an_error'],
  'identical_info_grouped': ['tests/test_map_check.py:test_identical_info_grouped_into_one_line'],
  'debt_needs_reason_and_expiry': ['tests/test_map_check.py:test_debt_without_expiry_refused'],
@@ -45,6 +46,7 @@ ERRORS = ('anchor_broken', 'component_parent_cycle', 'anchor_outside_home', 'han
 CASES = tuple(Case(mode, (), status) for mode in ('check', 'strict') for status in ('', 'draft', 'stale', 'fingerprint_migrate')) + tuple(Case(mode, (code,)) for mode in ('check', 'strict') for code in ERRORS) + tuple(Case(mode, codes, 'stale') for mode in ('check', 'strict') for codes in (ERRORS[:2], ERRORS[2:])) + (Case('check', count=3), Case('check', count=24))
 CASES += tuple(Case(mode, seam=code) for mode in ('check', 'strict')
                for code in ('target_already_promoted', 'target_deleted_not_staged'))
+CASES += (Case('json', ('anchor_broken',)),)
 
 @dataclass(frozen=True)
 class State:
@@ -202,6 +204,17 @@ def conformance():
                                           for f in findings)
                 facts.append(Fact(case + str(strict), bool(valid),
                                   repr((exit_code, [(f.code, f.level) for f in findings]))))
+                if case == 'anchor' and not strict:
+                    output = StringIO()
+                    with redirect_stdout(output):
+                        code = cmd_check(root, SimpleNamespace(strict=False, json=True, limit=0))
+                    text = output.getvalue()
+                    payload = json.loads(text)
+                    valid = (code == 1 and len(text.splitlines()) == 1 and payload.get('command') == 'map check'
+                             and payload.get('verdict') == 'FAIL' and payload.get('counts', {}).get('error', 0) > 0
+                             and any(item['code'] == 'anchor_broken' for item in payload.get('codes', []))
+                             and any(item['code'] == 'anchor_broken' for item in payload.get('findings', [])))
+                    facts.append(Fact('json_error_finding_fails_check', valid, text))
     for case in ('missing_expiry', 'missing_reason'):
         with TemporaryDirectory(prefix='fg-debt-check-') as directory:
             root = Path(directory)

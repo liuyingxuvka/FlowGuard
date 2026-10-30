@@ -31,9 +31,10 @@ USES = {
     'MovingToTarget': 'flowguard/map/target.py:moving_to_target',
 }
 NOT_MODELED = {'flowguard/map/target.py:add_to_target': 'requires an open target and calls _add, which target_add anchors'}
-TESTED_BY = {'promote_runs_one_full_check': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'one_target_at_a_time': ['tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line'], 'promote_only_when_clean': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'check_runs_own_bound_tests_after_code': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check', 'tests/test_target_life_cycle.py:test_target_check_runs_own_bound_tests_after_code']}
+TESTED_BY = {'promote_runs_one_full_check': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'one_target_at_a_time': ['tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line'], 'promote_only_when_clean': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes', 'tests/test_cli_main.py:test_json_verdict_only_with_flag'], 'check_runs_own_bound_tests_after_code': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check', 'tests/test_target_life_cycle.py:test_target_check_runs_own_bound_tests_after_code']}
 
 PROGRAMS = (
+    ("json_error", ("START", "ADD_COMPONENT", "EDIT_ERROR", "PROMOTE")),
     ("storage", ("START", "ADD_COMPONENT", "ADD_MODEL", "START_AGAIN", "CHECK", "DROP_PREVIEW", "DROP_YES")),
     ("todo", ("START", "ADD_COMPONENT", "ADD_MODEL", "EDIT_MISSING", "CHECK", "PROMOTE")),
     ("error", ("START", "ADD_COMPONENT", "EDIT_ERROR", "CHECK", "PROMOTE")),
@@ -300,10 +301,25 @@ def _native_replay(scenario, program):
                     continue
                 expected = build_target_view(root, load_map(root), target).data
                 models = {name: (root / rel).read_bytes() for name, rel in target.models.items()}
-                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
-                    code = native.promote_target(root)
-                if scenario in ("todo", "error", "noop"):
+                output = StringIO()
+                with redirect_stdout(output), redirect_stderr(StringIO()):
+                    try:
+                        code = (native.main(['promote', '--json', '--root', str(root)])
+                                if scenario == 'json_error' else native.promote_target(root))
+                    except SystemExit as error:
+                        code = error.code
+                if scenario in ("todo", "error", "noop", "json_error"):
                     ok = code == 1 and snapshot(root) == before
+                    if scenario == 'json_error':
+                        text = output.getvalue()
+                        try:
+                            payload = json.loads(text)
+                            ok = (ok and len(text.splitlines()) == 1 and payload['command'] == 'target promote'
+                                  and payload['verdict'] == 'FAIL'
+                                  and any(item['level'] == 'error' for item in payload['codes'])
+                                  and payload['next']['id'] == 'design')
+                        except (ValueError, TypeError, KeyError):
+                            ok = False
                 else:
                     ok = (code == 0 and load_map(root) == expected and
                           all((root / ".flowguard/models" / name).read_bytes() == content

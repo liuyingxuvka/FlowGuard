@@ -148,7 +148,7 @@ def test_target_check_todos_then_real_code_and_bound_test(tmp_path, capsys):
     assert not any(line.startswith("ERROR ") for line in output.splitlines()), output
     assert "TO-DO model lending:" in output and "LoanService.hold" in output
     assert "test_hold_gets_returned_copy" in output
-    assert "next: write the code and tests" in output
+    assert "next[code]: write the code and tests" in output
     _assert_current_lending(root, capsys)
     code, output, errors = _run(root, capsys, "read")
     assert code == 0 and not errors
@@ -159,7 +159,7 @@ def test_target_check_todos_then_real_code_and_bound_test(tmp_path, capsys):
     code, output, errors = _check_without_writes(root, capsys)
     assert code == 0 and not errors, (output, errors)
     assert "target check: 0 error(s), 0 to-do" in output
-    assert "next: python -m flowguard target promote" in output
+    assert "next[promote]: python -m flowguard target promote" in output
     assert (root / ".flowguard/map.json").read_bytes() == current_map
     assert (root / ".flowguard/models/lending.py").read_bytes() == current_model
     _assert_current_lending(root, capsys)
@@ -262,6 +262,63 @@ def test_release_warns_first_but_runs_the_same_current_models(tmp_path, capsys):
     assert "verify: PASS" in output
 
 
+def test_json_verdict_only_with_flag(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _install_shelf_target(root)
+    commands = (("map", "check"), ("map", "lint"), ("target", "check"),
+                ("target", "promote"), ("release",))
+    for arguments in commands:
+        code, text, errors = _run(root, capsys, *arguments)
+        assert not errors, (arguments, text, errors)
+        assert not any(line.startswith("{") for line in text.splitlines()), text
+        json_code, output, errors = _run(root, capsys, *arguments, "--json")
+        assert json_code == code and not errors, (arguments, output, errors)
+        assert len(output.splitlines()) == 1, (arguments, output)
+        payload = json.loads(output)
+        assert payload["command"] == " ".join(arguments)
+        expected = "PASS" if code == 0 else "OPEN" if arguments == ("target", "check") and code == 3 else "FAIL"
+        assert payload["verdict"] == expected
+        assert isinstance(payload["codes"], list)
+        if arguments[0] == "map":
+            assert {"counts", "findings"} <= payload.keys()
+        if payload["next"]:
+            from flowguard.map.common import ADVICE_IDS
+            assert payload["next"]["id"] in ADVICE_IDS and payload["next"]["command"]
+    code, output, errors = _run(root, capsys, "map", "lint", "--debts", "--json", "--limit", "0")
+    assert code == 0 and not errors and len(output.splitlines()) == 1
+    assert json.loads(output)["findings"]
+
+
+def test_every_next_line_has_an_advice_id(tmp_path, capsys):
+    import re
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    outputs = []
+    for arguments in (("target", "start", "a bounded advice probe"),
+                      ("target", "add", "loans"), ("target", "check"),
+                      ("read", "--find", "borrow")):
+        _, output, _ = _run(root, capsys, *arguments)
+        outputs.extend(line for line in output.splitlines() if line.startswith("next"))
+    from flowguard.__main__ import main
+    assert main(["template", "validator", "--write", str(root), "--force"]) == 0
+    outputs.extend(line for line in capsys.readouterr().out.splitlines() if line.startswith("next"))
+    assert outputs
+    assert all(re.match(r"next\[[a-z_]+\]: .+", line) for line in outputs), outputs
+    from flowguard.map.common import ADVICE_IDS
+    assert all(line.split("[", 1)[1].split("]", 1)[0] in ADVICE_IDS for line in outputs)
+
+
+def test_json_runtime_failure_preserves_exit_and_one_line(tmp_path, capsys):
+    for arguments in (("map", "check"), ("map", "lint"), ("target", "check"),
+                      ("target", "promote"), ("release",)):
+        code, output, errors = _run(tmp_path, capsys, *arguments, "--json")
+        assert code == 2 and errors and len(output.splitlines()) == 1
+        payload = json.loads(output)
+        assert payload["command"] == " ".join(arguments) and payload["verdict"] == "FAIL"
+        assert payload["codes"] and all(item["level"] == "error" for item in payload["codes"])
+
+
 @pytest.mark.parametrize("node", ["model", "flow", "missing_model"])
 def test_target_component_does_not_hide_an_unplanned_model_or_flow(tmp_path, capsys, node):
     root = shelf_project(tmp_path)
@@ -345,7 +402,7 @@ def test_target_promote_real_shelf_lifecycle_without_dropping_bindings(tmp_path,
     checked_model = (directory / "models/lending.py").read_bytes()
     code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
     assert code == 0 and not errors and output.startswith('promoted "'), (output, errors)
-    assert "next: python -m flowguard map confirm loans" in output
+    assert "next[confirm]: python -m flowguard map confirm loans" in output
     assert "deletion of .flowguard/target/ together" in output
     assert str(root.resolve()) in output.splitlines()[-1]
     assert not directory.exists()
@@ -389,7 +446,7 @@ def test_target_promote_adds_reports_and_removes_the_requested_flow(tmp_path, ca
     reports = next(component for component in data["components"] if component["id"] == "reports")
     assert reports["status"] == "draft" and "fingerprint" not in reports
     assert not any(flow["id"] == "borrow" for flow in data["flows"])
-    assert "next: python -m flowguard map confirm reports" in output
+    assert "next[confirm]: python -m flowguard map confirm reports" in output
     assert _run(root, capsys, "map", "confirm", "reports")[0] == 0
     code, output, errors = _run(root, capsys, "map", "check")
     assert code == 0 and "0 error(s)" in output and not errors, (output, errors)
@@ -774,7 +831,7 @@ def test_promote_lists_what_to_re_read(tmp_path, capsys):
     assert "re-read: flow borrow: it crosses changed component loans; check its steps and model" in lines, output
     assert "re-read: test tests/test_loans.py:test_limit: no longer bound by any TESTED_BY; bind it or delete it" in lines
     assert lines.index("re-read: test tests/test_loans.py:test_limit: no longer bound by any TESTED_BY; bind it or delete it") \
-        < next(index for index, line in enumerate(lines) if line.startswith("next: "))
+        < next(index for index, line in enumerate(lines) if line.startswith("next["))
 
 
 def test_shelf_example_matches_the_fixture_and_runs_the_target_workflow(tmp_path, capsys):

@@ -215,10 +215,14 @@ def test_release_runs_the_whole_suite_in_shards(tmp_path):
         "assert place('o4', 8) == 'placed'", "assert place('o4', 8) == 'wrong'"), encoding="utf-8")
     log.write_text("", encoding="utf-8")
     env["FLOWGUARD_PYTEST_SHARDS_DIR"] = str(tmp_path / "suite-fail")
-    failed = invoke("release", "--shards", "2")
+    failed = invoke("release", "--shards", "2", "--json")
     output = failed.stdout + failed.stderr
     assert failed.returncode == 1, output
-    assert "suite: status: fail  executed 4 of 4" in output and "verify: FAIL" in output
+    assert len(failed.stdout.splitlines()) == 1
+    verdict = json.loads(failed.stdout)
+    assert verdict["command"] == "release" and verdict["verdict"] == "FAIL"
+    assert dict(level="error", code="suite_failed", subject="suite") in verdict["codes"]
+    assert "suite: status: fail  executed 4 of 4" in failed.stderr
     assert_phases()
     aggregate = json.loads((tmp_path / "suite-fail/aggregate.json").read_text(encoding="utf-8"))
     assert aggregate["pytest_execution"]["failed"] == 1 and aggregate["executed_count"] == 4

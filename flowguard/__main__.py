@@ -9,7 +9,7 @@ from pathlib import Path
 from . import __version__
 from .map.cli import main as map_main
 from .map.proof import DEFAULT_JOBS
-from .map.common import quiet_broken_pipe, safe_stdio
+from .map.common import advice, print_verdict, quiet_broken_pipe, render_advice, safe_stdio
 
 
 
@@ -84,6 +84,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
             help="then run the selected tests and models, one RAN line each",
         )
     elif verb == "release":
+        p.add_argument("--json", action="store_true")
         p.add_argument(
             "--jobs",
             type=int,
@@ -154,7 +155,7 @@ def _template(ns: argparse.Namespace) -> int:
             print(f"wrote {Path(path).relative_to(Path(ns.write)) if staged else path}" + (" (into the open target)" if staged else ""))
         if has_target:
             if any(file.path.startswith(target_prefix) for file in files):
-                print("next: python -m flowguard target check")
+                print(render_advice(advice("check", "python -m flowguard target check")))
         else:
             for file in files:
                 if file.path.startswith(current_prefix) and file.path.count("/") == 2:
@@ -162,7 +163,7 @@ def _template(ns: argparse.Namespace) -> int:
                                    if "REPLACE_ME" in file.content else "replace the example with your own code and behaviour")
                     print(f"edit {file.path}: {instruction}; set COMPONENTS "
                           "(and PARENT if it refines another model)")
-                    print(f"next: python -m flowguard map models {file.path.rsplit('/', 1)[-1][:-3]}")
+                    print(render_advice(advice("models", f"python -m flowguard map models {file.path.rsplit('/', 1)[-1][:-3]}")))
         return 0
     for file in files:
         print(f"===== {file.path} =====")
@@ -249,6 +250,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_verify(Path(ns.root).resolve(), ns)
     except (MapError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        if getattr(ns, "json", False):
+            print_verdict("release", 2, [dict(level="error", code="runtime_error", subject="map")])
         return 2
 
 

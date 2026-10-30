@@ -203,8 +203,8 @@ class RealPromotion:
                 with redirect_stdout(output), redirect_stderr(StringIO()):
                     code = native.promote_target(self.root)
                 text = output.getvalue()
-                next_line = next((line for line in text.splitlines() if line.startswith("next: ")), "")
-                command = shlex.split(next_line.removeprefix("next: "))
+                next_line = next((line for line in text.splitlines() if line.startswith("next[test_command]: ")), "")
+                command = shlex.split(next_line.removeprefix("next[test_command]: "))
                 shown = (code == 1 and "ERROR target: selected_tests_unavailable:" in text
                          and 'declare "test_commands" for *.test.js' in text
                          and str(maps[0].resolve()) in text
@@ -276,7 +276,7 @@ class RealPromotion:
                     argv = shlex.split(last.split("together: ", 1)[1])
                     usable = argv[:3] == ["git", "-C", str(self.root.resolve())] and "add" in argv and ".flowguard" in argv
                 else:
-                    argv = shlex.split(last.removeprefix("next: "))
+                    argv = shlex.split(last.removeprefix("next[check]: "))
                     usable = ("no Git worktree" in output.getvalue()
                               and argv == ["python", "-m", "flowguard", "map", "check", "--strict", "--root", str(self.root.resolve())])
                 loans = next(c for c in current["components"] if c["id"] == "loans")
@@ -284,9 +284,9 @@ class RealPromotion:
                                   for name, content in self.expected_models.items())
                 state = replace(state, status="promoted", target_count=int((self.root / ".flowguard/target").exists()),
                                 draft=loans["status"] == "draft" and any("loans" in line.split()[6:] for line in output.getvalue().splitlines()
-                                      if line.startswith("next: python -m flowguard map confirm ")),
+                                      if line.startswith("next[confirm]: python -m flowguard map confirm ")),
                                 stale_components_named=any("catalog" in line.split()[6:] for line in output.getvalue().splitlines()
-                                      if line.startswith("next: python -m flowguard map confirm ")),
+                                      if line.startswith("next[confirm]: python -m flowguard map confirm ")),
                                 target_deletion_named=names_deletion and usable,
                                 current_map_revision=state.target_revision if current == self.expected else -1,
                                 current_model_revision=state.expected_model_revision if same_models else -1)

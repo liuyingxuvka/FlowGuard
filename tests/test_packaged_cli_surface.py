@@ -273,7 +273,7 @@ def test_change_run_ends_with_map_confirm_for_stale_components(tmp_path, capsys)
     assert main(["map", "confirm", "app", "--root", str(tmp_path)]) == 0
     path.write_text("def answer(): return 2\n")
     assert main(["change", "--root", str(tmp_path), "app.py", "--run"]) == 0
-    assert capsys.readouterr().out.rstrip().endswith("next: python -m flowguard map confirm app")
+    assert capsys.readouterr().out.rstrip().endswith("next[confirm]: python -m flowguard map confirm app")
 
 
 def test_find_unknown_symbol_exits_one(tmp_path,capsys):

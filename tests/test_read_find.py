@@ -108,8 +108,8 @@ def test_locate_output_is_complete(tmp_path):
     for case in helper["CASES"]:
         code, text = helper["observe"](tmp_path, case)
         assert not any(line.endswith("...") for line in text.splitlines()), (case, text)
-        if "next:" in text:
-            assert text.splitlines()[-1].startswith("next:")
+        if "next[" in text:
+            assert text.splitlines()[-1].startswith("next[")
 
 
 def test_word_locate_names_the_symbol_owner(tmp_path, capsys):

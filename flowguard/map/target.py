@@ -15,7 +15,8 @@ import re
 import subprocess
 from dataclasses import dataclass, field, replace
 
-from .common import matches_any, content_digest, atomic_write_text, normalize_newlines
+from .common import (advice, render_advice, print_verdict, matches_any, content_digest,
+                     atomic_write_text, normalize_newlines)
 from .inventory import build_inventory, function_digests
 from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract, save_map, validate_map
 from .targetfile import (TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_is_noop, target_node_changes,
@@ -50,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     promote = commands.add_parser("promote", help="replace the current tree with a clean target")
     for command in (check, promote):
         command.add_argument("--jobs", type=int, choices=range(1, 33), default=DEFAULT_JOBS, metavar="N", help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))")
+        command.add_argument("--json", action="store_true")
     for command in (start, add, drop, check, promote):
         command.add_argument("--root", default=argparse.SUPPRESS)
     return parser
@@ -561,6 +563,30 @@ def _todo_next(code, deleting=False):
     return "change the code until it replays the target model"
 
 
+def _target_advice(report: TargetReport, root: Path | None = None) -> dict[str, str]:
+    test_errors = {"model_test_broken", "tested_by_failed", "tested_by_misses_anchor", "test_missing"}
+    tests_only = report.errors and all(finding.code in test_errors for finding in report.errors)
+    unavailable_only = report.errors and all(finding.code == "selected_tests_unavailable" for finding in report.errors)
+    if unavailable_only:
+        import shlex
+        project = Path(root or Path.cwd()).resolve()
+        next_step = shlex.join(["python", "-m", "flowguard", "target", "promote", "--root", str(project)])
+        identifier = "test_command"
+    else:
+        identifier = "tests" if tests_only else "design" if report.errors else "code" if report.todos else "promote"
+        next_step = ("write or fix the bound tests named in the ERROR lines, then python -m flowguard target check" if tests_only else
+                     "fix the target design (ERROR lines) in .flowguard/target/ first" if report.errors else
+                     "write the code and tests until no TO-DO remains, then python -m flowguard target promote" if report.todos else
+                     "python -m flowguard target promote")
+    return advice(identifier, next_step)
+
+
+def _target_codes(report: TargetReport) -> list[dict[str, str]]:
+    return [dict(level=level, code=finding.code, subject=finding.node)
+            for level, findings in (("error", report.errors), ("todo", report.todos), ("warn", report.warnings))
+            for finding in findings]
+
+
 def render_target_report(report: TargetReport, *, root: Path | None = None) -> str:
     changes = report.changes
     lines = [f'target: "{report.goal}" (+{len(changes["+"])} ~{len(changes["~"])} -{len(changes["-"])} nodes)']
@@ -578,21 +604,12 @@ def render_target_report(report: TargetReport, *, root: Path | None = None) -> s
             lines.append(f"{label} {finding.node}: {finding.code}: {message}{suffix}")
     lines.append(f"target check: {len(report.errors)} error(s), {len(report.todos)} to-do, {len(report.warnings)} warning(s)"
                  + (f" ({report.old} old)" if report.old else ""))
-    test_errors = {"model_test_broken", "tested_by_failed", "tested_by_misses_anchor", "test_missing"}
-    tests_only = report.errors and all(finding.code in test_errors for finding in report.errors)
-    unavailable_only = report.errors and all(finding.code == "selected_tests_unavailable" for finding in report.errors)
-    if unavailable_only:
-        import shlex
+    next_step = _target_advice(report, root)
+    if next_step["id"] == "test_command":
         project = Path(root or Path.cwd()).resolve()
         lines.append(f'note: declare "test_commands" for the listed test files in {project / ".flowguard/map.json"}, '
                      'or bind them to a test FlowGuard can run, then run target promote')
-        next_step = shlex.join(["python", "-m", "flowguard", "target", "promote", "--root", str(project)])
-    else:
-        next_step = ("write or fix the bound tests named in the ERROR lines, then python -m flowguard target check" if tests_only else
-                     "fix the target design (ERROR lines) in .flowguard/target/ first" if report.errors else
-                     "write the code and tests until no TO-DO remains, then python -m flowguard target promote" if report.todos else
-                     "python -m flowguard target promote")
-    lines.append("next: " + next_step)
+    lines.append(render_advice(next_step))
     if report.own_tests:
         lines.append("bound tests: ran for " + ", ".join(report.own_tests) + " (code changed since target start); target promote runs the function-selected tests once")
     elif not report.bound_tests:
@@ -628,14 +645,14 @@ def _promotion_next(root, data, inputs, selected_tests):
                            and not path.startswith(".flowguard/")
                            and not matches_any(path, ignore_patterns(data)))
             argv = ["git", "-C", str(root), "--literal-pathspecs", "add", "-A", "--", ".flowguard", *paths]
-            return ["next: commit " + files + ": " + shlex.join(argv)]
+            return [advice("commit", "commit " + files + ": " + shlex.join(argv))]
         except (OSError, subprocess.CalledProcessError):
             reason = "Git staging paths unavailable"
     return ["note: " + reason + "; preserve " + files,
-            "next: " + shlex.join(["python", "-m", "flowguard", "map", "check", "--strict", "--root", str(root)])]
+            advice("check", shlex.join(["python", "-m", "flowguard", "map", "check", "--strict", "--root", str(root)]))]
 
 
-def promote_target(root: Path, *, jobs: int = 1) -> int:
+def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
     """Check once, revalidate the checked bytes, then apply a prepared write plan."""
     root = root.resolve()
     try:
@@ -708,15 +725,24 @@ def promote_target(root: Path, *, jobs: int = 1) -> int:
                 report.errors.append(TargetFinding('target', 'selected_tests_unavailable',
                                     f'{path}; declare "test_commands" for {kind} in {root / ".flowguard/map.json"}'))
         if report.errors or report.todos:
-            print(render_target_report(report, root=root))
-            print(f"promote refused: {len(report.errors)} error(s), {len(report.todos)} to-do")
+            if as_json:
+                print_verdict("target promote", 1, _target_codes(report), _target_advice(report, root))
+            else:
+                print(render_target_report(report, root=root))
+                print(f"promote refused: {len(report.errors)} error(s), {len(report.todos)} to-do")
             return 1
         if not prepared or not staged_matches or _promotion_inputs(root, current) != inputs:
-            print("promote refused: checked inputs changed; run python -m flowguard target check")
+            if as_json:
+                print_verdict("target promote", 1, [dict(level="error", code="checked_inputs_changed", subject="target")])
+            else:
+                print("promote refused: checked inputs changed; run python -m flowguard target check")
             return 1
         problems = validate_map(merged)
         if problems:
-            print("promote refused: " + "; ".join(problems))
+            if as_json:
+                print_verdict("target promote", 1, [dict(level="error", code="invalid_map", subject="map") for _ in problems])
+            else:
+                print("promote refused: " + "; ".join(problems))
             return 1
         selected_tests = set(impact.tests) | {node.split("::", 1)[0] for node in tested}
         next_lines = _promotion_next(root, merged, inputs, selected_tests)
@@ -758,21 +784,28 @@ def promote_target(root: Path, *, jobs: int = 1) -> int:
             items = [symbol + entry.split(":", 1)[1] for symbol in ("+", "~", "-")
                      for entry in changes[symbol] if entry.startswith(kind + ":")]
             summaries.append(label + " " + (" ".join(items) or "-"))
-        print(f'promoted "{target.goal}": ' + "; ".join(summaries))
-        for line in reread:
-            print(line)
-        if drafts:
-            print("next: python -m flowguard map confirm " + " ".join(drafts))
-        for line in next_lines:
-            print(line)
+        if as_json:
+            print_verdict("target promote", 0, _target_codes(report), next_lines[-1])
+        else:
+            print(f'promoted "{target.goal}": ' + "; ".join(summaries))
+            for line in reread:
+                print(line)
+            if drafts:
+                print(render_advice(advice("confirm", "python -m flowguard map confirm " + " ".join(drafts))))
+            for line in next_lines:
+                print(render_advice(line) if isinstance(line, dict) else line)
         return 0
     except OSError as exc:
         print(f"promote stopped: {exc}; the target is intact in .flowguard/target/ and the replaced files are in .flowguard/target/.replaced/; copy them back into .flowguard/ to restore, then run python -m flowguard target promote again", file=sys.stderr)
         if _git_head(root):
             print("restore with: git checkout -- .flowguard && git clean -fd .flowguard", file=sys.stderr)
+        if as_json:
+            print_verdict("target promote", 2, [dict(level="error", code="operation_failed", subject="target")])
         return 2
     except MapError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        if as_json:
+            print_verdict("target promote", 2, [dict(level="error", code="invalid_target", subject="target")])
         return 2
 
 
@@ -887,8 +920,8 @@ def start_target(root: Path, goal: str) -> int:
     print(f'target started: "{goal}"')
     if not _git_head(root):
         print("note: no git here; the current model stays in .flowguard/models/ until target promote")
-    print("next: python -m flowguard target add <component-or-model-id>, edit the files under "
-          ".flowguard/target/, then python -m flowguard target check")
+    print(render_advice(advice("add", "python -m flowguard target add <component-or-model-id>, edit the files under "
+                              ".flowguard/target/, then python -m flowguard target check")))
     return 0
 
 
@@ -935,19 +968,26 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(args.root).resolve()
     try:
         if args.command == "promote":
-            return promote_target(root, jobs=args.jobs)
+            options = {"as_json": True} if getattr(args, "json", False) else {}
+            return promote_target(root, jobs=args.jobs, **options)
         if args.command == "check":
             report = check_target(root, jobs=args.jobs)
-            print(render_target_report(report))
-            return 1 if report.errors else 3 if report.todos else 0
+            code = 1 if report.errors else 3 if report.todos else 0
+            if getattr(args, "json", False):
+                print_verdict("target check", code, _target_codes(report), _target_advice(report, root))
+            else:
+                print(render_target_report(report, root=root))
+            return code
         load_map(root)
         if args.command == "start":
             return start_target(root, args.goal)
         if args.command == "drop":
             return drop_target(root, yes=args.yes)
         return add_to_target(root, args.node)
-    except (MapError, OSError) as exc:
+    except (MapError, OSError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        if getattr(args, "json", False):
+            print_verdict("target " + args.command, 2, [dict(level="error", code="runtime_error", subject="target")])
         return 2
 
 from .target_identity import _FIELD_CODES, _VOLATILE

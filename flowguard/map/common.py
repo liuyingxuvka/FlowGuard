@@ -29,6 +29,8 @@ JS_EXTS = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
 DEFAULT_IGNORE = [".flowguard/**", ".git/**", "**/__pycache__/**", "node_modules/**",
                   "dist/**", "build/**", ".venv/**", "venv/**", "**/*.min.js"]
 LEVELS = ("error", "warn", "info")
+ADVICE_IDS = frozenset({"tests", "design", "code", "promote", "confirm", "commit", "add",
+                        "describe", "extend", "check", "models", "bind", "rule", "target", "test_command"})
 STOPWORDS = {"a", "an", "the", "of", "to", "and", "or", "for", "in", "on", "by", "with",
              "from", "into", "per", "is", "are", "be", "its", "it", "that", "this", "as"}
 
@@ -304,19 +306,37 @@ class Finding:
         return f"{self.level.upper():5} {self.code:24} {self.component or '-':26} {self.message}"
 
 
+def advice(identifier: str, command: str) -> dict[str, str]:
+    if identifier not in ADVICE_IDS:
+        raise ValueError(f"unknown advice id: {identifier}")
+    return {"id": identifier, "command": command}
+
+
+def render_advice(item: dict[str, str]) -> str:
+    return f"next[{item['id']}]: {item['command']}"
+
+
+def finding_codes(findings: list[Finding], *, include_info: bool = False) -> list[dict[str, str]]:
+    return [{"level": item.level, "code": item.code, "subject": item.component or "-"}
+            for item in findings if include_info or item.level != "info"]
+
+
+def print_verdict(command: str, exit_code: int, codes=(), next_advice=None, **extra) -> None:
+    verdict = "PASS" if exit_code == 0 else "OPEN" if command == "target check" and exit_code == 3 else "FAIL"
+    print(json.dumps({"command": command, "verdict": verdict, "codes": list(codes),
+                      "next": next_advice, **extra}, ensure_ascii=False))
+
+
 def print_findings(
-    findings: list[Finding], name: str, *, as_json: bool, limit: int
+    findings: list[Finding], name: str, *, as_json: bool, limit: int, command: str | None = None
 ) -> dict[str, int]:
     order = {lvl: i for i, lvl in enumerate(LEVELS)}
     findings.sort(key=lambda f: (order[f.level], f.code, f.component, f.message))
     counts = {lvl: sum(f.level == lvl for f in findings) for lvl in LEVELS}
     if as_json:
-        print(
-            json.dumps(
-                {"command": name, "counts": counts, "findings": [asdict(f) for f in findings]},
-                indent=1,
-            )
-        )
+        print_verdict(command or name, int(bool(counts["error"])),
+                      finding_codes(findings, include_info=name == "lint"),
+                      counts=counts, findings=[asdict(f) for f in findings])
     else:
         covered = 0
         visible = []

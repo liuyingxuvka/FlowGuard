@@ -558,7 +558,7 @@ def test_locate_unbound_calling_test_suggests_binding(tmp_path):
     helper["fixture"](tmp_path)
     code, text = helper["observe"](tmp_path, "unbound")
     assert code == 0 and "bound to: none (unbound; position app)" in text
-    assert "next: bind it in owner's TESTED_BY if it checks one of its rules" in text
+    assert "next[bind]: bind it in owner's TESTED_BY if it checks one of its rules" in text
     from flowguard.map.inventory import build_inventory
     from flowguard.map.views import render_locate
 

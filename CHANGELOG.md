@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: --json on map check, map lint, target check, target promote and release prints exactly one JSON line {command, verdict, codes, next}; every next line reads next[<id>]: with a stable advice id.
+
 - Projects using FlowGuard: lint defers sequence-size debts to model execution instead of falsely calling them unused; models and release warn when an observed size debt no longer suppresses any finding.
 
 - Projects using FlowGuard: a selected test with no command names the project's test_commands setting and gives a runnable promotion command after you declare it, instead of sending you back to the target design.

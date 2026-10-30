@@ -8,7 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import Finding, read_source, tokens
+from .common import Finding, advice, read_source, render_advice, tokens
 from .inventory import Inventory, resolve_import
 from .facets import model_port_line, used_by_lines, _test_function_index, component_facets, coverage_facts, coverage_line, goal_rules_line, model_facets, system_facets
 from .discover import anchor_matches, discover_inventory, relied_models
@@ -642,12 +642,12 @@ def render_locate(root: Path, data: dict, inv: Inventory, location: str) -> str:
             )
             if choices:
                 lines.append(
-                    f"next: bind it in {choices[0]}'s TESTED_BY if it checks one of its rules"
+                    render_advice(advice("bind", f"bind it in {choices[0]}'s TESTED_BY if it checks one of its rules"))
                 )
             else:
                 component = position
                 lines.append(
-                    f"next: if this test checks behaviour, add that rule to a model of {component} in a target (python -m flowguard target add <model of component>, or python -m flowguard template behaviour) and bind it; otherwise it stays unbound"
+                    render_advice(advice("rule", f"if this test checks behaviour, add that rule to a model of {component} in a target (python -m flowguard target add <model of component>, or python -m flowguard template behaviour) and bind it; otherwise it stays unbound"))
                 )
         return finish(lines)
     loc = path + (":" + symbol if symbol else "")
@@ -716,7 +716,7 @@ def render_locate(root: Path, data: dict, inv: Inventory, location: str) -> str:
             lines.append("also owned by: " + capped(others))
         if reached:
             lines.append("reached by: " + capped(m for m, anchor in reached if m != mid))
-        ending = f'next: python -m flowguard target start "<goal>", then python -m flowguard target add {mid}'
+        ending = render_advice(advice("target", f'python -m flowguard target start "<goal>", then python -m flowguard target add {mid}'))
     else:
         lines = [
             f"no model owns {loc} (component {component}); reached by: "
@@ -729,7 +729,7 @@ def render_locate(root: Path, data: dict, inv: Inventory, location: str) -> str:
             + (", ".join(choices) or "none")
             + (f" (+{len(candidates)-5} more)" if len(candidates) > 5 else "")
         )
-        ending = f"next: add the rule to a model of {component}; a separate aspect gets its own model there (references/routes.md#New function)"
+        ending = render_advice(advice("rule", f"add the rule to a model of {component}; a separate aspect gets its own model there (references/routes.md#New function)"))
     if symbol:
         unbound = [
             test + "::" + name.replace(".", "::")

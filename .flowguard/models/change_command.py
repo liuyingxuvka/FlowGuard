@@ -99,7 +99,7 @@ def conformance():
             text=out.getvalue()
             valid=(code==0 if case in ('clean','stale') else code==1)
             if case in ('anchor','missing'):valid &= 'RAN: skipped' in text
-            elif case=='stale':valid &= 'next: python -m flowguard map confirm' in text
+            elif case=='stale':valid &= 'next[confirm]: python -m flowguard map confirm' in text
             elif case=='failing_test':valid &= 'RAN FAIL' in text
             facts.append(Fact(case,bool(valid),text))
     return CodeFactsReport(tuple(facts))

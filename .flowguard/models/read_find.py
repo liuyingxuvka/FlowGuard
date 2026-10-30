@@ -78,7 +78,7 @@ def base_conformance():
         fixture(project)
         for case in LOCATIONS:
             status, text = observe(project, case)
-            correct = status == 1 and text.startswith('no symbol') if case == 'unknown' else status == 0 and text.startswith('locate ') and ('model owner (owned: Run)' in text) if case == 'owned' else status == 0 and text.startswith('no model owns') if case in ('reached', 'unowned') else status == 0 and 'bound to: owner (rule safe)' in text and ('api.py:owned' in text) if case == 'bound' else status == 0 and 'bound to: none (unbound; position app)' in text and ("next: bind it in owner's TESTED_BY" in text) if case == 'unbound' else status == 0 and 'bound: owner 1; unbound 2' in text
+            correct = status == 1 and text.startswith('no symbol') if case == 'unknown' else status == 0 and text.startswith('locate ') and ('model owner (owned: Run)' in text) if case == 'owned' else status == 0 and text.startswith('no model owns') if case in ('reached', 'unowned') else status == 0 and 'bound to: owner (rule safe)' in text and ('api.py:owned' in text) if case == 'bound' else status == 0 and 'bound to: none (unbound; position app)' in text and ("next[bind]: bind it in owner's TESTED_BY" in text) if case == 'unbound' else status == 0 and 'bound: owner 1; unbound 2' in text
             facts.append(Fact('locate_' + case, correct, text))
         return CodeFactsReport(tuple(facts))
 
