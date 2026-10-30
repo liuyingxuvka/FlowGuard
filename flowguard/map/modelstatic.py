@@ -79,6 +79,7 @@ class StaticModel:
         self.modules = {}
         self.cases = None
         self.rule_defs, self.bad_defs = {}, {}    # name -> ast.dump of the expression that defines it
+        self.rule_inputs = {}                    # name -> defining call and its static scope
 
     # -- names across the model file and its helper files -------------------------------------
     def _module(self, name):
@@ -291,7 +292,76 @@ class StaticModel:
         """Remember the call that defines each rule (goal rules compare these between versions)."""
         for title, _ in found:
             self.rule_defs.setdefault(title, self._definition(call, scope))
+            self.rule_inputs.setdefault(title, (call, scope))
         return found
+
+    def rule_read_names(self, title):
+        """Predicate reads, including local helpers, without descriptions or bound parameters."""
+        found = self.rule_inputs.get(title)
+        if found is None:
+            return set()
+        call, scope = found
+        names, seen = set(), set()
+
+        def visit(value, home, bound=frozenset(), arguments=None):
+            arguments = arguments or {}
+            if isinstance(value, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                args = value.args
+                parameters = {item.arg for item in args.posonlyargs + args.args + args.kwonlyargs}
+                parameters.update(item.arg for item in (args.vararg, args.kwarg) if item)
+                body = [value.body] if isinstance(value, ast.Lambda) else value.body
+                for item in body:
+                    visit(item, home, bound | parameters, arguments)
+                return
+            if isinstance(value, ast.Name) and isinstance(value.ctx, ast.Load):
+                if value.id in arguments:
+                    expression, owner = arguments[value.id]
+                    visit(expression, owner)
+                    return
+                if value.id in bound:
+                    return
+                names.add(value.id)
+                for kind in ("assigns", "functions"):
+                    match = self._lookup(value.id, home, kind)
+                    if match and (id(match[1]), value.id, kind) not in seen:
+                        seen.add((id(match[1]), value.id, kind))
+                        visit(match[0], match[1])
+            elif isinstance(value, ast.Attribute) and isinstance(value.ctx, ast.Load):
+                names.add(value.attr)
+            for item in ast.iter_child_nodes(value):
+                visit(item, home, bound, arguments)
+
+        arguments = {}
+        parameters = frozenset()
+        if call_name(call) not in BUILTIN_RULE_HELPERS | {"Invariant"}:
+            match = self._lookup(call_name(call), scope, "functions")
+            if not match:
+                return names
+            function, home = match
+            params = [item.arg for item in function.args.posonlyargs + function.args.args + function.args.kwonlyargs]
+            parameters = frozenset(params)
+            positional = function.args.posonlyargs + function.args.args
+            arguments = {item.arg: (value, home) for item, value in zip(
+                positional[len(positional) - len(function.args.defaults):], function.args.defaults)}
+            arguments.update({item.arg: (value, home) for item, value in zip(function.args.kwonlyargs, function.args.kw_defaults) if value is not None})
+            arguments.update({name: (value, scope) for name, value in zip(params, call.args)})
+            arguments.update({item.arg: (item.value, scope) for item in call.keywords if item.arg})
+            returned = _returns(function)
+            if len(returned) != 1 or not isinstance(returned[0], ast.Call):
+                return names
+            call, scope = returned[0], home
+        if call_name(call) == "Invariant":
+            predicate = call.args[2] if len(call.args) > 2 else next(
+                (item.value for item in call.keywords if item.arg == "predicate"), None)
+            if predicate is not None:
+                visit(predicate, scope, parameters, arguments)
+        else:
+            for value in call.args[1:]:
+                visit(value, scope)
+            for item in call.keywords:
+                if item.arg != "name":
+                    visit(item.value, scope)
+        return names
 
     def rules(self, expr, scope, local=None, depth=0):
         if depth > 20:

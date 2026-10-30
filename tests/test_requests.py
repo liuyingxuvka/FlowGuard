@@ -9,7 +9,10 @@ import subprocess
 
 import pytest
 
-from _fg_helpers import target__target_life_cycle_fixture_helpers as fixture_helpers
+from _fg_helpers import (
+    target__target_life_cycle_fixture_helpers as fixture_helpers,
+    target__fg403_helpers as gap_helpers,
+)
 
 
 def _call(root, capsys, *arguments):
@@ -28,6 +31,112 @@ def _project(root, capsys):
 def _git(root, *arguments):
     return subprocess.run(["git", "-c", "user.name=probe", "-c", "user.email=probe@example.invalid",
                            "-C", str(root), *arguments], check=True, capture_output=True).stdout
+
+
+def _plan_target(root):
+    from flowguard.map import target as native
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.requests import store_request
+    from flowguard.map.targetfile import load_target, build_target_view
+
+    source = gap_helpers()["regular_source"]().replace('MODEL_ID = \'one\'', 'MODEL_ID = \'renew_limit\'')
+    source = source.replace('"answer"', '"renew_within_limit"')
+    source = source.replace('INVARIANTS = (', 'availability_ceiling = EXPECTED["renew_within_limit"]\nINVARIANTS = (')
+    source = source.replace('s in (0, EXPECTED["renew_within_limit"])', 's in (0, availability_ceiling)')
+    source = source.replace('lambda s,t:', 'lambda state,trace:').replace(
+        'if s in (0, availability_ceiling)', 'if state in (0, availability_ceiling)')
+    gap_helpers()["make_project"](root, source)
+    owner = 'Renewals keep the limit 3.\nThe ceiling remains 1.\nThe desk opens at nine.\n续借的 limit 仍然是 3\n续借次数保持为3。\nThe state is visible.\n'
+    store_request(root, owner.encode(), identifier="RQuote")
+    native.start_target(root, "explain the changed rule")
+    native.add_to_target(root, "renew_limit")
+    target = load_target(root)
+    return target, build_target_view(root, load_map(root), target)
+
+
+def test_quote_check_verbatim_and_elision():
+    from flowguard.map.plan import quote_matches
+    text = 'Renewals keep\n the limit 3.\n续借的 limit 仍然是 3'
+    assert quote_matches(text, 'Renewals keep the limit 3.')
+    assert quote_matches(text, 'Renewals ... limit 3.')
+    assert not quote_matches(text, 'Renewals keep the limit 4.')
+    assert quote_matches(text, '续借的 limit 仍然是 3')
+    assert not quote_matches(text, '续借的 limit 仍然是 4')
+
+
+def test_changes_line_syntax(tmp_path):
+    from flowguard.map.plan import check_plan
+    target, view = _plan_target(tmp_path)
+    path = tmp_path / ".flowguard/target/PLAN.txt"
+    for line, expected in (
+        ('changes: renew_limit.renew_within_limit by RQuote "Renewals keep the limit 3."', None),
+        ('changes: renew_limit.renew_within_limit because "The lower bound is intentional."', None),
+        ('changes: renew_limit.renew_within_limit because missing_quotes', 'line_syntax'),
+        ('changes: renew_limit.renew_within_limit RQuote "Renewals keep the limit 3."', 'line_syntax'),
+        ('changes: missing.renew_within_limit because "intentional"', 'line_syntax'),
+        ('changes: renew_limit.renew_within_limit by R9 "Renewals keep the limit 3."', 'request_unknown'),
+        ('changes: renew_limit.renew_within_limit by RQuote "Renewals keep the limit 4."', 'quote_not_in_request'),
+    ):
+        path.write_text(line + "\n", encoding="utf-8")
+        items, findings = check_plan(tmp_path, target, view)
+        assert [item.code for item in findings] == ([] if expected is None else [expected]), (line, findings)
+        if expected is None:
+            assert len(items) == 1
+
+
+def test_changes_quote_needs_shared_term(tmp_path):
+    from flowguard.map.plan import check_plan
+    from flowguard.map.requests import store_request
+    target, view = _plan_target(tmp_path)
+    path = tmp_path / ".flowguard/target/PLAN.txt"
+    for quote, accepted in (('Renewals keep the limit 3.', True), ('The ceiling remains 1.', True),
+                            ('The desk opens at nine.', False),
+                            ('续借的 limit 仍然是 3', True), ('The state is visible.', False)):
+        path.write_text(f'changes: renew_limit.renew_within_limit by RQuote "{quote}"\n', encoding="utf-8")
+        _, findings = check_plan(tmp_path, target, view)
+        assert [item.code for item in findings] == ([] if accepted else ['link_without_shared_term'])
+    path.write_text('changes: renew_limit.renew_within_limit by RQuote "续借次数保持为3。"\n', encoding="utf-8")
+    assert any(item.code == 'link_without_shared_term' for item in check_plan(tmp_path, target, view)[1])
+    store_request(tmp_path, '续借次数 = limit\n'.encode(), identifier="RGloss", kind="glossary")
+    items, findings = check_plan(tmp_path, target, view)
+    assert not findings and items[0]['glossary_used']
+
+
+@pytest.mark.parametrize("git_backed", [False, True])
+def test_touch_uses_actual_function_change(tmp_path, git_backed):
+    from flowguard.map import target as native
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.plan import check_plan
+    from flowguard.map.targetfile import load_target, build_target_view
+
+    gap_helpers()["make_project"](tmp_path, gap_helpers()["regular_source"]())
+    if git_backed:
+        _git(tmp_path, 'init', '-q')
+        _git(tmp_path, 'add', '.')
+        _git(tmp_path, 'commit', '-qm', 'function baseline')
+    native.start_target(tmp_path, 'change the function')
+    native.add_to_target(tmp_path, 'one')
+    target = load_target(tmp_path)
+    view = build_target_view(tmp_path, load_map(tmp_path), target)
+    (tmp_path / '.flowguard/target/PLAN.txt').write_text('touch: native.py:value because "Change the declared function."\n', encoding='utf-8')
+    assert any(item.code == 'plan_item_not_done' for item in check_plan(tmp_path, target, view)[1])
+    source = tmp_path / 'native.py'
+    original = source.read_text()
+    source.write_text(original.replace('def value(): return 1', 'def value():\n    """New words only."""\n    # no behavior change\n    return 1'))
+    assert any(item.code == 'plan_item_not_done' for item in check_plan(tmp_path, target, view)[1])
+    source.write_text(original.replace('def value(): return 1', 'def value(optional=None): return 1'))
+    items, findings = check_plan(tmp_path, target, view)
+    assert not findings and items[0]['reason'] == 'Change the declared function.'
+    source.write_text('def value(): return 1\ndef value(): return 2\n')
+    assert any('ambiguous' in item.message for item in check_plan(tmp_path, target, view)[1])
+    source.write_text(original.replace('def value(): return 1', 'def value(optional=None): return 1'))
+    if not git_backed:
+        base_path = tmp_path / '.flowguard/target/base.json'
+        base = json.loads(base_path.read_text())
+        for entry in base['files'].values():
+            entry.pop('functions', None)
+        base_path.write_text(json.dumps(base))
+        assert any(item.code == 'plan_item_not_done' for item in check_plan(tmp_path, target, view)[1])
 
 
 def _request_target(root, capsys, link):

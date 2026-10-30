@@ -43,6 +43,28 @@ def test_recorded_rule_prints_no_gap():
     assert "NO GAP one:" in result["text"] and not result["errors"] and not result["todos"]
 
 
+def test_no_gap_changed_rule_needs_line(tmp_path):
+    from flowguard.map import target as native
+    helpers = _fg403_helpers()
+    source = helpers["regular_source"](positive=True)
+    helpers["make_project"](tmp_path, source)
+    native.start_target(tmp_path, "record the revised lower bound")
+    native.add_to_target(tmp_path, "one")
+    model = tmp_path / ".flowguard/target/models/one.py"
+    model.write_text(source.replace('def _positive(s): return s >= 0',
+                                    'def _positive(s): return s >= -1').replace('"negative": make(-1)',
+                                                                                 '"negative": make(-2)'))
+    report = native.check_target(tmp_path)
+    assert not report.errors
+    assert any(item.code == "rule_changed_without_line" for item in report.todos), report
+    assert native.promote_target(tmp_path) == 1
+    (tmp_path / ".flowguard/target/PLAN.txt").write_text(
+        'changes: one.positive because "The revised lower bound is intentional."\n', encoding="utf-8")
+    report = native.check_target(tmp_path)
+    assert not report.errors and not report.todos, report
+    assert native.promote_target(tmp_path) == 0
+
+
 def test_missing_bound_test_is_never_a_gap():
     result = _fg403_helpers()["native_case"]("missing_test")
     assert "NO GAP one:" in result["text"] and "EXPECTED GAP" not in result["text"]

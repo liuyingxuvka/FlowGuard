@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A changed existing rule that shows NO GAP requires an explicit PLAN.txt request quote or reason. Quotes match the stored owner text and a rule term, including confirmed glossary mappings; planned function touches require a real code change.
+
 - Stored requests can be linked to a target with --request ID[:part]. Read derives their state from active worktrees and complete immutable promotion records, without rewriting owner text or metadata.
 
 - Store owner requests byte for byte with req add, explicit or collision-resistant IDs, immutable sidecars and optional glossary/adoption kinds. Read keeps unclaimed requests visible; checks refuse edited request or metadata bytes, including before their first commit and in fresh clones.

@@ -75,7 +75,7 @@ def native_case(case):
     from flowguard.map.targetfile import load_target, build_target_view
     with TemporaryDirectory(prefix="fg-gap-case-") as directory:
         root = Path(directory)
-        source = regular_source(positive=case.startswith("move") or case.startswith("remove"),
+        source = regular_source(positive=case.startswith("move") or case.startswith("remove") or case.startswith("changed_"),
                                 expected=2 if case == "remove_gap" else 1, broad=case == "remove_gap")
         if case == "kit_binding":
             source = KIT_SOURCE
@@ -98,6 +98,10 @@ def native_case(case):
             model.write_text(regular_source(expected=2))
         elif case == "shared_tuple":
             model.write_text(source.replace('"answer matches"', '"answer equals the declared native value"'))
+        elif case.startswith("changed_"):
+            model.write_text(source.replace("def _positive(s): return s >= 0", "def _positive(s): return s >= -1").replace('"negative": make(-1)', '"negative": make(-2)'))
+            if case == "changed_with_line":
+                (root / ".flowguard/target/PLAN.txt").write_text('changes: one.positive because "The revised lower bound is intentional."\n')
         elif case in {"recorded", "missing_test"}:
             model.write_text(regular_source(positive=True, missing=case == "missing_test"))
         elif case.startswith("move"):
@@ -140,13 +144,13 @@ def native_case(case):
         report = native.check_target(root)
         text = native.render_target_report(report)
         return {"text": text, "goal": goal, "errors": [str(f) for f in report.errors],
-                "todos": [str(f) for f in report.todos]}
+                "todos": [str(f) for f in report.todos], "todo_codes": [f.code for f in report.todos]}
 
 
 def native_cases():
     for case in ("native", "table", "missing_test", "recorded", "move", "move_twice", "anchor_exception",
                  "engine_exception", "adapter_exception", "kit_binding", "remove_clean", "remove_gap",
-                 "anchor_only", "closed", "open", "shared_tuple"):
+                 "anchor_only", "closed", "open", "shared_tuple", "changed_without_line", "changed_with_line"):
         result = native_case(case)
         text, goal = result["text"], "\n".join(result["goal"])
         if case == "anchor_only":
@@ -160,6 +164,9 @@ def native_cases():
             ok = "EXPECTED GAP one:" in text
             if case == "table":
                 ok = ok and "~answer" in goal
+        elif case.startswith("changed_"):
+            blocked = "rule_changed_without_line" in result["todo_codes"]
+            ok = "NO GAP one:" in text and not result["errors"] and blocked == (case == "changed_without_line")
         elif case in {"missing_test", "recorded"}:
             ok = "NO GAP one:" in text and "EXPECTED GAP one:" not in text
         elif case.startswith("move"):

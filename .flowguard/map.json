@@ -289,7 +289,7 @@
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs. Own shared static call-graph reachability and model selection. Inspect actual target/index/HEAD facts once per operation; distinguish strict target validation from inspection of fulfilled committed removals. Preserve target-start helper source identities and distinguish unknown legacy baselines. Expose actual model-function matches alongside selection without changing its chosen models.",
+      "summary": "Read map/target contracts, static rule identities and predicate reads, finite ports and the canonical test tree.",
       "responsibilities": [
         "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity; classify explicit debt reasons and date or project-root version deadlines once per evaluation without persisting a verdict",
         "resolve component parents in one layer without loops",
@@ -340,7 +340,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:79e2c3e9b1a513ebe50857844835cef68bc7e8bc1ac133e8971d963e732d1d2d"
+      "fingerprint": "sha256:ac063feacfecf2fe40a5714f4252113d60e16ac6faf9a403d61b3abfa255c2fc"
     },
     {
       "id": "map-discover",
@@ -382,7 +382,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Manage one target, link stored requests and promote a checked tree with an immutable change record.",
+      "summary": "Manage one target with source baselines, owner-linked PLAN checks and immutable promotion records.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and native gaps before or after code changes; run the changed target models own bound tests and reject unreceived escalated outputs",
@@ -437,7 +437,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:439140b3200c933902e51f436178fed6073774ca35b044d08f6a8dafb8761748"
+      "fingerprint": "sha256:fee4749619fddb04169cdfb95950748cda1fc8c462d233bfda1a1e00d673b7de"
     },
     {
       "id": "map-proof",
@@ -828,15 +828,17 @@
     {
       "id": "map-requests",
       "layer": "map",
-      "summary": "Store owner requests byte for byte, protect immutable change records and derive request state from targets and complete records.",
+      "summary": "Store immutable owner requests and change records, derive request state and check explicit PLAN changes.",
       "responsibilities": [
         "preserve original owner request bytes and sidecars",
         "protect immutable tool-written files",
-        "derive visible request facts without mutable status"
+        "derive visible request facts without mutable status",
+        "parse owner-linked PLAN changes and verify explicitly planned function changes against their real baseline"
       ],
       "files": [
         "flowguard/map/requests.py",
-        "flowguard/map/records.py"
+        "flowguard/map/records.py",
+        "flowguard/map/plan.py"
       ],
       "entrypoints": [
         "flowguard/map/requests.py:store_request",
@@ -851,8 +853,6 @@
         "tests/test_requests.py"
       ],
       "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:bec3bd957c29ffaf3b839b2c637c7cd302406886dcc0d25915e4e44fd1430e22",
       "state": [
         "original owner request bytes and immutable sidecars",
         "independent first-write byte identities",
@@ -860,7 +860,9 @@
       ],
       "side_effects": [
         "writes request files, change record pairs, raw-byte guards and independent written receipts"
-      ]
+      ],
+      "status": "confirmed",
+      "fingerprint": "sha256:6a04121ff06c5ba684d35f47be636161d3bde6b6fc13d333dc1e47e205c69568"
     }
   ],
   "flows": [
@@ -997,7 +999,7 @@
     ".flowguard/models/edge_coverage.py": "d704e0678b313aa3eec0b492f09dcd2612f3129137da284f37286a41b3b49ca9",
     ".flowguard/models/engine_explore.py": "aa460232d21b3ce47a41404e553c1d733aec394a2ebf7df8e22f125ec84e832f",
     ".flowguard/models/function_selection.py": "115752544a30b4ec68af1c06f1f896307ea9ba2313c5931a2eed1c0e64cf38b3",
-    ".flowguard/models/gap_lines.py": "e3611757ac167ba8d49c44a655ff00ba631d967d195c44c74d5b27d06866ab49",
+    ".flowguard/models/gap_lines.py": "f1e9ccb573cbaa623cc6673aeac37f231ca24d5753fd2da66c33042bf72b0d48",
     ".flowguard/models/job_matching_example.py": "66d13d40bcbda27be232ecc68713eccd913a46190ba2bc68a5bba805fc9c0971",
     ".flowguard/models/literal_consumers.py": "04dc183c41363d2cc23fb62e6f5d26f30775b5ef466fdbba9462cdeeeac8f84c",
     ".flowguard/models/map_binding.py": "5234e58ea5796c52a4775930cf3e8bafb6d9dd1f212acefbb37021f81351a1cc",
@@ -1024,7 +1026,7 @@
     ".flowguard/models/shard_run.py": "d3eff6beecfebe5d53844e5f5bed5f2b985137d3aaf78b22df6e6abe926e022e",
     ".flowguard/models/shard_suite.py": "befb5f91139ce4d74fcc7a9ab5ecd5927c759a94e005e6063dc6e9492cbc7333",
     ".flowguard/models/target_add.py": "b38f68d292ca7996cf46785aa6ccafe0f3f30a5b0e00d9f5329de74e4f4ed120",
-    ".flowguard/models/target_findings.py": "8d0628fe4f4ad798734919d74423468d22769207fc690ad003f6f562e801b2fd",
+    ".flowguard/models/target_findings.py": "c546d53b63d319cd6687117fdc615d36aa3ba93fc5f08ac3168b498c1553fee5",
     ".flowguard/models/target_life_cycle.py": "b8f71219f9681d8bef4c77472569eaa281ffe57e6c8e0440e1a2e3b9e962350c",
     ".flowguard/models/target_promotion.py": "d8688296cd339fbd181378110384f85dfd6248641b23b7da94f1eec774a304c1",
     ".flowguard/models/test_binding.py": "01f20ff65edb30f6c9bb2d53628704362f379656838734aad4978bcb608fee3f",

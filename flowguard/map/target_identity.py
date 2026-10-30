@@ -5,7 +5,7 @@ import hashlib
 import json
 import subprocess
 from datetime import datetime, timezone
-from .common import normalize_newlines
+from .common import normalize_newlines, read_source
 from .inventory import build_inventory, function_digests
 from .mapfile import ignore_patterns, load_map
 from .targetfile import TARGET_RELDIR, model_helper_digests
@@ -109,11 +109,15 @@ def _record_base(root):
     if _git_head(root):
         data["git"] = _git(root, "rev-parse", "HEAD").stdout.decode().strip()
     else:
+        from .plan import function_identities
         current = load_map(root) if (root / ".flowguard/map.json").exists() else {}
         inv = build_inventory(root, ignore_patterns(current), write_cache=False)
-        data["files"] = {
-            path: {"sha256": _file_hash(root / path)} for path in inv.source
-        }
+        data["files"] = {}
+        for path in inv.source:
+            identity = {"sha256": _file_hash(root / path)}
+            if path.endswith(".py"):
+                identity["functions"] = function_identities(read_source(root / path))
+            data["files"][path] = identity
     (root / TARGET_RELDIR / "base.json").write_text(
         json.dumps(data, sort_keys=True) + "\n", encoding="utf-8"
     )

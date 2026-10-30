@@ -84,6 +84,7 @@ CASES = (
     Case("unplanned_current", "broken real catalog entrypoint", False, "current", "error"),
     Case("strict_current", "retired real current entrypoint", True, "strict-current", "error"),
     Case("design_failure", "real known-bad Explorer wrongly passes", True, "target", "error"),
+    Case("changed_rule_no_line", "an already-satisfied changed rule has no PLAN line", True, "target", "todo"),
     Case("code_gap", "real anchor disagrees with a sound regular contract", True, "target", "todo"),
     Case("owner_dropped", "real old catalog promise loses its owner", True, "target", "error"),
     Case("owner_reworded", "a responsibility reworded with the same words is advice, not owner_dropped", True, "target", "warn"),
@@ -179,7 +180,7 @@ INVARIANTS = (
           "a changed output that its parent or a consumer outside the target does not receive must be ERROR"),
     _rule("design_mistakes_are_errors", DESIGN, lambda state: state.bucket == "error",
           "a design mistake of the target was not an ERROR"),
-    _rule("missing_code_is_todo", {"code_gap", "gap_expected_gap"}, lambda state: state.gap != "expected_gap" or state.bucket == "todo",
+    _rule("missing_code_is_todo", {"code_gap", "gap_expected_gap", "changed_rule_no_line"}, lambda state: state.event != "changed_rule_no_line" and state.gap != "expected_gap" or state.bucket == "todo",
           "code the target still needs was not a TO-DO"),
     _rule("only_changed_subjects_move", set(CHANGED), lambda state: state.bucket == CHANGED[state.event],
           "breakage was moved to target although the target does not change its subject, or planned breakage was not"),
@@ -319,6 +320,10 @@ def _current_case(root, case):
 def observe_case(case):
     """One fresh bounded native filesystem/proof case, no fixture verdict reuse."""
     with TemporaryDirectory(prefix="target-findings-") as directory:
+        if case.name == "changed_rule_no_line":
+            from _gap_cases import native_case
+            result = native_case("changed_without_line")
+            return ("todo" if "rule_changed_without_line" in result["todo_codes"] else "absent-or-conflicting"), repr(result)
         if case.name == "reaches_changed_file":
             from _target_fixture import reached_failure_target
             from flowguard.map.impact import changed_files, compute_impact

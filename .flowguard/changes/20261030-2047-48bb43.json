@@ -1,0 +1,52 @@
+{
+  "kind": "change",
+  "goal": "FG-614: a changed rule that shows NO GAP needs a line in PLAN.txt",
+  "requests": [
+    {
+      "id": "R1",
+      "part": true
+    },
+    {
+      "id": "R600",
+      "part": true
+    }
+  ],
+  "base": "582ba92253b3de1ed95326395c9285580d2053d0",
+  "tree": "48bb43b7ab18ea2bf3e0f9ab2d5f0c44929929379161c99dbcf1f1d1c51c550a",
+  "promoted": "2026-10-30T20:47:53.549453+00:00",
+  "plan": [],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/map/modelstatic.py:StaticModel.__init__",
+    "flowguard/map/modelstatic.py:StaticModel._defined",
+    "flowguard/map/modelstatic.py:StaticModel.rule_read_names",
+    "flowguard/map/modelstatic.py:StaticModel.rule_read_names.visit",
+    "flowguard/map/plan.py:_glossaries",
+    "flowguard/map/plan.py:_shared_terms",
+    "flowguard/map/plan.py:_terms",
+    "flowguard/map/plan.py:_touch_problem",
+    "flowguard/map/plan.py:check_plan",
+    "flowguard/map/plan.py:function_identities",
+    "flowguard/map/plan.py:function_identities.WithoutDocstrings.scope",
+    "flowguard/map/plan.py:function_identities.visit",
+    "flowguard/map/plan.py:quote_matches",
+    "flowguard/map/plan.py:rule_info",
+    "flowguard/map/target.py:check_target",
+    "flowguard/map/target.py:gap_lines",
+    "flowguard/map/target.py:start_target",
+    "flowguard/map/target_identity.py:_record_base",
+    "tests/test_gap_lines.py:test_no_gap_changed_rule_needs_line",
+    "tests/test_requests.py:_plan_target",
+    "tests/test_requests.py:test_changes_line_syntax",
+    "tests/test_requests.py:test_changes_quote_needs_shared_term",
+    "tests/test_requests.py:test_quote_check_verbatim_and_elision",
+    "tests/test_requests.py:test_touch_uses_actual_function_change",
+    "tests/test_target_life_cycle.py:test_target_check_runs_own_bound_tests_after_code",
+    "tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 2 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. PLAN lines, rule provenance, acceptances, existing-item clearance and new-action judgments are not assessed by this record producer; their lists are empty."
+}

@@ -72,12 +72,13 @@ def _remove_readonly(function, path, info):
 
 TODO_CODES = {"test_file_not_split","anchor_broken", "component_empty", "pattern_dead", "model_anchor_broken",
               "model_missing", "flow_step_broken", "file_unmapped", "dep_undeclared",
-              "dep_unused", "layer_violation", "dependency_cycle"}
+              "dep_unused", "layer_violation", "dependency_cycle", "rule_changed_without_line", "plan_item_not_done"}
 ERROR_CODES = {"port_changed_consumer_unhandled", "file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
                "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
                "model_path_unsupported", "parent_unknown", "parent_cycle", "parent_import_mismatch",
                "anchor_outside_home", "duplicate_child_owner", "duplicate_owner", "flow_handoff_invalid", "owner_dropped", "entrypoint_owner", "component_parent_unknown", "component_parent_cycle",
-               "component_parent_layer", "target_noop", "target_goal_untied", "port_changed_parent_missing"}
+               "component_parent_layer", "target_noop", "target_goal_untied", "port_changed_parent_missing",
+               "line_syntax", "request_unknown", "quote_not_in_request", "link_without_shared_term"}
 
 
 @dataclass(frozen=True)
@@ -102,6 +103,7 @@ class TargetReport:
     port_lines: list[str] = field(default_factory=list)
     promise_lines: list[str] = field(default_factory=list)
     deleting: list = field(default_factory=list)   # file_unmapped TO-DOs of files a removed/re-filed component owned
+    plan_items: list = field(default_factory=list)
 
 
 def target_model_paths(root, data, target):
@@ -250,9 +252,16 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
         return report
     report.changes = target_node_changes(root, current, target)
     view = build_target_view(root, current, target)
+    from .plan import check_plan
+    report.plan_items, plan_findings = check_plan(root, target, view)
+    for finding in plan_findings:
+        destination = report.todos if finding.code in TODO_CODES else report.errors
+        destination.append(TargetFinding("target", finding.code, finding.message))
+    if report.errors:
+        return report
     inv = build_inventory(root, ignore_patterns(view.data), write_cache=False, import_roots=tuple(view.data.get("import_roots", ())))
     tree = build_tree(root, view.data, inv, view=view)
-    base = _target_base(root) if not tests else {}
+    base = _target_base(root)
     formula_path = "flowguard/map/mapfile.py"
     if formula_path in inv.source:
         from .common import read_source
@@ -265,8 +274,8 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
                     report.warnings.append(TargetFinding("target", "fingerprint_format_unchanged", message.removeprefix("fingerprint_format_unchanged: ")))
     changed_paths = target_model_paths(root, current, target)
     target_ids = {mid for mid, node in tree.nodes.items() if node.path in changed_paths}
-    code_changes = _code_changes(root, tree, target_ids, base=base) if not tests and models else {}
-    code_changed = set(code_changes)
+    code_changes = _code_changes(root, tree, target_ids, base=base) if models else {}
+    code_changed = set(code_changes) if not tests else set()
     seen = set()
 
     def add(level, node, code, message):
@@ -449,14 +458,23 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
             add(bucket, node, code, problem)
         for warning in result.warnings:
             add("warnings", node, "invariant_untested" if warning.startswith("invariant_untested: ") else "model_warning", warning)
-    report.gaps = gap_lines(root, target, view, report, results, goal=goal, code_changes=code_changes)
+    no_gap_rules = set()
+    report.gaps = gap_lines(root, target, view, report, results, goal=goal, code_changes=code_changes,
+                           no_gap_rules=no_gap_rules)
+    recorded = {(item['model'], item['rule']) for item in report.plan_items if item['kind'] == 'changes'}
+    for mid, name in sorted(no_gap_rules - recorded):
+        report.todos.append(TargetFinding("model " + mid, "rule_changed_without_line",
+            f'{mid}.{name}: the rule changed and the code already satisfies it; name it in '
+            f'{root / TARGET_RELDIR / "PLAN.txt"} with the request that asks for it '
+            '(changes: ... by ID "<quote>"), or with your reason (changes: ... because "<reason>") '
+            'so the owner sees it, or restore the rule'))
     for line in report.gaps:
         if line.startswith("NO GAP "):
             report.warnings.append(TargetFinding("model " + line.split()[2].rstrip(":"), "no_gap", line))
     return report
 
 
-def gap_lines(root, target, view, report, results, *, goal=None, code_changes=None):
+def gap_lines(root, target, view, report, results, *, goal=None, code_changes=None, no_gap_rules=None):
     """Describe each target model's rule delta against genuine native code gaps."""
     from .facets import target_goal_rules
     changes = {line.split(": ", 1)[0][6:]: line.split(": ", 1)[1]
@@ -500,7 +518,9 @@ def gap_lines(root, target, view, report, results, *, goal=None, code_changes=No
                 else:
                     output.append(f"EXPECTED GAP {mid}: {len(gaps)} code gap(s) for {names}; first: {first}")
             else:
-                output.append(f"NO GAP {mid}: the current code already satisfies {names}; if this rule records what the code already does, write no code for it and say so in the commit message; otherwise conformance() does not drive the real entry (check its call shape)")
+                if no_gap_rules is not None:
+                    no_gap_rules.update((mid, item[1:]) for item in rules if item.startswith("~"))
+                output.append(f"NO GAP {mid}: the current code already satisfies {names}; a changed rule needs a line in .flowguard/target/PLAN.txt, a new rule records existing behaviour; otherwise conformance() does not drive the real entry (check its call shape)")
         elif moved:
             donors = {}
             for item in moved:
@@ -965,6 +985,9 @@ def start_target(root: Path, goal: str, *, requests=()) -> int:
     if links:
         data["requests"] = links
     _save(root, data)
+    (directory / "PLAN.txt").write_text(
+        '# changes: model.rule by ID "quote" | changes: model.rule because "reason" | touch: path:qualified_name [because "reason"]\n',
+        encoding="utf-8")
     _record_base(root)
     print(f'target started: "{goal}"')
     if not _git_head(root):

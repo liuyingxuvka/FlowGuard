@@ -338,4 +338,7 @@ def conformance(): return CodeFactsReport((Fact("native_publish", load_anchor(IM
     for name in ('check', 'gate'):
         path = root / '.flowguard/target/models' / (name + '.py')
         path.write_text(path.read_text().replace('("ok", "bad")', '("ok", "bad", "held")'))
+    (root / '.flowguard/target/PLAN.txt').write_text(
+        'changes: check.decision_received because "Receive the new held decision in the existing flag."\n'
+        'changes: gate.gate_step because "Retain the newly received held flag."\n', encoding='utf-8')
     return root

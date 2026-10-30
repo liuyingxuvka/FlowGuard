@@ -74,7 +74,7 @@ def test_target_start_add_drop_and_read_line(tmp_path, capsys):
     target_files = {p.relative_to(directory).as_posix(): p.read_bytes()
                     for p in directory.rglob("*") if p.is_file()}
     code, output, errors = _run(root, capsys, "target", "drop")
-    assert code == 1 and not errors and 'would delete .flowguard/target/ ("holds", 3 file(s))' in output
+    assert code == 1 and not errors and 'would delete .flowguard/target/ ("holds", 4 file(s))' in output
     assert "re-run with --yes" in output
     assert {p.relative_to(directory).as_posix(): p.read_bytes()
             for p in directory.rglob("*") if p.is_file()} == target_files
@@ -701,9 +701,11 @@ def test_target_check_runs_own_bound_tests_after_code(tmp_path, monkeypatch):
     assert "GAP CLOSED one:" in output and "native.py" in output
     assert "bound tests: ran for one" in output
     base = tmp_path / ".flowguard/target/base.json"
-    # A damaged design identity is not an execution result. With no staged
-    # helpers, fresh proof still succeeds; promotion now watches its bytes for races.
+    # A damaged design identity is not an execution result. Fresh proof still
+    # runs once; with its source baseline unknown, name the rule's intended change.
     base.write_text("not JSON: this is no stored execution verdict")
+    (tmp_path / ".flowguard/target/PLAN.txt").write_text(
+        'changes: one.answer because "The answer is intentionally raised from one to two."\n', encoding="utf-8")
     assert native.promote_target(tmp_path) == 0
     assert len(calls) == 2
     assert not (tmp_path / ".flowguard/target/base.json").exists()
