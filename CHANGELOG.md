@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Projects using FlowGuard: model and bound-test subprocesses import the project's own packages first (the project root, import_roots and src/) and see only the flowguard package of FlowGuard, never its repository root.
+
 ## v0.70.14 - 2026-10-28 - Ports reach consumers, phase-aware checks and a complete read
 
 - Projects using FlowGuard: release, map models, target check and target promote run models in parallel by default; --jobs 1 stays serial in the calling thread.

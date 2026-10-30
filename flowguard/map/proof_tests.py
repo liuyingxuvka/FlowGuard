@@ -9,8 +9,8 @@ import tempfile
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
-from .common import child_pytest_environment, parse_test_anchor
-from .mapfile import read_model_contract, resolve_model_path
+from .common import child_pytest_environment, parse_test_anchor, child_import_path
+from .mapfile import MapError, load_map, read_model_contract, resolve_model_path
 
 if TYPE_CHECKING:
     from .proof import ModelResult
@@ -86,12 +86,11 @@ def _run_bound_tests(
             return
         env = child_pytest_environment(os.environ)
         env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
-        package_parent = Path(__file__).resolve().parents[2]
-        env["PYTHONPATH"] = os.pathsep.join(
-            [str(root)]
-            + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else [])
-            + [str(package_parent)]
-        )
+        try:
+            data = view.data if view is not None else load_map(root)
+        except MapError:
+            data = {}
+        env["PYTHONPATH"] = os.pathsep.join(child_import_path(root, data))
         with tempfile.TemporaryDirectory(prefix="flowguard-tested-by-") as folder:
             request, output = (
                 Path(folder) / "request.json",

@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
-from .common import parse_test_anchor, child_pytest_environment
+from .common import parse_test_anchor, child_pytest_environment, child_import_path
 from .facts import AnchorWatch, PlaceholderAnchorError
 from .mapfile import MapError, load_map, model_registry, read_model_contract, resolve_model_path
 from .tree import build_tree
@@ -160,11 +160,12 @@ def run_model(
     port_request=None,
 ) -> ModelResult:
     """Run one model in a fresh subprocess so imports and module state never leak between models."""
-    package_parent = Path(__file__).resolve().parents[2]  # directory that contains 'flowguard/'
+    try:
+        data = view.data if view is not None else load_map(root)
+    except MapError:
+        data = {}
     env = child_pytest_environment(os.environ)
-    env["PYTHONPATH"] = os.pathsep.join(
-        [str(root)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []) + [str(package_parent)]
-    )
+    env["PYTHONPATH"] = os.pathsep.join(child_import_path(root, data))
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
     rel = path.relative_to(root).as_posix()

@@ -23,7 +23,8 @@ NOT_MODELED = {
 IMPLEMENTED_BY = {
     "BoundTests": "flowguard/map/proof.py:run_bound_tests",
 }
-USES = {"RuleWarnings": "flowguard/map/proof.py:run_model_in_process"}
+USES = {"RuleWarnings": "flowguard/map/proof.py:run_model_in_process",
+        "ChildPath": "flowguard/map/common.py:child_import_path"}
 TESTED_BY = {'each_defect_rejected': ['tests/test_test_binding.py:test_tested_by_must_reach_the_anchored_code[empty-tested_by_misses_anchor]', 'tests/test_test_binding.py:test_tested_by_must_reach_the_anchored_code[fail-tested_by_failed]', 'tests/test_test_binding.py:test_rule_without_a_test_is_named'], 'every_defect_reported': ['tests/test_test_binding.py:test_tested_by_must_reach_the_anchored_code[empty-tested_by_misses_anchor]', 'tests/test_test_binding.py:test_tested_by_must_reach_the_anchored_code[fail-tested_by_failed]', 'tests/test_test_binding.py:test_rule_without_a_test_is_named']}
 
 BASE = '''from flowguard.core import FunctionResult, Invariant

@@ -241,14 +241,15 @@
     {
       "id": "map-inventory",
       "layer": "map",
-      "summary": "Inventory source and imports; derive per-function signatures, bodies, class shape and module binding digests. Text findings count accepted debts once while JSON retains each finding.",
+      "summary": "Inventory source and imports; derive per-function signatures, bodies, class shape and module binding digests. Text findings count accepted debts once while JSON retains each finding. Choose project-first child import roots with a command-scoped engine-only location.",
       "responsibilities": [
         "inventory files, symbols and imports, including literal import calls Replace inventory caches atomically; shared source decoding can use an already-read exact byte snapshot.",
         "handle a closed output pipe quietly for every command line entry",
         "build a read-only inventory without creating or writing caches on request",
         "parse bound-test item selectors as plain strings",
         "derive lexical function, class and module-binding digests from source on demand",
-        "Share content-keyed read-only Python syntax with test analysis within the command; keep persisted inventory invalidation tied to parser identity."
+        "Share content-keyed read-only Python syntax with test analysis within the command; keep persisted inventory invalidation tied to parser identity.",
+        "choose project-first subprocess import roots without exposing the FlowGuard source repository"
       ],
       "files": [
         "flowguard/map/common.py",
@@ -258,10 +259,12 @@
         "flowguard/map/inventory.py:build_inventory"
       ],
       "state": [
-        "parsed file inventory and cache"
+        "parsed file inventory and cache",
+        "one transient engine-package location per command"
       ],
       "side_effects": [
-        "writes .flowguard/cache/inventory.json"
+        "writes .flowguard/cache/inventory.json",
+        "creates an engine-only temporary import location when running from source and cleans it on command exit"
       ],
       "depends_on": [],
       "tests": [
@@ -278,7 +281,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5d53ab9f911e9c5d1e885f9276ac7b3b80019ef4d27b168f9d9c9e31d49c1fe1"
+      "fingerprint": "sha256:bac0e7cdd183eaffd23b3be8fdf5b323e643f1fc822804dbaba498eb5e5676c4"
     },
     {
       "id": "map-file",
@@ -429,7 +432,7 @@
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Run fresh model proofs and bound tests, clean owned process groups within the outer session deadline, and report time as advice.",
+      "summary": "Run fresh model proofs and bound tests, clean owned process groups within the outer session deadline, and report time as advice. Model and bound-test children share the project-first import path owner.",
       "responsibilities": [
         "run every model, system included, with known-bad and conformance checks Run independent model subprocesses with explicit concurrency and retain registry order, with system last.",
         "fail a model whose rule no known-bad variant breaks",
@@ -476,7 +479,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:2c97e7b001a1b757c9a93c680739f0f9a81c82f4a6f70813df2334213f58df01"
+      "fingerprint": "sha256:c34caa8a5b54dd775cc69567b58d92df0a9d7fc26202fd82f10df4ef5d9ed2eb"
     },
     {
       "id": "engine-explore",
@@ -940,7 +943,7 @@
     ".flowguard/models/map_binding.py": "5234e58ea5796c52a4775930cf3e8bafb6d9dd1f212acefbb37021f81351a1cc",
     ".flowguard/models/map_check.py": "641c6325ace93524151e5188b1baf3942b916b5f29566712ed41d2dc9325d399",
     ".flowguard/models/model_proof.py": "b8ff72110c36b0843d7da451c8615f24c596b7ea1d49ae595bf9ddffae050627",
-    ".flowguard/models/model_runs.py": "011e2cc02326f2dbbc7c4473064209edd77076e6ca2075c9aac8469f890e7da3",
+    ".flowguard/models/model_runs.py": "b3fbf03bc3e83d982094b398ee1326478816b4583fbadb48c86b12560af56c3f",
     ".flowguard/models/model_scope.py": "6dd76b266a4e60fd63bbcb4d9a93f5d52b6de3d44aa72ff25002e3b126473307",
     ".flowguard/models/port_checks.py": "52bb56591517c7c70f47e5c47a3890053bf42e3c967ff121bb0f391dd7fff0db",
     ".flowguard/models/port_escalation.py": "3390a4a2df0bb70c06550beb0dddfffc421cf4272c40f55901ca3758795a445f",
@@ -964,7 +967,7 @@
     ".flowguard/models/target_findings.py": "5df2906e6b949dff4469af6cf8df1e428209b8f01893dc58d549708d29553f77",
     ".flowguard/models/target_life_cycle.py": "4da3ade6494392f3ab962bd184f30a1f56d03608d6c4d591473c7ef0958aa16e",
     ".flowguard/models/target_promotion.py": "c325132800112e80117adfc2102b3a8bed185c51a0c9a46755434034e43f4845",
-    ".flowguard/models/test_binding.py": "f4e731d9e867ff3e45de3bbf1b8abf8f8b35d170444830b251e6ad345e18dfae",
+    ".flowguard/models/test_binding.py": "01f20ff65edb30f6c9bb2d53628704362f379656838734aad4978bcb608fee3f",
     ".flowguard/models/test_selection.py": "b09e7005f72ab0e2bff84821e091d898ccaf7acd8bbbfc749b8ed254b89d7b86",
     ".flowguard/models/test_tree.py": "da3f88507f04301d0e93c874c9daaf1a874ba2324f4849548ca69812b2e2e6dd",
     ".flowguard/models/tree_resolution.py": "1ae5bcb791dd1b9f7eb30be69b83da40ee43e5c2fb70cd88401fa5466ffa3a80",

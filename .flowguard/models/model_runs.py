@@ -9,9 +9,10 @@ from flowguard.map.facts import CodeFactsReport,Fact
 MODEL_ID='model_runs'
 PARENT='map-proof'
 IMPLEMENTED_BY={'RunModels':'flowguard/map/proof.py:run_models','Render':'flowguard/map/proof.py:render_results'}
+USES = {'ChildPath': 'flowguard/map/common.py:child_import_path'}
 OUTPUTS={'models':('pass','fail')}
 HANDOFF={'model_proof':{'outcome':'proof'},'anchor_watch':{'anchors':'anchors'},'port_checks':{'run_checks':'run_checks'},'test_binding':{'outcome':'tests'}}
-KEEPS=('completion','large','status','lines','models')
+KEEPS=('completion','large','status','lines','models','child_path_isolated')
 @dataclass(frozen=True)
 class Case:
     proof:str
@@ -32,6 +33,7 @@ class State:
     status:tuple=()
     lines:tuple=()
     models:str='pass'
+    child_path_isolated: bool = True
     @property
     def order(self):return tuple(name for name,status in self.status)
     @property
@@ -45,8 +47,15 @@ class State:
 class Schedule:
     name='Schedule'
     reads=()
-    writes=('completion','large')
-    def apply(self,event,state):return (FunctionResult(event,replace(state,completion=event.completion,large=event.large)),)
+    writes = ('completion', 'large', 'child_path_isolated')
+
+    def __init__(self, defect=''):
+        self.defect = defect
+
+    def apply(self, event, state):
+        isolated = self.defect != 'repo_root_on_child_path'
+        return (FunctionResult(event, replace(state, completion=event.completion,
+                                              large=event.large, child_path_isolated=isolated)),)
 class Proof:
     name='Proof'
     reads=()
@@ -93,6 +102,9 @@ class Render:
         return (FunctionResult(models,replace(state,lines=lines,models=models)),)
 
 INVARIANTS = (
+    Invariant('child_path_exposes_only_flowguard',
+              "a model or bound-test subprocess imports the project's own packages first and never sees the FlowGuard repository root",
+              lambda state, trace: state.child_path_isolated),
 Invariant("parallel_output_in_registry_order", "completion order never reorders registered models",
           lambda s, t: InvariantResult.pass_() if not s.order or s.order == ("first", "second")
           else InvariantResult.fail("registry order changed")),
@@ -102,9 +114,10 @@ Invariant("only_hard_size_limits_gate", "time and soft limits pass; more than 10
 )
 
 def make(defect=''):
-    return Explorer(Workflow((Schedule(),Proof(),Anchors(),RunChecks(),Tests(),Judge(defect),Render(defect))),(State(),State(models="fail")),CASES,invariants=INVARIANTS,max_sequence_length=1,progress_steps=0)
+    return Explorer(Workflow((Schedule(defect),Proof(),Anchors(),RunChecks(),Tests(),Judge(defect),Render(defect))),(State(),State(models="fail")),CASES,invariants=INVARIANTS,max_sequence_length=1,progress_steps=0)
 def build_explorer():return make()
-def broken_variants():return {'orders_by_completion':make('order'),'prints_rules_on_pass':make('rules'),'large_model_gates_exit':make('time_gate'),'hard_limit_passes':make('hard_pass'),'passes_failed_run_check':make('passes_failed_run_check')}
+def broken_variants():
+    return {'repo_root_on_child_path': make('repo_root_on_child_path'),'orders_by_completion':make('order'),'prints_rules_on_pass':make('rules'),'large_model_gates_exit':make('time_gate'),'hard_limit_passes':make('hard_pass'),'passes_failed_run_check':make('passes_failed_run_check')}
 
 def make_fixture(root, *, wrong_second=False):
     directory = root / ".flowguard/models"
@@ -143,7 +156,17 @@ def conformance():
 def conformance():
     from flowguard.map.proof import run_models, ModelResult, render_results
     from flowguard.map.lint import size_finding
+    from flowguard.map.common import child_import_path
+    import flowguard
     facts = []
+    with TemporaryDirectory(prefix='fg-child-path-') as directory:
+        project = Path(directory).resolve()
+        paths = child_import_path(project, {'import_roots': []})
+        package_parent = Path(flowguard.__file__).resolve().parent.parent
+        source_checkout = (package_parent / 'pyproject.toml').is_file()
+        isolated = (paths[0] == str(project)
+                    and (not source_checkout or str(package_parent) not in paths))
+        facts.append(Fact('child_path_exposes_only_flowguard', isolated, repr(paths)))
     with TemporaryDirectory(prefix="fg-model-runs-") as directory:
         root = Path(directory)
         make_fixture(root, wrong_second=True)
@@ -165,4 +188,11 @@ def conformance():
 
 
 
-TESTED_BY = {'only_hard_size_limits_gate': ['tests/test_model_runs.py:test_sequence_soft_limit_warns', 'tests/test_model_runs.py:test_sequence_hard_limit_fails_the_model', 'tests/test_model_runs.py:test_time_over_the_limit_is_one_info'], 'parallel_output_in_registry_order': ['tests/test_model_runs.py:test_jobs_output_equals_sequential'], 'pass_is_one_line': ['tests/test_model_runs.py:test_pass_is_one_line_fail_keeps_rules'], 'model_passes_only_when_every_verdict_passes': ['tests/test_model_runs.py:test_model_fails_when_any_verdict_fails']}
+TESTED_BY = {'only_hard_size_limits_gate': ['tests/test_model_runs.py:test_sequence_soft_limit_warns',
+                                'tests/test_model_runs.py:test_sequence_hard_limit_fails_the_model',
+                                'tests/test_model_runs.py:test_time_over_the_limit_is_one_info'],
+ 'parallel_output_in_registry_order': ['tests/test_model_runs.py:test_jobs_output_equals_sequential'],
+ 'pass_is_one_line': ['tests/test_model_runs.py:test_pass_is_one_line_fail_keeps_rules'],
+ 'model_passes_only_when_every_verdict_passes': ['tests/test_model_runs.py:test_model_fails_when_any_verdict_fails'],
+ 'child_path_exposes_only_flowguard': ['tests/test_model_proof.py:test_child_path_never_exposes_repo_root',
+                                       'tests/test_model_proof.py:test_src_layout_project_imports_its_own_package']}

@@ -8,10 +8,12 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import tokenize
+import threading
 from dataclasses import asdict, dataclass
 from functools import lru_cache, wraps
 from pathlib import Path
@@ -47,6 +49,71 @@ def atomic_write_text(path: Path, text: str) -> None:
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+_CHILD_PACKAGE_LOCK = threading.Lock()
+_CHILD_PACKAGE_DIRECTORY = None
+
+
+def _child_package_import_root() -> str:
+    """Expose just the engine package, sharing its lifetime with this command."""
+    package = Path(__file__).resolve().parents[1]
+    parent = package.parent
+    if not (parent / "pyproject.toml").is_file():
+        return str(parent)
+    # A model child inherits the parent command's shim. Reuse it rather than
+    # building one per subprocess; the waiting parent owns its cleanup.
+    for value in os.environ.get("PYTHONPATH", "").split(os.pathsep):
+        if not value:
+            continue
+        candidate = Path(value).resolve()
+        try:
+            if ((candidate / "flowguard").resolve() == package
+                    and {entry.name for entry in candidate.iterdir()} == {"flowguard"}):
+                return str(candidate)
+        except OSError:
+            continue
+    global _CHILD_PACKAGE_DIRECTORY
+    with _CHILD_PACKAGE_LOCK:
+        if _CHILD_PACKAGE_DIRECTORY is None:
+            temporary = tempfile.TemporaryDirectory(prefix="flowguard-package-")
+            destination = Path(temporary.name) / "flowguard"
+            try:
+                destination.symlink_to(package, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                shutil.copytree(package, destination,
+                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            _CHILD_PACKAGE_DIRECTORY = temporary
+        return _CHILD_PACKAGE_DIRECTORY.name
+
+
+def child_import_path(root: Path, data: dict) -> list[str]:
+    """Put project imports first without exposing an engine source checkout."""
+    root = Path(root).resolve()
+    package_parent = Path(__file__).resolve().parents[2]
+    source_checkout = (package_parent / "pyproject.toml").is_file()
+    candidates = [root, *(root / value for value in data.get("import_roots", ()))]
+    source = root / "src"
+    if source.is_dir() and any(
+        (entry.is_file() and entry.suffix == ".py")
+        or (entry.is_dir() and (entry / "__init__.py").is_file())
+        for entry in source.iterdir()
+    ):
+        candidates.append(source)
+    for value in os.environ.get("PYTHONPATH", "").split(os.pathsep):
+        if value:
+            candidate = Path(value)
+            candidates.append(candidate if candidate.is_absolute() else root / candidate)
+    candidates.append(Path(_child_package_import_root()))
+    paths = []
+    for candidate in candidates:
+        resolved = Path(candidate).resolve()
+        if source_checkout and resolved == package_parent and resolved != root:
+            continue
+        value = str(resolved)
+        if value not in paths:
+            paths.append(value)
+    return paths
 
 
 def child_pytest_environment(environment):

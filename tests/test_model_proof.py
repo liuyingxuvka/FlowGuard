@@ -185,3 +185,122 @@ def test_project_scripts_package_wins_over_flowguard_parent(
     assert results and all(
         result.status == "pass" and result.test_seconds is not None for result in results
     ), [(result.model, result.problems) for result in results]
+
+
+def test_child_path_never_exposes_repo_root(shop, tmp_path, monkeypatch):
+    import subprocess
+    import sys
+    from flowguard.map.cli import _context
+    from flowguard.map.proof import run_models
+
+    repository = Path(__file__).resolve().parents[1]
+    namespaces = sorted(
+        path.name for path in repository.iterdir()
+        if path.is_dir() and path.name.isidentifier() and path.name != "flowguard"
+    )
+    assert "examples" in namespaces and "scripts" in namespaces
+    for name in namespaces:
+        write(shop, name + "/fg_child_probe.py", "VALUE = 'project'\n")
+    extra = shop / "project_imports"
+    write(extra, "configured_probe.py", "VALUE = 'configured'\n")
+    inherited = tmp_path / "inherited_imports"
+    inherited.mkdir()
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join((str(inherited), str(repository))))
+    write(shop, "shop/orders.py", FIXED)
+    model = shop / MODEL
+    imports = (
+        "from importlib import import_module\n"
+        + "NAMESPACE_VALUES = [import_module(name + '.fg_child_probe').VALUE for name in "
+        + repr(namespaces) + "]\n"
+        + "from configured_probe import VALUE as CONFIGURED\n"
+    )
+    source = model.read_text().replace(
+        "from __future__ import annotations\n",
+        "from __future__ import annotations\n" + imports,
+        1,
+    ).replace(
+        "def conformance():",
+        "def conformance():\n    assert CONFIGURED == 'configured'\n"
+        "    assert all(value == 'project' for value in NAMESPACE_VALUES)",
+        1,
+    )
+    model.write_text(source + '\nTESTED_BY = {"one_charge_per_order": ["tests/test_orders.py:test_place_once"]}\n')
+    test = shop / "tests/test_orders.py"
+    test.write_text(imports + "assert CONFIGURED == 'configured'\n"
+                    "assert all(value == 'project' for value in NAMESPACE_VALUES)\n" + test.read_text())
+    map_path = shop / ".flowguard/map.json"
+    data = json.loads(map_path.read_text())
+    data["import_roots"] = ["project_imports"]
+    map_path.write_text(json.dumps(data))
+    data, inv = _context(shop)
+    results = run_models(shop, [model.stem], inv=inv, tests=True, jobs=1)
+    assert results and all(
+        result.status == "pass" and result.test_seconds is not None for result in results
+    ), [(result.model, result.problems) for result in results]
+    from flowguard.map.common import child_import_path
+
+    paths = child_import_path(shop, data)
+    assert paths[:2] == [str(shop.resolve()), str(extra.resolve())]
+    assert str(repository) not in paths
+    assert str(inherited) in paths
+    assert set(path.name for path in Path(paths[-1]).iterdir()) == {"flowguard"}
+    assert child_import_path(shop, data) == paths
+    # A fresh command exercises the cold concurrent path and the Windows-style
+    # copy fallback, then leaves no temporary engine package behind.
+    probe = '''from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from unittest.mock import patch
+import json, sys
+from flowguard.map import common
+created = []
+original = common.tempfile.TemporaryDirectory
+def temporary(*args, **kwargs):
+    value = original(*args, **kwargs)
+    created.append(value.name)
+    return value
+source = (Path(common.__file__).resolve().parents[2] / 'pyproject.toml').is_file()
+with patch.object(common.tempfile, 'TemporaryDirectory', temporary):
+    with patch.object(Path, 'symlink_to', side_effect=OSError('links unavailable')):
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            roots = list(pool.map(lambda _: common.child_import_path(Path(sys.argv[1]), {})[-1], range(8)))
+assert len(set(roots)) == 1
+assert len(created) == int(source), created
+if source:
+    assert {path.name for path in Path(roots[0]).iterdir()} == {'flowguard'}
+    assert not (Path(roots[0]) / 'flowguard').is_symlink()
+print(json.dumps(created))
+'''
+    environment = dict(os.environ)
+    environment.pop("PYTHONPATH", None)
+    command = subprocess.run([sys.executable, "-c", probe, str(shop)],
+                             capture_output=True, text=True, env=environment)
+    assert command.returncode == 0, command.stdout + command.stderr
+    assert all(not Path(folder).exists() for folder in json.loads(command.stdout))
+
+
+def test_src_layout_project_imports_its_own_package(shop, capsys):
+    import shutil
+    from flowguard.map.cli import _context, main
+    from flowguard.map.mapfile import model_digests
+    from flowguard.map.proof import run_models
+
+    write(shop, "shop/orders.py", FIXED)
+    (shop / "src").mkdir()
+    shutil.move(shop / "shop", shop / "src/shop")
+    model = shop / MODEL
+    model.write_text(model.read_text().replace("shop/orders.py:", "src/shop/orders.py:")
+                     + '\nTESTED_BY = {"one_charge_per_order": ["tests/test_orders.py:test_place_once"]}\n')
+    path = shop / ".flowguard/map.json"
+    data = json.loads(path.read_text())
+    data["components"][0]["files"] = ["src/shop/*.py"]
+    data["components"][0]["entrypoints"] = ["src/shop/orders.py:OrderService.place"]
+    # This is the fixture's initial src-layout map, before any change target.
+    data["model_digests"] = model_digests(shop)
+    path.write_text(json.dumps(data))
+    data, inv = _context(shop)
+    results = run_models(shop, [model.stem], inv=inv, tests=True, jobs=1)
+    assert results and all(
+        result.status == "pass" and result.test_seconds is not None for result in results
+    ), [(result.model, result.problems) for result in results]
+    assert main(["--root", str(shop), "confirm", "orders"]) == 0
+    assert main(["--root", str(shop), "verify"]) == 0, capsys.readouterr().out
