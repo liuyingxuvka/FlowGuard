@@ -270,6 +270,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
 
 
 def model_edit_findings(root, data, level):
+    import shlex
     from .common import content_digest
     from .targetfile import load_target
     if "model_digests" not in data:
@@ -284,10 +285,19 @@ def model_edit_findings(root, data, level):
                if p.is_file() and not p.name.startswith("_")}
     out = []
     for logical in sorted(current | set(saved)):
-        if Path(logical).name in staged:
-            continue
         path = root / logical
         if not path.is_file() or logical not in saved or content_digest(path) != saved[logical]:
+            if Path(logical).name in staged:
+                absolute_root = Path(root).resolve()
+                current_path = absolute_root / logical
+                target_path = absolute_root / target.models[Path(logical).name]
+                restore = shlex.join(['git', '-C', str(absolute_root), '--literal-pathspecs',
+                                      'checkout', '--', str(current_path)])
+                out.append(Finding("error", "model_edited_outside_target", "",
+                                   f"model_edited_outside_target: {current_path} was edited in place while the target holds a copy; "
+                                   f"promote would overwrite it. Move the edit into the target copy ({target_path}) "
+                                   f"and restore the current file (with Git: {restore}), or drop the edit"))
+                continue
             out.append(Finding(level, "model_edited_outside_target", "",
                 f"model_edited_outside_target: {logical} changed since the last target promote; "
                 "python -m flowguard target add " + Path(logical).stem +

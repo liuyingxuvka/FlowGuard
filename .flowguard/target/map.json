@@ -1,7 +1,0 @@
-{
-  "schema": "flowguard.target.v1",
-  "goal": "FG-607: an in-place edit of a staged model is an error and promote refuses",
-  "components": [],
-  "flows": [],
-  "remove": []
-}

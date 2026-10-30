@@ -22,6 +22,8 @@ OUTPUTS = {"outcome": ("promoted", "refused", "no_target")}
 IMPLEMENTED_BY = {"Promote": "flowguard/map/target.py:promote_target"}
 USES = {
     'Main': 'flowguard/map/cli.py:main',
+    'ModelEdits': 'flowguard/map/check.py:model_edit_findings',
+    'ModelDigests': 'flowguard/map/mapfile.py:model_digests',
 }
 TESTED_BY = {
     'promote_names_stale_components': ['tests/test_target_life_cycle.py:test_promote_names_stale_component_to_confirm'],
@@ -29,7 +31,8 @@ TESTED_BY = {
     'promote_leaves_no_target': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
     'changed_components_become_draft': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
     'refusal_shows_findings': ['tests/test_target_life_cycle.py:test_refused_promote_prints_the_report'],
-    'changed_inputs_refuse_promotion': ['tests/test_target_life_cycle.py:test_promote_refuses_inputs_changed_after_its_check'],
+    'changed_inputs_refuse_promotion': ['tests/test_target_life_cycle.py:test_promote_refuses_inputs_changed_after_its_check',
+                                       'tests/test_model_edits.py:test_in_place_edit_of_staged_model_refused'],
     'promote_names_target_deletion': [
         'tests/test_target_life_cycle.py:test_promote_next_line_names_target_deletion',
         'tests/test_target_life_cycle.py:test_promote_without_git_keeps_usable_next_step',
@@ -52,6 +55,7 @@ class State:
     findings_shown: bool = True
     stale_components_named: bool = True
     target_deletion_named: bool = True
+    current_edited: bool = False
 
 
 def project_parent_state(state):
@@ -81,9 +85,14 @@ class Promote:
             new = replace(state, action=event, status="edited" if state.target_count else "no_target",
                           edited=state.edited or bool(state.target_count))
             return (FunctionResult(new.status, new, label=event),)
+        if event == "EDIT_CURRENT":
+            new = replace(state, action=event, status="edited" if state.target_count else "no_target",
+                          current_edited=state.current_edited or bool(state.target_count))
+            return (FunctionResult(new.status, new, label=event),)
         if not state.target_count:
             new = replace(state, action=event, status="no_target")
-        elif state.edited and self.defect != "promotes_after_edit":
+        elif (state.edited and self.defect != "promotes_after_edit"
+              or state.current_edited and self.defect != "promote_overwrites_in_place_edit"):
             new = replace(state, action=event, status="refused")
         else:
             new = replace(state, action=event, status="promoted", target_count=0, draft=True,
@@ -127,13 +136,13 @@ INVARIANTS = (
     Invariant("changed_components_become_draft", "the target's components are draft after promotion",
               lambda s, t: _holds(s.status != "promoted" or s.draft, "a changed component stayed confirmed")),
     Invariant("changed_inputs_refuse_promotion", "promote refused: checked inputs changed",
-              lambda s, t: _holds(s.action != "PROMOTE" or not s.edited or s.status == "refused",
+              lambda s, t: _holds(s.action != "PROMOTE" or not (s.edited or s.current_edited) or s.status == "refused",
                                   "a target whose checked inputs changed was promoted")),
 )
 
 
 def _explorer(defect=""):
-    return Explorer(Workflow((Promote(defect),)), _starts(), ("PROMOTE", "EDIT_AFTER_CHECK", "REFUSE_ERROR"),
+    return Explorer(Workflow((Promote(defect),)), _starts(), ("PROMOTE", "EDIT_AFTER_CHECK", "EDIT_CURRENT", "REFUSE_ERROR"),
                     invariants=INVARIANTS, max_sequence_length=2, progress_steps=0)
 
 
@@ -143,7 +152,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only", "staging_line_omits_target")}
+            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only", "staging_line_omits_target", "promote_overwrites_in_place_edit")}
 
 
 class RealPromotion:
@@ -160,6 +169,7 @@ class RealPromotion:
         self.expected = build_target_view(self.root, load_map(self.root), load_target(self.root)).data
         self.expected_models = {path.name: path.read_bytes() for path in (self.root / ".flowguard/target/models").glob("*.py")}
         self.state, self.edit = initial_state, False
+        self.current_edit = False
 
     def apply_step(self, step):
         from flowguard.map import target as native
@@ -190,6 +200,13 @@ class RealPromotion:
         elif event == "EDIT_AFTER_CHECK":
             self.edit = self.edit or exists
             state = replace(state, status="edited" if exists else "no_target", edited=state.edited or exists)
+        elif event == "EDIT_CURRENT":
+            if exists:
+                path = self.root / '.flowguard/models/shelf_rule.py'
+                path.write_text(path.read_text() + '\nCURRENT_INTENT = True\n')
+            self.current_edit = self.current_edit or exists
+            state = replace(state, status="edited" if exists else "no_target",
+                            current_edited=state.current_edited or exists)
         elif not exists:
             state = replace(state, status="no_target")
         else:
@@ -202,6 +219,9 @@ class RealPromotion:
                     return report
                 native.check_target = check_then_edit
             output = StringIO()
+            watched = [self.root / '.flowguard/models/shelf_rule.py', self.root / '.flowguard/target/models/shelf_rule.py',
+                       self.root / '.flowguard/map.json', self.root / '.flowguard/target/map.json']
+            before = {path: path.read_bytes() for path in watched} if self.current_edit else {}
             try:
                 with redirect_stdout(output), redirect_stderr(StringIO()):
                     code = native.promote_target(self.root)
@@ -232,7 +252,11 @@ class RealPromotion:
                                 current_map_revision=state.target_revision if current == self.expected else -1,
                                 current_model_revision=state.expected_model_revision if same_models else -1)
             else:
-                refused = "promote refused: checked inputs changed" in output.getvalue()
+                if self.current_edit:
+                    refused = (code == 1 and 'model_edited_outside_target' in output.getvalue()
+                               and all(path.read_bytes() == content for path, content in before.items()))
+                else:
+                    refused = "promote refused: checked inputs changed" in output.getvalue()
                 state = replace(state, status="refused" if refused else f"exit {code}: {output.getvalue()[:200]}")
         if event == "PROMOTE":
             state = replace(state, outcome=state.status)
@@ -247,14 +271,19 @@ class RealPromotion:
 
 
 def conformance():
+    import json
     import target_life_cycle
     from flowguard.map import target as native
+    from flowguard.map.mapfile import load_map, model_digests
     last = None
     with TemporaryDirectory(prefix="target-promotion-base-") as directory:
         base = target_life_cycle.make_project(Path(directory) / "base")
         from flowguard.map import cli
         with redirect_stdout(StringIO()):
             cli.main(["confirm", "all", "--root", str(base)])
+        data = load_map(base)
+        data['model_digests'] = model_digests(base)
+        (base / '.flowguard/map.json').write_text(json.dumps(data))
         target_life_cycle.stage_target(base)
         target_life_cycle.edit_missing_method(base)
         target_life_cycle.write_method(base)

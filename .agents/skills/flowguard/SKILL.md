@@ -52,7 +52,7 @@ change and target promote run a test with a model only when the test is in that 
 | External promise (command, API, UI action) | target | owner, anchor or reasoned `NOT_MODELED`; no silent fallback |
 | UI journey; all bad inputs of a finite boundary | target | `template ui-journey`; `template validator` |
 | Model before code (a process or preset) | target | rules, known-bad, reasoned debt; anchor on `debt_stale` |
-| `model_edited_outside_target` | target | `target add <model>`; redo there |
+| `model_edited_outside_target` | target | `target add <model>`, redo there; already in the target: move the edit into its copy and restore the current file with the printed absolute `git -C` command (or the original bytes without Git) |
 
 When a model or check stopped a wrong edit, add `Caught-by: <model or check>` to the commit message.
 
