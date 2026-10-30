@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-610: a debt that silences a map models warning is in use",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
