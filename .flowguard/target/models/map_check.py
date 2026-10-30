@@ -1,0 +1,307 @@
+"""Map check aggregates severities and prints one row for repeated INFO codes."""
+from contextlib import redirect_stdout
+from dataclasses import dataclass, replace
+from io import StringIO
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+
+MODEL_ID = 'map_check'
+PARENT = 'map-check'
+COMPONENTS = ['map-check', 'map-inventory', 'map-file', 'map-requests']
+IMPLEMENTED_BY = {
+    'Check': 'flowguard/map/check.py:run_check',
+    'PrintFindings': 'flowguard/map/common.py:print_findings',
+    'Lint': 'flowguard/map/lint.py:run_lint',
+    'DebtValidity': 'flowguard/map/debts.py:evaluate_debts',
+}
+USES = {
+    'CmdConfirm': 'flowguard/map/cli.py:cmd_confirm',
+    'Command': 'flowguard/map/cli.py:cmd_check',
+    'Main': 'flowguard/__main__.py:main',
+    'Promote': 'flowguard/map/target.py:promote_target',
+    'WrittenIntegrity': 'flowguard/map/records.py:integrity_problem',
+    'ProtectedPaths': 'flowguard/map/records.py:protected_paths',
+}
+NOT_MODELED = {}
+OUTPUTS = {'check': ('error', 'stale', 'clean')}
+TESTED_BY = {'error_finding_fails_check': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm',
+ 'tests/test_cli_main.py:test_json_verdict_only_with_flag',
+ 'tests/test_requests.py:test_request_receipts_survive_git_init'],
+ 'strict_makes_draft_and_stale_errors': ['tests/test_cli_main.py:test_new_target_file_is_moving_but_strict_remains_an_error'],
+ 'identical_info_grouped': ['tests/test_map_check.py:test_identical_info_grouped_into_one_line'],
+ 'debt_needs_reason_and_expiry': ['tests/test_map_check.py:test_debt_without_expiry_refused'],
+ 'committed_promoted_target_is_error': ['tests/test_map_check.py:test_strict_check_refuses_committed_promoted_target']}
+
+@dataclass(frozen=True)
+class Case:
+    mode: str
+    errors: tuple = ()
+    unconfirmed: str = ''
+    count: int = 1
+    seam: str = ''
+
+ERRORS = ('anchor_broken', 'component_parent_cycle', 'anchor_outside_home', 'handoff_output_unhandled', 'debt_without_expiry', 'owner_text_edited', 'request_meta_edited', 'record_edited')
+CASES = tuple(Case(mode, (), status) for mode in ('check', 'strict') for status in ('', 'draft', 'stale', 'fingerprint_migrate')) + tuple(Case(mode, (code,)) for mode in ('check', 'strict') for code in ERRORS) + tuple(Case(mode, codes, 'stale') for mode in ('check', 'strict') for codes in (ERRORS[:2], ERRORS[2:])) + (Case('check', count=3), Case('check', count=24))
+CASES += tuple(Case(mode, seam=code) for mode in ('check', 'strict')
+               for code in ('target_already_promoted', 'target_deleted_not_staged'))
+CASES += (Case('json', ('anchor_broken',)),)
+
+@dataclass(frozen=True)
+class State:
+    mode: str = 'check'
+    errors: tuple = ()
+    unconfirmed: str = ''
+    raw_info: int = 1
+    check: str = ''
+    grouped: bool = True
+    info_lines: int = 1
+    exit_code: int = 0
+    phase: int = 0
+    seam: str = ''
+
+class TakeRun:
+    name = 'TakeRun'
+    reads = ()
+    writes = ('mode', 'errors', 'unconfirmed', 'raw_info', 'phase', 'seam')
+    def apply(self, event, state):
+        return (FunctionResult(event, replace(state, mode=event.mode, errors=event.errors,
+                    unconfirmed=event.unconfirmed, raw_info=event.count, seam=event.seam, phase=1)),)
+
+class Aggregate:
+    name = 'Aggregate'
+    reads = ('errors', 'mode', 'unconfirmed', 'seam')
+    writes = ('check', 'phase')
+    def __init__(self, defect=''): self.defect = defect
+    def apply(self, event, state):
+        errors = state.errors
+        if self.defect == 'ignores_edge_errors':
+            errors = tuple(code for code in errors if code != 'handoff_output_unhandled')
+        if self.defect == 'ignores_immutable_errors':
+            errors = tuple(code for code in errors if code not in ('owner_text_edited', 'request_meta_edited', 'record_edited'))
+        if self.defect == 'debt_without_expiry_passes':
+            errors = tuple(code for code in errors if code != 'debt_without_expiry')
+        strict = state.mode == 'strict' and bool(state.unconfirmed) and self.defect != 'strict_keeps_stale_warning'
+        seam_error = state.mode == 'strict' and bool(state.seam) and self.defect != 'promoted_target_passes_check'
+        value = 'error' if errors or strict or seam_error else 'stale' if state.unconfirmed else 'clean'
+        return (FunctionResult(value, replace(state, check=value, phase=2)),)
+
+class Print:
+    name = 'Print'
+    reads = ('raw_info', 'check')
+    writes = ('info_lines', 'grouped', 'exit_code', 'phase')
+    def __init__(self, defect=''): self.defect = defect
+    def apply(self, event, state):
+        count = state.raw_info if self.defect == 'prints_each_info_line' else 1
+        return (FunctionResult(int(state.check == 'error'), replace(state, info_lines=count,
+                    grouped=count == 1, exit_code=int(state.check == 'error'), phase=3)),)
+
+INVARIANTS = (
+    Invariant('committed_promoted_target_is_error',
+              'check --strict refuses a committed target that changes nothing and target files deleted but still committed',
+              lambda s,t: s.phase != 3 or s.mode != 'strict' or not s.seam or s.check == 'error'),
+    Invariant('debt_needs_reason_and_expiry',
+              'an accepted debt without a reason or an expiry is an ERROR in check and lint',
+              lambda s,t: s.phase != 3 or 'debt_without_expiry' not in s.errors or s.check == 'error'),
+    Invariant('error_finding_fails_check', 'errors fail the check; its exit follows its verdict',
+              lambda s,t: s.phase != 3 or s.exit_code == int(s.check == 'error') and (not s.errors or s.check == 'error')),
+    Invariant('strict_makes_draft_and_stale_errors', 'strict checks refuse every unconfirmed pointer',
+              lambda s,t: s.phase != 3 or s.mode != 'strict' or not s.unconfirmed or s.check == 'error' and s.exit_code == 1),
+    Invariant("identical_info_grouped", "three identical INFO codes have one output line", lambda s,t: s.info_lines == 1),
+)
+
+def make(defect=''):
+    return Explorer(Workflow((TakeRun(), Aggregate(defect), Print(defect))), (State(),), CASES,
+                    invariants=INVARIANTS, max_sequence_length=2, progress_steps=0)
+def build_explorer(): return make()
+def broken_variants():
+    return {name: make(name) for name in ('ignores_edge_errors', 'strict_keeps_stale_warning', 'prints_each_info_line', 'debt_without_expiry_passes', 'promoted_target_passes_check')}
+
+def conformance():
+    import shutil
+    import subprocess
+    from flowguard.__main__ import main
+    from flowguard.map.check import run_check
+    from flowguard.map.cli import cmd_check, cmd_confirm
+    from flowguard.map.common import Finding, print_findings
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import load_map, ignore_patterns
+    from flowguard.map.lint import run_lint
+    from _target_fixture import make_port_project, make_project, call_target, write_json
+
+    facts = []
+    for case in ('target_already_promoted', 'target_deleted_not_staged', 'fulfilled_removal'):
+        with TemporaryDirectory(prefix='fg-committed-target-') as directory:
+            root = make_project(Path(directory))
+            with redirect_stdout(StringIO()):
+                cmd_confirm(root, SimpleNamespace(ids=['loans', 'catalog']))
+            def git(*args):
+                subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True)
+            git('init', '-q')
+            git('add', '.')
+            git('-c', 'user.name=probe', '-c', 'user.email=probe@example.invalid', 'commit', '-qm', 'seed')
+            assert call_target(root, 'start', 'unchanged target') == 0
+            if case == 'fulfilled_removal':
+                path = root / '.flowguard/target/map.json'
+                target = json.loads(path.read_text())
+                target['remove'] = ['flow:borrow']
+                write_json(path, target)
+            else:
+                assert call_target(root, 'add', 'component:loans') == 0
+            git('add', '.flowguard/target')
+            git('-c', 'user.name=probe', '-c', 'user.email=probe@example.invalid', 'commit', '-qm', 'target')
+            if case == 'fulfilled_removal':
+                retained = {p.relative_to(root): p.read_bytes() for p in (root / '.flowguard/target').rglob('*') if p.is_file()}
+                assert call_target(root, 'promote') == 0
+                for relative, content in retained.items():
+                    (root / relative).parent.mkdir(parents=True, exist_ok=True)
+                    (root / relative).write_bytes(content)
+                git('add', '.flowguard/map.json')
+                git('-c', 'user.name=probe', '-c', 'user.email=probe@example.invalid', 'commit', '-qm', 'bad removal publication')
+            if case == 'target_deleted_not_staged':
+                shutil.rmtree(root / '.flowguard/target')
+            data = load_map(root)
+            for strict in (False, True):
+                inventory = build_inventory(root, ignore_patterns(data), write_cache=False)
+                findings = run_check(root, data, inventory, strict=strict)
+                output = StringIO()
+                with redirect_stdout(output):
+                    code = cmd_check(root, SimpleNamespace(strict=strict, json=False, limit=80))
+                expected = 'target_already_promoted' if case == 'fulfilled_removal' else case
+                valid = (code == int(strict)
+                         and any(f.code == expected and f.level == ('error' if strict else 'warn') for f in findings))
+                facts.append(Fact(case + str(strict), bool(valid), repr((findings, output.getvalue()))))
+    for case in ('anchor', 'cycle', 'scope', 'edge', 'stale'):
+        with TemporaryDirectory(prefix='fg-check-') as directory:
+            root = Path(directory)
+            data = make_port_project(root)
+            with redirect_stdout(StringIO()):
+                cmd_confirm(root, SimpleNamespace(ids=['cli', 'loans']))
+            data = load_map(root)
+            if case == 'anchor':
+                data['components'][0]['entrypoints'] = ['shelf/cli.py:missing']
+            elif case == 'cycle':
+                for component in data['components']:
+                    component['parent'] = 'loans' if component['id'] == 'cli' else 'cli'
+            elif case == 'scope':
+                path = root / '.flowguard/models/lending.py'
+                path.write_text(path.read_text().replace('COMPONENTS = ["loans"]', 'COMPONENTS = ["cli"]'))
+            elif case == 'edge':
+                path = root / '.flowguard/models/desk.py'
+                path.write_text(path.read_text().replace('HANDOFF = {"lending":{"answer":"answer"}}', 'HANDOFF = {}'))
+            else:
+                path = root / 'shelf/cli.py'
+                path.write_text(path.read_text() + '\n# changed owned source\n')
+            write_json(root / '.flowguard/map.json', data)
+            for strict in (False, True):
+                inventory = build_inventory(root, ignore_patterns(data), write_cache=False)
+                findings = run_check(root, data, inventory, strict=strict)
+                expected = int(any(f.level == 'error' for f in findings))
+                with redirect_stdout(StringIO()):
+                    exit_code = cmd_check(root, SimpleNamespace(strict=strict, json=False, limit=80))
+                valid = expected == exit_code and (expected == 1 if case != 'stale' else expected == int(strict))
+                if case == 'stale':
+                    valid = valid and any(f.code == 'stale' and f.level == ('error' if strict else 'warn')
+                                          for f in findings)
+                facts.append(Fact(case + str(strict), bool(valid),
+                                  repr((exit_code, [(f.code, f.level) for f in findings]))))
+                if case == 'anchor' and not strict:
+                    output = StringIO()
+                    with redirect_stdout(output):
+                        code = cmd_check(root, SimpleNamespace(strict=False, json=True, limit=0))
+                    text = output.getvalue()
+                    payload = json.loads(text)
+                    valid = (code == 1 and len(text.splitlines()) == 1 and payload.get('command') == 'map check'
+                             and payload.get('verdict') == 'FAIL' and payload.get('counts', {}).get('error', 0) > 0
+                             and any(item['code'] == 'anchor_broken' for item in payload.get('codes', []))
+                             and any(item['code'] == 'anchor_broken' for item in payload.get('findings', [])))
+                    facts.append(Fact('json_error_finding_fails_check', valid, text))
+    for case in ('missing_expiry', 'missing_reason'):
+        with TemporaryDirectory(prefix='fg-debt-check-') as directory:
+            root = Path(directory)
+            data = make_port_project(root)
+            with redirect_stdout(StringIO()):
+                cmd_confirm(root, SimpleNamespace(ids=['cli', 'loans']))
+            data = load_map(root)
+            debt = dict(code='unmodeled_owner', component='cli', reason='the entry is checked elsewhere')
+            if case == 'missing_reason':
+                debt.pop('reason')
+                debt['expires'] = '9999-12-31'
+            data['accepted_debts'] = [debt]
+            write_json(root / '.flowguard/map.json', data)
+            inventory = build_inventory(root, ignore_patterns(data), write_cache=False)
+            try:
+                lint = run_lint(root, data, inventory)
+            except Exception as error:
+                lint = []
+                facts.append(Fact(case + '_lint_exception', False, type(error).__name__ + ': ' + str(error)))
+            for strict in (False, True):
+                output = StringIO()
+                with redirect_stdout(output):
+                    try:
+                        findings = run_check(root, data, inventory, strict=strict)
+                        code = main(['map', '--root', str(root), 'check', *(['--strict'] if strict else [])])
+                    except Exception as error:
+                        findings = []
+                        code = None
+                        print(type(error).__name__ + ': ' + str(error))
+                valid = (code == 1 and any(f.code == 'debt_without_expiry' and f.level == 'error' for f in findings)
+                         and any(f.code == 'debt_without_expiry' and f.level == 'error' for f in lint))
+                facts.append(Fact(case + str(strict), valid, output.getvalue()))
+    output = StringIO()
+    with redirect_stdout(output):
+        print_findings([Finding('info', 'same', str(i), 'note') for i in range(3)], 'check', as_json=False, limit=80)
+    rows = [line for line in output.getvalue().splitlines() if line.startswith('INFO')]
+    facts.append(Fact('grouped_info', len(rows) == 1 and 'x3:' in rows[0], output.getvalue()))
+    return CodeFactsReport(tuple(facts) + _immutable_request_facts())
+
+
+def _immutable_request_facts():
+    """Replay the same immutable-error cases at the actual check boundary."""
+    import hashlib
+    import subprocess
+    from flowguard.map.check import run_check
+    from flowguard.map.cli import cmd_confirm
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import load_map, ignore_patterns, MapError
+    from flowguard.map.requests import store_request
+    from _target_fixture import make_project
+
+    facts = []
+    with TemporaryDirectory(prefix='fg-check-request-transition-') as directory:
+        root = make_project(Path(directory))
+        with redirect_stdout(StringIO()):
+            cmd_confirm(root, SimpleNamespace(ids=['loans', 'catalog']))
+        store_request(root, b'Keep owner bytes when Git is introduced.\r\n', identifier='RTransition')
+        body = root / '.flowguard/requests/RTransition.md'
+        meta = body.with_suffix('.json')
+        original = body.read_bytes(), meta.read_bytes()
+        data = load_map(root)
+        def observe(name, expected):
+            inventory = build_inventory(root, ignore_patterns(data), write_cache=False)
+            findings = run_check(root, data, inventory, strict=True)
+            codes = {finding.code for finding in findings if finding.level == 'error'}
+            facts.append(Fact(name, codes == expected, repr(sorted(codes))))
+        observe('immutable_before_git_is_clean', set())
+        subprocess.run(['git', '-C', str(root), 'init', '-q'], check=True, capture_output=True)
+        observe('immutable_after_git_init_is_clean', set())
+        body.write_bytes(original[0] + b'edited')
+        item = json.loads(original[1])
+        item.update(sha256=hashlib.sha256(body.read_bytes()).hexdigest(), bytes=len(body.read_bytes()))
+        meta.write_bytes(json.dumps(item).encode())
+        observe('immutable_same_edit_still_fails', {'owner_text_edited', 'request_meta_edited'})
+        body.unlink()
+        meta.unlink()
+        observe('immutable_deleted_pair_still_fails', {'owner_text_edited', 'request_meta_edited'})
+        refused = False
+        try:
+            store_request(root, original[0], identifier='RTransition')
+        except MapError:
+            refused = True
+        facts.append(Fact('immutable_deleted_id_cannot_be_reused', refused and not body.exists() and not meta.exists(),
+                          'The previous receipt protects the missing pair.'))
+    return tuple(facts)

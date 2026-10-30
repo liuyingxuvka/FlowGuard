@@ -1,0 +1,55 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "Keep immutable request protection when a plain folder becomes a Git worktree",
+  "components": [
+    {
+      "id": "map-requests",
+      "layer": "map",
+      "summary": "Preserve immutable owner requests and change records through Git initialization; derive static request states and check PLAN evidence without changing the stored originals.",
+      "responsibilities": [
+        "preserve original owner request bytes and sidecars",
+        "protect immutable tool-written files",
+        "derive visible request facts without mutable status",
+        "parse owner-linked PLAN changes and verify explicitly planned function changes against their real baseline"
+      ],
+      "files": [
+        "flowguard/map/requests.py",
+        "flowguard/map/records.py",
+        "flowguard/map/plan.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/requests.py:store_request",
+        "flowguard/map/requests.py:request_findings",
+        "flowguard/map/requests.py:request_rows"
+      ],
+      "depends_on": [
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_requests.py"
+      ],
+      "models": [],
+      "state": [
+        "original owner request bytes and immutable sidecars",
+        "independent first-write byte identities",
+        "immutable successful change records"
+      ],
+      "side_effects": [
+        "writes request files, change record pairs, raw-byte guards and independent written receipts"
+      ]
+    }
+  ],
+  "flows": [],
+  "remove": [],
+  "requests": [
+    {
+      "id": "R1",
+      "part": true
+    },
+    {
+      "id": "R600",
+      "part": true
+    }
+  ]
+}
