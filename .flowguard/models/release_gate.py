@@ -15,9 +15,11 @@ USES = {'Main': 'flowguard/__main__.py:main',
         'ApplyDebts': 'flowguard/map/lint.py:apply_accepted_debts'}
 KEEPS = ('expired_debt',)
 HANDOFF={'map_check':{'check':('check',{'error':'error','stale':None,'clean':'clean'})},'model_runs':{'models':'models'},'shard_suite':{'suite':'suite'}}
-TESTED_BY = {'release_passes_only_when_every_gate_passes': ['tests/test_flowguard_map_proof.py:test_strict_check_and_verify_gate'],
+TESTED_BY = {'release_passes_only_when_every_gate_passes': ['tests/test_flowguard_map_proof.py:test_strict_check_and_verify_gate',
+ 'tests/test_release_gate.py:test_release_refuses_deleted_unstaged_target'],
  'suite_runs_only_after_clean_gates': ['tests/test_pytest_shard_runner.py:test_release_runs_the_whole_suite_in_shards'],
- 'open_target_is_warned': ['tests/test_cli_main.py:test_release_warns_first_but_runs_the_same_current_models'],
+ 'open_target_is_warned': ['tests/test_cli_main.py:test_release_warns_first_but_runs_the_same_current_models',
+ 'tests/test_release_gate.py:test_open_target_is_release_warning'],
  'advice_never_gates': ['tests/test_map_check.py:test_shape_findings_are_advice'],
  'expired_debt_fails_release': ['tests/test_map_check.py:test_expired_debt_fails_release']}
 @dataclass(frozen=True)
@@ -30,6 +32,8 @@ class Case:
     suite:str
     expired_debt: bool = False
 CASES=tuple(Case(target,shards,lint,check,models,suite,expired) for target in (False,True) for lint in ('clean','advice','error') for check in ('clean','error') for models in ('pass','fail') for shards,suites in ((False,('pass',)),(True,('pass','fail','partial','blocked'))) for suite in suites for expired in (False,True))
+CASES += tuple(Case(False, True, 'clean', reason, 'pass', 'pass')
+               for reason in ('target_already_promoted', 'target_deleted_not_staged'))
 @dataclass(frozen=True)
 class State:
     target_open:bool=False
@@ -62,7 +66,9 @@ class CheckGate:
     name='CheckGate'
     reads=()
     writes=('check',)
-    def apply(self,event,state):return (FunctionResult(event,replace(state,check=event.check),label=event.check),)
+    def apply(self, event, state):
+        check = 'error' if event.check in ('target_already_promoted', 'target_deleted_not_staged') else event.check
+        return (FunctionResult(event, replace(state, check=check), label=check),)
 class ModelsGate:
     name='ModelsGate'
     reads=()
@@ -113,6 +119,8 @@ def broken_variants():
                                         'silent_on_open_target', 'advice_gates_release', 'expired_debt_passes_release')}
 def conformance():
     import json
+    import shutil
+    import subprocess
     from datetime import date, timedelta
     from contextlib import nullcontext
     from unittest.mock import patch
@@ -122,7 +130,7 @@ def conformance():
     from _target_fixture import make_project, call_target
 
     facts = []
-    for case in ('clean', 'failed', 'target', 'suite_blocked', 'advice', 'expired'):
+    for case in ('clean', 'failed', 'target', 'suite_blocked', 'advice', 'expired', 'target_already_promoted', 'target_deleted_not_staged'):
         with TemporaryDirectory(prefix='fg-release-gate-') as directory:
             root = make_project(Path(directory))
             if case in ('failed', 'suite_blocked'):
@@ -148,8 +156,20 @@ def conformance():
                 map_main(['confirm', 'all', '--root', str(root)])
             if case == 'target':
                 call_target(root, 'start', 'open plan')
+            if case in ('target_already_promoted', 'target_deleted_not_staged'):
+                def git(*args):
+                    subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True)
+                git('init', '-q')
+                git('add', '.')
+                git('-c', 'user.name=probe', '-c', 'user.email=probe@example.invalid', 'commit', '-qm', 'seed')
+                assert call_target(root, 'start', 'unchanged target') == 0
+                assert call_target(root, 'add', 'component:loans') == 0
+                git('add', '.flowguard/target')
+                git('-c', 'user.name=probe', '-c', 'user.email=probe@example.invalid', 'commit', '-qm', 'target')
+                if case == 'target_deleted_not_staged':
+                    shutil.rmtree(root / '.flowguard/target')
             args = ['release', '--root', str(root)]
-            if case in ('suite_blocked', 'expired'):
+            if case in ('suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged'):
                 args += ['--shards', '2']
             limits = lint.Limits(max_component_loc=1, max_file_loc=1,
                                  max_responsibilities=1, max_fan_out=0)
@@ -164,11 +184,11 @@ def conformance():
                              if finding.code in {'large_component', 'large_file',
                                                  'too_many_responsibilities', 'high_fan_out'}]
             text = output.getvalue()
-            failing = case in ('failed', 'suite_blocked', 'expired')
+            failing = case in ('failed', 'suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged')
             valid = code == int(failing) and ('verify: FAIL' if failing else 'verify: PASS') in text
             if case == 'target':
                 valid = valid and text.startswith('warning: target "open plan" exists:')
-            if case in ('suite_blocked', 'expired'):
+            if case in ('suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged'):
                 valid = valid and 'suite: not run' in text
             if case == 'advice':
                 valid = (valid and {finding.code for finding in shape}
@@ -178,5 +198,7 @@ def conformance():
                          and 'lint: 0 error(s) gating; 0 warning(s),' in text)
             if case == 'expired':
                 valid = valid and 'debt_expired' in text
+            if case in ('target_already_promoted', 'target_deleted_not_staged'):
+                valid = valid and case in text
             facts.append(Fact(case, bool(valid), text))
     return CodeFactsReport(tuple(facts))

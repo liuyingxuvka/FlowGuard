@@ -55,9 +55,24 @@ def anchor_problems(root: Path, anchors) -> dict[str, str]:
     return {anchor: problem for anchor in anchors if (problem := anchor_problem(root, inv, anchor))}
 
 
-def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, view=None, evaluation=None) -> list[Finding]:
+def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, view=None,
+              evaluation=None, target_state=None) -> list[Finding]:
+    from .targetfile import target_seam
+
     evaluation = evaluation if evaluation is not None else evaluate_debts(root, data)
     out: list[Finding] = evaluation.diagnostics(strict=strict)
+    target_state = target_state if target_state is not None else target_seam(root, load_map(root) if view is not None else data)
+    level = "error" if strict else "warn"
+    if target_state.missing_indexed:
+        out.append(Finding(level, "target_deleted_not_staged", "",
+                           "target_deleted_not_staged: .flowguard/target/ files are deleted on disk but still committed; "
+                           "stage the deletion (git add -A .flowguard)"))
+    elif target_state.already_promoted:
+        out.append(Finding(level, "target_already_promoted", "",
+                           "target_already_promoted: .flowguard/target/ is committed but changes nothing (already promoted); "
+                           "delete it and commit the deletion"))
+    elif not target_state.has_git and target_state.noop:
+        out.append(Finding("warn", "target_noop", "", "target_noop: target changes nothing: drop it or add work"))
     out.extend(component_parent_findings(data))
     by_id = {c["id"]: c for c in data["components"]}
     children = {c.get("parent") for c in data["components"] if c.get("parent") in by_id}

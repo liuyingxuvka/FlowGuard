@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 from _fg_helpers import (
+    map_git as git,
     view__fg232_count_discovery as _fg232_count_discovery,
     view__fg232_view_project as _fg232_view_project,
     flowguard_map_contracts421__scope_helpers as _scope_helpers,
@@ -137,6 +138,89 @@ def test_expired_debt_fails_release(tmp_path, capsys):
         loaded, inv = _context(tmp_path)
         findings = run_check(tmp_path, loaded, inv, strict=True)
         assert any(f.code == "debt_expired" for f in findings) is expired
+
+def test_strict_check_refuses_committed_promoted_target(tmp_path, capsys):
+    import shutil
+
+    project(tmp_path)
+    assert main(["map", "confirm", "all", "--root", str(tmp_path)]) == 0
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", ".")
+    git(tmp_path, "-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "seed")
+    assert main(["target", "start", "unchanged app", "--root", str(tmp_path)]) == 0
+    assert main(["target", "add", "component:app", "--root", str(tmp_path)]) == 0
+    git(tmp_path, "add", ".flowguard/target")
+    capsys.readouterr()
+    # Merely staged is not committed, even though its target happens to be a no-op.
+    assert main(["map", "check", "--strict", "--root", str(tmp_path)]) == 0
+    git(tmp_path, "-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "target")
+    assert main(["map", "check", "--strict", "--root", str(tmp_path)]) == 1
+    assert "target_already_promoted: .flowguard/target/ is committed but changes nothing (already promoted)" in capsys.readouterr().out
+    assert main(["map", "check", "--root", str(tmp_path)]) == 0
+    assert "WARN" in capsys.readouterr().out
+    assert main(["read", "--root", str(tmp_path)]) == 0
+    assert 'target: "unchanged app": stale (already promoted); delete .flowguard/target/ and commit the deletion' in capsys.readouterr().out
+    shutil.rmtree(tmp_path / ".flowguard/target")
+    assert main(["map", "check", "--strict", "--root", str(tmp_path)]) == 1
+    assert "target_deleted_not_staged" in capsys.readouterr().out
+    git(tmp_path, "add", "-A", ".flowguard")
+    assert main(["map", "check", "--strict", "--root", str(tmp_path)]) == 0
+    git(tmp_path, "-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "remove stale target")
+    current = json.loads((tmp_path / ".flowguard/map.json").read_text())
+    current["flows"] = [{"id": "retired_flow", "steps": ["app:run"]}]
+    save(tmp_path, current)
+    git(tmp_path, "add", ".flowguard/map.json")
+    git(tmp_path, "-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "flow")
+    assert main(["target", "start", "retire completed flow", "--root", str(tmp_path)]) == 0
+    path = tmp_path / ".flowguard/target/map.json"
+    target = json.loads(path.read_text())
+    target["remove"] = ["flow:retired_flow"]
+    path.write_text(json.dumps(target))
+    retained = {p.relative_to(tmp_path): p.read_bytes() for p in (tmp_path / ".flowguard/target").rglob("*") if p.is_file()}
+    git(tmp_path, "add", ".flowguard/target")
+    git(tmp_path, "-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "retire target")
+    assert main(["target", "promote", "--root", str(tmp_path)]) == 0
+    for relative, content in retained.items():
+        (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / relative).write_bytes(content)
+    git(tmp_path, "add", ".flowguard/map.json")
+    git(tmp_path, "-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "bad retirement publication")
+    capsys.readouterr()
+    assert main(["release", "--root", str(tmp_path)]) == 1
+    assert "target_already_promoted" in capsys.readouterr().out
+    assert main(["map", "check", "--strict", "--root", str(tmp_path)]) == 1
+    assert main(["read", "--root", str(tmp_path)]) == 0
+    assert 'target: "retire completed flow": stale (already promoted)' in capsys.readouterr().out
+    from flowguard.map.targetfile import load_target, target_is_noop, validate_target
+    current = json.loads((tmp_path / ".flowguard/map.json").read_text())
+    restored = load_target(tmp_path)
+    assert not target_is_noop(tmp_path, current, restored)
+    assert any("remove names no current node" in issue.message for issue in validate_target(tmp_path, current, restored))
+    from copy import deepcopy
+    from flowguard.map.targetfile import target_seam
+    original = json.loads(path.read_text())
+    for entries in (["flow:retired_flow", "flow:retired_flow"],
+                    ["flow:retired_flow", "unknown:item"], ["flow:retired_flow", "broken"]):
+        malformed = {**original, "remove": entries}
+        path.write_text(json.dumps(malformed))
+        assert not target_seam(tmp_path, current).already_promoted
+    pending = deepcopy(original)
+    pending["components"] = [dict(current["components"][0], summary="New work still pending")]
+    for field in ("status", "fingerprint", "_hint"):
+        pending["components"][0].pop(field, None)
+    path.write_text(json.dumps(pending))
+    assert not target_seam(tmp_path, current).already_promoted
+    path.write_text(json.dumps(original))
+    shutil.rmtree(tmp_path / ".flowguard/target")
+    git(tmp_path, "add", "-A", ".flowguard")
+    shutil.rmtree(tmp_path / ".git")
+    assert main(["target", "start", "gitless unchanged app", "--root", str(tmp_path)]) == 0
+    assert main(["target", "add", "component:app", "--root", str(tmp_path)]) == 0
+    capsys.readouterr()
+    assert main(["map", "check", "--strict", "--root", str(tmp_path)]) == 0
+    output = capsys.readouterr().out
+    assert "WARN" in output and "target_noop: target changes nothing: drop it or add work" in output
+
 
 def test_identical_info_grouped_into_one_line(capsys, tmp_path, monkeypatch):
     import json

@@ -15,7 +15,7 @@ from .discover import anchor_matches, discover_inventory, relied_models
 from .tree import ModelTree, build_tree
 from .lint import apply_accepted_debts, duplicate_owner_findings, normalized_debts, private_name, shape_findings, structural_findings
 from .mapfile import MapError, component_files, component_scope, component_subtree, component_order, component_graph, flow_step_parts, is_stale, owner_index
-from .targetfile import build_target_view, load_target, target_node_changes, validate_target
+from .targetfile import build_target_view, load_target, target_node_changes, target_seam, validate_target
 from .digest import file_outline, render_digest  # noqa: F401  (public names of flowguard.map.views)
 
 
@@ -75,14 +75,18 @@ def render_show(
     try:
         target = load_target(root)
         if target is not None:
-            if validate_target(root, data, target):
-                raise ValueError("invalid target")
-            changes = target_node_changes(root, data, target)
-            target_lines.append(
-                f'target: "{target.goal}": +{len(changes["+"])} ~{len(changes["~"])} '
-                f'-{len(changes["-"])} nodes; see python -m flowguard read --target; '
-                "python -m flowguard target check lists what is left"
-            )
+            seam = target_seam(root, data)
+            if seam.already_promoted:
+                target_lines.append(f'target: "{target.goal}": stale (already promoted); delete .flowguard/target/ and commit the deletion')
+            else:
+                if validate_target(root, data, target):
+                    raise ValueError("invalid target")
+                changes = target_node_changes(root, data, target)
+                target_lines.append(
+                    f'target: "{target.goal}": +{len(changes["+"])} ~{len(changes["~"])} '
+                    f'-{len(changes["-"])} nodes; see python -m flowguard read --target; '
+                    "python -m flowguard target check lists what is left"
+                )
     except (OSError, ValueError, TypeError, SyntaxError, MapError):
         target_lines.append(
             "target: .flowguard/target/map.json is invalid; run python -m flowguard target check"

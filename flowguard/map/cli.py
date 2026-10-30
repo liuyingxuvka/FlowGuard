@@ -448,17 +448,15 @@ def cmd_models(root: Path, a) -> int:
 
 def cmd_verify(root: Path, a) -> int:
     from .debts import evaluate_debts
+    from .targetfile import target_seam
 
-    if (root / TARGET_RELDIR).exists():
-        try:
-            target = load_target(root)
-            goal = target.goal if target is not None else "<invalid target>"
-        except MapError:
-            goal = "<invalid target>"
-        print(f'warning: target "{goal}" exists: release checks only the current tree; promote or drop the target before releasing')
     data, inv = _context(root)
+    target_state = target_seam(root, data)
+    if (root / TARGET_RELDIR).exists() and not target_state.already_promoted and not target_state.missing_indexed:
+        goal = target_state.target.goal if target_state.target is not None else "<invalid target>"
+        print(f'warning: target "{goal}" exists: release checks only the current tree; promote or drop the target before releasing')
     evaluation = evaluate_debts(root, data)
-    check = print_findings(run_check(root, data, inv, strict=True, evaluation=evaluation), "check --strict", as_json=False, limit=a.limit)
+    check = print_findings(run_check(root, data, inv, strict=True, evaluation=evaluation, target_state=target_state), "check --strict", as_json=False, limit=a.limit)
     findings = run_lint(root, data, inv, evaluation=evaluation)
     lint = {level: sum(f.level == level for f in findings) for level in ("error", "warn", "info")}
     print(f"lint: {lint['error']} error(s) gating; {lint['warn']} warning(s), {lint['info']} info not gating (run python -m flowguard map lint)")

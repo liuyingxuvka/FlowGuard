@@ -5,10 +5,11 @@ from __future__ import annotations
 import ast
 import copy
 import json
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .common import read_source, tokens
+from .common import git_paths, read_source, tokens
 from .mapfile import COMPONENT_KEYS, ID_RE, MapError, model_registry, read_model_contract, validate_map
 
 TARGET_RELDIR = ".flowguard/target"
@@ -112,8 +113,23 @@ def merge_target_map(current_data: dict, target: Target) -> dict:
     return merged
 
 
-def validate_target(root: Path, current_data: dict, target: Target) -> list[TargetIssue]:
-    """Target syntax and identities only; no model imports, exploration or code checks."""
+def _removal_subjects(data, registry):
+    subjects = {"component": {c["id"] for c in data["components"]},
+                "flow": {f["id"] for f in data.get("flows", [])},
+                "model": {entry.id for entry in registry.entries}}
+    for kind, field in (("entrypoint", "entrypoints"), ("state", "state"), ("side_effect", "side_effects"),
+                        ("responsibility", "responsibilities")):
+        subjects[kind] = {value for component in data["components"] for value in component.get(field, [])}
+    return subjects
+
+
+def validate_target(root: Path, current_data: dict, target: Target, *,
+                    allow_applied_removals: bool = False) -> list[TargetIssue]:
+    """Strict target syntax/identities; missing removals are allowed only for artifact inspection.
+
+    The inspection allowance keeps all syntax/duplicate/overlay checks and is
+    never used to authorize an open target or promotion.
+    """
     data, issues = target.data, []
 
     def invalid(message):
@@ -169,12 +185,7 @@ def validate_target(root: Path, current_data: dict, target: Target) -> list[Targ
     if "layers" in data and isinstance(data["layers"], list) and not all(isinstance(v, str) for v in data["layers"]):
         invalid("layers must contain strings")
     registry = model_registry(root, current_data)
-    current = {"component": {c["id"] for c in current_data["components"]},
-               "flow": {f["id"] for f in current_data.get("flows", [])},
-               "model": {entry.id for entry in registry.entries}}
-    for kind, field in (("entrypoint", "entrypoints"), ("state", "state"), ("side_effect", "side_effects"),
-                        ("responsibility", "responsibilities")):
-        current[kind] = {value for component in current_data["components"] for value in component.get(field, [])}
+    current = _removal_subjects(current_data, registry)
     removed = data.get("remove", [])
     if not isinstance(removed, list):
         invalid("remove must be a list")
@@ -185,7 +196,8 @@ def validate_target(root: Path, current_data: dict, target: Target) -> list[Targ
                 invalid("remove entries must be kind:id strings")
                 continue
             kind, separator, name = value.partition(":")
-            if not separator or kind not in current or name not in current[kind]:
+            if (not separator or kind not in current or not name
+                    or name not in current[kind] and not allow_applied_removals):
                 invalid(f"remove names no current node: {value!r}")
             elif value in seen:
                 invalid(f"duplicate remove entry {value!r}")
@@ -262,6 +274,53 @@ def target_is_noop(root: Path, current_data: dict, target: Target) -> bool:
         except (OSError, SyntaxError, ValueError):
             return False
     return True
+
+
+@dataclass(frozen=True)
+class TargetSeam:
+    target: Target | None
+    has_git: bool
+    noop: bool
+    committed: bool
+    missing_indexed: tuple[str, ...]
+    removals_fulfilled: bool = False
+
+    @property
+    def already_promoted(self) -> bool:
+        return self.committed and (self.noop or self.removals_fulfilled)
+
+
+def target_seam(root: Path, current_data: dict) -> TargetSeam:
+    """Inspect actual current/target and read-only index/HEAD facts, never a merged view."""
+    prefix = TARGET_RELDIR + "/"
+    has_git, indexed, committed = False, set(), set()
+    try:
+        indexed = set(git_paths(root, "ls-files", "--cached", "-z", "--", TARGET_RELDIR))
+        has_git = True
+    except (OSError, subprocess.CalledProcessError):
+        pass
+    if has_git:
+        try:
+            committed = set(git_paths(root, "ls-tree", "-r", "--name-only", "-z", "HEAD", "--", TARGET_RELDIR))
+        except (OSError, subprocess.CalledProcessError):
+            pass  # An unborn repository still has a real index.
+    missing = tuple(sorted(path for path in indexed if path.startswith(prefix)
+                           and not (root / path).exists() and not (root / path).is_symlink()))
+    target, noop, fulfilled = None, False, False
+    try:
+        target = load_target(root)
+        if target is not None and not validate_target(root, current_data, target):
+            noop = target_is_noop(root, current_data, target)
+        elif target is not None and indexed & committed and any(target.remove.values()):
+            subjects = _removal_subjects(current_data, model_registry(root, current_data))
+            absent = all(not values & subjects[kind] for kind, values in target.remove.items())
+            if absent and not validate_target(root, current_data, target, allow_applied_removals=True):
+                cleared = Target(target.goal, {**target.data, "remove": []}, target.models,
+                                 {kind: set() for kind in target.remove})
+                fulfilled = target_is_noop(root, current_data, cleared)
+    except MapError:
+        pass  # Existing invalid-target diagnostics retain their owner.
+    return TargetSeam(target, has_git, noop, bool(indexed & committed), missing, fulfilled)
 
 
 def target_promise_changes(current_data: dict, merged_data: dict, target: Target) -> list[tuple[str, str]]:

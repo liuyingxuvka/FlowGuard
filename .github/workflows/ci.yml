@@ -109,6 +109,7 @@ jobs:
           tests/test_private_use.py
           tests/test_public_api.py
           tests/test_read_command.py
+          tests/test_release_gate.py
           tests/test_release_neutral_fingerprint.py
           tests/test_scan_coverage.py
           tests/test_skill_package.py

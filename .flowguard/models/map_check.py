@@ -23,13 +23,15 @@ USES = {
     'CmdConfirm': 'flowguard/map/cli.py:cmd_confirm',
     'Command': 'flowguard/map/cli.py:cmd_check',
     'Main': 'flowguard/__main__.py:main',
+    'Promote': 'flowguard/map/target.py:promote_target',
 }
 NOT_MODELED = {}
 OUTPUTS = {'check': ('error', 'stale', 'clean')}
 TESTED_BY = {'error_finding_fails_check': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm'],
  'strict_makes_draft_and_stale_errors': ['tests/test_cli_main.py:test_new_target_file_is_moving_but_strict_remains_an_error'],
  'identical_info_grouped': ['tests/test_map_check.py:test_identical_info_grouped_into_one_line'],
- 'debt_needs_reason_and_expiry': ['tests/test_map_check.py:test_debt_without_expiry_refused']}
+ 'debt_needs_reason_and_expiry': ['tests/test_map_check.py:test_debt_without_expiry_refused'],
+ 'committed_promoted_target_is_error': ['tests/test_map_check.py:test_strict_check_refuses_committed_promoted_target']}
 
 @dataclass(frozen=True)
 class Case:
@@ -37,9 +39,12 @@ class Case:
     errors: tuple = ()
     unconfirmed: str = ''
     count: int = 1
+    seam: str = ''
 
 ERRORS = ('anchor_broken', 'component_parent_cycle', 'anchor_outside_home', 'handoff_output_unhandled', 'debt_without_expiry')
 CASES = tuple(Case(mode, (), status) for mode in ('check', 'strict') for status in ('', 'draft', 'stale', 'fingerprint_migrate')) + tuple(Case(mode, (code,)) for mode in ('check', 'strict') for code in ERRORS) + tuple(Case(mode, codes, 'stale') for mode in ('check', 'strict') for codes in (ERRORS[:2], ERRORS[2:])) + (Case('check', count=3), Case('check', count=24))
+CASES += tuple(Case(mode, seam=code) for mode in ('check', 'strict')
+               for code in ('target_already_promoted', 'target_deleted_not_staged'))
 
 @dataclass(frozen=True)
 class State:
@@ -52,18 +57,19 @@ class State:
     info_lines: int = 1
     exit_code: int = 0
     phase: int = 0
+    seam: str = ''
 
 class TakeRun:
     name = 'TakeRun'
     reads = ()
-    writes = ('mode', 'errors', 'unconfirmed', 'raw_info', 'phase')
+    writes = ('mode', 'errors', 'unconfirmed', 'raw_info', 'phase', 'seam')
     def apply(self, event, state):
         return (FunctionResult(event, replace(state, mode=event.mode, errors=event.errors,
-                    unconfirmed=event.unconfirmed, raw_info=event.count, phase=1)),)
+                    unconfirmed=event.unconfirmed, raw_info=event.count, seam=event.seam, phase=1)),)
 
 class Aggregate:
     name = 'Aggregate'
-    reads = ('errors', 'mode', 'unconfirmed')
+    reads = ('errors', 'mode', 'unconfirmed', 'seam')
     writes = ('check', 'phase')
     def __init__(self, defect=''): self.defect = defect
     def apply(self, event, state):
@@ -73,7 +79,8 @@ class Aggregate:
         if self.defect == 'debt_without_expiry_passes':
             errors = tuple(code for code in errors if code != 'debt_without_expiry')
         strict = state.mode == 'strict' and bool(state.unconfirmed) and self.defect != 'strict_keeps_stale_warning'
-        value = 'error' if errors or strict else 'stale' if state.unconfirmed else 'clean'
+        seam_error = state.mode == 'strict' and bool(state.seam) and self.defect != 'promoted_target_passes_check'
+        value = 'error' if errors or strict or seam_error else 'stale' if state.unconfirmed else 'clean'
         return (FunctionResult(value, replace(state, check=value, phase=2)),)
 
 class Print:
@@ -87,6 +94,9 @@ class Print:
                     grouped=count == 1, exit_code=int(state.check == 'error'), phase=3)),)
 
 INVARIANTS = (
+    Invariant('committed_promoted_target_is_error',
+              'check --strict refuses a committed target that changes nothing and target files deleted but still committed',
+              lambda s,t: s.phase != 3 or s.mode != 'strict' or not s.seam or s.check == 'error'),
     Invariant('debt_needs_reason_and_expiry',
               'an accepted debt without a reason or an expiry is an ERROR in check and lint',
               lambda s,t: s.phase != 3 or 'debt_without_expiry' not in s.errors or s.check == 'error'),
@@ -102,9 +112,11 @@ def make(defect=''):
                     invariants=INVARIANTS, max_sequence_length=2, progress_steps=0)
 def build_explorer(): return make()
 def broken_variants():
-    return {name: make(name) for name in ('ignores_edge_errors', 'strict_keeps_stale_warning', 'prints_each_info_line', 'debt_without_expiry_passes')}
+    return {name: make(name) for name in ('ignores_edge_errors', 'strict_keeps_stale_warning', 'prints_each_info_line', 'debt_without_expiry_passes', 'promoted_target_passes_check')}
 
 def conformance():
+    import shutil
+    import subprocess
     from flowguard.__main__ import main
     from flowguard.map.check import run_check
     from flowguard.map.cli import cmd_check, cmd_confirm
@@ -112,9 +124,50 @@ def conformance():
     from flowguard.map.inventory import build_inventory
     from flowguard.map.mapfile import load_map, ignore_patterns
     from flowguard.map.lint import run_lint
-    from _target_fixture import make_port_project, write_json
+    from _target_fixture import make_port_project, make_project, call_target, write_json
 
     facts = []
+    for case in ('target_already_promoted', 'target_deleted_not_staged', 'fulfilled_removal'):
+        with TemporaryDirectory(prefix='fg-committed-target-') as directory:
+            root = make_project(Path(directory))
+            with redirect_stdout(StringIO()):
+                cmd_confirm(root, SimpleNamespace(ids=['loans', 'catalog']))
+            def git(*args):
+                subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True)
+            git('init', '-q')
+            git('add', '.')
+            git('-c', 'user.name=probe', '-c', 'user.email=probe@example.invalid', 'commit', '-qm', 'seed')
+            assert call_target(root, 'start', 'unchanged target') == 0
+            if case == 'fulfilled_removal':
+                path = root / '.flowguard/target/map.json'
+                target = json.loads(path.read_text())
+                target['remove'] = ['flow:borrow']
+                write_json(path, target)
+            else:
+                assert call_target(root, 'add', 'component:loans') == 0
+            git('add', '.flowguard/target')
+            git('-c', 'user.name=probe', '-c', 'user.email=probe@example.invalid', 'commit', '-qm', 'target')
+            if case == 'fulfilled_removal':
+                retained = {p.relative_to(root): p.read_bytes() for p in (root / '.flowguard/target').rglob('*') if p.is_file()}
+                assert call_target(root, 'promote') == 0
+                for relative, content in retained.items():
+                    (root / relative).parent.mkdir(parents=True, exist_ok=True)
+                    (root / relative).write_bytes(content)
+                git('add', '.flowguard/map.json')
+                git('-c', 'user.name=probe', '-c', 'user.email=probe@example.invalid', 'commit', '-qm', 'bad removal publication')
+            if case == 'target_deleted_not_staged':
+                shutil.rmtree(root / '.flowguard/target')
+            data = load_map(root)
+            for strict in (False, True):
+                inventory = build_inventory(root, ignore_patterns(data), write_cache=False)
+                findings = run_check(root, data, inventory, strict=strict)
+                output = StringIO()
+                with redirect_stdout(output):
+                    code = cmd_check(root, SimpleNamespace(strict=strict, json=False, limit=80))
+                expected = 'target_already_promoted' if case == 'fulfilled_removal' else case
+                valid = (code == int(strict)
+                         and any(f.code == expected and f.level == ('error' if strict else 'warn') for f in findings))
+                facts.append(Fact(case + str(strict), bool(valid), repr((findings, output.getvalue()))))
     for case in ('anchor', 'cycle', 'scope', 'edge', 'stale'):
         with TemporaryDirectory(prefix='fg-check-') as directory:
             root = Path(directory)

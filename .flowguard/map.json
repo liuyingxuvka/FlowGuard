@@ -84,7 +84,7 @@
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
         "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
         "annotate planned target breakage and ARCH lines in check, change and release; show fingerprint-format reminders in change",
-        "run release with the system root counted and optional whole-suite shards; reject expired debts in strict release checks and display explicit debt deadlines",
+        "run release with the system root counted and optional whole-suite shards; reject expired debts in strict release checks and display explicit debt deadlines; reject already-applied committed targets and target deletions not staged, preserving the warning for real open targets",
         "run bound tests and, on request, the checks an edit needs",
         "write templates and their aliases into the active target when one exists",
         "hint splits for large scan drafts and say when discovery finds nothing"
@@ -132,11 +132,12 @@
         "tests/test_public_templates.py",
         "tests/test_pytest_shard_runner.py",
         "tests/test_read_command.py",
-        "tests/test_map_check.py"
+        "tests/test_map_check.py",
+        "tests/test_release_gate.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4d9449017920aaffa990c1a374f5c822847c274f569a4e012bd8a7c33dd2d806"
+      "fingerprint": "sha256:1fc43a3ff0b11c03bc0663ccccc53ee05e20004caeaa89e0fdcfb510b51a45ba"
     },
     {
       "id": "public-api",
@@ -287,7 +288,7 @@
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs. Own shared static call-graph reachability and model selection.",
+      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs. Own shared static call-graph reachability and model selection. Inspect actual target/index/HEAD facts once per operation; distinguish strict target validation from inspection of fulfilled committed removals.",
       "responsibilities": [
         "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity; classify explicit debt reasons and date or project-root version deadlines once per evaluation without persisting a verdict",
         "resolve component parents in one layer without loops",
@@ -338,7 +339,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:51ff8cfadb9159f8c271ed906328fd5b9e22b8addf82f6970d9dd3025558a46a"
+      "fingerprint": "sha256:e27d22781934c173330bc631a3c1055954cba2003e5c48c32b2418ad1042ae53"
     },
     {
       "id": "map-discover",
@@ -696,7 +697,7 @@
       "layer": "map",
       "summary": "Check architecture, implementation coverage, model bindings, size and declared replay calls against the current source. Report shape counts as advice without accepted-debt coverage. Treat a newly worded responsibility on the same owner as advice at the shared similarity threshold; retain genuine dropped-owner errors.",
       "responsibilities": [
-        "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
+        "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity. Enforce target commit-seam failures only in strict mode, retaining working-mode and Gitless no-op warnings.",
         "report one owner per entrypoint, responsibility, state and side effect",
         "lint cycles, layers, sizes and private names, then apply only active accepted debts while keeping original record indices; report invalid deadlines as errors and expired deadlines as warnings, or errors in strict checks",
         "explain entrypoints and state writers by model, test or reason",
@@ -733,12 +734,12 @@
         ".flowguard/models/private_use.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:5dc3396f2d459c0e4f9f386c3513d9f84ae8879cef47eadd23354238a8ca405b"
+      "fingerprint": "sha256:a400f27c9f39f06e1106089a863f41e73f2b290300c5e1c5efdb53b6f126c2dc"
     },
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Show complete component and model views, field lifecycles, exact code ownership, distinct model relations and counted test positions without importing models.",
+      "summary": "Show complete component and model views, field lifecycles, exact code ownership, distinct model relations and counted test positions without importing models. Name effectively applied committed targets as stale, including targets whose removals are already fulfilled.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage; find owners by word form and rank architecture defects and strengths; compare current and target rules and known-bad definitions by name",
         "find owners by word form and rank architecture defects and strengths",
@@ -773,7 +774,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:834151878d070e1ae30dbcfdcfd19c19659110e534a540a2f78d188b2c1586a5"
+      "fingerprint": "sha256:3a3ea1b878ec0b4b91fb1fc5c879c3c69527cf046eeb2f4a1349dd26e1ea8fcc"
     },
     {
       "id": "map-impact",
@@ -947,7 +948,7 @@
     ".flowguard/models/job_matching_example.py": "66d13d40bcbda27be232ecc68713eccd913a46190ba2bc68a5bba805fc9c0971",
     ".flowguard/models/literal_consumers.py": "04dc183c41363d2cc23fb62e6f5d26f30775b5ef466fdbba9462cdeeeac8f84c",
     ".flowguard/models/map_binding.py": "5234e58ea5796c52a4775930cf3e8bafb6d9dd1f212acefbb37021f81351a1cc",
-    ".flowguard/models/map_check.py": "6b0a577c58b0c0385bb403b783b6ad290a6898382228a00a2deeef3aa7d2abcd",
+    ".flowguard/models/map_check.py": "57b6fce6e78e6e81eb8dd2d6b72f0c2b4f41d6e667047230286e8f2ea1b81916",
     ".flowguard/models/model_proof.py": "b8ff72110c36b0843d7da451c8615f24c596b7ea1d49ae595bf9ddffae050627",
     ".flowguard/models/model_runs.py": "b3fbf03bc3e83d982094b398ee1326478816b4583fbadb48c86b12560af56c3f",
     ".flowguard/models/model_scope.py": "6dd76b266a4e60fd63bbcb4d9a93f5d52b6de3d44aa72ff25002e3b126473307",
@@ -962,7 +963,7 @@
     ".flowguard/models/read_review.py": "70cc52cc776e431a27a0a52c64af36ad7ac089b4768d4c7620ec13827343d82d",
     ".flowguard/models/read_show.py": "95268a18ba6054926543127ce947e267bee62843b75fefc8a49f9bdd00d30927",
     ".flowguard/models/relation_graph.py": "7c7839800bc2ffd986e1348ed44a51500dce1d1a466ff59ee74d8ef9ef2fe551",
-    ".flowguard/models/release_gate.py": "f630dd024c7af1ee40e9b198547f857d4f0ad0a99fd49eca0781105457cbd2bd",
+    ".flowguard/models/release_gate.py": "a54f3bc0563d9bb93ab945b4f7f1eda7014a118ed3c4c56675870f91987da933",
     ".flowguard/models/release_neutral_fingerprint.py": "51d5ae79b7f14473299562517b8acbc5b62004e7641f905364ad954dd4621948",
     ".flowguard/models/replay_conformance.py": "311629f611c211acfecac54cd2d745cec295cc820fcf1b6c104f3f355441b97b",
     ".flowguard/models/scan_coverage.py": "8fcd28bbc5f6ca58f83bc6d06426919fb752113c8c68c9684f10e517f2b4b4c8",
