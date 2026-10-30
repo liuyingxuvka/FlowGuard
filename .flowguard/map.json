@@ -79,7 +79,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch public commands with stable exits, typed verdicts and advice; supply read-only Git access for the static status screen and keep hook errors nonblocking.",
+      "summary": "Dispatch public commands with stable exits and advice; run complete release gates before persisting nongit byte/release facts and printing the final verdict, while static status stays read-only.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
         "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
@@ -134,11 +134,12 @@
         "tests/test_pytest_shard_runner.py",
         "tests/test_read_command.py",
         "tests/test_map_check.py",
-        "tests/test_release_gate.py"
+        "tests/test_release_gate.py",
+        "tests/test_records.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a30751368f72aabb6ccc806f6c74bb6cd824b27970f18705cb9fb057e0a164a2"
+      "fingerprint": "sha256:f93501ea0af4d08d67cf42d6f4950e5e08139e97ec40a3d01fde3cea22820fbc"
     },
     {
       "id": "public-api",
@@ -382,7 +383,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Manage one target with source baselines, owner-linked PLAN evidence and immutable promotion records.",
+      "summary": "Check one target against real source and bound tests, promote the checked bytes, preserve their PLAN/rule evidence in immutable records and give reviewed staging and real message-file commit guidance.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and native gaps before or after code changes; run the changed target models own bound tests and reject unreceived escalated outputs",
@@ -430,14 +431,15 @@
         "tests/test_target_life_cycle.py",
         "tests/test_model_edits.py",
         "tests/test_cli_main.py",
-        "tests/test_requests.py"
+        "tests/test_requests.py",
+        "tests/test_records.py"
       ],
       "models": [
         ".flowguard/models/target_add.py",
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:bbd747f7ee5db576c0cf943870effacecbe9ae0654cff72ee5d2c371cbb0a675"
+      "fingerprint": "sha256:488e3b931e4438dcf284ddf25266a2ce1fb11afc397e4e1df854f927aef210a3"
     },
     {
       "id": "map-proof",
@@ -747,7 +749,7 @@
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Show static code/model relations and a derived, read-only recovery screen with open plans, request provenance, Git/record history and an absolute next command; never import or explore project models.",
+      "summary": "Show static code/model relations and a read-only recovery view of open plans, request provenance and Git-tag or nongit snapshot history; name one absolute next command without importing or exploring project models.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage; find owners by word form and rank architecture defects and strengths; compare current and target rules and known-bad definitions by name",
         "find owners by word form and rank architecture defects and strengths",
@@ -787,7 +789,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:8ef664caa9eaaadf2c52e400e6d112612a98a526f2eff7a69340cbb0f46e7d20"
+      "fingerprint": "sha256:c86eb0844ae98ff0065414932ccca9580a4b410522ccb93607db5d2e00727df7"
     },
     {
       "id": "map-impact",
@@ -831,7 +833,7 @@
     {
       "id": "map-requests",
       "layer": "map",
-      "summary": "Preserve immutable owner requests and change records through Git initialization; derive static request states and check PLAN evidence without changing the stored originals.",
+      "summary": "Preserve original requests, checked PLAN/model provenance and immutable change records; copy independent byte identities only after successful nongit releases and derive request/release history from those facts.",
       "responsibilities": [
         "preserve original owner request bytes and sidecars",
         "protect immutable tool-written files",
@@ -853,7 +855,8 @@
         "map-inventory"
       ],
       "tests": [
-        "tests/test_requests.py"
+        "tests/test_requests.py",
+        "tests/test_records.py"
       ],
       "models": [],
       "state": [
@@ -865,7 +868,7 @@
         "writes request files, change record pairs, raw-byte guards and independent written receipts"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:e61d1b86f276f3af77ad1e7b77692ec081f11b40e94f55be4490f13c7357693a"
+      "fingerprint": "sha256:104e99820bcba27013815ae7253a186a32815a8700c7c592751dc51c5f2249dd"
     }
   ],
   "flows": [
@@ -1021,7 +1024,7 @@
     ".flowguard/models/read_review.py": "70cc52cc776e431a27a0a52c64af36ad7ac089b4768d4c7620ec13827343d82d",
     ".flowguard/models/read_show.py": "02ab182b95a772690cebed315c6d596c195a72219af5a32a2fdbeaf8cd1c1914",
     ".flowguard/models/relation_graph.py": "7c7839800bc2ffd986e1348ed44a51500dce1d1a466ff59ee74d8ef9ef2fe551",
-    ".flowguard/models/release_gate.py": "00b1bc63d554ebf7551c34689f9498c3124fb96a6f2f70c3072d6f1747fbce6c",
+    ".flowguard/models/release_gate.py": "ef7184926e9fe794db8f661061991c853e7f28738024843db0f31ecd1e542fbb",
     ".flowguard/models/release_neutral_fingerprint.py": "51d5ae79b7f14473299562517b8acbc5b62004e7641f905364ad954dd4621948",
     ".flowguard/models/replay_conformance.py": "311629f611c211acfecac54cd2d745cec295cc820fcf1b6c104f3f355441b97b",
     ".flowguard/models/scan_coverage.py": "8fcd28bbc5f6ca58f83bc6d06426919fb752113c8c68c9684f10e517f2b4b4c8",
@@ -1031,7 +1034,7 @@
     ".flowguard/models/target_add.py": "b38f68d292ca7996cf46785aa6ccafe0f3f30a5b0e00d9f5329de74e4f4ed120",
     ".flowguard/models/target_findings.py": "c546d53b63d319cd6687117fdc615d36aa3ba93fc5f08ac3168b498c1553fee5",
     ".flowguard/models/target_life_cycle.py": "b8f71219f9681d8bef4c77472569eaa281ffe57e6c8e0440e1a2e3b9e962350c",
-    ".flowguard/models/target_promotion.py": "df3cd29b074205318273fab67048f48f0cbe49c4728ad1a8a8dca525a639efeb",
+    ".flowguard/models/target_promotion.py": "5ad146dec5d094d1e32b571f9ccae9c2bc1481c45a502026da293ccb12f0e5f5",
     ".flowguard/models/test_binding.py": "01f20ff65edb30f6c9bb2d53628704362f379656838734aad4978bcb608fee3f",
     ".flowguard/models/test_selection.py": "b09e7005f72ab0e2bff84821e091d898ccaf7acd8bbbfc749b8ed254b89d7b86",
     ".flowguard/models/test_tree.py": "da3f88507f04301d0e93c874c9daaf1a874ba2324f4849548ca69812b2e2e6dd",

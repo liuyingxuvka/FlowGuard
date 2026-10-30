@@ -649,13 +649,13 @@ def render_target_report(report: TargetReport, *, root: Path | None = None) -> s
 
 
 
-def _promotion_next(root, data, inputs, selected_tests):
+def _promotion_next(root, data, inputs, selected_tests, message):
     """Print reviewed file operands; never stage them or infer code directories."""
     import shlex
     from .impact_history import read_git_paths
     from .mapfile import ignore_patterns
 
-    files = "the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/ and the deletion of .flowguard/target/ together"
+    files = "the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/, .flowguard/changes/ and the deletion of .flowguard/target/ together"
     worktree = _git(root, "rev-parse", "--is-inside-work-tree")
     reason = "no Git worktree"
     if worktree is not None and worktree.returncode == 0 and worktree.stdout.strip() == b"true":
@@ -673,10 +673,12 @@ def _promotion_next(root, data, inputs, selected_tests):
                            and not path.startswith(".flowguard/")
                            and not matches_any(path, ignore_patterns(data)))
             argv = ["git", "-C", str(root), "--literal-pathspecs", "add", "-A", "--", ".flowguard", *paths]
-            return [advice("commit", "commit " + files + ": " + shlex.join(argv))]
+            commit = shlex.join(['git', '-C', str(root), 'commit', '-F', str(message)])
+            return ["note: commit " + files,
+                    advice('commit', shlex.join(argv) + ' && ' + commit)]
         except (OSError, subprocess.CalledProcessError):
             reason = "Git staging paths unavailable"
-    return ["note: " + reason + "; preserve " + files,
+    return ["note: " + reason + "; preserve " + files + f'; commit message: {message}',
             advice("check", shlex.join(["python", "-m", "flowguard", "map", "check", "--strict", "--root", str(root)]))]
 
 
@@ -775,8 +777,9 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             return 1
         selected_tests = set(impact.tests) | {node.split("::", 1)[0] for node in tested}
         from .records import prepare_change, publish_change
-        from .plan import render_owner_block
+        from .plan import render_owner_block, record_evidence
         owner_block = render_owner_block(root, current, target, view, report.plan_items) if report.plan_items else ""
+        plan_facts, rule_facts = record_evidence(root, current, target, view, report.plan_items)
         from .impact_history import read_git_paths
         base = _target_base(root)
         source_paths = None
@@ -789,7 +792,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
         prepared_record = prepare_change(
             root, goal=target.goal, links=target.data.get("requests", []), base=base,
             inputs=inputs, merged=merged, model_bytes=model_bytes, deleted=deleted,
-            changed_paths=source_paths, owner_block=owner_block,
+            changed_paths=source_paths, owner_block=owner_block, plan=plan_facts, rules=rule_facts,
             checked=("This promotion ran one fresh target check with bound tests and the remaining "
                      f"function-selected tests; {len(report.warnings)} warning(s) remained. "
                      "The tree identifies the checked post-promotion content, before later component confirmation."))
@@ -800,7 +803,8 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             else:
                 print("promote refused: checked inputs changed; run python -m flowguard target check")
             return 1
-        next_lines = _promotion_next(root, merged, inputs, selected_tests)
+        message = root / '.flowguard/changes' / (prepared_record['id'] + '.msg')
+        next_lines = _promotion_next(root, merged, inputs, selected_tests, message)
         backup = root / TARGET_RELDIR / ".replaced"
         for rel in [".flowguard/map.json", *[".flowguard/models/" + name for name in model_bytes], *deleted]:
             source = root / rel

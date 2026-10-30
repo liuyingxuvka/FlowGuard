@@ -9,7 +9,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .common import Finding, normalize_newlines, sha256_bytes
+from .common import Finding, atomic_write_text, normalize_newlines, sha256_bytes
 from .mapfile import MapError
 
 
@@ -71,6 +71,51 @@ def _receipt(path: Path):
     return value if isinstance(value, dict) else {"sha256": text}
 
 
+RELEASE_DIR = Path('.flowguard/release-base')
+
+
+def _release_records(root):
+    path = root / RELEASE_DIR / 'records.json'
+    if not path.exists():
+        return None
+    try:
+        item = json.loads(path.read_bytes())
+        files = item['files']
+        moment = datetime.fromisoformat(item['captured'])
+        if (not isinstance(files, dict) or moment.tzinfo is None or moment.utcoffset().total_seconds() != 0
+                or any(not isinstance(name, str) or not name.startswith(('.flowguard/requests/', '.flowguard/changes/'))
+                       or Path(name).is_absolute() or '..' in Path(name).parts
+                       or not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{64}', digest)
+                       for name, digest in files.items())):
+            raise ValueError('invalid original-byte snapshot')
+        return item
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+        raise MapError(f'release_snapshot_invalid: {path}: {error}') from error
+
+
+def _stored_digest(root, path, relative, common):
+    """Original independent facts only; never hash current bytes to learn a baseline."""
+    receipts = [_receipt(written).get('sha256') for written in _written_paths(root, path, common)
+                if written.is_file()]
+    try:
+        snapshot = _release_records(root)
+    except MapError as error:
+        return None, str(error)
+    expected = snapshot['files'].get(relative) if snapshot is not None else None
+    if receipts:
+        if (any(value != receipts[0] for value in receipts[1:])
+                or expected is not None and expected != receipts[0]):
+            return None, f'immutable file has conflicting first-write receipts or release facts: {relative}'
+        return receipts[0], None
+    if expected is not None:
+        return expected, None
+    # A first Git commit is only a fallback when no earlier independent fact exists.
+    first = _first_blob(root, relative, common)
+    if first is not None:
+        return sha256_bytes(first), None
+    return None, f'immutable file has no first-write or committed baseline: {relative}'
+
+
 def _attribute_problem(root: Path, relative: str, common):
     if common is None:
         return None
@@ -111,6 +156,9 @@ def _new_file(root, relative_path):
     written = candidates[0]
     if path.exists() or any(candidate.exists() for candidate in candidates):
         raise MapError(f"immutable file already exists or was written before: {relative}")
+    snapshot = _release_records(root)
+    if snapshot is not None and relative in snapshot['files']:
+        raise MapError(f"immutable file was written before: {relative}")
     if _first_blob(root, relative, common) is not None:
         raise MapError(f"immutable file was committed before: {relative}")
     return path, written
@@ -158,17 +206,9 @@ def integrity_problem(root, relative_path):
     if problem:
         return problem
     raw = path.read_bytes()
-    receipts = [_receipt(written).get("sha256") for written in _written_paths(root, path, common)
-                if written.is_file()]
-    if receipts:
-        expected = receipts[0]
-        if any(value != expected for value in receipts[1:]):
-            return f"immutable file has conflicting first-write receipts: {relative}"
-    else:
-        first = _first_blob(root, relative, common)
-        if first is None:
-            return f"immutable file has no first-write or committed baseline: {relative}"
-        expected = sha256_bytes(first)
+    expected, problem = _stored_digest(root, path, relative, common)
+    if problem:
+        return problem
     if sha256_bytes(raw) != expected:
         return f"immutable file bytes changed: {relative}"
     if common is not None:
@@ -203,8 +243,14 @@ def protected_paths(root, relative_dir) -> set[str]:
     current = set()
     historical = None
     paths = set()
+    try:
+        snapshot = _release_records(root)
+        if snapshot is not None:
+            paths.update(name for name in snapshot['files'] if name.startswith(relative.rstrip('/') + '/'))
+    except MapError:
+        pass  # record_findings reports the invalid snapshot independently.
     if common is not None:
-        paths = _named_paths(root, "ls-files", "-z", "--", relative)
+        paths.update(_named_paths(root, "ls-files", "-z", "--", relative))
         log = ("log", "--relative", "--format=", "--name-only", "--diff-filter=A", "-z")
         current = _named_paths(root, *log, "--", relative)
         paths.update(current)
@@ -242,7 +288,30 @@ def _diff_provenance(root, base, inputs, changed_paths):
 
     commit = base.get("git")
     if not isinstance(commit, str):
-        return [], [], "Exact changed functions and correction before-images are unavailable without a Git base."
+        from .plan import function_identities
+        previous = base.get('files')
+        if not isinstance(previous, dict):
+            return [], [], 'Implementation identities and correction before-images are unknown: no source baseline.'
+        implemented, unknown = [], []
+        for relative in sorted(previous.keys() | inputs.keys()):
+            if not relative.endswith('.py') or relative.startswith('.flowguard/'):
+                continue
+            entry = previous.get(relative)
+            left = entry.get('functions') if isinstance(entry, dict) else {} if entry is None else None
+            try:
+                right = function_identities((root / relative).read_text(encoding='utf-8-sig')) if (root / relative).is_file() else {}
+            except (OSError, UnicodeError):
+                right = None
+            if not isinstance(left, dict) or right is None:
+                unknown.append(relative)
+                continue
+            for name in sorted(left.keys() | right.keys()):
+                if name in left and left[name] is None or name in right and right[name] is None:
+                    unknown.append(relative + ':' + name)
+                elif left.get(name) != right.get(name):
+                    implemented.append(relative + ':' + name)
+        note = 'Implementation provenance compares target-start normalized function identities. Correction before-images are unknown without Git.'
+        return implemented, [], note + (' Unknown function identities: ' + ', '.join(unknown) if unknown else '')
     if changed_paths is None:
         return [], [], "The Git base diff is unavailable; implementation and correction provenance are unknown."
     paths = set(changed_paths)
@@ -275,7 +344,7 @@ def _diff_provenance(root, base, inputs, changed_paths):
 
 
 def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, deleted, checked,
-                   changed_paths=None, owner_block=""):
+                   changed_paths=None, owner_block="", plan=(), rules=()):
     """Prepare a final immutable pair and the exact checked post-promotion view."""
     root = Path(root).resolve()
     prepare_directory(root, CHANGE_DIR, (".json", ".msg"))
@@ -296,10 +365,10 @@ def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, dele
     identifier = now.strftime("%Y%m%d-%H%M-") + tree[:6]
     implemented, corrections, provenance = _diff_provenance(root, base, inputs, changed_paths)
     record = dict(kind="change", goal=goal, requests=links, base=base.get("git"), tree=tree,
-                  promoted=now.isoformat(), plan=[], rules=[], acceptances=[], existing_cleared=[],
+                  promoted=now.isoformat(), plan=list(plan), rules=list(rules), acceptances=[], existing_cleared=[],
                   implemented_by=implemented, new_actions=[], corrections=corrections,
                   checked=checked + " " + provenance +
-                  " PLAN lines, rule provenance, acceptances, existing-item clearance and new-action judgments are not assessed by this record producer; their lists are empty.")
+                  " Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty.")
     raw = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     message = (goal + "\n\n" + record["checked"] +
                ("\n\n" + owner_block if owner_block else "") + "\n").encode("utf-8")
@@ -372,6 +441,28 @@ def change_records(root):
     return records
 
 
+def save_release_snapshot(root):
+    """After green gates, preserve original digests and the current release boundary."""
+    root = Path(root).resolve()
+    common = _common_directory(root)
+    if common is not None:
+        return
+    files = {}
+    for directory in (Path('.flowguard/requests'), CHANGE_DIR):
+        for relative in sorted(protected_paths(root, directory)):
+            expected, problem = _stored_digest(root, root / relative, relative, common)
+            if problem:
+                raise MapError(problem)
+            files[relative] = expected
+    captured = datetime.now(timezone.utc).isoformat()
+    records = {'captured': captured, 'files': files}
+    covered = {'captured': captured, 'changes': [identifier for identifier, _ in change_records(root)]}
+    directory = root / RELEASE_DIR
+    directory.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(directory / 'records.json', json.dumps(records, ensure_ascii=False, sort_keys=True) + '\n')
+    atomic_write_text(directory / 'covered.json', json.dumps(covered, sort_keys=True) + '\n')
+
+
 def since_release(root, records, read_git_paths):
     """Derive records and unrecorded code commits from a reachable version tag."""
     from .common import SOURCE_EXTS
@@ -379,8 +470,24 @@ def since_release(root, records, read_git_paths):
     result = _git(root, 'describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', '--match', '[0-9]*')
     tag = result.stdout.decode().strip() if result is not None and result.returncode == 0 else None
     if not tag or not re.fullmatch(r'v?[0-9]+\.[0-9]+\.[0-9]+', tag):
-        return {'release': None, 'known_from': 'unknown: no reachable version release tag; no legacy release snapshot is stored',
-                'changes': None, 'code_commits_without_record': None, 'released_requests': None}
+        try:
+            snapshot = _release_records(root)
+            covered = json.loads((root / RELEASE_DIR / 'covered.json').read_bytes())
+            if (snapshot is None or covered['captured'] != snapshot['captured']
+                    or not isinstance(covered['changes'], list)
+                    or any(not isinstance(identifier, str) or not re.fullmatch(r'[0-9]{8}-[0-9]{4}-[0-9a-f]{6}', identifier)
+                           for identifier in covered['changes'])):
+                raise ValueError('no complete matching release boundary')
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, MapError):
+            return {'release': None, 'known_from': 'unknown: no reachable version release tag or complete legacy release snapshot',
+                    'changes': None, 'code_commits_without_record': None, 'released_requests': None}
+        changes = [dict(id=identifier, goal=record['goal'], requests=record['requests'], promoted=record['promoted'])
+                   for identifier, record in records if identifier not in covered['changes']]
+        requests = sorted(Path(path).stem for path in snapshot['files']
+                          if path.startswith('.flowguard/requests/') and path.endswith('.json'))
+        return {'release': 'snapshot ' + snapshot['captured'],
+                'known_from': 'nongit release snapshot ' + snapshot['captured'] + ' and current immutable records',
+                'changes': changes, 'code_commits_without_record': None, 'released_requests': requests}
     prior = read_git_paths(root, 'ls-tree', '-r', '--name-only', '-z', tag, '--',
                            '.flowguard/changes', '.flowguard/requests')
     covered = {Path(path).stem for path in prior if path.startswith('.flowguard/changes/') and path.endswith('.json')}
@@ -411,6 +518,10 @@ def record_findings(root):
 
     root = Path(root).resolve()
     findings = []
+    try:
+        _release_records(root)
+    except MapError as error:
+        findings.append(Finding('error', 'release_snapshot_invalid', '', str(error)))
     for identifier in _record_identifiers(root):
         try:
             _change_record(root, identifier)

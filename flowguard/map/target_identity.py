@@ -84,7 +84,7 @@ def _promotion_inputs(root, data):
     )
     paths.update(
         p.relative_to(root).as_posix()
-        for directory in (".flowguard/requests", ".flowguard/changes")
+        for directory in (".flowguard/requests", ".flowguard/changes", ".flowguard/release-base")
         for p in (root / directory).rglob("*") if p.is_file()
     )
     return {path: _file_hash(root / path) for path in sorted(paths)}

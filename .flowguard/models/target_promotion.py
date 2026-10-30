@@ -27,7 +27,7 @@ USES = {
     'CheckedInputs': 'flowguard/map/target_identity.py:_promotion_inputs',
 }
 TESTED_BY = {
-    'promote_prints_owner_block': ['tests/test_requests.py:test_promote_prints_owner_block'],
+    'promote_prints_owner_block': ['tests/test_requests.py:test_promote_prints_owner_block', 'tests/test_records.py:test_real_promotion_records_checked_plan_rules_and_function_diff'],
     'promote_names_stale_components': ['tests/test_target_life_cycle.py:test_promote_names_stale_component_to_confirm'],
     'promote_makes_current_equal_merged': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
     'promote_leaves_no_target': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
@@ -60,6 +60,7 @@ class State:
     target_deletion_named: bool = True
     current_edited: bool = False
     owner_block_shown: bool = True
+    record_evidence_kept: bool = True
 
 
 def project_parent_state(state):
@@ -118,6 +119,8 @@ class Promote:
             new = replace(new, target_deletion_named=False)
         if new.status == "promoted" and self.defect == "owner_block_omits_line":
             new = replace(new, owner_block_shown=False)
+        if new.status == "promoted" and self.defect == "record_omits_evidence":
+            new = replace(new, record_evidence_kept=False)
         if event == "PROMOTE":
             new = replace(new, outcome=new.status)
         return (FunctionResult(new.status, new, label=event),)
@@ -128,8 +131,8 @@ def _holds(condition, message):
 
 
 INVARIANTS = (
-    Invariant("promote_prints_owner_block", "a promote with PLAN lines prints every original line and its old/new rule definitions",
-              lambda s,t: _holds(s.status != "promoted" or s.owner_block_shown, "owner block omitted a line or its rule definitions")),
+    Invariant("promote_prints_owner_block", "a promote prints and immutably preserves checked PLAN lines and their old/new rule provenance",
+              lambda s,t: _holds(s.status != "promoted" or s.owner_block_shown and s.record_evidence_kept, "owner block or immutable record omitted checked model evidence")),
     Invariant("promote_names_target_deletion",
               "a successful promote names the target deletion with usable staging or no-Git verification guidance",
               lambda s,t: _holds(s.status != "promoted" or s.target_deletion_named,
@@ -164,7 +167,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only", "staging_line_omits_target", "promote_overwrites_in_place_edit", "unavailable_tests_point_at_design", "owner_block_omits_line")}
+            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only", "staging_line_omits_target", "promote_overwrites_in_place_edit", "unavailable_tests_point_at_design", "owner_block_omits_line", "record_omits_evidence")}
 
 
 class RealPromotion:
@@ -283,13 +286,26 @@ class RealPromotion:
                 lines = output.getvalue().splitlines()
                 last = lines[-1] if lines else ""
                 names_deletion = "deletion of .flowguard/target/" in output.getvalue()
-                if "together: git " in last:
-                    argv = shlex.split(last.split("together: ", 1)[1])
-                    usable = argv[:3] == ["git", "-C", str(self.root.resolve())] and "add" in argv and ".flowguard" in argv
+                if last.startswith('next[commit]: '):
+                    argv = shlex.split(last.removeprefix('next[commit]: '))
+                    split = argv.index('&&') if '&&' in argv else len(argv)
+                    stage, commit = argv[:split], argv[split + 1:]
+                    usable = (stage[:3] == ["git", "-C", str(self.root.resolve())] and "add" in stage and ".flowguard" in stage
+                              and commit[:5] == ['git', '-C', str(self.root.resolve()), 'commit', '-F']
+                              and len(commit) == 6 and Path(commit[-1]).is_file())
                 else:
                     argv = shlex.split(last.removeprefix("next[check]: "))
                     usable = ("no Git worktree" in output.getvalue()
                               and argv == ["python", "-m", "flowguard", "map", "check", "--strict", "--root", str(self.root.resolve())])
+                from flowguard.map.records import change_records
+                stored = change_records(self.root)
+                record = stored[-1][1] if stored else {}
+                planned = [row['line'] for row in record.get('plan', [])]
+                evidence = {row['id']: row for row in record.get('rules', [])}
+                kept = (planned == ['changes: shelf_rule.one_loan_step by RBlock "One loan step stays bounded."',
+                                     'changes: shelf_rule.no_duplicate_step because "A duplicate step remains rejected."']
+                        and evidence.get('shelf_rule.one_loan_step', {}).get('provenance') == 'owner RBlock'
+                        and evidence.get('shelf_rule.no_duplicate_step', {}).get('new') is not None)
                 loans = next(c for c in current["components"] if c["id"] == "loans")
                 same_models = all((self.root / ".flowguard/models" / name).read_bytes() == content
                                   for name, content in self.expected_models.items())
@@ -299,6 +315,7 @@ class RealPromotion:
                                 stale_components_named=any("catalog" in line.split()[6:] for line in output.getvalue().splitlines()
                                       if line.startswith("next[confirm]: python -m flowguard map confirm ")),
                                 target_deletion_named=names_deletion and usable,
+                                record_evidence_kept=kept,
                                 owner_block_shown=("owner block (paste it unchanged into your final message):" in output.getvalue()
                                     and 'changes: shelf_rule.one_loan_step by RBlock "One loan step stays bounded."' in output.getvalue()
                                     and 'changes: shelf_rule.no_duplicate_step because "A duplicate step remains rejected."' in output.getvalue()

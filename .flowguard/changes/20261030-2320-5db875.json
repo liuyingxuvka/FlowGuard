@@ -1,0 +1,73 @@
+{
+  "kind": "change",
+  "goal": "Preserve checked model decisions and original byte facts in immutable records and nongit release snapshots",
+  "requests": [
+    {
+      "id": "R1",
+      "part": true
+    },
+    {
+      "id": "R600",
+      "part": true
+    }
+  ],
+  "base": "8cc369441a3ace28ad0f8ee8a2f45e424273b2e8",
+  "tree": "5db87593daf2c2df82652c668be02e4b291c28f6dbac0b89475414b10a1fe5af",
+  "promoted": "2026-10-30T23:20:48.426251+00:00",
+  "plan": [],
+  "rules": [
+    {
+      "id": "release_gate.advice_never_gates",
+      "old": "fp:183524c694536838fa43738ad5d843d32f945732de98350d984c31781c97d99f",
+      "new": "fp:84ac00924caf9b564da06744d54bc8215fe27f661308a736d56e871b6a5f0e21",
+      "provenance": "unjudged: no checked PLAN changes line"
+    },
+    {
+      "id": "release_gate.release_passes_only_when_every_gate_passes",
+      "old": "fp:4ef623aa09ec62dcadfd7e12522567f80f88cb77afbe4969378e240f3a551ccb",
+      "new": "fp:991d3de54911de1cdadb0c7142d3bef825f9c038c3a8ac20ff71380ca533b8a5",
+      "provenance": "unjudged: no checked PLAN changes line"
+    },
+    {
+      "id": "target_promotion.promote_prints_owner_block",
+      "old": "fp:670a86b80e5d7a806c42a651e27ca3018502eb9889e1986aa26fc32d745dfca8",
+      "new": "fp:5601e27bc6204e063a97f373d79abf72bb235c2e2626597df0e552fe98ea6f12",
+      "provenance": "unjudged: no checked PLAN changes line"
+    }
+  ],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/map/cli.py:cmd_verify",
+    "flowguard/map/plan.py:record_evidence",
+    "flowguard/map/plan.py:record_evidence.fingerprint",
+    "flowguard/map/plan.py:rule_info",
+    "flowguard/map/records.py:_diff_provenance",
+    "flowguard/map/records.py:_new_file",
+    "flowguard/map/records.py:_release_records",
+    "flowguard/map/records.py:_stored_digest",
+    "flowguard/map/records.py:integrity_problem",
+    "flowguard/map/records.py:prepare_change",
+    "flowguard/map/records.py:protected_paths",
+    "flowguard/map/records.py:record_findings",
+    "flowguard/map/records.py:save_release_snapshot",
+    "flowguard/map/records.py:since_release",
+    "flowguard/map/status.py:render_status",
+    "flowguard/map/target.py:_promotion_next",
+    "flowguard/map/target.py:promote_target",
+    "flowguard/map/target_identity.py:_promotion_inputs",
+    "tests/test_records.py:_promoted_project",
+    "tests/test_records.py:_record_refused",
+    "tests/test_records.py:_seed_git",
+    "tests/test_records.py:test_independent_branches_merge_automatic_requests_and_real_records",
+    "tests/test_records.py:test_nongit_release_snapshot_survives_cache_loss_and_rejects_edited_record",
+    "tests/test_records.py:test_real_promotion_records_checked_plan_rules_and_function_diff",
+    "tests/test_records.py:test_real_record_pair_is_write_once_before_commit_and_after_clone",
+    "tests/test_records.py:test_release_snapshot_writer_failure_has_one_failing_json_verdict",
+    "tests/test_records.py:test_release_snapshot_writer_failure_has_one_failing_json_verdict.unavailable",
+    "tests/test_target_life_cycle.py:test_promote_next_line_names_target_deletion"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty."
+}

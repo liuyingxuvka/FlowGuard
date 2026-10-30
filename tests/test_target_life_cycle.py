@@ -568,20 +568,31 @@ def test_promote_next_line_names_target_deletion(tmp_path, capsys):
     output = capsys.readouterr().out
     assert index.read_bytes() == before, "promote must leave staging to the user"
     last = output.splitlines()[-1]
-    prefix = ("next[commit]: commit the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/ "
-              "and the deletion of .flowguard/target/ together: ")
+    prefix = "next[commit]: "
     assert last.startswith(prefix), output
     command = last[len(prefix):]
-    argv = shlex.split(command)
+    combined = shlex.split(command)
+    split = combined.index('&&')
+    argv, commit = combined[:split], combined[split + 1:]
     assert argv[:3] == ["git", "-C", str(root.resolve())]
     assert "add" in argv and "-A" in argv and "--" in argv and ".flowguard" in argv
     assert "already staged.txt" not in argv
-    assert "<code paths>" not in command and " -F " not in command
+    assert "<code paths>" not in command
+    assert commit[:5] == ['git', '-C', str(root.resolve()), 'commit', '-F'] and len(commit) == 6
+    message = Path(commit[-1])
+    assert message.is_file() and message.parent == root / '.flowguard/changes'
+    assert '.flowguard/requests/' in output and '.flowguard/changes/' in output
+    git('config', 'user.name', 'probe')
+    git('config', 'user.email', 'probe@example.invalid')
     # Execute the printed POSIX text on POSIX; Windows checks the same argv.
-    result = subprocess.run(command if os.name != "nt" else argv, shell=os.name != "nt",
-                            cwd=tmp_path, capture_output=True, text=True)
+    if os.name == 'nt':
+        result = subprocess.run(argv, cwd=tmp_path, capture_output=True, text=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+        result = subprocess.run(commit, cwd=tmp_path, capture_output=True, text=True)
+    else:
+        result = subprocess.run(command, shell=True, cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
-    cached = set(git("diff", "--cached", "--name-only", "-z").split("\0"))
+    cached = set(git("diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "HEAD").split("\0"))
     assert {".flowguard/map.json", ".flowguard/models/shelf_rule.py", "shelf/catalog.py",
             "shelf/new helper.py", "tests/test_added.py", "notes [x].md", "obsolete.txt", "already staged.txt"} <= cached
     assert "scratch.txt" not in cached and "notes x.md" not in cached

@@ -176,7 +176,8 @@ def render_status(result):
         lines.append(f"REQUEST {item['id']} {item['state']} ({item['age']}); {item.get('kind', 'unknown')}: "
                      f"{item['first_line']}{suffix}{marker} [sidecar/current links, static, now]")
     history = result['since_release']
-    counts = (f"{len(history['changes'])} changes; {len(history['code_commits_without_record'])} code commits without a record"
+    commits = history['code_commits_without_record']
+    counts = (f"{len(history['changes'])} changes; " + (f"{len(commits)} code commits without a record" if commits is not None else 'code commits unknown (no Git boundary)')
               if history['changes'] is not None else 'change/commit counts unknown')
     lines.append(f"SINCE RELEASE {history['release'] or 'unknown'}: {counts} [{history['known_from']}]")
     if history['changes'] is not None:

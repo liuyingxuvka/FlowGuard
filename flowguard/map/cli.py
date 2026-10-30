@@ -515,12 +515,19 @@ def cmd_verify(root: Path, a) -> int:
             failed += int(suite.returncode != 0)
             if suite.returncode:
                 codes.append(dict(level="error", code="suite_failed", subject="suite"))
-        if not as_json:
-            print(f"verify: {'PASS' if not failed else 'FAIL'}")
-    elif not as_json:
-        print(f"verify: {'PASS' if not failed else 'FAIL'}"
-              " (only TESTED_BY tests ran; run the whole suite with python -m flowguard release --shards 4, or in CI)")
+    if not failed:
+        from .records import save_release_snapshot
+        try:
+            save_release_snapshot(root)
+        except (OSError, MapError) as error:
+            failed += 1
+            codes.append(dict(level='error', code='release_snapshot_failed', subject='release'))
+            print(f'error: {error}', file=sys.stderr)
     code = int(bool(failed))
+    if not as_json:
+        suffix = (' (only TESTED_BY tests ran; run the whole suite with python -m flowguard release --shards 4, or in CI)'
+                  if a.shards is None else '')
+        print(f"verify: {'PASS' if not failed else 'FAIL'}" + suffix)
     if as_json:
         print_verdict("release", code, codes)
     return code

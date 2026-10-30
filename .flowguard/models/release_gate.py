@@ -16,7 +16,9 @@ USES = {'Main': 'flowguard/__main__.py:main',
 KEEPS = ('expired_debt',)
 HANDOFF={'map_check':{'check':('check',{'error':'error','stale':None,'clean':'clean'})},'model_runs':{'models':'models'},'shard_suite':{'suite':'suite'}}
 TESTED_BY = {'release_passes_only_when_every_gate_passes': ['tests/test_flowguard_map_proof.py:test_strict_check_and_verify_gate',
- 'tests/test_release_gate.py:test_release_refuses_deleted_unstaged_target'],
+ 'tests/test_release_gate.py:test_release_refuses_deleted_unstaged_target',
+ 'tests/test_records.py:test_nongit_release_snapshot_survives_cache_loss_and_rejects_edited_record',
+ 'tests/test_records.py:test_release_snapshot_writer_failure_has_one_failing_json_verdict'],
  'suite_runs_only_after_clean_gates': ['tests/test_pytest_shard_runner.py:test_release_runs_the_whole_suite_in_shards'],
  'open_target_is_warned': ['tests/test_cli_main.py:test_release_warns_first_but_runs_the_same_current_models',
  'tests/test_release_gate.py:test_open_target_is_release_warning'],
@@ -33,11 +35,13 @@ class Case:
     suite:str
     expired_debt: bool = False
     as_json: bool = False
+    snapshot_fail: bool = False
 CASES=tuple(Case(target,shards,lint,check,models,suite,expired) for target in (False,True) for lint in ('clean','advice','error') for check in ('clean','error') for models in ('pass','fail') for shards,suites in ((False,('pass',)),(True,('pass','fail','partial','blocked'))) for suite in suites for expired in (False,True))
 CASES += tuple(Case(False, True, 'clean', reason, 'pass', 'pass')
                for reason in ('target_already_promoted', 'target_deleted_not_staged'))
 CASES += tuple(Case(False, False, 'clean', 'clean', models, 'pass', as_json=True)
                for models in ('pass', 'fail'))
+CASES += (Case(False, False, 'clean', 'clean', 'pass', 'pass', snapshot_fail=True),)
 @dataclass(frozen=True)
 class State:
     target_open:bool=False
@@ -54,6 +58,7 @@ class State:
     as_json: bool = False
     json_lines: int = 0
     json_verdict: str = ''
+    snapshot_failed: bool = False
 class TakeRequest:
     name='TakeRequest'
     reads=()
@@ -96,7 +101,7 @@ class Suite:
 class Verdict:
     name='Verdict'
     reads=('lint','check','models','shards','suite','expired_debt','as_json')
-    writes=('verdict','exit_code','json_lines','json_verdict')
+    writes=('verdict','exit_code','json_lines','json_verdict','snapshot_failed')
     def __init__(self,defect=''):self.defect=defect
     def apply(self, event, state):
         lint_clean = state.lint in ('clean', 'advice')
@@ -106,7 +111,9 @@ class Verdict:
                   and (not state.expired_debt or self.defect == 'expired_debt_passes_release')
                   and (state.models == 'pass' or self.defect == 'ignores_failed_model')
                   and (not state.shards or not state.suite_ran or state.suite == 'pass'))
-        return (FunctionResult(int(not passed), replace(state, verdict='pass' if passed else 'fail',
+        snapshot_failed = passed and event.snapshot_fail
+        passed = passed and (not snapshot_failed or self.defect == 'snapshot_failure_is_ignored')
+        return (FunctionResult(int(not passed), replace(state, snapshot_failed=snapshot_failed, verdict='pass' if passed else 'fail',
                                                         exit_code=int(not passed),
                                                         json_lines=(2 if self.defect == 'json_mixed_with_text' else 1) if state.as_json else 0,
                                                         json_verdict=('PASS' if passed else 'FAIL') if state.as_json else '')),)
@@ -119,9 +126,9 @@ RULES=(
            lambda s,t: not s.expired_debt or s.verdict == 'fail'),
  Invariant('advice_never_gates',
            'size and count lint findings are advice: release never fails on them and they need no accepted debt',
-           lambda s,t: s.expired_debt or s.lint != 'advice' or s.check != 'clean' or s.models != 'pass'
+           lambda s,t: s.expired_debt or s.snapshot_failed or s.lint != 'advice' or s.check != 'clean' or s.models != 'pass'
            or (s.shards and s.suite != 'pass') or s.verdict == 'pass'),
- Invariant('release_passes_only_when_every_gate_passes','release reflects checks, lint, model proof and requested suite',lambda s,t:(s.verdict=='pass')==(not s.expired_debt and s.check == 'clean' and s.lint in ('clean', 'advice') and s.models=='pass' and (not s.shards or s.suite=='pass')) and s.exit_code==int(s.verdict!='pass')),
+ Invariant('release_passes_only_when_every_gate_passes','release reflects checks, lint, model proof, requested suite and successful original-byte snapshot persistence',lambda s,t:(s.verdict=='pass')==(not s.expired_debt and not s.snapshot_failed and s.check == 'clean' and s.lint in ('clean', 'advice') and s.models=='pass' and (not s.shards or s.suite=='pass')) and s.exit_code==int(s.verdict!='pass')),
  Invariant('suite_runs_only_after_clean_gates','a suite starts only after every earlier gate passes',lambda s,t:not s.suite_ran or s.shards and not s.expired_debt and s.check == 'clean' and s.lint in ('clean', 'advice') and s.models=='pass'),
  Invariant('open_target_is_warned','the current tree release names any open target first',lambda s,t:not s.target_open or s.warned),
 )
@@ -129,7 +136,7 @@ def make(defect=''):return Explorer(Workflow((TakeRequest(),Warn(defect),CheckGa
 def build_explorer():return make()
 def broken_variants():
     return {name: make(name) for name in ('ignores_failed_model', 'runs_suite_after_failure',
-                                        'silent_on_open_target', 'advice_gates_release', 'expired_debt_passes_release', 'json_mixed_with_text')}
+                                        'silent_on_open_target', 'advice_gates_release', 'expired_debt_passes_release', 'json_mixed_with_text', 'snapshot_failure_is_ignored')}
 def conformance():
     import json
     import shutil
@@ -138,12 +145,12 @@ def conformance():
     from contextlib import nullcontext
     from unittest.mock import patch
     from flowguard.__main__ import main
-    from flowguard.map import lint
+    from flowguard.map import lint, records
     from flowguard.map.cli import _context, main as map_main
     from _target_fixture import make_project, call_target
 
     facts = []
-    for case in ('clean', 'failed', 'target', 'suite_blocked', 'advice', 'expired', 'target_already_promoted', 'target_deleted_not_staged', 'json', 'json_failed'):
+    for case in ('clean', 'failed', 'target', 'suite_blocked', 'advice', 'expired', 'target_already_promoted', 'target_deleted_not_staged', 'json', 'json_failed', 'snapshot_failed'):
         with TemporaryDirectory(prefix='fg-release-gate-') as directory:
             root = make_project(Path(directory))
             if case in ('failed', 'suite_blocked', 'json_failed'):
@@ -165,6 +172,9 @@ def conformance():
                 data['accepted_debts'] = [dict(code='untested_component', component='catalog',
                     reason='covered through loans', expires=(date.today() - timedelta(days=1)).isoformat())]
                 path.write_text(json.dumps(data))
+            if case == 'clean':
+                from flowguard.map.requests import store_request
+                store_request(root, b'Keep the original release request.\n', identifier='RRelease')
             with redirect_stdout(StringIO()):
                 map_main(['confirm', 'all', '--root', str(root)])
             if case == 'target':
@@ -182,7 +192,7 @@ def conformance():
                 if case == 'target_deleted_not_staged':
                     shutil.rmtree(root / '.flowguard/target')
             args = ['release', '--root', str(root)]
-            if case in ('json', 'json_failed'):
+            if case in ('json', 'json_failed', 'snapshot_failed'):
                 args += ['--json']
             if case in ('suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged'):
                 args += ['--shards', '2']
@@ -190,7 +200,9 @@ def conformance():
                                  max_responsibilities=1, max_fan_out=0)
             output = StringIO()
             fixture_limits = patch.object(lint, 'Limits', return_value=limits) if case == 'advice' else nullcontext()
-            with fixture_limits, redirect_stdout(output), redirect_stderr(output):
+            snapshot_failure = patch.object(records, 'save_release_snapshot', side_effect=OSError('snapshot unavailable'), create=True) if case == 'snapshot_failed' else nullcontext()
+            errors = StringIO()
+            with fixture_limits, snapshot_failure, redirect_stdout(output), redirect_stderr(errors):
                 try:
                     code = main(args)
                 except SystemExit as error:
@@ -202,9 +214,9 @@ def conformance():
                              if finding.code in {'large_component', 'large_file',
                                                  'too_many_responsibilities', 'high_fan_out'}]
             text = output.getvalue()
-            failing = case in ('failed', 'suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged', 'json_failed')
+            failing = case in ('failed', 'suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged', 'json_failed', 'snapshot_failed')
             valid = code == int(failing) and ('verify: FAIL' if failing else 'verify: PASS') in text
-            if case in ('json', 'json_failed'):
+            if case in ('json', 'json_failed', 'snapshot_failed'):
                 try:
                     payload = json.loads(text)
                     valid = (len(text.splitlines()) == 1 and code == int(failing)
@@ -215,6 +227,14 @@ def conformance():
                     valid = False
             else:
                 valid = valid and not any(line.startswith('{') for line in text.splitlines())
+            if case == 'snapshot_failed':
+                valid = valid and any(row['code'] == 'release_snapshot_failed' for row in payload['codes']) and 'snapshot unavailable' in errors.getvalue()
+            if case == 'clean':
+                snapshot = root / '.flowguard/release-base/records.json'
+                covered = root / '.flowguard/release-base/covered.json'
+                present = snapshot.is_file() and covered.is_file()
+                shutil.rmtree(root / '.flowguard/cache', ignore_errors=True)
+                valid = valid and present and records.integrity_problem(root, '.flowguard/requests/RRelease.md') is None
             if case == 'target':
                 valid = valid and text.startswith('warning: target "open plan" exists:')
             if case in ('suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged'):

@@ -38,11 +38,12 @@ def _terms(value):
             for word in re.findall(r'[a-z]+|[\u4e00-\u9fff]+', value.lower())}
 
 
-def rule_info(root, target, view):
+def rule_info(root, target, view, *, current_data=None, only_target=True):
     """Target rule identities and reads from the existing static model owner."""
     info = {}
-    for entry in model_registry(root, view.data, view=view).entries:
-        if entry.kind != 'contract' or Path(entry.path).name not in target.models:
+    data = view.data if view is not None else current_data
+    for entry in model_registry(root, data, view=view).entries:
+        if entry.kind != 'contract' or only_target and Path(entry.path).name not in target.models:
             continue
         path = resolve_model_path(root, entry.path, view=view)
         if path is None:
@@ -56,6 +57,34 @@ def rule_info(root, target, view):
             words = set().union(*(_terms(item) for item in static.rule_read_names(name)), _terms(name))
             info[entry.id + '.' + name] = dict(definition=static.rule_defs.get(name), terms=words)
     return info
+
+
+def record_evidence(root, current, target, view, items):
+    """Keep the checked lines and the same static rule identities used by PLAN."""
+    before = rule_info(root, target, None, current_data=current, only_target=False)
+    after = rule_info(root, target, view, only_target=False)
+    models = [{entry.id for entry in model_registry(root, data, view=planned).entries
+               if entry.kind == 'contract'} for data, planned in ((current, None), (view.data, view))]
+    def fingerprint(info, name, known_models):
+        if name in info:
+            definition = info[name]['definition']
+            return 'fp:' + sha256_bytes(definition.encode()) if definition is not None else 'unknown: static definition unavailable'
+        model = name.rpartition('.')[0]
+        return None if model not in known_models or any(key.rpartition('.')[0] == model for key in info) else 'unknown: static rule names unavailable'
+    origins = {}
+    for item in items:
+        if item['kind'] == 'changes':
+            name = item['model'] + '.' + item['rule']
+            origin = 'owner ' + item['request'] if item['request'] else 'because ' + item['reason']
+            origins.setdefault(name, []).append(origin)
+    rules = []
+    for name in sorted(before.keys() | after.keys() | origins.keys()):
+        old, new = fingerprint(before, name, models[0]), fingerprint(after, name, models[1])
+        if old != new or name in origins:
+            rules.append(dict(id=name, old=old, new=new,
+                              provenance='; '.join(dict.fromkeys(origins[name])) if name in origins else
+                              'unjudged: no checked PLAN changes line'))
+    return [dict(line=item['line'], added_after_code=None, cleared=[]) for item in items], rules
 
 
 def function_identities(text: str) -> dict[str, str | None] | None:
