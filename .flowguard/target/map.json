@@ -1,0 +1,160 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "Resume legacy work from derived static status",
+  "components": [
+    {
+      "id": "map-read",
+      "layer": "map",
+      "summary": "Show static code/model relations and a derived, read-only recovery screen with open plans, request provenance, Git/record history and an absolute next command; never import or explore project models.",
+      "responsibilities": [
+        "show the tree, Mermaid and digests with static facets and coverage; find owners by word form and rank architecture defects and strengths; compare current and target rules and known-bad definitions by name",
+        "find owners by word form and rank architecture defects and strengths",
+        "compare current and target facets and list the rules a target changes",
+        "show the model rules and flows each component relies on; count process reasons and close review suggestions only with active accepted debts",
+        "derive static recovery facts from the open PLAN, immutable requests/records and supplied read-only Git facts"
+      ],
+      "files": [
+        "flowguard/map/views.py",
+        "flowguard/map/facets.py",
+        "flowguard/map/review.py",
+        "flowguard/map/digest.py",
+        "flowguard/map/view_format.py",
+        "flowguard/map/view_target.py",
+        "flowguard/map/view_field.py",
+        "flowguard/map/status.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-inventory",
+        "map-requests"
+      ],
+      "tests": [
+        "tests/test_flowguard_target.py",
+        "tests/test_map_read.py",
+        "tests/test_read_component.py",
+        "tests/test_read_field.py",
+        "tests/test_read_find.py",
+        "tests/test_relation_graph.py",
+        "tests/test_requests.py",
+        "tests/test_status.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-requests",
+      "layer": "map",
+      "summary": "Preserve immutable requests and records, check PLAN evidence and expose the same derived request states to read and status.",
+      "responsibilities": [
+        "preserve original owner request bytes and sidecars",
+        "protect immutable tool-written files",
+        "derive visible request facts without mutable status",
+        "parse owner-linked PLAN changes and verify explicitly planned function changes against their real baseline"
+      ],
+      "files": [
+        "flowguard/map/requests.py",
+        "flowguard/map/records.py",
+        "flowguard/map/plan.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/requests.py:store_request",
+        "flowguard/map/requests.py:request_findings",
+        "flowguard/map/requests.py:request_rows"
+      ],
+      "depends_on": [
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_requests.py"
+      ],
+      "models": [],
+      "state": [
+        "original owner request bytes and immutable sidecars",
+        "independent first-write byte identities",
+        "immutable successful change records"
+      ],
+      "side_effects": [
+        "writes request files, change record pairs, raw-byte guards and independent written receipts"
+      ]
+    },
+    {
+      "id": "cli",
+      "layer": "interface",
+      "summary": "Dispatch public commands with stable exits, typed verdicts and advice; supply read-only Git access for the static status screen and keep hook errors nonblocking.",
+      "responsibilities": [
+        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
+        "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
+        "annotate planned target breakage and ARCH lines in check, change and release; show fingerprint-format reminders in change",
+        "run release with the system root counted and optional whole-suite shards; reject expired debts in strict release checks and display explicit debt deadlines; reject already-applied committed targets and target deletions not staged, preserving the warning for real open targets",
+        "run bound tests and, on request, the checks an edit needs",
+        "write templates and their aliases into the active target when one exists",
+        "hint splits for large scan drafts and say when discovery finds nothing"
+      ],
+      "files": [
+        "flowguard/__main__.py",
+        "flowguard/map/__init__.py",
+        "flowguard/map/__main__.py",
+        "flowguard/map/cli.py"
+      ],
+      "entrypoints": [
+        "flowguard/__main__.py:main",
+        "flowguard/map/cli.py:main"
+      ],
+      "state": [],
+      "side_effects": [
+        "prints to stdout",
+        "writes .flowguard/map.json on scan, deps --write and confirm"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-impact",
+        "map-inventory",
+        "map-proof",
+        "map-read",
+        "map-requests",
+        "map-target",
+        "public-api",
+        "templates"
+      ],
+      "tests": [
+        "tests/test_cli.py",
+        "tests/test_cli_change.py",
+        "tests/test_cli_main.py",
+        "tests/test_cli_map.py",
+        "tests/test_cli_map_check.py",
+        "tests/test_cli_map_lint.py",
+        "tests/test_cli_map_scan.py",
+        "tests/test_cli_read.py",
+        "tests/test_cli_template.py",
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_proof.py",
+        "tests/test_packaged_cli_surface.py",
+        "tests/test_public_templates.py",
+        "tests/test_pytest_shard_runner.py",
+        "tests/test_read_command.py",
+        "tests/test_map_check.py",
+        "tests/test_release_gate.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": [],
+  "requests": [
+    {
+      "id": "R1",
+      "part": true
+    },
+    {
+      "id": "R600",
+      "part": true
+    }
+  ]
+}
