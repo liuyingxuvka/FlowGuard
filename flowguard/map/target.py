@@ -289,6 +289,9 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
             continue
         if finding.level == "info":
             continue
+        if finding.code == "responsibility_reworded":
+            add("warnings", _finding_node(finding, tree), finding.code, finding.message)
+            continue
         if (finding.code in {"test_missing", "model_test_broken"} and not tests
                 and _finding_node(finding, tree).removeprefix("model ") not in code_changed):
             add("warnings", _finding_node(finding, tree), finding.code, finding.message)

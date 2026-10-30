@@ -167,6 +167,62 @@ def test_target_small_promotion_preserves_map_and_model_bytes(tmp_path):
     assert loans["status"] == "draft" and "fingerprint" not in loans
 
 
+def test_reworded_duty_is_not_owner_dropped(tmp_path, capsys):
+    from flowguard.map import target as native
+
+    helpers = _target_life_cycle_fixture_helpers("target_findings")
+    root = helpers["make_project"](tmp_path)
+    current = _load_map(root)
+    current["components"][0]["responsibilities"] = ["place an order once"]
+    _write_map(root, current)
+    code, output, errors = _run(root, capsys, "map", "confirm", "all")
+    assert code == 0 and not errors, (output, errors)
+    path = _target_with(root, capsys, "reword the order duty", "component:loans")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["components"][0]["responsibilities"] = ["place each order exactly once"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _run(root, capsys, "target", "check")
+    assert code == 0 and not errors, (output, errors)
+    assert "owner_dropped" not in output
+    assert any(line.startswith("WARN ") and "responsibility_reworded:" in line
+               for line in output.splitlines()), output
+    assert ("responsibility 'place an order once' of component loans is reworded as "
+            "'place each order exactly once' (advice, not a gate)") in output
+
+    data["components"][0]["responsibilities"] = ["render the shop page"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _run(root, capsys, "target", "check")
+    assert code == 1 and not errors, (output, errors)
+    assert any(line.startswith("ERROR ") and "owner_dropped: responsibility 'place an order once'" in line
+               for line in output.splitlines()), output
+    data["components"][0]["responsibilities"] = ["place each order exactly once"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert native.promote_target(root) == 0
+    assert not (root / ".flowguard/target").exists()
+
+
+def test_existing_similar_duty_does_not_hide_a_dropped_responsibility(tmp_path):
+    from flowguard.map import target as native
+
+    helpers = _target_life_cycle_fixture_helpers("target_findings")
+    root = helpers["make_project"](tmp_path)
+    current = _load_map(root)
+    current["components"][0]["responsibilities"] = [
+        "place an order once", "place each order exactly once",
+    ]
+    _write_map(root, current)
+    helpers["stage_target"](root, with_model=False)
+    path = root / ".flowguard/target/map.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["components"][0]["responsibilities"] = ["place each order exactly once"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    report = native.check_target(root)
+    assert any(f.code == "owner_dropped" and "responsibility 'place an order once'" in f.message
+               for f in report.errors), report
+    assert not any(f.code == "responsibility_reworded"
+                   for f in report.errors + report.todos + report.warnings), report
+
+
 def test_dropping_a_responsibility_is_owner_dropped(tmp_path, capsys):
     """A responsibility needs a new owner or an explicit responsibility:<text> retirement."""
     import json

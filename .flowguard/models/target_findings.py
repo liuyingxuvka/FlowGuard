@@ -35,12 +35,31 @@ IMPLEMENTED_BY = {
     "Classify": "flowguard/map/target.py:check_target",
 }
 USES = {
+    'KeepOwners': 'flowguard/map/lint.py:dropped_owner_findings',
     'CmdCheck': 'flowguard/map/cli.py:cmd_check',
     'Main': 'flowguard/map/cli.py:main',
     'RunModelInProcess': 'flowguard/map/proof.py:run_model_in_process',
     'TargetMain': 'flowguard/map/target.py:main',
 }
-TESTED_BY = {'port_change_needs_parent': ['tests/test_target_life_cycle.py:test_port_change_without_parent_is_an_error', 'tests/test_target_life_cycle.py:test_changed_port_fails_short_form_consumer'], 'design_mistakes_are_errors': ['tests/test_target_life_cycle.py:test_dropping_a_responsibility_is_owner_dropped'], 'missing_code_is_todo': ['tests/test_target_life_cycle.py:test_target_check_reports_unwritten_code_as_todo'], 'only_changed_subjects_move': ['tests/test_target_life_cycle.py:test_copied_but_unchanged_entry_stays_an_error'], 'strict_never_moves': ['tests/test_target_life_cycle.py:test_change_marks_only_planned_breakage_and_keeps_tests'], 'old_findings_do_not_block': ['tests/test_target_life_cycle.py:test_old_findings_of_unchanged_models_do_not_block'], 'warnings_never_block': ['tests/test_target_life_cycle.py:test_target_check_warns_about_debts_it_makes_stale'], 'noop_target_is_an_error': ['tests/test_target_life_cycle.py:test_unchanged_target_is_target_noop']}
+TESTED_BY = {
+    'port_change_needs_parent': [
+        'tests/test_target_life_cycle.py:test_port_change_without_parent_is_an_error',
+        'tests/test_target_life_cycle.py:test_changed_port_fails_short_form_consumer',
+    ],
+    'design_mistakes_are_errors': [
+        'tests/test_target_life_cycle.py:test_dropping_a_responsibility_is_owner_dropped',
+        'tests/test_target_life_cycle.py:test_existing_similar_duty_does_not_hide_a_dropped_responsibility',
+    ],
+    'missing_code_is_todo': ['tests/test_target_life_cycle.py:test_target_check_reports_unwritten_code_as_todo'],
+    'only_changed_subjects_move': ['tests/test_target_life_cycle.py:test_copied_but_unchanged_entry_stays_an_error'],
+    'strict_never_moves': ['tests/test_target_life_cycle.py:test_change_marks_only_planned_breakage_and_keeps_tests'],
+    'old_findings_do_not_block': ['tests/test_target_life_cycle.py:test_old_findings_of_unchanged_models_do_not_block'],
+    'warnings_never_block': [
+        'tests/test_target_life_cycle.py:test_target_check_warns_about_debts_it_makes_stale',
+        'tests/test_target_life_cycle.py:test_reworded_duty_is_not_owner_dropped',
+    ],
+    'noop_target_is_an_error': ['tests/test_target_life_cycle.py:test_unchanged_target_is_target_noop'],
+}
 
 
 @dataclass(frozen=True)
@@ -64,6 +83,7 @@ CASES = (
     Case("design_failure", "real known-bad Explorer wrongly passes", True, "target", "error"),
     Case("code_gap", "real anchor disagrees with a sound regular contract", True, "target", "todo"),
     Case("owner_dropped", "real old catalog promise loses its owner", True, "target", "error"),
+    Case("owner_reworded", "a responsibility reworded with the same words is advice, not owner_dropped", True, "target", "warn"),
     Case("entrypoint_owner", "loan component claims a catalog file anchor", True, "target", "error"),
     Case("unbound_invariant", "real valid regular contract lacks TESTED_BY", True, "target", "warn"),
     Case("responsibility_dropped", "real old loans duty is on no target component and not retired", True, "target", "error"),
@@ -82,6 +102,7 @@ CASES = (
 
 # Each known-bad variant routes one case to the wrong bucket.
 DEFECTS = {
+    "reworded_is_owner_dropped": ("owner_reworded", "error"),
     "sibling_start_blocks": ("child_start_new_value", "error"),
     "consumer_failure_is_old": ("port_consumer_unhandled", "warn"),
     "parent_missing_is_todo": ("port_parent_missing", "todo"),
@@ -161,8 +182,8 @@ INVARIANTS = (
           "map check --strict downgraded a current error"),
     _rule("old_findings_do_not_block", {"old_finding_in_unchanged_model"}, lambda state: state.bucket == "warn",
           "an old finding of a model the target does not change blocked the target"),
-    _rule("warnings_never_block", {"unbound_invariant", "debt_made_stale", "child_start_new_value"}, lambda state: state.bucket == "warn",
-          "an untested rule, a stale debt or a sibling that starts from a new parent value is a warning, never a block"),
+    _rule("warnings_never_block", {"unbound_invariant", "debt_made_stale", "child_start_new_value", "owner_reworded"}, lambda state: state.bucket == "warn",
+          "an untested rule, a stale debt, a sibling start or a reworded responsibility is a warning, never a block"),
 )
 
 
@@ -176,7 +197,25 @@ def build_explorer():
 
 
 def broken_variants():
-    return {'parent_missing_is_todo':_explorer('parent_missing_is_todo'), 'unplanned_error_downgraded':_explorer('unplanned_error_downgraded'), 'strict_error_downgraded':_explorer('strict_error_downgraded'), 'design_error_as_todo':_explorer('design_error_as_todo'), 'code_gap_as_error':_explorer('code_gap_as_error'), 'dropped_owner_as_todo':_explorer('dropped_owner_as_todo'), 'entrypoint_owner_as_todo':_explorer('entrypoint_owner_as_todo'), 'untested_warning_as_gate':_explorer('untested_warning_as_gate'), 'dropped_responsibility_ignored':_explorer('dropped_responsibility_ignored'), 'untied_goal_accepted':_explorer('untied_goal_accepted'), 'unchanged_subject_downgraded':_explorer('unchanged_subject_downgraded'), 'old_finding_blocks':_explorer('old_finding_blocks'), 'stale_debt_hidden':_explorer('stale_debt_hidden'), 'passes_unchanged_copy':_explorer('passes_unchanged_copy'), 'consumer_failure_is_old':_explorer('consumer_failure_is_old'), 'sibling_start_blocks':_explorer('sibling_start_blocks')}
+    return {
+        'reworded_is_owner_dropped': _explorer('reworded_is_owner_dropped'),
+        'parent_missing_is_todo': _explorer('parent_missing_is_todo'),
+        'unplanned_error_downgraded': _explorer('unplanned_error_downgraded'),
+        'strict_error_downgraded': _explorer('strict_error_downgraded'),
+        'design_error_as_todo': _explorer('design_error_as_todo'),
+        'code_gap_as_error': _explorer('code_gap_as_error'),
+        'dropped_owner_as_todo': _explorer('dropped_owner_as_todo'),
+        'entrypoint_owner_as_todo': _explorer('entrypoint_owner_as_todo'),
+        'untested_warning_as_gate': _explorer('untested_warning_as_gate'),
+        'dropped_responsibility_ignored': _explorer('dropped_responsibility_ignored'),
+        'untied_goal_accepted': _explorer('untied_goal_accepted'),
+        'unchanged_subject_downgraded': _explorer('unchanged_subject_downgraded'),
+        'old_finding_blocks': _explorer('old_finding_blocks'),
+        'stale_debt_hidden': _explorer('stale_debt_hidden'),
+        'passes_unchanged_copy': _explorer('passes_unchanged_copy'),
+        'consumer_failure_is_old': _explorer('consumer_failure_is_old'),
+        'sibling_start_blocks': _explorer('sibling_start_blocks'),
+    }
 
 
 OLD_CONTRACT = '''from pathlib import Path
@@ -314,6 +353,24 @@ def observe_case(case):
             target["remove"] = ["component:catalog"]
             target["components"][0]["depends_on"] = []
             write_json(target_path, target)
+        elif case.name == "owner_reworded":
+            target["components"][0]["responsibilities"] = ["maintain the active loans"]
+            write_json(target_path, target)
+            report = native.check_target(root)
+            matches = [
+                (bucket, finding.code)
+                for bucket, findings in (("error", report.errors), ("todo", report.todos), ("warn", report.warnings))
+                for finding in findings
+                if finding.code in {"owner_dropped", "responsibility_reworded"}
+                and finding.message.startswith("responsibility 'maintain loans'")
+            ]
+            if len(matches) != 1:
+                observed = "absent-or-conflicting:" + repr(matches)
+            else:
+                observed, code = matches[0]
+                if observed == "warn" and code != "responsibility_reworded":
+                    observed = "wrong-warning-code:" + code
+            return observed, repr(report)
         elif case.name == "responsibility_dropped":
             target["components"][0]["responsibilities"] = ["lend one book at a time"]
             write_json(target_path, target)

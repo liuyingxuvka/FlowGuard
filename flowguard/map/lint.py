@@ -44,6 +44,14 @@ class Limits:
     max_fan_out: int = 8
 
 
+RESPONSIBILITY_SIMILARITY_MIN = 0.6
+
+
+def _responsibility_similarity(left: set[str], right: set[str]) -> float:
+    union = left | right
+    return len(left & right) / len(union) if union else 0.0
+
+
 def find_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
     """Strongly connected components with more than one member (Tarjan)."""
     index: dict[str, int] = {}
@@ -198,6 +206,7 @@ def dropped_owner_findings(current_data: dict, merged_data: dict, target) -> lis
     """Keep each changed owner's promises, unless the target explicitly retires them."""
     changed = {component["id"] for component in target.data.get("components", [])}
     changed.update(target.remove.get("component", set()))
+    merged = {component["id"]: component for component in merged_data["components"]}
     out = []
     for kind, field in (("entrypoint", "entrypoints"), ("state", "state"), ("side_effect", "side_effects"),
                         ("responsibility", "responsibilities")):
@@ -210,8 +219,22 @@ def dropped_owner_findings(current_data: dict, merged_data: dict, target) -> lis
         for component in current_data["components"]:
             if component["id"] not in changed:
                 continue
+            candidates = []
+            if kind == "responsibility":
+                previous = {identity(value) for value in component.get(field, [])}
+                candidates = [(value, identity(value))
+                              for value in merged.get(component["id"], {}).get(field, [])]
+                candidates = [(value, words) for value, words in candidates if words not in previous]
             for value in component.get(field, []):
                 if identity(value) not in retained and identity(value) not in removed:
+                    if candidates:
+                        replacement, words = max(candidates,
+                                                 key=lambda pair: _responsibility_similarity(identity(value), pair[1]))
+                        if _responsibility_similarity(identity(value), words) >= RESPONSIBILITY_SIMILARITY_MIN:
+                            out.append(Finding("warn", "responsibility_reworded", component["id"],
+                                               f"responsibility {value!r} of component {component['id']} "
+                                               f"is reworded as {replacement!r} (advice, not a gate)"))
+                            continue
                     out.append(Finding("error", "owner_dropped", component["id"],
                                        f"{kind} {value!r} of component {component['id']} is on no component "
                                        f"of the target; keep it on the component that takes over, or list "
@@ -356,8 +379,8 @@ def run_lint(
     for i, (ca, ra, ta) in enumerate(rows):
         for cb, rb, tb in rows[i + 1 :]:
             if ca != cb:
-                similarity = len(ta & tb) / len(ta | tb)
-                if 0.6 <= similarity < 1.0:
+                similarity = _responsibility_similarity(ta, tb)
+                if RESPONSIBILITY_SIMILARITY_MIN <= similarity < 1.0:
                     out.append(
                         Finding(
                             "warn",
