@@ -1,7 +1,0 @@
-{
-  "schema": "flowguard.target.v1",
-  "goal": "FG-605: promote's staging line names the deletion of the target",
-  "components": [],
-  "flows": [],
-  "remove": []
-}

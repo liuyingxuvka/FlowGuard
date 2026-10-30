@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: target promote names the target deletion and prints an absolute staging command for the checked files; without Git it keeps preservation guidance and an executable verification step.
+
 - Projects using FlowGuard: rewording a component responsibility is advice (responsibility_reworded), no longer owner_dropped.
 
 - Projects using FlowGuard: accepted debts need a nonempty reason and an explicit date or project-version expiry. Expired debts restore their findings and review suggestions; strict checks and release reject them, and map lint --debts shows their deadlines.

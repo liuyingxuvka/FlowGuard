@@ -448,6 +448,86 @@ def test_target_check_runs_no_pytest_and_promote_runs_one_check(tmp_path, monkey
     assert native.promote_target(tmp_path) == 0 and len(calls) == 1
 
 
+def test_promote_next_line_names_target_deletion(tmp_path, capsys):
+    import shlex
+    import subprocess
+    from flowguard.map import target as native
+
+    helpers = _target_life_cycle_fixture_helpers("target_findings")
+    root = helpers["make_project"](tmp_path / "项目 space")
+    current = _load_map(root)
+    current["components"][1]["files"].append("shelf/new*.py")
+    _write_map(root, current)
+    for name in ("obsolete.txt", "already staged.txt", "notes [x].md"):
+        (root / name).write_text("old text\n", encoding="utf-8")
+    def git(*args):
+        return subprocess.run(["git", "-C", str(root), *args], check=True,
+                              capture_output=True, text=True).stdout
+    git("init", "-q")
+    git("add", ".")
+    git("-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "seed")
+    helpers["stage_target"](root)
+    target_model = root / ".flowguard/target/models/shelf_rule.py"
+    target_model.write_text(target_model.read_text() +
+                           '\nTESTED_BY = {"one_loan_step": ["tests/test_added.py:test_step"]}\n')
+    git("add", ".flowguard/target")
+    git("-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "target")
+    (root / "shelf/catalog.py").write_text("def capacity():\n    return 1\n\n# current change\n")
+    (root / "shelf/new helper.py").write_text("def extra():\n    return 'new helper'\n")
+    (root / "tests/test_added.py").write_text("from shelf.loans import advance\ndef test_step():\n    assert advance(0) == 1\n")
+    (root / "notes [x].md").write_text("changed text\n", encoding="utf-8")
+    (root / "notes x.md").write_text("unrelated note\n", encoding="utf-8")
+    (root / "scratch.txt").write_text("unrelated\n", encoding="utf-8")
+    (root / "obsolete.txt").unlink()
+    git("rm", "-q", "already staged.txt")
+    index = root / ".git/index"
+    before = index.read_bytes()
+    capsys.readouterr()
+    assert native.promote_target(root) == 0
+    output = capsys.readouterr().out
+    assert index.read_bytes() == before, "promote must leave staging to the user"
+    last = output.splitlines()[-1]
+    prefix = ("next: commit the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/ "
+              "and the deletion of .flowguard/target/ together: ")
+    assert last.startswith(prefix), output
+    command = last[len(prefix):]
+    argv = shlex.split(command)
+    assert argv[:3] == ["git", "-C", str(root.resolve())]
+    assert "add" in argv and "-A" in argv and "--" in argv and ".flowguard" in argv
+    assert "already staged.txt" not in argv
+    assert "<code paths>" not in command and " -F " not in command
+    # Execute the printed POSIX text on POSIX; Windows checks the same argv.
+    result = subprocess.run(command if os.name != "nt" else argv, shell=os.name != "nt",
+                            cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    cached = set(git("diff", "--cached", "--name-only", "-z").split("\0"))
+    assert {".flowguard/map.json", ".flowguard/models/shelf_rule.py", "shelf/catalog.py",
+            "shelf/new helper.py", "tests/test_added.py", "notes [x].md", "obsolete.txt", "already staged.txt"} <= cached
+    assert "scratch.txt" not in cached and "notes x.md" not in cached
+    assert not git("ls-files", "--", ".flowguard/target")
+    assert not any(path.startswith(".flowguard/cache/") for path in cached)
+
+
+def test_promote_without_git_keeps_usable_next_step(tmp_path, capsys, monkeypatch):
+    import shlex
+    from flowguard.__main__ import main
+
+    root = tmp_path / "gitless project"
+    root.mkdir()
+    native = _fg403_clean_target(root)
+    capsys.readouterr()
+    assert native.promote_target(root) == 0
+    output = capsys.readouterr().out
+    assert "no Git worktree" in output and "deletion of .flowguard/target/" in output
+    argv = shlex.split(output.splitlines()[-1].removeprefix("next: "))
+    assert argv[:4] == ["python", "-m", "flowguard", "map"]
+    assert argv[4:] == ["check", "--strict", "--root", str(root.resolve())]
+    assert "git -C" not in output and " -F " not in output
+    assert main(["map", "confirm", "all", "--root", str(root)]) == 0
+    monkeypatch.chdir(tmp_path)
+    assert main(argv[3:]) == 0
+
+
 def test_promote_names_stale_component_to_confirm(tmp_path, capsys):
     from flowguard.map.cli import cmd_confirm
     from types import SimpleNamespace

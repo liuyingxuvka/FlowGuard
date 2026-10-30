@@ -580,6 +580,37 @@ def render_target_report(report: TargetReport) -> str:
 
 
 
+def _promotion_next(root, data, inputs, selected_tests):
+    """Print reviewed file operands; never stage them or infer code directories."""
+    import shlex
+    from .impact_history import read_git_paths
+    from .mapfile import ignore_patterns
+
+    files = "the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/ and the deletion of .flowguard/target/ together"
+    worktree = _git(root, "rev-parse", "--is-inside-work-tree")
+    reason = "no Git worktree"
+    if worktree is not None and worktree.returncode == 0 and worktree.stdout.strip() == b"true":
+        try:
+            indexed = set(read_git_paths(root, "ls-files", "--cached", "-z", "--", "."))
+            args = ["diff", "--relative", "--no-renames", "--name-only", "-z"]
+            changed = set(read_git_paths(root, *args, *(["HEAD"] if _git_head(root) else []), "--", "."))
+            untracked = set(read_git_paths(root, "ls-files", "--others", "--exclude-standard", "-z", "--", "."))
+            patterns = [pattern for component in data["components"]
+                        for field in ("files", "tests") for pattern in component.get(field, [])]
+            owned_new = {path for path in untracked if path in inputs
+                         and (matches_any(path, patterns) or path in selected_tests)}
+            paths = sorted(path for path in (changed & indexed) | owned_new
+                           if not Path(path).is_absolute() and ".." not in Path(path).parts
+                           and not path.startswith(".flowguard/")
+                           and not matches_any(path, ignore_patterns(data)))
+            argv = ["git", "-C", str(root), "--literal-pathspecs", "add", "-A", "--", ".flowguard", *paths]
+            return ["next: commit " + files + ": " + shlex.join(argv)]
+        except (OSError, subprocess.CalledProcessError):
+            reason = "Git staging paths unavailable"
+    return ["note: " + reason + "; preserve " + files,
+            "next: " + shlex.join(["python", "-m", "flowguard", "map", "check", "--strict", "--root", str(root)])]
+
+
 def promote_target(root: Path, *, jobs: int = 1) -> int:
     """Check once, revalidate the checked bytes, then apply a prepared write plan."""
     root = root.resolve()
@@ -659,6 +690,8 @@ def promote_target(root: Path, *, jobs: int = 1) -> int:
         if problems:
             print("promote refused: " + "; ".join(problems))
             return 1
+        selected_tests = set(impact.tests) | {node.split("::", 1)[0] for node in tested}
+        next_lines = _promotion_next(root, merged, inputs, selected_tests)
         backup = root / TARGET_RELDIR / ".replaced"
         for rel in [".flowguard/map.json", *[".flowguard/models/" + name for name in model_bytes], *deleted]:
             source = root / rel
@@ -702,7 +735,8 @@ def promote_target(root: Path, *, jobs: int = 1) -> int:
             print(line)
         if drafts:
             print("next: python -m flowguard map confirm " + " ".join(drafts))
-        print("next: commit (the code, .flowguard/models/ and .flowguard/map.json together)")
+        for line in next_lines:
+            print(line)
         return 0
     except OSError as exc:
         print(f"promote stopped: {exc}; the target is intact in .flowguard/target/ and the replaced files are in .flowguard/target/.replaced/; copy them back into .flowguard/ to restore, then run python -m flowguard target promote again", file=sys.stderr)

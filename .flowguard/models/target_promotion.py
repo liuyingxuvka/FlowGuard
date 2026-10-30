@@ -23,7 +23,18 @@ IMPLEMENTED_BY = {"Promote": "flowguard/map/target.py:promote_target"}
 USES = {
     'Main': 'flowguard/map/cli.py:main',
 }
-TESTED_BY = {'promote_names_stale_components': ['tests/test_target_life_cycle.py:test_promote_names_stale_component_to_confirm'], 'promote_makes_current_equal_merged': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'promote_leaves_no_target': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'changed_components_become_draft': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'refusal_shows_findings': ['tests/test_target_life_cycle.py:test_refused_promote_prints_the_report'], 'changed_inputs_refuse_promotion': ['tests/test_target_life_cycle.py:test_promote_refuses_inputs_changed_after_its_check']}
+TESTED_BY = {
+    'promote_names_stale_components': ['tests/test_target_life_cycle.py:test_promote_names_stale_component_to_confirm'],
+    'promote_makes_current_equal_merged': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
+    'promote_leaves_no_target': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
+    'changed_components_become_draft': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
+    'refusal_shows_findings': ['tests/test_target_life_cycle.py:test_refused_promote_prints_the_report'],
+    'changed_inputs_refuse_promotion': ['tests/test_target_life_cycle.py:test_promote_refuses_inputs_changed_after_its_check'],
+    'promote_names_target_deletion': [
+        'tests/test_target_life_cycle.py:test_promote_next_line_names_target_deletion',
+        'tests/test_target_life_cycle.py:test_promote_without_git_keeps_usable_next_step',
+    ],
+}
 
 
 @dataclass(frozen=True)
@@ -40,6 +51,7 @@ class State:
     outcome: str = ""
     findings_shown: bool = True
     stale_components_named: bool = True
+    target_deletion_named: bool = True
 
 
 def project_parent_state(state):
@@ -85,6 +97,8 @@ class Promote:
                 new = replace(new, draft=False)
         if new.status == "promoted" and self.defect == "names_drafts_only":
             new = replace(new, stale_components_named=False)
+        if new.status == "promoted" and self.defect == "staging_line_omits_target":
+            new = replace(new, target_deletion_named=False)
         if event == "PROMOTE":
             new = replace(new, outcome=new.status)
         return (FunctionResult(new.status, new, label=event),)
@@ -95,6 +109,10 @@ def _holds(condition, message):
 
 
 INVARIANTS = (
+    Invariant("promote_names_target_deletion",
+              "a successful promote names the target deletion with usable staging or no-Git verification guidance",
+              lambda s,t: _holds(s.status != "promoted" or s.target_deletion_named,
+                                 "the promotion guidance omitted the target deletion or a usable next step")),
     Invariant("promote_names_stale_components", "confirmation guidance includes changed confirmed components",
               lambda s,t: _holds(s.status != "promoted" or s.stale_components_named, "stale component missing from confirmation")),
     Invariant("refusal_shows_findings", "refusal shows the actual design error and changes no current bytes",
@@ -125,7 +143,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only")}
+            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only", "staging_line_omits_target")}
 
 
 class RealPromotion:
@@ -191,6 +209,17 @@ class RealPromotion:
                 native.check_target = original
             current = load_map(self.root)
             if code == 0:
+                import shlex
+                lines = output.getvalue().splitlines()
+                last = lines[-1] if lines else ""
+                names_deletion = "deletion of .flowguard/target/" in output.getvalue()
+                if "together: git " in last:
+                    argv = shlex.split(last.split("together: ", 1)[1])
+                    usable = argv[:3] == ["git", "-C", str(self.root.resolve())] and "add" in argv and ".flowguard" in argv
+                else:
+                    argv = shlex.split(last.removeprefix("next: "))
+                    usable = ("no Git worktree" in output.getvalue()
+                              and argv == ["python", "-m", "flowguard", "map", "check", "--strict", "--root", str(self.root.resolve())])
                 loans = next(c for c in current["components"] if c["id"] == "loans")
                 same_models = all((self.root / ".flowguard/models" / name).read_bytes() == content
                                   for name, content in self.expected_models.items())
@@ -199,6 +228,7 @@ class RealPromotion:
                                       if line.startswith("next: python -m flowguard map confirm ")),
                                 stale_components_named=any("catalog" in line.split()[6:] for line in output.getvalue().splitlines()
                                       if line.startswith("next: python -m flowguard map confirm ")),
+                                target_deletion_named=names_deletion and usable,
                                 current_map_revision=state.target_revision if current == self.expected else -1,
                                 current_model_revision=state.expected_model_revision if same_models else -1)
             else:

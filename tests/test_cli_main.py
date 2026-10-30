@@ -346,7 +346,8 @@ def test_target_promote_real_shelf_lifecycle_without_dropping_bindings(tmp_path,
     code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
     assert code == 0 and not errors and output.startswith('promoted "'), (output, errors)
     assert "next: python -m flowguard map confirm loans" in output
-    assert "next: commit (the code, .flowguard/models/ and .flowguard/map.json together)" in output
+    assert "deletion of .flowguard/target/ together" in output
+    assert str(root.resolve()) in output.splitlines()[-1]
     assert not directory.exists()
     assert (root / ".flowguard/models/lending.py").read_bytes() == checked_model
     loans = next(component for component in _load_map(root)["components"] if component["id"] == "loans")

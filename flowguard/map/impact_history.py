@@ -152,18 +152,25 @@ def _commands_for_tests(data, previous, tests):
             blocked.append(f"{test}: no executable test command; declare test_commands or retire the test")
     return test_commands, blocked
 
-def _read_git_paths(root, *arguments):
+def read_git_paths(root, *arguments):
     """Run Git against a disposable index: diff may refresh even with optional locks off."""
     import shutil
-    where=subprocess.run(['git','-C',str(root),'rev-parse','--git-path','index'],capture_output=True,check=True)
-    source=Path(os.fsdecode(where.stdout).strip())
-    if not source.is_absolute(): source=root/source
+    where = subprocess.run(['git', '-C', str(root), 'rev-parse', '--git-path', 'index'],
+                           capture_output=True, check=True)
+    source = Path(os.fsdecode(where.stdout).strip())
+    if not source.is_absolute():
+        source = root / source
     with tempfile.TemporaryDirectory(prefix='flowguard-read-index-') as folder:
-        index=Path(folder)/'index'
-        if source.exists(): shutil.copy2(source,index)  # Preserve Git's racy-clean timestamp window.
-        env=dict(os.environ,GIT_OPTIONAL_LOCKS='0',GIT_INDEX_FILE=str(index))
-        result=subprocess.run(['git','-C',str(root),*arguments],env=env,capture_output=True,check=True)
+        index = Path(folder) / 'index'
+        if source.exists():
+            shutil.copy2(source, index)  # Preserve Git's racy-clean timestamp window.
+        env = dict(os.environ, GIT_OPTIONAL_LOCKS='0', GIT_INDEX_FILE=str(index))
+        result = subprocess.run(['git', '-C', str(root), *arguments], env=env,
+                                capture_output=True, check=True)
         return [os.fsdecode(item) for item in result.stdout.split(b'\0') if item]
+
+
+_read_git_paths = read_git_paths  # Compatibility for existing map-impact imports.
 
 def _literal_impact(root, data, inv, tree, changed, base):
     """Fresh source roles add consumers to the same function/test selection, never cache sites."""

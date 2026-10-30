@@ -386,7 +386,7 @@
         "classify merged-tree design errors, semantic rule changes, moved rules and native gaps before or after code changes; run the changed target models own bound tests and reject unreceived escalated outputs",
         "mark only the breakage of a changed subject as moving to target",
         "refuse a target that changes nothing, drops a promise or leaves it untied",
-        "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions",
+        "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions; print absolute literal-file staging guidance including target deletion, or honest no-Git preservation and verification guidance, without changing the Git index",
         "warn about earlier findings, stale active debts, untested rules, fingerprint-format changes and siblings that ignore a newly received parent field; evaluate version debts against the actual project root",
         "include function-selected models and tests in the single promotion check"
       ],
@@ -429,7 +429,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:b306d38921b81b82e827f760543a6ee2032c9ff58624700a58ae22dc02428b19"
+      "fingerprint": "sha256:02f49576eabc337b34a15c646af4511ff4293d66996bd52c812e7e020d2ac01a"
     },
     {
       "id": "map-proof",
@@ -778,7 +778,7 @@
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests. Present selected pytest work as counted summaries, with exact commands on explicit verbose requests. Name literal code sites before model sites, ignore moved values by source role, and select newly mapped tests for settings-only map edits.",
+      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests. Present selected pytest work as counted summaries, with exact commands on explicit verbose requests. Name literal code sites before model sites, ignore moved values by source role, and select newly mapped tests for settings-only map edits. Expose one public disposable-index Git path reader for other owners; retain the legacy internal name as an alias.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
@@ -812,7 +812,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9c523e8b5943dd9a717d02127c4566aa1358e1158b77ec38b2b19f185c619373"
+      "fingerprint": "sha256:aab4d3ad914f5a439b33011aea8c8df9d4967adba4530f4fbc88e4acfb964625"
     }
   ],
   "flows": [
@@ -972,7 +972,7 @@
     ".flowguard/models/target_add.py": "b38f68d292ca7996cf46785aa6ccafe0f3f30a5b0e00d9f5329de74e4f4ed120",
     ".flowguard/models/target_findings.py": "b34b516a55aedc4b4b58b1b8356df1d6811f76a54e984e10370360ad5f4c9c59",
     ".flowguard/models/target_life_cycle.py": "4da3ade6494392f3ab962bd184f30a1f56d03608d6c4d591473c7ef0958aa16e",
-    ".flowguard/models/target_promotion.py": "c325132800112e80117adfc2102b3a8bed185c51a0c9a46755434034e43f4845",
+    ".flowguard/models/target_promotion.py": "9885f15642d37dd4c7e8adab3ed3d800208c239ab797fbadf4ac29b26824cee9",
     ".flowguard/models/test_binding.py": "01f20ff65edb30f6c9bb2d53628704362f379656838734aad4978bcb608fee3f",
     ".flowguard/models/test_selection.py": "b09e7005f72ab0e2bff84821e091d898ccaf7acd8bbbfc749b8ed254b89d7b86",
     ".flowguard/models/test_tree.py": "da3f88507f04301d0e93c874c9daaf1a874ba2324f4849548ca69812b2e2e6dd",

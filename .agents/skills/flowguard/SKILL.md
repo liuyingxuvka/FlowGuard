@@ -31,7 +31,7 @@ Models, tests and code grow together. Split a model that is too big, staged or d
 3. Model change: `python -m flowguard target start "<goal>"`, `python -m flowguard target add <model>`; edit its `.flowguard/target/models/<model>.py` copy.
 4. `python -m flowguard target check`: fix ERROR; `port_changed_parent_missing` / `port_changed_consumer_unhandled`: `target add` the named model and make it receive the value. Before code: `EXPECTED GAP`; except `moved rules only` or `NO GAP` (no code for that rule; commit `records existing behaviour: <rule>`). Commit the target if planned.
 5. Write code and bound tests; check until no TO-DO remains: after code `target check` prints `GAP CLOSED`/`GAP OPEN` and runs the target models' bound tests.
-6. `python -m flowguard target promote`: one full check; its `map confirm`; commit code/models/map.
+6. `python -m flowguard target promote`: one full check; its `map confirm`; commit what its last guidance names, the deletion of `.flowguard/target/` included. Run its absolute `git -C <root> add -A` staging command (POSIX shell quoting), then commit; without Git, preserve those files/deletions and run the printed verification command.
 
 change and target promote run a test with a model only when the test is in that model's TESTED_BY or calls the changed function directly; a test that checks a model through the command line must be bound, or only CI runs it (the also reached: line counts them).
 
