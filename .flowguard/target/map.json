@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-601: child processes import the project first and only the flowguard package of FlowGuard",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
