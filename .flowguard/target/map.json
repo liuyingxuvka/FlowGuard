@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-602: size and count lint findings are advice that never gates and needs no debt",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
