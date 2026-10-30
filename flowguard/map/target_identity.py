@@ -7,7 +7,7 @@ import subprocess
 from .common import normalize_newlines
 from .inventory import build_inventory, function_digests
 from .mapfile import ignore_patterns, load_map
-from .targetfile import TARGET_RELDIR
+from .targetfile import TARGET_RELDIR, model_helper_digests
 
 _FIELD_CODES = {
     "pattern_dead": ("files",),
@@ -79,9 +79,8 @@ def _promotion_inputs(root, data):
     paths.update(
         p.relative_to(root).as_posix()
         for p in (root / TARGET_RELDIR).rglob("*")
-        if p.is_file() and p.name != "base.json"
+        if p.is_file()
     )
-    paths.discard(TARGET_RELDIR + "/base.json")
     return {path: _file_hash(root / path) for path in sorted(paths)}
 
 
@@ -98,8 +97,8 @@ def _git_head(root):
 
 
 def _record_base(root):
-    """Store input identities for design wording and extra tests, never proof results."""
-    data = {"schema": "flowguard.target-base.v1"}
+    """Capture design inputs and complete helper source state, never proof results."""
+    data = {"schema": "flowguard.target-base.v1", "helpers": model_helper_digests(root)}
     if _git_head(root):
         data["git"] = _git(root, "rev-parse", "HEAD").stdout.decode().strip()
     else:

@@ -54,6 +54,8 @@ change and target promote run a test with a model only when the test is in that 
 | Model before code (a process or preset) | target | rules, known-bad, reasoned debt; anchor on `debt_stale` |
 | `model_edited_outside_target` | target | `target add <model>`, redo there; already in the target: move the edit into its copy and restore the current file with the printed absolute `git -C` command (or the original bytes without Git) |
 
+Helper edits belong in the target copy too. If an older target lacks a helper baseline, save both current and target intent before dropping and reopening it; checks never invent its original helper state.
+
 When a model or check stopped a wrong edit, add `Caught-by: <model or check>` to the commit message.
 
 ## The tree

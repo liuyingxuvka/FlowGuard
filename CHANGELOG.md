@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Projects using FlowGuard: editing a current model while its target copy exists is an error; promotion refuses to overwrite the edit and points to the current file, target copy and restoration command.
+- Projects using FlowGuard: editing a current model or helper while its target copy exists is an error; promotion refuses to overwrite the edit and points to both files. New targets also protect helper additions and deletions; older targets with an unknown helper baseline ask you to preserve both versions and reopen safely.
 
 - Projects using FlowGuard: strict checks and release reject committed targets that are already promoted and target files deleted without staging; open targets remain a release warning, and Gitless no-op targets only warn.
 

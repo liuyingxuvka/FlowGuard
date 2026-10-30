@@ -383,7 +383,8 @@ def test_target_check_reports_unwritten_code_as_todo(tmp_path, capsys):
     assert not any(f.code == "anchor_broken" for f in report.errors), report
 
 
-def test_promote_refuses_inputs_changed_after_its_check(tmp_path, capsys, monkeypatch):
+@pytest.mark.parametrize("relative", ["models/shelf_rule.py", "base.json"])
+def test_promote_refuses_inputs_changed_after_its_check(tmp_path, capsys, monkeypatch, relative):
     """promote_target checks once; when a checked input changes afterwards it refuses and writes nothing."""
     from pathlib import Path
     from flowguard.map import target as native
@@ -397,8 +398,9 @@ def test_promote_refuses_inputs_changed_after_its_check(tmp_path, capsys, monkey
 
     def check_then_edit(checked_root, **options):
         report = original(checked_root, **options)
-        model = Path(checked_root) / ".flowguard/target/models/shelf_rule.py"
-        model.write_text(model.read_text(encoding="utf-8") + "\n# edited after the check\n", encoding="utf-8")
+        path = Path(checked_root) / ".flowguard/target" / relative
+        suffix = "\n# edited after the check\n" if path.suffix == ".py" else "\n "
+        path.write_text(path.read_text(encoding="utf-8") + suffix, encoding="utf-8")
         return report
 
     monkeypatch.setattr(native, "check_target", check_then_edit)
@@ -620,15 +622,9 @@ def test_target_check_runs_own_bound_tests_after_code(tmp_path, monkeypatch):
     assert "GAP CLOSED one:" in output and "native.py" in output
     assert "bound tests: ran for one" in output
     base = tmp_path / ".flowguard/target/base.json"
-    base.write_text("not JSON: promotion must not read this input identity")
-    original_open = Path.open
-
-    def forbid_base_read(path, *args, **kwargs):
-        assert path != base, "promotion read base.json"
-        return original_open(path, *args, **kwargs)
-
-    with monkeypatch.context() as scoped:
-        scoped.setattr(Path, "open", forbid_base_read)
-        assert native.promote_target(tmp_path) == 0
+    # A damaged design identity is not an execution result. With no staged
+    # helpers, fresh proof still succeeds; promotion now watches its bytes for races.
+    base.write_text("not JSON: this is no stored execution verdict")
+    assert native.promote_target(tmp_path) == 0
     assert len(calls) == 2
     assert not (tmp_path / ".flowguard/target/base.json").exists()

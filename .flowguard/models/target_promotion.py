@@ -24,6 +24,7 @@ USES = {
     'Main': 'flowguard/map/cli.py:main',
     'ModelEdits': 'flowguard/map/check.py:model_edit_findings',
     'ModelDigests': 'flowguard/map/mapfile.py:model_digests',
+    'CheckedInputs': 'flowguard/map/target_identity.py:_promotion_inputs',
 }
 TESTED_BY = {
     'promote_names_stale_components': ['tests/test_target_life_cycle.py:test_promote_names_stale_component_to_confirm'],

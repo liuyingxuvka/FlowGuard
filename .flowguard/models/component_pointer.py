@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 from flowguard.explorer import Explorer
 from flowguard.map.facts import CodeFactsReport, Fact
-from _pointer_fixture import model_edit_cases
+from _pointer_fixture import helper_edit_cases, model_edit_cases
 
 MODEL_ID = 'component_pointer'
 PARENT = 'map-file'
@@ -25,9 +25,12 @@ USES = {
     'RunCheck': 'flowguard/map/check.py:run_check',
     'TargetAdd': 'flowguard/map/target.py:add_to_target',
     'TargetMain': 'flowguard/map/target.py:main',
+    'HelperCapture': 'flowguard/map/targetfile.py:model_helper_digests',
+    'HelperBaseline': 'flowguard/map/targetfile.py:target_helper_baseline',
+    'RecordBase': 'flowguard/map/target_identity.py:_record_base',
 }
 HANDOFF = {'release_neutral_fingerprint': {'fingerprint': 'fingerprint'}}
-TESTED_BY = {'clean_means_current': ['tests/test_component_pointer.py:test_stale_after_owned_file_changes_and_confirm_clears_it'], 'confirmed_means_described': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm'], 'model_edited_outside_target_is_named': ['tests/test_model_edits.py:test_map_check_names_model_edited_outside_target', 'tests/test_model_edits.py:test_in_place_edit_of_staged_model_refused']}
+TESTED_BY = {'clean_means_current': ['tests/test_component_pointer.py:test_stale_after_owned_file_changes_and_confirm_clears_it'], 'confirmed_means_described': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm'], 'model_edited_outside_target_is_named': ['tests/test_model_edits.py:test_map_check_names_model_edited_outside_target', 'tests/test_model_edits.py:test_in_place_edit_of_staged_model_refused', 'tests/test_model_edits.py:test_in_place_edit_of_staged_helper_refused', 'tests/test_model_edits.py:test_staged_helper_presence_and_legacy_identity']}
 NOT_MODELED = {'flowguard/__main__.py:main': 'CLI dispatch; command tests cover it.',
                'flowguard/map/cli.py:main': 'Map dispatch; command tests cover it.',
                'flowguard/map/inventory.py:build_inventory': 'Static inventory, covered by encoding and cache regressions.',
@@ -43,6 +46,7 @@ class State:
     named: bool = False
     action: str = ''
     staged: bool = False
+    helper: bool = False
     @property
     def model_edited(self): return self.model_edit
     @property
@@ -83,8 +87,8 @@ class Compare:
 class Report:
     name = 'Report'
     accepted_input_type = ReportEvent
-    reads = ('status', 'fingerprint', 'model_edit', 'staged')
-    writes = ('described', 'model_edit', 'freshness', 'named', 'action', 'staged')
+    reads = ('status', 'fingerprint', 'model_edit', 'staged', 'helper')
+    writes = ('described', 'model_edit', 'freshness', 'named', 'action', 'staged', 'helper')
     def __init__(self, defect=''): self.defect = defect
     def apply(self, event, state):
         if event.kind == 'describe':
@@ -93,12 +97,16 @@ class Report:
             return (FunctionResult('edited', replace(state, model_edit=True, action='edit_model')),)
         if event.kind == 'edit_staged_model':
             return (FunctionResult('edited', replace(state, model_edit=True, staged=True, action='edit_staged_model')),)
+        if event.kind == 'edit_staged_helper':
+            return (FunctionResult('edited', replace(state, model_edit=True, staged=True, helper=True, action='edit_staged_helper')),)
         if event.kind == 'target':
-            return (FunctionResult('owned_by_target', replace(state, model_edit=False, staged=False, action='target')),)
+            return (FunctionResult('owned_by_target', replace(state, model_edit=False, staged=False, helper=False, action='target')),)
         freshness = 'draft' if state.status == 'draft' else 'clean' if state.fingerprint == 'current' else state.fingerprint
         if self.defect == 'check_ignores_changes' and state.status == 'confirmed': freshness = 'clean'
         named = state.model_edit and self.defect != 'ignores_in_place_model_edit'
         if state.staged and self.defect == 'staged_edit_invisible':
+            named = False
+        if state.helper and self.defect == 'staged_helper_edit_invisible':
             named = False
         return (FunctionResult((freshness, 'model_edited_outside_target' if named else ''),
                 replace(state, freshness=freshness, named=named, action='check')),)
@@ -121,7 +129,7 @@ INVARIANTS = (
               and s.last_report != "model_edited_outside_target" else InvariantResult.pass_()),
 )
 EVENTS = (ConfirmEvent(), CompareEvent('current'), CompareEvent('stale'), CompareEvent('migrate'),
-          ReportEvent('describe'), ReportEvent('edit_model'), ReportEvent('edit_staged_model'), ReportEvent('target'), ReportEvent('check'))
+          ReportEvent('describe'), ReportEvent('edit_model'), ReportEvent('edit_staged_model'), ReportEvent('edit_staged_helper'), ReportEvent('target'), ReportEvent('check'))
 
 def make(defect=''):
     return Explorer(Workflow((Confirm(defect), Compare(), Report(defect)), mode='choice'),
@@ -129,7 +137,7 @@ def make(defect=''):
                     invariants=INVARIANTS, max_sequence_length=3, progress_steps=0)
 def build_explorer(): return make()
 def broken_variants():
-    return {name: make(name) for name in ('confirm_without_description', 'check_ignores_changes', 'ignores_in_place_model_edit', 'staged_edit_invisible')}
+    return {name: make(name) for name in ('confirm_without_description', 'check_ignores_changes', 'ignores_in_place_model_edit', 'staged_edit_invisible', 'staged_helper_edit_invisible')}
 
 def conformance():
     from types import SimpleNamespace
@@ -168,4 +176,6 @@ def conformance():
             facts.append(Fact(case, received == case and reported == ('clean' if case == 'current' else case), repr((received,codes))))
     guarded = model_edit_cases()
     facts.append(Fact('model_file_target_guard', guarded.ok, guarded.format_text()))
+    helper_guarded = helper_edit_cases()
+    facts.append(Fact('helper_file_target_guard', helper_guarded.ok, helper_guarded.format_text()))
     return CodeFactsReport(tuple(facts))

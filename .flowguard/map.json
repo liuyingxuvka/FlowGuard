@@ -288,7 +288,7 @@
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs. Own shared static call-graph reachability and model selection. Inspect actual target/index/HEAD facts once per operation; distinguish strict target validation from inspection of fulfilled committed removals.",
+      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs. Own shared static call-graph reachability and model selection. Inspect actual target/index/HEAD facts once per operation; distinguish strict target validation from inspection of fulfilled committed removals. Preserve target-start helper source identities and distinguish unknown legacy baselines.",
       "responsibilities": [
         "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity; classify explicit debt reasons and date or project-root version deadlines once per evaluation without persisting a verdict",
         "resolve component parents in one layer without loops",
@@ -339,7 +339,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:e27d22781934c173330bc631a3c1055954cba2003e5c48c32b2418ad1042ae53"
+      "fingerprint": "sha256:c30c8b2a21cef14d412ef3038116a6c88b02fa278c99c6240e939490fafffd5e"
     },
     {
       "id": "map-discover",
@@ -381,7 +381,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Manage one target, classify current findings and native gaps, and promote only fresh complete code/model/test checks. Keep responsibility rewording advice in the warning bucket.",
+      "summary": "Manage one target, classify current findings and native gaps, and promote only fresh complete code/model/test checks. Keep responsibility rewording advice in the warning bucket. Capture helpers when starting a target and watch the baseline bytes during promotion.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and native gaps before or after code changes; run the changed target models own bound tests and reject unreceived escalated outputs",
@@ -431,7 +431,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:02f49576eabc337b34a15c646af4511ff4293d66996bd52c812e7e020d2ac01a"
+      "fingerprint": "sha256:3d79c904474d22c71de8262bbe1a76a4b6c2f1d329b1bee04525b95b16dc177f"
     },
     {
       "id": "map-proof",
@@ -696,7 +696,7 @@
     {
       "id": "map-check",
       "layer": "map",
-      "summary": "Check architecture, implementation coverage, model bindings, size and declared replay calls against the current source. Report shape counts as advice without accepted-debt coverage. Treat a newly worded responsibility on the same owner as advice at the shared similarity threshold; retain genuine dropped-owner errors. Reject current-model identity drift while a target copy exists in both check modes, preserving the edit and target on refused promotion.",
+      "summary": "Check architecture, implementation coverage, model bindings, size and declared replay calls against the current source. Report shape counts as advice without accepted-debt coverage. Treat a newly worded responsibility on the same owner as advice at the shared similarity threshold; retain genuine dropped-owner errors. Reject current-model identity drift while a target copy exists in both check modes, preserving the edit and target on refused promotion. Refuse staged-helper edits, additions or deletions, preserving intent when a legacy helper baseline is unknown.",
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity. Enforce target commit-seam failures only in strict mode, retaining working-mode and Gitless no-op warnings.",
         "report one owner per entrypoint, responsibility, state and side effect",
@@ -735,7 +735,7 @@
         ".flowguard/models/private_use.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:7b5a820c55841598690ef97cb7a89cd8bc10d20f052d1038b69cf0ba4bddb15a"
+      "fingerprint": "sha256:fbfa0bb62e4fd7f2dd22a600b05b6a43716ed61850b50472945db51e08026e05"
     },
     {
       "id": "map-read",
@@ -940,7 +940,7 @@
     ".flowguard/models/anchor_watch.py": "3eb7b22687c506dbbd7ae24db0bc0181547a30eb7b8972168f470c85e97ef16e",
     ".flowguard/models/change_command.py": "d605b0162e2690da931477bd1d08616201d26c36525c5c67b878f8d05594439b",
     ".flowguard/models/change_selection.py": "1d06075c320ff551e87cc5153629a9c9fa2886cfe7c32af8ac157d246725bc97",
-    ".flowguard/models/component_pointer.py": "c4d566f8ec7084a68ce3f2d740af81d9ec2885a5b05556928283629ea546266a",
+    ".flowguard/models/component_pointer.py": "49bcc6584e9f3977ccfc42990c7b746affe9c8195ffe71e2954759e64c2a9219",
     ".flowguard/models/discovery.py": "9a6e98e058dadc6ce2bacacb64d4f9d805f47a326ac84523a1a4e3fce760832e",
     ".flowguard/models/edge_coverage.py": "d704e0678b313aa3eec0b492f09dcd2612f3129137da284f37286a41b3b49ca9",
     ".flowguard/models/engine_explore.py": "aa460232d21b3ce47a41404e553c1d733aec394a2ebf7df8e22f125ec84e832f",
@@ -974,7 +974,7 @@
     ".flowguard/models/target_add.py": "b38f68d292ca7996cf46785aa6ccafe0f3f30a5b0e00d9f5329de74e4f4ed120",
     ".flowguard/models/target_findings.py": "b34b516a55aedc4b4b58b1b8356df1d6811f76a54e984e10370360ad5f4c9c59",
     ".flowguard/models/target_life_cycle.py": "4da3ade6494392f3ab962bd184f30a1f56d03608d6c4d591473c7ef0958aa16e",
-    ".flowguard/models/target_promotion.py": "bc8e359f671b1c5a24b26e4282c779e50a9f617e07e07495529a3828c42c1c62",
+    ".flowguard/models/target_promotion.py": "532c9a23f200f8d3cdd794c9e8f79c483d32cd16050b9cba822edb01227b2dcb",
     ".flowguard/models/test_binding.py": "01f20ff65edb30f6c9bb2d53628704362f379656838734aad4978bcb608fee3f",
     ".flowguard/models/test_selection.py": "b09e7005f72ab0e2bff84821e091d898ccaf7acd8bbbfc749b8ed254b89d7b86",
     ".flowguard/models/test_tree.py": "da3f88507f04301d0e93c874c9daaf1a874ba2324f4849548ca69812b2e2e6dd",

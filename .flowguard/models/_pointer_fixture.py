@@ -43,3 +43,27 @@ def model_edit_cases():
                                                        for f in findings) and copied.read_bytes() == intended,
                           repr(findings)))
         return CodeFactsReport(tuple(facts))
+
+
+def helper_edit_cases():
+    from flowguard.map.check import model_edit_findings
+    from flowguard.map.target import start_target
+    with TemporaryDirectory(prefix='fg-helper-edit-') as directory:
+        root = Path(directory)
+        (root / '.flowguard/models').mkdir(parents=True)
+        data = dict(schema='flowguard.map.v1', components=[])
+        (root / '.flowguard/map.json').write_text(json.dumps(data))
+        path = root / '.flowguard/models/_local.py'
+        pristine = b'VALUE = "original"\n'
+        path.write_bytes(pristine)
+        with redirect_stdout(StringIO()):
+            started = start_target(root, 'Preserve helper intent')
+        copied = root / '.flowguard/target/models/_local.py'
+        copied.write_bytes(pristine)
+        facts = [Fact('captured_helper_unchanged', started == 0 and not model_edit_findings(root, data, 'warn'))]
+        path.write_bytes(b'VALUE = "current intent"\n')
+        findings = model_edit_findings(root, data, 'warn')
+        facts.append(Fact('staged_helper_named_error', any(f.code == 'model_edited_outside_target' and f.level == 'error'
+                                                        for f in findings) and copied.read_bytes() == pristine,
+                          repr(findings)))
+        return CodeFactsReport(tuple(facts))

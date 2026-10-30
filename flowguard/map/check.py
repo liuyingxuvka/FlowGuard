@@ -270,37 +270,56 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
 
 
 def model_edit_findings(root, data, level):
-    import shlex
     from .common import content_digest
-    from .targetfile import load_target
-    if "model_digests" not in data:
-        return []
+    from .targetfile import load_target, model_helper_digests, target_helper_baseline
     try:
         target = load_target(root)
     except MapError:
         target = None
     staged = set(target.models) if target is not None else set()
-    saved = data["model_digests"]
+    saved = data.get("model_digests", {})
     current = {p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py")
-               if p.is_file() and not p.name.startswith("_")}
+               if p.is_file() and not p.name.startswith("_")} if "model_digests" in data else set()
     out = []
     for logical in sorted(current | set(saved)):
         path = root / logical
         if not path.is_file() or logical not in saved or content_digest(path) != saved[logical]:
             if Path(logical).name in staged:
-                absolute_root = Path(root).resolve()
-                current_path = absolute_root / logical
-                target_path = absolute_root / target.models[Path(logical).name]
-                restore = shlex.join(['git', '-C', str(absolute_root), '--literal-pathspecs',
-                                      'checkout', '--', str(current_path)])
-                out.append(Finding("error", "model_edited_outside_target", "",
-                                   f"model_edited_outside_target: {current_path} was edited in place while the target holds a copy; "
-                                   f"promote would overwrite it. Move the edit into the target copy ({target_path}) "
-                                   f"and restore the current file (with Git: {restore}), or drop the edit"))
+                out.append(_staged_model_edit(root, logical, target))
                 continue
             out.append(Finding(level, "model_edited_outside_target", "",
                 f"model_edited_outside_target: {logical} changed since the last target promote; "
                 "python -m flowguard target add " + Path(logical).stem +
                 " moves the edit into the target (with git the current file is restored from HEAD; "
                 "without git the old model is lost: write the change in the target and restore the old rules by hand)"))
+    helpers = sorted(name for name in staged if name.startswith("_"))
+    if helpers:
+        baseline = target_helper_baseline(root)
+        current_helpers = model_helper_digests(root)
+        for name in helpers:
+            logical = ".flowguard/models/" + name
+            if baseline is None:
+                unchanged = logical in current_helpers and current_helpers[logical] == content_digest(root / target.models[name])
+            else:
+                unchanged = baseline.get(logical) == current_helpers.get(logical)
+            if not unchanged:
+                out.append(_staged_model_edit(root, logical, target, unknown=baseline is None))
     return out
+
+
+def _staged_model_edit(root, logical, target, *, unknown=False):
+    import shlex
+    absolute_root = Path(root).resolve()
+    current_path = absolute_root / logical
+    target_path = absolute_root / target.models[Path(logical).name]
+    if unknown:
+        message = (f"model_edited_outside_target: {current_path} has no captured helper baseline; "
+                   f"the target copy ({target_path}) could overwrite an edit or recreate an intentional deletion. "
+                   "Save both current and target intent, then drop and reopen the target to capture the current helper baseline")
+    else:
+        restore = shlex.join(['git', '-C', str(absolute_root), '--literal-pathspecs',
+                              'checkout', '--', str(current_path)])
+        message = (f"model_edited_outside_target: {current_path} was edited in place while the target holds a copy; "
+                   f"promote would overwrite it. Move the edit into the target copy ({target_path}) "
+                   f"and restore the current file (with Git: {restore}), or drop the edit")
+    return Finding("error", "model_edited_outside_target", "", message)

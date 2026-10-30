@@ -9,7 +9,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .common import git_paths, read_source, tokens
+from .common import content_digest, git_paths, read_source, tokens
 from .mapfile import COMPONENT_KEYS, ID_RE, MapError, model_registry, read_model_contract, validate_map
 
 TARGET_RELDIR = ".flowguard/target"
@@ -90,6 +90,31 @@ def load_target(root: Path) -> Target | None:
                 removed[kind].add(name)
     models = {p.name: p.relative_to(root).as_posix() for p in sorted((directory / "models").glob("*.py")) if p.is_file()}
     return Target(data.get("goal", ""), data, models, removed)
+
+
+def model_helper_digests(root: Path) -> dict[str, str]:
+    """Complete current helper source identities; missing keys record absence."""
+    return {path.relative_to(root).as_posix(): content_digest(path)
+            for path in sorted((root / ".flowguard/models").glob("_*.py")) if path.is_file()}
+
+
+def target_helper_baseline(root: Path) -> dict[str, str] | None:
+    """A captured complete helper set, or unknown for older/damaged target bases."""
+    try:
+        data = json.loads((root / TARGET_RELDIR / "base.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    helpers = (data.get("helpers") if isinstance(data, dict)
+               and data.get("schema") == "flowguard.target-base.v1" else None)
+    if not isinstance(helpers, dict):
+        return None
+    if any(not isinstance(path, str) or not path.startswith(".flowguard/models/_")
+           or path.count("/") != 2 or not path.endswith(".py") or "\\" in path
+           or not isinstance(digest, str) or len(digest) != 64
+           or any(character not in "0123456789abcdef" for character in digest)
+           for path, digest in helpers.items()):
+        return None
+    return helpers
 
 
 def merge_target_map(current_data: dict, target: Target) -> dict:
