@@ -111,6 +111,7 @@ jobs:
           tests/test_read_command.py
           tests/test_release_gate.py
           tests/test_release_neutral_fingerprint.py
+          tests/test_requests.py
           tests/test_scan_coverage.py
           tests/test_skill_package.py
           tests/test_target_add.py

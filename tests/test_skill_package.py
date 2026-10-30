@@ -33,7 +33,7 @@ def _parse_documented_command_arguments(command: str) -> None:
     verb, rest = words[0], words[1:]
     if verb == "map":
         parser = build_parser()
-    elif verb in {"read", "change", "release", "template", "target"}:
+    elif verb in {"read", "change", "release", "template", "target", "req"}:
         parser = _verb_parser(verb)
     else:
         raise ValueError(f"no documented argument parser for {verb!r}")
@@ -92,7 +92,7 @@ class SkillPackageTests(unittest.TestCase):
         subs = next(a for a in build_parser()._actions if isinstance(a, argparse._SubParsersAction))
         map_cmds, templates = set(subs.choices), set(template_factories())
         target_cmds = set(next(a for a in target_parser()._actions if isinstance(a, argparse._SubParsersAction)).choices)
-        verbs = {"read", "change", "release", "map", "template", "target", "--help", "--version"}
+        verbs = {"read", "change", "release", "map", "template", "target", "req", "--help", "--version"}
         docs = [ROOT / "README.md", ROOT / "README.zh-CN.md", ROOT / "AGENTS.md",
                 *sorted((ROOT / "docs").glob("*.md")), *sorted(SKILL.rglob("*.md"))]
         problems = []

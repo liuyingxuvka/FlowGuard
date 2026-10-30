@@ -57,7 +57,7 @@ USES = {
     'Facets': 'flowguard/map/facets.py:component_facets',
     'Main': 'flowguard/__main__.py:main',
 }
-TESTED_BY = {'coverage_counts_only_bound': ['tests/test_read_command.py:test_coverage_counts_calls_not_words'], 'tests_line_counts_bound_and_unbound': ['tests/test_read_command.py:test_tests_line_counts_bound_calling_and_neither'], 'no_model_import': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_and_models_visible': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts', 'tests/test_read_command.py:test_read_is_complete_and_folds_children'], 'model_purpose_and_three_counts': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'missing_summary_prompt': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_in_layer_order': ['tests/test_read_command.py:test_read_orders_components_by_layer']}
+TESTED_BY = {'coverage_counts_only_bound': ['tests/test_read_command.py:test_coverage_counts_calls_not_words'], 'tests_line_counts_bound_and_unbound': ['tests/test_read_command.py:test_tests_line_counts_bound_calling_and_neither'], 'no_model_import': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_and_models_visible': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts', 'tests/test_read_command.py:test_read_is_complete_and_folds_children'], 'model_purpose_and_three_counts': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'missing_summary_prompt': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_in_layer_order': ['tests/test_read_command.py:test_read_orders_components_by_layer'], 'open_requests_listed': ['tests/test_requests.py:test_open_request_without_target_is_listed']}
 MOVED_RULES=(
 Invariant('no_model_import', 'reading never imports a model module', lambda state, trace: not state.imported),
 Invariant('components_and_models_visible', 'every component and every model is visible, each model once', lambda state, trace: _names(state)),
@@ -65,7 +65,11 @@ Invariant('model_purpose_and_three_counts', 'displayed models retain purpose and
 Invariant('missing_summary_prompt', 'a visible component without summary carries the purpose prompt', lambda state, trace: _summary(state)),
 Invariant('components_in_layer_order', 'read lists top-level components by layer, parents before children', lambda state, trace: _layer_order(state)),
 )
-RULES = BASE_RULES + MOVED_RULES
+RULES = BASE_RULES + MOVED_RULES + (
+    Invariant('open_requests_listed',
+              'read lists every open request with its age, so a request no target ever named stays visible',
+              lambda state, trace: state.requests_visible),
+)
 FEATURE_NAMES=['import_time_marker', 'missing_summary', 'late_upper_component']
 LEGACY_FAULTS={'drops_a_component': 'drop_component', 'imports_a_model': 'import_model', 'drops_a_model': 'overflow', 'drops_model_contract': 'drop_model_contract', 'drops_summary_prompt': 'drop_summary_prompt', 'map_file_order': 'map_file_order'}
 
@@ -77,26 +81,29 @@ class ViewState(JointState):
     shown:str='complete'
     imported:bool=False
     size:int=200
+    requests_visible:bool=True
     def __eq__(self,other):
-        if isinstance(other,ViewState): return (self.native,self.legacy,self.shown,self.imported,self.size)==(other.native,other.legacy,other.shown,other.imported,other.size)
+        if isinstance(other,ViewState): return (self.native,self.legacy,self.shown,self.imported,self.size,self.requests_visible)==(other.native,other.legacy,other.shown,other.imported,other.size,other.requests_visible)
         return super().__eq__(other)
-    def __hash__(self): return hash((self.native,self.legacy,self.shown,self.imported,self.size))
+    def __hash__(self): return hash((self.native,self.legacy,self.shown,self.imported,self.size,self.requests_visible))
 class ReadStep(Bridge):
     reads=('native','legacy')
-    writes=('native','legacy','shown','imported','size')
+    writes=('native','legacy','shown','imported','size','requests_visible')
     def apply(self,event,state):
-        if event[0]=='answer':
+        if event[0]=='requests':
+            answers=(('complete',state.native,state.legacy),)
+        elif event[0]=='answer':
             answers=((event[1],state.native,state.legacy),)
         else:
             answers=tuple(('complete',item.new_state.native,item.new_state.legacy) for item in super().apply(event,state))
-        return tuple(FunctionResult(answer,ViewState(native,legacy,answer,self.fault=='show_view_imports_a_model' or getattr(legacy,'imported',False),9000 if self.fault=='show_view_drops_a_model' else max(200,getattr(native,'size',0))),label=answer) for answer,native,legacy in answers)
+        return tuple(FunctionResult(answer,ViewState(native,legacy,answer,self.fault=='show_view_imports_a_model' or getattr(legacy,'imported',False),9000 if self.fault=='show_view_drops_a_model' else max(200,getattr(native,'size',0)),self.fault!='hides_open_request' or event[0]!='requests'),label=answer) for answer,native,legacy in answers)
 
 def _explorer(fault=""):
     native=base_variants().get(fault,base_build())
-    events=tuple(('native',event) for event in native.external_inputs)+tuple(('legacy',case) for case in legacy_cases(FEATURE_NAMES))+tuple(('answer',value) for value in ('complete',))
+    events=tuple(('native',event) for event in native.external_inputs)+tuple(('legacy',case) for case in legacy_cases(FEATURE_NAMES))+tuple(('answer',value) for value in ('complete',))+(('requests',),)
     return Explorer(Workflow((ReadStep(native,LEGACY_FAULTS.get(fault,fault)),)),tuple(ViewState(native.initial_states[0],_abstract(ReadCase()),'') for value in ('complete',)),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
 def build_explorer():return _explorer()
-def broken_variants():return {'counts_docstring_mention_as_test':_explorer('counts_docstring_mention_as_test'),'counts_unbound_as_bound':_explorer('counts_unbound_as_bound'),'drops_a_component':_explorer('drops_a_component'),'imports_a_model':_explorer('imports_a_model'),'drops_a_model':_explorer('drops_a_model'),'drops_model_contract':_explorer('drops_model_contract'),'drops_summary_prompt':_explorer('drops_summary_prompt'),'map_file_order':_explorer('map_file_order')}
+def broken_variants():return {'counts_docstring_mention_as_test':_explorer('counts_docstring_mention_as_test'),'counts_unbound_as_bound':_explorer('counts_unbound_as_bound'),'drops_a_component':_explorer('drops_a_component'),'imports_a_model':_explorer('imports_a_model'),'drops_a_model':_explorer('drops_a_model'),'drops_model_contract':_explorer('drops_model_contract'),'drops_summary_prompt':_explorer('drops_summary_prompt'),'map_file_order':_explorer('map_file_order'),'hides_open_request':_explorer('hides_open_request')}
 def _original_conformance():
     native=base_conformance()
     moved=legacy_conformance(FEATURE_NAMES,MOVED_RULES)
@@ -116,4 +123,39 @@ from _read_fixture import complete_view_facts
 _previous_conformance = conformance
 def conformance():
     previous = _previous_conformance()
-    return CodeFactsReport(tuple(previous.facts) + complete_view_facts('show'))
+    return CodeFactsReport(tuple(previous.facts) + complete_view_facts('show') + _request_facts())
+
+
+
+def _request_facts():
+    from contextlib import redirect_stdout, redirect_stderr
+    from io import StringIO
+    from datetime import datetime, timezone
+    from flowguard.__main__ import main
+    from _target_fixture import make_project
+
+    with TemporaryDirectory(prefix='fg-read-requests-') as directory:
+        root = make_project(Path(directory))
+        raw = '主人 request\r\nKeep every unclaimed request visible.\n'.encode()
+        source = root / 'owner.md'
+        source.write_bytes(raw)
+        output = StringIO()
+        with redirect_stdout(output), redirect_stderr(output):
+            main(['map', 'confirm', 'all', '--root', str(root)])
+            stored = [main(['req', 'add', str(source), '--id', identifier, '--root', str(root)])
+                      for identifier in ('R5', 'R7')]
+            code = main(['read', '--root', str(root)])
+        text = output.getvalue()
+        today = datetime.now(timezone.utc).date().isoformat()
+        body = root / '.flowguard/requests/R7.md'
+        visible = (stored == [0, 0] and code == 0 and body.is_file() and body.read_bytes() == raw
+                   and f'R7 open since {today} (no target)' in text)
+        facts = [Fact('open_requests_listed', visible, text)]
+        if stored == [0, 0]:
+            body.write_bytes(raw + b'edited')
+            output = StringIO()
+            with redirect_stdout(output), redirect_stderr(output):
+                code = main(['map', 'check', '--strict', '--root', str(root)])
+            facts.append(Fact('stored_request_bytes_protected',
+                              code == 1 and 'owner_text_edited' in output.getvalue(), output.getvalue()))
+        return tuple(facts)

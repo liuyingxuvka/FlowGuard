@@ -21,6 +21,7 @@ VERB_PURPOSE = {
     'release': 'Run the release gate, optionally with whole-suite shards.',
     'template': 'Write starter model and test files.',
     'target': 'Plan, check and promote a behaviour or structure change.',
+    'req': 'Store an owner request byte for byte, with immutable metadata.',
     'map': 'Use every map and proof command.',
 }
 
@@ -40,6 +41,14 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         p.add_argument("--force", action="store_true", help="overwrite existing files when writing")
         return p
     p.add_argument("--root", default=".")
+    if verb == "req":
+        commands = p.add_subparsers(dest="request_command", required=True)
+        add = commands.add_parser("add")
+        add.add_argument("file", help="owner text file, or - for raw stdin bytes")
+        add.add_argument("--id", dest="identifier")
+        add.add_argument("--kind", choices=("request", "glossary", "adoption"), default="request")
+        add.add_argument("--root", default=argparse.SUPPRESS)
+        return p
     if verb == "read":
         group = p.add_mutually_exclusive_group()
         group.add_argument("--component", help="show one component in detail")
@@ -171,6 +180,29 @@ def _template(ns: argparse.Namespace) -> int:
     return 0
 
 
+def _request(ns: argparse.Namespace) -> int:
+    import shlex
+    from .map.mapfile import MapError
+    from .map.requests import store_request
+
+    root = Path(ns.root).resolve()
+    try:
+        raw = sys.stdin.buffer.read() if ns.file == "-" else Path(ns.file).read_bytes()
+        item = store_request(root, raw, identifier=ns.identifier, kind=ns.kind)
+    except (OSError, MapError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
+    print(f"stored {item['id']} ({item['kind']}, sha {item['sha256'][:12]}, {item['bytes']} bytes)")
+    if 'stored_during' in item:
+        identifier = "check"
+        command = ["python", "-m", "flowguard", "target", "check", "--root", str(root)]
+    else:
+        identifier = "target"
+        command = ["python", "-m", "flowguard", "target", "start", f"Work on request {item['id']}", "--root", str(root)]
+    print(render_advice(advice(identifier, shlex.join(command))))
+    return 0
+
+
 @quiet_broken_pipe
 def main(argv: list[str] | None = None) -> int:
     safe_stdio()
@@ -197,11 +229,13 @@ def main(argv: list[str] | None = None) -> int:
         from .map.target import main as target_main
 
         return target_main(rest)
-    if verb not in {"read", "change", "release", "template", "target"}:
+    if verb not in {"read", "change", "release", "template", "target", "req"}:
         print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
         return 2
     parser = _verb_parser(verb)
     ns = parser.parse_args(rest)
+    if verb == "req":
+        return _request(ns)
     if verb == "read" and ns.mermaid and ns.find:
         parser.error("--mermaid cannot be used with --find")
     if verb == "read" and ns.target and ns.find:

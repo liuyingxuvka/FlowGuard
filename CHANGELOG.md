@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Store owner requests byte for byte with req add, explicit or collision-resistant IDs, immutable sidecars and optional glossary/adoption kinds. Read keeps unclaimed requests visible; checks refuse edited request or metadata bytes, including before their first commit and in fresh clones.
+
 - Projects using FlowGuard: --json on map check, map lint, target check, target promote and release prints exactly one JSON line {command, verdict, codes, next}; every next line reads next[<id>]: with a stable advice id.
 
 - Projects using FlowGuard: lint defers sequence-size debts to model execution instead of falsely calling them unused; models and release warn when an observed size debt no longer suppresses any finding.

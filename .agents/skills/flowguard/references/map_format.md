@@ -1,5 +1,19 @@
 # `.flowguard/map.json` format (schema `flowguard.map.v1`)
 
+Owner requests live separately under `.flowguard/requests/`. Store an original
+with `python -m flowguard req add <file> --id R9` (or use `-` for raw stdin bytes).
+The optional kind is `request`, `glossary` or `adoption`; an omitted ID uses the
+UTC date and a content digest. Every `<id>.md` preserves the input bytes, and
+`<id>.json` stores `id`, `kind`, `sha256`, `received` and `bytes`. Both are written
+once. A correction is a new request; there is no request index or `req list`.
+`read` shows open requests. Glossaries use `owner word = term, term` lines.
+When a target is open, metadata also records its actual goal and start time;
+an old target without a captured start retains that time as unknown.
+Per-directory Git attributes preserve raw bytes. Integrity checks also compare
+independent first-write digests or the first committed blob, including sidecar
+edits and requests changed before their first commit. Request state is derived,
+never written back into this metadata.
+
 ```json
 {
   "schema": "flowguard.map.v1",

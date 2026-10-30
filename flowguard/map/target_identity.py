@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from datetime import datetime, timezone
 from .common import normalize_newlines
 from .inventory import build_inventory, function_digests
 from .mapfile import ignore_patterns, load_map
@@ -81,6 +82,11 @@ def _promotion_inputs(root, data):
         for p in (root / TARGET_RELDIR).rglob("*")
         if p.is_file()
     )
+    paths.update(
+        p.relative_to(root).as_posix()
+        for directory in (".flowguard/requests", ".flowguard/changes")
+        for p in (root / directory).rglob("*") if p.is_file()
+    )
     return {path: _file_hash(root / path) for path in sorted(paths)}
 
 
@@ -98,7 +104,8 @@ def _git_head(root):
 
 def _record_base(root):
     """Capture design inputs and complete helper source state, never proof results."""
-    data = {"schema": "flowguard.target-base.v1", "helpers": model_helper_digests(root)}
+    data = {"schema": "flowguard.target-base.v1", "helpers": model_helper_digests(root),
+            "started": datetime.now(timezone.utc).isoformat()}
     if _git_head(root):
         data["git"] = _git(root, "rev-parse", "HEAD").stdout.decode().strip()
     else:
