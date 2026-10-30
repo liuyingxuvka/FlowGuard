@@ -102,6 +102,95 @@ def test_changes_quote_needs_shared_term(tmp_path):
     assert not findings and items[0]['glossary_used']
 
 
+@pytest.mark.parametrize("as_json", [False, True])
+def test_promote_prints_owner_block(tmp_path, capsys, as_json):
+    from flowguard.map import target as native
+
+    _plan_target(tmp_path)
+    model = tmp_path / '.flowguard/target/models/one.py'
+    source = model.read_text().replace('if state in (0, availability_ceiling)',
+                                      'if state in (0, availability_ceiling) and state >= 0')
+    source = source.replace('invariants=INVARIANTS,', 'invariants=INVARIANTS + (SECOND,),')
+    source += '\nSECOND = Invariant("visible_limit", "record a nonnegative limit", lambda s,t: s >= 0)\n'
+    model.write_text(source)
+    first = 'changes: renew_limit.renew_within_limit by RQuote "Renewals keep the limit 3."'
+    second = 'changes: renew_limit.visible_limit because "The nonnegative limit remains visible."'
+    (tmp_path / '.flowguard/target/PLAN.txt').write_text(first + '\n' + second + '\n', encoding='utf-8')
+    capsys.readouterr()
+    assert native.promote_target(tmp_path, as_json=as_json) == 0
+    output = capsys.readouterr().out
+    if as_json:
+        assert len(output.splitlines()) == 1
+        verdict = json.loads(output)
+        assert verdict['verdict'] == 'PASS'
+        output = verdict['owner_block']
+    header = 'owner block (paste it unchanged into your final message):'
+    assert header in output
+    assert output.index(first) < output.index(second)
+    assert output.count('old rule:') == 2 and output.count('new rule:') == 2
+    assert 'availability_ceiling' in output and 'and state >= 0' in output
+    assert '(absent: this rule did not exist)' in output
+    message = next((tmp_path / '.flowguard/changes').glob('*.msg')).read_text()
+    block = message[message.index(header):].rstrip()
+    assert block in output
+
+
+def test_owner_block_marks_stored_requests_and_glossary(tmp_path):
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.plan import check_plan, render_owner_block, rule_info
+    from flowguard.map.requests import store_request
+    from flowguard.map.records import CHANGE_DIR, prepare_directory, write_once
+
+    target, view = _plan_target(tmp_path)
+    raw = '续借次数保持为1。\nOwner original second line.\n'
+    request = store_request(tmp_path, raw.encode(), identifier='RDuring')
+    glossary = store_request(tmp_path, '续借次数 = availability_ceiling\n'.encode(), identifier='GDuring', kind='glossary')
+    source = tmp_path / 'native.py'
+    source.write_text(source.read_text().replace('def value(): return 1', 'def value(optional=None): return 1'))
+    touch = 'touch: native.py:value because "Keep the source edit visible."'
+    change = 'changes: renew_limit.renew_within_limit by RDuring "续借次数保持为1。"'
+    (tmp_path / '.flowguard/target/PLAN.txt').write_text(touch + '\n' + change + '\n', encoding='utf-8')
+    items, findings = check_plan(tmp_path, target, view)
+    assert not findings
+    block = render_owner_block(tmp_path, load_map(tmp_path), target, view, items)
+    assert block.index(touch) < block.index(change)
+    assert 'RDuring: stored during this change at ' + request['received'] in block
+    assert 'GDuring: stored during this change at ' + glossary['received'] in block
+    assert 'glossary GDuring: 续借次数 = availability_ceiling' in block
+    assert 'Owner original second line.' not in block
+    # A declared historical record supplies existing owner provenance. It is not
+    # a newly manufactured promotion verdict or a provenance claim for this edit.
+    received = json.loads((tmp_path / '.flowguard/requests/RQuote.json').read_bytes())['received']
+    prior = dict(kind='change', goal='record the earlier owner rule', requests=[dict(id='RQuote', part=False)],
+                 base=None, tree='a' * 64, promoted=received,
+                 plan=[dict(line='changes: renew_limit.renew_within_limit by RQuote "Renewals keep the limit 3."',
+                            added_after_code=False, cleared=[])],
+                 rules=[dict(id='renew_limit.renew_within_limit', old=None,
+                             new='fp:' + hashlib.sha256(rule_info(tmp_path, target, view)['renew_limit.renew_within_limit']['definition'].encode()).hexdigest(),
+                             provenance='owner RQuote')],
+                 acceptances=[], existing_cleared=[], implemented_by=[], new_actions=[], corrections=[], checked='Historical fixture input.')
+    prepare_directory(tmp_path, CHANGE_DIR, ('.json', '.msg'))
+    identifier = datetime.fromisoformat(received).strftime('%Y%m%d-%H%M-') + 'aaaaaa'
+    write_once(tmp_path, CHANGE_DIR / (identifier + '.msg'), (prior['goal'] + '\n\n' + prior['checked'] + '\n').encode())
+    write_once(tmp_path, CHANGE_DIR / (identifier + '.json'), json.dumps(prior).encode())
+    block = render_owner_block(tmp_path, load_map(tmp_path), target, view, items)
+    assert 'full request RDuring:' in block and 'Owner original second line.' in block
+    assert 'full request GDuring:' in block
+    from flowguard.map import target as native
+    from flowguard.map.targetfile import load_target, build_target_view
+    assert native.drop_target(tmp_path, yes=True) == 0
+    assert native.start_target(tmp_path, 'a later change') == 0
+    assert native.add_to_target(tmp_path, 'renew_limit') == 0
+    target = load_target(tmp_path)
+    view = build_target_view(tmp_path, load_map(tmp_path), target)
+    (tmp_path / '.flowguard/target/PLAN.txt').write_text(change + '\n', encoding='utf-8')
+    items, findings = check_plan(tmp_path, target, view)
+    assert not findings
+    reused = render_owner_block(tmp_path, load_map(tmp_path), target, view, items)
+    assert request['stored_during']['goal'] in reused and request['stored_during']['started'] in reused
+    assert 'stored during this change at ' + request['received'] not in reused
+
+
 @pytest.mark.parametrize("git_backed", [False, True])
 def test_touch_uses_actual_function_change(tmp_path, git_backed):
     from flowguard.map import target as native
@@ -200,6 +289,8 @@ def test_request_link_refusal_and_failed_record_do_not_complete(tmp_path, capsys
     assert not list((root / ".flowguard/changes").glob("*.json"))
     target["requests"][0]["id"] = "R1"
     path.write_text(json.dumps(target), encoding="utf-8")
+    (root / '.flowguard/target/PLAN.txt').write_text(
+        'changes: shelf_rule.one_loan_step because "Complete the recorded request."\n', encoding='utf-8')
     original = records.write_once
     def fail_json(root, path, raw, **kwargs):
         if Path(path).parent == records.CHANGE_DIR and Path(path).suffix == ".json":
@@ -210,6 +301,7 @@ def test_request_link_refusal_and_failed_record_do_not_complete(tmp_path, capsys
     verdict = json.loads(output)
     assert code == 2 and verdict["verdict"] == "FAIL"
     assert any(item["code"] == "operation_failed" for item in verdict["codes"])
+    assert 'owner_block' not in verdict
     assert "tree was applied" in errors and "no complete change record" in errors
     assert not (root / ".flowguard/target").exists()
     assert records.change_records(root) == [] and records.record_findings(root) == []

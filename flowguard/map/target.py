@@ -775,6 +775,8 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             return 1
         selected_tests = set(impact.tests) | {node.split("::", 1)[0] for node in tested}
         from .records import prepare_change, publish_change
+        from .plan import render_owner_block
+        owner_block = render_owner_block(root, current, target, view, report.plan_items) if report.plan_items else ""
         from .impact_history import read_git_paths
         base = _target_base(root)
         source_paths = None
@@ -787,7 +789,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
         prepared_record = prepare_change(
             root, goal=target.goal, links=target.data.get("requests", []), base=base,
             inputs=inputs, merged=merged, model_bytes=model_bytes, deleted=deleted,
-            changed_paths=source_paths,
+            changed_paths=source_paths, owner_block=owner_block,
             checked=("This promotion ran one fresh target check with bound tests and the remaining "
                      f"function-selected tests; {len(report.warnings)} warning(s) remained. "
                      "The tree identifies the checked post-promotion content, before later component confirmation."))
@@ -840,9 +842,12 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             summaries.append(label + " " + (" ".join(items) or "-"))
         publish_change(root, prepared_record)
         if as_json:
-            print_verdict("target promote", 0, _target_codes(report), next_lines[-1])
+            print_verdict("target promote", 0, _target_codes(report), next_lines[-1],
+                          **({"owner_block": owner_block} if owner_block else {}))
         else:
             print(f'promoted "{target.goal}": ' + "; ".join(summaries))
+            if owner_block:
+                print(owner_block)
             for line in reread:
                 print(line)
             for link in target.data.get("requests", []):

@@ -1,0 +1,39 @@
+{
+  "kind": "change",
+  "goal": "FG-615: promote prints the owner block",
+  "requests": [
+    {
+      "id": "R1",
+      "part": true
+    },
+    {
+      "id": "R600",
+      "part": true
+    }
+  ],
+  "base": "cf86a21788728e6c0c0d87c97358a631214fd3d0",
+  "tree": "e3f10aa4687f6914c1b6f847baf81ef55b9abab21a917b0bd1bfc5e173f54d8f",
+  "promoted": "2026-10-30T21:17:51.364200+00:00",
+  "plan": [],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/map/modelstatic.py:StaticModel._definition",
+    "flowguard/map/modelstatic.py:StaticModel._definition.visit",
+    "flowguard/map/modelstatic.py:StaticModel.rule_source",
+    "flowguard/map/plan.py:_rule_sources",
+    "flowguard/map/plan.py:render_owner_block",
+    "flowguard/map/plan.py:render_owner_block.context",
+    "flowguard/map/plan.py:render_owner_block.full_text",
+    "flowguard/map/plan.py:render_owner_block.owner_rule",
+    "flowguard/map/records.py:prepare_change",
+    "flowguard/map/target.py:promote_target",
+    "tests/test_requests.py:test_owner_block_marks_stored_requests_and_glossary",
+    "tests/test_requests.py:test_promote_prints_owner_block",
+    "tests/test_requests.py:test_request_link_refusal_and_failed_record_do_not_complete"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. PLAN lines, rule provenance, acceptances, existing-item clearance and new-action judgments are not assessed by this record producer; their lists are empty."
+}

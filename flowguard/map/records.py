@@ -259,7 +259,7 @@ def _diff_provenance(root, base, inputs, changed_paths):
 
 
 def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, deleted, checked,
-                   changed_paths=None):
+                   changed_paths=None, owner_block=""):
     """Prepare a final immutable pair and the exact checked post-promotion view."""
     root = Path(root).resolve()
     prepare_directory(root, CHANGE_DIR, (".json", ".msg"))
@@ -285,7 +285,8 @@ def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, dele
                   checked=checked + " " + provenance +
                   " PLAN lines, rule provenance, acceptances, existing-item clearance and new-action judgments are not assessed by this record producer; their lists are empty.")
     raw = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    message = (goal + "\n\n" + record["checked"] + "\n").encode("utf-8")
+    message = (goal + "\n\n" + record["checked"] +
+               ("\n\n" + owner_block if owner_block else "") + "\n").encode("utf-8")
     validate_new_files(root, (CHANGE_DIR / (identifier + ".msg"), CHANGE_DIR / (identifier + ".json")))
     return dict(id=identifier, record=record, json=raw, msg=message, map_bytes=map_bytes,
                 guard_path=guard, guard_sha256=guard_hash)

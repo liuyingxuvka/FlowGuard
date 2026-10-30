@@ -229,3 +229,111 @@ def check_plan(root, target, view):
                 findings.append(Finding('error', 'quote_not_in_request', 'target', f'{where}: cannot read {identifier} as UTF-8: {error}'))
         items.append(item)
     return items, findings
+
+
+def _rule_sources(root, data, requested, *, view=None, fallback=None):
+    """Known absence differs from an unreadable model or rule definition."""
+    sources, paths = {}, {}
+    entries = {entry.id: entry for entry in model_registry(root, data, view=view).entries
+               if entry.kind == 'contract'}
+    for model in sorted({name.rpartition('.')[0] for name in requested}):
+        names = {name for name in requested if name.rpartition('.')[0] == model}
+        entry = entries.get(model)
+        if entry is None:
+            previous = root / fallback[model] if fallback and model in fallback else None
+            text = '(unknown: the previous model is unreadable)' if previous is not None and previous.exists() else '(absent: this model did not exist)'
+            sources.update((name, text) for name in names)
+            continue
+        paths[model] = entry.path
+        try:
+            path = resolve_model_path(root, entry.path, view=view)
+            if path is None:
+                raise ValueError('model source is unavailable')
+            static = StaticModel(root, entry.path, ast.parse(read_source(path)), view=view)
+            rules = static.explorer_rules()
+            if rules is None:
+                raise ValueError('static rule names are unavailable')
+            available = {name for name, _ in rules}
+            for name in names:
+                rule = name.rpartition('.')[2]
+                sources[name] = ('(absent: this rule did not exist)' if rule not in available else
+                                 static.rule_source(rule) or '(unknown: static rule source is unavailable)')
+        except (OSError, SyntaxError, ValueError, TypeError) as error:
+            sources.update((name, f'(unknown: {error})') for name in names)
+    return sources, paths
+
+
+def render_owner_block(root, current_data, target, view, items):
+    """Show checked PLAN evidence unchanged; never add a judgment or owner claim."""
+    if not items:
+        return ''
+    root = Path(root).resolve()
+    changes = {item['model'] + '.' + item['rule'] for item in items if item['kind'] == 'changes'}
+    new, paths = _rule_sources(root, view.data, changes, view=view) if changes else ({}, {})
+    old, _ = _rule_sources(root, current_data, changes, fallback=paths) if changes else ({}, {})
+    lines = ['owner block (paste it unchanged into your final message):']
+    owner_rules, shown_full = None, set()
+    try:
+        base = json.loads((root / '.flowguard/target/base.json').read_bytes())
+        current_started = base.get('started') if isinstance(base, dict) else None
+    except (OSError, ValueError):
+        current_started = None
+    if not isinstance(current_started, str) or not current_started:
+        current_started = None
+
+    def context(identifier):
+        metadata = _metadata(root / REQUEST_DIR / (identifier + '.json'), identifier)
+        captured = metadata.get('stored_during')
+        if not isinstance(captured, dict):
+            return None
+        received = metadata.get('received') or 'unknown time'
+        started, goal = captured.get('started'), captured.get('goal')
+        known_start = isinstance(started, str) and bool(started)
+        if known_start and current_started is not None and goal == target.goal and started == current_started:
+            return 'stored during this change at ' + received
+        description = repr(goal) if isinstance(goal, str) and goal else '(unknown goal)'
+        timing = started if known_start else 'unknown'
+        if known_start and current_started is not None and isinstance(goal, str) and goal:
+            return f'stored during another change {description} (started {timing}) at {received}'
+        return f'stored during change {description} (started {timing}) at {received}; relation to this change unknown'
+
+    def full_text(identifier):
+        if identifier not in shown_full:
+            shown_full.add(identifier)
+            lines.append('  full request ' + identifier + ':')
+            text = (root / REQUEST_DIR / (identifier + '.md')).read_bytes().decode('utf-8-sig')
+            lines.extend('    ' + line for line in text.splitlines())
+
+    def owner_rule(name):
+        nonlocal owner_rules
+        if owner_rules is None:
+            from .records import change_records
+            owner_rules = {rule.get('id') for _, record in change_records(root)
+                           for rule in record['rules'] if isinstance(rule, dict)
+                           and isinstance(rule.get('provenance'), str)
+                           and rule['provenance'].startswith('owner ')}
+        return name in owner_rules
+
+    for item in items:
+        lines.append('- ' + item['line'])
+        if item['kind'] != 'changes':
+            continue
+        name = item['model'] + '.' + item['rule']
+        identifier = item.get('request')
+        mark = context(identifier) if identifier else None
+        if mark:
+            lines.append('  ' + identifier + ': ' + mark)
+            if owner_rule(name):
+                full_text(identifier)
+        for label, text in (('old', old[name]), ('new', new[name])):
+            lines.append('  ' + label + ' rule:')
+            lines.extend('    ' + line for line in text.splitlines())
+        for glossary in item.get('glossary_used', []):
+            source = glossary['id']
+            lines.append('  glossary ' + source + ': ' + glossary['word'] + ' = ' + ', '.join(glossary['terms']))
+            glossary_mark = context(source)
+            if glossary_mark:
+                lines.append('  ' + source + ': ' + glossary_mark)
+                if owner_rule(name):
+                    full_text(source)
+    return '\n'.join(lines)

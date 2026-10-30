@@ -197,7 +197,7 @@ class StaticModel:
         note = resolve(given["description"]) if "description" in given else ""
         return self._defined([(title, note if isinstance(note, str) else "")], call, scope) if isinstance(title, str) else None
 
-    def _definition(self, node, scope):
+    def _definition(self, node, scope, *, details=None):
         """Semantic rule inputs: local helpers and constants, never imported product code."""
         import copy
 
@@ -228,6 +228,9 @@ class StaticModel:
             return OwnInputs().visit(copy.deepcopy(value))
 
         node = normalized(node, scope)
+        if details is not None:
+            details['call'] = node
+            details['dependencies'] = []
         dependencies, visited = [], set()
 
         def lookup(name, home, kind, seen):
@@ -283,10 +286,25 @@ class StaticModel:
                         visited.add(key)
                         definition = normalized(definition, owner)
                         dependencies.append((name, kind, ast.dump(definition)))
+                        if details is not None:
+                            details['dependencies'].append((name, kind, definition))
                         visit(definition, owner)
 
         visit(node, scope)
         return repr((ast.dump(node), sorted(dependencies)))
+
+    def rule_source(self, title):
+        """Render only the same semantic inputs used by the rule identity."""
+        found = self.rule_inputs.get(title)
+        if found is None:
+            return None
+        details = {}
+        self._definition(*found, details=details)
+        source = [ast.unparse(details['call'])]
+        for name, kind, node in sorted(details['dependencies'], key=lambda value: value[:2]):
+            rendered = ast.unparse(node)
+            source.append(rendered if kind == 'functions' else name + ' = ' + rendered)
+        return '\n'.join(source)
 
     def _defined(self, found, call, scope):
         """Remember the call that defines each rule (goal rules compare these between versions)."""

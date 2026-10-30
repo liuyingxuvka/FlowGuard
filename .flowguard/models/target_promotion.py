@@ -27,6 +27,7 @@ USES = {
     'CheckedInputs': 'flowguard/map/target_identity.py:_promotion_inputs',
 }
 TESTED_BY = {
+    'promote_prints_owner_block': ['tests/test_requests.py:test_promote_prints_owner_block'],
     'promote_names_stale_components': ['tests/test_target_life_cycle.py:test_promote_names_stale_component_to_confirm'],
     'promote_makes_current_equal_merged': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
     'promote_leaves_no_target': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
@@ -58,6 +59,7 @@ class State:
     stale_components_named: bool = True
     target_deletion_named: bool = True
     current_edited: bool = False
+    owner_block_shown: bool = True
 
 
 def project_parent_state(state):
@@ -114,6 +116,8 @@ class Promote:
             new = replace(new, stale_components_named=False)
         if new.status == "promoted" and self.defect == "staging_line_omits_target":
             new = replace(new, target_deletion_named=False)
+        if new.status == "promoted" and self.defect == "owner_block_omits_line":
+            new = replace(new, owner_block_shown=False)
         if event == "PROMOTE":
             new = replace(new, outcome=new.status)
         return (FunctionResult(new.status, new, label=event),)
@@ -124,6 +128,8 @@ def _holds(condition, message):
 
 
 INVARIANTS = (
+    Invariant("promote_prints_owner_block", "a promote with PLAN lines prints every original line and its old/new rule definitions",
+              lambda s,t: _holds(s.status != "promoted" or s.owner_block_shown, "owner block omitted a line or its rule definitions")),
     Invariant("promote_names_target_deletion",
               "a successful promote names the target deletion with usable staging or no-Git verification guidance",
               lambda s,t: _holds(s.status != "promoted" or s.target_deletion_named,
@@ -158,7 +164,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only", "staging_line_omits_target", "promote_overwrites_in_place_edit", "unavailable_tests_point_at_design")}
+            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only", "staging_line_omits_target", "promote_overwrites_in_place_edit", "unavailable_tests_point_at_design", "owner_block_omits_line")}
 
 
 class RealPromotion:
@@ -172,6 +178,11 @@ class RealPromotion:
         from flowguard.map.targetfile import build_target_view, load_target
         self.directory = TemporaryDirectory(prefix="target-promotion-")
         self.root = Path(shutil.copytree(self.base, Path(self.directory.name) / "project"))
+        from flowguard.map.requests import store_request
+        store_request(self.root, b"One loan step stays bounded.\n", identifier="RBlock")
+        (self.root / ".flowguard/target/PLAN.txt").write_text(
+            'changes: shelf_rule.one_loan_step by RBlock "One loan step stays bounded."\n'
+            'changes: shelf_rule.no_duplicate_step because "A duplicate step remains rejected."\n', encoding="utf-8")
         self.expected = build_target_view(self.root, load_map(self.root), load_target(self.root)).data
         self.expected_models = {path.name: path.read_bytes() for path in (self.root / ".flowguard/target/models").glob("*.py")}
         self.state, self.edit = initial_state, False
@@ -288,6 +299,10 @@ class RealPromotion:
                                 stale_components_named=any("catalog" in line.split()[6:] for line in output.getvalue().splitlines()
                                       if line.startswith("next[confirm]: python -m flowguard map confirm ")),
                                 target_deletion_named=names_deletion and usable,
+                                owner_block_shown=("owner block (paste it unchanged into your final message):" in output.getvalue()
+                                    and 'changes: shelf_rule.one_loan_step by RBlock "One loan step stays bounded."' in output.getvalue()
+                                    and 'changes: shelf_rule.no_duplicate_step because "A duplicate step remains rejected."' in output.getvalue()
+                                    and output.getvalue().count("old rule:") == 2 and output.getvalue().count("new rule:") == 2),
                                 current_map_revision=state.target_revision if current == self.expected else -1,
                                 current_model_revision=state.expected_model_revision if same_models else -1)
             else:
@@ -326,6 +341,10 @@ def conformance():
         target_life_cycle.stage_target(base)
         target_life_cycle.edit_missing_method(base)
         target_life_cycle.write_method(base)
+        model = base / ".flowguard/target/models/shelf_rule.py"
+        text = model.read_text().replace("invariants=(RULE,)", "invariants=(RULE, SECOND)")
+        text += '\nSECOND = Invariant("no_duplicate_step", "one loan step stays bounded", lambda s,t: s in (0,1))\n'
+        model.write_text(text)
         changed = base / "shelf/catalog.py"
         changed.write_text(changed.read_text() + "\n# refreshed documentation\n")
         report = native.check_target(base)
