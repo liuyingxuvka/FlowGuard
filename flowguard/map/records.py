@@ -115,7 +115,7 @@ def write_once(root, relative_path, raw):
         stream.write(raw)
     written.parent.mkdir(parents=True, exist_ok=True)
     with written.open("x", encoding="ascii") as stream:
-        stream.write(json.dumps({"path": _canonical_path(path), "sha256": sha256_bytes(raw)}) + "\n")
+        stream.write(json.dumps({"path": path.as_posix(), "sha256": sha256_bytes(raw)}) + "\n")
 
 
 def _first_blob(root: Path, relative: str, common):
@@ -195,8 +195,8 @@ def protected_paths(root, relative_dir) -> set[str]:
         if not isinstance(absolute, str):
             continue
         try:
-            Path(absolute).relative_to(Path(_canonical_path(directory)))
-            candidate = Path(absolute).relative_to(Path(_canonical_path(root))).as_posix()
+            Path(absolute).relative_to(directory)
+            candidate = Path(absolute).relative_to(root).as_posix()
         except ValueError:
             continue
         if common is not None and not Path(absolute).exists() and candidate not in paths:

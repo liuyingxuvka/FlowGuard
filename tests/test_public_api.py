@@ -155,4 +155,4 @@ def project_parent_state(state): return state
     # Python 3.13 removes the common indentation from compiled docstrings.
     # Match the command column while keeping the exact verb set below.
     assert set(re.findall(r'^[ \t]*([a-z]+)[ \t]{2,}', help_text, re.M)) == {
-        'read', 'change', 'release', 'map', 'template', 'target'}
+        'read', 'change', 'release', 'map', 'template', 'target', 'req'}

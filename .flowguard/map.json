@@ -848,7 +848,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a560f381ce2be15deda38f95e7381ccede4a46f4039d2f99fe269c34a84f8c6d",
+      "fingerprint": "sha256:a0fae741b09de72c0ed0cb33ce987b6fa019e55bdbdfbd59c4a16618d53a7fc3",
       "state": [
         "original owner request bytes and immutable sidecars",
         "independent first-write byte identities"
