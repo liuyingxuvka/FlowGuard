@@ -40,6 +40,8 @@ USES = {
     'Main': 'flowguard/map/cli.py:main',
     'RunModelInProcess': 'flowguard/map/proof.py:run_model_in_process',
     'TargetMain': 'flowguard/map/target.py:main',
+    'Impact': 'flowguard/map/impact.py:compute_impact',
+    'ChangedFiles': 'flowguard/map/impact.py:changed_files',
 }
 TESTED_BY = {
     'port_change_needs_parent': [
@@ -53,7 +55,8 @@ TESTED_BY = {
     'missing_code_is_todo': ['tests/test_target_life_cycle.py:test_target_check_reports_unwritten_code_as_todo'],
     'only_changed_subjects_move': ['tests/test_target_life_cycle.py:test_copied_but_unchanged_entry_stays_an_error'],
     'strict_never_moves': ['tests/test_target_life_cycle.py:test_change_marks_only_planned_breakage_and_keeps_tests'],
-    'old_findings_do_not_block': ['tests/test_target_life_cycle.py:test_old_findings_of_unchanged_models_do_not_block'],
+    'old_findings_do_not_block': ['tests/test_target_life_cycle.py:test_old_findings_of_unchanged_models_do_not_block',
+                                 'tests/test_target_life_cycle.py:test_promote_blocks_failure_of_model_reaching_changed_file'],
     'warnings_never_block': [
         'tests/test_target_life_cycle.py:test_target_check_warns_about_debts_it_makes_stale',
         'tests/test_target_life_cycle.py:test_reworded_duty_is_not_owner_dropped',
@@ -74,7 +77,7 @@ class Case:
     parent_in_target: bool = False
 
 
-# These are concrete promises about ten fact origins, not code-set copies.
+# These are concrete promises about finding origins, not code-set copies.
 CASES = (
     Case("no_finding", "a confirmed unchanged project has no findings", True, "target", "none"),
     Case("planned_current", "retired real current entrypoint", True, "current", "info"),
@@ -90,6 +93,7 @@ CASES = (
     Case("behaviour_without_rule", "target adds a loans entrypoint and changes no model rule", True, "target", "error"),
     Case("old_finding_in_unchanged_model", "a model the target imports but does not change keeps an old uncovered "
          "invariant over unchanged code", True, "target", "warn"),
+    Case("reaches_changed_file", "an unchanged renewal model reaches the uncommitted shared capacity edit", False, "target", "error"),
     Case("debt_made_stale", "the target gives catalog tests, so its accepted untested_component debt matches nothing",
          True, "target", "warn"),
     Case("unchanged_copy_breakage", "target copies loans unchanged; the real current loans entrypoint breaks", True,
@@ -117,6 +121,7 @@ DEFECTS = {
     "untied_goal_accepted": ("behaviour_without_rule", "none"),
     "unchanged_subject_downgraded": ("unchanged_copy_breakage", "info"),
     "old_finding_blocks": ("old_finding_in_unchanged_model", "error"),
+    "reached_failure_is_old": ("reaches_changed_file", "warn"),
     "stale_debt_hidden": ("debt_made_stale", "none"),
 }
 NATIVE_CASES=CASES
@@ -180,8 +185,10 @@ INVARIANTS = (
           "breakage was moved to target although the target does not change its subject, or planned breakage was not"),
     _rule("strict_never_moves", {"strict_current"}, lambda state: state.bucket == "error",
           "map check --strict downgraded a current error"),
-    _rule("old_findings_do_not_block", {"old_finding_in_unchanged_model"}, lambda state: state.bucket == "warn",
-          "an old finding of a model the target does not change blocked the target"),
+    _rule("old_findings_do_not_block", {"old_finding_in_unchanged_model", "reaches_changed_file"},
+          lambda state: state.bucket == ("error" if state.event == "reaches_changed_file" else "warn"),
+          "findings of models whose files and reached files are unchanged since the base are WARN old_finding; "
+          "a model that reaches a changed file is judged as release judges it"),
     _rule("warnings_never_block", {"unbound_invariant", "debt_made_stale", "child_start_new_value", "owner_reworded"}, lambda state: state.bucket == "warn",
           "an untested rule, a stale debt, a sibling start or a reworded responsibility is a warning, never a block"),
 )
@@ -211,6 +218,7 @@ def broken_variants():
         'untied_goal_accepted': _explorer('untied_goal_accepted'),
         'unchanged_subject_downgraded': _explorer('unchanged_subject_downgraded'),
         'old_finding_blocks': _explorer('old_finding_blocks'),
+        'reached_failure_is_old': _explorer('reached_failure_is_old'),
         'stale_debt_hidden': _explorer('stale_debt_hidden'),
         'passes_unchanged_copy': _explorer('passes_unchanged_copy'),
         'consumer_failure_is_old': _explorer('consumer_failure_is_old'),
@@ -311,6 +319,18 @@ def _current_case(root, case):
 def observe_case(case):
     """One fresh bounded native filesystem/proof case, no fixture verdict reuse."""
     with TemporaryDirectory(prefix="target-findings-") as directory:
+        if case.name == "reaches_changed_file":
+            from _target_fixture import reached_failure_target
+            from flowguard.map.impact import changed_files, compute_impact
+            root = reached_failure_target(Path(directory))
+            data = load_map(root)
+            inv = build_inventory(root, ignore_patterns(data), write_cache=False)
+            impact = compute_impact(root, data, inv, changed_files(root, "HEAD", data=data, inv=inv), base="HEAD")
+            report = native.check_target(root, impact=impact)
+            findings = [(bucket, finding) for bucket, items in (("error", report.errors), ("todo", report.todos), ("warn", report.warnings))
+                        for finding in items if finding.node == "model renew_rule" and finding.code in {"model_proof", "old_finding"}]
+            buckets = {bucket for bucket, _ in findings}
+            return next(iter(buckets)) if len(buckets) == 1 else "absent-or-conflicting", repr(report)
         if case.name == "child_start_new_value":
             from _target_fixture import slicing_project
             root = slicing_project(Path(directory))

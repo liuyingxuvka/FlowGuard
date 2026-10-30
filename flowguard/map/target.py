@@ -386,7 +386,9 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     order = {mid: index for index, mid in enumerate(selected)}
     results.sort(key=lambda result: order.get(result.model, len(order)))
     report.own_tests = own
-    untouched, old = _unchanged_models(root, current, target, inv, tree, selected, changed_paths=changed_paths)
+    source_causes = getattr(impact, "model_source_causes", {})
+    untouched, old = _unchanged_models(root, current, target, inv, tree, selected,
+                                     changed_paths=changed_paths, source_selected=source_causes)
     old -= set(escalated)
     for result in results:
         node = "model " + result.model
@@ -421,8 +423,20 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
             pending_import = (not tests and result.model in code_changed and code == "tested_by_failed"
                               and problem.endswith("test was not collected/executed")
                               and any("ModuleNotFoundError:" in gap for gap in result.code_gaps))
-            add("todos" if pending_import or problem.split(" (model unchanged by the target;")[0] in result.code_gaps else "errors",
-                node, code, problem)
+            source_regression = result.model in untouched and bool(source_causes.get(result.model))
+            code_gap = problem.split(" (model unchanged by the target;")[0] in result.code_gaps
+            bucket = "todos" if pending_import or code_gap and not source_regression else "errors"
+            if bucket == "errors" and source_causes.get(result.model):
+                paths = source_causes[result.model]
+                reached = sorted(path for path, kinds in paths.items() if "reach" in kinds)
+                source = reached[0] if reached else sorted(paths)[0]
+                if reached and not getattr(impact, "no_git", ""):
+                    note = f" (selected because it reaches {source}, changed since HEAD)"
+                else:
+                    note = f" (selected conservatively because {source} changed)"
+                headline, separator, details = problem.partition("\n")
+                problem = headline + note + separator + details
+            add(bucket, node, code, problem)
         for warning in result.warnings:
             add("warnings", node, "invariant_untested" if warning.startswith("invariant_untested: ") else "model_warning", warning)
     report.gaps = gap_lines(root, target, view, report, results, goal=goal, code_changes=code_changes)
@@ -494,11 +508,12 @@ OLD_NOTE = ("(already in the current tree; the target does not change this model
             "fix it in its own change or target)")
 
 
-def _unchanged_models(root, current, target, inv, tree, selected, *, changed_paths=None):
+def _unchanged_models(root, current, target, inv, tree, selected, *, changed_paths=None, source_selected=()):
     """(models the target does not change, the subset whose anchored code is also unchanged).
 
     Unchanged: neither the model file nor a model file it imports is replaced, added or removed by the target.
-    Old: additionally every IMPLEMENTED_BY anchor lies in a component that is not stale."""
+    Old: additionally every IMPLEMENTED_BY anchor lies in a component that is not stale,
+    and no changed source caused this operation to select the model."""
     from .mapfile import is_stale, owner_index
 
     changed = target_model_paths(root, current, target) if changed_paths is None else changed_paths
@@ -517,7 +532,7 @@ def _unchanged_models(root, current, target, inv, tree, selected, *, changed_pat
         owners = [owner.get(anchor.partition(":")[0]) for anchor in anchors]
         if owners and all(cid in components and not is_stale(root, components[cid], inv) for cid in owners):
             old.add(mid)
-    return untouched, old
+    return untouched, old - set(source_selected)
 
 
 def _left_by_target(finding, current, target, inv):

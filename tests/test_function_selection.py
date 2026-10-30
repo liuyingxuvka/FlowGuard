@@ -30,6 +30,7 @@ def test_module_binding_change_selects_importer_functions(tmp_path):
     assert "importer" in impact.model_ids
     assert "api.py:call" in impact.changed_functions
     assert "UNCERTAIN: core.py" not in render_impact(impact)
+    assert impact.model_source_causes["importer"] == {"core.py": ["reference"]}
 
 
 def test_removed_function_is_uncertain(tmp_path):
@@ -38,6 +39,45 @@ def test_removed_function_is_uncertain(tmp_path):
     impact = function_fixture()["native_case"](tmp_path, "removed")
     assert impact.model_ids and impact.uncertain_files["core.py"]
     assert "UNCERTAIN: core.py:" in render_impact(impact)
+    assert impact.model_source_causes == {mid: {"core.py": ["conservative"]} for mid in impact.model_ids}
+
+
+@pytest.mark.parametrize("boundary", ["terminal", "depth"])
+def test_source_origin_does_not_cross_an_existing_selection_boundary(tmp_path, boundary):
+    from flowguard.map.impact import compute_impact
+    from flowguard.map.inventory import build_inventory
+
+    facade = ("import importlib\n_TABLE = {'pkg.source': ('VALUE',)}\n"
+              "def __getattr__(name): return importlib.import_module('pkg.source')\n"
+              "def direct(): return 1\n" if boundary == "terminal" else
+              "from pkg.source import VALUE\ndef direct(): return VALUE\n")
+    write(tmp_path, "pkg/__init__.py", facade)
+    write(tmp_path, "pkg/source.py", "VALUE = 1\n")
+    write(tmp_path, "consumer.py", "from pkg import direct\ndef use(): return direct()\n")
+    components = []
+    for cid, files, dependencies in (("a_source", ["pkg/source.py"], []),
+                                      ("b_facade", ["pkg/__init__.py"], ["a_source"]),
+                                      ("c_client", ["consumer.py"], ["b_facade"])):
+        components.append(dict(id=cid, summary=cid, responsibilities=[cid], files=files,
+                               depends_on=dependencies, tests=[], models=[], status="draft"))
+    for mid, parent, anchor in (("facade_contract", "b_facade", "pkg/__init__.py:direct"),
+                                ("client_contract", "c_client", "consumer.py:use")):
+        write(tmp_path, ".flowguard/models/" + mid + ".py",
+              f'MODEL_ID={mid!r}\nPARENT={parent!r}\nIMPLEMENTED_BY={{"Run": {anchor!r}}}\ndef build_explorer(): pass\n')
+    data = dict(schema="flowguard.map.v1", components=components)
+    save(tmp_path, data)
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "-c", "user.name=Guard", "-c", "user.email=guard@example.invalid", "commit", "-qm", "origin boundary")
+    write(tmp_path, "pkg/source.py", "VALUE = 2\n")
+    data["components"][1]["entrypoints"] = ["pkg/__init__.py:direct"]  # Independent map-only seed.
+    save(tmp_path, data)
+    impact = compute_impact(tmp_path, data, build_inventory(tmp_path, [], write_cache=False),
+                            ["pkg/source.py", ".flowguard/map.json"], base="HEAD", broad=True,
+                            depth=1 if boundary == "depth" else None)
+    assert {"facade_contract", "client_contract"} <= set(impact.model_ids)
+    assert "pkg/source.py" in impact.model_source_causes["facade_contract"]
+    assert not impact.model_source_causes.get("client_contract")
 
 
 def test_no_git_uses_stale_components(tmp_path):

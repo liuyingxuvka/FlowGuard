@@ -84,6 +84,51 @@ def stage_target(root, *, with_model=True):
         path.write_text(path.read_text(encoding="utf-8") + "\nTARGET_REVISION = 2  # revised target shelf contract\n",
                         encoding="utf-8")
 
+def reached_failure_target(root):
+    """Two valid consumers share capacity; only the target's consumer adopts its change."""
+    import subprocess
+    from flowguard.map.cli import main as map_main
+    from flowguard.map.mapfile import load_map, model_digests
+    root = make_project(root)
+    (root / "shelf/renew.py").write_text(
+        "from shelf.catalog import capacity\n\ndef renew(value):\n    return value + capacity()\n", encoding="utf-8")
+    renewal = REGULAR_CONTRACT.replace('MODEL_ID = "shelf_rule"', 'MODEL_ID = "renew_rule"')
+    renewal = renewal.replace('PARENT = "loans"', 'PARENT = "renew"')
+    renewal = renewal.replace("shelf/loans.py:advance", "shelf/renew.py:renew")
+    (root / ".flowguard/models/renew_rule.py").write_text(renewal, encoding="utf-8")
+    data = load_map(root)
+    data["components"].append(dict(
+        id="renew", layer="lending", summary="Renew an existing loan", responsibilities=["renew loans"],
+        files=["shelf/renew.py"], entrypoints=["shelf/renew.py:renew"], depends_on=["catalog"],
+        tests=[], models=[".flowguard/models/renew_rule.py"], state=[], side_effects=[], status="draft"))
+    data["model_digests"] = model_digests(root)
+    write_json(root / ".flowguard/map.json", data)
+    with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+        assert map_main(["confirm", "all", "--root", str(root)]) == 0
+
+    def git(*arguments):
+        subprocess.run(["git", "-c", "user.name=Guard", "-c", "user.email=guard@example.invalid",
+                        "-c", "commit.gpgsign=false", "-C", str(root), *arguments], check=True, capture_output=True)
+
+    git("init", "-q")
+    git("add", "--", "shelf", "tests", ".flowguard/map.json", ".flowguard/models")
+    git("commit", "-qm", "valid two-consumer baseline")
+    with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+        stage_target(root)
+    path = root / ".flowguard/target/models/shelf_rule.py"
+    source = path.read_text(encoding="utf-8")
+    source = source.replace("s in (0,1)", "s in (0,2)")
+    source = source.replace("one loan step advances by one", "one loan step advances by two")
+    source = source.replace("return make(1)", "return make(2)")
+    source = source.replace('{"advance_twice": make(2)}', '{"advance_thrice": make(3)}')
+    source = source.replace("actual == 1", "actual == 2")
+    path.write_text(source, encoding="utf-8")
+    (root / "shelf/catalog.py").write_text("def capacity():\n    return 2\n", encoding="utf-8")
+    test = root / "tests/test_shelf.py"
+    test.write_text(test.read_text(encoding="utf-8").replace("advance(0) == 1", "advance(0) == 2"), encoding="utf-8")
+    return root
+
+
 def probe_regular_model(root, logical_model, *, view):
     """Fresh finite fixture proof using the real engine and its model namespace.
 

@@ -341,6 +341,26 @@ def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
     assert classify() == ({"loan_count"}, set())
 
 
+def test_promote_blocks_failure_of_model_reaching_changed_file(tmp_path, capsys):
+    from flowguard.map import target as native
+    from flowguard.map.check import model_edit_findings
+    from flowguard.map.mapfile import load_map
+
+    root = _target_life_cycle_fixture_helpers("_target_fixture")["reached_failure_target"](tmp_path)
+    assert not model_edit_findings(root, load_map(root), "error"), "The failure must not come from a model edited outside target"
+    watched = [root / ".flowguard/map.json", root / ".flowguard/target/map.json",
+               *sorted((root / ".flowguard/models").glob("*.py")),
+               *sorted((root / ".flowguard/target/models").glob("*.py"))]
+    before = {path: path.read_bytes() for path in watched}
+    capsys.readouterr()
+    assert native.promote_target(root) == 1
+    output = capsys.readouterr().out
+    assert any(line.startswith("ERROR model renew_rule: model_proof:")
+               and "(selected because it reaches shelf/catalog.py, changed since HEAD)" in line
+               for line in output.splitlines()), output
+    assert all(path.read_bytes() == content for path, content in before.items())
+
+
 def test_target_check_warns_about_debts_it_makes_stale(tmp_path, capsys):
     import json
     root = shelf_project(tmp_path)

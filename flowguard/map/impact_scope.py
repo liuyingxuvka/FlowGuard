@@ -105,7 +105,7 @@ class Impact:
         return {
             key: value
             for key, value in self.__dict__.items()
-            if key != "_test_function_counts"
+            if key not in ("_test_function_counts", "model_source_causes")
         }
 
 
@@ -137,6 +137,11 @@ def _broad_impact(
     previous = _previous_map(root, base) if ".flowguard/map.json" in changed else None
     # A comment-only edit keeps its owner in REVIEW but selects no callers, tests or models.
     comment_only = sorted(f for f in changed if _comment_only(root, base, f))
+    source_paths = {f for f in changed if f not in comment_only and not inv.is_test(f)
+                    and not f.startswith(".flowguard/")
+                    and (f in inv.source or Path(f).suffix in SOURCE_EXTS)}
+    source_causes = defaultdict(set)
+    source_seeds = defaultdict(set)
     by_id = {c["id"]: c for c in data["components"]}
     old_by_id = {c["id"]: c for c in (previous or {}).get("components", [])}
     inv.set_explicit_sources(
@@ -234,6 +239,8 @@ def _broad_impact(
                 matched_owners[f].add(comp["id"])
                 if f not in comment_only:
                     seeds.add(comp["id"])
+                if f in source_paths:
+                    source_seeds[comp["id"]].add(f)
         if f in comment_only:
             if _owner_model_paths(f, model_bindings) or any(
                 glob_match(f, pat) for pat in test_bindings
@@ -241,6 +248,9 @@ def _broad_impact(
                 matched.add(f)
             continue
         selected_model_paths.update(contract_inputs.get(f, ()))
+        if f in source_paths:
+            for model in contract_inputs.get(f, ()):
+                source_causes[model].add(f)
         for model in contract_inputs.get(
             f, ()
         ):  # anchored code changed: the model's named tests too
@@ -373,11 +383,13 @@ def _broad_impact(
             mid: list(node.contract.get("IMPLEMENTED_BY", {}).values())
             for mid, node in tree.nodes.items()
         }
+        relied_sources = {}
         for mid, sites in sorted(
-            relied_models(raw, data, inv, anchors, files=edited_sources).items()
+            relied_models(raw, data, inv, anchors, files=edited_sources, source_files=relied_sources).items()
         ):
             node = tree.nodes[mid]
             selected_model_paths.add(node.path)
+            source_causes[node.path].update(relied_sources.get(mid, set()) & source_paths)
             tests.update(contract_tests.get(node.path, ()))
             relied.extend(
                 f"{mid} via {owner}:{symbol}" for owner, symbol in sorted(sites)
@@ -402,6 +414,7 @@ def _broad_impact(
             ]
             if hit:
                 selected_model_paths.add(flow["model"])
+                source_causes[flow["model"]].update(set(hit) & source_paths)
                 tests.update(contract_tests.get(flow["model"], ()))
                 flow_lines.append(
                     f"flow {flow['id']}: step {number} changed; model "
@@ -480,17 +493,35 @@ def _broad_impact(
                         ):
                             selected_model_paths.add(node.path)
     affected, traversed = set(seeds), set(seeds)
-    queue = deque((cid, 0) for cid in sorted(seeds))
+    component_sources = defaultdict(set, {cid: set(paths) for cid, paths in source_seeds.items()})
+    terminal_sources = defaultdict(set)
+    queue = deque((cid, 0, frozenset(source_seeds[cid])) for cid in sorted(seeds))
+    propagated_sources = defaultdict(set)
+    processed = set()
     while queue:
-        cid, distance = queue.popleft()
+        cid, distance, origins = queue.popleft()
         if depth is not None and distance >= depth:
             continue
-        affected.update(reverse_terminal.get(cid, ()))
+        new_sources = origins - propagated_sources[cid]
+        if cid in processed and not new_sources:
+            continue
+        processed.add(cid)
+        propagated_sources[cid].update(new_sources)
+        terminal_callers = reverse_terminal.get(cid, ())
+        affected.update(terminal_callers)
+        for caller in terminal_callers:
+            terminal_sources[caller].update(new_sources)
         for caller in sorted(reverse.get(cid, ())):
+            component_sources[caller].update(new_sources)
+            added_sources = new_sources - propagated_sources[caller]
             if caller not in traversed:
                 affected.add(caller)
                 traversed.add(caller)
-                queue.append((caller, distance + 1))
+                queue.append((caller, distance + 1, frozenset(added_sources)))
+            elif added_sources:
+                # Selection still visits each component once; only newly arriving
+                # source origins continue through the existing graph.
+                queue.append((caller, distance + 1, frozenset(added_sources)))
     tests.update(
         _tests_reaching(
             inv,
@@ -519,6 +550,8 @@ def _broad_impact(
             owner_models[cid].difference_update(readonly_unchanged)
         tests.update(owner_tests[cid])
         selected_model_paths.update(owner_models[cid])
+        for model in owner_models[cid]:
+            source_causes[model].update(component_sources[cid] | terminal_sources[cid])
     for model in selected_model_paths:
         if model in changed:
             tests.update(contract_tests.get(model, ()))
@@ -738,4 +771,8 @@ def _broad_impact(
         port_lines=port_lines,
     )
     report._test_function_counts = function_counts
+    # Operation-local source evidence is not part of Impact's serialized API.
+    report.model_source_causes = {registered[model].id: {source: ["conservative"]
+                                 for source in sorted(source_causes[model])}
+                                 for model in models if source_causes[model]}
     return report

@@ -19,6 +19,7 @@ def test_impact_shared_test_binding_and_unknown_helper(impact_project):
     assert imp.direct == [] and imp.dependents == []
     assert imp.tests == ["tests/test_orders.py"]
     assert imp.model_ids == []
+    assert imp.model_source_causes == {}
     unknown = impact_of(root, data, [".flowguard/models/owners/unbound/helper.py"])
     assert unknown.blocked and not unknown.models and not unknown.model_ids
 
@@ -65,6 +66,7 @@ def test_removed_literal_sites_reach_function_selection(tmp_path):
     assert {"consumer_model", "policy"} == set(impact.model_ids)
     assert "consumer.py:use" in impact.changed_functions
     assert "producer no longer produces 'stale'" in text
+    assert impact.model_source_causes["consumer_model"] == {"producer.py": ["literal"]}
 
 
 def test_uncertain_source_broadens_selection(tmp_path):

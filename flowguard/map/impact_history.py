@@ -172,7 +172,7 @@ def read_git_paths(root, *arguments):
 
 _read_git_paths = read_git_paths  # Compatibility for existing map-impact imports.
 
-def _literal_impact(root, data, inv, tree, changed, base):
+def _literal_impact(root, data, inv, tree, changed, base, *, function_origins=None, model_origins=None):
     """Fresh source roles add consumers to the same function/test selection, never cache sites."""
     import re
     import difflib
@@ -339,6 +339,8 @@ def _literal_impact(root, data, inv, tree, changed, base):
             for path, found in locations if produced else ():
                 if path in model_paths:
                     models.add(model_paths[path])
+                    if model_origins is not None:
+                        model_origins.setdefault(model_paths[path], set()).add(source)
                     continue
                 try:
                     syntax = ast.parse(sources[path])
@@ -350,9 +352,10 @@ def _literal_impact(root, data, inv, tree, changed, base):
                 for line in found:
                     enclosing = [span for span in spans if span[0] <= line <= span[1]]
                     if enclosing:
-                        functions.add(
-                            path + "#" + min(enclosing, key=lambda span: span[1] - span[0])[2]
-                        )
+                        function = path + "#" + min(enclosing, key=lambda span: span[1] - span[0])[2]
+                        functions.add(function)
+                        if function_origins is not None:
+                            function_origins.setdefault(function, set()).add(source)
             for path in inv.tests if produced else ():
                 if candidate(path, value) and any(v == value for v, _, role in get(path)):
                     tests.add(path)

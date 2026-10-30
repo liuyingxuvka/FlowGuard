@@ -462,7 +462,7 @@ def console_scripts(root: Path) -> list[tuple[str, str, str]]:
 
 
 def relied_models(raw: dict, data: dict, inv, anchors: dict[str, list[str]], *, component: str | None = None,
-                  files=None) -> dict[str, set[tuple[str, str]]]:
+                  files=None, source_files=None) -> dict[str, set[tuple[str, str]]]:
     """Models whose ``IMPLEMENTED_BY`` anchors the given code calls directly: {model id: {(owner, symbol)}}.
 
     The callers are the files of ``component``'s subtree, or the given changed ``files``. Anchors in the
@@ -499,6 +499,8 @@ def relied_models(raw: dict, data: dict, inv, anchors: dict[str, list[str]], *, 
                 for mid, anchor_path, anchor_symbol in targets:
                     if path == anchor_path and (symbol == anchor_symbol or symbol.startswith(anchor_symbol + ".")):
                         found[mid].add((owner[path], anchor_symbol))
+                        if source_files is not None:
+                            source_files.setdefault(mid, set()).add(source)
     return dict(found)
 
 def literal_sites(text) -> list[tuple[str, int, str]]:
@@ -554,11 +556,11 @@ def anchor_matches(anchor, function):
     return shared(anchor, function)
 
 
-def select_model_functions(data, inv, tree, raw, functions):
+def select_model_functions(data, inv, tree, raw, functions, *, matches=None):
     """The shared body-edit selection used by change and relation views."""
     from .selection import select_model_functions as shared
 
-    return shared(data, inv, tree, raw, functions)
+    return shared(data, inv, tree, raw, functions, matches=matches)
 
 
 def function_spans(syntax):

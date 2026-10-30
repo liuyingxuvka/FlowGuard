@@ -256,40 +256,49 @@ def _closure(edges, start):
     return reachable_functions(edges, start)
 
 
-def _changed_symbols(root, inv, changed, base, raw):
+def _changed_symbols(root, inv, changed, base, raw, *, origins=None):
     """Qualified changed symbols and explicit uncertainty, using the one AST digest owner."""
     from .inventory import function_digests, resolve_module
     functions, uncertain = set(), {}
     reverse = defaultdict(set)
     for caller, targets in raw.get('edges', {}).items():
-        for target in targets: reverse[target].add(caller)
+        for target in targets:
+            reverse[target].add(caller)
     for path in changed:
         if inv.is_test(path) or path.startswith('.flowguard/') or path not in inv.source and Path(path).suffix not in SOURCE_EXTS:
             continue
         if not path.endswith('.py'):
-            uncertain[path] = 'not Python'; continue
+            uncertain[path] = 'not Python'
+            continue
         if path in inv.dynamic_files:
-            uncertain[path] = 'dynamic imports'; continue
+            uncertain[path] = 'dynamic imports'
+            continue
         if path.endswith('__init__.py') and path in inv.py and inv.py[path].lazy_exports:
-            uncertain[path] = 'lazy package exports'; continue
+            uncertain[path] = 'lazy package exports'
+            continue
         previous = subprocess.run(['git','-C',str(root),'show',f'{base}:{path}'],capture_output=True) if base else None
         if previous is None or previous.returncode:
-            uncertain[path] = 'no old source text'; continue
+            uncertain[path] = 'no old source text'
+            continue
         try:
             before = function_digests(normalize_newlines(previous.stdout))
             source = read_source(root/path)
             after = function_digests(source)
         except (OSError, SyntaxError, ValueError):
-            uncertain[path] = 'source cannot be parsed'; continue
+            uncertain[path] = 'source cannot be parsed'
+            continue
         if set(before['functions']) - set(after['functions']) or set(before['classes']) - set(after['classes']):
-            uncertain[path] = 'a symbol was removed or renamed'; continue
+            uncertain[path] = 'a symbol was removed or renamed'
+            continue
         if before['statements'] != after['statements']:
-            uncertain[path] = 'a nonbinding module statement changed'; continue
+            uncertain[path] = 'a nonbinding module statement changed'
+            continue
+        affected_functions = set()
         signature_changed = set()
         for symbol, value in after['functions'].items():
             old = before['functions'].get(symbol)
             if old != value:
-                functions.add(path+'#'+symbol)
+                affected_functions.add(path+'#'+symbol)
             if old and old['sig_digest'] != value['sig_digest']:
                 signature_changed.add(path+'#'+symbol)
         for symbol, value in after['classes'].items():
@@ -298,22 +307,27 @@ def _changed_symbols(root, inv, changed, base, raw):
                 uncertain[path] = 'a class binding was removed or renamed'
             if old != value:
                 class_node = path+'#'+symbol
-                functions.add(class_node)
+                affected_functions.add(class_node)
                 signature_changed.add(class_node)
-                functions.update(path+'#'+name for name in after['functions'] if name.startswith(symbol+'.'))
-                _binding_users(root,inv,path,symbol.split('.')[0],functions,raw)
+                affected_functions.update(path+'#'+name for name in after['functions'] if name.startswith(symbol+'.'))
+                _binding_users(root,inv,path,symbol.split('.')[0],affected_functions,raw)
         for node in signature_changed:
-            functions.update(reverse.get(node, ()))
+            affected_functions.update(reverse.get(node, ()))
         for name, value in before['bindings'].items():
             if after['bindings'].get(name) != value:
-                _binding_users(root,inv,path,name,functions,raw)
+                _binding_users(root,inv,path,name,affected_functions,raw)
         for importer,info in inv.py.items():
             if path in inv.file_deps.get(importer, ()):
                 try:
                     syntax=ast.parse(read_source(root/importer))
                     if any(isinstance(n,ast.ImportFrom) and any(a.name=='*' for a in n.names) for n in ast.walk(syntax)):
                         uncertain[path]='a project file imports this file with *'
-                except (OSError,SyntaxError): pass
+                except (OSError,SyntaxError):
+                    pass
+        functions.update(affected_functions)
+        if origins is not None:
+            for function in affected_functions:
+                origins.setdefault(function, set()).add(path)
     return functions, uncertain
 
 
@@ -554,15 +568,20 @@ def compute_impact(
         and (path in inv.source or Path(path).suffix in SOURCE_EXTS)
     ]
     literal_tree = build_tree(root, data, inv)
+    function_origins = {}
+    literal_function_origins = {}
+    literal_model_origins = {}
     consumer_lines, literal_models, literal_functions, literal_tests = _literal_impact(
-        root, data, inv, literal_tree, changed, base
+        root, data, inv, literal_tree, changed, base,
+        function_origins=literal_function_origins, model_origins=literal_model_origins,
     )
     raw = (
         discover_inventory(root, inv, data=data, write_cache=False)
         if source_changes or literal_functions
         else {"files": {}, "edges": {}}
     )
-    functions, uncertain = _changed_symbols(root, inv, source_changes, base, raw)
+    functions, uncertain = _changed_symbols(root, inv, source_changes, base, raw, origins=function_origins)
+    source_functions = set(functions)
     functions.update(literal_functions)
     certain = set(source_changes) - set(uncertain)
     result = _broad_impact(
@@ -602,8 +621,31 @@ def compute_impact(
     result.promise_lines, result.promise_findings = _git_promise_notes(root, data, changed, base)
     from .discover import select_model_functions, anchor_matches
 
-    chosen, reasons, flow_lines, unreached = select_model_functions(data, inv, tree, raw, functions)
+    matched_functions = {}
+    chosen, reasons, flow_lines, unreached = select_model_functions(
+        data, inv, tree, raw, functions, matches=matched_functions)
     selected.update(chosen)
+    source_paths = set(source_changes)
+    causes = result.model_source_causes
+
+    def source_cause(mid, source, kind):
+        if source in source_paths:
+            causes.setdefault(mid, {}).setdefault(source, []).append(kind)
+
+    for mid, matched in matched_functions.items():
+        for function in matched:
+            if function in source_functions and function.partition("#")[0] in function_origins.get(function, ()):
+                source_cause(mid, function.partition("#")[0], "reach")
+            for source in function_origins.get(function, ()):
+                source_cause(mid, source, "reference")
+            for source in literal_function_origins.get(function, ()):
+                source_cause(mid, source, "literal")
+    for mid, sources in literal_model_origins.items():
+        for source in sources:
+            source_cause(mid, source, "literal")
+    result.model_source_causes = {
+        mid: {source: sorted(set(kinds)) for source, kinds in sorted(paths.items())}
+        for mid, paths in sorted(causes.items()) if mid in selected}
     result.flow_models.extend(flow_lines)
     own = {mid: node.contract.get("IMPLEMENTED_BY", {}) for mid, node in tree.nodes.items()}
     if source_changes:

@@ -18,7 +18,7 @@ def anchor_matches(anchor, function):
     file, _, name = function.partition('#')
     return path == file and (name == symbol or name.startswith(symbol+'.'))
 
-def select_model_functions(data, inv, tree, raw, functions):
+def select_model_functions(data, inv, tree, raw, functions, *, matches=None):
     """The shared body-edit selection used by change and relation views."""
     from .mapfile import component_files, component_scope, flow_step_parts
 
@@ -121,4 +121,7 @@ def select_model_functions(data, inv, tree, raw, functions):
                     flow_lines.append(f"flow {flow['id']}: step {number} changed; model {mid}")
         if not hits:
             unreached.append(fn.replace("#", ":", 1))
+        if matches is not None:
+            for mid in hits:
+                matches.setdefault(mid, set()).add(fn)
     return selected, dict(reasons), flow_lines, unreached
