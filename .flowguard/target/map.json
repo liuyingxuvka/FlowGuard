@@ -1,0 +1,17 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-615: promote prints the owner block",
+  "components": [],
+  "flows": [],
+  "remove": [],
+  "requests": [
+    {
+      "id": "R1",
+      "part": true
+    },
+    {
+      "id": "R600",
+      "part": true
+    }
+  ]
+}
