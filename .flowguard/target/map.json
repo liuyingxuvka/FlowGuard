@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-604: a reworded responsibility is advice, not owner_dropped",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
