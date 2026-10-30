@@ -65,6 +65,8 @@ class ModelResult:
     test_seconds: float | None = None
     process_reason: str = ""
     sequences: int = 0
+    size_observed: bool = False
+    size_debts_used: list[int] = field(default_factory=list)
     advice_limit: float = 10.0
 
 
@@ -518,12 +520,15 @@ def run_model_in_process(root: Path, path: Path, *, view=None, port_request=None
                 )
             report = design.explore()
             result.sequences = report.explored_sequence_count
+            result.size_observed = report.exploration_complete
             from .lint import apply_accepted_debts
             from .lint_models import size_finding
 
             finding = size_finding(result.model, "sequences", result.sequences)
             if finding:
-                finding = apply_accepted_debts([finding], data.get("accepted_debts", []), root=root)[0][0]
+                findings, used = apply_accepted_debts([finding], data.get("accepted_debts", []), root=root)
+                result.size_debts_used = sorted(used)
+                finding = findings[0]
                 if finding.level == "error":
                     _fail(result, "large_model: " + finding.message)
                 elif finding.level == "warn":
@@ -812,7 +817,37 @@ def run_models(
         from .system_model import run_system_model
 
         results.append(run_system_model(root, data, inv, view=view))
+    _size_debt_warnings(root, data, inv, tree, registry, results, view=view)
     return results + issues
+
+
+def _size_debt_warnings(root, data, inv, tree, registry, results, *, view=None):
+    """Judge only active size debts whose actual model scope was fully observed."""
+    from .debts import evaluate_debts
+    from .lint import apply_accepted_debts
+    from .lint_models import model_size_findings
+
+    evaluation = evaluate_debts(root, data)
+    debts = data.get("accepted_debts", [])
+    pending = [index for index in evaluation.active_indices if debts[index].get("code") == "large_model"]
+    if not pending:
+        return
+    static = model_size_findings(root, data, inv, view=view, tree=tree)
+    _, used = apply_accepted_debts(static, debts, evaluation=evaluation)
+    for result in results:
+        used.update(result.size_debts_used)
+    observed = {result.model: result for result in results if result.size_observed}
+    complete = not registry.issues and {entry.id for entry in registry.entries} <= set(observed)
+    for index in pending:
+        debt = debts[index]
+        if index in used:
+            continue
+        if "component" in debt:
+            receiver = observed.get(debt["component"])
+        else:
+            receiver = next(iter(results), None) if complete else None
+        if receiver is not None:
+            receiver.warnings.append(f"debt_stale {debt.get('component', '*')}: accepted debt matches no finding: {debt['reason']}")
 
 
 

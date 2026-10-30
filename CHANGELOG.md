@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: lint defers sequence-size debts to model execution instead of falsely calling them unused; models and release warn when an observed size debt no longer suppresses any finding.
+
 - Projects using FlowGuard: a selected test with no command names the project's test_commands setting and gives a runnable promotion command after you declare it, instead of sending you back to the target design.
 
 - Projects using FlowGuard: target promotion rejects a model failure caused by changed shared source, as release does, and names that source; only genuinely unchanged findings remain old warnings.

@@ -360,6 +360,7 @@ def run_lint(
     view=None,
     write_cache: bool | None = None,
     evaluation=None,
+    used_debts: set[int] | None = None,
 ) -> list[Finding]:
     """All architecture findings; disposable caches are written only for the current tree unless write_cache=False."""
     write_cache = view is None if write_cache is None else write_cache
@@ -542,6 +543,8 @@ def run_lint(
                 )
             )
     out, used = apply_accepted_debts(out, normalized_debts(data), evaluation=evaluation)
+    if used_debts is not None:
+        used_debts.update(used)
     out.extend(stale_debt_findings(data, inv, raw, used, evaluation=evaluation))
     out.extend(evaluation.diagnostics())
     return out
@@ -552,7 +555,7 @@ CLOSABLE_DEBTS = REVIEW_DEBTS | {"large_model", "large_test_file", "test_file_mi
 
 
 def stale_debt_findings(data: dict, inv: Inventory, raw: dict, used: set[int], *, evaluation=None) -> list[Finding]:
-    """WARN debt_stale for each accepted debt that matched no finding (``used`` from apply_accepted_debts)."""
+    """Static unused debts; unmatched large_model waits for real sequence observations."""
     debts = normalized_debts(data)
     evaluation = evaluation if evaluation is not None else evaluate_debts(inv.root, data)
     eligible = evaluation.active_indices
@@ -563,7 +566,8 @@ def stale_debt_findings(data: dict, inv: Inventory, raw: dict, used: set[int], *
                         and debt.get("contains") in declared.get(debt.get("component"), set())
                         and debt.get("contains") not in bare.get(debt.get("component"), set())}
     return [Finding("warn", "debt_stale", debt.get("component", ""), f"accepted debt matches no finding: {debt['reason']}")
-            for index, debt in enumerate(debts) if index in eligible and index not in used and debt.get("code") not in REVIEW_DEBTS]
+            for index, debt in enumerate(debts) if index in eligible and index not in used
+            and debt.get("code") not in REVIEW_DEBTS | {"large_model"}]
 
 
 def test_source(root, path, source_cache=None):

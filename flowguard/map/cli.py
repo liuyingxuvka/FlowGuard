@@ -229,20 +229,21 @@ def cmd_lint(root: Path, a) -> int:
     data, inv = _context(root)
     evaluation = evaluate_debts(root, data)
     limits = Limits()
-    findings = run_lint(root, data, inv, limits, evaluation=evaluation)
+    used_debts = set()
+    findings = run_lint(root, data, inv, limits, evaluation=evaluation, used_debts=used_debts)
     if getattr(a, "debts", False):
         from .review import declined_debts
         matched = declined_debts(root, data, inv)
         for state, debt in zip(evaluation.states, data.get("accepted_debts", [])):
-            used = any(f.code == debt["code"] and f.component == debt.get("component", f.component)
-                       and "(accepted debt:" in f.message for f in findings)
+            used = state.index in used_debts
             if debt.get("code") in {"unmodeled_owner", "hub", "flow_without_model", "unbound_models"}:
                 used = (debt["code"], debt.get("component", "")) in matched
             used = used and state.status == "active"
+            deferred = state.status == "active" and debt["code"] == "large_model" and not used
             print(f"{debt['code']} {debt.get('component', '*')}: {debt.get('reason', '')}"
                   f" (expires {debt.get('expires', '')})"
                   + (" (expired)" if state.status == "expired" else "")
-                  + ("" if used else " (unused)"))
+                  + (" (judged by map models)" if deferred else "" if used else " (unused)"))
         deadlines = [finding for finding in findings if finding.code in {"debt_without_expiry", "debt_expired"}]
         if deadlines:
             print_findings(deadlines, "debt deadlines", as_json=False, limit=a.limit)

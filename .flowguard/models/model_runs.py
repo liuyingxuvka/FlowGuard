@@ -9,10 +9,10 @@ from flowguard.map.facts import CodeFactsReport,Fact
 MODEL_ID='model_runs'
 PARENT='map-proof'
 IMPLEMENTED_BY={'RunModels':'flowguard/map/proof.py:run_models','Render':'flowguard/map/proof.py:render_results'}
-USES = {'ChildPath': 'flowguard/map/common.py:child_import_path'}
+USES = {'ChildPath': 'flowguard/map/common.py:child_import_path', 'Lint': 'flowguard/map/lint.py:run_lint'}
 OUTPUTS={'models':('pass','fail')}
 HANDOFF={'model_proof':{'outcome':'proof'},'anchor_watch':{'anchors':'anchors'},'port_checks':{'run_checks':'run_checks'},'test_binding':{'outcome':'tests'}}
-KEEPS=('completion','large','status','lines','models','child_path_isolated')
+KEEPS=('completion','large','status','lines','models','child_path_isolated','size_debt_used','size_debt_stale')
 @dataclass(frozen=True)
 class Case:
     proof:str
@@ -34,6 +34,8 @@ class State:
     lines:tuple=()
     models:str='pass'
     child_path_isolated: bool = True
+    size_debt_used: bool = False
+    size_debt_stale: bool = False
     @property
     def order(self):return tuple(name for name,status in self.status)
     @property
@@ -47,7 +49,7 @@ class State:
 class Schedule:
     name='Schedule'
     reads=()
-    writes = ('completion', 'large', 'child_path_isolated')
+    writes = ('completion', 'large', 'child_path_isolated', 'size_debt_used')
 
     def __init__(self, defect=''):
         self.defect = defect
@@ -55,7 +57,8 @@ class Schedule:
     def apply(self, event, state):
         isolated = self.defect != 'repo_root_on_child_path'
         return (FunctionResult(event, replace(state, completion=event.completion,
-                                              large=event.large, child_path_isolated=isolated)),)
+                                              large=event.large, child_path_isolated=isolated,
+                                              size_debt_used=event.large == 'soft')),)
 class Proof:
     name='Proof'
     reads=()
@@ -92,16 +95,20 @@ class Judge:
         return (FunctionResult(event,replace(state,status=tuple((name,statuses[name]) for name in order))),)
 class Render:
     name='Render'
-    reads=('status','tests')
-    writes=('lines','models')
+    reads=('status','tests','size_debt_used')
+    writes=('lines','models','size_debt_stale')
     def __init__(self,defect=''):self.defect=defect
     def apply(self,event,state):
         lines=tuple(status.upper()+' '+name for name,status in state.status)
         if self.defect=='rules':lines+=tuple('PASS '+name+' rules' for name,status in state.status if status=='pass')
         models='pass' if state.tests=='accepted' and all(status=='pass' for name,status in state.status) else 'fail'
-        return (FunctionResult(models,replace(state,lines=lines,models=models)),)
+        stale = not state.size_debt_used or self.defect == 'silencing_debt_called_stale'
+        return (FunctionResult(models,replace(state,lines=lines,models=models,size_debt_stale=stale)),)
 
 INVARIANTS = (
+    Invariant('stale_size_debt_silences_nothing',
+              'a size debt is reported stale only when removing it changes no finding of map lint and map models',
+              lambda state, trace: not state.size_debt_stale or not state.size_debt_used),
     Invariant('child_path_exposes_only_flowguard',
               "a model or bound-test subprocess imports the project's own packages first and never sees the FlowGuard repository root",
               lambda state, trace: state.child_path_isolated),
@@ -117,9 +124,9 @@ def make(defect=''):
     return Explorer(Workflow((Schedule(defect),Proof(),Anchors(),RunChecks(),Tests(),Judge(defect),Render(defect))),(State(),State(models="fail")),CASES,invariants=INVARIANTS,max_sequence_length=1,progress_steps=0)
 def build_explorer():return make()
 def broken_variants():
-    return {'repo_root_on_child_path': make('repo_root_on_child_path'),'orders_by_completion':make('order'),'prints_rules_on_pass':make('rules'),'large_model_gates_exit':make('time_gate'),'hard_limit_passes':make('hard_pass'),'passes_failed_run_check':make('passes_failed_run_check')}
+    return {'repo_root_on_child_path': make('repo_root_on_child_path'),'orders_by_completion':make('order'),'prints_rules_on_pass':make('rules'),'large_model_gates_exit':make('time_gate'),'hard_limit_passes':make('hard_pass'),'passes_failed_run_check':make('passes_failed_run_check'),'silencing_debt_called_stale':make('silencing_debt_called_stale')}
 
-def make_fixture(root, *, wrong_second=False):
+def make_fixture(root, *, wrong_second=False, size_debt=False):
     directory = root / ".flowguard/models"
     directory.mkdir(parents=True)
     (root / "native.py").write_text(f"def first_value(): return 1\ndef second_value(): return {2 if wrong_second else 1}\n")
@@ -145,11 +152,18 @@ def conformance():
     actual = load_anchor(IMPLEMENTED_BY["Run"], root=Path.cwd())()
     return CodeFactsReport((Fact("native_value", actual == 1, repr(actual)),))
 '''.format(name=name, delay=delay)
+        if size_debt and name == 'first':
+            source = source.replace('("run",)', '("run", "again", "last")')
+            source = source.replace('max_sequence_length=1,', 'max_sequence_length=7 if value == 1 else 1,')
         (directory / (name + ".py")).write_text(source)
     comp = {"id": "app", "summary": "Two independent native values", "responsibilities": ["Compute values"],
             "files": ["native.py"], "models": [".flowguard/models/first.py", ".flowguard/models/second.py"],
             "status": "draft"}
-    (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [comp]}))
+    data = {"schema": "flowguard.map.v1", "components": [comp]}
+    if size_debt:
+        data['accepted_debts'] = [dict(code='large_model', component='first', contains='explored sequences',
+                                      reason='one bounded native table', expires='9999-12-31')]
+    (root / ".flowguard/map.json").write_text(json.dumps(data))
 
 
 
@@ -157,6 +171,9 @@ def conformance():
     from flowguard.map.proof import run_models, ModelResult, render_results
     from flowguard.map.lint import size_finding
     from flowguard.map.common import child_import_path
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.lint import run_lint
+    from flowguard.map.mapfile import load_map
     import flowguard
     facts = []
     with TemporaryDirectory(prefix='fg-child-path-') as directory:
@@ -169,13 +186,19 @@ def conformance():
         facts.append(Fact('child_path_exposes_only_flowguard', isolated, repr(paths)))
     with TemporaryDirectory(prefix="fg-model-runs-") as directory:
         root = Path(directory)
-        make_fixture(root, wrong_second=True)
+        make_fixture(root, wrong_second=True, size_debt=True)
         sequential = run_models(root, [], jobs=1)
         parallel = run_models(root, [], jobs=2)
         expected = [("first", "pass"), ("second", "fail"), ("system", "pass")]
         first = [(result.model, result.status) for result in sequential]
         second = [(result.model, result.status) for result in parallel]
         facts.append(Fact("registry_order", first == second == expected, repr((first, second))))
+        data = load_map(root)
+        lint = run_lint(root, data, build_inventory(root, [], write_cache=False), write_cache=False)
+        used = (sequential[0].sequences == 3279 and not any('large_model:' in warning or 'debt_stale' in warning
+                                                        for result in (sequential[0], parallel[0]) for warning in result.warnings)
+                and not any(finding.code == 'debt_stale' and 'one bounded native table' in finding.message for finding in lint))
+        facts.append(Fact('stale_size_debt_silences_nothing', used, repr(lint)))
     rendered = render_results([ModelResult("probe", "probe.py", rules=["one"], known_bad=["two"])])
     facts.append(Fact("single_pass_line", len([line for line in rendered.splitlines() if line and not line.startswith("models:")]) == 1, rendered))
     text = render_results([ModelResult("sized", "sized.py", seconds=0.5, advice_limit=1e-06)])
@@ -188,7 +211,10 @@ def conformance():
 
 
 
-TESTED_BY = {'only_hard_size_limits_gate': ['tests/test_model_runs.py:test_sequence_soft_limit_warns',
+TESTED_BY = {'stale_size_debt_silences_nothing': ['tests/test_model_runs.py:test_debt_silencing_models_warning_is_used',
+                                               'tests/test_model_runs.py:test_size_debt_waits_for_its_actual_observation',
+                                               'tests/test_model_runs.py:test_size_debt_retains_static_rule_and_test_file_judgments'],
+ 'only_hard_size_limits_gate': ['tests/test_model_runs.py:test_sequence_soft_limit_warns',
                                 'tests/test_model_runs.py:test_sequence_hard_limit_fails_the_model',
                                 'tests/test_model_runs.py:test_time_over_the_limit_is_one_info'],
  'parallel_output_in_registry_order': ['tests/test_model_runs.py:test_jobs_output_equals_sequential'],

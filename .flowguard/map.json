@@ -79,7 +79,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch supported read, change, target and release commands with fixed defaults; map aliases retain the same owners.",
+      "summary": "Dispatch supported read, change, target and release commands with fixed defaults; map aliases retain the same owners. Show actual static debt use and when model execution must judge a size debt.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
         "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
@@ -137,7 +137,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1fc43a3ff0b11c03bc0663ccccc53ee05e20004caeaa89e0fdcfb510b51a45ba"
+      "fingerprint": "sha256:759aa59740f4fb6915bce4ef73cceacfa9776ea4d7fcfc3eaf83bc02b8a6aa2f"
     },
     {
       "id": "public-api",
@@ -436,7 +436,7 @@
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Run fresh model proofs and bound tests, clean owned process groups within the outer session deadline, and report time as advice. Model and bound-test children share the project-first import path owner.",
+      "summary": "Run fresh model proofs and bound tests, clean owned process groups within the outer session deadline, and report time as advice. Model and bound-test children share the project-first import path owner. Warn about an unused model-size debt only after its actual model scope is fully observed.",
       "responsibilities": [
         "run every model, system included, with known-bad and conformance checks; run independent model subprocesses with explicit concurrency and retain registry order, with system last; use only active no-code reasons and soft-warning debts from the project root",
         "fail a model whose rule no known-bad variant breaks",
@@ -483,7 +483,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:187945d744e0bd9ce63fd3b7670792903d5e68e773e79bdf22b26b45c3a50be5"
+      "fingerprint": "sha256:5a4598acd29e7a6ae28ca33318b8696ee52dc48fb4e91d3fc8b9499dff853db4"
     },
     {
       "id": "engine-explore",
@@ -696,7 +696,7 @@
     {
       "id": "map-check",
       "layer": "map",
-      "summary": "Check architecture, implementation coverage, model bindings, size and declared replay calls against the current source. Report shape counts as advice without accepted-debt coverage. Treat a newly worded responsibility on the same owner as advice at the shared similarity threshold; retain genuine dropped-owner errors. Reject current-model identity drift while a target copy exists in both check modes, preserving the edit and target on refused promotion. Refuse staged-helper edits, additions or deletions, preserving intent when a legacy helper baseline is unknown.",
+      "summary": "Check architecture, implementation coverage, model bindings, size and declared replay calls against the current source. Report shape counts as advice without accepted-debt coverage. Treat a newly worded responsibility on the same owner as advice at the shared similarity threshold; retain genuine dropped-owner errors. Reject current-model identity drift while a target copy exists in both check modes, preserving the edit and target on refused promotion. Refuse staged-helper edits, additions or deletions, preserving intent when a legacy helper baseline is unknown. Defer unmatched large_model debts to model execution while retaining static size findings.",
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity. Enforce target commit-seam failures only in strict mode, retaining working-mode and Gitless no-op warnings.",
         "report one owner per entrypoint, responsibility, state and side effect",
@@ -735,7 +735,7 @@
         ".flowguard/models/private_use.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:fbfa0bb62e4fd7f2dd22a600b05b6a43716ed61850b50472945db51e08026e05"
+      "fingerprint": "sha256:a770d3efab12f3a8391a27014607e6bbae0f00f39566182090d9828422384385"
     },
     {
       "id": "map-read",
@@ -951,7 +951,7 @@
     ".flowguard/models/map_binding.py": "5234e58ea5796c52a4775930cf3e8bafb6d9dd1f212acefbb37021f81351a1cc",
     ".flowguard/models/map_check.py": "57b6fce6e78e6e81eb8dd2d6b72f0c2b4f41d6e667047230286e8f2ea1b81916",
     ".flowguard/models/model_proof.py": "b8ff72110c36b0843d7da451c8615f24c596b7ea1d49ae595bf9ddffae050627",
-    ".flowguard/models/model_runs.py": "b3fbf03bc3e83d982094b398ee1326478816b4583fbadb48c86b12560af56c3f",
+    ".flowguard/models/model_runs.py": "dab67fcecee8f475f6189cab0107e30fa667e70249de38eeeae3a9b677505814",
     ".flowguard/models/model_scope.py": "6dd76b266a4e60fd63bbcb4d9a93f5d52b6de3d44aa72ff25002e3b126473307",
     ".flowguard/models/port_checks.py": "52bb56591517c7c70f47e5c47a3890053bf42e3c967ff121bb0f391dd7fff0db",
     ".flowguard/models/port_escalation.py": "3390a4a2df0bb70c06550beb0dddfffc421cf4272c40f55901ca3758795a445f",

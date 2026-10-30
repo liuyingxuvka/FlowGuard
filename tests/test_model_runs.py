@@ -57,6 +57,75 @@ def test_sequence_soft_limit_warns(tmp_path):
     assert result.status=='pass' and not any(w.startswith('large_model:') for w in result.warnings)
 
 
+def test_debt_silencing_models_warning_is_used(tmp_path, capsys):
+    from flowguard.map import cli
+    from flowguard.map.proof import run_models
+
+    data = _size_project(tmp_path, events=3, length=7)
+    data["accepted_debts"] = [
+        dict(code="large_model", component="sized", reason="expired record keeps original indices", expires="2000-01-01"),
+        dict(code="large_model", component="sized", reason="one bounded table", expires="9999-12-31"),
+    ]
+    (tmp_path / ".flowguard/map.json").write_text(json.dumps(data))
+    assert cli.main(["lint", "--root", str(tmp_path)]) == 0
+    assert "debt_stale" not in capsys.readouterr().out
+    assert cli.main(["lint", "--debts", "--root", str(tmp_path)]) == 0
+    line = next(line for line in capsys.readouterr().out.splitlines() if "one bounded table" in line)
+    assert line.endswith(" (judged by map models)") and "(unused)" not in line
+    result = run_models(tmp_path, ["sized"])[0]
+    assert result.status == "pass" and result.sequences == 3279
+    assert not any("large_model:" in warning or "debt_stale" in warning for warning in result.warnings)
+    model = tmp_path / ".flowguard/models/sized.py"
+    model.write_text(model.read_text().replace("max_sequence_length=7", "max_sequence_length=1"))
+    result = run_models(tmp_path, ["sized"])[0]
+    assert result.status == "pass" and any("debt_stale" in warning and "one bounded table" in warning for warning in result.warnings)
+
+
+def test_size_debt_waits_for_its_actual_observation(tmp_path):
+    from flowguard.map.proof import run_models
+
+    target__target_life_cycle_fixture_helpers("model_runs")["make_fixture"](tmp_path)
+    path = tmp_path / ".flowguard/map.json"
+    data = json.loads(path.read_text())
+    data["accepted_debts"] = [dict(code="large_model", reason="only a full observation can judge this",
+                                    expires="9999-12-31", **scope)
+                              for scope in ({"component": "second"}, {}, {"component": "first"})]
+    path.write_text(json.dumps(data))
+    # The first model is observed; the second and global scopes are still unknown.
+    result = run_models(tmp_path, ["first"])[0]
+    assert any("debt_stale" in warning for warning in result.warnings)
+    assert not any("second" in warning or "debt_stale *:" in warning for warning in result.warnings)
+    model = tmp_path / ".flowguard/models/first.py"
+    model.write_text(model.read_text().replace("def build_explorer(): return make(1)",
+                                             'def build_explorer(): raise RuntimeError("not observed")'))
+    result = run_models(tmp_path, ["first"])[0]
+    assert result.status != "pass" and result.sequences == 0
+    assert not any("debt_stale" in warning for warning in result.warnings)
+
+
+def test_size_debt_retains_static_rule_and_test_file_judgments(tmp_path, capsys):
+    from flowguard.map import cli
+    from flowguard.map.proof import run_models
+
+    data = _size_project(tmp_path, rules=9)
+    tests = tmp_path / "tests/test_many.py"
+    tests.parent.mkdir()
+    tests.write_text("\n".join(f"def test_case_{index}(): pass" for index in range(41)))
+    data["components"][0]["tests"] = ["tests/test_many.py"]
+    data["accepted_debts"] = [
+        dict(code="large_model", component="sized", contains="rules", reason="bounded rule table", expires="9999-12-31"),
+        dict(code="large_test_file", component="tests/test_many.py", reason="static test size", expires="9999-12-31"),
+    ]
+    (tmp_path / ".flowguard/map.json").write_text(json.dumps(data))
+    assert cli.main(["lint", "--debts", "--root", str(tmp_path)]) == 0
+    output = capsys.readouterr().out
+    assert "(unused)" not in output and "judged by map models" not in output
+    assert not any("debt_stale" in warning for warning in run_models(tmp_path, ["sized"])[0].warnings)
+    tests.write_text("def test_case(): pass\n")
+    assert cli.main(["lint", "--root", str(tmp_path)]) == 0
+    assert "accepted debt matches no finding: static test size" in capsys.readouterr().out
+
+
 def test_sequence_hard_limit_fails_the_model(tmp_path, capsys):
     data = _size_project(tmp_path, events=4, length=7)
     from flowguard.map.cli import main
