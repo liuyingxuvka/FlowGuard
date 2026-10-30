@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "Preserve staged helper intent with target-start identities",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
