@@ -231,6 +231,32 @@ def check_plan(root, target, view):
     return items, findings
 
 
+def static_plan_rows(root, target, view):
+    """Reuse PLAN parsing; static edits never stand for a completed check."""
+    path = Path(root) / PLAN_RELPATH
+    if not path.exists():
+        return []
+    items, findings = check_plan(root, target, view)
+    by_line = {item['number']: item for item in items}
+    rows = []
+    for source_line, raw in enumerate(path.read_text(encoding='utf-8-sig').splitlines(), 1):
+        if not raw.strip() or raw.lstrip().startswith('#'):
+            continue
+        item = by_line.get(source_line)
+        problems = [finding.message for finding in findings
+                    if finding.message.startswith(f'PLAN.txt:{source_line}:')]
+        state = 'static, now'
+        if item is None or problems:
+            state = ('not edited' if item and item['kind'] == 'touch'
+                     and all('unchanged since target start' in problem for problem in problems) else 'unknown')
+        elif item['kind'] == 'touch':
+            state = 'edited, not verified'
+        rows.append(dict(number=len(rows) + 1, source_line=source_line, line=raw,
+                         state=state, known_from='static, now', problems=problems,
+                         added_after_code=None))
+    return rows
+
+
 def _rule_sources(root, data, requested, *, view=None, fallback=None):
     """Known absence differs from an unreadable model or rule definition."""
     sources, paths = {}, {}

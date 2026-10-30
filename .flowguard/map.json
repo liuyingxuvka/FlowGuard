@@ -79,7 +79,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch public commands with stable exits, typed verdicts and advice; report adoption writes and preserved instructions.",
+      "summary": "Dispatch public commands with stable exits, typed verdicts and advice; supply read-only Git access for the static status screen and keep hook errors nonblocking.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
         "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
@@ -138,7 +138,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:070f3468371df1903504aab9e0e7d3fbeb5310e8a03d344b3998f9874ca487ba"
+      "fingerprint": "sha256:a30751368f72aabb6ccc806f6c74bb6cd824b27970f18705cb9fb057e0a164a2"
     },
     {
       "id": "public-api",
@@ -747,12 +747,13 @@
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Show complete static code/model relations, field lifecycles, test positions and open request facts without importing project models.",
+      "summary": "Show static code/model relations and a derived, read-only recovery screen with open plans, request provenance, Git/record history and an absolute next command; never import or explore project models.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage; find owners by word form and rank architecture defects and strengths; compare current and target rules and known-bad definitions by name",
         "find owners by word form and rank architecture defects and strengths",
         "compare current and target facets and list the rules a target changes",
-        "show the model rules and flows each component relies on; count process reasons and close review suggestions only with active accepted debts"
+        "show the model rules and flows each component relies on; count process reasons and close review suggestions only with active accepted debts",
+        "derive static recovery facts from the open PLAN, immutable requests/records and supplied read-only Git facts"
       ],
       "files": [
         "flowguard/map/views.py",
@@ -761,7 +762,8 @@
         "flowguard/map/digest.py",
         "flowguard/map/view_format.py",
         "flowguard/map/view_target.py",
-        "flowguard/map/view_field.py"
+        "flowguard/map/view_field.py",
+        "flowguard/map/status.py"
       ],
       "entrypoints": [],
       "state": [],
@@ -780,11 +782,12 @@
         "tests/test_read_field.py",
         "tests/test_read_find.py",
         "tests/test_relation_graph.py",
-        "tests/test_requests.py"
+        "tests/test_requests.py",
+        "tests/test_status.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1ed628bc2e490f958950371366e9e263ef78f88ad006e4ce6a56253eff534f34"
+      "fingerprint": "sha256:8ef664caa9eaaadf2c52e400e6d112612a98a526f2eff7a69340cbb0f46e7d20"
     },
     {
       "id": "map-impact",
@@ -828,7 +831,7 @@
     {
       "id": "map-requests",
       "layer": "map",
-      "summary": "Preserve immutable requests and records, check PLAN evidence and render it for the owner.",
+      "summary": "Preserve immutable requests and records, check PLAN evidence and expose the same derived request states to read and status.",
       "responsibilities": [
         "preserve original owner request bytes and sidecars",
         "protect immutable tool-written files",
@@ -862,7 +865,7 @@
         "writes request files, change record pairs, raw-byte guards and independent written receipts"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:024cc348ff7ae0a0b580e73678e816f08f06cacca928028ee72da9c355929d57"
+      "fingerprint": "sha256:c78a262991e32669dd382882cb7a163d03e0e2a14bebbe01cc88976acb0229ca"
     }
   ],
   "flows": [
@@ -1016,7 +1019,7 @@
     ".flowguard/models/read_find.py": "b4490d05a42ef37468d9d9f205abccc72b753bceacb9fc0511ccb426e54cac71",
     ".flowguard/models/read_mermaid.py": "3a3e2229280cb72de81b57212a62ea9365905d5e52ddb2006b0e723bd18bb0c9",
     ".flowguard/models/read_review.py": "70cc52cc776e431a27a0a52c64af36ad7ac089b4768d4c7620ec13827343d82d",
-    ".flowguard/models/read_show.py": "35f8c513b27b2cffb974898e3406a8703f0df88658fd917de4858d75153af3c5",
+    ".flowguard/models/read_show.py": "02ab182b95a772690cebed315c6d596c195a72219af5a32a2fdbeaf8cd1c1914",
     ".flowguard/models/relation_graph.py": "7c7839800bc2ffd986e1348ed44a51500dce1d1a466ff59ee74d8ef9ef2fe551",
     ".flowguard/models/release_gate.py": "00b1bc63d554ebf7551c34689f9498c3124fb96a6f2f70c3072d6f1747fbce6c",
     ".flowguard/models/release_neutral_fingerprint.py": "51d5ae79b7f14473299562517b8acbc5b62004e7641f905364ad954dd4621948",

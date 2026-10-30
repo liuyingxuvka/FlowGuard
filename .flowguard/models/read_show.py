@@ -51,13 +51,13 @@ from _read_fixture import ReadCase, JointState, Bridge, legacy_cases, legacy_con
 from _read_fixture import _flows, _focused, _layer_order, _model_contract, _names, _ranked, _recipes, _relied, _static, _summary, _true_strengths, _word_forms
 MODEL_ID='read_show'
 PARENT = 'read_command'
-IMPLEMENTED_BY={'Show': 'flowguard/map/views.py:render_show'}
+IMPLEMENTED_BY={'Show': 'flowguard/map/views.py:render_show', 'Status': 'flowguard/map/status.py:collect_status'}
 USES = {
     'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
     'Facets': 'flowguard/map/facets.py:component_facets',
     'Main': 'flowguard/__main__.py:main',
 }
-TESTED_BY = {'coverage_counts_only_bound': ['tests/test_read_command.py:test_coverage_counts_calls_not_words'], 'tests_line_counts_bound_and_unbound': ['tests/test_read_command.py:test_tests_line_counts_bound_calling_and_neither'], 'no_model_import': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_and_models_visible': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts', 'tests/test_read_command.py:test_read_is_complete_and_folds_children'], 'model_purpose_and_three_counts': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'missing_summary_prompt': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_in_layer_order': ['tests/test_read_command.py:test_read_orders_components_by_layer'], 'open_requests_listed': ['tests/test_requests.py:test_open_request_without_target_is_listed']}
+TESTED_BY = {'coverage_counts_only_bound': ['tests/test_read_command.py:test_coverage_counts_calls_not_words'], 'tests_line_counts_bound_and_unbound': ['tests/test_read_command.py:test_tests_line_counts_bound_calling_and_neither'], 'no_model_import': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts', 'tests/test_status.py:test_status_never_explores_or_writes'], 'components_and_models_visible': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts', 'tests/test_read_command.py:test_read_is_complete_and_folds_children'], 'model_purpose_and_three_counts': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'missing_summary_prompt': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_in_layer_order': ['tests/test_read_command.py:test_read_orders_components_by_layer'], 'open_requests_listed': ['tests/test_requests.py:test_open_request_without_target_is_listed', 'tests/test_status.py:test_status_request_status_derived', 'tests/test_status.py:test_status_next_absolute_cwd_independent']}
 MOVED_RULES=(
 Invariant('no_model_import', 'reading never imports a model module', lambda state, trace: not state.imported),
 Invariant('components_and_models_visible', 'every component and every model is visible, each model once', lambda state, trace: _names(state)),
@@ -67,8 +67,8 @@ Invariant('components_in_layer_order', 'read lists top-level components by layer
 )
 RULES = BASE_RULES + MOVED_RULES + (
     Invariant('open_requests_listed',
-              'read lists every open request with its age, so a request no target ever named stays visible',
-              lambda state, trace: state.requests_visible),
+              'read and static status retain every open request and its recovery command, including unclaimed requests',
+              lambda state, trace: state.requests_visible and state.resume_visible),
 )
 FEATURE_NAMES=['import_time_marker', 'missing_summary', 'late_upper_component']
 LEGACY_FAULTS={'drops_a_component': 'drop_component', 'imports_a_model': 'import_model', 'drops_a_model': 'overflow', 'drops_model_contract': 'drop_model_contract', 'drops_summary_prompt': 'drop_summary_prompt', 'map_file_order': 'map_file_order'}
@@ -82,28 +82,29 @@ class ViewState(JointState):
     imported:bool=False
     size:int=200
     requests_visible:bool=True
+    resume_visible:bool=True
     def __eq__(self,other):
-        if isinstance(other,ViewState): return (self.native,self.legacy,self.shown,self.imported,self.size,self.requests_visible)==(other.native,other.legacy,other.shown,other.imported,other.size,other.requests_visible)
+        if isinstance(other,ViewState): return (self.native,self.legacy,self.shown,self.imported,self.size,self.requests_visible,self.resume_visible)==(other.native,other.legacy,other.shown,other.imported,other.size,other.requests_visible,other.resume_visible)
         return super().__eq__(other)
-    def __hash__(self): return hash((self.native,self.legacy,self.shown,self.imported,self.size,self.requests_visible))
+    def __hash__(self): return hash((self.native,self.legacy,self.shown,self.imported,self.size,self.requests_visible,self.resume_visible))
 class ReadStep(Bridge):
     reads=('native','legacy')
-    writes=('native','legacy','shown','imported','size','requests_visible')
+    writes=('native','legacy','shown','imported','size','requests_visible','resume_visible')
     def apply(self,event,state):
-        if event[0]=='requests':
+        if event[0] in ('requests','status'):
             answers=(('complete',state.native,state.legacy),)
         elif event[0]=='answer':
             answers=((event[1],state.native,state.legacy),)
         else:
             answers=tuple(('complete',item.new_state.native,item.new_state.legacy) for item in super().apply(event,state))
-        return tuple(FunctionResult(answer,ViewState(native,legacy,answer,self.fault=='show_view_imports_a_model' or getattr(legacy,'imported',False),9000 if self.fault=='show_view_drops_a_model' else max(200,getattr(native,'size',0)),self.fault!='hides_open_request' or event[0]!='requests'),label=answer) for answer,native,legacy in answers)
+        return tuple(FunctionResult(answer,ViewState(native,legacy,answer,self.fault=='show_view_imports_a_model' or self.fault=='status_imports_a_model' and event[0]=='status' or getattr(legacy,'imported',False),9000 if self.fault=='show_view_drops_a_model' else max(200,getattr(native,'size',0)),self.fault!='hides_open_request' or event[0]!='requests', self.fault!='hides_status_request' or event[0]!='status'),label=answer) for answer,native,legacy in answers)
 
 def _explorer(fault=""):
     native=base_variants().get(fault,base_build())
-    events=tuple(('native',event) for event in native.external_inputs)+tuple(('legacy',case) for case in legacy_cases(FEATURE_NAMES))+tuple(('answer',value) for value in ('complete',))+(('requests',),)
+    events=tuple(('native',event) for event in native.external_inputs)+tuple(('legacy',case) for case in legacy_cases(FEATURE_NAMES))+tuple(('answer',value) for value in ('complete',))+(('requests',),('status',))
     return Explorer(Workflow((ReadStep(native,LEGACY_FAULTS.get(fault,fault)),)),tuple(ViewState(native.initial_states[0],_abstract(ReadCase()),'') for value in ('complete',)),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
 def build_explorer():return _explorer()
-def broken_variants():return {'counts_docstring_mention_as_test':_explorer('counts_docstring_mention_as_test'),'counts_unbound_as_bound':_explorer('counts_unbound_as_bound'),'drops_a_component':_explorer('drops_a_component'),'imports_a_model':_explorer('imports_a_model'),'drops_a_model':_explorer('drops_a_model'),'drops_model_contract':_explorer('drops_model_contract'),'drops_summary_prompt':_explorer('drops_summary_prompt'),'map_file_order':_explorer('map_file_order'),'hides_open_request':_explorer('hides_open_request')}
+def broken_variants():return {'counts_docstring_mention_as_test':_explorer('counts_docstring_mention_as_test'),'counts_unbound_as_bound':_explorer('counts_unbound_as_bound'),'drops_a_component':_explorer('drops_a_component'),'imports_a_model':_explorer('imports_a_model'),'drops_a_model':_explorer('drops_a_model'),'drops_model_contract':_explorer('drops_model_contract'),'drops_summary_prompt':_explorer('drops_summary_prompt'),'map_file_order':_explorer('map_file_order'),'hides_open_request':_explorer('hides_open_request'),'hides_status_request':_explorer('hides_status_request'),'status_imports_a_model':_explorer('status_imports_a_model')}
 def _original_conformance():
     native=base_conformance()
     moved=legacy_conformance(FEATURE_NAMES,MOVED_RULES)
@@ -151,6 +152,16 @@ def _request_facts():
         visible = (stored == [0, 0] and code == 0 and body.is_file() and body.read_bytes() == raw
                    and f'R7 open since {today} (no target)' in text)
         facts = [Fact('open_requests_listed', visible, text)]
+        status_output = StringIO()
+        with redirect_stdout(status_output), redirect_stderr(status_output):
+            status_code = main(['status', '--json', '--root', str(root)])
+        result = json.loads(status_output.getvalue()) if status_code == 0 else {}
+        facts.append(Fact('static_resume_keeps_unclaimed_request',
+                          status_code == 0 and any(row['id'] == 'R7' and row['state'].startswith('open since ')
+                                                   for row in result.get('requests', []))
+                          and str(root.resolve()) in result.get('next', {}).get('command', '')
+                          and result.get('verdicts', {}).get('stored') is False,
+                          status_output.getvalue()))
         if stored == [0, 0]:
             body.write_bytes(raw + b'edited')
             output = StringIO()

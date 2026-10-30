@@ -17,6 +17,7 @@ from .map.common import advice, print_verdict, quiet_broken_pipe, render_advice,
 
 VERB_PURPOSE = {
     'read': 'Understand the components, models and their relationships.',
+    'status': 'Resume from static project, target and request facts; never explore.',
     'change': 'Check an edit and run the affected tests and models.',
     'release': 'Run the release gate, optionally with whole-suite shards.',
     'template': 'Write starter model and test files.',
@@ -41,6 +42,11 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         p.add_argument("--force", action="store_true", help="overwrite existing files when writing")
         return p
     p.add_argument("--root", default=".")
+    if verb == "status":
+        p.add_argument('--json', action='store_true', help='print one structured static view')
+        p.add_argument('--hook', action='store_true', help='silent outside a project; internal errors never fail the hook')
+        p.add_argument('--wait', type=float, metavar='S', help='legacy static runtime has no jobs to wait for')
+        return p
     if verb == "req":
         commands = p.add_subparsers(dest="request_command", required=True)
         add = commands.add_parser("add")
@@ -205,6 +211,26 @@ def _request(ns: argparse.Namespace) -> int:
     return 0
 
 
+def _status(ns):
+    import json
+    from .map import status
+    from .map.impact_history import read_git_paths
+
+    try:
+        root = Path(ns.root).resolve()
+        if ns.hook and not (root / '.flowguard/map.json').is_file():
+            return 0
+        result = status.collect_status(root, read_git_paths=read_git_paths)
+        print(json.dumps(result, ensure_ascii=False) if ns.json else status.render_status(result))
+        return 0
+    except Exception as error:
+        if ns.hook:
+            print(f'flowguard status failed ({type(error).__name__}); run python -m flowguard status for details')
+            return 0
+        print(f'error: {error}', file=sys.stderr)
+        return 2
+
+
 @quiet_broken_pipe
 def main(argv: list[str] | None = None) -> int:
     safe_stdio()
@@ -231,11 +257,13 @@ def main(argv: list[str] | None = None) -> int:
         from .map.target import main as target_main
 
         return target_main(rest)
-    if verb not in {"read", "change", "release", "template", "target", "req"}:
+    if verb not in {"read", "change", "release", "template", "target", "req", "status"}:
         print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
         return 2
     parser = _verb_parser(verb)
     ns = parser.parse_args(rest)
+    if verb == 'status':
+        return _status(ns)
     if verb == "req":
         return _request(ns)
     if verb == "read" and ns.mermaid and ns.find:

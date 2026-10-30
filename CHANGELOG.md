@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a read-only static status command that resumes open plans, keeps unclaimed requests visible with their original context, and names one absolute next command. Hook mode stays silent outside a project; the legacy runtime does not store verdicts or start jobs.
+
 - The adoption template creates CLAUDE.md with @AGENTS.md when missing and preserves existing instructions even with --force. The skill description names when to use the other Guard skills.
 
 - Promotion shows the original PLAN lines, readable old and new rules and the glossary entries used. Requests stored during a change keep their real origin visible; the same owner block is saved in the commit message and returned with JSON output.

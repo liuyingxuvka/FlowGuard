@@ -1,0 +1,57 @@
+{
+  "kind": "change",
+  "goal": "Resume legacy work from derived static status",
+  "requests": [
+    {
+      "id": "R1",
+      "part": true
+    },
+    {
+      "id": "R600",
+      "part": true
+    }
+  ],
+  "base": "c7acad49d9bbf3912f230c56a2e97f90cd273946",
+  "tree": "e75bdbf35baae632e59717b640281b1e916f032dd498d29c5df060ca523c379f",
+  "promoted": "2026-10-30T22:05:47.286367+00:00",
+  "plan": [],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/__main__.py:_status",
+    "flowguard/__main__.py:_verb_parser",
+    "flowguard/__main__.py:main",
+    "flowguard/map/plan.py:static_plan_rows",
+    "flowguard/map/records.py:since_release",
+    "flowguard/map/requests.py:request_details",
+    "flowguard/map/requests.py:request_rows",
+    "flowguard/map/status.py:_age",
+    "flowguard/map/status.py:_edited_functions",
+    "flowguard/map/status.py:_git_header",
+    "flowguard/map/status.py:_read_git",
+    "flowguard/map/status.py:collect_status",
+    "flowguard/map/status.py:render_status",
+    "tests/test_public_api.py:test_stable_surface_is_listed",
+    "tests/test_skill_package.py:SkillPackageTests.test_documented_commands_exist",
+    "tests/test_status.py:_git",
+    "tests/test_status.py:_project",
+    "tests/test_status.py:_record",
+    "tests/test_status.py:_start",
+    "tests/test_status.py:_status",
+    "tests/test_status.py:test_status_hook_silent_outside_project_never_fails",
+    "tests/test_status.py:test_status_hook_silent_outside_project_never_fails.broken",
+    "tests/test_status.py:test_status_lists_commits_without_record",
+    "tests/test_status.py:test_status_lists_other_worktree_changes",
+    "tests/test_status.py:test_status_lists_requests_stored_since_release",
+    "tests/test_status.py:test_status_never_explores_or_writes",
+    "tests/test_status.py:test_status_never_explores_or_writes.forbidden",
+    "tests/test_status.py:test_status_never_explores_or_writes.snapshot",
+    "tests/test_status.py:test_status_next_absolute_cwd_independent",
+    "tests/test_status.py:test_status_plan_rows_with_known_from",
+    "tests/test_status.py:test_status_request_status_derived"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. PLAN lines, rule provenance, acceptances, existing-item clearance and new-action judgments are not assessed by this record producer; their lists are empty."
+}

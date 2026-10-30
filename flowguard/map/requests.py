@@ -136,17 +136,17 @@ def request_findings(root: Path) -> list[Finding]:
     return findings
 
 
-def request_rows(root: Path) -> list[str]:
-    """Derive current links, other worktrees and completed records; write nothing."""
+def request_details(root: Path, *, records=None, worktrees=None) -> list[dict]:
+    """One derived state and original context per request, shared by static views."""
     from .records import change_records
 
     root = Path(root).resolve()
     current = {link['id'] for link in _target_links(root)}
     others = {}
-    for worktree in _other_worktrees(root):
+    for worktree in _other_worktrees(root) if worktrees is None else worktrees:
         for link in _target_links(worktree):
             others.setdefault(link['id'], str(worktree))
-    done = {link['id']: identifier for identifier, record in change_records(root)
+    done = {link['id']: identifier for identifier, record in (change_records(root) if records is None else records)
             for link in record['requests'] if not link['part']}
     rows = []
     for identifier in _identifiers(root):
@@ -156,10 +156,16 @@ def request_rows(root: Path) -> list[str]:
                      f'in another change ({others[identifier]})' if identifier in others else
                      f'done (change {done[identifier]})' if identifier in done else
                      f"open since {item['received'][:10]} (no target)")
-            rows.append((item['received'], f'{identifier} {state}'))
+            first = (root / REQUEST_DIR / (identifier + '.md')).read_bytes().decode('utf-8-sig', errors='replace').splitlines()
+            rows.append(dict(item, state=state, first_line=first[0] if first else ''))
         except (OSError, ValueError, KeyError, TypeError, OverflowError):
-            rows.append(('', f'{identifier} invalid (run map check)'))
-    return [row for _, row in sorted(rows)]
+            rows.append(dict(id=identifier, received='', state='invalid (run map check)', first_line=''))
+    return sorted(rows, key=lambda row: (row['received'], row['id']))
+
+
+def request_rows(root: Path) -> list[str]:
+    """Keep the compact read view on the same request states as status."""
+    return [f"{item['id']} {item['state']}" for item in request_details(root)]
 
 
 def request_links(root: Path, values) -> list[dict]:
@@ -228,3 +234,6 @@ def _other_worktrees(root: Path):
         return []
     return [path for field in result.stdout.split(b'\0') if field.startswith(b'worktree ')
             and (path := (Path(os.fsdecode(field[9:])) / prefix).resolve()) != root]
+
+
+other_worktrees = _other_worktrees
