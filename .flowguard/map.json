@@ -797,7 +797,7 @@
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests. Present selected pytest work as counted summaries, with exact commands on explicit verbose requests. Name literal code sites before model sites, ignore moved values by source role, and select newly mapped tests for settings-only map edits. Expose one public disposable-index Git path reader for other owners; retain the legacy internal name as an alias. Carry changed-source causes through existing symbol, literal and component selection, distinguishing exact reach from conservative associations.",
+      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests. Present selected pytest work as counted summaries, with exact commands on explicit verbose requests. Name literal code sites before model sites, ignore moved values by source role, and select newly mapped tests for settings-only map edits. Limit literal spelling hints to statically recognized sites and point out indirect producers. Expose one public disposable-index Git path reader for other owners; retain the legacy internal name as an alias. Carry changed-source causes through existing symbol, literal and component selection, distinguishing exact reach from conservative associations.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
@@ -831,7 +831,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:085fabcf5cbe9ffd3607212f5a65297b8b9bfdee9a02854700c4c7bb1f2ad41e"
+      "fingerprint": "sha256:0b91f498dd4829c621f6cbf7e83adbeb85a3b142b04df81bd746f0b41d3c53c5"
     },
     {
       "id": "map-requests",

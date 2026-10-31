@@ -159,7 +159,7 @@ def test_typo_consumer_prints_nothing_produces(tmp_path):
         base="HEAD",
     )
     text = render_impact(impact)
-    assert "nothing produces 'stale_typo' (consumed at consumer.py:1); check the spelling" in text
+    assert "nothing produces 'stale_typo' in statically recognized literal sites (consumed at consumer.py:1); check the spelling or an indirect producer" in text
 
 
 def test_split_that_drops_a_field_names_it(tmp_path):

@@ -389,7 +389,7 @@ def _literal_impact(root, data, inv, tree, changed, base, *, function_origins=No
                 line for v, line, role in after if v == value and role in ("key_read", "compare")
             )
             typos.append(
-                f"nothing produces '{value}' (consumed at {source}:{line}); check the spelling"
+                f"nothing produces '{value}' in statically recognized literal sites (consumed at {source}:{line}); check the spelling or an indirect producer"
             )
     return lines + mention_lines[:2] + typos[:1], models, functions, tests
 
