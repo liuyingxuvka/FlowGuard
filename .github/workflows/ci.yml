@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   checks:
-    name: Checks (${{ matrix.os }}, py${{ matrix.python }})
+    name: Checks (${{ matrix.os }}, py${{ matrix.python }}, group ${{ matrix.group }}/${{ matrix.groups }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -21,12 +21,23 @@ jobs:
           - os: ubuntu-latest
             python: "3.11"
             full: true
+            group: 0
+            groups: 1
           - os: ubuntu-latest
             python: "3.13"
             full: false
+            group: 0
+            groups: 1
           - os: windows-latest
             python: "3.12"
             full: false
+            group: 0
+            groups: 2
+          - os: windows-latest
+            python: "3.12"
+            full: false
+            group: 1
+            groups: 2
     steps:
       - name: Checkout the triggering source
         uses: actions/checkout@v5
@@ -65,8 +76,11 @@ jobs:
 
       - name: Core path and packaging smoke on the other platforms
         if: ${{ !matrix.full }}
-        run: >-
-          python -m pytest -q --durations=15
+        shell: python
+        run: |
+          import subprocess
+          import sys
+          files = """
           tests/test_anchor_watch.py
           tests/test_change_selection.py
           tests/test_cli.py
@@ -119,8 +133,19 @@ jobs:
           tests/test_test_binding.py
           tests/test_test_selection.py
           tests/test_tree_resolution.py
+          """.split()
+          group = int("${{ matrix.group }}")
+          groups = int("${{ matrix.groups }}")
+          first = len(files) * group // groups
+          last = len(files) * (group + 1) // groups
+          selected = files[first:last]
+          print(f"Core group {group + 1}/{groups}: {len(selected)} of {len(files)} files", flush=True)
+          raise SystemExit(subprocess.run(
+              [sys.executable, "-m", "pytest", "-q", "--durations=15", *selected]
+          ).returncode)
 
       - name: Copy the skill and check installed files
+        if: matrix.group == 0
         shell: bash
         run: |
           python - <<'PY'
