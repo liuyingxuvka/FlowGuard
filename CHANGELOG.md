@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.71.0 - 2026-10-31 - Model-linked plans, original requests and runnable next steps
 
 - Add read-only static status for resuming open plans, viewing unclaimed requests with their original context, and following one absolute next command. Hook mode stays silent outside a project; the legacy runtime does not store verdicts or start jobs.
 - Store requests byte for byte with req add, explicit or collision-resistant IDs, immutable sidecars and optional glossary/adoption kinds. Checks protect request, metadata and change-record bytes before their first commit, in fresh clones and when a plain folder becomes a Git worktree; deleted requests remain discoverable and their IDs cannot be reused.
