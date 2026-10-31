@@ -21,7 +21,6 @@ def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     from flowguard.map.cli import _context, build_parser
     from flowguard.map.check import run_check
     from flowguard.map.lint import run_lint
-    from _fg_helpers import flowguard_map_contracts421_write as write, flowguard_map_contracts421_project as project, flowguard_map_contracts421_save as save, flowguard_map_contracts421_findings as findings, flowguard_map_contracts421_CONTRACT as CONTRACT, flowguard_map_contracts421__placement_port_source as _placement_port_source, flowguard_map_contracts421__fg233_parent_project as _fg233_parent_project, flowguard_map_contracts421__scope_helpers as _scope_helpers, flowguard_map_contracts421_json as json, flowguard_map_contracts421_subprocess as subprocess, flowguard_map_contracts421_Path as Path, flowguard_map_contracts421_pytest as pytest, flowguard_map_contracts421_main as main, flowguard_map_contracts421__context as _context, flowguard_map_contracts421_run_check as run_check, flowguard_map_contracts421_run_lint as run_lint
     for name in ("contract-exhaustion",
                  "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
