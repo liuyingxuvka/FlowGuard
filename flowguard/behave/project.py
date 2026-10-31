@@ -70,6 +70,19 @@ class _Inputs:
         self.reusable = True
         self.recording_tests = False
         self.untracked = set()
+        imported = Path(__file__).absolute().parents[2]
+        package = imported / "flowguard"
+        self.engine_package = Path(__file__).resolve().parents[1]
+        self.engine_import_root = None
+        try:
+            if {path.name for path in imported.iterdir()} == {"flowguard"}:
+                if package.is_symlink() and package.resolve() == self.engine_package:
+                    self.engine_import_root = imported
+                elif imported.name.startswith("flowguard-package-"):
+                    self.reusable = False
+                    self.untracked.add("copied engine import shim lacks a stable source path")
+        except OSError:
+            pass
 
     def record(self, event, args, *, caller=None):
         if self.busy:
@@ -84,11 +97,13 @@ class _Inputs:
                     return
                 if isinstance(path, int):
                     self.reusable = False
+                    self.untracked.add("read file descriptor without a path")
                     return
                 values.append((path, self.files, file_stamp))
             elif event in {"os.listdir", "os.scandir"}:
                 if isinstance(args[0], int):
                     self.reusable = False
+                    self.untracked.add("directory enumeration via a descriptor")
                     return
                 values.append((args[0] or os.curdir, self.directories, directory_stamp))
             elif event == "metadata":
@@ -105,6 +120,12 @@ class _Inputs:
                         self.reusable = False
                         self.untracked.add("controller bytecode probe directory was not empty")
                     continue
+                if self.engine_import_root is not None:
+                    # The existing import owner exposes one controlled symlink, not an arbitrary /tmp tree.
+                    if path == self.engine_import_root:
+                        path = self.engine_package
+                    elif path.is_relative_to(self.engine_import_root / "flowguard"):
+                        path = self.engine_package / path.relative_to(self.engine_import_root / "flowguard")
                 try:
                     path.relative_to(self.arena)
                     if event in {"os.listdir", "os.scandir"}:
@@ -125,6 +146,7 @@ class _Inputs:
                     rows[key] = stamp(path)
         except (OSError, TypeError, ValueError):
             self.reusable = False
+            self.untracked.add("unidentified filesystem input: " + event)
         finally:
             self.busy = False
 
@@ -261,12 +283,27 @@ class _ObservedState:
             if ancestor is None or (self.inputs is not None and self.inputs.busy):
                 return
         if self.inputs is not None and module.split(".")[0] in {"os", "posix", "nt", "pathlib", "genericpath", "ntpath", "posixpath"}:
+            if (name == "stat" and caller.f_code.co_filename == "<frozen importlib._bootstrap_external>"
+                    and caller.f_code.co_name == "_path_stat"):
+                current, resolving = caller.f_back, False
+                while current is not None and current.f_code.co_filename.startswith(("<frozen importlib.", "<frozen zipimport>")):
+                    resolving |= current.f_code.co_name in {"_find_and_load", "_find_and_load_unlocked"}
+                    current = current.f_back
+                if resolving:
+                    path = caller.f_locals.get("path")
+                    if isinstance(path, (str, bytes, os.PathLike)):
+                        self.inputs.record("metadata", (path,))
+                    else:
+                        self.inputs.reusable = False
+                        self.inputs.untracked.add("import resolution metadata path was unavailable")
+                    return
             if event == "call" and name in {"exists", "is_file", "is_dir", "is_symlink", "isfile", "isdir", "islink"}:
                 path = frame.f_locals.get("self", frame.f_locals.get("path"))
                 if isinstance(path, (str, bytes, os.PathLike)):
                     self.inputs.record("metadata", (path,))
                 else:
                     self.inputs.reusable = False
+                    self.inputs.untracked.add("filesystem metadata path was unavailable")
             elif name in {"stat", "lstat", "fstat", "getmtime", "getatime", "getctime", "getsize"}:
                 ancestor = caller
                 while ancestor is not None:
@@ -278,14 +315,17 @@ class _ObservedState:
                     ancestor = ancestor.f_back
                 if ancestor is None:
                     self.inputs.reusable = False  # Full metadata records exceed this input boundary.
+                    self.inputs.untracked.add("application-consumed full filesystem metadata")
         if event == "c_call" and module == "builtins" and name == "globals":
             if recording:
                 self.inputs.reusable = False
+                self.inputs.untracked.add("recording consumed dynamic global namespace")
             else:
                 raise UnsupportedWorld("dynamic global namespace access needs an explicit world")
         if module.split(".")[0] in {"random", "time", "datetime", "secrets", "threading", "_thread"}:
             if recording:
                 self.inputs.reusable = False
+                self.inputs.untracked.add("recording called nondeterministic resource: " + module + "." + name)
             else:
                 raise UnsupportedWorld("called nondeterministic resource needs an explicit world")
 
@@ -500,6 +540,18 @@ def construct(spec, start=None):
             raise UnsupportedWorld("no UI root was derived")
         objects["ui"] = _load(spec["ui"])(objects["system"], **start["ui"])
     return objects, defaults, seeded
+
+
+def ui_identity(spec, prefix, receiver):
+    """Name a public UI actor independently of its run-local receiver handle."""
+    construction = next((row for row in prefix if row.get("construct") == "ui" and row["receiver"] == receiver), None)
+    if construction is None:
+        raise UnsupportedWorld("the UI witness has no public construction event")
+    parameters = [row for row in spec["ui_constructor"]["parameters"] if row["name"] != spec["ui_constructor"]["system_parameter"]]
+    actor = {row["name"]: row["default"] for row in parameters if "default" in row}
+    actor.update({row["name"]: value for row, value in zip(parameters, construction.get("args", []))})
+    actor.update(construction.get("kwargs", {}))
+    return {"receiver": spec["ui"], "actor": actor}
 
 
 def _arguments(value, arena, results=()):
@@ -944,11 +996,21 @@ def _run_session(request, arena, observed):
         response = focused_search(session, **options)
     elif operation == "directed":
         response = directed_search(session, **options)
+    elif operation == "agreement":
+        from .checks import offered
+        response = offered(session, **options)
+    elif operation == "agreement-proof":
+        from .checks import offered
+        session.reset(request["calls"])
+        response = offered(session, {}, case=options["comparison"])
+    elif operation in {"settings", "settings-proof"}:
+        from .checks import setting_effects
+        response = setting_effects(session, **options)
     elif operation == "witnesses":
         from .testrec import replay_prefixes
         response = replay_prefixes(session, options["recordings"])
     elif operation == "audit":
-        from .checks import reach, stuck
+        from .checks import offered, reach, stuck
         from .testrec import replay_prefixes
         options = dict(options)
         recorded = options.pop("test_replay", None)
@@ -956,6 +1018,7 @@ def _run_session(request, arena, observed):
             recorded = replay_prefixes(session, options.pop("recordings", []))
         known = options.pop("known", [])
         response = explore(session, **options)
+        response["agreement"] = offered(session, response, states=recorded["prefixes"])
         response["test_replay"] = {key: value for key, value in recorded.items() if key not in {"prefixes", "witnesses", "replays", "footprint", "execution"}}
         response["reach"] = reach(session, response, known=known, witnessed=recorded["witnesses"], states=recorded["prefixes"])
         response["stuck"] = stuck(session, response, states=recorded["prefixes"])

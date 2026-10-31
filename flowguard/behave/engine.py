@@ -9,7 +9,7 @@ import sys
 
 from flowguard.map.common import atomic_write_text, normalize_newlines
 
-from .project import UnsupportedWorld, directory_stamp, file_stamp, replay, state_key
+from .project import UnsupportedWorld, directory_stamp, file_stamp, replay, state_key, ui_identity
 from .skeleton import derive
 
 
@@ -130,6 +130,20 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
                 witness["identity"] = identity
                 witness["footprint"] = facts["footprint"]
             runs.append({"world": world, "seed": seed, "reused": reused, "facts": facts})
+    traces = [trace for run in runs for trace in run["facts"]["traces"]]
+    traces.extend({**trace, "origin": "test"} for trace in test_replay.get("replays", []) if trace["eligible"])
+    settings = {"candidates": [], "information": [], "unknown": [], "profiles": [], "traces": len(traces)}
+    if spec.get("settings"):
+        settings_key = state_key({"identity": identity, "traces": traces, "test_replay": replay_token, "alphabet_cap": alphabet_cap})
+        settings_path = directory / ("settings-" + settings_key + ".json")
+        settings = _cached(settings_path, identity) if use_cache and replay_token is not None else None
+        if settings is None:
+            try:
+                settings = replay(spec, [], operation="settings", options={"traces": traces, "alphabet_cap": alphabet_cap}, timeout=300)
+                if replay_token is not None and footprint_identity(settings["footprint"]):
+                    atomic_write_text(settings_path, json.dumps({"identity": identity, "body": state_key(settings), "facts": settings}, ensure_ascii=False))
+            except UnsupportedWorld as exc:
+                settings = {"candidates": [], "information": [], "profiles": [], "unknown": [{"check": "GC5", "reason": str(exc)}]}
     saved = collect_saves(root, steps=steps, node_cap=node_cap, alphabet_cap=alphabet_cap)
     saved_scope = {"sources": [{key: value for key, value in row.items() if key != "spec"} for row in saved["sources"]],
                    "files": [], "unknown": [{"check": "GC4", **row} for row in saved["unknown"]],
@@ -155,15 +169,18 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
         saved_scope["unknown"].extend(facts["unknown"])
         saved_hits.update(facts["execution"]["hit_functions"])
         saved_candidates.extend({**candidate, "identity": identity, "footprint": facts["footprint"]} for candidate in facts["candidates"])
-    hits = saved_hits | {name for run in runs for name in run["facts"]["execution"]["hit_functions"]}
+    hits = saved_hits | set(settings.get("execution", {}).get("hit_functions", [])) | {name for run in runs for name in run["facts"]["execution"]["hit_functions"]}
     candidates = {}
     for run in runs:
-        for check in ("reach", "stuck"):
+        for check in ("reach", "stuck", "agreement"):
             for candidate in run["facts"][check]["candidates"]:
                 key = state_key(candidate["semantic"])
                 candidate.update(identity=identity, footprint=run["facts"]["footprint"])
                 candidates.setdefault(key, candidate)
     for candidate in saved_candidates:
+        candidates.setdefault(state_key(candidate["semantic"]), candidate)
+    for candidate in settings["candidates"]:
+        candidate.update(identity=identity, footprint=settings["footprint"])
         candidates.setdefault(state_key(candidate["semantic"]), candidate)
     items = []
     for candidate in candidates.values():
@@ -174,10 +191,12 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
             errors.append({"world": candidate["start"].get("world", "test-public-prefix"), "seed": candidate["start"].get("seed"),
                            "reason": proof.get("reason", proof["state"])})
     return {"identity": identity, "runs": runs, "errors": errors,
-            "missing_checks": ["GC" + str(number) for number in (2, 5, 6, 7, 8, 9)],
+            "missing_checks": ["GC" + str(number) for number in (6, 7, 8, 9)],
             "coverage": {"hit_functions": sorted(hits), "known_functions": len(spec["source_functions"]),
                          "front_doors": spec["unknown"], "ui": "requested" if starts else "not requested"},
             "facts_reused": sum(run["reused"] for run in runs), "items": items, "saved_files": saved_scope,
+            "settings": {key: value for key, value in settings.items() if key not in {"candidates", "footprint", "execution"}},
+            "advice": spec.get("optional_argument_advice", []),
             "test_scope": {key: value for key, value in recordings.items() if key not in {"recordings", "footprint"}}}
 
 
@@ -189,15 +208,12 @@ def prove(root, candidate, *, persist=True):
     identity = content_identity(spec)
     semantic = candidate["semantic"]
     if str(semantic.get("receiver", "")).startswith("ui:"):
-        construction = next((row for row in candidate["prefix"] if row.get("construct") == "ui" and row["receiver"] == semantic["receiver"]), None)
-        if construction is None:
-            return {"state": "engine-defect", "reason": "the UI witness has no public construction event", "matched": False}
-        parameters = [row for row in spec["ui_constructor"]["parameters"] if row["name"] != spec["ui_constructor"]["system_parameter"]]
-        actor = {row["name"]: row["default"] for row in parameters if "default" in row}
-        actor.update({row["name"]: value for row, value in zip(parameters, construction.get("args", []))})
-        actor.update(construction.get("kwargs", {}))
+        try:
+            actor = ui_identity(spec, candidate["prefix"], semantic["receiver"])
+        except UnsupportedWorld as exc:
+            return {"state": "engine-defect", "reason": str(exc), "matched": False}
         candidate = {**candidate, "search_goal": candidate.get("search_goal", semantic),
-                     "semantic": {**semantic, "receiver": spec["ui"], "actor": actor}}
+                     "semantic": {**semantic, **actor}}
     prefix = candidate["prefix"]
     allowed = {"receiver", "name", "args", "kwargs", "replace", "property", "construct"}
     if any(set(row) - allowed or row.get("name", "").startswith("_") or row.get("construct") not in {None, "ui"} for row in prefix):
@@ -239,7 +255,18 @@ def prove(root, candidate, *, persist=True):
     search_goal = candidate.get("search_goal", candidate["semantic"])
     options = {"goal": search_goal, "outcomes": candidate.get("outcomes")}
     try:
-        if semantic.get("kind") in {"loading", "loading_crash"}:
+        if semantic.get("check") == "GC2":
+            facts = replay(spec, prefix, start, operation="agreement-proof", options={"comparison": candidate["comparison"]})
+            matched = facts["matched"]
+            if not matched and facts["unknown"]:
+                raise UnsupportedWorld(facts["unknown"][0]["reason"])
+        elif semantic.get("check") == "GC5":
+            facts = replay(spec, [], operation="settings-proof", options={"traces": candidate["settings_traces"],
+                           "setting": semantic["setting"], "alphabet_cap": candidate["alphabet_cap"]}, timeout=300)
+            matched = any(row["semantic"] == semantic for row in facts["candidates"])
+            if not matched and not facts["information"] and facts["unknown"]:
+                raise UnsupportedWorld(facts["unknown"][0]["reason"])
+        elif semantic.get("kind") in {"loading", "loading_crash"}:
             expected = "crash" if semantic["kind"] == "loading_crash" else "refusal"
             facts = replay(spec, prefix, start, operation="loading-proof", options={"outcome": expected})
             matched = facts["matched"]

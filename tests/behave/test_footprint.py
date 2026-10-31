@@ -15,6 +15,8 @@ pytestmark = pytest.mark.skipif(sys.version_info < (3, 12), reason="pilot behavi
 
 
 def test_facts_reuse_then_actual_read_file_change_invalidates(program):
+    from pathlib import Path
+    import subprocess
     path = program / "program.py"
     path.write_text(path.read_text().replace('        self._value = 0', '        self._value = 0\n        self._payload = Path(__file__).with_name("data.txt").read_text()'))
     data = program / "data.txt"
@@ -30,6 +32,12 @@ def test_facts_reuse_then_actual_read_file_change_invalidates(program):
     for cache in caches:
         value = json.loads(cache.read_text())
         assert "verdict" not in value and "verdict" not in value["facts"]
+    command = [sys.executable, "-m", "flowguard.behave", "audit", "--root", str(program),
+               "--world", "small", "--seeds", "0", "--steps", "1", "--json"]
+    first_cli = subprocess.run(command, cwd=Path(__file__).resolve().parents[2], check=True, capture_output=True, text=True)
+    second_cli = subprocess.run(command, cwd=Path(__file__).resolve().parents[2], check=True, capture_output=True, text=True)
+    assert json.loads(first_cli.stdout)["facts_reused"] in {0, 1}
+    assert json.loads(second_cli.stdout)["facts_reused"] == 1
 
 
 def test_actually_listed_directory_change_invalidates(program):
@@ -85,6 +93,10 @@ def test_executed_external_path_exists_is_a_content_input(program):
     assert engine.footprint_identity(first["footprint"]) is None
     second = replay(spec, [])
     assert first["initial"] != second["initial"]
+    helper.write_text("from pathlib import Path\ndef check(path): return Path(path).stat().st_size\n")
+    direct = replay(derive(program), [])
+    assert not direct["footprint"]["reusable"]
+    assert "application-consumed full filesystem metadata" in direct["footprint"]["untracked"]
 
 
 def test_application_arena_listing_cannot_license_a_complete_proof(program):

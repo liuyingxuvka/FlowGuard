@@ -136,7 +136,7 @@ def related_slice(session, query, identifier):
     return {kind: sorted(values, key=str) for kind, values in related.items()}, observed["unknown"]
 
 
-def _alphabet(session, only=None, domains=None, alphabet_cap=1000):
+def _alphabet(session, only=None, domains=None, alphabet_cap=1000, include_optional=False):
     spec = session.spec
     identifiers = _identifiers(session)
     numbers = {0, 1, 2}
@@ -166,15 +166,32 @@ def _alphabet(session, only=None, domains=None, alphabet_cap=1000):
                     values.extend(value for value in literals if type(value) is int)
                     if "default" in row:
                         values = [row["default"], *values]
+            if include_optional and "default" in row:
+                values = [row["default"], *values]
             unique = {json.dumps(value, sort_keys=True): value for value in values}
             if not unique:
                 raise UnsupportedWorld("no finite values for " + name + "." + row["name"])
             choices.append([unique[key] for key in sorted(unique)])
+        seen = set()
         for values in itertools.product(*choices):
-            if len(candidates) == alphabet_cap:
-                truncated = True
+            lengths = [len(values)]
+            if include_optional:
+                for index in range(len(values) - 1, -1, -1):
+                    if spec["parameters"][name][index]["required"]:
+                        break
+                    lengths.append(index)
+            for length in lengths:
+                args = list(values[:length])
+                key = json.dumps(args, sort_keys=True)
+                if key in seen:
+                    continue
+                seen.add(key)
+                if len(candidates) == alphabet_cap:
+                    truncated = True
+                    break
+                candidates.append({"name": name, "args": args})
+            if truncated:
                 break
-            candidates.append({"name": name, "args": list(values)})
         if truncated:
             break
     if only is None and any(name != "system" for name in session.objects):
@@ -228,11 +245,12 @@ def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, doma
     rng = random.Random(seed)
     extent = _extent("coverage-guided", node_cap=node_cap, alphabet_cap=alphabet_cap)
     extent.update(seed=seed, successful_step_budget=steps, successful=0)
-    witnesses, features, visits, events, concrete = {}, set(), {}, [], []
+    witnesses, features, visits, events, concrete, traces = {}, set(), {}, [], [], []
     corpus = [list(session.prefix)]
     states = set()
     while extent["successful"] < steps and extent["attempted"] < node_cap:
         if extent["attempted"] and extent["attempted"] % 16 == 0:
+            traces.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "origin": "fresh"})
             session.reset(rng.choice(corpus))
         _ensure_ui(session)
         concrete.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "observations": observations(session)})
@@ -268,13 +286,14 @@ def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, doma
         witnesses.setdefault(key, {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
     if goal is not None and evaluate(session, goal):
         witnesses.setdefault(json.dumps(goal, sort_keys=True), {"semantic": goal, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
+    traces.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "origin": "fresh"})
     extent["visited"] = len(states)
     extent["capped"] = extent["attempted"] >= node_cap and extent["successful"] < steps
     if extent["reason"] == "not started":
         extent["reason"] = "attempt/node cap" if extent["capped"] else "successful-step envelope finished (sampled)"
     # A sampled walk never licenses a negative proof, even after its envelope finishes.
     return {"extent": extent, "events": events, "witnesses": [witnesses[key] for key in sorted(witnesses)],
-            "features": [list(item) for item in sorted(features)], "states": concrete}
+            "features": [list(item) for item in sorted(features)], "states": concrete, "traces": traces}
 
 
 def focused_search(session, *, goal, prefix=(), depth=3, node_cap=1000, alphabet_cap=1000, actions=None, domains=None, related=None, priority=False, rank_states=()):

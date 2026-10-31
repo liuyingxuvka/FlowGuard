@@ -156,8 +156,8 @@ def test_both_declared_refusals_are_information_and_loaded_config_prefix_survive
     assert loaded["files"][0]["status"] == "loaded"
     assert all(row["prefix"][0]["name"] == "load" for row in loaded["candidates"])
     assert loaded["files"][0]["extent"]["successful"] == 17
-    assert not loaded["unknown"]
-    assert loaded["files"][0]["missing_checks"] == ["GC2", "GC5", "GC6", "GC7", "GC8", "GC9"]
+    assert all(row["check"] == "GC5" for row in loaded["unknown"])
+    assert loaded["files"][0]["missing_checks"] == ["GC6", "GC7", "GC8", "GC9"]
     path = history / "program.py"
     path.write_text(path.read_text().replace("# LOAD_POLICY", 'raise Refusal("retired")'))
     invalid = {"name": "invalid.json", "bytes": base64.b64encode(b'{}').decode("ascii")}

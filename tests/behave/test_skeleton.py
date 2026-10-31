@@ -106,6 +106,11 @@ def test_skeleton_matches_reference_actions(example):
     assert spec["file_inputs"] == ["read_file"]
     assert spec["status_values"] == {"status": ["active", "missing", "ready"]}
     assert spec["predictor_pairs"] == [["why_not_bump", "bump"]]
+    assert spec["predictor_bindings"][0]["parameters"] == [{"predictor": "entry_id", "action": "entry_id"}]
+    assert spec["settings_attributes"] == ["_options"]
+    mirror = spec["serializer_settings_mirror"]
+    assert (mirror["attribute"], mirror["path"], mirror["format"]) == ("_options", ["options"], "json")
+    assert any(row["function"] == "Engine.save" for row in mirror["sources"])
 
 
 def test_corrections_cannot_remove_goals(example):
@@ -154,3 +159,25 @@ def test_missing_and_ambiguous_roots_do_not_create_pins(tmp_path):
     with pytest.raises(SkeletonError, match="system_ambiguous"):
         derive(tmp_path)
     assert not (tmp_path / '.flowguard').exists()
+    import os
+    import time
+    from flowguard.map.inventory import build_inventory
+
+    current = tmp_path / "current-source"
+    current.mkdir()
+    path = current / "example.py"
+    valid = b'class A:\n def go(self): return 1\n'
+    invalid = valid.replace(b'return 1', b'return !')
+    stamp = time.time_ns() - 10_000_000_000
+    path.write_bytes(invalid)
+    os.utime(path, ns=(stamp, stamp))
+    build_inventory(current, [], with_bodies=False)
+    path.write_bytes(valid)
+    os.utime(path, ns=(stamp, stamp))
+    assert derive(current)["system"] == "example:A"
+    # Body collection refreshes this test-owned parse entry from valid bytes.
+    build_inventory(current, [], with_bodies=True)
+    path.write_bytes(invalid)
+    os.utime(path, ns=(stamp, stamp))
+    with pytest.raises(SkeletonError, match="source_not_parseable"):
+        derive(current)

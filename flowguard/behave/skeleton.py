@@ -87,12 +87,19 @@ def derive(root):
     root = Path(root).resolve()
     corrections = read_corrections(root)
     inv = build_inventory(root, [".flowguard/**"], with_bodies=False, write_cache=False)
-    errors = [f"{path}: {info.parse_error}" for path, info in inv.py.items() if not inv.is_test(path) and info.parse_error]
+    current_syntax, errors = {}, []
+    for source in inv.py:
+        if inv.is_test(source):
+            continue
+        try:
+            current_syntax[source] = syntax_tree(read_source(root / source))
+        except (OSError, UnicodeError, SyntaxError) as exc:
+            errors.append(f"{source}: {exc}")
     if errors:
         raise SkeletonError("source_not_parseable: " + "; ".join(errors))
     raw = discover_inventory(root, inv, write_cache=False)
     # These are references into shared syntax, not another persisted source index.
-    trees = {path: syntax_tree(read_source(root / path)) for path in raw["files"]}
+    trees = {path: current_syntax[path] for path in raw["files"]}
     classes = {}
     functions = {}
     for path, tree in trees.items():
@@ -422,6 +429,16 @@ def derive(root):
             has_parameter = isinstance(item.value, ast.Name) and item.value.id == parameter
             if has_settings or has_parameter:
                 settings_attributes.update(target.attr for target in targets if isinstance(target, ast.Attribute) and _name(target.value) == "self")
+    setting_query_reads = {name: [] for name in settings_values}
+    for query in queries:
+        for symbol in closure(method_symbols[query]):
+            fn = functions.get(symbol)
+            if fn is None or not symbol.startswith(path + "#" + cls.name + "."):
+                continue
+            for item in ast.walk(fn):
+                if isinstance(item, ast.Attribute) and isinstance(item.ctx, ast.Load) and item.attr in settings_values and isinstance(item.value, ast.Attribute) and item.value.attr in settings_attributes and _name(item.value.value) == "self":
+                    setting_query_reads[item.attr].append(query)
+    setting_query_reads = {name: sorted(set(values)) for name, values in setting_query_reads.items()}
     getters = {}
     for name, binding in entity_queries.items():
         returned = [item.value for item in ast.walk(methods[name]) if isinstance(item, ast.Return)]
@@ -549,6 +566,411 @@ def derive(root):
                 goal_guards.append({"goal": goal, "actions": sorted(referenced & set(actions)),
                                     "sources": sources_, "comparisons": comparisons,
                                     "preferred_sources": preferred_sources, "preferred_comparisons": preferred_comparisons})
+
+    def location(source, fn, item=None):
+        return {"path": source, "function": fn, "line": (item or functions[source + "#" + fn]).lineno}
+
+    predictor_bindings = []
+    for predictor, action in predictors:
+        expected = {row["name"] for row in parameters[predictor]}
+        available = {row["name"] for row in parameters[action]}
+        mappings = []
+        direct = False
+        unresolved = False
+        for item in ast.walk(methods[action]):
+            if not isinstance(item, ast.Call) or _name(item.func) != "self." + predictor:
+                continue
+            direct = True
+            values = {row["name"]: value for row, value in zip(parameters[predictor], item.args)}
+            values.update({row.arg: row.value for row in item.keywords})
+            if set(values) == expected and all(isinstance(value, ast.Name) and value.id in available for value in values.values()):
+                mappings.append({name: value.id for name, value in values.items()})
+            else:
+                unresolved = True
+        if not direct and expected <= available:
+            mappings.append({name: name for name in expected})
+        unique = {json.dumps(row, sort_keys=True) for row in mappings}
+        if unresolved or len(unique) != 1 or methods[predictor].args.vararg or methods[predictor].args.kwarg:
+            unknown.append("predictor arguments are not uniquely source-bound: " + predictor)
+            continue
+        mapping = json.loads(next(iter(unique)))
+        predictor_bindings.append({"predictor": predictor, "action": action,
+                                   "allow": "none" if predictor.startswith("why_not_") else "true",
+                                   "parameters": [{"predictor": row["name"], "action": mapping[row["name"]]} for row in parameters[predictor]],
+                                   "sources": [location(path, cls.name + "." + predictor)]})
+
+    ui_bindings = []
+    if ui and ui_constructor["system_attribute"]:
+        system_reference = {"ui_path": [ui_constructor["system_attribute"]]}
+        unbound_choices = set()
+        def ui_value(item, environment):
+            if isinstance(item, ast.Name):
+                if item.id in environment:
+                    return environment[item.id]
+                item = globals_.get(item.id, item)
+            if isinstance(item, ast.Constant):
+                return {"value": item.value} if type(item.value) in (str, int, float, bool, type(None)) else None
+            if isinstance(item, ast.Attribute):
+                parent = ui_value(item.value, environment)
+                return {"ui_path": [*parent["ui_path"], item.attr]} if parent and "ui_path" in parent else None
+            if isinstance(item, ast.Subscript):
+                parent = ui_value(item.value, environment)
+                try:
+                    key = ast.literal_eval(item.slice)
+                except (ValueError, TypeError):
+                    return None
+                if parent and "ui_path" in parent and type(key) in (str, int):
+                    return {"ui_path": [*parent["ui_path"], key]}
+                if parent == {"inputs": True} and isinstance(key, str):
+                    return {"input": key}
+            if isinstance(item, ast.Call) and isinstance(item.func, ast.Attribute) and item.func.attr == "get" and ui_value(item.func.value, environment) == {"inputs": True} and item.args:
+                key = ui_value(item.args[0], environment)
+                if key and isinstance(key.get("value"), str):
+                    return {"input": key["value"]}
+            return None
+        def ui_arguments(fn, item, environment):
+            rows = _signature(fn)
+            positional = [row for row in rows if row["name"] not in {arg.arg for arg in fn.args.kwonlyargs}]
+            if fn.args.vararg or fn.args.kwarg or len(item.args) > len(positional) or any(isinstance(arg, ast.Starred) for arg in item.args) or any(row.arg is None for row in item.keywords):
+                return None
+            values = {row["name"]: ui_value(value, environment) for row, value in zip(positional, item.args)}
+            values.update({row.arg: ui_value(row.value, environment) for row in item.keywords})
+            if set(values) - {row["name"] for row in rows}:
+                return None
+            for row in rows:
+                if row["name"] not in values and "default" in row:
+                    values[row["name"]] = {"value": row["default"]}
+            return values if all(values.get(row["name"]) is not None for row in rows) else None
+        def ui_recipe(action, values):
+            rows = parameters[action]
+            values = dict(values)
+            for row in rows:
+                if row["name"] not in values and "default" in row:
+                    values[row["name"]] = {"value": row["default"]}
+            if any(values.get(row["name"]) is None for row in rows):
+                return None
+            keyword_names = {row.arg for row in methods[action].args.kwonlyargs}
+            return {"args": [values[row["name"]] for row in rows if row["name"] not in keyword_names],
+                    "kwargs": {row["name"]: values[row["name"]] for row in rows if row["name"] in keyword_names}}
+        def ui_target(item, environment):
+            if isinstance(item.func, ast.Attribute):
+                return ui_value(item.func.value, environment), item.func.attr
+            if isinstance(item.func, ast.Call) and _name(item.func.func) == "getattr" and len(item.func.args) == 2:
+                name = ui_value(item.func.args[1], environment)
+                return ui_value(item.func.args[0], environment), name.get("value") if name else None
+            return None, None
+        def choice_truth(test, environment):
+            if isinstance(test, ast.Constant) and type(test.value) is bool:
+                return test.value
+            if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+                value = choice_truth(test.operand, environment)
+                return None if value is None else not value
+            if isinstance(test, ast.BoolOp):
+                values = [choice_truth(value, environment) for value in test.values]
+                if isinstance(test.op, ast.And):
+                    return False if False in values else True if all(value is True for value in values) else None
+                if isinstance(test.op, ast.Or):
+                    return True if True in values else False if all(value is False for value in values) else None
+            if isinstance(test, ast.Compare) and len(test.ops) == 1:
+                left = ui_value(test.left, environment)
+                right = ui_value(test.comparators[0], environment)
+                if isinstance(test.comparators[0], ast.Name) and test.comparators[0].id in globals_:
+                    try:
+                        right = {"value": ast.literal_eval(globals_[test.comparators[0].id])}
+                    except (ValueError, TypeError):
+                        pass
+                if left and right and "value" in left and "value" in right:
+                    if isinstance(test.ops[0], ast.Eq):
+                        return left["value"] == right["value"]
+                    if isinstance(test.ops[0], ast.NotEq):
+                        return left["value"] != right["value"]
+                    if isinstance(test.ops[0], (ast.In, ast.NotIn)) and isinstance(right["value"], (tuple, list, dict, set)):
+                        found = left["value"] in right["value"]
+                        return not found if isinstance(test.ops[0], ast.NotIn) else found
+            return None
+        def phase_conditions(test, environment, positive):
+            if choice_truth(test, environment) is not None:
+                return [], False
+            if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+                return phase_conditions(test.operand, environment, not positive)
+            if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And) and positive:
+                parts = [phase_conditions(value, environment, True) for value in test.values]
+                return [row for rows, _ in parts for row in rows], any(unknown_ for _, unknown_ in parts)
+            if isinstance(test, ast.Compare) and len(test.ops) == 1 and isinstance(test.ops[0], (ast.Eq, ast.NotEq)):
+                left = ui_value(test.left, environment)
+                right = ui_value(test.comparators[0], environment)
+                if left and right and "value" in left and "ui_path" in right:
+                    left, right = right, left
+                if left and right and "ui_path" in left and "value" in right:
+                    equal = isinstance(test.ops[0], ast.Eq)
+                    return [{"ui_path": left["ui_path"], "value": right["value"], "equal": equal == positive}], False
+            return [], True
+        def ui_walk(fn, environment, option, trail=(), conditions=(), path_guards=(), context_unknown=False):
+            if fn.name in trail:
+                unbound_choices.add(option)
+                return
+            def assign(target, value, env):
+                if isinstance(target, ast.Name):
+                    env[target.id] = ui_value(value, env)
+                elif isinstance(target, (ast.Tuple, ast.List)):
+                    if isinstance(value, (ast.Tuple, ast.List)) and len(target.elts) == len(value.elts):
+                        for destination, source_ in zip(target.elts, value.elts):
+                            assign(destination, source_, env)
+                    elif (reference := ui_value(value, env)) and "ui_path" in reference:
+                        for index, destination in enumerate(target.elts):
+                            if isinstance(destination, ast.Name):
+                                env[destination.id] = {"ui_path": [*reference["ui_path"], index]}
+            def record(action, predictor, values, item, phases, uncertain):
+                recipe = ui_recipe(action, values)
+                if recipe is None:
+                    unbound_choices.add(option)
+                    return
+                ui_bindings.append({"option": option, "action": action, "predictor": predictor["predictor"], "allow": predictor["allow"], **recipe,
+                                    "guards": list(phases), "context_unknown": uncertain,
+                                    "sources": [location(ui_path, ui_class.name + "." + fn.name, item), *predictor["sources"]]})
+            def visit(statements, env, guards, phases, uncertain):
+                for statement in statements:
+                    if isinstance(statement, ast.Assign):
+                        for target in statement.targets:
+                            assign(target, statement.value, env)
+                    if isinstance(statement, ast.If):
+                        truth = choice_truth(statement.test, env)
+                        if truth is not False:
+                            added, unresolved_ = phase_conditions(statement.test, env, True)
+                            visit(statement.body, dict(env), (*guards, statement.test), (*phases, *added), uncertain or unresolved_)
+                        if truth is not True:
+                            added, unresolved_ = phase_conditions(statement.test, env, False)
+                            visit(statement.orelse, dict(env), guards, (*phases, *added), uncertain or unresolved_)
+                        continue
+                    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        continue
+                    for item in ast.walk(statement):
+                        if not isinstance(item, ast.Call):
+                            continue
+                        receiver, name = ui_target(item, env)
+                        if receiver == system_reference and name in actions:
+                            values = ui_arguments(methods[name], item, env)
+                            matches = [row for row in predictor_bindings if row["action"] == name]
+                            if values is None or not matches:
+                                unbound_choices.add(option)
+                            else:
+                                for predictor in matches:
+                                    record(name, predictor, values, item, phases, uncertain)
+                        elif receiver == {"ui_path": []} and name in ui_methods:
+                            values = ui_arguments(ui_methods[name], item, env)
+                            if values is None:
+                                unbound_choices.add(option)
+                            else:
+                                ui_walk(ui_methods[name], {"self": {"ui_path": []}, **values}, option, (*trail, fn.name), guards, phases, uncertain)
+                        if fn is options_fn and isinstance(item.func, ast.Attribute) and item.func.attr == "append" and item.args and ui_value(item.args[0], env) == {"value": option}:
+                            for guard in guards:
+                                for call_ in ast.walk(guard):
+                                    if not isinstance(call_, ast.Call):
+                                        continue
+                                    target, predicted = ui_target(call_, env)
+                                    matches = [row for row in predictor_bindings if row["predictor"] == predicted] if target == system_reference else []
+                                    for predictor in matches:
+                                        values = ui_arguments(methods[predicted], call_, env)
+                                        if values is None:
+                                            unbound_choices.add(option)
+                                        else:
+                                            record(predictor["action"], predictor, {row["action"]: values[row["predictor"]] for row in predictor["parameters"]}, item, phases, uncertain)
+            visit(fn.body, dict(environment), conditions, path_guards, context_unknown)
+        for option in ui_facts["options"]:
+            choose_environment = {"self": {"ui_path": []}, choose.args.args[1].arg: {"value": option}}
+            if choose.args.kwarg:
+                choose_environment[choose.args.kwarg.arg] = {"inputs": True}
+            ui_walk(choose, choose_environment, option)
+            ui_walk(options_fn, {"self": {"ui_path": []}}, option)
+        grouped = {}
+        for row in ui_bindings:
+            grouped.setdefault(row["option"], []).append(row)
+        ui_bindings = []
+        for option, rows in sorted(grouped.items()):
+            recipes = {json.dumps({key: row[key] for key in ("action", "args", "kwargs")}, sort_keys=True) for row in rows}
+            if len(recipes) != 1 or option in unbound_choices:
+                unknown.append("UI choice arguments are not uniquely source-bound: " + option)
+                continue
+            merged = {}
+            for row in rows:
+                key = json.dumps({key: value for key, value in row.items() if key != "sources"}, sort_keys=True)
+                merged.setdefault(key, {**row, "sources": []})["sources"].extend(row["sources"])
+            for row in merged.values():
+                row["sources"] = [json.loads(key) for key in sorted({json.dumps(value, sort_keys=True) for value in row["sources"]})]
+                ui_bindings.append(row)
+        unknown.extend("UI choice arguments are not source-bound: " + option for option in sorted(unbound_choices - grouped.keys()))
+
+    def library(item, source, name):
+        spelling = _name(item)
+        first, _, tail = spelling.partition(".")
+        imported = raw["files"][source]["imports"].get(first, "").replace(":", ".")
+        return imported + ("." + tail if tail else "") == name
+    def function_target(item, source):
+        spelling = _name(item)
+        if source + "#" + spelling in functions:
+            return source + "#" + spelling
+        first, _, tail = spelling.partition(".")
+        imported = raw["files"][source]["imports"].get(first, "").replace(":", ".")
+        complete = imported + ("." + tail if tail else "")
+        candidates_ = [symbol for symbol in functions if inv.py[symbol.partition("#")[0]].module + "." + symbol.partition("#")[2] == complete]
+        return candidates_[0] if len(candidates_) == 1 else None
+    def reference(item, source, env):
+        if isinstance(item, ast.Name):
+            value = env.get(item.id)
+            return reference(value[1], value[2], value[3]) if value and value[0] == "expression" else value
+        if isinstance(item, ast.Attribute) and reference(item.value, source, env) == ("system",) and item.attr in settings_attributes:
+            return ("settings", item.attr)
+        return None
+    def local_environment(fn, source, values):
+        env = dict(values)
+        for item in fn.body:
+            if isinstance(item, ast.Assign):
+                for target in item.targets:
+                    if isinstance(target, ast.Name):
+                        env[target.id] = ("expression", item.value, source, dict(env))
+        return env
+    def bound_function(symbol, item, source, env):
+        fn = functions[symbol]
+        rows = [*fn.args.posonlyargs, *fn.args.args]
+        if len(item.args) > len(rows) or any(isinstance(value, ast.Starred) for value in item.args) or any(value.arg is None for value in item.keywords):
+            return None
+        values = {arg.arg: ("expression", value, source, dict(env)) for arg, value in zip(rows, item.args)}
+        values.update({value.arg: ("expression", value.value, source, dict(env)) for value in item.keywords})
+        return local_environment(fn, symbol.partition("#")[0], values)
+    def mirrors(item, source, env, trail=()):
+        if isinstance(item, ast.Name):
+            value = env.get(item.id)
+            return mirrors(value[1], value[2], value[3], trail) if value and value[0] == "expression" else []
+        if isinstance(item, ast.Dict):
+            if any(key is None or not isinstance(key, ast.Constant) or not isinstance(key.value, str) for key in item.keys):
+                return []
+            return [{**row, "path": [key.value, *row["path"]]} for key, value in zip(item.keys, item.values) for row in mirrors(value, source, env, trail)]
+        if not isinstance(item, ast.Call):
+            return []
+        if library(item.func, source, "dataclasses.asdict") and len(item.args) == 1:
+            value = reference(item.args[0], source, env)
+            if value and value[0] == "settings":
+                return [{"attribute": value[1], "path": [], "sources": [{"path": source, "function": trail[-1].partition("#")[2], "line": item.lineno}]}]
+        if isinstance(item.func, ast.Attribute) and (value := reference(item.func.value, source, env)) and value[0] == "settings" and not item.args and not item.keywords:
+            cfg_path, cfg_class = classes[settings]
+            symbol = cfg_path + "#" + cfg_class.name + "." + item.func.attr
+            if symbol in functions and symbol not in trail:
+                fn = functions[symbol]
+                returns = [statement for statement in fn.body if isinstance(statement, ast.Return)]
+                if len(returns) == 1:
+                    return mirrors(returns[0].value, cfg_path, local_environment(fn, cfg_path, {"self": value}), (*trail, symbol))
+        if isinstance(item.func, ast.Attribute) and reference(item.func.value, source, env) == ("system",) and item.func.attr in method_symbols and not item.args and not item.keywords:
+            symbol = method_symbols[item.func.attr]
+            fn = functions[symbol]
+            returns = [statement for statement in fn.body if isinstance(statement, ast.Return)]
+            if symbol not in trail and len(returns) == 1:
+                rows = mirrors(returns[0].value, path, local_environment(fn, path, {"self": ("system",)}), (*trail, symbol))
+                for row in rows:
+                    row["sources"].append(location(path, cls.name + "." + fn.name, returns[0]))
+                return rows
+        symbol = function_target(item.func, source)
+        if symbol and symbol not in trail:
+            fn = functions[symbol]
+            returns = [statement for statement in fn.body if isinstance(statement, ast.Return)]
+            values = bound_function(symbol, item, source, env)
+            if len(returns) == 1 and values is not None:
+                rows = mirrors(returns[0].value, symbol.partition("#")[0], values, (*trail, symbol))
+                for row in rows:
+                    row["sources"].append(location(symbol.partition("#")[0], symbol.partition("#")[2], returns[0]))
+                return rows
+        return []
+    writers = {}
+    def json_writers(symbol, env, trail=()):
+        if symbol in trail:
+            return
+        fn = functions[symbol]
+        source, _, qualified = symbol.partition("#")
+        env = local_environment(fn, source, env)
+        for item in ast.walk(fn):
+            if not isinstance(item, ast.Call):
+                continue
+            payload = item.args[0] if library(item.func, source, "json.dump") and item.args else None
+            if isinstance(item.func, ast.Attribute) and item.func.attr in {"write_text", "write_bytes", "write"} and item.args:
+                encoded = item.args[0]
+                while isinstance(encoded, ast.Name) and (value := env.get(encoded.id)) and value[0] == "expression":
+                    encoded = value[1]
+                payload = encoded.args[0] if isinstance(encoded, ast.Call) and library(encoded.func, source, "json.dumps") and encoded.args else None
+                if payload is None:
+                    writers[(source, item.lineno)] = []
+            if payload is not None:
+                rows = mirrors(payload, source, env, (*trail, symbol))
+                for row in rows:
+                    row["sources"].extend([location(source, qualified, item), *[location(value.partition("#")[0], value.partition("#")[2]) for value in (*trail, symbol)]])
+                writers[(source, item.lineno)] = rows
+            target = function_target(item.func, source)
+            if target and (values := bound_function(target, item, source, env)) is not None:
+                json_writers(target, values, (*trail, symbol))
+    serializer_settings_mirror = None
+    if persistence and settings:
+        json_writers(method_symbols[persistence["save"]], {"self": ("system",)})
+        rows = next(iter(writers.values())) if len(writers) == 1 else []
+        shapes = {(row["attribute"], tuple(row["path"])) for row in rows}
+        if len(shapes) == 1:
+            attribute, keys = next(iter(shapes))
+            serializer_settings_mirror = {"attribute": attribute, "path": list(keys), "format": "json",
+                                          "sources": [json.loads(key) for key in sorted({json.dumps(value, sort_keys=True) for row in rows for value in row["sources"]})]}
+        else:
+            unknown.append("settings mirror is not uniquely source-bound to the public JSON save")
+    optional_calls = {}
+    for caller, fn in functions.items():
+        source, _, qualified = caller.partition("#")
+        for item in ast.walk(fn):
+            if not isinstance(item, ast.Call):
+                continue
+            target = function_target(item.func, source)
+            bound = False
+            if isinstance(item.func, ast.Attribute):
+                receiver = _name(item.func.value)
+                if source == path and qualified.startswith(cls.name + ".") and receiver == "self" and item.func.attr in method_symbols:
+                    target, bound = method_symbols[item.func.attr], True
+                elif ui and ui_constructor["system_attribute"] and source == ui_path and qualified.startswith(ui_class.name + "."):
+                    aliases_ = {"self." + ui_constructor["system_attribute"]}
+                    assignments = sorted((node for node in ast.walk(fn) if isinstance(node, ast.Assign) and node.lineno < item.lineno), key=lambda node: (node.lineno, node.col_offset))
+                    for assignment in assignments:
+                        pairs = [(destination, assignment.value) for destination in assignment.targets]
+                        if len(assignment.targets) == 1 and isinstance(assignment.targets[0], (ast.Tuple, ast.List)) and isinstance(assignment.value, (ast.Tuple, ast.List)) and len(assignment.targets[0].elts) == len(assignment.value.elts):
+                            pairs = list(zip(assignment.targets[0].elts, assignment.value.elts))
+                        previous = set(aliases_)
+                        for destination, value in pairs:
+                            if isinstance(destination, ast.Name):
+                                if _name(value) in previous:
+                                    aliases_.add(destination.id)
+                                else:
+                                    aliases_.discard(destination.id)
+                    if receiver in aliases_ and item.func.attr in method_symbols:
+                        target, bound = method_symbols[item.func.attr], True
+            if target is None:
+                continue
+            callee = functions[target]
+            decorators = {_name(value) for value in callee.decorator_list}
+            if "staticmethod" in decorators:
+                bound = False
+            elif "classmethod" in decorators:
+                bound = True
+            positional = [*callee.args.posonlyargs, *callee.args.args]
+            defaults = [None] * (len(positional) - len(callee.args.defaults)) + list(callee.args.defaults)
+            optional = [(argument.arg, index - int(bound)) for index, (argument, default) in enumerate(zip(positional, defaults)) if default is not None]
+            optional.extend((argument.arg, None) for argument, default in zip(callee.args.kwonlyargs, callee.args.kw_defaults) if default is not None)
+            if not optional:
+                continue
+            if any(isinstance(argument, ast.Starred) for argument in item.args) or any(keyword.arg is None for keyword in item.keywords):
+                unknown.append("optional argument usage is not statically bound: " + source + ":" + str(item.lineno))
+                continue
+            provided = {keyword.arg for keyword in item.keywords}
+            for parameter_name, index in optional:
+                state = "provided" if parameter_name in provided or index is not None and 0 <= index < len(item.args) else "omitted"
+                row = optional_calls.setdefault((target, parameter_name), {"provided": [], "omitted": []})
+                row[state].append(location(source, qualified, item))
+    optional_argument_advice = []
+    for (target, parameter_name), usage in sorted(optional_calls.items()):
+        if usage["provided"] and usage["omitted"] and any(left["path"] != right["path"] for left in usage["provided"] for right in usage["omitted"]):
+            optional_argument_advice.append({"function": target, "parameter": parameter_name,
+                                             **{state: [json.loads(key) for key in sorted({json.dumps(row, sort_keys=True) for row in rows})] for state, rows in usage.items()}})
     aliases, budgets = {}, {}
     for row in corrections:
         if row["kind"] == "exclude":
@@ -587,6 +1009,10 @@ def derive(root):
             "shipped": settings_values, "refusal": sorted(locator for locator in classes if is_refusal(locator)),
             "entities": entities, "actions": actions, "queries": queries, "parameters": parameters,
             "predictor_pairs": sorted(predictors), "status_values": statuses, "ui": ui, "ui_methods": ui_names, "ui_facts": ui_facts,
+            "predictor_bindings": predictor_bindings, "ui_bindings": ui_bindings,
+            "settings_attributes": sorted(settings_attributes), "serializer_settings_mirror": serializer_settings_mirror,
+            "setting_query_reads": setting_query_reads,
+            "optional_argument_advice": optional_argument_advice,
             "entity_queries": entity_queries, "ui_constructor": ui_constructor, "ui_refusal": ui_refusal, "goal_guards": goal_guards,
             "persistence": persistence, "file_inputs": sorted(file_inputs), "worlds": worlds,
             "aliases": aliases, "budgets": budgets, "unsupported": unsupported,
