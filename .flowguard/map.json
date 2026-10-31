@@ -990,12 +990,6 @@
       "contains": "replays flowguard/map/views.py:find_owners",
       "reason": "_read_fixture.py dispatches on case fields (case.review, case.query); this model's cases never set them; AnchorWatch shows the call never runs",
       "expires": "v1.0.0"
-    },
-    {
-      "code": "unmodeled_owner",
-      "component": "map-requests",
-      "reason": "stage 0 adds no hand-made models (design section 6); tests/test_requests.py covers the store, and stage 2 declares it",
-      "expires": "v1.0.0"
     }
   ],
   "fingerprint_format": 2,
