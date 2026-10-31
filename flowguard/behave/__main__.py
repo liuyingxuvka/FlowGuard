@@ -16,6 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--root", default=".", help="project source directory")
     audit = verbs.add_parser("audit", help="explore bounded real worlds and state which checks remain unimplemented")
     audit.add_argument("--root", default=".")
+    audit.add_argument("--base", help="compare against an existing source revision")
     audit.add_argument("--world", action="append", dest="worlds")
     audit.add_argument("--seeds", default="0,1")
     audit.add_argument("--steps", type=int, default=64)
@@ -48,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
                 if not seeds:
                     raise ValueError("at least one seed is required")
                 result = audit(options.root, worlds=options.worlds, seeds=seeds, steps=options.steps,
-                               node_cap=options.node_cap, alphabet_cap=options.alphabet_cap)
+                               node_cap=options.node_cap, alphabet_cap=options.alphabet_cap, base=options.base)
                 print(render(result, as_json=options.json))
                 return 0
             from .why import why

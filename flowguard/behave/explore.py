@@ -32,6 +32,29 @@ def plain(pack):
 
 
 def evaluate(session, goal):
+    if goal.get("kind") == "statement":
+        requested = goal.get("statements", [goal.get("statement")])
+        known = {row["id"]: row["unambiguous"] for row in session.spec.get("statements", [])}
+        if not requested or any(not known.get(identifier, False) for identifier in requested):
+            raise UnsupportedWorld("statement identity is absent or its physical line is ambiguous")
+        if session.last is None:
+            return False
+        if "hit_statements" not in session.last:
+            raise UnsupportedWorld("the last call has no statement execution receipt")
+        return bool(set(requested) & set(session.last["hit_statements"]))
+    if goal.get("kind") == "transition":
+        available = set(session.spec["parameters"]) | (set(session.spec.get("ui_methods", {}).values()) if session.spec.get("ui") else set())
+        if goal.get("receiver", "system") == "system" and (goal["query"] not in session.spec["parameters"] or "action" in goal and goal["action"] not in available):
+            return False
+        if session.last is None:
+            return False
+        if "transitions" not in session.last:
+            raise UnsupportedWorld("the last call has no public before/after transition observations")
+        return any(row["query"] == goal["query"] and ("action" not in goal or row["action"] == goal["action"])
+                   and row.get("receiver", "system") == goal.get("receiver", "system")
+                   and state_key(row["args"]) == state_key(goal.get("args", []))
+                   and state_key(row["before"]) == state_key(goal["before"]) and state_key(row["value"]) == state_key(goal["value"])
+                   for row in session.last["transitions"])
     if goal.get("kind") in {"option", "screen"}:
         for receiver in (name for name in session.objects if name != "system"):
             value = plain(session.query(receiver, session.spec["ui_methods"]["options"])) if goal["kind"] == "option" else plain(session.query(receiver, "screen", property=True))
@@ -39,10 +62,16 @@ def evaluate(session, goal):
                 return True
         return False
     if goal.get("kind", "query") == "action":
+        if goal.get("receiver", "system") == "system" and goal["name"] not in session.spec["parameters"]:
+            return False
         row = session.last
         return bool(row and row["call"].get("name") == goal["name"] and row["call"].get("receiver", "system") == goal.get("receiver", "system") and row["outcome"] == goal["outcome"])
     receiver = goal.get("receiver", "system")
+    if receiver == "system" and goal["query"] not in session.spec["parameters"]:
+        return False
     if goal.get("entity") and not goal.get("args"):
+        if goal["entity"] not in session.spec["entities"]:
+            return False
         return any(evaluate(session, {key: value for key, value in {**goal, "args": [identifier]}.items() if key != "entity"})
                    for identifier in _identifiers(session)[goal["entity"]])
     value = plain(session.query(receiver, goal["query"], goal.get("args", []), goal.get("kwargs", {}), property=goal.get("property", False)))
@@ -269,7 +298,18 @@ def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, doma
         least = min(visits.get(item["name"], 0) for item in choices)
         choices = [item for item in choices if visits.get(item["name"], 0) == least]
         recipe = rng.choice(choices)
+        before_observed = observations(session, all_queries=True)
         row = session.step(recipe)
+        after_observed = observations(session, all_queries=True)
+        row["before_observations"], row["after_observations"] = before_observed, after_observed
+        after_values = {state_key([value["query"], value["args"]]): value for value in after_observed["values"]}
+        row["transitions"] = []
+        for value in before_observed["values"]:
+            after = after_values.get(state_key([value["query"], value["args"]]))
+            if after is not None and state_key(value["value"]) != state_key(after["value"]):
+                row["transitions"].append({"kind": "transition", "receiver": "system", "query": value["query"], "args": value["args"],
+                                           "before": value["value"], "value": after["value"], "action": recipe["name"]})
+        session.last["transitions"] = row["transitions"]
         if row["outcome"] == "crash" or row["outcome"] == "refusal" and row["before_key"] != row["after_key"]:
             failures.append({"prefix": list(session.prefix[:-1]), "outcomes": list(session.outcomes[:-1]),
                              "start": dict(session.start), "row": _compact(row)})
@@ -283,6 +323,11 @@ def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, doma
             corpus.append(list(session.prefix))
         term = {"kind": "action", "receiver": recipe.get("receiver", "system"), "name": recipe["name"], "outcome": row["outcome"]}
         witnesses.setdefault(json.dumps(term, sort_keys=True), {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
+        for identifier in row.get("hit_statements", []):
+            term = {"kind": "statement", "statement": identifier}
+            witnesses.setdefault(json.dumps(term, sort_keys=True), {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
+        for term in row["transitions"]:
+            witnesses.setdefault(json.dumps(term, sort_keys=True), {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
         events.append(_compact(row))
     for term in _terms(session):
         key = json.dumps(term, sort_keys=True)

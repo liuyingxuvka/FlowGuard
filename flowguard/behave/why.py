@@ -7,7 +7,7 @@ from .report import item_id
 
 
 def why(root, identifier):
-    if len(identifier) not in {6, 8} or identifier[:2] not in {"W-", "N-", "S-", "L-", "C-", "A-"} or any(char not in "0123456789abcdef" for char in identifier[2:]):
+    if len(identifier) not in {6, 8} or identifier[:2] not in {"W-", "N-", "S-", "L-", "C-", "A-", "T-", "U-"} or any(char not in "0123456789abcdef" for char in identifier[2:]):
         raise ValueError("unknown witness id")
     path = cache_root(root) / "witnesses" / (identifier + ".json")
     try:

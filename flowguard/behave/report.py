@@ -9,7 +9,10 @@ import json
 def item_id(semantic, *, length=4):
     incidental = {"seed", "prefix", "trace", "order", "timestamp", "identity", "engine"}
     subject = {key: value for key, value in semantic.items() if key not in incidental}
-    kind = "L" if subject.get("kind") in {"loading", "loading_crash"} else {"GC1": "N", "GC2": "C", "GC3": "S", "GC5": "A", "GC6": "C"}.get(subject.get("check"), "W")
+    if subject.get("check") == "GC8":
+        kind = {"lost": "L", "new_stuck": "S", "new_contradiction": "C", "transition": "T", "new_goal": "N", "world_unbuildable": "U"}.get(subject.get("kind"), "W")
+    else:
+        kind = "L" if subject.get("kind") in {"loading", "loading_crash"} else {"GC1": "N", "GC2": "C", "GC3": "S", "GC5": "A", "GC6": "C"}.get(subject.get("check"), "W")
     return kind + "-" + hashlib.sha256(json.dumps(subject, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()[:length]
 
 
@@ -24,11 +27,15 @@ def render(result, *, as_json=False):
     unknown.extend(result.get("saved_files", {}).get("unknown", []))
     settings = result.get("settings", {})
     unknown.extend(settings.get("unknown", []))
+    difference = result.get("diff", {})
+    unknown.extend({"check": "GC8", **row} for row in difference.get("unknown", []))
     verdict = "BLOCKED" if items else "UNCHECKED"
     reached = "shipped reach, stuck, agreement, setting and crash/refusal checks"
+    if difference:
+        reached += " and change comparison"
     payload = {"verdict": verdict, "reached": reached, "extent": extent,
                "coverage": coverage, "missing_checks": result["missing_checks"], "unknown": unknown,
-               "errors": result["errors"], "items": [{key: item[key] for key in ("id", "semantic", "label", "search", "explanations", "answers", "effects") if key in item} for item in items], "facts_reused": result["facts_reused"]}
+               "errors": result["errors"], "items": [{key: item[key] for key in ("id", "semantic", "label", "search", "explanations", "answers", "effects", "goal", "dead_code", "reason") if key in item} for item in items], "facts_reused": result["facts_reused"]}
     for item, row in zip(items, payload["items"]):
         if item.get("violation"):
             row["violation"] = {key: item["violation"][key] for key in (
@@ -36,12 +43,22 @@ def render(result, *, as_json=False):
             ) if key in item["violation"]}
         if item.get("file_input"):
             row["file_input"] = item["file_input"]
+        if item.get("diff_evidence"):
+            evidence = item["diff_evidence"]
+            row["diff_evidence"] = {key: evidence[key] for key in ("base_ref", "base_revision") if key in evidence}
+            for side in ("old", "current"):
+                if side in evidence:
+                    row["diff_evidence"][side] = {key: evidence[side][key] for key in ("found", "replay_found", "extent") if key in evidence[side]}
         if item.get("comparison"):
             row["comparison"] = {key: item["comparison"][key] for key in (
                 "predictor", "action", "other_predictor", "predictor_mode", "other_mode", "option",
                 "expected_permission", "observed", "answer", "before_key", "predictor_value", "other_predictor_value",
             ) if key in item["comparison"]}
     payload["settings"] = {key: settings[key] for key in ("information", "unknown", "profiles", "traces") if key in settings}
+    if difference:
+        payload["diff"] = {key: difference[key] for key in (
+            "base_ref", "base_revision", "base_identity", "current_identity", "configurations", "unknown", "transitions", "dead_code",
+        ) if key in difference}
     payload["advice"] = result.get("advice", [])
     payload["test_scope"] = result.get("test_scope", {})
     payload["saved_files"] = {key: value for key, value in result.get("saved_files", {}).items() if key != "candidates"}
@@ -59,6 +76,8 @@ def render(result, *, as_json=False):
         lines.append("unrecognized front doors: " + "; ".join(result["coverage"]["front_doors"]))
     lines.extend("not judged: " + row["world"] + ": " + row["reason"] for row in result["errors"])
     lines.extend("input scope: " + reason for reason in payload["input_gaps"])
+    if difference:
+        lines.append("base comparison: " + difference["base_ref"] + " (" + difference["base_revision"][:12] + "); only confirmed items below are findings")
     for item in items:
         semantic = item["semantic"]
         if semantic.get("check") == "GC6":
@@ -93,15 +112,39 @@ def render(result, *, as_json=False):
             term = semantic["predictor"] + " -> " + semantic["action"] + "; expected " + ("success" if semantic["expected"] else "refusal")
         if semantic.get("kind") == "setting":
             term = semantic["setting"]
+        if semantic.get("check") == "GC8":
+            goal = item.get("goal", semantic.get("subject", {}))
+            goal_kind = goal.get("kind")
+            if goal_kind == "query":
+                term = goal["query"] + "=" + repr(goal["value"])
+            elif goal_kind == "action":
+                term = "action " + goal["name"]
+            elif goal_kind in {"option", "screen"}:
+                term = goal_kind + " " + str(goal["value"])
+            elif goal_kind == "transition":
+                term = goal["query"] + ": " + repr(goal["before"]) + " -> " + repr(goal["value"]) + " via " + goal["action"]
+            elif semantic.get("kind") == "new_contradiction":
+                offered = {**semantic, **goal}
+                term = offered["predictor"] + " -> " + offered["action"] + "; expected " + ("success" if offered["expected"] else "refusal")
+            elif semantic.get("kind") == "world_unbuildable":
+                term = str(semantic.get("world", goal.get("world", "world")))
+                reason = item.get("reason", semantic.get("reason", goal.get("reason")))
+                if reason:
+                    term += ": " + reason
         explanation = ", ".join(row["setting"] + "=" + repr(row["value"]) for row in item.get("explanations", []))
-        suffix = " (reached only with " + explanation + ")" if explanation else " (no one-setting variation reaches it)" if item["label"] == "NEVER REACHED" else ""
-        if item["label"] == "STUCK":
+        suffix = " (reached only with " + explanation + ")" if explanation else " (no one-setting variation reaches it)" if item["label"] == "NEVER REACHED" and semantic.get("check") != "GC8" else ""
+        if item["label"] in {"STUCK", "NEW STUCK"}:
             suffix = f" - no way out within {item['bounds']['depth']} actions (complete, {item['search']['visited']} states)"
         if item["label"] == "ADVICE ONLY":
             effects = item.get("effects", {})
             suffix = f" - {effects.get('replays', 0)} public replays across {effects.get('profiles', 0)} profiles; changed queries: " + ", ".join(effects.get("query_changes", semantic.get("queries", []))) + "; no action or domain effect in these replays"
         heading = "STUCK (1 entities)" if item["label"] == "STUCK" else item["label"]
         lines.append(heading + ": " + term + suffix + " · " + item["id"])
+        for source in item.get("dead_code", []):
+            text = "  DEAD CODE " + source["path"] + ":" + source["function"] + ": " + str(source["count"]) + " statement(s)"
+            if source.get("example"):
+                text += ", e.g. " + repr(source["example"])
+            lines.append(text)
         answers = item.get("answers", [])
         if not answers and isinstance(item.get("comparison", {}).get("answer"), dict):
             answers = [item["comparison"]["answer"]]

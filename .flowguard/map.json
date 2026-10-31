@@ -881,7 +881,7 @@
     {
       "id": "behave",
       "layer": "capabilities",
-      "summary": "Unreleased code-derived worlds with reach, stuck, saved-file, predictor agreement, setting-effect and crash/refusal checks, generated file inputs, native replay and fresh evidence; enter only through python -m flowguard.behave.",
+      "summary": "Unreleased code-derived worlds with reach, stuck, saved-file, agreement, setting, crash and declaration-free change checks, shared native execution and fresh evidence; enter only through python -m flowguard.behave.",
       "responsibilities": [
         "provide standalone pilot help that lists only implemented verbs and reject unsupported Python interpreters before loading pilot behavior",
         "keep the pilot absent from the public CLI, exports, skill and product documentation",
@@ -916,7 +916,14 @@
         "derive supported file-taking action inputs from the existing source AST and call bindings: actual CSV reader, named columns and required fields, converter types and available argument domains; generate one normal, extra-cell and missing-cell recipe per supported schema, retain unsupported or ambiguous formats explicitly, and use GC4 saved bytes for load-like readers",
         "check actual fresh, eligible shipped-test and saved-start public calls for nondeclared exceptions and refusals that alter the complete instance graph, files, permission modes or shipped defaults; retain full ordered state without the GC5 settings-mirror projection and do not treat arbitrary ValueError or TypeError as declared refusals",
         "retain each generated input name, kind and exact bytes with its public prefix and source binding; report CRASH with the actual exception type, message and application file and line, or REFUSED CHANGED STATE with the complete before/after identity, only after a fresh replay reproduces the violation",
-        "compare supported append-only output increments as multisets that retain repeated identical entries while leaving complete state container order unchanged; keep crash and refusal evidence usable by current-tree why and keep unimplemented checks and unsupported file formats explicit"
+        "compare supported append-only output increments as multisets that retain repeated identical entries while leaving complete state container order unchanged; keep crash and refusal evidence usable by current-tree why and keep unimplemented checks and unsupported file formats explicit",
+        "compare an exact Git base source with the current working tree through the existing source export, native session and execution facts; retain dirty-tree content identities and source pins, use the same requested worlds, seeds and budgets with explicit actual shipped configurations, and do not alter either input tree or require owner declarations",
+        "report LOST only with an actual old witness that fails on current code, all applicable known witnesses replayed, a second fixed seed and a complete bounded guard-directed search that also misses; keep capped, unsupported, unbuildable or unmatched source contexts explicit rather than turning sampled differences into findings, and apply the same reach proof to new generated goals",
+        "identify new complete stuck states and source-bound contradictions only after comparing both versions under matching fresh or GC4 saved-file origins; reuse actual saved bytes and independent baseline loader acceptance, retain loaded configurations, and keep saved origins separate from fresh shipped starts",
+        "record actual per-call categorical and entity-value transitions from complete native observations and confirm NEW or LOST transitions on the other version by replaying their concrete public witnesses; if a witness action is absent use a bounded directed search from equal before-values, leaving every unconfirmed transition as coverage only",
+        "bind actual statement reach to the shared source AST and real native monitoring receipts; report still-present statements as DEAD CODE only after an old execution witness, failed current replay and complete bounded current reach checks, with exact source function, statement count and an example; ambiguous source positions or incomplete reach stay coverage rather than dead code",
+        "freshly prove each declaration-free change item and its two source identities before printing, retain semantic ids and current-tree why recipes, show world construction failures honestly, and retain the unfinished overall audit protocol for its own implementation step",
+        "include working-tree provided JSON saved-file fixtures separately from committed HEAD fixtures using the existing metadata exclusions and actual old-version public-loader acceptance; record the real input path, exact bytes and hash, untracked origin and old source footprint without inventing a public-save recipe or changing the material Git state"
       ],
       "files": [
         "flowguard/behave/*.py",
@@ -945,11 +952,12 @@
         "tests/behave/test_gc4_saved_files.py",
         "tests/behave/test_gc2_offered.py",
         "tests/behave/test_gc5_settings.py",
-        "tests/behave/test_gc6_crash.py"
+        "tests/behave/test_gc6_crash.py",
+        "tests/behave/test_gc8_diff.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:eac4aadb5f1c12cbff0086340115068ed35e4235243f8f1b63ffcb30bc1f6db4"
+      "fingerprint": "sha256:430819c087d4127b8317eb4f66b153e8fab4f364ab200153a55557dd7bd0195a"
     }
   ],
   "flows": [

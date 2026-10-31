@@ -525,7 +525,7 @@ def saved_files(session, saves, *, seed=0, steps=64, node_cap=1000, alphabet_cap
             source, file = saved.get("source", {}), saved.get("file", {})
             schema = saved.get("schema")
             provenance = {"source": source, "schema": schema,
-                          "file": {key: file.get(key) for key in ("name", "sha256")}}
+                          "file": {key: file.get(key) for key in ("name", "sha256", "fixture") if key in file}}
             summary = {**provenance, "old_outcome": saved.get("old_load", {}).get("outcome")}
             files.append(summary)
             if not loader:

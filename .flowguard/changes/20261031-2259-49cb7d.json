@@ -1,0 +1,152 @@
+{
+  "kind": "change",
+  "goal": "FG-627: Declaration-free change diff",
+  "requests": [
+    {
+      "id": "R11",
+      "part": true
+    }
+  ],
+  "base": "1bbaff9b71020bd306485abde0498db3892404d1",
+  "tree": "49cb7d5024393101afa83e656bebc32358548112f8a4d33fd9322ede87403446",
+  "promoted": "2026-10-31T22:59:45.667755+00:00",
+  "plan": [
+    {
+      "line": "touch: flowguard/behave/__main__.py:build_parser because \"Add the real pilot audit --base ref option without changing the shipped product CLI\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/__main__.py:main because \"Dispatch an explicit base comparison to the shared engine and preserve finished audit exit behavior\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/skeleton.py:derive because \"Expose source-bound executable statement identities from the shared AST without another parser or source index\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_ObservedState.trace because \"Retain lightweight actual per-call source hits alongside existing line monitoring without graph capture at every line\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_worker because \"Install and clear the scoped sys.monitoring statement-line callback in the existing native worker while retaining the class/global state guard\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_Session.step because \"Attach the actual call statement footprint to its concrete public prefix and complete before and after observation\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_run_session because \"Run comparable diff facts cross-version replay and bounded proof through the one native session including GC4 loaded starts and provided-fixture provenance\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/explore.py:evaluate because \"Recognize source statement and concrete before-action-after transition goals using actual native observations\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/explore.py:explore because \"Retain compact transition and statement witnesses with matching starts and public recipes rather than sampled absence verdicts\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/diffcmd.py:compare because \"Compare exact base and working-tree execution facts with known witness second-seed and complete directed checks for lost behavior and real opposite-side transition replay\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/diffcmd.py:prove because \"Freshly re-establish both source sides and the specific positive or bounded negative evidence before reporting a GC8 item\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:old_releases because \"Reuse verified Git-blob source export for an exact requested base without eagerly exporting unrelated history or introducing another checkout mechanism\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:collect_saves because \"Screen provided untracked JSON fixtures with existing metadata exclusions and real old-loader acceptance while preserving distinct committed and provided provenance\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/checks.py:saved_files because \"Retain exact provided-fixture path bytes identity and independent old acceptance when the shared GC4 loader supplies a GC8 starting origin\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:audit because \"Route base comparisons through shared facts and source identities while preserving ordinary audit behavior and declared scope\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:prove because \"Reprove GC8 evidence on the current tree with its actual base and saved-file provenance instead of trusting a stored difference\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/report.py:item_id because \"Give lost transition and new behavioral items stable semantic identities independent of seed prefix or temporary source paths\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/report.py:render because \"Show confirmed LOST DEAD CODE NEW STUCK NEW CONTRADICTION and transitions with explicit unknown coverage and source evidence\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/why.py:why because \"Accept the implemented GC8 semantic item kinds and use the same current-tree cross-version proof\"",
+      "added_after_code": null,
+      "cleared": []
+    }
+  ],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/behave/__main__.py:build_parser",
+    "flowguard/behave/__main__.py:main",
+    "flowguard/behave/checks.py:saved_files",
+    "flowguard/behave/diffcmd.py:_known",
+    "flowguard/behave/diffcmd.py:_replay",
+    "flowguard/behave/diffcmd.py:_seek",
+    "flowguard/behave/diffcmd.py:_summary",
+    "flowguard/behave/diffcmd.py:_witness",
+    "flowguard/behave/diffcmd.py:compare",
+    "flowguard/behave/diffcmd.py:compare.native",
+    "flowguard/behave/diffcmd.py:compare.submit",
+    "flowguard/behave/diffcmd.py:prove",
+    "flowguard/behave/engine.py:audit",
+    "flowguard/behave/engine.py:collect_saves",
+    "flowguard/behave/engine.py:old_releases",
+    "flowguard/behave/engine.py:prove",
+    "flowguard/behave/explore.py:evaluate",
+    "flowguard/behave/explore.py:explore",
+    "flowguard/behave/project.py:_ObservedState.__init__",
+    "flowguard/behave/project.py:_ObservedState.line",
+    "flowguard/behave/project.py:_ObservedState.trace",
+    "flowguard/behave/project.py:_Session.__init__",
+    "flowguard/behave/project.py:_Session.receipt",
+    "flowguard/behave/project.py:_Session.step",
+    "flowguard/behave/project.py:_run_session",
+    "flowguard/behave/project.py:_worker",
+    "flowguard/behave/report.py:item_id",
+    "flowguard/behave/report.py:render",
+    "flowguard/behave/skeleton.py:derive",
+    "flowguard/behave/skeleton.py:derive.statement_rows",
+    "flowguard/behave/why.py:why",
+    "tests/behave/test_gc8_diff.py:source",
+    "tests/behave/test_gc8_diff.py:test_lost_needs_witness_and_two_misses",
+    "tests/behave/test_gc8_diff.py:test_transition_confirmed_by_witness_replay"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty."
+}

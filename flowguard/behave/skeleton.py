@@ -6,7 +6,7 @@ import ast
 import json
 from pathlib import Path
 
-from flowguard.map.common import read_source
+from flowguard.map.common import read_source, sha256_bytes
 from flowguard.map.discover import discover_inventory, function_spans
 from flowguard.map.inventory import build_inventory, syntax_tree
 
@@ -1119,6 +1119,39 @@ def derive(root):
             if name in worlds and any(sizes[kind] < value for kind, value in worlds[name].items()):
                 raise SkeletonError("skeleton_removes_goal: a correction cannot shrink a generated world")
             worlds[name] = sizes
+    statements = []
+    occurrences = {}
+    for source, tree in trees.items():
+        spans = {(start, end, name) for start, end, name in function_spans(tree)}
+        def statement_rows(node, lexical="", runtime="", owner=None):
+            if isinstance(node, ast.ClassDef):
+                for child in node.body:
+                    statement_rows(child, lexical + node.name + ".", runtime + node.name + ".")
+                return
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                name = lexical + node.name
+                if (node.lineno, node.end_lineno, name) not in spans:
+                    return
+                qualified = runtime + node.name
+                for child in node.body:
+                    statement_rows(child, name + ".", qualified + ".<locals>.", qualified)
+                return
+            if owner and isinstance(node, ast.stmt) and not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
+                digest = sha256_bytes(ast.dump(node, include_attributes=False).encode("utf-8"))
+                anchor = source + "#" + owner + ":" + digest
+                occurrences[anchor] = occurrences.get(anchor, 0) + 1
+                statements.append({"id": anchor + ":" + str(occurrences[anchor]), "path": source, "function": owner,
+                                   "line": node.lineno, "end_line": node.end_lineno,
+                                   "text": ast.unparse(node).splitlines()[0], "unambiguous": True})
+            for child in ast.iter_child_nodes(node):
+                statement_rows(child, lexical, runtime, owner)
+        statement_rows(tree)
+    lines = {}
+    for statement in statements:
+        key = (statement["path"], statement["function"], statement["line"])
+        lines[key] = lines.get(key, 0) + 1
+    for statement in statements:
+        statement["unambiguous"] = lines[(statement["path"], statement["function"], statement["line"])] == 1
     unsupported = []
     for source, tree in trees.items():
         if any(isinstance(node, (ast.Global, ast.Nonlocal)) for node in ast.walk(tree)):
@@ -1135,6 +1168,7 @@ def derive(root):
             "setting_query_reads": setting_query_reads,
             "optional_argument_advice": optional_argument_advice,
             "file_schemas": file_schemas, "file_input_unknown": file_input_unknown,
+            "statements": statements,
             "entity_queries": entity_queries, "ui_constructor": ui_constructor, "ui_refusal": ui_refusal, "goal_guards": goal_guards,
             "persistence": persistence, "file_inputs": sorted(file_inputs), "worlds": worlds,
             "aliases": aliases, "budgets": budgets, "unsupported": unsupported,

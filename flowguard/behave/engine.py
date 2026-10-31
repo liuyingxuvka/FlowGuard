@@ -62,8 +62,12 @@ def _cached(path, identity):
     return None
 
 
-def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_cap=1000, use_cache=True, starts=None):
+def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_cap=1000, use_cache=True, starts=None, base=None):
     """Explore actual worlds; missing check implementations remain explicit on every call."""
+    if base is not None:
+        from .diffcmd import compare
+        return compare(root, base, worlds=worlds, seeds=seeds, steps=steps, node_cap=node_cap,
+                       alphabet_cap=alphabet_cap, use_cache=use_cache)
     spec = derive(root)
     identity = content_identity(spec)
     directory = cache_root(root)
@@ -204,6 +208,10 @@ def prove(root, candidate, *, persist=True):
     """A recipe is evidence only after a fresh child proves it under current shipped inputs."""
     from .report import item_id
 
+    if candidate["semantic"].get("check") == "GC8":
+        from .diffcmd import prove as prove_diff
+        return prove_diff(root, candidate, persist=persist)
+
     spec = derive(root)
     identity = content_identity(spec)
     semantic = candidate["semantic"]
@@ -300,7 +308,7 @@ def prove(root, candidate, *, persist=True):
     return result
 
 
-def old_releases(root):
+def old_releases(root, *, ref=None):
     """Export reachable tagged source bytes; a tagless HEAD is only a fixture baseline."""
     import hashlib
     import os
@@ -316,6 +324,7 @@ def old_releases(root):
     try:
         if Path(git("rev-parse", "--show-toplevel")).resolve() != root:
             raise ValueError("historical saved files require the selected Git project root")
+        selected = git("rev-parse", "--verify", str(ref) + "^{commit}") if ref is not None else None
         commits = git("rev-list", "--topo-order", "HEAD").splitlines()
         order = {revision: position for position, revision in enumerate(commits)}
         tagged = {}
@@ -330,10 +339,10 @@ def old_releases(root):
     except (OSError, ValueError, UnicodeError, IndexError) as exc:
         return {"sources": [], "unknown": [{"kind": "history", "reason": str(exc)}], "no_history": True}
     no_history = not tagged
-    if no_history:
+    if no_history and ref is None:
         unknown.append({"kind": "history", "reason": "no reachable release tag; only committed HEAD fixtures can supply starts"})
-    revisions = sorted(tagged, key=lambda revision: (order[revision], revision)) if tagged else commits[:1]
-    if commits[0] not in revisions:
+    revisions = [selected] if selected else sorted(tagged, key=lambda revision: (order[revision], revision)) if tagged else commits[:1]
+    if ref is None and commits[0] not in revisions:
         revisions.append(commits[0])  # Committed fixtures may require the current committed loader.
     directory = cache_root(root) / "old-sources"
     directory.mkdir(parents=True, exist_ok=True)
@@ -423,12 +432,13 @@ def old_releases(root):
     return {"sources": sources, "unknown": unknown, "no_history": no_history}
 
 
-def collect_saves(root, *, steps=8, node_cap=1000, alphabet_cap=1000):
+def collect_saves(root, *, steps=8, node_cap=1000, alphabet_cap=1000, generate=True):
     """Collect native saved bytes once per identified source and actual schema family."""
     import base64
+    import hashlib
 
     root = Path(root).resolve()
-    fixture_scope = {"extensions": [".json"], "selection": "Git HEAD tracked files excluding .git and .flowguard",
+    fixture_scope = {"extensions": [".json"], "selection": "Git HEAD tracked and separately identified working-tree untracked files excluding .git and .flowguard",
                      "other_formats": "not screened"}
     if not derive(root).get("persistence"):
         return {"sources": [], "saves": [], "unknown": [{"kind": "persistence", "scope": "not-applicable",
@@ -453,10 +463,29 @@ def collect_saves(root, *, steps=8, node_cap=1000, alphabet_cap=1000):
                 unknown.append({"kind": "committed-fixture", "name": name, "reason": "committed bytes unavailable"})
                 continue
             committed.append({"name": name, "bytes": base64.b64encode(data.stdout).decode("ascii")})
+    provided = subprocess.run(["git", "-C", str(root), "ls-files", "--others", "--exclude-standard", "-z"], capture_output=True)
+    if provided.returncode == 0:
+        for raw_name in provided.stdout.split(b"\0"):
+            if not raw_name:
+                continue
+            name = raw_name.decode("utf-8", "surrogateescape")
+            path = Path(name)
+            if path.suffix.lower() != ".json" or any(part in {".git", ".flowguard"} for part in path.parts):
+                continue
+            actual = root / path
+            if actual.is_symlink() or not actual.is_file():
+                unknown.append({"kind": "provided-fixture", "name": name, "reason": "provided input is not an ordinary file"})
+                continue
+            payload = actual.read_bytes()
+            committed.append({"name": name, "bytes": base64.b64encode(payload).decode("ascii"),
+                              "fixture": {"kind": "provided-fixture", "path": name, "actual_path": str(actual),
+                                          "untracked": True, "sha256": hashlib.sha256(payload).hexdigest()}})
     saves, schemas, seen_files, fixture_loads = [], set(), set(), []
     remaining = list(committed)
     generated_sources = 0
     for source in sources:
+        if not generate and not remaining:
+            break
         spec = source["spec"]
         if not source.get("persistence"):
             unknown.append({"kind": "persistence", "revision": source["revision"], "tag": source["tag"], "reason": "no source-bound public save/load"})
@@ -464,7 +493,7 @@ def collect_saves(root, *, steps=8, node_cap=1000, alphabet_cap=1000):
         if source["kind"] != "release" and not remaining:
             continue
         options = {"prefixes": [], "committed": remaining, "steps": steps,
-                   "node_cap": node_cap, "alphabet_cap": alphabet_cap, "generate": source["kind"] == "release"}
+                   "node_cap": node_cap, "alphabet_cap": alphabet_cap, "generate": generate and source["kind"] == "release"}
         start = {"world": "default", "seed": 0} if options["generate"] else {}
         identity = source["identity"]
         path = cache_root(root) / ("saved-files-" + state_key({"source": identity, "start": start, "options": options}) + ".json")
@@ -484,10 +513,10 @@ def collect_saves(root, *, steps=8, node_cap=1000, alphabet_cap=1000):
             generated_sources += 1
         novel = set()
         for row in facts.get("saves", []):
-            kind = "generated" if row.get("recipe") is not None else "committed"
+            kind = "generated" if row.get("recipe") is not None else row["file"].get("fixture", {}).get("kind", "committed")
             accepted = row.get("old_load", {}).get("outcome") == "success"
-            if kind == "committed":
-                fixture_loads.append({"name": row["file"]["name"], "source_revision": source["revision"], "old_load": row.get("old_load")})
+            if kind != "generated":
+                fixture_loads.append({"name": row["file"]["name"], "kind": kind, "fixture": row["file"].get("fixture"), "source_revision": source["revision"], "old_load": row.get("old_load")})
                 if not accepted:
                     continue
                 remaining = [file for file in remaining if file["name"] != row["file"]["name"]]
@@ -508,6 +537,8 @@ def collect_saves(root, *, steps=8, node_cap=1000, alphabet_cap=1000):
             provenance["kind"] = "current-fixture" if kind == "committed" and source["kind"] == "committed-baseline" else kind
             if kind == "committed":
                 provenance.update(fixture_revision=fixture_revision.stdout.strip(), fixture_tree=fixture_tree.stdout.strip(), fixture_path=row["file"]["name"])
+            elif kind == "provided-fixture":
+                provenance["fixture"] = row["file"]["fixture"]
             saves.append({**row, "source": provenance})
             if kind == "generated" and accepted and token is not None:
                 novel.add(token)

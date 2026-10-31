@@ -165,8 +165,24 @@ class _ObservedState:
         self.pending = {}
         self.hit = set()
         self.lines = set()
+        self.statement_hits = set()
+        self.call_hits = set()
+        self.statement_ids = {(row["path"], row["function"], row["line"]): row["id"]
+                              for row in spec.get("statements", []) if row["unambiguous"]}
+        self.monitoring_tool = None
+        self.monitored_codes = set()
         self.busy = False
         self.inputs = inputs
+
+    def line(self, code, line):
+        if not self.enabled or self.busy or not code.co_filename.startswith(self.root) or code.co_name == "<module>":
+            return
+        path = code.co_filename[len(self.root):].replace(os.sep, "/")
+        self.lines.add((path, line))
+        identifier = self.statement_ids.get((path, code.co_qualname, line))
+        if identifier is not None:
+            self.statement_hits.add(identifier)
+            self.call_hits.add(identifier)
 
     def namespace(self, value, depth=0, requested=()):
         definitions = (types.FunctionType, types.BuiltinFunctionType, staticmethod, classmethod, property,
@@ -337,11 +353,17 @@ class _ObservedState:
         try:
             key = id(frame)
             if event == "call":
+                if self.monitoring_tool is not None:
+                    frame.f_trace_lines = False
+                    if frame.f_code not in self.monitored_codes:
+                        sys.monitoring.set_local_events(self.monitoring_tool, frame.f_code, sys.monitoring.events.LINE)
+                        self.monitored_codes.add(frame.f_code)
                 if not frame.f_code.co_name.startswith("<"):
                     self.hit.add(frame.f_code.co_filename[len(self.root):].replace(os.sep, "/") + "#" + frame.f_code.co_qualname.replace(".<locals>.", "."))
                 self.pending[key] = self.capture(frame)
             elif event == "line":
-                self.lines.add((frame.f_code.co_filename[len(self.root):].replace(os.sep, "/"), frame.f_lineno))
+                if self.monitoring_tool is None:
+                    self.line(frame.f_code, frame.f_lineno)
             elif event in {"return", "exception"} and key in self.pending:
                 previous = self.pending[key]
                 if self.capture(frame) != previous:
@@ -694,6 +716,7 @@ class _Session:
         self.resets = 0
         self.query_facts = {}
         self.base_prefix = []
+        self.observe_transitions = False
 
     def reset(self, prefix=(), *, start=None):
         # Each construction event below recreates its own session after its preceding public setup.
@@ -749,6 +772,11 @@ class _Session:
         return self.current
 
     def step(self, recipe, *, keep=True):
+        before_observations = None
+        if keep and self.observe_transitions:
+            from .explore import observations
+            before_observations = observations(self, all_queries=True)
+        self.observed.call_hits.clear()
         if recipe.get("construct"):
             receiver = recipe.get("receiver", "")
             if recipe["construct"] != "ui" or not self.spec.get("ui") or not receiver.startswith("ui:") or receiver in self.objects:
@@ -771,8 +799,19 @@ class _Session:
                 import builtins
                 refusals += tuple(getattr(builtins, name) for name in self.spec.get("ui_refusal", []))
             row = call(self.objects, recipe, self.arena, self.defaults, refusals, self.results if keep else [])
+        row["hit_statements"] = sorted(self.observed.call_hits)
         self.executed_calls += 1
         self.current = row["after"]
+        if before_observations is not None:
+            after_observations = observations(self, all_queries=True)
+            previous = {(item["query"], state_key(item["args"])): item["value"] for item in before_observations["values"]}
+            row.update(before_observations=before_observations, after_observations=after_observations)
+            row["transitions"] = [{"query": item["query"], "args": item["args"],
+                                   "before": previous[(item["query"], state_key(item["args"]))], "value": item["value"],
+                                   "action": recipe.get("name"), "receiver": "system"}
+                                  for item in after_observations["values"]
+                                  if (item["query"], state_key(item["args"])) in previous
+                                  and state_key(previous[(item["query"], state_key(item["args"]))]) != state_key(item["value"])]
         if keep:
             self.prefix.append(recipe)
             self.outcomes.append(row["outcome"])
@@ -850,7 +889,8 @@ class _Session:
 
     def receipt(self):
         return {"child_pid": os.getpid(), "executed_calls": self.executed_calls, "resets": self.resets,
-                "hit_functions": sorted(self.observed.hit), "hit_lines": sorted(self.observed.lines)}
+                "hit_functions": sorted(self.observed.hit), "hit_lines": sorted(self.observed.lines),
+                "hit_statements": sorted(self.observed.statement_hits)}
 
 
 def _worker(request_path, response_path):
@@ -891,6 +931,16 @@ def _worker(request_path, response_path):
         sys.settrace(observed.trace)
         sys.setprofile(observed.profile)
         try:
+            monitoring = getattr(sys, "monitoring", None)
+            if monitoring is None:
+                raise UnsupportedWorld("native statement monitoring requires Python 3.12")
+            slot = next((number for number in range(6) if monitoring.get_tool(number) is None), None)
+            if slot is None:
+                raise UnsupportedWorld("no native statement monitoring slot is available")
+            monitoring.use_tool_id(slot, "flowguard-native-statements")
+            observed.monitoring_tool = slot
+            monitoring.set_events(slot, 0)
+            monitoring.register_callback(slot, monitoring.events.LINE, observed.line)
             if operation == "record":
                 from .testrec import record
                 response = record(request["spec"], arena)
@@ -903,6 +953,14 @@ def _worker(request_path, response_path):
             observed.enabled = False
             inputs.recording_tests = False
             recording_active = False
+            if observed.monitoring_tool is not None:
+                slot = observed.monitoring_tool
+                monitoring.set_events(slot, 0)
+                for code in observed.monitored_codes:
+                    monitoring.set_local_events(slot, code, 0)
+                monitoring.register_callback(slot, monitoring.events.LINE, None)
+                monitoring.free_tool_id(slot)
+                observed.monitoring_tool = None
             sys.settrace(old_trace)
             sys.setprofile(old_profile)
             encoded = json.dumps(response, ensure_ascii=False, allow_nan=False)
@@ -925,6 +983,10 @@ def _run_session(request, arena, observed):
                 "construction_stderr": session.construction_stderr}
     from .explore import explore, focused_search, directed_search, evaluate
     options = request.get("options", {})
+    session.observe_transitions = options.get("goal", {}).get("kind") == "transition"
+    if operation in {"explore", "directed", "search", "diff"} and request["calls"]:
+        session.reset(request["calls"])
+        session.base_prefix = list(request["calls"])
     if operation == "saves":
         persistence = session.spec.get("persistence")
         if not persistence:
@@ -1010,6 +1072,14 @@ def _run_session(request, arena, observed):
                     "loading": {key: rows[-1][key] for key in ("outcome", "exception", "stdout", "stderr")} if rows else None}
     elif operation == "explore":
         response = explore(session, **options)
+    elif operation == "diff":
+        from .checks import offered, stuck
+        options = dict(options)
+        checks = options.pop("checks", True)
+        response = explore(session, **options)
+        if checks:
+            response["stuck"] = stuck(session, response)
+            response["agreement"] = offered(session, response)
     elif operation == "search":
         response = focused_search(session, **options)
     elif operation == "directed":
@@ -1057,7 +1127,8 @@ def _run_session(request, arena, observed):
                 divergence = index
                 break
         response = {"matched": divergence is None and evaluate(session, options["goal"]),
-                    "divergence": divergence, "state_key": state_key(session.current)}
+                    "divergence": divergence, "state_key": state_key(session.current),
+                    "last": {key: session.last[key] for key in ("call", "outcome", "hit_statements", "before_observations", "after_observations", "transitions") if session.last and key in session.last}}
     else:
         raise UnsupportedWorld("unknown native operation")
     response["execution"] = session.receipt()
