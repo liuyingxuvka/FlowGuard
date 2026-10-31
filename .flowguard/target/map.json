@@ -1,0 +1,72 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-624: Start from files saved by old releases",
+  "components": [
+    {
+      "id": "behave",
+      "layer": "capabilities",
+      "summary": "Unreleased code-derived worlds with shipped reach, stuck and saved-file checks, replayed test witnesses, bounded native exploration and fresh evidence; enter only through python -m flowguard.behave.",
+      "responsibilities": [
+        "provide standalone pilot help that lists only implemented verbs and reject unsupported Python interpreters before loading pilot behavior",
+        "keep the pilot absent from the public CLI, exports, skill and product documentation",
+        "guard pilot source against dependence on experiment-specific application names",
+        "derive the F9 skeleton and its source identities from shared syntax and discovery facts, including shipped settings, entities, actions, queries, interface, persistence and finite worlds",
+        "initialize real source pins, print derived facts, unrecognized front doors and a glossary draft, and validate corrections without choosing settings or removing generated goals",
+        "construct and call the real program only in a fresh isolated process through the shared runner and import-path owners",
+        "observe complete supported instance graphs, shipped defaults and arena files independently of the program serializer, retaining order and shared references",
+        "restore a concrete starting recipe through public-call prefix replay and verify the full resulting observation; state unsupported roots and resources instead of reporting an empty successful world",
+        "explore each world and seed in one native process with fixed finite domains and budgets, compact coverage-guided receipts and complete focused search only within its declared slice",
+        "identify opened files, imports, listed directories, engine source and run inputs by content; reuse matching execution facts without persisting a final verdict",
+        "replay every candidate in a fresh process before reporting it, retain stable semantic identities, and reprove saved evidence against current code while distinguishing incomplete work and engine defects",
+        "observe or explicitly reject mutable class/global state touched by actual execution; do not reject unused declarations or mistake an unchanged instance graph for unchanged program state",
+        "collect bootstrap and isolation guards on Python 3.11 while collecting the named pilot behavior tests only on Python 3.12 or newer",
+        "check generated status values, successful actions, offered UI options and screens reached from home under shipped settings; before a missing-reach item replay known public witnesses, explore a second fixed seed and completely search from concrete prefixes nearest to the goal guards; a capped or incomplete domain stays unknown",
+        "explain shipped reach items with one-setting variations without clearing the shipped item; retain unbuildable and unimplemented scope instead of presenting sampling as a proof",
+        "check concrete stuck candidates only for categorical values left elsewhere; search the target entity, entities named by its actual pure one-entity queries and actions taking no entity, preserving complete state and every action answer; distinguish complete bounded no-exit proof, capped unknown and observed terminal-by-design information",
+        "record actual tests by the derived system, UI and settings types using outermost public calls, ordered public construction events and distinct session receivers; compare the shared complete snapshot at public boundaries and teardown and stop an inconsistent prefix without claiming complete Python write monitoring",
+        "replay recorded prefixes step by step on fresh shipped roots through the same native session, listing ignored test settings and stopping at the first external-edit boundary or outcome divergence; only public shipped replays with every entity kind present may witness reach, and UI reach requires sessions created at home and advanced through their public choose method",
+        "identify test recordings by test content and actual execution footprint, cache facts rather than conclusions, and print only fresh-proved GC1 or GC3 items with stable semantic identities while leaving unfinished checks and incomplete searches explicit",
+        "select the latest reachable release and one earlier release per actual native saved-data key structure; identify old source trees and persistence pins, and produce saved bytes only through each old program public construction, action and save methods using the existing isolated worker",
+        "retain old-save source revision, public input recipe, schema shape, file bytes and content identity; verify the originating version accepts each generated save, include matching committed saved-file fixtures outside tool metadata, and report missing or unsupported saved-file sources explicitly instead of inventing a successful empty set",
+        "load each saved file through the current public persistence root in a fresh native world and continue with the shared supported checks, snapshot, restore and search; retain loaded configuration and complete graph and file state, keep post-load origins distinct, and do not claim later generic checks already run",
+        "compare actual old and current loading outcomes: old acceptance followed by a new refusal is lost loading even when the message requests migration or regeneration; a refusal is designed progress only when the old side refused too, while nondeclared loading exceptions remain crashes",
+        "freshly reprove saved-file findings from their actual bytes and old-code provenance before printing stable semantic items; distinguish complete post-load no-exit evidence, capped or unsupported scope and no saved files, and keep every saved-file recipe usable by why on the current tree"
+      ],
+      "files": [
+        "flowguard/behave/*.py",
+        "tests/behave/conftest.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-discover",
+        "map-inventory",
+        "map-proof"
+      ],
+      "tests": [
+        "tests/behave/test_entry.py",
+        "tests/behave/test_pilot_guards.py",
+        "tests/behave/test_skeleton.py",
+        "tests/behave/test_project.py",
+        "tests/behave/test_explore.py",
+        "tests/behave/test_honest_output.py",
+        "tests/behave/test_proof.py",
+        "tests/behave/test_footprint.py",
+        "tests/behave/test_gc1_reach.py",
+        "tests/behave/test_gc3_stuck.py",
+        "tests/behave/test_testrec.py",
+        "tests/behave/test_gc4_saved_files.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": [],
+  "requests": [
+    {
+      "id": "R11",
+      "part": true
+    }
+  ]
+}
