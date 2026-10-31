@@ -7,3 +7,4 @@ touch: flowguard/behave/report.py:render because "Produce the revision-four audi
 touch: flowguard/behave/__main__.py:build_parser because "Expose implemented audit coverage and proof explanation forms and validate finite positive budget usage"
 touch: flowguard/behave/__main__.py:main because "Keep completed audits at exit zero, syntax and usage errors at two, and render why outcomes through the shared evidence owners"
 touch: flowguard/behave/why.py:why because "Return the real current proof recipe and deciding outcomes and provide current matching audit coverage or defect evidence on demand"
+touch: flowguard/behave/project.py:_ObservedState.profile because "Attribute filesystem metadata to an application only before the observer own snapshot boundary, preserving real application stat invalidation while allowing complete test-recording input facts"
