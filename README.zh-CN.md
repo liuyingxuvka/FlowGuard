@@ -17,7 +17,8 @@ AI 擅长局部修改，但每开一个新会话都要重新弄清：软件由�
 FlowGuard 在项目里保存三样东西：
 
 1. **地图** `.flowguard/map.json`：各个组件、它们的职责、拥有的状态、副作用、文件、入口、依赖、
-   测试和模型。新会话用几千 token 读完整张地图，就知道该看哪里。
+   测试和模型。会话开始或恢复时先运行 `python -m flowguard status` 并跟随 NEXT，再用
+   `read --find 关键词` 或 `read --component ID` 按任务检查组件、已有模型及其约束和反例。
 2. **模型**：关键流程（重试、幂等、缓存、顺序、金额、权限、多步骤流程）的小型可执行模型，形式是
    `输入 x 状态 -> 一组(输出 x 状态)`。FlowGuard 在边界内穷举所有输入序列，给出反例，检查已知的坏版本
    一定会失败，并把模型轨迹放到真实代码上回放比对（一致性检查）。
@@ -61,7 +62,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 
 | 什么时候 | 命令 | 作用 |
 | --- | --- | --- |
-| 会话开始 | `python -m flowguard read` / `read --find 关键词` | 读地图；加代码前先找已有的负责者 |
+| 会话开始或恢复 | `python -m flowguard status` | 跟随 NEXT；用 `read --find 关键词` 或 `read --component ID` 按任务检查已有负责者和模型，再添加代码 |
 | 改行为或结构 | `python -m flowguard target`（`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`） | 先写目标模型，再让代码追上它，最后替换当前模型 |
 | 改完代码 | `python -m flowguard change` | 校验地图和代码；只列出受影响的测试和模型 |
 | 发布之前 | `python -m flowguard release` | 严格检查、架构错误、重跑全部模型 |

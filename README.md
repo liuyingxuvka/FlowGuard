@@ -18,8 +18,9 @@ software have, who owns this behavior, what else does a change affect? FlowGuard
 things in the project:
 
 1. **The map** `.flowguard/map.json` - components, their responsibilities, owned state, side
-   effects, files, entrypoints, dependencies, tests and models. A new session reads the whole map
-   in a few thousand tokens and knows where to look.
+   effects, files, entrypoints, dependencies, tests and models. Start or resume with
+   `python -m flowguard status` and follow NEXT, then inspect the task's components and existing
+   models, constraints and counterexamples with `read --find WORDS` or `read --component ID`.
 2. **Models** - small executable `Input x State -> Set(Output x State)` models of risky flows
    (retries, idempotency, caching, ordering, money, permissions, multi-step workflows). FlowGuard
    explores every input sequence within a bound, reports counterexamples, checks that known-bad
@@ -68,7 +69,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 
 | when | command | what it does |
 | --- | --- | --- |
-| session start | `python -m flowguard read` / `read --find WORDS` | read the map; find the existing owner before adding code |
+| session start or resume | `python -m flowguard status` | follow NEXT; use `read --find WORDS` or `read --component ID` to inspect the task's existing owners and models before adding code |
 | behaviour or structure change | `python -m flowguard target` (`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`) | write the target model first, make the code match it, then replace the current model |
 | after editing | `python -m flowguard change` | verify map vs code; list only the affected tests and models |
 | before release | `python -m flowguard release` | strict check, lint errors, every model re-run |
