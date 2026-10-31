@@ -1,0 +1,12 @@
+touch: flowguard/behave/skeleton.py:derive because "Bind CSV file parameters, named columns, required fields and converters through the shared AST and existing call facts without a second parser"
+touch: flowguard/behave/explore.py:explore because "Retain compact actual crash or changed-refusal call evidence with concrete prefixes from the shared complete state"
+touch: flowguard/behave/checks.py:crashes because "Generate normal extra-cell and missing-cell inputs for supported schemas and judge actual exceptions and full-state refusal changes through one native session"
+touch: flowguard/behave/checks.py:saved_files because "Apply the same GC6 observation to actual current loading and post-load calls while retaining old acceptance and saved-start origin"
+touch: flowguard/behave/project.py:call because "Attach the actual application traceback file and line without weakening declared refusal classification or complete before and after snapshots"
+touch: flowguard/behave/project.py:_run_session because "Dispatch the GC6 check and its fresh proof through the existing native session and join validated public test prefixes without another executor"
+touch: flowguard/behave/engine.py:audit because "Join supported GC6 facts and generated file recipes from fresh test and saved starts, retain unknown formats, and stop listing GC6 as unimplemented only when it actually runs"
+touch: flowguard/behave/engine.py:prove because "Freshly reproduce exact file bytes and public prefixes, compare the same violation and append-output multiset with multiplicity, and reject stale or incomplete proof"
+touch: flowguard/behave/report.py:item_id because "Assign crash and refused-changed-state items the semantic C identity independent of seed prefix and arena path"
+touch: flowguard/behave/report.py:render because "Print fresh-proved CRASH and REFUSED CHANGED STATE with file kind exception source and replay evidence, retaining explicit unsupported coverage"
+# Tests: test_gc6_crash.py registers test_file_inputs_generated, test_refused_call_changes_nothing and test_identical_messages_in_one_step_count_twice; include the file in the existing <3.12 collect_ignore while retaining all nine bootstrap/guard tests.
+# Directed native evidence: one GC6-only generated-input slice on actual subject/control scratch roots, both importers extra-cell CRASH at the real source line, then fresh proof; do not rerun GC5 or record all tests for this checkpoint.
