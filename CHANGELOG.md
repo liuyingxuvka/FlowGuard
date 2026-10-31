@@ -2,47 +2,26 @@
 
 ## Unreleased
 
-- Make next-step guidance executable from any directory with absolute project paths, while keeping manual repair and model-binding instructions in separate notes; requests without a map first point to the real map scan command.
-
-- Keep checked plan lines, model rule fingerprints and their owner or reason in immutable promotion records; print the real commit-message command. Successful releases without Git preserve original-byte and release-boundary facts so deleting disposable cache does not erase protection or request history.
-
-- Keep original request and change-record byte protection when a plain folder is initialized as a Git worktree; deleted requests remain discoverable and their IDs cannot be reused.
-
-- Projects using FlowGuard: refresh the six adoption rules to start and resume with status, preserve requests as received, name PLAN touch points and the four legal target-check exits, and quote the actual printed owner block unchanged.
-
-- Add a read-only static status command that resumes open plans, keeps unclaimed requests visible with their original context, and names one absolute next command. Hook mode stays silent outside a project; the legacy runtime does not store verdicts or start jobs.
-
-- The adoption template creates CLAUDE.md with @AGENTS.md when missing and preserves existing instructions even with --force. The skill description names when to use the other Guard skills.
-
-- Promotion shows the original PLAN lines, readable old and new rules and the glossary entries used. Requests stored during a change keep their real origin visible; the same owner block is saved in the commit message and returned with JSON output.
-
-- A changed existing rule that shows NO GAP requires an explicit PLAN.txt request quote or reason. Quotes match the stored owner text and a rule term, including confirmed glossary mappings; planned function touches require a real code change.
-
-- Stored requests can be linked to a target with --request ID[:part]. Read derives their state from active worktrees and complete immutable promotion records, without rewriting owner text or metadata.
-
-- Store owner requests byte for byte with req add, explicit or collision-resistant IDs, immutable sidecars and optional glossary/adoption kinds. Read keeps unclaimed requests visible; checks refuse edited request or metadata bytes, including before their first commit and in fresh clones.
-
-- Projects using FlowGuard: --json on map check, map lint, target check, target promote and release prints exactly one JSON line {command, verdict, codes, next}; every next line reads next[<id>]: with a stable advice id.
-
-- Projects using FlowGuard: lint defers sequence-size debts to model execution instead of falsely calling them unused; models and release warn when an observed size debt no longer suppresses any finding.
-
-- Projects using FlowGuard: a selected test with no command names the project's test_commands setting and gives a runnable promotion command after you declare it, instead of sending you back to the target design.
-
-- Projects using FlowGuard: target promotion rejects a model failure caused by changed shared source, as release does, and names that source; only genuinely unchanged findings remain old warnings.
-
-- Projects using FlowGuard: editing a current model or helper while its target copy exists is an error; promotion refuses to overwrite the edit and points to both files. New targets also protect helper additions and deletions; older targets with an unknown helper baseline ask you to preserve both versions and reopen safely.
-
-- Projects using FlowGuard: strict checks and release reject committed targets that are already promoted and target files deleted without staging; open targets remain a release warning, and Gitless no-op targets only warn.
-
-- Projects using FlowGuard: target promote names the target deletion and prints an absolute staging command for the checked files; without Git it keeps preservation guidance and an executable verification step.
-
-- Projects using FlowGuard: rewording a component responsibility is advice (responsibility_reworded), no longer owner_dropped.
-
-- Projects using FlowGuard: accepted debts need a nonempty reason and an explicit date or project-version expiry. Expired debts restore their findings and review suggestions; strict checks and release reject them, and map lint --debts shows their deadlines.
-
-- Projects using FlowGuard: large_file, large_component, too_many_responsibilities and high_fan_out are info advice "(advice, not a gate)"; an accepted debt for one of them now matches nothing and is reported debt_stale, so remove such debts.
-
-- Projects using FlowGuard: model and bound-test subprocesses import the project's own packages first (the project root, import_roots and src/) and see only the flowguard package of FlowGuard, never its repository root.
+- Add read-only static status for resuming open plans, viewing unclaimed requests with their original context, and following one absolute next command. Hook mode stays silent outside a project; the legacy runtime does not store verdicts or start jobs.
+- Store requests byte for byte with req add, explicit or collision-resistant IDs, immutable sidecars and optional glossary/adoption kinds. Checks protect request, metadata and change-record bytes before their first commit, in fresh clones and when a plain folder becomes a Git worktree; deleted requests remain discoverable and their IDs cannot be reused.
+- Link requests to targets with --request ID[:part]. Read and status derive request state from active worktrees and complete immutable promotion records without rewriting owner text or metadata; requests stored during a change retain their real origin.
+- Require an explicit PLAN.txt request quote or reason for a changed existing rule that shows NO GAP. Quotes must match stored owner text and a rule term, including confirmed glossary mappings; planned function touches require a real code change.
+- Write immutable promotion records with checked PLAN lines, model rule fingerprints and their owner or reason. Any printed owner block includes readable old and new rules and used glossary entries, and is preserved in the commit message and JSON output.
+- Successful releases without Git preserve original-byte and release-boundary facts so deleting disposable cache does not erase protection or request history.
+- Make next-step guidance executable from any directory with absolute project paths and stable next[<id>] advice IDs. Manual repair and model-binding instructions remain in notes; requests without a map first point to the real map scan command.
+- Promotion prints an absolute staging command for reviewed code, models, map, requests, records and target deletions, followed by commit -F with the real message file. Without Git it keeps preservation guidance and an executable verification step.
+- --json on map check, map lint, target check, target promote and release emits exactly one JSON object containing command, verdict, codes and next; map check and lint retain their counts and findings.
+- Refresh adoption rules and the documented workflow to start and resume with status, inspect the task's existing owners and executable models, preserve requests as received, name PLAN touch points and the four legal target-check exits, and quote an actually printed owner block unchanged. The template adds CLAUDE.md with @AGENTS.md only when missing, preserves existing instructions even with --force, and the skill names the other Guard skills' scope.
+- Target promotion rejects model failures caused by changed shared source, as release does, and names that source; only genuinely unchanged findings remain old warnings.
+- A selected test without a command names the project's test_commands setting and gives a runnable promotion command after it is declared.
+- Editing a current model or helper while its target copy exists is an error; promotion refuses to overwrite the edit and points to both files. New targets also protect helper additions and deletions; older targets with an unknown helper baseline ask you to preserve both versions and reopen safely.
+- Strict checks and release reject committed targets that are already promoted and target files deleted without staging; open targets remain a release warning, and Gitless no-op targets only warn.
+- Rewording a component responsibility is responsibility_reworded advice rather than owner_dropped.
+- Accepted debts need a nonempty reason and an explicit date or project-version expiry. Expired debts restore their findings and review suggestions; strict checks and release reject them, and map lint --debts shows their deadlines.
+- large_file, large_component, too_many_responsibilities and high_fan_out are info advice. An accepted debt for one of them now matches nothing and is reported debt_stale.
+- Lint defers sequence-size debts to model execution instead of falsely calling them unused; models and release warn when an observed size debt no longer suppresses any finding.
+- Model and bound-test subprocesses import the project's own packages first (the project root, import_roots and src/) and see FlowGuard's package without its repository root.
+- Literal spelling hints state that no producer was found among statically recognized literal sites and ask readers to check indirect producers too.
 
 ## v0.70.14 - 2026-10-28 - Ports reach consumers, phase-aware checks and a complete read
 
