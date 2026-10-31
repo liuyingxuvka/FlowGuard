@@ -666,7 +666,8 @@ def _promotion_next(root, data, inputs, selected_tests, message):
                            if not Path(path).is_absolute() and ".." not in Path(path).parts
                            and not path.startswith(".flowguard/")
                            and not matches_any(path, ignore_patterns(data)))
-            argv = ["git", "-C", str(root), "--literal-pathspecs", "add", "-A", "--", ".flowguard", *paths]
+            tracked_target = [".flowguard/target/"] if any(path.startswith(".flowguard/target/") for path in indexed) else []
+            argv = ["git", "-C", str(root), "--literal-pathspecs", "add", "-A", "--", ".flowguard", *tracked_target, *paths]
             commit = shlex.join(['git', '-C', str(root), 'commit', '-F', str(message)])
             return ["note: commit " + files,
                     advice('commit', shlex.join(argv) + ' && ' + commit)]

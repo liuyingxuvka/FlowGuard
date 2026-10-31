@@ -530,7 +530,8 @@ def test_target_check_runs_no_pytest_and_promote_runs_one_check(tmp_path, monkey
     assert native.promote_target(tmp_path) == 0 and len(calls) == 1
 
 
-def test_promote_next_line_names_target_deletion(tmp_path, capsys):
+@pytest.mark.parametrize("track_target", [True, False], ids=["tracked-target", "never-tracked-target"])
+def test_promote_next_line_names_target_deletion(tmp_path, capsys, track_target):
     import shlex
     import subprocess
     from flowguard.map import target as native
@@ -552,8 +553,9 @@ def test_promote_next_line_names_target_deletion(tmp_path, capsys):
     target_model = root / ".flowguard/target/models/shelf_rule.py"
     target_model.write_text(target_model.read_text() +
                            '\nTESTED_BY = {"one_loan_step": ["tests/test_added.py:test_step"]}\n')
-    git("add", ".flowguard/target")
-    git("-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "target")
+    if track_target:
+        git("add", ".flowguard/target")
+        git("-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "target")
     (root / "shelf/catalog.py").write_text("def capacity():\n    return 1\n\n# current change\n")
     (root / "shelf/new helper.py").write_text("def extra():\n    return 'new helper'\n")
     (root / "tests/test_added.py").write_text("from shelf.loans import advance\ndef test_step():\n    assert advance(0) == 1\n")
@@ -577,6 +579,7 @@ def test_promote_next_line_names_target_deletion(tmp_path, capsys):
     argv, commit = combined[:split], combined[split + 1:]
     assert argv[:3] == ["git", "-C", str(root.resolve())]
     assert "add" in argv and "-A" in argv and "--" in argv and ".flowguard" in argv
+    assert (".flowguard/target/" in argv[argv.index("--") + 1:]) is track_target
     assert "already staged.txt" not in argv
     assert "<code paths>" not in command
     assert commit[:5] == ['git', '-C', str(root.resolve()), 'commit', '-F'] and len(commit) == 6
