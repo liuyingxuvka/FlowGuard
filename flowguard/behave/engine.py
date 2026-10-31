@@ -130,7 +130,32 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
                 witness["identity"] = identity
                 witness["footprint"] = facts["footprint"]
             runs.append({"world": world, "seed": seed, "reused": reused, "facts": facts})
-    hits = {name for run in runs for name in run["facts"]["execution"]["hit_functions"]}
+    saved = collect_saves(root, steps=steps, node_cap=node_cap, alphabet_cap=alphabet_cap)
+    saved_scope = {"sources": [{key: value for key, value in row.items() if key != "spec"} for row in saved["sources"]],
+                   "files": [], "unknown": [{"check": "GC4", **row} for row in saved["unknown"]],
+                   "fixture_loads": saved.get("fixture_loads", []), "current_identity": identity,
+                   "fixture_scope": saved["fixture_scope"],
+                   "no_saved_files": saved["no_saved_files"]}
+    saved_candidates = []
+    saved_hits = set()
+    for seed in seeds if saved["saves"] else ():
+        options = dict(saves=saved["saves"], seed=seed, steps=steps, node_cap=node_cap, alphabet_cap=alphabet_cap)
+        key = state_key({"identity": identity, "saved_files": options})
+        path = directory / ("saved-" + key + ".json")
+        facts = _cached(path, identity) if use_cache else None
+        if facts is None:
+            try:
+                facts = replay(spec, [], operation="saved", options=options, timeout=300)
+            except UnsupportedWorld as exc:
+                saved_scope["unknown"].append({"check": "GC4", "reason": str(exc), "seed": seed})
+                continue
+            if footprint_identity(facts["footprint"]):
+                atomic_write_text(path, json.dumps({"identity": identity, "body": state_key(facts), "facts": facts}, ensure_ascii=False))
+        saved_scope["files"].extend({**row, "seed": seed} for row in facts["files"])
+        saved_scope["unknown"].extend(facts["unknown"])
+        saved_hits.update(facts["execution"]["hit_functions"])
+        saved_candidates.extend({**candidate, "identity": identity, "footprint": facts["footprint"]} for candidate in facts["candidates"])
+    hits = saved_hits | {name for run in runs for name in run["facts"]["execution"]["hit_functions"]}
     candidates = {}
     for run in runs:
         for check in ("reach", "stuck"):
@@ -138,6 +163,8 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
                 key = state_key(candidate["semantic"])
                 candidate.update(identity=identity, footprint=run["facts"]["footprint"])
                 candidates.setdefault(key, candidate)
+    for candidate in saved_candidates:
+        candidates.setdefault(state_key(candidate["semantic"]), candidate)
     items = []
     for candidate in candidates.values():
         proof = prove(root, candidate)
@@ -147,10 +174,10 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
             errors.append({"world": candidate["start"].get("world", "test-public-prefix"), "seed": candidate["start"].get("seed"),
                            "reason": proof.get("reason", proof["state"])})
     return {"identity": identity, "runs": runs, "errors": errors,
-            "missing_checks": ["GC" + str(number) for number in (2, 4, 5, 6, 7, 8, 9)],
+            "missing_checks": ["GC" + str(number) for number in (2, 5, 6, 7, 8, 9)],
             "coverage": {"hit_functions": sorted(hits), "known_functions": len(spec["source_functions"]),
                          "front_doors": spec["unknown"], "ui": "requested" if starts else "not requested"},
-            "facts_reused": sum(run["reused"] for run in runs), "items": items,
+            "facts_reused": sum(run["reused"] for run in runs), "items": items, "saved_files": saved_scope,
             "test_scope": {key: value for key, value in recordings.items() if key not in {"recordings", "footprint"}}}
 
 
@@ -182,10 +209,41 @@ def prove(root, candidate, *, persist=True):
         return {"state": "engine-defect", "reason": "unrecognized starting-state edit", "matched": False}
     ignored = start.pop("settings", None)
     same_inputs = candidate.get("identity") == identity and not ignored and bool(footprint_identity(candidate.get("footprint", {})))
+    saved = candidate.get("saved_file")
+    if saved:
+        # The old side is executable provenance, not a remembered claim that these bytes loaded.
+        source, file = saved["source"], saved["file"]
+        try:
+            load = {"receiver": "system", "name": spec["persistence"]["load"],
+                    "args": [{"$file": file["name"]}], "replace": True}
+            if not prefix or prefix[0] != load:
+                raise UnsupportedWorld("the saved-file witness must begin with its actual public load")
+            old_spec = derive(source["root"])
+            old_inputs = {name: file_stamp(Path(old_spec["root"]) / name) for name in old_spec["input_files"]}
+            old_inputs[".flowguard/skeleton.py"] = file_stamp(Path(old_spec["root"]) / ".flowguard/skeleton.py")
+            if state_key(old_inputs) != source["source_identity"] or old_spec["persistence"] != source["persistence"]:
+                raise UnsupportedWorld("the identified saved-file source or persistence binding changed")
+            tree = subprocess.run(["git", "-C", str(root), "rev-parse", source["revision"] + "^{tree}"], capture_output=True, text=True)
+            if tree.returncode or tree.stdout.strip() != source["tree"]:
+                raise UnsupportedWorld("the saved-file source revision is unavailable or changed")
+            recipe = saved.get("recipe")
+            old = replay(old_spec, [], (recipe or {}).get("start", {}), operation="saves", timeout=300,
+                         options={"prefixes": [recipe["prefix"]], "steps": 1} if recipe else {"generate": False, "committed": [file]})
+            reproduced = next((row for row in old["saves"] if row["file"]["bytes"] == file["bytes"] and row["old_load"]["outcome"] == "success"), None)
+            if reproduced is None or not footprint_identity(old["footprint"]):
+                raise UnsupportedWorld("the source public save/load no longer reproduces the accepted bytes")
+            if start.get("files", {}).get(file["name"]) != file["bytes"]:
+                raise UnsupportedWorld("the current load recipe does not contain the identified saved bytes")
+        except (UnsupportedWorld, OSError, ValueError, KeyError) as exc:
+            return {"state": "unchecked", "reason": str(exc), "matched": False, "ignored_settings": ignored}
     search_goal = candidate.get("search_goal", candidate["semantic"])
     options = {"goal": search_goal, "outcomes": candidate.get("outcomes")}
     try:
-        if candidate.get("negative"):
+        if semantic.get("kind") in {"loading", "loading_crash"}:
+            expected = "crash" if semantic["kind"] == "loading_crash" else "refusal"
+            facts = replay(spec, prefix, start, operation="loading-proof", options={"outcome": expected})
+            matched = facts["matched"]
+        elif candidate.get("negative"):
             facts = replay(spec, [], start, operation="search", options={"goal": search_goal, "prefix": prefix, **candidate["bounds"]}, timeout=300)
             matched = not facts["found"] and facts["extent"]["complete"]
         else:
@@ -209,3 +267,219 @@ def prove(root, candidate, *, persist=True):
         path = cache_root(root) / "witnesses" / (result["id"] + ".json")
         atomic_write_text(path, json.dumps(recipe, ensure_ascii=False))
     return result
+
+
+def old_releases(root):
+    """Export reachable tagged source bytes; a tagless HEAD is only a fixture baseline."""
+    import hashlib
+    import os
+    import tempfile
+
+    root = Path(root).resolve()
+    unknown = []
+    def git(*args, binary=False):
+        result = subprocess.run(["git", "-C", str(root), *args], capture_output=True)
+        if result.returncode:
+            raise ValueError(result.stderr.decode("utf-8", "replace").strip() or "Git source history unavailable")
+        return result.stdout if binary else result.stdout.decode("utf-8").strip()
+    try:
+        if Path(git("rev-parse", "--show-toplevel")).resolve() != root:
+            raise ValueError("historical saved files require the selected Git project root")
+        commits = git("rev-list", "--topo-order", "HEAD").splitlines()
+        order = {revision: position for position, revision in enumerate(commits)}
+        tagged = {}
+        for row in git("for-each-ref", "--merged=HEAD", "--format=%(refname:strip=2) %(objectname) %(*objectname)", "refs/tags").splitlines():
+            values = row.split()
+            revision = values[2] if len(values) == 3 else values[1]
+            if revision in order:
+                tagged.setdefault(revision, []).append(values[0])
+        object_format = git("rev-parse", "--show-object-format")
+        if object_format not in {"sha1", "sha256"}:
+            raise ValueError("unsupported Git object format")
+    except (OSError, ValueError, UnicodeError, IndexError) as exc:
+        return {"sources": [], "unknown": [{"kind": "history", "reason": str(exc)}], "no_history": True}
+    no_history = not tagged
+    if no_history:
+        unknown.append({"kind": "history", "reason": "no reachable release tag; only committed HEAD fixtures can supply starts"})
+    revisions = sorted(tagged, key=lambda revision: (order[revision], revision)) if tagged else commits[:1]
+    if commits[0] not in revisions:
+        revisions.append(commits[0])  # Committed fixtures may require the current committed loader.
+    directory = cache_root(root) / "old-sources"
+    directory.mkdir(parents=True, exist_ok=True)
+    sources = []
+    for revision in revisions:
+        tag = sorted(tagged.get(revision, []))[0] if revision in tagged else None
+        destination = directory / revision
+        try:
+            tree = git("rev-parse", revision + "^{tree}")
+            entries = []
+            for record in git("ls-tree", "-r", "-z", "--full-tree", revision, binary=True).split(b"\0"):
+                if not record:
+                    continue
+                header, name = record.split(b"\t", 1)
+                mode, kind, identifier = header.decode("ascii").split()
+                relative = Path(os.fsdecode(name))
+                if relative.is_absolute() or ".." in relative.parts or ".git" in relative.parts or kind != "blob" or mode not in {"100644", "100755", "120000"}:
+                    raise ValueError("historical source entry cannot be exported: " + os.fsdecode(name))
+                entries.append((relative, mode, identifier))
+            expected = {relative.as_posix() for relative, _mode, _identifier in entries}
+            expected.update(parent.as_posix() for relative, _mode, _identifier in entries for parent in relative.parents if parent != Path("."))
+            def verify():
+                actual = set()
+                for folder, directories, names in os.walk(destination, followlinks=False):
+                    actual.update((Path(folder) / name).relative_to(destination).as_posix() for name in [*directories, *names])
+                if actual != expected:
+                    raise ValueError("historical source cache has different paths")
+                for relative, mode, identifier in entries:
+                    path = destination / relative
+                    if mode == "120000":
+                        if not path.is_symlink():
+                            raise ValueError("historical source cache changed an entry kind")
+                        data = os.fsencode(os.readlink(path))
+                    else:
+                        if path.is_symlink() or not path.is_file() or bool(path.stat().st_mode & 0o111) != (mode == "100755"):
+                            raise ValueError("historical source cache changed an entry kind or mode")
+                        data = path.read_bytes()
+                    digest = hashlib.new(object_format, b"blob " + str(len(data)).encode("ascii") + b"\0" + data).hexdigest()
+                    if digest != identifier:
+                        raise ValueError("historical source cache changed bytes: " + relative.as_posix())
+            if not destination.exists():
+                result = subprocess.run(["git", "-C", str(root), "cat-file", "--batch"],
+                                        input="".join(identifier + "\n" for _relative, _mode, identifier in entries).encode("ascii"), capture_output=True)
+                if result.returncode:
+                    raise ValueError("historical Git blobs could not be read")
+                with tempfile.TemporaryDirectory(prefix=revision + "-", dir=directory) as temporary:
+                    temporary = Path(temporary)
+                    position = 0
+                    links = []
+                    for relative, mode, identifier in entries:
+                        end = result.stdout.index(b"\n", position)
+                        observed, kind, size = result.stdout[position:end].decode("ascii").split()
+                        size = int(size)
+                        position = end + 1
+                        data = result.stdout[position:position + size]
+                        position += size + 1
+                        if observed != identifier or kind != "blob" or len(data) != size:
+                            raise ValueError("historical Git blob receipt disagrees with its tree")
+                        path = temporary / relative
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        if mode == "120000":
+                            links.append((path, data))
+                        else:
+                            path.write_bytes(data)
+                            path.chmod(0o755 if mode == "100755" else 0o644)
+                    for path, data in links:
+                        path.symlink_to(os.fsdecode(data))
+                    try:
+                        temporary.rename(destination)
+                    except FileExistsError:
+                        pass
+                    finally:
+                        # TemporaryDirectory still owns its old pathname after a successful rename.
+                        if not temporary.exists():
+                            temporary.mkdir()
+            if destination.is_symlink():
+                raise ValueError("historical source cache is a symlink")
+            verify()
+            spec = derive(destination)
+            files = {name: file_stamp(destination / name) for name in [*spec["input_files"], ".flowguard/skeleton.py"]}
+            sources.append({"revision": revision, "tree": tree, "tag": tag, "tags": sorted(tagged.get(revision, [])),
+                            "root": str(destination), "spec": spec, "persistence": spec.get("persistence"),
+                            "source_identity": state_key(files), "identity": content_identity(spec),
+                            "kind": "release" if tag else "committed-baseline"})
+        except (OSError, ValueError, UnicodeError, KeyError, TypeError) as exc:
+            unknown.append({"kind": "historical-source", "revision": revision, "tag": tag, "reason": str(exc)})
+    return {"sources": sources, "unknown": unknown, "no_history": no_history}
+
+
+def collect_saves(root, *, steps=8, node_cap=1000, alphabet_cap=1000):
+    """Collect native saved bytes once per identified source and actual schema family."""
+    import base64
+
+    root = Path(root).resolve()
+    fixture_scope = {"extensions": [".json"], "selection": "Git HEAD tracked files excluding .git and .flowguard",
+                     "other_formats": "not screened"}
+    if not derive(root).get("persistence"):
+        return {"sources": [], "saves": [], "unknown": [{"kind": "persistence", "scope": "not-applicable",
+                "reason": "no source-bound public save/load; historical sources were not inspected"}],
+                "no_saved_files": True, "no_history": None, "fixture_loads": [], "fixture_scope": fixture_scope}
+    history = old_releases(root)
+    sources, unknown = history["sources"], list(history["unknown"])
+    committed = []
+    fixture_revision = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True)
+    fixture_tree = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD^{tree}"], capture_output=True, text=True)
+    result = subprocess.run(["git", "-C", str(root), "ls-tree", "-r", "-z", "--name-only", "HEAD"], capture_output=True)
+    if result.returncode == 0:
+        for raw_name in result.stdout.split(b"\0"):
+            if not raw_name:
+                continue
+            name = raw_name.decode("utf-8", "surrogateescape")
+            path = Path(name)
+            if path.suffix.lower() != ".json" or any(part in {".git", ".flowguard"} for part in path.parts):
+                continue
+            data = subprocess.run(["git", "-C", str(root), "show", "HEAD:" + name], capture_output=True)
+            if data.returncode:
+                unknown.append({"kind": "committed-fixture", "name": name, "reason": "committed bytes unavailable"})
+                continue
+            committed.append({"name": name, "bytes": base64.b64encode(data.stdout).decode("ascii")})
+    saves, schemas, seen_files, fixture_loads = [], set(), set(), []
+    remaining = list(committed)
+    generated_sources = 0
+    for source in sources:
+        spec = source["spec"]
+        if not source.get("persistence"):
+            unknown.append({"kind": "persistence", "revision": source["revision"], "tag": source["tag"], "reason": "no source-bound public save/load"})
+            continue
+        if source["kind"] != "release" and not remaining:
+            continue
+        options = {"prefixes": [], "committed": remaining, "steps": steps,
+                   "node_cap": node_cap, "alphabet_cap": alphabet_cap, "generate": source["kind"] == "release"}
+        start = {"world": "default", "seed": 0} if options["generate"] else {}
+        identity = source["identity"]
+        path = cache_root(root) / ("saved-files-" + state_key({"source": identity, "start": start, "options": options}) + ".json")
+        facts = _cached(path, identity)
+        if facts is None:
+            try:
+                facts = replay(spec, [], start, operation="saves", options=options, timeout=300)
+            except UnsupportedWorld as exc:
+                unknown.append({"kind": "saved-file-collection", "revision": source["revision"], "tag": source["tag"], "reason": str(exc)})
+                continue
+            if footprint_identity(facts.get("footprint", {})):
+                atomic_write_text(path, json.dumps({"identity": identity, "body": state_key(facts), "facts": facts}, ensure_ascii=False))
+        unknown.extend({"source": {key: source[key] for key in ("revision", "tree", "tag", "root")}, **row} if isinstance(row, dict) else {"kind": "saved-file-collection", "revision": source["revision"], "reason": str(row)} for row in facts.get("unknown", []))
+        generated = [row for row in facts.get("saves", []) if row.get("recipe") is not None]
+        first_generated = bool(generated) and generated_sources == 0
+        if generated:
+            generated_sources += 1
+        novel = set()
+        for row in facts.get("saves", []):
+            kind = "generated" if row.get("recipe") is not None else "committed"
+            accepted = row.get("old_load", {}).get("outcome") == "success"
+            if kind == "committed":
+                fixture_loads.append({"name": row["file"]["name"], "source_revision": source["revision"], "old_load": row.get("old_load")})
+                if not accepted:
+                    continue
+                remaining = [file for file in remaining if file["name"] != row["file"]["name"]]
+            elif not accepted:
+                unknown.append({"kind": "old-load", "revision": source["revision"], "tag": source["tag"], "root": source["root"],
+                                "name": row["file"]["name"], "old_load": row.get("old_load"),
+                                "reason": "the generating source did not accept its own saved bytes"})
+                continue
+            schema = row.get("schema")
+            token = state_key(schema) if schema is not None else None
+            if kind == "generated" and not first_generated and token is not None and token in schemas and accepted:
+                continue
+            identity_file = (source["revision"], kind, row["file"]["name"], row["file"]["sha256"])
+            if identity_file in seen_files:
+                continue
+            seen_files.add(identity_file)
+            provenance = {key: source[key] for key in ("revision", "tree", "tag", "root", "persistence", "source_identity", "identity")}
+            provenance["kind"] = "current-fixture" if kind == "committed" and source["kind"] == "committed-baseline" else kind
+            if kind == "committed":
+                provenance.update(fixture_revision=fixture_revision.stdout.strip(), fixture_tree=fixture_tree.stdout.strip(), fixture_path=row["file"]["name"])
+            saves.append({**row, "source": provenance})
+            if kind == "generated" and accepted and token is not None:
+                novel.add(token)
+        schemas.update(novel)
+    return {"sources": sources, "saves": saves, "unknown": unknown, "no_saved_files": not saves,
+            "no_history": history["no_history"], "fixture_loads": fixture_loads, "fixture_scope": fixture_scope}

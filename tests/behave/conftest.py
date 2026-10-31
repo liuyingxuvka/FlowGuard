@@ -10,6 +10,7 @@ collect_ignore = [
     "test_footprint.py",
     "test_gc1_reach.py",
     "test_gc3_stuck.py",
+    "test_gc4_saved_files.py",
     "test_honest_output.py",
     "test_project.py",
     "test_proof.py",

@@ -9,7 +9,7 @@ import json
 def item_id(semantic, *, length=4):
     incidental = {"seed", "prefix", "trace", "order", "timestamp", "identity", "engine"}
     subject = {key: value for key, value in semantic.items() if key not in incidental}
-    kind = {"GC1": "N", "GC3": "S"}.get(subject.get("check"), "W")
+    kind = "L" if subject.get("kind") in {"loading", "loading_crash"} else {"GC1": "N", "GC3": "S"}.get(subject.get("check"), "W")
     return kind + "-" + hashlib.sha256(json.dumps(subject, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()[:length]
 
 
@@ -21,11 +21,13 @@ def render(result, *, as_json=False):
                     and item["proof"].get("state") == "reproduced" and item["proof"].get("identity") == result["identity"]), key=lambda item: item["id"])
     coverage = {**result["coverage"], "hit_functions": len(result["coverage"]["hit_functions"])}
     unknown = [row for run in runs for check in ("reach", "stuck") for row in run["facts"].get(check, {}).get("unknown", [])]
+    unknown.extend(result.get("saved_files", {}).get("unknown", []))
     verdict = "BLOCKED" if items else "UNCHECKED"
     payload = {"verdict": verdict, "reached": "shipped reach and stuck checks", "extent": extent,
                "coverage": coverage, "missing_checks": result["missing_checks"], "unknown": unknown,
                "errors": result["errors"], "items": [{key: item[key] for key in ("id", "semantic", "label", "search", "explanations", "answers") if key in item} for item in items], "facts_reused": result["facts_reused"]}
     payload["test_scope"] = result.get("test_scope", {})
+    payload["saved_files"] = {key: value for key, value in result.get("saved_files", {}).items() if key != "candidates"}
     payload["input_gaps"] = sorted({reason for run in runs for reason in run["facts"]["footprint"].get("untracked", [])})
     if as_json:
         return json.dumps(payload, ensure_ascii=False, sort_keys=True)
@@ -43,6 +45,8 @@ def render(result, *, as_json=False):
     for item in items:
         semantic = item["semantic"]
         term = semantic.get("query") + "=" + repr(semantic["value"]) if semantic.get("kind") == "query" else semantic.get("kind", "") + " " + str(semantic.get("name", semantic.get("value")))
+        if semantic.get("kind") in {"loading", "loading_crash"}:
+            term = semantic["source"] + " file " + semantic["file"][:12] + " -> " + semantic["loader"]
         explanation = ", ".join(row["setting"] + "=" + repr(row["value"]) for row in item.get("explanations", []))
         suffix = " (reached only with " + explanation + ")" if explanation else " (no one-setting variation reaches it)" if item["label"] == "NEVER REACHED" else ""
         if item["label"] == "STUCK":
@@ -52,5 +56,13 @@ def render(result, *, as_json=False):
         for answer in item.get("answers", []):
             lines.append("  " + answer["call"]["name"] + " -> " + answer["outcome"] + (" " + repr(answer["exception"]["message"]) if answer["exception"] else ""))
         lines.append("python -m flowguard.behave why " + item["id"])
-    lines.extend("UNKNOWN " + row["check"] + " search: " + row["extent"]["reason"] for row in unknown)
+    for file in payload["saved_files"].get("files", []):
+        lines.append("saved file: " + str(file["source"].get("revision", "unknown")) + " " + str(file["file"]["name"])
+                     + ": " + file["status"] + " (" + ("HEAD fixture " if file["source"].get("kind") == "current-fixture" else "old ")
+                     + str(file.get("old_outcome")) + ", current " + str(file.get("outcome", "unchecked")) + ")")
+    if payload["saved_files"].get("no_saved_files"):
+        lines.append("no saved files: give fixtures or a release base")
+    if payload["saved_files"].get("fixture_scope"):
+        lines.append("committed fixture scope: .json only; other formats not screened")
+    lines.extend("UNKNOWN " + row["check"] + ": " + row.get("reason", row.get("extent", {}).get("reason", "unjudged scope")) for row in unknown)
     return "\n".join(lines)

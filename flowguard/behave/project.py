@@ -624,9 +624,11 @@ class _Session:
         self.executed_calls = 0
         self.resets = 0
         self.query_facts = {}
+        self.base_prefix = []
 
     def reset(self, prefix=(), *, start=None):
         # Each construction event below recreates its own session after its preceding public setup.
+        prefix = prefix or self.base_prefix
         if start is not None:
             self.start = start
         self.observed.enabled = False
@@ -853,7 +855,90 @@ def _run_session(request, arena, observed):
                 "construction_stderr": session.construction_stderr}
     from .explore import explore, focused_search, directed_search, evaluate
     options = request.get("options", {})
-    if operation == "explore":
+    if operation == "saves":
+        persistence = session.spec.get("persistence")
+        if not persistence:
+            raise UnsupportedWorld("no public save/load root was derived")
+        from .explore import plain
+        original = dict(session.start)
+        prefixes = options.get("prefixes")
+        walk = None
+        if not options.get("generate", True):
+            prefixes = []
+        elif prefixes is None or not prefixes:
+            walk = explore(session, **{key: options[key] for key in ("seed", "steps", "node_cap", "alphabet_cap") if key in options})
+            # Keep concrete categorical and successful-action witnesses, not every walk step.
+            prefixes = [[]] + [row["prefix"] for row in walk["witnesses"]
+                               if row["semantic"].get("kind") == "query" or
+                               row["semantic"].get("kind") == "action" and row["semantic"].get("outcome") == "success"]
+        saves, unknown, seen = [], [], set()
+
+        open_shape = [False]
+
+        def structure(value, identifiers):
+            if isinstance(value, dict):
+                open_shape[0] |= not value
+                fixed, dynamic = {}, []
+                for key, item in value.items():
+                    if key in identifiers:
+                        dynamic.append(structure(item, identifiers))
+                    else:
+                        fixed[key] = structure(item, identifiers)
+                if dynamic:
+                    fixed["<entity-id>"] = sorted({json.dumps(item, sort_keys=True) for item in dynamic})
+                return {"object": fixed}
+            if isinstance(value, list):
+                open_shape[0] |= not value
+                return {"array": sorted({json.dumps(structure(item, identifiers), sort_keys=True) for item in value})}
+            return type(value).__name__
+
+        for prefix in prefixes:
+            session.reset(prefix, start=original)
+            before = state_key(session.current)
+            if before in seen:
+                continue
+            seen.add(before)
+            identifiers = {str(value) for entity in session.spec["entities"].values()
+                           for value in plain(session.query("system", entity["list"]))}
+            name = "saved.json"
+            save_call = {"name": persistence["save"], "args": [{"$file": name}]}
+            row = session.step(save_call)
+            if row["outcome"] != "success":
+                unknown.append({"reason": "old public save " + row["outcome"], "exception": row["exception"], "prefix": prefix})
+                continue
+            path = session.arena / name
+            if not path.is_file() or path.is_symlink():
+                unknown.append({"reason": "public save did not produce an ordinary file", "prefix": prefix})
+                continue
+            data = path.read_bytes()
+            open_shape[0] = False
+            try:
+                observed_schema = structure(json.loads(data), identifiers)
+                schema = None if open_shape[0] else observed_schema
+            except (ValueError, UnicodeError):
+                observed_schema = None
+                schema = None  # An opaque format retains its source rather than a guessed schema.
+            file = {"name": name, "bytes": base64.b64encode(data).decode("ascii"), "sha256": hashlib.sha256(data).hexdigest()}
+            session.reset(start={"files": {name: file["bytes"]}})
+            loaded = session.step({"name": persistence["load"], "args": [{"$file": name}], "replace": True})
+            saves.append({"recipe": {"start": original, "prefix": prefix, "save": save_call}, "file": file,
+                          "schema": schema, "observed_schema": observed_schema,
+                          "old_load": {key: loaded[key] for key in ("outcome", "exception", "stdout", "stderr")}})
+        for file in options.get("committed", []):
+            data = base64.b64decode(file["bytes"])
+            session.reset(start={"files": {file["name"]: file["bytes"]}})
+            loaded = session.step({"name": persistence["load"], "args": [{"$file": file["name"]}], "replace": True})
+            saves.append({"recipe": None, "file": {**file, "sha256": hashlib.sha256(data).hexdigest()}, "schema": None,
+                          "old_load": {key: loaded[key] for key in ("outcome", "exception", "stdout", "stderr")}})
+        response = {"saves": saves, "unknown": unknown, "extent": walk["extent"] if walk else None}
+    elif operation == "saved":
+        from .checks import saved_files
+        response = saved_files(session, **options)
+    elif operation == "loading-proof":
+        rows = [session.step(item) for item in request["calls"]]
+        response = {"matched": bool(rows) and rows[-1]["outcome"] == options["outcome"],
+                    "loading": {key: rows[-1][key] for key in ("outcome", "exception", "stdout", "stderr")} if rows else None}
+    elif operation == "explore":
         response = explore(session, **options)
     elif operation == "search":
         response = focused_search(session, **options)

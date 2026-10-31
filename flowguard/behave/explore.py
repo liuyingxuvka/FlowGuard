@@ -229,7 +229,7 @@ def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, doma
     extent = _extent("coverage-guided", node_cap=node_cap, alphabet_cap=alphabet_cap)
     extent.update(seed=seed, successful_step_budget=steps, successful=0)
     witnesses, features, visits, events, concrete = {}, set(), {}, [], []
-    corpus = [[]]
+    corpus = [list(session.prefix)]
     states = set()
     while extent["successful"] < steps and extent["attempted"] < node_cap:
         if extent["attempted"] and extent["attempted"] % 16 == 0:
@@ -413,10 +413,21 @@ def _guard_distance(session, goal, observed, hints=None):
     return score
 
 
-def directed_search(session, *, goal, known=(), states=(), secondary_seed=1, secondary_steps=16, **bounds):
+def directed_search(session, *, goal, known=(), states=(), origin=None, secondary_seed=1, secondary_steps=16, **bounds):
     original_start = session.start
     for witness in known:
-        session.reset(start={key: value for key, value in witness.get("start", original_start).items() if key != "settings"})
+        start = witness.get("start", original_start)
+        if witness.get("semantic", {}).get("origin") != origin or start.get("files", {}) != original_start.get("files", {}):
+            continue
+        shipped = session.spec["shipped"]
+        if {**shipped, **start.get("settings", {})} != {**shipped, **original_start.get("settings", {})}:
+            continue
+        if session.base_prefix:
+            if witness["prefix"][:len(session.base_prefix)] != session.base_prefix:
+                continue
+        elif any(row.get("replace") and row.get("name") == (session.spec.get("persistence") or {}).get("load") for row in witness["prefix"]):
+            continue
+        session.reset(start=start)
         for index, recipe in enumerate(witness["prefix"]):
             row = session.step(recipe)
             if witness.get("outcomes") and row["outcome"] != witness["outcomes"][index]:

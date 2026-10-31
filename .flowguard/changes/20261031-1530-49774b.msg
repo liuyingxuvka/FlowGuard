@@ -1,0 +1,15 @@
+FG-624: Start from files saved by old releases
+
+This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty.
+
+owner block (paste it unchanged into your final message):
+- touch: flowguard/behave/engine.py:old_releases because "Select reachable historical sources and deduplicate only by actual saved-data key structure"
+- touch: flowguard/behave/engine.py:collect_saves because "Generate real old public-save files with source and recipe provenance and include committed loadable fixtures"
+- touch: flowguard/behave/project.py:_run_session because "Extend the one native session protocol with real public save and old-file loading facts"
+- touch: flowguard/behave/explore.py:explore because "Preserve the initial public load prefix when restoring any post-load exploration state"
+- touch: flowguard/behave/checks.py:saved_files because "Classify real base and current loading outcomes and derive supported post-load candidates without running future checks"
+- touch: flowguard/behave/engine.py:audit because "Organize saved-file starts through the same worker and joint content identities while retaining missing or unsupported scope"
+- touch: flowguard/behave/engine.py:prove because "Freshly reproduce saved-file findings from source-identified old bytes and current public load behavior"
+- touch: flowguard/behave/report.py:item_id because "Keep loading and post-load item identities semantic and independent of enumeration order"
+- touch: flowguard/behave/report.py:render because "Report proved lost loading or loading crashes and complete post-load stuck evidence with source files and honest limits"
+- touch: flowguard/behave/why.py:why because "Accept saved-file item kinds and reprove their actual bytes and loading recipe on current code"
