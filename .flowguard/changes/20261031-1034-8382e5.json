@@ -1,0 +1,126 @@
+{
+  "kind": "change",
+  "goal": "FG-621: Derive and initialize a real skeleton with native state restoration",
+  "requests": [
+    {
+      "id": "R11",
+      "part": true
+    }
+  ],
+  "base": "38954548dc7e574cda8ab9f235b2b8679217ca39",
+  "tree": "8382e5fb0d5d124c0845f591c359bec99068e9e614009f6fc76095344c4bc303",
+  "promoted": "2026-10-31T10:34:26.774607+00:00",
+  "plan": [
+    {
+      "line": "touch: flowguard/behave/skeleton.py:derive because \"Generate the skeleton from existing shared source facts rather than a second model program\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/skeleton.py:read_corrections because \"Reject configuration and generated-goal removal while preserving valid corrections\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/skeleton.py:write_pins because \"Persist real selected source locators without manufacturing model or instruction files\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:construct because \"Create shipped program objects only inside a fresh isolated arena\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:call because \"Execute public actions and retain their real outcomes and complete before/after observations\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:snapshot because \"Observe the complete supported graph and files independently of save serialization\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:restore because \"Reconstruct through public prefixes and verify complete restored observations\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:replay because \"Use the existing runner and import path for one reproducible native trace\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/__main__.py:build_parser because \"Advertise only the implemented init command\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/__main__.py:main because \"Initialize the real skeleton and pins after the supported-interpreter check\"",
+      "added_after_code": null,
+      "cleared": []
+    }
+  ],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/behave/__main__.py:build_parser",
+    "flowguard/behave/__main__.py:main",
+    "flowguard/behave/project.py:_Graph.__init__",
+    "flowguard/behave/project.py:_Graph.pack",
+    "flowguard/behave/project.py:_Graph.value",
+    "flowguard/behave/project.py:_arena_guard",
+    "flowguard/behave/project.py:_arena_guard.audit",
+    "flowguard/behave/project.py:_arena_guard.inside",
+    "flowguard/behave/project.py:_arguments",
+    "flowguard/behave/project.py:_diagnostic",
+    "flowguard/behave/project.py:_load",
+    "flowguard/behave/project.py:_worker",
+    "flowguard/behave/project.py:call",
+    "flowguard/behave/project.py:construct",
+    "flowguard/behave/project.py:replay",
+    "flowguard/behave/project.py:restore",
+    "flowguard/behave/project.py:snapshot",
+    "flowguard/behave/project.py:snapshot.entries",
+    "flowguard/behave/skeleton.py:_name",
+    "flowguard/behave/skeleton.py:_plural",
+    "flowguard/behave/skeleton.py:_signature",
+    "flowguard/behave/skeleton.py:derive",
+    "flowguard/behave/skeleton.py:derive.closure",
+    "flowguard/behave/skeleton.py:derive.is_refusal",
+    "flowguard/behave/skeleton.py:derive.is_settings",
+    "flowguard/behave/skeleton.py:derive.reads_file",
+    "flowguard/behave/skeleton.py:derive.resolve",
+    "flowguard/behave/skeleton.py:derive.writes",
+    "flowguard/behave/skeleton.py:read_corrections",
+    "flowguard/behave/skeleton.py:render",
+    "flowguard/behave/skeleton.py:write_pins",
+    "tests/behave/test_entry.py:test_help_is_available_without_behavior_commands",
+    "tests/behave/test_entry.py:test_help_lists_only_implemented_commands",
+    "tests/behave/test_entry.py:test_init_constructs_the_program_and_writes_only_source_pins",
+    "tests/behave/test_entry.py:test_python311_refuses_behavior_before_dispatch",
+    "tests/behave/test_entry.py:test_unimplemented_verb_never_reports_success",
+    "tests/behave/test_project.py:test_arena_paths_in_diagnostics_are_reproducible",
+    "tests/behave/test_project.py:test_complete_graph_retains_hidden_slots_aliases_cycles_and_order",
+    "tests/behave/test_project.py:test_container_subtype_is_explicitly_unsupported",
+    "tests/behave/test_project.py:test_live_construction_is_not_allowed_in_the_coordinator",
+    "tests/behave/test_project.py:test_native_save_load_and_resave_keep_complete_state_and_relative_files",
+    "tests/behave/test_project.py:test_opaque_runtime_state_does_not_become_an_empty_graph",
+    "tests/behave/test_project.py:test_refusal_is_observed_without_discarding_hidden_changes",
+    "tests/behave/test_project.py:test_refused_permission_change_is_not_equal_state",
+    "tests/behave/test_project.py:test_restore_replays_public_prefix_and_continues",
+    "tests/behave/test_project.py:test_shipped_defaults_seeding_and_scalar_results_are_recorded",
+    "tests/behave/test_skeleton.py:example",
+    "tests/behave/test_skeleton.py:test_config_in_skeleton_is_error",
+    "tests/behave/test_skeleton.py:test_corrections_cannot_remove_goals",
+    "tests/behave/test_skeleton.py:test_missing_and_ambiguous_roots_do_not_create_pins",
+    "tests/behave/test_skeleton.py:test_skeleton_matches_reference_actions",
+    "tests/behave/test_skeleton.py:test_skeleton_removes_goal_is_error",
+    "tests/behave/test_skeleton.py:test_source_pins_are_idempotent_and_preserve_user_bytes"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty."
+}

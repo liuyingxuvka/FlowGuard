@@ -880,11 +880,16 @@
     {
       "id": "behave",
       "layer": "capabilities",
-      "summary": "Unreleased pilot bootstrap, available only as python -m flowguard.behave; keep package imports lightweight and reject pilot behavior below Python 3.12.",
+      "summary": "Unreleased skeleton derivation and real initialization, with isolated public calls, complete state/file observation and prefix restoration; enter only through python -m flowguard.behave.",
       "responsibilities": [
         "provide standalone pilot help that lists only implemented verbs and reject unsupported Python interpreters before loading pilot behavior",
         "keep the pilot absent from the public CLI, exports, skill and product documentation",
-        "guard pilot source against dependence on experiment-specific application names"
+        "guard pilot source against dependence on experiment-specific application names",
+        "derive the F9 skeleton and its source identities from shared syntax and discovery facts, including shipped settings, entities, actions, queries, interface, persistence and finite worlds",
+        "initialize real source pins, print derived facts, unrecognized front doors and a glossary draft, and validate corrections without choosing settings or removing generated goals",
+        "construct and call the real program only in a fresh isolated process through the shared runner and import-path owners",
+        "observe complete supported instance graphs, shipped defaults and arena files independently of the program serializer, retaining order and shared references",
+        "restore a concrete starting recipe through public-call prefix replay and verify the full resulting observation; state unsupported roots and resources instead of reporting an empty successful world"
       ],
       "files": [
         "flowguard/behave/*.py"
@@ -892,14 +897,20 @@
       "entrypoints": [],
       "state": [],
       "side_effects": [],
-      "depends_on": [],
+      "depends_on": [
+        "map-discover",
+        "map-inventory",
+        "map-proof"
+      ],
       "tests": [
         "tests/behave/test_entry.py",
-        "tests/behave/test_pilot_guards.py"
+        "tests/behave/test_pilot_guards.py",
+        "tests/behave/test_skeleton.py",
+        "tests/behave/test_project.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b10cb5effd1262e3f67debd9cdd9f88e468dba477a6d2c2cf59974a7a7080a0f"
+      "fingerprint": "sha256:403b9a7faaac25ffbf15149eb393f21adbc6d538f9a1067eb9134a068d89bf55"
     }
   ],
   "flows": [
