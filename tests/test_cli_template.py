@@ -13,11 +13,12 @@ from _fg_helpers import flowguard_map_contracts421_write as write, flowguard_map
 
 def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     import json
+    import shlex
     import subprocess
     from pathlib import Path
     import pytest
     from flowguard.__main__ import main
-    from flowguard.map.cli import _context
+    from flowguard.map.cli import _context, build_parser
     from flowguard.map.check import run_check
     from flowguard.map.lint import run_lint
     from _fg_helpers import flowguard_map_contracts421_write as write, flowguard_map_contracts421_project as project, flowguard_map_contracts421_save as save, flowguard_map_contracts421_findings as findings, flowguard_map_contracts421_CONTRACT as CONTRACT, flowguard_map_contracts421__placement_port_source as _placement_port_source, flowguard_map_contracts421__fg233_parent_project as _fg233_parent_project, flowguard_map_contracts421__scope_helpers as _scope_helpers, flowguard_map_contracts421_json as json, flowguard_map_contracts421_subprocess as subprocess, flowguard_map_contracts421_Path as Path, flowguard_map_contracts421_pytest as pytest, flowguard_map_contracts421_main as main, flowguard_map_contracts421__context as _context, flowguard_map_contracts421_run_check as run_check, flowguard_map_contracts421_run_lint as run_lint
@@ -25,7 +26,13 @@ def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
                  "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
         out = capsys.readouterr().out
-        assert "next[models]: python -m flowguard map models " in out and "/docs/" not in out, name
+        assert "/docs/" not in out, name
+        last = out.splitlines()[-1]
+        assert last.startswith("next[describe]: "), name
+        argv = shlex.split(last.removeprefix("next[describe]: "))
+        assert argv == ["python", "-m", "flowguard", "map", "scan", "--root", str((tmp_path / name).resolve())], name
+        parsed = build_parser().parse_args(argv[4:])
+        assert Path(parsed.root).is_absolute() and not (tmp_path / name / ".flowguard/map.json").exists(), name
     assert main(["template", "architecture-reduction", "--write", str(tmp_path / "architecture-reduction")]) == 2
     assert main(["template", "code-structure", "--write", str(tmp_path / "code-structure")]) == 2
     assert main(["template", "field-lifecycle", "--write", str(tmp_path / "field-lifecycle")]) == 2

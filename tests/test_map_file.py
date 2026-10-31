@@ -564,16 +564,24 @@ def test_digest_lists_overloads_once(tmp_path):
 
 def test_locate_unowned_function_says_no_model_owns(tmp_path):
     import pytest, os, json
+    import shlex
     from pathlib import Path
+    from flowguard.__main__ import _verb_parser
 
     helper = locate_fixture()
     helper["fixture"](tmp_path)
     code, text = helper["observe"](tmp_path, "unowned")
-    assert code == 0 and text.splitlines() == [
+    lines = text.splitlines()
+    assert code == 0 and lines[:-1] == [
         "no model owns api.py:unowned (component app); reached by: none",
         "models of app: deeper ((no purpose line: add a module docstring)), owner ((no purpose line: add a module docstring))",
-        "next[rule]: add the rule to a model of app; a separate aspect gets its own model there (references/routes.md#New function)",
+        "note: add the rule to a model of app; a separate aspect gets its own model there (references/routes.md#New function)",
     ]
+    assert lines[-1].startswith("next[rule]: ")
+    argv = shlex.split(lines[-1].removeprefix("next[rule]: "))
+    assert argv == ["python", "-m", "flowguard", "read", "--component", "app", "--root", str(tmp_path.resolve())]
+    parsed = _verb_parser("read").parse_args(argv[4:])
+    assert parsed.component == "app" and Path(parsed.root).is_absolute()
 
 
 def test_locate_test_file_counts_per_model(tmp_path):
