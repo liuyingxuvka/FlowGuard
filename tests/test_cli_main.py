@@ -148,7 +148,8 @@ def test_target_check_todos_then_real_code_and_bound_test(tmp_path, capsys):
     assert not any(line.startswith("ERROR ") for line in output.splitlines()), output
     assert "TO-DO model lending:" in output and "LoanService.hold" in output
     assert "test_hold_gets_returned_copy" in output
-    assert "next[code]: write the code and tests" in output
+    assert "note: write the code and tests" in output
+    assert "next[code]: python -m flowguard target check" in output
     _assert_current_lending(root, capsys)
     code, output, errors = _run(root, capsys, "read")
     assert code == 0 and not errors

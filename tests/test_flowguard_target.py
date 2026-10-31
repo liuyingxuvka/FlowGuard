@@ -150,7 +150,8 @@ def test_target_check_rejects_real_design_errors(tmp_path, capsys, mutation, fin
         assert any(
             line.startswith("ERROR ") and finding in line for line in output.splitlines()
         ), output
-        assert "next[design]: fix the target design (ERROR lines)" in output
+        assert "note: fix the target design (ERROR lines)" in output
+        assert "next[design]: python -m flowguard target check" in output
     finally:
         map_path.write_bytes(original_map)
         model_path.write_bytes(original_model)

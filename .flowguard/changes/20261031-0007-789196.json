@@ -1,0 +1,67 @@
+{
+  "kind": "change",
+  "goal": "Keep guidance actionable with preserved explanations and absolute commands for the actual owner",
+  "requests": [
+    {
+      "id": "R1",
+      "part": true
+    },
+    {
+      "id": "R600",
+      "part": true
+    }
+  ],
+  "base": "d6c3c2f90a54fbad0078aa618b119cd17497d5e4",
+  "tree": "7891963d26f7b08d93144fa46da8bbbd0f75bb39294ab8b7818eb9aab8a04912",
+  "promoted": "2026-10-31T00:07:05.368936+00:00",
+  "plan": [],
+  "rules": [
+    {
+      "id": "read_find.locate_prefers_owner",
+      "old": "fp:3b05038e4e68a3b41f42b84fe198ec9ee42dfd520544e6f76316f88053cc73b2",
+      "new": "fp:5d234a63705d22bd9eba3411fbfc0584fa8aa96430d1a4b3301a5a41c9a5e805",
+      "provenance": "unjudged: no checked PLAN changes line"
+    },
+    {
+      "id": "read_find.test_location_shows_models_and_code",
+      "old": "fp:1873f0685ad2b4e440d1441557ce588bbcd245fe4bcfa3c9343fe22931f13085",
+      "new": "fp:4bc4c05a4cb1fe12ecdd6bbbd71350c5d400be6e18f42632c2fe2610ecdf9e32",
+      "provenance": "unjudged: no checked PLAN changes line"
+    }
+  ],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/__main__.py:_request",
+    "flowguard/__main__.py:_template",
+    "flowguard/map/cli.py:cmd_change",
+    "flowguard/map/cli.py:cmd_find",
+    "flowguard/map/cli.py:cmd_scan",
+    "flowguard/map/common.py:advice",
+    "flowguard/map/common.py:project_command",
+    "flowguard/map/common.py:render_advice",
+    "flowguard/map/target.py:_target_advice",
+    "flowguard/map/target.py:promote_target",
+    "flowguard/map/target.py:render_target_report",
+    "flowguard/map/target.py:start_target",
+    "flowguard/map/views.py:render_locate",
+    "flowguard/map/views.py:render_locate.locate_command",
+    "tests/test_advice.py:_human",
+    "tests/test_advice.py:_next",
+    "tests/test_advice.py:_replay",
+    "tests/test_advice.py:test_find_location_preserves_binding_help_and_portable_next",
+    "tests/test_advice.py:test_find_words_keeps_extend_guidance_outside_the_command",
+    "tests/test_advice.py:test_request_without_map_advises_real_scan_and_digest",
+    "tests/test_advice.py:test_target_start_error_and_json_share_executable_advice",
+    "tests/test_advice.py:test_target_todo_advice_executes_without_completing_the_plan",
+    "tests/test_advice.py:test_template_advice_names_real_models_or_target_check",
+    "tests/test_cli_main.py:test_target_check_todos_then_real_code_and_bound_test",
+    "tests/test_flowguard_target.py:test_target_check_rejects_real_design_errors",
+    "tests/test_map_inventory_inventory.py:test_locate_unbound_calling_test_suggests_binding",
+    "tests/test_packaged_cli_surface.py:test_change_run_ends_with_map_confirm_for_stale_components",
+    "tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty."
+}

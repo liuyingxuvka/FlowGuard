@@ -262,6 +262,7 @@ def test_template_writes_into_the_open_target(tmp_path, capsys):
 
 
 def test_change_run_ends_with_map_confirm_for_stale_components(tmp_path, capsys):
+    import shlex
     from flowguard.__main__ import main
     directory = tmp_path / ".flowguard"
     directory.mkdir()
@@ -273,7 +274,13 @@ def test_change_run_ends_with_map_confirm_for_stale_components(tmp_path, capsys)
     assert main(["map", "confirm", "app", "--root", str(tmp_path)]) == 0
     path.write_text("def answer(): return 2\n")
     assert main(["change", "--root", str(tmp_path), "app.py", "--run"]) == 0
-    assert capsys.readouterr().out.rstrip().endswith("next[confirm]: python -m flowguard map confirm app")
+    last = capsys.readouterr().out.rstrip().splitlines()[-1]
+    assert last.startswith('next[confirm]: ')
+    argv = shlex.split(last.removeprefix('next[confirm]: '))
+    assert argv[:6] == ['python', '-m', 'flowguard', 'map', 'confirm', 'app']
+    assert argv[6:] == ['--root', str(tmp_path.resolve())]
+    result = subprocess.run(argv, cwd=tmp_path.parent, capture_output=True, text=True)
+    assert result.returncode == 0 and 'confirmed 1 component(s)' in result.stdout, result.stderr
 
 
 def test_find_unknown_symbol_exits_one(tmp_path,capsys):

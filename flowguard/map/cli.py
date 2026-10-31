@@ -27,7 +27,7 @@ from pathlib import Path
 
 from .check import run_check
 from .common import (MAP_RELPATH, advice, finding_codes, print_findings, print_verdict,
-                     quiet_broken_pipe, render_advice, safe_stdio)
+                     quiet_broken_pipe, render_advice, safe_stdio, project_command)
 from .impact import run_commands, changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
@@ -67,7 +67,8 @@ def cmd_scan(root: Path, a) -> int:
         if len(files) >= 6 and len({Path(path).parent.as_posix() for path in files}) == 1:
             print(f"hint: draft {component['id']} holds {len(files)} files of one directory; split it by responsibility "
                   f"(python -m flowguard map digest {component['id']} lists each file's API)")
-    print(render_advice(advice("describe", "digest all -> merge/describe components -> deps --write -> check -> confirm")))
+    print(render_advice(advice('describe', project_command(root, 'map', 'digest', 'all'),
+                              note='merge/describe components, then deps --write, check and confirm')))
     return 0
 
 
@@ -177,6 +178,8 @@ def cmd_find(root: Path, a) -> int:
             print("closest owners (check these before creating a new component):")
             for cid, duty in closest:
                 print(f"  {cid}: {duty}")
+        command = project_command(root, 'read', '--component', closest[0][0]) if closest else project_command(root, 'map', 'check')
+        print(render_advice(advice('extend', command)))
         return 1
     by_id = {c["id"]: c for c in data["components"]}
     for score, cid, owned in hits:
@@ -191,7 +194,8 @@ def cmd_find(root: Path, a) -> int:
             if by_id[cid].get(key):
                 print(f"     {label}: {'; '.join(by_id[cid][key])}")
     print(
-        render_advice(advice("extend", "extend the owner above that already holds this behavior; create a new component only when none does"))
+        render_advice(advice('extend', project_command(root, 'read', '--component', hits[0][1]),
+                             note='extend the owner above that already holds this behavior; create a new component only when none does'))
     )
     from .views import locate_words
 
@@ -366,7 +370,7 @@ def cmd_change(root: Path, a) -> int:
 
     stale = sorted(c["id"] for c in data["components"] if is_stale(root, c, inv))
     if stale:
-        print(render_advice(advice("confirm", "python -m flowguard map confirm " + " ".join(stale))))
+        print(render_advice(advice('confirm', project_command(root, 'map', 'confirm', *stale))))
     return result
 
 

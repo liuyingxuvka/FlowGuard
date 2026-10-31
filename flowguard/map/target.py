@@ -16,7 +16,7 @@ import subprocess
 from dataclasses import dataclass, field, replace
 
 from .common import (advice, render_advice, print_verdict, matches_any, content_digest,
-                     atomic_write_text, normalize_newlines)
+                     atomic_write_text, normalize_newlines, project_command)
 from .inventory import build_inventory, function_digests
 from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract, save_map, validate_map
 from .targetfile import (TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_is_noop, target_node_changes,
@@ -595,18 +595,16 @@ def _target_advice(report: TargetReport, root: Path | None = None) -> dict[str, 
     test_errors = {"model_test_broken", "tested_by_failed", "tested_by_misses_anchor", "test_missing"}
     tests_only = report.errors and all(finding.code in test_errors for finding in report.errors)
     unavailable_only = report.errors and all(finding.code == "selected_tests_unavailable" for finding in report.errors)
+    project = Path(root or Path.cwd()).resolve()
     if unavailable_only:
-        import shlex
-        project = Path(root or Path.cwd()).resolve()
-        next_step = shlex.join(["python", "-m", "flowguard", "target", "promote", "--root", str(project)])
-        identifier = "test_command"
-    else:
-        identifier = "tests" if tests_only else "design" if report.errors else "code" if report.todos else "promote"
-        next_step = ("write or fix the bound tests named in the ERROR lines, then python -m flowguard target check" if tests_only else
-                     "fix the target design (ERROR lines) in .flowguard/target/ first" if report.errors else
-                     "write the code and tests until no TO-DO remains, then python -m flowguard target promote" if report.todos else
-                     "python -m flowguard target promote")
-    return advice(identifier, next_step)
+        return advice('test_command', project_command(project, 'target', 'promote'),
+                      note=f'declare "test_commands" for the listed test files in {project / ".flowguard/map.json"}, '
+                           'or bind them to a test FlowGuard can run, then run target promote')
+    identifier = "tests" if tests_only else "design" if report.errors else "code" if report.todos else "promote"
+    note = ("write or fix the bound tests named in the ERROR lines" if tests_only else
+            f"fix the target design (ERROR lines) in {project / TARGET_RELDIR} first" if report.errors else
+            "write the code and tests until no TO-DO remains" if report.todos else None)
+    return advice(identifier, project_command(project, 'target', 'check' if report.errors or report.todos else 'promote'), note=note)
 
 
 def _target_codes(report: TargetReport) -> list[dict[str, str]]:
@@ -633,10 +631,6 @@ def render_target_report(report: TargetReport, *, root: Path | None = None) -> s
     lines.append(f"target check: {len(report.errors)} error(s), {len(report.todos)} to-do, {len(report.warnings)} warning(s)"
                  + (f" ({report.old} old)" if report.old else ""))
     next_step = _target_advice(report, root)
-    if next_step["id"] == "test_command":
-        project = Path(root or Path.cwd()).resolve()
-        lines.append(f'note: declare "test_commands" for the listed test files in {project / ".flowguard/map.json"}, '
-                     'or bind them to a test FlowGuard can run, then run target promote')
     lines.append(render_advice(next_step))
     if report.own_tests:
         lines.append("bound tests: ran for " + ", ".join(report.own_tests) + " (code changed since target start); target promote runs the function-selected tests once")
@@ -858,7 +852,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
                 state = "partial; remains open" if link["part"] else "done"
                 print(f"request {link['id']}: {state} (change {prepared_record['id']})")
             if drafts:
-                print(render_advice(advice("confirm", "python -m flowguard map confirm " + " ".join(drafts))))
+                print(render_advice(advice("confirm", project_command(root, 'map', 'confirm', *drafts))))
             for line in next_lines:
                 print(render_advice(line) if isinstance(line, dict) else line)
         return 0
@@ -1001,8 +995,9 @@ def start_target(root: Path, goal: str, *, requests=()) -> int:
     print(f'target started: "{goal}"')
     if not _git_head(root):
         print("note: no git here; the current model stays in .flowguard/models/ until target promote")
-    print(render_advice(advice("add", "python -m flowguard target add <component-or-model-id>, edit the files under "
-                              ".flowguard/target/, then python -m flowguard target check")))
+    print(render_advice(advice('add', project_command(root, 'read', '--target'),
+                              note='choose the existing owner, run target add <component-or-model-id>, edit the files '
+                                   f'under {root / TARGET_RELDIR}, then run target check')))
     return 0
 
 

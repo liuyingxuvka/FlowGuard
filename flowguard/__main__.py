@@ -9,7 +9,7 @@ from pathlib import Path
 from . import __version__
 from .map.cli import main as map_main
 from .map.proof import DEFAULT_JOBS
-from .map.common import advice, print_verdict, quiet_broken_pipe, render_advice, safe_stdio
+from .map.common import advice, print_verdict, quiet_broken_pipe, render_advice, safe_stdio, project_command
 
 
 
@@ -172,7 +172,7 @@ def _template(ns: argparse.Namespace) -> int:
             print("kept CLAUDE.md (it exists): make sure it holds the line @AGENTS.md")
         if has_target:
             if any(file.path.startswith(target_prefix) for file in files):
-                print(render_advice(advice("check", "python -m flowguard target check")))
+                print(render_advice(advice('check', project_command(Path(ns.write), 'target', 'check'))))
         else:
             for file in files:
                 if file.path.startswith(current_prefix) and file.path.count("/") == 2:
@@ -180,7 +180,10 @@ def _template(ns: argparse.Namespace) -> int:
                                    if "REPLACE_ME" in file.content else "replace the example with your own code and behaviour")
                     print(f"edit {file.path}: {instruction}; set COMPONENTS "
                           "(and PARENT if it refines another model)")
-                    print(render_advice(advice("models", f"python -m flowguard map models {file.path.rsplit('/', 1)[-1][:-3]}")))
+                    project = Path(ns.write).resolve()
+                    has_map = (project / '.flowguard/map.json').is_file()
+                    arguments = ('map', 'models', file.path.rsplit('/', 1)[-1][:-3]) if has_map else ('map', 'scan')
+                    print(render_advice(advice('models' if has_map else 'describe', project_command(project, *arguments))))
         return 0
     for file in files:
         print(f"===== {file.path} =====")
@@ -201,12 +204,16 @@ def _request(ns: argparse.Namespace) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 2
     print(f"stored {item['id']} ({item['kind']}, sha {item['sha256'][:12]}, {item['bytes']} bytes)")
-    if 'stored_during' in item:
+    if not (root / '.flowguard/map.json').is_file():
+        identifier = 'describe'
+        command = ['python', '-m', 'flowguard', 'map', 'scan', '--root', str(root)]
+    elif 'stored_during' in item:
         identifier = "check"
         command = ["python", "-m", "flowguard", "target", "check", "--root", str(root)]
     else:
         identifier = "target"
-        command = ["python", "-m", "flowguard", "target", "start", f"Work on request {item['id']}", "--root", str(root)]
+        command = ["python", "-m", "flowguard", "target", "start", f"Work on request {item['id']}",
+                   '--request', item['id'], "--root", str(root)]
     print(render_advice(advice(identifier, shlex.join(command))))
     return 0
 

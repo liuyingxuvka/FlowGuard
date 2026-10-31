@@ -51,6 +51,7 @@ TESTED_BY = {
     'design_mistakes_are_errors': [
         'tests/test_target_life_cycle.py:test_dropping_a_responsibility_is_owner_dropped',
         'tests/test_target_life_cycle.py:test_existing_similar_duty_does_not_hide_a_dropped_responsibility',
+        'tests/test_advice.py:test_target_start_error_and_json_share_executable_advice',
     ],
     'missing_code_is_todo': ['tests/test_target_life_cycle.py:test_target_check_reports_unwritten_code_as_todo'],
     'only_changed_subjects_move': ['tests/test_target_life_cycle.py:test_copied_but_unchanged_entry_stays_an_error'],
@@ -493,8 +494,26 @@ def conformance():
         call_target(root,'start','unchanged copy');call_target(root,'add','component:loans')
         report=native.check_target(root,models=False)
         facts.append(Fact('noop_target',any(f.code=='target_noop' for f in report.errors),repr(report)))
-    return CodeFactsReport(tuple(facts))
+    return CodeFactsReport(tuple(facts) + _portable_error_advice_facts())
 
 HANDOFF = {'gap_lines': {'gap': 'gap'}, 'port_escalation': {'port': ('port', {'unchanged': 'unchanged', 'escalated': 'escalated', 'uncertain': 'uncertain', 'none': None})}}
 
 KEEPS = ('event', 'parent_in_target', 'bucket')
+
+
+def _portable_error_advice_facts():
+    import shlex
+    from flowguard.__main__ import _verb_parser
+    with TemporaryDirectory(prefix='fg-error-advice-') as directory:
+        root = make_project(Path(directory))
+        with redirect_stdout(StringIO()):
+            native.start_target(root, 'inspect the actual target error')
+        report = native.check_target(root, models=False)
+        item = native._target_advice(report, root)
+        words = shlex.split(item['command'])
+        valid = bool(report.errors) and item['id'] == 'design' and words[:5] == ['python', '-m', 'flowguard', 'target', 'check']
+        if valid:
+            with redirect_stderr(StringIO()):
+                args = _verb_parser('target').parse_args(words[4:])
+            valid = args.root == str(root.resolve()) and 'fix the target design' in item.get('note', '')
+        return (Fact('error_advice_preserves_failure_and_absolute_check', valid, repr((report.errors, item))),)

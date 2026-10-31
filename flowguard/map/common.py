@@ -306,14 +306,23 @@ class Finding:
         return f"{self.level.upper():5} {self.code:24} {self.component or '-':26} {self.message}"
 
 
-def advice(identifier: str, command: str) -> dict[str, str]:
+def project_command(root: Path, *arguments: str) -> str:
+    """One shell-quoted public command tied to its actual absolute project."""
+    import shlex
+    return shlex.join(['python', '-m', 'flowguard', *arguments, '--root', str(Path(root).resolve())])
+
+
+def advice(identifier: str, command: str, *, note: str | None = None) -> dict[str, str]:
     if identifier not in ADVICE_IDS:
         raise ValueError(f"unknown advice id: {identifier}")
-    return {"id": identifier, "command": command}
+    item = {"id": identifier, "command": command}
+    if note:
+        item['note'] = note
+    return item
 
 
 def render_advice(item: dict[str, str]) -> str:
-    return f"next[{item['id']}]: {item['command']}"
+    return (f"note: {item['note']}\n" if item.get('note') else '') + f"next[{item['id']}]: {item['command']}"
 
 
 def finding_codes(findings: list[Finding], *, include_info: bool = False) -> list[dict[str, str]]:

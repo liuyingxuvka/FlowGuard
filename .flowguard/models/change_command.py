@@ -99,7 +99,12 @@ def conformance():
             text=out.getvalue()
             valid=(code==0 if case in ('clean','stale') else code==1)
             if case in ('anchor','missing'):valid &= 'RAN: skipped' in text
-            elif case=='stale':valid &= 'next[confirm]: python -m flowguard map confirm' in text
+            elif case=='stale':
+                import shlex
+                line = next((line for line in text.splitlines() if line.startswith('next[confirm]: ')), '')
+                command = shlex.split(line.partition(': ')[2])
+                valid &= (command[:5] == ['python', '-m', 'flowguard', 'map', 'confirm']
+                          and '--root' in command and command[command.index('--root') + 1] == str(root.resolve()))
             elif case=='failing_test':valid &= 'RAN FAIL' in text
             facts.append(Fact(case,bool(valid),text))
     return CodeFactsReport(tuple(facts))

@@ -37,7 +37,8 @@ def test_target_start_add_drop_and_read_line(tmp_path, capsys):
     code, output, errors = _run(root, capsys, "target", "start", "holds")
     assert code == 0 and not errors
     assert 'target started: "holds"' in output
-    assert "next[add]: python -m flowguard target add" in output
+    assert 'run target add <component-or-model-id>' in output
+    assert 'next[add]: python -m flowguard read --target --root ' in output
     directory = root / ".flowguard/target"
     target_path = directory / "map.json"
     assert target_path.is_file() and (directory / "models").is_dir()

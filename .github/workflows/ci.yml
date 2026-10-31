@@ -66,7 +66,7 @@ jobs:
       - name: Core path and packaging smoke on the other platforms
         if: ${{ !matrix.full }}
         run: >-
-          python -m pytest -q
+          python -m pytest -q --durations=15
           tests/test_anchor_watch.py
           tests/test_change_selection.py
           tests/test_cli.py

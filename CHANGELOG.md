@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Make next-step guidance executable from any directory with absolute project paths, while keeping manual repair and model-binding instructions in separate notes; requests without a map first point to the real map scan command.
+
 - Keep checked plan lines, model rule fingerprints and their owner or reason in immutable promotion records; print the real commit-message command. Successful releases without Git preserve original-byte and release-boundary facts so deleting disposable cache does not erase protection or request history.
 
 - Keep original request and change-record byte protection when a plain folder is initialized as a Git worktree; deleted requests remain discoverable and their IDs cannot be reused.

@@ -12,6 +12,7 @@ class State:
     case: str = ''
     winner: str = ''
     complete: bool = True
+    advice_ready: bool = True
 
 class Rank:
     name = 'DefinedSymbols'
@@ -32,7 +33,7 @@ EXPECTED_LOCATIONS = {'owned': 'owner', 'reached': 'none', 'unowned': 'none', 'b
 class Locate:
     name = 'Locate'
     reads = ()
-    writes = ('case', 'winner', 'complete')
+    writes = ('case', 'winner', 'complete', 'advice_ready')
 
     def __init__(self, defect=''):
         self.defect = defect
@@ -46,8 +47,8 @@ class Locate:
         if self.defect == 'test_location_unknown_symbol' and event in ('bound', 'unbound', 'file'):
             winner = 'unknown'
         complete = False if self.defect == 'find_view_cuts_lines' else True
-        return (FunctionResult(event, State(event, winner, complete)),)
-BASE_RULES = (Invariant('locate_prefers_owner', 'ownership wins over a deeper reacher', lambda s, t: s.case not in ('owned', 'reached', 'unowned') or s.winner == EXPECTED_LOCATIONS[s.case]), Invariant('test_location_shows_models_and_code', 'test locations show bindings, calls and owning code', lambda s, t: s.case not in ('bound', 'unbound', 'file') or s.winner == EXPECTED_LOCATIONS[s.case]), Invariant('find_view_uncut', 'each find view prints every line it built, whole', lambda s, t: s.case not in LOCATIONS or s.complete), Invariant('find_ranks_duty_owner_first', 'an incidental single-word symbol cannot outrank the whole requested duty', lambda s, t: InvariantResult.fail('incidental symbol won') if s.case == 'duty' and s.winner != 'duty' else InvariantResult.pass_()), Invariant('find_exact_symbol_first', 'a whole symbol query ranks its actual definition first', lambda s, t: InvariantResult.fail('exact symbol lost') if s.case == 'exact' and s.winner != 'duty' else InvariantResult.pass_()))
+        return (FunctionResult(event, State(event, winner, complete, self.defect != 'location_advice_is_relative')),)
+BASE_RULES = (Invariant('locate_prefers_owner', 'ownership wins over a deeper reacher', lambda s, t: s.case not in ('owned', 'reached', 'unowned') or s.winner == EXPECTED_LOCATIONS[s.case] and s.advice_ready), Invariant('test_location_shows_models_and_code', 'test locations show bindings, calls and owning code', lambda s, t: s.case not in ('bound', 'unbound', 'file') or s.winner == EXPECTED_LOCATIONS[s.case] and s.advice_ready), Invariant('find_view_uncut', 'each find view prints every line it built, whole', lambda s, t: s.case not in LOCATIONS or s.complete), Invariant('find_ranks_duty_owner_first', 'an incidental single-word symbol cannot outrank the whole requested duty', lambda s, t: InvariantResult.fail('incidental symbol won') if s.case == 'duty' and s.winner != 'duty' else InvariantResult.pass_()), Invariant('find_exact_symbol_first', 'a whole symbol query ranks its actual definition first', lambda s, t: InvariantResult.fail('exact symbol lost') if s.case == 'exact' and s.winner != 'duty' else InvariantResult.pass_()))
 
 def _native_explorer(defect=''):
     return Explorer(Workflow((Rank(defect), Locate(defect))), (State(),), tuple(QUERIES) + tuple(LOCATIONS), invariants=BASE_RULES, max_sequence_length=1, progress_steps=0)
@@ -56,7 +57,7 @@ def base_build():
     return _native_explorer()
 
 def base_variants():
-    return {name: _native_explorer(name) for name in ('bonus_per_query_word', 'ignores_exact_symbol', 'deepest_reacher_first', 'test_location_unknown_symbol', 'find_view_cuts_lines')}
+    return {name: _native_explorer(name) for name in ('bonus_per_query_word', 'ignores_exact_symbol', 'deepest_reacher_first', 'test_location_unknown_symbol', 'find_view_cuts_lines', 'location_advice_is_relative')}
 
 def make_fixture(root):
     from flowguard.map.inventory import build_inventory
@@ -78,8 +79,8 @@ def base_conformance():
         fixture(project)
         for case in LOCATIONS:
             status, text = observe(project, case)
-            correct = status == 1 and text.startswith('no symbol') if case == 'unknown' else status == 0 and text.startswith('locate ') and ('model owner (owned: Run)' in text) if case == 'owned' else status == 0 and text.startswith('no model owns') if case in ('reached', 'unowned') else status == 0 and 'bound to: owner (rule safe)' in text and ('api.py:owned' in text) if case == 'bound' else status == 0 and 'bound to: none (unbound; position app)' in text and ("next[bind]: bind it in owner's TESTED_BY" in text) if case == 'unbound' else status == 0 and 'bound: owner 1; unbound 2' in text
-            facts.append(Fact('locate_' + case, correct, text))
+            correct = status == 1 and text.startswith('no symbol') if case == 'unknown' else status == 0 and text.startswith('locate ') and ('model owner (owned: Run)' in text) if case == 'owned' else status == 0 and text.startswith('no model owns') if case in ('reached', 'unowned') else status == 0 and 'bound to: owner (rule safe)' in text and ('api.py:owned' in text) if case == 'bound' else status == 0 and 'bound to: none (unbound; position app)' in text and ("TESTED_BY" in text) if case == 'unbound' else status == 0 and 'bound: owner 1; unbound 2' in text
+            facts.append(Fact('locate_' + case, correct and _portable_locate_advice(project, case, text), text))
         return CodeFactsReport(tuple(facts))
 
 from _read_fixture import ReadCase, JointState, Bridge, legacy_cases, legacy_conformance, _abstract
@@ -92,7 +93,7 @@ USES = {
     'Main': 'flowguard/__main__.py:main',
     'RenderShow': 'flowguard/map/views.py:render_show',
 }
-TESTED_BY = {'locate_prefers_owner': ['tests/test_read_find.py:test_locate_prefers_the_owner_over_a_deeper_reacher'], 'test_location_shows_models_and_code': ['tests/test_read_find.py:test_locate_bound_test_shows_model_rule_and_code'], 'find_view_uncut': ['tests/test_read_find.py:test_locate_output_is_complete'], 'find_ranks_duty_owner_first': ['tests/test_read_find.py:test_find_bonus_needs_the_joined_query'], 'find_exact_symbol_first': ['tests/test_read_find.py:test_find_ranks_the_component_that_defines_an_exact_symbol_first', 'tests/test_read_find.py:test_word_locate_names_the_symbol_owner'], 'find_matches_word_forms': ['tests/test_read_find.py:test_find_matches_word_forms'], 'find_view_imports_no_model': ['tests/test_read_command.py:test_find_view_imports_no_model']}
+TESTED_BY = {'locate_prefers_owner': ['tests/test_read_find.py:test_locate_prefers_the_owner_over_a_deeper_reacher'], 'test_location_shows_models_and_code': ['tests/test_read_find.py:test_locate_bound_test_shows_model_rule_and_code', 'tests/test_advice.py:test_find_location_preserves_binding_help_and_portable_next'], 'find_view_uncut': ['tests/test_read_find.py:test_locate_output_is_complete'], 'find_ranks_duty_owner_first': ['tests/test_read_find.py:test_find_bonus_needs_the_joined_query'], 'find_exact_symbol_first': ['tests/test_read_find.py:test_find_ranks_the_component_that_defines_an_exact_symbol_first', 'tests/test_read_find.py:test_word_locate_names_the_symbol_owner'], 'find_matches_word_forms': ['tests/test_read_find.py:test_find_matches_word_forms'], 'find_view_imports_no_model': ['tests/test_read_command.py:test_find_view_imports_no_model']}
 MOVED_RULES=(
 Invariant('find_matches_word_forms', 'a query word matches a duty word that differs only by a common ending', lambda state, trace: _word_forms(state)),
 )
@@ -146,7 +147,7 @@ def conformance():
 OUTPUTS = {'found': ('owners', 'no_owner', 'location', 'no_symbol', 'test')}
 
 def broken_variants():
-    return {'bonus_per_query_word':_explorer('bonus_per_query_word'), 'ignores_exact_symbol':_explorer('ignores_exact_symbol'), 'deepest_reacher_first':_explorer('deepest_reacher_first'), 'test_location_unknown_symbol':_explorer('test_location_unknown_symbol'), 'find_view_cuts_lines':_explorer('find_view_cuts_lines'), 'exact_words_only':_explorer('exact_words_only'), 'find_view_imports_a_model':_explorer('find_view_imports_a_model')}
+    return {'bonus_per_query_word':_explorer('bonus_per_query_word'), 'ignores_exact_symbol':_explorer('ignores_exact_symbol'), 'deepest_reacher_first':_explorer('deepest_reacher_first'), 'test_location_unknown_symbol':_explorer('test_location_unknown_symbol'), 'find_view_cuts_lines':_explorer('find_view_cuts_lines'), 'exact_words_only':_explorer('exact_words_only'), 'find_view_imports_a_model':_explorer('find_view_imports_a_model'), 'location_advice_is_relative':_explorer('location_advice_is_relative')}
 
 from _read_fixture import complete_view_facts
 _previous_conformance = conformance
@@ -171,3 +172,28 @@ def conformance():
         code, text = call(root, '--find', 'promote', 'target')
         facts.append(Fact('words_name_symbol_owner', code == 0 and text.rstrip().endswith('locate: z_promotion'), text))
     return CodeFactsReport(tuple(facts))
+
+
+def _portable_locate_advice(root, case, text):
+    from contextlib import redirect_stderr
+    from io import StringIO
+    import shlex
+    from flowguard.__main__ import _verb_parser
+    commands = [line.partition(': ')[2] for line in text.splitlines() if line.startswith('next[')]
+    if case in ('owned', 'reached', 'unowned', 'unbound') and not commands:
+        return False
+    for command in commands:
+        try:
+            words = shlex.split(command)
+        except ValueError:
+            return False
+        if words[:4] != ['python', '-m', 'flowguard', 'read'] or '--component' not in words:
+            return False
+        try:
+            with redirect_stderr(StringIO()):
+                args = _verb_parser('read').parse_args(words[4:])
+            if args.root != str(root.resolve()) or args.component != 'app':
+                return False
+        except SystemExit:
+            return False
+    return True
