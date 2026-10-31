@@ -482,7 +482,7 @@ def cmd_verify(root: Path, a) -> int:
         debts = data.get("accepted_debts", [])
         print(f"accepted debts: {len(debts)} (python -m flowguard map lint --debts)")
     registry = model_registry(root, data)
-    results = run_models(root, [], tests=True, jobs=getattr(a, "jobs", DEFAULT_JOBS))
+    results = run_models(root, [], tests=True, inv=inv, jobs=getattr(a, "jobs", DEFAULT_JOBS))
     if results and not as_json:
         print(render_results(results))
     for result in results:

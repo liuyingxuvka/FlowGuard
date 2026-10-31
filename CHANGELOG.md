@@ -22,6 +22,7 @@
 - Lint defers sequence-size debts to model execution instead of falsely calling them unused; models and release warn when an observed size debt no longer suppresses any finding.
 - Model and bound-test subprocesses import the project's own packages first (the project root, import_roots and src/) and see FlowGuard's package without its repository root.
 - Literal spelling hints state that no producer was found among statically recognized literal sites and ask readers to check indirect producers too.
+- Release checks reuse the project inventory when verifying models instead of building it again.
 
 ## v0.70.14 - 2026-10-28 - Ports reach consumers, phase-aware checks and a complete read
 

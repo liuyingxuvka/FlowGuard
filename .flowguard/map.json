@@ -79,7 +79,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch actual public commands and preserve diagnostic meaning while next guidance names executable, absolute owner-scoped commands; release facts and static recovery retain their existing boundaries.",
+      "summary": "Dispatch actual public commands and preserve diagnostic meaning while next guidance names executable, absolute owner-scoped commands; release facts and static recovery retain their existing boundaries. Reuse the command inventory when verifying release models.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
         "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
@@ -140,7 +140,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:728fbe4f17b42e6af7c9cfb6b5d30b254a42d94fc546f23a548bb4d3de76f277"
+      "fingerprint": "sha256:e838870d5516ba86c6bc2793acf239fcdeed9aab26d375f8b5cb82679d82151b"
     },
     {
       "id": "public-api",
