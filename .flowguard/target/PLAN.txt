@@ -1,0 +1,35 @@
+# FG-621: real init/pins/derive and the first native construction/call/snapshot/restoration slice.
+# R11 is partial. Follow rev4 and the effective pilot1a-architecture section 0; never the retired read --skeleton route.
+# Reuse inventory.build_inventory/syntax_tree, discover.discover_inventory and its call/write edges.
+# The shared syntax_tree still contains constructor-only fields and dataclass defaults that discover's lifecycle view omits.
+# Interpret those existing AST nodes in skeleton.py; do not add another source index/parser/cache or change old discovery state semantics.
+# Reuse runner.run_isolated_process and common.child_import_path without editing their owners or reviving legacy runtime objects.
+# Minimal derived objects: Skeleton with source locators/unknowns; reproducible Start and Call recipes;
+# Snapshot with independent instance graph/defaults/arena files; step observations with success/refusal/crash and before/after.
+# Keep dict/list insertion order, actual hidden fields, aliases and cycles; no id()/repr addresses as persistent identity.
+# Preserve file names/bytes/existence/listings and reconstruct relative inputs inside each child arena; only its root prefix is normalized.
+# Persistence is an actual public save/load round trip, not the complete snapshot oracle; projected helpers.snapshot is insufficient.
+# First restore implementation is fresh construction plus the public prefix and full snapshot equality, without private assignments.
+# Shipped defaults come from the actual selected default constructor, including unannotated None -> package dataclass construction.
+# init --root prints the actual F9 sections, unknown front doors and glossary draft and writes source pins only after valid derivation.
+# Preserve user corrections; refuse config_in_skeleton/skeleton_removes_goal, ambiguous roots and unsupported values explicitly.
+# No AGENTS/CLAUDE/rule-test/function directory/plugin line is generated. No guessed or empty successful init.
+# Only init joins the public pilot verbs. Internal worker dispatch stays private; no audit/check/where/why/reproduce/jobs/exploration yet.
+# Extend existing test_entry.py for real init and retained Python 3.11 rejection/lightweight imports; guards never skip.
+# test_skeleton.py retains the original four named skeleton/correction tests plus finite source/default/pin/fallback controls.
+# test_project.py checks full graph fields/order/aliases/cycles, files, refusal snapshots and uninterrupted-vs-restored continuations.
+# Small portable fixtures stay in tests/behave; existing public storage roundtrip/continued/re-save paths supply the real application slice.
+# Behavioral tests require Python 3.12+ and run fully on 3.13; any 3.11 skips remain an explicit unsupported scope, not evidence of behavior.
+# Modules remain 3.11-parseable, so no collect-ignore mechanism is needed. Existing entry/guard tests remain applicable there.
+# A trial_r11_hist source is not the formal corrected control. Formal r11_hist evidence stays pending until the actual material exists.
+# No formal gate, independent-rule claim or negative reachability proof is part of this item.
+touch: flowguard/behave/skeleton.py:derive because "Generate the skeleton from existing shared source facts rather than a second model program"
+touch: flowguard/behave/skeleton.py:read_corrections because "Reject configuration and generated-goal removal while preserving valid corrections"
+touch: flowguard/behave/skeleton.py:write_pins because "Persist real selected source locators without manufacturing model or instruction files"
+touch: flowguard/behave/project.py:construct because "Create shipped program objects only inside a fresh isolated arena"
+touch: flowguard/behave/project.py:call because "Execute public actions and retain their real outcomes and complete before/after observations"
+touch: flowguard/behave/project.py:snapshot because "Observe the complete supported graph and files independently of save serialization"
+touch: flowguard/behave/project.py:restore because "Reconstruct through public prefixes and verify complete restored observations"
+touch: flowguard/behave/project.py:replay because "Use the existing runner and import path for one reproducible native trace"
+touch: flowguard/behave/__main__.py:build_parser because "Advertise only the implemented init command"
+touch: flowguard/behave/__main__.py:main because "Initialize the real skeleton and pins after the supported-interpreter check"
