@@ -54,12 +54,16 @@
     {
       "id": "tooling",
       "layer": "examples",
-      "summary": "Installs or checks the packaged skill and verifies portable public vocabulary. Repository helper scripts use a namespace so project script modules remain importable in child runs.",
+      "summary": "Install and check the packaged skill, preserve portable public vocabulary, and own CI interpreter coverage and its repository instructions.",
       "responsibilities": [
-        "install the packaged skill into a skills directory, or check an installed copy"
+        "install the packaged skill into a skills directory, or check an installed copy",
+        "run the complete pilot tests on Ubuntu Python 3.13 while retaining the complete legacy release on Ubuntu Python 3.11 and existing Windows smoke scope",
+        "document actual CI coverage in repository instructions without extending public product documentation"
       ],
       "files": [
-        "scripts/*.py"
+        "scripts/*.py",
+        ".github/workflows/ci.yml",
+        "AGENTS.md"
       ],
       "entrypoints": [],
       "state": [],
@@ -74,7 +78,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:bd9ee81ef55af8e1cee4d81c86ae765a17c6de3a4f969a4ac6de869a1826b753"
+      "fingerprint": "sha256:5e1eb702ad7037122f1e9b73dabaa3b932e47b6a4166930ed841b4ed3d1ebcb7"
     },
     {
       "id": "cli",
@@ -872,6 +876,30 @@
       ],
       "status": "confirmed",
       "fingerprint": "sha256:104e99820bcba27013815ae7253a186a32815a8700c7c592751dc51c5f2249dd"
+    },
+    {
+      "id": "behave",
+      "layer": "capabilities",
+      "summary": "Unreleased pilot bootstrap, available only as python -m flowguard.behave; keep package imports lightweight and reject pilot behavior below Python 3.12.",
+      "responsibilities": [
+        "provide standalone pilot help that lists only implemented verbs and reject unsupported Python interpreters before loading pilot behavior",
+        "keep the pilot absent from the public CLI, exports, skill and product documentation",
+        "guard pilot source against dependence on experiment-specific application names"
+      ],
+      "files": [
+        "flowguard/behave/*.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [],
+      "tests": [
+        "tests/behave/test_entry.py",
+        "tests/behave/test_pilot_guards.py"
+      ],
+      "models": [],
+      "status": "confirmed",
+      "fingerprint": "sha256:b10cb5effd1262e3f67debd9cdd9f88e468dba477a6d2c2cf59974a7a7080a0f"
     }
   ],
   "flows": [

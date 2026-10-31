@@ -1,0 +1,44 @@
+{
+  "kind": "change",
+  "goal": "FG-620: Add the isolated pilot bootstrap and Python boundary",
+  "requests": [
+    {
+      "id": "R11",
+      "part": true
+    }
+  ],
+  "base": "4bcba6bc486ab6de534c03cdb7b4733e81b32cbf",
+  "tree": "300635e76d40546467013c400db2f49107ea4fcd7dc91a921b595b631f1c9498",
+  "promoted": "2026-10-31T09:50:21.976034+00:00",
+  "plan": [
+    {
+      "line": "touch: flowguard/behave/__main__.py:build_parser because \"Build only the implemented standalone pilot surface\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/__main__.py:main because \"Reject unsupported interpreters before any pilot behavior\"",
+      "added_after_code": null,
+      "cleared": []
+    }
+  ],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/behave/__main__.py:build_parser",
+    "flowguard/behave/__main__.py:main",
+    "tests/behave/test_entry.py:test_empty_invocation_prints_help",
+    "tests/behave/test_entry.py:test_help_is_available_without_behavior_commands",
+    "tests/behave/test_entry.py:test_package_import_does_not_load_engine_modules",
+    "tests/behave/test_entry.py:test_python311_refuses_behavior_before_dispatch",
+    "tests/behave/test_entry.py:test_unimplemented_verb_never_reports_success",
+    "tests/behave/test_pilot_guards.py:test_pilot_has_no_subject_names",
+    "tests/behave/test_pilot_guards.py:test_pilot_not_documented",
+    "tests/behave/test_pilot_guards.py:test_pilot_not_exported",
+    "tests/behave/test_pilot_guards.py:test_pilot_not_in_verbs"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty."
+}

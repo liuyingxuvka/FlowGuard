@@ -144,6 +144,10 @@ jobs:
               [sys.executable, "-m", "pytest", "-q", "--durations=15", *selected]
           ).returncode)
 
+      - name: Complete pilot tests on Ubuntu Python 3.13
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        run: python -m pytest -q tests/behave
+
       - name: Copy the skill and check installed files
         if: matrix.group == 0
         shell: bash
