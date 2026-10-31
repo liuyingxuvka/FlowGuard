@@ -881,7 +881,7 @@
     {
       "id": "behave",
       "layer": "capabilities",
-      "summary": "Unreleased code-derived worlds with reach, stuck, saved-file, agreement, setting, crash and declaration-free change checks, shared native execution and fresh evidence; enter only through python -m flowguard.behave.",
+      "summary": "Unreleased code-derived bounded audit and exact-base comparison with native replay, source coverage, saved and test starts, and concise current-tree evidence; enter only through python -m flowguard.behave.",
       "responsibilities": [
         "provide standalone pilot help that lists only implemented verbs and reject unsupported Python interpreters before loading pilot behavior",
         "keep the pilot absent from the public CLI, exports, skill and product documentation",
@@ -923,7 +923,13 @@
         "record actual per-call categorical and entity-value transitions from complete native observations and confirm NEW or LOST transitions on the other version by replaying their concrete public witnesses; if a witness action is absent use a bounded directed search from equal before-values, leaving every unconfirmed transition as coverage only",
         "bind actual statement reach to the shared source AST and real native monitoring receipts; report still-present statements as DEAD CODE only after an old execution witness, failed current replay and complete bounded current reach checks, with exact source function, statement count and an example; ambiguous source positions or incomplete reach stay coverage rather than dead code",
         "freshly prove each declaration-free change item and its two source identities before printing, retain semantic ids and current-tree why recipes, show world construction failures honestly, and retain the unfinished overall audit protocol for its own implementation step",
-        "include working-tree provided JSON saved-file fixtures separately from committed HEAD fixtures using the existing metadata exclusions and actual old-version public-loader acceptance; record the real input path, exact bytes and hash, untracked origin and old source footprint without inventing a public-save recipe or changing the material Git state"
+        "include working-tree provided JSON saved-file fixtures separately from committed HEAD fixtures using the existing metadata exclusions and actual old-version public-loader acceptance; record the real input path, exact bytes and hash, untracked origin and old source footprint without inventing a public-save recipe or changing the material Git state",
+        "combine ordinary shipped audit checks and saved-file starts with optional exact-base comparison instead of replacing ordinary checks; preserve actual source identities, requested bounds and unjudged scope",
+        "probe identical eligible shipped-test prefixes for predictor agreement and crash or refusal changes once under their own complete execution footprint; reuse only content-bound facts and keep each candidate fresh proof and each world-specific check",
+        "explore eligible public test starts only in a separate audit-side run with its own corpus, budget, candidates and UI pool and retain its test-start origin without clearing shipped absence findings",
+        "derive audit coverage from actual source function and line identities, report least-covered modules and changed lines that ran or did not run, and retain unrecognised entries and incomplete checks",
+        "render audit evidence with BLOCKED CLEAR UNCHECKED or unfinished-job RUNNING from one payload; finished audits exit zero, usage errors exit two, capped or incomplete work never becomes CLEAR, and JSON is one line",
+        "explain and freshly reprove audit findings on demand against the current source with actual deciding outcomes; expose coverage and proof failures without treating stored recipes as current verdicts"
       ],
       "files": [
         "flowguard/behave/*.py",
@@ -953,11 +959,13 @@
         "tests/behave/test_gc2_offered.py",
         "tests/behave/test_gc5_settings.py",
         "tests/behave/test_gc6_crash.py",
-        "tests/behave/test_gc8_diff.py"
+        "tests/behave/test_gc8_diff.py",
+        "tests/behave/test_audit_command.py",
+        "tests/behave/test_audit_output.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:430819c087d4127b8317eb4f66b153e8fab4f364ab200153a55557dd7bd0195a"
+      "fingerprint": "sha256:8ae3b7fac00e1eebdf0bf6207964027e41de73adb76d8bed4a1e8980c44e481d"
     }
   ],
   "flows": [

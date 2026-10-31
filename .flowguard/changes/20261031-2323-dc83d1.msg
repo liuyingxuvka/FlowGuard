@@ -1,0 +1,16 @@
+FG-628: The complete audit command
+
+This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty.
+
+owner block (paste it unchanged into your final message):
+- touch: flowguard/behave/engine.py:audit because "Combine ordinary native checks with optional base comparison, share repeated test probes and retain separate test-start evidence with actual source coverage and timing"
+- touch: flowguard/behave/engine.py:audit_scope because "Compute actual source module and changed-line coverage from the current Git input and real native execution receipts without generating a verdict cache"
+- touch: flowguard/behave/project.py:_run_session because "Probe shared eligible test prefixes once in their native session and run independent test-start exploration through the existing session"
+- touch: flowguard/behave/explore.py:explore because "Accept a separate initial public-prefix corpus for audit-side test starts while preserving the original fresh corpus and finite budgets"
+- touch: flowguard/behave/diffcmd.py:compare because "Reuse exact matching current audit facts for base comparison without losing old-side execution and fresh opposite proofs"
+- touch: flowguard/behave/report.py:render because "Produce the revision-four audit verdict and bounded coverage payload, ordered evidence and per-world timing in text or one JSON line"
+- touch: flowguard/behave/__main__.py:build_parser because "Expose implemented audit coverage and proof explanation forms and validate finite positive budget usage"
+- touch: flowguard/behave/__main__.py:main because "Keep completed audits at exit zero, syntax and usage errors at two, and render why outcomes through the shared evidence owners"
+- touch: flowguard/behave/why.py:why because "Return the real current proof recipe and deciding outcomes and provide current matching audit coverage or defect evidence on demand"
+- touch: flowguard/behave/project.py:_ObservedState.profile because "Attribute filesystem metadata to an application only before the observer own snapshot boundary, preserving real application stat invalidation while allowing complete test-recording input facts"
+- touch: flowguard/behave/testrec.py:record because "Bind ordinary pytest collection to the selected project root so worker temporary directories do not become collection scope or unstable inputs, while retaining real test calls and all consumed input footprints"

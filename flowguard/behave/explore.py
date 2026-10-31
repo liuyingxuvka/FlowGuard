@@ -268,21 +268,31 @@ def _extent(strategy, *, depth=None, node_cap=None, alphabet_cap=None):
             "domain_truncated": False, "reason": "not started"}
 
 
-def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, domains=None, goal=None):
+def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, domains=None, goal=None, initial_states=()):
     if min(steps, node_cap, alphabet_cap) < 1:
         raise UnsupportedWorld("exploration budgets must be positive")
     rng = random.Random(seed)
     extent = _extent("coverage-guided", node_cap=node_cap, alphabet_cap=alphabet_cap)
     extent.update(seed=seed, successful_step_budget=steps, successful=0)
     witnesses, features, visits, events, concrete, traces, failures = {}, set(), {}, [], [], [], []
-    corpus = [list(session.prefix)]
+    corpus = [{"prefix": list(row["prefix"]), "test": row["test"]} for row in initial_states]
+    origin = None
+    if corpus:
+        chosen = rng.choice(corpus)
+        session.reset(chosen["prefix"])
+        origin = chosen["test"]
+    else:
+        corpus = [{"prefix": list(session.prefix), "test": None}]
     states = set()
     while extent["successful"] < steps and extent["attempted"] < node_cap:
         if extent["attempted"] and extent["attempted"] % 16 == 0:
-            traces.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "origin": "fresh"})
-            session.reset(rng.choice(corpus))
+            traces.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "origin": "test-start: " + origin if origin else "fresh"})
+            chosen = rng.choice(corpus)
+            session.reset(chosen["prefix"])
+            origin = chosen["test"]
         _ensure_ui(session)
-        concrete.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "observations": observations(session)})
+        concrete.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "observations": observations(session),
+                         **({"test": origin, "origin": "test-start: " + origin} if origin else {})})
         for term in _terms(session):
             key = json.dumps(term, sort_keys=True)
             if key not in witnesses:
@@ -320,7 +330,7 @@ def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, doma
         feature = (recipe.get("receiver", "system"), recipe["name"], row["outcome"])
         if feature not in features:
             features.add(feature)
-            corpus.append(list(session.prefix))
+            corpus.append({"prefix": list(session.prefix), "test": origin})
         term = {"kind": "action", "receiver": recipe.get("receiver", "system"), "name": recipe["name"], "outcome": row["outcome"]}
         witnesses.setdefault(json.dumps(term, sort_keys=True), {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
         for identifier in row.get("hit_statements", []):
@@ -334,7 +344,7 @@ def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, doma
         witnesses.setdefault(key, {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
     if goal is not None and evaluate(session, goal):
         witnesses.setdefault(json.dumps(goal, sort_keys=True), {"semantic": goal, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
-    traces.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "origin": "fresh"})
+    traces.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "origin": "test-start: " + origin if origin else "fresh"})
     extent["visited"] = len(states)
     extent["capped"] = extent["attempted"] >= node_cap and extent["successful"] < steps
     if extent["reason"] == "not started":

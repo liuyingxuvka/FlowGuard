@@ -6,6 +6,8 @@ import sys
 # Keep bootstrap and isolation guards collected on every supported product interpreter.
 # List only the behavior files: a new guard remains collected unless explicitly classified.
 collect_ignore = [
+    "test_audit_command.py",
+    "test_audit_output.py",
     "test_explore.py",
     "test_footprint.py",
     "test_gc1_reach.py",

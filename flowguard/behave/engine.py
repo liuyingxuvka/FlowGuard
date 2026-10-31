@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 from flowguard.map.common import atomic_write_text, normalize_newlines
 
@@ -62,16 +63,33 @@ def _cached(path, identity):
     return None
 
 
-def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_cap=1000, use_cache=True, starts=None, base=None):
+def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_cap=None, use_cache=True, starts=None, base=None):
     """Explore actual worlds; missing check implementations remain explicit on every call."""
-    if base is not None:
-        from .diffcmd import compare
-        return compare(root, base, worlds=worlds, seeds=seeds, steps=steps, node_cap=node_cap,
-                       alphabet_cap=alphabet_cap, use_cache=use_cache)
+    tick = time.monotonic()
     spec = derive(root)
     identity = content_identity(spec)
     directory = cache_root(root)
-    runs, errors = [], []
+    runs, errors, engine_defects, contexts, extra_facts = [], [], [], [], []
+    for world in worlds or ("default", "small", "crowded"):
+        if world not in spec["worlds"]:
+            raise ValueError("unknown world: " + world)
+        correction = spec.get("budgets", {}).get(world, {})
+        if set(correction) - {"seeds", "steps", "node_cap", "alphabet_cap"}:
+            raise ValueError("unknown budget field for world " + world)
+        bounds = {name: explicit if explicit is not None else correction.get(name, default)
+                  for name, explicit, default in (("steps", steps, 64), ("node_cap", node_cap, 1000), ("alphabet_cap", alphabet_cap, 1000))}
+        if any(type(value) is not int or value < 1 for value in bounds.values()):
+            raise ValueError("exploration budgets must be positive integers for world " + world)
+        selected_seeds = seeds if seeds is not None else correction.get("seeds", (0, 1))
+        if not isinstance(selected_seeds, (tuple, list)) or not selected_seeds or any(type(seed) is not int for seed in selected_seeds):
+            raise ValueError("seeds must be a nonempty integer list for world " + world)
+        for seed in selected_seeds:
+            start = {"world": world, "seed": seed, **(starts or {}).get(world, {})}
+            if "settings" in start:
+                raise ValueError("audit explores shipped settings; variants cannot clear a shipped goal")
+            contexts.append({"start": start, "prefix": [], "bounds": bounds, "options": {"seed": seed, **bounds}})
+    common_bounds = dict(contexts[0]["bounds"])
+    selected_seeds = sorted({context["start"]["seed"] for context in contexts})
     known = []
     for path in sorted((directory / "witnesses").glob("*.json")):
         try:
@@ -100,7 +118,7 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
     if test_replay is None:
         if recordings["recordings"]:
             try:
-                test_replay = replay(spec, [], operation="witnesses", options={"recordings": recordings["recordings"]}, timeout=300)
+                test_replay = replay(spec, [], operation="witnesses", options={"recordings": recordings["recordings"], "probe_tests": recording_token is not None}, timeout=300)
                 if recording_token is not None and footprint_identity(test_replay["footprint"]):
                     atomic_write_text(replay_path, json.dumps({"identity": identity, "body": state_key(test_replay), "facts": test_replay}, ensure_ascii=False))
             except UnsupportedWorld as exc:
@@ -109,46 +127,61 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
             test_replay = {"witnesses": [], "prefixes": []}
     replay_footprint = footprint_identity(test_replay.get("footprint", {}))
     replay_token = state_key([recording_token, test_replay, replay_footprint]) if replay_footprint else state_key([recording_token, "no recorded public prefixes"]) if recording_token is not None and not recordings["recordings"] else None
-    for world in worlds or ("default", "small", "crowded"):
-        if world not in spec["worlds"]:
-            raise ValueError("unknown world: " + world)
-        for seed in seeds:
-            start = {"world": world, "seed": seed, **(starts or {}).get(world, {})}
-            if "settings" in start:
-                raise ValueError("audit explores shipped settings; variants cannot clear a shipped goal")
-            options = dict(seed=seed, steps=steps, node_cap=node_cap, alphabet_cap=alphabet_cap)
-            key = state_key({"identity": identity, "start": start, "options": options, "known": known,
-                             "recordings": recording_token, "test_replay": replay_token})
-            path = directory / (key + ".json")
-            facts = _cached(path, identity) if use_cache and recording_token is not None and replay_token is not None else None
-            reused = facts is not None
-            if facts is None:
-                try:
-                    facts = replay(spec, [], start, operation="audit", options={**options, "known": known, "test_replay": {key: value for key, value in test_replay.items() if key not in {"replays", "footprint", "execution"}}}, timeout=300)
-                except UnsupportedWorld as exc:
-                    errors.append({"world": world, "seed": seed, "reason": str(exc)})
-                    continue
-                if recording_token is not None and replay_token is not None and footprint_identity(facts["footprint"]):
-                    atomic_write_text(path, json.dumps({"identity": identity, "body": state_key(facts), "facts": facts}, ensure_ascii=False))
-            for witness in facts["witnesses"]:
-                witness["identity"] = identity
-                witness["footprint"] = facts["footprint"]
-            runs.append({"world": world, "seed": seed, "reused": reused, "facts": facts})
+    shared_test_probes = (recording_token is not None and replay_token is not None
+                          and (not recordings["recordings"] or all(name in test_replay for name in ("agreement", "crashes"))))
+    for context in contexts:
+        start, options = context["start"], context["options"]
+        world, seed = start["world"], start["seed"]
+        started = time.monotonic()
+        key = state_key({"identity": identity, "start": start, "options": options, "known": known,
+                         "recordings": recording_token, "test_replay": replay_token, "shared_test_probes": shared_test_probes})
+        path = directory / (key + ".json")
+        facts = _cached(path, identity) if use_cache and recording_token is not None and replay_token is not None else None
+        reused = facts is not None
+        if facts is None:
+            try:
+                facts = replay(spec, [], start, operation="audit", options={**options, "known": known, "shared_test_probes": shared_test_probes,
+                               "test_replay": {key: value for key, value in test_replay.items() if key not in {"replays", "footprint", "execution"}}}, timeout=300)
+            except UnsupportedWorld as exc:
+                errors.append({"world": world, "seed": seed, "reason": str(exc)})
+                continue
+            if recording_token is not None and replay_token is not None and footprint_identity(facts["footprint"]):
+                atomic_write_text(path, json.dumps({"identity": identity, "body": state_key(facts), "facts": facts}, ensure_ascii=False))
+        for witness in facts["witnesses"]:
+            witness["identity"] = identity
+            witness["footprint"] = facts["footprint"]
+        runs.append({"world": world, "seed": seed, "start": start, "options": options, "identity": identity,
+                     "reused": reused, "elapsed_seconds": time.monotonic() - started, "facts": facts})
+    test_starts = None
+    if test_replay.get("prefixes"):
+        test_key = state_key([identity, replay_token, common_bounds, selected_seeds[0]])
+        test_path = directory / ("test-starts-" + test_key + ".json")
+        test_starts = _cached(test_path, identity) if use_cache and replay_token is not None else None
+        if test_starts is None:
+            try:
+                test_starts = replay(spec, [], operation="test-start", options={"initial_states": test_replay["prefixes"],
+                                     "seed": selected_seeds[0], **common_bounds}, timeout=300)
+                if replay_token is not None and footprint_identity(test_starts["footprint"]):
+                    atomic_write_text(test_path, json.dumps({"identity": identity, "body": state_key(test_starts), "facts": test_starts}, ensure_ascii=False))
+            except UnsupportedWorld as exc:
+                errors.append({"world": "test-start", "seed": selected_seeds[0], "reason": str(exc)})
+        if test_starts:
+            extra_facts.append(test_starts)
     traces = [trace for run in runs for trace in run["facts"]["traces"]]
     traces.extend({**trace, "origin": "test"} for trace in test_replay.get("replays", []) if trace["eligible"])
     settings = {"candidates": [], "information": [], "unknown": [], "profiles": [], "traces": len(traces)}
     if spec.get("settings"):
-        settings_key = state_key({"identity": identity, "traces": traces, "test_replay": replay_token, "alphabet_cap": alphabet_cap})
+        settings_key = state_key({"identity": identity, "traces": traces, "test_replay": replay_token, "alphabet_cap": common_bounds["alphabet_cap"]})
         settings_path = directory / ("settings-" + settings_key + ".json")
         settings = _cached(settings_path, identity) if use_cache and replay_token is not None else None
         if settings is None:
             try:
-                settings = replay(spec, [], operation="settings", options={"traces": traces, "alphabet_cap": alphabet_cap}, timeout=300)
+                settings = replay(spec, [], operation="settings", options={"traces": traces, "alphabet_cap": common_bounds["alphabet_cap"]}, timeout=300)
                 if replay_token is not None and footprint_identity(settings["footprint"]):
                     atomic_write_text(settings_path, json.dumps({"identity": identity, "body": state_key(settings), "facts": settings}, ensure_ascii=False))
             except UnsupportedWorld as exc:
                 settings = {"candidates": [], "information": [], "profiles": [], "unknown": [{"check": "GC5", "reason": str(exc)}]}
-    saved = collect_saves(root, steps=steps, node_cap=node_cap, alphabet_cap=alphabet_cap)
+    saved = collect_saves(root, **common_bounds)
     saved_scope = {"sources": [{key: value for key, value in row.items() if key != "spec"} for row in saved["sources"]],
                    "files": [], "unknown": [{"check": "GC4", **row} for row in saved["unknown"]],
                    "fixture_loads": saved.get("fixture_loads", []), "current_identity": identity,
@@ -156,8 +189,8 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
                    "no_saved_files": saved["no_saved_files"]}
     saved_candidates = []
     saved_hits = set()
-    for seed in seeds if saved["saves"] else ():
-        options = dict(saves=saved["saves"], seed=seed, steps=steps, node_cap=node_cap, alphabet_cap=alphabet_cap)
+    for seed in selected_seeds if saved["saves"] else ():
+        options = dict(saves=saved["saves"], seed=seed, **common_bounds)
         key = state_key({"identity": identity, "saved_files": options})
         path = directory / ("saved-" + key + ".json")
         facts = _cached(path, identity) if use_cache else None
@@ -170,16 +203,22 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
             if footprint_identity(facts["footprint"]):
                 atomic_write_text(path, json.dumps({"identity": identity, "body": state_key(facts), "facts": facts}, ensure_ascii=False))
         saved_scope["files"].extend({**row, "seed": seed} for row in facts["files"])
+        extra_facts.append(facts)
         saved_scope["unknown"].extend(facts["unknown"])
         saved_hits.update(facts["execution"]["hit_functions"])
         saved_candidates.extend({**candidate, "identity": identity, "footprint": facts["footprint"]} for candidate in facts["candidates"])
     hits = saved_hits | set(settings.get("execution", {}).get("hit_functions", [])) | {name for run in runs for name in run["facts"]["execution"]["hit_functions"]}
     candidates = {}
-    for run in runs:
+    candidate_facts = [run["facts"] for run in runs]
+    if shared_test_probes:
+        candidate_facts.append(test_replay)
+    if test_starts:
+        candidate_facts.append(test_starts)
+    for facts in candidate_facts:
         for check in ("reach", "stuck", "agreement", "crashes"):
-            for candidate in run["facts"][check]["candidates"]:
+            for candidate in facts.get(check, {}).get("candidates", []):
                 key = state_key(candidate["semantic"])
-                candidate.update(identity=identity, footprint=run["facts"]["footprint"])
+                candidate.update(identity=identity, footprint=facts["footprint"])
                 candidates.setdefault(key, candidate)
     for candidate in saved_candidates:
         candidates.setdefault(state_key(candidate["semantic"]), candidate)
@@ -192,9 +231,12 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
         if proof["matched"]:
             items.append({**candidate, "id": proof["id"], "proof": proof})
         else:
-            errors.append({"world": candidate["start"].get("world", "test-public-prefix"), "seed": candidate["start"].get("seed"),
-                           "reason": proof.get("reason", proof["state"])})
-    return {"identity": identity, "runs": runs, "errors": errors,
+            row = {"world": candidate["start"].get("world", "test-public-prefix"), "seed": candidate["start"].get("seed"),
+                   "reason": proof.get("reason", proof["state"]), "state": proof["state"], "semantic": candidate["semantic"]}
+            from .report import item_id
+            row["id"] = proof.get("id", item_id(candidate["semantic"]))
+            (engine_defects if proof["state"] == "engine-defect" else errors).append(row)
+    result = {"identity": identity, "runs": runs, "errors": errors, "engine_defects": engine_defects,
             "missing_checks": ["GC" + str(number) for number in (7, 8, 9)],
             "coverage": {"hit_functions": sorted(hits), "known_functions": len(spec["source_functions"]),
                          "front_doors": spec["unknown"], "ui": "requested" if starts else "not requested"},
@@ -202,6 +244,93 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
             "settings": {key: value for key, value in settings.items() if key not in {"candidates", "footprint", "execution"}},
             "advice": spec.get("optional_argument_advice", []),
             "test_scope": {key: value for key, value in recordings.items() if key not in {"recordings", "footprint"}}}
+    result["test_probes"] = {"shared": shared_test_probes, **{name: {key: value for key, value in test_replay.get(name, {}).items() if key != "candidates"} for name in ("agreement", "crashes")}}
+    if test_replay.get("scope_error"):
+        result["test_probes"]["agreement"].setdefault("unknown", []).append({"check": "test-replay", "reason": test_replay["scope_error"]})
+    if recordings.get("scope_error"):
+        result["test_probes"]["agreement"].setdefault("unknown", []).append({"check": "test-recording", "reason": recordings["scope_error"]})
+    result["test_starts"] = {"runs": 1 if test_starts else 0, "budget": common_bounds,
+                             "extent": test_starts.get("extent") if test_starts else None,
+                             "unknown": [row for name in ("reach", "stuck", "agreement", "crashes") for row in (test_starts or {}).get(name, {}).get("unknown", [])]}
+    if base is not None:
+        from .diffcmd import compare
+        difference = compare(root, base, worlds=worlds, seeds=selected_seeds, **common_bounds,
+                             current_runs=runs, contexts=contexts, use_cache=use_cache)
+        result["diff"] = difference["diff"]
+        result["errors"].extend(difference["errors"])
+        result["items"].extend(difference["items"])
+        result["missing_checks"] = ["GC7", "GC9"]
+        extra_facts.extend(run["facts"] for run in difference["runs"])
+    current_facts = [run["facts"] for run in runs] + extra_facts
+    current_facts += [row for row in (recordings, test_replay, settings) if "footprint" in row]
+    current_facts += [item["proof"]["proof"] for item in result["items"] if "proof" in item.get("proof", {})]
+    result["coverage"] = {**result["coverage"], **audit_scope(root, spec, current_facts, base=base, elapsed=time.monotonic() - tick)}
+    result["inputs"] = {"contexts": contexts, "test_start_bounds": common_bounds, "base": base}
+    footprint = {"reusable": True, "files": {}, "directories": {}, "untracked": []}
+    for facts in current_facts:
+        actual = facts.get("footprint", {})
+        if not footprint_identity(actual):
+            footprint["reusable"] = False
+            footprint["untracked"].append("an audit child footprint is incomplete or changed")
+        for kind in ("files", "directories"):
+            for path, stamp in actual.get(kind, {}).items():
+                if path in footprint[kind] and footprint[kind][path] != stamp:
+                    footprint["reusable"] = False
+                    footprint["untracked"].append("audit child input identities disagree: " + path)
+                footprint[kind][path] = stamp
+    latest = {"identity": identity, "coverage": result["coverage"], "inputs": result["inputs"], "engine_defects": engine_defects,
+              "runs": [{key: value for key, value in run.items() if key != "facts"} | {"extent": run["facts"]["extent"]} for run in runs], "footprint": footprint}
+    atomic_write_text(directory / "latest-audit-facts.json", json.dumps({"identity": identity, "body": state_key(latest), "facts": latest}, ensure_ascii=False))
+    return result
+
+
+def audit_scope(root, spec, facts, *, base=None, elapsed=0):
+    """Source inventory denominators and real native hits, with Git change provenance."""
+    import re
+    root = Path(root).resolve()
+    known = set(spec["source_functions"])
+    hits = {name for row in facts for name in row.get("execution", {}).get("hit_functions", [])} & known
+    hit_lines = {tuple(line) for row in facts for line in row.get("execution", {}).get("hit_lines", [])}
+    modules = {}
+    for name in sorted(known):
+        path = name.partition("#")[0]
+        counts = modules.setdefault(path, [0, 0])
+        counts[0] += name in hits
+        counts[1] += 1
+    def git(*args):
+        return subprocess.run(["git", "-C", str(root), "-c", "core.quotePath=false", *args], capture_output=True, text=True)
+    head = git("rev-parse", "HEAD")
+    tree = head.stdout.strip() if head.returncode == 0 else "uncommitted"
+    changed, removed, unknown = set(), [], []
+    dirty = git("status", "--porcelain", "-z", "--untracked-files=all")
+    dirty_files = len([row for row in dirty.stdout.split("\0") if row and not row[3:].startswith((".flowguard/", ".git/"))]) if dirty.returncode == 0 else None
+    diff = git("diff", "--no-ext-diff", "--unified=0", str(base or "HEAD"), "--")
+    if diff.returncode == 0:
+        path = None
+        for line in diff.stdout.splitlines():
+            if line.startswith("+++ "):
+                path = line[6:] if line.startswith("+++ b/") else None
+            elif line.startswith("@@") and path in modules:
+                match = re.match(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", line)
+                if match:
+                    old, old_count, start, count = match.groups()
+                    count = int(count) if count is not None else 1
+                    changed.update((path, number) for number in range(int(start), int(start) + count))
+                    if not count:
+                        removed.append({"path": path, "base_line": int(old), "count": int(old_count or 1)})
+        tracked = git("ls-files", "-z")
+        tracked_names = set(tracked.stdout.split("\0")) if tracked.returncode == 0 else set()
+        for path in modules:
+            if path not in tracked_names:
+                changed.update((path, number) for number, _ in enumerate((root / path).read_text().splitlines(), 1))
+    else:
+        unknown.append("Git change lines unavailable: " + diff.stderr.strip())
+    return {"hit_functions": sorted(hits), "known_functions": len(known), "modules": modules,
+            "function_scope": "all non-test Python functions in the shared source inventory",
+            "hit_lines": [list(row) for row in sorted(hit_lines)], "changed_lines": [list(row) for row in sorted(changed)],
+            "unhit_lines": [list(row) for row in sorted(changed - hit_lines)], "removed_lines": removed,
+            "tree": tree, "dirty_files": dirty_files, "source_identity": content_identity(spec), "scope_base": str(base or "HEAD"),
+            "elapsed_seconds": elapsed, "scope_unknown": unknown}
 
 
 def prove(root, candidate, *, persist=True):

@@ -48,7 +48,7 @@ def _witness(facts, goal):
 
 
 def compare(root, base, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_cap=1000,
-            use_cache=True, depth=5, targets=None, checks=True, saved=True, provided_only=False, known=()):
+            use_cache=True, depth=5, targets=None, checks=True, saved=True, provided_only=False, known=(), current_runs=(), contexts=None):
     """Discover candidates from facts; only fresh two-sided proof makes an item."""
     from .engine import _cached, cache_root, collect_saves, content_identity, footprint_identity, old_releases
 
@@ -60,7 +60,8 @@ def compare(root, base, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, a
     old, current = source["spec"], derive(root)
     identity = content_identity(current)
     bounds = dict(steps=steps, depth=depth, node_cap=node_cap, alphabet_cap=alphabet_cap)
-    contexts = [{"start": {"world": world, "seed": seed}, "prefix": []}
+    default_bounds = dict(bounds)
+    contexts = list(contexts) if contexts is not None else [{"start": {"world": world, "seed": seed}, "prefix": []}
                 for world in worlds or ("default", "small", "crowded") for seed in seeds]
     unknown, transitions, runs, items, seen = [], [], [], [], set()
     if saved and current.get("persistence"):
@@ -79,6 +80,12 @@ def compare(root, base, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, a
         own = content_identity(spec)
         options = {key: bounds[key] for key in ("steps", "node_cap", "alphabet_cap")}
         options.update(seed=context["start"].get("seed", 0), checks=checks)
+        if spec is current and not context["prefix"]:
+            for run in current_runs:
+                requested = {key: value for key, value in options.items() if key != "checks"}
+                if (run.get("identity") == own and run.get("start") == context["start"] and run.get("options") == requested
+                        and footprint_identity(run["facts"].get("footprint", {}))):
+                    return run["facts"], True
         token = state_key([own, context["start"], context["prefix"], options])
         path = cache_root(root) / ("diff-facts-" + token + ".json")
         facts = _cached(path, own) if use_cache else None
@@ -86,7 +93,7 @@ def compare(root, base, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, a
             facts = replay(spec, context["prefix"], context["start"], operation="diff", options=options, timeout=300)
             if footprint_identity(facts["footprint"]):
                 atomic_write_text(path, json.dumps({"identity": own, "body": state_key(facts), "facts": facts}))
-        return facts
+        return facts, False
 
     def submit(kind, goal, context, before, after, witness=None, native_case=None, dead_code=None, statement_witnesses=None):
         semantic = {"check": "GC8", "kind": kind, "subject": goal}
@@ -119,8 +126,10 @@ def compare(root, base, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, a
 
     for context in contexts:
         try:
-            before, after = native(old, context), native(current, context)
-            runs.append({"world": context["start"].get("world", "saved-file"), "seed": context["start"].get("seed", 0), "reused": False, "facts": after})
+            bounds = {**default_bounds, **context.get("bounds", {})}
+            before, _ = native(old, context)
+            after, reused = native(current, context)
+            runs.append({"world": context["start"].get("world", "saved-file"), "seed": context["start"].get("seed", 0), "reused": reused, "facts": after})
             selected = targets if targets is not None else goals(old)
             for goal in selected:
                 if goal.get("kind") == "new_goal":

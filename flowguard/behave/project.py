@@ -294,8 +294,10 @@ class _ObservedState:
         if not direct:
             if not metadata:
                 return
-            ancestor = caller.f_back
+            ancestor = caller
             while ancestor is not None and not ancestor.f_code.co_filename.startswith(self.root):
+                if ancestor.f_code is snapshot.__code__:
+                    return  # Recording checkpoints read their own arena, not application metadata.
                 ancestor = ancestor.f_back
             if ancestor is None or (self.inputs is not None and self.inputs.busy):
                 return
@@ -1104,6 +1106,27 @@ def _run_session(request, arena, observed):
     elif operation == "witnesses":
         from .testrec import replay_prefixes
         response = replay_prefixes(session, options["recordings"])
+        if options.get("probe_tests"):
+            from .checks import crashes, offered
+            response["agreement"] = offered(session, {}, states=response["prefixes"])
+            response["crashes"] = crashes(session, {}, states=response["prefixes"], generate=False)
+    elif operation == "test-start":
+        from .checks import crashes, offered, stuck
+        options = dict(options)
+        initial_states = options.pop("initial_states")
+        response = explore(session, initial_states=initial_states, **options)
+        response["agreement"] = offered(session, response)
+        response["crashes"] = crashes(session, response, generate=False)
+        response["stuck"] = stuck(session, response, states=initial_states)
+        response["reach"] = {"candidates": [], "unknown": [], "scope": "global reach is judged by the shipped audit runs"}
+        for check in ("agreement", "crashes", "stuck"):
+            for candidate in response[check]["candidates"]:
+                actual = [row for row in response["states"] if row["prefix"] == candidate["prefix"]]
+                if not actual:
+                    actual = [row for row in initial_states if candidate["prefix"][:len(row["prefix"])] == row["prefix"]]
+                if actual:
+                    source = max(actual, key=lambda row: len(row["prefix"]))
+                    candidate["origin"] = "test-start: " + source["test"]
     elif operation == "audit":
         from .checks import crashes, offered, reach, stuck
         from .testrec import replay_prefixes
@@ -1112,9 +1135,10 @@ def _run_session(request, arena, observed):
         if recorded is None:
             recorded = replay_prefixes(session, options.pop("recordings", []))
         known = options.pop("known", [])
+        shared_test_probes = options.pop("shared_test_probes", False)
         response = explore(session, **options)
-        response["crashes"] = crashes(session, response, states=recorded["prefixes"])
-        response["agreement"] = offered(session, response, states=recorded["prefixes"])
+        response["crashes"] = crashes(session, response, states=() if shared_test_probes else recorded["prefixes"])
+        response["agreement"] = offered(session, response, states=() if shared_test_probes else recorded["prefixes"])
         response["test_replay"] = {key: value for key, value in recorded.items() if key not in {"prefixes", "witnesses", "replays", "footprint", "execution"}}
         response["reach"] = reach(session, response, known=known, witnessed=recorded["witnesses"], states=recorded["prefixes"])
         response["stuck"] = stuck(session, response, states=recorded["prefixes"])

@@ -282,7 +282,7 @@ def record(spec, arena):
     recorder.install()
     try:
         with redirect_stdout(output), redirect_stderr(error):
-            result = pytest.main(["-q", "--basetemp", str(Path(arena) / "pytest"), "-p", "no:cacheprovider", str(location)], plugins=[Plugin()])
+            result = pytest.main(["-q", "--rootdir", str(root), "--basetemp", str(Path(arena) / "pytest"), "-p", "no:cacheprovider", str(location)], plugins=[Plugin()])
     finally:
         recorder.restore()
     return {"recordings": recorder.rows, "pytest_exitcode": int(result),
