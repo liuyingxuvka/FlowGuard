@@ -7,6 +7,7 @@ import pytest
 
 from flowguard.behave import engine
 from flowguard.behave.engine import audit, content_identity
+from flowguard.behave.project import replay
 from flowguard.behave.skeleton import derive
 from .test_explore import program
 
@@ -53,3 +54,44 @@ def test_engine_source_identity_changes_without_version_bump(program, tmp_path, 
     before = content_identity(spec)
     path.write_text('__version__ = "0.71.0"\nVALUE = 2\n')
     assert content_identity(spec) != before
+
+
+def test_native_import_reads_current_source_despite_timestamp_bytecode(program):
+    import os
+    import py_compile
+
+    path = program / "program.py"
+    source = path.read_text().replace("        self._value = 0", "        self._value = VALUE") + "\nVALUE = 1\n"
+    path.write_text(source)
+    py_compile.compile(str(path), doraise=True)
+    metadata = path.stat()
+    path.write_text(source.replace("VALUE = 1", "VALUE = 2"))
+    os.utime(path, ns=(metadata.st_atime_ns, metadata.st_mtime_ns))
+    result = replay(derive(program), [{"name": "value", "args": ["U1"]}], {"world": "small"})
+    assert result["steps"][0]["value"]["root"] == 2
+
+
+def test_executed_external_path_exists_is_a_content_input(program):
+    path = program / "program.py"
+    flag = program.parent / (program.name + ".flag")
+    helper = program.parent / (program.name + "_helper.py")
+    helper.write_text("from pathlib import Path\ndef check(path): return Path(path).exists()\n")
+    loading = "from importlib.util import spec_from_file_location, module_from_spec\n_spec = spec_from_file_location('external_helper', " + repr(str(helper)) + ")\nhelper = module_from_spec(_spec)\n_spec.loader.exec_module(helper)\n"
+    path.write_text(loading + path.read_text().replace("        self._value = 0", "        self._value = 0\n        self._flag = helper.check(" + repr(str(flag)) + ")"))
+    spec = derive(program)
+    first = replay(spec, [])
+    assert engine.footprint_identity(first["footprint"])
+    flag.write_text("created after the first replay")
+    assert engine.footprint_identity(first["footprint"]) is None
+    second = replay(spec, [])
+    assert first["initial"] != second["initial"]
+
+
+def test_application_arena_listing_cannot_license_a_complete_proof(program):
+    path = program / "program.py"
+    source = path.read_text().replace("        self._value = 0", '        self._value = 0\n        Path("b").write_text("b")\n        Path("a").write_text("a")')
+    path.write_text(source + '\n    def first(self): return next(name for name in os.listdir(".") if name in ("a", "b"))\n')
+    first = replay(derive(program), [{"name": "first"}])
+    assert not first["footprint"]["reusable"]
+    result = engine.prove(program, {"semantic": {"kind": "query", "query": "first", "value": first["steps"][0]["value"]["root"]}, "prefix": []}, persist=False)
+    assert not result["matched"] and result["state"] == "unchecked"

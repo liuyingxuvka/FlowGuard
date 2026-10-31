@@ -309,7 +309,13 @@ def derive(root):
     for row in corrections:
         if set(row["kwargs"]) & (settings_values.keys() - {"why"}):
             raise SkeletonError(f"config_in_skeleton .flowguard/skeleton.py:{row['line']}: judge shipped settings")
-    ui_facts = {"options": [], "screens": [], "inputs": []}
+    entity_queries = {
+        name: {"parameter": rows[0]["name"], "entity": rows[0]["entity"]}
+        for name in queries if len(rows := parameters[name]) == 1 and rows[0].get("entity")
+    }
+    ui_facts = {"options": [], "screens": [], "inputs": [], "option_inputs": {}}
+    ui_constructor = None
+    ui_refusal = []
     if ui:
         ui_path, ui_class = classes[ui]
         globals_ = {item.targets[0].id: item.value for item in trees[ui_path].body if isinstance(item, ast.Assign) and isinstance(item.targets[0], ast.Name)}
@@ -343,7 +349,206 @@ def derive(root):
             value = item.slice if isinstance(item, ast.Subscript) and _name(item.value) == kw else item.args[0] if isinstance(item, ast.Call) and _name(item.func) == str(kw) + ".get" and item.args else None
             if isinstance(value, ast.Constant) and isinstance(value.value, str):
                 inputs.add(value.value)
-        ui_facts = {"options": sorted(options), "screens": sorted(screens), "inputs": sorted(inputs)}
+        option_inputs = {}
+        option_arg = choose.args.args[1].arg if len(choose.args.args) > 1 else None
+        for item in ast.walk(choose):
+            if not isinstance(item, ast.If) or not isinstance(item.test, ast.Compare):
+                continue
+            test = item.test
+            if len(test.ops) != 1 or not isinstance(test.left, ast.Name) or test.left.id != option_arg:
+                continue
+            value = test.comparators[0]
+            value = globals_.get(value.id, value) if isinstance(value, ast.Name) else value
+            try:
+                values = ast.literal_eval(value)
+            except (ValueError, TypeError):
+                continue
+            selected = [values] if isinstance(test.ops[0], ast.Eq) else list(values) if isinstance(test.ops[0], ast.In) and isinstance(values, (dict, list, tuple, set)) else []
+            fields = set()
+            for statement in item.body:
+                for expression in ast.walk(statement):
+                    key = expression.slice if isinstance(expression, ast.Subscript) and _name(expression.value) == kw else expression.args[0] if isinstance(expression, ast.Call) and _name(expression.func) == str(kw) + ".get" and expression.args else None
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                        fields.add(key.value)
+            for value in selected:
+                if isinstance(value, str) and value in options:
+                    option_inputs[value] = sorted(fields)
+        # Values assembled by the offer method but not chosen through a static
+        # condition retain the unknown input boundary, rather than an empty one.
+        if missing := options - option_inputs.keys():
+            unknown.append("UI input fields not bound to a static choice: " + ", ".join(sorted(missing)))
+        ui_refusal = sorted({
+            spelling for item in ast.walk(choose) if isinstance(item, ast.Raise) and item.exc is not None
+            if (spelling := _name(item.exc)) in {"ValueError", "TypeError", "KeyError", "IndexError", "RuntimeError"}
+        })
+        ctor = ui_methods.get("__init__")
+        rows = _signature(ctor) if ctor else []
+        known_ui = {}
+        for (_method, arg), kind in bindings.items():
+            known_ui.setdefault(arg, set()).add(kind)
+        for row in rows:
+            kinds = known_ui.get(row["name"], set())
+            row["entity"] = next(iter(kinds)) if len(kinds) == 1 else None
+        references = []
+        for item in ast.walk(ctor) if ctor else ():
+            if not isinstance(item, ast.Assign) or not isinstance(item.value, ast.Name):
+                continue
+            if item.value.id not in {row["name"] for row in rows}:
+                continue
+            for target in item.targets:
+                if not isinstance(target, ast.Attribute) or _name(target.value) != "self":
+                    continue
+                for fn in ui_methods.values():
+                    aliases_ = {"self." + target.attr}
+                    for expr in ast.walk(fn):
+                        if isinstance(expr, ast.Assign) and _name(expr.value) in aliases_:
+                            aliases_.update(value.id for value in expr.targets if isinstance(value, ast.Name))
+                    if any(isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute) and _name(expr.func.value) in aliases_ and expr.func.attr in methods for expr in ast.walk(fn)):
+                        references.append((item.value.id, target.attr))
+        references = sorted(set(references))
+        ui_constructor = {"parameters": rows, "system_parameter": references[0][0] if len(references) == 1 else None,
+                          "system_attribute": references[0][1] if len(references) == 1 else None,
+                          "source": {"path": ui_path, "function": ui_class.name + ".__init__", "line": ctor.lineno if ctor else ui_class.lineno}}
+        if len(references) != 1:
+            unknown.append("UI constructor system reference is not uniquely bound")
+        ui_facts = {"options": sorted(options), "screens": sorted(screens), "inputs": sorted(inputs), "option_inputs": option_inputs}
+
+    # These are source-bound search hints, not an evaluator for arbitrary Python.
+    settings_attributes = set()
+    for item in ast.walk(init) if init else ():
+        if isinstance(item, (ast.Assign, ast.AnnAssign)) and item.value is not None:
+            targets = item.targets if isinstance(item, ast.Assign) else [item.target]
+            has_settings = any(isinstance(expr, ast.Call) and resolve(_name(expr.func), path) == settings for expr in ast.walk(item.value))
+            has_parameter = isinstance(item.value, ast.Name) and item.value.id == parameter
+            if has_settings or has_parameter:
+                settings_attributes.update(target.attr for target in targets if isinstance(target, ast.Attribute) and _name(target.value) == "self")
+    getters = {}
+    for name, binding in entity_queries.items():
+        returned = [item.value for item in ast.walk(methods[name]) if isinstance(item, ast.Return)]
+        if len(returned) == 1 and isinstance(returned[0], ast.Attribute):
+            getters.setdefault(returned[0].attr, []).append((name, binding))
+
+    def guard_facts(symbols):
+        source_rows, comparisons = [], []
+        operators = {ast.Gt: ">", ast.GtE: ">=", ast.Lt: "<", ast.LtE: "<=", ast.Eq: "==", ast.NotEq: "!="}
+        inverse = {">": "<", ">=": "<=", "<": ">", "<=": ">=", "==": "==", "!=": "!="}
+        for symbol in sorted(symbols):
+            fn = functions.get(symbol)
+            if fn is None:
+                continue
+            source, _, qualified = symbol.partition("#")
+            assigned = {target.id: item.value for item in ast.walk(fn) if isinstance(item, ast.Assign)
+                        for target in item.targets if isinstance(target, ast.Name)}
+            def expand(value):
+                seen = set()
+                while isinstance(value, ast.Name) and value.id in assigned and value.id not in seen:
+                    seen.add(value.id)
+                    value = assigned[value.id]
+                return value
+            def threshold(value):
+                value = expand(value)
+                if isinstance(value, ast.Attribute) and isinstance(value.value, ast.Attribute) and value.value.attr in settings_attributes and _name(value.value.value) == "self" and value.attr in settings_values:
+                    return {"setting": value.attr}
+                if isinstance(value, ast.Constant) and type(value.value) in (int, float):
+                    return {"value": value.value}
+                return None
+            for item in ast.walk(fn):
+                test = item.test if isinstance(item, (ast.If, ast.IfExp)) else item.value if isinstance(item, ast.Return) and isinstance(item.value, (ast.Compare, ast.BoolOp)) else None
+                if test is not None:
+                    source_rows.append({"path": source, "function": qualified, "line": item.lineno, "expression": ast.unparse(test)})
+                if not isinstance(item, ast.Compare) or len(item.ops) != 1 or type(item.ops[0]) not in operators:
+                    continue
+                left, right = expand(item.left), expand(item.comparators[0])
+                op = operators[type(item.ops[0])]
+                for value, bound, operation in ((left, right, op), (right, left, inverse[op])):
+                    limit = threshold(bound)
+                    if not isinstance(value, ast.Attribute) or limit is None:
+                        continue
+                    for query, binding in getters.get(value.attr, ()):
+                        if not any(bindings.get((fn.name, row["name"])) == binding["entity"] for row in _signature(fn)):
+                            continue
+                        comparisons.append({"query": query, **binding, "operator": operation, "threshold": limit,
+                                            "source": {"path": source, "function": qualified, "line": item.lineno, "expression": ast.unparse(item)}})
+        unique = lambda rows: [json.loads(key) for key in sorted({json.dumps(row, sort_keys=True) for row in rows})]
+        return unique(source_rows), unique(comparisons)
+
+    def preferred_guards(symbols, tokens):
+        selected, sources_ = set(), []
+        def positive_helpers(test):
+            if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And):
+                return set().union(*(positive_helpers(item) for item in test.values))
+            if isinstance(test, ast.Call) and isinstance(test.func, ast.Attribute) and _name(test.func.value) == "self" and test.func.attr in method_symbols:
+                return {symbol for symbol in closure(method_symbols[test.func.attr]) if symbol.startswith(path + "#" + cls.name + ".")}
+            return set()
+        for symbol in sorted(symbols):
+            fn = functions.get(symbol)
+            if fn is None:
+                continue
+            source, _, qualified = symbol.partition("#")
+            def visit(node, conditions=()):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    return
+                if isinstance(node, ast.If):
+                    for item in node.body:
+                        visit(item, (*conditions, node))
+                    for item in node.orelse:
+                        visit(item, conditions)
+                    return
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+                assigned = targets and any(isinstance(item, (ast.Attribute, ast.Subscript)) for item in targets) and isinstance(node.value, ast.Constant) and node.value.value in tokens
+                called = isinstance(node, ast.Call) and any(isinstance(item, ast.Constant) and item.value in tokens for item in node.args)
+                if assigned or called:
+                    for condition in conditions:
+                        sources_.append({"path": source, "function": qualified, "line": condition.lineno, "expression": ast.unparse(condition.test)})
+                        selected.update(positive_helpers(condition.test))
+                for item in ast.iter_child_nodes(node):
+                    visit(item, conditions)
+            for statement in fn.body:
+                visit(statement)
+        expanded, comparisons = guard_facts(selected)
+        sources_.extend(expanded)
+        return [json.loads(key) for key in sorted({json.dumps(row, sort_keys=True) for row in sources_})], comparisons
+
+    goal_guards = []
+    for name in actions:
+        sources_, comparisons = guard_facts(closure(method_symbols[name]))
+        goal_guards.append({"goal": {"kind": "action", "receiver": "system", "name": name, "outcome": "success"},
+                            "actions": [name], "sources": sources_, "comparisons": comparisons,
+                            "preferred_sources": [], "preferred_comparisons": []})
+    for query, values in statuses.items():
+        for value in values:
+            tokens = {value}
+            for item in ast.walk(methods[query]):
+                if isinstance(item, ast.If) and any(isinstance(expr, ast.Return) and isinstance(expr.value, ast.Constant) and expr.value.value == value for statement in item.body for expr in ast.walk(statement)):
+                    tokens.update(expr.value for expr in ast.walk(item.test) if isinstance(expr, ast.Constant) and isinstance(expr.value, str))
+            relevant = []
+            for name in actions:
+                for symbol in closure(method_symbols[name]):
+                    fn = functions.get(symbol)
+                    if fn and any((isinstance(expr, (ast.Assign, ast.AnnAssign)) and isinstance(expr.value, ast.Constant) and expr.value.value in tokens)
+                                  or (isinstance(expr, ast.Call) and any(isinstance(arg, ast.Constant) and arg.value in tokens for arg in expr.args)) for expr in ast.walk(fn)):
+                        relevant.append(name)
+                        break
+            symbols = closure(method_symbols[query]) | set().union(*(closure(method_symbols[name]) for name in relevant))
+            sources_, comparisons = guard_facts(symbols)
+            preferred_sources, preferred_comparisons = preferred_guards(symbols, tokens)
+            goal_guards.append({"goal": {"kind": "query", "receiver": "system", "query": query, "value": value},
+                                "actions": sorted(relevant), "sources": sources_, "comparisons": comparisons,
+                                "preferred_sources": preferred_sources, "preferred_comparisons": preferred_comparisons})
+    if ui:
+        for kind, values in (("option", ui_facts["options"]), ("screen", ui_facts["screens"])):
+            for value in values:
+                selected = [fn for fn in ui_methods.values() if any(isinstance(expr, ast.Constant) and expr.value == value for expr in ast.walk(fn))]
+                if kind == "option" and options_fn not in selected:
+                    selected.append(options_fn)
+                referenced = {expr.func.attr for fn in selected for expr in ast.walk(fn) if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute) and expr.func.attr in methods}
+                ui_symbols = {ui_path + "#" + ui_class.name + "." + fn.name for fn in selected}
+                sources_, comparisons = guard_facts(ui_symbols | set().union(*(closure(method_symbols[name]) for name in referenced)))
+                preferred_sources, preferred_comparisons = preferred_guards({ui_path + "#" + ui_class.name + "." + options_fn.name}, {value}) if kind == "option" else ([], [])
+                goal = {"kind": kind, "value": value, "ui_class": ui}
+                goal_guards.append({"goal": goal, "actions": sorted(referenced & set(actions)),
+                                    "sources": sources_, "comparisons": comparisons,
+                                    "preferred_sources": preferred_sources, "preferred_comparisons": preferred_comparisons})
     aliases, budgets = {}, {}
     for row in corrections:
         if row["kind"] == "exclude":
@@ -382,6 +587,7 @@ def derive(root):
             "shipped": settings_values, "refusal": sorted(locator for locator in classes if is_refusal(locator)),
             "entities": entities, "actions": actions, "queries": queries, "parameters": parameters,
             "predictor_pairs": sorted(predictors), "status_values": statuses, "ui": ui, "ui_methods": ui_names, "ui_facts": ui_facts,
+            "entity_queries": entity_queries, "ui_constructor": ui_constructor, "ui_refusal": ui_refusal, "goal_guards": goal_guards,
             "persistence": persistence, "file_inputs": sorted(file_inputs), "worlds": worlds,
             "aliases": aliases, "budgets": budgets, "unsupported": unsupported,
             "corrections": corrections, "unknown": sorted(set(unknown)),

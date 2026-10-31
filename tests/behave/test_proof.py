@@ -53,3 +53,21 @@ def test_semantic_ids_ignore_seed_and_incidental_trace_metadata():
     semantic = goal(2)
     assert item_id(semantic) == item_id({**semantic, "seed": 99, "prefix": [{"name": "extra"}], "timestamp": "later"})
     assert item_id(semantic) != item_id(goal(3))
+
+
+def test_ui_semantic_id_uses_bound_class_and_actor_not_session_order(tmp_path):
+    from .test_testrec import PROGRAM
+
+    (tmp_path / "program.py").write_text(PROGRAM)
+    setup = [{"name": "add_unit", "args": ["U1", "one"]}]
+    first = {"semantic": {"kind": "action", "receiver": "ui:0", "name": "choose", "outcome": "success"}, "prefix": [*setup,
+             {"construct": "ui", "receiver": "ui:0", "args": ["same"]},
+             {"construct": "ui", "receiver": "ui:1", "args": ["other"]},
+             {"receiver": "ui:0", "name": "choose", "args": ["next"]}]}
+    second = {"semantic": {**first["semantic"], "receiver": "ui:1"}, "prefix": [*setup,
+              {"construct": "ui", "receiver": "ui:0", "args": ["other"]},
+              {"construct": "ui", "receiver": "ui:1", "kwargs": {"label": "same"}},
+              {"receiver": "ui:1", "name": "choose", "args": ["next"]}]}
+    left, right = prove(tmp_path, first, persist=False), prove(tmp_path, second, persist=False)
+    assert left["matched"] and right["matched"] and left["id"] == right["id"]
+    assert left["semantic"]["receiver"] == "program:View" and left["semantic"]["actor"] == {"label": "same", "staff": False}

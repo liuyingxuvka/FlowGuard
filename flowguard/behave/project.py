@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import fields, is_dataclass
 from enum import Enum
@@ -60,13 +61,17 @@ def directory_stamp(value):
 
 
 class _Inputs:
-    def __init__(self, arena):
+    def __init__(self, arena, source_root, empty_bytecode):
         self.arena = Path(arena)
+        self.source_root = str(Path(source_root).resolve()) + os.sep
+        self.empty_bytecode = Path(empty_bytecode)
         self.files, self.directories = {}, {}
         self.busy = False
         self.reusable = True
+        self.recording_tests = False
+        self.untracked = set()
 
-    def record(self, event, args):
+    def record(self, event, args, *, caller=None):
         if self.busy:
             return
         self.busy = True
@@ -86,6 +91,8 @@ class _Inputs:
                     self.reusable = False
                     return
                 values.append((args[0] or os.curdir, self.directories, directory_stamp))
+            elif event == "metadata":
+                values.append((args[0], self.files, file_stamp))
             elif event == "import":
                 if args[1]:
                     values.append((args[1], self.files, file_stamp))
@@ -93,8 +100,23 @@ class _Inputs:
                     values.extend((path, self.directories, directory_stamp) for path in sys.path if path and Path(path).is_dir())
             for value, rows, stamp in values:
                 path = Path(os.fsdecode(value)).absolute()
+                if path.is_relative_to(self.empty_bytecode):
+                    if path.exists():
+                        self.reusable = False
+                        self.untracked.add("controller bytecode probe directory was not empty")
+                    continue
                 try:
                     path.relative_to(self.arena)
+                    if event in {"os.listdir", "os.scandir"}:
+                        frame = caller
+                        while frame is not None:
+                            if frame.f_code is snapshot.__code__ or frame.f_code.co_filename.startswith("<frozen importlib"):
+                                break
+                            if frame.f_code.co_filename.startswith(self.source_root):
+                                self.reusable = False  # Snapshot files preserve content, not directory enumeration order.
+                                self.untracked.add("application-consumed arena directory enumeration order")
+                                break
+                            frame = frame.f_back
                     continue  # Recreated closed-world inputs are already identified by the starting recipe.
                 except ValueError:
                     pass
@@ -107,7 +129,8 @@ class _Inputs:
             self.busy = False
 
     def receipt(self):
-        return {"files": self.files, "directories": self.directories, "reusable": self.reusable}
+        return {"files": self.files, "directories": self.directories, "reusable": self.reusable,
+                "untracked": sorted(self.untracked)}
 
 
 class _ObservedState:
@@ -212,22 +235,59 @@ class _ObservedState:
 
     def profile(self, frame, event, arg):
         # Observe calls that cross the source boundary, rather than names in unexecuted paths.
-        if not self.enabled or self.busy or event not in {"call", "c_call"}:
+        recording = self.inputs is not None and self.inputs.recording_tests
+        if (not self.enabled and not recording) or self.busy or event not in {"call", "c_call"}:
             return
         caller = frame.f_back if event == "call" else frame
-        if caller is None or not caller.f_code.co_filename.startswith(self.root):
+        if caller is None:
             return
+        direct = caller.f_code.co_filename.startswith(self.root)
+        if not direct:
+            possible = frame.f_code.co_name if event == "call" else getattr(arg, "__name__", "")
+            if possible not in {"exists", "is_file", "is_dir", "is_symlink", "isfile", "isdir", "islink", "stat", "lstat", "fstat", "getmtime", "getatime", "getctime", "getsize"}:
+                return
         module = frame.f_globals.get("__name__", "") if event == "call" else getattr(arg, "__module__", None)
         if not module and event == "c_call":
             owner = getattr(arg, "__self__", None)
             module = getattr(owner if isinstance(owner, type) else type(owner), "__module__", "")
         name = frame.f_code.co_name if event == "call" else getattr(arg, "__name__", "")
-        if self.inputs is not None and module in {"os", "posix", "nt", "pathlib", "genericpath", "ntpath", "posixpath"} and name in {"stat", "lstat", "fstat", "getmtime", "getatime", "getctime", "getsize"}:
-            self.inputs.reusable = False  # These actual calls have no complete input audit event.
+        metadata = module.split(".")[0] in {"os", "posix", "nt", "pathlib", "genericpath", "ntpath", "posixpath"} and name in {"exists", "is_file", "is_dir", "is_symlink", "isfile", "isdir", "islink", "stat", "lstat", "fstat", "getmtime", "getatime", "getctime", "getsize"}
+        if not direct:
+            if not metadata:
+                return
+            ancestor = caller.f_back
+            while ancestor is not None and not ancestor.f_code.co_filename.startswith(self.root):
+                ancestor = ancestor.f_back
+            if ancestor is None or (self.inputs is not None and self.inputs.busy):
+                return
+        if self.inputs is not None and module.split(".")[0] in {"os", "posix", "nt", "pathlib", "genericpath", "ntpath", "posixpath"}:
+            if event == "call" and name in {"exists", "is_file", "is_dir", "is_symlink", "isfile", "isdir", "islink"}:
+                path = frame.f_locals.get("self", frame.f_locals.get("path"))
+                if isinstance(path, (str, bytes, os.PathLike)):
+                    self.inputs.record("metadata", (path,))
+                else:
+                    self.inputs.reusable = False
+            elif name in {"stat", "lstat", "fstat", "getmtime", "getatime", "getctime", "getsize"}:
+                ancestor = caller
+                while ancestor is not None:
+                    if ancestor.f_globals.get("__name__", "").split(".")[0] in {"pathlib", "genericpath", "ntpath", "posixpath"} and ancestor.f_code.co_name in {"exists", "is_file", "is_dir", "is_symlink", "isfile", "isdir", "islink"}:
+                        break  # Only the already-recorded boolean result escapes this helper.
+                    if ancestor.f_code.co_filename.startswith(self.root):
+                        ancestor = None
+                        break
+                    ancestor = ancestor.f_back
+                if ancestor is None:
+                    self.inputs.reusable = False  # Full metadata records exceed this input boundary.
         if event == "c_call" and module == "builtins" and name == "globals":
-            raise UnsupportedWorld("dynamic global namespace access needs an explicit world")
+            if recording:
+                self.inputs.reusable = False
+            else:
+                raise UnsupportedWorld("dynamic global namespace access needs an explicit world")
         if module.split(".")[0] in {"random", "time", "datetime", "secrets", "threading", "_thread"}:
-            raise UnsupportedWorld("called nondeterministic resource needs an explicit world")
+            if recording:
+                self.inputs.reusable = False
+            else:
+                raise UnsupportedWorld("called nondeterministic resource needs an explicit world")
 
     def trace(self, frame, event, arg):
         if not self.enabled or self.busy or not frame.f_code.co_filename.startswith(self.root) or frame.f_code.co_name == "<module>":
@@ -527,7 +587,7 @@ def _arena_guard(arena, inputs=None):
         if not active:
             return
         if inputs is not None:
-            inputs.record(event, args)
+            inputs.record(event, args, caller=sys._getframe(1) if event in {"os.listdir", "os.scandir"} else None)
         if event == "open":
             _path, mode, flags = args
             if (mode and any(char in mode for char in "wax+")) or flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC):
@@ -563,10 +623,15 @@ class _Session:
         self.import_path = list(sys.path)
         self.executed_calls = 0
         self.resets = 0
+        self.query_facts = {}
 
-    def reset(self, prefix=()):
+    def reset(self, prefix=(), *, start=None):
+        # Each construction event below recreates its own session after its preceding public setup.
+        if start is not None:
+            self.start = start
         self.observed.enabled = False
         self.observed.pending.clear()
+        self.query_facts.clear()  # Source modules and their actual class bindings are rebuilt below.
         self.objects = None
         os.chmod(self.arena, 0o700)
         def remove(path):
@@ -613,7 +678,28 @@ class _Session:
         return self.current
 
     def step(self, recipe, *, keep=True):
-        row = call(self.objects, recipe, self.arena, self.defaults, self.refusals, self.results if keep else [])
+        if recipe.get("construct"):
+            receiver = recipe.get("receiver", "")
+            if recipe["construct"] != "ui" or not self.spec.get("ui") or not receiver.startswith("ui:") or receiver in self.objects:
+                raise UnsupportedWorld("invalid source-bound session construction")
+            before = self.current
+            output, error = io.StringIO(), io.StringIO()
+            with redirect_stdout(output), redirect_stderr(error):
+                value = _load(self.spec["ui"])(self.objects["system"], *_arguments(recipe.get("args", []), self.arena, self.results),
+                                                **_arguments(recipe.get("kwargs", {}), self.arena, self.results))
+            self.objects[receiver] = value
+            after = snapshot(self.objects, self.arena, self.defaults)
+            row = {"call": recipe, "outcome": "success", "exception": None,
+                   "value": _Graph(self.arena).pack(None), "stdout": _diagnostic(output.getvalue(), self.arena),
+                   "stderr": _diagnostic(error.getvalue(), self.arena), "before": before, "after": after,
+                   "before_key": state_key(before), "after_key": state_key(after)}
+        else:
+            receiver = recipe.get("receiver", "system")
+            refusals = self.refusals
+            if receiver != "system":
+                import builtins
+                refusals += tuple(getattr(builtins, name) for name in self.spec.get("ui_refusal", []))
+            row = call(self.objects, recipe, self.arena, self.defaults, refusals, self.results if keep else [])
         self.executed_calls += 1
         self.current = row["after"]
         if keep:
@@ -623,10 +709,73 @@ class _Session:
         return row
 
     def query(self, receiver, name, args=(), kwargs=None, *, property=False):
+        key = (state_key(self.current), receiver, name, state_key(_Graph(self.arena).pack([list(args), kwargs or {}, property])))
+        reusable = self.observed.inputs is not None and self.observed.inputs.reusable
+        if reusable and key in self.query_facts:
+            return self.query_facts[key]
         row = self.step({"receiver": receiver, "name": name, "args": list(args), "kwargs": kwargs or {}, "property": property}, keep=False)
         if row["outcome"] != "success" or row["before_key"] != row["after_key"]:
             raise UnsupportedWorld("a required public query is not a pure successful observation")
+        if reusable and self.observed.inputs.reusable:
+            self.query_facts[key] = row["value"]
         return row["value"]
+
+    def checkpoint(self):
+        """A run-local heap copy; public prefixes remain the reproducible external recipe."""
+        if Path.cwd() != self.arena:
+            raise UnsupportedWorld("checkpoints need an unchanged working directory")
+        bundle = (self.objects, self.results, self.defaults)
+        graph = _Graph(self.arena)
+        graph.pack(bundle)
+        for node in graph.nodes:
+            if node["type"] in _ACTIVE_CLASSES:
+                cls = _load(node["type"])
+                if any(any(name in base.__dict__ for name in ("__copy__", "__deepcopy__", "__reduce__", "__reduce_ex__", "__getstate__", "__setstate__")) for base in cls.__mro__ if base is not object and base.__module__ != "builtins"):
+                    raise UnsupportedWorld("custom copy or serialization hooks need public-prefix restoration")
+        cloned = copy.deepcopy(bundle)
+        clone_graph = _Graph(self.arena)
+        clone_graph.pack(cloned)
+        mutable = {identity for identity, number in graph.seen.items() if graph.nodes[number]["type"] not in {"builtins:tuple", "builtins:frozenset"}}
+        if mutable & set(clone_graph.seen):
+            raise UnsupportedWorld("a checkpoint copy shares mutable state with its source")
+        if snapshot(cloned[0], self.arena, cloned[2]) != self.current or snapshot(self.objects, self.arena, self.defaults) != self.current:
+            raise UnsupportedWorld("a checkpoint copy did not preserve the complete observation")
+        return {"bundle": cloned, "observation": copy.deepcopy(self.current), "prefix": list(self.prefix),
+                "outcomes": list(self.outcomes), "last": {key: value for key, value in self.last.items() if key not in {"before", "after"}} if self.last else None}
+
+    def restore_checkpoint(self, checkpoint):
+        self.objects, self.results, self.defaults = copy.deepcopy(checkpoint["bundle"])
+        os.chmod(self.arena, 0o700)
+        def remove(path):
+            if path.is_dir() and not path.is_symlink():
+                os.chmod(path, 0o700)
+                for child in path.iterdir(): remove(child)
+                path.rmdir()
+            else:
+                path.unlink()
+        for path in self.arena.iterdir(): remove(path)
+        directories = []
+        for name, kind, mode, *payload in checkpoint["observation"]["files"]:
+            path = self.arena / name
+            if kind == "directory":
+                path.mkdir(parents=True, exist_ok=True)
+                directories.append((path, mode))
+            elif kind == "file":
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(base64.b64decode(payload[0]))
+                path.chmod(mode)
+            else:
+                target = payload[0].replace("<world>", str(self.arena), 1) if payload[0].startswith("<world>") else payload[0]
+                path.symlink_to(target)
+        for path, mode in reversed(directories): path.chmod(mode)
+        self.arena.chmod(checkpoint["observation"]["root_mode"])
+        self.prefix, self.outcomes = list(checkpoint["prefix"]), list(checkpoint["outcomes"])
+        self.last = checkpoint["last"]
+        self.current = snapshot(self.objects, self.arena, self.defaults)
+        if self.current != checkpoint["observation"]:
+            raise UnsupportedWorld("checkpoint restoration changed the complete observation")
+        self.resets += 1
+        return self.current
 
     def receipt(self):
         return {"child_pid": os.getpid(), "executed_calls": self.executed_calls, "resets": self.resets,
@@ -636,6 +785,8 @@ class _Session:
 def _worker(request_path, response_path):
     global _ACTIVE_ARENA, _ACTIVE_CLASSES
     request = json.loads(Path(request_path).read_text(encoding="utf-8"))
+    # A same-size timestamp-valid application pyc must never override the identified current source.
+    sys.pycache_prefix = str(Path(request_path).parent / "bytecode")
     response = None
     # This directory belongs only to this interpreter; protocol files stay outside it.
     with tempfile.TemporaryDirectory(prefix="flowguard-world-") as directory:
@@ -649,60 +800,94 @@ def _worker(request_path, response_path):
         os.environ.update(HOME=str(arena / "home"), TMPDIR=str(arena / "temp"), TEMP=str(arena / "temp"), TMP=str(arena / "temp"))
         tempfile.tempdir = str(arena / "temp")
         random.seed(request.get("start", {}).get("seed", 0))
-        inputs = _Inputs(arena)
+        inputs = _Inputs(arena, request["spec"]["root"], sys.pycache_prefix)
         observed = _ObservedState(request["spec"], arena, inputs)
-        finish_guard = _arena_guard(arena, inputs)
+        operation = request.get("operation", "trace")
+        recording_active = operation == "record"
+        inputs.recording_tests = recording_active
+        if recording_active:
+            # Ordinary tests run as tests; every retained public prefix still needs the guarded native replay.
+            def record_inputs(event, args):
+                if recording_active:
+                    inputs.record(event, args, caller=sys._getframe(1) if event in {"os.listdir", "os.scandir"} else None)
+            sys.addaudithook(record_inputs)
+            finish_guard = lambda: None
+        else:
+            finish_guard = _arena_guard(arena, inputs)
         old_trace = sys.gettrace()
         old_profile = sys.getprofile()
         sys.settrace(observed.trace)
         sys.setprofile(observed.profile)
         try:
-            session = _Session(request["spec"], request.get("start", {}), arena, observed)
-            session.reset()
-            operation = request.get("operation", "trace")
-            if operation == "trace":
-                initial = session.current
-                steps = [session.step(item) for item in request["calls"]]
-                response = {"initial": initial, "steps": steps, "final": session.current, "defaults": session.defaults,
-                            "seeding": session.seeded, "construction_stdout": session.construction_stdout,
-                            "construction_stderr": session.construction_stderr}
+            if operation == "record":
+                from .testrec import record
+                response = record(request["spec"], arena)
             else:
-                from .explore import explore, focused_search, directed_search, evaluate
-                options = request.get("options", {})
-                if operation == "explore":
-                    response = explore(session, **options)
-                elif operation == "search":
-                    response = focused_search(session, **options)
-                elif operation == "directed":
-                    response = directed_search(session, **options)
-                elif operation == "prove":
-                    divergence = None
-                    for index, item in enumerate(request["calls"]):
-                        row = session.step(item)
-                        expected = options.get("outcomes")
-                        if expected is not None and (index >= len(expected) or row["outcome"] != expected[index]):
-                            divergence = index
-                            break
-                    response = {"matched": divergence is None and evaluate(session, options["goal"]),
-                                "divergence": divergence, "state_key": state_key(session.current)}
-                else:
-                    raise UnsupportedWorld("unknown native operation")
-            if operation != "trace":
-                response["execution"] = session.receipt()
+                response = _run_session(request, arena, observed)
             response["footprint"] = inputs.receipt()
         except BaseException as exc:
             response = {"unsupported": type(exc).__name__ + ": " + _diagnostic(str(exc), arena)}
         try:
             observed.enabled = False
+            inputs.recording_tests = False
+            recording_active = False
             sys.settrace(old_trace)
             sys.setprofile(old_profile)
             encoded = json.dumps(response, ensure_ascii=False, allow_nan=False)
-            # The engine opened this protocol descriptor before entering the application world.
             os.write(int(response_path), encoded.encode("utf-8"))
         finally:
-            # Engine cleanup uses descriptor-relative stdlib operations after all application work ends.
             finish_guard()
             os.chdir(original_directory)
+
+
+def _run_session(request, arena, observed):
+    """Dispatch operations over the one worker-owned native session."""
+    session = _Session(request["spec"], request.get("start", {}), arena, observed)
+    session.reset()
+    operation = request.get("operation", "trace")
+    if operation == "trace":
+        initial = session.current
+        steps = [session.step(item) for item in request["calls"]]
+        return {"initial": initial, "steps": steps, "final": session.current, "defaults": session.defaults,
+                "seeding": session.seeded, "construction_stdout": session.construction_stdout,
+                "construction_stderr": session.construction_stderr}
+    from .explore import explore, focused_search, directed_search, evaluate
+    options = request.get("options", {})
+    if operation == "explore":
+        response = explore(session, **options)
+    elif operation == "search":
+        response = focused_search(session, **options)
+    elif operation == "directed":
+        response = directed_search(session, **options)
+    elif operation == "witnesses":
+        from .testrec import replay_prefixes
+        response = replay_prefixes(session, options["recordings"])
+    elif operation == "audit":
+        from .checks import reach, stuck
+        from .testrec import replay_prefixes
+        options = dict(options)
+        recorded = options.pop("test_replay", None)
+        if recorded is None:
+            recorded = replay_prefixes(session, options.pop("recordings", []))
+        known = options.pop("known", [])
+        response = explore(session, **options)
+        response["test_replay"] = {key: value for key, value in recorded.items() if key not in {"prefixes", "witnesses", "replays", "footprint", "execution"}}
+        response["reach"] = reach(session, response, known=known, witnessed=recorded["witnesses"], states=recorded["prefixes"])
+        response["stuck"] = stuck(session, response, states=recorded["prefixes"])
+    elif operation == "prove":
+        divergence = None
+        for index, item in enumerate(request["calls"]):
+            row = session.step(item)
+            expected = options.get("outcomes")
+            if expected is not None and (index >= len(expected) or row["outcome"] != expected[index]):
+                divergence = index
+                break
+        response = {"matched": divergence is None and evaluate(session, options["goal"]),
+                    "divergence": divergence, "state_key": state_key(session.current)}
+    else:
+        raise UnsupportedWorld("unknown native operation")
+    response["execution"] = session.receipt()
+    return response
 
 
 def replay(spec, calls, start=None, *, timeout=30, operation="trace", options=None):

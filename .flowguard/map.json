@@ -881,7 +881,7 @@
     {
       "id": "behave",
       "layer": "capabilities",
-      "summary": "Unreleased code-derived worlds with native construction, bounded exploration and focused search, replayed evidence and honest execution scope; enter only through python -m flowguard.behave.",
+      "summary": "Unreleased code-derived worlds with shipped reach and stuck checks, replayed test witnesses, bounded native exploration and fresh evidence; enter only through python -m flowguard.behave.",
       "responsibilities": [
         "provide standalone pilot help that lists only implemented verbs and reject unsupported Python interpreters before loading pilot behavior",
         "keep the pilot absent from the public CLI, exports, skill and product documentation",
@@ -895,7 +895,13 @@
         "identify opened files, imports, listed directories, engine source and run inputs by content; reuse matching execution facts without persisting a final verdict",
         "replay every candidate in a fresh process before reporting it, retain stable semantic identities, and reprove saved evidence against current code while distinguishing incomplete work and engine defects",
         "observe or explicitly reject mutable class/global state touched by actual execution; do not reject unused declarations or mistake an unchanged instance graph for unchanged program state",
-        "collect bootstrap and isolation guards on Python 3.11 while collecting the named pilot behavior tests only on Python 3.12 or newer"
+        "collect bootstrap and isolation guards on Python 3.11 while collecting the named pilot behavior tests only on Python 3.12 or newer",
+        "check generated status values, successful actions, offered UI options and screens reached from home under shipped settings; before a missing-reach item replay known public witnesses, explore a second fixed seed and completely search from concrete prefixes nearest to the goal guards; a capped or incomplete domain stays unknown",
+        "explain shipped reach items with one-setting variations without clearing the shipped item; retain unbuildable and unimplemented scope instead of presenting sampling as a proof",
+        "check concrete stuck candidates only for categorical values left elsewhere; search the target entity, entities named by its actual pure one-entity queries and actions taking no entity, preserving complete state and every action answer; distinguish complete bounded no-exit proof, capped unknown and observed terminal-by-design information",
+        "record actual tests by the derived system, UI and settings types using outermost public calls, ordered public construction events and distinct session receivers; compare the shared complete snapshot at public boundaries and teardown and stop an inconsistent prefix without claiming complete Python write monitoring",
+        "replay recorded prefixes step by step on fresh shipped roots through the same native session, listing ignored test settings and stopping at the first external-edit boundary or outcome divergence; only public shipped replays with every entity kind present may witness reach, and UI reach requires sessions created at home and advanced through their public choose method",
+        "identify test recordings by test content and actual execution footprint, cache facts rather than conclusions, and print only fresh-proved GC1 or GC3 items with stable semantic identities while leaving unfinished checks and incomplete searches explicit"
       ],
       "files": [
         "flowguard/behave/*.py",
@@ -917,11 +923,14 @@
         "tests/behave/test_explore.py",
         "tests/behave/test_honest_output.py",
         "tests/behave/test_proof.py",
-        "tests/behave/test_footprint.py"
+        "tests/behave/test_footprint.py",
+        "tests/behave/test_gc1_reach.py",
+        "tests/behave/test_gc3_stuck.py",
+        "tests/behave/test_testrec.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:245ed8902a0be99d228c6ea63c5369faf2e9dd1955b8bf02a88c1ec88f2680d6"
+      "fingerprint": "sha256:a38b8cc4bc2709d8e251480cb50cdeb59b99e01606102511ac652a2332628abd"
     }
   ],
   "flows": [

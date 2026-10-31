@@ -107,3 +107,29 @@ def test_actual_class_data_mutation_is_unsupported_but_unused_global_is_not(prog
         replay(spec, [{"name": "random_value"}], {"world": "small"})
     with pytest.raises(UnsupportedWorld, match="class/global/closure"):
         replay(spec, [{"name": "mutate_function"}], {"world": "small"})
+
+
+def test_branch_checkpoints_keep_aliases_cycles_and_file_bytes_and_mode(program):
+    path = program / "program.py"
+    source = path.read_text().replace("        self._value = 0", "        self._value = 0\n        self._data = {'value': 0}\n        self._alias = self._data\n        self._cycle = []\n        self._cycle.append(self._cycle)")
+    source = source.replace("        self._value += 1", '''        if self._alias is not self._data or self._cycle[0] is not self._cycle:
+            raise Refusal("broken graph")
+        path = Path("state.bin")
+        if path.exists():
+            if path.read_text() != str(self._data["value"]) or path.stat().st_mode & 0o777 != 0o400:
+                raise Refusal("broken files")
+            path.chmod(0o600)
+        self._value += 1
+        self._data["value"] = self._value
+        path.write_text(str(self._value))
+        path.chmod(0o400)''')
+    path.write_text(source)
+    result = replay(derive(program), [], {"world": "small"}, operation="search", options={"goal": goal(2), "depth": 3, "node_cap": 8, "actions": ["advance"]})
+    assert result["found"] and len(result["prefix"]) == 2
+
+
+def test_custom_copy_cannot_turn_a_shared_object_into_a_complete_search(program):
+    path = program / "program.py"
+    path.write_text(path.read_text().replace("    def units(self):", "    def __deepcopy__(self, memo): return self\n    def units(self):"))
+    with pytest.raises(UnsupportedWorld, match="copy or serialization hooks"):
+        replay(derive(program), [], {"world": "small"}, operation="search", options={"goal": goal(99), "depth": 3})
