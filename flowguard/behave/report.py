@@ -9,7 +9,7 @@ import json
 def item_id(semantic, *, length=4):
     incidental = {"seed", "prefix", "trace", "order", "timestamp", "identity", "engine"}
     subject = {key: value for key, value in semantic.items() if key not in incidental}
-    kind = "L" if subject.get("kind") in {"loading", "loading_crash"} else {"GC1": "N", "GC2": "C", "GC3": "S", "GC5": "A"}.get(subject.get("check"), "W")
+    kind = "L" if subject.get("kind") in {"loading", "loading_crash"} else {"GC1": "N", "GC2": "C", "GC3": "S", "GC5": "A", "GC6": "C"}.get(subject.get("check"), "W")
     return kind + "-" + hashlib.sha256(json.dumps(subject, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()[:length]
 
 
@@ -20,16 +20,22 @@ def render(result, *, as_json=False):
     items = sorted((item for item in result["items"] if item.get("proof", {}).get("matched")
                     and item["proof"].get("state") == "reproduced" and item["proof"].get("identity") == result["identity"]), key=lambda item: item["id"])
     coverage = {**result["coverage"], "hit_functions": len(result["coverage"]["hit_functions"])}
-    unknown = [row for run in runs for check in ("reach", "stuck", "agreement") for row in run["facts"].get(check, {}).get("unknown", [])]
+    unknown = [row for run in runs for check in ("reach", "stuck", "agreement", "crashes") for row in run["facts"].get(check, {}).get("unknown", [])]
     unknown.extend(result.get("saved_files", {}).get("unknown", []))
     settings = result.get("settings", {})
     unknown.extend(settings.get("unknown", []))
     verdict = "BLOCKED" if items else "UNCHECKED"
-    reached = "shipped reach, stuck, agreement and setting checks"
+    reached = "shipped reach, stuck, agreement, setting and crash/refusal checks"
     payload = {"verdict": verdict, "reached": reached, "extent": extent,
                "coverage": coverage, "missing_checks": result["missing_checks"], "unknown": unknown,
                "errors": result["errors"], "items": [{key: item[key] for key in ("id", "semantic", "label", "search", "explanations", "answers", "effects") if key in item} for item in items], "facts_reused": result["facts_reused"]}
     for item, row in zip(items, payload["items"]):
+        if item.get("violation"):
+            row["violation"] = {key: item["violation"][key] for key in (
+                "call", "outcome", "exception", "before_key", "after_key", "outputs",
+            ) if key in item["violation"]}
+        if item.get("file_input"):
+            row["file_input"] = item["file_input"]
         if item.get("comparison"):
             row["comparison"] = {key: item["comparison"][key] for key in (
                 "predictor", "action", "other_predictor", "predictor_mode", "other_mode", "option",
@@ -55,6 +61,31 @@ def render(result, *, as_json=False):
     lines.extend("input scope: " + reason for reason in payload["input_gaps"])
     for item in items:
         semantic = item["semantic"]
+        if semantic.get("check") == "GC6":
+            violation = item["violation"]
+            actual = violation["call"]
+            file_input = item.get("file_input", {})
+            def argument(value):
+                if isinstance(value, dict) and set(value) == {"$file"}:
+                    return "<file: " + file_input.get("kind", value["$file"]) + ">"
+                return repr(value)
+            arguments = [argument(value) for value in actual.get("args", [])]
+            keywords = actual.get("kwargs", {})
+            only_keyword = next(iter(keywords.values())) if len(keywords) == 1 else None
+            if not arguments and isinstance(only_keyword, dict) and set(only_keyword) == {"$file"}:
+                arguments.append(argument(only_keyword))
+            else:
+                arguments.extend(name + "=" + argument(value) for name, value in keywords.items())
+            text = item["label"] + " " + actual["name"] + "(" + ", ".join(arguments) + ")"
+            exception = violation.get("exception")
+            if exception:
+                text += ": " + exception["type"].rsplit(":", 1)[-1] + ": " + exception["message"].replace("\n", "\\n")
+                source = exception.get("source")
+                if source:
+                    text += " (" + source["path"] + ":" + str(source["line"]) + ")"
+            lines.append(text + " · " + item["id"])
+            lines.append("python -m flowguard.behave why " + item["id"])
+            continue
         term = semantic.get("query") + "=" + repr(semantic["value"]) if semantic.get("kind") == "query" else semantic.get("kind", "") + " " + str(semantic.get("name", semantic.get("value")))
         if semantic.get("kind") in {"loading", "loading_crash"}:
             term = semantic["source"] + " file " + semantic["file"][:12] + " -> " + semantic["loader"]

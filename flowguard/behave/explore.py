@@ -245,7 +245,7 @@ def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, doma
     rng = random.Random(seed)
     extent = _extent("coverage-guided", node_cap=node_cap, alphabet_cap=alphabet_cap)
     extent.update(seed=seed, successful_step_budget=steps, successful=0)
-    witnesses, features, visits, events, concrete, traces = {}, set(), {}, [], [], []
+    witnesses, features, visits, events, concrete, traces, failures = {}, set(), {}, [], [], [], []
     corpus = [list(session.prefix)]
     states = set()
     while extent["successful"] < steps and extent["attempted"] < node_cap:
@@ -270,6 +270,9 @@ def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, doma
         choices = [item for item in choices if visits.get(item["name"], 0) == least]
         recipe = rng.choice(choices)
         row = session.step(recipe)
+        if row["outcome"] == "crash" or row["outcome"] == "refusal" and row["before_key"] != row["after_key"]:
+            failures.append({"prefix": list(session.prefix[:-1]), "outcomes": list(session.outcomes[:-1]),
+                             "start": dict(session.start), "row": _compact(row)})
         visits[recipe["name"]] = visits.get(recipe["name"], 0) + 1
         extent["attempted"] += 1
         extent["successful"] += row["outcome"] == "success"
@@ -293,7 +296,7 @@ def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, doma
         extent["reason"] = "attempt/node cap" if extent["capped"] else "successful-step envelope finished (sampled)"
     # A sampled walk never licenses a negative proof, even after its envelope finishes.
     return {"extent": extent, "events": events, "witnesses": [witnesses[key] for key in sorted(witnesses)],
-            "features": [list(item) for item in sorted(features)], "states": concrete, "traces": traces}
+            "features": [list(item) for item in sorted(features)], "states": concrete, "traces": traces, "failures": failures}
 
 
 def focused_search(session, *, goal, prefix=(), depth=3, node_cap=1000, alphabet_cap=1000, actions=None, domains=None, related=None, priority=False, rank_states=()):

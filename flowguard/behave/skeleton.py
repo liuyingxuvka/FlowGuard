@@ -971,6 +971,127 @@ def derive(root):
         if usage["provided"] and usage["omitted"] and any(left["path"] != right["path"] for left in usage["provided"] for right in usage["omitted"]):
             optional_argument_advice.append({"function": target, "parameter": parameter_name,
                                              **{state: [json.loads(key) for key in sorted({json.dumps(row, sort_keys=True) for row in rows})] for state, rows in usage.items()}})
+
+    def csv_definition(item, source, env):
+        seen = set()
+        while isinstance(item, ast.Name):
+            key = (source, item.id)
+            if key in seen:
+                return None
+            seen.add(key)
+            value = env.get(item.id)
+            if value and value[0] == "expression":
+                item, source, env = value[1:]
+                continue
+            values = [node.value for node in trees[source].body if isinstance(node, (ast.Assign, ast.AnnAssign))
+                      and any(isinstance(target, ast.Name) and target.id == item.id for target in (node.targets if isinstance(node, ast.Assign) else [node.target]))]
+            if len(values) != 1 or values[0] is None:
+                return None
+            item, env = values[0], {}
+        return item, source
+    def csv_parameter(item, source, env):
+        value = reference(item, source, env)
+        if value and value[0] == "file-parameter":
+            return value[1]
+        if isinstance(item, ast.Call) and library(item.func, source, "pathlib.Path") and len(item.args) == 1 and not item.keywords:
+            return csv_parameter(item.args[0], source, env)
+        return None
+    def csv_open(item, source, env):
+        if not isinstance(item, ast.Call):
+            return None
+        builtin_open = _name(item.func) == "open" and "open" not in env and "open" not in raw["files"][source]["imports"] and source + "#open" not in functions
+        if (builtin_open or library(item.func, source, "builtins.open")) and item.args:
+            return csv_parameter(item.args[0], source, env)
+        if isinstance(item.func, ast.Attribute) and item.func.attr == "open":
+            return csv_parameter(item.func.value, source, env)
+        return None
+    file_schemas, file_input_unknown = [], []
+    for action in file_inputs:
+        found, hints, reasons = [], set(), set()
+        def csv_calls(symbol, values, trail=()):
+            if symbol in trail:
+                return
+            fn = functions[symbol]
+            source, _, qualified = symbol.partition("#")
+            env = local_environment(fn, source, values)
+            names = {node.id for node in ast.walk(fn) if isinstance(node, ast.Name)}
+            for item in ast.walk(fn):
+                if not isinstance(item, ast.Call):
+                    continue
+                if library(item.func, source, "csv.DictReader") and "csv" not in inv.mod_to_path:
+                    allowed = {"fieldnames": None, "restkey": None, "restval": None, "dialect": "excel"}
+                    if len(item.args) != 1 or any(keyword.arg not in allowed or not isinstance(keyword.value, ast.Constant) or keyword.value.value != allowed[keyword.arg] for keyword in item.keywords):
+                        reasons.add("CSV reader options are not bound to the supported default dialect/header")
+                        continue
+                    origins = {origin for origin in [csv_open(item.args[0], source, env)] if origin}
+                    if isinstance(item.args[0], ast.Name):
+                        for statement in ast.walk(fn):
+                            if isinstance(statement, ast.With):
+                                origins.update(origin for entry in statement.items if isinstance(entry.optional_vars, ast.Name) and entry.optional_vars.id == item.args[0].id
+                                               if (origin := csv_open(entry.context_expr, source, env)))
+                    if len(origins) != 1:
+                        reasons.add("CSV stream is not uniquely bound to a public file parameter")
+                        continue
+                    converters, required_sets = [], []
+                    for name in names:
+                        definition = csv_definition(ast.Name(id=name), source, env)
+                        if definition is None:
+                            continue
+                        node, owner = definition
+                        if isinstance(node, ast.Dict) and any(isinstance(call_, ast.Call) and isinstance(call_.func, ast.Subscript) and _name(call_.func.value) == name for call_ in ast.walk(fn)):
+                            columns = []
+                            shadowed = {value.name for value in trees[owner].body if isinstance(value, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))}
+                            shadowed.update(target.id for value in trees[owner].body if isinstance(value, (ast.Assign, ast.AnnAssign)) for target in (value.targets if isinstance(value, ast.Assign) else [value.target]) if isinstance(target, ast.Name))
+                            for key, converter in zip(node.keys, node.values):
+                                choices_ = [kind for kind in ("str", "int", "float", "bool") if library(converter, owner, "builtins." + kind)
+                                            or isinstance(converter, ast.Name) and converter.id == kind and kind not in shadowed and kind not in raw["files"][owner]["imports"]]
+                                if not isinstance(key, ast.Constant) or not isinstance(key.value, str) or len(choices_) != 1:
+                                    break
+                                columns.append({"name": key.value, "converter": choices_[0]})
+                            if columns and len(columns) == len(node.keys) == len({row["name"] for row in columns}):
+                                converters.append(columns)
+                        elif isinstance(node, (ast.Tuple, ast.List, ast.Set)) and all(isinstance(value, ast.Constant) and isinstance(value.value, str) for value in node.elts):
+                            if any(isinstance(compare, ast.Compare) and any(isinstance(operator, (ast.In, ast.NotIn)) and _name(right) == name for operator, right in zip(compare.ops, compare.comparators)) for compare in ast.walk(fn)) or any(isinstance(generator, ast.comprehension) and _name(generator.iter) == name for generator in ast.walk(fn)):
+                                required_sets.append([value.value for value in node.elts])
+                    candidates_ = [(columns, required) for columns in converters for required in required_sets if set(required) <= {row["name"] for row in columns}]
+                    unique = {json.dumps([columns, required], sort_keys=True) for columns, required in candidates_}
+                    if len(unique) != 1:
+                        reasons.add("CSV columns/converters/required values are not uniquely source-bound")
+                        continue
+                    columns, required = json.loads(next(iter(unique)))
+                    found.append({"action": action, "parameter": next(iter(origins)), "format": "csv", "columns": columns, "required": required,
+                                  "source": {"path": source, "function": qualified, "line": item.lineno}})
+                target = function_target(item.func, source)
+                method = isinstance(item.func, ast.Attribute) and reference(item.func.value, source, env) == ("system",) and item.func.attr in method_symbols
+                if method:
+                    target = method_symbols[item.func.attr]
+                    for kind, entity in entities.items():
+                        if item.func.attr == entity["add"]:
+                            hints.add(kind)
+                    if target in {method_symbols[entity["add"]] for entity in entities.values()}:
+                        continue
+                    callee = functions[target]
+                    formals = [*callee.args.posonlyargs, *callee.args.args][1:]
+                    if len(item.args) > len(formals) or any(isinstance(value, ast.Starred) for value in item.args) or any(value.arg is None for value in item.keywords):
+                        continue
+                    child = {"self": ("system",), **{formal.arg: ("expression", value, source, dict(env)) for formal, value in zip(formals, item.args)}}
+                    child.update({value.arg: ("expression", value.value, source, dict(env)) for value in item.keywords})
+                else:
+                    child = bound_function(target, item, source, env) if target else None
+                if target and child is not None:
+                    csv_calls(target, child, (*trail, symbol))
+        csv_calls(method_symbols[action], {"self": ("system",), **{row["name"]: ("file-parameter", row["name"]) for row in parameters[action]}})
+        grouped = {}
+        for row in found:
+            grouped.setdefault(json.dumps({key: value for key, value in row.items() if key != "source"}, sort_keys=True), row)
+        if len(grouped) == 1 and not reasons:
+            row = next(iter(grouped.values()))
+            if len(hints) == 1:
+                kind = next(iter(hints))
+                row["value_source"] = {"entity": kind, "add": entities[kind]["add"], "parameters": entities[kind]["parameters"]}
+            file_schemas.append(row)
+        else:
+            file_input_unknown.append({"action": action, "reason": "; ".join(sorted(reasons)) if reasons else "no unique supported source-bound CSV reader schema"})
     aliases, budgets = {}, {}
     for row in corrections:
         if row["kind"] == "exclude":
@@ -1013,6 +1134,7 @@ def derive(root):
             "settings_attributes": sorted(settings_attributes), "serializer_settings_mirror": serializer_settings_mirror,
             "setting_query_reads": setting_query_reads,
             "optional_argument_advice": optional_argument_advice,
+            "file_schemas": file_schemas, "file_input_unknown": file_input_unknown,
             "entity_queries": entity_queries, "ui_constructor": ui_constructor, "ui_refusal": ui_refusal, "goal_guards": goal_guards,
             "persistence": persistence, "file_inputs": sorted(file_inputs), "worlds": worlds,
             "aliases": aliases, "budgets": budgets, "unsupported": unsupported,

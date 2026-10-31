@@ -172,7 +172,7 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
     hits = saved_hits | set(settings.get("execution", {}).get("hit_functions", [])) | {name for run in runs for name in run["facts"]["execution"]["hit_functions"]}
     candidates = {}
     for run in runs:
-        for check in ("reach", "stuck", "agreement"):
+        for check in ("reach", "stuck", "agreement", "crashes"):
             for candidate in run["facts"][check]["candidates"]:
                 key = state_key(candidate["semantic"])
                 candidate.update(identity=identity, footprint=run["facts"]["footprint"])
@@ -191,7 +191,7 @@ def audit(root, *, worlds=None, seeds=(0, 1), steps=64, node_cap=1000, alphabet_
             errors.append({"world": candidate["start"].get("world", "test-public-prefix"), "seed": candidate["start"].get("seed"),
                            "reason": proof.get("reason", proof["state"])})
     return {"identity": identity, "runs": runs, "errors": errors,
-            "missing_checks": ["GC" + str(number) for number in (6, 7, 8, 9)],
+            "missing_checks": ["GC" + str(number) for number in (7, 8, 9)],
             "coverage": {"hit_functions": sorted(hits), "known_functions": len(spec["source_functions"]),
                          "front_doors": spec["unknown"], "ui": "requested" if starts else "not requested"},
             "facts_reused": sum(run["reused"] for run in runs), "items": items, "saved_files": saved_scope,
@@ -232,7 +232,8 @@ def prove(root, candidate, *, persist=True):
         try:
             load = {"receiver": "system", "name": spec["persistence"]["load"],
                     "args": [{"$file": file["name"]}], "replace": True}
-            if not prefix or prefix[0] != load:
+            public_calls = [*prefix, candidate["violation"]["call"]] if semantic.get("check") == "GC6" else prefix
+            if not public_calls or public_calls[0] != load:
                 raise UnsupportedWorld("the saved-file witness must begin with its actual public load")
             old_spec = derive(source["root"])
             old_inputs = {name: file_stamp(Path(old_spec["root"]) / name) for name in old_spec["input_files"]}
@@ -255,7 +256,10 @@ def prove(root, candidate, *, persist=True):
     search_goal = candidate.get("search_goal", candidate["semantic"])
     options = {"goal": search_goal, "outcomes": candidate.get("outcomes")}
     try:
-        if semantic.get("check") == "GC2":
+        if semantic.get("check") == "GC6":
+            facts = replay(spec, prefix, start, operation="crash-proof", options={"case": candidate})
+            matched = facts["matched"]
+        elif semantic.get("check") == "GC2":
             facts = replay(spec, prefix, start, operation="agreement-proof", options={"comparison": candidate["comparison"]})
             matched = facts["matched"]
             if not matched and facts["unknown"]:

@@ -26,6 +26,7 @@ from flowguard.map.runner import run_isolated_process
 
 _ACTIVE_ARENA = None
 _ACTIVE_CLASSES = set()
+_ACTIVE_SOURCE_ROOT = None
 
 
 def state_key(value):
@@ -367,6 +368,8 @@ class _Graph:
         self.nodes = []
 
     def value(self, value):
+        if value is str or value is int or value is float or value is bool:
+            return {"builtin_type": value.__module__ + ":" + value.__qualname__}
         if value is None or type(value) in (bool, int):
             return value
         if type(value) is str:
@@ -607,6 +610,20 @@ def call(objects, recipe, arena, defaults, refusals=(), results=None):
             value = None
             outcome = "refusal" if isinstance(exc, refusals) else "crash"
             exception = {"type": type(exc).__module__ + ":" + type(exc).__qualname__, "message": _diagnostic(str(exc), arena)}
+            stack, traceback = [], exc.__traceback__
+            while traceback is not None:
+                frame = traceback.tb_frame
+                filename = Path(frame.f_code.co_filename)
+                if _ACTIVE_SOURCE_ROOT is not None and filename.is_absolute():
+                    try:
+                        relative = filename.resolve().relative_to(_ACTIVE_SOURCE_ROOT)
+                    except (OSError, RuntimeError, ValueError):
+                        pass
+                    else:
+                        stack.append({"path": relative.as_posix(), "line": traceback.tb_lineno,
+                                      "function": frame.f_code.co_qualname})
+                traceback = traceback.tb_next
+            exception.update(source=stack[-1] if stack else None, stack=stack)
     results.append(value)
     after = snapshot(objects, arena, defaults)
     return {"call": recipe, "outcome": outcome, "exception": exception,
@@ -837,7 +854,7 @@ class _Session:
 
 
 def _worker(request_path, response_path):
-    global _ACTIVE_ARENA, _ACTIVE_CLASSES
+    global _ACTIVE_ARENA, _ACTIVE_CLASSES, _ACTIVE_SOURCE_ROOT
     request = json.loads(Path(request_path).read_text(encoding="utf-8"))
     # A same-size timestamp-valid application pyc must never override the identified current source.
     sys.pycache_prefix = str(Path(request_path).parent / "bytecode")
@@ -849,6 +866,7 @@ def _worker(request_path, response_path):
         os.chdir(arena)
         _ACTIVE_ARENA = arena
         _ACTIVE_CLASSES = set(request["spec"]["classes"])
+        _ACTIVE_SOURCE_ROOT = Path(request["spec"]["root"]).resolve()
         for name in ("home", "temp"):
             (arena / name).mkdir()
         os.environ.update(HOME=str(arena / "home"), TMPDIR=str(arena / "temp"), TEMP=str(arena / "temp"), TMP=str(arena / "temp"))
@@ -1003,6 +1021,13 @@ def _run_session(request, arena, observed):
         from .checks import offered
         session.reset(request["calls"])
         response = offered(session, {}, case=options["comparison"])
+    elif operation == "crashes":
+        from .checks import crashes
+        response = crashes(session, **options)
+    elif operation == "crash-proof":
+        from .checks import crashes
+        session.reset(request["calls"])
+        response = crashes(session, {}, case=options["case"], generate=False)
     elif operation in {"settings", "settings-proof"}:
         from .checks import setting_effects
         response = setting_effects(session, **options)
@@ -1010,7 +1035,7 @@ def _run_session(request, arena, observed):
         from .testrec import replay_prefixes
         response = replay_prefixes(session, options["recordings"])
     elif operation == "audit":
-        from .checks import offered, reach, stuck
+        from .checks import crashes, offered, reach, stuck
         from .testrec import replay_prefixes
         options = dict(options)
         recorded = options.pop("test_replay", None)
@@ -1018,6 +1043,7 @@ def _run_session(request, arena, observed):
             recorded = replay_prefixes(session, options.pop("recordings", []))
         known = options.pop("known", [])
         response = explore(session, **options)
+        response["crashes"] = crashes(session, response, states=recorded["prefixes"])
         response["agreement"] = offered(session, response, states=recorded["prefixes"])
         response["test_replay"] = {key: value for key, value in recorded.items() if key not in {"prefixes", "witnesses", "replays", "footprint", "execution"}}
         response["reach"] = reach(session, response, known=known, witnessed=recorded["witnesses"], states=recorded["prefixes"])

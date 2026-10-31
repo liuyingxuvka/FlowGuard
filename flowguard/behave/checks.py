@@ -400,6 +400,115 @@ def setting_effects(session, traces, *, setting=None, alphabet_cap=1000):
     return {"candidates": candidates, "information": information, "unknown": unknown, "profiles": profiles, "traces": len(traces)}
 
 
+def _output_multiset(row):
+    """Only captured append-output increments lose order, never the state graph."""
+    result = {}
+    for stream in ("stdout", "stderr"):
+        counts = {}
+        for value in row.get(stream, "").splitlines():
+            counts[value] = counts.get(value, 0) + 1
+        result[stream] = [{"value": value, "count": count} for value, count in sorted(counts.items())]
+    return result
+
+
+def crashes(session, facts=None, *, states=(), case=None, generate=True):
+    """Judge actual public calls and small source-bound files in this native world."""
+    import base64
+    import csv
+    import hashlib
+    import io
+    from .project import state_key
+
+    original, original_prefix = dict(session.start), list(session.prefix)
+    candidates, unknown, inputs, seen = [], [], [], set()
+    compared = 0
+
+    def observe(row, prefix, outcomes, start, file_input=None):
+        nonlocal compared
+        compared += 1
+        kind = "crash" if row["outcome"] == "crash" else "refused_changed_state" if row["outcome"] == "refusal" and row["before_key"] != row["after_key"] else None
+        if kind is None:
+            return
+        exception = row.get("exception") or {}
+        source = exception.get("source") or {}
+        call = row["call"]
+        semantic = {"check": "GC6", "kind": kind, "receiver": call.get("receiver", "system"),
+                    "action": call["name"], "args": call.get("args", []), "kwargs": call.get("kwargs", {}),
+                    "exception": exception.get("type"), "source": {key: source[key] for key in ("path", "function") if key in source}}
+        if semantic["receiver"].startswith("ui:"):
+            from .project import ui_identity
+            semantic.update(ui_identity(session.spec, prefix, semantic["receiver"]))
+        if file_input:
+            semantic["file_kind"] = file_input["kind"]
+        violation = {key: row[key] for key in ("call", "outcome", "exception", "before_key", "after_key")}
+        violation["outputs"] = _output_multiset(row)
+        if case is not None:
+            expected = {key: value for key, value in case["semantic"].items() if key != "origin"}
+            if semantic != expected or violation["outputs"] != case["violation"]["outputs"]:
+                return
+        key = state_key([semantic, start])
+        if key not in seen:
+            seen.add(key)
+            candidates.append({"semantic": semantic, "label": "CRASH" if kind == "crash" else "REFUSED CHANGED STATE",
+                               "prefix": list(prefix), "outcomes": list(outcomes), "start": dict(start),
+                               "violation": violation, **({"file_input": file_input} if file_input else {})})
+
+    try:
+        if case is not None:
+            prefix, outcomes = list(session.prefix), list(session.outcomes)
+            observe(session.step(case["violation"]["call"]), prefix, outcomes, session.start, case.get("file_input"))
+        else:
+            facts = facts or {}
+            for record in facts.get("failures", []):
+                observe(record["row"], record["prefix"], record["outcomes"], record["start"])
+            # Prefixes are already TS2-validated; replay each actual tail, not a new alphabet.
+            for state in states:
+                prefix, start = state["prefix"], state.get("start", original)
+                if session.start != start or prefix[:len(session.prefix)] != session.prefix:
+                    session.reset(start=start)
+                for recipe in prefix[len(session.prefix):]:
+                    before, outcomes = list(session.prefix), list(session.outcomes)
+                    observe(session.step(recipe), before, outcomes, start)
+            if generate:
+                unknown.extend({"check": "GC6", **row} for row in session.spec.get("file_input_unknown", []))
+                for schema in session.spec.get("file_schemas", []):
+                    columns = {row["name"]: row for row in schema["columns"]}
+                    header = schema["required"] or list(columns)
+                    values = []
+                    for name in header:
+                        column = columns[name]
+                        domain = column.get("values", [])
+                        values.append(domain[0] if domain else {"str": "generated-1", "int": 0, "float": 0.0, "bool": True}[column["converter"]])
+                    for kind, cells in (("normal", values), ("extra cell", [*values, "extra"]), ("missing cell", values[:-1])):
+                        buffer = io.StringIO(newline="")
+                        writer = csv.writer(buffer)
+                        writer.writerow(header)
+                        writer.writerow(cells)
+                        payload = buffer.getvalue().encode("utf-8")
+                        name = f"flowguard-input-{schema['action']}-{kind.replace(' ', '-')}.csv"
+                        file_input = {"kind": kind, "name": name, "parameter": schema["parameter"], "source": schema["source"],
+                                      "sha256": hashlib.sha256(payload).hexdigest()}
+                        start = {**original, "files": {**original.get("files", {}), name: base64.b64encode(payload).decode("ascii")}}
+                        try:
+                            session.reset(start=start)
+                            kwargs = {row["name"]: row["default"] for row in session.spec["parameters"][schema["action"]] if "default" in row}
+                            kwargs[schema["parameter"]] = {"$file": name}
+                            if any(row["required"] and row["name"] not in kwargs for row in session.spec["parameters"][schema["action"]]):
+                                raise UnsupportedWorld("the file action has an unbound required parameter")
+                            before, outcomes = list(session.prefix), list(session.outcomes)
+                            row = session.step({"name": schema["action"], "kwargs": kwargs})
+                            inputs.append({**file_input, "action": schema["action"], "outcome": row["outcome"]})
+                            observe(row, before, outcomes, start, file_input)
+                            if kind == "normal" and row["outcome"] != "success":
+                                unknown.append({"check": "GC6", "action": schema["action"], "reason": "the source-bound normal file did not succeed", "exception": row["exception"]})
+                        except UnsupportedWorld as exc:
+                            unknown.append({"check": "GC6", "action": schema["action"], "reason": str(exc)})
+    finally:
+        session.reset(original_prefix, start=original)
+    return {"candidates": candidates, "unknown": unknown, "inputs": inputs, "compared": compared,
+            "matched": bool(candidates), "scope": "actual fresh/test/saved calls and one normal/extra/missing file per supported source-bound CSV schema; other formats unjudged"}
+
+
 def saved_files(session, saves, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000):
     """Load exact old file bytes, then reuse the same supported native checks."""
     import base64
@@ -409,7 +518,7 @@ def saved_files(session, saves, *, seed=0, steps=64, node_cap=1000, alphabet_cap
 
     original, base_prefix = session.start, list(session.base_prefix)
     candidates, files, unknown = [], [], []
-    missing = ["GC" + str(number) for number in (6, 7, 8, 9)]
+    missing = ["GC" + str(number) for number in (7, 8, 9)]
     loader = session.spec.get("persistence", {}).get("load") if session.spec.get("persistence") else None
     try:
         for saved in saves:
@@ -442,6 +551,11 @@ def saved_files(session, saves, *, seed=0, steps=64, node_cap=1000, alphabet_cap
                 summary.update(outcome=row["outcome"], exception=row["exception"])
                 semantic = {"check": "GC4", "source": source["revision"], "schema": schema,
                             "file": file["sha256"], "loader": session.spec["system"] + "." + loader}
+                if row["outcome"] == "refusal" and row["before_key"] != row["after_key"]:
+                    loading = crashes(session, {"failures": [{"prefix": [], "outcomes": [], "start": start, "row": row}]}, generate=False)
+                    origin = {"kind": "saved-file", "source": source["revision"], "file": file["sha256"], "schema": schema}
+                    candidates.extend({**candidate, "semantic": {**candidate["semantic"], "origin": origin}, "saved_file": saved}
+                                      for candidate in loading["candidates"])
                 if row["outcome"] == "crash" or row["outcome"] == "refusal" and summary["old_outcome"] == "success":
                     label = "LOADING CRASH" if row["outcome"] == "crash" else "LOST"
                     kind = "loading_crash" if row["outcome"] == "crash" else "loading"
@@ -462,7 +576,8 @@ def saved_files(session, saves, *, seed=0, steps=64, node_cap=1000, alphabet_cap
                 agreement = offered(session, facts)
                 reached = reach(session, facts, origin=origin)
                 trapped = stuck(session, facts)
-                for check in (reached, trapped, agreement):
+                crashed = crashes(session, facts)
+                for check in (reached, trapped, agreement, crashed):
                     candidates.extend({**candidate, "semantic": {**candidate["semantic"], "origin": origin},
                                        "saved_file": saved} for candidate in check["candidates"])
                     unknown.extend({**item, "origin": origin} for item in check["unknown"])
