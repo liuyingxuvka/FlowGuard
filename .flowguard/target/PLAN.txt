@@ -1,0 +1,22 @@
+touch: flowguard/behave/__main__.py:build_parser because "Add the real pilot audit --base ref option without changing the shipped product CLI"
+touch: flowguard/behave/__main__.py:main because "Dispatch an explicit base comparison to the shared engine and preserve finished audit exit behavior"
+touch: flowguard/behave/skeleton.py:derive because "Expose source-bound executable statement identities from the shared AST without another parser or source index"
+touch: flowguard/behave/project.py:_ObservedState.trace because "Retain lightweight actual per-call source hits alongside existing line monitoring without graph capture at every line"
+touch: flowguard/behave/project.py:_worker because "Install and clear the scoped sys.monitoring statement-line callback in the existing native worker while retaining the class/global state guard"
+touch: flowguard/behave/project.py:_Session.step because "Attach the actual call statement footprint to its concrete public prefix and complete before and after observation"
+touch: flowguard/behave/project.py:_run_session because "Run comparable diff facts cross-version replay and bounded proof through the one native session including GC4 loaded starts and provided-fixture provenance"
+touch: flowguard/behave/explore.py:evaluate because "Recognize source statement and concrete before-action-after transition goals using actual native observations"
+touch: flowguard/behave/explore.py:explore because "Retain compact transition and statement witnesses with matching starts and public recipes rather than sampled absence verdicts"
+touch: flowguard/behave/diffcmd.py:compare because "Compare exact base and working-tree execution facts with known witness second-seed and complete directed checks for lost behavior and real opposite-side transition replay"
+touch: flowguard/behave/diffcmd.py:prove because "Freshly re-establish both source sides and the specific positive or bounded negative evidence before reporting a GC8 item"
+touch: flowguard/behave/engine.py:old_releases because "Reuse verified Git-blob source export for an exact requested base without eagerly exporting unrelated history or introducing another checkout mechanism"
+touch: flowguard/behave/engine.py:collect_saves because "Screen provided untracked JSON fixtures with existing metadata exclusions and real old-loader acceptance while preserving distinct committed and provided provenance"
+touch: flowguard/behave/checks.py:saved_files because "Retain exact provided-fixture path bytes identity and independent old acceptance when the shared GC4 loader supplies a GC8 starting origin"
+touch: flowguard/behave/engine.py:audit because "Route base comparisons through shared facts and source identities while preserving ordinary audit behavior and declared scope"
+touch: flowguard/behave/engine.py:prove because "Reprove GC8 evidence on the current tree with its actual base and saved-file provenance instead of trusting a stored difference"
+touch: flowguard/behave/report.py:item_id because "Give lost transition and new behavioral items stable semantic identities independent of seed prefix or temporary source paths"
+touch: flowguard/behave/report.py:render because "Show confirmed LOST DEAD CODE NEW STUCK NEW CONTRADICTION and transitions with explicit unknown coverage and source evidence"
+touch: flowguard/behave/why.py:why because "Accept the implemented GC8 semantic item kinds and use the same current-tree cross-version proof"
+# Tests: test_gc8_diff.py registers test_lost_needs_witness_and_two_misses and test_transition_confirmed_by_witness_replay; extend only its existing <3.12 collect_ignore entry, preserving nine bootstrap/guard cases.
+# Directed evidence: use the four prepared original dirty K trees and declared bases without committing or rewriting them; run GC8-specific native slices and fresh proof, not the full GC5 or test-recording matrix.
+# Input boundary: include original K3 old_r6_repair.json as provided-fixture through the existing JSON screening and real old-loader acceptance; retain path, bytes SHA, untracked origin and old source footprint; do not commit the material or label it committed/public-save-generated.
