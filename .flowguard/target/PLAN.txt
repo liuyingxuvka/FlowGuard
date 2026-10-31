@@ -1,1 +1,0 @@
-touch: tests/behave/test_skeleton.py:test_init_constructs_the_program_and_writes_only_source_pins because "Retain the actual init behavior case in the Python 3.12 collection scope when moving it from the bootstrap-only file"

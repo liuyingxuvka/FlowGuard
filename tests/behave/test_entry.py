@@ -58,21 +58,3 @@ def test_package_import_does_not_load_engine_modules():
         "== ['flowguard.behave']"
     )
     subprocess.run([sys.executable, "-c", code], cwd=ROOT, check=True)
-
-
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="pilot behavior needs Python 3.12")
-def test_init_constructs_the_program_and_writes_only_source_pins(tmp_path):
-    from .test_skeleton import SOURCE
-
-    (tmp_path / "example.py").write_text(SOURCE, encoding="utf-8")
-    result = subprocess.run(
-        [sys.executable, "-m", "flowguard.behave", "init", "--root", str(tmp_path)],
-        cwd=ROOT, text=True, capture_output=True,
-    )
-    assert result.returncode == 0, result.stderr
-    assert "system: example:Engine" in result.stdout
-    assert "unrecognized front doors:" in result.stdout
-    assert "glossary draft:" in result.stdout
-    assert sorted(path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*") if path.is_file()) == [
-        ".flowguard/skeleton.py", "example.py",
-    ]

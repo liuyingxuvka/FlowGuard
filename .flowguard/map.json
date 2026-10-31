@@ -58,7 +58,8 @@
       "responsibilities": [
         "install the packaged skill into a skills directory, or check an installed copy",
         "run the complete pilot tests on Ubuntu Python 3.13 while retaining the complete legacy release on Ubuntu Python 3.11 and existing Windows smoke scope",
-        "document actual CI coverage in repository instructions without extending public product documentation"
+        "document actual CI coverage in repository instructions without extending public product documentation",
+        "apply the pilot test interpreter boundary during collection without weakening required-skip or exact-node evidence"
       ],
       "files": [
         "scripts/*.py",
@@ -893,10 +894,12 @@
         "explore each world and seed in one native process with fixed finite domains and budgets, compact coverage-guided receipts and complete focused search only within its declared slice",
         "identify opened files, imports, listed directories, engine source and run inputs by content; reuse matching execution facts without persisting a final verdict",
         "replay every candidate in a fresh process before reporting it, retain stable semantic identities, and reprove saved evidence against current code while distinguishing incomplete work and engine defects",
-        "observe or explicitly reject mutable class/global state touched by actual execution; do not reject unused declarations or mistake an unchanged instance graph for unchanged program state"
+        "observe or explicitly reject mutable class/global state touched by actual execution; do not reject unused declarations or mistake an unchanged instance graph for unchanged program state",
+        "collect bootstrap and isolation guards on Python 3.11 while collecting the named pilot behavior tests only on Python 3.12 or newer"
       ],
       "files": [
-        "flowguard/behave/*.py"
+        "flowguard/behave/*.py",
+        "tests/behave/conftest.py"
       ],
       "entrypoints": [],
       "state": [],
@@ -918,7 +921,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:aff2ffcdef9d6f72fdc68da29bd2ec70d81778637afaa8b3085857fb791acfc9"
+      "fingerprint": "sha256:245ed8902a0be99d228c6ea63c5369faf2e9dd1955b8bf02a88c1ec88f2680d6"
     }
   ],
   "flows": [

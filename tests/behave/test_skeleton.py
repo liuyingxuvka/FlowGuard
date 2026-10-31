@@ -1,6 +1,7 @@
 """Finite source and correction controls for the generated skeleton."""
 
 from pathlib import Path
+import subprocess
 import sys
 
 import pytest
@@ -8,6 +9,7 @@ import pytest
 from flowguard.behave.skeleton import SkeletonError, derive, read_corrections, write_pins
 
 pytestmark = pytest.mark.skipif(sys.version_info < (3, 12), reason="pilot behavior needs Python 3.12")
+ROOT = Path(__file__).resolve().parents[2]
 
 SOURCE = '''from dataclasses import dataclass, asdict
 import json
@@ -76,6 +78,21 @@ class Engine:
 def example(tmp_path):
     (tmp_path / "example.py").write_text(SOURCE, encoding="utf-8")
     return tmp_path
+
+
+def test_init_constructs_the_program_and_writes_only_source_pins(tmp_path):
+    (tmp_path / "example.py").write_text(SOURCE, encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, "-m", "flowguard.behave", "init", "--root", str(tmp_path)],
+        cwd=ROOT, text=True, capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "system: example:Engine" in result.stdout
+    assert "unrecognized front doors:" in result.stdout
+    assert "glossary draft:" in result.stdout
+    assert sorted(path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*") if path.is_file()) == [
+        ".flowguard/skeleton.py", "example.py",
+    ]
 
 
 def test_skeleton_matches_reference_actions(example):

@@ -1,0 +1,30 @@
+{
+  "kind": "change",
+  "goal": "FG-622: Fix pilot test collection for supported interpreters",
+  "requests": [
+    {
+      "id": "R11",
+      "part": true
+    }
+  ],
+  "base": "16b9143956a3893e7893550e1b88030621f6b531",
+  "tree": "56d14aa7850e654141fdb9b4f09642330e94a24f0781d3118cd26371fec92dc8",
+  "promoted": "2026-10-31T12:34:47.123505+00:00",
+  "plan": [
+    {
+      "line": "touch: tests/behave/test_skeleton.py:test_init_constructs_the_program_and_writes_only_source_pins because \"Retain the actual init behavior case in the Python 3.12 collection scope when moving it from the bootstrap-only file\"",
+      "added_after_code": null,
+      "cleared": []
+    }
+  ],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "tests/behave/test_entry.py:test_init_constructs_the_program_and_writes_only_source_pins",
+    "tests/behave/test_skeleton.py:test_init_constructs_the_program_and_writes_only_source_pins"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty."
+}
