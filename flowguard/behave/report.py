@@ -54,6 +54,9 @@ def render(result, *, as_json=False):
     least = min(([name, *counts] for name, counts in modules.items() if counts[0] < counts[1]),
                 key=lambda row: (row[1] / row[2], row[0]), default=None)
     reached = "shipped reach, stuck, agreement, setting and crash/refusal checks"
+    fallback = result.get("fallback")
+    if fallback:
+        reached = "static skeleton diagnostics; behavior not explored"
     if difference:
         reached += " and change comparison"
     payload = {"verdict": verdict, "reached": reached, "extent": extent,
@@ -64,8 +67,10 @@ def render(result, *, as_json=False):
                    change_lines=[changed_run, len(changed)], moved=result.get("moved", []),
                    tree=scope.get("tree"), dirty_files=scope.get("dirty_files", []),
                    elapsed_seconds=scope.get("elapsed_seconds"), engine_defects=result.get("engine_defects", []),
-                   next="python -m flowguard.behave why " + items[0]["id"] if items else
-                        "python -m flowguard.behave why --coverage")
+                   next=result.get("next") or ("python -m flowguard.behave why " + items[0]["id"] if items else
+                        "python -m flowguard.behave why --coverage"))
+    if fallback:
+        payload["fallback"] = {key: fallback[key] for key in ("reason", "world_kind", "entries", "required", "corrections")}
     for item, row in zip(items, payload["items"]):
         if item.get("violation"):
             row["violation"] = {key: item["violation"][key] for key in (
@@ -120,6 +125,9 @@ def render(result, *, as_json=False):
              "coverage denominator: " + scope.get("function_scope", "known project source functions") + "; UI " + result["coverage"]["ui"]]
     if verdict == "UNCHECKED":
         lines.append("reason: " + ("no changed source line ran" if not changed_run else "required checks or explored scope remain incomplete"))
+    if fallback:
+        from .skeleton import render_fallback
+        lines.append(render_fallback(fallback))
     for run in runs:
         value = run["facts"]["extent"]
         extra = "" if run["facts"]["footprint"]["reusable"] else "; input footprint incomplete"

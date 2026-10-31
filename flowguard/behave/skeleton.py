@@ -15,6 +15,14 @@ class SkeletonError(ValueError):
     pass
 
 
+class NoSkeleton(SkeletonError):
+    """A supported diagnostic, not a constructed or checked execution world."""
+
+    def __init__(self, facts):
+        self.facts = facts
+        super().__init__(facts["reason"])
+
+
 def _name(node):
     if isinstance(node, ast.Call):
         return _name(node.func)
@@ -82,6 +90,80 @@ def _signature(fn):
     return result
 
 
+def fallback_facts(root, reason, *, inv=None, raw=None, candidates=()):
+    """Describe missing world support without importing or constructing the program."""
+    root = Path(root).resolve()
+    if inv is None:
+        inv = build_inventory(root, [".flowguard/**"], with_bodies=False, write_cache=False)
+    if raw is None:
+        raw = discover_inventory(root, inv, write_cache=False)
+    files = raw["files"]
+    errors = [path + ": " + facts["parse_error"] for path, facts in sorted(files.items())
+              if facts.get("parse_error")]
+    if errors:
+        raise SkeletonError("source_not_parseable: " + "; ".join(errors))
+    entries = []
+    classes = set()
+    has_methods = False
+    for path, facts in sorted(files.items()):
+        classes.update(facts["module"] + ":" + name for name in facts.get("classes", ()))
+        named = set()
+        for row in facts.get("entrypoints", ()):
+            entries.append({"path": path, "symbol": row["symbol"], "kind": row["kind"],
+                            "name": row["name"], "line": row["line"] or facts.get("functions", {}).get(row["symbol"], {}).get("line", 0)})
+            named.add(row["symbol"])
+        for symbol, function in sorted(facts.get("functions", {}).items()):
+            has_methods = has_methods or bool(function["class"])
+            if symbol in named or symbol.rsplit(".", 1)[-1].startswith("_"):
+                continue
+            entries.append({"path": path, "symbol": symbol,
+                            "kind": "method" if function["class"] else "function",
+                            "name": symbol, "line": function["line"]})
+    entries.sort(key=lambda row: (row["path"], row["symbol"], row["kind"], row["name"], row["line"]))
+    cli = any(row["kind"] in {"cli_command", "console_script", "main_guard", "main_call"} for row in entries)
+    if cli:
+        kind = "TempProject"
+        required = ["Provide a seed project directory and deterministic file/Git starting recipe for these entries.",
+                    "Provide finite command arguments, accepted exit codes and observable file outcomes."]
+    elif entries and not has_methods and all(row["kind"] == "function" for row in entries):
+        kind = "Calls"
+        required = ["Provide finite arguments and expected output/refusal observations for the listed functions.",
+                    "Calls is a source-shape suggestion; purity has not been judged."]
+    else:
+        kind = "MACHINE"
+        required = ["Provide a public construction recipe, observable state and finite actions for this unsupported shape.",
+                    "An existing source pin may resolve a root ambiguity; it does not create another world kind."]
+    required.append(kind + " world execution is not implemented by this fallback; no runnable WORLD declaration is generated.")
+    corrections = []
+    if reason.startswith("system_ambiguous:"):
+        corrections = [f'pin("system", {json.dumps(locator)}, why="Select this existing source root")'
+                       for locator in sorted(set(candidates)) if locator in classes]
+    return {"root": str(root), "input_files": sorted(inv.py),
+            "source_functions": sorted(path + "#" + symbol for path, facts in files.items()
+                                       for symbol in facts.get("functions", {})),
+            "world_kind": kind, "entries": entries, "required": required,
+            "corrections": corrections, "reason": reason}
+
+
+def render_fallback(facts):
+    """Render requirements and existing corrections without advertising future APIs."""
+    rows = ["NO SKELETON: " + facts["reason"].removeprefix("world kind needed: ") + "; world kind needed: " + facts["world_kind"]]
+    entries = facts["entries"]
+    rows.append(f"static entries ({len(entries)}; not executed):")
+    for entry in entries[:8]:
+        rows.append(f"  {entry['kind']} {entry['name']} -> {entry['path']}:{entry['symbol']} (line {entry['line']})")
+    if len(entries) > 8:
+        rows.append(f"  ... {len(entries) - 8} more entries retained in the diagnostic facts")
+    rows.extend("required: " + line for line in facts["required"])
+    corrections = facts["corrections"]
+    if corrections:
+        rows.append("existing correction suggestions (choose one; not written):")
+        rows.extend("  " + line for line in corrections[:8])
+        if len(corrections) > 8:
+            rows.append(f"  ... {len(corrections) - 8} more suggestions retained in the diagnostic facts")
+    return "\n".join(rows)
+
+
 def derive(root):
     """No application import occurs here; all live construction belongs to project."""
     root = Path(root).resolve()
@@ -98,6 +180,10 @@ def derive(root):
     if errors:
         raise SkeletonError("source_not_parseable: " + "; ".join(errors))
     raw = discover_inventory(root, inv, write_cache=False)
+
+    def unsupported(reason, candidates=()):
+        return NoSkeleton(fallback_facts(root, reason, inv=inv, raw=raw, candidates=candidates))
+
     # These are references into shared syntax, not another persisted source index.
     trees = {path: current_syntax[path] for path in raw["files"]}
     classes = {}
@@ -162,15 +248,17 @@ def derive(root):
             if count:
                 candidates.append((count, locator))
     if not candidates:
-        raise SkeletonError("world kind needed: no constructible system class; use a Calls or CLI project world when available")
+        raise unsupported("world kind needed: no constructible system class")
     highest = max(count for count, _ in candidates)
     choices = sorted(locator for count, locator in candidates if count == highest)
     if "system" not in pins and len(choices) != 1:
-        raise SkeletonError("system_ambiguous: " + ", ".join(choices) + "; add a source pin")
+        pin_candidates = [locator for locator in choices
+                          if all(_name(base) == "object" for base in classes[locator][1].bases)]
+        raise unsupported("system_ambiguous: " + ", ".join(choices) + "; add a source pin", pin_candidates)
     system = pins.get("system", choices[0])
     path, cls = classes[system]
     if any(_name(base) != "object" for base in cls.bases):
-        raise SkeletonError("world kind needed: inherited public surfaces need an explicit world")
+        raise unsupported("world kind needed: inherited public surfaces need an explicit world")
     methods = {item.name: item for item in cls.body if isinstance(item, ast.FunctionDef)}
     settings, parameter = pins.get("settings"), None
     init = methods.get("__init__")
@@ -196,7 +284,7 @@ def derive(root):
                 raise SkeletonError("settings_pin_conflicts_with_constructor")
             settings = derived_settings
         elif bindings:
-            raise SkeletonError("settings_ambiguous: constructor has several settings bindings")
+            raise unsupported("settings_ambiguous: constructor has several settings bindings")
         elif settings:
             raise SkeletonError("settings_parameter_unknown")
     ui_candidates = []
@@ -276,7 +364,7 @@ def derive(root):
                             changed = True
     persistence = {"save": "save", "load": "load"} if {"save", "load"} <= public.keys() else None
     if pins.get("persistence", system) != system:
-        raise SkeletonError("persistence_root_unknown: persistence on a separate root needs an explicit world")
+        raise unsupported("persistence_root_unknown: persistence on a separate root needs an explicit world")
     file_inputs = [name for name in public if name not in {"save", "load"} and reads_file(method_symbols[name])]
     seeds = {value["add"] for value in entities.values()}
     actions = sorted(name for name in public if name not in seeds | set(file_inputs) | {"save", "load"} and writes(method_symbols[name]))

@@ -929,7 +929,8 @@
         "explore eligible public test starts only in a separate audit-side run with its own corpus, budget, candidates and UI pool and retain its test-start origin without clearing shipped absence findings",
         "derive audit coverage from actual source function and line identities, report least-covered modules and changed lines that ran or did not run, and retain unrecognised entries and incomplete checks",
         "render audit evidence with BLOCKED CLEAR UNCHECKED or unfinished-job RUNNING from one payload; finished audits exit zero, usage errors exit two, capped or incomplete work never becomes CLEAR, and JSON is one line",
-        "explain and freshly reprove audit findings on demand against the current source with actual deciding outcomes; expose coverage and proof failures without treating stored recipes as current verdicts"
+        "explain and freshly reprove audit findings on demand against the current source with actual deciding outcomes; expose coverage and proof failures without treating stored recipes as current verdicts",
+        "when a supported executable skeleton cannot be derived or built, report the real source entries, required Calls TempProject or MACHINE world and missing input contents without executing an empty world or inventing an available API; offer only existing source-bound pin or UI corrections and retain all unjudged behavior and coverage"
       ],
       "files": [
         "flowguard/behave/*.py",
@@ -961,11 +962,12 @@
         "tests/behave/test_gc6_crash.py",
         "tests/behave/test_gc8_diff.py",
         "tests/behave/test_audit_command.py",
-        "tests/behave/test_audit_output.py"
+        "tests/behave/test_audit_output.py",
+        "tests/behave/test_no_skeleton.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:8ae3b7fac00e1eebdf0bf6207964027e41de73adb76d8bed4a1e8980c44e481d"
+      "fingerprint": "sha256:ab2605e286c9fb664bab1a132caee91ee087c55df9330c4968f117592ab02c8d"
     }
   ],
   "flows": [

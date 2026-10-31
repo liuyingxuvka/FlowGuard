@@ -107,14 +107,20 @@ def main(argv: list[str] | None = None) -> int:
         except OSError as exc:
             print("UNCHECKED " + str(exc), file=sys.stderr)
             return 1
-    from .project import replay
-    from .skeleton import derive, render, write_pins
+    from .project import UnsupportedWorld, replay
+    from .skeleton import NoSkeleton, derive, fallback_facts, render, render_fallback, write_pins
 
     try:
         spec = derive(options.root)
         observed = replay(spec, [])
         spec["shipped"] = observed["defaults"]
         path = write_pins(options.root, spec)
+    except NoSkeleton as exc:
+        print(render_fallback(exc.facts))
+        return 0
+    except UnsupportedWorld as exc:
+        print(render_fallback(fallback_facts(options.root, str(exc))))
+        return 0
     except (ValueError, OSError) as exc:
         print("ERROR " + str(exc), file=sys.stderr)
         return 1

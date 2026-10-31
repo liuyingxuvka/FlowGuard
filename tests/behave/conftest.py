@@ -8,6 +8,7 @@ import sys
 collect_ignore = [
     "test_audit_command.py",
     "test_audit_output.py",
+    "test_no_skeleton.py",
     "test_explore.py",
     "test_footprint.py",
     "test_gc1_reach.py",

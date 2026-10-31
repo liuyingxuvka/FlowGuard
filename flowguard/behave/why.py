@@ -5,12 +5,15 @@ import json
 from .engine import _cached, cache_root, content_identity, prove
 from .project import UnsupportedWorld, replay
 from .report import item_id
-from .skeleton import derive
+from .skeleton import NoSkeleton, derive
 
 
 def why(root, identifier=None, *, coverage=False, defects=False):
     if coverage or defects:
-        spec = derive(root)
+        try:
+            spec = derive(root)
+        except NoSkeleton as exc:
+            return {"state": "unchecked", "matched": False, "reason": exc.facts["reason"]}
         identity = content_identity(spec)
         facts = _cached(cache_root(root) / "latest-audit-facts.json", identity)
         if facts is None:
@@ -30,7 +33,10 @@ def why(root, identifier=None, *, coverage=False, defects=False):
         raise ValueError("no stored proof recipe for " + identifier) from exc
     if item_id(candidate["semantic"], length=len(identifier) - 2) != identifier:
         raise ValueError("stored witness semantic identity changed")
-    result = prove(root, candidate, persist=False)
+    try:
+        result = prove(root, candidate, persist=False)
+    except NoSkeleton as exc:
+        return {"state": "unchecked", "matched": False, "reason": exc.facts["reason"]}
     result["label"] = candidate.get("label", candidate["semantic"].get("kind", "finding"))
     if candidate.get("origin"):
         result["origin"] = candidate["origin"]

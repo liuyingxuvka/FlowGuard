@@ -11,7 +11,7 @@ import time
 from flowguard.map.common import atomic_write_text, normalize_newlines
 
 from .project import UnsupportedWorld, directory_stamp, file_stamp, replay, state_key, ui_identity
-from .skeleton import derive
+from .skeleton import NoSkeleton, derive, fallback_facts
 
 
 def content_identity(spec):
@@ -66,7 +66,19 @@ def _cached(path, identity):
 def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_cap=None, use_cache=True, starts=None, base=None):
     """Explore actual worlds; missing check implementations remain explicit on every call."""
     tick = time.monotonic()
-    spec = derive(root)
+    def unjudged(facts, errors=None):
+        scope = audit_scope(root, facts, [], base=base, elapsed=time.monotonic() - tick)
+        entries = [row["path"] + ":" + row["symbol"] for row in facts["entries"]]
+        return {"identity": content_identity(facts), "runs": [], "items": [],
+                "errors": errors or [{"world": facts["world_kind"], "reason": facts["reason"]}],
+                "engine_defects": [], "facts_reused": 0,
+                "missing_checks": ["GC" + str(number) for number in range(1, 10)],
+                "coverage": {**scope, "front_doors": entries, "ui": "not explored"},
+                "fallback": facts, "next": "python -m flowguard template --list"}
+    try:
+        spec = derive(root)
+    except NoSkeleton as exc:
+        return unjudged(exc.facts)
     identity = content_identity(spec)
     directory = cache_root(root)
     runs, errors, engine_defects, contexts, extra_facts = [], [], [], [], []
@@ -152,6 +164,9 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
             witness["footprint"] = facts["footprint"]
         runs.append({"world": world, "seed": seed, "start": start, "options": options, "identity": identity,
                      "reused": reused, "elapsed_seconds": time.monotonic() - started, "facts": facts})
+    if not runs:
+        reason = "; ".join(sorted({row["reason"] for row in errors})) or "no executable world was built"
+        return unjudged(fallback_facts(root, reason), errors)
     test_starts = None
     if test_replay.get("prefixes"):
         test_key = state_key([identity, replay_token, common_bounds, selected_seeds[0]])
