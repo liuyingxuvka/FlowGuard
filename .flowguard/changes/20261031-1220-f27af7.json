@@ -1,0 +1,182 @@
+{
+  "kind": "change",
+  "goal": "FG-622: Explore real worlds with bounded search and replayed evidence",
+  "requests": [
+    {
+      "id": "R11",
+      "part": true
+    }
+  ],
+  "base": "7bc86ad72763a7edf39ed3b6e66ebf337506acf7",
+  "tree": "f27af77cb91b1464a18b9c6607e789a32ec1b16c83b4d8e8793e1c319659aa9f",
+  "promoted": "2026-10-31T12:20:28.048061+00:00",
+  "plan": [
+    {
+      "line": "touch: flowguard/behave/project.py:_worker because \"Run a world or focused search within one existing isolated process\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:construct because \"Judge actually touched mutable state rather than refusing unused global declarations\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:call because \"Share native calls and compact observation capture with exploration and proof\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:snapshot because \"Keep complete graph and file observations including the world-root mode\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:replay because \"Use one execution protocol for native traces, exploration and fresh proofs\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:restore because \"Share public-prefix reconstruction without per-node child processes\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/explore.py:explore because \"Explore a finite world with fixed seeds and concrete coverage-guided prefixes\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/explore.py:focused_search because \"Exhaust only the declared finite slice and preserve honest node-cap status\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/explore.py:directed_search because \"Search toward a generated goal before licensing a missing-goal claim\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:content_identity because \"Identify engine source and input content independently of version labels\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:footprint_identity because \"Validate every recorded file and directory input before fact reuse\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:audit because \"Orchestrate actual exploration and retain unimplemented-check scope\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:prove because \"Replay a candidate against shipped current inputs in a fresh native child\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/report.py:item_id because \"Derive stable semantic IDs without seed or incidental trace order\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/report.py:render because \"Print only proven evidence and explicit incomplete or unchecked scope\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/why.py:why because \"Reprove a saved recipe on the current tree rather than trusting a cached verdict\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/__main__.py:build_parser because \"Advertise only implemented audit and why capabilities alongside init\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/__main__.py:main because \"Dispatch bounded execution and distinguish unchecked work from engine defects\"",
+      "added_after_code": null,
+      "cleared": []
+    }
+  ],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/behave/__main__.py:build_parser",
+    "flowguard/behave/__main__.py:main",
+    "flowguard/behave/engine.py:_cached",
+    "flowguard/behave/engine.py:audit",
+    "flowguard/behave/engine.py:cache_root",
+    "flowguard/behave/engine.py:content_identity",
+    "flowguard/behave/engine.py:footprint_identity",
+    "flowguard/behave/engine.py:prove",
+    "flowguard/behave/explore.py:_alphabet",
+    "flowguard/behave/explore.py:_compact",
+    "flowguard/behave/explore.py:_extent",
+    "flowguard/behave/explore.py:_identifiers",
+    "flowguard/behave/explore.py:_numbers",
+    "flowguard/behave/explore.py:_terms",
+    "flowguard/behave/explore.py:directed_search",
+    "flowguard/behave/explore.py:evaluate",
+    "flowguard/behave/explore.py:explore",
+    "flowguard/behave/explore.py:focused_search",
+    "flowguard/behave/explore.py:plain",
+    "flowguard/behave/explore.py:plain.read",
+    "flowguard/behave/project.py:_Inputs.__init__",
+    "flowguard/behave/project.py:_Inputs.receipt",
+    "flowguard/behave/project.py:_Inputs.record",
+    "flowguard/behave/project.py:_ObservedState.__init__",
+    "flowguard/behave/project.py:_ObservedState.capture",
+    "flowguard/behave/project.py:_ObservedState.namespace",
+    "flowguard/behave/project.py:_ObservedState.profile",
+    "flowguard/behave/project.py:_ObservedState.trace",
+    "flowguard/behave/project.py:_Session.__init__",
+    "flowguard/behave/project.py:_Session.query",
+    "flowguard/behave/project.py:_Session.receipt",
+    "flowguard/behave/project.py:_Session.reset",
+    "flowguard/behave/project.py:_Session.reset.remove",
+    "flowguard/behave/project.py:_Session.step",
+    "flowguard/behave/project.py:_arena_guard",
+    "flowguard/behave/project.py:_arena_guard.audit",
+    "flowguard/behave/project.py:_worker",
+    "flowguard/behave/project.py:call",
+    "flowguard/behave/project.py:construct",
+    "flowguard/behave/project.py:directory_stamp",
+    "flowguard/behave/project.py:file_stamp",
+    "flowguard/behave/project.py:replay",
+    "flowguard/behave/project.py:restore",
+    "flowguard/behave/project.py:snapshot",
+    "flowguard/behave/project.py:state_key",
+    "flowguard/behave/report.py:item_id",
+    "flowguard/behave/report.py:render",
+    "flowguard/behave/skeleton.py:derive",
+    "flowguard/behave/why.py:why",
+    "tests/behave/test_entry.py:test_help_lists_only_implemented_commands",
+    "tests/behave/test_entry.py:test_unimplemented_verb_never_reports_success",
+    "tests/behave/test_explore.py:goal",
+    "tests/behave/test_explore.py:program",
+    "tests/behave/test_explore.py:test_actual_class_data_mutation_is_unsupported_but_unused_global_is_not",
+    "tests/behave/test_explore.py:test_focused_search_distinguishes_complete_capped_and_reached",
+    "tests/behave/test_explore.py:test_known_witness_precedes_second_seed_and_directed_search",
+    "tests/behave/test_explore.py:test_walk_stays_in_one_child_and_returns_compact_events",
+    "tests/behave/test_explore.py:test_walk_stays_in_one_child_and_returns_compact_events.count",
+    "tests/behave/test_footprint.py:test_actually_listed_directory_change_invalidates",
+    "tests/behave/test_footprint.py:test_engine_source_identity_changes_without_version_bump",
+    "tests/behave/test_footprint.py:test_facts_reuse_then_actual_read_file_change_invalidates",
+    "tests/behave/test_honest_output.py:test_audit_cli_json_is_one_scoped_line",
+    "tests/behave/test_honest_output.py:test_completed_and_capped_walks_stay_unchecked_without_generic_checks",
+    "tests/behave/test_honest_output.py:test_unproven_input_is_not_printed_as_a_finding",
+    "tests/behave/test_project.py:test_opaque_runtime_state_does_not_become_an_empty_graph",
+    "tests/behave/test_proof.py:test_observed_witness_uses_a_new_child_and_why_rechecks_current_code",
+    "tests/behave/test_proof.py:test_private_edits_and_nonreproducing_same_input_claims_are_not_proofs",
+    "tests/behave/test_proof.py:test_semantic_ids_ignore_seed_and_incidental_trace_metadata",
+    "tests/behave/test_proof.py:test_test_setting_witness_cannot_clear_a_shipped_goal"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty."
+}

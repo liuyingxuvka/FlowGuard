@@ -880,7 +880,7 @@
     {
       "id": "behave",
       "layer": "capabilities",
-      "summary": "Unreleased skeleton derivation and real initialization, with isolated public calls, complete state/file observation and prefix restoration; enter only through python -m flowguard.behave.",
+      "summary": "Unreleased code-derived worlds with native construction, bounded exploration and focused search, replayed evidence and honest execution scope; enter only through python -m flowguard.behave.",
       "responsibilities": [
         "provide standalone pilot help that lists only implemented verbs and reject unsupported Python interpreters before loading pilot behavior",
         "keep the pilot absent from the public CLI, exports, skill and product documentation",
@@ -889,7 +889,11 @@
         "initialize real source pins, print derived facts, unrecognized front doors and a glossary draft, and validate corrections without choosing settings or removing generated goals",
         "construct and call the real program only in a fresh isolated process through the shared runner and import-path owners",
         "observe complete supported instance graphs, shipped defaults and arena files independently of the program serializer, retaining order and shared references",
-        "restore a concrete starting recipe through public-call prefix replay and verify the full resulting observation; state unsupported roots and resources instead of reporting an empty successful world"
+        "restore a concrete starting recipe through public-call prefix replay and verify the full resulting observation; state unsupported roots and resources instead of reporting an empty successful world",
+        "explore each world and seed in one native process with fixed finite domains and budgets, compact coverage-guided receipts and complete focused search only within its declared slice",
+        "identify opened files, imports, listed directories, engine source and run inputs by content; reuse matching execution facts without persisting a final verdict",
+        "replay every candidate in a fresh process before reporting it, retain stable semantic identities, and reprove saved evidence against current code while distinguishing incomplete work and engine defects",
+        "observe or explicitly reject mutable class/global state touched by actual execution; do not reject unused declarations or mistake an unchanged instance graph for unchanged program state"
       ],
       "files": [
         "flowguard/behave/*.py"
@@ -906,11 +910,15 @@
         "tests/behave/test_entry.py",
         "tests/behave/test_pilot_guards.py",
         "tests/behave/test_skeleton.py",
-        "tests/behave/test_project.py"
+        "tests/behave/test_project.py",
+        "tests/behave/test_explore.py",
+        "tests/behave/test_honest_output.py",
+        "tests/behave/test_proof.py",
+        "tests/behave/test_footprint.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:403b9a7faaac25ffbf15149eb393f21adbc6d538f9a1067eb9134a068d89bf55"
+      "fingerprint": "sha256:aff2ffcdef9d6f72fdc68da29bd2ec70d81778637afaa8b3085857fb791acfc9"
     }
   ],
   "flows": [

@@ -19,7 +19,7 @@ def test_help_lists_only_implemented_commands():
     assert result.returncode == 0, result.stderr
     assert result.stdout.startswith("usage: python -m flowguard.behave")
     assert not result.stderr
-    assert "{init}" in result.stdout
+    assert "{init,audit,why}" in result.stdout
 
 
 def test_empty_invocation_prints_help(capsys):
@@ -29,13 +29,13 @@ def test_empty_invocation_prints_help(capsys):
 
 def test_unimplemented_verb_never_reports_success():
     result = subprocess.run(
-        [sys.executable, "-m", "flowguard.behave", "audit"],
+        [sys.executable, "-m", "flowguard.behave", "release"],
         cwd=ROOT, text=True, capture_output=True,
     )
     assert result.returncode == 2
     assert not result.stdout
     expected = ("needs Python 3.12 or newer" if sys.version_info < (3, 12)
-                else "invalid choice: 'audit'")
+                else "invalid choice: 'release'")
     assert expected in result.stderr
 
 

@@ -100,7 +100,7 @@ def test_shipped_defaults_seeding_and_scalar_results_are_recorded(example):
 def test_opaque_runtime_state_does_not_become_an_empty_graph(example):
     path = example / "example.py"
     path.write_text(path.read_text() + '\n    def opaque(self): self._opaque = __import__("random").Random()\n')
-    with pytest.raises(UnsupportedWorld, match="opaque state"):
+    with pytest.raises(UnsupportedWorld, match="opaque state|nondeterministic resource"):
         replay(derive(example), [{"name": "opaque"}])
 
 

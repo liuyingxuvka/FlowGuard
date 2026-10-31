@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from flowguard.map.common import read_source
-from flowguard.map.discover import discover_inventory
+from flowguard.map.discover import discover_inventory, function_spans
 from flowguard.map.inventory import build_inventory, syntax_tree
 
 
@@ -375,7 +375,10 @@ def derive(root):
     for source, tree in trees.items():
         if any(isinstance(node, (ast.Global, ast.Nonlocal)) for node in ast.walk(tree)):
             unsupported.append(source + ": dynamic global or closure state needs an explicit world")
-    return {"root": str(root), "classes": sorted(classes), "system": system, "settings": settings, "settings_parameter": parameter,
+    return {"root": str(root), "classes": sorted(classes), "input_files": sorted(inv.py),
+            "source_files": sorted(trees),
+            "source_functions": sorted(source + "#" + name for source, tree in trees.items() for _, _, name in function_spans(tree)),
+            "system": system, "settings": settings, "settings_parameter": parameter,
             "shipped": settings_values, "refusal": sorted(locator for locator in classes if is_refusal(locator)),
             "entities": entities, "actions": actions, "queries": queries, "parameters": parameters,
             "predictor_pairs": sorted(predictors), "status_values": statuses, "ui": ui, "ui_methods": ui_names, "ui_facts": ui_facts,
