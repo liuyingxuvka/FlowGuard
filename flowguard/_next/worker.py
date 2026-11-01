@@ -104,9 +104,10 @@ class Worker:
 
     def watchdog(self) -> None:
         try:
+            # A caller that died before this is armed has closed its end of the pipe, so the
+            # pipe rule below stops the worker at its first look; a caller that wrote its
+            # lease and exited meanwhile has left "L" in the pipe, which keeps it.
             set_parent_death_signal(signal.SIGKILL)
-            if os.getppid() != self.caller:        # the caller died before the signal was armed
-                self.stop("the caller is gone")
             self.armed.set()
             while True:
                 self.watch_once()
