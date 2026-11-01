@@ -11,11 +11,10 @@ import tempfile
 from pathlib import Path
 
 from .checks import WARNING, Finding, make_finding, replay_spec
-from .model import Loaded, natural_key
+from .model import Loaded, natural_key, request_file
 
 FLOW_DIR = Path(".flowguard") / "flow"
 PROG = "python -m flowguard._next"      # the command every printed next step uses (until the move-in, design 7.6)
-REQUESTS_DIR = Path(".flowguard") / "requests"
 CONFLICTS = Path(".flowguard") / "conflicts.json"
 
 
@@ -62,8 +61,8 @@ def resolve_models(root: Path, names: list[str]) -> list[Path]:
 
 def request_line(root: Path, rid: str) -> str | None:
     """The first non-empty line of the stored request, cut at 100 characters."""
-    path = Path(root) / REQUESTS_DIR / f"{rid}.md"
-    if not path.is_file():
+    path = request_file(root, rid)
+    if path is None or not path.is_file():
         return None
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.strip():

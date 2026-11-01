@@ -124,15 +124,34 @@ def test_a_fallback_that_also_leaves_a_note_is_a_fallback_route(project):
     assert "repair_anywhere(t='T1') also changes note[T1]" in fb.text
 
 
-def test_a_second_route_whose_extra_field_is_read_stays_status_only(project):
-    """A field some guard or rule reads is no side field: a pair that differs there keeps
-    the status-only warning (sonnet1_R11's transfer / bring with sentvia)."""
+def test_a_second_route_whose_extra_field_changes_behaviour_stays_status_only(project):
+    """A field some action's guard or effect depends on is no side field: a pair that differs
+    there keeps the status-only warning (sonnet1_R11's transfer / bring with sentvia)."""
     text = (TOY / "rental_fallback_note2.py").read_text(encoding="utf-8")
-    text = text.replace("MODEL = m\n", 'm.always("a note only after a repair", lambda s: all(s["note", t] == "" '
-                                       'or s["cond", t] != "loan" for t in TOOLS))\nMODEL = m\n')
+    text = text.replace('    need(s["cond", t] == "shop", "only shelf tools move")\n    if',
+                        '    need(s["cond", t] == "shop", "only shelf tools move")\n'
+                        '    need(s["note", t] == "", "a tool repaired away stays where it is")\n    if')
     report, _ = routes(project, text, name="read_note")
     assert by_kind(report, "FALLBACK ROUTE") == []
     assert [f.subject for f in by_kind(report, "STATUS-ONLY FALLBACK")] == ["repair_anywhere / repaired on cond"]
+
+
+@pytest.mark.parametrize("rule", [
+    'm.always("a note is one we know", lambda s: all(s["note", t] in ("", "repaired away") for t in TOOLS))',
+    'm.always("a note only after a repair", lambda s: all(s["note", t] == "" or s["cond", t] != "loan" '
+    'for t in TOOLS))',
+    'm.reach("a tool repaired away", lambda s: any(s["note", t] == "repaired away" for t in TOOLS))',
+])
+def test_a_rule_that_reads_the_extra_field_leaves_it_a_side_field(project, rule):
+    """G4 round 2: a side field is decided by what the actions do with it, not by whether
+    some statement reads it. A promise that reads the note (and holds) changes no call, so
+    the fallback that also writes the note is still a FALLBACK ROUTE (once a warning)."""
+    text = (TOY / "rental_fallback_note2.py").read_text(encoding="utf-8").replace("MODEL = m\n", rule + "\nMODEL = m\n")
+    report, _ = routes(project, text, name="rule_note")
+    [fb] = by_kind(report, "FALLBACK ROUTE")
+    assert fb.cls == CONFLICT and fb.subject == "repair_anywhere / repaired"
+    assert "repair_anywhere(t='T1') also changes note[T1]" in fb.text
+    assert by_kind(report, "STATUS-ONLY FALLBACK") == []
 
 
 def test_the_other_toys_match_the_prototype(project):
@@ -187,6 +206,20 @@ def test_a_second_route_must_name_a_stored_request(project):
     project.request("R999", "Repair where the tool is when main is busy.")
     loaded = load_model(path, project.root)
     assert ".flowguard/requests/R999.md" in loaded.reads
+
+
+@pytest.mark.parametrize("source", ["../../README", "R7/../R7", "/etc/hostname", "R 7", ""])
+def test_a_second_route_source_is_a_request_id_not_a_path(project, source):
+    """G4 round 2: source= names a request in .flowguard/requests/ by its id; a path that
+    reaches another file (once '../../README' passed as a stored request) is a model error,
+    and no report prints another file's first line as a request's words."""
+    from flowguard._next.project import request_lines
+    stored(project)
+    (project.root / "README.md").write_text("# Some readme\n")
+    path = project.flow("made_up", with_second_route(("repaired", "repair_anywhere"), source=source))
+    with pytest.raises(ModelError, match=r"second_route\('repaired', 'repair_anywhere'\): source"):
+        load_model(path, project.root)
+    assert request_lines(project.root, ["../../README"]) == [("../../README", "(not a stored request)")]
 
 
 # ---------------------------------------------------------------------- the E7 census

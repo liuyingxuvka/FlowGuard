@@ -560,13 +560,26 @@ def validate(model: Model) -> None:
 
 
 REQUESTS = Path(".flowguard") / "requests"
+_REQUEST_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
+
+
+def request_file(root, rid) -> Path | None:
+    """The file of a stored request: .flowguard/requests/<id>.md. None when rid is no
+    request id (empty, a path, a space): an id never reaches another file."""
+    if not isinstance(rid, str) or not _REQUEST_ID.fullmatch(rid) or ".." in rid:
+        return None
+    return Path(root) / REQUESTS / f"{rid}.md"
 
 
 def check_second_routes(model: Model, root: Path, reads: set) -> None:
     """m.second_route keeps a second route only for a request the owner stored: its
-    source= must be a file in .flowguard/requests/. The file is a read either way, so
-    storing it later makes the model's parts run again."""
+    source= must be the id of a file in .flowguard/requests/. The file is a read either
+    way, so storing it later makes the model's parts run again."""
     for sr in model.second_routes:
+        if request_file(root, sr.source) is None:
+            a, b = sr.actions
+            raise ModelError(f"second_route({a!r}, {b!r}): source {sr.source!r} is no request id (the name of a "
+                             f"file in {REQUESTS.as_posix()}/, such as R11)", _rel(model.path), sr.line)
         rel = (REQUESTS / f"{sr.source}.md").as_posix()
         reads.add(rel)
         if not (root / rel).is_file():

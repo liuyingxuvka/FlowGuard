@@ -288,34 +288,6 @@ def _declared(model, kept):
     return out
 
 
-def _side_positions(model, keys, files):
-    """Positions of side fields: field families no statement of the model's files reads (a
-    note an action writes and nothing tests). A read through a computed key makes every
-    field count as read."""
-    read, computed = set(), False
-    for path in sorted(set(files) | ({str(model.path)} if model.path else set())):
-        tree = ast.parse(Path(path).read_text(encoding="utf-8"))
-        subs = [n for n in ast.walk(tree) if isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name)]
-
-        def family(node):
-            key = node.slice
-            first = key.elts[0] if isinstance(key, ast.Tuple) and key.elts else key
-            return first.value if isinstance(first, ast.Constant) and isinstance(first.value, str) else None
-        states = {n.value.id for n in subs if family(n) is not None}       # names indexed by field names
-        for node in subs:
-            if not isinstance(node.ctx, ast.Load) or node.value.id not in states:
-                continue
-            if family(node) is not None:
-                read.add(family(node))
-            else:
-                computed = True                   # a state read through a computed key
-    if computed:
-        return set()
-    families = {f.family for f in model.fields}
-    side = {fam for fam in families if fam not in read}
-    return {p for p, k in enumerate(keys) if (k[0] if isinstance(k, tuple) else k) in side}
-
-
 def _describe(keys, delta):
     return ", ".join(f"{show_key(keys[p])}: {old!r} -> {new!r}" for p, old, new in sorted(delta, key=lambda d: d[0]))
 
@@ -428,11 +400,44 @@ class _Judge:
                 elif o[0] == "refused":
                     self.refused[c][i] = o[1]
         self.en = [frozenset(s) for s in self.succ]
-        self.side = _side_positions(self.model, self.keys, obs.files)
+        self._inert = {}
         self._together = {}
         self._deltas = {}
 
     # ------------------------------------------------------------------ helpers
+    def side(self, position) -> bool:
+        """A side field (a note an action writes): no call depends on it. Its family is set
+        to every other value of its domain in every reachable state, and no call may then
+        refuse where it worked, work where it refused, or change any other field otherwise.
+        What promises read does not count (they change no step), so a promise that reads the
+        note leaves it a side field (G4)."""
+        key = self.keys[position]
+        fam = key[0] if isinstance(key, tuple) else key
+        verdict = self._inert.get(fam)
+        if verdict is None:
+            verdict = self._inert[fam] = self._no_call_depends_on(fam)
+        return verdict
+
+    def _no_call_depends_on(self, fam):
+        keys, obs = self.keys, self.obs
+        domain = {f.key: f.domain for f in self.model.fields}
+        mine = [p for p, k in enumerate(keys) if (k[0] if isinstance(k, tuple) else k) == fam]
+        rest = [p for p in range(len(keys)) if p not in mine]
+        for i, base in enumerate(self.states):
+            for p in mine:
+                for v in domain[keys[p]]:
+                    if v == base[p]:
+                        continue
+                    other = base[:p] + (v,) + base[p + 1:]
+                    for c, call in enumerate(self.calls):
+                        was = obs.outcome[c][i]
+                        now = _call(call.action.fn, keys, other, call.args)
+                        if was[0] != now[0] or was[0] == "error":
+                            return False
+                        if was[0] == "ok" and any(was[1][q] != now[1][q] for q in rest):
+                            return False
+        return True
+
     def objects(self, calls):
         return sorted({str(x) for c in calls for x in self.calls[c].args if isinstance(x, str) and x in self.ids},
                       key=natural_key)
@@ -701,8 +706,8 @@ class _Judge:
     def contained(self):
         """(a, b) -> [(D, E)]: calls never possible in the same state where a's whole change
         D is part of a change E of b, and what b writes besides goes only to side fields
-        (fields nothing in the model reads, such as a note): the same main effect by a second
-        route, so a FALLBACK ROUTE too (G4)."""
+        (fields no call depends on, such as a note): the same main effect by a second route,
+        so a FALLBACK ROUTE too (G4)."""
         n = len(self.calls)
         index = defaultdict(set)
         for c in range(n):
@@ -718,7 +723,7 @@ class _Judge:
                     if not cand:
                         break
                 for b, E in sorted(cand or (), key=lambda ce: (ce[0], repr(sorted(ce[1], key=repr)))):
-                    if (b != a and len(E) > len(D) and all(x[0] in self.side for x in E - D)
+                    if (b != a and len(E) > len(D) and all(self.side(x[0]) for x in E - D)
                             and not self.together(a, b)):
                         out.setdefault((a, b), []).append((D, E))
         return out
