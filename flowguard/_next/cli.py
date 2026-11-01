@@ -349,7 +349,10 @@ def _undecided(result: Assembled, capped: list[str]) -> list[str]:
 
 
 def running_line(o, resume: str) -> str:
-    """The first line of a call that returns before every part is done."""
+    """The first line of a call that returns before every part is done: still running, or
+    not finished because the model files changed under the run."""
+    if o.changed is not None:
+        return f"RUNNING: not finished: {o.changed}; resume with: {resume}"
     done = [p.label for p, r in zip(o.planned, o.results) if r is not None]
     line = f"RUNNING: {len(done)} of {len(o.planned)} parts done" + (f" ({', '.join(done)})" if done else "")
     return line + _current_text(o.current, "; still ") + f"; resume with: {resume}"

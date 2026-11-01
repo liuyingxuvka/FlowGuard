@@ -24,7 +24,7 @@ from pathlib import Path
 
 from .checks import CONFLICT, Finding, Report, check_model
 from .explore import Bounds, explore, show_step
-from .jobs import ends_with_this_process
+from .jobs import ending_with_this_process
 from .model import ModelError, load_model, show_key
 from .parts import PartContext, PartResult, PartSpec, kinds, part_digest, register, run_part
 from .project import (PROG, ProjectError, cache_dir, changed_files, changed_models, export_at, model_files,
@@ -1052,11 +1052,10 @@ def render_files(items: list) -> tuple[list, str | None]:
         return [[] for _ in items], "node is not on PATH (pictures are drawn by Mermaid in headless Chromium)"
     jobs = [{"mmd": text, "svg": f"{base}.svg", "png": f"{base}.png"} for text, base in items]
     limit = 60 + 15 * len(items)
-    # its own session, so the worker's group kill does not cut it off from its browser; the
-    # kernel sends it SIGTERM when this process dies, and render.js then ends the browser
-    proc = subprocess.Popen([node, str(RENDER_JS), str(MERMAID_JS)], stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True,
-                            preexec_fn=ends_with_this_process())
+    # its own session, so the worker's group kill does not cut it off from its browser; its
+    # launcher asks the kernel for SIGTERM when this process dies, and render.js then ends the browser
+    proc = subprocess.Popen(ending_with_this_process([node, str(RENDER_JS), str(MERMAID_JS)]), stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
     try:
         stdout, stderr = proc.communicate(json.dumps(jobs), timeout=limit)
     except subprocess.TimeoutExpired:

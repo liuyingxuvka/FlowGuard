@@ -14,8 +14,11 @@ caller holds the pipe open, or while the lease in `lease.json` has not expired.
   the lease every LEASE_BEAT seconds to now + LEASE_SPAN; returning RUNNING it sets the
   lease to now + keep. A caller that is killed stops renewing, and the worker stops.
 - A worker that ends before every result is in is reported by the waiting call as it is
-  (died, failed, stopped, or finished on files that changed meanwhile), with its run's
-  log; the call never starts another worker. The next command starts afresh.
+  (died, failed, stopped), with its run's log; the call never starts another worker, and
+  when the worker died with its death notice (its whole group killed) the call writes that
+  it died. A run replaced on purpose (a newer check found the model files changed) says so
+  in its status and keeps its directory: a call still waiting on it reports "not finished:
+  the model files changed" with the command that resumes, never an internal error.
 
 Cache layout under `.flowguard/cache/flow/`: `parts/<digest>.json` (results),
 `manifests/<model>.json` (reads of the last load), `locks/<part id>.lock` (one worker
@@ -87,20 +90,22 @@ def set_parent_death_signal(sig: int) -> None:
         raise OSError(err, os.strerror(err))
 
 
-def ends_with_this_process(sig: int = signal.SIGTERM):
-    """A preexec_fn for a child the worker starts in its own session (the picture renderer):
-    the kernel sends the child sig when the worker dies, however it dies. Built in the
-    parent, so the forked child only makes the system call."""
-    if not sys.platform.startswith("linux"):
-        return None
-    prctl = ctypes.CDLL(None, use_errno=True).prctl
-    parent = os.getpid()
+_ARM = ("import ctypes, os, sys\n"
+        "ctypes.CDLL(None, use_errno=True).prctl(1, int(sys.argv[2]), 0, 0, 0)\n"
+        "if os.getppid() != int(sys.argv[1]):\n"
+        "    os._exit(1)\n"
+        "os.execv(sys.argv[3], sys.argv[3:])\n")
 
-    def arm():
-        prctl(PR_SET_PDEATHSIG, sig, 0, 0, 0)
-        if os.getppid() != parent:                # the worker died before the child armed it
-            os._exit(1)
-    return arm
+
+def ending_with_this_process(argv: list[str], sig: int = signal.SIGTERM) -> list[str]:
+    """The command line for a child the worker starts in its own session (the picture
+    renderer): on Linux a small launcher first asks the kernel to send it sig when this
+    process dies (PR_SET_PDEATHSIG, kept across exec), checks that this process still
+    lives, then runs argv in its place. No preexec_fn: the worker runs a watchdog thread,
+    and code run between fork and exec in a threaded process can deadlock."""
+    if not sys.platform.startswith("linux"):
+        return list(argv)
+    return [sys.executable, "-I", "-c", _ARM, str(os.getpid()), str(int(sig)), *argv]
 
 
 # ---------------------------------------------------------------------- plan
@@ -301,25 +306,36 @@ class _Job:
     def spawned(self) -> bool:
         return self.proc is not None
 
-    def ended(self, root: Path) -> str:
-        """Why the worker ended before every result was in, as the caller reports it."""
+    def ended(self, root: Path) -> tuple[str, str]:
+        """Why the worker ended before every result was in, as the caller reports it:
+        ("changed", why) when the model files changed under it (a newer check replaced the
+        run, or it finished on the old files), else ("failed", why) with the run's log. A
+        worker killed together with its death notice (its whole process group) leaves the
+        status saying running: the caller, which saw it go, writes that it died."""
         deadline = time.monotonic() + NOTICE_WAIT
         status = self.status() or {}
         while status.get("state", "running") == "running" and time.monotonic() < deadline:
             time.sleep(0.02)                      # the death notice of worker.py is on its way
             status = self.status() or {}
+        if status.get("state", "running") == "running" and not self.alive():
+            status.update(state="died", current=None,
+                          reason="it ended without a word, its death notice with it: its whole process "
+                                 "group was killed")
+            write_json(self.dir / "status.json", status)
         state, reason = status.get("state"), status.get("reason")
         log = f"log: {(self.dir / 'log').relative_to(root).as_posix()}"
+        if state == "replaced":
+            return "changed", "the model files changed while this check waited, and a newer check took over"
         if state == "done":                       # it finished the plan, but the files changed meanwhile
-            return f"the files changed while the check ran; run it again ({log})"
+            return "changed", "the model files changed while the check ran"
         if state in ("failed", "stopped"):
-            return f"the worker {state}" + (f": {reason}" if reason else "") + f" ({log})"
+            return "failed", f"the worker {state}" + (f": {reason}" if reason else "") + f" ({log})"
         how = ""
         if self.proc is not None and self.proc.returncode is not None and self.proc.returncode < 0:
             how = f" (killed by {signal.Signals(-self.proc.returncode).name})"
         elif reason:
             how = f" ({reason})"
-        return f"the worker (pid {self.pid()}) died before it finished{how} ({log})"
+        return "failed", f"the worker (pid {self.pid()}) died before it finished{how} ({log})"
 
     # -- starting
     @staticmethod
@@ -333,8 +349,9 @@ class _Job:
             pid = (read_json(old / "worker.json") or {}).get("pid")
             if pid is not None and pid_alive(pid):
                 continue
-            if ((read_json(old / "status.json") or {}).get("state")) in ("failed", "died", "running", None):
-                dead.append(old)                  # its log tells what went wrong: kept for a while
+            if ((read_json(old / "status.json") or {}).get("state")) in ("failed", "died", "replaced", "running",
+                                                                           None):
+                dead.append(old)                  # its log tells what happened: kept for a while
             else:
                 shutil.rmtree(old)
         for old in dead[:-KEEP_DEAD]:
@@ -428,7 +445,8 @@ def _live(run: Path | None) -> bool:
 
 def _stop_stale(run: Path) -> None:
     """Kill the worker of a run whose inputs changed (it leads its own process group) and
-    drop its directory: it was replaced on purpose, nothing went wrong in it."""
+    say so in its status: it was replaced on purpose, nothing went wrong in it. The run
+    keeps its directory and log, so a check still waiting on it reads why it ended."""
     pid = worker_pid(run)
     try:
         os.killpg(pid, signal.SIGKILL)
@@ -437,7 +455,9 @@ def _stop_stale(run: Path) -> None:
     deadline = time.monotonic() + 2.0
     while pid_alive(pid) and time.monotonic() < deadline:
         time.sleep(0.02)
-    shutil.rmtree(run, ignore_errors=True)
+    status = read_json(run / "status.json") or {}
+    status.update(state="replaced", current=None, reason="the model files changed: a newer check took over")
+    write_json(run / "status.json", status)
 
 
 def _ensure_job(root: Path, planned: list[Planned]) -> _Job:
@@ -467,6 +487,7 @@ class Outcome:
     worker: int | None = None     # the worker pid this call waited for
     current: dict | None = None   # what the worker is on when RUNNING: {"model", "kind", "states"}
     failure: str | None = None    # the worker failed (internal error), with where its log is
+    changed: str | None = None    # the model files changed under the run: not finished, resume
     seconds: float = 0.0
 
 
@@ -505,7 +526,11 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
                 out.finished = True
                 break
             if not alive:                         # it ended without every result: said, never restarted
-                out.failure = job.ended(root)
+                kind, why = job.ended(root)
+                if kind == "changed":
+                    out.changed = why
+                else:
+                    out.failure = why
                 break
             left = deadline - time.monotonic()
             if left <= 0:
@@ -556,6 +581,6 @@ class Runner:
                       progress=self.progress)
         if outcome.failure is not None:
             raise Failed(outcome.failure)
-        if not outcome.finished:
+        if not outcome.finished:                  # still running, or the files changed under it
             raise Running(outcome)
         return outcome.results

@@ -173,8 +173,46 @@ def test_a_worker_that_dies_is_reported_and_never_restarted(project):
     assert (project.root / out.rsplit("(log: ", 1)[1].split(")", 1)[0]).is_file()
     assert jobs_of(project.root) == [run]                              # no second worker
     assert wait_until(lambda: read(run / "status.json")["state"] == "died", 5) is not None
-    again = run_check(project.root, "--wait", "1")                     # a new command starts afresh
+    again = run_check(project.root, "--wait", "1", "--keep", "0")      # a new command starts afresh
     assert again.code == 4 and run.is_dir() and (run / "log").is_file()   # and keeps the dead run's log
+    _, last = worker_of(project.root)
+    assert wait_until(lambda: gone(last), 5) is not None                 # --keep 0: nothing is left running
+
+
+def test_a_worker_killed_with_its_whole_group_is_said_to_have_died(project):
+    """G6 round 2: kill -9 of the worker's process group takes its death notice with it; the
+    waiting call, which saw the worker go, corrects the status (it no longer says running)."""
+    slow(project, "endless", steps=100000, delay=0.01)
+    assert run_check(project.root, "--wait", "1").code == 4
+    run, pid = worker_of(project.root)
+    caller = start_check(project.root, "--wait", "60")
+    assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None
+    os.killpg(pid, signal.SIGKILL)
+    out, _ = caller.communicate(timeout=30)
+    assert caller.returncode == 2 and out.startswith(f"internal error: the worker (pid {pid}) died"), out
+    status = read(run / "status.json")
+    assert status["state"] == "died" and "process group" in status["reason"] and status["current"] is None
+    assert jobs_of(project.root) == [run]
+
+
+def test_a_waiting_check_whose_run_is_replaced_says_so_plainly(project):
+    """G6 round 2 (#9): when another check replaces the run because a model file changed, a
+    check that waited on the old run says that, with the command that resumes; it is no
+    internal error and no death, and the old run keeps its directory and its log."""
+    slow(project, "endless", steps=100000, delay=0.01)
+    assert run_check(project.root, "--wait", "1").code == 4
+    run, pid = worker_of(project.root)
+    waiting = start_check(project.root, "--wait", "60")
+    assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == waiting.pid, 10) is not None
+    slow(project, "endless", steps=5, delay=0.0)
+    newer = run_check(project.root, "--wait", "20")
+    assert newer.code == 0 and newer.first == "clean, complete", newer.out
+    out, _ = waiting.communicate(timeout=30)
+    assert waiting.returncode == 4, out
+    assert out.startswith("RUNNING: not finished: the model files changed while this check waited, and a newer "
+                          "check took over; resume with: python -m flowguard._next check --wait 60"), out
+    assert "internal error" not in out and "died" not in out
+    assert read(run / "status.json")["state"] == "replaced" and (run / "log").is_file()
 
 
 def test_killing_an_attached_resume_caller_stops_the_worker(project):
@@ -214,7 +252,7 @@ def test_a_job_whose_inputs_changed_is_replaced(project):
     assert run.code == 0 and run.first == "clean, complete"
     assert wait_until(lambda: gone(old), 3) is not None
     new_run, new = worker_of(project.root)
-    assert new != old and not old_run.exists()         # its run directory went with it
+    assert new != old and read(old_run / "status.json")["state"] == "replaced"   # said, with its log kept
     assert path.is_file()
 
 

@@ -143,10 +143,11 @@ def test_a_lock_is_free_as_soon_as_its_holder_dies(tmp_path):
 
 
 CHILD = """
-import subprocess, sys, time
+import subprocess, sys, threading, time
 from flowguard._next import jobs
-child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True,
-                         preexec_fn=jobs.ends_with_this_process())
+threading.Thread(target=time.sleep, args=(60,), daemon=True).start()     # a worker runs a watchdog thread
+child = subprocess.Popen(jobs.ending_with_this_process([sys.executable, "-c", "import time; time.sleep(60)"]),
+                         start_new_session=True)
 print(child.pid, flush=True)
 time.sleep(60)
 """
@@ -162,6 +163,28 @@ def test_a_child_started_by_a_worker_ends_with_it():
     parent.kill()
     parent.wait()
     assert wait_until(lambda: gone(child), 3) is not None
+
+
+def test_the_renderer_is_started_without_a_preexec_fn(monkeypatch):
+    """#8 (round 2): the worker runs a watchdog thread, and Python documents preexec_fn as
+    unsafe in a process with threads (the child can deadlock before exec). The renderer is
+    started through a small launcher that arms the parent-death signal itself."""
+    from flowguard._next import diagram
+    seen = {}
+
+    class Stop(Exception):
+        pass
+
+    def fake(argv, **kw):
+        seen.update(kw, argv=argv)
+        raise Stop()
+    monkeypatch.setattr(diagram.shutil, "which", lambda name: "/usr/bin/node")
+    monkeypatch.setattr(diagram.subprocess, "Popen", fake)
+    with pytest.raises(Stop):
+        diagram.render_files([("flowchart LR\n  a --> b", "/tmp/x")])
+    assert "preexec_fn" not in seen and seen["start_new_session"] is True
+    if sys.platform.startswith("linux"):
+        assert seen["argv"][:2] == [sys.executable, "-I"] and "/usr/bin/node" in seen["argv"]
 
 
 RENDER = """
