@@ -163,3 +163,13 @@ def test_template_advice_names_real_models_or_target_check(tmp_path, capsys, ope
     result = _replay(items[0], tmp_path / "other cwd")
     assert result.returncode != 0, (result.stdout, result.stderr)
     assert 'anchor file missing: shop/orders.py' in result.stdout + result.stderr
+
+
+def test_no_next_line_is_built_outside_the_shared_advice_renderer():
+    """The round-11 check: no source line in flowguard/ builds a `next: ...` text of its own."""
+    pattern = re.compile(r'"next: |next: "|\("next: ')
+    package = Path(__file__).resolve().parents[1] / "flowguard"
+    found = [f"{path.relative_to(package.parent).as_posix()}:{number}"
+             for path in sorted(package.rglob("*.py"))
+             for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1) if pattern.search(line)]
+    assert found == [], found

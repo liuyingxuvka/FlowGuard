@@ -162,8 +162,8 @@ def render(result, *, as_json=False):
     if scope.get("dirty_files"):
         count = scope["dirty_files"] if isinstance(scope["dirty_files"], int) else len(scope["dirty_files"])
         first += "+" + str(count) + " files"
-    first += " · next: " + payload["next"]
-    lines = [first,
+    from flowguard.map.common import advice, render_advice
+    lines = [first, render_advice(advice("why", payload["next"])),
              f"scope: {reached}; {len(runs)} completed world/seed runs; {len(partial_runs)} partial; missing checks: " + ", ".join(result["missing_checks"]),
              f"scope: {extent['sampled']} sampled; {extent['capped']} capped; {extent['unsupported']} unsupported; facts reused {result['facts_reused']}",
              "coverage denominator: " + scope.get("function_scope", "known project source functions") + "; UI " + result["coverage"]["ui"]]
