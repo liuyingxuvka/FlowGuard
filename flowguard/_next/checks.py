@@ -311,7 +311,7 @@ class _Run:
                 elif r.kind == "reach" and r in reach_missing:
                     label = f"reach {r.base!r}"
                 elif r.kind in ("always", "only_when", "after") and r.name not in g.broken:
-                    label = f"{r.kind} {r.base!r} holds"
+                    label = f"{r.kind} {r.base!r}"
                 if label and label not in seen:
                     seen.add(label)
                     unknown.append(label)
@@ -636,7 +636,7 @@ class _Run:
                 verb = ("can never change again" if line["kind"] == "value"
                         else "is never left, and it is not a declared end")
                 text = f"{subject} {verb}"
-                objects = _key_objects(line["key"])
+                objects = _key_objects(line["key"]) + _value_ids(line["value"], self.ids)
                 detail["key"] = show_key(line["key"])
                 detail["value"] = repr(line["value"])
                 ln = self.field_by_key[line["key"]].line
@@ -1004,6 +1004,15 @@ def _has(v, ids):
     return False
 
 
+def _value_ids(v, ids):
+    t = type(v)
+    if t is str:
+        return (v,) if v in ids else ()
+    if t is tuple or t is frozenset:
+        return tuple(x for y in v for x in _value_ids(y, ids))
+    return ()
+
+
 def _fin(fin, i, obj):
     pg, idx, marks = fin
     return bool(marks[i * pg.n + idx[obj]])
@@ -1066,3 +1075,29 @@ def check_model(loaded: Loaded, bounds: Bounds = Bounds(), *, explain: bool = Tr
                 progress=None) -> Report:
     """Explore one loaded model and run every prepared check on it."""
     return _Run(loaded, bounds, explain, reduce, progress).run()
+
+
+def verify_symmetry(loaded: Loaded, bounds: Bounds, reduced: Report, *, explain: bool = True) -> dict:
+    """`check --full`: explore a symmetric model again without reduction and compare the
+    fingerprints (explain= as in the reduced run). A difference is a model error; a capped
+    unreduced run verifies nothing."""
+    if reduced.graph.sym is None:
+        return {"verified": None, "text": "no interchangeable objects declared", "finding": None}
+    plain = check_model(loaded, bounds, explain=explain, reduce=False)
+    if not plain.graph.complete:
+        return {"verified": None, "text": "symmetry not verified (unreduced search capped)", "finding": None}
+    a = {f.id: f for f in reduced.findings}
+    b = {f.id: f for f in plain.findings}
+    only_reduced = sorted(set(a) - set(b))
+    only_plain = sorted(set(b) - set(a))
+    if not only_reduced and not only_plain:
+        return {"verified": True, "text": f"symmetry verified ({len(plain.graph.states):,} states unreduced)",
+                "finding": None}
+    names = [a[i].subject for i in only_reduced] + [b[i].subject for i in only_plain]
+    model = loaded.model
+    text = ("the objects are not interchangeable: exploring without renaming gives other findings ("
+            + "; ".join(names) + "); write the model symmetrically or use a plain list")
+    finding = make_finding("MODEL ERROR", ERROR_CLS, model.id or model.name, "objects are not interchangeable",
+                           text, detail={"only_reduced": only_reduced, "only_unreduced": only_plain},
+                           line=model.line)
+    return {"verified": False, "text": text, "finding": finding}
