@@ -1,0 +1,191 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-698: Derived views and the text-rule report in the main command line",
+  "components": [
+    {
+      "id": "map-rules",
+      "layer": "map",
+      "summary": "Computed source-bound text rule reports: repeated literal passages, code spelling and path references, and attributed text for the same actual workflow; no semantic conflict verdict or stored dispositions.",
+      "responsibilities": [
+        "compute text-rule facts on demand from the selected source tree and the shared inventory discovery and text-reference owners without a second parser or persistent registry",
+        "retain ordinary text and quoted passages with real path line spans normalized fingerprints and available Git provenance; group shared literal fragments without claiming semantic equivalence",
+        "distinguish exact source spelling or path existence from a licensed owner binding and preserve missing dynamic or constructed reference evidence as unknown",
+        "associate workflow text only through actual complete command or source-reference evidence and present both original passages including wording differences without inventing conflict decisions",
+        "render compact nonblocking summaries by default in human and JSON form and expose complete facts only when explicitly requested",
+        "render compact nonblocking summaries by default in human and JSON form; expose stable computed source and group selectors for complete selected original text and provenance without a registry",
+        "select originals by explicit literal substring without semantic judgments; bound related-group hints and reference summaries in selected human and JSON views while retaining full facts for explicit export"
+      ],
+      "files": [
+        "flowguard/map/textrules.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-derived",
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_map_textrules.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-derived",
+      "layer": "map",
+      "summary": "Read-only views of the current code: source names, callers, entry routes, state writers, architecture, text references and shared flows, with explicitly supplied valid execution facts.",
+      "responsibilities": [
+        "project the complete shared source inventory and discovery graph into where name tree flow architecture text and keyflow views without another parser or stored index",
+        "locate source owners, references, constants, callers and actual command handlers while keeping unresolved bindings explicit",
+        "show source-backed architecture and multiple-entry state-writing facts without treating missing rule provenance or missing test execution as proof of absence",
+        "read selected Git-reference code and text from the same source tree and attribute text/code spellings to actual files and lines",
+        "consume only supplied validated runtime or test-reach facts and distinguish them from declared bindings, stale facts and unrecorded scope",
+        "read selected Git-reference code and text from the same source tree; distinguish source spellings from document-relative exact or unique basename file candidates without granting owner bindings",
+        "derive shared cohesion facts from resolved static call edges, unique declared or module owners and actual entry facts; report candidate helper boundaries without licensing normative predicate ownership"
+      ],
+      "files": [
+        "flowguard/map/derived.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-discover",
+        "map-file",
+        "map-inventory",
+        "map-requests"
+      ],
+      "tests": [
+        "tests/test_map_derived.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "cli",
+      "layer": "interface",
+      "summary": "Dispatch actual public commands and preserve diagnostic meaning while next guidance names executable, absolute owner-scoped commands; release facts and static recovery retain their existing boundaries. Reuse the command inventory when verifying release models.",
+      "responsibilities": [
+        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
+        "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
+        "annotate planned target breakage and ARCH lines in check, change and release; show fingerprint-format reminders in change",
+        "run release with the system root counted and optional whole-suite shards; reject expired debts in strict release checks and display explicit debt deadlines; reject already-applied committed targets and target deletions not staged, preserving the warning for real open targets",
+        "run bound tests and, on request, the checks an edit needs",
+        "write templates and their aliases into the active target when one exists",
+        "hint splits for large scan drafts and say when discovery finds nothing",
+        "dispatch six public static where forms to the existing derived and text-rule owners; keep selected originals on demand and next commands executable with the same absolute root and selected text revision"
+      ],
+      "files": [
+        "flowguard/__main__.py",
+        "flowguard/map/__init__.py",
+        "flowguard/map/__main__.py",
+        "flowguard/map/cli.py"
+      ],
+      "entrypoints": [
+        "flowguard/__main__.py:main",
+        "flowguard/map/cli.py:main"
+      ],
+      "state": [],
+      "side_effects": [
+        "prints to stdout",
+        "writes .flowguard/map.json on scan, deps --write and confirm"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-impact",
+        "map-inventory",
+        "map-proof",
+        "map-read",
+        "map-requests",
+        "map-target",
+        "public-api",
+        "templates",
+        "map-derived",
+        "map-rules"
+      ],
+      "tests": [
+        "tests/test_cli.py",
+        "tests/test_cli_change.py",
+        "tests/test_cli_main.py",
+        "tests/test_cli_map.py",
+        "tests/test_cli_map_check.py",
+        "tests/test_cli_map_lint.py",
+        "tests/test_cli_map_scan.py",
+        "tests/test_cli_read.py",
+        "tests/test_cli_template.py",
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_proof.py",
+        "tests/test_packaged_cli_surface.py",
+        "tests/test_public_templates.py",
+        "tests/test_pytest_shard_runner.py",
+        "tests/test_read_command.py",
+        "tests/test_map_check.py",
+        "tests/test_release_gate.py",
+        "tests/test_records.py",
+        "tests/test_advice.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-check",
+      "layer": "map",
+      "summary": "Check map/code ownership, contracts, target seams and immutable request/record bytes, retaining severity and debt provenance.",
+      "responsibilities": [
+        "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity. Enforce target commit-seam failures only in strict mode, retaining working-mode and Gitless no-op warnings.",
+        "report one owner per entrypoint, responsibility, state and side effect",
+        "lint cycles, layers, sizes and private names, then apply only active accepted debts while keeping original record indices; report invalid deadlines as errors and expired deadlines as warnings, or errors in strict checks",
+        "explain entrypoints and state writers by model, test or reason",
+        "report file and component sizes, fan-out and shared source-bound helper cohesion candidates as non-gating advice without debt coverage; leave normative predicate and per-rule ownership unknown"
+      ],
+      "files": [
+        "flowguard/map/check.py",
+        "flowguard/map/lint.py",
+        "flowguard/map/replay_lint.py",
+        "flowguard/map/lint_models.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/check.py:run_check",
+        "flowguard/map/lint.py:run_lint"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-discover",
+        "map-file",
+        "map-inventory",
+        "map-requests",
+        "map-derived"
+      ],
+      "tests": [
+        "tests/test_cli_main.py",
+        "tests/test_component_pointer.py",
+        "tests/test_flowguard_map.py",
+        "tests/test_map_binding.py",
+        "tests/test_map_check.py",
+        "tests/test_model_edits.py",
+        "tests/test_model_runs.py",
+        "tests/test_private_use.py"
+      ],
+      "models": [
+        ".flowguard/models/private_use.py"
+      ]
+    }
+  ],
+  "flows": [],
+  "remove": [
+    "responsibility:report file and component sizes, duty counts and fan-out as non-gating facts without debt coverage"
+  ],
+  "requests": [
+    {
+      "id": "R12",
+      "part": false
+    },
+    {
+      "id": "R11",
+      "part": false
+    }
+  ]
+}
