@@ -228,3 +228,56 @@ def test_the_picture_renderer_and_its_browser_end_with_the_worker(tmp_path):
     parent.kill()
     parent.wait()
     assert wait_until(lambda: all(gone(k) for k in kids), 3) is not None
+
+
+class _FakeJob:
+    """A worker seen from the caller: its status names a part only after the caller has
+    already found that part's result in the cache (the race of a status read just before
+    the worker stores a result and says so)."""
+
+    def __init__(self, directory, statuses):
+        self.dir = directory
+        self.statuses = list(statuses)
+
+    def status(self):
+        return self.statuses.pop(0) if len(self.statuses) > 1 else self.statuses[0]
+
+    def alive(self):
+        return True
+
+    def pid(self):
+        return 4242
+
+    def release(self):
+        pass
+
+    def linger(self, keep):
+        pass
+
+
+def test_a_part_found_between_two_status_reads_is_named_by_its_worker(project, monkeypatch):
+    """The reporting race of the round-2 review: the caller read the status, the worker
+    stored a part and named it in its status, then the caller found the part in the cache.
+    The part was taken with no worker (--json: worker null, cached false) and never looked
+    at again. The caller now names the worker that computed it."""
+    project.kit().flow_from(KIT / "workshop.py")
+    path = project.root / ".flowguard/flow/workshop.py"
+    planned = jobs.plan(project.root, [path])
+    results = {}
+    for item in planned:                         # what the worker computes and stores
+        results[item.id] = run_part(PartContext(project.root, item.spec, path, cache_dir(project.root)))
+    entries = {item.id: {"digest": results[item.id].digest, "pid": 4242, "cached": False} for item in planned}
+    lookups = []
+
+    def lookup(root, item):
+        lookups.append(item.id)
+        return None if len(lookups) <= len(planned) else results[item.id]     # nothing before the job starts
+
+    job_dir = jobs.jobs_dir(project.root) / "fake" / "run"
+    job_dir.mkdir(parents=True)
+    fake = _FakeJob(job_dir, [{"state": "running", "parts": {}}, {"state": "done", "parts": entries}])
+    monkeypatch.setattr(jobs, "lookup", lookup)
+    monkeypatch.setattr(jobs, "_ensure_job", lambda root, planned: fake)
+    outcome = jobs.run(project.root, planned, wait=5, keep=0)
+    assert outcome.finished
+    assert outcome.workers == [4242] * len(planned) and outcome.cached == [False] * len(planned)

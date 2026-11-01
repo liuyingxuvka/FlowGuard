@@ -509,6 +509,7 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
     job = _ensure_job(root, planned)
     running = False
     looked = None
+    named_by = None                               # how long to wait for the worker to name the parts it stored
     try:
         while True:
             status = job.status() or {}
@@ -519,12 +520,17 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
                 for i, item in enumerate(planned):
                     if results[i] is None:
                         results[i] = lookup(root, item)
-                        entry = status.get("parts", {}).get(item.id)
-                        if results[i] is not None and entry is not None:
-                            workers[i] = entry["pid"]
-            if all(r is not None for r in results):
+            if _name_workers(job, planned, results, cached, workers) and all(r is not None for r in results):
                 out.finished = True
                 break
+            if all(r is not None for r in results):
+                # the worker stores a part, then names it in its status: wait that moment, never longer
+                named_by = named_by if named_by is not None else time.monotonic() + NOTICE_WAIT
+                if not alive or time.monotonic() >= named_by:
+                    out.finished = True
+                    break
+                time.sleep(0.02)
+                continue
             if not alive:                         # it ended without every result: said, never restarted
                 kind, why = job.ended(root)
                 if kind == "changed":
@@ -549,6 +555,21 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
             job.release()
     out.seconds = time.monotonic() - start
     return out
+
+
+def _name_workers(job, planned, results, cached, workers) -> bool:
+    """Name the worker of every part found in the cache during this call, from the status
+    read after the lookup (the worker stores a part, then names it: a status read before
+    the lookup can miss it). True when every such part is named."""
+    pending = [i for i, r in enumerate(results) if r is not None and not cached[i] and workers[i] is None]
+    if not pending:
+        return True
+    parts = (job.status() or {}).get("parts", {})
+    for i in pending:
+        entry = parts.get(planned[i].id)
+        if entry is not None:
+            workers[i] = entry["pid"]
+    return all(workers[i] is not None for i in pending)
 
 
 class Running(Exception):
