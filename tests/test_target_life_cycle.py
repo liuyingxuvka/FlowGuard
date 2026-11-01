@@ -716,8 +716,13 @@ def test_target_check_runs_own_bound_tests_after_code(tmp_path, monkeypatch):
     assert "GAP CLOSED one:" in output and "native.py" in output
     assert "bound tests: ran for one" in output
     base = tmp_path / ".flowguard/target/base.json"
-    # A damaged design identity is not an execution result. Fresh proof still runs once.
+    identity = base.read_bytes()
+    # A damaged design identity is that error, never a target started at HEAD or with no baseline.
     base.write_text("not JSON: this is no stored execution verdict")
+    assert native.promote_target(tmp_path) == 2  # target_base_invalid, before anything is applied
+    assert (tmp_path / ".flowguard/target/map.json").exists() and len(calls) == 1
+    # The identity is not an execution result either: promote runs fresh proof once.
+    base.write_bytes(identity)
     assert native.promote_target(tmp_path) == 0
     assert len(calls) == 2
     assert not (tmp_path / ".flowguard/target/base.json").exists()

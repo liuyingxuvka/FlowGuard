@@ -686,3 +686,17 @@ def test_a_failing_git_listing_stops_status_and_staging_with_gits_own_message(tm
     _failing_git(tmp_path, monkeypatch, "--cached")
     with pytest.raises(MapError, match="cannot list the files to stage: git ls-files failed in .*simulated --cached failure"):
         _staging_paths(root, {"components": []}, {}, set())
+
+
+def test_a_damaged_target_base_is_named_by_target_check_and_status(tmp_path, capsys):
+    """A base.json that does not parse is that error, never a target started at HEAD."""
+    from flowguard.__main__ import main
+    root = _committed_shelf_project(tmp_path)
+    assert main(["target", "start", "change loans", "--root", str(root)]) == 0
+    base = root / ".flowguard/target/base.json"
+    base.write_text("{", encoding="utf-8")
+    capsys.readouterr()
+    for command in (["target", "check"], ["status"]):
+        assert main([*command, "--root", str(root)]) == 2, command
+        errors = capsys.readouterr().err
+        assert "target_base_invalid" in errors and str(base) in errors, (command, errors)
