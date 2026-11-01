@@ -155,7 +155,8 @@ def plan(root, paths, *, full: bool = False, max_states: int = Bounds().max_stat
             out.append(Planned(PartSpec(kind, model, tuple(sorted(options))), rel))
             core = out[-1] if kind == "core" else core
         hit = lookup(root, core) if core is not None else None
-        if hit is not None and hit.complete and hit.info.get("loaded"):
+        if hit is not None and hit.complete and hit.info.get("loaded") and not any(
+                d["kind"] == "MODEL ERROR" for d in hit.findings):
             continue                              # a complete exploration decides: nothing to replay
         if model in kept:
             entries = json.dumps(sorted(kept[model], key=lambda c: c["id"]), sort_keys=True)

@@ -281,3 +281,38 @@ def test_a_part_found_between_two_status_reads_is_named_by_its_worker(project, m
     outcome = jobs.run(project.root, planned, wait=5, keep=0)
     assert outcome.finished
     assert outcome.workers == [4242] * len(planned) and outcome.cached == [False] * len(planned)
+
+
+GOAL_RAISES = '''
+from flowguard._next import Model, need
+m = Model("dial")
+m.field("pos", range(0, 3), 0)
+
+@m.action()
+def up(s):
+    need(s["pos"] < 2, "at the top")
+    s["pos"] += 1
+
+@m.action()
+def down(s):
+    need(s["pos"] > 0, "at the bottom")
+    s["pos"] -= 1
+m.progress("back to zero", when=lambda s: True, goal=lambda s: 1 / (s["pos"] - 1) and s["pos"] == 0)
+MODEL = m
+'''
+
+
+def test_a_check_with_a_model_error_replays_the_stored_conflicts(project):
+    """A complete search whose check met a model error (a progress goal that raises) closes
+    nothing, so it must replay the stored conflicts like a capped one: the plan holds the
+    replay part, and the kept reason comes from the replay, not "no stored path"."""
+    path = project.flow("dial", GOAL_RAISES)
+    [core_item] = [p for p in jobs.plan(project.root, [path]) if p.spec.kind == "core"]
+    result = run_part(PartContext(project.root, core_item.spec, path, cache_dir(project.root)))
+    assert result.complete and any(d["kind"] == "MODEL ERROR" for d in result.findings)
+    jobs.store(project.root, result)
+    stored = {"conflicts": [{"id": "C-000000000001", "kind": "STUCK", "model": "dial", "subject": "pos = 2",
+                             "sources": [], "text": "x", "path": ["up()"], "replay": {"stuck": "value",
+                                                                                     "key": "pos", "value": "1"}}]}
+    kinds = [p.spec.kind for p in jobs.plan(project.root, [path], stored=stored)]
+    assert "replay" in kinds, kinds
