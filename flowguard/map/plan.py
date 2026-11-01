@@ -6,9 +6,8 @@ import copy
 import json
 from pathlib import Path
 import re
-import subprocess
 
-from .common import Finding, normalize_newlines, read_source, sha256_bytes
+from .common import Finding, git_blob, normalize_newlines, read_source, sha256_bytes
 from .mapfile import MapError, model_registry, resolve_model_path
 from .modelstatic import StaticModel
 from .requests import REQUEST_DIR, RETIRED_DIR, _metadata, _stems, glossary_entries, validate_request_links
@@ -144,16 +143,10 @@ def _touch_problem(root, path, symbol):
     if current[symbol] is None:
         return 'the named function has ambiguous same-name definitions'
     if isinstance(base.get('git'), str):
+        previous = git_blob(root, base['git'], relative)  # None: added since the base; a failing Git raises
         try:
-            previous = subprocess.run(['git', '-C', str(root), 'show', f'{base["git"]}:./{relative}'], capture_output=True)
-            if previous.returncode:
-                known = subprocess.run(['git', '-C', str(root), 'cat-file', '-e', base['git'] + '^{commit}'], capture_output=True)
-                if known.returncode:
-                    return 'the historical Git baseline is unavailable'
-                old = {}
-            else:
-                old = function_identities(normalize_newlines(previous.stdout).decode('utf-8-sig'))
-        except (OSError, UnicodeError, SyntaxError, ValueError) as error:
+            old = {} if previous is None else function_identities(normalize_newlines(previous).decode('utf-8-sig'))
+        except UnicodeError as error:
             return f'the historical function AST is unavailable: {error}'
         if old is None:
             return 'the historical function AST is unavailable'

@@ -576,3 +576,34 @@ def test_a_folder_inside_the_git_directory_is_a_folder_without_git(tmp_path):
     assert git_common_directory(root) == (root / ".git").resolve()
     assert git_common_directory(cache) is None
     assert list_files(cache) == ["src/program.py"]
+
+
+# Git old text: an object Git cannot read is that failure, never a file that did not exist at the base
+
+def _drop_blob(root, revision, path):
+    """Delete the loose object of one file at a commit, as a damaged or partial clone lacks it."""
+    blob = _git(root, "rev-parse", f"{revision}:{path}").decode().strip()
+    (root / ".git/objects" / blob[:2] / blob[2:]).unlink()
+
+
+def test_a_missing_base_blob_stops_the_touch_check_instead_of_crediting_the_line(tmp_path):
+    from _fg_helpers import target__fg403_helpers as gap_helpers
+    from flowguard.map import target as native
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.plan import check_plan
+    from flowguard.map.targetfile import build_target_view, load_target
+    root = tmp_path / "repo"
+    root.mkdir()
+    gap_helpers()["make_project"](root, gap_helpers()["regular_source"]())
+    _git(root, "init", "-q")
+    _git(root, "add", ".")
+    _git(root, "commit", "-qm", "function baseline")
+    assert native.start_target(root, "change the function") == 0
+    assert native.add_to_target(root, "one") == 0
+    target = load_target(root)
+    view = build_target_view(root, load_map(root), target)
+    (root / ".flowguard/target/PLAN.txt").write_text('touch: native.py:value because "check it"\n', encoding="utf-8")
+    assert [item.code for item in check_plan(root, target, view)[1]] == ["plan_item_not_done"]
+    _drop_blob(root, "HEAD", "native.py")
+    with pytest.raises(MapError, match="git cat-file failed"):
+        check_plan(root, target, view)
