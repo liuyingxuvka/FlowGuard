@@ -78,7 +78,7 @@ def body(out):
     lines = out.splitlines()
     end = next((n for n, x in enumerate(lines[1:], 1) if x and not x.startswith((" ", "---", "title:", "flowchart"))),
                len(lines))
-    return "\n".join(lines[1:end])
+    return "\n".join(lines[1:end]).rstrip("\n")
 
 
 # ---------------------------------------------------------------------- the prototype pictures

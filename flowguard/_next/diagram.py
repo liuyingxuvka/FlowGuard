@@ -1265,7 +1265,9 @@ def show_main(root: Path, argv: list, runner) -> tuple[int, str]:
     out = []
     if message:
         out.append(message)
-    for pic in pictures:
+    for n, pic in enumerate(pictures):
+        if n:
+            out.append("")                                 # a blank line between pictures
         out.append(pic["first_line"])
         if pic.get("mermaid"):
             out.append(pic["mermaid"].rstrip("\n"))
