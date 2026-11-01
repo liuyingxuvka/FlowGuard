@@ -37,6 +37,7 @@ class ModelError(Exception):
         self.file = file          # path relative to the project root when known
         self.line = line
         self.at = at              # (state index, call index or None) for exploration errors
+        self.reads = ()           # set by load_model: the files read before the error
 
     def where(self) -> str:
         if self.file is None:
@@ -558,16 +559,15 @@ def validate(model: Model) -> None:
         raise ModelError("the model declares no field", _rel(model.path) if model.path else None, None)
 
 
-def check_covers(model: Model, root: Path) -> list[str]:
-    """covers= entries must name existing files, classes and methods. Returns the files."""
-    files = []
+def check_covers(model: Model, root: Path, reads: set) -> None:
+    """covers= entries must name existing files, classes and methods; each file is a read."""
     for entry in model.covers:
         file, _, inner = entry.partition(":")
         path = root / file
+        reads.add(Path(file).as_posix())
         if not path.is_file():
             raise ModelError(f"covers {entry!r}: no file {file!r} in the project",
                              _rel(model.path), model.line)
-        files.append(Path(file).as_posix())
         if not inner:
             continue
         cls, _, meth = inner.partition(".")
@@ -579,7 +579,6 @@ def check_covers(model: Model, root: Path) -> list[str]:
                             for n in node.body):
             raise ModelError(f"covers {entry!r}: class {cls} has no method {meth}", _rel(model.path),
                              model.line)
-    return files
 
 
 _SYM_CALLS = {"list", "tuple", "set", "frozenset", "all", "any", "sum", "len"}
@@ -765,6 +764,7 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
     old_root = _LOAD["root"]
     _LOAD["root"] = root
     rel_model = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
+    reads = {rel_model}
     try:
         try:
             source = path.read_text(encoding="utf-8")
@@ -792,17 +792,19 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
         model.id = path.stem
         model.path = path
         model.root = root
-        validate(model)
-        reads = {rel_model}
         project = _project_modules(root)
         reads.update(project.values())
-        reads.update(check_covers(model, root))
+        validate(model)
+        check_covers(model, root, reads)
         helpers = [root / r for r in project.values()
                    if (root / r).parent == path.parent and Path(r).name.startswith("_")]
         check_symmetry_rule(model, [path] + sorted(helpers), root)
         from .explore import Symmetry               # start state and domains under renaming
         Symmetry.of(model)
         return Loaded(model, tuple(sorted(reads)))
+    except ModelError as err:
+        err.reads = tuple(sorted(reads | set(_project_modules(root).values())))
+        raise
     finally:
         _LOAD["root"] = old_root
         for p in added:
