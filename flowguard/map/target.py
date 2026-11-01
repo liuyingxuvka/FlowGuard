@@ -689,7 +689,7 @@ def _staging_paths(root, data, inputs, selected_tests):
         args = ["diff", "--relative", "--no-renames", "--name-only", "-z"]
         changed = set(read_git_paths(root, *args, *(["HEAD"] if _git_head(root) else []), "--", "."))
         untracked = set(read_git_paths(root, "ls-files", "--others", "--exclude-standard", "-z", "--", "."))
-    except (OSError, subprocess.CalledProcessError) as error:
+    except MapError as error:  # Git's own message, said before anything is applied
         raise MapError(f"cannot list the files to stage: {error}") from error
     patterns = [pattern for component in data["components"]
                 for field in ("files", "tests") for pattern in component.get(field, [])]
@@ -817,9 +817,8 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             try:
                 source_paths = set(read_git_paths(root, "diff", "--relative", "--name-only", "-z", base["git"], "--", "."))
                 source_paths.update(set(read_git_paths(root, "ls-files", "--others", "--exclude-standard", "-z")) & set(inputs))
-            except subprocess.CalledProcessError as error:  # Nothing is written yet: stop with Git's own message.
-                raise MapError(f"cannot list the changes since the target base {base['git']}: "
-                               f"{os.fsdecode(error.stderr or b'').strip() or error}") from error
+            except MapError as error:  # Nothing is written yet: stop with Git's own message.
+                raise MapError(f"cannot list the changes since the target base {base['git']}: {error}") from error
         stage = _staging_paths(root, merged, inputs, selected_tests)
         prepared_record = prepare_change(
             root, goal=target.goal, links=target.data.get("requests", []), base=base,

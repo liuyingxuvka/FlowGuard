@@ -7,6 +7,8 @@ import subprocess
 
 import pytest
 
+from flowguard.map.mapfile import MapError
+
 from _fg_helpers import (
     target__load_map as _load_map,
     target__target_life_cycle_fixture_helpers as _fixture_helpers,
@@ -140,7 +142,7 @@ def test_promote_stops_before_applying_when_git_cannot_list_the_files(tmp_path, 
     original = impact_history.read_git_paths
     def broken(path, *arguments):
         if "--cached" in arguments:
-            raise subprocess.CalledProcessError(128, ["git", *arguments], stderr=b"index is locked")
+            raise MapError(f"git {arguments[0]} failed in {path}: index is locked")  # as the real reader raises
         return original(path, *arguments)
     monkeypatch.setattr(impact_history, "read_git_paths", broken)
     before = (root / ".flowguard/map.json").read_bytes()
@@ -156,7 +158,7 @@ def test_promote_stops_before_applying_when_git_cannot_diff_the_target_base(tmp_
     original = impact_history.read_git_paths
     def broken(path, *arguments):
         if arguments[:1] == ("diff",) and "--no-renames" not in arguments:
-            raise subprocess.CalledProcessError(128, ["git", *arguments], stderr=b"bad object in the base")
+            raise MapError(f"git {arguments[0]} failed in {path}: bad object in the base")  # as the real reader raises
         return original(path, *arguments)
     monkeypatch.setattr(impact_history, "read_git_paths", broken)
     before = (root / ".flowguard/map.json").read_bytes()

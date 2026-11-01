@@ -3,11 +3,10 @@ from __future__ import annotations
 import ast
 import json
 import os
-import subprocess
 import tempfile
 from collections import defaultdict, deque
 from pathlib import Path
-from .common import git_blob, git_common_directory, git_head, glob_match, is_collectable_test, norm, normalize_newlines, read_source
+from .common import git_blob, git_common_directory, git_head, git_run, glob_match, is_collectable_test, norm, normalize_newlines, read_source
 from .inventory import Inventory
 from .mapfile import MapError, model_registry, read_model_contract, top_level_imports
 
@@ -60,17 +59,14 @@ def _removed_model_context(root: Path, base: str | None, changed: list[str]) -> 
     """Read real Git removals through the canonical static registry; never import old code."""
     if base is None or not any(Path(p).parent.as_posix() == ".flowguard/models" for p in changed):
         return set(), {}, {}
-    try:
-        removed = {p for p in _read_git_paths(root, "diff", "--no-renames", "--diff-filter=D", "--name-only", "-z",
-                                        base, "--", ".flowguard/models")
-                   if Path(p).parent.as_posix() == ".flowguard/models" and p.endswith(".py")
-                   and not os.path.lexists(root / p)}
-        if not removed.intersection(changed):
-            return set(), {}, {}
-        paths = [p for p in _read_git_paths(root, "ls-tree", "-r", "--name-only", "-z", base, "--", ".flowguard/models")
-                 if Path(p).parent.as_posix() == ".flowguard/models" and p.endswith(".py")]
-    except subprocess.CalledProcessError:
-        return set(), {}, {}             # missing/unknown models retain the existing hard gate
+    removed = {p for p in _read_git_paths(root, "diff", "--no-renames", "--diff-filter=D", "--name-only", "-z",
+                                          base, "--", ".flowguard/models")
+               if Path(p).parent.as_posix() == ".flowguard/models" and p.endswith(".py")
+               and not os.path.lexists(root / p)}
+    if not removed.intersection(changed):
+        return set(), {}, {}
+    paths = [p for p in _read_git_paths(root, "ls-tree", "-r", "--name-only", "-z", base, "--", ".flowguard/models")
+             if Path(p).parent.as_posix() == ".flowguard/models" and p.endswith(".py")]
     contracts, imports = {}, {}
     with tempfile.TemporaryDirectory(prefix="flowguard-previous-models-") as directory:
         prior_root = Path(directory)
@@ -163,10 +159,11 @@ def _commands_for_tests(data, previous, tests):
     return test_commands, blocked
 
 def read_git_paths(root, *arguments):
-    """Run Git against a disposable index: diff may refresh even with optional locks off."""
+    """Run Git against a disposable index: diff may refresh even with optional locks off.
+
+    A failing Git raises MapError with Git's own message (git_run), like every other Git call."""
     import shutil
-    where = subprocess.run(['git', '-C', str(root), 'rev-parse', '--git-path', 'index'],
-                           capture_output=True, check=True)
+    where = git_run(root, 'rev-parse', '--git-path', 'index')
     source = Path(os.fsdecode(where.stdout).strip())
     if not source.is_absolute():
         source = root / source
@@ -175,8 +172,7 @@ def read_git_paths(root, *arguments):
         if source.exists():
             shutil.copy2(source, index)  # Preserve Git's racy-clean timestamp window.
         env = dict(os.environ, GIT_OPTIONAL_LOCKS='0', GIT_INDEX_FILE=str(index))
-        result = subprocess.run(['git', '-C', str(root), *arguments], env=env,
-                                capture_output=True, check=True)
+        result = git_run(root, *arguments, env=env)
         return [os.fsdecode(item) for item in result.stdout.split(b'\0') if item]
 
 
@@ -219,15 +215,12 @@ def _literal_impact(root, data, inv, tree, changed, base, *, function_origins=No
 
     def mentions(value):
         nonlocal text_paths
-        if text_paths is None:
-            try:
-                text_paths = [
-                    p
-                    for p in _read_git_paths(root, "ls-files", "-z")
-                    if Path(p).suffix.lower() in (".md", ".yaml", ".yml", ".json", ".toml")
-                ]
-            except (OSError, subprocess.CalledProcessError):
-                text_paths = []
+        if text_paths is None:  # text-file mentions come from Git's file list; without Git there is none
+            text_paths = [] if git_common_directory(root) is None else [
+                p
+                for p in _read_git_paths(root, "ls-files", "-z")
+                if Path(p).suffix.lower() in (".md", ".yaml", ".yml", ".json", ".toml")
+            ]
         pattern = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(value) + r"(?![A-Za-z0-9_])")
         found = []
         for path in sorted(text_paths):
@@ -398,9 +391,7 @@ def _git_promise_notes(root, data, changed, base):
         return [],[]
     from .facets import promise_records, promise_changes
     from .mapfile import model_registry
-    try:
-        paths=_read_git_paths(root,'ls-tree','-r','--name-only','-z',base,'--','.flowguard/models')
-    except (OSError,subprocess.CalledProcessError):return [],[]
+    paths=_read_git_paths(root,'ls-tree','-r','--name-only','-z',base,'--','.flowguard/models')
     # Old helpers resolve only against this old namespace; never against today's source.
     with tempfile.TemporaryDirectory(prefix='flowguard-old-promises-') as directory:
         old_root=Path(directory)

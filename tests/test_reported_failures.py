@@ -664,3 +664,25 @@ def test_a_repository_git_cannot_give_a_work_tree_is_an_error_not_a_folder_witho
     for command in (["status"], ["map", "check", "--strict"]):
         assert main([*command, "--root", str(root)]) == 2, command
         assert "must be run in a work tree" in capsys.readouterr().err, command
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX shell script stands in for a failing git")
+def test_a_failing_git_listing_stops_status_and_staging_with_gits_own_message(tmp_path, monkeypatch):
+    """The disposable-index reader raises with Git's own message, never Python's exit-status sentence."""
+    from flowguard.map import records
+    from flowguard.map.impact_history import read_git_paths
+    from flowguard.map.target import _staging_paths
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q")
+    (root / "a.py").write_text("x = 1\n", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    _git(root, "tag", "v1.0.0")
+    _failing_git(tmp_path, monkeypatch, "ls-tree")
+    with pytest.raises(MapError, match="git ls-tree failed in .*simulated ls-tree failure"):
+        records.since_release(root, [], read_git_paths)
+    monkeypatch.undo()
+    _failing_git(tmp_path, monkeypatch, "--cached")
+    with pytest.raises(MapError, match="cannot list the files to stage: git ls-files failed in .*simulated --cached failure"):
+        _staging_paths(root, {"components": []}, {}, set())

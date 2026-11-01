@@ -7,12 +7,11 @@ import os
 from pathlib import Path
 import re
 import shlex
-import subprocess
 
 from .common import (CACHE_RELDIR, advice, atomic_write_text, cache_dir, git_common_directory, git_head,
                      git_run, matches_any, project_command, project_root, read_source, render_advice)
 from .inventory import list_files
-from .mapfile import MapError, ignore_patterns, load_map
+from .mapfile import ignore_patterns, load_map
 from .plan import PLAN_RELPATH, function_identities, static_plan_rows
 from .records import CHANGE_DIR, change_records, commit_advice, since_release
 from .requests import other_worktrees, owner_words
@@ -26,15 +25,6 @@ def _age(moment):
     return f'{seconds // 86400} days' if seconds >= 86400 else f'{seconds // 60} min'
 
 
-def _read_git(root, reader, *args):
-    """Git through the disposable-index reader, in a project already known to be in Git; a failure is an error."""
-    try:
-        return reader(root, *args)
-    except subprocess.CalledProcessError as error:
-        reason = os.fsdecode(error.stderr or b'').strip() or f'exit status {error.returncode}'
-        raise MapError(f'git {args[0]} failed in {root}: {reason}') from error
-
-
 def _git_header(root, reader, peers):
     worktrees = sorted([str(root), *(str(peer) for peer in peers)])
     place = dict(worktree=worktrees.index(str(root)) + 1, worktree_count=len(worktrees))
@@ -42,8 +32,8 @@ def _git_header(root, reader, peers):
         return dict(head=None, branch=None, uncommitted_paths=None, **place, known_from='no Git worktree')
     head = git_head(root)
     branch = git_run(root, 'symbolic-ref', '--short', '-q', 'HEAD', allowed=(0, 1)).stdout  # exit 1: detached HEAD
-    pending = _read_git(root, reader, 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--', '.')
-    prefix = _read_git(root, reader, 'rev-parse', '--show-prefix')
+    pending = reader(root, 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--', '.')
+    prefix = reader(root, 'rev-parse', '--show-prefix')
     prefix = prefix[0].rstrip('\r\n') if prefix else ''
     paths = []
     iterator = iter(pending)
@@ -65,9 +55,9 @@ def _edited_functions(root, base, data, reader):
         if (git_common_directory(root) is None
                 or git_run(root, 'rev-parse', '-q', '--verify', git_base + '^{commit}', allowed=(0, 1)).returncode):
             return [], 'unknown: target Git base commit is not in this clone'
-        changed = _read_git(root, reader, 'diff', '--relative', '--name-only', '-z', git_base, '--', '.')
-        untracked = _read_git(root, reader, 'ls-files', '--others', '--exclude-standard', '-z')
-        at_base = set(_read_git(root, reader, 'ls-tree', '-r', '--name-only', '-z', git_base, '--', '.'))
+        changed = reader(root, 'diff', '--relative', '--name-only', '-z', git_base, '--', '.')
+        untracked = reader(root, 'ls-files', '--others', '--exclude-standard', '-z')
+        at_base = set(reader(root, 'ls-tree', '-r', '--name-only', '-z', git_base, '--', '.'))
         files = sorted((set(changed) | set(untracked)) & set(files)
                        | {path for path in changed if path.endswith('.py') and not (root / path).exists()})
     elif isinstance(base.get('files'), dict):
@@ -81,7 +71,7 @@ def _edited_functions(root, base, data, reader):
         try:
             current = function_identities(read_source(root / path)) if (root / path).exists() else {}
             if isinstance(git_base, str):
-                previous = (function_identities('\0'.join(_read_git(root, reader, 'show', f'{git_base}:./{path}')))
+                previous = (function_identities('\0'.join(reader(root, 'show', f'{git_base}:./{path}')))
                             if path in at_base else {})
             else:
                 entry = base['files'].get(path)

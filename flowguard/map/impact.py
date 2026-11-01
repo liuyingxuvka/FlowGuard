@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import ast
 import json
-import os
-import subprocess
 import tempfile
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
@@ -31,11 +29,7 @@ def changed_files(root: Path, base: str, *, data=None, inv=None) -> list[str]:
     commands = (["git", "-C", str(root), "diff", "--name-status", "-z", "-M", base],
                 ["git", "-C", str(root), "ls-files", "-o", "--exclude-standard", "-z"])
     for i, cmd in enumerate(commands):
-        try:
-            fields = _read_git_paths(root, *cmd[3:])
-        except subprocess.CalledProcessError as exc:  # Inside Git a failure is an error with Git's own message.
-            reason = os.fsdecode(exc.stderr or b"").strip() or f"exit status {exc.returncode}"
-            raise MapError(f"git {cmd[3]} failed in {root}: {reason}") from exc
+        fields = _read_git_paths(root, *cmd[3:])  # inside Git a failure raises with Git's own message
         if i == 1:
             files.update(norm(f) for f in fields)
             continue
