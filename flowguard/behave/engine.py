@@ -10,12 +10,13 @@ import time
 
 from flowguard.map.common import atomic_write_text, normalize_newlines
 
-from .project import UnsupportedWorld, capture_facts, directory_stamp, file_stamp, replay, state_key, ui_identity
+from .capture import merge
+from .project import UnsupportedWorld, directory_stamp, file_stamp, replay, state_key, ui_identity
 from .skeleton import NoSkeleton, derive, fallback_facts
 
 
 def _capture_shape(spec):
-    return {"wire": 1, "queries": spec.get("entity_queries", {}),
+    return {"wire": 2, "queries": spec.get("entity_queries", {}),
             "entities": {kind: {"list": row["list"]} for kind, row in spec.get("entities", {}).items()}}
 
 
@@ -93,30 +94,39 @@ def _combined_footprint(facts):
     return footprint
 
 
-def _rule_captures(spec, runs, test_replay, test_starts, saved, settings):
-    missing = []
-    captures = {"spec": spec, "steps": [], "states": [], "complete": True, "missing": missing,
-                "scope": "native primary/test-start walk events, with uncovered origins named explicitly"}
-    walk_facts = [run["facts"] for run in runs] + ([test_starts] if test_starts else [])
-    if not walk_facts:
+def _rule_captures(spec, runs, test_replay, test_starts, saved, settings, *, saved_facts=()):
+    """Merge actual admitted native envelopes; no norm is an execution input."""
+    ledgers, missing = [], []
+
+    def admit(facts, origin):
+        if isinstance(facts.get("rule_captures"), dict):
+            ledgers.append(facts["rule_captures"])
+        else:
+            missing.append(origin + " has no completed native rule ledger")
+
+    if not runs:
         missing.append("no completed native walk ledger")
-    for facts in walk_facts:
-        rows = capture_facts(spec, facts.get("states", []), facts.get("events", []), complete=True)
-        captures["steps"].extend(rows["steps"])
-        captures["states"].extend(rows["states"])
-        missing.extend(rows["missing"])
-        for field in (None, "reach", "stuck", "agreement", "crashes"):
-            phase = facts if field is None else facts.get(field, {})
-            if phase.get("rule_uncaptured_steps", 0):
-                missing.append((field or "walk setup") + " native branches have no rule capture ledger")
-    if test_replay.get("prefixes"):
-        missing.append("TS2 shipped test prefixes have no complete rule capture ledger")
-    if saved.get("files"):
-        missing.append("saved-file starts have no complete rule capture ledger")
-    if settings.get("profiles"):
-        missing.append("shipped setting-comparison baselines have no rule capture ledger")
-    captures["missing"] = sorted(set(missing))
-    captures["complete"] = not captures["missing"]
+    for run in runs:
+        facts = run["facts"]
+        admit(facts, "native walk")
+        for field in ("reach", "stuck", "agreement", "crashes"):
+            if field in facts:
+                admit(facts[field], "native " + field)
+    if test_replay.get("rule_captures") is not None or test_replay.get("prefixes") or test_replay.get("scope_error"):
+        admit(test_replay, "TS2 shipped public replay")
+    if test_starts is not None:
+        admit(test_starts, "public test starts")
+    for facts in saved_facts:
+        admit(facts, "saved-file start")
+    if saved.get("files") and not saved_facts:
+        missing.append("saved-file starts have no completed native rule ledger")
+    for row in saved.get("files", ()):
+        if row.get("status") == "unchecked":
+            missing.append("saved-file slice is unfinished: " + str(row.get("file", {}).get("name")))
+    if settings.get("rule_captures") is not None or spec.get("settings"):
+        admit(settings, "shipped setting baseline")
+    captures = merge(spec, ledgers, missing=missing)
+    captures["scope"] = "admitted native public states and successful steps across completed audit producers"
     return captures
 
 
@@ -344,7 +354,7 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
                    "fixture_loads": saved.get("fixture_loads", []), "current_identity": identity,
                    "fixture_scope": saved["fixture_scope"],
                    "no_saved_files": saved["no_saved_files"]}
-    saved_candidates = []
+    saved_candidates, saved_facts = [], []
     saved_hits = set()
     for seed in selected_seeds if saved["saves"] else ():
         for saved_file in saved["saves"]:
@@ -367,6 +377,7 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
                     atomic_write_text(path, json.dumps({"identity": identity, "body": state_key(facts), "facts": facts}, ensure_ascii=False))
             saved_scope["files"].extend({**row, "seed": seed} for row in facts["files"])
             extra_facts.append(facts)
+            saved_facts.append(facts)
             saved_scope["unknown"].extend({**row, "seed": seed} for row in facts["unknown"])
             saved_hits.update(facts["execution"]["hit_functions"])
             saved_candidates.extend({**candidate, "identity": identity, "footprint": facts["footprint"]} for candidate in facts["candidates"])
@@ -389,13 +400,14 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
         candidate.update(identity=identity, footprint=settings["footprint"])
         candidates.setdefault(state_key(candidate["semantic"]), candidate)
     from .rules import collect_rules, judge
-    rule_captures = _rule_captures(spec, all_walks, test_replay, test_starts, saved_scope, settings)
+    rule_captures = _rule_captures(spec, all_walks, test_replay, test_starts, saved_scope, settings, saved_facts=saved_facts)
     if any(row["pending"] for row in phase_progress):
         rule_captures["missing"].append("authoritative native audit phases remain unfinished")
         rule_captures["complete"] = False
     rule_judgment = judge(collect_rules(root), rule_captures)
     rule_judgment["capture_scope"] = {key: rule_captures[key] for key in ("scope", "complete", "missing")}
-    rule_footprint = _combined_footprint(run["facts"] for run in all_walks)
+    rule_footprint = _combined_footprint([run["facts"] for run in all_walks] + extra_facts
+        + [facts for facts in (test_replay, settings) if "footprint" in facts])
     for row in rule_judgment["candidates"]:
         candidate = _rule_candidate(row, identity, rule_footprint)
         candidate["judgment_identity"] = rule_judgment["identity"]
@@ -627,6 +639,8 @@ def prove(root, candidate, *, persist=True):
     result = {"state": "reproduced" if matched else "engine-defect" if same_inputs else "no-longer-reproduces",
               "matched": matched, "id": identifier, "semantic": candidate["semantic"],
               "ignored_settings": ignored, "proof": facts, "identity": identity}
+    if "not_applicable" in facts:
+        result.update({key: facts[key] for key in ("not_applicable", "reason") if key in facts})
     if rule_plan is not None:
         result.update(judgment_identity=rule_plan["identity"], rule_closure=current_rule["closure"],
                       rule_evidence=candidate.get("rule_evidence"))

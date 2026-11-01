@@ -67,7 +67,12 @@ def render(result, *, as_json=False):
     changed = scope.get("changed_lines", [])
     unhit = scope.get("unhit_lines", changed)
     changed_run = len(changed) - len(unhit)
-    gaps = (unknown or result["errors"] or result["missing_checks"] or extent["sampled"]
+    walk_extents = [run["facts"]["extent"] for run in runs] + ([test_extent] if test_extent else [])
+    unfinished_walk = any(not row["complete"] and (
+        row.get("partial") or row.get("successful") is None or row.get("successful_step_budget") is None
+        or row["successful"] < row["successful_step_budget"]
+    ) for row in walk_extents)
+    gaps = (unknown or result["errors"] or result["missing_checks"] or unfinished_walk
             or extent["capped"] or scope.get("front_doors") or scope.get("scope_unknown")
             or result.get("engine_defects") or partial_runs or pending or not runs)
     verdict = "BLOCKED" if items else "CLEAR" if changed_run and not gaps else "UNCHECKED"

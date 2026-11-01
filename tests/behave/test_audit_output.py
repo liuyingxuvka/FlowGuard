@@ -149,3 +149,27 @@ def test_rule_output_needs_current_judgment_and_missing_facts_cannot_clear():
     result["rules"]["not_judged"] = []
     result["rules"]["errors"] = [{"code": "quote_not_in_request", "message": "quote does not occur in R3"}]
     assert json.loads(render(result, as_json=True))["word"] == "UNCHECKED"
+
+
+def test_finished_sampled_coverage_is_separate_from_unfinished_proof_obligations():
+    extent = {"complete": False, "capped": False, "successful": 2,
+              "successful_step_budget": 2, "reason": "successful-step envelope finished (sampled)"}
+    result = {"identity": "execution", "runs": [{"world": "small", "seed": 0,
+              "facts": {"extent": extent, "footprint": {"reusable": True, "untracked": []}}}],
+              "items": [], "errors": [], "missing_checks": [], "facts_reused": 0,
+              "coverage": {"hit_functions": ["program:advance"], "known_functions": 1,
+                           "front_doors": [], "ui": "none", "modules": {},
+                           "changed_lines": [["program.py", 2]], "unhit_lines": []}}
+    shown = json.loads(render(result, as_json=True))
+    assert shown["word"] == "CLEAR" and shown["extent"]["sampled"] == 1
+    extent["successful"] = 1
+    assert json.loads(render(result, as_json=True))["word"] == "UNCHECKED"
+    extent["successful"] = 2
+    extent["capped"] = True
+    assert json.loads(render(result, as_json=True))["word"] == "UNCHECKED"
+    extent["capped"] = False
+    result["runs"][0]["facts"]["reach"] = {"unknown": [{"check": "GC1", "reason": "focused proof capped"}]}
+    assert json.loads(render(result, as_json=True))["word"] == "UNCHECKED"
+    result["runs"][0]["facts"].pop("reach")
+    result["coverage"]["unhit_lines"] = [["program.py", 2]]
+    assert json.loads(render(result, as_json=True))["word"] == "UNCHECKED"

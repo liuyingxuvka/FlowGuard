@@ -151,6 +151,7 @@ def setting_effects(session, traces, *, setting=None, alphabet_cap=1000):
     from .project import state_key
 
     original, base_prefix = dict(session.start), list(session.base_prefix)
+    capture_admitted = session.capture_admitted
     shipped = dict(session.defaults)
     requested = {name: value for name, value in shipped.items() if setting is None or name == setting}
     candidates, information, unknown, profiles = [], [], [], []
@@ -225,6 +226,7 @@ def setting_effects(session, traces, *, setting=None, alphabet_cap=1000):
 
     def run(trace, change, baseline=None):
         nonlocal initial_key, initial_checkpoint
+        session.capture_admitted = capture_admitted and not change
         start = dict(trace.get("start", {}))
         if start.get("settings"):
             raise UnsupportedWorld("TS5 requires a shipped replay rather than the test's own settings")
@@ -398,6 +400,7 @@ def setting_effects(session, traces, *, setting=None, alphabet_cap=1000):
             else:
                 information.append({**summary, "label": "NO OBSERVED EFFECT"})
     finally:
+        session.capture_admitted = capture_admitted
         session.base_prefix = base_prefix
         session.reset(start=original)
     return {"candidates": candidates, "information": information, "unknown": unknown, "profiles": profiles, "traces": len(traces)}

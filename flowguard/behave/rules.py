@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import ast
+import base64
 import builtins
+from collections.abc import Mapping
 import copy
 import hashlib
 import json
@@ -17,6 +19,8 @@ from flowguard.map.common import normalize_newlines, read_source
 from flowguard.map.inventory import syntax_tree
 from flowguard.map.mapfile import MapError
 from flowguard.map.requests import REQUEST_DIR, validate_request_links
+
+from .capture import failure_context, iter_states, iter_steps
 
 _API = "flowguard.behave.rules"
 _NOT_READY = "explored result for this tree not ready: python -m flowguard.behave audit"
@@ -340,6 +344,72 @@ def _freeze(value):
     return value
 
 
+def _readonly(*args, **kwargs):
+    raise _Unavailable("captured public values are read-only")
+
+
+class _ListView(list):
+    __slots__ = ()
+    __setitem__ = __delitem__ = append = clear = extend = insert = pop = remove = reverse = sort = _readonly
+    __iadd__ = __imul__ = _readonly
+
+
+class _DictView(dict):
+    __slots__ = ()
+    __setitem__ = __delitem__ = clear = pop = popitem = setdefault = update = __ior__ = _readonly
+
+
+class _SetView(set):
+    __slots__ = ()
+    add = clear = difference_update = discard = intersection_update = pop = remove = symmetric_difference_update = update = _readonly
+    __ior__ = __iand__ = __ixor__ = __isub__ = _readonly
+
+
+def _read_graph(pack):
+    """Read the existing native graph into detached readonly builtin values."""
+    nodes, memo, pending = pack["nodes"], {}, set()
+
+    def read(value):
+        if value is None or type(value) in (bool, int, str):
+            return value
+        if not isinstance(value, Mapping):
+            raise _Unavailable("unsupported native public value")
+        if "float" in value:
+            return float.fromhex(value["float"])
+        if "bytes" in value:
+            return base64.b64decode(value["bytes"], validate=True)
+        if "builtin_type" in value:
+            types = {"builtins:" + name: item for name, item in (("str", str), ("int", int), ("float", float), ("bool", bool))}
+            if value["builtin_type"] in types:
+                return types[value["builtin_type"]]
+        if "ref" not in value:
+            raise _Unavailable("this native public type needs an explicit rule view")
+        number = value["ref"]
+        if number in memo:
+            return memo[number]
+        if number in pending:
+            raise _Unavailable("cyclic public values need an explicit rule view")
+        pending.add(number)
+        node = nodes[number]
+        if node["type"] == "builtins:dict":
+            result = _DictView((read(key), read(item)) for key, item in node["items"])
+        elif node["type"] == "builtins:list":
+            result = _ListView(read(item) for item in node["items"])
+        elif node["type"] == "builtins:tuple":
+            result = tuple(read(item) for item in node["items"])
+        elif node["type"] == "builtins:set":
+            result = _SetView(read(item) for item in node["items"])
+        elif node["type"] == "builtins:frozenset":
+            result = frozenset(read(item) for item in node["items"])
+        else:
+            raise _Unavailable("this native public type needs an explicit rule view: " + node["type"])
+        pending.remove(number)
+        memo[number] = result
+        return result
+
+    return read(pack["root"])
+
+
 class _View:
     __slots__ = ("_observation", "_spec")
 
@@ -361,12 +431,13 @@ class _View:
                     ids = self._observation.get("identifiers", {})
                     if args or kwargs or kind not in ids:
                         raise _Unavailable("entity identifiers were not captured: " + name)
-                    return ids[kind]
+                    graphs = self._observation.get("identifiers_graph", {})
+                    return _read_graph(graphs[kind]) if kind in graphs else ids[kind]
             if kwargs or name in self._observation.get("unknown", ()):
                 raise _Unavailable("public query was not captured: " + name)
             for row in self._observation.get("values", ()):
                 if row["query"] == name and tuple(row.get("args", ())) == args:
-                    return row["value"]
+                    return _read_graph(row["value_graph"]) if "value_graph" in row else row["value"]
             raise _Unavailable("public query was not captured: " + name)
         return query
 
@@ -376,9 +447,9 @@ class _Step:
 
     def __init__(self, row, spec):
         object.__setattr__(self, "name", row["call"].get("name", row["call"].get("construct")))
-        if "args" not in row:
+        if "args" not in row and "args_graph" not in row:
             raise _Unavailable("resolved public arguments were not captured")
-        object.__setattr__(self, "args", _freeze(copy.deepcopy(row["args"])))
+        object.__setattr__(self, "args", _read_graph(row["args_graph"]) if "args_graph" in row else _freeze(copy.deepcopy(row["args"])))
         object.__setattr__(self, "before", _View(row["before"], spec))
         object.__setattr__(self, "after", _View(row["after"], spec))
         object.__setattr__(self, "_spec", spec if isinstance(spec, MappingProxyType) else _freeze(copy.deepcopy(spec)))
@@ -484,7 +555,7 @@ def judge(plan, captures):
                     active.clear()
                     active.update((str(Path(plan["root"]) / path), number)
                                   for path, numbers in rule_spec["assertions"].items() for number in numbers)
-                    records = captures.get("steps" if rule_spec["fixture"] == "step" else "states", ())
+                    records = iter_steps(captures) if rule_spec["fixture"] == "step" else iter_states(captures)
                     for record in records:
                         if rule_spec["fixture"] == "step" and record.get("outcome") != "success":
                             continue
@@ -494,7 +565,8 @@ def judge(plan, captures):
                             row["evaluated"] += 1
                             function(view)
                         except AssertionError as exc:
-                            failures.append({**{key: record[key] for key in ("start", "prefix", "outcomes", "call", "before_key", "after_key", "state_key") if key in record},
+                            failures.append({**failure_context(record),
+                                **{key: record[key] for key in ("call", "before_key", "after_key", "state_key") if key in record},
                                 "rule": rule_spec["id"], **{key: rule_spec[key] for key in ("function", "path", "line", "closure", "fixture", "provenance")},
                                 "message": str(exc) or "assertion failed",
                                 "action": record.get("call", {}).get("name", "state")})

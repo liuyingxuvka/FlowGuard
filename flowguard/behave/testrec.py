@@ -302,6 +302,7 @@ def replay_prefixes(session, recordings):
     rows = recordings.get("recordings", []) if isinstance(recordings, dict) else recordings
     witnesses, ignored, divergences, prefixes, replays = {}, [], [], [], []
     original_start = session.start
+    original_ledger = session.rule_ledger
 
     def retain(row):
         for kind, entity in session.spec["entities"].items():
@@ -330,6 +331,11 @@ def replay_prefixes(session, recordings):
 
     try:
         for recording in rows:
+            if original_ledger is not None:
+                from .capture import Ledger
+                session.rule_ledger = Ledger(session.spec)
+                session._capture_prefix = None
+            accepted = []
             session.start = {}
             session.reset()
             profile = recording.get("settings", {})
@@ -337,6 +343,8 @@ def replay_prefixes(session, recordings):
                 ignored.append({"test": recording["test"], "settings": profile})
             valid_prefix, valid_outcomes = [], []
             eligible = retain(recording)
+            if eligible and original_ledger is not None:
+                accepted.append(session._capture_origin())
             stop = recording.get("stop")
             limit = min(len(recording["events"]), stop["index"]) if stop else len(recording["events"])
             for index, event in enumerate(recording["events"][:limit]):
@@ -351,6 +359,8 @@ def replay_prefixes(session, recordings):
                     valid_prefix.append(recipe)
                     valid_outcomes.append(row["outcome"])
                     eligible = retain(recording)
+                    if eligible and original_ledger is not None:
+                        accepted.append(session._capture_origin())
                 except (UnsupportedWorld, ValueError, OSError) as exc:
                     divergences.append({"test": recording["test"], "index": index, "reason": str(exc)})
                     stop = {"kind": "unsupported", "index": index, "reason": str(exc)}
@@ -359,7 +369,11 @@ def replay_prefixes(session, recordings):
                 divergences.append({"test": recording["test"], **stop})
             replays.append({"test": recording["test"], "prefix": valid_prefix, "outcomes": valid_outcomes,
                             "start": {}, "eligible": eligible, "stop": stop})
+            if original_ledger is not None:
+                original_ledger.update(session.rule_ledger.dump(accepted=accepted))
     finally:
+        session.rule_ledger = original_ledger
+        session._capture_prefix = None
         session.start = original_start
         session.reset()
     return {"witnesses": [witnesses[key] for key in sorted(witnesses)], "ignored_settings": ignored,

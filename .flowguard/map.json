@@ -1000,7 +1000,9 @@
         "when a supported executable skeleton cannot be derived or built, report the real source entries, required Calls TempProject or MACHINE world and missing input contents without executing an empty world or inventing an available API; offer only existing source-bound pin or UI corrections and retain all unjudged behavior and coverage",
         "dispatch six read-only code-derived where forms before behavior interpreter restrictions, validate any available execution and ordinary test reach facts through the existing content and footprint owners, and pass facts to lower-layer projections without exploring, running tests or creating caches",
         "include the freshly computed nonblocking text-rule source report in pilot init and audit and on-demand text views without adding its lexical facts to blocking behavior findings or storing dispositions",
-        "collect source-owned independent state and step rule tests, judge immutable captured public facts anew without coupling rule definitions to execution identity, and reproduce each broken rule through a fresh public-prefix proof"
+        "collect source-owned independent state and step rule tests, judge immutable captured public facts anew without coupling rule definitions to execution identity, and reproduce each broken rule through a fresh public-prefix proof",
+        "capture admitted public steps and reachable state views from native search and comparison branches, validated shipped test replays and saved starts through one compact immutable ledger; retain exact public prefixes and observed data without merging execution states, judge only the actual declared scope and name genuinely missing origins instead of treating hypothetical settings comparisons as required rule worlds",
+        "distinguish a finished fixed-budget coverage walk from unfinished requested computations and incomplete negative proofs; sampling alone does not block a scoped verdict when all required proof obligations completed, while caps, missing origins and unhit changes stay explicit"
       ],
       "files": [
         "flowguard/behave/*.py",
@@ -1041,11 +1043,13 @@
         "tests/behave/test_where.py",
         "tests/behave/test_text_report.py",
         "tests/behave/test_rules.py",
-        "tests/behave/test_rule_runtime.py"
+        "tests/behave/test_rule_runtime.py",
+        "tests/behave/test_capture.py",
+        "tests/behave/test_rule_scope.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5a178316d5ca12818cb4ebd44b7dc83b89e295505315c890ed302bf0181f4fb3"
+      "fingerprint": "sha256:e3d6ab3eed990257703b6bc1fec6e7cd1b3c548ce2d0c295a487b90952c14d18"
     }
   ],
   "flows": [

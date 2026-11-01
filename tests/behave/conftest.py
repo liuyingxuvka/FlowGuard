@@ -9,6 +9,8 @@ collect_ignore = [
     "test_audit_command.py",
     "test_rules.py",
     "test_rule_runtime.py",
+    "test_capture.py",
+    "test_rule_scope.py",
     "test_audit_output.py",
     "test_no_skeleton.py",
     "test_text_report.py",

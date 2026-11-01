@@ -1,0 +1,155 @@
+{
+  "kind": "change",
+  "goal": "FG-704: Capture complete public facts for independent rule judgments",
+  "requests": [
+    {
+      "id": "R13",
+      "part": true
+    },
+    {
+      "id": "R11",
+      "part": true
+    }
+  ],
+  "base": "80e1c6e8e0b3132133f757824639cc76b4f19511",
+  "tree": "37945a6320d5b8d758e62fc3816d41c2e75a8d6f8d55a9a063e7386d6f7a0401",
+  "promoted": "2026-11-01T07:22:39.274990+00:00",
+  "plan": [
+    {
+      "line": "touch: flowguard/behave/project.py:_Session.step",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_Session.reset",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_Session.restore_checkpoint",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_audit_phase",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_run_session",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/testrec.py:replay_prefixes",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/checks.py:setting_effects",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:_capture_shape",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:_rule_captures",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:audit",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/engine.py:prove",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/rules.py:judge",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/report.py:render",
+      "added_after_code": null,
+      "cleared": []
+    }
+  ],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/behave/capture.py:Ledger.__init__",
+    "flowguard/behave/capture.py:Ledger._depth",
+    "flowguard/behave/capture.py:Ledger.advance",
+    "flowguard/behave/capture.py:Ledger.dump",
+    "flowguard/behave/capture.py:Ledger.origin",
+    "flowguard/behave/capture.py:Ledger.record",
+    "flowguard/behave/capture.py:Ledger.state",
+    "flowguard/behave/capture.py:Ledger.step",
+    "flowguard/behave/capture.py:Ledger.update",
+    "flowguard/behave/capture.py:Ledger.view",
+    "flowguard/behave/capture.py:_copy",
+    "flowguard/behave/capture.py:_key",
+    "flowguard/behave/capture.py:failure_context",
+    "flowguard/behave/capture.py:iter_states",
+    "flowguard/behave/capture.py:iter_steps",
+    "flowguard/behave/capture.py:merge",
+    "flowguard/behave/checks.py:setting_effects",
+    "flowguard/behave/checks.py:setting_effects.run",
+    "flowguard/behave/engine.py:_capture_shape",
+    "flowguard/behave/engine.py:_rule_captures",
+    "flowguard/behave/engine.py:_rule_captures.admit",
+    "flowguard/behave/engine.py:audit",
+    "flowguard/behave/engine.py:prove",
+    "flowguard/behave/project.py:_Session.__init__",
+    "flowguard/behave/project.py:_Session._capture_enabled",
+    "flowguard/behave/project.py:_Session._capture_origin",
+    "flowguard/behave/project.py:_Session._capture_state",
+    "flowguard/behave/project.py:_Session._capture_view",
+    "flowguard/behave/project.py:_Session._capture_view.read",
+    "flowguard/behave/project.py:_Session.query",
+    "flowguard/behave/project.py:_Session.reset",
+    "flowguard/behave/project.py:_Session.restore_checkpoint",
+    "flowguard/behave/project.py:_Session.step",
+    "flowguard/behave/project.py:_audit_phase",
+    "flowguard/behave/project.py:_run_session",
+    "flowguard/behave/project.py:_run_session.finish",
+    "flowguard/behave/project.py:call",
+    "flowguard/behave/report.py:render",
+    "flowguard/behave/rules.py:_Step.__init__",
+    "flowguard/behave/rules.py:_View.__getattr__.query",
+    "flowguard/behave/rules.py:_read_graph",
+    "flowguard/behave/rules.py:_read_graph.read",
+    "flowguard/behave/rules.py:_readonly",
+    "flowguard/behave/rules.py:judge",
+    "flowguard/behave/testrec.py:replay_prefixes",
+    "tests/behave/test_audit_output.py:test_finished_sampled_coverage_is_separate_from_unfinished_proof_obligations",
+    "tests/behave/test_capture.py:spec",
+    "tests/behave/test_capture.py:test_gc5_captures_actual_shipped_baselines_and_excludes_hypothetical_variants",
+    "tests/behave/test_capture.py:test_refusals_share_views_and_preserve_the_exact_later_public_prefix",
+    "tests/behave/test_capture.py:test_ts2_ledger_keeps_only_the_validated_shipped_prefix",
+    "tests/behave/test_rule_runtime.py:test_directed_branch_is_in_the_authoritative_rule_capture_scope",
+    "tests/behave/test_rule_runtime.py:test_unrecorded_directed_branch_prevents_an_authoritative_rule_clean_claim",
+    "tests/behave/test_rule_scope.py:fresh_rule",
+    "tests/behave/test_rule_scope.py:norm",
+    "tests/behave/test_rule_scope.py:run",
+    "tests/behave/test_rule_scope.py:test_actual_directed_branch_is_judged_even_when_primary_walk_did_not_take_it",
+    "tests/behave/test_rule_scope.py:test_actual_ts2_and_setting_baseline_ledgers_have_no_blanket_gap",
+    "tests/behave/test_rule_scope.py:test_gc2_ui_trial_uses_same_capture_and_fresh_rule_producer",
+    "tests/behave/test_rule_scope.py:test_loaded_public_file_origin_is_judged_and_freshly_replayed",
+    "tests/behave/test_rule_scope.py:test_missing_producer_and_ordinary_clean_iteration_do_not_expand_prefixes",
+    "tests/behave/test_rule_scope.py:test_native_typed_mapping_default_arguments_and_empty_list_are_faithful",
+    "tests/behave/test_rule_scope.py:test_public_why_forwards_native_not_applicable_without_changing_proof_classification",
+    "tests/behave/test_rule_scope.py:test_real_ts2_admission_rejects_independent_norm_when_ordinary_test_agrees_with_wrong_code"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 2 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty."
+}

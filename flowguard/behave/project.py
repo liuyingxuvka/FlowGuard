@@ -628,12 +628,15 @@ def call(objects, recipe, arena, defaults, refusals=(), results=None, *, capture
     receiver = objects[recipe.get("receiver", "system")]
     results = [] if results is None else results
     output, error = io.StringIO(), io.StringIO()
-    bindings, binding_error = None, None
+    bindings, bindings_graph, binding_error = None, None, None
     with redirect_stdout(output), redirect_stderr(error):
         try:
             attribute = getattr(receiver, name)
             if recipe.get("property"):
                 value = attribute
+                if capture:
+                    bindings = {}
+                    bindings_graph = _Graph(arena).pack({})
             else:
                 args = _arguments(recipe.get("args", []), arena, results)
                 kwargs = _arguments(recipe.get("kwargs", {}), arena, results)
@@ -642,9 +645,10 @@ def call(objects, recipe, arena, defaults, refusals=(), results=None, *, capture
                         bound = inspect.signature(attribute).bind(*args, **kwargs)
                         bound.apply_defaults()
                         from .explore import plain
-                        bindings = plain(_Graph(arena).pack(dict(bound.arguments)))
+                        bindings_graph = _Graph(arena).pack(dict(bound.arguments))
+                        bindings = plain(bindings_graph)
                         json.dumps(bindings, allow_nan=False)
-                    except (TypeError, ValueError, UnsupportedWorld) as exc:
+                    except (TypeError, ValueError, RecursionError, UnsupportedWorld) as exc:
                         bindings, binding_error = None, str(exc)
                 value = attribute(*args, **kwargs)
             if recipe.get("replace"):
@@ -682,7 +686,7 @@ def call(objects, recipe, arena, defaults, refusals=(), results=None, *, capture
             "value": _Graph(arena).pack(value), "stdout": _diagnostic(output.getvalue(), arena), "stderr": _diagnostic(error.getvalue(), arena),
             "before": before, "after": after, "before_key": state_key(before), "after_key": state_key(after)}
     if capture:
-        row.update(resolved_args=bindings, binding_error=binding_error)
+        row.update(resolved_args=bindings, resolved_args_graph=bindings_graph, binding_error=binding_error)
     return row
 
 
@@ -788,6 +792,73 @@ class _Session:
         self._key_current = None
         self._key_defaults = None
         self._key_value = None
+        from .capture import Ledger
+        self.rule_ledger = Ledger(spec) if spec.get("capture_shape") else None
+        self.capture_admitted = True
+        self._capture_reading = False
+        self._capture_view_cache = None
+        self._capture_prefix = None
+        self._capture_ref = None
+        self._capture_settings = {**spec.get("shipped", {}), **start.get("settings", {})}
+
+    def _capture_enabled(self):
+        return (self.rule_ledger is not None and self.capture_admitted and not self._capture_reading
+                and state_key({**self.spec.get("shipped", {}), **self.start.get("settings", {})}) == state_key(self._capture_settings))
+
+    def _capture_origin(self):
+        if self._capture_prefix is not self.prefix or self._capture_length != len(self.prefix):
+            self._capture_ref = self.rule_ledger.origin(self.start, self.prefix, self.outcomes)
+            self._capture_prefix, self._capture_length = self.prefix, len(self.prefix)
+        return self._capture_ref
+
+    def _capture_view(self):
+        """Read pure public facts; an impure probe cannot continue this producer."""
+        key = self.current_key
+        if self._capture_view_cache is not None and self._capture_view_cache[0] == key:
+            return self._capture_view_cache[1]
+        values, unknown, identifiers, identifiers_graph = [], [], {}, {}
+        previous_reading = self._capture_reading
+        self._capture_reading = True
+
+        def read(name, args=()):
+            try:
+                result = self.query("system", name, args)
+            except UnsupportedWorld as exc:
+                if not getattr(exc, "pure_observation", False):
+                    # An escaping watcher error may precede call()'s after
+                    # snapshot. Never infer heap purity from cached current.
+                    self.rule_ledger.missing.append("capture query could not be observed purely: " + name)
+                    raise
+                unknown.append(name)
+                return None
+            return result
+
+        try:
+            for kind, entity in self.spec.get("entities", {}).items():
+                result = read(entity["list"])
+                if result is not None:
+                    identifiers_graph[kind] = result
+                    from .explore import plain
+                    try:
+                        identifiers[kind] = plain(result)
+                    except (UnsupportedWorld, TypeError, RecursionError):
+                        unknown.append(entity["list"])
+            for query, facts in self.spec.get("entity_queries", {}).items():
+                for identifier in identifiers.get(facts["entity"], ()):
+                    value = read(query, [identifier])
+                    if query not in unknown:
+                        values.append({"query": query, "entity": facts["entity"], "args": [identifier], "value_graph": value})
+        finally:
+            self._capture_reading = previous_reading
+        result = {"values": values, "unknown": sorted(set(unknown)), "identifiers": identifiers,
+                  "identifiers_graph": identifiers_graph}
+        self._capture_view_cache = (self.current_key, result)
+        return result
+
+    def _capture_state(self):
+        ref = self._capture_origin()
+        view = self._capture_view()
+        return self.rule_ledger.view(self.current_key, view, ref), view
 
     @property
     def current_key(self):
@@ -829,6 +900,8 @@ class _Session:
         self.observed.enabled = False
         self.observed.pending.clear()
         self.query_facts.clear()  # Source modules and their actual class bindings are rebuilt below.
+        self._capture_view_cache = None
+        self._capture_prefix = None
         self.objects = None
         os.chmod(self.arena, 0o700)
         def remove(path):
@@ -874,6 +947,8 @@ class _Session:
         self.last = None
         self.current = snapshot(self.objects, self.arena, self.defaults)
         self.resets += 1
+        if self._capture_enabled():
+            self._capture_state()
         for recipe in prefix:
             self.step(recipe)
             self.replayed_steps += 1
@@ -881,6 +956,10 @@ class _Session:
 
     def step(self, recipe, *, keep=True):
         before_observations = None
+        capture = keep and self._capture_enabled()
+        before_ref = None
+        if capture:
+            before_ref, before_observations = self._capture_state()
         if keep and self.observe_transitions:
             from .explore import observations
             before_observations = observations(self, all_queries=True)
@@ -891,15 +970,31 @@ class _Session:
                 raise UnsupportedWorld("invalid source-bound session construction")
             before = self.current
             output, error = io.StringIO(), io.StringIO()
+            constructor = _load(self.spec["ui"])
+            args = _arguments(recipe.get("args", []), self.arena, self.results)
+            kwargs = _arguments(recipe.get("kwargs", {}), self.arena, self.results)
+            bindings, bindings_graph, binding_error = None, None, None
+            if capture:
+                try:
+                    signature = inspect.signature(constructor)
+                    bound = signature.bind(self.objects["system"], *args, **kwargs)
+                    bound.apply_defaults()
+                    bound.arguments.pop(next(iter(signature.parameters)), None)
+                    from .explore import plain
+                    bindings_graph = _Graph(self.arena).pack(dict(bound.arguments))
+                    bindings = plain(bindings_graph)
+                except (TypeError, ValueError, RecursionError, UnsupportedWorld) as exc:
+                    binding_error = str(exc)
             with redirect_stdout(output), redirect_stderr(error):
-                value = _load(self.spec["ui"])(self.objects["system"], *_arguments(recipe.get("args", []), self.arena, self.results),
-                                                **_arguments(recipe.get("kwargs", {}), self.arena, self.results))
+                value = constructor(self.objects["system"], *args, **kwargs)
             self.objects[receiver] = value
             after = snapshot(self.objects, self.arena, self.defaults)
             row = {"call": recipe, "outcome": "success", "exception": None,
                    "value": _Graph(self.arena).pack(None), "stdout": _diagnostic(output.getvalue(), self.arena),
                    "stderr": _diagnostic(error.getvalue(), self.arena), "before": before, "after": after,
                    "before_key": state_key(before), "after_key": state_key(after)}
+            if capture:
+                row.update(resolved_args=bindings, resolved_args_graph=bindings_graph, binding_error=binding_error)
         else:
             receiver = recipe.get("receiver", "system")
             refusals = self.refusals
@@ -911,7 +1006,7 @@ class _Session:
         row["hit_statements"] = sorted(self.observed.call_hits)
         self.executed_calls += 1
         self.current = row["after"]
-        if before_observations is not None:
+        if keep and self.observe_transitions:
             after_observations = observations(self, all_queries=True)
             previous = {(item["query"], state_key(item["args"])): item["value"] for item in before_observations["values"]}
             row.update(before_observations=before_observations, after_observations=after_observations)
@@ -926,6 +1021,12 @@ class _Session:
             self.prefix.append(recipe)
             self.outcomes.append(row["outcome"])
             self.last = row
+            if capture:
+                self._capture_ref = self.rule_ledger.advance(self._capture_ref, recipe, row["outcome"])
+                self._capture_prefix, self._capture_length = self.prefix, len(self.prefix)
+                if row["outcome"] == "success" or row["before_key"] != row["after_key"]:
+                    after_ref, _ = self._capture_state()
+                    self.rule_ledger.record(self._capture_ref, row, before_ref, after_ref)
         return row
 
     def query(self, receiver, name, args=(), kwargs=None, *, property=False):
@@ -936,7 +1037,9 @@ class _Session:
             return self.query_facts[key]
         row = self.step({"receiver": receiver, "name": name, "args": list(args), "kwargs": kwargs or {}, "property": property}, keep=False)
         if row["outcome"] != "success" or row["before_key"] != row["after_key"]:
-            raise UnsupportedWorld("a required public query is not a pure successful observation")
+            error = UnsupportedWorld("a required public query is not a pure successful observation")
+            error.pure_observation = row["outcome"] == "refusal" and row["before_key"] == row["after_key"]
+            raise error
         same_observation = key[0] == row["before_key"] == row["after_key"]
         if same_observation:
             self.current = previous
@@ -995,6 +1098,7 @@ class _Session:
         self.arena.chmod(checkpoint["observation"]["root_mode"])
         self.prefix, self.outcomes = list(checkpoint["prefix"]), list(checkpoint["outcomes"])
         self.last = checkpoint["last"]
+        self._capture_prefix = None
         self.current = snapshot(self.objects, self.arena, self.defaults)
         if self.current != checkpoint["observation"]:
             raise UnsupportedWorld("checkpoint restoration changed the complete observation")
@@ -1141,34 +1245,37 @@ def _audit_phase(session, phase, options):
         else:
             raise UnsupportedWorld("unknown audit phase: " + str(phase))
         response["rule_uncaptured_steps"] = session.public_steps - session.replayed_steps - public_before
-    return {**response, "phase": phase}
+    result = {**response, "phase": phase}
+    if session.rule_ledger is not None:
+        result["rule_captures"] = session.rule_ledger.dump()
+    return result
 
 
 def _run_session(request, arena, observed):
     """Dispatch operations over the one worker-owned native session."""
     session = _Session(request["spec"], request.get("start", {}), arena, observed)
     session.reset()
+
+    def finish(response):
+        if session.rule_ledger is not None:
+            response["rule_captures"] = session.rule_ledger.dump()
+        return response
+
     operation = request.get("operation", "trace")
     if operation == "trace":
         initial = session.current
         steps = [session.step(item) for item in request["calls"]]
-        return {"initial": initial, "steps": steps, "final": session.current, "defaults": session.defaults,
+        return finish({"initial": initial, "steps": steps, "final": session.current, "defaults": session.defaults,
                 "seeding": session.seeded, "construction_stdout": session.construction_stdout,
-                "construction_stderr": session.construction_stderr}
+                "construction_stderr": session.construction_stderr})
     from .explore import explore, focused_search, directed_search, evaluate
     options = request.get("options", {})
     session.observe_transitions = options.get("goal", {}).get("kind") == "transition"
     if operation == "rule-proof":
-        from .explore import observations
-        session.observe_transitions = True
-        initial = {"start": dict(session.start), "prefix": [], "outcomes": [],
-                   "state_key": session.current_key, "observation": observations(session, all_queries=True)}
-        origins, rows = [], []
         for recipe in request["calls"]:
-            origins.append({"start": dict(session.start), "prefix": list(session.prefix), "outcomes": list(session.outcomes)})
-            rows.append(session.step(recipe))
-        return {"captures": capture_facts(session.spec, origins, rows, complete=True, initial=initial),
-                "outcomes": list(session.outcomes), "execution": session.receipt()}
+            session.step(recipe)
+        return finish({"captures": session.rule_ledger.dump(),
+                       "outcomes": list(session.outcomes), "execution": session.receipt()})
     if operation in {"explore", "directed", "search", "diff"} and request["calls"]:
         session.reset(request["calls"])
         session.base_prefix = list(request["calls"])
@@ -1339,7 +1446,7 @@ def _run_session(request, arena, observed):
     else:
         raise UnsupportedWorld("unknown native operation")
     response["execution"] = session.receipt()
-    return response
+    return finish(response)
 
 
 def replay(spec, calls, start=None, *, timeout=30, operation="trace", options=None):

@@ -137,7 +137,7 @@ def test_cached_callback_without_facts_does_not_create_a_cache_or_start_native_w
     assert not engine.cache_root(tmp_path, create=False).exists()
 
 
-def test_unrecorded_directed_branch_prevents_an_authoritative_rule_clean_claim(tmp_path):
+def test_directed_branch_is_in_the_authoritative_rule_capture_scope(tmp_path):
     project(tmp_path, actual=3)
     source = tmp_path / "program.py"
     source.write_text(source.read_text() + "\n    def spare(self, unit_id): self._units[unit_id] = 0\n")
@@ -146,6 +146,8 @@ def test_unrecorded_directed_branch_prevents_an_authoritative_rule_clean_claim(t
     assert result["runs"][0]["facts"]["events"][0]["call"]["name"] == "tick"
     assert any(row["goal"].get("name") == "spare" for row in result["runs"][0]["facts"]["reach"]["coverage"])
     rule, = result["rules"]["rules"]
-    assert rule["evaluated"] and rule["assertion_hits"] and rule["status"] == "not-judged"
-    assert not result["rules"]["capture_scope"]["complete"]
-    assert any("reach" in reason for reason in result["rules"]["capture_scope"]["missing"])
+    assert rule["evaluated"] and rule["assertion_hits"] and rule["status"] == "clean"
+    assert result["rules"]["capture_scope"]["complete"]
+    from flowguard.behave.capture import iter_steps
+    assert any(row["call"].get("name") == "spare" for row in iter_steps(
+        result["runs"][0]["facts"]["reach"]["rule_captures"]))
