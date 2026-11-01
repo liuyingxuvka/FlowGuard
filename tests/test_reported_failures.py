@@ -451,3 +451,84 @@ def test_a_failing_git_diff_stops_change_selection_instead_of_the_no_git_route(t
     _failing_git(tmp_path, monkeypatch, "diff")
     with pytest.raises(MapError, match="simulated diff failure"):
         changed_files(root, "HEAD")
+
+
+# Git that fails inside a repository is never read as "no Git", "before the first commit" or "no origin"
+
+def test_a_repository_git_refuses_to_open_is_an_error_not_a_folder_without_git(tmp_path, monkeypatch, capsys):
+    """Git exits 128 both outside any repository and for a repository it refuses (dubious ownership)."""
+    from flowguard.__main__ import main
+    from flowguard.map.common import git_common_directory
+    from flowguard.map.requests import store_request
+    root = tmp_path / "repo"
+    (root / ".flowguard").mkdir(parents=True)
+    (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [], "flows": []}),
+                                              encoding="utf-8")
+    (root / "pkg").mkdir()
+    _git(root, "init", "-q")
+    store_request(root, b"Keep the limit at 3.\n", identifier="R1")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "r1")
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    monkeypatch.setenv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")  # Git's own switch for a repository owned by another user
+    for place in (root, root / "pkg"):
+        with pytest.raises(MapError, match="dubious ownership"):
+            git_common_directory(place)
+    assert git_common_directory(plain) is None
+    for command in (["status"], ["map", "check", "--strict"]):
+        assert main([*command, "--root", str(root)]) == 2, command
+        assert "dubious ownership" in capsys.readouterr().err, command
+    before = sorted(path.name for path in (root / ".flowguard/requests").iterdir())
+    source = tmp_path / "words.md"
+    source.write_text("Keep the limit at 4.\n", encoding="utf-8")
+    assert main(["req", "add", str(source), "--id", "R2", "--root", str(root)]) == 2
+    assert "dubious ownership" in capsys.readouterr().err
+    assert sorted(path.name for path in (root / ".flowguard/requests").iterdir()) == before
+
+
+def test_a_broken_branch_is_an_error_not_a_repository_before_its_first_commit(tmp_path, capsys):
+    from flowguard.__main__ import main
+    from flowguard.map.common import git_head
+    unborn = tmp_path / "unborn"
+    unborn.mkdir()
+    _git(unborn, "init", "-q")
+    assert git_head(unborn) is None
+    root = tmp_path / "repo"
+    (root / ".flowguard").mkdir(parents=True)
+    (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [], "flows": []}),
+                                              encoding="utf-8")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    branch = _git(root, "symbolic-ref", "HEAD").decode().strip()
+    (root / ".git" / branch).write_text("zzzz\n", encoding="ascii")
+    with pytest.raises(MapError, match="broken"):
+        git_head(root)
+    for command in (["map", "check", "--strict"], ["release"], ["where", "anything"]):
+        assert main([*command, "--root", str(root)]) == 2, command
+        assert "broken" in capsys.readouterr().err, command
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX shell script stands in for a failing git")
+def test_a_failing_git_blame_stops_the_text_origin_instead_of_reading_no_origin(tmp_path, monkeypatch):
+    from flowguard.map import textrules
+    root = tmp_path / "repo"
+    (root / ".flowguard").mkdir(parents=True)
+    (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [], "flows": []}),
+                                              encoding="utf-8")
+    (root / "NOTES.md").write_text("# Notes\n\nThe shelf must keep `limit_respected` true.\n", encoding="utf-8")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    (root / "NEW.md").write_text("# New\n\nThe new page names `limit_respected` too.\n", encoding="utf-8")
+    result = textrules.report(root)
+    committed, = [row for row in result["texts"] if row["path"] == "NOTES.md" and "limit_respected" in row["text"]]
+    uncommitted, = [row for row in result["texts"] if row["path"] == "NEW.md" and "limit_respected" in row["text"]]
+    chosen, = textrules.select(result, "source:" + committed["id"])["texts"]
+    assert chosen["provenance"]["state"] == "git", chosen
+    chosen, = textrules.select(result, "source:" + uncommitted["id"])["texts"]
+    assert chosen["provenance"]["state"] == "unknown", chosen  # a file no commit holds has no Git origin
+    _failing_git(tmp_path, monkeypatch, "blame")
+    with pytest.raises(MapError, match="simulated blame failure"):
+        textrules.select(result, "source:" + committed["id"])

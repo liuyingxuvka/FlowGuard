@@ -43,10 +43,10 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def git_run(root, *arguments: str, allowed=(0,)) -> subprocess.CompletedProcess:
+def git_run(root, *arguments: str, allowed=(0,), input: bytes | None = None) -> subprocess.CompletedProcess:
     """Run git; a missing executable or an exit outside `allowed` is an error that carries Git's own message."""
     try:
-        result = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True)
+        result = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True, input=input)
     except FileNotFoundError as error:
         raise MapError("git executable not found: FlowGuard reads the project's Git state with it; "
                        "install Git or put it on PATH") from error
@@ -57,17 +57,33 @@ def git_run(root, *arguments: str, allowed=(0,)) -> subprocess.CompletedProcess:
 
 
 def git_common_directory(root) -> Path | None:
-    """Decide the Git mode once: the repository's shared Git directory, or None when root is in no Git repository."""
+    """Decide the Git mode once: the repository's shared Git directory, or None when root is in no Git repository.
+
+    Git exits 128 both where there is no repository and for a repository it cannot open (one owned by another
+    user, a damaged .git); a .git in root or a parent, or GIT_DIR, means a repository, so that exit raises."""
     result = git_run(root, "rev-parse", "--git-common-dir", allowed=(0, 128))
     if result.returncode:
+        place = Path(root).resolve()
+        if "GIT_DIR" in os.environ or any((folder / ".git").exists() for folder in (place, *place.parents)):
+            reason = os.fsdecode(result.stderr).strip() or f"exit status {result.returncode}"
+            raise MapError(f"git rev-parse failed in {root}: {reason}")
         return None
     directory = Path(os.fsdecode(result.stdout).strip())
     return (directory if directory.is_absolute() else Path(root) / directory).resolve()
 
 
 def git_head(root) -> str | None:
-    """The HEAD commit of a Git repository, or None before its first commit (rev-parse -q --verify exits 1)."""
-    return os.fsdecode(git_run(root, "rev-parse", "-q", "--verify", "HEAD", allowed=(0, 1)).stdout).strip() or None
+    """The HEAD commit of a Git repository, or None on a branch that has no commit yet.
+
+    A HEAD that names neither a commit nor a branch still to be born (a broken branch ref, a damaged detached
+    HEAD) raises with Git's own diagnosis."""
+    found = git_run(root, "rev-parse", "-q", "--verify", "HEAD", allowed=(0, 1))
+    if not found.returncode:
+        return os.fsdecode(found.stdout).strip()
+    if git_run(root, "symbolic-ref", "-q", "HEAD", allowed=(0, 1, 128)).returncode == 0:
+        return None  # HEAD names a branch with no commit yet; a broken branch ref makes symbolic-ref exit 128
+    git_run(root, "log", "-1", "--format=%H")  # raises with Git's diagnosis ("your current branch appears to be broken")
+    raise MapError(f"HEAD in {root} names no commit and no new branch")
 
 
 def git_blob(root, revision: str, relative: str) -> bytes | None:

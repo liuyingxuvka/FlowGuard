@@ -9,7 +9,6 @@ import json
 import os
 from pathlib import Path
 import re
-import subprocess
 import tempfile
 
 from .common import git_blob, git_common_directory, git_head, git_run, normalize_newlines, read_source, render_advice
@@ -20,23 +19,16 @@ from .records import change_records
 from .requests import owner_words
 
 
-def _git(root, *args, input=None):
-    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, input=input)
-
-
 @contextmanager
 def _source(root, at):
-    if at is None:
-        result = _git(root, "rev-parse", "HEAD")
-        yield root, result.stdout.decode().strip() if result.returncode == 0 else None
+    if at is None:  # The working tree; a failing Git raises instead of reading as no revision.
+        yield root, git_head(root) if git_common_directory(root) is not None else None
         return
-    result = _git(root, "rev-parse", "--verify", "--end-of-options", str(at) + "^{commit}")
+    result = git_run(root, "rev-parse", "-q", "--verify", "--end-of-options", str(at) + "^{commit}", allowed=(0, 1))
     if result.returncode:
         raise ValueError("unknown Git source reference: " + str(at))
     revision = result.stdout.decode().strip()
-    listing = _git(root, "ls-tree", "-rz", revision)
-    if listing.returncode:
-        raise ValueError("cannot read Git source reference: " + str(at))
+    listing = git_run(root, "ls-tree", "-rz", revision)
     rows = []
     for row in listing.stdout.split(b"\0"):
         if row:
@@ -44,9 +36,7 @@ def _source(root, at):
             mode, kind, oid = description.split()
             if kind == b"blob":
                 rows.append((mode, oid, Path(os.fsdecode(path))))
-    blobs = _git(root, "cat-file", "--batch", input=b"".join(oid + b"\n" for _, oid, _ in rows))
-    if blobs.returncode:
-        raise ValueError("cannot read Git source blobs: " + str(at))
+    blobs = git_run(root, "cat-file", "--batch", input=b"".join(oid + b"\n" for _, oid, _ in rows))
     with tempfile.TemporaryDirectory(prefix="flowguard-static-ref-") as directory:
         destination, bodies, links = Path(directory), io.BytesIO(blobs.stdout), []
         for mode, oid, relative in rows:

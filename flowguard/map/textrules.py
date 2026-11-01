@@ -8,8 +8,8 @@ from pathlib import Path
 import re
 import shlex
 
-from .common import DEFAULT_IGNORE, matches_any, normalize_newlines, read_source
-from .derived import _git, _map, _source, _writes_cache, bound as bound_rows, omitted_line, source_names, text_reference_hint, text_references
+from .common import DEFAULT_IGNORE, git_common_directory, git_head, git_run, matches_any, normalize_newlines, read_source
+from .derived import _map, _source, _writes_cache, bound as bound_rows, omitted_line, source_names, text_reference_hint, text_references
 from .discover import NORMATIVE as _NORMATIVE, discover_inventory, python_text
 from .inventory import build_inventory, list_files, syntax_tree
 from .mapfile import ignore_patterns, model_registry, owner_index
@@ -52,11 +52,16 @@ def _paragraphs(text, base=1):
 
 
 def _blame(root, path, revision, contents):
-    """Origins of exactly the bytes the facts were read from: the revision's file, or the bytes read from the working tree."""
-    args = ['blame', '--line-porcelain', *([revision] if revision else ['--contents', '-']), '--', path]
-    result = _git(root, *args, input=None if revision else contents)
-    if result.returncode:
+    """Origins of exactly the bytes the facts were read from: the revision's file, or the bytes read from the working tree.
+
+    No origin outside Git, before the first commit or for a file that commit does not hold; a failing Git raises."""
+    if git_common_directory(root) is None:
         return {}
+    commit = revision or git_head(root)
+    if commit is None or git_run(root, 'rev-parse', '-q', '--verify', f'{commit}:./{path}', allowed=(0, 1)).returncode:
+        return {}  # exit 1: the commit does not hold this file
+    args = ['blame', '--line-porcelain', *([revision] if revision else ['--contents', '-']), '--', path]
+    result = git_run(root, *args, input=None if revision else contents)
     found, current, original, commit, source = {}, None, None, None, path
     for row in result.stdout.decode('utf-8', errors='replace').splitlines():
         header = re.fullmatch(r'([0-9a-f]{40,64}) (\d+) (\d+)(?: \d+)?', row)
