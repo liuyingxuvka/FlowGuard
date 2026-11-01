@@ -108,7 +108,8 @@ def git_path_object(root, revision: str, relative: str) -> str | None:
     --verify exits 1 for both, so it never answers this question."""
     relative = Path(relative).as_posix()  # Git lists names with "/", relative to root
     if revision == ":":
-        listing, field = git_run(root, "ls-files", "--stage", "-z", "--", ":(literal)" + relative).stdout, 1
+        literal = {**os.environ, "GIT_LITERAL_PATHSPECS": "1"}  # the name is one file, never a glob pattern
+        listing, field = git_run(root, "ls-files", "--stage", "-z", "--", relative, env=literal).stdout, 1
     else:
         listing, field = git_run(root, "ls-tree", "-z", revision, "--", relative).stdout, 2
     for row in listing.split(b"\0"):

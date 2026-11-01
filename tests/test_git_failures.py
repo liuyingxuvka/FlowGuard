@@ -91,6 +91,23 @@ def test_a_missing_base_tree_stops_change_and_the_origin_reader_instead_of_readi
         assert code == 2 and tree in output.err and "no old source text" not in output.out, (arguments, output)
 
 
+@pytest.mark.parametrize("literal", ["0", "1"])
+def test_the_path_probe_reads_names_literally_whatever_the_pathspec_setting(tmp_path, monkeypatch, literal):
+    """A name with glob characters is that one file, in a commit and in the index, also under GIT_LITERAL_PATHSPECS."""
+    from flowguard.map.common import git_blob
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q")
+    (root / "a*b.py").write_bytes(b"star\n")
+    (root / "axb.py").write_bytes(b"x\n")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    monkeypatch.setenv("GIT_LITERAL_PATHSPECS", literal)
+    for revision in ("HEAD", ":"):
+        assert git_blob(root, revision, "a*b.py") == b"star\n", revision
+        assert git_blob(root, revision, "a?b.py") is None, revision
+
+
 def test_change_in_a_folder_without_git_needs_no_git_executable(tmp_path, capsys, monkeypatch):
     from _fg_helpers import target__target_life_cycle_fixture_helpers as fixture_helpers
     from flowguard.__main__ import main
