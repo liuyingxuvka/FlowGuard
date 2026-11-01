@@ -418,7 +418,12 @@ class _Run:
                     values[oi].add(c_)
                     if ch[i]:
                         leaves[oi].add(c_)
+        obj_pos = {}                                      # an object (key[1:]) -> its positions
+        for p, k in enumerate(keys):
+            if isinstance(k, tuple) and len(k) > 1:
+                obj_pos.setdefault(k[1:], []).append(p)
         ends = {}                                         # family -> (values, declared)
+        self.frozen_ends = []                             # (class, nodes, orbit): undeclared, the object freezes
         for oi, o in enumerate(orbits):
             name = family[o[0]]
             if name is None:
@@ -428,10 +433,18 @@ class _Run:
                 continue
             never = values[oi] - leaves[oi]
             domain = self.field_by_key[keys[o[0]]].domain
-            if never and all(isinstance(v, str) or v is None for v in domain):
-                vals = {fr.ren(q, v) for (_, v) in never for q in range(P)}
+            if not (never and all(isinstance(v, str) or v is None for v in domain)):
+                continue
+            n = len(o)
+            for c_ in sorted(never, key=repr):
+                # a value no state leaves ends its object's life only when nothing of the object
+                # changes after it; otherwise it is a one-way marker and ends nothing
+                nodes = [i * n + k for k, p in enumerate(o) for i in range(N) if cls(p, states[i][p]) == c_]
+                if any(changing[q][x // n] for x in nodes for q in obj_pos[keys[o[x % n]][1:]]):
+                    continue
+                self.frozen_ends.append((c_, nodes, o))
                 old = ends.get(name, (set(), False))[0]
-                ends[name] = (old | vals, False)
+                ends[name] = (old | {fr.ren(q, c_[1]) for q in range(P)}, False)
 
         def is_end(p, v):
             return v in ends[family[p]][0]
@@ -607,6 +620,10 @@ class _Run:
         if line["kind"] == "dead end":
             return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, and it is "
                     f"not a declared end ({n} state{'s' if n != 1 else ''}, complete search)")
+        if line["kind"] == "end":
+            return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, nothing of "
+                    f"the object changes after it, and no end is declared ({n} state{'s' if n != 1 else ''}, "
+                    f"complete search)")
         return (f"progress {line['rule'].name!r}: from here it can never be satisfied again "
                 f"({n} state{'s' if n != 1 else ''}, complete search)")
 
@@ -635,44 +652,133 @@ class _Run:
         roots.sort(key=lambda n: (plen[lines[n]["first"]], lines[n]["first"]))
         out = []
         for n in roots:
-            line = lines[n]
             cons = sorted(under.get(n, []), key=lambda k: self.label(lines[k]))
-            calls, state = self.witness(line["first"])
-            members = [line] + [lines[k] for k in cons]
-            sources = set()
-            notes = []
-            refused = []
-            for m_ in members:
-                sources |= self.stuck_sources(m_, calls)
-                notes += [x for x in self.stuck_notes(m_) if x not in notes]
-            if line["kind"] != "progress":
-                refused = self.refused_at(line)
-            subject = self.line_subject(line)
-            detail = {
-                "stuck": line["kind"], "label": self.label(line), "count": len(line["where"]),
-                "consequences": [self.line_subject(lines[k]) for k in cons],
-                "consequence_labels": [self.label(lines[k]) for k in cons],
-                "refused": refused, "notes": notes,
-                "progress_names": [m_["rule"].name for m_ in members if m_["kind"] == "progress"],
-                "states": sorted({u // P for u in line["where"]}),
-                "where": sorted(line["where"]),        # unreduced ids i * P + renaming (pictures)
-            }
-            if line["kind"] == "progress":
-                text = f"progress {line['rule'].base!r} can never be satisfied again"
-                objects = (str(line["rule"].obj),) if line["rule"].obj is not None else ()
-                ln = line["rule"].line
-            else:
-                verb = ("can never change again" if line["kind"] == "value"
-                        else "is never left, and it is not a declared end")
-                text = f"{subject} {verb}"
-                objects = _key_objects(line["key"]) + _value_ids(line["value"], self.ids)
-                detail["key"] = show_key(line["key"])
-                detail["value"] = repr(line["value"])
-                ln = self.field_by_key[line["key"]].line
-            out.append(make_finding("STUCK", CONFLICT, self.mid, subject, text, objects=objects,
-                                    sources=sources, path=self.steps(calls), state=state,
-                                    detail=detail, line=ln))
+            out.append(self.stuck_finding(lines[n], [lines[k] for k in cons]))
         return out
+
+    def stuck_finding(self, line, cons) -> Finding:
+        """One STUCK conflict: the stuck object's state in its witness, every call that would
+        change the object and refuses there (and, later, where a consequence sets in), the
+        step that entered it, and the consequences with counter values folded."""
+        P = self.fr.P
+        calls, state = self.witness(line["first"])
+        members = [line] + cons
+        sources, notes = set(), []
+        for m_ in members:
+            sources |= self.stuck_sources(m_, calls)
+            notes += [x for x in self.stuck_notes(m_) if x not in notes]
+        who, plain = self.object_state(line)
+        refused = self.refused_object(line["first"], self.object_positions(line))
+        said = {(r["call"].partition("(")[0], r["reason"], r["source"]) for r in refused}
+        shown, folded = [], []
+        later = []
+        for c in cons:
+            if c["kind"] != "progress" and _is_counter(self.field_by_key[c["key"]].domain):
+                folded.append(c)
+                continue
+            shown.append(c)
+            if c["kind"] == "progress":
+                continue
+            for r in self.refused_object(c["first"], self.object_positions(c)):
+                k = (r["call"].partition("(")[0], r["reason"], r["source"])
+                if k not in said:
+                    said.add(k)
+                    later.append(dict(r, at=self.line_subject(c)))
+        subject = self.line_subject(line)
+        detail = {
+            "stuck": line["kind"], "label": self.label(line), "count": len(line["where"]),
+            "consequences": [self.line_subject(c) for c in cons],
+            "consequence_labels": [self.label(c) for c in cons],
+            "shown_consequences": [self.line_subject(c) for c in shown],
+            "folded": {"count": len(folded),
+                       "fields": list(dict.fromkeys(_subject_key(c["key"]) for c in folded))},
+            "object_state": plain, "refused": refused, "later": later, "entered": self.entered(calls),
+            "notes": notes,
+            "progress_names": [m_["rule"].name for m_ in members if m_["kind"] == "progress"],
+            "states": sorted({u // P for u in line["where"]}),
+            "where": sorted(line["where"]),        # unreduced ids i * P + renaming (pictures)
+        }
+        head = f"{who} stuck with {plain}" if who else f"stuck with {plain}"
+        if line["kind"] == "progress":
+            text = f"{head}: progress {line['rule'].base!r} can never be satisfied again"
+            objects = (str(line["rule"].obj),) if line["rule"].obj is not None else ()
+            ln = line["rule"].line
+        else:
+            if line["kind"] == "value":
+                text = f"{head}: {subject} can never change again"
+            elif line["kind"] == "dead end":
+                text = f"{head}: {subject} is never left, and it is not a declared end"
+            else:
+                fam = line["key"][0]
+                text = (f"{head}: {subject} is never left and nothing of {who} changes after it; no end is "
+                        f"declared (m.terminal({fam!r}, [{line['value']!r}]) if it ends a life on purpose)")
+            objects = _key_objects(line["key"]) + _value_ids(line["value"], self.ids)
+            detail["key"] = show_key(line["key"])
+            detail["value"] = repr(line["value"])
+            ln = self.field_by_key[line["key"]].line
+        return make_finding("STUCK", CONFLICT, self.mid, subject, text, objects=objects, sources=sources,
+                            path=self.steps(calls), state=state, detail=detail, line=ln)
+
+    def object_positions(self, line):
+        """The positions (concrete frame) of the stuck object's fields: the key's object, the
+        progress rule's object, or every field that belongs to no object."""
+        if line["kind"] == "progress":
+            obj = line["rule"].obj
+            obj = None if obj is None else (obj,)
+        else:
+            obj = line["key"][1:] if isinstance(line["key"], tuple) else None
+        if obj is None:
+            return [p for p, k in enumerate(self.keys) if not isinstance(k, tuple)] or list(range(len(self.keys)))
+        return [p for p, k in enumerate(self.keys) if isinstance(k, tuple) and k[1:] == obj]
+
+    def object_state(self, line):
+        """(who, its fields at the witness): ("T1", "cond='repair', branch='library'")."""
+        P = self.fr.P
+        i, cid = divmod(line["first"], P)
+        end = self.g.end_state(i, cid if P > 1 else None)
+        positions = self.object_positions(line)
+        if line["kind"] == "progress":
+            who = str(line["rule"].obj) if line["rule"].obj is not None else ""
+        else:
+            who = ",".join(str(x) for x in line["key"][1:]) if isinstance(line["key"], tuple) else ""
+        if not who:
+            return "", show_tuple(self.g, end)
+        return who, ", ".join(f"{self.keys[q][0]}={end[q]!r}" for q in positions)
+
+    def refused_object(self, u, positions):
+        """Every call that changes one of the positions somewhere and refuses at the concrete
+        state u, once per action, reason and source, in call order."""
+        g, fr = self.g, self.fr
+        i, cid = divmod(u, fr.P)
+        cands = set()
+        for q in positions:
+            cands |= self.closed_changers(fr.dest(fr.inv(cid), q) if fr.P > 1 else q)
+        found = []
+        for c in cands:
+            v = g.out[i][c]
+            if v > -3:                                # possible here, or dropped by the bound / an error
+                continue
+            cc = c if fr.P == 1 or cid == 0 else g.sym.call_perm[cid][c]
+            found.append((cc, g.refusals[-1 - v]))
+        out, seen = [], set()
+        for cc, r in sorted(found, key=lambda x: x[0]):
+            k = (g.calls[cc].action.name, r.reason, r.source)
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append({"call": show_step(g.calls[cc].step()), "reason": r.reason, "source": r.source})
+        return out
+
+    def entered(self, calls):
+        """The step that entered the stuck set, with its action's and its marked effects' sources."""
+        if not calls:
+            return None
+        try:
+            call, marked = replay(self.g, calls)[-1]
+        except ModelError:                            # stuck_sources records it
+            return {"call": self.steps(calls)[-1], "sources": []}
+        srcs = sorted({s for s in {call.action.source} | marked if s}, key=natural_key)
+        return {"call": show_step(call.step()), "sources": srcs}
 
     def closed_changers(self, p):
         """Calls that change position p somewhere (in p's frame, renamings included)."""
@@ -718,26 +824,6 @@ class _Run:
         if line["kind"] == "progress":
             return self.notes(line["rule"])
         return self.notes(self.field_by_key[line["key"]])
-
-    def refused_at(self, line):
-        """What the calls that change the stuck field answer at the witness state."""
-        g, fr = self.g, self.fr
-        u = line["first"]
-        i, cid = divmod(u, fr.P)
-        q = self.pos[line["key"]]
-        p_rep = fr.dest(fr.inv(cid), q) if fr.P > 1 else q
-        shift = cid
-        out = []
-        for c in sorted(self.closed_changers(p_rep)):
-            v = g.out[i][c]
-            cc = c if fr.P == 1 or shift == 0 else g.sym.call_perm[shift][c]
-            step = show_step(g.calls[cc].step())
-            if v <= -3:
-                r = g.refusals[-1 - v]
-                out.append({"call": step, "reason": r.reason, "source": r.source})
-            elif v >= 0:
-                out.append({"call": step, "reason": None, "source": None})
-        return out
 
     # -------------------------------------------------------------- NEVER REACHED
     def reach_unreached(self):
@@ -978,23 +1064,13 @@ class _Run:
 
     # -------------------------------------------------------------- warnings, errors
     def undeclared_ends(self):
-        """A text value no state leaves again, in a field with no declared ends, is taken as
-        the end of its object's life (the prototype's ENDS); it is reported, since it is a
-        dead end unless the design means it."""
+        """G8: a value no state leaves, after which nothing of its object ever changes, in a
+        field no m.terminal declares ends for, is a dead end (STUCK) unless it is declared."""
         out = []
-        for name, values, declared in self.terminal:
-            if declared:
-                continue
-            fields = [f for f in self.model.fields if f.family == name]
-            objects = sorted({f.obj for f in fields if f.obj is not None}, key=natural_key)
-            sources = {f.source for f in fields} | {f.value_sources.get(v) for f in fields for v in values}
-            shown = ", ".join(repr(v) for v in values)
-            subject = f"{name}[*] = {shown}"
-            out.append(make_finding("UNDECLARED END", WARNING, self.mid, subject,
-                                    f"{subject} is never left: taken as the end of a life, which nothing declares "
-                                    f"(m.terminal({name!r}, [{shown}]) if it is meant; otherwise it is a dead end)",
-                                    objects=objects, sources=sources, detail={"field": name, "values": list(values)},
-                                    line=fields[0].line))
+        for c_, nodes, o in self.frozen_ends:
+            for q, w, where in self.expand(c_, nodes, o):
+                out.append(self.stuck_finding({"kind": "end", "key": self.keys[q], "value": w, "first": min(where),
+                                               "where": frozenset(where)}, []))
         return out
 
     def settings_warning(self):
@@ -1038,6 +1114,11 @@ class _Run:
             "explanations_capped": list(getattr(self, "explanations_capped", [])),
             "explanation_errors": list(self.explanation_errors),
         }
+
+
+def _is_counter(domain) -> bool:
+    """A numeric field (no bool): its stuck values are folded in a report."""
+    return all(isinstance(v, int) and not isinstance(v, bool) for v in domain)
 
 
 def _has(v, ids):
@@ -1122,6 +1203,10 @@ def check_model(loaded: Loaded, bounds: Bounds = Bounds(), *, explain: bool = Tr
     return _Run(loaded, bounds, explain, reduce, progress).run()
 
 
+def _on(f: Finding) -> str:
+    return f.subject + (f" on {', '.join(f.objects)}" if f.objects else "")
+
+
 def verify_symmetry(loaded: Loaded, bounds: Bounds, reduced: Report, *, explain: bool = True) -> dict:
     """`check --full`: explore a symmetric model again without reduction and compare the
     fingerprints (explain= as in the reduced run). A difference is a model error; a capped
@@ -1133,12 +1218,13 @@ def verify_symmetry(loaded: Loaded, bounds: Bounds, reduced: Report, *, explain:
         return {"verified": None, "text": "symmetry not verified (unreduced search capped)", "finding": None}
     a = {f.id: f for f in reduced.findings}
     b = {f.id: f for f in plain.findings}
-    only_reduced = sorted(set(a) - set(b))
-    only_plain = sorted(set(b) - set(a))
+    # a finding on other objects is another finding: under renaming every object has it or none
+    only_reduced = sorted(i for i in a if i not in b or b[i].objects != a[i].objects)
+    only_plain = sorted(i for i in b if i not in a or a[i].objects != b[i].objects)
     if not only_reduced and not only_plain:
         return {"verified": True, "text": f"symmetry verified ({len(plain.graph.states):,} states unreduced)",
                 "finding": None}
-    names = [a[i].subject for i in only_reduced] + [b[i].subject for i in only_plain]
+    names = list(dict.fromkeys([_on(a[i]) for i in only_reduced] + [_on(b[i]) for i in only_plain]))
     model = loaded.model
     text = ("the objects are not interchangeable: exploring without renaming gives other findings ("
             + "; ".join(names) + "); write the model symmetrically or use a plain list")

@@ -7,7 +7,9 @@ progress lost, NEVER REACHED items with their explanation lists, BROKEN rules,
 CONTRADICTION options, the shortest path length of every finding, errors, the rules that
 hold, the declared/derived ends. Only the class may differ (M3): unreached field values
 without a source are model warnings, so a model whose only findings were such values
-is now clean.
+is now clean. One finding is new (G8, s1aplan/undeclared_end.md): a derived end the
+prototype listed under ENDS ("if that is not the design, it is a dead end") is also a
+STUCK conflict when no m.terminal declares it; it is compared separately.
 """
 from __future__ import annotations
 
@@ -102,10 +104,12 @@ def render(report):
     g = report.graph
     out = {"states": len(g.states), "steps": g.steps, "complete": g.complete, "stuck": [], "never": [],
            "reach": [], "broken": [], "contra": [], "holds": [], "ends": [], "errors": 0, "classes": {},
-           "world_can_end": report.reach["world_can_end"]}
+           "undeclared": [], "world_can_end": report.reach["world_can_end"]}
     for f in report.raw:
         d = f.detail
-        if f.kind == "STUCK":
+        if f.kind == "STUCK" and d["stuck"] == "end":
+            out["undeclared"].append(d["label"].split(":", 1)[0])
+        elif f.kind == "STUCK":
             out["stuck"].append({"label": d["label"], "path": len(f.path), "under": d["consequence_labels"]})
         elif f.kind == "NEVER REACHED":
             if d["item"] == "reach":
@@ -163,6 +167,9 @@ def test_golden(out_path):
         assert got["holds"] == want["holds"], model.name
         assert got["ends"] == want["ends"], model.name
         assert got["world_can_end"] == want["world_can_end"], model.name
+        # G8: every derived (undeclared) end of the prototype is now also a dead end
+        derived = sorted(e.split("  (", 1)[0] for e in want["ends"] if not e.endswith("(declared)"))
+        assert sorted({u.split("[", 1)[0] + " = " + u.split(" = ", 1)[1] for u in got["undeclared"]}) == derived
         # M3 classes: values without a source are warnings, everything else a conflict
         for label, cls in got["classes"].items():
             assert cls == (WARNING if label.startswith("value ") else CONFLICT), label

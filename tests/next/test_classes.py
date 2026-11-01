@@ -130,19 +130,22 @@ MODEL = m
 '''
 
 
-def test_a_value_never_left_that_no_end_declares_is_a_warning(project):
-    """The prototype printed it under ENDS ("if that is not the design, it is a dead end"):
-    a book sent to repair that never comes back is taken as the end of its life."""
+def test_a_value_never_left_where_its_object_freezes_is_a_dead_end(project):
+    """G8 (s1aplan/undeclared_end.md): a value no state leaves, after which nothing of the
+    object ever changes again, is a STUCK conflict unless m.terminal declares it. A book sent
+    to repair that never comes back is not taken as the end of its life any more."""
     flow = project.root / ".flowguard" / "flow"
     project.flow("forgotten", SHELF.replace("EXTRA", ""))
     report = check_model(load_model(flow / "forgotten.py", project.root))
-    [end] = [f for f in report.findings if f.kind == "UNDECLARED END"]
-    assert end.cls == WARNING and end.subject == "where[*] = 'repair'" and end.objects == ("B1", "B2")
-    assert end.sources == ("R1", "R4") and "m.terminal('where', ['repair'])" in end.text
-    assert not [f for f in report.findings if f.cls == CONFLICT]
+    [end] = [f for f in report.findings if f.kind == "STUCK"]
+    assert end.cls == CONFLICT and end.subject == "where[*] = 'repair'" and end.objects == ("B1", "B2")
+    assert end.detail["stuck"] == "end" and end.path == ("lend(b='B1')", "damaged(b='B1')")
+    assert "R4" in end.sources and "R1" in end.sources
+    assert "m.terminal('where', ['repair'])" in end.text and "B1 stuck with where='repair'" in end.text
+    assert not [f for f in report.findings if f.kind == "UNDECLARED END"]
     project.flow("declared", SHELF.replace("EXTRA", 'm.terminal("where", ["repair"], source="R4")'))
     report = check_model(load_model(flow / "declared.py", project.root))
-    assert not [f for f in report.findings if f.kind == "UNDECLARED END"]
+    assert not [f for f in report.findings if f.cls == CONFLICT]
     project.flow("fixed", SHELF.replace("EXTRA", '''
 @m.action(b=BOOKS, source="R4")
 def repaired(s, b):
@@ -151,3 +154,47 @@ def repaired(s, b):
 '''))
     report = check_model(load_model(flow / "fixed.py", project.root))
     assert report.findings == []
+
+
+MARKER = '''
+from flowguard._next import Model, need
+
+m = Model("marker")
+BOOKS = m.objects("book", "B1", "B2")
+m.field("where", ["shelf", "loan", "repair"], "shelf", over=BOOKS, source="R1")
+m.field("flag", ["new", "used"], "new", over=BOOKS, source="R1", note="set on the first loan, never reset")
+m.field("mended", [0, 1], 0, over=BOOKS, source="R4")
+
+@m.action(b=BOOKS, source="R1")
+def lend(s, b):
+    need(s["where", b] == "shelf", "not on the shelf")
+    s["where", b], s["flag", b] = "loan", "used"
+
+@m.action(b=BOOKS, source="R1")
+def give_back(s, b):
+    need(s["where", b] == "loan", "not on loan")
+    s["where", b] = "shelf"
+
+@m.action(b=BOOKS, source="R4")
+def damaged(s, b):
+    need(s["where", b] == "loan", "not on loan")
+    s["where", b] = "repair"
+
+@m.action(b=BOOKS, source="R4")
+def repaired(s, b):
+    need(s["where", b] == "repair", "not in repair")
+    need(s["mended", b] < 1, "mended once already")
+    s["where", b], s["mended", b] = "shelf", 1
+MODEL = m
+'''
+
+
+def test_a_one_way_marker_is_no_end_and_hides_no_dead_end(project):
+    """A value never left after which the object still changes (a flag set once) ends
+    nothing: it is no finding, and it does not hide the dead end of the object's other
+    fields (a book mended once and damaged again stays in repair)."""
+    project.flow("marker", MARKER)
+    report = check_model(load_model(project.root / ".flowguard/flow/marker.py", project.root))
+    assert [(f.kind, f.subject) for f in report.findings if f.cls == CONFLICT] == [("STUCK", "where[*] = 'repair'")]
+    assert not [f for f in report.findings if "flag" in f.subject]
+    assert report.reach["ends"] == []

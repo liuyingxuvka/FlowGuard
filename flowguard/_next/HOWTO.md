@@ -102,8 +102,10 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
 ## Reading the report
 
 - **Conflicts** (fix them in the design, then in the code, or ask the owner when two requests
-  really collide): STUCK (a value some state can never leave again, an undeclared dead end, a
-  `progress` promise lost), BROKEN (a promise some order breaks), CONTRADICTION (an option
+  really collide): STUCK (a value some state can never leave again; a value no state leaves after
+  which nothing of its object changes, unless `m.terminal` declares that end; a `progress` promise
+  lost; each names the stuck object's fields, every call that refuses there with its request, and
+  the step that led in), BROKEN (a promise some order breaks), CONTRADICTION (an option
   offered where its action refuses), NEVER REACHED for an action, an option, a declared end,
   a `reach` promise, or a field value that has a source or that a sourced promise names (each
   says which one-setting change would reach it, or that none does); a second route to the same
@@ -111,7 +113,7 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
   another refuses). Keep one route, or declare the second with `m.second_route`.
 - **Model warnings** (never conflicts): other field values never reached, usually a domain
   wider than the design needs; settings not read from the code although the model covers code;
-  a value never left that no `m.terminal` declares (an end on purpose, or a dead end); a fallback
+  a fallback
   on the status field only, an `if` whose two branches end the same, lines no call runs, a guard
   that never refuses; with `--full`, each break of the model that no check catches.
 - **Model errors**: the model itself failed (an exception, a value outside its domain, a write

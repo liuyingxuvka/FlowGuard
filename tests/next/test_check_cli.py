@@ -158,17 +158,25 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
     assert run.first == "6 new conflicts; complete"
     heads = [line for line in run.lines if line.startswith("NEW ")]
     assert len(heads) == 6
-    assert re.fullmatch(r"NEW STUCK workshop: branch\[\*\] = 'library' can never change again "
+    assert re.fullmatch(r"NEW STUCK workshop: T1 stuck with cond='loan', branch='library', rentals=4: "
+                        r"branch\[\*\] = 'library' can never change again "
                         r"\(tools T1, T2\)   \[C-[0-9a-f]{12}\]", heads[0])
     i = run.lines.index(heads[0])
-    stuck = run.lines[i:i + 8]
-    assert stuck[1] == ('  requests: R4 "# Request 4: renting tools" | R6 "# Request 6: two branches" | '
+    stuck = run.lines[i:i + 14]
+    assert stuck[1:7] == ["  rent(t='T1') refused: 'not on the shelf' (R4)",
+                          "  repaired(t='T1') refused: 'not in repair' (R9)",
+                          "  move(t='T1', b='main') refused: 'only shelf tools move' (R6)",
+                          "  later, where cond[*] = 'repair': give_back(t='T1') refused: 'not on loan' (R9)",
+                          "  later, where cond[*] = 'repair': repaired(t='T1') refused: 'repairs only at main' "
+                          "(R10)",
+                          "  entered by rent(t='T1') (R4)"]
+    assert stuck[7] == ('  requests: R4 "# Request 4: renting tools" | R6 "# Request 6: two branches" | '
                         'R9 "# Request 9: regular maintenance" | R10 "Repairs are done only at the main branch."')
-    assert stuck[2] == "  state: cond[T1]='loan', branch[T1]='library', rentals[T1]=4"
-    assert stuck[3].startswith("  path (8 steps): rent(t='T1') ; give_back(t='T1') ;")
-    assert stuck[4] == "  refused there: move: 'only shelf tools move' (R6)"
-    assert stuck[5].startswith("  then also stuck: cond[*] = 'repair'; progress 'a tool in repair")
-    assert stuck[6] == "  note: clamped at maintain_every: more rentals behave the same"
+    assert stuck[8] == "  state: cond[T1]='loan', branch[T1]='library', rentals[T1]=4"
+    assert stuck[9].startswith("  path (8 steps): rent(t='T1') ; give_back(t='T1') ;")
+    assert stuck[10] == ("  then also stuck: cond[*] = 'repair'; progress 'a tool in repair or on the way gets back "
+                         "to a shelf' (1 counter value folded: rentals[*])")
+    assert stuck[11] == "  note: clamped at maintain_every: more rentals behave the same"
     assert "  no one-setting change reaches it" in run.lines
     assert run.lines[-1].startswith("workshop: complete, 171 states")
     ids = [h.rsplit("[", 1)[1][:-1] for h in heads]
@@ -444,3 +452,20 @@ def test_route_conflicts_in_full_with_their_pictures(project):
     assert res.returncode == 0, res.stdout + res.stderr
     assert res.stdout.startswith(f"rental: FALLBACK ROUTE repair_anywhere / repaired [{fid}]")
     assert "red: the arrows of the routes repair_anywhere, repaired" in res.stdout
+
+
+def test_a_change_that_sends_books_to_repair_with_no_way_back_is_not_clean(project):
+    """G8: the end-to-end naive change (R4 adds `damaged`, nothing repairs) once ended in
+    exit 0 "clean": the repair value nothing leaves was taken as the end of a book's life."""
+    desk = DATA / "desk"
+    shutil.copytree(desk / "app", project.root / "app")
+    for p in (desk / "requests").glob("*.md"):
+        shutil.copy(p, project.root / ".flowguard" / "requests" / p.name)
+    project.flow_from(desk / "desk.py")
+    assert timed(project.root).code == 0
+    project.flow_from(desk / "desk_naive.py", "desk")
+    run = timed(project.root)
+    assert run.code == 1 and "clean" not in run.first
+    [head] = [line for line in run.lines if line.startswith("NEW STUCK")]
+    assert "where[*] = 'repair'" in head and "B1 stuck with where='repair'" in head
+    assert 'R4 "Damaged books go to repair and come back to the shelf when repaired."' in run.out

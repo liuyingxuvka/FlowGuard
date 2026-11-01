@@ -366,33 +366,54 @@ def _steps(n: int) -> str:
     return _plural(n, "step")
 
 
-def _refused(detail: dict) -> str:
-    seen = []
-    for r in detail.get("refused", []):
-        text = f"{r['call'].partition('(')[0]}: {r['reason']!r}" + (f" ({r['source']})" if r.get("source") else "")
-        if text not in seen:
-            seen.append(text)
-    return "; ".join(seen)
+def _source(source) -> str:
+    return source or "the AI's own"
+
+
+def _stuck_lines(detail: dict) -> list[str]:
+    """Every call that would change the stuck object and refuses where it is stuck, the same
+    later where a consequence sets in, then the step that entered it."""
+    out = [f"  {r['call']} refused: {r['reason']!r} ({_source(r['source'])})" for r in detail.get("refused", [])]
+    out += [f"  later, where {r['at']}: {r['call']} refused: {r['reason']!r} ({_source(r['source'])})"
+            for r in detail.get("later", [])]
+    entered = detail.get("entered")
+    if entered is None:
+        out.append("  stuck from the start")
+    else:
+        out.append(f"  entered by {entered['call']} ({', '.join(entered['sources']) or _source(None)})")
+    return out
+
+
+def _consequences(detail: dict) -> str | None:
+    shown = detail.get("shown_consequences", detail.get("consequences") or [])
+    folded = (detail.get("folded") or {}).get("count", 0)
+    fields = ", ".join((detail.get("folded") or {}).get("fields", []))
+    if not shown and not folded:
+        return None
+    if not shown:
+        return f"  then also stuck: {_plural(folded, 'counter value')} ({fields}), folded"
+    return "  then also stuck: " + "; ".join(shown) + (
+        f" ({_plural(folded, 'counter value')} folded: {fields})" if folded else "")
 
 
 def full_block(root, result: Assembled, f: Finding) -> list[str]:
     lines = [f"NEW {f.kind} {f.model}: {f.text}{_objects(result, f)}   [{f.id}]"]
+    if f.kind == "STUCK":
+        lines += _stuck_lines(f.detail)
     lines.append("  requests: " + " | ".join(f'{rid} "{words}"' if rid else words
                                              for rid, words in request_lines(root, f.sources)))
     if f.state:
         lines.append(f"  state: {f.state}")
     if f.path:
         lines.append(f"  path ({_steps(len(f.path))}): " + " ; ".join(f.path))
-    refused = _refused(f.detail)
-    if refused:
-        lines.append(f"  refused there: {refused}")
     if f.detail.get("example"):                       # a second route: one change both make
         lines.append(f"  for example: {f.detail['example']}")
     for r in f.detail.get("refusals") or []:          # a fallback: where each one is the route
         lines.append(f"  where {r['where']} does it, {r['refuses']} refuses: {r['reason']!r} "
                      f"({r['states']} of {r['of']} states)")
-    if f.detail.get("consequences"):
-        lines.append("  then also stuck: " + "; ".join(f.detail["consequences"]))
+    consequences = _consequences(f.detail) if f.kind == "STUCK" else None
+    if consequences:
+        lines.append(consequences)
     explained = _explanation(f)
     if explained:
         lines.append(f"  {explained}")

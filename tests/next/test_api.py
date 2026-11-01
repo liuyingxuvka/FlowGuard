@@ -48,6 +48,8 @@ def test_attribution_per_kind_on_the_naive_example(project):
     assert stuck.detail["consequences"] == ["cond[*] = 'repair'",
                                             "progress 'a tool in repair or on the way gets back to a shelf'",
                                             "rentals[*] = 4"]
+    assert stuck.detail["shown_consequences"] == stuck.detail["consequences"][:2]
+    assert stuck.detail["folded"] == {"count": 1, "fields": ["rentals[*]"]}
     assert "R10" in broken.sources and broken.subject == "always 'a tool in repair is at main'"
     assert contra.sources == ("R10",)                    # the option's and the refusing guard's
     assert contra.text == ("option 'workshop: repaired' is offered, but repaired(t='T1') refuses: "
@@ -57,9 +59,8 @@ def test_attribution_per_kind_on_the_naive_example(project):
 def test_a_guard_without_source_carries_its_action_source(project):
     report = kit_report(project, "workshop_naive")
     refused = one(report, "STUCK").detail["refused"]
-    assert {(r["call"], r["reason"], r["source"]) for r in refused} == {
-        ("move(t='T1', b='main')", "only shelf tools move", "R6"),
-        ("move(t='T1', b='library')", "only shelf tools move", "R6")}
+    assert ("move(t='T1', b='main')", "only shelf tools move", "R6") in {
+        (r["call"], r["reason"], r["source"]) for r in refused}            # the action's R6, inherited
     g = report.graph
     explicit = [r for r in g.refusals if r.reason == "repairs only at main"]
     assert [(r.source, r.file) for r in explicit] == [("R10", ".flowguard/flow/workshop_naive.py")]
@@ -295,3 +296,25 @@ def test_a_model_that_answers_differently_on_replay_is_a_model_error(project):
     kinds = [f.kind for f in report.findings]
     assert kinds == ["BROKEN", "MODEL ERROR"]
     assert "does not give the same result twice" in report.findings[-1].text
+
+
+def test_a_stuck_report_names_the_object_its_refusals_and_its_way_in(project):
+    """G2 (M5): the stuck tool's own fields in the headline, every call that would change it
+    and refuses there with reason and request (the R10 guard included, where the repair
+    consequence sets in), and the step that entered it."""
+    report = kit_report(project, "workshop_naive")
+    stuck = one(report, "STUCK")
+    assert stuck.text.startswith("T1 stuck with cond='loan', branch='library', rentals=4: branch[*] = 'library'")
+    refused = [(r["call"].partition("(")[0], r["reason"], r["source"]) for r in stuck.detail["refused"]]
+    assert refused == [("rent", "not on the shelf", "R4"), ("repaired", "not in repair", "R9"),
+                       ("move", "only shelf tools move", "R6")]
+    later = [(r["at"], r["call"], r["reason"], r["source"]) for r in stuck.detail["later"]]
+    assert ("cond[*] = 'repair'", "repaired(t='T1')", "repairs only at main", "R10") in later
+    assert stuck.detail["entered"] == {"call": "rent(t='T1')", "sources": ["R4"]}
+
+    project.flow_from(DATA / "planted" / "rental_naive.py")
+    rental = one(check_model(load_model(project.root / ".flowguard/flow/rental_naive.py", project.root)), "STUCK")
+    assert rental.text.startswith("T1 stuck with cond='repair', branch='library': ")
+    assert ("repaired(t='T1')", "repairs only at main", "R10") in {
+        (r["call"], r["reason"], r["source"]) for r in rental.detail["refused"]}
+    assert rental.detail["entered"] == {"call": "return_damaged(t='T1')", "sources": ["R8"]}
