@@ -147,6 +147,8 @@ def retired_requests(root: Path) -> dict:
     for identifier in _stems(root, RETIRED_DIR):
         try:
             found[identifier] = _retire_record(root, identifier)
+        except Unverifiable:
+            continue  # Not a fact here; request_findings reports immutable_unverified.
         except (OSError, ValueError, KeyError, TypeError, OverflowError):
             continue
     return found
@@ -206,10 +208,12 @@ def request_findings(root: Path) -> list[Finding]:
                     f'{root / path} differs from the stored request: {problem}; restore its original bytes '
                     f'({restore} when committed); a correction from the owner is a new request'))
     for identifier in _stems(root, RETIRED_DIR):
+        path = RETIRED_DIR / (identifier + '.json')
         try:
             _retire_record(root, identifier)
+        except Unverifiable:
+            unverified.append(path)
         except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
-            path = RETIRED_DIR / (identifier + '.json')
             restore = shlex.join(['git', '-C', str(root), 'checkout', '--', path.as_posix()])
             findings.append(Finding('error', 'request_retire_edited', identifier,
                 f'{root / path}: {error}; retire records are written once; restore its original bytes '

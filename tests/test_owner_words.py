@@ -127,10 +127,33 @@ def test_an_edited_retire_record_is_an_error(tmp_path, capsys):
     assert retired_requests(root) == {}
 
 
+def test_a_retire_record_in_a_copy_without_git_is_unverifiable_not_edited(tmp_path, capsys):
+    import shutil
+    from flowguard.map.requests import request_findings, retired_requests
+    root = _plain(tmp_path)
+    _words(root, capsys, "planner list\n")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "stored words")
+    assert _call(root, capsys, "req", "retire", "R1", "--not-owner")[0] == 0
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "retire")
+    copy = tmp_path / "copy"
+    shutil.copytree(root, copy, ignore=shutil.ignore_patterns(".git"))
+    findings = request_findings(copy)
+    assert [(item.level, item.code) for item in findings] == [("info", "immutable_unverified")], findings
+    assert retired_requests(copy) == {}
+    code, _, errors = _call(copy, capsys, "req", "add", str(tmp_path / "owner-1.md"), "--id", "R2", "--supersedes", "R1")
+    assert code == 2 and "request_retired: R1" in errors, errors
+
+
 def test_retired_before_the_release_tag_drops_off_the_screen(tmp_path, capsys):
     root = _plain(tmp_path)
     _words(root, capsys, "planner list one\n", "planner list two\n", "Owner words.\n")
     _git(root, "init", "-q")
+    # After git init, stored words are checked against their first commit, so commit them before retiring.
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "stored words")
     assert _call(root, capsys, "req", "retire", "R1", "--not-owner")[0] == 0
     _git(root, "add", "-A")
     _git(root, "commit", "-qm", "seed")
