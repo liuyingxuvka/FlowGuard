@@ -999,7 +999,8 @@
         "explain and freshly reprove audit findings on demand against the current source with actual deciding outcomes; expose coverage and proof failures without treating stored recipes as current verdicts",
         "when a supported executable skeleton cannot be derived or built, report the real source entries, required Calls TempProject or MACHINE world and missing input contents without executing an empty world or inventing an available API; offer only existing source-bound pin or UI corrections and retain all unjudged behavior and coverage",
         "dispatch six read-only code-derived where forms before behavior interpreter restrictions, validate any available execution and ordinary test reach facts through the existing content and footprint owners, and pass facts to lower-layer projections without exploring, running tests or creating caches",
-        "include the freshly computed nonblocking text-rule source report in pilot init and audit and on-demand text views without adding its lexical facts to blocking behavior findings or storing dispositions"
+        "include the freshly computed nonblocking text-rule source report in pilot init and audit and on-demand text views without adding its lexical facts to blocking behavior findings or storing dispositions",
+        "collect source-owned independent state and step rule tests, judge immutable captured public facts anew without coupling rule definitions to execution identity, and reproduce each broken rule through a fresh public-prefix proof"
       ],
       "files": [
         "flowguard/behave/*.py",
@@ -1011,8 +1012,10 @@
       "depends_on": [
         "map-derived",
         "map-discover",
+        "map-file",
         "map-inventory",
         "map-proof",
+        "map-requests",
         "map-rules"
       ],
       "tests": [
@@ -1036,11 +1039,13 @@
         "tests/behave/test_audit_output.py",
         "tests/behave/test_no_skeleton.py",
         "tests/behave/test_where.py",
-        "tests/behave/test_text_report.py"
+        "tests/behave/test_text_report.py",
+        "tests/behave/test_rules.py",
+        "tests/behave/test_rule_runtime.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ed182575fec787fbbb725cd18da17e1695691b7ab674b9f1c232b5693b5bf0c9"
+      "fingerprint": "sha256:707030ce1fb4009518c736b5382cd0c84b50bc7e3f187f43cbd412aac0549ea1"
     }
   ],
   "flows": [

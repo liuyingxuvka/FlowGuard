@@ -9,6 +9,7 @@ from dataclasses import fields, is_dataclass
 from enum import Enum
 import importlib
 import hashlib
+import inspect
 import io
 import json
 import os
@@ -617,7 +618,7 @@ def _arguments(value, arena, results=()):
     return value
 
 
-def call(objects, recipe, arena, defaults, refusals=(), results=None):
+def call(objects, recipe, arena, defaults, refusals=(), results=None, *, capture=False):
     if _ACTIVE_ARENA is None:
         raise UnsupportedWorld("calls require a fresh native worker")
     name = recipe["name"]
@@ -627,13 +628,25 @@ def call(objects, recipe, arena, defaults, refusals=(), results=None):
     receiver = objects[recipe.get("receiver", "system")]
     results = [] if results is None else results
     output, error = io.StringIO(), io.StringIO()
+    bindings, binding_error = None, None
     with redirect_stdout(output), redirect_stderr(error):
         try:
             attribute = getattr(receiver, name)
-            value = attribute if recipe.get("property") else attribute(
-                *_arguments(recipe.get("args", []), arena, results),
-                **_arguments(recipe.get("kwargs", {}), arena, results),
-            )
+            if recipe.get("property"):
+                value = attribute
+            else:
+                args = _arguments(recipe.get("args", []), arena, results)
+                kwargs = _arguments(recipe.get("kwargs", {}), arena, results)
+                if capture:
+                    try:
+                        bound = inspect.signature(attribute).bind(*args, **kwargs)
+                        bound.apply_defaults()
+                        from .explore import plain
+                        bindings = plain(_Graph(arena).pack(dict(bound.arguments)))
+                        json.dumps(bindings, allow_nan=False)
+                    except (TypeError, ValueError, UnsupportedWorld) as exc:
+                        bindings, binding_error = None, str(exc)
+                value = attribute(*args, **kwargs)
             if recipe.get("replace"):
                 if type(value) is not type(objects["system"]):
                     raise UnsupportedWorld("a restored system has the wrong type")
@@ -665,9 +678,40 @@ def call(objects, recipe, arena, defaults, refusals=(), results=None):
             exception.update(source=stack[-1] if stack else None, stack=stack)
     results.append(value)
     after = snapshot(objects, arena, defaults)
-    return {"call": recipe, "outcome": outcome, "exception": exception,
+    row = {"call": recipe, "outcome": outcome, "exception": exception,
             "value": _Graph(arena).pack(value), "stdout": _diagnostic(output.getvalue(), arena), "stderr": _diagnostic(error.getvalue(), arena),
             "before": before, "after": after, "before_key": state_key(before), "after_key": state_key(after)}
+    if capture:
+        row.update(resolved_args=bindings, binding_error=binding_error)
+    return row
+
+
+def capture_facts(spec, states, events, *, complete=False, missing=(), initial=None):
+    """Detach public observations from executed rows; never run a normative rule."""
+    captured = {"spec": spec, "steps": [], "states": [], "complete": complete, "missing": list(missing)}
+    if initial is not None:
+        captured["states"].append(initial)
+    if len(states) != len(events):
+        captured["missing"].append("native event and origin ledger lengths differ")
+    for origin, event in zip(states, events):
+        before, after = event.get("before_observations"), event.get("after_observations")
+        if before is None or after is None:
+            captured["missing"].append("public before/after observations were not captured")
+            continue
+        start, prefix, outcomes = origin["start"], origin["prefix"], origin["outcomes"]
+        end_prefix, end_outcomes = [*prefix, event["call"]], [*outcomes, event["outcome"]]
+        captured["states"].extend([
+            {"start": start, "prefix": prefix, "outcomes": outcomes,
+             "state_key": event["before_key"], "observation": before},
+            {"start": start, "prefix": end_prefix, "outcomes": end_outcomes,
+             "state_key": event["after_key"], "observation": after},
+        ])
+        captured["steps"].append({"start": start, "prefix": end_prefix, "outcomes": end_outcomes,
+            "call": event["call"], "outcome": event["outcome"], "args": event.get("resolved_args"),
+            "before_key": event["before_key"], "after_key": event["after_key"], "before": before, "after": after})
+    captured["missing"] = sorted(set(captured["missing"]))
+    captured["complete"] = complete and not captured["missing"]
+    return captured
 
 
 def _arena_guard(arena, inputs=None):
@@ -735,6 +779,8 @@ class _Session:
         self.spec, self.start, self.arena, self.observed = spec, start, Path(arena), observed
         self.import_path = list(sys.path)
         self.executed_calls = 0
+        self.public_steps = 0
+        self.replayed_steps = 0
         self.resets = 0
         self.query_facts = {}
         self.base_prefix = []
@@ -826,6 +872,7 @@ class _Session:
         self.resets += 1
         for recipe in prefix:
             self.step(recipe)
+            self.replayed_steps += 1
         return self.current
 
     def step(self, recipe, *, keep=True):
@@ -855,7 +902,8 @@ class _Session:
             if receiver != "system":
                 import builtins
                 refusals += tuple(getattr(builtins, name) for name in self.spec.get("ui_refusal", []))
-            row = call(self.objects, recipe, self.arena, self.defaults, refusals, self.results if keep else [])
+            row = call(self.objects, recipe, self.arena, self.defaults, refusals, self.results if keep else [],
+                       capture=keep and bool(self.spec.get("capture_shape")))
         row["hit_statements"] = sorted(self.observed.call_hits)
         self.executed_calls += 1
         self.current = row["after"]
@@ -870,6 +918,7 @@ class _Session:
                                   if (item["query"], state_key(item["args"])) in previous
                                   and state_key(previous[(item["query"], state_key(item["args"]))]) != state_key(item["value"])]
         if keep:
+            self.public_steps += 1
             self.prefix.append(recipe)
             self.outcomes.append(row["outcome"])
             self.last = row
@@ -946,6 +995,8 @@ class _Session:
 
     def receipt(self):
         return {"child_pid": os.getpid(), "executed_calls": self.executed_calls, "resets": self.resets,
+                "public_steps": self.public_steps,
+                "replayed_steps": self.replayed_steps,
                 "hit_functions": sorted(self.observed.hit), "hit_lines": sorted(self.observed.lines),
                 "hit_statements": sorted(self.observed.statement_hits)}
 
@@ -1003,7 +1054,15 @@ def _worker(request_path, response_path):
                 response = record(request["spec"], arena, observed=observed)
             else:
                 response = _run_session(request, arena, observed)
-            response["footprint"] = inputs.receipt()
+            if operation == "rule-proof":
+                execution_footprint = copy.deepcopy(inputs.receipt())
+                observed.enabled = False
+                from .rules import judge
+                response["judgment"] = judge(request["options"]["rule_plan"], response["captures"])
+                response["judgment_footprint"] = copy.deepcopy(inputs.receipt())
+                response["footprint"] = execution_footprint
+            else:
+                response["footprint"] = inputs.receipt()
         except BaseException as exc:
             response = {"unsupported": type(exc).__name__ + ": " + _diagnostic(str(exc), arena)}
         try:
@@ -1045,7 +1104,9 @@ def _audit_phase(session, phase, options):
 
     if phase == "walk":
         bounds = {key: options[key] for key in ("seed", "steps", "node_cap", "alphabet_cap") if key in options}
+        public_before = session.public_steps - session.replayed_steps
         response = explore(session, **bounds)
+        response["rule_uncaptured_steps"] = max(0, session.public_steps - session.replayed_steps - public_before - len(response["events"]))
         response["handoff"] = handoff()
     else:
         walk = options["walk"]
@@ -1059,6 +1120,7 @@ def _audit_phase(session, phase, options):
             raise UnsupportedWorld("audit phase public prefix did not restore its complete handoff: " + ", ".join(changed))
         recorded = options.get("test_replay", {"witnesses": [], "prefixes": []})
         states = () if options.get("shared_test_probes", False) else recorded["prefixes"]
+        public_before = session.public_steps - session.replayed_steps
         if phase == "crash":
             response = crashes(session, walk, states=states)
         elif phase == "agreement":
@@ -1070,6 +1132,7 @@ def _audit_phase(session, phase, options):
             response = stuck(session, walk, states=recorded["prefixes"])
         else:
             raise UnsupportedWorld("unknown audit phase: " + str(phase))
+        response["rule_uncaptured_steps"] = session.public_steps - session.replayed_steps - public_before
     return {**response, "phase": phase}
 
 
@@ -1087,6 +1150,17 @@ def _run_session(request, arena, observed):
     from .explore import explore, focused_search, directed_search, evaluate
     options = request.get("options", {})
     session.observe_transitions = options.get("goal", {}).get("kind") == "transition"
+    if operation == "rule-proof":
+        from .explore import observations
+        session.observe_transitions = True
+        initial = {"start": dict(session.start), "prefix": [], "outcomes": [],
+                   "state_key": session.current_key, "observation": observations(session, all_queries=True)}
+        origins, rows = [], []
+        for recipe in request["calls"]:
+            origins.append({"start": dict(session.start), "prefix": list(session.prefix), "outcomes": list(session.outcomes)})
+            rows.append(session.step(recipe))
+        return {"captures": capture_facts(session.spec, origins, rows, complete=True, initial=initial),
+                "outcomes": list(session.outcomes), "execution": session.receipt()}
     if operation in {"explore", "directed", "search", "diff"} and request["calls"]:
         session.reset(request["calls"])
         session.base_prefix = list(request["calls"])

@@ -181,3 +181,43 @@ def test_missing_and_ambiguous_roots_do_not_create_pins(tmp_path):
     os.utime(path, ns=(stamp, stamp))
     with pytest.raises(SkeletonError, match="source_not_parseable"):
         derive(current)
+
+
+def test_rule_only_changes_leave_execution_inputs_stable_but_imported_helpers_do_not(example):
+    from flowguard.behave.engine import content_identity
+
+    rules = example / "tests/rules"
+    rules.mkdir(parents=True)
+    (example / "tests/__init__.py").write_text("")
+    (rules / "__init__.py").write_text("")
+    norm = rules / "test_norm.py"
+    helper = rules / "helper.py"
+    norm.write_text("def test_norm(): return 3\n")
+    helper.write_text("BOUND = 3\n")
+    ordinary = example / "tests/test_program.py"
+    ordinary.write_text("from example import Engine\ndef test_program(): assert Engine()\n")
+    before = derive(example)
+    identity = content_identity(before)
+    assert not any(path.startswith("tests/rules/") for path in before["input_files"])
+    norm.write_text("def test_norm(): return 4\n")
+    helper.write_text("BOUND = 4\n")
+    assert content_identity(derive(example)) == identity
+    ordinary.write_text("from example import Engine\nfrom tests.rules.helper import BOUND\ndef test_program(): assert Engine() and BOUND\n")
+    imported = derive(example)
+    assert "tests/rules/helper.py" in imported["input_files"]
+    assert "tests/rules/__init__.py" in imported["input_files"]
+    assert "tests/rules/test_norm.py" not in imported["input_files"]
+    imported_identity = content_identity(imported)
+    helper.write_text("BOUND = 5\n")
+    assert content_identity(derive(example)) != imported_identity
+
+
+def test_rule_helper_literal_read_stays_an_execution_input(example):
+    rules = example / "tests/rules"
+    rules.mkdir(parents=True)
+    (rules / "helper.py").write_text("BOUND = 3\n")
+    (rules / "test_norm.py").write_text("def test_norm(): return 3\n")
+    (example / "tests/test_read.py").write_text('from pathlib import Path\ndef test_read(): return Path("tests/rules/helper.py").read_text()\n')
+    files = derive(example)["input_files"]
+    assert "tests/rules/helper.py" in files
+    assert "tests/rules/test_norm.py" not in files

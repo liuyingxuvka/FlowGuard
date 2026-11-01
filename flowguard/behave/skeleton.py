@@ -90,6 +90,31 @@ def _signature(fn):
     return result
 
 
+def execution_inputs(inv):
+    """Exclude rule-only sources while retaining real program/test dependencies."""
+    rules = {path for path in inv.py if path.startswith("tests/rules/")}
+    retained = set(inv.py) - rules
+    pending = list(retained)
+    while pending:
+        source = pending.pop()
+        info = inv.py[source]
+        targets = set(inv.file_deps.get(source, ()))
+        # Unresolved dynamic imports can reach the rule directory. Retain them
+        # conservatively; actual reads also remain part of the native footprint.
+        if info.dynamic_imports:
+            targets.update(rules)
+        literals = {value.replace("\\", "/").removeprefix("./") for value in info.string_literals}
+        targets.update(path for path in rules if path in literals or (inv.root / path).as_posix() in literals)
+        for target in tuple(targets):
+            targets.update(parent.as_posix() + "/__init__.py" for parent in Path(target).parents
+                           if parent.as_posix() != "." and parent.as_posix() + "/__init__.py" in inv.py)
+        for target in targets - retained:
+            if target in inv.py:
+                retained.add(target)
+                pending.append(target)
+    return sorted(retained)
+
+
 def fallback_facts(root, reason, *, inv=None, raw=None, candidates=()):
     """Describe missing world support without importing or constructing the program."""
     root = Path(root).resolve()
@@ -138,7 +163,7 @@ def fallback_facts(root, reason, *, inv=None, raw=None, candidates=()):
     if reason.startswith("system_ambiguous:"):
         corrections = [f'pin("system", {json.dumps(locator)}, why="Select this existing source root")'
                        for locator in sorted(set(candidates)) if locator in classes]
-    return {"root": str(root), "input_files": sorted(inv.py),
+    return {"root": str(root), "input_files": execution_inputs(inv),
             "source_functions": sorted(path + "#" + symbol for path, facts in files.items()
                                        for symbol in facts.get("functions", {})),
             "world_kind": kind, "entries": entries, "required": required,
@@ -1244,7 +1269,7 @@ def derive(root):
     for source, tree in trees.items():
         if any(isinstance(node, (ast.Global, ast.Nonlocal)) for node in ast.walk(tree)):
             unsupported.append(source + ": dynamic global or closure state needs an explicit world")
-    return {"root": str(root), "classes": sorted(classes), "input_files": sorted(inv.py),
+    return {"root": str(root), "classes": sorted(classes), "input_files": execution_inputs(inv),
             "source_files": sorted(trees),
             "source_functions": sorted(source + "#" + name for source, tree in trees.items() for _, _, name in function_spans(tree)),
             "system": system, "settings": settings, "settings_parameter": parameter,

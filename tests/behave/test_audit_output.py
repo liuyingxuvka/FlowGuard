@@ -111,3 +111,41 @@ def test_partial_phases_do_not_complete_a_world_or_clear_the_audit():
     # Failure before the first completed phase has progress, but no partial facts.
     result.update(partial_runs=[], phase_progress=[{**progress[1], "done": [], "pending": phases}])
     assert json.loads(render(result, as_json=True))["word"] == "UNCHECKED"
+
+
+def test_rule_output_needs_current_judgment_and_missing_facts_cannot_clear():
+    from flowguard.behave.report import item_id
+    semantic = {"check": "RULE", "kind": "broken", "rule": "rent.test_limit",
+                "closure": "literal-three", "fixture": "step", "action": "rent"}
+    identifier = item_id(semantic)
+    assert identifier.startswith("B-")
+    result = {"identity": "execution", "runs": [{"world": "default", "seed": 0,
+              "facts": {"extent": {"complete": True, "capped": False, "successful": 4,
+                        "successful_step_budget": 4, "reason": "completed"},
+                        "footprint": {"reusable": True, "untracked": []}}}],
+              "errors": [], "missing_checks": [], "facts_reused": 1,
+              "coverage": {"hit_functions": ["program:rent"], "known_functions": 1,
+                           "front_doors": [], "ui": "none", "modules": {},
+                           "changed_lines": [["program.py", 1]], "unhit_lines": []},
+              "rules": {"identity": "judgment-three", "evaluated": 4, "errors": [], "not_judged": [],
+                        "rules": [{"id": "rent.test_limit", "closure": "literal-three", "status": "broken",
+                                   "provenance": [{"kind": "owner", "request": "R3"}]}]},
+              "items": [{"id": identifier, "semantic": semantic, "label": "BROKEN",
+                         "rule_evidence": {"message": "fourth rent exceeds three"},
+                         "proof": {"identity": "execution", "judgment_identity": "judgment-three",
+                                   "state": "reproduced", "matched": True}}]}
+    shown = json.loads(render(result, as_json=True))
+    assert shown["word"] == "BLOCKED" and shown["items"][0]["id"] == identifier
+    assert shown["items"][0]["rule_evidence"]["message"] == "fourth rent exceeds three"
+    assert "BROKEN rent.test_limit (owner R3) on rent: fourth rent exceeds three" in render(result)
+    # An unchanged execution identity cannot authorise a proof under old rules.
+    result["rules"]["identity"] = "judgment-four"
+    stale = json.loads(render(result, as_json=True))
+    assert stale["word"] == "UNCHECKED" and not stale["items"]
+    assert any(row.get("check") == "RULE" for row in stale["unknown"])
+    result["items"] = []
+    result["rules"]["not_judged"] = [{"rule": "rent.test_limit", "reason": "query not captured"}]
+    assert json.loads(render(result, as_json=True))["word"] == "UNCHECKED"
+    result["rules"]["not_judged"] = []
+    result["rules"]["errors"] = [{"code": "quote_not_in_request", "message": "quote does not occur in R3"}]
+    assert json.loads(render(result, as_json=True))["word"] == "UNCHECKED"

@@ -10,11 +10,22 @@ import time
 
 from flowguard.map.common import atomic_write_text, normalize_newlines
 
-from .project import UnsupportedWorld, directory_stamp, file_stamp, replay, state_key, ui_identity
+from .project import UnsupportedWorld, capture_facts, directory_stamp, file_stamp, replay, state_key, ui_identity
 from .skeleton import NoSkeleton, derive, fallback_facts
 
 
+def _capture_shape(spec):
+    return {"wire": 1, "queries": spec.get("entity_queries", {}),
+            "entities": {kind: {"list": row["list"]} for kind, row in spec.get("entities", {}).items()}}
+
+
+def _execution_spec(root):
+    spec = derive(root)
+    return {**spec, "capture_shape": _capture_shape(spec)}
+
+
 def content_identity(spec):
+    spec = {**spec, "capture_shape": _capture_shape(spec)}
     package = Path(__file__).resolve().parents[1]
     engine = [[path.relative_to(package).as_posix(), state_key(normalize_newlines(path.read_bytes()).decode("utf-8"))]
               for path in sorted(package.rglob("*.py"))]
@@ -39,7 +50,7 @@ def footprint_identity(footprint):
     return state_key(footprint)
 
 
-def cache_root(root):
+def cache_root(root, *, create=True):
     root = Path(root).resolve()
     result = subprocess.run(["git", "-C", str(root), "rev-parse", "--git-common-dir"], capture_output=True, text=True)
     if result.returncode == 0:
@@ -48,7 +59,8 @@ def cache_root(root):
         path = path / "flowguard/cache/behave"
     else:
         path = root / ".flowguard/cache/behave"
-    path.mkdir(parents=True, exist_ok=True)
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
     return path
 
 
@@ -79,6 +91,54 @@ def _combined_footprint(facts):
                 footprint[kind][path] = stamp
     footprint["untracked"] = sorted(set(footprint["untracked"]))
     return footprint
+
+
+def _rule_captures(spec, runs, test_replay, test_starts, saved, settings):
+    missing = []
+    captures = {"spec": spec, "steps": [], "states": [], "complete": True, "missing": missing,
+                "scope": "native primary/test-start walk events, with uncovered origins named explicitly"}
+    walk_facts = [run["facts"] for run in runs] + ([test_starts] if test_starts else [])
+    if not walk_facts:
+        missing.append("no completed native walk ledger")
+    for facts in walk_facts:
+        rows = capture_facts(spec, facts.get("states", []), facts.get("events", []), complete=True)
+        captures["steps"].extend(rows["steps"])
+        captures["states"].extend(rows["states"])
+        missing.extend(rows["missing"])
+        for field in (None, "reach", "stuck", "agreement", "crashes"):
+            phase = facts if field is None else facts.get(field, {})
+            if phase.get("rule_uncaptured_steps", 0):
+                missing.append((field or "walk setup") + " native branches have no rule capture ledger")
+    if test_replay.get("prefixes"):
+        missing.append("TS2 shipped test prefixes have no complete rule capture ledger")
+    if saved.get("files"):
+        missing.append("saved-file starts have no complete rule capture ledger")
+    if settings.get("profiles"):
+        missing.append("shipped setting-comparison baselines have no rule capture ledger")
+    captures["missing"] = sorted(set(missing))
+    captures["complete"] = not captures["missing"]
+    return captures
+
+
+def _rule_candidate(row, identity, footprint):
+    semantic = {"check": "RULE", "kind": "broken", "rule": row["rule"], "closure": row["closure"],
+                "fixture": row["fixture"], "action": row.get("action")}
+    return {**row, "semantic": semantic, "label": "BROKEN", "identity": identity,
+            "footprint": footprint, "rule_evidence": dict(row)}
+
+
+def judge_cached_rules(root):
+    """Read current complete-identity facts and rejudge current rules; never explore."""
+    from .rules import collect_rules, judge
+    try:
+        spec = _execution_spec(root)
+        identity = content_identity(spec)
+        facts = _cached(cache_root(root, create=False) / "latest-audit-facts.json", identity)
+    except (NoSkeleton, OSError, ValueError, KeyError):
+        return None
+    if facts is None or "rule_captures" not in facts:
+        return None
+    return judge(collect_rules(root), facts["rule_captures"])
 
 
 def _audit_phases(spec, start, options, *, identity, directory, known, recorded,
@@ -155,7 +215,7 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
                 "fallback": facts, "textrules": text_report(root),
                 "next": "python -m flowguard template --list"}
     try:
-        spec = derive(root)
+        spec = _execution_spec(root)
     except NoSkeleton as exc:
         return unjudged(exc.facts)
     identity = content_identity(spec)
@@ -320,6 +380,18 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
     for candidate in settings["candidates"]:
         candidate.update(identity=identity, footprint=settings["footprint"])
         candidates.setdefault(state_key(candidate["semantic"]), candidate)
+    from .rules import collect_rules, judge
+    rule_captures = _rule_captures(spec, all_walks, test_replay, test_starts, saved_scope, settings)
+    if any(row["pending"] for row in phase_progress):
+        rule_captures["missing"].append("authoritative native audit phases remain unfinished")
+        rule_captures["complete"] = False
+    rule_judgment = judge(collect_rules(root), rule_captures)
+    rule_judgment["capture_scope"] = {key: rule_captures[key] for key in ("scope", "complete", "missing")}
+    rule_footprint = _combined_footprint(run["facts"] for run in all_walks)
+    for row in rule_judgment["candidates"]:
+        candidate = _rule_candidate(row, identity, rule_footprint)
+        candidate["judgment_identity"] = rule_judgment["identity"]
+        candidates.setdefault(state_key(candidate["semantic"]), candidate)
     items = []
     for candidate in candidates.values():
         proof = prove(root, candidate)
@@ -340,6 +412,7 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
             "settings": {key: value for key, value in settings.items() if key not in {"candidates", "footprint", "execution"}},
             "advice": spec.get("optional_argument_advice", []),
             "test_scope": {key: value for key, value in recordings.items() if key not in {"recordings", "footprint"}}}
+    result["rules"] = rule_judgment
     result["test_probes"] = {"shared": shared_test_probes, **{name: {key: value for key, value in test_replay.get(name, {}).items() if key != "candidates"} for name in ("agreement", "crashes")}}
     if test_replay.get("scope_error"):
         result["test_probes"]["agreement"].setdefault("unknown", []).append({"check": "test-replay", "reason": test_replay["scope_error"]})
@@ -363,7 +436,9 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
     result["coverage"] = {**result["coverage"], **audit_scope(root, spec, current_facts, base=base, elapsed=time.monotonic() - tick)}
     result["inputs"] = {"contexts": contexts, "test_start_bounds": common_bounds, "base": base, "native_phase_timeout": native_timeout}
     footprint = _combined_footprint(current_facts)
-    latest = {"identity": identity, "coverage": result["coverage"], "inputs": result["inputs"], "engine_defects": engine_defects,
+    latest = {"identity": identity, "coverage": result["coverage"], "inputs": result["inputs"],
+              "engine_defects": [row for row in engine_defects if row.get("semantic", {}).get("check") != "RULE"],
+              "rule_captures": rule_captures,
               "runs": [{key: value for key, value in run.items() if key != "facts"} | {"extent": run["facts"]["extent"]} for run in runs],
               "phase_progress": phase_progress, "footprint": footprint}
     atomic_write_text(directory / "latest-audit-facts.json", json.dumps({"identity": identity, "body": state_key(latest), "facts": latest}, ensure_ascii=False))
@@ -428,7 +503,7 @@ def prove(root, candidate, *, persist=True):
         from .diffcmd import prove as prove_diff
         return prove_diff(root, candidate, persist=persist)
 
-    spec = derive(root)
+    spec = _execution_spec(root)
     identity = content_identity(spec)
     semantic = candidate["semantic"]
     if str(semantic.get("receiver", "")).startswith("ui:"):
@@ -449,6 +524,16 @@ def prove(root, candidate, *, persist=True):
         return {"state": "engine-defect", "reason": "unrecognized starting-state edit", "matched": False}
     ignored = start.pop("settings", None)
     same_inputs = candidate.get("identity") == identity and not ignored and bool(footprint_identity(candidate.get("footprint", {})))
+    rule_plan = None
+    if semantic.get("check") == "RULE":
+        from .rules import collect_rules
+        rule_plan = collect_rules(root)
+        current_rule = next((row for row in rule_plan["rules"] if row["id"] == semantic["rule"]), None)
+        if current_rule is None or current_rule["closure"] != semantic["closure"]:
+            return {"state": "no-longer-reproduces", "matched": False, "identity": identity,
+                    "reason": "the current rule closure differs from the recorded rule",
+                    "judgment_identity": rule_plan["identity"]}
+        same_inputs &= candidate.get("judgment_identity") == rule_plan["identity"]
     saved = candidate.get("saved_file")
     if saved:
         # The old side is executable provenance, not a remembered claim that these bytes loaded.
@@ -480,7 +565,21 @@ def prove(root, candidate, *, persist=True):
     search_goal = candidate.get("search_goal", candidate["semantic"])
     options = {"goal": search_goal, "outcomes": candidate.get("outcomes")}
     try:
-        if semantic.get("check") == "GC6":
+        if semantic.get("check") == "RULE":
+            facts = replay(spec, prefix, start, operation="rule-proof", options={"rule_plan": rule_plan})
+            judgment = facts["judgment"]
+            if judgment["identity"] != rule_plan["identity"] or not footprint_identity(facts["judgment_footprint"]):
+                raise UnsupportedWorld("current rule inputs changed or were not tracked during proof")
+            matches = [row for row in judgment["candidates"] if row["rule"] == semantic["rule"]
+                       and row["closure"] == semantic["closure"] and row["prefix"] == prefix
+                       and row["outcomes"] == candidate.get("outcomes", row["outcomes"])]
+            matched = bool(matches) and facts["outcomes"] == candidate.get("outcomes", facts["outcomes"])
+            if not matched and (judgment["errors"] or any(row["id"] == semantic["rule"] and row["status"] == "not-judged" for row in judgment["rules"])):
+                raise UnsupportedWorld("the current rule could not be judged from its fresh public prefix")
+            if matched:
+                candidate = {**candidate, "message": matches[0]["message"], "provenance": matches[0]["provenance"],
+                             "rule_evidence": matches[0], "judgment_identity": rule_plan["identity"]}
+        elif semantic.get("check") == "GC6":
             facts = replay(spec, prefix, start, operation="crash-proof", options={"case": candidate})
             matched = facts["matched"]
         elif semantic.get("check") == "GC2":
@@ -520,6 +619,9 @@ def prove(root, candidate, *, persist=True):
     result = {"state": "reproduced" if matched else "engine-defect" if same_inputs else "no-longer-reproduces",
               "matched": matched, "id": identifier, "semantic": candidate["semantic"],
               "ignored_settings": ignored, "proof": facts, "identity": identity}
+    if rule_plan is not None:
+        result.update(judgment_identity=rule_plan["identity"], rule_closure=current_rule["closure"],
+                      rule_evidence=candidate.get("rule_evidence"))
     if persist and matched:
         recipe = {**candidate, "identity": identity, "footprint": facts["footprint"], "start": start}
         path = cache_root(root) / "witnesses" / (result["id"] + ".json")

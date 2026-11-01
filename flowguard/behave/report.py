@@ -12,7 +12,7 @@ def item_id(semantic, *, length=4):
     if subject.get("check") == "GC8":
         kind = {"lost": "L", "new_stuck": "S", "new_contradiction": "C", "transition": "T", "new_goal": "N", "world_unbuildable": "U"}.get(subject.get("kind"), "W")
     else:
-        kind = "L" if subject.get("kind") in {"loading", "loading_crash"} else {"GC1": "N", "GC2": "C", "GC3": "S", "GC5": "A", "GC6": "C"}.get(subject.get("check"), "W")
+        kind = "L" if subject.get("kind") in {"loading", "loading_crash"} else {"GC1": "N", "GC2": "C", "GC3": "S", "GC5": "A", "GC6": "C", "RULE": "B"}.get(subject.get("check"), "W")
     return kind + "-" + hashlib.sha256(json.dumps(subject, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()[:length]
 
 
@@ -24,13 +24,31 @@ def render(result, *, as_json=False):
     extent = {"world_runs": len(runs), "sampled": sum(not run["facts"]["extent"]["complete"] for run in runs),
               "capped": sum(run["facts"]["extent"]["capped"] for run in runs), "unsupported": len(result["errors"])}
     order = {kind: index for index, kind in enumerate("LNSUCXBRVTGPAE")}
-    items = sorted((item for item in result["items"] if item.get("proof", {}).get("matched")
-                    and item["proof"].get("state") == "reproduced" and item["proof"].get("identity") == result["identity"]), key=lambda item: item["id"])
+    rules = result.get("rules", {})
+    current_rules = {row["id"]: row for row in rules.get("rules", [])}
+    def current_proof(item):
+        proof = item.get("proof", {})
+        if not (proof.get("matched") and proof.get("state") == "reproduced"
+                and proof.get("identity") == result["identity"]):
+            return False
+        semantic = item["semantic"]
+        if semantic.get("check") != "RULE":
+            return True
+        current = current_rules.get(semantic.get("rule"))
+        return bool(current and current.get("closure") == semantic.get("closure")
+                    and proof.get("judgment_identity") == rules.get("identity"))
+    items = sorted((item for item in result["items"] if current_proof(item)), key=lambda item: item["id"])
     items.sort(key=lambda item: (order.get(item["id"][0], len(order)), item["id"]))
     coverage = {**result["coverage"], "hit_functions": len(result["coverage"]["hit_functions"])}
     coverage.pop("hit_lines", None)  # Full execution lines stay in the on-demand coverage facts.
     unknown = [row for run in runs for check in ("reach", "stuck", "agreement", "crashes") for row in run["facts"].get(check, {}).get("unknown", [])]
     unknown.extend(result.get("saved_files", {}).get("unknown", []))
+    unknown.extend({"check": "RULE", **row} for row in rules.get("not_judged", []))
+    unknown.extend({"check": "RULE", "reason": row.get("message", row.get("code", "invalid rule")), **row}
+                   for row in rules.get("errors", []))
+    unknown.extend({"check": "RULE", "rule": item["semantic"].get("rule"),
+                    "reason": "rule finding has no fresh proof for the current judgment"}
+                   for item in result["items"] if item.get("semantic", {}).get("check") == "RULE" and not current_proof(item))
     test_starts = result.get("test_starts", {})
     unknown.extend(test_starts.get("unknown", []))
     test_probes = result.get("test_probes", {})
@@ -77,6 +95,10 @@ def render(result, *, as_json=False):
     if fallback:
         payload["fallback"] = {key: fallback[key] for key in ("reason", "world_kind", "entries", "required", "corrections")}
     for item, row in zip(items, payload["items"]):
+        if item.get("rule_evidence"):
+            row["rule_evidence"] = {key: item["rule_evidence"][key] for key in (
+                "rule", "fixture", "action", "message", "path", "line", "provenance",
+            ) if key in item["rule_evidence"]}
         if item.get("violation"):
             row["violation"] = {key: item["violation"][key] for key in (
                 "call", "outcome", "exception", "before_key", "after_key", "outputs",
@@ -98,6 +120,10 @@ def render(result, *, as_json=False):
                 "expected_permission", "observed", "answer", "before_key", "predictor_value", "other_predictor_value",
             ) if key in item["comparison"]}
     payload["settings"] = {key: settings[key] for key in ("information", "unknown", "profiles", "traces") if key in settings}
+    if rules:
+        payload["rules"] = {key: rules[key] for key in (
+            "identity", "rules", "not_judged", "errors", "evaluated", "scope", "capture_scope",
+        ) if key in rules}
     if difference:
         payload["diff"] = {key: difference[key] for key in (
             "base_ref", "base_revision", "base_identity", "current_identity", "configurations", "unknown", "transitions", "dead_code",
@@ -163,6 +189,18 @@ def render(result, *, as_json=False):
         lines.append("base comparison: " + difference["base_ref"] + " (" + difference["base_revision"][:12] + "); only confirmed items below are findings")
     for item in items:
         semantic = item["semantic"]
+        if semantic.get("check") == "RULE":
+            row = current_rules[semantic["rule"]]
+            owner = ", ".join("owner " + provenance["request"] for provenance in row.get("provenance", [])
+                              if provenance.get("kind") == "owner")
+            failure = item.get("rule_evidence", item.get("violation", {}))
+            message = failure.get("message", item.get("message", ""))
+            detail = (" on " + str(semantic["action"])) if semantic.get("action") else ""
+            if message:
+                detail += ": " + str(message).replace("\n", "\\n")
+            lines.append(item["id"] + " BROKEN " + semantic["rule"] + (" (" + owner + ")" if owner else "")
+                         + detail + ". fix: code · why " + item["id"])
+            continue
         if semantic.get("check") == "GC6":
             violation = item["violation"]
             actual = violation["call"]
@@ -258,6 +296,8 @@ def render(result, *, as_json=False):
         lines.append("committed fixture scope: .json only; other formats not screened")
     for row in unknown:
         scope = " " + row["setting"] if row.get("setting") else ""
+        if row.get("rule"):
+            scope += " " + row["rule"]
         if "profile" in row:
             scope += " profile " + json.dumps(row["profile"], ensure_ascii=False, sort_keys=True)
         lines.append("UNKNOWN " + row.get("check", "scope") + scope + ": " + row.get("reason", row.get("extent", {}).get("reason", "unjudged scope")))

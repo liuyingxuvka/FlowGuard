@@ -7,6 +7,8 @@ import sys
 # List only the behavior files: a new guard remains collected unless explicitly classified.
 collect_ignore = [
     "test_audit_command.py",
+    "test_rules.py",
+    "test_rule_runtime.py",
     "test_audit_output.py",
     "test_no_skeleton.py",
     "test_text_report.py",

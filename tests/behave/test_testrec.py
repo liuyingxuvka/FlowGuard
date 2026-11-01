@@ -150,3 +150,36 @@ def test_navigation():
     assert not any(row.get("name") == "jump" for row in recording["events"])
     shipped = replayed(spec, facts)
     assert not any(row["semantic"].get("kind") == "screen" and row["semantic"]["value"] == "details" for row in shipped["witnesses"])
+
+
+def test_recording_skips_rule_only_collection_before_module_or_conftest_import(tmp_path):
+    spec = source(tmp_path, '''
+def test_program():
+    program = Program()
+    program.add_unit("U1", "one")
+    program.advance("U1")
+''')
+    rules = tmp_path / "tests/rules"
+    rules.mkdir()
+    (rules / "conftest.py").write_text('raise AssertionError("rule-only conftest is outside ordinary collection")\n')
+    (rules / "test_norm.py").write_text('def test_norm(): raise AssertionError("independent norm is not an ordinary test")\n')
+    facts = replay(derive(tmp_path), [], operation="record")
+    assert facts["pytest_exitcode"] == 0
+    recording, = facts["recordings"]
+    assert recording["test"] == "tests/test_sample.py::test_program"
+    assert recording["stop"] is None
+    assert [event["name"] for event in recording["events"]] == ["add_unit", "advance"]
+    assert all(not path.startswith(str(rules) + "/") for path in facts["footprint"]["files"])
+    (tmp_path / "tests/__init__.py").write_text("")
+    (rules / "__init__.py").write_text("")
+    helper = rules / "helper.py"
+    helper.write_text("BOUND = 3\n")
+    ordinary = tmp_path / "tests/test_sample.py"
+    ordinary.write_text(ordinary.read_text() + '\nfrom tests.rules.helper import BOUND\nfrom pathlib import Path\ndef test_helper_input():\n    assert BOUND == 3\n    assert Path(__file__).with_name("rules").joinpath("helper.py").read_text() == "BOUND = 3\\n"\n')
+    imported = derive(tmp_path)
+    assert "tests/rules/helper.py" in imported["input_files"]
+    actual = replay(imported, [], operation="record")
+    assert actual["pytest_exitcode"] == 0
+    assert str(helper) in actual["footprint"]["files"]
+    assert str(rules / "conftest.py") not in actual["footprint"]["files"]
+    assert str(rules / "test_norm.py") not in actual["footprint"]["files"]

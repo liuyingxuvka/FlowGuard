@@ -194,7 +194,7 @@ def observations(session, *, all_queries=False):
                 unknown.append(query)
                 continue
             values.append({"query": query, "entity": facts["entity"], "args": [identifier], "value": value})
-    return {"values": values, "unknown": sorted(set(unknown))}
+    return {"values": values, "unknown": sorted(set(unknown)), "identifiers": identifiers}
 
 
 def related_slice(session, query, identifier):
