@@ -56,8 +56,9 @@ project and read components in batches. `read` prints every component and model;
    Review warnings such as `entrypoint_unlisted` and `entrypoint_unmodeled` as findings about existing code.
    Keep structural errors at zero by fixing wrong declarations or explicitly accepting existing debt
    with its reason as in step 5 (`architecture_review.md`); do not silently bypass those errors.
-8. `python -m flowguard template adoption --write .` generates `docs/flowguard_agents_rules.md`.
-   Copy its six rules into the project's AGENTS.md or CLAUDE.md; the template never edits either.
+8. `python -m flowguard template adoption --write .` writes the four project rules into AGENTS.md, and a CLAUDE.md
+   holding `@AGENTS.md`, when they are missing. It never edits an existing AGENTS.md or CLAUDE.md: it prints the rules
+   and the file to add them to.
    Routine changes run selected tests/models; final frozen-source release runs the full
    suite and all registered models once, locally or in CI for that exact source SHA.
    Commit the map and those project rules: `git add .flowguard/map.json` (plus `.flowguard/models/` if you wrote

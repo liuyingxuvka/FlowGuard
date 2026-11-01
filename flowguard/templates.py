@@ -21,11 +21,13 @@ class TemplateFile:
     content: str
 
 
+# The owner's instructions: written only when missing, never changed, also with --force.
+OWNER_FILES = ("AGENTS.md", "CLAUDE.md")
+
+
 def adoption_template_files() -> tuple[TemplateFile, ...]:
     return (
-        TemplateFile("docs/flowguard_agents_rules.md", """# FlowGuard rules for the project agent
-
-Copy these four rules into the project's AGENTS.md (the project's CLAUDE.md holds the one line @AGENTS.md):
+        TemplateFile("AGENTS.md", """# FlowGuard rules for the project agent
 
 1. At the start of a session and after any loss of context, run `python -m flowguard status` before anything else.
 2. When the owner asks for something, store the owner's own words once, as received: `python -m flowguard req add <file|-> --id <id>`. It stores only words the owner wrote, byte for byte: never a plan, a list or text an AI wrote. When a new owner message replaces an earlier one, add `--supersedes <old id>`; never edit `.flowguard/requests/`.
@@ -141,13 +143,15 @@ def write_template_files(
         staged = (target_root / ".flowguard/target").is_dir() and file.path.startswith(".flowguard/models/")
         relative = file.path.replace(".flowguard/models/", ".flowguard/target/models/", 1) if staged else file.path
         target = target_root / relative
-        protected = file.path == "CLAUDE.md"
+        protected = file.path in OWNER_FILES
+        if "@AGENTS.md" in file.content.splitlines() and not (target_root / "AGENTS.md").is_file():
+            continue  # an include of a file that is not there would include nothing
         if not protected and target.exists() and not overwrite:
             raise FileExistsError(f"template target already exists: {target}")
         target.parent.mkdir(parents=True, exist_ok=True)
         if protected:
-            # An existing CLAUDE.md (or link) keeps the owner's instructions, even with --force: the
-            # exclusive create is the only check, and an existing file is skipped by contract.
+            # An existing AGENTS.md or CLAUDE.md (or link) keeps the owner's instructions, even with --force:
+            # the exclusive create is the only check, and an existing file is skipped by contract.
             try:
                 with target.open("xb") as stream:
                     stream.write(file.content.encode("utf-8"))

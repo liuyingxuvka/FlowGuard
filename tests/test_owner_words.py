@@ -224,7 +224,7 @@ def test_the_repository_skill_pins_this_package_version():
 
 def test_skill_and_template_say_what_req_add_stores():
     from flowguard.templates import adoption_template_files
-    rules = next(f.content for f in adoption_template_files() if f.path == "docs/flowguard_agents_rules.md")
+    rules = next(f.content for f in adoption_template_files() if f.path == "AGENTS.md")
     for name, text in (("SKILL.md", (SKILL / "SKILL.md").read_text(encoding="utf-8")), ("AGENTS template", rules),
                        ("AGENTS.md", (ROOT / "AGENTS.md").read_text(encoding="utf-8"))):
         assert "never a plan, a list or text an AI wrote" in text, name

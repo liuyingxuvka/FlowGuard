@@ -44,8 +44,7 @@ def _parse_documented_command_arguments(command: str) -> None:
 class SkillPackageTests(unittest.TestCase):
     def test_template_rules_skill_and_prompt_teach_the_same_plain_flow(self) -> None:
         from flowguard.templates import adoption_template_files
-        rules = next(file.content for file in adoption_template_files()
-                     if file.path == 'docs/flowguard_agents_rules.md')
+        rules = next(file.content for file in adoption_template_files() if file.path == 'AGENTS.md')
         numbered = re.findall(r'^\d\. .+$', rules, re.M)
         self.assertEqual(4, len(numbered))
         first = ('1. At the start of a session and after any loss of context, '
@@ -173,39 +172,59 @@ class SkillPackageTests(unittest.TestCase):
             self.assertNotEqual(0, bad.returncode)
             self.assertIn("environment variable is unset", bad.stderr)
 
-    def test_adoption_generates_four_project_rules_and_claude_md(self) -> None:
+    def test_adoption_writes_the_rules_into_agents_md_or_prints_them_and_never_a_dangling_include(self) -> None:
+        from flowguard.__main__ import main
         from flowguard.templates import adoption_template_files
-        rules = next(f for f in adoption_template_files() if f.path == "docs/flowguard_agents_rules.md")
-        self.assertEqual(4, len(re.findall(r"^\d\. ", rules.content, re.M)))
-        self.assertEqual({"status", "req", "where"}, set(re.findall(r"python -m flowguard ([a-z]+)", rules.content)))
-        commit_rule = next(line for line in rules.content.splitlines() if line.startswith("4. "))
+        self.assertEqual(["AGENTS.md", "CLAUDE.md"], [f.path for f in adoption_template_files()])
+        rules = next(f.content for f in adoption_template_files() if f.path == "AGENTS.md")
+        self.assertEqual(4, len(re.findall(r"^\d\. ", rules, re.M)))
+        self.assertEqual({"status", "req", "where"}, set(re.findall(r"python -m flowguard ([a-z]+)", rules)))
+        self.assertNotIn("Copy these", rules)
+        commit_rule = next(line for line in rules.splitlines() if line.startswith("4. "))
         for required in ("one commit", "your own words", "Request: R<n>"):
             self.assertIn(required, commit_rule)
-        self.assertFalse(any(f.path == "AGENTS.md" for f in adoption_template_files()))
-        self.assertEqual(["docs/flowguard_agents_rules.md", "CLAUDE.md"], [f.path for f in adoption_template_files()])
-        self.assertEqual("@AGENTS.md\n", next(f.content for f in adoption_template_files() if f.path == "CLAUDE.md"))
-        from flowguard.__main__ import main
+
+        def adopt(root, *extra):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(0, main(["template", "adoption", "--write", str(root), *extra]))
+            return output.getvalue()
+
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
-                self.assertEqual(0, main(["template", "adoption", "--write", directory]))
-            claude = root / "CLAUDE.md"
-            self.assertEqual(b"@AGENTS.md\n", claude.read_bytes())
+            fresh, owned, both, odd = (Path(directory) / name for name in ("fresh", "owned", "both", "odd"))
+            fresh.mkdir()
+            adopt(fresh)  # no AGENTS.md: the rules become AGENTS.md, and CLAUDE.md includes it
+            self.assertEqual(rules, (fresh / "AGENTS.md").read_text(encoding="utf-8"))
+            self.assertEqual(b"@AGENTS.md\n", (fresh / "CLAUDE.md").read_bytes())
+            self.assertFalse((fresh / "docs").exists())
+
+            owned.mkdir()  # the owner's AGENTS.md is never changed, even with --force; the block is printed
             original = "# Existing instructions\r\n保持原文。\r\n".encode()
-            claude.write_bytes(original)
-            stamp = claude.stat().st_mtime_ns
-            (root / "docs/flowguard_agents_rules.md").write_text("replace this generated file", encoding="utf-8")
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
-                self.assertEqual(0, main(["template", "adoption", "--write", directory, "--force"]))
-            self.assertEqual(original, claude.read_bytes())
-            self.assertEqual(stamp, claude.stat().st_mtime_ns)
-            self.assertEqual(rules.content, (root / "docs/flowguard_agents_rules.md").read_text(encoding="utf-8"))
-            self.assertIn("kept CLAUDE.md (it exists): make sure it holds the line @AGENTS.md", output.getvalue())
+            (owned / "AGENTS.md").write_bytes(original)
+            stamp = (owned / "AGENTS.md").stat().st_mtime_ns
+            output = adopt(owned, "--force")
+            self.assertEqual(original, (owned / "AGENTS.md").read_bytes())
+            self.assertEqual(stamp, (owned / "AGENTS.md").stat().st_mtime_ns)
+            self.assertIn(f"kept AGENTS.md (it exists): FlowGuard does not edit it; add these lines to the end of "
+                          f"{owned / 'AGENTS.md'}:\n{rules}", output)
+            self.assertEqual(b"@AGENTS.md\n", (owned / "CLAUDE.md").read_bytes())
+            self.assertNotIn("wrote " + str(owned / "AGENTS.md"), output)
+
+            both.mkdir()  # no AGENTS.md but an owner CLAUDE.md: write AGENTS.md, keep CLAUDE.md as it is
+            (both / "CLAUDE.md").write_bytes(original)
+            output = adopt(both, "--force")
+            self.assertEqual(rules, (both / "AGENTS.md").read_text(encoding="utf-8"))
+            self.assertEqual(original, (both / "CLAUDE.md").read_bytes())
+            self.assertIn("kept CLAUDE.md (it exists): make sure it holds the line @AGENTS.md", output)
+
+            (odd / "AGENTS.md").mkdir(parents=True)  # no file to include: no CLAUDE.md, and it says why
+            output = adopt(odd)
+            self.assertFalse((odd / "CLAUDE.md").exists())
+            self.assertIn(f"{odd / 'AGENTS.md'} is not a file", output)
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             self.assertEqual(0, main(["template", "adoption"]))
+        self.assertIn("===== AGENTS.md =====\n" + rules, output.getvalue())
         self.assertIn("===== CLAUDE.md =====\n@AGENTS.md\n", output.getvalue())
 
     def test_installer_copies_the_skill(self) -> None:

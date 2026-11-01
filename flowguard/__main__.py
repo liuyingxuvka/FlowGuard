@@ -169,7 +169,7 @@ def _template(ns: argparse.Namespace) -> int:
     if ns.write:
         from .map.mapfile import MapError
         from .map.targetfile import load_target
-        from .templates import TemplateFile, write_template_files
+        from .templates import OWNER_FILES, TemplateFile, write_template_files
 
         current_prefix = ".flowguard/models/"
         target_prefix = ".flowguard/target/models/"
@@ -188,8 +188,21 @@ def _template(ns: argparse.Namespace) -> int:
         for path in written:
             staged = ".flowguard/target/models" in path.as_posix()
             print(f"wrote {Path(path).relative_to(Path(ns.write)) if staged else path}" + (" (into the open target)" if staged else ""))
-        if any(file.path == "CLAUDE.md" for file in files) and Path(ns.write) / "CLAUDE.md" not in written:
-            print("kept CLAUDE.md (it exists): make sure it holds the line @AGENTS.md")
+        for file in files:
+            path = Path(ns.write) / file.path
+            if file.path not in OWNER_FILES or path in written:
+                continue
+            if file.path == "AGENTS.md" and path.is_file():
+                print(f"kept AGENTS.md (it exists): FlowGuard does not edit it; add these lines to the end of {path.absolute()}:")
+                print(file.content, end="")
+            elif file.path == "AGENTS.md":
+                print(f"{path.absolute()} is not a file: replace it with a file that holds these lines:")
+                print(file.content, end="")
+            elif path.exists() or path.is_symlink():
+                print("kept CLAUDE.md (it exists): make sure it holds the line @AGENTS.md")
+            else:
+                print(f"did not write CLAUDE.md: {path.parent.absolute() / 'AGENTS.md'} is not a file, so its line @AGENTS.md "
+                      "would include nothing")
         if has_target:
             if any(file.path.startswith(target_prefix) for file in files):
                 print(render_advice(advice('check', project_command(Path(ns.write), 'target', 'check'))))

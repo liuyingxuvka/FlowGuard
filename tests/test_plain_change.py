@@ -135,7 +135,7 @@ def test_a_deleted_legacy_commit_message_is_still_reported(tmp_path, capsys):
 
 def test_skill_and_agents_template_teach_the_plain_flow():
     from flowguard.templates import adoption_template_files
-    rules = next(f.content for f in adoption_template_files() if f.path == "docs/flowguard_agents_rules.md")
+    rules = next(f.content for f in adoption_template_files() if f.path == "AGENTS.md")
     texts = {"SKILL.md": (SKILL / "SKILL.md").read_text(), "openai.yaml": (SKILL / "agents/openai.yaml").read_text(),
              "AGENTS template": rules, "AGENTS.md": (ROOT / "AGENTS.md").read_text()}
     for name, text in texts.items():

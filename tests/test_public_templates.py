@@ -216,7 +216,7 @@ class PublicTemplateTests(unittest.TestCase):
             paths = [file.path for file in factory()]
             self.assertFalse(any(path.endswith("/run_checks.py") for path in paths), name)
             if name == "adoption":
-                self.assertEqual(["docs/flowguard_agents_rules.md", "CLAUDE.md"], paths)
+                self.assertEqual(["AGENTS.md", "CLAUDE.md"], paths)
             else:
                 models = [p for p in paths if p.startswith(".flowguard/models/") and p.count("/") == 2]
                 self.assertEqual(1, len(models), name)
@@ -345,8 +345,8 @@ class PublicTemplateTests(unittest.TestCase):
 
             code, stdout, stderr = self.run_cli(["template", "adoption", "--write", directory])
             self.assertEqual(0, code, stdout + stderr)
-            self.assertTrue((root / "docs/flowguard_agents_rules.md").is_file())
-            self.assertFalse((root / ".flowguard/target/docs").exists())
+            self.assertTrue((root / "AGENTS.md").is_file())
+            self.assertFalse((root / ".flowguard/target/AGENTS.md").exists())
 
 if __name__ == "__main__":
     unittest.main()
