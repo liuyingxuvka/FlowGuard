@@ -23,7 +23,7 @@ executable models in its release gate. This repository uses FlowGuard on itself.
 
 - No generated check outputs, execution records or standalone hashes in git except the `fingerprint` fields written by `confirm`.
 - Do not add a second way to do something that already has an owner; extend the owner.
-- A test may never become skipped because a handler swallowed an error: a skip comes only from a `skipif` on `sys.platform`, `sys.version_info` or `os.name`, and a "not ready" result is a distinct value set by the branch that established it, never None (`tests/test_no_swallowed_skips.py` and the `tests/conftest.py` hook enforce this).
+- A test may never become skipped because a handler swallowed an error: a test skips only through `@pytest.mark.skipif(<condition on sys.platform, sys.version_info or os.name>, reason=...)`; `pytest.skip`, `pytest.xfail`, `pytest.importorskip` and unittest skips are refused, and any skipped or xfailed outcome that no skipif or xfail marker produced fails (`tests/test_no_swallowed_skips.py` and the `tests/conftest.py` hooks enforce this).
 - When `map lint` reports a real architecture problem you are not fixing now, record it in
   `accepted_debts` with a reason instead of hiding it.
 - Report exactly which commands you ran and their results; never mark unrun checks as passed.

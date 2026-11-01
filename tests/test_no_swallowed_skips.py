@@ -1,9 +1,10 @@
 """A test may never become skipped because a handler swallowed an error.
 
-Static half: a skip comes only from a `skipif` on sys.platform, sys.version_info or os.name. A runtime skip
-call is refused inside an `except` body and under a None/falsy test: None is what swallowing handlers
-return, so a "not ready" state must be a distinct value set by the branch that established it.
-Runtime half: tests/conftest.py turns a skip raised while another exception is handled into a failure.
+Static half: a test skips only through a `@pytest.mark.skipif(<condition>, reason=...)` marker whose
+condition reads sys.platform, sys.version_info or os.name. Every other way to skip or expect failure from
+inside a test (pytest.skip, pytest.xfail, pytest.importorskip, pytest.mark.skip, unittest skips, skipTest,
+raising SkipTest) is refused, so no helper that swallowed an error can choose a skip.
+Runtime half: tests/conftest.py fails any skipped or xfailed outcome that no skipif or xfail marker produced.
 flowguard/behave/ is left out until the behavior engine is reworked or removed.
 """
 import ast
@@ -14,26 +15,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED = ("flowguard/behave/",)
-SKIPS = {"skip", "xfail", "importorskip", "SkipTest"}
 STATIC = {"platform", "version_info", "name"}
-
-
-def _is_skip(node):
-    if isinstance(node, ast.Call):
-        function = node.func
-        return (isinstance(function, ast.Attribute) and function.attr in SKIPS
-                or isinstance(function, ast.Name) and function.id in SKIPS)
-    return isinstance(node, ast.Raise) and node.exc is not None and "SkipTest" in ast.unparse(node.exc)
-
-
-def _none_test(test):
-    for node in ast.walk(test):
-        if isinstance(node, ast.Compare) and any(isinstance(item, ast.Constant) and item.value is None
-                                                 for item in node.comparators):
-            return True
-        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not) and isinstance(node.operand, (ast.Name, ast.Attribute)):
-            return True
-    return False
+CALLS = {"pytest.skip": "skip call", "skip": "skip call", "pytest.xfail": "xfail call", "xfail": "xfail call",
+         "pytest.importorskip": "importorskip call", "importorskip": "importorskip call",
+         "unittest.skip": "unittest skip decorator", "unittest.skipIf": "unittest skip decorator",
+         "unittest.skipUnless": "unittest skip decorator"}
 
 
 def _static_condition(node, parents):
@@ -47,23 +33,23 @@ def violations(source, relative):
     parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
     found = []
     for node in ast.walk(tree):
-        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "skipif"
-                and not _static_condition(node, parents)):
-            found.append(f"{relative}:{node.lineno} skipif on a runtime condition")
-        if not _is_skip(node) or isinstance(node, ast.Call) and isinstance(parents.get(node), ast.Call):
+        if isinstance(node, ast.Attribute) and ast.unparse(node) == "pytest.mark.skip":
+            found.append(f"{relative}:{node.lineno} skip marker")
+        if isinstance(node, ast.Raise) and node.exc is not None and (
+                "SkipTest" in ast.unparse(node.exc) or "skip.Exception" in ast.unparse(node.exc)):
+            found.append(f"{relative}:{node.lineno} SkipTest raised")
+        if not isinstance(node, ast.Call):
             continue
-        child = node
-        while child in parents:
-            parent = parents[child]
-            if isinstance(parent, ast.ExceptHandler):
-                found.append(f"{relative}:{node.lineno} skip inside an except body")
-                break
-            if isinstance(parent, ast.If) and child in parent.body and _none_test(parent.test):
-                found.append(f"{relative}:{node.lineno} skip chosen from a None/falsy value: {ast.unparse(parent.test)[:80]}")
-                break
-            if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef)) and parent.name.startswith("test_"):
-                break
-            child = parent
+        name = ast.unparse(node.func)
+        if name in CALLS:
+            found.append(f"{relative}:{node.lineno} {CALLS[name]}")
+        elif isinstance(node.func, ast.Attribute) and node.func.attr == "skipTest":
+            found.append(f"{relative}:{node.lineno} skipTest call")
+        elif name.endswith("mark.skipif"):
+            if not _static_condition(node, parents):
+                found.append(f"{relative}:{node.lineno} skipif on a runtime condition")
+            if not any(keyword.arg == "reason" for keyword in node.keywords):
+                found.append(f"{relative}:{node.lineno} skipif without a reason")
     return found
 
 
@@ -97,7 +83,7 @@ def test_the_static_rule_sees_each_refused_shape():
     ''')
     found = sorted(violations(source, "x.py"), key=lambda line: int(line.split(":")[1].split(" ")[0]))
     assert [line.split(" ", 1)[1].split(":")[0] for line in found] == [
-        "skipif on a runtime condition", "skip inside an except body", "skip chosen from a None/falsy value"], found
+        "skipif on a runtime condition", "skip call", "skip call"], found
 
 
 def test_a_skip_raised_while_handling_an_error_fails(tmp_path):
@@ -109,17 +95,100 @@ def test_a_skip_raised_while_handling_an_error_fails(tmp_path):
         globals().update({{name: value for name, value in vars(module).items() if name.startswith("pytest_")}})
     '''), encoding="utf-8")
     (tmp_path / "test_judge.py").write_text(textwrap.dedent('''
+        import sys
         import pytest
         def test_rule_judged_on_a_broken_path():
             try:
                 {}["verdict"]
             except KeyError:
                 pytest.skip("rule not ready")
+        @pytest.mark.skipif(sys.platform != "no-such-platform", reason="declared, nothing swallowed")
         def test_declared_skip():
-            pytest.skip("declared, nothing swallowed")
+            pass
     '''), encoding="utf-8")
     result = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-rfs", str(tmp_path)],
                             cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 1, result.stdout + result.stderr
     assert "1 failed, 1 skipped" in result.stdout, result.stdout
     assert "skip raised while handling KeyError" in result.stdout, result.stdout
+
+
+def test_the_static_rule_refuses_every_skip_that_is_not_a_skipif_marker():
+    source = textwrap.dedent('''
+        import os, sys, unittest, pytest
+        numpy = pytest.importorskip("numpy")
+        def _ready():
+            try:
+                return probe()
+            except KeyError:
+                return False
+        def test_plain_call():
+            if not _ready():
+                pytest.skip("not ready")
+        def test_xfail_call():
+            pytest.xfail("not ready")
+        @pytest.mark.skip(reason="always")
+        def test_skip_marker():
+            pass
+        @pytest.mark.skipif(os.name == "nt")
+        def test_skipif_without_reason():
+            pass
+        class Case(unittest.TestCase):
+            def test_unittest(self):
+                self.skipTest("not ready")
+        def test_raise():
+            raise unittest.SkipTest("not ready")
+    ''')
+    found = sorted(violations(source, "x.py"), key=lambda line: int(line.split(":")[1].split(" ")[0]))
+    assert [line.split(" ", 1)[1].split(":")[0] for line in found] == [
+        "importorskip call", "skip call", "xfail call", "skip marker", "skipif without a reason", "skipTest call",
+        "SkipTest raised"], found
+
+
+def test_a_skip_or_xfail_that_did_not_come_from_a_marker_fails(tmp_path):
+    (tmp_path / "conftest.py").write_text(textwrap.dedent(f'''
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("flowguard_tests_conftest", {str(ROOT / "tests/conftest.py")!r})
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        globals().update({{name: value for name, value in vars(module).items() if name.startswith("pytest_")}})
+    '''), encoding="utf-8")
+    (tmp_path / "test_outcomes.py").write_text(textwrap.dedent('''
+        import sys
+        import pytest
+        def _ready():
+            try:
+                return {}["ready"]
+            except KeyError:
+                return False
+        def test_skip_after_a_swallowing_helper():
+            if not _ready():
+                pytest.skip("not ready")
+        def test_imperative_xfail():
+            pytest.xfail("not ready")
+        @pytest.fixture
+        def needs_service():
+            pytest.skip("service missing")
+        def test_skip_from_a_fixture(needs_service):
+            pass
+        @pytest.mark.skipif(sys.platform != "no-such-platform", reason="declared platform skip")
+        def test_marker_skip():
+            pass
+        @pytest.mark.xfail(reason="declared known failure")
+        def test_marker_xfail():
+            assert False
+    '''), encoding="utf-8")
+    (tmp_path / "test_optional_import.py").write_text("import pytest\nmodule = pytest.importorskip('no_such_module_xyz')\n",
+                                                      encoding="utf-8")
+    def run(name):
+        return subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-rfEsx", name],
+                              cwd=tmp_path, capture_output=True, text=True)
+    result = run("test_outcomes.py")
+    summary = result.stdout.strip().splitlines()[-1]
+    assert result.returncode == 1, result.stdout + result.stderr
+    for part in ("2 failed", "1 skipped", "1 xfailed", "1 error"):
+        assert part in summary, result.stdout
+    assert result.stdout.count("not from a skipif or xfail marker") >= 3, result.stdout
+    result = run("test_optional_import.py")
+    assert result.returncode == 2 and "1 error" in result.stdout, result.stdout + result.stderr
+    assert "skipped while collected, not from a skipif or xfail marker" in result.stdout, result.stdout
