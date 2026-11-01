@@ -463,7 +463,18 @@ def full_block(root, result: Assembled, f: Finding) -> list[str]:
     if pic is not None:
         lines.append(f"  picture: {pic}" + (" (Mermaid text: the picture file was not written)"
                                             if pic.endswith(".mmd") else ""))
+    lines += cause_lines(result, f)
     return lines
+
+
+def cause_lines(result: Assembled, f: Finding) -> list[str]:
+    """With --full: each requested guard (one with its own source=) whose drop or widening
+    removes this conflict: what the conflict rests on, said as its cause (G5). Every change
+    that removes it is in --json (the mutate part's causes)."""
+    view = result.models.get(f.model)
+    mutate = view.result("mutate") if view is not None else None
+    causes = (mutate.info.get("causes", {}) if mutate is not None else {}).get(f.id, [])
+    return [f"  cause (check --full): {c['cause']} this conflict does not occur" for c in causes if c["requested"]]
 
 
 def _one_line(result: Assembled, f: Finding, lead: str) -> str:
@@ -519,8 +530,9 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
     lines = [line]
     for f in new:
         lines += full_block(root, result, f)
-    lines += [_one_line(result, f, "OPEN") + (f" (kept: {f.detail['kept']})" if "kept" in f.detail else "")
-              for f in open_]
+    for f in open_:
+        lines.append(_one_line(result, f, "OPEN") + (f" (kept: {f.detail['kept']})" if "kept" in f.detail else ""))
+        lines += cause_lines(result, f)
     lines += [f"closed {c['id']} {c['kind']} {c['model']}: its stored path no longer reproduces it ({why})"
               for c, why in result.closed]
     lines += [_warning_line(result, f) for f in result.warnings]
@@ -580,6 +592,19 @@ def conflicts_data(root, result: Assembled, previous: dict | None) -> dict:
             "unknown": sorted((m for m, v in models.items() if not v["complete"]), key=natural_key),
             "warnings": sum(v["warnings"] for v in models.values()),
             "models": dict(sorted(models.items()))}
+
+
+RELEASE_WAIT = 3600                # the release check may run long (design 7.6); the in-loop default never does
+
+
+def release(root, *, out=None, err=None) -> bool:
+    """The flow-model part of the legacy `release` (design 7.6, wired by the move-in): check
+    every model with --full (the deliberate-breakage mutants and the unreduced symmetry
+    check) and the release wait. True when the release may go on: a conflict or a model
+    error stops it (UNKNOWN does not); work still RUNNING after the wait stops it too, since
+    nothing was decided."""
+    code = main(["check", "--full", "--wait", str(RELEASE_WAIT), "--root", str(root)], out=out, err=err)
+    return code in (EXIT_CLEAN, EXIT_UNKNOWN)
 
 
 def status_lines(root) -> list[str]:

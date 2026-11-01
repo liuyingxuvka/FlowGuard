@@ -524,3 +524,20 @@ def test_the_text_names_the_declared_second_routes(project):
     run = timed(project.root)
     assert ('declared second route rental: repaired / repair_anywhere (R7 "Repair the tool where it is when the main '
             'workshop is busy."; keeps FALLBACK ROUTE): main is often busy') in run.lines
+
+
+def test_release_runs_the_full_check_with_its_mutants(project):
+    """G5 / design 7.6: the release entry runs check --full (mutation and the unreduced
+    symmetry check); a conflict or a model error stops the release, UNKNOWN does not.
+    The move-in wires the legacy `release` to cli.release (s1aplan/MOVE_IN.md)."""
+    import io
+    from flowguard._next import cli
+    project.kit().flow_from(KIT / "workshop.py")
+    out = io.StringIO()
+    assert cli.release(project.root, out=out, err=io.StringIO()) is True
+    text = out.getvalue()
+    assert text.startswith("clean, complete") and "mutant survives" in text and "symmetry verified" in text
+    project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    out = io.StringIO()
+    assert cli.release(project.root, out=out, err=io.StringIO()) is False
+    assert "  cause (check --full): without guard 'repairs only at main'" in out.getvalue()

@@ -1,6 +1,7 @@
 """Known-bad, always on (FG-811, M1): every model is made wrong on purpose, one change at a
 time, and checked again. A mutant no check catches is reported, so a model whose checks
-cannot fail is visible. Runs in `check --full` and `release` (part kind `mutate`).
+cannot fail is visible. Runs in `check --full` and in `cli.release` (part kind `mutate`),
+which the move-in wires into the legacy `release` (design 7.6).
 
 Operators, one mutant per site:
   drop guard         one `need(...)` statement of the model file is removed;
@@ -11,8 +12,11 @@ Operators, one mutant per site:
 
 A mutant is caught when its check (explain=False) has a conflict or model error
 fingerprint the original does not have; equivalent when its graph equals the original's
-(not listed); unknown when its search is capped; otherwise it survives and is one model
-warning. A capped original decides nothing: UNKNOWN.
+(not listed); unknown when its search is capped. A mutant whose check no longer has a
+conflict the original has (same kind and subject) shows what that conflict rests on: the
+change is reported as part of the conflict's cause (attribution, G5), never as a survivor,
+since "nothing fails without it" would read as advice to delete it. Otherwise it survives
+and is one model warning. A capped original decides nothing: UNKNOWN.
 """
 from __future__ import annotations
 
@@ -39,6 +43,8 @@ class Mutant:
     sources: tuple
     transform: Callable | None       # an AST transform of the model file (guards)
     wrap: Callable | None            # Model -> Model (transitions, ends)
+    cause: str = ""                  # "without guard 'x' (fn, line 3; R10)": what a removed conflict rests on
+    requested: bool = False          # a guard with its own source= (a request asks for exactly this guard)
 
 
 @dataclass
@@ -47,6 +53,7 @@ class MutationReport:
     findings: list                   # one model warning per surviving mutant
     outcomes: list                   # every mutant: op, what, outcome, the new findings that caught it
     unknown: list = field(default_factory=list)
+    causes: dict = field(default_factory=dict)    # conflict id -> the changes that remove it
 
 
 # ---------------------------------------------------------------------- guard sites (AST)
@@ -120,14 +127,17 @@ def guard_mutants(model: Model) -> list[Mutant]:
     seen = Counter()
     for stmt, call, fname in _need_statements(tree):
         reason = _reason(call)
-        src = next((k.value.value for k in call.keywords if k.arg == "source" and isinstance(k.value, ast.Constant)),
-                   sources.get(fname))
+        own = next((k.value.value for k in call.keywords if k.arg == "source" and isinstance(k.value, ast.Constant)),
+                   None)
+        src = own or sources.get(fname)
         where = f"{fname}, line {call.lineno}"
         base = f"{reason!r} in {fname}"
         seen[base] += 1
         tag = "" if seen[base] == 1 else f" #{seen[base]}"
+        by = src or "the AI's own"
         out.append(Mutant("drop guard", f"drop guard {reason!r} ({where})", f"drop guard {base}{tag}", call.lineno,
-                          (src,), _transform(ast.Expr, _pos(stmt), _drop_statement), None))
+                          (src,), _transform(ast.Expr, _pos(stmt), _drop_statement), None,
+                          f"without guard {reason!r} ({where}; {by})", own is not None))
         if not call.args:
             continue
         cond = call.args[0]
@@ -136,7 +146,8 @@ def guard_mutants(model: Model) -> list[Mutant]:
                 text = ast.unparse(part)
                 out.append(Mutant("widen guard", f"widen guard {reason!r} ({where}): drop `{text}`",
                                   f"widen guard {base}{tag}: drop {text}", call.lineno, (src,),
-                                  _transform(ast.BoolOp, _pos(cond), functools.partial(_without, k)), None))
+                                  _transform(ast.BoolOp, _pos(cond), functools.partial(_without, k)), None,
+                                  f"without `{text}` in guard {reason!r} ({where}; {by})", own is not None))
         for node in ast.walk(cond):
             if not isinstance(node, ast.Compare):
                 continue
@@ -146,7 +157,9 @@ def guard_mutants(model: Model) -> list[Mutant]:
                     text = ast.unparse(node)
                     out.append(Mutant("widen guard", f"widen guard {reason!r} ({where}): `{sym}` -> `{wide}` in `{text}`",
                                       f"widen guard {base}{tag}: {sym} -> {wide} in {text}", call.lineno, (src,),
-                                      _transform(ast.Compare, _pos(node), functools.partial(_widen, j)), None))
+                                      _transform(ast.Compare, _pos(node), functools.partial(_widen, j)), None,
+                                      f"with `{wide}` for `{sym}` in guard {reason!r} ({where}; {by})",
+                                      own is not None))
     return out
 
 
@@ -212,7 +225,8 @@ def transition_mutants(model: Model, graph: Graph) -> list[Mutant]:
                 return m.replace_actions([act if act.name != _a else _replace_fn(act, _keep(act.fn, _keys))
                                           for act in m.actions])
             what = f"remove transition: {a.name} keeps {family} unchanged"
-            out.append(Mutant("remove transition", f"{what} (line {a.line})", what, a.line, (a.source,), None, wrap))
+            out.append(Mutant("remove transition", f"{what} (line {a.line})", what, a.line, (a.source,), None, wrap,
+                              f"if {a.name} left {family} unchanged (line {a.line}; {a.source or 'the AI' + chr(39) + 's own'})"))
     return out
 
 
@@ -225,7 +239,9 @@ def end_mutants(model: Model) -> list[Mutant]:
                 return m.replace_actions([_replace_fn(act, _refuse_end(act.fn, _keys, _family, _value))
                                           for act in m.actions])
             what = f"make end {family}={value!r} unreachable"
-            out.append(Mutant("end unreachable", what, what, None, (model.terminal_sources.get(family),), None, wrap))
+            src = model.terminal_sources.get(family) or "the AI's own"
+            out.append(Mutant("end unreachable", what, what, None, (model.terminal_sources.get(family),), None, wrap,
+                              f"if no step could reach the end {family}={value!r} ({src})"))
     return out
 
 
@@ -255,7 +271,8 @@ def run_mutants(loaded: Loaded, bounds: Bounds, *, progress=None) -> MutationRep
     if not original.graph.complete:
         return MutationReport(False, [], [], ["mutation"])
     known = _blocking(original)
-    findings, outcomes, unknown = [], [], []
+    proven = {(f.kind, f.subject): f for f in original.findings if f.cls == CONFLICT}
+    findings, outcomes, unknown, causes = [], [], [], {}
     mid = model.id or model.name
     for n, mutant in enumerate(mutants(loaded, original.graph)):
         if progress is not None:
@@ -275,9 +292,18 @@ def run_mutants(loaded: Loaded, bounds: Bounds, *, progress=None) -> MutationRep
             outcomes.append({"op": mutant.op, "what": mutant.what, "outcome": "unknown", "by": []})
             continue
         new = [f for fid, f in _blocking(report).items() if fid not in known]
+        still = {(f.kind, f.subject) for f in report.findings if f.cls == CONFLICT}
+        removes = [f for k, f in proven.items() if k not in still]
+        for f in removes:                          # the change is part of what the conflict rests on
+            causes.setdefault(f.id, []).append({"op": mutant.op, "what": mutant.what, "cause": mutant.cause,
+                                                "sources": [x for x in mutant.sources if x], "line": mutant.line,
+                                                "requested": mutant.requested})
         if new:
             outcomes.append({"op": mutant.op, "what": mutant.what, "outcome": "caught",
-                             "by": [f"{f.kind} {f.subject}" for f in new]})
+                             "by": [f"{f.kind} {f.subject}" for f in new], "removes": [f.id for f in removes]})
+        elif removes:
+            outcomes.append({"op": mutant.op, "what": mutant.what, "outcome": "cause", "by": [],
+                             "removes": [f.id for f in removes]})
         elif _same_graph(original.graph, report.graph):
             outcomes.append({"op": mutant.op, "what": mutant.what, "outcome": "equivalent", "by": []})
         else:
@@ -287,7 +313,7 @@ def run_mutants(loaded: Loaded, bounds: Bounds, *, progress=None) -> MutationRep
                 "MUTANT SURVIVES", WARNING, mid, mutant.subject,
                 f"mutant survives: {mutant.what}: no rule or generic check fails {tail}",
                 sources=mutant.sources, detail={"op": mutant.op, "what": mutant.what}, line=mutant.line))
-    return MutationReport(not unknown, merge(findings), outcomes, ["mutation"] if unknown else [])
+    return MutationReport(not unknown, merge(findings), outcomes, ["mutation"] if unknown else [], causes)
 
 
 # ---------------------------------------------------------------------- the part
@@ -303,7 +329,7 @@ def mutate_part(ctx: PartContext) -> PartResult:
                          progress=lambda d: ctx.progress({"model": spec.model, "kind": spec.kind, **d}))
     counts = Counter(o["outcome"] for o in report.outcomes)
     info = {"loaded": True, "complete": report.complete, "unknown": list(report.unknown),
-            "mutants": report.outcomes, "counts": {k: counts[k] for k in sorted(counts)}}
+            "mutants": report.outcomes, "counts": {k: counts[k] for k in sorted(counts)}, "causes": report.causes}
     reads = list(loaded.reads)
     return PartResult(spec.kind, spec.model, part_digest(root, spec, reads), report.complete,
                       [f.to_json() for f in report.findings], info, reads, [])

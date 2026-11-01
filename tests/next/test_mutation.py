@@ -198,3 +198,27 @@ def test_the_same_mutants_and_fingerprints_under_every_hash_seed(project):
         assert res.returncode == 0, res.stderr
         runs.append(json.loads(res.stdout))
     assert runs[0] == runs[1] == runs[2] and runs[0][1]
+
+
+def test_a_guard_whose_drop_removes_a_conflict_is_named_as_its_cause(project):
+    """G5: dropping the sourced guard 'repairs only at main' (R10) removes the dead end. That
+    is the guard's part in the conflict (attribution), never a survivor inviting to delete it."""
+    report, _ = mutate(project, DATA / "planted" / "rental_naive.py")
+    drop = outcome(report, "drop guard 'repairs only at main' (repaired, line 32)")
+    assert drop["outcome"] == "cause" and drop["removes"] and drop["by"] == []
+    assert not [f for f in report.findings if "repairs only at main" in f.text]
+    [(cid, causes)] = report.causes.items()
+    [r10] = [c for c in causes if c["requested"]]                     # the one guard with its own source=
+    assert r10["what"] == "drop guard 'repairs only at main' (repaired, line 32)" and r10["sources"] == ["R10"]
+    assert not [o for o in report.outcomes if o["outcome"] == "survived" and o.get("removes")]
+
+
+def test_check_full_prints_the_cause_under_its_conflict(project):
+    from checkrun import run_check
+    project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    run = run_check(project.root, "--full")
+    assert run.code == 1, run.out
+    assert ("  cause (check --full): without guard 'repairs only at main' (repaired, line 32; R10) this conflict "
+            "does not occur") in run.lines
+    assert not any("mutant survives: drop guard 'repairs only at main'" in line for line in run.lines)
+    assert sum(line.startswith("  cause (check --full): ") for line in run.lines) == 1
