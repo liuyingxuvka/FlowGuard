@@ -19,7 +19,7 @@ def test_help_lists_only_implemented_commands():
     assert result.returncode == 0, result.stderr
     assert result.stdout.startswith("usage: python -m flowguard.behave")
     assert not result.stderr
-    assert "{init,audit,why}" in result.stdout
+    assert "{init,audit,why,where}" in result.stdout
 
 
 def test_empty_invocation_prints_help(capsys):

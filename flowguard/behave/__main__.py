@@ -6,6 +6,44 @@ import argparse
 import sys
 
 
+def _where_facts(root, at=None):
+    """Validate existing runtime facts for a static view without creating or running anything."""
+    from pathlib import Path
+    import subprocess
+    missing = {"state": "not_recorded", "test_reach": {}}
+    if at is not None:
+        return {**missing, "reason": "current execution facts are not projected onto another Git reference"}
+    root = Path(root).resolve()
+    common = subprocess.run(["git", "-C", str(root), "rev-parse", "--git-common-dir"], capture_output=True, text=True)
+    if common.returncode == 0:
+        directory = Path(common.stdout.strip())
+        directory = (directory if directory.is_absolute() else root / directory) / "flowguard/cache/behave"
+    else:
+        directory = root / ".flowguard/cache/behave"
+    if not directory.is_dir():
+        return missing
+    from .engine import _cached, content_identity
+    from .skeleton import derive
+    try:
+        identity = content_identity(derive(root))
+    except (ValueError, OSError):
+        return {**missing, "reason": "no matching executable source identity is available"}
+    latest = _cached(directory / "latest-audit-facts.json", identity)
+    recorded = _cached(directory / ("recordings-" + identity + ".json"), identity)
+    reach = {}
+    have_reach = recorded is not None and bool(recorded.get("recordings")) and all("function_hits" in row for row in recorded["recordings"])
+    if have_reach:
+        for row in recorded["recordings"]:
+            for function in row["function_hits"]:
+                reach.setdefault(function, []).append(row["test"])
+    return {"state": "recorded" if latest is not None or have_reach else "stale",
+            "source_identity": identity, "coverage": latest.get("coverage") if latest is not None else None,
+            "test_reach": {name: sorted(set(tests)) for name, tests in reach.items()},
+            "test_reach_state": "recorded" if have_reach else "not_recorded",
+            "test_run_exitcode": recorded.get("pytest_exitcode") if recorded is not None else None,
+            "test_reach_scope": "observed in-process Python calls during recorded pytest requests; absence is not unreachability"}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m flowguard.behave",
@@ -30,6 +68,15 @@ def build_parser() -> argparse.ArgumentParser:
     views.add_argument("--defects", action="store_true", help="show matching recorded proof failures")
     why.add_argument("--root", default=".")
     why.add_argument("--json", action="store_true")
+    where = verbs.add_parser("where", help="query code structure without exploring behavior or running tests")
+    where.add_argument("name", nargs="?")
+    where.add_argument("--root", default=".")
+    views = where.add_mutually_exclusive_group()
+    for view in ("flow", "arch", "text", "keyflows"):
+        views.add_argument("--" + view, action="store_const", const=view, dest="view")
+    where.set_defaults(view="tree")
+    where.add_argument("--at", help="Git reference for the text view")
+    where.add_argument("--json", action="store_true")
     return parser
 
 
@@ -37,12 +84,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     arguments = list(sys.argv[1:] if argv is None else argv)
     if (sys.version_info < (3, 12) and arguments
-            and arguments not in (["-h"], ["--help"])):
+            and arguments not in (["-h"], ["--help"]) and arguments[0] != "where"):
         parser.error("the FlowGuard pilot needs Python 3.12 or newer")
     options = parser.parse_args(arguments)
     if options.command is None:
         parser.print_help()
         return 0
+    if options.command == "where":
+        if options.at is not None and options.view != "text":
+            parser.error("--at belongs to --text")
+        from flowguard.map.derived import where, render
+        try:
+            result = where(options.root, options.name, view=options.view, at=options.at,
+                           execution=_where_facts(options.root, options.at))
+            print(render(result, as_json=options.json))
+            return 0
+        except (ValueError, OSError) as exc:
+            parser.error(str(exc))
     if options.command == "audit":
         try:
             seeds = tuple(int(value) for value in options.seeds.split(",")) if options.seeds is not None else None

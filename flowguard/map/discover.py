@@ -43,6 +43,8 @@ def file_facts(text: str, module: str, package: str, path: str) -> dict:
         if visitor.instances.get(key) == "<unresolved>" and key in visitor.annotations:
             visitor.instances[key] = visitor.annotations[key]
     # Constructor-only initialization is not a changing state lifecycle.
+    all_state = {attr: sorted(writers) for attr, writers in sorted(visitor.state.items())}
+    all_writes = {symbol: sorted(function["writes"]) for symbol, function in visitor.functions.items()}
     initialized_only = {attr for attr, writers in visitor.state.items() if all(w.endswith(".__init__") for w in writers)}
     for attr in initialized_only:
         del visitor.state[attr]
@@ -58,10 +60,19 @@ def file_facts(text: str, module: str, package: str, path: str) -> dict:
         "injected": visitor.injected,
         "classes": visitor.classes,
         "entrypoints": visitor.entrypoints,
+        "references": sorted(visitor.references, key=lambda row: (row["line"], row["symbol"], row["kind"], row["name"])),
+        "source_constants": dict(sorted(visitor.source_constants.items())),
+        "command_bindings": visitor.command_bindings,
         "state": {k: sorted(v) for k, v in sorted(visitor.state.items())},
+        "all_state": all_state,
+        "initial_state": {attr: all_state[attr] for attr in sorted(initialized_only)},
+        "file_targets": [{"symbol": symbol, **target} for symbol, function in visitor.functions.items() for target in function["file_targets"]],
         "functions": {s: {"line": f["line"], "class": f["class"], "calls": sorted(f["calls"]),
                           "effects": f["effects"], "raises": sorted(x for x in f["raises"] if x),
                           "dynamic": sorted(f["dynamic"]), "writes": sorted(f["writes"]),
+                          "reads": sorted(f["reads"]), "read_sites": f["read_sites"], "all_writes": all_writes[s],
+                          "initial_writes": all_writes[s] if s.endswith(".__init__") else [],
+                          "file_targets": f["file_targets"], "end_line": f["end_line"],
                           "local_imports": dict(sorted(f["local_imports"].items())),
                           "deep_writes": sorted(f["deep_writes"] - f["direct_writes"]),
                           "attr_writes": f["attr_writes"], "ctor_calls": f["ctor_calls"],
@@ -190,6 +201,49 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True,
     index = {p: f.get("functions", {}) for p, f in facts.items()}
     injected = _injected_classes(facts, index, mod_to_path, py_paths=py_paths, import_roots=import_roots)
     foreign_writes = _apply_injected_writes(facts, injected)
+    for path, file in facts.items():
+        full_state = defaultdict(set)
+        for symbol, function in file.get("functions", {}).items():
+            function["all_writes"] = sorted(set(function["writes"]) | set(function.get("initial_writes", ())))
+            for attribute in function["all_writes"]:
+                full_state[attribute].add(symbol)
+        file["all_state"] = {attribute: sorted(writers) for attribute, writers in sorted(full_state.items())}
+        file["initial_state"] = {attribute: sorted(writers) for attribute, writers in sorted(full_state.items())
+                                 if all(writer.endswith(".__init__") for writer in writers)}
+        for entry in file.get("entrypoints", []):
+            if entry.get("via") != "argparse":
+                if entry.get("symbol") in index[path]:
+                    entry["handlers"] = [path + "#" + entry["symbol"]]
+                continue
+            registration = (entry.get("parser_symbol"), entry.get("parser_line"), entry.get("parser_column"))
+            dispatch_entries = [other for other in file.get("entrypoints", []) if other.get("via") == "argparse"
+                                and (other["name"], other.get("selector")) == (entry["name"], entry.get("selector"))]
+            dispatch_ambiguous = len(dispatch_entries) > 1
+            ambiguous = []
+            bindings = []
+            for row in file.get("command_bindings", []):
+                if row["command"] != entry["name"]:
+                    continue
+                if row["via"] == "set_defaults":
+                    if (row.get("parser_symbol"), row.get("parser_line"), row.get("parser_column")) == registration:
+                        bindings.append(row)
+                elif entry.get("selector") and row.get("selector") == entry["selector"]:
+                    (ambiguous if dispatch_ambiguous else bindings).append(row)
+            handlers, sites, unresolved = set(), [], []
+            for binding in bindings:
+                target = _resolve(binding["target"], binding["symbol"], path, facts, index, mod_to_path,
+                                  dependency_files=dependency_files, py_paths=py_paths, import_roots=import_roots)
+                if target:
+                    handlers.add(target)
+                    sites.append({**binding, "handler": target})
+                else:
+                    unresolved.append(binding["target"])
+            entry["handlers"] = sorted(handlers)
+            entry["handler_sites"] = sites
+            entry["handler_unresolved"] = sorted(set(unresolved))
+            entry["handler_ambiguous"] = ambiguous
+            entry["handler_unknown"] = ("dispatch binding matches multiple parser registrations" if ambiguous else
+                                        "no resolved explicit command registration or dispatch binding" if not handlers else "")
     edges: dict[str, set[str]] = defaultdict(set)
     injected_edges: dict[str, set[str]] = defaultdict(set)
     incoming: dict[str, int] = defaultdict(int)

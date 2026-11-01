@@ -263,7 +263,7 @@ class _Recorder:
         self.current = None
 
 
-def record(spec, arena):
+def record(spec, arena, *, observed=None):
     """One already-created worker runs actual pytest tests; no application runs in the parent."""
     import pytest
 
@@ -271,11 +271,15 @@ def record(spec, arena):
     class Plugin:
         @pytest.hookimpl(hookwrapper=True, tryfirst=True)
         def pytest_runtest_protocol(self, item, nextitem):
+            if observed is not None:
+                observed.recorded_hits.clear()
             recorder.begin(item)
             try:
                 yield
             finally:
                 recorder.finish()
+                if observed is not None:
+                    recorder.rows[-1]["function_hits"] = sorted(observed.recorded_hits)
     root = Path(spec["root"])
     location = root / "tests" if (root / "tests").is_dir() else root
     output, error = io.StringIO(), io.StringIO()

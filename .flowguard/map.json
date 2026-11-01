@@ -360,7 +360,9 @@
         "discover without writing caches when asked",
         "find the model anchors that code calls directly",
         "build one static call graph from current or target source facts",
-        "report no entrypoint or effect from words inside strings"
+        "report no entrypoint or effect from words inside strings",
+        "retain complete read references, constructor-only state and file destination facts for derived views alongside the existing lifecycle summaries without truncating the raw source graph",
+        "bind explicit command handlers from actual parser registrations and dispatch facts and retain ambiguous or unresolved front doors instead of treating parser construction as command execution"
       ],
       "files": [
         "flowguard/map/discover.py",
@@ -384,7 +386,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a6889246653119293546adccc3231b11b09cdcda7fa0c309e5ea708266fa7e56"
+      "fingerprint": "sha256:92c33682fc933a3f98200126411cf0b0801dc3e135c89ca8f0acb849d53bbb43"
     },
     {
       "id": "map-target",
@@ -930,7 +932,8 @@
         "derive audit coverage from actual source function and line identities, report least-covered modules and changed lines that ran or did not run, and retain unrecognised entries and incomplete checks",
         "render audit evidence with BLOCKED CLEAR UNCHECKED or unfinished-job RUNNING from one payload; finished audits exit zero, usage errors exit two, capped or incomplete work never becomes CLEAR, and JSON is one line",
         "explain and freshly reprove audit findings on demand against the current source with actual deciding outcomes; expose coverage and proof failures without treating stored recipes as current verdicts",
-        "when a supported executable skeleton cannot be derived or built, report the real source entries, required Calls TempProject or MACHINE world and missing input contents without executing an empty world or inventing an available API; offer only existing source-bound pin or UI corrections and retain all unjudged behavior and coverage"
+        "when a supported executable skeleton cannot be derived or built, report the real source entries, required Calls TempProject or MACHINE world and missing input contents without executing an empty world or inventing an available API; offer only existing source-bound pin or UI corrections and retain all unjudged behavior and coverage",
+        "dispatch six read-only code-derived where forms before behavior interpreter restrictions, validate any available execution and ordinary test reach facts through the existing content and footprint owners, and pass facts to lower-layer projections without exploring, running tests or creating caches"
       ],
       "files": [
         "flowguard/behave/*.py",
@@ -940,6 +943,7 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
+        "map-derived",
         "map-discover",
         "map-inventory",
         "map-proof"
@@ -963,11 +967,42 @@
         "tests/behave/test_gc8_diff.py",
         "tests/behave/test_audit_command.py",
         "tests/behave/test_audit_output.py",
-        "tests/behave/test_no_skeleton.py"
+        "tests/behave/test_no_skeleton.py",
+        "tests/behave/test_where.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ab2605e286c9fb664bab1a132caee91ee087c55df9330c4968f117592ab02c8d"
+      "fingerprint": "sha256:b79f4a799d96a13178e584b96cd9b8578aab8794045428a275200dacef7a2815"
+    },
+    {
+      "id": "map-derived",
+      "layer": "map",
+      "summary": "Read-only views of the current code: source names, callers, entry routes, state writers, architecture, text references and shared flows, with explicitly supplied valid execution facts.",
+      "responsibilities": [
+        "project the complete shared source inventory and discovery graph into where name tree flow architecture text and keyflow views without another parser or stored index",
+        "locate source owners, references, constants, callers and actual command handlers while keeping unresolved bindings explicit",
+        "show source-backed architecture and multiple-entry state-writing facts without treating missing rule provenance or missing test execution as proof of absence",
+        "read selected Git-reference code and text from the same source tree and attribute text/code spellings to actual files and lines",
+        "consume only supplied validated runtime or test-reach facts and distinguish them from declared bindings, stale facts and unrecorded scope"
+      ],
+      "files": [
+        "flowguard/map/derived.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-discover",
+        "map-file",
+        "map-inventory",
+        "map-requests"
+      ],
+      "tests": [
+        "tests/test_map_derived.py"
+      ],
+      "models": [],
+      "status": "confirmed",
+      "fingerprint": "sha256:4d24ff08605b8ed8874bf693553486201e58f3aa12df6e0ecde0a401bd22b395"
     }
   ],
   "flows": [

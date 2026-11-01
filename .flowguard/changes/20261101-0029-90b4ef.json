@@ -1,0 +1,177 @@
+{
+  "kind": "change",
+  "goal": "FG-630: Code-derived where views",
+  "requests": [
+    {
+      "id": "R11",
+      "part": true
+    }
+  ],
+  "base": "17543bfd50b3a1afe6b789b101e88f3ffe9d1bed",
+  "tree": "90b4efb00144986989d8f45335aa2b9472c37909bb0ece2b3a0a9e3033ef5a92",
+  "promoted": "2026-11-01T00:29:21.352365+00:00",
+  "plan": [
+    {
+      "line": "touch: flowguard/map/discovery_syntax.py:_FileVisitor.__init__ because \"Retain shared read and parser-binding facts beside the existing source facts\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/discovery_syntax.py:_FileVisitor._visit_function because \"Collect source reference facts under their actual lexical function owner\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/discovery_syntax.py:_FileVisitor.visit_Name because \"Record ordinary name reads at their actual source sites without treating writes as reads\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/discovery_syntax.py:_FileVisitor.visit_Attribute because \"Record attribute reads at their source sites through the existing AST visitor\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/discovery_syntax.py:_FileVisitor.visit_Call because \"Retain actual file destinations and explicit registered command-handler bindings\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/discovery_syntax.py:_FileVisitor.visit_Assign because \"Bind parser and literal destination aliases from actual assignments\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/discovery_syntax.py:_FileVisitor.visit_If because \"Retain actual command dispatch conditions without claiming all main-function calls belong to each verb\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/discover.py:file_facts because \"Expose complete reference and initialization facts while preserving existing filtered lifecycle fields\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/discover.py:discover because \"Resolve explicit command bindings through the existing source graph and analysis identity\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/derived.py:where because \"Compute the six source-bound read-only views from one complete shared inventory and raw graph\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/derived.py:render because \"Present compact actionable source facts and explicit unknown dynamic scope without stored verdicts\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_ObservedState.__init__ because \"Hold ordinary-test function hits separately from shipped-world execution evidence\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_ObservedState.trace because \"Observe real ordinary-test function calls without applying shipped state guards or changing their coverage judgments\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/project.py:_worker because \"Pass the existing observer into the already-running test recorder without starting extra tests\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/testrec.py:record because \"Attach each existing ordinary pytest request actual source function hits to that test and its existing footprint\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/__main__.py:_where_facts because \"Read and validate matching existing coverage and per-test reach facts without creating a cache or running behavior\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/__main__.py:build_parser because \"Expose only the six implemented static where forms and their actual Git text reference input\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/behave/__main__.py:main because \"Dispatch static where before the behavior-only Python guard and pass optional validated facts to its single lower owner\"",
+      "added_after_code": null,
+      "cleared": []
+    },
+    {
+      "line": "touch: flowguard/map/discovery_syntax.py:_FileVisitor.visit_AnnAssign because \"Bind annotated literal and parser aliases through the same source assignment facts as ordinary assignments\"",
+      "added_after_code": null,
+      "cleared": []
+    }
+  ],
+  "rules": [],
+  "acceptances": [],
+  "existing_cleared": [],
+  "implemented_by": [
+    "flowguard/behave/__main__.py:_where_facts",
+    "flowguard/behave/__main__.py:build_parser",
+    "flowguard/behave/__main__.py:main",
+    "flowguard/behave/project.py:_ObservedState.__init__",
+    "flowguard/behave/project.py:_ObservedState.trace",
+    "flowguard/behave/project.py:_worker",
+    "flowguard/behave/testrec.py:record",
+    "flowguard/behave/testrec.py:record.Plugin.pytest_runtest_protocol",
+    "flowguard/map/derived.py:_anchor",
+    "flowguard/map/derived.py:_architecture",
+    "flowguard/map/derived.py:_changed_since",
+    "flowguard/map/derived.py:_entries",
+    "flowguard/map/derived.py:_git",
+    "flowguard/map/derived.py:_legacy",
+    "flowguard/map/derived.py:_map",
+    "flowguard/map/derived.py:_match",
+    "flowguard/map/derived.py:_predicate_sites",
+    "flowguard/map/derived.py:_predicate_sites.Normalize.visit_Attribute",
+    "flowguard/map/derived.py:_predicate_sites.Normalize.visit_Name",
+    "flowguard/map/derived.py:_predicate_sites.boolean",
+    "flowguard/map/derived.py:_predicate_sites.shape",
+    "flowguard/map/derived.py:_runtime",
+    "flowguard/map/derived.py:_source",
+    "flowguard/map/derived.py:render",
+    "flowguard/map/derived.py:source_names",
+    "flowguard/map/derived.py:text_references",
+    "flowguard/map/derived.py:where",
+    "flowguard/map/discover.py:discover",
+    "flowguard/map/discover.py:file_facts",
+    "flowguard/map/discovery_syntax.py:_FileVisitor.__init__",
+    "flowguard/map/discovery_syntax.py:_FileVisitor._bind_assignment",
+    "flowguard/map/discovery_syntax.py:_FileVisitor._binding",
+    "flowguard/map/discovery_syntax.py:_FileVisitor._call_target",
+    "flowguard/map/discovery_syntax.py:_FileVisitor._destination",
+    "flowguard/map/discovery_syntax.py:_FileVisitor._parser_binding",
+    "flowguard/map/discovery_syntax.py:_FileVisitor._reference",
+    "flowguard/map/discovery_syntax.py:_FileVisitor._visit_function",
+    "flowguard/map/discovery_syntax.py:_FileVisitor.visit_AnnAssign",
+    "flowguard/map/discovery_syntax.py:_FileVisitor.visit_Assign",
+    "flowguard/map/discovery_syntax.py:_FileVisitor.visit_Attribute",
+    "flowguard/map/discovery_syntax.py:_FileVisitor.visit_Call",
+    "flowguard/map/discovery_syntax.py:_FileVisitor.visit_If",
+    "flowguard/map/discovery_syntax.py:_FileVisitor.visit_If.calls",
+    "flowguard/map/discovery_syntax.py:_FileVisitor.visit_Name",
+    "tests/behave/test_entry.py:test_help_lists_only_implemented_commands",
+    "tests/behave/test_where.py:test_static_where_forms_do_not_import_program_or_write_cache",
+    "tests/behave/test_where.py:test_where_uses_real_recorded_test_calls_without_running_them_again",
+    "tests/behave/test_where.py:test_where_uses_real_recorded_test_calls_without_running_them_again.no_execution",
+    "tests/behave/test_where.py:test_where_uses_real_recorded_test_calls_without_running_them_again.stamps",
+    "tests/test_map_derived.py:facts",
+    "tests/test_map_derived.py:git",
+    "tests/test_map_derived.py:repository",
+    "tests/test_map_derived.py:test_architecture_reuse_needs_boolean_shape_and_available_binding",
+    "tests/test_map_derived.py:test_commands_use_their_own_registration_and_unknown_stays_unknown",
+    "tests/test_map_derived.py:test_reach_is_complete_beyond_old_limits_but_default_views_are_compact",
+    "tests/test_map_derived.py:test_request_and_change_lookup_uses_real_immutable_records",
+    "tests/test_map_derived.py:test_source_reads_initial_fields_and_named_file_destinations",
+    "tests/test_map_derived.py:test_supplied_test_reach_stays_separate_from_shipped_hits",
+    "tests/test_map_derived.py:test_text_uses_same_reference_blobs_and_keeps_wip_parse_errors_visible"
+  ],
+  "new_actions": [],
+  "corrections": [],
+  "checked": "This promotion ran one fresh target check with bound tests and the remaining function-selected tests; 1 warning(s) remained. The tree identifies the checked post-promotion content, before later component confirmation. Implementation provenance lists changed Python function definitions from the Git diff. Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty."
+}

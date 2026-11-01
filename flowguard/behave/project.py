@@ -164,6 +164,7 @@ class _ObservedState:
         self.enabled = False
         self.pending = {}
         self.hit = set()
+        self.recorded_hits = set()
         self.lines = set()
         self.statement_hits = set()
         self.call_hits = set()
@@ -349,6 +350,16 @@ class _ObservedState:
                 raise UnsupportedWorld("called nondeterministic resource needs an explicit world")
 
     def trace(self, frame, event, arg):
+        if (not self.enabled and self.inputs is not None and self.inputs.recording_tests
+                and not self.busy and event == "call" and frame.f_code.co_filename.startswith(self.root)
+                and not frame.f_code.co_name.startswith("<")):
+            ancestor = frame.f_back
+            while ancestor is not None:
+                if ancestor.f_code is snapshot.__code__:
+                    return None
+                ancestor = ancestor.f_back
+            self.recorded_hits.add(frame.f_code.co_filename[len(self.root):].replace(os.sep, "/")
+                                   + "#" + frame.f_code.co_qualname.replace(".<locals>.", "."))
         if not self.enabled or self.busy or not frame.f_code.co_filename.startswith(self.root) or frame.f_code.co_name == "<module>":
             return None
         self.busy = True
@@ -945,7 +956,7 @@ def _worker(request_path, response_path):
             monitoring.register_callback(slot, monitoring.events.LINE, observed.line)
             if operation == "record":
                 from .testrec import record
-                response = record(request["spec"], arena)
+                response = record(request["spec"], arena, observed=observed)
             else:
                 response = _run_session(request, arena, observed)
             response["footprint"] = inputs.receipt()
