@@ -12,7 +12,7 @@ import re
 import subprocess
 import tempfile
 
-from .common import normalize_newlines, read_source, render_advice
+from .common import git_blob, git_common_directory, git_head, git_run, normalize_newlines, read_source, render_advice
 from .discover import discover_inventory, function_spans, literal_sites, reachable_functions
 from .inventory import build_inventory, function_digests, syntax_tree
 from .mapfile import ignore_patterns, load_map, map_path, model_registry, owner_index, read_model_contract
@@ -155,13 +155,16 @@ def _runtime(execution, identifier):
 def _changed_since(root, receipt, function, memo):
     key = (receipt, function["path"])
     if key not in memo:
-        commit = _git(root, "log", "--diff-filter=A", "--format=%H", "--", ".flowguard/changes/" + receipt + ".json")
-        revision = commit.stdout.splitlines()[-1].decode() if commit.returncode == 0 and commit.stdout.splitlines() else None
-        blob = _git(root, "show", revision + ":" + function["path"]) if revision else None
+        revision, blob = None, None
+        if git_common_directory(root) is not None and git_head(root) is not None:  # A failing Git raises.
+            commits = git_run(root, "log", "--diff-filter=A", "--format=%H", "--",
+                              ".flowguard/changes/" + receipt + ".json").stdout.split()
+            revision = commits[-1].decode() if commits else None
+            blob = git_blob(root, revision, function["path"]) if revision else None
         previous = "receipt has no committed source before-image in this clone"
-        if blob and blob.returncode == 0:
+        if blob is not None:
             try:
-                previous = function_digests(normalize_newlines(blob.stdout).decode("utf-8"))["functions"]
+                previous = function_digests(normalize_newlines(blob).decode("utf-8"))["functions"]
             except (UnicodeError, SyntaxError, ValueError) as error:
                 previous = f"the before-image at {revision[:12]} does not parse: {error}"
         memo[key] = revision, previous

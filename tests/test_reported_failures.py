@@ -285,3 +285,119 @@ def test_the_child_package_shim_is_one_route_and_a_refused_link_is_an_error(monk
     monkeypatch.setattr(Path, "symlink_to", refused)
     with pytest.raises(MapError, match="Operation not permitted"):
         common._child_package_import_root()
+
+
+# Git failing inside a Git repository stops the integrity check with Git's own message
+
+RECORD = "20261101-0000-abcdef"
+RECORD_ITEM = dict(kind="change", goal="g", requests=[], base=None, tree="0" * 64, checked="c",
+                   promoted="2026-11-01T00:00:00+00:00", plan=[], rules=[], acceptances=[], existing_cleared=[],
+                   implemented_by=[], new_actions=[], corrections=[])
+
+
+def _failing_git(tmp_path, monkeypatch, subcommand):
+    """Put a git first on PATH that fails one subcommand with its own message and runs the real Git otherwise."""
+    import shutil
+    real = shutil.which("git")
+    directory = tmp_path / f"failing-{subcommand}-bin"
+    directory.mkdir()
+    script = directory / "git"
+    script.write_text(f'#!/bin/sh\nfor argument in "$@"; do\n  if [ "$argument" = "{subcommand}" ]; then\n'
+                      f'    echo "fatal: simulated {subcommand} failure" >&2\n    exit 128\n  fi\ndone\n'
+                      f'exec {shlex.quote(real)} "$@"\n', encoding="utf-8")
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{directory}{os.pathsep}{os.environ['PATH']}")
+
+
+def _write_record(root):
+    from flowguard.map import records
+    records.prepare_directory(root, records.CHANGE_DIR, (".json",))
+    records.write_once(root, records.CHANGE_DIR / (RECORD + ".json"), json.dumps(RECORD_ITEM).encode())
+    return root / records.CHANGE_DIR / (RECORD + ".json")
+
+
+def _edit_one_byte(path):
+    raw = path.read_bytes()
+    path.write_bytes(raw.replace(b'"g"', b'"h"', 1) if b'"g"' in raw else raw.replace(b"3", b"4", 1))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX shell script stands in for a failing git")
+@pytest.mark.parametrize("checkout", ["fresh_clone", "original"])
+def test_a_failing_git_log_stops_the_record_check_instead_of_reading_no_history(tmp_path, monkeypatch, checkout):
+    from flowguard.map.records import record_findings
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    _git(origin, "init", "-q")
+    _write_record(origin)
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "record")
+    root = origin
+    if checkout == "fresh_clone":
+        root = tmp_path / "clone"
+        subprocess.run(["git", "clone", "-q", str(origin), str(root)], check=True, capture_output=True)
+    _edit_one_byte(root / ".flowguard/changes" / (RECORD + ".json"))
+    _failing_git(tmp_path, monkeypatch, "log")
+    with pytest.raises(MapError, match="simulated log failure"):
+        record_findings(root)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX shell script stands in for a failing git")
+def test_a_failing_git_listing_stops_the_request_check_instead_of_reading_no_files(tmp_path, monkeypatch):
+    from flowguard.map.requests import request_findings, store_request
+    root = tmp_path / "repo"
+    (root / ".flowguard").mkdir(parents=True)
+    _git(root, "init", "-q")
+    store_request(root, b"Keep the limit at 3.\n", identifier="R1")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "r1")
+    _failing_git(tmp_path, monkeypatch, "ls-files")
+    with pytest.raises(MapError, match="simulated ls-files failure"):
+        request_findings(root)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX shell script stands in for a failing git")
+def test_a_failing_git_describe_stops_the_release_boundary_instead_of_reading_no_tag(tmp_path, monkeypatch):
+    from flowguard.map import records
+    from flowguard.map.impact_history import read_git_paths
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q")
+    (root / "a.py").write_text("x = 1\n", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    _git(root, "tag", "v1.0.0")
+    _failing_git(tmp_path, monkeypatch, "describe")
+    with pytest.raises(MapError, match="simulated describe failure"):
+        records.since_release(root, [], read_git_paths)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX shell script stands in for a failing git")
+def test_a_failing_git_log_stops_the_where_change_view_instead_of_reading_no_history(tmp_path, monkeypatch):
+    from flowguard.map.derived import _changed_since
+    root = tmp_path / "repo"
+    (root / ".flowguard/changes").mkdir(parents=True)
+    _git(root, "init", "-q")
+    (root / "a.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    (root / ".flowguard/changes/R.json").write_text("{}", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    _failing_git(tmp_path, monkeypatch, "log")
+    with pytest.raises(MapError, match="simulated log failure"):
+        _changed_since(root, "R", {"path": "a.py", "function": "f"}, {})
+
+
+@pytest.mark.parametrize("kind", ["request", "record"])
+def test_fix_advice_in_a_folder_without_git_suggests_no_git_command(tmp_path, kind):
+    from flowguard.map.records import record_findings
+    from flowguard.map.requests import request_findings
+    root = _plain_folder_request(tmp_path)
+    if kind == "request":
+        _edit_one_byte(root / ".flowguard/requests/R1.md")
+        findings = request_findings(root)
+    else:
+        _edit_one_byte(_write_record(root))
+        findings = record_findings(root)
+    errors = [finding.message for finding in findings if finding.level == "error"]
+    assert errors, findings
+    for message in errors:
+        assert "git -C" not in message and "checkout --" not in message, message

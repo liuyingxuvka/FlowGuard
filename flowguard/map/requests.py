@@ -9,7 +9,8 @@ import re
 
 from .common import Finding, git_common_directory, git_head, git_run, sha256_bytes
 from .mapfile import MapError
-from .records import NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, validate_new_files, write_once
+from .records import (NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, restore_advice,
+                      validate_new_files, write_once)
 
 REQUEST_DIR = Path('.flowguard/requests')
 RETIRED_DIR = REQUEST_DIR / 'retired'
@@ -177,9 +178,8 @@ def retire_request(root: Path, identifier: str, *, note: str | None = None) -> d
 
 def request_findings(root: Path) -> list[Finding]:
     """Integrity is a fresh byte comparison, including before the first commit."""
-    import shlex
-
     root = Path(root).resolve()
+    common = git_common_directory(root)
     findings = []
     unverified = []
     def problem_of(path):
@@ -205,10 +205,9 @@ def request_findings(root: Path) -> list[Finding]:
         for path, problem, code in ((body, body_problem, 'owner_text_edited'),
                                     (meta, meta_problem, 'request_meta_edited')):
             if problem:
-                restore = shlex.join(['git', '-C', str(root), 'checkout', '--', path.as_posix()])
                 findings.append(Finding('error', code, identifier,
-                    f'{root / path} differs from the stored request: {problem}; restore its original bytes '
-                    f'({restore} when committed); a correction from the owner is a new request'))
+                    f'{root / path} differs from the stored request: {problem}; '
+                    f'{restore_advice(root, [path.as_posix()], common)}; a correction from the owner is a new request'))
     for identifier in _stems(root, RETIRED_DIR):
         path = RETIRED_DIR / (identifier + '.json')
         try:
@@ -216,10 +215,9 @@ def request_findings(root: Path) -> list[Finding]:
         except Unverifiable:
             unverified.append(path)
         except (OSError, ValueError) as error:
-            restore = shlex.join(['git', '-C', str(root), 'checkout', '--', path.as_posix()])
             findings.append(Finding('error', 'request_retire_edited', identifier,
-                f'{root / path}: {error}; retire records are written once; restore its original bytes '
-                f'({restore} when committed)'))
+                f'{root / path}: {error}; retire records are written once; '
+                f'{restore_advice(root, [path.as_posix()], common)}'))
     if unverified:
         findings.append(Finding('info', 'immutable_unverified', '',
             f'{len(unverified)} request file(s) cannot be checked against their original bytes here '

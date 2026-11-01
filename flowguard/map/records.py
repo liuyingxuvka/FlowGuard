@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
+import shlex
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .common import Finding, advice, atomic_write_text, git_common_directory, normalize_newlines, project_command, sha256_bytes
+from .common import (Finding, advice, atomic_write_text, git_blob, git_common_directory, git_head, git_run,
+                     normalize_newlines, project_command, sha256_bytes)
 from .mapfile import MapError
 
 
@@ -25,9 +26,12 @@ class Unverifiable(Exception):
         super().__init__(f"cannot verify {relative} here: {NO_ORIGINAL_FACT}")
 
 
-def _git(root: Path, *arguments: str):
-    """Git in a repository whose mode _common_directory already decided; callers read the exit status."""
-    return subprocess.run(["git", "-C", str(root), *arguments], capture_output=True)
+def restore_advice(root, paths, common) -> str:
+    """How to get original bytes back: Git only where this checkout is in Git, never a Git command elsewhere."""
+    if common is None:
+        return "restore its original bytes from the copy, archive or backup this folder came from"
+    command = shlex.join(["git", "-C", str(root), "checkout", "--", *paths])
+    return f"restore its original bytes ({command} when committed)"
 
 
 def _paths(root, relative_path):
@@ -125,10 +129,7 @@ def _attribute_problem(root: Path, relative: str, common):
     if common is None:
         return None
     names = ("text", "eol", "filter", "ident", "working-tree-encoding")
-    result = _git(root, "check-attr", "-z", *names, "--", relative)
-    if result.returncode:
-        return f"cannot check Git attributes for {relative}"
-    fields = result.stdout.split(b"\0")
+    fields = git_run(root, "check-attr", "-z", *names, "--", relative).stdout.split(b"\0")
     attributes = {os.fsdecode(fields[index + 1]): os.fsdecode(fields[index + 2])
                   for index in range(0, len(fields) - 1, 3)}
     conflicts = {name: value for name, value in attributes.items()
@@ -191,14 +192,18 @@ def write_once(root, relative_path, raw, *, _created=None):
 
 
 def _first_blob(root: Path, relative: str, common):
-    if common is None:
+    """The bytes of the commit that first added this path; None outside Git, before the first commit or when
+    no commit holds it. A failing Git raises with its own message."""
+    if common is None or git_head(root) is None:
         return None
-    history = _git(root, "log", "--format=%H", "--diff-filter=A", "--reverse", "--", relative)
-    if history.returncode or not history.stdout.strip():
+    history = git_run(root, "log", "--format=%H", "--diff-filter=A", "--reverse", "--", relative).stdout.split()
+    if not history:
         return None
-    first = history.stdout.splitlines()[0].decode("ascii")
-    blob = _git(root, "show", f"{first}:./{relative}")
-    return blob.stdout if not blob.returncode else None
+    first = history[0].decode("ascii")
+    blob = git_blob(root, first, relative)
+    if blob is None:
+        raise MapError(f"git log names {first} as the commit that added {relative}, but that commit does not hold it")
+    return blob
 
 
 def integrity_problem(root, relative_path):
@@ -217,26 +222,23 @@ def integrity_problem(root, relative_path):
     if sha256_bytes(raw) != expected:
         return f"immutable file bytes changed: {relative}"
     if common is not None:
-        indexed = _git(root, "show", f":./{relative}")
-        if not indexed.returncode and sha256_bytes(indexed.stdout) != expected:
+        indexed = git_blob(root, ":", relative)
+        if indexed is not None and sha256_bytes(indexed) != expected:
             return f"immutable file index bytes changed: {relative}"
     return None
 
 
 def _named_paths(root: Path, *arguments):
-    result = _git(root, *arguments)
-    if result.returncode:
-        return set()
+    """Paths a Git listing names; a failing Git raises with its own message."""
+    result = git_run(root, *arguments)
     return {os.fsdecode(value).lstrip("\n") for value in result.stdout.split(b"\0") if value.strip(b"\n")}
 
 
 def _committed_digest(root: Path, relative: str, expected):
-    history = _git(root, "log", "--all", "--format=%H", "--", relative)
-    if history.returncode:
-        return False
-    for commit in history.stdout.splitlines():
-        blob = _git(root, "show", f"{commit.decode('ascii')}:./{relative}")
-        if not blob.returncode and sha256_bytes(blob.stdout) == expected:
+    history = git_run(root, "log", "--all", "--format=%H", "--", relative)
+    for commit in history.stdout.split():
+        blob = git_blob(root, commit.decode("ascii"), relative)  # None: the commit that deleted it
+        if blob is not None and sha256_bytes(blob) == expected:
             return True
     return False
 
@@ -251,11 +253,12 @@ def protected_paths(root, relative_dir) -> set[str]:
     snapshot = _release_records(root)
     if snapshot is not None:
         paths.update(name for name in snapshot['files'] if name.startswith(relative.rstrip('/') + '/'))
+    log = ("log", "--relative", "--format=", "--name-only", "--diff-filter=A", "-z")
     if common is not None:
         paths.update(_named_paths(root, "ls-files", "-z", "--", relative))
-        log = ("log", "--relative", "--format=", "--name-only", "--diff-filter=A", "-z")
-        current = _named_paths(root, *log, "--", relative)
-        paths.update(current)
+        if git_head(root) is not None:  # Before the first commit there is no history to list.
+            current = _named_paths(root, *log, "--", relative)
+            paths.update(current)
     for receipt_directory in _written_directories(root, common):
         for written in receipt_directory.iterdir() if receipt_directory.is_dir() else ():
             if not written.is_file():
@@ -318,8 +321,7 @@ def _diff_provenance(root, base, inputs, changed_paths):
         correction = relative == ".flowguard/skeleton.py" or Path(relative).name in {"world.py", "machine.py"}
         if not relative.endswith(".py") or relative.startswith(".flowguard/") and not correction:
             continue
-        previous = _git(root, "show", f"{commit}:./{relative}")
-        before = previous.stdout if not previous.returncode else b""
+        before = git_blob(root, commit, relative) or b""  # None: a file the change added
         path = root / relative
         after = path.read_bytes() if path.is_file() else b""
         try:
@@ -381,7 +383,6 @@ COMMIT_FILES = ("the code, .flowguard/models/, .flowguard/map.json, .flowguard/r
 
 def commit_advice(root, record):
     """The one next step after a promotion, from its stored file list; the commit message is the AI's own."""
-    import shlex
     if record["stage"] is None:
         return advice("check", project_command(root, "map", "check", "--strict"),
                       note="no Git worktree; preserve " + COMMIT_FILES)
@@ -491,8 +492,12 @@ def save_release_snapshot(root):
 
 def since_release(root, records, read_git_paths):
     """Derive the change records and retire records made since a reachable version tag."""
-    result = _git(root, 'describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', '--match', '[0-9]*')
-    tag = result.stdout.decode().strip() if result.returncode == 0 else None
+    patterns = ('v[0-9]*', '[0-9]*')
+    tag = None
+    if (git_common_directory(root) is not None and git_head(root) is not None
+            and git_run(root, 'tag', '--merged', 'HEAD', '--list', *patterns).stdout.strip()):
+        matches = [part for pattern in patterns for part in ('--match', pattern)]
+        tag = os.fsdecode(git_run(root, 'describe', '--tags', '--abbrev=0', *matches).stdout).strip()
     retired_dir = '.flowguard/requests/retired/'
     if not tag or not re.fullmatch(r'v?[0-9]+\.[0-9]+\.[0-9]+', tag):
         snapshot = _release_records(root)
@@ -528,23 +533,20 @@ def since_release(root, records, read_git_paths):
 
 def record_findings(root):
     """Fresh pair integrity; missing, orphaned and edited records remain errors."""
-    import shlex
-
     root = Path(root).resolve()
     findings = []
     unverified = []
     files = _record_files(root)
+    common = _common_directory(root)
     for identifier in _record_identifiers(files):
         try:
             _change_record(root, identifier, files)
         except Unverifiable:
             unverified.append(identifier)
         except (OSError, ValueError) as error:
-            restore = shlex.join(["git", "-C", str(root), "checkout", "--",
-                                  *sorted(path for path in files if Path(path).stem == identifier)])
+            restore = restore_advice(root, sorted(path for path in files if Path(path).stem == identifier), common)
             findings.append(Finding("error", "record_edited", identifier,
-                                    f"{root / CHANGE_DIR / identifier}: {error}; records are written once; "
-                                    f"restore the original record ({restore} when committed)"))
+                                    f"{root / CHANGE_DIR / identifier}: {error}; records are written once; {restore}"))
     if unverified:
         findings.append(Finding("info", "immutable_unverified", "",
                                 f"{len(unverified)} change record(s) not used here (first: {CHANGE_DIR / unverified[0]}): "

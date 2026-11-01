@@ -70,6 +70,19 @@ def git_head(root) -> str | None:
     return os.fsdecode(git_run(root, "rev-parse", "-q", "--verify", "HEAD", allowed=(0, 1)).stdout).strip() or None
 
 
+def git_blob(root, revision: str, relative: str) -> bytes | None:
+    """The raw bytes of `relative` at a commit, or in the index when revision is ":", in a known Git repository.
+
+    None only when that path is not there; a commit missing from this clone or a failing Git raises."""
+    if revision != ":" and git_run(root, "rev-parse", "-q", "--verify", revision + "^{commit}", allowed=(0, 1)).returncode:
+        raise MapError(f"commit {revision} is not in the Git repository at {root}")
+    name = f":./{relative}" if revision == ":" else f"{revision}:./{relative}"
+    found = git_run(root, "rev-parse", "-q", "--verify", name, allowed=(0, 1))  # exit 1: no such path there
+    if found.returncode:
+        return None
+    return git_run(root, "cat-file", "blob", os.fsdecode(found.stdout).strip()).stdout
+
+
 def atomic_write_text(path: Path, text: str) -> None:
     """Replace a disposable cache atomically, leaving no partial shared file."""
     path.parent.mkdir(parents=True, exist_ok=True)
