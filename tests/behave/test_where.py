@@ -10,20 +10,6 @@ import pytest
 from flowguard.behave import __main__ as entry
 
 
-def test_static_where_forms_do_not_import_program_or_write_cache(tmp_path, monkeypatch, capsys):
-    (tmp_path / "program.py").write_text(
-        'raise RuntimeError("the static view imported the application")\n'
-        'def helper(value): return value + 1\n'
-        'def main(value): return helper(value)\n')
-    (tmp_path / "README.md").write_text("The `main` function in `program.py` uses `helper`.\n")
-    monkeypatch.setattr(entry.sys, "version_info", (3, 11, 17))
-    for args in (("helper",), (), ("--flow",), ("--arch",), ("--text",), ("--keyflows",)):
-        assert entry.main(["where", *args, "--root", str(tmp_path), "--json"]) == 0
-        assert isinstance(json.loads(capsys.readouterr().out), dict)
-    assert not (tmp_path / ".flowguard").exists()
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["README.md", "program.py"]
-
-
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="recorded native test reach requires Python 3.12")
 def test_where_uses_real_recorded_test_calls_without_running_them_again(tmp_path, monkeypatch, capsys):
     from flowguard.behave import engine, project

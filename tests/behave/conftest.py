@@ -24,4 +24,5 @@ collect_ignore = [
     "test_proof.py",
     "test_skeleton.py",
     "test_testrec.py",
+    "test_where.py",
 ] if sys.version_info < (3, 12) else []

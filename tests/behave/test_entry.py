@@ -1,5 +1,6 @@
 """Exercise the standalone bootstrap without advertising future behavior."""
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +10,20 @@ import pytest
 from flowguard.behave import __main__ as entry
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_static_where_forms_do_not_import_program_or_write_cache(tmp_path, monkeypatch, capsys):
+    (tmp_path / "program.py").write_text(
+        'raise RuntimeError("the static view imported the application")\n'
+        'def helper(value): return value + 1\n'
+        'def main(value): return helper(value)\n')
+    (tmp_path / "README.md").write_text("The `main` function in `program.py` uses `helper`.\n")
+    monkeypatch.setattr(entry.sys, "version_info", (3, 11, 17))
+    for args in (("helper",), (), ("--flow",), ("--arch",), ("--text",), ("--keyflows",)):
+        assert entry.main(["where", *args, "--root", str(tmp_path), "--json"]) == 0
+        assert isinstance(json.loads(capsys.readouterr().out), dict)
+    assert not (tmp_path / ".flowguard").exists()
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["README.md", "program.py"]
 
 
 def test_help_lists_only_implemented_commands():
