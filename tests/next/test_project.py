@@ -183,7 +183,8 @@ MODEL = m
 
 
 def test_registry_and_engine_digest():
-    assert parts.kinds() == ["core"] and parts.kinds(full=True) == ["core"]
+    assert parts.kinds()[:1] == ["core"] and parts.kinds(full=True)[:1] == ["core"]   # other parts register later
+    assert set(parts.kinds()) <= set(parts.kinds(full=True))
     with pytest.raises(ValueError):
         parts.register("core", parts.core_part)
     code = "from flowguard._next.parts import ENGINE_DIGEST; print(ENGINE_DIGEST)"
