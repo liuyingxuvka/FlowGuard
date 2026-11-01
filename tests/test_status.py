@@ -122,8 +122,7 @@ def test_status_plan_rows_with_known_from(tmp_path, capsys):
     result = _status(root, capsys)
     assert result['plan'][1]['state'] == 'edited, not verified'
     assert 'shelf/loans.py:advance' in result['change']['edited_functions']
-    assert result['verdicts']['stored'] is False
-    assert '--root' in result['verdicts']['command']
+    assert result['verdicts'] == {'stored': False}
 
 
 def test_status_next_absolute_cwd_independent(tmp_path, capsys):
@@ -178,8 +177,8 @@ def test_status_lists_other_worktree_changes(tmp_path, capsys):
     result = _status(root, capsys)
     assert f'.flowguard/changes/{identifier}.json' in result['git']['uncommitted_paths']
     assert all(not path.startswith('project/') for path in result['git']['uncommitted_paths'])
-    assert identifier in result['next_note'] and 'your own message' in result['next_note']
-    assert '.msg' not in result['next']['command'] and 'commit -F' not in result['next']['command']
+    # A record without a stored file list gets a note, never a guessed staging command.
+    assert f'change {identifier} records no file list' in result['next_note'] and result['next'] is None
 
 
 def test_status_lists_commits_without_record(tmp_path, capsys):

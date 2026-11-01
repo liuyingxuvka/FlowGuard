@@ -9,7 +9,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .common import Finding, atomic_write_text, normalize_newlines, sha256_bytes
+from .common import Finding, advice, atomic_write_text, normalize_newlines, project_command, sha256_bytes
 from .mapfile import MapError
 
 
@@ -344,7 +344,7 @@ def _diff_provenance(root, base, inputs, changed_paths):
 
 
 def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, deleted, checked,
-                   changed_paths=None, plan=(), rules=()):
+                   changed_paths=None, plan=(), rules=(), stage=None):
     """Prepare a final immutable record and the exact checked post-promotion view; the commit message is the AI's own."""
     root = Path(root).resolve()
     prepare_directory(root, CHANGE_DIR, (".json",))
@@ -366,13 +366,29 @@ def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, dele
     implemented, corrections, provenance = _diff_provenance(root, base, inputs, changed_paths)
     record = dict(kind="change", goal=goal, requests=links, base=base.get("git"), tree=tree,
                   promoted=now.isoformat(), plan=list(plan), rules=list(rules), acceptances=[], existing_cleared=[],
-                  implemented_by=implemented, new_actions=[], corrections=corrections,
+                  implemented_by=implemented, new_actions=[], corrections=corrections, stage=stage,
                   checked=checked + " " + provenance +
                   " Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty.")
     raw = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     validate_new_files(root, (CHANGE_DIR / (identifier + ".json"),))
     return dict(id=identifier, record=record, json=raw, map_bytes=map_bytes,
                 guard_path=guard, guard_sha256=guard_hash)
+
+
+COMMIT_FILES = ("the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/, .flowguard/changes/ "
+                "and the deletion of .flowguard/target/")
+
+
+def commit_advice(root, record):
+    """The one next step after a promotion, from its stored file list; the commit message is the AI's own."""
+    import shlex
+    if record["stage"] is None:
+        return advice("check", project_command(root, "map", "check", "--strict"),
+                      note="no Git worktree; preserve " + COMMIT_FILES)
+    requests = ", ".join(link["id"] for link in record["requests"])
+    command = shlex.join(["git", "-C", str(Path(root).resolve()), "--literal-pathspecs", "add", "-A", "--", *record["stage"]])
+    return advice("commit", command, note="stage " + COMMIT_FILES + " together",
+                  then="then commit with your own message" + (f"; add the line 'Request: {requests}'" if requests else ""))
 
 
 def publish_change(root, prepared):

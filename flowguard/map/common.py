@@ -313,17 +313,21 @@ def project_command(root: Path, *arguments: str) -> str:
     return shlex.join(['python', '-m', 'flowguard', *arguments, '--root', str(Path(root).resolve())])
 
 
-def advice(identifier: str, command: str, *, note: str | None = None) -> dict[str, str]:
+def advice(identifier: str, command: str, *, note: str | None = None, then: str | None = None) -> dict[str, str]:
+    """One next step: a note read before it, the command that runs as printed, and the prose step after it."""
     if identifier not in ADVICE_IDS:
         raise ValueError(f"unknown advice id: {identifier}")
     item = {"id": identifier, "command": command}
     if note:
         item['note'] = note
+    if then:
+        item['then'] = then
     return item
 
 
-def render_advice(item: dict[str, str]) -> str:
-    return (f"note: {item['note']}\n" if item.get('note') else '') + f"next[{item['id']}]: {item['command']}"
+def render_advice(item: dict[str, str], prefix: str = '') -> str:
+    return ((f"note: {item['note']}\n" if item.get('note') else '') + f"{prefix}next[{item['id']}]: {item['command']}"
+            + (f"\n{item['then']}" if item.get('then') else ''))
 
 
 def finding_codes(findings: list[Finding], *, include_info: bool = False) -> list[dict[str, str]]:

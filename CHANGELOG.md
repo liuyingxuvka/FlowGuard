@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Every next step that `target promote` and `status` print now runs as printed: promote prints one staging command, stores its file list in the change record, and `status` repeats that same command until the change is committed; a record without a file list gets a note instead of a guessed command. If Git cannot list the files, promote stops before changing anything.
+- `status` no longer prints the `verdicts:` line, and prints `NEXT` only when a step is pending (an open target or a promoted change to commit).
 - A plain code change no longer has to edit the legacy map to pass `map check`, `map check --strict`, `release` or `change --run`: a file without an owner, a stale or draft description, an undeclared or unproven dependency, an unmodeled entrypoint and a legacy model edited in place are now information. Import cycles, layer violations, broken anchors, files with two owners and an edit that a target copy would overwrite stay errors.
 - Target promotion no longer writes a commit message file or prints a confirm step: it prints the staging command and asks you to commit with your own message. Notes you write as `#` lines in `PLAN.txt` are kept in the change record, and `req add` now points to `status` instead of starting a target.
 - The skill text, the adoption rules and the README teach only `status`, `req add`, `where`, the project's own tests and a commit in your own words with a `Request: R<n>` line; the map, models and target commands are marked as legacy until v1.0.0.

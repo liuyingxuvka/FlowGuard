@@ -11,7 +11,7 @@ from .common import advice, matches_any, read_source, render_advice
 from .inventory import list_files
 from .mapfile import ignore_patterns, load_map
 from .plan import PLAN_RELPATH, function_identities, static_plan_rows
-from .records import CHANGE_DIR, change_records, since_release
+from .records import CHANGE_DIR, change_records, commit_advice, since_release
 from .requests import other_worktrees, request_details
 from .targetfile import build_target_view, load_target
 
@@ -129,19 +129,21 @@ def collect_status(root, *, read_git_paths):
         others.append(dict(root=str(peer), goal=opened.goal, requests=opened.data.get('requests', []),
                            last_edit=datetime.fromtimestamp(edited, timezone.utc).isoformat(), plan_size=size,
                            known_from='current target files and their mtimes, static, now'))
-    command = shlex.join(['python', '-m', 'flowguard', 'target', 'check', '--root', str(root)])
-    note = None
+    # NEXT names a pending step only: an open target, or a promoted change still to commit.
+    next_step, note = None, None
     if target is not None:
-        next_step = advice('check', command)
+        next_step = advice('check', shlex.join(['python', '-m', 'flowguard', 'target', 'check', '--root', str(root)]))
     else:
         pending = set(git['uncommitted_paths'] or ())
-        unpublished = [identifier for identifier, _ in records if (CHANGE_DIR / (identifier + '.json')).as_posix() in pending]
-        next_step = advice('check', shlex.join(['python', '-m', 'flowguard', 'read', '--root', str(root)]))
-        if unpublished:
-            note = (f'change {unpublished[-1]} is promoted but not committed: stage the reviewed code, requests, '
-                    'change record and target deletions, then commit them with your own message.')
+        unpublished = [(identifier, record) for identifier, record in records
+                       if (CHANGE_DIR / (identifier + '.json')).as_posix() in pending]
+        if unpublished and isinstance(unpublished[-1][1].get('stage'), list):
+            next_step = commit_advice(root, unpublished[-1][1])
+        elif unpublished:
+            note = (f'change {unpublished[-1][0]} records no file list (promoted before FlowGuard 0.72.0 or outside Git): '
+                    'stage its files, then commit them with your own message.')
     return dict(root=str(root), scope='legacy static status; no exploration or stored verdicts', git=git,
-                change=change, plan=plan, verdicts=dict(stored=False, command=command), requests=requests,
+                change=change, plan=plan, verdicts=dict(stored=False), requests=requests,
                 since_release=history, other_changes=others, jobs='none in the legacy runtime',
                 next=next_step, next_note=note)
 
@@ -166,7 +168,6 @@ def render_status(result):
             lines.append('  added after code: unknown; static status stores no edit-order or completion verdict')
     else:
         lines.append('OPEN CHANGE none [current target directory, static, now]')
-    lines.append('verdicts: none stored; ' + result['verdicts']['command'])
     for item in result['requests']:
         context = item.get('stored_during')
         suffix = f"; stored during {context.get('goal', '')!r} (started {context.get('started') or 'unknown'})" if context else ''
@@ -185,5 +186,6 @@ def render_status(result):
                      f"{item['plan_size']} plan lines [{item['known_from']}]")
     if result['next_note']:
         lines.append(result['next_note'])
-    lines.append('NEXT ' + render_advice(result['next']))
+    if result['next']:
+        lines.append(render_advice(result['next'], prefix='NEXT '))
     return '\n'.join(lines)

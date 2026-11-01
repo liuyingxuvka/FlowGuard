@@ -645,39 +645,31 @@ def render_target_report(report: TargetReport, *, root: Path | None = None) -> s
 
 
 
-def _promotion_next(root, data, inputs, selected_tests, links):
-    """Print reviewed file operands; never stage them, infer code directories or write the commit message."""
-    import shlex
+def _staging_paths(root, data, inputs, selected_tests):
+    """Reviewed file operands for the promotion's commit; None only outside a Git worktree. Never stages."""
     from .impact_history import read_git_paths
     from .mapfile import ignore_patterns
 
-    files = "the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/, .flowguard/changes/ and the deletion of .flowguard/target/ together"
     worktree = _git(root, "rev-parse", "--is-inside-work-tree")
-    reason = "no Git worktree"
-    if worktree is not None and worktree.returncode == 0 and worktree.stdout.strip() == b"true":
-        try:
-            indexed = set(read_git_paths(root, "ls-files", "--cached", "-z", "--", "."))
-            args = ["diff", "--relative", "--no-renames", "--name-only", "-z"]
-            changed = set(read_git_paths(root, *args, *(["HEAD"] if _git_head(root) else []), "--", "."))
-            untracked = set(read_git_paths(root, "ls-files", "--others", "--exclude-standard", "-z", "--", "."))
-            patterns = [pattern for component in data["components"]
-                        for field in ("files", "tests") for pattern in component.get(field, [])]
-            owned_new = {path for path in untracked if path in inputs
-                         and (matches_any(path, patterns) or path in selected_tests)}
-            paths = sorted(path for path in (changed & indexed) | owned_new
-                           if not Path(path).is_absolute() and ".." not in Path(path).parts
-                           and not path.startswith(".flowguard/")
-                           and not matches_any(path, ignore_patterns(data)))
-            tracked_target = [".flowguard/target/"] if any(path.startswith(".flowguard/target/") for path in indexed) else []
-            argv = ["git", "-C", str(root), "--literal-pathspecs", "add", "-A", "--", ".flowguard", *tracked_target, *paths]
-            requests = ", ".join(link["id"] for link in links)
-            return ["note: stage " + files,
-                    advice('commit', shlex.join(argv)),
-                    "then commit with your own message" + (f"; add the line 'Request: {requests}'" if requests else "")]
-        except (OSError, subprocess.CalledProcessError):
-            reason = "Git staging paths unavailable"
-    return ["note: " + reason + "; preserve " + files,
-            advice("check", shlex.join(["python", "-m", "flowguard", "map", "check", "--strict", "--root", str(root)]))]
+    if worktree is None or worktree.returncode != 0 or worktree.stdout.strip() != b"true":
+        return None
+    try:
+        indexed = set(read_git_paths(root, "ls-files", "--cached", "-z", "--", "."))
+        args = ["diff", "--relative", "--no-renames", "--name-only", "-z"]
+        changed = set(read_git_paths(root, *args, *(["HEAD"] if _git_head(root) else []), "--", "."))
+        untracked = set(read_git_paths(root, "ls-files", "--others", "--exclude-standard", "-z", "--", "."))
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise MapError(f"cannot list the files to stage: {error}") from error
+    patterns = [pattern for component in data["components"]
+                for field in ("files", "tests") for pattern in component.get(field, [])]
+    owned_new = {path for path in untracked if path in inputs
+                 and (matches_any(path, patterns) or path in selected_tests)}
+    paths = sorted(path for path in (changed & indexed) | owned_new
+                   if not Path(path).is_absolute() and ".." not in Path(path).parts
+                   and not path.startswith(".flowguard/")
+                   and not matches_any(path, ignore_patterns(data)))
+    tracked_target = [".flowguard/target/"] if any(path.startswith(".flowguard/target/") for path in indexed) else []
+    return [".flowguard", *tracked_target, *paths]
 
 
 def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
@@ -773,7 +765,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
                 print("promote refused: " + "; ".join(problems))
             return 1
         selected_tests = set(impact.tests) | {node.split("::", 1)[0] for node in tested}
-        from .records import prepare_change, publish_change
+        from .records import commit_advice, prepare_change, publish_change
         from .plan import render_owner_block, record_evidence
         owner_block = render_owner_block(root, current, target, view, report.plan_items)
         plan_facts, rule_facts = record_evidence(root, current, target, view, report.plan_items)
@@ -786,10 +778,11 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
                 source_paths.update(set(read_git_paths(root, "ls-files", "--others", "--exclude-standard", "-z")) & set(inputs))
             except (OSError, subprocess.CalledProcessError):
                 source_paths = None
+        stage = _staging_paths(root, merged, inputs, selected_tests)
         prepared_record = prepare_change(
             root, goal=target.goal, links=target.data.get("requests", []), base=base,
             inputs=inputs, merged=merged, model_bytes=model_bytes, deleted=deleted,
-            changed_paths=source_paths, plan=plan_facts, rules=rule_facts,
+            changed_paths=source_paths, plan=plan_facts, rules=rule_facts, stage=stage,
             checked=("This promotion ran one fresh target check with bound tests and the remaining "
                      f"function-selected tests; {len(report.warnings)} warning(s) remained. "
                      "The tree identifies the checked post-promotion content, before later component confirmation."))
@@ -800,7 +793,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             else:
                 print("promote refused: checked inputs changed; run python -m flowguard target check")
             return 1
-        next_lines = _promotion_next(root, merged, inputs, selected_tests, target.data.get("requests", []))
+        next_step = commit_advice(root, prepared_record["record"])
         backup = root / TARGET_RELDIR / ".replaced"
         for rel in [".flowguard/map.json", *[".flowguard/models/" + name for name in model_bytes], *deleted]:
             source = root / rel
@@ -839,7 +832,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             summaries.append(label + " " + (" ".join(items) or "-"))
         publish_change(root, prepared_record)
         if as_json:
-            print_verdict("target promote", 0, _target_codes(report), next(line for line in next_lines if isinstance(line, dict)),
+            print_verdict("target promote", 0, _target_codes(report), next_step,
                           **({"owner_block": owner_block} if owner_block else {}))
         else:
             print(f'promoted "{target.goal}": ' + "; ".join(summaries))
@@ -850,8 +843,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             for link in target.data.get("requests", []):
                 state = "partial; remains open" if link["part"] else "done"
                 print(f"request {link['id']}: {state} (change {prepared_record['id']})")
-            for line in next_lines:
-                print(render_advice(line) if isinstance(line, dict) else line)
+            print(render_advice(next_step))
         return 0
     except OSError as exc:
         if applied:

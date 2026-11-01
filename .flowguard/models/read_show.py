@@ -159,8 +159,8 @@ def _request_facts():
         facts.append(Fact('static_resume_keeps_unclaimed_request',
                           status_code == 0 and any(row['id'] == 'R7' and row['state'].startswith('open since ')
                                                    for row in result.get('requests', []))
-                          and str(root.resolve()) in result.get('next', {}).get('command', '')
-                          and result.get('verdicts', {}).get('stored') is False,
+                          and result.get('next') is None
+                          and result.get('verdicts') == {'stored': False},
                           status_output.getvalue()))
         if stored == [0, 0]:
             body.write_bytes(raw + b'edited')
