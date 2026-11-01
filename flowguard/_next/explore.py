@@ -74,7 +74,8 @@ class Symmetry:
         cached = model.__dict__.get("_symmetry", False)
         if cached is not False:
             return cached
-        sym = Symmetry(model) if model.kinds else None
+        # in doubt (the scalarset rule could not judge a use of the ids): no reduction
+        sym = Symmetry(model) if model.kinds and not model.__dict__.get("_symmetry_doubt") else None
         if sym is not None and sym.n == 1:
             sym = None
         model.__dict__["_symmetry"] = sym

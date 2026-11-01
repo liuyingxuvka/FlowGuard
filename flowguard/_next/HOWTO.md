@@ -21,7 +21,7 @@ HEAD (`show MODEL`, `show C-...` or `--before REV` name it yourself).
 | `m = Model(name, covers=["pkg/mod.py:Class"], config="pkg.config:Config", note=...)` | the model; `covers` names the code it describes, `config` the code's settings object |
 | `m.setting("limit", source="R9")` | a setting read from the code (`getattr(Config, "limit")`); read it in actions as `S["limit"]` with `S = m.settings` |
 | `m.setting("limit", 2, source="R12")` | a setting the code does not have yet (only then give a value) |
-| `IDS = m.objects("tool", "T1", "T2")` | interchangeable ids (at most 4); a plain list when they are not interchangeable |
+| `IDS = m.objects("tool", "T1", "T2")` | interchangeable ids (at most 4); a plain list when they are not interchangeable. Never order them (`<`, `sorted`, `min`), name one, or read their text: ordering or naming one is a model error, and a use the check cannot judge turns the renaming off (said on the last line) |
 | `m.field(name, domain, init, over=IDS, source=, value_sources={"transit": "R10"}, note=)` | one field, or one per object (`s[name, t]`); small domains, counters clamped |
 | `@m.action(t=IDS, source="R4")` with `need(cond, "reason", source=)` | an action tried with every argument; `need` is the guard (it carries the action's source unless it names its own), assignments are the effect; `with s.source("R10"): ...` marks effects |
 | `m.option(name, offered, action=, source=, **params)` | a screen option: where it is offered, the action must work (same parameter names) |

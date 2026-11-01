@@ -1107,6 +1107,8 @@ class _Run:
             "model": self.mid, "name": model.name, "complete": g.complete, "states": len(g.states),
             "steps": g.steps, "max_states": self.bounds.max_states,
             "symmetry": list(g.sym.kinds) if g.sym is not None else [],
+            "symmetry_doubt": model.__dict__.get("_symmetry_doubt"),
+            "kinds": list(model.kinds),
             "settings": settings, "concurrency": concurrency(model),
             "ends": [[n, [repr(v) for v in vs], d] for n, vs, d in getattr(self, "terminal", [])],
             "world_can_end": bool(getattr(self, "world_can_end", False)),
@@ -1185,6 +1187,9 @@ def reach_line(reach: dict) -> str:
                 f"{', '.join(reach['unknown']) or 'nothing'}")
     if reach["symmetry"]:
         head += f" ({', '.join(k + 's' for k in reach['symmetry'])} explored up to renaming)"
+    elif reach.get("symmetry_doubt"):
+        head += (f" ({', '.join(k + 's' for k in reach['kinds'])} not explored up to renaming (in doubt: "
+                 f"{reach['symmetry_doubt']}); every renaming explored)")
     parts = [head]
     if reach["settings"]:
         shown = []
@@ -1212,7 +1217,9 @@ def verify_symmetry(loaded: Loaded, bounds: Bounds, reduced: Report, *, explain:
     fingerprints (explain= as in the reduced run). A difference is a model error; a capped
     unreduced run verifies nothing."""
     if reduced.graph.sym is None:
-        return {"verified": None, "text": "no interchangeable objects declared", "finding": None}
+        doubt = loaded.model.__dict__.get("_symmetry_doubt")
+        text = f"not reduced, so nothing to verify (in doubt: {doubt})" if doubt else "no interchangeable objects declared"
+        return {"verified": None, "text": text, "finding": None}
     plain = check_model(loaded, bounds, explain=explain, reduce=False)
     if not plain.graph.complete:
         return {"verified": None, "text": "symmetry not verified (unreduced search capped)", "finding": None}

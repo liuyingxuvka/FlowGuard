@@ -238,3 +238,62 @@ def test_symmetric_findings_are_the_same_under_every_hash_seed(project):
     lend = project.flow("lending", lending())
     runs = findings_under_seeds(project.root, lend)
     assert runs[0] == runs[1] == runs[2] and runs[0]
+
+
+MACHINES = '''
+from flowguard._next import Model, need
+m = Model("machines")
+MACHINES = m.objects("machine", "M1", "M2")
+m.field("state", ["idle", "busy"], "idle", over=MACHINES)
+m.field("holder", [None] + MACHINES, None)
+
+@m.action(t=MACHINES)
+def start(s, t):
+    need(all(s["state", x] == "idle" for x in MACHINES), "one at a time")
+    s["state", t], s["holder"] = "busy", t
+
+@m.action(t=MACHINES, u=MACHINES)
+def hand_over(s, t, u):
+    need(USE, "only to a later machine")
+    need(s["state", t] == "busy" and s["state", u] == "idle", "nothing to hand over")
+    s["state", t], s["state", u], s["holder"] = "idle", "busy", u
+EXTRA
+MODEL = m
+'''
+
+
+@pytest.mark.parametrize("use, extra, text", [
+    ("t < u", "", "compares machine ids by order"),
+    ("min(t, u) == t", "", "min(...) orders machine ids"),
+    ("s['holder'] is None or s['holder'] <= u", "", "compares machine ids by order"),
+    ("True", "m.always('first in line', lambda s: sorted(x for x in MACHINES if s['state', x] == 'busy') != ['M2'])",
+     "the literal 'M2' names one machine id"),
+    ("True", "m.reach('ordered', lambda s, x: s['holder'] is not None and s['holder'] > x, over=MACHINES)",
+     "compares machine ids by order"),
+])
+def test_ordering_interchangeable_ids_anywhere_is_a_model_error(project, use, extra, text):
+    """G3: the rule covers action parameters, rule and option parameters and field values
+    that hold ids, not only the names bound to m.objects (once a false "clean, complete")."""
+    project.flow("machines", MACHINES.replace("USE", use).replace("EXTRA", extra))
+    with pytest.raises(ModelError, match="treats machine ids asymmetrically") as err:
+        load_model(project.root / ".flowguard/flow/machines.py", project.root)
+    assert text in err.value.text
+
+
+def test_a_parameter_ordered_by_its_text_is_explored_without_renaming(project):
+    """G3: when the rule cannot tell that a use treats ids alike (here the id's text goes to
+    a function the model does not define), the model is explored without reduction, and the
+    reach line says so: in doubt, never a reduced (possibly false) clean."""
+    project.file("plant/rank.py", "def rank(machine):\n    return int(machine[1:])\n")
+    project.flow("machines", MACHINES.replace("USE", "rank(t) < 2").replace(
+        "from flowguard._next import Model, need", "from flowguard._next import Model, need\nfrom plant.rank import rank"
+    ).replace("EXTRA", ""))
+    loaded = load_model(project.root / ".flowguard/flow/machines.py", project.root)
+    report = check_model(loaded)
+    assert report.graph.sym is None and len(report.graph.states) == len(explore(loaded.model, reduce=False).states)
+    assert report.reach["symmetry_doubt"].startswith(".flowguard/flow/machines.py:")
+    assert "passes a machine id to rank()" in report.reach["symmetry_doubt"]
+    from flowguard._next.checks import reach_line
+    line = reach_line(report.reach)
+    assert "machines not explored up to renaming (in doubt:" in line and "every renaming explored" in line
+    assert any(f.kind == "STUCK" for f in report.findings)          # M2 is stuck busy: found, not reduced away
