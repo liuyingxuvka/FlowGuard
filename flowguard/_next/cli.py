@@ -15,8 +15,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib
-import importlib.util
 import json
 import shlex
 import sys
@@ -24,15 +22,14 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import jobs
+from . import diagram, jobs
 from .checks import CONFLICT, ERROR_CLS, WARNING, Finding
 from .explore import Bounds
 from .model import natural_key
 from .parts import ENGINE_DIGEST
-from .project import (FLOW_DIR, ProjectError, conflict_entry, find_root, model_files,
+from .project import (FLOW_DIR, PROG, ProjectError, conflict_entry, find_root, model_files,
                       overlap_views, read_conflicts, request_lines, resolve_models, write_conflicts)
 
-PROG = "python -m flowguard._next"
 EXIT_CLEAN, EXIT_CONFLICT, EXIT_ERROR, EXIT_UNKNOWN, EXIT_RUNNING = 0, 1, 2, 3, 4
 DEFAULT_WAIT = 90.0              # inside the AI's 120 s tool timeout
 DEFAULT_KEEP = 300.0
@@ -85,6 +82,7 @@ def parser(prog: str = PROG) -> argparse.ArgumentParser:
     show.add_argument("--group", metavar="FIELD")
     show.add_argument("--max-boxes", type=int, default=12)
     show.add_argument("--max-arrows", type=int, default=20)
+    show.add_argument("--max-states", type=_states, default=Bounds().max_states)
     show.add_argument("--wait", type=_seconds, default=DEFAULT_WAIT)
     show.add_argument("--keep", type=_seconds, default=DEFAULT_KEEP)
     show.add_argument("--json", action="store_true")
@@ -99,9 +97,10 @@ def main(argv=None, *, prog: str = PROG, out=None, err=None) -> int:
     try:
         args = parser(prog).parse_args(argv)
     except UsageError as e:
-        return _early(out, f"usage error: {e} (see {prog} --help)", EXIT_ERROR, "--json" in argv)
+        early = _show_early if argv[:1] == ["show"] else _early
+        return early(out, f"usage error: {e} (see {prog} --help)", EXIT_ERROR, "--json" in argv)
     if args.verb == "show":
-        return _show(args, out, err)
+        return show(args, argv, prog=prog, out=out, err=err)
     return check(args, argv, prog=prog, out=out, err=err)
 
 
@@ -118,18 +117,38 @@ def _early(out, line: str, code: int, as_json: bool) -> int:
     return code
 
 
-def _show(args, out, err) -> int:
-    """`show` draws through the `picture` part (diagram.py, Part B) under the same wait
-    contract: diagram.show_main(root, args, runner)."""
+def show(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
+    """`show` draws through the `picture` part (diagram.show_main) with the job runner, so
+    it keeps the wait contract of `check`: the parts it needs that are not finished
+    within --wait leave it RUNNING with the command that resumes."""
+    out = out or sys.stdout
+    err = err or sys.stderr
     try:
         root = find_root(Path(args.root) if args.root else Path.cwd())
     except ProjectError as e:
-        return _early(out, str(e), EXIT_ERROR, args.json)
-    if importlib.util.find_spec(f"{__package__}.diagram") is None:     # until Part B is merged in
-        return _early(out, "show is not in this build: diagram.py is not here yet", EXIT_ERROR, args.json)
-    diagram = importlib.import_module(f"{__package__}.diagram")
+        return _show_early(out, str(e), EXIT_ERROR, args.json)
     runner = jobs.Runner(root, wait=args.wait, keep=args.keep, progress=_Progress(err, "show"))
-    return diagram.show_main(root, args, runner)
+    try:
+        code, text = diagram.show_main(root, args, runner)
+    except jobs.Running as running:
+        resume = f"{prog} {shlex.join(argv)}"
+        return _show_early(out, running_line(running.outcome, resume), EXIT_RUNNING, args.json, resume=resume)
+    except jobs.Failed as e:
+        return _show_early(out, f"internal error: {e}", EXIT_ERROR, args.json)
+    out.write(text)
+    out.flush()
+    return code
+
+
+def _show_early(out, line: str, code: int, as_json: bool, resume: str | None = None) -> int:
+    """A show that draws nothing: usage, project, RUNNING, internal error."""
+    if as_json:
+        out.write(json.dumps({"exit": code, "message": line, "pictures": [], "more": [], "resume": resume},
+                             ensure_ascii=False, sort_keys=True) + "\n")
+    else:
+        out.write(line + "\n")
+    out.flush()
+    return code
 
 
 # ---------------------------------------------------------------------- progress (stderr)
@@ -266,13 +285,17 @@ def _undecided(result: Assembled, capped: list[str]) -> list[str]:
     return words + ([_plural(rules, "rule")] if rules else [])
 
 
+def running_line(o, resume: str) -> str:
+    """The first line of a call that returns before every part is done."""
+    done = [p.label for p, r in zip(o.planned, o.results) if r is not None]
+    line = f"RUNNING: {len(done)} of {len(o.planned)} parts done" + (f" ({', '.join(done)})" if done else "")
+    return line + _current_text(o.current, "; still ") + f"; resume with: {resume}"
+
+
 def verdict(result: Assembled, resume: str) -> tuple[str, int]:
     o = result.outcome
     if not o.finished:
-        done = [p.label for p, r in zip(o.planned, o.results) if r is not None]
-        line = f"RUNNING: {len(done)} of {len(o.planned)} parts done" + (f" ({', '.join(done)})" if done else "")
-        line += _current_text(o.current, "; still ")
-        return line + f"; resume with: {resume}", EXIT_RUNNING
+        return running_line(o, resume), EXIT_RUNNING
     n_new = len([f for f in result.conflicts if f.id in result.new])
     n_open = len(result.conflicts) - n_new
     capped = [m for m, v in result.models.items() if not v.complete]
@@ -332,12 +355,11 @@ def _explanation(f: Finding) -> str:
 
 
 def picture(result: Assembled, f: Finding) -> str | None:
-    """The picture written for a conflict (`<model>-<fingerprint>.svg` among its parts' writes)."""
-    name = f"{f.model}-{f.id[2:]}.svg"
-    for w in result.models[f.model].writes() if f.model in result.models else []:
-        if Path(w).name == name:
-            return w
-    return None
+    """The picture written for a conflict: `<model>-<fingerprint>.svg` among its parts'
+    writes, or its Mermaid text `.mmd` when the picture file could not be written."""
+    written = {Path(w).name: w for w in (result.models[f.model].writes() if f.model in result.models else [])}
+    stem = f"{f.model}-{f.id[2:]}"
+    return written.get(f"{stem}.svg") or written.get(f"{stem}.mmd")
 
 
 def _steps(n: int) -> str:
@@ -375,7 +397,8 @@ def full_block(root, result: Assembled, f: Finding) -> list[str]:
         lines.append(f"  note: {note}")
     pic = picture(result, f)
     if pic is not None:
-        lines.append(f"  picture: {pic}")
+        lines.append(f"  picture: {pic}" + (" (Mermaid text: the picture file was not written)"
+                                            if pic.endswith(".mmd") else ""))
     return lines
 
 

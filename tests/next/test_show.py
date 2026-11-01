@@ -69,8 +69,13 @@ def plain(text):
 
 
 def show(root, *argv):
-    code, out = diagram.show_main(Path(root), list(argv), diagram.inprocess_runner(Path(root)))
-    return code, out
+    """The show verb as `python -m flowguard._next show` parses it, run in process."""
+    from flowguard._next import cli
+    try:
+        args = cli.parser().parse_args(["show", *argv])
+    except cli.UsageError as e:
+        return 2, f"usage error: {e}\n"
+    return diagram.show_main(Path(root), args, diagram.inprocess_runner(Path(root)))
 
 
 def body(out):
@@ -268,15 +273,15 @@ def test_nothing_fits_lists_every_view_with_its_size_and_options(project):
     lines = choice.refusal_lines("dials")
     assert lines[0].startswith("dials: no picture drawn: every view is above the readable size of 12 boxes "
                                "and 20 arrows")
-    assert "  python -m flowguard show dials --fields *: the whole state space, 1000 boxes, 3000 arrows" in lines
-    assert "  python -m flowguard show dials --fields a: a alone, 10 boxes, 10 arrows" in lines
+    assert "  python -m flowguard._next show dials --fields *: the whole state space, 1000 boxes, 3000 arrows" in lines
+    assert "  python -m flowguard._next show dials --fields a: a alone, 10 boxes, 10 arrows" in lines
     code, out = show(project.root, "dials")
     assert code == 0 and out.splitlines()[0] == lines[0]
     code, out = show(project.root, "dials", "--fields", "a")
     assert code == 0 and ": fields a: 10 boxes, 10 arrows; folded: 1,000 states merged into 10 boxes" in out
     code, out = show(project.root, "dials", "--fields", "a,b")
     assert code == 0 and "this view has 100 boxes and 200 arrows" in out.splitlines()[0]
-    assert "  python -m flowguard show dials --fields a: a alone, 10 boxes, 10 arrows" in out.splitlines()
+    assert "  python -m flowguard._next show dials --fields a: a alone, 10 boxes, 10 arrows" in out.splitlines()
     code, out = show(project.root, "dials", "--fields", "a,b", "--max-boxes", "100", "--max-arrows", "200")
     assert code == 0 and ": fields a, b: 100 boxes, 200 arrows" in out.splitlines()[0]
 
@@ -322,7 +327,7 @@ def test_explicit_views_and_usage_errors(project):
     code, out = show(project.root, "C-000000000000")
     assert code == 2 and out.startswith("no conflict C-000000000000 now (conflicts: C-")
     code, out = show(project.root, "--bogus")
-    assert code == 2 and out.startswith("usage: python -m flowguard show")
+    assert code == 2 and out.startswith("usage error: unrecognized arguments: --bogus")
 
 
 def test_conflict_id_json_and_more_than_three(project):
@@ -334,7 +339,7 @@ def test_conflict_id_json_and_more_than_three(project):
     assert [p["subject"] for p in data["pictures"]][:1] and len(data["pictures"]) == 3
     kinds = [p["first_line"].split(":")[1].split()[0] for p in data["pictures"]]
     assert kinds == ["STUCK", "BROKEN", "CONTRADICTION"]                      # dead ends first
-    assert len(data["more"]) == 3 and all(m.startswith("python -m flowguard show C-") for m in data["more"])
+    assert len(data["more"]) == 3 and all(m.startswith("python -m flowguard._next show C-") for m in data["more"])
     fid = data["more"][0].split()[-1]
     code, out = show(project.root, fid)
     assert code == 0 and f"[{fid}]" in out.splitlines()[0]

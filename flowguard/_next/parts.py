@@ -3,6 +3,7 @@ options); its digest covers the engine, the options and every file the model's l
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import sys
 from dataclasses import dataclass, field
@@ -69,23 +70,42 @@ class PartContext:
     progress: Callable[[dict], None] = lambda info: None
 
 
-_REGISTRY: dict[str, tuple[Callable[[PartContext], PartResult], bool]] = {}
+_REGISTRY: dict[str, tuple[Callable[[PartContext], PartResult], str]] = {}
+PART_MODULES = ("routes", "mutate", "diagram")   # register their part kinds when imported (after core)
+_PLANNED, _FULL_ONLY, _ON_REQUEST = "check", "full", "request"
 
 
-def register(kind: str, fn: Callable[[PartContext], PartResult], *, full_only: bool = False) -> None:
+def register(kind: str, fn: Callable[[PartContext], PartResult], *, full_only: bool = False,
+             on_request: bool = False) -> None:
+    """A part kind: planned by every check, only by `check --full` (full_only), or never by a
+    check, only when a command asks for it by name (on_request: `show`'s pictures)."""
     if kind in _REGISTRY:
         raise ValueError(f"part kind {kind!r} is registered twice")
-    _REGISTRY[kind] = (fn, full_only)
+    _REGISTRY[kind] = (fn, _ON_REQUEST if on_request else _FULL_ONLY if full_only else _PLANNED)
+
+
+def _registry() -> dict:
+    """Every part kind: the part modules import this one, so it imports them on first use."""
+    for name in PART_MODULES:
+        importlib.import_module(f"{__package__}.{name}")
+    return _REGISTRY
+
+
+def _rank(kind: str) -> int:
+    """core first, then the part modules in PART_MODULES order (whatever imported first)."""
+    module = _REGISTRY[kind][0].__module__.rpartition(".")[2]
+    return PART_MODULES.index(module) + 1 if module in PART_MODULES else 0
 
 
 def kinds(full: bool = False) -> list[str]:
-    """The part kinds a plan runs for each model (full_only kinds only with --full)."""
-    return [k for k, (_, only_full) in _REGISTRY.items() if full or not only_full]
+    """The part kinds a check plans for each model (full_only kinds only with --full)."""
+    allowed = (_PLANNED, _FULL_ONLY) if full else (_PLANNED,)
+    return sorted((k for k, (_, when) in _registry().items() if when in allowed), key=_rank)
 
 
 def run_part(ctx: PartContext) -> PartResult:
     """Run one part in this process (the worker and the tests call this)."""
-    fn, _ = _REGISTRY[ctx.spec.kind]
+    fn, _ = _registry()[ctx.spec.kind]
     return fn(ctx)
 
 
@@ -128,8 +148,11 @@ def core_part(ctx: PartContext) -> PartResult:
         info["symmetry"] = {"verified": sym["verified"], "text": sym["text"]}
         if sym["finding"] is not None:
             findings.append(sym["finding"])
+    from .diagram import conflict_pictures              # diagram imports this module
+    pictures = conflict_pictures(report, root)          # <model>-<fingerprint>.mmd/.svg/.png per conflict
+    writes = sorted({w for _, _, files in pictures for w in files})
     return PartResult(spec.kind, spec.model, digest, report.graph.complete,
-                      [f.to_json() for f in findings], info, reads, [])
+                      [f.to_json() for f in findings], info, reads, writes)
 
 
 register("core", core_part)

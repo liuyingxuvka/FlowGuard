@@ -12,7 +12,6 @@ state is drawn as a state of its own, so the view of T1 is the picture of any to
 """
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import shutil
@@ -25,9 +24,10 @@ from pathlib import Path
 from .checks import CONFLICT, Finding, Report, check_model
 from .explore import Bounds, explore, show_step
 from .model import ModelError, load_model, show_key
-from .parts import PartContext, PartResult, PartSpec, part_digest, register, run_part
-from .project import (ProjectError, cache_dir, changed_models, export_at, model_files, new_and_open,
+from .parts import PartContext, PartResult, PartSpec, kinds, part_digest, register, run_part
+from .project import (PROG, ProjectError, cache_dir, changed_models, export_at, model_files, new_and_open,
                       read_conflicts, write_manifest)
+from .routes import route_checks
 
 MAX_BOXES = 12                 # a target the tool groups toward (proto12-modelcheck 4.3), never a pass mark
 MAX_ARROWS = 20
@@ -898,7 +898,7 @@ class Choice:
                f"(ask for a bigger one with --max-boxes N --max-arrows N). Views of this model:"]
         for view, nb, na in self.tried[(1 if req.explicit() else 0):]:
             opts = " ".join(view.options)
-            out.append(f"  python -m flowguard show {what} {opts}".rstrip() + f": {view.name}, {nb} boxes, {na} arrows")
+            out.append(f"  {PROG} show {what} {opts}".rstrip() + f": {view.name}, {nb} boxes, {na} arrows")
         return out
 
 
@@ -1165,6 +1165,14 @@ def picture_part(ctx: PartContext) -> PartResult:
     what = opt.get("what") or ""
     if what.startswith("C-"):
         subject = next((f for f in conflicts if f.id == what), None)
+        if subject is None:                           # a second route: the route checks name it
+            try:
+                _, _, routes = route_checks(ctx.path, root, bounds)
+            except ModelError as err:
+                line = f"{spec.model}: no picture: the route checks stop at a model error: {err}"
+                return PartResult(spec.kind, spec.model, part_digest(root, spec, reads), report.graph.complete, [],
+                                  {"first_line": line, "mermaid": "", "error": str(err)}, reads, [])
+            subject = next((f for f in routes.findings if f.cls == CONFLICT and f.id == what), None)
         if subject is None:
             line = f"{spec.model}: no picture: no conflict {what} in this model now"
             return PartResult(spec.kind, spec.model, part_digest(root, spec, reads), report.graph.complete, [],
@@ -1200,7 +1208,7 @@ def picture_part(ctx: PartContext) -> PartResult:
                       reads, writes)
 
 
-register("picture", picture_part)
+register("picture", picture_part, on_request=True)
 
 
 # ---------------------------------------------------------------------- show
@@ -1221,37 +1229,15 @@ def inprocess_runner(root: Path):
     return run
 
 
-def _parser():
-    p = argparse.ArgumentParser(prog="python -m flowguard show", add_help=False)
-    p.add_argument("what", nargs="?")
-    p.add_argument("--before")
-    p.add_argument("--fields")
-    p.add_argument("--object")
-    p.add_argument("--focus", type=int)
-    p.add_argument("--story", action="store_true")
-    p.add_argument("--group")
-    p.add_argument("--max-boxes", type=int, default=MAX_BOXES)
-    p.add_argument("--max-arrows", type=int, default=MAX_ARROWS)
-    p.add_argument("--max-states", type=int, default=Bounds().max_states)
-    p.add_argument("--wait", type=float)
-    p.add_argument("--json", action="store_true")
-    return p
-
-
 class _Usage(Exception):
     pass
 
 
-def show_main(root: Path, argv: list, runner) -> tuple[int, str]:
+def show_main(root: Path, a, runner) -> tuple[int, str]:
     """`show [WHAT] [--before REV] [view options]`: returns (exit code, stdout text).
-    runner(specs) -> PartResults runs the parts (in process, or the job system)."""
+    a: the parsed arguments of the show verb (cli.parser); runner(specs) -> PartResults
+    runs the parts (the job system, or in process)."""
     root = Path(root).resolve()
-    parser = _parser()
-    try:
-        a = parser.parse_args(argv)
-    except SystemExit:
-        return 2, ("usage: python -m flowguard show [WHAT] [--before REV] [--fields F,..] [--object O] "
-                   "[--focus K] [--story] [--group FIELD] [--max-boxes 12] [--max-arrows 20] [--json]\n")
     view_opts = (("fields", tuple(a.fields.split(",")) if a.fields else None), ("object", a.object),
                  ("focus", a.focus), ("story", a.story), ("group", a.group), ("max_boxes", a.max_boxes),
                  ("max_arrows", a.max_arrows), ("max_states", a.max_states))
@@ -1260,8 +1246,8 @@ def show_main(root: Path, argv: list, runner) -> tuple[int, str]:
     except (ProjectError, _Usage) as err:
         code, pictures, more, message = 2, [], [], str(err)
     if a.json:
-        return code, json.dumps({"exit": code, "message": message, "pictures": pictures, "more": more},
-                                ensure_ascii=False, sort_keys=True) + "\n"
+        return code, json.dumps({"exit": code, "message": message, "pictures": pictures, "more": more,
+                                 "resume": None}, ensure_ascii=False, sort_keys=True) + "\n"
     out = []
     if message:
         out.append(message)
@@ -1300,7 +1286,8 @@ def _plan_show(root, a, view_opts, runner):
             model, _, obj = what.partition(":")
             if model not in models:
                 raise _Usage(f"{model}: no such model (models: {', '.join(sorted(models))})")
-            subjects.append((model, "", before, obj or None))
+            found = _conflicts(root, runner, [model], a.max_states)
+            subjects.append((model, found[model][0].id if found[model] else "", before, obj or None))
     elif before is not None:
         subjects += [(m, "", before, None) for m in sorted(models)]
     else:
@@ -1338,7 +1325,7 @@ def _plan_show(root, a, view_opts, runner):
                 subjects.append((m, x, None, None))
     if len(subjects) > MAX_PICTURES:
         for m, x, b, _ in subjects[MAX_PICTURES:]:
-            more.append(f"python -m flowguard show {x or m}" + (f" --before {b[0]}" if b else ""))
+            more.append(f"{PROG} show {x or m}" + (f" --before {b[0]}" if b else ""))
         subjects = subjects[:MAX_PICTURES]
     specs = []
     for model, what, bef, obj in subjects:
@@ -1370,9 +1357,10 @@ def _has_head(root) -> bool:
 
 
 def _conflicts(root, runner, models, max_states) -> dict:
-    """model id -> its conflicts now (from the core parts)."""
-    specs = [PartSpec("core", m, (("max_states", max_states),)) for m in sorted(models)]
-    out = {}
+    """model id -> its conflicts now, in picture order: the parts `check` runs (core and
+    routes, the same parts, so a check before is a cache hit)."""
+    specs = [PartSpec(kind, m, (("max_states", max_states),)) for m in sorted(models) for kind in kinds()]
+    found = {m: [] for m in sorted(models)}
     for spec, res in zip(specs, runner(specs)):
-        out[spec.model] = order_conflicts(Finding.from_json(d) for d in res.findings if d["cls"] == CONFLICT)
-    return out
+        found[spec.model] += [Finding.from_json(d) for d in res.findings if d["cls"] == CONFLICT]
+    return {m: order_conflicts(fs) for m, fs in found.items()}

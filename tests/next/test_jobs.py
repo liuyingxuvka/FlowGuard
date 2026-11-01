@@ -55,9 +55,11 @@ def test_overlaps_from_recorded_facts_equal_overlaps_from_loaded_models(project)
 def test_full_plans_the_unreduced_verification_in_the_core_part(project):
     project.kit().flow_from(KIT / "workshop.py")
     path = project.root / ".flowguard/flow/workshop.py"
-    assert [dict(p.spec.options) for p in jobs.plan(project.root, [path])] == [{"max_states": 200_000}]
-    assert [dict(p.spec.options) for p in jobs.plan(project.root, [path], full=True)] == [
-        {"max_states": 200_000, "verify_symmetry": True}]
+    assert [(p.spec.kind, dict(p.spec.options)) for p in jobs.plan(project.root, [path])] == [
+        ("core", {"max_states": 200_000}), ("routes", {"max_states": 200_000})]
+    assert [(p.spec.kind, dict(p.spec.options)) for p in jobs.plan(project.root, [path], full=True)] == [
+        ("core", {"max_states": 200_000, "verify_symmetry": True}), ("routes", {"max_states": 200_000}),
+        ("mutate", {"max_states": 200_000})]
     result, _ = core(project, "workshop", full=True)
     assert result.info["symmetry"] == {"verified": True, "text": "symmetry verified (324 states unreduced)"}
 
@@ -65,7 +67,7 @@ def test_full_plans_the_unreduced_verification_in_the_core_part(project):
 def test_a_hit_needs_the_same_file_contents_and_every_written_file(project):
     project.kit().flow_from(KIT / "workshop.py")
     path = project.root / ".flowguard/flow/workshop.py"
-    [item] = jobs.plan(project.root, [path])
+    item, _ = jobs.plan(project.root, [path])                # core, routes
     assert jobs.lookup(project.root, item) is None          # no manifest yet
     result, _ = core(project, "workshop")
     jobs.store(project.root, result)

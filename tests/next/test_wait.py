@@ -84,7 +84,7 @@ def test_running_returns_inside_the_wait_and_the_resume_reuses_the_worker(projec
     project.flow("fast", FAST)
     first = run_check(project.root, "--wait", "1")
     assert first.seconds < 4 and first.code == 4
-    assert first.first == ("RUNNING: 1 of 2 parts done (fast); still exploring slow; "
+    assert first.first == ("RUNNING: 2 of 4 parts done (fast, fast routes); still exploring slow; "
                            "resume with: python -m flowguard._next check --wait 1")
     assert "fast: complete, 2 states" in first.lines
     assert not (project.root / ".flowguard/conflicts.json").exists()     # RUNNING never writes it
@@ -95,18 +95,19 @@ def test_running_returns_inside_the_wait_and_the_resume_reuses_the_worker(projec
     again = run_check(project.root, "--wait", "1", "--json")
     assert again.seconds < 4 and again.code == 4
     data = again.data
-    assert data["verdict"].startswith("RUNNING: 1 of 2 parts done (fast)")
+    assert data["verdict"].startswith("RUNNING: 2 of 4 parts done (fast, fast routes)")
     assert data["resume"] == "python -m flowguard._next check --wait 1 --json"
     assert data["running"]["worker"] == pid
-    assert [p["cached"] for p in data["parts"]] == [True, False]       # plan order: fast, slow
+    assert [p["cached"] for p in data["parts"]] == [True, True, False, False]   # fast core, routes; slow
 
     done = run_check(project.root, "--wait", "30", "--json")
     assert done.code == 0, done.out
     data = done.data
     assert data["verdict"] == "clean, complete" and data["resume"] is None
-    parts = {p["model"]: p for p in data["parts"]}
-    assert parts["fast"]["cached"] is True
-    assert parts["slow"]["cached"] is False and parts["slow"]["worker"] == pid      # the same worker
+    parts = {(p["model"], p["kind"]): p for p in data["parts"]}
+    assert parts["fast", "core"]["cached"] is True and parts["fast", "routes"]["cached"] is True
+    assert parts["slow", "core"]["cached"] is False and parts["slow", "core"]["worker"] == pid   # the same worker
+    assert parts["slow", "routes"]["worker"] == pid
     assert (project.root / ".flowguard/conflicts.json").is_file()
     assert wait_until(lambda: gone(pid), 5) is not None                # it ends by itself when done
     assert read(run / "status.json")["state"] == "done"
@@ -117,8 +118,8 @@ def test_running_returns_inside_the_wait_and_the_resume_reuses_the_worker(projec
 def test_progress_goes_to_stderr_after_two_seconds(project):
     slow(project, steps=40, delay=0.15)
     run = run_check(project.root, "--wait", "3")
-    assert run.code == 4 and run.first.startswith("RUNNING: 0 of 1 parts done; still exploring slow")
-    assert run.err.splitlines() == ["check: 0 of 1 parts done; exploring slow"]
+    assert run.code == 4 and run.first.startswith("RUNNING: 0 of 2 parts done; still exploring slow")
+    assert run.err.splitlines() == ["check: 0 of 2 parts done; exploring slow"]
     assert run.seconds < 6
 
 
@@ -137,8 +138,9 @@ def test_the_caller_never_runs_model_code(project, tmp_path):
     finally:
         del os.environ["FG_TEST_PIDS"]
     loaders = {int(x) for x in pids.read_text().split()}
-    [part] = json.loads(out)["parts"]
-    assert loaders == {part["worker"]} and caller.pid not in loaders
+    parts = json.loads(out)["parts"]                     # core and routes, both by the one worker
+    assert [p["kind"] for p in parts] == ["core", "routes"]
+    assert loaders == {p["worker"] for p in parts} and caller.pid not in loaders
 
 
 # ---------------------------------------------------------------------- nobody waits: the worker stops

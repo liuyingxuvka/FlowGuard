@@ -14,6 +14,7 @@ from .checks import WARNING, Finding, make_finding
 from .model import Loaded, natural_key
 
 FLOW_DIR = Path(".flowguard") / "flow"
+PROG = "python -m flowguard._next"      # the command every printed next step uses (until the move-in, design 7.6)
 REQUESTS_DIR = Path(".flowguard") / "requests"
 CONFLICTS = Path(".flowguard") / "conflicts.json"
 

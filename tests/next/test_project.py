@@ -139,7 +139,10 @@ def test_the_core_part_runs_the_checks(project):
     assert result.complete and result.kind == "core"
     assert [f["kind"] for f in result.findings][:1] == ["STUCK"]
     assert result.info["reach_line"].startswith("workshop_naive: complete, 171 states")
-    assert "counter/config.py" in result.reads and result.writes == []
+    assert "counter/config.py" in result.reads
+    conflicts = [f["id"][2:] for f in result.findings if f["cls"] == "conflict"]
+    assert {w.rsplit("/", 1)[1].split(".")[0] for w in result.writes} == {f"workshop_naive-{c}" for c in conflicts}
+    assert all((project.root / w).is_file() for w in result.writes)            # its pictures (design 6.4)
     assert result.digest == part_digest(project.root, spec, result.reads)
     assert PartResult.from_json(json.loads(json.dumps(result.to_json()))) == result
 
@@ -183,9 +186,10 @@ MODEL = m
 
 
 def test_registry_and_engine_digest():
-    # core first; other part modules (routes, mutate, picture) register themselves when imported
-    assert parts.kinds()[0] == "core" == parts.kinds(full=True)[0]
-    assert set(parts.kinds()) <= set(parts.kinds(full=True))
+    # every part module is registered, whatever was imported first; show's pictures are never planned by a check
+    assert parts.kinds() == ["core", "routes"]
+    assert parts.kinds(full=True) == ["core", "routes", "mutate"]
+    assert "picture" in parts._registry()
     with pytest.raises(ValueError):
         parts.register("core", parts.core_part)
     code = "from flowguard._next.parts import ENGINE_DIGEST; print(ENGINE_DIGEST)"

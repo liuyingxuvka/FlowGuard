@@ -38,7 +38,7 @@ from typing import Callable
 
 from .explore import Bounds
 from .parts import ENGINE_DIGEST, PartResult, PartSpec, kinds, part_digest
-from .project import _atomic_write, cache_dir, file_digest, read_manifest, write_manifest
+from .project import FLOW_DIR, _atomic_write, cache_dir, file_digest, read_manifest, write_manifest
 
 LEASE_BEAT = 1.0                 # a waiting resume caller renews the lease this often
 LEASE_SPAN = 3.0                 # ... for this long
@@ -460,15 +460,36 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
     return out
 
 
+class Running(Exception):
+    """The parts a `show` asked for did not all finish within its wait (it returns RUNNING;
+    the worker keeps its lease)."""
+
+    def __init__(self, outcome: Outcome):
+        super().__init__("running")
+        self.outcome = outcome
+
+
+class Failed(Exception):
+    """The worker of a `show` failed (an internal error, with where its log is)."""
+
+
 class Runner:
     """What `show` (diagram.show_main) calls to get part results under the same wait
-    contract as `check`: runner(planned) -> Outcome."""
+    contract as `check`: runner(specs) -> one PartResult per spec. One deadline covers
+    every call of one show; a call that does not finish by then raises Running."""
 
     def __init__(self, root, *, wait: float, keep: float, progress=None):
         self.root = Path(root).resolve()
-        self.wait = wait
+        self.deadline = time.monotonic() + wait
         self.keep = keep
         self.progress = progress
 
-    def __call__(self, planned: list[Planned]) -> Outcome:
-        return run(self.root, planned, wait=self.wait, keep=self.keep, progress=self.progress)
+    def __call__(self, specs: list[PartSpec]) -> list[PartResult]:
+        planned = [Planned(spec, (FLOW_DIR / f"{spec.model}.py").as_posix()) for spec in specs]
+        outcome = run(self.root, planned, wait=max(0.0, self.deadline - time.monotonic()), keep=self.keep,
+                      progress=self.progress)
+        if outcome.failure is not None:
+            raise Failed(outcome.failure)
+        if not outcome.finished:
+            raise Running(outcome)
+        return outcome.results

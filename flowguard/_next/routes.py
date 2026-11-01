@@ -26,12 +26,12 @@ import itertools
 import os
 import sys
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from .checks import CONFLICT, ERROR_CLS, WARNING, make_finding, merge, setting_variations
+from .checks import CONFLICT, ERROR_CLS, WARNING, check_model, make_finding, merge, setting_variations
 from .explore import BOUND, ERROR, Bounds, Graph, explore, show_step, show_tuple
-from .model import Model, ModelError, Refused, State, load_model, natural_key, show_key
+from .model import Loaded, Model, ModelError, Refused, State, load_model, natural_key, show_key
 from .parts import PartContext, PartResult, part_digest, register
 
 _PKG = __name__.rpartition(".")[0]
@@ -470,8 +470,11 @@ class _Judge:
         return tuple(show_step(st) for st in self.g.path(i, to=to)), show_tuple(self.g, self.G.state(i, q))
 
     def add(self, kind, cls, subject, text, *, calls=(), sources=(), path=(), state="", detail=None, line=None):
+        detail = dict(detail or {})
+        if cls == CONFLICT:                       # the actions whose arrows its picture draws red
+            detail.setdefault("actions", sorted({self.name[c] for c in calls}))
         self.findings.append(make_finding(kind, cls, self.mid, subject, text, objects=self.objects(calls),
-                                          sources=sources, path=path, state=state, detail=detail or {},
+                                          sources=sources, path=path, state=state, detail=detail,
                                           line=line))
 
     # ------------------------------------------------------------------ run
@@ -572,7 +575,8 @@ class _Judge:
             self.add("SUBSUMED ACTION", CONFLICT, self.name[c], text, calls=[c],
                      sources=self.sources([c]) | self.sources(others),
                      detail={"call": self.label[c], "changes": total,
-                             "covered_by": [[self.label[o], k] for o, k in others.most_common()], "report": [text]},
+                             "covered_by": [[self.label[o], k] for o, k in others.most_common()], "report": [text],
+                             "actions": sorted({self.name[c]} | {self.name[o] for o in others})},
                      line=self.calls[c].action.line)
         self.info["partial_overlaps"] = [
             {"call": self.label[c], "shared": k, "of": tot, "with": [self.label[o] for o, _ in oth.most_common(2)]}
@@ -864,26 +868,42 @@ def model_error_result(spec, root, err: ModelError, reads) -> PartResult:
                       {"loaded": False}, sorted(reads), [])
 
 
-def routes_part(ctx: PartContext) -> PartResult:
-    """Load the model with its ifs wrapped, explore it, run the route checks."""
-    root, spec = Path(ctx.root), ctx.spec
-    max_states = spec.option("max_states", Bounds().max_states)
-    force = ForceIfs(ctx.path)
+def route_checks(path: Path, root: Path, bounds: Bounds, progress=None) -> tuple[Loaded, Graph, RouteReport]:
+    """Load the model with its ifs wrapped, explore it, run the route checks (raises
+    ModelError, with .reads, when the model does not load or a call fails)."""
+    force = ForceIfs(path)
+    loaded = load_model(path, root, transform=force)
+    graph = explore(loaded.model, bounds, progress=progress)
     try:
-        loaded = load_model(ctx.path, root, transform=force)
+        return loaded, graph, check_routes(loaded.model, graph, force.ifs)
+    except ModelError as err:
+        err.reads = tuple(loaded.reads)
+        raise
+
+
+def routes_part(ctx: PartContext) -> PartResult:
+    """The route checks of one model, and the picture of each route conflict (drawn on
+    the core view of the same model, design 6.2)."""
+    root, spec = Path(ctx.root), ctx.spec
+    bounds = Bounds(spec.option("max_states", Bounds().max_states))
+    try:
+        loaded, graph, report = route_checks(ctx.path, root, bounds,
+                                             lambda d: ctx.progress({"model": spec.model, "kind": spec.kind, **d}))
     except ModelError as err:
         return model_error_result(spec, root, err, err.reads)
-    graph = explore(loaded.model, Bounds(max_states),
-                    progress=lambda d: ctx.progress({"model": spec.model, "kind": spec.kind, **d}))
-    try:
-        report = check_routes(loaded.model, graph, force.ifs)
-    except ModelError as err:
-        return model_error_result(spec, root, err, loaded.reads)
     info = {"loaded": True, "complete": report.complete, "unknown": list(report.unknown),
             "declared_routes": report.declared, "measured": report.info, "states": len(graph.states)}
     reads = list(loaded.reads)
-    return PartResult(spec.kind, spec.model, part_digest(root, spec, reads), report.complete,
-                      [f.to_json() for f in report.findings], info, reads, [])
+    digest = part_digest(root, spec, reads)
+    conflicts = [f for f in report.findings if f.cls == CONFLICT]
+    writes = []
+    if conflicts:
+        from .diagram import conflict_pictures          # diagram imports the part registry, as this module does
+        core = check_model(loaded, bounds, explain=False)
+        pictures = conflict_pictures(replace(core, findings=conflicts), root)
+        writes = sorted({w for _, _, files in pictures for w in files})
+    return PartResult(spec.kind, spec.model, digest, report.complete,
+                      [f.to_json() for f in report.findings], info, reads, writes)
 
 
 register("routes", routes_part)

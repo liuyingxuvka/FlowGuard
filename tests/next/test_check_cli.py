@@ -12,6 +12,7 @@ from checkrun import Run, run_check
 from conftest import DATA
 
 KIT = DATA / "kit"
+RENDERER = shutil.which("node") is not None       # pictures are drawn by Mermaid in headless Chromium
 JSON_KEYS = ["verdict", "exit", "complete", "conflicts", "warnings", "errors", "unknown", "models", "parts",
              "declared_routes", "resume", "running"]
 
@@ -131,7 +132,9 @@ def test_clean_complete_with_the_reach_line(project):
     project.kit().flow_from(KIT / "workshop.py")
     run = timed(project.root)
     assert run.code == 0
-    assert run.lines == ["clean, complete",
+    assert run.lines == ["clean, complete; 1 model warning",       # the routes part: a guard the rule makes dead
+                         'model warning workshop: line 45: need(s["branch", t] == "main", "repairs only at main", '
+                         'source="R10")  (checked, never refuses)',
                          "workshop: complete, 171 states (tools explored up to renaming); settings "
                          "maintain_every=4 (counter/config.py: Config.maintain_every)"]
     saved = json.loads((project.root / ".flowguard/conflicts.json").read_text())
@@ -203,7 +206,7 @@ def test_a_capped_model_is_unknown_never_clean(project):
     run = timed(project.root, "--max-states", "1000")
     assert run.code == 3
     assert run.first == ("no conflict found; UNKNOWN: counters capped at 1,000 states "
-                         "(STUCK, NEVER REACHED, 2 rules undecided)")
+                         "(STUCK, NEVER REACHED, routes, 2 rules undecided)")
     data = timed(project.root, "--max-states", "1000", "--json").data
     for text in (run.out, json.dumps(data)):
         assert "clean" not in text.lower() and "holds" not in text.lower()
@@ -228,11 +231,18 @@ def test_json_is_one_line_with_the_contract_keys(project):
     assert data["verdict"] == "6 new conflicts; complete" and data["exit"] == 1 and data["complete"]
     assert len(data["conflicts"]) == 6 and all(c["new"] for c in data["conflicts"])
     assert data["conflicts"][0]["requests"][0] == ["R4", "# Request 4: renting tools"]
-    assert data["conflicts"][0]["picture"] is None
-    assert len(data["warnings"]) == 2 and data["errors"] == [] and data["unknown"] == []
+    pictures = [c["picture"] for c in data["conflicts"]]
+    assert all(p == f".flowguard/cache/flow/pictures/workshop_naive-{c['id'][2:]}.{'svg' if RENDERER else 'mmd'}"
+               for p, c in zip(pictures, data["conflicts"]))
+    assert all((project.root / p).is_file() for p in pictures)
+    assert [(w["model"], w["kind"]) for w in data["warnings"]] == [
+        ("dial", "NEVER REACHED"), ("dial", "NEVER REACHED"),
+        ("workshop_naive", "SAME-RESULT BRANCH"), ("workshop_naive", "NEVER TAKEN")]
+    assert data["errors"] == [] and data["unknown"] == []
     assert data["models"]["dial"]["reach"] == "dial: complete, 3 states"
     assert [(p["kind"], p["model"], p["cached"]) for p in data["parts"]] == [
-        ("core", "dial", False), ("core", "workshop_naive", False)]
+        ("core", "dial", False), ("routes", "dial", False), ("core", "workshop_naive", False),
+        ("routes", "workshop_naive", False)]
     assert data["resume"] is None and data["running"] is None and data["declared_routes"] == []
     again = timed(project.root, "--json").data
     assert all(p["cached"] for p in again["parts"]) and not any(c["new"] for c in again["conflicts"])
@@ -275,7 +285,7 @@ def test_overlapping_views_warn_from_recorded_facts(project):
     project.kit().flow_from(KIT / "workshop.py")
     project.flow("maintenance", (KIT / "workshop.py").read_text().replace('Model("workshop"', 'Model("maint"'))
     run = timed(project.root)
-    assert run.code == 0 and run.first == "clean, complete; 6 model warnings"
+    assert run.code == 0 and run.first == "clean, complete; 8 model warnings"
     assert ("model warning maintenance: field 'branch' is also declared by workshop; overlapping views of "
             "counter/core.py (one owner per field)") in run.lines
 
@@ -360,15 +370,44 @@ def test_nothing_comes_before_the_verdict(project, args):
     assert run.err == ""
 
 
-def test_show_is_handed_to_the_diagram_part(project):
-    """`show` parses the options of design 6.3 and hands them to diagram.show_main with a
-    job runner; until diagram.py is merged in it says so on one line."""
+def test_show_runs_its_parts_in_the_worker_under_the_wait_contract(project):
+    """`show` takes the options of design 6.3 and draws through the job system: the caller
+    runs no model code, a check before makes its conflicts a cache hit, and a part not
+    finished within --wait leaves it RUNNING with the command that resumes."""
     import subprocess
+    import time
     from checkrun import command, env
     from flowguard._next import cli
     args = cli.parser().parse_args(["show", "workshop:T1", "--before", "HEAD", "--focus", "2", "--story"])
-    assert (args.what, args.before, args.focus, args.story, args.max_boxes, args.max_arrows, args.wait) == (
-        "workshop:T1", "HEAD", 2, True, 12, 20, 90.0)
-    res = subprocess.run(command("show"), cwd=project.root, capture_output=True, text=True, env=env(), timeout=60)
-    assert (res.returncode, res.stdout) == (2, "show is not in this build: diagram.py is not here yet\n")
+    assert (args.what, args.before, args.focus, args.story, args.max_boxes, args.max_arrows, args.wait,
+            args.max_states) == ("workshop:T1", "HEAD", 2, True, 12, 20, 90.0, 200_000)
 
+    def show(*argv):
+        start = time.monotonic()
+        res = subprocess.run(command("show", *argv), cwd=project.root, capture_output=True, text=True, env=env(),
+                             timeout=60)
+        return res, time.monotonic() - start
+
+    project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    assert timed(project.root).code == 1                          # check first: show reuses its parts
+    res, _ = show()
+    assert res.returncode == 0, res.stdout + res.stderr
+    first = res.stdout.splitlines()[0]
+    assert first.startswith("rental: STUCK branch[*] = 'library'") and "6 boxes, 9 arrows" in first
+    assert "flowchart LR" in res.stdout and res.stderr == ""
+
+    project.flow("slow", 'import time\nfrom flowguard._next import Model, need\nm = Model("slow")\n'
+                         'm.field("n", range(0, 8), 0)\n\n@m.action()\ndef tick(s):\n    time.sleep(0.4)\n'
+                         '    need(s["n"] < 7, "at the end")\n    s["n"] += 1\n\n@m.action()\ndef reset(s):\n'
+                         '    need(s["n"] == 7, "not at the end")\n    s["n"] = 0\nMODEL = m\n')
+    res, seconds = show("slow", "--wait", "1")
+    assert res.returncode == 4 and seconds < 4
+    assert res.stdout.startswith("RUNNING: ") and res.stdout.count("\n") == 1
+    assert res.stdout.rstrip().endswith("; resume with: python -m flowguard._next show slow --wait 1")
+    res, _ = show("slow", "--wait", "1", "--json")
+    data = json.loads(res.stdout)
+    assert data["exit"] == 4 and data["resume"] == "python -m flowguard._next show slow --wait 1 --json"
+    res, _ = show("slow", "--wait", "40")
+    assert res.returncode == 0 and res.stdout.startswith("slow: ") and "flowchart LR" in res.stdout
+    res, _ = show("nosuch", "--json")
+    assert res.returncode == 2 and json.loads(res.stdout)["message"] == "nosuch: no such model (models: rental, slow)"
