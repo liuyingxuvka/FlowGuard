@@ -737,6 +737,23 @@ def _element(form):
     return {"kindrecs": "record", "kindvals": None}.get(form, "scalar")
 
 
+def _target_names(target) -> list[str]:
+    """The names an assignment target binds."""
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, ast.Starred):
+        return _target_names(target.value)
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return [n for x in target.elts for n in _target_names(x)]
+    return []
+
+
+def _spread(form):
+    """The form of a display that spreads a collection of this form (`[*IDS]`): its items in
+    the order of the ids."""
+    return {"kindrecs": "kindrecs", "kindvals": "kindvals"}.get(form, "kindlist")
+
+
 class _IdUses:
     """Where interchangeable ids flow in a model file and its helpers, beyond the names
     bound to m.objects: action, option and rule parameters whose domain holds ids (a kind,
@@ -763,6 +780,7 @@ class _IdUses:
                     fam.setdefault(f.family, set()).add(("unordered" if isinstance(v, frozenset) else "sequence",
                                                          kind))
         self.families = {f: sorted(v)[0] for f, v in fam.items()}    # family -> (form, kind)
+        self.over = {f.family: f.kind for f in model.fields if f.kind}  # family -> kind of the ids it is over
         self.actions = {}                          # action name -> {param: (form, kind)}
         self.params = {}                           # id(function node) -> {param: (form, kind)}
         self.returns = {}                          # helper name -> (form, kind) of what it returns
@@ -813,7 +831,7 @@ class _IdUses:
                             for alias in node.names:
                                 if alias.name in theirs:
                                     env[alias.asname or alias.name] = theirs[alias.name]
-            self.bind(body, env)
+            self.bind(body, env, keep=set(env))
         return env
 
     def declarations(self):
@@ -907,11 +925,19 @@ class _IdUses:
             form = _element(inner[0])
             return (form, inner[1]) if form is not None else None
         if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+            for e in node.elts:                    # [*IDS]: the ids in the order they are spread
+                inner = self.shape(e.value, env) if isinstance(e, ast.Starred) else None
+                if inner is not None and inner[0] in _BY_KIND:
+                    if isinstance(node, ast.Set):
+                        return ("unordered", inner[1])
+                    return (_spread(inner[0]), inner[1])
             for e in node.elts:
                 sh = self.shape(e, env)
                 if sh is not None:
                     return ({ast.Tuple: "record", ast.List: "sequence", ast.Set: "unordered"}[type(node)], sh[1])
             return None
+        if isinstance(node, ast.NamedExpr):
+            return self.shape(node.value, env)
         if isinstance(node, ast.Starred):
             return self.shape(node.value, env)
         if isinstance(node, ast.Dict):
@@ -948,7 +974,11 @@ class _IdUses:
             func = node.func
             if isinstance(func, ast.Name):
                 if func.id in ("tuple", "list", "reversed", "iter", "sorted") and node.args:
-                    return self.shape(node.args[0], env)
+                    inner = self.shape(node.args[0], env)
+                    return ("kindlist", inner[1]) if inner is not None and inner[0] == "table" else inner
+                if func.id == "sum" and node.args:         # sum of lists: their items, in the order of the ids
+                    inner = self.shape(node.args[0], env)
+                    return ("kindlist", inner[1]) if inner is not None and inner[0] == "kindrecs" else None
                 if func.id in ("set", "frozenset") and node.args:
                     sh = self.shape(node.args[0], env)
                     if sh is None:
@@ -969,11 +999,15 @@ class _IdUses:
         return None
 
     def comprehension_locals(self, node, env):
+        """The names a comprehension binds, over the enclosing ones (its targets shadow them;
+        a target over a value the rule cannot follow holds nothing it follows)."""
         env = dict(env)
         for gen in node.generators:
             sh = self.shape(gen.iter, env)
-            if sh is not None and sh[0] in _COLLECTIONS:
-                self.bind_target(gen.target, (_element(sh[0]), sh[1]) if _element(sh[0]) else None, env)
+            el = (_element(sh[0]), sh[1]) if sh is not None and sh[0] in _COLLECTIONS and _element(sh[0]) else None
+            for name in _target_names(gen.target):
+                env.pop(name, None)
+            self.bind_target(gen.target, el, env)
         return env
 
     def bind_target(self, target, sh, env):
@@ -988,37 +1022,104 @@ class _IdUses:
             return any([self.bind_target(t, ("scalar", sh[1]), env) for t in target.elts])
         return False
 
-    def bind(self, body, env):
-        """Names a block assigns from expressions that hold ids (to a fixpoint)."""
-        changed = True
-        while changed:
-            changed = False
-            for stmt in body:
-                for node in ast.walk(stmt):
-                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
-                        continue
-                    if isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension)):
-                        sh = self.shape(node.iter, env)
-                        if sh is not None and sh[0] in _COLLECTIONS and _element(sh[0]) is not None:
-                            changed |= self.bind_target(node.target, (_element(sh[0]), sh[1]), env)
-                    elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
-                        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                        if node.value is None:
-                            continue
-                        for t in targets:
-                            if isinstance(t, (ast.Tuple, ast.List)) and isinstance(node.value, (ast.Tuple, ast.List)):
-                                for a, b in zip(t.elts, node.value.elts):
-                                    changed |= self.bind_target(a, self.shape(b, env), env)
-                            else:
-                                changed |= self.bind_target(t, self.shape(node.value, env), env)
+    def sites(self, body):
+        """(target, value, kind) for every binding a block makes in its own scope: kind "value"
+        (an assignment; value None when the rule cannot know it: +=, with, except, import),
+        "iter" (a loop over value). Nested functions, lambdas, classes and comprehensions
+        have their own names (a walrus in a comprehension is judged where it stands)."""
+        out = []
+        stack = list(body)
+        while stack:
+            node = stack.pop()
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                out.append((ast.Name(id=node.name, ctx=ast.Store()), None, "value"))
+                stack.extend(node.decorator_list)
+                continue
+            if isinstance(node, (ast.Lambda, ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+                continue
+            if isinstance(node, (ast.For, ast.AsyncFor)):
+                out.append((node.target, node.iter, "iter"))
+            elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)) and node.value is not None:
+                if _is_objects_call(node.value):
+                    continue                       # TOOLS = m.objects(...): the kind itself (self.kinds)
+                for target in (node.targets if isinstance(node, ast.Assign) else [node.target]):
+                    if isinstance(target, (ast.Tuple, ast.List)) and isinstance(node.value, (ast.Tuple, ast.List)) \
+                            and len(target.elts) == len(node.value.elts) \
+                            and not any(isinstance(x, ast.Starred) for x in target.elts + node.value.elts):
+                        out += [(x, y, "value") for x, y in zip(target.elts, node.value.elts)]
+                    else:
+                        out.append((target, node.value, "value"))
+            elif isinstance(node, ast.AugAssign):
+                out.append((node.target, None, "value"))
+            elif isinstance(node, (ast.With, ast.AsyncWith)):
+                out += [(item.optional_vars, None, "value") for item in node.items if item.optional_vars is not None]
+            elif isinstance(node, ast.ExceptHandler) and node.name:
+                out.append((ast.Name(id=node.name, ctx=ast.Store()), None, "value"))
+            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                out += [(ast.Name(id=(a.asname or a.name).split(".")[0], ctx=ast.Store()), None, "value")
+                        for a in node.names]
+            stack.extend(ast.iter_child_nodes(node))
+        return out
+
+    def bind(self, body, env, keep=()):
+        """The names a block binds in its own scope, to a fixpoint. A name holds what every
+        binding of it holds (a constant such as None adds nothing); one binding the rule
+        cannot follow (text made into an id, a value from code it does not read) and the name
+        holds nothing it follows, so its uses as an id are judged in doubt. keep: names whose
+        entry in env is one of their bindings (the parameters, the names imported from a
+        helper); every other name the block binds is the block's own."""
+        sites = self.sites(body)
+        own = {n for target, _, _ in sites for n in _target_names(target)}
+        start = {n: env[n] for n in own if n in keep and n in env}
+        for n in own:
+            env.pop(n, None)
+        env.update(start)
+        for _ in range(12):
+            seen = {n: ([start[n]] if n in start else []) for n in own}
+            for target, value, kind in sites:
+                if kind == "iter":
+                    sh = self.shape(value, env)
+                    el = ((_element(sh[0]), sh[1]) if sh is not None and sh[0] in _COLLECTIONS and _element(sh[0])
+                          else None)
+                    self._collect(target, el, seen, constant=False)
+                else:
+                    constant = isinstance(value, ast.Constant)
+                    self._collect(target, None if value is None else self.shape(value, env), seen, constant)
+            new = {}
+            for n, shapes in seen.items():
+                if shapes and all(s is not None and s == shapes[0] for s in shapes):
+                    new[n] = shapes[0]
+                elif shapes:
+                    new[n] = None                  # bound to something the rule does not follow
+            if all(env.get(n, "absent") == new.get(n, "absent") for n in own):
+                break
+            for n in own:
+                env.pop(n, None)
+            env.update(new)
+
+    @staticmethod
+    def _collect(target, sh, seen, constant):
+        """The shape a binding gives each name of its target (constants add nothing)."""
+        if isinstance(target, ast.Name):
+            if not constant:
+                seen.setdefault(target.id, []).append(sh)
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            part = ("scalar", sh[1]) if sh is not None else None     # unpacking: each part may be an id
+            for x in target.elts:
+                _IdUses._collect(x.value if isinstance(x, ast.Starred) else x, part, seen, constant)
+        elif isinstance(target, ast.Starred):
+            _IdUses._collect(target.value, sh, seen, constant)
 
     def scope_env(self, path, fn):
         up = self.enclosing.get(id(fn))
         env = dict(self.scope_env(path, up)) if up is not None else dict(self.module_env(path))
-        for name in [a.arg for a in fn.args.args]:
+        args = fn.args
+        names = [a.arg for a in args.posonlyargs + args.args + args.kwonlyargs] + \
+                [a.arg for a in (args.vararg, args.kwarg) if a is not None]
+        for name in names:
             env.pop(name, None)                    # a parameter shadows an outer name
         env.update(self.params.get(id(fn), {}))
-        self.bind(fn.body if isinstance(fn.body, list) else [fn.body], env)
+        self.bind(fn.body if isinstance(fn.body, list) else [fn.body], env, keep=set(names))
         return env
 
     # -------------------------------------------------------------- uses
@@ -1104,6 +1205,20 @@ class _IdUses:
         holds ids (an id made from text): both can tell the ids apart unseen."""
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _DYNAMIC:
             self.doubts.append((path, node.lineno, f"runs code the rule cannot follow ({node.func.id}())"))
+        if isinstance(node, ast.Assign) and not isinstance(node.value, (ast.Tuple, ast.List)):
+            sh = self.shape(node.value, env)
+            if sh is not None and sh[0] in _BY_KIND and any(isinstance(x, (ast.Tuple, ast.List)) for x in node.targets):
+                self.violations.append((path, node.lineno, f"unpacking {sh[1]} ids gives each name the id of one "
+                                                           f"place in the declared order", sh[1]))
+        if isinstance(node, (ast.For, ast.AsyncFor)) and isinstance(node.target, (ast.Tuple, ast.List)):
+            sh = self.shape(node.iter, env)
+            if sh is not None and sh[0] in _COLLECTIONS and _element(sh[0]) == "scalar":
+                self.doubts.append((path, node.lineno, f"unpacks the text of a {sh[1]} id"))
+        if isinstance(node, ast.NamedExpr) and self.in_comprehension(node):
+            sh = self.shape(node.value, env)
+            if sh is not None:
+                self.violations.append((path, node.lineno, f"':=' inside a comprehension over {sh[1]} ids keeps "
+                                                           f"the id of one place in the declared order", sh[1]))
         pairs = []
         if isinstance(node, ast.Assign):
             for target in node.targets:
@@ -1123,6 +1238,14 @@ class _IdUses:
             if family in self.families and (value is None or not self.followed(value, env)):
                 self.doubts.append((path, node.lineno, f"writes a value the rule cannot follow into {family!r}, "
                                                        f"which holds {self.families[family][1]} ids"))
+
+    def in_comprehension(self, node):
+        up = self.parents.get(id(node))
+        while up is not None and not isinstance(up, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.Module)):
+            if isinstance(up, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+                return True
+            up = self.parents.get(id(up))
+        return False
 
     def function_of(self, node):
         up = self.parents.get(id(node))
@@ -1150,7 +1273,11 @@ class _IdUses:
         bad = lambda text: self.violations.append((path, line, text, kind))  # noqa: E731
         doubt = lambda text: self.doubts.append((path, line, text))         # noqa: E731
         if form == "state":
-            self.judge_state(e, p, doubt)
+            self.judge_state(e, p, doubt, env)
+            return
+        if isinstance(e, ast.Starred) and form in _BY_KIND - {"unordered"} and isinstance(p, ast.Call) \
+                and isinstance(p.func, ast.Name) and p.func.id in self.functions:
+            bad(f"*... spreads {kind} ids into parameters by their place in the declared order")
             return
         if p is None or isinstance(p, (ast.Expr, ast.Assign, ast.AnnAssign, ast.NamedExpr, ast.Return,
                                        ast.BoolOp, ast.Assert, ast.If, ast.While, ast.Lambda, ast.Await)):
@@ -1178,7 +1305,10 @@ class _IdUses:
                 if isinstance(op, _ORDER_OPS):
                     bad(f"compares {kind} ids by order")
                 elif isinstance(op, (ast.In, ast.NotIn)):
-                    if e is a and form in ("scalar", "record") and not self.followed(other, env):
+                    if e is a and form in ("scalar", "record") and isinstance(other, ast.Constant) \
+                            and isinstance(other.value, str):
+                        doubt(f"looks for the text of a {kind} id in a text")
+                    elif e is a and form in ("scalar", "record") and not self.followed(other, env):
                         doubt(f"looks a {kind} id up in a value the rule cannot follow")
                 elif form in _BY_KIND - {"unordered", "table"}:
                     doubt(f"compares a list in the declared order of the {kind} ids")
@@ -1187,7 +1317,9 @@ class _IdUses:
             return
         if isinstance(p, ast.Subscript):
             if p.value is e:
-                if form == "scalar":
+                if form == "table" and not isinstance(p.slice, ast.Slice) and not self.followed(p.slice, env):
+                    doubt(f"looks a table of {kind} ids up at a key the rule cannot follow")
+                elif form == "scalar":
                     doubt(f"uses the text of a {kind} id ([...])")
                 elif form in _BY_KIND - {"table"} and not isinstance(p.slice, ast.Slice):
                     bad(f"[...] picks one {kind} id by its place in the declared order")
@@ -1229,11 +1361,25 @@ class _IdUses:
             return
         doubt(f"uses a {kind} id in a way the rule cannot judge ({type(p).__name__})")
 
-    def judge_state(self, e, p, doubt):
+    def judge_state(self, e, p, doubt, env):
         """The model state may be read and written by key, mark its effects (s.source) and go to
         a helper of the model; anything else (its keys, values, length, iteration) can tell
-        the objects apart by their declared order."""
+        the objects apart by their declared order. A key must name its field and, for a field
+        over interchangeable ids, take each id from a value the rule follows: an id made from
+        text, read from the model's declarations or from code the rule does not read could be
+        any one of them."""
         if isinstance(p, ast.Subscript) and p.value is e:
+            if not self.state_access(p):
+                doubt("reads or writes the model state at a key the rule cannot follow")
+                return
+            key = p.slice
+            family = (key.elts[0] if isinstance(key, ast.Tuple) else key).value
+            kind = self.over.get(family)
+            parts = key.elts[1:] if isinstance(key, ast.Tuple) else []
+            for part in parts if kind is not None else []:
+                sh = self.shape(part, env)
+                if (sh is None or sh[0] != "scalar") and not isinstance(part, ast.Constant):
+                    doubt(f"reads or writes {family!r} at a {kind} id the rule cannot follow")
             return
         if isinstance(p, ast.Attribute) and p.value is e and p.attr == "source":
             return

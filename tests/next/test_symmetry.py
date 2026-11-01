@@ -391,3 +391,75 @@ def test_a_function_nothing_runs_is_not_judged(project):
     project.flow("tools", SCALARSET.format(init='"shop"', extra='def unused(s, t, u):\n    return t == u'))
     loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
     assert loaded.model.__dict__.get("_symmetry_doubt") is None and check_model(loaded).graph.sym is not None
+
+
+PERM = '''
+from flowguard._next import Model, need
+IMPORTS
+m = Model("permits")
+TOOLS = m.objects("tool", "T1", "T2")
+m.field("perm", ["no", "yes"], "no", over=TOOLS)
+m.field("done", [False, True], False, over=TOOLS)
+PRELUDE
+
+@m.action()
+def grant(s):
+    need(all(s["perm", u] == "no" for u in TOOLS), "granted")
+    GRANT
+
+@m.action(t=TOOLS)
+def finish(s, t):
+    need(s["perm", t] == "yes", "no permit")
+    need(not s["done", t], "done")
+    s["done", t] = True
+MODEL = m
+'''
+
+
+@pytest.mark.parametrize("imports, prelude, grant", [
+    ("", "", 's["perm", "T" + "1"] = "yes"'),
+    ("", "", 's["perm", f"T{1}"] = "yes"'),
+    ("", "", 's["perm", "t1".upper()] = "yes"'),
+    ("", "", 's["perm", "".join(["T", "1"])] = "yes"'),
+    ("", "", 's["perm", chr(84) + "1"] = "yes"'),
+    ("", "", 's["perm", m.kinds["tool"][0]] = "yes"'),
+    ("", "", 's["perm", [f.obj for f in m.fields if f.obj][0]] = "yes"'),
+    ("", "", 'for u in m.kinds["tool"]:\n        s["perm", u] = "yes"\n        break'),
+    ("", "PERM = {u: 0 for u in TOOLS}", 's["perm", list(PERM)[0]] = "yes"'),
+    ("", "PERM = {u: 0 for u in TOOLS}", 's["perm", tuple(PERM)[0]] = "yes"'),
+    ("", "PERM = {u: 0 for u in TOOLS}", 's["perm", [*PERM][0]] = "yes"'),
+    ("", "ORDER = [u for u in TOOLS]", 's["perm", [*ORDER][0]] = "yes"'),
+    ("", "FIRST, SECOND = list(TOOLS)", 's["perm", FIRST] = "yes"'),
+    ("", "[FIRST, SECOND] = TOOLS", 's["perm", FIRST] = "yes"'),
+    ("", "", 's["perm", (X := list(TOOLS))[0]] = "yes"'),
+    ("", "", 'any((F := u) for u in TOOLS)\n    s["perm", F] = "yes"'),
+    ("", "", 's["perm", sum([[u] for u in TOOLS], [])[0]] = "yes"'),
+    ("", "def pick(a, b):\n    return a", 's["perm", pick(*TOOLS)] = "yes"'),
+    ("", "KEY = ('perm', 'T' + '1')", 's[KEY] = "yes"'),
+    ("", "PERM = {u: u for u in TOOLS}\nFAV = 'T' + '1'", 's["perm", PERM[FAV]] = "yes"'),
+    ("from counter.ids import MAIN_TOOL", "", 's["perm", MAIN_TOOL] = "yes"'),
+    ("from fav import FAV", "", 's["perm", FAV] = "yes"'),
+    ("", "", 'need(False, "never")\n\n@m.action(t=TOOLS)\ndef pass_(s, t):\n    need(t in "xT1", "not in the text")\n'
+             '    s["perm", t] = "yes"'),
+])
+def test_ids_made_from_text_or_untracked_sources_are_never_reduced(project, imports, prelude, grant):
+    """G3 round 2: grant() gives a permit to one tool only, so unreduced the other tool is
+    stuck; with the renaming on, each of these once gave "clean, complete". An id made from
+    text, read from the model's declarations or from project code, picked by unpacking or
+    from a copy (list() of a table, a starred display, sum(), a spread into parameters, a
+    walrus in a comprehension), or found in the text of a constant is a model error or turns
+    the renaming off; never a reduced (false) clean."""
+    project.file("counter/__init__.py", "")
+    project.file("counter/ids.py", 'MAIN_TOOL = "T1"\n')
+    project.file("fav.py", 'FAV = "T1"\n')
+    project.flow("permits", PERM.replace("IMPORTS", imports).replace("PRELUDE", prelude).replace("GRANT", grant))
+    path = project.root / ".flowguard/flow/permits.py"
+    try:
+        loaded = load_model(path, project.root)
+    except ModelError as err:
+        assert "treats tool ids asymmetrically" in err.text, err.text
+        return
+    report = check_model(loaded)
+    assert report.graph.sym is None, "reduced although an id may be told apart"
+    assert loaded.model.__dict__.get("_symmetry_doubt"), "no doubt recorded"
+    assert any(f.kind == "STUCK" for f in report.findings), [f.kind for f in report.findings]

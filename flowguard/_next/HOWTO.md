@@ -31,7 +31,8 @@ with no conflict draws its latest change, one object's fields at a time).
 | `m.second_route(a, b, source="R11", why=...)` | the only way to keep a second route to the same result; `source=` must be a stored request (`.flowguard/requests/R11.md`), and `check` prints the kept pair |
 
 Ids are used only symmetrically: in `over=`, action parameters, `[None] + IDS`, loops and comprehensions
-over them. Picking one by its place (`IDS[0]`, `list(IDS)[0]`, a loop that breaks) or `"T1"` is a model error.
+over them. Picking one by its place (`IDS[0]`, unpacking, a loop that breaks) or `"T1"` is a model error; an id
+made from text or taken from elsewhere (`m.kinds`, project code) turns the renaming off (said on the last line).
 
 ## A small example (not your application): `.flowguard/flow/parcels.py`
 
@@ -114,10 +115,9 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
   another refuses and makes the same change, perhaps writing a field nothing reads besides).
   Keep one route, or declare the second with `m.second_route`.
 - **Model warnings** (never conflicts): other field values never reached, usually a domain
-  wider than the design needs; settings not read from the code although the model covers code;
-  a fallback
-  on the status field only, an `if` whose two branches end the same, lines no call runs, a guard
-  that never refuses; with `--full`, each break of the model that no check catches.
+  wider than the design needs; settings not read from the code although the model covers code; a
+  fallback on the status field only, an `if` whose two branches end the same, lines no call runs, a
+  guard that never refuses; with `--full`, each break of the model that no check catches.
 - **Model errors**: the model itself failed (an exception, a value outside its domain, a write
   to an unknown field, a declaration mistake). Fix these first.
 - **UNKNOWN**: the search hit its state bound ("capped"), a model error cut it short (no STUCK or
