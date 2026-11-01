@@ -444,7 +444,7 @@ class Scene:
         finally:
             model.settings[name] = cur
         if not g.complete:
-            self.extra_caption.append(f"the variant {text} is capped at {self.bounds.max_states:,} states")
+            self.extra_caption.append(f"the variant {text} is {g.unfinished()}")
         return Space(g)
 
     def _change(self, ch: Change):
@@ -865,7 +865,7 @@ class Scene:
         if constant:
             caption.append("in every box: " + ", ".join(f"{k}={_show(v)}" for k, v in constant.items()))
         if not self.report.graph.complete:
-            caption.append(f"CAPPED at {self.report.graph.max_states:,} states: only the explored part")
+            caption.append(f"{self.report.graph.unfinished(loud=True)}: only the explored part")
         n_shown = len(order)
         folded = []
         if view.kind == "focus":
@@ -885,7 +885,7 @@ class Scene:
             folded.append("steps that change only undrawn fields")
         if folded_args:
             folded.append("arguments on arrows")
-        capped = (f"CAPPED at {self.report.graph.max_states:,} states: only the explored part"
+        capped = (f"{self.report.graph.unfinished(loud=True)}: only the explored part"
                   if not self.report.graph.complete else "")
         unseen = (old_boxes is not None and not any(b.style in ("added", "removed") for b in boxes)
                   and not any(a.style in ("green", "grey") for a in out_arrows))
@@ -1203,7 +1203,7 @@ def before_change(root: Path, path: Path, rev: str, commit: str, reads, bounds: 
         g = explore(loaded.model, bounds)
     ch = Change(rev, Space(g))
     if not g.complete:
-        ch.note = f"the model at {rev} is capped at {bounds.max_states:,} states"
+        ch.note = f"the model at {rev} is {g.unfinished()}"
     return ch
 
 
@@ -1338,9 +1338,12 @@ def _plan_show(root, a, view_opts, runner):
     if a.what:
         what = a.what
         if what.startswith("C-"):
-            found = _conflicts(root, runner, list(models), a.max_states)
+            found, unfinished = _conflicts(root, runner, list(models), a.max_states)
             hit = [(m, f) for m, fs in found.items() for f in fs if f.id == what]
             if not hit:
+                kept = _kept_open(root, models, found, unfinished, only=what)
+                if kept:                                  # proven, but this search does not reach it
+                    return 3, [], [], "\n".join(kept)
                 raise _Usage(f"no conflict {what} now (conflicts: "
                              + (", ".join(f.id for fs in found.values() for f in fs) or "none") + ")")
             subjects.append((hit[0][0], what, before, None))
@@ -1348,7 +1351,7 @@ def _plan_show(root, a, view_opts, runner):
             model, _, obj = what.partition(":")
             if model not in models:
                 raise _Usage(f"{model}: no such model (models: {', '.join(sorted(models))})")
-            found = _conflicts(root, runner, [model], a.max_states)
+            found, _ = _conflicts(root, runner, [model], a.max_states)
             if found[model]:
                 subjects.append((model, found[model][0].id, before, obj or None))
             else:                                         # no conflict: the fields its latest change touched
@@ -1356,7 +1359,9 @@ def _plan_show(root, a, view_opts, runner):
     elif before is not None:
         subjects += [(m, "", before, None) for m in sorted(models)]
     else:
-        found = _conflicts(root, runner, list(models), a.max_states)
+        found, unfinished = _conflicts(root, runner, list(models), a.max_states)
+        kept = _kept_open(root, models, found, unfinished)
+        message = "\n".join(kept)
         previous = read_conflicts(root)
         try:
             changed = [p.stem for p in changed_models(root)]
@@ -1377,6 +1382,8 @@ def _plan_show(root, a, view_opts, runner):
                 if head is not None:
                     ordered = [(m, ("HEAD", head)) for m in changed]
                     break
+        if not ordered and kept:                          # nothing drawn here; the proven ones are listed
+            return 3, [], [], message
         if not ordered:
             if not git:
                 raise _Usage("nothing under discussion: no conflict, and the change cannot be computed without git; "
@@ -1448,11 +1455,38 @@ def _has_head(root) -> bool:
         return False
 
 
-def _conflicts(root, runner, models, max_states) -> dict:
-    """model id -> its conflicts now, in picture order: the parts `check` runs (core and
-    routes, the same parts, so a check before is a cache hit)."""
+def _conflicts(root, runner, models, max_states) -> tuple[dict, dict]:
+    """(model id -> its conflicts now, in picture order; model id -> why its search is not
+    complete, for the models whose is not): the parts `check` runs (core and routes, the same
+    parts, so a check before is a cache hit)."""
     specs = [PartSpec(kind, m, (("max_states", max_states),)) for m in sorted(models) for kind in kinds()]
     found = {m: [] for m in sorted(models)}
+    unfinished = {}
     for spec, res in zip(specs, runner(specs)):
         found[spec.model] += [Finding.from_json(d) for d in res.findings if d["cls"] == CONFLICT]
-    return {m: order_conflicts(fs) for m, fs in found.items()}
+        if spec.kind == "core" and not res.complete:
+            reach = res.info.get("reach") if res.info.get("loaded") else None
+            unfinished[spec.model] = ("the model does not load" if reach is None
+                                      else f"this show's search is cut short by {_plural(reach['cut'], 'model error')}"
+                                      if reach.get("cut") else f"this show's search is capped at {max_states:,} states")
+    return {m: order_conflicts(fs) for m, fs in found.items()}, unfinished
+
+
+def _kept_open(root, models, found, unfinished, only=None) -> list[str]:
+    """One line per conflict conflicts.json keeps open that this show's search did not find
+    because it is not complete (capped, cut short, or the model does not load): it stays
+    open (design M6), so show says so instead of drawing nothing or calling it gone."""
+    out = []
+    seen = {f.id for fs in found.values() for f in fs}
+    for c in (read_conflicts(root) or {}).get("conflicts", []):
+        if c["id"] in seen or (only is not None and c["id"] != only):
+            continue
+        if c["model"] not in models:
+            why = f"its model file .flowguard/flow/{c['model']}.py is gone"
+        elif c["model"] in unfinished:
+            why = f"{unfinished[c['model']]} and does not reach it"
+        else:
+            continue                                      # a complete search no longer finds it: it is gone
+        out.append(f"open, not drawn: {c['id']} {c['kind']} {c['model']}: {c['text']} (proven by an earlier "
+                   f"complete check; {why})")
+    return out

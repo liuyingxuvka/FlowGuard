@@ -330,6 +330,26 @@ def test_explicit_views_and_usage_errors(project):
     assert code == 2 and out.startswith("usage error: unrecognized arguments: --bogus")
 
 
+def test_a_capped_show_never_presents_a_proven_conflict_as_absent(project):
+    """G1 round 2 (show): a conflict a complete check stored is open; a show whose search is
+    capped below it once printed "no conflict C-... now" (exit 2). It says the conflict is
+    open, why it is not drawn, and exits 3 (UNKNOWN); the default show lists it too."""
+    from checkrun import run_check
+    project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    assert run_check(project.root).code == 1
+    [entry] = json.loads((project.root / ".flowguard/conflicts.json").read_text())["conflicts"]
+    cid = entry["id"]
+    code, out = show(project.root, cid, "--max-states", "3")
+    assert code == 3 and "no conflict" not in out, out
+    assert out == (f"open, not drawn: {cid} STUCK rental: {entry['text']} (proven by an earlier complete check; "
+                   f"this show's search is capped at 3 states and does not reach it)\n"), out
+    code, out = show(project.root, "--max-states", "3")
+    assert code == 3 and "nothing under discussion" not in out, out
+    assert out.startswith(f"open, not drawn: {cid} STUCK rental: "), out
+    code, out = show(project.root, cid)
+    assert code == 0 and f"[{cid}]" in out.splitlines()[0]
+
+
 def test_conflict_id_json_and_more_than_three(project):
     project.kit()
     project.flow_from(DATA / "kit" / "workshop_naive.py", "workshop")
