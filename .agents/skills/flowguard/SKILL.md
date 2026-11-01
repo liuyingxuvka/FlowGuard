@@ -26,7 +26,7 @@ Models, tests and code grow together. Split a model that is too big, staged or d
 
 ## Look up source when needed
 
-When finding source or its owner needs more than one grep hop, use `python -m flowguard where` (0.71.1+): NAME finds names/callers/owners; no argument gives a compact module overview; `--flow [NAME]` shows calls; `--arch [NAME]` architecture; `--text [SELECTOR]` text and source references; `--keyflows [NAME]` shared state and stores. Add `--root DIR` or `--json` as needed. These reads run no application, model or test; missing execution records stay unknown.
+When finding source or its owner needs more than one grep hop, use `python -m flowguard where` (0.71.1+): NAME finds names/callers/owners; no argument gives a compact module overview; `--flow [NAME]` shows calls; `--arch [NAME]` architecture; `--text [SELECTOR]` text and source references; `--keyflows [NAME]` shared state and stores. Each list shows its most relevant rows and says how many it left out; `--all` prints every row. Add `--root DIR` or `--json` as needed. These reads run no application, model or test; missing execution records stay unknown.
 
 Text selectors are FILE, `source:<id>`, `group:<id>` or `"text:<literal phrase>"` (case-insensitive substring). Start with the summary and follow its commands for original passages and available Git provenance; `--at REF` reads text and code at the same revision. Literal matches are candidates, without an automatic semantic verdict or change gate. Models and independent rule tests still validate behavior; use the existing loop below for changes.
 

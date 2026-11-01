@@ -966,8 +966,10 @@ finally:
     for arguments in (["--at", "HEAD"], ["--flow", "--arch"]):
         answer = invoke(["where", *arguments, "--root", str(root)])
         assert answer.returncode == 2 and "error:" in answer.stderr
-    assert {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()} == before
-    assert not (root / ".flowguard/cache").exists()
+    # An adopted project keeps only disposable, self-ignoring parse caches; nothing else changes.
+    assert {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*")
+            if p.is_file() and not p.relative_to(root).as_posix().startswith(".flowguard/cache/")} == before
+    assert (root / ".flowguard/cache/.gitignore").read_text() == "*\n"
 
 
 def test_public_text_reuses_one_report_and_preserves_ref_in_group_queries(tmp_path, monkeypatch, capsys):
@@ -1020,6 +1022,9 @@ def test_public_text_reuses_one_report_and_preserves_ref_in_group_queries(tmp_pa
     assert main(literal_command[3:]) == 0
     literal = json.loads(capsys.readouterr().out)
     assert calls == [{"at": "old"}] * 3
-    assert literal["selection"]["kind"] == "literal" and literal["texts"] == selected["texts"]
-    assert literal["unexpanded"]["related_groups"] >= 0
+    # A group selection prints originals with their Git origin; a literal selection lists the same passages.
+    assert all(row["provenance"]["state"] == "git" for row in selected["texts"])
+    assert literal["selection"]["kind"] == "literal"
+    assert literal["texts"] == [{key: value for key, value in row.items() if key != "provenance"} for row in selected["texts"]]
+    assert literal["omitted"] == {}
     assert not (tmp_path / ".flowguard").exists()

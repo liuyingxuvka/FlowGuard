@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `where` now prints only the most relevant rows of each list and says how many it left out; `--all` (also with `--json`) prints every row. Fixed disclaimer lines are gone, `--arch` lists the largest modules first, and a name query now finds equal string literals with their function.
+- Repeating a `where` query is much faster: in a project with a `.flowguard/` folder it keeps the disposable, git-ignored parse caches in `.flowguard/cache/` (earlier versions wrote nothing), caches are keyed by file content so an edit that keeps a file's size and time is no longer missed, and text views look up Git origins only for the passages they print.
+
 ## v0.71.1 - 2026-11-01 - Static source and original-text queries
 
 - Add optional, read-only `where` queries for names, owners and callers, module overviews, static flows, architecture, shared state and file destinations. Queries do not run application code, models or tests; missing execution records remain explicit.

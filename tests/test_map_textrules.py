@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from flowguard.map.derived import source_names, where
+from flowguard.map.derived import DISPLAY_ROWS, source_names, where
 from flowguard.map.discover import discover_inventory
 from flowguard.map.inventory import build_inventory
 from flowguard.map.mapfile import SCHEMA
@@ -42,9 +42,10 @@ def facts(root):
 
 
 def snapshot(root):
+    """Every file and directory except the disposable parse cache of an adopted project."""
     return {
         path.relative_to(root).as_posix(): None if path.is_dir() else path.read_bytes()
-        for path in root.rglob("*")
+        for path in root.rglob("*") if not path.relative_to(root).as_posix().startswith(".flowguard/cache")
     }
 
 
@@ -211,8 +212,9 @@ def test_report_and_compact_render_are_read_only_and_full_is_explicit(tmp_path):
     for key in FACT_KEYS:
         assert full[key] == result[key]
     for row in result["texts"]:
-        assert {"id", "path", "line", "end_line", "text", "fingerprint", "placement", "provenance"} <= row.keys()
+        assert {"id", "path", "line", "end_line", "text", "fingerprint", "placement"} <= row.keys()
         assert {"state", "owners", "functions"} <= row["placement"].keys()
+    for row in select(result, "AGENTS.md", origins=True)["texts"]:
         assert {"state", "origins"} <= row["provenance"].keys()
     assert snapshot(tmp_path) == before
 
@@ -255,7 +257,7 @@ def test_fingerprints_normalize_newlines_and_origins_need_real_blame(tmp_path):
 
     assert left["texts"] and right["texts"]
     assert [row["fingerprint"] for row in left["texts"]] == [row["fingerprint"] for row in right["texts"]]
-    for row in right["texts"]:
+    for row in select(right, "AGENTS.md", origins=True)["texts"]:
         assert "unknown" in row["provenance"]["state"].lower()
         assert not row["provenance"]["origins"]
 
@@ -265,14 +267,15 @@ def test_fingerprints_normalize_newlines_and_origins_need_real_blame(tmp_path):
     revision = git(lf, "rev-parse", "HEAD")
     recorded = report(lf)
     assert [row["fingerprint"] for row in recorded["texts"]] == [row["fingerprint"] for row in left["texts"]]
-    for row in recorded["texts"]:
+    for row in select(recorded, "AGENTS.md", origins=True)["texts"]:
         assert revision in json.dumps(row["provenance"]["origins"])
 
 
 def test_selected_originals_keep_complete_text_and_provenance_without_rescanning(tmp_path):
     repository(tmp_path)
     original = "You MUST preserve " + " ".join("word%d" % index for index in range(45)) + "."
-    extra = "\n\n".join(("You MUST preserve amber bronze copper.", "You MUST keep violet indigo azure.", "You MUST return north south west."))
+    # More shared passages than one bounded list shows, so some groups stay out of the default views.
+    extra = "\n\n".join(f"You MUST keep colour{index} shade{index} tone{index}." for index in range(DISPLAY_ROWS + 2))
     write(tmp_path, "left.md", original + "\n\nYou MUST retain the independent second passage.\n\n" + extra + "\n")
     write(tmp_path, "right.md", original + "\n\n" + extra + "\n")
     git(tmp_path, "add", ".")
@@ -283,7 +286,7 @@ def test_selected_originals_keep_complete_text_and_provenance_without_rescanning
     compact = json.loads(render(result, as_json=True))
     assert compact["literal_groups"][0]["selector"] == "group:" + group["id"]
     assert original not in render(result)
-    assert compact["unexpanded"]["texts"] == 9
+    assert compact["summary"]["texts"] == 2 * (DISPLAY_ROWS + 2) + 3
     # Selecting saved facts must not depend on a later working-tree edit.
     write(tmp_path, "left.md", "Unrelated replacement.\n")
     selected = select(result, "group:" + group["id"])
@@ -294,7 +297,7 @@ def test_selected_originals_keep_complete_text_and_provenance_without_rescanning
     assert json.loads(render(selected, as_json=True))["texts"] == selected["texts"]
     identifier = selected["texts"][0]["id"]
     assert select(result, "source:" + identifier)["texts"] == [selected["texts"][0]]
-    assert len(select(result, "left.md")["texts"]) == 5
+    assert len(select(result, "left.md")["texts"]) == DISPLAY_ROWS + 4
     visible = {row["id"] for row in compact["literal_groups"]}
     hidden = next(row for row in result["literal_groups"] if row["id"] not in visible)
     hit = hidden["occurrences"][0]
@@ -310,10 +313,10 @@ def test_selected_originals_keep_complete_text_and_provenance_without_rescanning
     assert expanded["literal_groups"] == [hidden]
     assert expanded["related_groups"] == []
     displayed = json.loads(render(file_selected, as_json=True))
-    assert len(displayed["related_groups"]) <= 3
-    assert displayed["unexpanded"]["related_groups"] == len(file_selected["related_groups"]) - len(displayed["related_groups"])
-    assert displayed["unexpanded"]["references"] == max(0, len(file_selected["references"]) - 3)
-    assert displayed["texts"] == file_selected["texts"]
+    assert len(displayed["related_groups"]) <= DISPLAY_ROWS
+    assert displayed["omitted"].get("related groups", 0) == len(file_selected["related_groups"]) - len(displayed["related_groups"])
+    assert displayed["omitted"].get("references", 0) == max(0, len(file_selected["references"]) - DISPLAY_ROWS)
+    assert displayed["texts"] == file_selected["texts"][:DISPLAY_ROWS]
     assert json.loads(render(file_selected, as_json=True, full=True)) == file_selected
     shown = {row["id"] for row in displayed["related_groups"]}
     narrowed = next(row for row in result["literal_groups"] if row["id"] not in shown and row["token_count"] >= 6)

@@ -15,7 +15,9 @@ per-component summary is returned for map.json.
 from __future__ import annotations
 
 import ast
+import copy
 import json
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -29,6 +31,104 @@ PARSER_ID = sha256_bytes(Path(__file__).read_bytes() + (Path(__file__).parent / 
                          + (Path(__file__).parent / "discovery_syntax.py").read_bytes()
                          + sys.version.encode())[:16]   # ast results differ between Python versions
 SUMMARY_LIMIT = 12
+NORMATIVE = re.compile(r"\b(?:shall|must|should|never|always|require[sd]?|stop|return|keep|before|after|every|only|priority)\b|必须|不得|不能|应当|优先|禁止", re.I)
+
+
+def python_text(text: str, tree: ast.AST) -> dict:
+    """Text blocks, token-shaped literals and argparse program names of one source; strings are never executed."""
+    docstrings, formatted = set(), set()
+    functions = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            first = node.body[0] if node.body else None
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+                docstrings.add(id(first.value))
+        if isinstance(node, ast.JoinedStr):
+            formatted.update(id(child) for child in ast.walk(node))
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            functions.append(node)
+    blocks, literals, programs = [], [], defaultdict(set)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings | formatted:
+            function = min((fn for fn in functions if fn.lineno <= node.lineno <= fn.end_lineno),
+                           key=lambda fn: fn.end_lineno - fn.lineno, default=None)
+            if re.fullmatch(r'[A-Za-z_][\w.:-]*', node.value):
+                literals.append({'name': node.value, 'line': node.lineno,
+                                 'function': function.name if function else None})
+            if node.end_lineno > node.lineno or (re.search(r'\s', node.value) and (NORMATIVE.search(node.value) or '`' in node.value)):
+                segment = ast.get_source_segment(text, node) or ''
+                match = re.match(r"(?i)^[rub]*(['\"]{3}|['\"])", segment)
+                if match and segment.endswith(match[1]):
+                    segment = segment[match.end():-len(match[1])]
+                    blocks.append([node.lineno, segment])
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'ArgumentParser':
+            function = min((fn for fn in functions if fn.lineno <= node.lineno <= fn.end_lineno),
+                           key=lambda fn: fn.end_lineno - fn.lineno, default=None)
+            for keyword in node.keywords:
+                if keyword.arg == 'prog' and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                    programs[function.name if function else '<module>'].add(keyword.value.value)
+    return {"blocks": blocks, "literals": literals, "programs": {name: sorted(values) for name, values in sorted(programs.items())}}
+
+
+def boolean_shapes(tree: ast.AST, module: str, imports: dict, functions: dict) -> dict:
+    """Exact pure Boolean source shapes per function; no body-similarity or behavioral equivalence claim."""
+    helpers, sites = [], []
+    spans = {start: name for start, _, name in function_spans(tree)}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) or node.lineno not in spans:
+            continue
+        symbol = spans[node.lineno]
+        function = functions.get(symbol, {})
+        params = [arg.arg for arg in [*node.args.posonlyargs, *node.args.args]]
+        if function.get("class") and params:
+            params = params[1:]
+        positions = {name: "argument_" + str(index) for index, name in enumerate(params)}
+        local_names = {value.id for value in ast.walk(node) if isinstance(value, ast.Name) and isinstance(value.ctx, ast.Store)}
+        scope = {**imports, **function.get("local_imports", {})}
+        class Normalize(ast.NodeTransformer):
+            def visit_Name(self, value):
+                imported = scope.get(value.id) if value.id not in local_names else None
+                identity = positions.get(value.id, imported.replace(":", ".") if imported else module + ("#" + symbol if value.id in local_names else "") + "." + value.id)
+                return ast.copy_location(ast.Name(id=identity, ctx=value.ctx), value)
+            def visit_Attribute(self, value):
+                parts, base = [], value
+                while isinstance(base, ast.Attribute):
+                    parts.append(base.attr)
+                    base = base.value
+                if isinstance(base, ast.Name) and base.id in scope and base.id not in local_names:
+                    identity = scope[base.id].replace(":", ".") + "." + ".".join(reversed(parts))
+                    return ast.copy_location(ast.Name(id=identity, ctx=value.ctx), value)
+                return self.generic_visit(value)
+        def shape(value):
+            if not isinstance(value, (ast.Compare, ast.BoolOp, ast.UnaryOp)) or any(isinstance(x, (ast.Call, ast.NamedExpr, ast.Lambda, ast.Await)) for x in ast.walk(value)):
+                return None
+            if isinstance(value, ast.UnaryOp) and not isinstance(value.op, ast.Not):
+                return None
+            return ast.dump(Normalize().visit(copy.deepcopy(value)), include_attributes=False)
+        body = [item for item in node.body if not (isinstance(item, ast.Expr) and isinstance(item.value, ast.Constant) and isinstance(item.value.value, str))]
+        def boolean(value):
+            if isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.Not):
+                return True
+            if isinstance(value, ast.Compare):
+                return all(isinstance(op, (ast.In, ast.NotIn, ast.Is, ast.IsNot)) for op in value.ops)
+            return isinstance(value, ast.BoolOp) and all(boolean(part) for part in value.values)
+        if (len(body) == 1 and isinstance(body[0], ast.Return) and shape(body[0].value)
+                and boolean(body[0].value)
+                and not function.get("class") and "." not in symbol
+                and isinstance(node, ast.FunctionDef) and not node.decorator_list
+                and node in tree.body
+                and not node.args.vararg and not node.args.kwarg and not node.args.kwonlyargs):
+            helpers.append({"function": symbol, "line": node.lineno, "shape": shape(body[0].value), "parameters": params})
+        pending = list(node.body)
+        while pending:
+            item = pending.pop()
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            value = item.test if isinstance(item, (ast.If, ast.While)) else item.value if isinstance(item, ast.Return) else None
+            if value is not None and (key := shape(value)):
+                sites.append({"function": symbol, "line": item.lineno, "shape": key, "parameters": params})
+            pending.extend(ast.iter_child_nodes(item))
+    return {"helpers": helpers, "sites": sites}
 
 
 def file_facts(text: str, module: str, package: str, path: str) -> dict:
@@ -53,6 +153,17 @@ def file_facts(text: str, module: str, package: str, path: str) -> dict:
     for call in visitor.main_calls:
         if call in visitor.functions:
             visitor.entrypoints.append({"kind": "main_call", "name": call, "symbol": call, "line": 0, "via": "__main__"})
+    functions = {s: {"line": f["line"], "class": f["class"], "calls": sorted(f["calls"]),
+                     "effects": f["effects"], "raises": sorted(x for x in f["raises"] if x),
+                     "dynamic": sorted(f["dynamic"]), "writes": sorted(f["writes"]),
+                     "reads": sorted(f["reads"]), "read_sites": f["read_sites"], "all_writes": all_writes[s],
+                     "initial_writes": all_writes[s] if s.endswith(".__init__") else [],
+                     "file_targets": f["file_targets"], "end_line": f["end_line"],
+                     "local_imports": dict(sorted(f["local_imports"].items())),
+                     "deep_writes": sorted(f["deep_writes"] - f["direct_writes"]),
+                     "attr_writes": f["attr_writes"], "ctor_calls": f["ctor_calls"],
+                     **({"params": f["params"]} if "params" in f else {})}
+                 for s, f in visitor.functions.items()}
     return {
         "module": module,
         "imports": visitor.imports,
@@ -67,17 +178,9 @@ def file_facts(text: str, module: str, package: str, path: str) -> dict:
         "all_state": all_state,
         "initial_state": {attr: all_state[attr] for attr in sorted(initialized_only)},
         "file_targets": [{"symbol": symbol, **target} for symbol, function in visitor.functions.items() for target in function["file_targets"]],
-        "functions": {s: {"line": f["line"], "class": f["class"], "calls": sorted(f["calls"]),
-                          "effects": f["effects"], "raises": sorted(x for x in f["raises"] if x),
-                          "dynamic": sorted(f["dynamic"]), "writes": sorted(f["writes"]),
-                          "reads": sorted(f["reads"]), "read_sites": f["read_sites"], "all_writes": all_writes[s],
-                          "initial_writes": all_writes[s] if s.endswith(".__init__") else [],
-                          "file_targets": f["file_targets"], "end_line": f["end_line"],
-                          "local_imports": dict(sorted(f["local_imports"].items())),
-                          "deep_writes": sorted(f["deep_writes"] - f["direct_writes"]),
-                          "attr_writes": f["attr_writes"], "ctor_calls": f["ctor_calls"],
-                          **({"params": f["params"]} if "params" in f else {})}
-                      for s, f in visitor.functions.items()},
+        "functions": functions,
+        "python_text": python_text(text, tree),
+        "predicates": boolean_shapes(tree, module, visitor.imports, functions),
     }
 
 
@@ -195,7 +298,10 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True,
         package = module if path.endswith("__init__.py") else module.rpartition(".")[0]
         facts[path] = {"digest": digest, **file_facts(text, module, package, path)}
     # Per-file facts are cached as parsed; cross-file injection results are recomputed every run.
+    write_cache = write_cache and (facts != old or not cache_path.is_file())
     cached = json.dumps({"schema": CACHE_SCHEMA, "parser": PARSER_ID, "files": facts}, sort_keys=True) if write_cache else ""
+    if write_cache:
+        facts = json.loads(cached)["files"]  # the same facts, in the order the next run reads them back
     mod_to_path = {f.get("module", ""): p for p, f in facts.items()}
     py_paths = tuple(facts)
     index = {p: f.get("functions", {}) for p, f in facts.items()}

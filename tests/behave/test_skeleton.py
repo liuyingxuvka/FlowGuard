@@ -90,9 +90,12 @@ def test_init_constructs_the_program_and_writes_only_source_pins(tmp_path):
     assert "system: example:Engine" in result.stdout
     assert "unrecognized front doors:" in result.stdout
     assert "glossary draft:" in result.stdout
-    assert sorted(path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*") if path.is_file()) == [
+    # The text report keeps only disposable, self-ignoring parse caches next to the pins.
+    assert sorted(path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*")
+                  if path.is_file() and not path.relative_to(tmp_path).as_posix().startswith(".flowguard/cache/")) == [
         ".flowguard/skeleton.py", "example.py",
     ]
+    assert (tmp_path / ".flowguard/cache/.gitignore").read_text() == "*\n"
 
 
 def test_skeleton_matches_reference_actions(example):

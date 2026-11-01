@@ -51,6 +51,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
             views.add_argument("--" + view, dest="view", action="store_const", const=view, help="show " + purpose)
         p.set_defaults(view="tree")
         p.add_argument("--at", metavar="REF", help="read text and code from the same Git reference (requires --text)")
+        p.add_argument("--all", action="store_true", help="print every row instead of the bounded most relevant part")
         p.add_argument("--json", action="store_true", help="print one structured static view")
         return p
     if verb == "status":
@@ -254,10 +255,12 @@ def _where(ns):
     from .map.mapfile import MapError
 
     root = Path(ns.root).resolve()
+    every = project_command(root, "where", *([ns.name] if ns.name else []), *(["--" + ns.view] if ns.view != "tree" else []),
+                            *(["--at", ns.at] if ns.at else []), "--all", *(["--json"] if ns.json else []))
     try:
         if ns.view == "text":
             facts = textrules.report(root, at=ns.at)
-            result = textrules.select(facts, ns.name) if ns.name else textrules._compact(facts)
+            result = textrules.select(facts, ns.name, origins=ns.all) if ns.name else textrules._compact(facts)
             groups = result.get("related_groups", result["literal_groups"] + result["workflow_groups"])[:3]
             selectors = ["group:" + row["id"] for row in groups]
             texts = result.get("texts", facts["texts"])
@@ -270,16 +273,21 @@ def _where(ns):
             options = ["--text", *(["--at", ns.at] if ns.at else []), *(["--json"] if ns.json else [])]
             result["selectors"] = ["FILE", "source:<id>", "group:<id>", "text:<literal phrase>"]
             result["next_queries"] = [project_command(root, "where", selector, *options) for selector in dict.fromkeys(selectors)]
-            output = textrules.render(result, as_json=ns.json)
-            if not ns.json and result["next_queries"]:
-                output += "\n" + "\n".join("next: " + command for command in result["next_queries"])
+            renderer = textrules
         else:
             result = derived.where(root, ns.name, view=ns.view)
             if "next" in result:
                 modules = result.get("modules", [])
                 options = ([modules[0]["path"]] + (["--flow"] if ns.view == "flow" else [])) if modules else ["--arch"]
                 result["next"] = project_command(root, "where", *options, *(["--json"] if ns.json else []))
-            output = derived.render(result, as_json=ns.json)
+            result["next_queries"] = []
+            renderer = derived
+        shown = renderer.project(result, all_rows=ns.all)
+        if shown.get("omitted"):
+            shown["next_queries"] = [*shown["next_queries"], every]
+        output = renderer.render(shown, as_json=ns.json, all_rows=ns.all)
+        if not ns.json and shown["next_queries"]:
+            output += "\n" + "\n".join("next: " + command for command in shown["next_queries"])
         print(output)
         return 0
     except (OSError, ValueError, RuntimeError, MapError) as error:
