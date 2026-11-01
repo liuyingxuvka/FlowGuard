@@ -8,10 +8,15 @@ A watchdog thread checks this every half second; when it fails, the worker write
 also kills it when the spawning caller dies (PR_SET_PDEATHSIG) until that caller hands it
 a lease, so a killed caller stops it even when the thread cannot run. The kernel keeps
 that setting per thread, so the watchdog thread arms and clears it on itself.
+
+A worker killed that way cannot write its status, so it forks a death notice first: a
+process that waits for the worker's end and turns a status still saying `running` into
+`died`. The caller never starts a second worker for the same call: it reports the death
+with the run's log (jobs.py). Children the worker starts (the picture renderer) run in
+their own session and get SIGTERM from the kernel when the worker dies.
 """
 from __future__ import annotations
 
-import ctypes
 import os
 import select
 import signal
@@ -21,23 +26,39 @@ import time
 import traceback
 from pathlib import Path
 
-from .jobs import Lock, Planned, locks_dir, lookup, now_ms, read_json, store, write_json
+from .jobs import (Lock, Planned, locks_dir, lookup, now_ms, read_json, set_parent_death_signal, store,
+                   write_json)
 from .parts import ENGINE_DIGEST, PartContext, run_part
 from .project import cache_dir
 
 WATCH = 0.5                      # the watchdog's period
 STATUS_EVERY = 1.0               # progress is written at most this often
-PR_SET_PDEATHSIG = 1
 
 
-def set_parent_death_signal(sig: int) -> None:
-    """Linux: the kernel sends sig to this process when its parent dies (0 clears it)."""
-    if not sys.platform.startswith("linux"):
+def death_notice(jobdir: Path) -> None:
+    """Fork the one process that outlives the worker by a moment: it waits until the
+    worker's end of a pipe closes (the kernel closes it however the worker dies, even by
+    SIGKILL), then, if the status still says running, writes that the worker died, ends
+    what is left of the worker's process group and exits. It runs no part and holds no
+    lock, so it is the only route by which a killed worker's status is corrected."""
+    r, w = os.pipe()
+    pid = os.fork()
+    if pid:                                       # the worker keeps the write end until it ends
+        os.close(r)
         return
-    libc = ctypes.CDLL(None, use_errno=True)
-    if libc.prctl(PR_SET_PDEATHSIG, sig, 0, 0, 0) != 0:
-        err = ctypes.get_errno()
-        raise OSError(err, os.strerror(err))
+    os.close(w)
+    try:
+        while os.read(r, 1):
+            pass
+        status = read_json(jobdir / "status.json") or {}
+        if status.get("state", "running") == "running":
+            status.update(state="died", current=None,
+                          reason="the worker ended without saying why: it was killed (a signal or the "
+                                 "kernel, when its caller died)")
+            write_json(jobdir / "status.json", status)
+        os.killpg(os.getpgrp(), signal.SIGKILL)
+    finally:
+        os._exit(0)
 
 
 class Worker:
@@ -127,6 +148,7 @@ class Worker:
         if os.getpgrp() != os.getpid():
             raise SystemExit("the worker must lead its own process group (start it through jobs.py)")
         self.write_status()
+        death_notice(self.dir)                     # before any thread starts (fork)
         threading.Thread(target=self.watchdog, name="flowguard-watchdog", daemon=True).start()
         self.armed.wait()
         plan = read_json(self.dir / "plan.json")

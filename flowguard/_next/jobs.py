@@ -13,6 +13,9 @@ caller holds the pipe open, or while the lease in `lease.json` has not expired.
 - A resumed call (the same command) attaches to the live worker of its plan and rewrites
   the lease every LEASE_BEAT seconds to now + LEASE_SPAN; returning RUNNING it sets the
   lease to now + keep. A caller that is killed stops renewing, and the worker stops.
+- A worker that ends before every result is in is reported by the waiting call as it is
+  (died, failed, stopped, or finished on files that changed meanwhile), with its run's
+  log; the call never starts another worker. The next command starts afresh.
 
 Cache layout under `.flowguard/cache/flow/`: `parts/<digest>.json` (results),
 `manifests/<model>.json` (reads of the last load), `locks/<part id>.lock` (one worker
@@ -21,6 +24,7 @@ per part), `jobs/<plan digest>/current.json` naming the latest run directory
 """
 from __future__ import annotations
 
+import ctypes
 import errno
 import fcntl
 import hashlib
@@ -44,6 +48,9 @@ LEASE_BEAT = 1.0                 # a waiting resume caller renews the lease this
 LEASE_SPAN = 3.0                 # ... for this long
 ACK_WAIT = 1.0                   # the RUNNING handshake waits at most this long
 POLL = 0.1                       # how often a waiting caller looks at the cache and the worker
+NOTICE_WAIT = 1.0                # a dead worker's death notice is waited for at most this long
+KEEP_DEAD = 3                    # the newest runs that failed or died keep their directory (and log)
+PR_SET_PDEATHSIG = 1
 WORKER_MODULE = f"{__package__}.worker"
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]      # the directory holding `flowguard/`
 
@@ -67,6 +74,33 @@ def _sha(data) -> str:
 
 def now_ms() -> int:
     return int(time.time() * 1000)
+
+
+def set_parent_death_signal(sig: int) -> None:
+    """Linux: the kernel sends sig to this process when the thread that started it ends
+    (0 clears it)."""
+    if not sys.platform.startswith("linux"):
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.prctl(PR_SET_PDEATHSIG, sig, 0, 0, 0) != 0:
+        err = ctypes.get_errno()
+        raise OSError(err, os.strerror(err))
+
+
+def ends_with_this_process(sig: int = signal.SIGTERM):
+    """A preexec_fn for a child the worker starts in its own session (the picture renderer):
+    the kernel sends the child sig when the worker dies, however it dies. Built in the
+    parent, so the forked child only makes the system call."""
+    if not sys.platform.startswith("linux"):
+        return None
+    prctl = ctypes.CDLL(None, use_errno=True).prctl
+    parent = os.getpid()
+
+    def arm():
+        prctl(PR_SET_PDEATHSIG, sig, 0, 0, 0)
+        if os.getppid() != parent:                # the worker died before the child armed it
+            os._exit(1)
+    return arm
 
 
 # ---------------------------------------------------------------------- plan
@@ -251,16 +285,44 @@ class _Job:
     def spawned(self) -> bool:
         return self.proc is not None
 
+    def ended(self, root: Path) -> str:
+        """Why the worker ended before every result was in, as the caller reports it."""
+        deadline = time.monotonic() + NOTICE_WAIT
+        status = self.status() or {}
+        while status.get("state", "running") == "running" and time.monotonic() < deadline:
+            time.sleep(0.02)                      # the death notice of worker.py is on its way
+            status = self.status() or {}
+        state, reason = status.get("state"), status.get("reason")
+        log = f"log: {(self.dir / 'log').relative_to(root).as_posix()}"
+        if state == "done":                       # it finished the plan, but the files changed meanwhile
+            return f"the files changed while the check ran; run it again ({log})"
+        if state in ("failed", "stopped"):
+            return f"the worker {state}" + (f": {reason}" if reason else "") + f" ({log})"
+        how = ""
+        if self.proc is not None and self.proc.returncode is not None and self.proc.returncode < 0:
+            how = f" (killed by {signal.Signals(-self.proc.returncode).name})"
+        elif reason:
+            how = f" ({reason})"
+        return f"the worker (pid {self.pid()}) died before it finished{how} ({log})"
+
     # -- starting
     @staticmethod
     def spawn(root: Path, planned: list[Planned], plan_dir: Path) -> "_Job":
-        """A new worker in a new run directory of the plan; earlier runs whose worker has
-        ended are removed (a run directory is only ever written by its own worker)."""
+        """A new worker in a new run directory of the plan; earlier runs whose worker ended
+        normally are removed, the newest that failed or died are kept with their log (a run
+        directory is only ever written by its own worker)."""
         plan_dir.mkdir(parents=True, exist_ok=True)
+        dead = []
         for old in sorted(p for p in plan_dir.iterdir() if p.is_dir()):
             pid = (read_json(old / "worker.json") or {}).get("pid")
-            if pid is None or not pid_alive(pid):
+            if pid is not None and pid_alive(pid):
+                continue
+            if ((read_json(old / "status.json") or {}).get("state")) in ("failed", "died", "running", None):
+                dead.append(old)                  # its log tells what went wrong: kept for a while
+            else:
                 shutil.rmtree(old)
+        for old in dead[:-KEEP_DEAD]:
+            shutil.rmtree(old)
         directory = plan_dir / f"{now_ms()}-{os.getpid()}"
         directory.mkdir()
         write_json(directory / "plan.json", {"engine": ENGINE_DIGEST, "root": str(root),
@@ -349,15 +411,17 @@ def _live(run: Path | None) -> bool:
 
 
 def _stop_stale(run: Path) -> None:
-    """Kill the worker of a run whose inputs changed (it leads its own process group)."""
+    """Kill the worker of a run whose inputs changed (it leads its own process group) and
+    drop its directory: it was replaced on purpose, nothing went wrong in it."""
     pid = worker_pid(run)
     try:
         os.killpg(pid, signal.SIGKILL)
     except ProcessLookupError:
-        return
+        pass
     deadline = time.monotonic() + 2.0
     while pid_alive(pid) and time.monotonic() < deadline:
         time.sleep(0.02)
+    shutil.rmtree(run, ignore_errors=True)
 
 
 def _ensure_job(root: Path, planned: list[Planned]) -> _Job:
@@ -406,7 +470,6 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
         out.seconds = time.monotonic() - start
         return out
     job = _ensure_job(root, planned)
-    replaced_done = 0
     running = False
     looked = None
     try:
@@ -425,22 +488,9 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
             if all(r is not None for r in results):
                 out.finished = True
                 break
-            if not alive:
-                status = job.status() or {}
-                state = status.get("state")
-                if state == "failed" or (job.spawned and state != "done"):
-                    log = (job.dir / "log").relative_to(root).as_posix()
-                    out.failure = (f"the worker {state or 'exited before it started'}"
-                                   f"{': ' + status['reason'] if status.get('reason') else ''} (log: {log})")
-                    break
-                if state == "done":           # it finished, but files changed meanwhile
-                    replaced_done += 1
-                    if replaced_done > 1:
-                        out.failure = "the files changed while the check ran, twice; run it again"
-                        break
-                job.release()
-                job = _ensure_job(root, planned)
-                continue
+            if not alive:                         # it ended without every result: said, never restarted
+                out.failure = job.ended(root)
+                break
             left = deadline - time.monotonic()
             if left <= 0:
                 running = True

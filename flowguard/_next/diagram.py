@@ -23,6 +23,7 @@ from pathlib import Path
 
 from .checks import CONFLICT, Finding, Report, check_model
 from .explore import Bounds, explore, show_step
+from .jobs import ends_with_this_process
 from .model import ModelError, load_model, show_key
 from .parts import PartContext, PartResult, PartSpec, kinds, part_digest, register, run_part
 from .project import (PROG, ProjectError, cache_dir, changed_models, export_at, model_files, new_and_open,
@@ -1021,16 +1022,22 @@ def render_files(items: list) -> tuple[list, str | None]:
         return [[] for _ in items], "node is not on PATH (pictures are drawn by Mermaid in headless Chromium)"
     jobs = [{"mmd": text, "svg": f"{base}.svg", "png": f"{base}.png"} for text, base in items]
     limit = 60 + 15 * len(items)
+    # its own session, so the worker's group kill does not cut it off from its browser; the
+    # kernel sends it SIGTERM when this process dies, and render.js then ends the browser
+    proc = subprocess.Popen([node, str(RENDER_JS), str(MERMAID_JS)], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True,
+                            preexec_fn=ends_with_this_process())
     try:
-        res = subprocess.run([node, str(RENDER_JS), str(MERMAID_JS)], input=json.dumps(jobs), capture_output=True,
-                             text=True, timeout=limit, check=False)
+        stdout, stderr = proc.communicate(json.dumps(jobs), timeout=limit)
     except subprocess.TimeoutExpired:
+        proc.terminate()                              # render.js ends its browser on SIGTERM
+        proc.communicate()
         return [[] for _ in items], f"the renderer did not finish within {limit} s"
-    lines = [x for x in res.stdout.splitlines() if x.strip()]
+    lines = [x for x in stdout.splitlines() if x.strip()]
     try:
         data = json.loads(lines[-1])
     except (IndexError, ValueError):
-        err = (res.stderr.strip().splitlines() or ["no output"])[-1]
+        err = (stderr.strip().splitlines() or ["no output"])[-1]
         return [[] for _ in items], f"the renderer failed ({err})"
     if "error" in data:
         return [[] for _ in items], data["error"]

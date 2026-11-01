@@ -17,13 +17,30 @@ try {
   process.exit(0);
 }
 
+// The worker that starts this renderer has the kernel send it SIGTERM when the worker dies
+// (PR_SET_PDEATHSIG); the browser leads its own process group, so it goes with us.
+let browserPid = null;
+let ending = false;
+function endAll() {
+  ending = true;
+  if (browserPid !== null) {
+    try { process.kill(-browserPid, 'SIGKILL'); } catch (e) { /* already gone */ }
+    process.exit(143);
+  }
+}
+process.on('SIGTERM', endAll);
+
 (async () => {
   const mermaidJs = process.argv[2];
   const jobs = JSON.parse(fs.readFileSync(0, 'utf8'));
-  let browser;
+  let server, browser;
   try {
-    browser = await chromium.launch();
+    server = await chromium.launchServer({ handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false });
+    browserPid = server.process().pid;
+    if (ending) endAll();
+    browser = await chromium.connect(server.wsEndpoint());
   } catch (e) {
+    if (server) await server.close();
     done({ error: 'headless Chromium does not start (' + first(e) + ')' });
     return;
   }
@@ -62,6 +79,7 @@ try {
     }
   } finally {
     await browser.close();
+    await server.close();
   }
   done({ results });
 })().catch((e) => done({ error: first(e) }));

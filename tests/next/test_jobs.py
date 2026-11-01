@@ -6,8 +6,11 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+
+import pytest
 
 from flowguard._next import jobs
 from flowguard._next.model import load_model
@@ -137,3 +140,68 @@ def test_a_lock_is_free_as_soon_as_its_holder_dies(tmp_path):
     holder.wait()
     assert mine.acquire(blocking=False) is True
     mine.release()
+
+
+CHILD = """
+import subprocess, sys, time
+from flowguard._next import jobs
+child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True,
+                         preexec_fn=jobs.ends_with_this_process())
+print(child.pid, flush=True)
+time.sleep(60)
+"""
+
+
+def test_a_child_started_by_a_worker_ends_with_it():
+    """G6: a process a worker starts in its own session (the picture renderer) gets SIGTERM
+    from the kernel when the worker dies, however it dies."""
+    parent = subprocess.Popen([sys.executable, "-c", CHILD], stdout=subprocess.PIPE, text=True,
+                              env={**os.environ, "PYTHONPATH": str(REPO)})
+    child = int(parent.stdout.readline())
+    assert not gone(child)
+    parent.kill()
+    parent.wait()
+    assert wait_until(lambda: gone(child), 3) is not None
+
+
+RENDER = """
+import sys
+from pathlib import Path
+from flowguard._next import diagram
+text = "flowchart LR\\n" + "\\n".join(f'  n{i}["box {i}"] --> n{i + 1}' for i in range(60))
+out = Path(sys.argv[1])
+print("go", flush=True)
+diagram.render_files([(text, out / f"p{i}") for i in range(40)])
+"""
+
+
+def _descendants(pid):
+    parents = {}
+    for d in os.listdir("/proc"):
+        if d.isdigit():
+            try:
+                fields = open(f"/proc/{d}/stat").read().rsplit(")", 1)[1].split()
+            except (FileNotFoundError, ProcessLookupError):
+                continue
+            if fields[0] != "Z":
+                parents[int(d)] = int(fields[1])
+    out, todo = set(), [pid]
+    while todo:
+        x = todo.pop()
+        kids = [p for p, q in parents.items() if q == x and p not in out]
+        out.update(kids)
+        todo += kids
+    return out
+
+
+@pytest.mark.skipif(shutil.which("node") is None or not os.path.isdir("/proc"), reason="no node to draw with")
+def test_the_picture_renderer_and_its_browser_end_with_the_worker(tmp_path):
+    """G6: the renderer (node) and headless Chromium go when the process drawing dies."""
+    parent = subprocess.Popen([sys.executable, "-c", RENDER, str(tmp_path)], stdout=subprocess.PIPE, text=True,
+                              env={**os.environ, "PYTHONPATH": str(REPO)})
+    assert parent.stdout.readline().strip() == "go"
+    assert wait_until(lambda: len(_descendants(parent.pid)) >= 3, 20) is not None   # node and its browser
+    kids = _descendants(parent.pid)
+    parent.kill()
+    parent.wait()
+    assert wait_until(lambda: all(gone(k) for k in kids), 3) is not None

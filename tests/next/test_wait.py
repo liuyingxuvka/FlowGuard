@@ -153,6 +153,28 @@ def test_killing_the_spawning_caller_stops_the_worker(project):
     caller.wait()
     assert wait_until(lambda: gone(pid) and group_gone(pid), 5) is not None
     assert not (project.root / ".flowguard/conflicts.json").exists()
+    assert wait_until(lambda: not running(run), 5) is not None       # its status says it ended (G6)
+    assert read(run / "status.json")["state"] in ("stopped", "died")
+
+
+def test_a_worker_that_dies_is_reported_and_never_restarted(project):
+    """G6: no hidden restart. A resumed call whose worker is killed says so with the dead
+    run's log, starts no new worker, and the dead run's status no longer says running."""
+    slow(project, "endless", steps=100000, delay=0.01)
+    assert run_check(project.root, "--wait", "1").code == 4
+    run, pid = worker_of(project.root)
+    caller = start_check(project.root, "--wait", "60")
+    assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None
+    os.kill(pid, signal.SIGKILL)
+    out, _ = caller.communicate(timeout=30)
+    assert caller.returncode == 2, out
+    assert out.startswith(f"internal error: the worker (pid {pid}) died before it finished"), out
+    assert len(out.splitlines()) == 1 and "(log: .flowguard/cache/flow/jobs/" in out
+    assert (project.root / out.rsplit("(log: ", 1)[1].split(")", 1)[0]).is_file()
+    assert jobs_of(project.root) == [run]                              # no second worker
+    assert wait_until(lambda: read(run / "status.json")["state"] == "died", 5) is not None
+    again = run_check(project.root, "--wait", "1")                     # a new command starts afresh
+    assert again.code == 4 and run.is_dir() and (run / "log").is_file()   # and keeps the dead run's log
 
 
 def test_killing_an_attached_resume_caller_stops_the_worker(project):
