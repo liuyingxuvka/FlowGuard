@@ -127,18 +127,34 @@ class Planned:
         return Planned(PartSpec(d["kind"], d["model"], tuple(tuple(o) for o in d["options"])), d["path"])
 
 
-def plan(root, paths, *, full: bool = False, max_states: int = Bounds().max_states) -> list[Planned]:
+def plan(root, paths, *, full: bool = False, max_states: int = Bounds().max_states,
+         stored: dict | None = None) -> list[Planned]:
     """Every registered part kind for every model (full-only kinds with full); with full
-    the core part also verifies the renaming against an unreduced search."""
+    the core part also verifies the renaming against an unreduced search. stored (the
+    previous conflicts.json): a model with kept conflicts that have a path gets a replay
+    part too, so a capped check can tell which of them still reproduce."""
     root = Path(root).resolve()
+    kept = {}
+    for c in (stored or {}).get("conflicts", []):
+        if "replay" in c:
+            kept.setdefault(c["model"], []).append(c)
     out = []
     for path in paths:
         rel = Path(path).resolve().relative_to(root).as_posix()
+        model = Path(path).stem
+        core = None
         for kind in kinds(full):
             options = [("max_states", max_states)]
             if kind == "core" and full:
                 options.append(("verify_symmetry", True))
-            out.append(Planned(PartSpec(kind, Path(path).stem, tuple(sorted(options))), rel))
+            out.append(Planned(PartSpec(kind, model, tuple(sorted(options))), rel))
+            core = out[-1] if kind == "core" else core
+        hit = lookup(root, core) if core is not None else None
+        if hit is not None and hit.complete and hit.info.get("loaded"):
+            continue                              # a complete exploration decides: nothing to replay
+        if model in kept:
+            entries = json.dumps(sorted(kept[model], key=lambda c: c["id"]), sort_keys=True)
+            out.append(Planned(PartSpec("replay", model, (("max_states", max_states), ("stored", entries))), rel))
     return out
 
 

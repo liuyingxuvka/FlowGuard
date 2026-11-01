@@ -14,7 +14,7 @@ from conftest import DATA
 KIT = DATA / "kit"
 RENDERER = shutil.which("node") is not None       # pictures are drawn by Mermaid in headless Chromium
 JSON_KEYS = ["verdict", "exit", "complete", "conflicts", "warnings", "errors", "unknown", "models", "parts",
-             "declared_routes", "resume", "running"]
+             "declared_routes", "closed", "resume", "running"]
 
 DIAL = '''
 from flowguard._next import Model, need
@@ -469,3 +469,47 @@ def test_a_change_that_sends_books_to_repair_with_no_way_back_is_not_clean(proje
     [head] = [line for line in run.lines if line.startswith("NEW STUCK")]
     assert "where[*] = 'repair'" in head and "B1 stuck with where='repair'" in head
     assert 'R4 "Damaged books go to repair and come back to the shelf when repaired."' in run.out
+
+
+def test_a_capped_check_never_closes_a_proven_conflict(project):
+    """G1 (M6): a conflict proven by a complete check stays open through a capped check while
+    its stored shrunk path still reproduces it; it closes only when a complete check no
+    longer finds it or the stored path no longer reproduces it."""
+    from flowguard._next.cli import status_lines
+    saved = project.root / ".flowguard/conflicts.json"
+    project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    assert timed(project.root).first == "1 new conflict; complete"
+    [cid] = [c["id"] for c in json.loads(saved.read_text())["conflicts"]]
+
+    capped = timed(project.root, "--max-states", "3")
+    assert capped.code == 1 and capped.first == "1 open conflict; UNKNOWN: rental capped at 3 states"
+    [line] = [x for x in capped.lines if x.startswith("OPEN ")]
+    assert line.startswith("OPEN STUCK rental: ") and f"[{cid}]" in line
+    assert line.endswith("(kept: its stored path still reproduces it; this check is capped)")
+    data = json.loads(saved.read_text())
+    assert [c["id"] for c in data["conflicts"]] == [cid] and data["unknown"] == ["rental"]
+    [status] = status_lines(project.root)
+    assert f"1 open conflict ({cid}); a commit is blocked until fixed" in status
+    assert "UNKNOWN for rental (does not block)" not in status
+
+    path = project.root / ".flowguard/flow/rental.py"
+    path.write_text("\n".join(x for x in path.read_text().splitlines() if 'need(s["branch", t]' not in x) + "\n")
+    fixed = timed(project.root, "--max-states", "4")             # 6 states now; 4 from where the path ends
+    assert fixed.code == 3, fixed.out
+    assert fixed.first.startswith("no conflict found; UNKNOWN: rental capped at 4 states")
+    assert any(x.startswith(f"closed {cid} STUCK rental: its stored path no longer reproduces it") for x in fixed.lines)
+    assert json.loads(saved.read_text())["conflicts"] == []
+
+
+def test_a_model_error_closes_no_conflict(project):
+    """A model that does not load was not explored: its proven conflicts stay open."""
+    saved = project.root / ".flowguard/conflicts.json"
+    path = project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    assert timed(project.root).code == 1
+    [cid] = [c["id"] for c in json.loads(saved.read_text())["conflicts"]]
+    text = path.read_text()
+    path.write_text(text + "\nraise RuntimeError('half edited')\n")
+    run = timed(project.root)
+    assert run.code == 2 and f"[{cid}]" in run.out
+    assert "(kept: proven by an earlier complete check; the model does not load)" in run.out
+    assert [c["id"] for c in json.loads(saved.read_text())["conflicts"]] == [cid]

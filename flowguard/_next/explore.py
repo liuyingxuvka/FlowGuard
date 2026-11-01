@@ -474,14 +474,15 @@ def _relfile(fn, root):
 
 
 def explore(model: Model, bounds: Bounds = Bounds(), *, targets=None, check_domains=True,
-            reduce=True, progress=None) -> Graph:
+            reduce=True, progress=None, start=None) -> Graph:
     """Every action with every argument in every reachable state, breadth first.
-    targets (one-setting explanations): stop as soon as every target is seen."""
+    targets (one-setting explanations): stop as soon as every target is seen. start: begin
+    at this state instead of the model's start (the replay of a stored conflict)."""
     t0 = time.perf_counter()
     keys = tuple(f.key for f in model.fields)
     width = len(keys)
     domains = [set(f.domain) for f in model.fields]
-    init = tuple(f.init for f in model.fields)
+    init = tuple(f.init for f in model.fields) if start is None else tuple(start)
     calls = model.calls()
     sym = Symmetry.of(model) if reduce else None
     g = Graph(model, keys, calls, sym)

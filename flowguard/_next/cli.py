@@ -109,7 +109,7 @@ def _early(out, line: str, code: int, as_json: bool) -> int:
     if as_json:
         out.write(json.dumps({"verdict": line, "exit": code, "complete": code == EXIT_CLEAN, "conflicts": [],
                               "warnings": [], "errors": [], "unknown": [], "models": {}, "parts": [],
-                              "declared_routes": [], "resume": None, "running": None},
+                              "declared_routes": [], "closed": [], "resume": None, "running": None},
                              ensure_ascii=False, separators=(",", ":")) + "\n")
     else:
         out.write(line + "\n")
@@ -189,12 +189,12 @@ def check(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
         return _early(out, str(e), EXIT_ERROR, args.json)
     if not paths:
         return _early(out, f"no flow models in {FLOW_DIR.as_posix()}/", EXIT_CLEAN, args.json)
-    planned = jobs.plan(root, paths, full=args.full, max_states=args.max_states)
+    previous = read_conflicts(root)
+    planned = jobs.plan(root, paths, full=args.full, max_states=args.max_states, stored=previous)
     outcome = jobs.run(root, planned, wait=args.wait, keep=args.keep, progress=_Progress(err))
     resume = f"{prog} {shlex.join(argv)}"
     if outcome.failure is not None:
         return _early(out, f"internal error: {outcome.failure}", EXIT_ERROR, args.json)
-    previous = read_conflicts(root)
     result = assemble(root, outcome, previous)
     if outcome.finished:
         write_conflicts(root, conflicts_data(root, result, previous))
@@ -221,6 +221,13 @@ class ModelView:
     def complete(self) -> bool:
         return self.finished and all(r.complete for _, r, _, _ in self.parts)
 
+    @property
+    def explored(self) -> bool:
+        """A complete exploration of the model as it is: the only run that closes a conflict
+        it no longer finds (a capped run, or a model that does not load, closes none)."""
+        core = self.result("core")
+        return self.complete and core is not None and core.info["loaded"]
+
     def result(self, kind: str):
         for p, r, _, _ in self.parts:
             if p.spec.kind == kind:
@@ -240,6 +247,7 @@ class Assembled:
     errors: list
     new: set
     max_states: int
+    closed: list = field(default_factory=list)     # (entry, why): a stored path that no longer reproduces
 
 
 def assemble(root, outcome, previous: dict | None) -> Assembled:
@@ -262,10 +270,40 @@ def assemble(root, outcome, previous: dict | None) -> Assembled:
     findings += [f for f in overlap_views(views) if f.id not in seen]
     before = {c["id"] for c in (previous or {}).get("conflicts", [])}
     conflicts = [f for f in findings if f.cls == CONFLICT]
+    kept, closed = _kept(models, previous, {f.id for f in conflicts})
+    conflicts += kept
     max_states = dict(outcome.planned[0].spec.options)["max_states"]
     return Assembled(outcome, models, conflicts, [f for f in findings if f.cls == WARNING],
                      [f for f in findings if f.cls == ERROR_CLS], {f.id for f in conflicts if f.id not in before},
-                     max_states)
+                     max_states, closed)
+
+
+def _kept(models: dict, previous: dict | None, found: set) -> tuple[list, list]:
+    """The stored conflicts a check of their model did not find again, when that check
+    cannot close them (design M6): it was capped, or the model did not load. Each stays
+    open unless the replay of its stored shrunk path no longer reproduces it (closed)."""
+    kept, closed = [], []
+    for c in (previous or {}).get("conflicts", []):
+        view = models.get(c["model"])
+        if c["id"] in found or view is None or not view.finished or view.explored:
+            continue
+        replay = view.result("replay")
+        outcome, why = (replay.info["replays"].get(c["id"]) if replay is not None else None) or (
+            None, "no stored path to replay")
+        if outcome == "gone":
+            closed.append((c, why))
+            continue
+        core = view.result("core")
+        scope = "this check is capped" if core is not None and core.info["loaded"] else "the model does not load"
+        if outcome == "reproduces":
+            reason = f"{why}; {scope}"
+        elif why == scope:
+            reason = f"proven by an earlier complete check; {scope}"
+        else:
+            reason = f"proven by an earlier complete check ({why}); {scope}"
+        kept.append(Finding(c["kind"], CONFLICT, c["model"], c["subject"], c["text"], (), tuple(c["sources"]),
+                            tuple(c.get("path", [])), "", {"kept": reason, "entry": c}, None, c["id"]))
+    return kept, closed
 
 
 def _plural(n: int, word: str) -> str:
@@ -467,7 +505,10 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
     lines = [line]
     for f in new:
         lines += full_block(root, result, f)
-    lines += [_one_line(result, f, "OPEN") for f in open_]
+    lines += [_one_line(result, f, "OPEN") + (f" (kept: {f.detail['kept']})" if "kept" in f.detail else "")
+              for f in open_]
+    lines += [f"closed {c['id']} {c['kind']} {c['model']}: its stored path no longer reproduces it ({why})"
+              for c, why in result.closed]
     lines += [_warning_line(result, f) for f in result.warnings]
     for f in result.errors:
         lines += _error_lines(f)
@@ -495,6 +536,7 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
                    "cached": c, "worker": w} for p, r, c, w in zip(o.planned, o.results, o.cached, o.workers)],
         "declared_routes": [d for v in result.models.values() for _, r, _, _ in v.parts if r is not None
                             for d in r.info.get("declared_routes", [])],
+        "closed": [{"id": c["id"], "kind": c["kind"], "model": c["model"], "why": why} for c, why in result.closed],
         "resume": None if o.finished else resume,
         "running": None if o.finished else {"done": sum(r is not None for r in o.results), "total": len(o.planned),
                                             "current": o.current, "worker": o.worker, "job": o.job},
@@ -541,5 +583,6 @@ def status_lines(root) -> list[str]:
     else:
         line = "flow models: clean"
     if unknown:
-        line += f"; UNKNOWN for {', '.join(unknown)} (does not block)"
+        line += (f"; capped: {', '.join(unknown)} (what a capped search could not decide is UNKNOWN; "
+                 f"that alone does not block)")
     return [line]

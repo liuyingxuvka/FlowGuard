@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from .checks import ERROR_CLS, check_model, make_finding, reach_line, verify_symmetry
+from .checks import ERROR_CLS, UNDECIDED, check_model, make_finding, reach_line, replay_conflict, verify_symmetry
 from .explore import Bounds
 from .model import ModelError, load_model
 from .project import file_digest
@@ -156,3 +156,26 @@ def core_part(ctx: PartContext) -> PartResult:
 
 
 register("core", core_part)
+
+
+def replay_part(ctx: PartContext) -> PartResult:
+    """The conflicts conflicts.json keeps for this model, each replayed along its stored
+    shrunk path on the model as it is now (option stored: the JSON of their entries). Only
+    a capped check uses the outcome: a conflict closes there only when its path no longer
+    reproduces it (design M6)."""
+    root, spec = Path(ctx.root), ctx.spec
+    entries = json.loads(spec.option("stored", "[]"))
+    bounds = Bounds(spec.option("max_states", Bounds().max_states))
+    try:
+        loaded = load_model(ctx.path, root)
+    except ModelError as err:                   # nothing replays a model that does not load
+        reads = sorted(err.reads)
+        return PartResult(spec.kind, spec.model, part_digest(root, spec, reads), True, [],
+                          {"replays": {e["id"]: [UNDECIDED, "the model does not load"] for e in entries}}, reads, [])
+    reads = list(loaded.reads)
+    digest = part_digest(root, spec, reads)
+    replays = {e["id"]: list(replay_conflict(loaded.model, e, bounds)) for e in entries}
+    return PartResult(spec.kind, spec.model, digest, True, [], {"replays": replays}, reads, [])
+
+
+register("replay", replay_part, on_request=True)

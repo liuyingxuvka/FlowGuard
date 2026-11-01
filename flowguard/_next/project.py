@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .checks import WARNING, Finding, make_finding
+from .checks import WARNING, Finding, make_finding, replay_spec
 from .model import Loaded, natural_key
 
 FLOW_DIR = Path(".flowguard") / "flow"
@@ -116,8 +116,16 @@ def write_conflicts(root, data: dict) -> None:
 
 
 def conflict_entry(f: Finding) -> dict:
-    return {"id": f.id, "kind": f.kind, "model": f.model, "subject": f.subject,
-            "sources": list(f.sources), "text": f.text}
+    """A conflict as conflicts.json keeps it: enough to show it, and its shrunk path with
+    the condition to test where the path ends (a capped check replays it, design M6)."""
+    if "entry" in f.detail:                     # a conflict kept from the file: as it was
+        return dict(f.detail["entry"])
+    out = {"id": f.id, "kind": f.kind, "model": f.model, "subject": f.subject,
+           "sources": list(f.sources), "text": f.text}
+    spec = replay_spec(f)
+    if spec is not None:
+        out.update(path=list(f.path), replay=spec)
+    return out
 
 
 def new_and_open(previous: dict | None, ids) -> tuple[list[str], list[str]]:

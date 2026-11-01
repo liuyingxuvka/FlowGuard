@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from .explore import Bounds, Graph, explore, orbit, replay, show_step, show_tuple
-from .model import Loaded, Model, ModelError, State, natural_key, show_key
+from .model import Loaded, Model, ModelError, Refused, State, natural_key, show_key
 
 CONFLICT, WARNING, ERROR_CLS = "conflict", "warning", "error"
 _CLASS_ORDER = {CONFLICT: 0, WARNING: 1, ERROR_CLS: 2}
@@ -1232,3 +1232,114 @@ def verify_symmetry(loaded: Loaded, bounds: Bounds, reduced: Report, *, explain:
                            text, detail={"only_reduced": only_reduced, "only_unreduced": only_plain},
                            line=model.line)
     return {"verified": False, "text": text, "finding": finding}
+
+
+# ---------------------------------------------------------------------- replaying a stored conflict
+REPLAYED, GONE, UNDECIDED = "reproduces", "gone", "undecided"
+
+
+def replay_spec(f: Finding) -> dict | None:
+    """What conflicts.json keeps to replay a conflict on a later model: its kind's own
+    condition at the end of its shrunk path (None: a conflict no path shows)."""
+    d = f.detail
+    if f.kind == "STUCK":
+        if d.get("stuck") == "progress":
+            return {"stuck": "progress", "rule": (d.get("progress_names") or [None])[0]}
+        return {"stuck": d.get("stuck"), "key": d.get("key"), "value": d.get("value")}
+    if f.kind == "BROKEN":
+        return {"rule": d.get("name"), "kind": d.get("rule")}
+    if f.kind == "CONTRADICTION":
+        return {"option": d.get("option"), "call": d.get("call")}
+    return None
+
+
+def replay_conflict(model: Model, entry: dict, bounds: Bounds) -> tuple[str, str]:
+    """Run a stored conflict's shrunk path on the model as it is now and test the conflict's
+    own condition where it ends: (REPLAYED | GONE | UNDECIDED, why). A STUCK conflict is
+    tested on every state reachable from there, so a capped search there decides nothing."""
+    spec = entry.get("replay")
+    keys = tuple(f.key for f in model.fields)
+    calls = {show_step(c.step()): c for c in model.calls()}
+    t = tuple(f.init for f in model.fields)
+    before, last = t, None
+    for n, step in enumerate(entry.get("path", []), 1):
+        call = calls.get(step)
+        if call is None:
+            return GONE, f"step {n} {step} is no call of the model now"
+        w = State(zip(keys, t))
+        try:
+            call.action.fn(w, *call.args)
+        except Refused as why:
+            return GONE, f"step {n} {step} is refused now: {why.reason!r}"
+        except Exception as err:  # model code: the core part reports it as a model error
+            return GONE, f"step {n} {step} raises {type(err).__name__} now"
+        if len(w) != len(keys):
+            return GONE, f"step {n} {step} writes an unknown field now"
+        before, last, t = t, call, tuple(w[k] for k in keys)
+    s = State(zip(keys, t))
+    try:
+        if "stuck" in spec:
+            return _replay_stuck(model, spec, t, keys, bounds)
+        if "option" in spec:
+            return _replay_contradiction(model, spec, s, calls)
+        return _replay_broken(model, spec, State(zip(keys, before)), s, last)
+    except Exception as err:  # model code (a rule or an option): the core part reports it
+        return UNDECIDED, f"replaying raised {type(err).__name__}: {err}"
+
+
+def _replay_stuck(model, spec, t, keys, bounds):
+    g = explore(model, bounds, start=t, reduce=False)
+    if spec["stuck"] == "progress":
+        rule = next((r for r in model.rules if r.kind == "progress" and r.name == spec["rule"]), None)
+        if rule is None:
+            return GONE, f"progress {spec['rule']!r} is no rule of the model now"
+        hit = any((rule.goal(State(zip(keys, x))) if rule.obj is None else rule.goal(State(zip(keys, x)), rule.obj))
+                  for x in g.states)
+        if hit:
+            return GONE, f"from where its path ends, progress {spec['rule']!r} can be satisfied again"
+    else:
+        pos = next((p for p, k in enumerate(keys) if show_key(k) == spec["key"]), None)
+        if pos is None:
+            return GONE, f"{spec['key']} is no field of the model now"
+        if repr(t[pos]) != spec["value"]:
+            return GONE, f"its path ends with {spec['key']}={t[pos]!r} now, not {spec['value']}"
+        moved = next((x for x in g.states if x[pos] != t[pos]), None)
+        if moved is not None:
+            return GONE, f"from where its path ends, {spec['key']} can change again (to {moved[pos]!r})"
+    if not g.complete:
+        return UNDECIDED, f"the search from where its path ends is capped at {bounds.max_states:,} states"
+    return REPLAYED, "its stored path still reproduces it"
+
+
+def _replay_contradiction(model, spec, s, calls):
+    option = next((o for o in model.options if o.name == spec["option"]), None)
+    call = calls.get(spec["call"])
+    if option is None or call is None:
+        return GONE, f"option {spec['option']!r} or {spec['call']} is no longer in the model"
+    named = dict(zip(call.action.params, call.args))
+    if not option.offered(s, *[named[p] for p in option.params]):
+        return GONE, f"where its path ends, option {spec['option']!r} is not offered now"
+    try:
+        call.action.fn(State(s), *call.args)
+    except Refused:
+        return REPLAYED, "its stored path still reproduces it"
+    return GONE, f"where its path ends, {spec['call']} works now"
+
+
+def _replay_broken(model, spec, before, after, last):
+    rule = next((r for r in model.rules if r.name == spec["rule"]), None)
+    if rule is None:
+        return GONE, f"rule {spec['rule']!r} is no rule of the model now"
+    if rule.kind == "always":
+        ok = rule.pred(after)
+    elif last is None:
+        return GONE, "its path is empty now"
+    elif rule.kind == "only_when":
+        ok = last.action.name != rule.action or rule.pred(before, *last.args)
+    elif rule.action == "*":
+        ok = rule.pred(before, after, last.action.name, last.args)
+    else:
+        ok = last.action.name != rule.action or rule.pred(before, after, *last.args)
+    if ok:
+        return GONE, f"its stored path no longer breaks {rule.kind} {rule.base!r}"
+    return REPLAYED, "its stored path still reproduces it"
