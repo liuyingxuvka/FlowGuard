@@ -10,7 +10,7 @@ import subprocess
 
 from .common import Finding, sha256_bytes
 from .mapfile import MapError
-from .records import Unverifiable, integrity_problem, prepare_directory, protected_paths, validate_new_files, write_once
+from .records import NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, validate_new_files, write_once
 
 REQUEST_DIR = Path('.flowguard/requests')
 REQUEST_ID = re.compile(r'[A-Za-z][A-Za-z0-9_-]*\Z')
@@ -144,9 +144,8 @@ def request_findings(root: Path) -> list[Finding]:
     if unverified:
         findings.append(Finding('info', 'immutable_unverified', '',
             f'{len(unverified)} request file(s) cannot be checked against their original bytes here '
-            f'(first: {unverified[0].as_posix()}): this checkout has no Git history, first-write receipt or release '
-            'snapshot for them, as in a copy without .git or a moved folder; owner text is still checked against its '
-            'sidecar digest; check the rest in a Git clone or the original folder'))
+            f'(first: {unverified[0].as_posix()}): {NO_ORIGINAL_FACT}; owner text is still checked against its '
+            'sidecar digest; check the rest in a checkout that holds one'))
     return findings
 
 
@@ -215,8 +214,8 @@ def validate_request_links(root: Path, links) -> None:
             try:
                 problem = integrity_problem(root, path)
             except Unverifiable as error:
-                raise MapError(f'request_unverifiable: {identifier}: {error}; link or quote it from a Git clone '
-                               'or the original folder') from error
+                raise MapError(f'request_unverifiable: {identifier}: {error}; link or quote it in a checkout that '
+                               'holds one') from error
             if problem:
                 raise MapError(f'{code}: {problem}')
         try:

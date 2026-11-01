@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- A copy of a project without `.git`, or a project folder moved elsewhere, no longer reports unchanged requests, request metadata or change records as edited. Files whose original bytes cannot be checked there are listed once as `immutable_unverified` info, owner text is still checked against its sidecar, and linking or quoting such a request is refused with `request_unverifiable`.
+- A copy of a project without `.git`, or a moved project folder, no longer reports unchanged requests, request metadata or change records as edited: each file is checked against one original-byte source (its first Git commit once committed, otherwise the release snapshot or this checkout's first-write receipt), files with none are listed once as `immutable_unverified` info, owner text is still checked against its sidecar, and linking or quoting such a request is refused with `request_unverifiable`. Receipts no longer carry over `git init` or override the first commit, so every clone gives the same answer and a damaged receipt reports `receipt_unreadable`; this drops a protection that only a planner document, not the owner, had asked for.
 
 ## v0.71.1 - 2026-11-01 - Static source and original-text queries
 

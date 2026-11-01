@@ -184,16 +184,21 @@ def test_nongit_release_snapshot_survives_cache_loss_and_rejects_edited_record(t
     record.write_bytes(original_record + b"\n")  # valid JSON; byte protection must catch it
     _record_refused(tmp_path, capsys)
     assert {path: path.read_bytes() for path in snapshots} == original
-    # A later first Git commit cannot supersede the earlier independent digest.
+    record.write_bytes(original_record)
+    assert records.record_findings(tmp_path) == []
+    # With Git the first committed blob is the one source; the nongit snapshot no longer answers.
     _seed_git(tmp_path)
+    code, output, _ = _call(tmp_path, capsys, 'map', 'check', '--strict')
+    assert code == 0 and 'immutable_unverified' in output and 'record_edited' not in output, output
+    assert records.change_records(tmp_path) == []
     _git(tmp_path, 'add', '--', '.flowguard/changes', '.flowguard/release-base')
-    _git(tmp_path, 'commit', '-qm', 'first committed record bytes still disagree with the original release')
+    _git(tmp_path, 'commit', '-qm', 'first committed record bytes')
+    assert records.record_findings(tmp_path) == []
+    assert [identifier for identifier, _ in records.change_records(tmp_path)] == [record.stem]
+    assert _call(tmp_path, capsys, 'map', 'check', '--strict')[0] == 0
+    record.write_bytes(original_record + b"\n")
     _record_refused(tmp_path, capsys)
     assert {path: path.read_bytes() for path in snapshots} == original
-    record.write_bytes(original_record)
-    _git(tmp_path, 'add', '--', record.relative_to(tmp_path).as_posix())
-    assert records.record_findings(tmp_path) == []
-    assert _call(tmp_path, capsys, 'map', 'check', '--strict')[0] == 0
 
 
 def test_release_snapshot_writer_failure_has_one_failing_json_verdict(tmp_path, capsys, monkeypatch):
@@ -253,3 +258,47 @@ def test_moved_nongit_project_is_unverifiable_not_edited(tmp_path, capsys):
     body.write_bytes(body.read_bytes() + b"x")
     code, output, _ = _call(moved, capsys, "map", "check", "--strict")
     assert code == 1 and "owner_text_edited" in output, output
+
+
+def test_committed_file_has_one_answer_in_every_checkout(tmp_path, capsys):
+    root = _project(tmp_path / "project", capsys)
+    _seed_git(root)
+    source = tmp_path / "owner.md"
+    source.write_bytes(b"Keep one answer for committed requests.\n")
+    assert _call(root, capsys, "req", "add", str(source), "--id", "R1")[0] == 0
+    body = root / ".flowguard/requests/R1.md"
+    meta = body.with_suffix(".json")
+    item = json.loads(meta.read_bytes())
+    body.write_bytes(body.read_bytes() + b"edited before the first commit\n")
+    item.update(sha256=hashlib.sha256(body.read_bytes()).hexdigest(), bytes=len(body.read_bytes()))
+    meta.write_bytes(json.dumps(item).encode())
+    code, output, _ = _call(root, capsys, "map", "check", "--strict")
+    assert code == 1 and "owner_text_edited" in output, output  # uncommitted: this checkout's receipt answers
+    _git(root, "add", "--", ".flowguard/requests")
+    _git(root, "commit", "-qm", "committed request bytes")
+    clone = tmp_path / "clone"
+    _git(tmp_path, "clone", "-q", str(root), str(clone))
+    answers = []
+    for checkout in (root, clone):
+        code, output, _ = _call(checkout, capsys, "map", "check", "--strict")
+        answers.append((code, _immutable_codes(output)))
+    assert answers == [(0, set()), (0, set())], answers  # committed: the first committed blob answers
+    for checkout in (root, clone):
+        changed = checkout / ".flowguard/requests/R1.md"
+        changed.write_bytes(changed.read_bytes() + b"x")
+        code, output, _ = _call(checkout, capsys, "map", "check", "--strict")
+        assert code == 1 and "owner_text_edited" in output, output
+
+
+def test_unreadable_receipt_is_reported_as_unreadable_not_as_an_edit(tmp_path, capsys):
+    from flowguard.map.records import _written_path
+
+    root = _project(tmp_path / "project", capsys)
+    source = tmp_path / "owner.md"
+    source.write_bytes(b"Keep the request when its receipt is damaged.\n")
+    assert _call(root, capsys, "req", "add", str(source), "--id", "R1")[0] == 0
+    receipt = _written_path(root, root / ".flowguard/requests/R1.md", None)
+    receipt.write_text("not a receipt\n", encoding="ascii")
+    code, output, errors = _call(root, capsys, "map", "check", "--strict")
+    assert code == 2 and "receipt_unreadable" in errors and str(receipt) in errors, (output, errors)
+    assert not _immutable_codes(output + errors)
