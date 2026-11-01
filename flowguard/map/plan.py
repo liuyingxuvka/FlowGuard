@@ -383,10 +383,13 @@ def render_owner_block(root, current_data, target, view, items):
         nonlocal owner_rules
         if owner_rules is None:
             from .records import change_records
-            owner_rules = {rule.get('id') for _, record in change_records(root)
+            unreadable = []
+            owner_rules = {rule.get('id') for _, record in change_records(root, unreadable=unreadable)
                            for rule in record['rules'] if isinstance(rule, dict)
                            and isinstance(rule.get('provenance'), str)
                            and rule['provenance'].startswith('owner ')}
+            lines.extend(f'  change record {key} unreadable ({error}): rules it took from the owner\'s words '
+                         'are not known here (python -m flowguard status)' for key, error in unreadable)
         return name in owner_rules
 
     for item in items:

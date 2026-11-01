@@ -174,6 +174,12 @@ def test_owner_block_marks_stored_requests_and_glossary(tmp_path):
     block = render_owner_block(tmp_path, load_map(tmp_path), target, view, items)
     assert 'full request RDuring:' in block and 'Owner original second line.' in block
     assert 'full request GDuring:' in block
+    damaged = CHANGE_DIR / '20261101-0000-abcdef.json'
+    write_once(tmp_path, damaged, b'{}')  # the owner block names a record it cannot read, never drops it
+    block = render_owner_block(tmp_path, load_map(tmp_path), target, view, items)
+    assert 'change record 20261101-0000-abcdef unreadable' in block and 'full request RDuring:' in block
+    (tmp_path / damaged).chmod(0o644)
+    (tmp_path / damaged).unlink()
     from flowguard.map import target as native
     from flowguard.map.targetfile import load_target, build_target_view
     assert native.drop_target(tmp_path, yes=True) == 0
@@ -263,10 +269,14 @@ def test_promote_records_the_link_without_marking_a_request_done(tmp_path, capsy
         assert {p.name: p.read_bytes() for p in (root / ".flowguard/requests").glob("R*.*")} == originals
         if not partial:
             from flowguard.map.records import change_records, record_findings
+            from flowguard.map.mapfile import MapError
             records[0].write_bytes(records[0].read_bytes() + b" ")
-            assert change_records(root) == []
+            unreadable = []
+            assert change_records(root, unreadable=unreadable) == []
+            assert [key for key, _ in unreadable] == [records[0].stem]
             assert any(item.code == "record_edited" for item in record_findings(root))
-            assert _citations(root) == {"R1": [], "R2": []}
+            with pytest.raises(MapError, match=records[0].stem):
+                _citations(root)  # owner words read without the unreadable list stop instead of losing a citation
 
 
 def test_request_link_refusal_and_failed_record_do_not_complete(tmp_path, capsys, monkeypatch):

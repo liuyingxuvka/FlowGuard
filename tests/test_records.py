@@ -36,7 +36,8 @@ def _promoted_project(root, capsys, *, git=False):
 def _record_refused(root, capsys):
     from flowguard.map.records import change_records, record_findings
 
-    assert change_records(root) == []
+    unreadable = []
+    assert change_records(root, unreadable=unreadable) == [] and unreadable, unreadable
     assert any(item.code == "record_edited" for item in record_findings(root))
     code, output, _ = _call(root, capsys, "map", "check", "--strict")
     assert code == 1 and "record_edited" in output
@@ -309,3 +310,21 @@ def test_unreadable_receipt_is_reported_as_unreadable_not_as_an_edit(tmp_path, c
     code, output, errors = _call(root, capsys, "map", "check", "--strict")
     assert code == 2 and "receipt_unreadable" in errors and str(receipt) in errors, (output, errors)
     assert not _immutable_codes(output + errors)
+
+
+def test_an_unreadable_change_record_is_named_by_where_and_never_dropped_silently(tmp_path, capsys):
+    """where lists the record it left out among what it cannot know; a caller that collects nothing stops."""
+    from flowguard.map.mapfile import MapError
+    from flowguard.map.records import change_records
+    record = _promoted_project(tmp_path, capsys, git=True)
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-qm", "promoted change")
+    assert "cited by change " + record.stem in _call(tmp_path, capsys, "where", "R1")[1]
+    record.write_bytes(record.read_bytes().replace(b'"goal"', b'"goal" ', 1))  # one byte more, still JSON
+    with pytest.raises(MapError, match=f"change record {record.stem} unreadable"):
+        change_records(tmp_path)
+    unreadable = []
+    assert change_records(tmp_path, unreadable=unreadable) == [] and [key for key, _ in unreadable] == [record.stem]
+    for arguments in (["where", "R1"], ["where", "R1", "--json"]):
+        code, output, errors = _call(tmp_path, capsys, *arguments)
+        assert code == 0 and f"change record {record.stem} unreadable" in output, (arguments, output, errors)

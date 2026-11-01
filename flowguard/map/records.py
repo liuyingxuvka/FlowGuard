@@ -446,8 +446,9 @@ def _change_record(root, identifier, files):
 def change_records(root, *, unreadable=None):
     """Complete, schema-valid, byte-protected successful records; the others are never facts.
 
-    An unreadable record is appended to `unreadable` as (id, error) for the caller to show; record_findings
-    reports it as record_edited and an unverifiable one as immutable_unverified."""
+    An unreadable record is never dropped silently: it is appended to `unreadable` as (id, error) for a
+    caller that shows it, and without that list it stops with MapError naming it. record_findings reports
+    it as record_edited and an unverifiable one as immutable_unverified."""
     root = Path(root).resolve()
     records = []
     files = _record_files(root)
@@ -457,8 +458,9 @@ def change_records(root, *, unreadable=None):
         except Unverifiable:
             continue  # Not a fact here (DECISIONS FG-801); record_findings reports immutable_unverified.
         except (OSError, ValueError) as error:
-            if unreadable is not None:
-                unreadable.append((identifier, str(error)))
+            if unreadable is None:
+                raise MapError(f"change record {identifier} unreadable: {error} (python -m flowguard status)") from error
+            unreadable.append((identifier, str(error)))
     return records
 
 

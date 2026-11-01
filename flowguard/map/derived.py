@@ -414,7 +414,10 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
             result["stores"] = [{"path": path, **row} for path, file in raw["files"].items() for row in file.get("file_targets", [])
                                 if not name or name in {path, row.get("last_component"), row.get("symbol")} or name in row.get("constants", [])]
             return result
-        records = change_records(source) if at is None else []
+        unreadable = []
+        records = change_records(source, unreadable=unreadable) if at is None else []
+        result["unknown"].extend(f"change record {identifier} unreadable ({error}); its change and request facts "
+                                 "are left out here (python -m flowguard status)" for identifier, error in unreadable)
         for identifier, fn in functions.items():
             changes = [(key, record) for key, record in records if identifier.replace("#", ":", 1) in record.get("implemented_by", [])]
             fn["last_change"] = changes[-1][0] if changes else None
