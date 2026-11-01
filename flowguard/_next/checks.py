@@ -437,12 +437,16 @@ class _Run:
                 continue
             n = len(o)
             for c_ in sorted(never, key=repr):
-                # a value no state leaves ends its object's life only when nothing of the object
-                # changes after it; otherwise it is a one-way marker and ends nothing
+                # a value no state leaves ends its object's life when only finitely many changes
+                # of the object can follow it (no cycle changes the object while it holds the
+                # value): the object comes to a halt there. When the object can go on changing
+                # for ever (a flag set once on a book still lent and returned) it is a one-way
+                # marker and ends nothing.
                 nodes = [i * n + k for k, p in enumerate(o) for i in range(N) if cls(p, states[i][p]) == c_]
-                if any(changing[q][x // n] for x in nodes for q in obj_pos[keys[o[x % n]][1:]]):
+                halted = self.halts(nodes, o, obj_pos)
+                if halted is None:
                     continue
-                self.frozen_ends.append((c_, nodes, o))
+                self.frozen_ends.append((c_, halted, o))
                 old = ends.get(name, (set(), False))[0]
                 ends[name] = (old | {fr.ren(q, c_[1]) for q in range(P)}, False)
 
@@ -520,6 +524,46 @@ class _Run:
         for r, where in self.progress_lost(prog_rules):
             lines.append({"kind": "progress", "rule": r, "first": min(where), "where": frozenset(where)})
         return self.group(lines)
+
+    def halts(self, nodes, o, obj_pos):
+        """For the (state, position) nodes holding a value no state leaves: the nodes where the
+        position's object can never change again, or None when the object can change for ever
+        while it holds the value (a cycle among those nodes changes it). The nodes are closed
+        under steps (the value is never left), so with no such cycle every one of them leads
+        to a node where the object has halted."""
+        g, fr, keys = self.g, self.fr, self.keys
+        states, sym = g.states, g.sym
+        n = len(o)
+        obj = keys[o[0]][1:]
+        items = orbit(g, obj)
+        pg = g.pair_graph(items, lambda q, x: fr.ren(q, x))
+        idx = {x: k for k, x in enumerate(items)}
+        of = {}                                           # object node -> its position node
+        for x in nodes:
+            i, k = divmod(x, n)
+            of[i * pg.n + idx[keys[o[k]][1:]]] = x
+        succ, moves = {}, set()                           # edges among the nodes; those that change the object
+        for u in of:
+            i, ko = divmod(u, pg.n)
+            si = states[i]
+            prow = g.perm[i] if g.perm is not None else None
+            mine = obj_pos[items[ko]]
+            out = []
+            for c, j in enumerate(g.out[i]):
+                if j < 0:
+                    continue
+                p_ = prow[c] if prow is not None else 0
+                w = j * pg.n + pg.trans[p_][ko]
+                raw = states[j] if p_ == 0 else sym.apply(sym.inv[p_], states[j])
+                if any(si[q] != raw[q] for q in mine):
+                    moves.add((u, w))
+                out.append(w)
+            succ[u] = out
+        comp = _components(list(of), succ)
+        if any(comp[u] == comp.get(w) for u, w in moves):
+            return None
+        live = pg.reverse_reach([u for u, _ in moves])
+        return [of[u] for u in sorted(of) if not live[u]]
 
     def expand(self, c_, nodes, o):
         """The concrete (position, value, unreduced states) of a class seen at pair nodes."""
@@ -621,8 +665,8 @@ class _Run:
             return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, and it is "
                     f"not a declared end ({n} state{'s' if n != 1 else ''}, complete search)")
         if line["kind"] == "end":
-            return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, nothing of "
-                    f"the object changes after it, and no end is declared ({n} state{'s' if n != 1 else ''}, "
+            return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, the object "
+                    f"comes to a halt there, and no end is declared ({n} state{'s' if n != 1 else ''}, "
                     f"complete search)")
         return (f"progress {line['rule'].name!r}: from here it can never be satisfied again "
                 f"({n} state{'s' if n != 1 else ''}, complete search)")
@@ -710,8 +754,8 @@ class _Run:
                 text = f"{head}: {subject} is never left, and it is not a declared end"
             else:
                 fam = line["key"][0]
-                text = (f"{head}: {subject} is never left and nothing of {who} changes after it; no end is "
-                        f"declared (m.terminal({fam!r}, [{line['value']!r}]) if it ends a life on purpose)")
+                text = (f"{head}: {subject} is never left, and from here nothing of {who} ever changes again; "
+                        f"no end is declared (m.terminal({fam!r}, [{line['value']!r}]) if it ends a life on purpose)")
             objects = _key_objects(line["key"]) + _value_ids(line["value"], self.ids)
             detail["key"] = show_key(line["key"])
             detail["value"] = repr(line["value"])
@@ -1065,7 +1109,7 @@ class _Run:
 
     # -------------------------------------------------------------- warnings, errors
     def undeclared_ends(self):
-        """G8: a value no state leaves, after which nothing of its object ever changes, in a
+        """G8: a value no state leaves, at which its object comes to a halt, in a
         field no m.terminal declares ends for, is a dead end (STUCK) unless it is declared."""
         out = []
         for c_, nodes, o in self.frozen_ends:
@@ -1117,6 +1161,49 @@ class _Run:
             "explanations_capped": list(getattr(self, "explanations_capped", [])),
             "explanation_errors": list(self.explanation_errors),
         }
+
+
+def _components(nodes, succ) -> dict:
+    """Strongly connected components (iterative Tarjan): node -> component number."""
+    index, low, comp, on, stack = {}, {}, {}, set(), []
+    counter = 0
+    for root in nodes:
+        if root in index:
+            continue
+        work = [(root, iter(succ.get(root, ())))]
+        index[root] = low[root] = counter
+        counter += 1
+        stack.append(root)
+        on.add(root)
+        while work:
+            v, it = work[-1]
+            advanced = False
+            for w in it:
+                if w not in succ:
+                    continue
+                if w not in index:
+                    index[w] = low[w] = counter
+                    counter += 1
+                    stack.append(w)
+                    on.add(w)
+                    work.append((w, iter(succ.get(w, ()))))
+                    advanced = True
+                    break
+                if w in on:
+                    low[v] = min(low[v], index[w])
+            if advanced:
+                continue
+            work.pop()
+            if work:
+                low[work[-1][0]] = min(low[work[-1][0]], low[v])
+            if low[v] == index[v]:
+                while True:
+                    w = stack.pop()
+                    on.discard(w)
+                    comp[w] = index[v]
+                    if w == v:
+                        break
+    return comp
 
 
 def _is_counter(domain) -> bool:

@@ -198,3 +198,48 @@ def test_a_one_way_marker_is_no_end_and_hides_no_dead_end(project):
     assert [(f.kind, f.subject) for f in report.findings if f.cls == CONFLICT] == [("STUCK", "where[*] = 'repair'")]
     assert not [f for f in report.findings if "flag" in f.subject]
     assert report.reach["ends"] == []
+
+
+WAITING = '''
+from flowguard._next import Model, need
+
+m = Model("waiting")
+BOOKS = m.objects("book", "B1", "B2")
+m.field("where", ["shelf", "loan", "repair"], "shelf", over=BOOKS, source="R1", value_sources={"repair": "R4"})
+m.field("waiting", range(0, 3), 0, over=BOOKS, source="R4", note="nights in repair, 0..2")
+
+@m.action(b=BOOKS, source="R1")
+def lend(s, b):
+    need(s["where", b] == "shelf", "not on the shelf")
+    s["where", b] = "loan"
+
+@m.action(b=BOOKS, source="R1")
+def give_back(s, b):
+    need(s["where", b] == "loan", "not on loan")
+    s["where", b] = "shelf"
+
+@m.action(b=BOOKS, source="R4")
+def damaged(s, b):
+    need(s["where", b] == "loan", "not on loan")
+    s["where", b], s["waiting", b] = "repair", 0
+
+@m.action(source="R4")
+def night(s):
+    for b in BOOKS:
+        if s["where", b] == "repair":
+            s["waiting", b] = min(s["waiting", b] + 1, 2)
+MODEL = m
+'''
+
+
+def test_a_dead_end_with_a_counter_that_still_ticks_is_a_dead_end(project):
+    """G8 (round 2): a book sent to repair that nothing repairs, with a counter that still
+    ticks there until it is clamped, comes to a halt: only finitely many changes follow the
+    value, then nothing of the book changes again. It is a dead end (it once was "clean")."""
+    project.flow("waiting", WAITING)
+    report = check_model(load_model(project.root / ".flowguard/flow/waiting.py", project.root))
+    [end] = [f for f in report.findings if f.cls == CONFLICT]
+    assert end.kind == "STUCK" and end.subject == "where[*] = 'repair'" and end.detail["stuck"] == "end"
+    assert "B1 stuck with where='repair', waiting=2" in end.text
+    assert end.path == ("lend(b='B1')", "damaged(b='B1')", "night()", "night()")
+    assert "m.terminal('where', ['repair'])" in end.text
