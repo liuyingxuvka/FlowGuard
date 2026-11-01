@@ -394,7 +394,8 @@ def test_show_runs_its_parts_in_the_worker_under_the_wait_contract(project):
     assert res.returncode == 0, res.stdout + res.stderr
     first = res.stdout.splitlines()[0]
     assert first.startswith("rental: STUCK branch[*] = 'library'") and "6 boxes, 9 arrows" in first
-    assert "flowchart LR" in res.stdout and res.stderr == ""
+    assert "flowchart LR" in res.stdout
+    assert all(line.startswith("show: ") for line in res.stderr.splitlines())     # progress only, after 2 s
 
     project.flow("slow", 'import time\nfrom flowguard._next import Model, need\nm = Model("slow")\n'
                          'm.field("n", range(0, 8), 0)\n\n@m.action()\ndef tick(s):\n    time.sleep(0.4)\n'
