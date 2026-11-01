@@ -358,3 +358,17 @@ def test_nothing_comes_before_the_verdict(project, args):
     first = run.first if not args else run.data["verdict"]
     assert first.startswith("clean, complete")
     assert run.err == ""
+
+
+def test_show_is_handed_to_the_diagram_part(project):
+    """`show` parses the options of design 6.3 and hands them to diagram.show_main with a
+    job runner; until diagram.py is merged in it says so on one line."""
+    import subprocess
+    from checkrun import command, env
+    from flowguard._next import cli
+    args = cli.parser().parse_args(["show", "workshop:T1", "--before", "HEAD", "--focus", "2", "--story"])
+    assert (args.what, args.before, args.focus, args.story, args.max_boxes, args.max_arrows, args.wait) == (
+        "workshop:T1", "HEAD", 2, True, 12, 20, 90.0)
+    res = subprocess.run(command("show"), cwd=project.root, capture_output=True, text=True, env=env(), timeout=60)
+    assert (res.returncode, res.stdout) == (2, "show is not in this build: diagram.py is not here yet\n")
+

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
+import importlib.util
 import json
 import shlex
 import sys
@@ -123,7 +125,9 @@ def _show(args, out, err) -> int:
         root = find_root(Path(args.root) if args.root else Path.cwd())
     except ProjectError as e:
         return _early(out, str(e), EXIT_ERROR, args.json)
-    from . import diagram
+    if importlib.util.find_spec(f"{__package__}.diagram") is None:     # until Part B is merged in
+        return _early(out, "show is not in this build: diagram.py is not here yet", EXIT_ERROR, args.json)
+    diagram = importlib.import_module(f"{__package__}.diagram")
     runner = jobs.Runner(root, wait=args.wait, keep=args.keep, progress=_Progress(err, "show"))
     return diagram.show_main(root, args, runner)
 
