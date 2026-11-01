@@ -1,0 +1,33 @@
+machine: request 9: maintenance of a tool (one tool, three members)
+settings (shipped): maintain_every=4, inspect_every=5
+explored: 168 states, 637 steps, 0.0 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (4)
+  value cond[T] = 'inspection'  (reached only with maintain_every=0, inspect_every=1, inspect_every=2, inspect_every=3)
+  value ins[T] = 5  (reached only with maintain_every=0)
+  action inspect_pass  (reached only with maintain_every=0, inspect_every=1, inspect_every=2, inspect_every=3)
+  action inspect_fail  (reached only with maintain_every=0, inspect_every=1, inspect_every=2, inspect_every=3)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  always 'on loan exactly when someone has it': HOLDS (complete, 168 states)
+  always 'a hold is only for a tool in the shop': HOLDS (complete, 168 states)
+  always 'a tool in the shop with people waiting is held for one of them': HOLDS (complete, 168 states)
+  only_when 'no rental starts while the tool is due its maintenance': HOLDS (complete, 168 states)
+  after "exactly the Nth rental's normal return goes to repair": HOLDS (complete, 168 states)
+  after 'maintenance holds nothing and keeps the queue': HOLDS (complete, 168 states)
+  after 'damage does not restart the count (only the repair does)': HOLDS (complete, 168 states)
+  after 'a repair restarts the count from 0': HOLDS (complete, 168 states)
+  after 'an inspection that passes does not restart the maintenance count': HOLDS (complete, 168 states)
+  after 'a failed inspection does not restart the maintenance count': HOLDS (complete, 168 states)
+  progress 'a tool in repair or inspection is eventually back in the shop or lost': HOLDS (complete)
+  progress 'a member waiting for a tool gets it held, unless it is lost [M1]': HOLDS (complete)
+  progress 'a member waiting for a tool gets it held, unless it is lost [M2]': HOLDS (complete)
+  progress 'a member waiting for a tool gets it held, unless it is lost [M3]': HOLDS (complete)
+ENDS (values that end an object's life; its other fields may freeze there):
+  cond = 'lost'  (declared)
+  note: in some states every object has ended, so the model runs out of work there;
+  harm that needs more work (someone blocked from new work) cannot show. Let a finished
+  object's slot start a new one (see HOWTO.md) if your system keeps receiving work.
+verdict: FINDINGS (4 findings)
+exit=1

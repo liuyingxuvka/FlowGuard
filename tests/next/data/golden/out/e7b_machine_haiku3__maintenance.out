@@ -1,0 +1,37 @@
+machine: tool maintenance
+settings (shipped): maintain_every=2, inspect_every=3
+explored: 26 states, 39 steps, 0.0 s, complete (every order of every action)
+STUCK (2: 1 first, 1 that follow from them)
+  inspected = 0: other states leave this value, but here it can never change again (1 state, complete search)
+    state: where='lost'
+    path (2 steps):
+      1. rent()
+      2. mark_lost()
+    what each action does there:
+      rent() -> refused 'the tool is not in the shop'
+      return_tool() -> refused 'the tool is not on loan'
+      return_damaged() -> refused 'the tool is not on loan'
+      mark_lost() -> refused 'the tool is not on loan'
+      inspect(result='pass') -> refused 'the tool is not waiting for inspection'
+      inspect(result='fail') -> refused 'the tool is not waiting for inspection'
+      repaired() -> refused 'the tool is not in repair'
+    stuck only in states that are already stuck as above (consequences):
+      rented = 0: other states leave this value, but here it can never change again (1 state, complete search)
+NEVER REACHED (5)
+  value rented = 3  (reached only with maintain_every=3, maintain_every=4)
+  value rented = 4  (reached only with maintain_every=4)
+  value rented = 5  (no one-setting change reaches it either)
+  value inspected = 4  (reached only with inspect_every=4, inspect_every=6)
+  value inspected = 5  (reached only with inspect_every=6)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  always 'a tool in the shop is due no maintenance and no inspection': HOLDS (complete, 26 states)
+  after 'a normal return of a tool due for maintenance sends it to maintenance': HOLDS (complete, 26 states)
+  after 'a damaged return goes to repair, even at the maintenance count': HOLDS (complete, 26 states)
+  after 'recording a repair starts the maintenance count again from 0': HOLDS (complete, 26 states)
+  progress 'a tool that is out or in repair or inspection gets back to the shop or is lost': HOLDS (complete)
+  reach 'a tool is sent to maintenance': reached
+  reach 'a tool is inspected after a maintenance': reached
+verdict: FINDINGS (7 findings)
+exit=1

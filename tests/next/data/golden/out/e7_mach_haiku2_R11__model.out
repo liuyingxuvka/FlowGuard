@@ -1,0 +1,73 @@
+machine: request 11, design
+settings (shipped): hold_days=2, held_list=1
+explored: 339 states, 1,817 steps, 0.0 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (0)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  always 'a tool on the way is not on loan': HOLDS (complete, 339 states)
+  always 'a tool on loan is not held': HOLDS (complete, 339 states)
+  always 'the member holding a tool is not also waiting for it': HOLDS (complete, 339 states)
+  always 'a queue waits only for a tool that is out, held or on the way': HOLDS (complete, 339 states)
+  after 'a tool on the way is made available only by its arrival': HOLDS (complete, 339 states)
+  after 'bring holds the tool for the same member, sent to the branch asked, on the way': HOLDS (complete, 339 states)
+  after 'a brought tool stays held for its member when it arrives': HOLDS (complete, 339 states)
+  progress 'a tool on the way always arrives': HOLDS (complete)
+  progress 'a hold always ends': HOLDS (complete)
+  reach "a tool brought for M1 is on the way to M1's branch": reached
+  reach 'M1 can pick up at their branch a tool brought there': reached
+verdict: CLEAN
+
+machine: request 11, current code extended naively
+settings (shipped): hold_days=2, held_list=1
+explored: 549 states, 3,026 steps, 0.1 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (0)
+BROKEN (4)
+  after 'a tool on the way is made available only by its arrival'
+    state before: hold='M2', cond='transit', branch='B2'
+    path (5 steps):
+      1. rent(who='M1')
+      2. reserve(who='M2')
+      3. return_tool(who='M1')
+      4. bring(who='M2', b='B2')
+      5. cancel(who='M2')
+  after 'a brought tool stays held for its member when it arrives'
+    state before: hold='M2', queue=('M1',), cond='transit', branch='B2'
+    path (6 steps):
+      1. rent(who='M1')
+      2. reserve(who='M2')
+      3. return_tool(who='M1')
+      4. reserve(who='M1')
+      5. bring(who='M2', b='B2')
+      6. receive()
+  always 'a tool on the way is not on loan'
+    state before: loan='M2', cond='transit', branch='B2'
+    path (5 steps):
+      1. rent(who='M1')
+      2. reserve(who='M2')
+      3. return_tool(who='M1')
+      4. bring(who='M2', b='B2')
+      5. rent(who='M2')
+  always 'a tool on loan is not held'
+    state before: loan='M2', hold='M1', branch='B2'
+    path (7 steps):
+      1. rent(who='M1')
+      2. reserve(who='M2')
+      3. return_tool(who='M1')
+      4. reserve(who='M1')
+      5. bring(who='M2', b='B2')
+      6. rent(who='M2')
+      7. receive()
+CONTRADICTION (0)
+RULES
+  always 'the member holding a tool is not also waiting for it': HOLDS (complete, 549 states)
+  always 'a queue waits only for a tool that is out, held or on the way': HOLDS (complete, 549 states)
+  after 'bring holds the tool for the same member, sent to the branch asked, on the way': HOLDS (complete, 549 states)
+  progress 'a tool on the way always arrives': HOLDS (complete)
+  progress 'a hold always ends': HOLDS (complete)
+  reach "a tool brought for M1 is on the way to M1's branch": reached
+  reach 'M1 can pick up at their branch a tool brought there': reached
+verdict: FINDINGS (4 findings)
+exit=1

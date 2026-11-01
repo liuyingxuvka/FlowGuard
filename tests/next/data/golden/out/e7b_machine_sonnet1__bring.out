@@ -1,0 +1,16 @@
+machine: bring
+settings (shipped): hold_days=2
+explored: 38 states, 124 steps, 0.0 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (0)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  only_when 'never rent in transit': HOLDS (complete, 38 states)
+  after 'bring keeps the hold': HOLDS (complete, 38 states)
+  after 'arrival never changes who the tool is held for': HOLDS (complete, 38 states)
+  progress 'a held tool is always collected or released [T1]': HOLDS (complete)
+  progress 'a tool in transit arrives [T1]': HOLDS (complete)
+  reach 'held tool in transit': reached
+verdict: CLEAN
+exit=0
