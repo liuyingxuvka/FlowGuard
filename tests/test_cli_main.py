@@ -334,8 +334,9 @@ def test_every_printed_next_line_carries_an_advice_id(tmp_path, capsys):
     assert "where" in ids
     for arguments in ((), ("--flow",)):
         _, output, _ = _run(root, capsys, "where", *arguments, "--json")
-        step = json.loads(output)["next"]
-        assert step["id"] == "where" and step["command"].startswith("python -m flowguard where ")
+        steps = json.loads(output)["next"]
+        assert steps and all(step["id"] == "where" and step["command"].startswith("python -m flowguard where ")
+                             for step in steps), steps
 
 
 def test_json_runtime_failure_preserves_exit_and_one_line(tmp_path, capsys):
@@ -982,15 +983,17 @@ finally:
         assert answer.returncode == 0 and not answer.stderr, answer
         assert len(answer.stdout.splitlines()) == 1
         facts = json.loads(answer.stdout)
+        # Every view reports its next steps one way, as the other commands do: {id, command} objects in next.
+        assert "next_queries" not in facts and isinstance(facts["next"], list), facts.get("next")
+        assert all(set(item) == {"id", "command"} and item["id"] == "where" for item in facts["next"]), facts["next"]
         if not arguments:
-            assert facts["next"]["id"] == "where"
-            command = shlex.split(facts["next"]["command"])
+            command = shlex.split(facts["next"][0]["command"])
             assert command[:4] == ["python", "-m", "flowguard", "where"]
             assert command[command.index("--root") + 1] == str(root.resolve())
             assert invoke(command[3:]).returncode == 0
         if arguments == ["--text"]:
             assert facts["projection"] == "compact"
-            assert facts["next_queries"]
+            assert facts["next"]
         if arguments == ["helper"]:
             assert facts["functions"][0]["execution"] == {"state": "not_recorded", "tests": "not recorded in this clone"}
     for arguments in (["--at", "HEAD"], ["--flow", "--arch"]):
@@ -1035,7 +1038,7 @@ def test_public_text_reuses_one_report_and_preserves_ref_in_group_queries(tmp_pa
     assert not answer.err and len(answer.out.splitlines()) == 1
     compact = json.loads(answer.out)
     assert calls == [{"at": "old"}]
-    command = shlex.split(compact["next_queries"][0])
+    command = shlex.split(compact["next"][0]["command"])
     assert command[:4] == ["python", "-m", "flowguard", "where"]
     assert command[4].startswith("group:") and "--text" in command and "--json" in command
     assert command[command.index("--root") + 1] == str(tmp_path.resolve())
@@ -1047,7 +1050,8 @@ def test_public_text_reuses_one_report_and_preserves_ref_in_group_queries(tmp_pa
     assert len(selected["texts"]) == 2 and all(row["text"] == original for row in selected["texts"])
     assert any(row["name"] == "old_name" and row["state"] == "found in static source" for row in selected["references"])
     assert not any(row["name"] == "new_name" for row in selected["references"])
-    literal_command = next(shlex.split(command) for command in selected["next_queries"] if shlex.split(command)[4].startswith("text:"))
+    literal_command = next(shlex.split(item["command"]) for item in selected["next"]
+                           if shlex.split(item["command"])[4].startswith("text:"))
     assert literal_command[literal_command.index("--at") + 1] == "old"
     assert main(literal_command[3:]) == 0
     literal = json.loads(capsys.readouterr().out)

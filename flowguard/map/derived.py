@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import tempfile
 
-from .common import git_blob, git_common_directory, git_head, git_run, normalize_newlines, read_source, render_advice
+from .common import git_blob, git_common_directory, git_head, git_run, normalize_newlines, read_source
 from .discover import discover_inventory, function_spans, literal_sites, reachable_functions
 from .inventory import build_inventory, function_digests, syntax_tree
 from .mapfile import ignore_patterns, load_map, map_path, model_registry, owner_index, read_model_contract
@@ -619,8 +619,6 @@ def render(result, *, as_json=False, all_rows=False):
         lines.append(str(result["unexpanded_functions"]) + " function details unexpanded")
     if "unexpanded_texts" in result:
         lines.append(str(result["unexpanded_texts"]) + " text details unexpanded")
-    if result.get("next"):
-        lines.append(render_advice(result["next"]))
     if (line := omitted_line(result.get("omitted"), _order(result))):
         lines.append(line)
     lines.extend("unknown: " + item for item in result["unknown"])

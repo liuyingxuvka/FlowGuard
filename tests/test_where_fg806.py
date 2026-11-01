@@ -47,6 +47,14 @@ def test_text_file_default_shows_the_relevant_part_counts_the_rest_and_all_print
     assert all(rule in everything for rule in rules)
     assert len(re.findall(r"^doc\.md:\d+-\d+ · source:", everything, re.M)) == 30
     assert len(everything) > 2 * len(default)
+    assert re.search(r"^next\[where\]: python -m flowguard where doc\.md --text --all --root ", default, re.M), default
+    payload = json.loads(where(capsys, tmp_path, "--text", "doc.md", "--json"))  # the same steps, one route
+    assert "next_queries" not in payload and all(set(item) == {"id", "command"} for item in payload["next"])
+    every = [item["command"] for item in payload["next"] if "--all" in item["command"]]
+    assert len(every) == 1, payload["next"]
+    import shlex
+    assert main(shlex.split(every[0])[3:]) == 0
+    assert len(json.loads(capsys.readouterr().out)["texts"]) == 30
 
 
 def test_where_prints_no_fixed_disclaimer_lines_and_no_project_list_per_function(tmp_path, capsys):

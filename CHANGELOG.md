@@ -34,7 +34,7 @@
 - A promotion refused because a model or test failed prints `target promote` again, not `target check`.
 - Promotion no longer writes a commit message file; you commit in your own words. `#` notes in PLAN.txt are kept in the change record.
 - `req add` points to `status` instead of starting a target.
-- `where` prints its next steps as `next[where]: ...` lines, and `where --json` reports `next` as `{id, command}`. The overview no longer shows placeholder commands.
+- `where` prints its next steps as `next[where]: ...` lines. In every view, `where --json` lists them in `next` as the `{id, command}` objects the other commands use. The overview no longer shows placeholder commands.
 - `where` prints the most relevant rows of each list and says how many it left out. `--all` prints every row, also with `--json`.
 - `where` no longer prints fixed disclaimer lines, `--arch` lists the largest modules first, and a name query also finds equal string literals with their function.
 - Repeating a `where` query is much faster: in a project with `.flowguard/`, parse results are cached by file content in the git-ignored `.flowguard/cache/`.

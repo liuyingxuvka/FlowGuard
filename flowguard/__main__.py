@@ -284,22 +284,25 @@ def _where(ns):
                     selectors.append(literal)
             options = ["--text", *(["--at", ns.at] if ns.at else []), *(["--json"] if ns.json else [])]
             result["selectors"] = ["FILE", "source:<id>", "group:<id>", "text:<literal phrase>"]
-            result["next_queries"] = [project_command(root, "where", selector, *options) for selector in dict.fromkeys(selectors)]
+            result["next"] = [advice("where", project_command(root, "where", selector, *options))
+                              for selector in dict.fromkeys(selectors)]
             renderer = textrules
         else:
             result = derived.where(root, ns.name, view=ns.view)
             if "unexpanded_functions" in result:
                 modules = result.get("modules", [])
                 options = ([modules[0]["path"]] + (["--flow"] if ns.view == "flow" else [])) if modules else ["--arch"]
-                result["next"] = advice("where", project_command(root, "where", *options, *(["--json"] if ns.json else [])))
-            result["next_queries"] = []
+                result["next"] = [advice("where", project_command(root, "where", *options, *(["--json"] if ns.json else [])))]
+            else:
+                result["next"] = []
             renderer = derived
+        # One route for next steps in every view and in --json: {id, command} objects in "next".
         shown = renderer.project(result, all_rows=ns.all)
         if shown.get("omitted"):
-            shown["next_queries"] = [*shown["next_queries"], every]
+            shown["next"] = [*shown["next"], advice("where", every)]
         output = renderer.render(shown, as_json=ns.json, all_rows=ns.all)
-        if not ns.json and shown["next_queries"]:
-            output += "\n" + "\n".join(render_advice(advice("where", command)) for command in shown["next_queries"])
+        if not ns.json and shown["next"]:
+            output += "\n" + "\n".join(render_advice(item) for item in shown["next"])
         print(output)
         return 0
     except (OSError, ValueError, RuntimeError, MapError) as error:
