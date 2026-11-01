@@ -24,7 +24,7 @@ import types
 
 from flowguard.map.common import child_import_path
 from flowguard.map.runner import run_isolated_process
-from flowguard.map.inputs import directory_stamp, file_stamp, module_lookup_stamp
+from .inputs import directory_stamp, file_stamp, module_lookup_stamp
 
 _ACTIVE_ARENA = None
 _ACTIVE_CLASSES = set()

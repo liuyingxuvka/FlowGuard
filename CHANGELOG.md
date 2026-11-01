@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The installed package leaves out the unreleased behavior engine (`flowguard.behave`, now including its job and input-stamp modules) and code for unfinished slices, also when it is built from a checkout that once had an editable install. That code stays in the source repository and its tests still run there.
+
 ## v0.71.1 - 2026-11-01 - Static source and original-text queries
 
 - Add optional, read-only `where` queries for names, owners and callers, module overviews, static flows, architecture, shared state and file destinations. Queries do not run application code, models or tests; missing execution records remain explicit.

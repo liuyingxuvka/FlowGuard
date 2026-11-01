@@ -7,8 +7,10 @@ import json
 import errno
 import io
 import os
+import shutil
 import subprocess
 import sys
+import zipfile
 
 import pytest
 from pathlib import Path
@@ -46,6 +48,42 @@ def test_wheel_configuration_includes_every_console_example_package() -> None:
 
     discovered = set(find_packages(where=str(ROOT), include=include))
     assert _console_example_packages() <= discovered
+
+
+def test_wheel_leaves_pilot_and_unpassed_slice_code_in_the_repository(tmp_path):
+    """The pilot engine and unpassed-slice code stay in the source tree only.
+
+    An earlier editable install leaves flowguard.egg-info/SOURCES.txt behind and
+    setuptools reads it back on every build, so the stand-in below lists every
+    package source file the way such a stale list does.
+    """
+    source = tmp_path / "source"
+    shutil.copytree(ROOT / "flowguard", source / "flowguard", ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copy2(ROOT / "pyproject.toml", source / "pyproject.toml")
+    (source / "flowguard/_next/draft").mkdir(parents=True)
+    for name in ("__init__.py", "draft/__init__.py"):
+        (source / "flowguard/_next" / name).write_text("", encoding="utf-8")
+    (source / "flowguard.egg-info").mkdir()
+    (source / "flowguard.egg-info/SOURCES.txt").write_text(
+        "".join(path.relative_to(source).as_posix() + "\n" for path in sorted((source / "flowguard").rglob("*.py"))),
+        encoding="utf-8")
+    built = subprocess.run(
+        [sys.executable, "-m", "pip", "wheel", "--no-deps", "--no-build-isolation", "--no-index",
+         "--disable-pip-version-check", "-q", "-w", str(tmp_path / "dist"), str(source)],
+        capture_output=True, text=True)
+    assert built.returncode == 0, built.stdout + built.stderr
+    (wheel,) = (tmp_path / "dist").glob("flowguard-*.whl")
+    with zipfile.ZipFile(wheel) as package:
+        names = package.namelist()
+        package.extractall(tmp_path / "site")
+    assert "flowguard/map/runner.py" in names
+    shipped = [name for name in names if name.startswith(("flowguard/behave/", "flowguard/_next/"))
+               or name in {"flowguard/map/jobs.py", "flowguard/map/inputs.py"}]
+    assert shipped == []
+    probe = subprocess.run(
+        [sys.executable, "-I", "-S", "-c", "import sys; sys.path.insert(0, sys.argv[1]); import flowguard.behave",
+         str(tmp_path / "site")], capture_output=True, text=True)
+    assert probe.returncode == 1 and "No module named 'flowguard.behave'" in probe.stderr, probe.stderr
 
 
 @pytest.mark.parametrize("command", [("read",), ("change",), ("release",), ("map", "show")])

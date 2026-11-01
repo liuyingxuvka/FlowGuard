@@ -9,7 +9,7 @@ import sys
 import time
 
 from flowguard.map.common import atomic_write_text, normalize_newlines
-from flowguard.map.inputs import directory_stamp, file_stamp, footprint_identity
+from .inputs import directory_stamp, file_stamp, footprint_identity
 
 from .capture import merge
 from .project import UnsupportedWorld, replay, state_key, ui_identity

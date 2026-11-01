@@ -8,11 +8,11 @@ from flowguard.explorer import Explorer
 from flowguard.map.facts import CodeFactsReport, Fact
 
 MODEL_ID = "runtime_jobs"
-PARENT = "map-jobs"
-IMPLEMENTED_BY = {"Owner": "flowguard/map/jobs.py:key_lock",
-                  "Run": "flowguard/map/jobs.py:run_or_attach",
-                  "Store": "flowguard/map/jobs.py:Writer.save_slice",
-                  "Inputs": "flowguard/map/jobs.py:prepare"}
+PARENT = "behave"
+IMPLEMENTED_BY = {"Owner": "flowguard/behave/jobs.py:key_lock",
+                  "Run": "flowguard/behave/jobs.py:run_or_attach",
+                  "Store": "flowguard/behave/jobs.py:Writer.save_slice",
+                  "Inputs": "flowguard/behave/jobs.py:prepare"}
 TESTED_BY = {
     "one_owner_per_key": ["tests/behave/test_jobs.py:test_same_content_worktrees_attach_and_keep_the_original_snapshot"],
     "completed_facts_execute_once": ["tests/behave/test_jobs.py:test_slice_reuse_revalidates_inputs_and_never_stores_a_verdict"],
@@ -115,8 +115,8 @@ def broken_variants():
 
 def conformance():
     try:
-        from flowguard.map import jobs
-        from flowguard.map.inputs import file_stamp
+        from flowguard.behave import jobs
+        from flowguard.behave.inputs import file_stamp
     except ImportError as exc:
         return CodeFactsReport((Fact("native_jobs_api", False, str(exc)),))
     facts = []

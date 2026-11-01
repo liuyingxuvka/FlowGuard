@@ -36,4 +36,4 @@ on itself.
 
 ## Unreleased behavior engine
 
-The resumed engine is entered only with `python -m flowguard.behave` on Python 3.12 or newer. Keep the released static `where` queries independent from it. The Python 3.11 legacy lane collects bootstrap guards and ignores native engine tests; Ubuntu Python 3.13 runs the complete engine tests once in the existing workflow. Do not replace full-state or fresh-evidence checks with sampled success claims.
+The resumed engine is entered only with `python -m flowguard.behave` on Python 3.12 or newer, from a source checkout: the wheel leaves out `flowguard/behave/` (including its job and input-stamp modules) and `flowguard/_next/`. Keep the released static `where` queries independent from it. The Python 3.11 legacy lane collects bootstrap guards and ignores native engine tests; Ubuntu Python 3.13 runs the complete engine tests once in the existing workflow. Do not replace full-state or fresh-evidence checks with sampled success claims.
