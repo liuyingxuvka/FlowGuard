@@ -424,6 +424,7 @@ class _Run:
                 obj_pos.setdefault(k[1:], []).append(p)
         ends = {}                                         # family -> (values, declared)
         self.frozen_ends = []                             # (class, nodes, orbit): undeclared, the object freezes
+        self.narrowed = []                                # (class, nodes, orbit, lost, kept): it loses steps for good
         for oi, o in enumerate(orbits):
             name = family[o[0]]
             if name is None:
@@ -445,6 +446,11 @@ class _Run:
                 nodes = [i * n + k for k, p in enumerate(o) for i in range(N) if cls(p, states[i][p]) == c_]
                 halted = self.halts(nodes, o, obj_pos)
                 if halted is None:
+                    # it goes on changing there; still a dead end when it can never again take a
+                    # step it took before (a side flag that toggles keeps no life going)
+                    lost, kept = self.lost_steps(c_, nodes, o, obj_pos, cls)
+                    if lost:
+                        self.narrowed.append((c_, nodes, o, lost, kept))
                     continue
                 self.frozen_ends.append((c_, halted, o))
                 old = ends.get(name, (set(), False))[0]
@@ -565,6 +571,35 @@ class _Run:
         live = pg.reverse_reach([u for u, _ in moves])
         return [of[u] for u in sorted(of) if not live[u]]
 
+    def lost_steps(self, c_, nodes, o, obj_pos, cls):
+        """For a value no state leaves, at which its object goes on changing for ever: (the
+        actions that change the object somewhere but never once it holds the value, the ones
+        that still change it there). An action whose every change of the object enters the
+        value is left out (the step that sets a one-way flag is not lost). Nothing lost: a
+        one-way marker, the object still does all it did (a flag set on the first loan)."""
+        g, keys, states, sym = self.g, self.keys, self.g.states, self.g.sym
+        n = len(o)
+        held = set(nodes)
+        changes, after, entering = set(), set(), {}
+        for i, row in enumerate(g.out):
+            si = states[i]
+            prow = g.perm[i] if g.perm is not None else None
+            for c, j in enumerate(row):
+                if j < 0:
+                    continue
+                p_ = prow[c] if prow is not None else 0
+                raw = states[j] if p_ == 0 else sym.apply(sym.inv[p_], states[j])
+                name = g.calls[c].action.name
+                for k, p in enumerate(o):
+                    if not any(si[q] != raw[q] for q in obj_pos[keys[p][1:]]):
+                        continue
+                    changes.add(name)
+                    if i * n + k in held:
+                        after.add(name)
+                    enters = cls(p, si[p]) != c_ and cls(p, raw[p]) == c_
+                    entering[name] = entering.get(name, True) and enters
+        return sorted(a for a in changes - after if not entering[a]), sorted(after)
+
     def expand(self, c_, nodes, o):
         """The concrete (position, value, unreduced states) of a class seen at pair nodes."""
         fr, g, keys = self.fr, self.g, self.keys
@@ -664,6 +699,10 @@ class _Run:
         if line["kind"] == "dead end":
             return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, and it is "
                     f"not a declared end ({n} state{'s' if n != 1 else ''}, complete search)")
+        if line["kind"] == "end" and line.get("lost"):
+            return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, the object "
+                    f"can never again {', '.join(line['lost'])} there, and no end is declared "
+                    f"({n} state{'s' if n != 1 else ''}, complete search)")
         if line["kind"] == "end":
             return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, the object "
                     f"comes to a halt there, and no end is declared ({n} state{'s' if n != 1 else ''}, "
@@ -761,8 +800,15 @@ class _Run:
                 text = f"{head}: {subject} is never left, and it is not a declared end"
             else:
                 fam = line["key"][0]
-                text = (f"{head}: {subject} is never left, and from here nothing of {who} ever changes again; "
-                        f"no end is declared (m.terminal({fam!r}, [{line['value']!r}]) if it ends a life on purpose)")
+                if line.get("lost"):
+                    kept = line["kept"]
+                    how = (f"from here {who or 'it'} can never again {', '.join(line['lost'])} (only "
+                           f"{', '.join(kept)} still change{'s' if len(kept) == 1 else ''} it)")
+                    detail.update(lost=list(line["lost"]), kept=list(kept))
+                else:
+                    how = f"from here nothing of {who} ever changes again"
+                text = (f"{head}: {subject} is never left, and {how}; no end is declared "
+                        f"(m.terminal({fam!r}, [{line['value']!r}]) if it ends a life on purpose)")
             objects = _key_objects(line["key"]) + _value_ids(line["value"], self.ids)
             detail["key"] = show_key(line["key"])
             detail["value"] = repr(line["value"])
@@ -1132,13 +1178,18 @@ class _Run:
 
     # -------------------------------------------------------------- warnings, errors
     def undeclared_ends(self):
-        """G8: a value no state leaves, at which its object comes to a halt, in a
-        field no m.terminal declares ends for, is a dead end (STUCK) unless it is declared."""
+        """G8: a value no state leaves, in a field no m.terminal declares ends for, is a dead end
+        (STUCK) unless it is declared, when its object comes to a halt there or can never again
+        take a step it took before (only a side flag still toggles)."""
         out = []
         for c_, nodes, o in self.frozen_ends:
             for q, w, where in self.expand(c_, nodes, o):
                 out.append(self.stuck_finding({"kind": "end", "key": self.keys[q], "value": w, "first": min(where),
                                                "where": frozenset(where)}, []))
+        for c_, nodes, o, lost, kept in self.narrowed:
+            for q, w, where in self.expand(c_, nodes, o):
+                out.append(self.stuck_finding({"kind": "end", "key": self.keys[q], "value": w, "first": min(where),
+                                               "where": frozenset(where), "lost": lost, "kept": kept}, []))
         return out
 
     def settings_warning(self):

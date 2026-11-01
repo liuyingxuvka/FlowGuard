@@ -6,6 +6,8 @@ unreachable declared end as conflicts, while wide counter domains are warnings o
 """
 from __future__ import annotations
 
+import pytest
+
 from flowguard._next.checks import CONFLICT, WARNING, check_model
 from flowguard._next.model import Loaded, load_model
 
@@ -242,6 +244,70 @@ def test_a_dead_end_with_a_counter_that_still_ticks_is_a_dead_end(project):
     assert end.kind == "STUCK" and end.subject == "where[*] = 'repair'" and end.detail["stuck"] == "end"
     assert "B1 stuck with where='repair', waiting=2" in end.text
     assert end.path == ("lend(b='B1')", "damaged(b='B1')", "night()", "night()")
+    assert "m.terminal('where', ['repair'])" in end.text
+
+
+RESERVE = '''
+
+@m.action(b=BOOKS, source="R5")
+def reserve(s, b):
+    need(not s["reserved", b], "reserved already")
+    s["reserved", b] = True
+
+
+@m.action(b=BOOKS, source="R5")
+def cancel(s, b):
+    need(s["reserved", b], "not reserved")
+    s["reserved", b] = False
+'''
+
+ONLY_WHERE = '''
+from flowguard._next import Model, need
+
+m = Model("shelf")
+BOOKS = m.objects("book", "B1", "B2")
+m.field("where", ["shelf", "loan", "repair"], "shelf", over=BOOKS, source="R1", value_sources={"repair": "R4"})
+m.field("reserved", [False, True], False, over=BOOKS, source="R5")
+
+@m.action(b=BOOKS, source="R1")
+def lend(s, b):
+    need(s["where", b] == "shelf", "not on the shelf")
+    s["where", b] = "loan"
+
+@m.action(b=BOOKS, source="R1")
+def give_back(s, b):
+    need(s["where", b] == "loan", "not on loan")
+    s["where", b] = "shelf"
+
+@m.action(b=BOOKS, source="R4")
+def damaged(s, b):
+    need(s["where", b] == "loan", "not on loan")
+    s["where", b] = "repair"
+''' + RESERVE + "MODEL = m\n"
+
+
+@pytest.mark.parametrize("name", ["desk", "only_where"])
+def test_a_dead_end_where_only_a_side_flag_still_toggles_is_a_dead_end(project, name):
+    """G8 round 2: books go to repair and nothing repairs them, while a member can reserve
+    and cancel a book in any state. The reservation keeps toggling, so the book never comes
+    to a halt and the halting rule took repair for a one-way marker: "clean, complete",
+    exit 0. A value no state leaves after which the object can never again take steps it
+    took before (lend, give back: all but the one that entered it) is a dead end too."""
+    if name == "desk":
+        project.file("app/__init__.py", "")
+        for p in (DATA / "desk" / "app").glob("*.py"):
+            project.file(f"app/{p.name}", p.read_text(encoding="utf-8"))
+        text = (DATA / "desk" / "desk_naive.py").read_text(encoding="utf-8").replace(
+            'm.field("renewed"', 'm.field("reserved", [False, True], False, over=BOOKS, source="R5")\nm.field("renewed"')
+        text = text.replace("\nm.option(", RESERVE + "\nm.option(", 1)
+    else:
+        text = ONLY_WHERE
+    project.flow("desk", text)
+    report = check_model(load_model(project.root / ".flowguard/flow/desk.py", project.root))
+    [end] = [f for f in report.findings if f.cls == CONFLICT and f.subject == "where[*] = 'repair'"]
+    assert end.kind == "STUCK" and end.detail["stuck"] == "end", end.text
+    assert "B1 stuck with where='repair'" in end.text
+    assert "can never again" in end.text and "lend" in end.text and "give_back" in end.text
     assert "m.terminal('where', ['repair'])" in end.text
 
 
