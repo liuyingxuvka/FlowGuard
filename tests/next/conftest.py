@@ -62,7 +62,21 @@ class Project:
 
 @pytest.fixture
 def project(tmp_path):
-    return Project(tmp_path / "proj")
+    proj = Project(tmp_path / "proj")
+    yield proj
+    _end_workers(proj.root)
+
+
+def _end_workers(root: Path) -> None:
+    """No worker outlives its test (#7): a test that returned RUNNING last, or failed half
+    way, would leave one waiting for a resume for up to --keep seconds."""
+    import signal
+    for info in (root / ".flowguard" / "cache" / "flow" / "jobs").glob("*/*/worker.json"):
+        try:
+            pid = json.loads(info.read_text())["pid"]
+            os.killpg(pid, signal.SIGKILL)
+        except (ValueError, KeyError, ProcessLookupError, PermissionError, OSError):
+            pass
 
 
 @pytest.fixture(autouse=True)
