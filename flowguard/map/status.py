@@ -233,6 +233,9 @@ def render_owner_words(words):
             kind = '' if row['kind'] in (None, 'request') else f" [{row['kind']}]"
             if row['invalid']:
                 text = f"unreadable ({row['invalid']})"
+            elif row['edited']:
+                text = (f"edited after it was stored ({row['edited']}); its text is not shown as the owner's words "
+                        "(python -m flowguard map check)")
             elif row['superseded_by']:
                 text = 'superseded by ' + ', '.join(row['superseded_by'])
             else:

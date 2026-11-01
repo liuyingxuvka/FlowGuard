@@ -126,7 +126,11 @@ def _identifiers(root: Path) -> list[str]:
 
 
 def _retire_record(root: Path, identifier: str) -> dict:
-    """A retire record whose bytes are protected and whose sha names the request it retires."""
+    """A retire record whose bytes are protected and whose sha names the request it retires.
+
+    A request sidecar that cannot be read, or that was edited since it was stored, is that sidecar's own
+    finding (request_meta_edited), never an edit of this record: the link is checked only against a
+    readable sidecar, and a mismatch blames this record only when the sidecar's own bytes hold."""
     relative = RETIRED_DIR / (identifier + '.json')
     problem = integrity_problem(root, relative)
     if problem:
@@ -136,8 +140,17 @@ def _retire_record(root: Path, identifier: str) -> dict:
             or item['id'] != identifier or item['kind'] != 'retired' or item['not_owner'] is not True
             or not isinstance(item.get('note', ''), str)):
         raise ValueError('invalid retire record fields')
-    sidecar = _metadata(root / REQUEST_DIR / (identifier + '.json'), identifier)
+    sidecar_path = REQUEST_DIR / (identifier + '.json')
+    try:
+        sidecar = _metadata(root / sidecar_path, identifier)
+    except (OSError, ValueError):
+        return item  # the sidecar's own finding names it
     if item['request_sha256'] != sidecar['sha256']:
+        try:
+            if integrity_problem(root, sidecar_path):
+                return item  # the sidecar was edited: its own finding names it
+        except Unverifiable:
+            pass  # which side changed is unknown here
         raise ValueError(f'it names other bytes than {identifier}')
     return item
 
@@ -150,6 +163,10 @@ def retired_requests(root: Path) -> dict:
     root = Path(root).resolve()
     found = {}
     for identifier in _stems(root, RETIRED_DIR):
+        relative = RETIRED_DIR / (identifier + '.json')
+        if not (root / relative).is_file():
+            found[identifier] = f"is missing: {relative.as_posix()} was deleted"
+            continue
         try:
             _retire_record(root, identifier)
             found[identifier] = None
@@ -181,32 +198,43 @@ def retire_request(root: Path, identifier: str, *, note: str | None = None) -> d
     return item
 
 
-def request_findings(root: Path) -> list[Finding]:
-    """Integrity is a fresh byte comparison, including before the first commit."""
-    root = Path(root).resolve()
-    common = git_common_directory(root)
-    findings = []
-    unverified = []
+def _request_problems(root: Path, identifier: str, unverified: list):
+    """(owner text problem, sidecar problem, sidecar) of one stored request: the one check map check and status use.
+
+    A file with no original-byte fact here is added to `unverified`; the owner text is then still checked
+    against its sidecar digest."""
+    body = REQUEST_DIR / (identifier + '.md')
+    meta = body.with_suffix('.json')
     def problem_of(path):
         try:
             return integrity_problem(root, path)
         except Unverifiable:
             unverified.append(path)
             return None
+    body_problem = problem_of(body)
+    meta_problem = problem_of(meta)
+    try:
+        item = _metadata(root / meta, identifier)
+    except (OSError, ValueError) as error:
+        item = None
+        meta_problem = meta_problem or str(error)
+    if item is not None and meta_problem is None and (root / body).is_file():
+        raw = (root / body).read_bytes()
+        if sha256_bytes(raw) != item['sha256'] or len(raw) != item['bytes']:
+            body_problem = body_problem or 'bytes differ from the immutable sidecar'
+    return body_problem, meta_problem, item
+
+
+def request_findings(root: Path) -> list[Finding]:
+    """Integrity is a fresh byte comparison, including before the first commit."""
+    root = Path(root).resolve()
+    common = git_common_directory(root)
+    findings = []
+    unverified = []
     for identifier in _identifiers(root):
         body = REQUEST_DIR / (identifier + '.md')
         meta = body.with_suffix('.json')
-        body_problem = problem_of(body)
-        meta_problem = problem_of(meta)
-        try:
-            item = _metadata(root / meta, identifier)
-        except (OSError, ValueError) as error:
-            item = None
-            meta_problem = meta_problem or str(error)
-        if item is not None and meta_problem is None and (root / body).is_file():
-            raw = (root / body).read_bytes()
-            if sha256_bytes(raw) != item['sha256'] or len(raw) != item['bytes']:
-                body_problem = body_problem or 'bytes differ from the immutable sidecar'
+        body_problem, meta_problem, _ = _request_problems(root, identifier, unverified)
         for path, problem, code in ((body, body_problem, 'owner_text_edited'),
                                     (meta, meta_problem, 'request_meta_edited')):
             if problem:
@@ -266,17 +294,29 @@ def owner_words(root: Path, *, records=None) -> dict:
     cited, commits_known = request_citations(root, change_records(root) if records is None else records)
     rows = []
     for identifier in _identifiers(root):
-        try:
-            item = _metadata(root / REQUEST_DIR / (identifier + '.json'), identifier)
-            text = (root / REQUEST_DIR / (identifier + '.md')).read_bytes().decode('utf-8-sig', errors='replace').splitlines()
-        except (OSError, ValueError):
+        # A retire record applies as written, whatever the state of the request files it hides; the owner
+        # words shown are checked as map check checks them, and edited text is never shown as the owner's.
+        body = root / REQUEST_DIR / (identifier + '.md')
+        edited, invalid, text = None, None, []
+        if identifier in retired:
+            try:
+                item = _metadata(body.with_suffix('.json'), identifier)
+                text = body.read_bytes().decode('utf-8-sig', errors='replace').splitlines()
+            except (OSError, ValueError) as error:
+                invalid = str(error)
+        else:
+            edited, invalid, item = _request_problems(root, identifier, [])
+            if invalid is None and edited is None:
+                text = body.read_bytes().decode('utf-8-sig', errors='replace').splitlines()
+        if invalid is not None:
             rows.append(dict(id=identifier, kind=None, received='', first_line='', extra_lines=0, supersedes=[],
-                             superseded_by=[], retired=False, cited_by=[], invalid='run python -m flowguard map check'))
+                             superseded_by=[], retired=identifier in retired, cited_by=[], edited=None,
+                             invalid=f'{invalid}; python -m flowguard map check'))
             continue
         rows.append(dict(id=identifier, kind=item['kind'], received=item['received'],
                          first_line=text[0] if text else '', extra_lines=max(0, len(text) - 1),
                          supersedes=item.get('supersedes', []), superseded_by=[],
-                         retired=identifier in retired, cited_by=cited.get(identifier, []), invalid=None))
+                         retired=identifier in retired, cited_by=cited.get(identifier, []), edited=edited, invalid=None))
     by_id = {row['id']: row for row in rows}
     for row in rows:
         for old in row['supersedes']:

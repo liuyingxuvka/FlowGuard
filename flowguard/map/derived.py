@@ -599,6 +599,9 @@ def render(result, *, as_json=False, all_rows=False):
             lines.append("change " + row["id"] + ": " + row["goal"] + " · " + ", ".join(row["implemented_by"]))
         for row in result.get("requests", []):
             state = ("retired: not the owner's words" if row["retired"] else
+                     "unreadable (" + row["invalid"] + ")" if row["invalid"] else
+                     "edited after it was stored (" + row["edited"] + "); not the owner's words (python -m flowguard map check)"
+                     if row["edited"] else
                      "superseded by " + ", ".join(row["superseded_by"]) if row["superseded_by"] else "owner words")
             lines.append("request " + row["id"] + ": " + state + " · " + row["first_line"]
                          + (" · cited by " + ", ".join(row["cited_by"]) if row["cited_by"] else ""))

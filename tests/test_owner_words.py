@@ -432,3 +432,36 @@ def test_a_retire_record_that_cannot_be_read_is_not_called_edited(tmp_path, caps
     assert problem.startswith("cannot be read: ") and "edited" not in problem, problem
     named = [line for line in _call(root, capsys, "status")[1].splitlines() if "retire record" in line]
     assert len(named) == 1 and "R1 cannot be read: " in named[0], named
+
+
+def test_an_unreadable_sidecar_of_a_retired_request_keeps_it_retired_and_blames_the_sidecar(tmp_path, capsys):
+    """The retire record applies as written; the edited request sidecar is that sidecar's finding, not the record's."""
+    from flowguard.map.requests import request_findings, retired_requests
+    root, _ = _retired_copy_without_git(tmp_path, capsys)
+    sidecar = root / ".flowguard/requests/R1.json"
+    sidecar.write_bytes(sidecar.read_bytes().replace(b'"kind": "request"', b'"kind": "bogus"'))
+    assert retired_requests(root) == {"R1": None}
+    code, output, _ = _call(root, capsys, "status")
+    assert code == 0
+    _, rows = _owner_lines(output)
+    assert [row.split(" ", 1)[0] for row in rows] == ["R2"], output
+    assert "retire record" not in output, output
+    assert [(item.code, item.component) for item in request_findings(root)] == [("request_meta_edited", "R1")]
+
+
+def test_owner_text_edited_in_a_checkout_is_not_shown_as_the_owners_words(tmp_path, capsys):
+    root, _ = _retired_copy_without_git(tmp_path, capsys)
+    body = root / ".flowguard/requests/R2.md"
+    body.write_text("Words someone else wrote.\n", encoding="utf-8")
+    code, output, _ = _call(root, capsys, "status")
+    assert code == 0
+    _, rows = _owner_lines(output)
+    assert rows[0].startswith("R2 ") and "edited after it was stored" in rows[0], rows
+    assert "Words someone else wrote." not in output and "python -m flowguard map check" in rows[0], output
+
+
+def test_a_deleted_retire_record_is_named_missing_not_edited(tmp_path, capsys):
+    root, _ = _retired_copy_without_git(tmp_path, capsys)
+    (root / ".flowguard/requests/retired/R1.json").unlink()
+    named = [line for line in _call(root, capsys, "status")[1].splitlines() if "retire record" in line]
+    assert len(named) == 1 and "R1 is missing" in named[0] and "edited" not in named[0], named
