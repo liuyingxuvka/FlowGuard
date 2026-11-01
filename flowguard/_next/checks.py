@@ -1263,8 +1263,11 @@ def replay_spec(f: Finding) -> dict | None:
 
 def replay_conflict(model: Model, entry: dict, bounds: Bounds) -> tuple[str, str]:
     """Run a stored conflict's shrunk path on the model as it is now and test the conflict's
-    own condition where it ends: (REPLAYED | GONE | UNDECIDED, why). A STUCK conflict is
-    tested on every state reachable from there, so a capped search there decides nothing."""
+    own condition where it ends: (REPLAYED | GONE | UNDECIDED, why). GONE needs evidence: a
+    step refused now, or the condition no longer holding where the path ends. A call, field,
+    rule or option the model no longer has under its stored name decides nothing (a rename
+    is no evidence), nor does model code that raises. A STUCK conflict is tested on every
+    state reachable from there, so a capped search there decides nothing."""
     spec = entry.get("replay")
     keys = tuple(f.key for f in model.fields)
     calls = {show_step(c.step()): c for c in model.calls()}
@@ -1273,16 +1276,16 @@ def replay_conflict(model: Model, entry: dict, bounds: Bounds) -> tuple[str, str
     for n, step in enumerate(entry.get("path", []), 1):
         call = calls.get(step)
         if call is None:
-            return GONE, f"step {n} {step} is no call of the model now"
+            return UNDECIDED, f"step {n} {step} is no call of the model now"
         w = State(zip(keys, t))
         try:
             call.action.fn(w, *call.args)
         except Refused as why:
             return GONE, f"step {n} {step} is refused now: {why.reason!r}"
         except Exception as err:  # model code: the core part reports it as a model error
-            return GONE, f"step {n} {step} raises {type(err).__name__} now"
+            return UNDECIDED, f"step {n} {step} raises {type(err).__name__} now"
         if len(w) != len(keys):
-            return GONE, f"step {n} {step} writes an unknown field now"
+            return UNDECIDED, f"step {n} {step} writes an unknown field now"
         before, last, t = t, call, tuple(w[k] for k in keys)
     s = State(zip(keys, t))
     try:
@@ -1300,7 +1303,7 @@ def _replay_stuck(model, spec, t, keys, bounds):
     if spec["stuck"] == "progress":
         rule = next((r for r in model.rules if r.kind == "progress" and r.name == spec["rule"]), None)
         if rule is None:
-            return GONE, f"progress {spec['rule']!r} is no rule of the model now"
+            return UNDECIDED, f"progress {spec['rule']!r} is no rule of the model now"
         hit = any((rule.goal(State(zip(keys, x))) if rule.obj is None else rule.goal(State(zip(keys, x)), rule.obj))
                   for x in g.states)
         if hit:
@@ -1308,7 +1311,7 @@ def _replay_stuck(model, spec, t, keys, bounds):
     else:
         pos = next((p for p, k in enumerate(keys) if show_key(k) == spec["key"]), None)
         if pos is None:
-            return GONE, f"{spec['key']} is no field of the model now"
+            return UNDECIDED, f"{spec['key']} is no field of the model now"
         if repr(t[pos]) != spec["value"]:
             return GONE, f"its path ends with {spec['key']}={t[pos]!r} now, not {spec['value']}"
         moved = next((x for x in g.states if x[pos] != t[pos]), None)
@@ -1323,7 +1326,7 @@ def _replay_contradiction(model, spec, s, calls):
     option = next((o for o in model.options if o.name == spec["option"]), None)
     call = calls.get(spec["call"])
     if option is None or call is None:
-        return GONE, f"option {spec['option']!r} or {spec['call']} is no longer in the model"
+        return UNDECIDED, f"option {spec['option']!r} or {spec['call']} is no longer in the model"
     named = dict(zip(call.action.params, call.args))
     if not option.offered(s, *[named[p] for p in option.params]):
         return GONE, f"where its path ends, option {spec['option']!r} is not offered now"
@@ -1337,11 +1340,11 @@ def _replay_contradiction(model, spec, s, calls):
 def _replay_broken(model, spec, before, after, last):
     rule = next((r for r in model.rules if r.name == spec["rule"]), None)
     if rule is None:
-        return GONE, f"rule {spec['rule']!r} is no rule of the model now"
+        return UNDECIDED, f"rule {spec['rule']!r} is no rule of the model now"
     if rule.kind == "always":
         ok = rule.pred(after)
     elif last is None:
-        return GONE, "its path is empty now"
+        return UNDECIDED, "its path is empty"
     elif rule.kind == "only_when":
         ok = last.action.name != rule.action or rule.pred(before, *last.args)
     elif rule.action == "*":

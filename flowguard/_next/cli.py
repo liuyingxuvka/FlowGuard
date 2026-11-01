@@ -187,15 +187,15 @@ def check(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
         paths = resolve_models(root, args.models) if args.models else model_files(root)
     except ProjectError as e:
         return _early(out, str(e), EXIT_ERROR, args.json)
-    if not paths:
-        return _early(out, f"no flow models in {FLOW_DIR.as_posix()}/", EXIT_CLEAN, args.json)
     previous = read_conflicts(root)
+    if not paths and not (previous or {}).get("conflicts"):     # a deleted model's conflicts stay (below)
+        return _early(out, f"no flow models in {FLOW_DIR.as_posix()}/", EXIT_CLEAN, args.json)
     planned = jobs.plan(root, paths, full=args.full, max_states=args.max_states, stored=previous)
     outcome = jobs.run(root, planned, wait=args.wait, keep=args.keep, progress=_Progress(err))
     resume = f"{prog} {shlex.join(argv)}"
     if outcome.failure is not None:
         return _early(out, f"internal error: {outcome.failure}", EXIT_ERROR, args.json)
-    result = assemble(root, outcome, previous)
+    result = assemble(root, outcome, previous, max_states=args.max_states, whole=not args.models)
     if outcome.finished:
         write_conflicts(root, conflicts_data(root, result, previous))
     lines, data = render(root, result, resume)
@@ -218,15 +218,21 @@ class ModelView:
         return all(r is not None for _, r, _, _ in self.parts)
 
     @property
+    def loaded(self) -> bool:
+        core = self.result("core")
+        return core is not None and core.info["loaded"]
+
+    @property
     def complete(self) -> bool:
-        return self.finished and all(r.complete for _, r, _, _ in self.parts)
+        """Every part finished on a complete search of a model that loaded (a model that does
+        not load was not explored: nothing about it is complete)."""
+        return self.finished and self.loaded and all(r.complete for _, r, _, _ in self.parts)
 
     @property
     def explored(self) -> bool:
         """A complete exploration of the model as it is: the only run that closes a conflict
         it no longer finds (a capped run, or a model that does not load, closes none)."""
-        core = self.result("core")
-        return self.complete and core is not None and core.info["loaded"]
+        return self.complete
 
     def result(self, kind: str):
         for p, r, _, _ in self.parts:
@@ -250,7 +256,14 @@ class Assembled:
     closed: list = field(default_factory=list)     # (entry, why): a stored path that no longer reproduces
 
 
-def assemble(root, outcome, previous: dict | None) -> Assembled:
+def assemble(root, outcome, previous: dict | None, *, max_states: int | None = None,
+             whole: bool = True) -> Assembled:
+    """The findings of every part, plus the stored conflicts this check keeps open. whole:
+    the check covers every model of the project (no model named), so it also keeps the
+    conflicts of models whose file is gone. max_states: the check's bound (default: the
+    plan's)."""
+    if max_states is None:
+        max_states = dict(outcome.planned[0].spec.options)["max_states"] if outcome.planned else Bounds().max_states
     models = {}
     for item, r, c, w in zip(outcome.planned, outcome.results, outcome.cached, outcome.workers):
         models.setdefault(item.spec.model, ModelView(item.spec.model)).parts.append((item, r, c, w))
@@ -270,22 +283,35 @@ def assemble(root, outcome, previous: dict | None) -> Assembled:
     findings += [f for f in overlap_views(views) if f.id not in seen]
     before = {c["id"] for c in (previous or {}).get("conflicts", [])}
     conflicts = [f for f in findings if f.cls == CONFLICT]
-    kept, closed = _kept(models, previous, {f.id for f in conflicts})
+    kept, closed = _kept(root, models, previous, {f.id for f in conflicts}, whole)
     conflicts += kept
-    max_states = dict(outcome.planned[0].spec.options)["max_states"]
     return Assembled(outcome, models, conflicts, [f for f in findings if f.cls == WARNING],
                      [f for f in findings if f.cls == ERROR_CLS], {f.id for f in conflicts if f.id not in before},
                      max_states, closed)
 
 
-def _kept(models: dict, previous: dict | None, found: set) -> tuple[list, list]:
+def _kept_finding(c: dict, reason: str) -> Finding:
+    return Finding(c["kind"], CONFLICT, c["model"], c["subject"], c["text"], (), tuple(c["sources"]),
+                   tuple(c.get("path", [])), "", {"kept": reason, "entry": c}, None, c["id"])
+
+
+def _kept(root, models: dict, previous: dict | None, found: set, whole: bool) -> tuple[list, list]:
     """The stored conflicts a check of their model did not find again, when that check
-    cannot close them (design M6): it was capped, or the model did not load. Each stays
-    open unless the replay of its stored shrunk path no longer reproduces it (closed)."""
+    cannot close them (design M6): it was capped, or the model did not load, or the model's
+    file is gone (nothing explored its scope). Each stays open unless the replay of its
+    stored shrunk path no longer reproduces it (closed)."""
     kept, closed = [], []
+    existing = {p.stem for p in model_files(root)}
     for c in (previous or {}).get("conflicts", []):
+        if c["id"] in found:
+            continue
         view = models.get(c["model"])
-        if c["id"] in found or view is None or not view.finished or view.explored:
+        if view is None:
+            if whole and c["model"] not in existing:
+                kept.append(_kept_finding(c, f"its model file {FLOW_DIR.as_posix()}/{c['model']}.py is gone; it "
+                                             f"closes only when a complete check of {c['model']} no longer finds it"))
+            continue
+        if not view.finished or view.explored:
             continue
         replay = view.result("replay")
         outcome, why = (replay.info["replays"].get(c["id"]) if replay is not None else None) or (
@@ -301,8 +327,7 @@ def _kept(models: dict, previous: dict | None, found: set) -> tuple[list, list]:
             reason = f"proven by an earlier complete check; {scope}"
         else:
             reason = f"proven by an earlier complete check ({why}); {scope}"
-        kept.append(Finding(c["kind"], CONFLICT, c["model"], c["subject"], c["text"], (), tuple(c["sources"]),
-                            tuple(c.get("path", [])), "", {"kept": reason, "entry": c}, None, c["id"]))
+        kept.append(_kept_finding(c, reason))
     return kept, closed
 
 
@@ -336,7 +361,8 @@ def verdict(result: Assembled, resume: str) -> tuple[str, int]:
         return running_line(o, resume), EXIT_RUNNING
     n_new = len([f for f in result.conflicts if f.id in result.new])
     n_open = len(result.conflicts) - n_new
-    capped = [m for m, v in result.models.items() if not v.complete]
+    capped = [m for m, v in result.models.items() if v.loaded and not v.complete]
+    unexplored = [m for m, v in result.models.items() if not v.loaded]
     head = []
     if n_new and n_open:
         head.append(f"{_plural(n_new, 'new conflict')}, {n_open} open")
@@ -348,10 +374,15 @@ def verdict(result: Assembled, resume: str) -> tuple[str, int]:
         head.append("no conflict found")
     if result.errors:
         head.append(_plural(len(result.errors), "model error"))
-    if capped:
-        tail = f"UNKNOWN: {', '.join(capped)} capped at {result.max_states:,} states"
-        if not result.conflicts:
-            tail += f" ({', '.join(_undecided(result, capped))} undecided)"
+    if capped or unexplored:
+        why = []
+        if capped:
+            why.append(f"{', '.join(capped)} capped at {result.max_states:,} states")
+            if not result.conflicts:
+                why[-1] += f" ({', '.join(_undecided(result, capped))} undecided)"
+        if unexplored:
+            why.append(f"{', '.join(unexplored)} not explored (model error)")
+        tail = "UNKNOWN: " + "; ".join(why)
     elif not head:
         tail = "clean, complete" + (f"; {_plural(len(result.warnings), 'model warning')}" if result.warnings else "")
     else:
@@ -574,15 +605,18 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
 # ---------------------------------------------------------------------- conflicts.json
 def conflicts_data(root, result: Assembled, previous: dict | None) -> dict:
     """This computation's models replace their entries; the other models that still have
-    a file keep theirs, so checking one model does not drop the others' open conflicts."""
+    a file keep theirs, so checking one model does not drop the others' open conflicts. The
+    conflicts of a model whose file is gone stay too: no check explored it (design M6)."""
     existing = {p.stem for p in model_files(root)}
     previous = previous or {}
     kept = {m: v for m, v in previous.get("models", {}).items() if m in existing and m not in result.models}
-    entries = [c for c in previous.get("conflicts", []) if c["model"] in kept]
-    entries += [conflict_entry(f) for f in result.conflicts]
+    entries = {c["id"]: c for c in previous.get("conflicts", []) if c["model"] not in result.models}
+    entries.update((f.id, conflict_entry(f)) for f in result.conflicts)
+    entries = list(entries.values())
     models = dict(kept)
     for mid, view in result.models.items():
-        models[mid] = {"complete": view.complete, "parts": sorted(r.digest for _, r, _, _ in view.parts),
+        models[mid] = {"complete": view.complete, "loaded": view.loaded,
+                       "parts": sorted(r.digest for _, r, _, _ in view.parts),
                        "warnings": len([f for f in result.warnings if f.model == mid])}
     digests = sorted(d for v in models.values() for d in v["parts"])
     return {"engine": ENGINE_DIGEST,
@@ -615,6 +649,9 @@ def status_lines(root) -> list[str]:
         return ["flow models: no check recorded (run check)"]
     conflicts = data["conflicts"]
     unknown = data["unknown"]
+    models = data.get("models", {})
+    capped = [m for m in unknown if models.get(m, {}).get("loaded", True)]
+    unexplored = [m for m in unknown if m not in capped]
     if conflicts:
         ids = ", ".join(c["id"] for c in conflicts)
         line = f"flow models: {_plural(len(conflicts), 'open conflict')} ({ids}); a commit is blocked until fixed"
@@ -622,7 +659,9 @@ def status_lines(root) -> list[str]:
         line = "flow models: no conflict found"
     else:
         line = "flow models: clean"
-    if unknown:
-        line += (f"; capped: {', '.join(unknown)} (what a capped search could not decide is UNKNOWN; "
+    if capped:
+        line += (f"; capped: {', '.join(capped)} (what a capped search could not decide is UNKNOWN; "
                  f"that alone does not block)")
+    if unexplored:
+        line += f"; not explored: {', '.join(unexplored)} (the model does not load; a commit is blocked until fixed)"
     return [line]

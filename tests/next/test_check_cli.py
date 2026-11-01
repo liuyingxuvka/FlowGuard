@@ -196,17 +196,23 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
 
 
 def test_a_model_error_has_its_location_and_exit_2(project):
+    """A model that does not load was not explored: the first line never calls the check
+    complete (it says UNKNOWN for that model), and --json and conflicts.json agree."""
     project.flow("broken", BROKEN_LOAD)
     project.flow("dial", DIAL)
     run = timed(project.root)
     assert run.code == 2
-    assert run.first == "1 model error; complete"
+    assert run.first == "1 model error; UNKNOWN: broken not explored (model error)"
+    data = timed(project.root, "--json").data
+    assert data["complete"] is False and data["unknown"] == ["broken"]
+    saved = json.loads((project.root / ".flowguard/conflicts.json").read_text())
+    assert saved["complete"] is False and saved["unknown"] == ["broken"]
     assert ("MODEL ERROR broken: .flowguard/flow/broken.py:4: loading raised RuntimeError: the model cannot load"
             in run.lines)
     assert "broken: not explored (model error)" in run.lines
     project.kit().flow_from(KIT / "workshop_naive.py", "workshop")
     run = timed(project.root)
-    assert run.code == 2 and run.first == "6 new conflicts; 1 model error; complete"
+    assert run.code == 2 and run.first == "6 new conflicts; 1 model error; UNKNOWN: broken not explored (model error)"
 
 
 def test_a_capped_model_is_unknown_never_clean(project):
@@ -282,8 +288,8 @@ def test_checking_one_model_keeps_the_others_open_conflicts(project):
     assert path.read_bytes() == before                 # unchanged result: the file is unchanged
     (project.root / ".flowguard/flow/workshop_naive.py").unlink()
     timed(project.root, "lamp")
-    saved = json.loads(path.read_text())
-    assert {c["model"] for c in saved["conflicts"]} == {"lamp"}
+    saved = json.loads(path.read_text())               # a deleted model's conflicts stay open (G1)
+    assert {c["model"] for c in saved["conflicts"]} == {"lamp", "workshop_naive"}
     assert list(saved["models"]) == ["lamp"]
     assert set(saved) == {"engine", "tree", "complete", "conflicts", "unknown", "warnings", "models"}
 
@@ -499,6 +505,65 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
     assert fixed.first.startswith("no conflict found; UNKNOWN: rental capped at 4 states")
     assert any(x.startswith(f"closed {cid} STUCK rental: its stored path no longer reproduces it") for x in fixed.lines)
     assert json.loads(saved.read_text())["conflicts"] == []
+
+
+@pytest.mark.parametrize("model, old, new", [
+    ("rental_naive", "return_damaged", "return_broken"),       # an action of the stored path
+    ("rental_naive", '"branch"', '"site"'),                    # the stuck field
+    ("lamp", '"the lamp stays off"', '"the lamp is off"')])    # the broken rule
+def test_a_rename_closes_no_conflict_under_a_capped_check(project, model, old, new):
+    """G1 (M6): a replay that meets a call, field or rule the model no longer has under its
+    old name decides nothing (a rename is no evidence the conflict is gone); the capped
+    check keeps the conflict. A renamed action leaves the fingerprint as it was: the next
+    complete check finds the same conflict again."""
+    saved = project.root / ".flowguard/conflicts.json"
+    if model == "lamp":
+        path = project.flow("rental", LAMP)
+    else:
+        path = project.flow_from(DATA / "planted" / f"{model}.py", "rental")
+    assert timed(project.root).code == 1
+    [cid] = [c["id"] for c in json.loads(saved.read_text())["conflicts"]]
+    path.write_text(path.read_text().replace(old, new))
+    cap = "1" if model == "lamp" else "3"
+    capped = timed(project.root, "--max-states", cap)
+    assert capped.code == 1 and capped.first == f"1 open conflict; UNKNOWN: rental capped at {cap} states", capped.out
+    [line] = [x for x in capped.lines if x.startswith("OPEN ")]
+    assert f"[{cid}]" in line and "is no " in line and line.endswith("this check is capped)"), line
+    assert not any(x.startswith("closed ") for x in capped.lines)
+    assert [c["id"] for c in json.loads(saved.read_text())["conflicts"]] == [cid]
+    if old == "return_damaged":
+        again = timed(project.root)
+        assert again.code == 1 and again.first == "1 open conflict; complete" and f"[{cid}]" in again.out
+
+
+def test_a_renamed_or_deleted_model_file_keeps_its_conflicts(project):
+    """G1 (M6): the conflicts of a model whose file is gone stay open (in the output and in
+    conflicts.json, so in status) under every check; nothing explored that model's scope.
+    They close when a complete check of that model no longer finds them."""
+    from flowguard._next.cli import status_lines
+    saved = project.root / ".flowguard/conflicts.json"
+    path = project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    assert timed(project.root).code == 1
+    [cid] = [c["id"] for c in json.loads(saved.read_text())["conflicts"]]
+    moved = path.with_name("rental2.py")
+    path.rename(moved)
+    capped = timed(project.root, "--max-states", "3")
+    assert capped.code == 1 and capped.first == "1 open conflict; UNKNOWN: rental2 capped at 3 states", capped.out
+    [line] = [x for x in capped.lines if x.startswith("OPEN ")]
+    assert line.startswith("OPEN STUCK rental: ") and f"[{cid}]" in line
+    assert line.endswith("(kept: its model file .flowguard/flow/rental.py is gone; it closes only when a complete "
+                         "check of rental no longer finds it)")
+    assert cid in [c["id"] for c in json.loads(saved.read_text())["conflicts"]]
+    [status] = status_lines(project.root)
+    assert f"1 open conflict ({cid}); a commit is blocked until fixed" in status
+    full = timed(project.root)                     # rental2's own conflict is new; rental's stays
+    assert full.code == 1 and full.first == "1 new conflict, 1 open; complete"
+    assert f"[{cid}] (kept: its model file .flowguard/flow/rental.py is gone" in full.out
+    moved.unlink()
+    assert timed(project.root).code == 1 and cid in saved.read_text()
+    project.flow_from(DATA / "planted" / "rental_fixed.py", "rental")
+    fixed = timed(project.root, "rental")
+    assert f"[{cid}]" not in fixed.out and cid not in saved.read_text()
 
 
 def test_a_model_error_closes_no_conflict(project):

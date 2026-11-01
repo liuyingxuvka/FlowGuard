@@ -120,7 +120,11 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
   that never refuses; with `--full`, each break of the model that no check catches.
 - **Model errors**: the model itself failed (an exception, a value outside its domain, a write
   to an unknown field, a declaration mistake). Fix these first.
-- **UNKNOWN**: the search hit its state bound. What it found with a path is certain; nothing is
-  reported as holding or clean. Make the model smaller rather than raising the bound.
+- **UNKNOWN**: the search hit its state bound, or a model did not load ("not explored"). What it
+  found with a path is certain; nothing is reported as holding or clean. Make the model smaller
+  rather than raising the bound.
+- **OPEN ... (kept: ...)**: a proven conflict stays open until a complete check of its model no
+  longer finds it or its stored path no longer reproduces it; a capped check, a model that does
+  not load, a renamed step or a renamed or deleted model file closes nothing.
 - The last line per model says how complete the search was, which settings it used and from
   where, and `concurrency not checked` when the covered code runs threads or async code.
