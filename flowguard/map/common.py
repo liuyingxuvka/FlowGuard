@@ -8,6 +8,7 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -59,12 +60,16 @@ def git_run(root, *arguments: str, allowed=(0,), input: bytes | None = None) -> 
 def git_common_directory(root) -> Path | None:
     """Decide the Git mode once: the repository's shared Git directory, or None when root is in no Git repository.
 
-    Git exits 128 both where there is no repository and for a repository it cannot open (one owned by another
-    user, a damaged .git); a .git in root or a parent, or GIT_DIR, means a repository, so that exit raises."""
+    A .git in root or a parent, or GIT_DIR, means a repository. Git exits 128 both where there is none and for a
+    repository it cannot open (one owned by another user, a damaged .git), so in a repository that exit raises; a
+    folder in no repository needs no Git executable."""
+    place = Path(root).resolve()
+    repository = "GIT_DIR" in os.environ or any((folder / ".git").exists() for folder in (place, *place.parents))
+    if not repository and shutil.which("git") is None:
+        return None
     result = git_run(root, "rev-parse", "--git-common-dir", allowed=(0, 128))
     if result.returncode:
-        place = Path(root).resolve()
-        if "GIT_DIR" in os.environ or any((folder / ".git").exists() for folder in (place, *place.parents)):
+        if repository:
             reason = os.fsdecode(result.stderr).strip() or f"exit status {result.returncode}"
             raise MapError(f"git rev-parse failed in {root}: {reason}")
         return None

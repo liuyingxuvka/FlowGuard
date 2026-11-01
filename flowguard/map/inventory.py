@@ -13,14 +13,13 @@ import copy
 import json
 import os
 import re
-import subprocess
 import sys
 from functools import lru_cache
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import atomic_write_text, cache_dir, CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_paths, is_test_file, matches_any, norm, normalize_newlines, read_source, sha256_bytes
+from .common import atomic_write_text, cache_dir, CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_common_directory, git_run, is_test_file, matches_any, norm, normalize_newlines, read_source, sha256_bytes
 
 @lru_cache(maxsize=4096)
 def syntax_tree(text):
@@ -78,16 +77,17 @@ class Inventory:
 
 
 def list_files(root: Path) -> list[str]:
-    """Tracked plus untracked-but-not-ignored files (git); os.walk when git is unavailable."""
-    try:
-        return sorted(f for f in (norm(x) for x in git_paths(root, "ls-files", "-z", "-co", "--exclude-standard"))
-                      if (root / f).is_file())
-    except (OSError, subprocess.CalledProcessError):
-        found = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in {".git", "node_modules", "__pycache__", ".venv"}]
-            found += [norm(str(Path(dirpath, n).relative_to(root))) for n in filenames]
-        return sorted(found)
+    """Tracked plus untracked-but-not-ignored files in a Git repository; the folder walk outside any repository.
+
+    A failing Git inside a repository raises with Git's own message instead of walking ignored files."""
+    if git_common_directory(root) is not None:
+        listed = git_run(root, "ls-files", "-z", "-co", "--exclude-standard").stdout
+        return sorted(f for f in (norm(os.fsdecode(x)) for x in listed.split(b"\0") if x) if (root / f).is_file())
+    found = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in {".git", "node_modules", "__pycache__", ".venv"}]
+        found += [norm(str(Path(dirpath, n).relative_to(root))) for n in filenames]
+    return sorted(found)
 
 
 def python_roots(files: list[str]) -> list[str]:

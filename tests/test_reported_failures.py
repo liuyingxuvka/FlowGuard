@@ -532,3 +532,32 @@ def test_a_failing_git_blame_stops_the_text_origin_instead_of_reading_no_origin(
     _failing_git(tmp_path, monkeypatch, "blame")
     with pytest.raises(MapError, match="simulated blame failure"):
         textrules.select(result, "source:" + committed["id"])
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX shell script stands in for a failing git")
+def test_a_failing_git_listing_stops_the_inventory_instead_of_walking_the_folder(tmp_path, monkeypatch):
+    from flowguard.map.inventory import list_files
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q")
+    (root / ".gitignore").write_text("build/\n", encoding="utf-8")
+    (root / "a.py").write_text("x = 1\n", encoding="utf-8")
+    (root / "build").mkdir()
+    (root / "build/generated.py").write_text("y = 2\n", encoding="utf-8")
+    assert list_files(root) == [".gitignore", "a.py"]
+    _failing_git(tmp_path, monkeypatch, "ls-files")
+    with pytest.raises(MapError, match="simulated ls-files failure"):
+        list_files(root)
+
+
+def test_a_folder_outside_any_repository_needs_no_git_executable(tmp_path, monkeypatch, capsys):
+    from flowguard.__main__ import main
+    root = tmp_path / "plain"
+    (root / ".flowguard").mkdir(parents=True)
+    (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [], "flows": []}),
+                                              encoding="utf-8")
+    (root / "a.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    monkeypatch.setenv("PATH", str(tmp_path / "no-bin"))
+    for command in (["status"], ["map", "check", "--strict"], ["where", "f"]):
+        assert main([*command, "--root", str(root)]) == 0, (command, capsys.readouterr())
+        assert "git executable not found" not in capsys.readouterr().err, command
