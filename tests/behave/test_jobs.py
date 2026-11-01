@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from flowguard.map import jobs
+from flowguard.behave import jobs
 from flowguard.map.common import child_import_path
 
 ENGINE_ROOT = Path(__file__).resolve().parents[2]
@@ -48,7 +48,7 @@ def execute(job, writer, deadline):
                            options={"steps": 1, "node_cap": 8, "alphabet_cap": 16})
             producer = {"pid": facts["execution"]["child_pid"], "kind": "native"}
         else:
-            from flowguard.map.inputs import file_stamp
+            from flowguard.behave.inputs import file_stamp
             path = job.snapshot / "src/data.txt"
             facts = {"data": path.read_text(), "footprint": {"reusable": True,
                      "files": {str(path): file_stamp(path)}, "directories": {}, "untracked": []}}

@@ -16,8 +16,13 @@ dev = ["pytest>=8.0", "setuptools>=61"]
 flowguard = "flowguard.__main__:main"
 
 [tool.setuptools.packages.find]
-# Teaching examples stay in the repository, not in site-packages.
+# Teaching examples, the pilot engine and unpassed-slice code stay in the repository, not in site-packages.
 include = ["flowguard*"]
+exclude = ["flowguard.behave", "flowguard.behave.*", "flowguard._next", "flowguard._next.*"]
+
+# A file list left by an earlier editable install would otherwise ship their sources as package data.
+[tool.setuptools.exclude-package-data]
+flowguard = ["behave/*", "_next/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -6,8 +6,8 @@ import pytest
 from flowguard.behave import engine
 from flowguard.behave.project import replay
 from flowguard.behave.skeleton import derive
-from flowguard.map import jobs
-from flowguard.map.inputs import footprint_identity
+from flowguard.behave import jobs
+from flowguard.behave.inputs import footprint_identity
 from flowguard.map.requests import store_request
 
 pytestmark = pytest.mark.skipif(sys.version_info < (3, 12), reason="native input controls need Python 3.12")

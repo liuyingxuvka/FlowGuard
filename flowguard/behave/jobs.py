@@ -18,8 +18,8 @@ import sys
 import tempfile
 import time
 
-from .common import atomic_write_text
-from .runner import start_detached_process
+from flowguard.map.common import atomic_write_text
+from flowguard.map.runner import PROCESS_OWNER_ENV
 
 
 def _key(value):
@@ -427,6 +427,37 @@ def serve(job, execute, *, deadline=None):
         except Exception as exc:
             writer.progress(state="failed", failures=[{"type": type(exc).__name__, "reason": str(exc)}])
     return _view(job)
+
+
+_DETACHED_PROCESSES = []
+
+
+def start_detached_process(command: list[str], *, cwd: Path, env: dict,
+                           stdout_path: Path, stderr_path: Path) -> int:
+    """Start a durable coordinator around the shared finite-process owner.
+
+    The coordinator runs flowguard.map.runner.run_isolated_process without an
+    outer timeout. It survives the requesting CLI and cleans the worker's
+    remaining descendants if its leader dies. Native calls retain their own
+    timeouts. No environment or credentials are serialized to disk.
+    """
+    global _DETACHED_PROCESSES
+    _DETACHED_PROCESSES = [process for process in _DETACHED_PROCESSES if process.poll() is None]
+    child_env = dict(env)
+    child_env.pop(PROCESS_OWNER_ENV, None)
+    supervisor = (
+        "import os,sys;from pathlib import Path;"
+        "from flowguard.map.runner import run_isolated_process;"
+        "done,_,_=run_isolated_process(sys.argv[1:],cwd=Path.cwd(),env=dict(os.environ),timeout=None);"
+        "raise SystemExit(done.returncode)"
+    )
+    options = ({"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
+               if os.name == "nt" else {"start_new_session": True})
+    with Path(stdout_path).open("ab") as output, Path(stderr_path).open("ab") as error:
+        process = subprocess.Popen([sys.executable, "-c", supervisor, *command], cwd=cwd, env=child_env,
+                                   stdin=subprocess.DEVNULL, stdout=output, stderr=error, close_fds=True, **options)
+    _DETACHED_PROCESSES.append(process)
+    return process.pid
 
 
 def run_or_attach(job, *, execute, worker_command, env, wait=100, foreground=False):

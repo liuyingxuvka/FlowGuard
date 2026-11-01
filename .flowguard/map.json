@@ -78,7 +78,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:832d6f32203340ea17c97bfae066acdf567b9884e08a6f4069c858297ea22848"
+      "fingerprint": "sha256:5f1ea04dc47b4e53c27c2388d5c5971e854883e1f92ef0acbe2703957ee935ce"
     },
     {
       "id": "cli",
@@ -261,13 +261,11 @@
         "parse bound-test item selectors as plain strings",
         "derive lexical function, class and module-binding digests from source on demand",
         "Share content-keyed read-only Python syntax with test analysis within the command; keep persisted inventory invalidation tied to parser identity.",
-        "choose project-first subprocess import roots without exposing the FlowGuard source repository",
-        "own shared file and directory content stamps and footprint reuse validation; preserve real program and ordinary-test dependencies while separating known rule-only collection inputs"
+        "choose project-first subprocess import roots without exposing the FlowGuard source repository"
       ],
       "files": [
         "flowguard/map/common.py",
-        "flowguard/map/inventory.py",
-        "flowguard/map/inputs.py"
+        "flowguard/map/inventory.py"
       ],
       "entrypoints": [
         "flowguard/map/inventory.py:build_inventory"
@@ -291,12 +289,11 @@
         "tests/test_map_inventory_discover.py",
         "tests/test_map_inventory_impact.py",
         "tests/test_map_inventory_inventory.py",
-        "tests/test_map_inventory_mapfile.py",
-        "tests/behave/test_input_facts.py"
+        "tests/test_map_inventory_mapfile.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:724d6dc2e4849c39b251acd803dc5ac8b1ad520c07bf615bf786eef1642d07e6"
+      "fingerprint": "sha256:eb1def076d33a825c39055e65953c5f62f1ee56402f1b7f25607349b400c1d92"
     },
     {
       "id": "map-file",
@@ -466,8 +463,7 @@
         "clean up model and pytest shard subprocesses in bounded time",
         "run bound tests per item and require each to reach an anchor",
         "show passing proofs on one line, retain every failure and warning, and group timing advice once per advice limit",
-        "Run model subprocesses in registration order, directly in the calling thread for one job and with a thread pool for explicit parallel jobs; library defaults stay serial.",
-        "launch detached execution supervisors through the existing process owner so a bounded frontend wait does not kill the owned job, while retaining native descendant cleanup"
+        "Run model subprocesses in registration order, directly in the calling thread for one job and with a thread pool for explicit parallel jobs; library defaults stay serial."
       ],
       "files": [
         "flowguard/map/proof.py",
@@ -500,14 +496,13 @@
         "tests/test_flowguard_map_proof.py",
         "tests/test_model_proof.py",
         "tests/test_model_runs.py",
-        "tests/test_test_binding.py",
-        "tests/behave/test_jobs.py"
+        "tests/test_test_binding.py"
       ],
       "models": [
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:ad03467a6442eca0d7bb93aa57ca60110c24107cc741efab3523801f6e68f6f7"
+      "fingerprint": "sha256:8c7f1dfafd0f56bc5feb2e477d01f097a99eaaabeb4ba6b93c2ddbf239676739"
     },
     {
       "id": "engine-explore",
@@ -1008,15 +1003,25 @@
         "collect source-owned independent state and step rule tests, judge immutable captured public facts anew without coupling rule definitions to execution identity, and reproduce each broken rule through a fresh public-prefix proof",
         "capture admitted public steps and reachable state views from native search and comparison branches, validated shipped test replays and saved starts through one compact immutable ledger; retain exact public prefixes and observed data without merging execution states, judge only the actual declared scope and name genuinely missing origins instead of treating hypothetical settings comparisons as required rule worlds",
         "distinguish a finished fixed-budget coverage walk from unfinished requested computations and incomplete negative proofs; sampling alone does not block a scoped verdict when all required proof obligations completed, while caps, missing origins and unhit changes stay explicit",
-        "reuse precise shared input footprints so adding a rule-only directory can rejudge existing facts without native replay, while retaining real program and ordinary-test dependencies"
+        "reuse precise shared input footprints so adding a rule-only directory can rejudge existing facts without native replay, while retaining real program and ordinary-test dependencies",
+        "own shared file and directory content stamps and footprint reuse validation; preserve real program and ordinary-test dependencies while separating known rule-only collection inputs",
+        "bind jobs to declared program input bytes, runtime and caller-provided revision identities while retaining logical and physical path provenance",
+        "hold one OS-managed owner lock per input key and attach concurrent callers to that owner",
+        "return bounded running progress and resume unfinished slices after owner death without recomputing validated completed facts",
+        "store validated execution slices and completion references atomically without persisting final rule or plan verdicts",
+        "launch detached execution supervisors through the existing process owner so a bounded frontend wait does not kill the owned job, while retaining native descendant cleanup"
       ],
       "files": [
         "flowguard/behave/*.py",
         "tests/behave/conftest.py"
       ],
       "entrypoints": [],
-      "state": [],
-      "side_effects": [],
+      "state": [
+        "owned job locks, immutable source snapshots and completed execution slices"
+      ],
+      "side_effects": [
+        "writes the shared content cache and launches owned execution supervisors"
+      ],
       "depends_on": [
         "map-derived",
         "map-discover",
@@ -1051,44 +1056,15 @@
         "tests/behave/test_rules.py",
         "tests/behave/test_rule_runtime.py",
         "tests/behave/test_capture.py",
-        "tests/behave/test_rule_scope.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:d2b14361d98f8cd6ddb16d1739ee012ebdf57c71f33d2e1cf7ea4f5dae3c38a0"
-    },
-    {
-      "id": "map-jobs",
-      "layer": "map",
-      "summary": "Own immutable execution snapshots and resumable completed facts; callers derive current judgments.",
-      "responsibilities": [
-        "bind jobs to declared program input bytes, runtime and caller-provided revision identities while retaining logical and physical path provenance",
-        "hold one OS-managed owner lock per input key and attach concurrent callers to that owner",
-        "return bounded running progress and resume unfinished slices after owner death without recomputing validated completed facts",
-        "store validated execution slices and completion references atomically without persisting final rule or plan verdicts"
-      ],
-      "files": [
-        "flowguard/map/jobs.py"
-      ],
-      "entrypoints": [],
-      "state": [
-        "owned job locks, immutable source snapshots and completed execution slices"
-      ],
-      "side_effects": [
-        "writes the shared content cache and launches owned execution supervisors"
-      ],
-      "depends_on": [
-        "map-inventory",
-        "map-proof"
-      ],
-      "tests": [
-        "tests/behave/test_jobs.py"
+        "tests/behave/test_rule_scope.py",
+        "tests/behave/test_jobs.py",
+        "tests/behave/test_input_facts.py"
       ],
       "models": [
         ".flowguard/models/runtime_jobs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:bbf8e9db8409125c7818af1343a3c250e2b736acde8b2502c77c51ff81c7da79"
+      "fingerprint": "sha256:ae34e85c819986b99224c56e244f2e4baf68b54be2d4c371bc20860bc529ca9f"
     }
   ],
   "flows": [
@@ -1241,7 +1217,7 @@
     ".flowguard/models/release_gate.py": "ac63e788767beb9855b50693178705a3c462ba02b77197110e85429722487fc8",
     ".flowguard/models/release_neutral_fingerprint.py": "51d5ae79b7f14473299562517b8acbc5b62004e7641f905364ad954dd4621948",
     ".flowguard/models/replay_conformance.py": "311629f611c211acfecac54cd2d745cec295cc820fcf1b6c104f3f355441b97b",
-    ".flowguard/models/runtime_jobs.py": "66cdb05059db38f0314ae1541d19539171a528c5fee87bc1e23e93682ea72c7d",
+    ".flowguard/models/runtime_jobs.py": "b274e2eba5eae787d855141f0eec2dc5fef9e714f2694a4ad14ba154603a04b6",
     ".flowguard/models/scan_coverage.py": "8fcd28bbc5f6ca58f83bc6d06426919fb752113c8c68c9684f10e517f2b4b4c8",
     ".flowguard/models/shard_partition.py": "42fb65f59ba3d664f7a4b426e984aaa51e2101737ab2b855576f477feefc83cc",
     ".flowguard/models/shard_run.py": "d3eff6beecfebe5d53844e5f5bed5f2b985137d3aaf78b22df6e6abe926e022e",
