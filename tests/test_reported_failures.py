@@ -650,3 +650,17 @@ def test_change_in_a_folder_without_git_needs_no_git_executable(tmp_path, capsys
         assert main([*arguments, "--root", str(root)]) == 0, (arguments, capsys.readouterr())
         output = capsys.readouterr()
         assert "git executable not found" not in output.err and "changed functions" not in output.out, output
+
+
+def test_a_repository_git_cannot_give_a_work_tree_is_an_error_not_a_folder_without_git(tmp_path, capsys):
+    """With core.bare set in a checkout, Git refuses work-tree commands; FlowGuard says so instead of no Git."""
+    from flowguard.__main__ import main
+    from flowguard.map.common import git_common_directory
+    root = _committed_shelf_project(tmp_path)
+    _git(root, "config", "core.bare", "true")
+    with pytest.raises(MapError, match="must be run in a work tree"):
+        git_common_directory(root)
+    capsys.readouterr()
+    for command in (["status"], ["map", "check", "--strict"]):
+        assert main([*command, "--root", str(root)]) == 2, command
+        assert "must be run in a work tree" in capsys.readouterr().err, command
