@@ -388,3 +388,35 @@ def test_status_comes_first_for_flowguard_map_and_from_a_project_subdirectory(tm
     assert result.stderr.startswith(f"FLOWGUARD STATUS {root.resolve()} "), result.stderr
     assert _marker(root)["session"] == "session-sub"
     assert not (inner / ".flowguard").exists()
+
+
+def test_every_entry_finds_the_project_from_a_subdirectory_the_same_way(tmp_path, capsys):
+    import os
+    import subprocess
+    import sys
+    root = _plain(tmp_path)
+    (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [], "flows": []}),
+                                              encoding="utf-8")
+    _words(root, capsys, "Keep receipts.\n")
+    inner = root / "pkg" / "deep"
+    inner.mkdir(parents=True)
+    words = tmp_path / "later.md"
+    words.write_text("Keep two receipts.\n", encoding="utf-8")
+    environment = {**os.environ, "PYTHONPATH": os.pathsep.join(filter(None, [str(ROOT), os.environ.get("PYTHONPATH")]))}
+
+    def run(*arguments):
+        return subprocess.run([sys.executable, "-m", *arguments], cwd=inner, env=environment, capture_output=True,
+                              text=True, timeout=120)
+
+    result = run("flowguard", "req", "add", str(words), "--id", "R2")
+    assert result.returncode == 0, result.stderr
+    assert (root / ".flowguard/requests/R2.md").is_file() and not (inner / ".flowguard").exists()
+    result = run("flowguard", "status")
+    assert result.stdout.startswith(f"FLOWGUARD STATUS {root.resolve()} ") and "R2 " in result.stdout, result.stdout
+    result = run("flowguard", "where", "R2")
+    assert result.returncode == 0 and "request R2: owner words" in result.stdout, (result.stdout, result.stderr)
+    for arguments in (("flowguard", "map", "check"), ("flowguard.map", "check"), ("flowguard", "target", "check")):
+        result = run(*arguments)
+        assert "no map at" not in result.stderr, (arguments, result.stderr)
+    assert run("flowguard", "map", "check").returncode == 0
+    assert not (inner / ".flowguard").exists()

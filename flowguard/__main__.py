@@ -42,7 +42,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         )
         p.add_argument("--force", action="store_true", help="overwrite existing files when writing")
         return p
-    p.add_argument("--root", default=".")
+    p.add_argument("--root", help="project root (default: the project holding the current directory)")
     if verb == "where":
         p.add_argument("name", nargs="?", metavar="NAME", help="source name or, with --text, FILE, source:<id>, group:<id> or text:<literal phrase>")
         views = p.add_mutually_exclusive_group()
@@ -342,6 +342,9 @@ def main(argv: list[str] | None = None) -> int:
         return target_main(rest)
     parser = _verb_parser(verb)
     ns = parser.parse_args(rest)
+    if hasattr(ns, "root"):
+        from .map.common import project_root
+        ns.root = str(project_root(ns.root))
     if verb == "where":
         if ns.at is not None and ns.view != "text":
             parser.error("--at requires --text")

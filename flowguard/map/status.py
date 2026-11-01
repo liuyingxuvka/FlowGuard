@@ -9,8 +9,8 @@ import re
 import shlex
 import subprocess
 
-from .common import (CACHE_RELDIR, advice, atomic_write_text, cache_dir, find_project_root, git_common_directory, git_head,
-                     git_run, matches_any, project_command, read_source, render_advice)
+from .common import (CACHE_RELDIR, advice, atomic_write_text, cache_dir, git_common_directory, git_head,
+                     git_run, matches_any, project_command, project_root, read_source, render_advice)
 from .inventory import list_files
 from .mapfile import MapError, ignore_patterns, load_map
 from .plan import PLAN_RELPATH, function_identities, static_plan_rows
@@ -169,17 +169,17 @@ def mark_status_shown(root, session):
 def show_status_first(arguments, version, *, read_git_paths):
     """Show status once per agent session, before the session's first other FlowGuard command.
 
-    Every entry point calls this (python -m flowguard and python -m flowguard.map). The project is the nearest
-    directory at or above --root (default: the current directory) that holds .flowguard/."""
+    Every entry point calls this (python -m flowguard and python -m flowguard.map). The project is the one the
+    command works on (common.project_root); outside a project nothing is shown."""
     import argparse
     import sys
     session = agent_session()
     if session is None or {"-h", "--help"} & set(arguments):
         return
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--root", default=".")
-    root = find_project_root(parser.parse_known_args(arguments)[0].root)
-    if root is None:
+    parser.add_argument("--root")
+    root = project_root(parser.parse_known_args(arguments)[0].root)
+    if not (root / ".flowguard").is_dir():
         return
     command = project_command(root, "status")
     if not session:

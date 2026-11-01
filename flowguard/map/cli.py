@@ -27,7 +27,7 @@ from pathlib import Path
 
 from .check import run_check
 from .common import (MAP_RELPATH, advice, finding_codes, print_findings, print_verdict,
-                     quiet_broken_pipe, render_advice, safe_stdio, project_command)
+                     quiet_broken_pipe, render_advice, safe_stdio, project_command, project_root)
 from .impact import run_commands, changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
@@ -527,7 +527,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("--root", default=".", help="project root (default: current directory)")
+    p.add_argument("--root", help="project root (default: the project holding the current directory)")
     sub = p.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("scan")
     s.add_argument("--limit", type=int, default=50)
@@ -603,7 +603,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     for command in sub.choices.values():  # --root is accepted before or after the command
         command.add_argument(
-            "--root", default=argparse.SUPPRESS, help="project root (default: current directory)"
+            "--root", default=argparse.SUPPRESS, help="project root (default: the project holding the current directory)"
         )
     return p
 
@@ -617,7 +617,7 @@ HANDLERS = {"discover": cmd_discover, "scan": cmd_scan, "show": cmd_show, "find"
 def main(argv: list[str] | None = None) -> int:
     safe_stdio()
     args = build_parser().parse_args(argv)
-    root = Path(args.root).resolve()
+    root = project_root(args.root)
     try:
         return HANDLERS[args.cmd](root, args)
     except (MapError, RuntimeError) as exc:

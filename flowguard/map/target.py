@@ -16,7 +16,7 @@ import subprocess
 from dataclasses import dataclass, field, replace
 
 from .common import (SOURCE_EXTS, advice, render_advice, print_verdict, matches_any, content_digest,
-                     atomic_write_text, git_blob, git_common_directory, git_run, normalize_newlines, project_command)
+                     atomic_write_text, git_blob, git_common_directory, git_run, normalize_newlines, project_command, project_root)
 from .inventory import build_inventory, function_digests
 from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract, save_map, validate_map
 from .targetfile import (TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_is_noop, target_node_changes,
@@ -38,7 +38,7 @@ from .target_identity import (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m flowguard target")
-    parser.add_argument("--root", default=".")
+    parser.add_argument("--root", help="project root (default: the project holding the current directory)")
     commands = parser.add_subparsers(dest="command")
     start = commands.add_parser("start", help="start one target draft")
     start.add_argument("goal")
@@ -1063,7 +1063,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command is None:
         parser.print_help()
         return 0
-    root = Path(args.root).resolve()
+    root = project_root(args.root)
     try:
         if args.command == "promote":
             options = {"as_json": True} if getattr(args, "json", False) else {}

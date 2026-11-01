@@ -289,10 +289,14 @@ def quiet_broken_pipe(command):
     return run
 
 
-def find_project_root(start) -> Path | None:
-    """The nearest directory at or above start that holds a .flowguard folder, or None outside any project."""
-    start = Path(start).resolve()
-    return next((directory for directory in (start, *start.parents) if (directory / ".flowguard").is_dir()), None)
+def project_root(given=None) -> Path:
+    """The project a command works on, decided the same way by every entry point: --root as given, or without
+    --root the nearest directory at or above the current directory that holds .flowguard/ (the current
+    directory itself when none does)."""
+    if given is not None:
+        return Path(given).resolve()
+    start = Path.cwd().resolve()
+    return next((directory for directory in (start, *start.parents) if (directory / ".flowguard").is_dir()), start)
 
 
 def cache_dir(root: Path) -> Path:
