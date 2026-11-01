@@ -108,13 +108,31 @@ def test_a_fallback_without_its_guard_is_a_subsumed_action(project):
     assert [c for c, _ in sub["repaired"].detail["covered_by"]] == ["repair_anywhere(t='T1')"]
 
 
-def test_a_fallback_that_also_leaves_a_note_is_a_status_only_warning(project):
+def test_a_fallback_that_also_leaves_a_note_is_a_fallback_route(project):
+    """G4: the second route makes the first one's whole change and also writes a side field
+    nothing reads (a note). The prototype called it status-only (a warning); it is the same
+    main effect by a second route, a FALLBACK ROUTE conflict. Only this one differs from
+    the prototype's report (s1aplan/routes_e7.md: none of the E7 models has such a pair)."""
     report, _ = routes(project, TOY / "rental_fallback_note2.py")
-    assert summary(report.raw) == prototype_summaries(BRANCH / "toy_rental_fallback_note2.txt")[0]
+    proto = prototype_summaries(BRANCH / "toy_rental_fallback_note2.txt")[0]
+    assert summary(report.raw) == proto.replace("dead_guard 1, duplicate 2, fallback_status 1",
+                                                "dead_guard 1, duplicate 2, fallback 1")
+    assert by_kind(report, "STATUS-ONLY FALLBACK") == []
+    [fb] = by_kind(report, "FALLBACK ROUTE")
+    assert fb.cls == CONFLICT and fb.subject == "repair_anywhere / repaired"
+    assert fb.detail["also"] == ["note[T1]"] and fb.detail["decided_by"][0][0] == "main_busy"
+    assert "repair_anywhere(t='T1') also changes note[T1]" in fb.text
+
+
+def test_a_second_route_whose_extra_field_is_read_stays_status_only(project):
+    """A field some guard or rule reads is no side field: a pair that differs there keeps
+    the status-only warning (sonnet1_R11's transfer / bring with sentvia)."""
+    text = (TOY / "rental_fallback_note2.py").read_text(encoding="utf-8")
+    text = text.replace("MODEL = m\n", 'm.always("a note only after a repair", lambda s: all(s["note", t] == "" '
+                                       'or s["cond", t] != "loan" for t in TOOLS))\nMODEL = m\n')
+    report, _ = routes(project, text, name="read_note")
     assert by_kind(report, "FALLBACK ROUTE") == []
-    [st] = by_kind(report, "STATUS-ONLY FALLBACK")
-    assert st.cls == WARNING and st.subject == "repair_anywhere / repaired on cond"
-    assert st.detail["also"] == ["note[T1]"]
+    assert [f.subject for f in by_kind(report, "STATUS-ONLY FALLBACK")] == ["repair_anywhere / repaired on cond"]
 
 
 def test_the_other_toys_match_the_prototype(project):
@@ -124,6 +142,10 @@ def test_the_other_toys_match_the_prototype(project):
 
 
 # ---------------------------------------------------------------------- declared second routes
+def stored(project, rid="R7"):
+    project.request(rid, "Repair the tool where it is when the main workshop is busy.")
+
+
 def with_second_route(pair, source="R7"):
     text = (TOY / "rental_planted.py").read_text(encoding="utf-8")
     a, b = pair
@@ -132,6 +154,7 @@ def with_second_route(pair, source="R7"):
 
 
 def test_a_sourced_second_route_is_listed_not_reported(project):
+    stored(project)
     report, _ = routes(project, with_second_route(("repaired", "repair_anywhere")), name="declared")
     assert by_kind(report, "FALLBACK ROUTE") == []
     assert report.declared == [{"actions": ["repaired", "repair_anywhere"], "source": "R7",
@@ -146,9 +169,24 @@ def test_a_sourced_second_route_is_listed_not_reported(project):
 
 
 def test_a_declaration_that_matches_nothing_keeps_nothing(project):
+    stored(project)
     report, _ = routes(project, with_second_route(("rent", "transfer")), name="unmatched")
     assert len(by_kind(report, "FALLBACK ROUTE")) == 1
     assert report.declared[0]["keeps"] == []
+
+
+def test_a_second_route_must_name_a_stored_request(project):
+    """G4: m.second_route(source=...) keeps a second route only for a request the owner
+    stored; an invented id is a model error, not a silent exemption."""
+    path = project.flow("made_up", with_second_route(("repaired", "repair_anywhere"), source="R999"))
+    with pytest.raises(ModelError, match=r"second_route\('repaired', 'repair_anywhere'\): source 'R999' is no "
+                                         r"stored request \(\.flowguard/requests/R999\.md\)") as err:
+        load_model(path, project.root)
+    assert err.value.line == 84
+    assert ".flowguard/requests/R999.md" in err.value.reads          # adding it makes the check run again
+    project.request("R999", "Repair where the tool is when main is busy.")
+    loaded = load_model(path, project.root)
+    assert ".flowguard/requests/R999.md" in loaded.reads
 
 
 # ---------------------------------------------------------------------- the E7 census
@@ -181,7 +219,7 @@ def test_e7_counts_equal_the_prototype(model_file, report_file):
 def test_toy_report_lines_are_the_prototype_lines(project, name):
     report, _ = routes(project, TOY / f"{name}.py")
     proto = {line.strip() for line in (BRANCH / f"toy_{name}.txt").read_text(encoding="utf-8").splitlines()}
-    lines = [line for f in report.raw for line in f.detail["report"]]
+    lines = [line for f in report.raw if not f.detail.get("also") for line in f.detail["report"]]
     assert lines and set(lines) <= proto
 
 
@@ -300,10 +338,11 @@ def test_the_wrapped_ifs_change_nothing(project):
 
 
 def test_the_routes_part(project):
+    stored(project)
     path = project.flow("declared", with_second_route(("repaired", "repair_anywhere")))
     result = run_part(PartContext(project.root, PartSpec("routes", "declared"), path, project.root / "cache"))
     assert result.kind == "routes" and result.complete
-    assert result.reads == [".flowguard/flow/declared.py"]
+    assert result.reads == [".flowguard/flow/declared.py", ".flowguard/requests/R7.md"]   # the request is a read
     assert {f["kind"] for f in result.findings if f["cls"] == CONFLICT} == {"DUPLICATE ROUTE", "SUBSUMED ACTION"}
     assert result.info["declared_routes"][0]["keeps"] == ["FALLBACK ROUTE"]
 

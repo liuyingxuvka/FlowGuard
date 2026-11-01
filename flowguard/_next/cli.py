@@ -484,6 +484,20 @@ def _error_lines(f: Finding) -> list[str]:
     return lines
 
 
+def declared_lines(root, result: Assembled) -> list[str]:
+    """One line per second route a model keeps with m.second_route (M15): the pair, its
+    request with its first line, what it keeps, and why."""
+    out = []
+    for view in result.models.values():
+        routes = view.result("routes")
+        for d in (routes.info.get("declared_routes", []) if routes is not None else []):
+            [(rid, words)] = request_lines(root, [d["source"]])
+            keeps = f"keeps {', '.join(d['keeps'])}" if d["keeps"] else "keeps nothing now"
+            out.append(f"declared second route {view.id}: {' / '.join(d['actions'])} ({rid} \"{words}\"; {keeps}): "
+                       f"{d['why']}")
+    return out
+
+
 def reach(view: ModelView) -> str | None:
     """The model's reach line (3.9), with the unreduced verification under --full."""
     core = view.result("core")
@@ -512,6 +526,7 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
     lines += [_warning_line(result, f) for f in result.warnings]
     for f in result.errors:
         lines += _error_lines(f)
+    lines += declared_lines(root, result)
     reaches = [reach(v) for v in result.models.values()]
     lines += [r for r in reaches if r is not None]
     o = result.outcome

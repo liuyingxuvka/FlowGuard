@@ -288,6 +288,34 @@ def _declared(model, kept):
     return out
 
 
+def _side_positions(model, keys, files):
+    """Positions of side fields: field families no statement of the model's files reads (a
+    note an action writes and nothing tests). A read through a computed key makes every
+    field count as read."""
+    read, computed = set(), False
+    for path in sorted(set(files) | ({str(model.path)} if model.path else set())):
+        tree = ast.parse(Path(path).read_text(encoding="utf-8"))
+        subs = [n for n in ast.walk(tree) if isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name)]
+
+        def family(node):
+            key = node.slice
+            first = key.elts[0] if isinstance(key, ast.Tuple) and key.elts else key
+            return first.value if isinstance(first, ast.Constant) and isinstance(first.value, str) else None
+        states = {n.value.id for n in subs if family(n) is not None}       # names indexed by field names
+        for node in subs:
+            if not isinstance(node.ctx, ast.Load) or node.value.id not in states:
+                continue
+            if family(node) is not None:
+                read.add(family(node))
+            else:
+                computed = True                   # a state read through a computed key
+    if computed:
+        return set()
+    families = {f.family for f in model.fields}
+    side = {fam for fam in families if fam not in read}
+    return {p for p, k in enumerate(keys) if (k[0] if isinstance(k, tuple) else k) in side}
+
+
 def _describe(keys, delta):
     return ", ".join(f"{show_key(keys[p])}: {old!r} -> {new!r}" for p, old, new in sorted(delta, key=lambda d: d[0]))
 
@@ -400,6 +428,7 @@ class _Judge:
                 elif o[0] == "refused":
                     self.refused[c][i] = o[1]
         self.en = [frozenset(s) for s in self.succ]
+        self.side = _side_positions(self.model, self.keys, obs.files)
         self._together = {}
         self._deltas = {}
 
@@ -608,26 +637,33 @@ class _Judge:
         for D, ns in by_delta.items():
             for a, b in itertools.combinations(ns, 2):
                 if not self.together(a, b):
-                    pairs.setdefault((a, b), []).append(D)
+                    pairs.setdefault((a, b), []).append((D, D))
+        for (a, b), dd in self.contained().items():
+            if (a, b) not in pairs:
+                pairs[(a, b)] = dd
         fallback, decided = [], []
-        for (a, b), ds in pairs.items():
-            sa, sb = self.states_of(a, ds), self.states_of(b, ds)
+        for (a, b), dd in pairs.items():
+            sa = self.states_of(a, list(dict.fromkeys(d for d, _ in dd)))
+            sb = self.states_of(b, list(dict.fromkeys(e for _, e in dd)))
             sep = self.separating(sa, sb)
             if self.name[a] == self.name[b]:
                 diff = [(x, y) for x, y in zip(self.calls[a].args, self.calls[b].args) if x != y]
                 if any([x] == va and [y] == vb for x, y in diff for _, va, vb in sep):
                     decided.append((a, b))      # a parameter the state decides: bring(who=M1) needs holder=M1
                     continue
-            fallback.append((a, b, ds, sa, sb, sep))
+            ds = [d for d, _ in dd]
+            extra = sorted({show_key(self.keys[x[0]]) for d, e in dd for x in e - d})
+            fallback.append((a, b, ds, sa, sb, sep, extra))
         groups = {}
         for item in fallback:
             groups.setdefault((self.name[item[0]], self.name[item[1]]), []).append(item)
         for (na, nb), items in sorted(groups.items(), key=lambda x: -len(x[1])):
             if self.is_declared([(na, nb)], "FALLBACK ROUTE"):
                 continue
-            a, b, ds, sa, sb, sep = items[0]
+            a, b, ds, sa, sb, sep, extra = items[0]
             head = (f"{self.label[a]} and {self.label[b]} are never possible in the same state, and make the same "
-                    f"change" + (f" ({len(items)} such pairs of calls)" if len(items) > 1 else ""))
+                    f"change" + (f" ({self.label[b]} also changes {', '.join(extra)})" if extra else "")
+                    + (f" ({len(items)} such pairs of calls)" if len(items) > 1 else ""))
             report = [head, f"for example: {_describe(self.keys, ds[0])} (made from {len(sa)} and {len(sb)} states)"]
             refusals = []
             for x, y, sy in ((a, b, sb), (b, a, sa)):
@@ -652,7 +688,7 @@ class _Judge:
                      detail={"calls": [self.label[a], self.label[b]], "pairs": len(items),
                              "example": _describe(self.keys, ds[0]), "made_from": [len(sa), len(sb)],
                              "refusals": refusals, "decided_by": decided_by, "route": self.label[b],
-                             "report": report},
+                             "also": extra, "report": report},
                      line=self.calls[b].action.line)
         if decided:
             names = Counter(self.name[a] for a, _ in decided)
@@ -661,6 +697,31 @@ class _Judge:
                 "per_action": dict(names)}
         seen = {(a, b) for a, b, *_ in fallback} | set(decided)
         return groups, seen
+
+    def contained(self):
+        """(a, b) -> [(D, E)]: calls never possible in the same state where a's whole change
+        D is part of a change E of b, and what b writes besides goes only to side fields
+        (fields nothing in the model reads, such as a note): the same main effect by a second
+        route, so a FALLBACK ROUTE too (G4)."""
+        n = len(self.calls)
+        index = defaultdict(set)
+        for c in range(n):
+            for E in self.deltas(c):
+                for x in E:
+                    index[x].add((c, E))
+        out = {}
+        for a in range(n):
+            for D in self.deltas(a):
+                cand = None
+                for x in D:
+                    cand = set(index[x]) if cand is None else cand & index[x]
+                    if not cand:
+                        break
+                for b, E in sorted(cand or (), key=lambda ce: (ce[0], repr(sorted(ce[1], key=repr)))):
+                    if (b != a and len(E) > len(D) and all(x[0] in self.side for x in E - D)
+                            and not self.together(a, b)):
+                        out.setdefault((a, b), []).append((D, E))
+        return out
 
     def status_only(self, groups, seen):
         domains = {f.key: f.domain for f in self.model.fields}

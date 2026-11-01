@@ -513,3 +513,14 @@ def test_a_model_error_closes_no_conflict(project):
     assert run.code == 2 and f"[{cid}]" in run.out
     assert "(kept: proven by an earlier complete check; the model does not load)" in run.out
     assert [c["id"] for c in json.loads(saved.read_text())["conflicts"]] == [cid]
+
+
+def test_the_text_names_the_declared_second_routes(project):
+    """G4: a kept second route is printed in the text, not only in --json."""
+    text = (DATA / "toy_next" / "rental_planted.py").read_text(encoding="utf-8").replace(
+        "MODEL = m\n", 'm.second_route("repaired", "repair_anywhere", source="R7", why="main is often busy")\nMODEL = m\n')
+    project.request("R7", "Repair the tool where it is when the main workshop is busy.")
+    project.flow("rental", text)
+    run = timed(project.root)
+    assert ('declared second route rental: repaired / repair_anywhere (R7 "Repair the tool where it is when the main '
+            'workshop is busy."; keeps FALLBACK ROUTE): main is often busy') in run.lines

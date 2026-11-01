@@ -559,6 +559,23 @@ def validate(model: Model) -> None:
         raise ModelError("the model declares no field", _rel(model.path) if model.path else None, None)
 
 
+REQUESTS = Path(".flowguard") / "requests"
+
+
+def check_second_routes(model: Model, root: Path, reads: set) -> None:
+    """m.second_route keeps a second route only for a request the owner stored: its
+    source= must be a file in .flowguard/requests/. The file is a read either way, so
+    storing it later makes the model's parts run again."""
+    for sr in model.second_routes:
+        rel = (REQUESTS / f"{sr.source}.md").as_posix()
+        reads.add(rel)
+        if not (root / rel).is_file():
+            a, b = sr.actions
+            raise ModelError(f"second_route({a!r}, {b!r}): source {sr.source!r} is no stored request ({rel}); "
+                             f"a second route stays only when a stored owner request asks for it",
+                             _rel(model.path), sr.line)
+
+
 def check_covers(model: Model, root: Path, reads: set) -> None:
     """covers= entries must name existing files, classes and methods; each file is a read."""
     for entry in model.covers:
@@ -1114,6 +1131,7 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
         reads.update(project.values())
         validate(model)
         check_covers(model, root, reads)
+        check_second_routes(model, root, reads)
         helpers = [root / r for r in project.values()
                    if (root / r).parent == path.parent and Path(r).name.startswith("_")]
         check_symmetry_rule(model, [path] + sorted(helpers), root)

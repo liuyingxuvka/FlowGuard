@@ -27,7 +27,7 @@ HEAD (`show MODEL`, `show C-...` or `--before REV` name it yourself).
 | `m.option(name, offered, action=, source=, **params)` | a screen option: where it is offered, the action must work (same parameter names) |
 | `m.terminal(field, values, source=)` | the values that end an object's life on purpose |
 | `m.always / only_when / after / progress / reach(...)` | the promises: hold in every state; hold before every success of an action; hold after it; from every such state the goal stays reachable; some state has it |
-| `m.second_route(a, b, source="R11", why=...)` | the only way to keep a second route to the same result |
+| `m.second_route(a, b, source="R11", why=...)` | the only way to keep a second route to the same result; `source=` must be a stored request (`.flowguard/requests/R11.md`), and `check` prints the kept pair |
 
 Ids are used only symmetrically: in `over=`, action parameters, `[None] + IDS`, loops and
 comprehensions over them. `IDS[0]` or a literal `"T1"` in the model is a model error.
@@ -110,7 +110,8 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
   a `reach` promise, or a field value that has a source or that a sourced promise names (each
   says which one-setting change would reach it, or that none does); a second route to the same
   result: DUPLICATE ROUTE, SUBSUMED ACTION, FALLBACK ROUTE (one action works exactly where
-  another refuses). Keep one route, or declare the second with `m.second_route`.
+  another refuses and makes the same change, perhaps writing a field nothing reads besides).
+  Keep one route, or declare the second with `m.second_route`.
 - **Model warnings** (never conflicts): other field values never reached, usually a domain
   wider than the design needs; settings not read from the code although the model covers code;
   a fallback
