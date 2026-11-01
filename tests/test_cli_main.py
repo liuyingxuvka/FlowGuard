@@ -911,7 +911,7 @@ def test_help_lists_every_option_of_every_verb(capsys):
                 assert option in text, (verb, option)
 
 
-def test_no_engine_package_and_public_where_is_static(tmp_path):
+def test_public_where_forms_are_static_and_next_commands_are_executable(tmp_path):
     import shlex
     import subprocess
     import sys
@@ -938,8 +938,7 @@ raise RuntimeError("the model must never be imported")
         {"id": "app", "files": ["app.py"], "models": [".flowguard/models/static_model.py"]}]}))
     before = {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
     environment = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1])}
-    guarded_module = '''import importlib.util, runpy, sys
-assert importlib.util.find_spec("flowguard.behave") is None
+    guarded_module = '''import runpy, sys
 sys.argv = ["flowguard", *sys.argv[1:]]
 try:
     runpy.run_module("flowguard", run_name="__main__")

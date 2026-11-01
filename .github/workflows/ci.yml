@@ -159,3 +159,7 @@ jobs:
           subprocess.run([sys.executable, "scripts/install_skill.py", "--target", target], check=True)
           subprocess.run([sys.executable, "scripts/install_skill.py", "--target", target, "--check"], check=True)
           PY
+
+      - name: Complete pilot tests on Ubuntu Python 3.13
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        run: python -m pytest -q tests/behave

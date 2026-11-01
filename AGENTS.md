@@ -33,3 +33,7 @@ on itself.
 
 - Source-equivalence and fingerprint byte comparisons must use `flowguard/map/common.py:normalize_newlines`, with LF and CRLF coverage.
 - CHANGELOG entries must describe user-visible changes in plain language, use the actual release date, and omit internal action IDs and branch names.
+
+## Unreleased behavior engine
+
+The resumed engine is entered only with `python -m flowguard.behave` on Python 3.12 or newer. Keep the released static `where` queries independent from it. The Python 3.11 legacy lane collects bootstrap guards and ignores native engine tests; Ubuntu Python 3.13 runs the complete engine tests once in the existing workflow. Do not replace full-state or fresh-evidence checks with sampled success claims.

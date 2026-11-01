@@ -1,0 +1,624 @@
+"""Concrete finite walks and bounded search over the shared native session."""
+
+from __future__ import annotations
+
+from collections import deque
+import heapq
+import itertools
+import json
+import random
+
+from .project import UnsupportedWorld, state_key
+
+
+def plain(pack):
+    nodes = pack["nodes"]
+    def read(value):
+        if not isinstance(value, dict):
+            return value
+        if "float" in value:
+            return float.fromhex(value["float"])
+        if "enum" in value:
+            return value["value"]
+        if "ref" not in value:
+            raise UnsupportedWorld("this query value has no finite scalar view")
+        node = nodes[value["ref"]]
+        if node["type"] in {"builtins:list", "builtins:tuple", "builtins:set", "builtins:frozenset"}:
+            return [read(item) for item in node["items"]]
+        if node["type"] == "builtins:dict":
+            return {read(key): read(item) for key, item in node["items"]}
+        raise UnsupportedWorld("object-valued query needs an explicit world")
+    return read(pack["root"])
+
+
+def evaluate(session, goal):
+    if goal.get("kind") == "statement":
+        requested = goal.get("statements", [goal.get("statement")])
+        known = {row["id"]: row["unambiguous"] for row in session.spec.get("statements", [])}
+        if not requested or any(not known.get(identifier, False) for identifier in requested):
+            raise UnsupportedWorld("statement identity is absent or its physical line is ambiguous")
+        if session.last is None:
+            return False
+        if "hit_statements" not in session.last:
+            raise UnsupportedWorld("the last call has no statement execution receipt")
+        return bool(set(requested) & set(session.last["hit_statements"]))
+    if goal.get("kind") == "transition":
+        available = set(session.spec["parameters"]) | (set(session.spec.get("ui_methods", {}).values()) if session.spec.get("ui") else set())
+        if goal.get("receiver", "system") == "system" and (goal["query"] not in session.spec["parameters"] or "action" in goal and goal["action"] not in available):
+            return False
+        if session.last is None:
+            return False
+        if "transitions" not in session.last:
+            raise UnsupportedWorld("the last call has no public before/after transition observations")
+        return any(row["query"] == goal["query"] and ("action" not in goal or row["action"] == goal["action"])
+                   and row.get("receiver", "system") == goal.get("receiver", "system")
+                   and state_key(row["args"]) == state_key(goal.get("args", []))
+                   and state_key(row["before"]) == state_key(goal["before"]) and state_key(row["value"]) == state_key(goal["value"])
+                   for row in session.last["transitions"])
+    if goal.get("kind") in {"option", "screen"}:
+        for receiver in (name for name in session.objects if name != "system"):
+            value = plain(session.query(receiver, session.spec["ui_methods"]["options"])) if goal["kind"] == "option" else plain(session.query(receiver, "screen", property=True))
+            if goal["value"] in value if goal["kind"] == "option" else value == goal["value"]:
+                return True
+        return False
+    if goal.get("kind", "query") == "action":
+        if goal.get("receiver", "system") == "system" and goal["name"] not in session.spec["parameters"]:
+            return False
+        row = session.last
+        return bool(row and row["call"].get("name") == goal["name"] and row["call"].get("receiver", "system") == goal.get("receiver", "system") and row["outcome"] == goal["outcome"])
+    receiver = goal.get("receiver", "system")
+    if receiver == "system" and goal["query"] not in session.spec["parameters"]:
+        return False
+    if goal.get("entity") and not goal.get("args"):
+        if goal["entity"] not in session.spec["entities"]:
+            return False
+        return any(evaluate(session, {key: value for key, value in {**goal, "args": [identifier]}.items() if key != "entity"})
+                   for identifier in _identifiers(session)[goal["entity"]])
+    value = plain(session.query(receiver, goal["query"], goal.get("args", []), goal.get("kwargs", {}), property=goal.get("property", False)))
+    return value != goal["value"] if goal.get("comparison") == "ne" else value == goal["value"]
+
+
+def _numbers(value):
+    if type(value) is int:
+        return {value}
+    if isinstance(value, list):
+        return set().union(*(_numbers(item) for item in value)) if value else set()
+    if isinstance(value, dict) and "ref" not in value:
+        return set().union(*(_numbers(item) for item in value.values())) if value else set()
+    return set()
+
+
+def _identifiers(session):
+    return {kind: plain(session.query("system", item["list"])) for kind, item in session.spec["entities"].items()}
+
+
+def _ensure_ui(session, *, limit=None):
+    if not session.spec.get("ui") or any(name != "system" for name in session.objects):
+        return
+    facts = session.spec.get("ui_constructor", {})
+    if not facts.get("system_parameter"):
+        raise UnsupportedWorld("the UI constructor needs a source-bound system parameter")
+    if facts["parameters"][0]["name"] != facts["system_parameter"]:
+        raise UnsupportedWorld("the UI system argument must be the source-bound first parameter")
+    identifiers = _identifiers(session)
+    parameters = [row for row in facts["parameters"] if row["name"] != facts["system_parameter"]]
+    values = []
+    for row in parameters:
+        choices = identifiers[row["entity"]] if row.get("entity") else [False, True] if type(row.get("default")) is bool else [row.get("default")]
+        if "default" in row:
+            choices = list(dict.fromkeys([row["default"], *choices]))
+        if row["required"] and not choices:
+            raise UnsupportedWorld("the UI constructor has no finite input for " + row["name"])
+        values.append(choices)
+    for index, chosen in enumerate(itertools.product(*values)):
+        if limit is not None and index >= limit:
+            break
+        recipe = {"construct": "ui", "receiver": "ui:auto:" + str(index), "kwargs": dict(zip((row["name"] for row in parameters), chosen))}
+        before = state_key(session.current)
+        try:
+            session.step(recipe)
+        except UnsupportedWorld:
+            raise
+        except (ValueError, *session.refusals):
+            from .project import snapshot
+            session.current = snapshot(session.objects, session.arena, session.defaults)
+            if state_key(session.current) != before:
+                raise UnsupportedWorld("a rejected UI construction changed its system")
+    if limit is None and not any(name != "system" for name in session.objects):
+        raise UnsupportedWorld("no generated public UI constructor profile is buildable")
+
+
+def ui_positive_witnesses(session, goals, *, depth, node_cap, alphabet_cap):
+    """Try source-bound, empty-input UI choices; a miss has no negative meaning."""
+    goals = [goal for goal in goals if goal.get("kind") in {"option", "screen"}]
+    if not goals or not session.spec.get("ui"):
+        return []
+    from .project import _Graph
+    start, witnesses = session.start, []
+    previous = (list(session.prefix), list(session.outcomes), state_key(session.current),
+                _Graph(session.arena).pack([session.objects, session.results]))
+    try:
+        session.reset()
+        base = len(session.prefix)
+        reserve = int(any(goal["kind"] == "screen" for goal in goals))
+        limit = min(max(0, depth - reserve), node_cap, alphabet_cap)
+        if not any(name != "system" for name in session.objects) and not limit:
+            return []
+        _ensure_ui(session, limit=limit)
+        def retain():
+            for goal in goals:
+                if len(session.prefix) - base <= depth and not any(row["semantic"] == goal for row in witnesses) and evaluate(session, goal):
+                    witnesses.append({"semantic": goal, "prefix": list(session.prefix),
+                                      "outcomes": list(session.outcomes), "start": start})
+        retain()
+        checkpoint, attempted = session.checkpoint(), len(session.prefix) - base
+        values = {goal["value"] for goal in goals if not any(row["semantic"] == goal for row in witnesses)}
+        for receiver in (name for name in session.objects if name != "system"):
+            session.restore_checkpoint(checkpoint)
+            options = plain(session.query(receiver, session.spec["ui_methods"]["options"]))
+            for option in options:
+                if option not in values or session.spec["ui_facts"].get("option_inputs", {}).get(option) != []:
+                    continue
+                if attempted >= min(node_cap, alphabet_cap) or len(checkpoint["prefix"]) - base >= depth:
+                    break
+                session.restore_checkpoint(checkpoint)
+                row = session.step({"receiver": receiver, "name": session.spec["ui_methods"]["choose"], "args": [option], "kwargs": {}})
+                attempted += 1
+                if row["outcome"] == "success":
+                    retain()
+        for witness in witnesses:
+            session.reset(witness["prefix"], start=start)
+            if session.outcomes != witness["outcomes"] or not evaluate(session, witness["semantic"]):
+                raise UnsupportedWorld("UI positive witness no longer reproduces its public outcome and goal")
+        return witnesses
+    finally:
+        session.reset(previous[0], start=start)
+        if (session.outcomes != previous[1] or state_key(session.current) != previous[2]
+                or _Graph(session.arena).pack([session.objects, session.results]) != previous[3]):
+            raise UnsupportedWorld("UI probe public prefix did not restore its complete starting context")
+
+
+def observations(session, *, all_queries=False):
+    """Small public observations, never a substitute for the complete native state key."""
+    values, unknown = [], []
+    identifiers = _identifiers(session)
+    requested = set(session.spec["status_values"]) | {row["query"] for goal in session.spec.get("goal_guards", []) for row in goal["comparisons"]}
+    for query, facts in session.spec.get("entity_queries", {}).items():
+        if not all_queries and query not in requested:
+            continue
+        for identifier in identifiers[facts["entity"]]:
+            row = session.query("system", query, [identifier])
+            try:
+                value = plain(row)
+            except UnsupportedWorld:
+                unknown.append(query)
+                continue
+            values.append({"query": query, "entity": facts["entity"], "args": [identifier], "value": value})
+    return {"values": values, "unknown": sorted(set(unknown))}
+
+
+def related_slice(session, query, identifier):
+    identifiers = _identifiers(session)
+    parameter = session.spec["parameters"][query][0]
+    related = {kind: set() for kind in identifiers}
+    related[parameter["entity"]].add(identifier)
+    def add(value):
+        if isinstance(value, dict):
+            for item in value.values(): add(item)
+        elif isinstance(value, (list, tuple)):
+            for item in value: add(item)
+        elif type(value) in {str, int}:
+            for kind, known in identifiers.items():
+                if value in known: related[kind].add(value)
+    observed = observations(session, all_queries=True)
+    for row in observed["values"]:
+        if row["entity"] == parameter["entity"] and row["args"] == [identifier]:
+            add(row["value"])
+    return {kind: sorted(values, key=str) for kind, values in related.items()}, observed["unknown"]
+
+
+def _alphabet(session, only=None, domains=None, alphabet_cap=1000, include_optional=False, related=None):
+    spec = session.spec
+    identifiers = _identifiers(session)
+    numbers = {0, 1, 2}
+    for row in observations(session, all_queries=True)["values"]:
+        numbers |= _numbers(row["value"])
+    candidates = []
+    truncated = False
+    for name in sorted(only if only is not None else spec["actions"]):
+        if name not in spec["parameters"] or name.startswith("_"):
+            raise UnsupportedWorld("unknown action in finite slice: " + name)
+        choices = []
+        for row in spec["parameters"][name]:
+            explicit = (domains or {}).get(name, {}).get(row["name"])
+            if explicit is not None:
+                values = explicit
+            elif row.get("entity"):
+                values = identifiers[row["entity"]]
+            else:
+                literals = row.get("literals", [])
+                strings = [value for value in literals if isinstance(value, str)]
+                if strings or isinstance(row.get("default"), str) or row.get("annotation") == "str":
+                    values = [*strings, *([row["default"]] if isinstance(row.get("default"), str) else [])]
+                elif type(row.get("default")) is bool or row.get("annotation") == "bool":
+                    values = [False, True]
+                else:
+                    values = sorted(numbers)
+                    values.extend(value for value in literals if type(value) is int)
+                    if "default" in row:
+                        values = [row["default"], *values]
+            if include_optional and "default" in row:
+                values = [row["default"], *values]
+            unique = {json.dumps(value, sort_keys=True): value for value in values}
+            if not unique:
+                raise UnsupportedWorld("no finite values for " + name + "." + row["name"])
+            choices.append([unique[key] for key in sorted(unique)])
+        products = [itertools.product(*choices)]
+        entity_parameters = any(row.get("entity") for row in spec["parameters"][name])
+        if related is not None and entity_parameters:
+            products = []
+            for index, row in enumerate(spec["parameters"][name]):
+                selected = [value for value in choices[index] if value in related.get(row.get("entity"), ())]
+                if row.get("entity") and selected:
+                    anchored = [*choices[:index], selected, *choices[index + 1:]]
+                    products.append(itertools.product(*anchored))
+        seen = set()
+        for values in itertools.chain.from_iterable(products):
+            lengths = [len(values)]
+            if include_optional:
+                for index in range(len(values) - 1, -1, -1):
+                    if spec["parameters"][name][index]["required"]:
+                        break
+                    lengths.append(index)
+            for length in lengths:
+                args = list(values[:length])
+                if related is not None and entity_parameters and not any(
+                    row.get("entity") and value in related.get(row["entity"], ())
+                    for row, value in zip(spec["parameters"][name], args)
+                ):
+                    continue
+                key = json.dumps(args, sort_keys=True)
+                if key in seen:
+                    continue
+                seen.add(key)
+                if len(candidates) == alphabet_cap:
+                    truncated = True
+                    break
+                candidates.append({"name": name, "args": args})
+            if truncated:
+                break
+        if truncated:
+            break
+    if related is None and only is None and any(name != "system" for name in session.objects):
+        names = spec["ui_methods"]
+        identifiers_by_arg = {item["parameters"][0]["name"]: identifiers[kind] for kind, item in spec["entities"].items()}
+        for receiver in (name for name in session.objects if name != "system"):
+            options = plain(session.query(receiver, names["options"]))
+            for option in options:
+                fields = spec["ui_facts"].get("option_inputs", {}).get(option)
+                if fields is None:
+                    truncated = True
+                    continue
+                choices = [identifiers_by_arg.get(name, [""]) for name in fields]
+                for values in itertools.product(*choices):
+                    if len(candidates) >= alphabet_cap:
+                        return candidates, True
+                    candidates.append({"receiver": receiver, "name": names["choose"], "args": [option], "kwargs": dict(zip(fields, values))})
+    return candidates, truncated
+
+
+def _terms(session):
+    identifiers = _identifiers(session)
+    terms = []
+    for name in sorted(session.spec["status_values"]):
+        row = session.spec["parameters"][name][0]
+        for identifier in identifiers.get(row.get("entity"), []):
+            value = plain(session.query("system", name, [identifier]))
+            terms.append({"kind": "query", "receiver": "system", "query": name, "args": [identifier], "value": value})
+    for receiver in (name for name in session.objects if name != "system"):
+        if "screen" in vars(session.objects[receiver]) or any("screen" in cls.__dict__ for cls in type(session.objects[receiver]).__mro__):
+            value = plain(session.query(receiver, "screen", property=True))
+            terms.append({"kind": "screen", "value": value, "ui_class": session.spec["ui"]})
+        for option in plain(session.query(receiver, session.spec["ui_methods"]["options"])):
+            terms.append({"kind": "option", "value": option, "ui_class": session.spec["ui"]})
+    return terms
+
+
+def _compact(row):
+    return {key: value for key, value in row.items() if key not in {"before", "after"}}
+
+
+def _extent(strategy, *, depth=None, node_cap=None, alphabet_cap=None):
+    return {"strategy": strategy, "depth": depth, "node_cap": node_cap, "alphabet_cap": alphabet_cap,
+            "visited": 0, "attempted": 0, "complete": False, "capped": False, "partial": False,
+            "domain_truncated": False, "reason": "not started"}
+
+
+def explore(session, *, seed=0, steps=64, node_cap=1000, alphabet_cap=1000, domains=None, goal=None, goals=(), initial_states=()):
+    if min(steps, node_cap, alphabet_cap) < 1:
+        raise UnsupportedWorld("exploration budgets must be positive")
+    rng = random.Random(seed)
+    extent = _extent("coverage-guided", node_cap=node_cap, alphabet_cap=alphabet_cap)
+    extent.update(seed=seed, successful_step_budget=steps, successful=0)
+    witnesses, features, visits, events, concrete, traces, failures = {}, set(), {}, [], [], [], []
+    tracked = {json.dumps(item, sort_keys=True): item for item in ([goal] if goal is not None else []) + list(goals)}
+
+    def retain_goals():
+        for key, item in tracked.items():
+            if key not in witnesses and evaluate(session, item):
+                witnesses[key] = {"semantic": item, "prefix": list(session.prefix),
+                                  "outcomes": list(session.outcomes), "start": session.start}
+    corpus = [{"prefix": list(row["prefix"]), "test": row["test"]} for row in initial_states]
+    origin = None
+    if corpus:
+        chosen = rng.choice(corpus)
+        session.reset(chosen["prefix"])
+        origin = chosen["test"]
+    else:
+        corpus = [{"prefix": list(session.prefix), "test": None}]
+    states = set()
+    while extent["successful"] < steps and extent["attempted"] < node_cap:
+        if extent["attempted"] and extent["attempted"] % 16 == 0:
+            traces.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "origin": "test-start: " + origin if origin else "fresh"})
+            chosen = rng.choice(corpus)
+            session.reset(chosen["prefix"])
+            origin = chosen["test"]
+        _ensure_ui(session)
+        concrete.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "observations": observations(session),
+                         **({"test": origin, "origin": "test-start: " + origin} if origin else {})})
+        for term in _terms(session):
+            key = json.dumps(term, sort_keys=True)
+            if key not in witnesses:
+                witnesses[key] = {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start}
+        retain_goals()
+        choices, truncated = _alphabet(session, domains=domains, alphabet_cap=alphabet_cap)
+        extent["domain_truncated"] |= truncated
+        if not choices:
+            extent["partial"] = True
+            extent["reason"] = "no generated public actions"
+            break
+        least = min(visits.get(item["name"], 0) for item in choices)
+        choices = [item for item in choices if visits.get(item["name"], 0) == least]
+        recipe = rng.choice(choices)
+        before_observed = observations(session, all_queries=True)
+        row = session.step(recipe)
+        after_observed = observations(session, all_queries=True)
+        row["before_observations"], row["after_observations"] = before_observed, after_observed
+        after_values = {state_key([value["query"], value["args"]]): value for value in after_observed["values"]}
+        row["transitions"] = []
+        for value in before_observed["values"]:
+            after = after_values.get(state_key([value["query"], value["args"]]))
+            if after is not None and state_key(value["value"]) != state_key(after["value"]):
+                row["transitions"].append({"kind": "transition", "receiver": "system", "query": value["query"], "args": value["args"],
+                                           "before": value["value"], "value": after["value"], "action": recipe["name"]})
+        session.last["transitions"] = row["transitions"]
+        retain_goals()  # Observe this complete public step before a following corpus reset.
+        if row["outcome"] == "crash" or row["outcome"] == "refusal" and row["before_key"] != row["after_key"]:
+            failures.append({"prefix": list(session.prefix[:-1]), "outcomes": list(session.outcomes[:-1]),
+                             "start": dict(session.start), "row": _compact(row)})
+        visits[recipe["name"]] = visits.get(recipe["name"], 0) + 1
+        extent["attempted"] += 1
+        extent["successful"] += row["outcome"] == "success"
+        states.add(row["after_key"])
+        feature = (recipe.get("receiver", "system"), recipe["name"], row["outcome"])
+        if feature not in features:
+            features.add(feature)
+            corpus.append({"prefix": list(session.prefix), "test": origin})
+        term = {"kind": "action", "receiver": recipe.get("receiver", "system"), "name": recipe["name"], "outcome": row["outcome"]}
+        witnesses.setdefault(json.dumps(term, sort_keys=True), {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
+        for identifier in row.get("hit_statements", []):
+            term = {"kind": "statement", "statement": identifier}
+            witnesses.setdefault(json.dumps(term, sort_keys=True), {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
+        for term in row["transitions"]:
+            witnesses.setdefault(json.dumps(term, sort_keys=True), {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
+        events.append(_compact(row))
+    for term in _terms(session):
+        key = json.dumps(term, sort_keys=True)
+        witnesses.setdefault(key, {"semantic": term, "prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": session.start})
+    retain_goals()
+    traces.append({"prefix": list(session.prefix), "outcomes": list(session.outcomes), "start": dict(session.start), "origin": "test-start: " + origin if origin else "fresh"})
+    extent["visited"] = len(states)
+    extent["capped"] = extent["attempted"] >= node_cap and extent["successful"] < steps
+    if extent["reason"] == "not started":
+        extent["reason"] = "attempt/node cap" if extent["capped"] else "successful-step envelope finished (sampled)"
+    # A sampled walk never licenses a negative proof, even after its envelope finishes.
+    return {"extent": extent, "events": events, "witnesses": [witnesses[key] for key in sorted(witnesses)],
+            "features": [list(item) for item in sorted(features)], "states": concrete, "traces": traces, "failures": failures,
+            "checked_goals": list(tracked.values())}
+
+
+def focused_search(session, *, goal, prefix=(), depth=3, node_cap=1000, alphabet_cap=1000, actions=None, domains=None, related=None, priority=False, rank_states=()):
+    if depth < 0 or min(node_cap, alphabet_cap) < 1:
+        raise UnsupportedWorld("search bounds must be finite and nonnegative")
+    extent = _extent("complete-bfs", depth=depth, node_cap=node_cap, alphabet_cap=alphabet_cap)
+    if priority:
+        extent["strategy"] = "guard-priority-complete"
+    extent["numeric_domain"] = "small integers, parameter literals/defaults and integers returned by public one-entity queries"
+    session.reset(prefix)
+    initial = state_key(session.current)
+    order = itertools.count()
+    pending = [(0, 0, next(order), session.checkpoint(), initial)] if priority else deque([(session.checkpoint(), 0, initial)])
+    seen = {initial: 0}
+    answers = []
+    hints = _rank_hints(session, rank_states) if priority else {}
+    while pending:
+        if priority:
+            _, distance, _, checkpoint, key = heapq.heappop(pending)
+        else:
+            checkpoint, distance, key = pending.popleft()
+        if distance > seen[key]:
+            continue
+        session.restore_checkpoint(checkpoint)
+        current = list(session.prefix)
+        if goal.get("kind") in {"option", "screen"}:
+            _ensure_ui(session)
+            current = list(session.prefix)
+        if evaluate(session, goal):
+            extent.update(visited=len(seen), reason="goal reached")
+            return {"found": True, "prefix": current, "goal": goal, "extent": extent}
+        if distance == depth:
+            continue
+        selected = None
+        if related:
+            selected, unknown = related_slice(session, related["query"], related["identifier"])
+            extent["domain_truncated"] |= bool(unknown)
+        choices, truncated = _alphabet(session, actions, domains, alphabet_cap, related=selected)
+        extent["domain_truncated"] |= truncated
+        if distance == 0:
+            extent["initial_alphabet"] = len(choices)
+        checkpoint = session.checkpoint()
+        for recipe in choices:
+            session.restore_checkpoint(checkpoint)
+            row = session.step(recipe)
+            if distance == 0:
+                answers.append({"call": recipe, "outcome": row["outcome"], "exception": row["exception"]})
+            extent["attempted"] += 1
+            if evaluate(session, goal):
+                extent.update(visited=len(seen), reason="goal reached")
+                return {"found": True, "prefix": [*current, recipe], "goal": goal, "extent": extent}
+            key = row["after_key"]
+            if key not in seen or distance + 1 < seen[key]:
+                if key not in seen and len(seen) >= node_cap:
+                    extent.update(visited=len(seen), capped=True, reason="node cap")
+                    return {"found": False, "goal": goal, "extent": extent, "answers": answers}
+                seen[key] = distance + 1
+                saved = session.checkpoint()
+                if priority:
+                    rank = _guard_distance(session, goal, observations(session), hints)
+                    writers = {name for item in session.spec.get("goal_guards", []) if all(goal.get(k) == value for k, value in item["goal"].items()) for name in item["actions"]}
+                    if goal.get("kind") in {"option", "screen"}:
+                        writers.add(session.spec["ui_methods"]["choose"])
+                    rank -= depth if recipe.get("name") in writers else 0
+                    heapq.heappush(pending, (rank, distance + 1, next(order), saved, key))
+                else:
+                    pending.append((saved, distance + 1, key))
+    extent.update(visited=len(seen), complete=not extent["domain_truncated"],
+                  reason="argument alphabet capped" if extent["domain_truncated"] else "bounded queue exhausted")
+    return {"found": False, "goal": goal, "extent": extent, "answers": answers}
+
+
+def _rank_hints(session, states):
+    by_prefix = {json.dumps([state.get("start", session.start), state["prefix"]], sort_keys=True): state for state in states}
+    increases, before_actions, edges = {}, {}, {}
+    for state in states:
+        before = by_prefix.get(json.dumps([state.get("start", session.start), state["prefix"][:-1]], sort_keys=True))
+        if before is None or not state["prefix"]:
+            continue
+        categorical = [(row["entity"], row["query"], row["value"]) for row in before["observations"]["values"] if row["query"] in session.spec["status_values"]]
+        name = state["prefix"][-1].get("name")
+        before_actions.setdefault(name, set()).update(categorical)
+        changed = {(row["query"], tuple(row["args"])): row for row in state["observations"]["values"]}
+        for row in before["observations"]["values"]:
+            after = changed.get((row["query"], tuple(row["args"])))
+            if after is None:
+                continue
+            if type(row["value"]) is int and type(after["value"]) is int and after["value"] > row["value"]:
+                increases.setdefault(row["query"], set()).update(item for item in categorical if item[0] == row["entity"])
+            if row["query"] in session.spec["status_values"] and row["value"] != after["value"]:
+                edges.setdefault((row["entity"], row["query"], row["value"]), set()).add(after["value"])
+    return {"increases": increases, "before_actions": before_actions, "edges": edges}
+
+
+def _guard_distance(session, goal, observed, hints=None):
+    hints = hints or {"increases": {}, "before_actions": {}, "edges": {}}
+    selected = [item for item in session.spec.get("goal_guards", []) if all(goal.get(key) == value for key, value in item["goal"].items())]
+    comparisons = [row for item in session.spec.get("goal_guards", [])
+                   if all(goal.get(key) == value for key, value in item["goal"].items())
+                   for row in (item.get("preferred_comparisons", []) if item.get("preferred_sources") else item["comparisons"])]
+    score = 0
+    for row in comparisons:
+        threshold = row["threshold"].get("value", session.defaults.get(row["threshold"].get("setting")))
+        values = [value["value"] for value in observed["values"] if value["query"] == row["query"] and type(value["value"]) is int]
+        if values and type(threshold) is int:
+            target = threshold + (row["operator"] == ">") - (row["operator"] == "<")
+            distance = min(abs(value - target) for value in values)
+            score += distance * 16
+            desired = hints["increases"].get(row["query"], set()) if distance else set().union(*(hints["before_actions"].get(name, set()) for item in selected for name in item["actions"]))
+            if desired:
+                closest = {value["args"][0] for value in observed["values"] if value["query"] == row["query"] and type(value["value"]) is int and abs(value["value"] - target) == distance}
+                distances = []
+                for value in observed["values"]:
+                    if value["query"] not in session.spec["status_values"] or value["args"][0] not in closest:
+                        continue
+                    targets = {item[2] for item in desired if item[:2] == (value["entity"], value["query"])}
+                    pending, seen = deque([(value["value"], 0)]), set()
+                    while pending:
+                        current, steps = pending.popleft()
+                        if current in targets:
+                            distances.append(steps)
+                            break
+                        if current not in seen:
+                            seen.add(current)
+                            pending.extend((next_value, steps + 1) for next_value in hints["edges"].get((value["entity"], value["query"], current), set()))
+                    else:
+                        distances.append(2)
+                score += min(distances, default=0)
+    sources = [row for item in selected for row in (item.get("preferred_sources") or [row for row in item["sources"] if goal.get("kind") == "action" and row["function"].endswith("." + goal["name"])])]
+    desired = {value for values in session.spec["status_values"].values() for value in values if any(repr(value) in row["expression"] for row in sources)}
+    if desired:
+        score += 32 if not any(row["query"] in session.spec["status_values"] and row["value"] in desired for row in observed["values"]) else 0
+    return score
+
+
+def directed_search(session, *, goal, known=(), states=(), origin=None, secondary_seed=1, secondary_steps=16, secondary=None, **bounds):
+    original_start = session.start
+    for witness in known:
+        start = witness.get("start", original_start)
+        if witness.get("semantic", {}).get("origin") != origin or start.get("files", {}) != original_start.get("files", {}):
+            continue
+        shipped = session.spec["shipped"]
+        if {**shipped, **start.get("settings", {})} != {**shipped, **original_start.get("settings", {})}:
+            continue
+        if session.base_prefix:
+            if witness["prefix"][:len(session.base_prefix)] != session.base_prefix:
+                continue
+        elif any(row.get("replace") and row.get("name") == (session.spec.get("persistence") or {}).get("load") for row in witness["prefix"]):
+            continue
+        session.reset(start=start)
+        for index, recipe in enumerate(witness["prefix"]):
+            row = session.step(recipe)
+            if witness.get("outcomes") and row["outcome"] != witness["outcomes"][index]:
+                break
+        else:
+            if evaluate(session, goal):
+                result = {"found": True, "prefix": list(session.prefix), "start": session.start, "goal": goal, "origin": "known-public-witness",
+                          "extent": {"complete": False, "reason": "known witness replayed"}}
+                session.start = original_start
+                return result
+    session.start = original_start
+    shared = secondary is not None and goal in secondary.get("goals", ())
+    options = {"seed": secondary_seed, "steps": secondary_steps, "node_cap": bounds.get("node_cap", 1000),
+               "alphabet_cap": bounds.get("alphabet_cap", 1000), "domains": bounds.get("domains")}
+    if shared:
+        scope = state_key([original_start, session.base_prefix, origin, options, secondary["goals"]])
+        if "facts" not in secondary:
+            session.reset()
+            facts = explore(session, **options, goals=secondary["goals"])
+            secondary.update(facts=facts, scope=scope, session=session)
+        elif secondary["scope"] != scope or secondary["session"] is not session:
+            raise UnsupportedWorld("shared secondary walk has a different concrete starting scope")
+        facts = secondary["facts"]
+        if goal not in facts.get("checked_goals", ()):
+            raise UnsupportedWorld("shared secondary walk did not observe the requested goal")
+        witnesses = [row for row in facts["witnesses"] if row["semantic"] == goal]
+    else:
+        session.reset()
+        facts = explore(session, **options, goal=goal)
+        witnesses = facts["witnesses"]
+    for witness in witnesses:
+        session.reset(witness["prefix"])
+        if shared and session.outcomes != witness["outcomes"]:
+            raise UnsupportedWorld("shared secondary witness no longer reproduces its public outcomes")
+        if evaluate(session, goal):
+            return {"found": True, "prefix": witness["prefix"], "start": original_start, "goal": goal, "origin": "second-fixed-seed", "extent": facts["extent"]}
+        if shared:
+            raise UnsupportedWorld("shared secondary witness no longer reproduces its positive goal")
+    concrete = [*states, *facts["states"]]
+    hints = _rank_hints(session, concrete)
+    nearest = min(concrete, key=lambda row: (_guard_distance(session, goal, row["observations"], hints), len(row["prefix"]), json.dumps(row["prefix"], sort_keys=True))) if concrete else {"prefix": []}
+    session.start = nearest.get("start", original_start)
+    result = focused_search(session, goal=goal, prefix=nearest["prefix"], priority=True, rank_states=concrete, **bounds)
+    result.update(start=session.start, search_prefix=nearest["prefix"], origin="nearest-guard-complete-search",
+                  guard_sources=[item["sources"] for item in session.spec.get("goal_guards", []) if all(goal.get(key) == value for key, value in item["goal"].items())])
+    session.start = original_start
+    return result
