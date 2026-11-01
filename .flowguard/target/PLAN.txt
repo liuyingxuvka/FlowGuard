@@ -1,0 +1,10 @@
+# changes: model.rule by ID "quote" | changes: model.rule because "reason" | touch: path:qualified_name [because "reason"]
+
+# Rule semantics belong to fresh judgment; execution depends only on real program/test/data and capture shape.
+touch: flowguard/behave/skeleton.py:derive
+touch: flowguard/behave/testrec.py:record
+touch: flowguard/behave/project.py:_Session.step
+touch: flowguard/behave/project.py:_run_session
+touch: flowguard/behave/engine.py:content_identity
+touch: flowguard/behave/engine.py:audit
+touch: flowguard/behave/engine.py:prove
