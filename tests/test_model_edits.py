@@ -79,7 +79,7 @@ def test_in_place_edit_of_staged_helper_refused(tmp_path, capsys):
 
 def test_staged_helper_presence_and_legacy_identity(tmp_path):
     from flowguard.map.check import model_edit_findings
-    from flowguard.map.mapfile import load_map
+    from flowguard.map.mapfile import MapError, load_map
     from flowguard.map.target import start_target
 
     root = model_fixture("target_findings")["make_project"](tmp_path)
@@ -105,22 +105,12 @@ def test_staged_helper_presence_and_legacy_identity(tmp_path):
     target_added.unlink()
     base = root / ".flowguard/target/base.json"
     identity = json.loads(base.read_text())
-    identity.pop("helpers", None)  # Existing targets have no trustworthy helper history.
-    base.write_text(json.dumps(identity))
-    assert not model_edit_findings(root, data)  # Identical current/copy cannot lose current bytes.
-    for contents in (b'VALUE = "current intent"\n', None):
-        if contents is None:
-            helper.unlink()
-        else:
-            helper.write_bytes(contents)
-        findings = model_edit_findings(root, data)
-        assert findings and all(f.level == "error" for f in findings)
-        assert "save" in findings[0].message.lower() and "reopen" in findings[0].message.lower()
-    helper.write_bytes(b'VALUE = "current intent"\n')
-    identity["schema"] = "unrecognized.target-base"
-    identity["helpers"] = {helper.relative_to(root).as_posix(): "0" * 64}
-    base.write_text(json.dumps(identity))
-    assert "no captured helper baseline" in model_edit_findings(root, data)[0].message
+    # A base without a helper baseline (an older or damaged target) is refused, never guessed from the copy.
+    for broken in ({key: value for key, value in identity.items() if key != "helpers"},
+                   {**identity, "schema": "unrecognized.target-base"}):
+        base.write_text(json.dumps(broken))
+        with pytest.raises(MapError, match="restart the target"):
+            model_edit_findings(root, data)
 
 
 def test_map_check_names_model_edited_outside_target(tmp_path):

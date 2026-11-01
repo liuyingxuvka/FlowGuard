@@ -9,9 +9,9 @@ import re
 import shlex
 import subprocess
 
-from .common import advice, matches_any, read_source, render_advice
+from .common import advice, git_common_directory, git_head, git_run, matches_any, read_source, render_advice
 from .inventory import list_files
-from .mapfile import ignore_patterns, load_map
+from .mapfile import MapError, ignore_patterns, load_map
 from .plan import PLAN_RELPATH, function_identities, static_plan_rows
 from .records import CHANGE_DIR, change_records, commit_advice, since_release
 from .requests import other_worktrees, owner_words
@@ -26,30 +26,33 @@ def _age(moment):
 
 
 def _read_git(root, reader, *args):
+    """Git through the disposable-index reader, in a project already known to be in Git; a failure is an error."""
     try:
         return reader(root, *args)
-    except (OSError, subprocess.CalledProcessError):
-        return None
+    except subprocess.CalledProcessError as error:
+        reason = os.fsdecode(error.stderr or b'').strip() or f'exit status {error.returncode}'
+        raise MapError(f'git {args[0]} failed in {root}: {reason}') from error
 
 
 def _git_header(root, reader, peers):
-    head = _read_git(root, reader, 'rev-parse', '--verify', 'HEAD')
-    branch = _read_git(root, reader, 'symbolic-ref', '--short', '-q', 'HEAD')
+    worktrees = sorted([str(root), *(str(peer) for peer in peers)])
+    place = dict(worktree=worktrees.index(str(root)) + 1, worktree_count=len(worktrees))
+    if git_common_directory(root) is None:
+        return dict(head=None, branch=None, uncommitted_paths=None, **place, known_from='no Git worktree')
+    head = git_head(root)
+    branch = git_run(root, 'symbolic-ref', '--short', '-q', 'HEAD', allowed=(0, 1)).stdout  # exit 1: detached HEAD
     pending = _read_git(root, reader, 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--', '.')
     prefix = _read_git(root, reader, 'rev-parse', '--show-prefix')
     prefix = prefix[0].rstrip('\r\n') if prefix else ''
     paths = []
-    iterator = iter(pending or ())
+    iterator = iter(pending)
     for row in iterator:
         paths.append(row[3:])
         if 'R' in row[:2] or 'C' in row[:2]:
             paths.append(next(iterator))
-    worktrees = sorted([str(root), *(str(peer) for peer in peers)])
     paths = [path[len(prefix):] if path.startswith(prefix) else path for path in paths]
-    return dict(head=head[0].strip() if head else None, branch=branch[0].strip() if branch else None,
-                uncommitted_paths=sorted(set(paths)) if pending is not None else None,
-                worktree=worktrees.index(str(root)) + 1, worktree_count=len(worktrees),
-                known_from='Git, static, now' if pending is not None else 'no Git worktree')
+    return dict(head=head, branch=os.fsdecode(branch).strip() or None, uncommitted_paths=sorted(set(paths)),
+                **place, known_from='Git, static, now')
 
 
 def _edited_functions(root, base, data, reader):
@@ -58,10 +61,12 @@ def _edited_functions(root, base, data, reader):
              if path.endswith('.py') and not matches_any(path, ignore_patterns(data))]
     git_base = base.get('git')
     if isinstance(git_base, str):
+        if (git_common_directory(root) is None
+                or git_run(root, 'rev-parse', '-q', '--verify', git_base + '^{commit}', allowed=(0, 1)).returncode):
+            return [], 'unknown: target Git base commit is not in this clone'
         changed = _read_git(root, reader, 'diff', '--relative', '--name-only', '-z', git_base, '--', '.')
         untracked = _read_git(root, reader, 'ls-files', '--others', '--exclude-standard', '-z')
-        if changed is None or untracked is None:
-            return [], 'unknown: target Git base is unavailable'
+        at_base = set(_read_git(root, reader, 'ls-tree', '-r', '--name-only', '-z', git_base, '--', '.'))
         files = sorted((set(changed) | set(untracked)) & set(files)
                        | {path for path in changed if path.endswith('.py') and not (root / path).exists()})
     elif isinstance(base.get('files'), dict):
@@ -75,8 +80,8 @@ def _edited_functions(root, base, data, reader):
         try:
             current = function_identities(read_source(root / path)) if (root / path).exists() else {}
             if isinstance(git_base, str):
-                old_source = _read_git(root, reader, 'show', f'{git_base}:./{path}')
-                previous = function_identities('\0'.join(old_source)) if old_source is not None else {}
+                previous = (function_identities('\0'.join(_read_git(root, reader, 'show', f'{git_base}:./{path}')))
+                            if path in at_base else {})
             else:
                 entry = base['files'].get(path)
                 previous = entry.get('functions') if entry is not None else {}
@@ -99,7 +104,8 @@ def collect_status(root, *, read_git_paths, version):
     target = load_target(root)
     peers = other_worktrees(root)
     git = _git_header(root, read_git_paths, peers)
-    records = change_records(root)
+    unreadable = []
+    records = change_records(root, unreadable=unreadable)
     history = since_release(root, records, read_git_paths)
     words = owner_words(root, records=records)
     released = history.pop('released_retired')
@@ -142,7 +148,8 @@ def collect_status(root, *, read_git_paths, version):
                     'stage its files, then commit them with your own message.')
     return dict(root=str(root), scope='legacy static status; no exploration or stored verdicts', git=git,
                 change=change, plan=plan, verdicts=dict(stored=False), owner_words=words,
-                since_release=history, other_changes=others, jobs='none in the legacy runtime',
+                since_release=history, unreadable_records=[dict(id=identifier, error=error) for identifier, error in unreadable],
+                other_changes=others, jobs='none in the legacy runtime',
                 skill_warnings=installed_skill_warnings(version), next=next_step, next_note=note)
 
 
@@ -229,6 +236,8 @@ def render_status(result):
     else:
         lines.append('OPEN CHANGE none [current target directory, static, now]')
     lines.extend(render_owner_words(result['owner_words']))
+    lines.extend(f"WARNING change record {item['id']} unreadable: {item['error']} (python -m flowguard map check)"
+                 for item in result['unreadable_records'])
     lines.extend(result['skill_warnings'])
     history = result['since_release']
     counts = f"{len(history['changes'])} changes" if history['changes'] is not None else 'change count unknown'

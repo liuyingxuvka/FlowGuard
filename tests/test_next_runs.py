@@ -146,3 +146,18 @@ def test_promote_stops_before_applying_when_git_cannot_list_the_files(tmp_path, 
     assert code == 2 and "cannot list the files to stage" in errors, (output, errors)
     assert (root / ".flowguard/target").exists() and (root / ".flowguard/map.json").read_bytes() == before
     assert not list((root / ".flowguard/changes").glob("*.json")) if (root / ".flowguard/changes").exists() else True
+
+
+def test_promote_stops_before_applying_when_git_cannot_diff_the_target_base(tmp_path, capsys, monkeypatch):
+    from flowguard.map import impact_history
+    root = _ready_to_promote(tmp_path, capsys)
+    original = impact_history.read_git_paths
+    def broken(path, *arguments):
+        if arguments[:1] == ("diff",) and "--no-renames" not in arguments:
+            raise subprocess.CalledProcessError(128, ["git", *arguments], stderr=b"bad object in the base")
+        return original(path, *arguments)
+    monkeypatch.setattr(impact_history, "read_git_paths", broken)
+    before = (root / ".flowguard/map.json").read_bytes()
+    code, output, errors = _cli(root, capsys, "target", "promote")
+    assert code == 2 and "bad object in the base" in errors, (output, errors)
+    assert (root / ".flowguard/target").exists() and (root / ".flowguard/map.json").read_bytes() == before

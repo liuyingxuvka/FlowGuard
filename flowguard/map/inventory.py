@@ -330,11 +330,13 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, 
         module = module_name(f, roots)
         try:
             data = (root / f).read_bytes()
-            key = [sha256_bytes(normalize_newlines(data)), module]
-        except OSError:
-            data = key = None
+        except OSError as error:  # An unreadable file is that file's parse error; check reports source_parse_error.
+            py[f] = PyInfo(module=module, parse_error=str(error))
+            mod_to_path[module] = f
+            continue
+        key = [sha256_bytes(normalize_newlines(data)), module]
         hit = old.get(f)
-        if key is not None and hit and hit.get("key") == key and (hit.get("bodies") is not None or not with_bodies):
+        if hit and hit.get("key") == key and (hit.get("bodies") is not None or not with_bodies):
             info = PyInfo(module, set(hit["symbols"]), set(hit["imports"]), hit["loc"], hit["parse_error"], hit["bodies"] or [],
                           hit["lazy_exports"], set(hit["string_literals"]), hit["dynamic_imports"], hit["import_lines"],
                           set(hit["import_literals"]))
@@ -342,12 +344,11 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, 
         else:
             info = parse_python(root, f, module, collect_bodies=with_bodies, data=data)
             bodies_known = with_bodies
-        if key is not None:
-            new[f] = {"key": key, "symbols": sorted(info.symbols), "imports": sorted(info.imports),
-                      "loc": info.loc, "parse_error": info.parse_error, "bodies": info.bodies if bodies_known else None,
-                      "lazy_exports": info.lazy_exports, "string_literals": sorted(info.string_literals),
-                      "dynamic_imports": info.dynamic_imports, "import_lines": info.import_lines,
-                      "import_literals": sorted(info.import_literals)}
+        new[f] = {"key": key, "symbols": sorted(info.symbols), "imports": sorted(info.imports),
+                  "loc": info.loc, "parse_error": info.parse_error, "bodies": info.bodies if bodies_known else None,
+                  "lazy_exports": info.lazy_exports, "string_literals": sorted(info.string_literals),
+                  "dynamic_imports": info.dynamic_imports, "import_lines": info.import_lines,
+                  "import_literals": sorted(info.import_literals)}
         py[f] = info
         mod_to_path[module] = f
     if write_cache and (new != old or not cache_path.is_file()):

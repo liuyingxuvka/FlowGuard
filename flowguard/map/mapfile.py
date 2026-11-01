@@ -18,7 +18,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_digest, normalize_newlines, is_test_file, matches_any, read_source
+from .common import (DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, MapError, content_digest, normalize_newlines,
+                     is_test_file, matches_any, read_source)
 from .inventory import Inventory
 
 FINGERPRINT_FORMAT = 2
@@ -28,10 +29,6 @@ COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entryp
                   "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint", "parent"}
 LIST_KEYS = ("responsibilities", "files", "entrypoints", "state", "side_effects", "depends_on", "tests", "models")
 ID_RE = re.compile(r"[a-z0-9][a-z0-9_.-]*")
-
-
-class MapError(Exception):
-    """The map file is missing or invalid; the message says what to fix."""
 
 
 def map_path(root: Path) -> Path:

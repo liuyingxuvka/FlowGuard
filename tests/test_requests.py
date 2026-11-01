@@ -164,7 +164,7 @@ def test_owner_block_marks_stored_requests_and_glossary(tmp_path):
                  plan=[dict(line='changes: renew_limit.renew_within_limit by RQuote "Renewals keep the limit 3."',
                             added_after_code=False, cleared=[])],
                  rules=[dict(id='renew_limit.renew_within_limit', old=None,
-                             new='fp:' + hashlib.sha256(rule_info(tmp_path, target, view)['renew_limit.renew_within_limit']['definition'].encode()).hexdigest(),
+                             new='fp:' + hashlib.sha256(rule_info(tmp_path, target, view)[0]['renew_limit.renew_within_limit']['definition'].encode()).hexdigest(),
                              provenance='owner RQuote')],
                  acceptances=[], existing_cleared=[], implemented_by=[], new_actions=[], corrections=[], checked='Historical fixture input.')
     prepare_directory(tmp_path, CHANGE_DIR, ('.json', '.msg'))

@@ -6,9 +6,8 @@ import json
 import os
 from pathlib import Path
 import re
-import subprocess
 
-from .common import Finding, sha256_bytes
+from .common import Finding, git_common_directory, git_head, git_run, sha256_bytes
 from .mapfile import MapError
 from .records import NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, validate_new_files, write_once
 
@@ -95,11 +94,13 @@ def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind
 
 
 def _metadata(path: Path, identifier: str) -> dict:
+    """The one sidecar validator: any malformed sidecar is a ValueError."""
     item = json.loads(path.read_bytes())
     if (not isinstance(item, dict) or item.get('id') != identifier
             or not REQUEST_ID.fullmatch(identifier) or item.get('kind') not in KINDS
             or not re.fullmatch(r'[0-9a-f]{64}', str(item.get('sha256', '')))
-            or type(item.get('bytes')) is not int or item['bytes'] < 0):
+            or type(item.get('bytes')) is not int or item['bytes'] < 0
+            or not isinstance(item.get('received'), str)):
         raise ValueError('invalid request sidecar fields')
     received = datetime.fromisoformat(item['received'])
     if received.tzinfo is None or received.utcoffset().total_seconds() != 0:
@@ -141,15 +142,16 @@ def _retire_record(root: Path, identifier: str) -> dict:
 
 
 def retired_requests(root: Path) -> dict:
-    """Valid retire records by request ID; request_findings reports the invalid ones."""
+    """Valid retire records by request ID; the others are never facts.
+
+    request_findings reports an invalid record as request_retire_edited and an unverifiable one as
+    immutable_unverified; validate_request_links still refuses to quote or link either request."""
     root = Path(root).resolve()
     found = {}
     for identifier in _stems(root, RETIRED_DIR):
         try:
             found[identifier] = _retire_record(root, identifier)
-        except Unverifiable:
-            continue  # Not a fact here; request_findings reports immutable_unverified.
-        except (OSError, ValueError, KeyError, TypeError, OverflowError):
+        except (Unverifiable, OSError, ValueError):
             continue
     return found
 
@@ -193,7 +195,7 @@ def request_findings(root: Path) -> list[Finding]:
         meta_problem = problem_of(meta)
         try:
             item = _metadata(root / meta, identifier)
-        except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
+        except (OSError, ValueError) as error:
             item = None
             meta_problem = meta_problem or str(error)
         if item is not None and meta_problem is None and (root / body).is_file():
@@ -213,7 +215,7 @@ def request_findings(root: Path) -> list[Finding]:
             _retire_record(root, identifier)
         except Unverifiable:
             unverified.append(path)
-        except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
+        except (OSError, ValueError) as error:
             restore = shlex.join(['git', '-C', str(root), 'checkout', '--', path.as_posix()])
             findings.append(Finding('error', 'request_retire_edited', identifier,
                 f'{root / path}: {error}; retire records are written once; restore its original bytes '
@@ -237,13 +239,11 @@ def request_citations(root: Path, records) -> tuple[dict, bool]:
             for part in provenance.split('; ') if isinstance(provenance, str) else ():
                 if part.startswith('owner '):
                     cited.setdefault(part[len('owner '):], []).append(f"rule {rule.get('id')} (change {change})")
-    try:
-        log = subprocess.run(['git', '-C', str(root), 'log', '--format=%h%x00%B%x1e', '-E', '--grep=^Request: '],
-                             capture_output=True)
-    except OSError:
+    if git_common_directory(root) is None:
         return cited, False
-    if log.returncode:
-        return cited, False
+    if git_head(root) is None:
+        return cited, True  # No commit yet, so no commit cites anything.
+    log = git_run(root, 'log', '--format=%h%x00%B%x1e', '-E', '--grep=^Request: ')
     for entry in log.stdout.decode('utf-8', errors='replace').split('\x1e'):
         commit, _, body = entry.strip('\n').partition('\0')
         for line in body.splitlines():
@@ -266,7 +266,7 @@ def owner_words(root: Path, *, records=None) -> dict:
         try:
             item = _metadata(root / REQUEST_DIR / (identifier + '.json'), identifier)
             text = (root / REQUEST_DIR / (identifier + '.md')).read_bytes().decode('utf-8-sig', errors='replace').splitlines()
-        except (OSError, ValueError, KeyError, TypeError, OverflowError):
+        except (OSError, ValueError):
             rows.append(dict(id=identifier, kind=None, received='', first_line='', extra_lines=0, supersedes=[],
                              superseded_by=[], retired=False, cited_by=[], invalid='run python -m flowguard map check'))
             continue
@@ -329,22 +329,17 @@ def validate_request_links(root: Path, links) -> None:
             raw = (root / body).read_bytes()
             if sha256_bytes(raw) != item['sha256'] or len(raw) != item['bytes']:
                 raise ValueError('owner bytes differ from the sidecar')
-        except (ValueError, KeyError, TypeError, OverflowError) as error:
+        except ValueError as error:
             raise MapError(f'request_meta_edited: {identifier}: {error}') from error
 
 
 def _other_worktrees(root: Path):
-    try:
-        top = subprocess.run(['git', '-C', str(root), 'rev-parse', '--show-toplevel'], capture_output=True)
-        if top.returncode:
-            return []
-        prefix = root.relative_to(Path(os.fsdecode(top.stdout).strip()).resolve())
-        result = subprocess.run(['git', '-C', str(root), 'worktree', 'list', '--porcelain', '-z'],
-                                capture_output=True)
-    except (OSError, ValueError):
+    root = Path(root).resolve()
+    if git_common_directory(root) is None:
         return []
-    if result.returncode:
-        return []
+    top = git_run(root, 'rev-parse', '--show-toplevel')
+    prefix = root.relative_to(Path(os.fsdecode(top.stdout).strip()).resolve())
+    result = git_run(root, 'worktree', 'list', '--porcelain', '-z')
     return [path for field in result.stdout.split(b'\0') if field.startswith(b'worktree ')
             and (path := (Path(os.fsdecode(field[9:])) / prefix).resolve()) != root]
 

@@ -5,11 +5,11 @@ from __future__ import annotations
 import ast
 import copy
 import json
-import subprocess
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from .common import content_digest, git_paths, read_source, tokens
+from .common import content_digest, git_common_directory, git_head, git_run, read_source, tokens
 from .mapfile import COMPONENT_KEYS, ID_RE, MapError, model_registry, read_model_contract, validate_map
 
 TARGET_RELDIR = ".flowguard/target"
@@ -98,22 +98,22 @@ def model_helper_digests(root: Path) -> dict[str, str]:
             for path in sorted((root / ".flowguard/models").glob("_*.py")) if path.is_file()}
 
 
-def target_helper_baseline(root: Path) -> dict[str, str] | None:
-    """A captured complete helper set, or unknown for older/damaged target bases."""
+def target_helper_baseline(root: Path) -> dict[str, str]:
+    """The complete helper set captured when the target started; a missing, damaged or older base is an error."""
+    path = root / TARGET_RELDIR / "base.json"
     try:
-        data = json.loads((root / TARGET_RELDIR / "base.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    helpers = (data.get("helpers") if isinstance(data, dict)
-               and data.get("schema") == "flowguard.target-base.v1" else None)
-    if not isinstance(helpers, dict):
-        return None
-    if any(not isinstance(path, str) or not path.startswith(".flowguard/models/_")
-           or path.count("/") != 2 or not path.endswith(".py") or "\\" in path
-           or not isinstance(digest, str) or len(digest) != 64
-           or any(character not in "0123456789abcdef" for character in digest)
-           for path, digest in helpers.items()):
-        return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise MapError(f"target_base_invalid: {path}: {error}; drop and restart the target") from error
+    helpers = data.get("helpers") if isinstance(data, dict) and data.get("schema") == "flowguard.target-base.v1" else None
+    if not isinstance(helpers, dict) or any(
+            not isinstance(name, str) or not name.startswith(".flowguard/models/_")
+            or name.count("/") != 2 or not name.endswith(".py") or "\\" in name
+            or not isinstance(digest, str) or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+            for name, digest in helpers.items()):
+        raise MapError(f"target_base_invalid: {path} holds no helper baseline from this FlowGuard; "
+                       "drop and restart the target")
     return helpers
 
 
@@ -323,6 +323,7 @@ class TargetSeam:
     committed: bool
     missing_indexed: tuple[str, ...]
     removals_fulfilled: bool = False
+    error: str | None = None
 
     @property
     def already_promoted(self) -> bool:
@@ -332,20 +333,16 @@ class TargetSeam:
 def target_seam(root: Path, current_data: dict) -> TargetSeam:
     """Inspect actual current/target and read-only index/HEAD facts, never a merged view."""
     prefix = TARGET_RELDIR + "/"
-    has_git, indexed, committed = False, set(), set()
-    try:
-        indexed = set(git_paths(root, "ls-files", "--cached", "-z", "--", TARGET_RELDIR))
-        has_git = True
-    except (OSError, subprocess.CalledProcessError):
-        pass
+    has_git, indexed, committed = git_common_directory(root) is not None, set(), set()
+    def paths(*arguments):
+        return {os.fsdecode(item) for item in git_run(root, *arguments).stdout.split(b"\0") if item}
     if has_git:
-        try:
-            committed = set(git_paths(root, "ls-tree", "-r", "--name-only", "-z", "HEAD", "--", TARGET_RELDIR))
-        except (OSError, subprocess.CalledProcessError):
-            pass  # An unborn repository still has a real index.
+        indexed = paths("ls-files", "--cached", "-z", "--", TARGET_RELDIR)
+        if git_head(root) is not None:  # Before the first commit there is an index but no HEAD tree.
+            committed = paths("ls-tree", "-r", "--name-only", "-z", "HEAD", "--", TARGET_RELDIR)
     missing = tuple(sorted(path for path in indexed if path.startswith(prefix)
                            and not (root / path).exists() and not (root / path).is_symlink()))
-    target, noop, fulfilled = None, False, False
+    target, noop, fulfilled, error = None, False, False, None
     try:
         target = load_target(root)
         if target is not None and not validate_target(root, current_data, target):
@@ -357,9 +354,9 @@ def target_seam(root: Path, current_data: dict) -> TargetSeam:
                 cleared = Target(target.goal, {**target.data, "remove": []}, target.models,
                                  {kind: set() for kind in target.remove})
                 fulfilled = target_is_noop(root, current_data, cleared)
-    except MapError:
-        pass  # Existing invalid-target diagnostics retain their owner.
-    return TargetSeam(target, has_git, noop, bool(indexed & committed), missing, fulfilled)
+    except MapError as invalid:
+        error = str(invalid)  # map check reports it as target_invalid; target check names the same error.
+    return TargetSeam(target, has_git, noop, bool(indexed & committed), missing, fulfilled, error)
 
 
 def target_promise_changes(current_data: dict, merged_data: dict, target: Target) -> list[tuple[str, str]]:

@@ -142,12 +142,12 @@ def write_template_files(
         relative = file.path.replace(".flowguard/models/", ".flowguard/target/models/", 1) if staged else file.path
         target = target_root / relative
         protected = file.path == "CLAUDE.md"
-        if protected and (target.exists() or target.is_symlink()):
-            continue
-        if target.exists() and not overwrite:
+        if not protected and target.exists() and not overwrite:
             raise FileExistsError(f"template target already exists: {target}")
         target.parent.mkdir(parents=True, exist_ok=True)
         if protected:
+            # An existing CLAUDE.md (or link) keeps the owner's instructions, even with --force: the
+            # exclusive create is the only check, and an existing file is skipped by contract.
             try:
                 with target.open("xb") as stream:
                     stream.write(file.content.encode("utf-8"))

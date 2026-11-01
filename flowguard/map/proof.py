@@ -36,7 +36,7 @@ from pathlib import Path
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
 from .common import parse_test_anchor, child_pytest_environment, child_import_path
 from .facts import AnchorWatch, PlaceholderAnchorError
-from .mapfile import MapError, load_map, model_registry, read_model_contract, resolve_model_path
+from .mapfile import MapError, load_map, map_path, model_registry, read_model_contract, resolve_model_path
 from .tree import build_tree
 from .runner import run_isolated_process
 
@@ -162,10 +162,8 @@ def run_model(
     port_request=None,
 ) -> ModelResult:
     """Run one model in a fresh subprocess so imports and module state never leak between models."""
-    try:
-        data = view.data if view is not None else load_map(root)
-    except MapError:
-        data = {}
+    # No map.json is a supported state; a map that exists but is invalid raises MapError before any child starts.
+    data = view.data if view is not None else load_map(root) if map_path(root).is_file() else {}
     env = child_pytest_environment(os.environ)
     env["PYTHONPATH"] = os.pathsep.join(child_import_path(root, data))
     env["PYTHONDONTWRITEBYTECODE"] = "1"

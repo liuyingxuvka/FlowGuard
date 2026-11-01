@@ -15,7 +15,7 @@ import tempfile
 from .common import normalize_newlines, read_source, render_advice
 from .discover import discover_inventory, function_spans, literal_sites, reachable_functions
 from .inventory import build_inventory, function_digests, syntax_tree
-from .mapfile import MapError, ignore_patterns, load_map, map_path, model_registry, owner_index, read_model_contract
+from .mapfile import ignore_patterns, load_map, map_path, model_registry, owner_index, read_model_contract
 from .records import change_records
 from .requests import owner_words
 
@@ -87,13 +87,10 @@ def omitted_line(omitted, order=None):
 
 
 def _map(root):
-    """No map.json is a normal project state; a map that cannot be read is reported."""
+    """No map.json is a normal project state; a map that exists but cannot be read raises MapError."""
     if not map_path(root).is_file():
-        return {"components": [], "flows": []}, []
-    try:
-        return load_map(root), []
-    except MapError as exc:
-        return {"components": [], "flows": []}, [str(exc)]
+        return {"components": [], "flows": []}
+    return load_map(root)
 
 
 def _writes_cache(root, at):
@@ -161,14 +158,16 @@ def _changed_since(root, receipt, function, memo):
         commit = _git(root, "log", "--diff-filter=A", "--format=%H", "--", ".flowguard/changes/" + receipt + ".json")
         revision = commit.stdout.splitlines()[-1].decode() if commit.returncode == 0 and commit.stdout.splitlines() else None
         blob = _git(root, "show", revision + ":" + function["path"]) if revision else None
-        try:
-            previous = function_digests(normalize_newlines(blob.stdout).decode("utf-8"))["functions"] if blob and blob.returncode == 0 else None
-        except (UnicodeError, SyntaxError, ValueError):
-            previous = None
+        previous = "receipt has no committed source before-image in this clone"
+        if blob and blob.returncode == 0:
+            try:
+                previous = function_digests(normalize_newlines(blob.stdout).decode("utf-8"))["functions"]
+            except (UnicodeError, SyntaxError, ValueError) as error:
+                previous = f"the before-image at {revision[:12]} does not parse: {error}"
         memo[key] = revision, previous
     revision, previous = memo[key]
-    if previous is None:
-        return {"state": "unknown", "reason": "receipt has no committed source before-image in this clone"}
+    if isinstance(previous, str):
+        return {"state": "unknown", "reason": previous}
     if function["path"] not in memo:
         memo[function["path"]] = function_digests(read_source(root / function["path"]))["functions"]
     current = memo[function["path"]]
@@ -358,7 +357,7 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
     original = Path(root).resolve()
     cache = _writes_cache(original, at)
     with _source(original, at) as (source, revision):
-        data, unknown = _map(source)
+        data, unknown = _map(source), []
         if at is not None:
             inv = raw = execution = None
         inv = inv or build_inventory(source, ignore_patterns(data), with_bodies=False, write_cache=cache, import_roots=data.get("import_roots", ()))

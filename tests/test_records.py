@@ -62,7 +62,7 @@ def test_real_promotion_records_checked_plan_rules_and_function_diff(tmp_path, c
     target = load_target(tmp_path)
     view = build_target_view(tmp_path, load_map(tmp_path), target)
     fingerprint = lambda definition: "fp:" + hashlib.sha256(definition.encode()).hexdigest()
-    old = fingerprint(rule_info(tmp_path, target, view)["renew_limit.renew_within_limit"]["definition"])
+    old = fingerprint(rule_info(tmp_path, target, view)[0]["renew_limit.renew_within_limit"]["definition"])
     model = tmp_path / ".flowguard/target/models/one.py"
     source = model.read_text().replace("if state in (0, availability_ceiling)",
                                       "if state in (0, availability_ceiling) and state >= 0")
@@ -74,7 +74,7 @@ def test_real_promotion_records_checked_plan_rules_and_function_diff(tmp_path, c
              'changes: renew_limit.renew_within_limit by RQuote "Renewals keep the limit 3."',
              'changes: renew_limit.visible_limit because "The nonnegative limit remains visible."']
     (tmp_path / ".flowguard/target/PLAN.txt").write_text("\n".join(lines) + "\n")
-    definitions = rule_info(tmp_path, target, view)
+    definitions, _ = rule_info(tmp_path, target, view)
     capsys.readouterr()
     code, output, errors = _call(tmp_path, capsys, "target", "promote", "--json")
     assert code == 0 and not errors, (output, errors)

@@ -72,6 +72,10 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     out.extend(record_findings(root))
     target_state = target_state if target_state is not None else target_seam(root, load_map(root) if view is not None else data)
     level = "error" if strict else "warn"
+    if target_state.error is not None:
+        out.append(Finding("error", "target_invalid", "",
+                           f"target_invalid: {target_state.error}; repair or drop .flowguard/target/ "
+                           "(python -m flowguard target check names the problem)"))
     if target_state.missing_indexed:
         out.append(Finding(level, "target_deleted_not_staged", "",
                            "target_deleted_not_staged: .flowguard/target/ files are deleted on disk but still committed; "
@@ -304,28 +308,19 @@ def model_edit_findings(root, data):
         current_helpers = model_helper_digests(root)
         for name in helpers:
             logical = ".flowguard/models/" + name
-            if baseline is None:
-                unchanged = logical in current_helpers and current_helpers[logical] == content_digest(root / target.models[name])
-            else:
-                unchanged = baseline.get(logical) == current_helpers.get(logical)
-            if not unchanged:
-                out.append(_staged_model_edit(root, logical, target, unknown=baseline is None))
+            if baseline.get(logical) != current_helpers.get(logical):
+                out.append(_staged_model_edit(root, logical, target))
     return out
 
 
-def _staged_model_edit(root, logical, target, *, unknown=False):
+def _staged_model_edit(root, logical, target):
     import shlex
     absolute_root = Path(root).resolve()
     current_path = absolute_root / logical
     target_path = absolute_root / target.models[Path(logical).name]
-    if unknown:
-        message = (f"model_edited_outside_target: {current_path} has no captured helper baseline; "
-                   f"the target copy ({target_path}) could overwrite an edit or recreate an intentional deletion. "
-                   "Save both current and target intent, then drop and reopen the target to capture the current helper baseline")
-    else:
-        restore = shlex.join(['git', '-C', str(absolute_root), '--literal-pathspecs',
-                              'checkout', '--', str(current_path)])
-        message = (f"model_edited_outside_target: {current_path} was edited in place while the target holds a copy; "
-                   f"promote would overwrite it. Move the edit into the target copy ({target_path}) "
-                   f"and restore the current file (with Git: {restore}), or drop the edit")
+    restore = shlex.join(['git', '-C', str(absolute_root), '--literal-pathspecs',
+                          'checkout', '--', str(current_path)])
+    message = (f"model_edited_outside_target: {current_path} was edited in place while the target holds a copy; "
+               f"promote would overwrite it. Move the edit into the target copy ({target_path}) "
+               f"and restore the current file (with Git: {restore}), or drop the edit")
     return Finding("error", "model_edited_outside_target", "", message)

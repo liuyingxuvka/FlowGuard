@@ -79,7 +79,9 @@ if __name__ == "__main__": advance()
             assert text not in output, (arguments, text)
         assert output.count("unknown entry bindings") <= 1, (arguments, output)
     write(tmp_path, ".flowguard/map.json", "{not json")
-    assert "is not valid JSON" in where(capsys, tmp_path, "helper")
+    assert main(["where", "helper", "--root", str(tmp_path)]) == 2  # A map that cannot be read stops the query.
+    answer = capsys.readouterr()
+    assert "is not valid JSON" in answer.err and not answer.out, answer
 
 
 def test_repeated_query_reuses_parse_facts_by_content_digest_with_identical_bytes(tmp_path, capsys, monkeypatch):

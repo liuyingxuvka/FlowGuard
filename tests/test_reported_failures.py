@@ -1,0 +1,287 @@
+"""A failure FlowGuard cannot answer around is reported as that failure, never read as an absent or unknown state."""
+from __future__ import annotations
+
+import json
+import os
+import shlex
+import subprocess
+import sys
+import types
+from pathlib import Path
+
+import pytest
+
+from flowguard.map.mapfile import MapError
+
+
+def _git(root, *args):
+    return subprocess.run(["git", "-c", "user.name=probe", "-c", "user.email=probe@example.invalid",
+                           "-C", str(root), *args], check=True, capture_output=True).stdout
+
+
+def _plain_folder_request(tmp_path):
+    from flowguard.map.requests import store_request
+    root = tmp_path / "plain"
+    (root / ".flowguard").mkdir(parents=True)
+    store_request(root, b"Keep the limit at 3.\n", identifier="R1")
+    return root
+
+
+def _broken_index_repo(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q")
+    (root / "a.py").write_text("x = 1\n", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    (root / ".git/index").write_bytes(b"DIRCgarbage")
+    return root
+
+
+# records: the release snapshot, the Git executable, before-images, change records, the release boundary
+
+def test_an_invalid_release_snapshot_is_one_error_not_edited_requests(tmp_path):
+    from flowguard.map import records
+    from flowguard.map.requests import request_findings
+    root = _plain_folder_request(tmp_path)
+    records.save_release_snapshot(root)
+    (root / ".flowguard/release-base/records.json").write_text("{", encoding="utf-8")
+    with pytest.raises(MapError, match="release_snapshot_invalid"):
+        request_findings(root)
+    with pytest.raises(MapError, match="release_snapshot_invalid"):
+        records.record_findings(root)
+
+
+def test_a_missing_git_executable_is_an_error_not_a_copy_without_git(tmp_path, monkeypatch):
+    from flowguard.map.requests import request_findings, store_request
+    root = tmp_path / "repo"
+    (root / ".flowguard").mkdir(parents=True)
+    _git(root, "init", "-q")
+    store_request(root, b"Keep the limit at 3.\n", identifier="R1")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "r1")
+    monkeypatch.setenv("PATH", str(tmp_path / "no-bin"))
+    with pytest.raises(MapError, match="git executable not found"):
+        request_findings(root)
+
+
+def test_a_before_image_that_does_not_parse_is_named_as_unknown(tmp_path):
+    from flowguard.map.records import _diff_provenance
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q")
+    (root / "a.py").write_text("def f(:\n", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    base = _git(root, "rev-parse", "HEAD").decode().strip()
+    (root / "a.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    implemented, _, note = _diff_provenance(root, {"git": base}, {}, ["a.py"])
+    assert implemented == [] and "Unknown function identities: a.py" in note, note
+
+
+def test_an_unreadable_change_record_is_named_by_status_and_blocks_the_snapshot(tmp_path):
+    from flowguard import __version__
+    from flowguard.map import records, status
+    from flowguard.map.impact_history import read_git_paths
+    root = _plain_folder_request(tmp_path)
+    records.write_once(root, ".flowguard/changes/20261101-0000-abcdef.json", b"{}")
+    screen = status.render_status(status.collect_status(root, read_git_paths=read_git_paths, version=__version__))
+    assert "change record 20261101-0000-abcdef unreadable" in screen, screen
+    with pytest.raises(MapError, match="20261101-0000-abcdef"):
+        records.save_release_snapshot(root)
+
+
+def test_a_damaged_release_boundary_names_its_cause(tmp_path):
+    from flowguard.map import records
+    from flowguard.map.impact_history import read_git_paths
+    root = _plain_folder_request(tmp_path)
+    records.save_release_snapshot(root)
+    (root / ".flowguard/release-base/covered.json").write_text("[]", encoding="utf-8")
+    history = records.since_release(root, records.change_records(root), read_git_paths)
+    assert history["changes"] is None and "covered.json" in history["known_from"], history["known_from"]
+
+
+def test_record_and_sidecar_validators_name_every_malformed_shape(tmp_path):
+    from flowguard.map.records import _change_record
+    from flowguard.map.requests import _metadata
+    sidecar = tmp_path / "R1.json"
+    base = {"id": "R1", "kind": "request", "sha256": "0" * 64, "bytes": 3}
+    for broken in (base, {**base, "received": 7}):
+        sidecar.write_text(json.dumps(broken), encoding="utf-8")
+        with pytest.raises(ValueError):
+            _metadata(sidecar, "R1")
+    root = tmp_path / "plain"
+    record = root / ".flowguard/changes/20261101-0000-abcdef.json"
+    record.parent.mkdir(parents=True)
+    item = dict(kind="change", goal="g", requests=[], base=None, tree="0" * 64, checked="c",
+                plan=[], rules=[], acceptances=[], existing_cleared=[], implemented_by=[], new_actions=[],
+                corrections=[])
+    from flowguard.map.records import write_once
+    write_once(root, record.relative_to(root), json.dumps(item).encode())
+    with pytest.raises(ValueError):
+        _change_record(root, "20261101-0000-abcdef", set())
+
+
+def test_a_programming_error_while_reading_owner_words_is_not_shown_as_invalid(tmp_path, monkeypatch):
+    from flowguard.map import requests
+    root = _plain_folder_request(tmp_path)
+    def broken(path, identifier):
+        raise KeyError("injected")
+    monkeypatch.setattr(requests, "_metadata", broken)
+    with pytest.raises(KeyError, match="injected"):
+        requests.owner_words(root, records=[])
+
+
+# Git: decided once; a failing Git in a Git repository is an error with Git's own message
+
+def test_status_reports_a_failing_git_instead_of_no_git(tmp_path):
+    from flowguard.map.status import _git_header
+    from flowguard.map.impact_history import read_git_paths
+    root = _broken_index_repo(tmp_path)
+    with pytest.raises(MapError, match="index"):
+        _git_header(root, read_git_paths, [])
+
+
+def test_target_seam_reports_a_failing_git_instead_of_no_git(tmp_path):
+    from flowguard.map.targetfile import target_seam
+    root = _broken_index_repo(tmp_path)
+    with pytest.raises(MapError, match="index"):
+        target_seam(root, {"components": [], "flows": []})
+
+
+def test_commit_citations_in_a_repository_without_commits_are_known_to_be_none(tmp_path):
+    from flowguard.map.requests import request_citations
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q")
+    assert request_citations(root, []) == ({}, True)
+
+
+# the legacy target route
+
+def test_an_invalid_target_map_fails_map_check(tmp_path, capsys):
+    from flowguard.__main__ import main
+    root = tmp_path / "p"
+    (root / ".flowguard/target").mkdir(parents=True)
+    (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [], "flows": []}),
+                                              encoding="utf-8")
+    (root / ".flowguard/target/map.json").write_text("{", encoding="utf-8")
+    code = main(["map", "check", "--strict", "--root", str(root)])
+    output = capsys.readouterr().out
+    assert code == 1 and "target_invalid" in output, output
+
+
+def test_a_damaged_or_older_target_base_says_to_restart_the_target(tmp_path):
+    from flowguard.map.targetfile import target_helper_baseline
+    base = tmp_path / ".flowguard/target/base.json"
+    base.parent.mkdir(parents=True)
+    for text in ("{", json.dumps({"schema": "older", "started": "2026-01-01T00:00:00+00:00"})):
+        base.write_text(text, encoding="utf-8")
+        with pytest.raises(MapError, match="restart the target"):
+            target_helper_baseline(tmp_path)
+
+
+def test_touch_problems_carry_their_cause(tmp_path):
+    from flowguard.map.plan import _touch_problem
+    problem = _touch_problem(tmp_path, "../outside.py", "f")
+    assert "outside.py" in problem, problem
+
+
+def test_a_malformed_stored_glossary_stops_the_lookup_with_its_error(tmp_path):
+    from flowguard.map.plan import _glossaries
+    (tmp_path / ".flowguard/requests").mkdir(parents=True)
+    (tmp_path / ".flowguard/requests/G1.json").write_text("{", encoding="utf-8")
+    with pytest.raises(MapError, match="G1"):
+        _glossaries(tmp_path)
+
+
+def test_a_model_whose_rules_cannot_be_read_is_named(tmp_path, monkeypatch):
+    from flowguard.map import plan
+    entry = types.SimpleNamespace(kind="contract", path=".flowguard/models/m.py", id="m")
+    monkeypatch.setattr(plan, "model_registry", lambda root, data, view=None: types.SimpleNamespace(entries=[entry]))
+    monkeypatch.setattr(plan, "resolve_model_path", lambda root, path, view=None: tmp_path / "m.py")
+    (tmp_path / "m.py").write_text("x = 1\n", encoding="utf-8")
+    def broken(*args, **kwargs):
+        raise SyntaxError("injected: rules unreadable")
+    monkeypatch.setattr(plan, "StaticModel", broken)
+    result = plan.rule_info(tmp_path, types.SimpleNamespace(models={"m.py"}), None, current_data={}, only_target=False)
+    assert "injected" in json.dumps(result, default=str), result
+
+
+# other owners: debts, where, model runs, text rules, the child import shim
+
+def test_a_malformed_pyproject_is_named_not_read_as_no_version(tmp_path):
+    from flowguard.map.debts import evaluate_debts
+    (tmp_path / "pyproject.toml").write_text("[project\nversion = \n", encoding="utf-8")
+    data = {"accepted_debts": [{"code": "x", "component": "*", "reason": "r", "expires": "v1.0.0"}]}
+    with pytest.raises(MapError, match="pyproject.toml"):
+        evaluate_debts(tmp_path, data)
+
+
+def test_an_impossible_debt_date_says_so(tmp_path):
+    from flowguard.map.debts import evaluate_debts
+    data = {"accepted_debts": [{"code": "x", "component": "*", "reason": "r", "expires": "2026-02-30"}]}
+    state = evaluate_debts(tmp_path, data).states[0]
+    assert state.status == "invalid" and "2026-02-30" in state.detail, state
+
+
+def test_where_stops_on_an_invalid_map(tmp_path):
+    from flowguard.map.derived import where
+    (tmp_path / ".flowguard").mkdir()
+    (tmp_path / ".flowguard/map.json").write_text("{", encoding="utf-8")
+    (tmp_path / "a.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    with pytest.raises(MapError):
+        where(tmp_path)
+
+
+def test_a_before_image_that_does_not_parse_is_the_stated_reason(tmp_path):
+    from flowguard.map.derived import _changed_since
+    root = tmp_path / "repo"
+    (root / ".flowguard/changes").mkdir(parents=True)
+    _git(root, "init", "-q")
+    (root / "a.py").write_text("def f(:\n", encoding="utf-8")
+    (root / ".flowguard/changes/R.json").write_text("{}", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    (root / "a.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    state = _changed_since(root, "R", {"path": "a.py", "function": "f"}, {})
+    assert state["state"] == "unknown" and "does not parse" in state["reason"], state
+
+
+def test_model_runs_stop_on_an_invalid_map(tmp_path):
+    from flowguard.map.proof import ModelResult, run_bound_tests, run_model
+    (tmp_path / ".flowguard/models").mkdir(parents=True)
+    (tmp_path / ".flowguard/map.json").write_text("{", encoding="utf-8")
+    (tmp_path / "a.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/test_a.py").write_text("from a import f\n\ndef test_a():\n    assert f() == 1\n", encoding="utf-8")
+    model = tmp_path / ".flowguard/models/m.py"
+    model.write_text('MODEL_ID = "m"\nIMPLEMENTED_BY = {"A": "a.py:f"}\nTESTED_BY = {"a_holds": ["tests/test_a.py:test_a"]}\n',
+                     encoding="utf-8")
+    with pytest.raises(MapError):
+        run_model(tmp_path, model, timeout=20)
+    result = ModelResult("m", model.relative_to(tmp_path).as_posix())
+    run_bound_tests(tmp_path, model, result, timeout=60)
+    assert result.status == "error" and any("not valid JSON" in problem for problem in result.problems), result
+
+
+def test_an_unsplittable_argparse_program_is_an_unknown_entry():
+    from flowguard.map.textrules import _commands
+    raw = {"files": {"cli.py": {"entrypoints": [{"via": "argparse", "parser_symbol": "p", "name": "run", "line": 3}]}}}
+    unknown = []
+    assert _commands(raw, {"cli.py": {"p": {"tool 'x"}}}, unknown) == {}
+    assert unknown and unknown[0]["path"] == "cli.py" and "tool 'x" in unknown[0]["reason"], unknown
+
+
+def test_the_child_package_shim_is_one_route_and_a_refused_link_is_an_error(monkeypatch):
+    from flowguard.map import common
+    monkeypatch.setenv("PYTHONPATH", "")
+    monkeypatch.setattr(common, "_CHILD_PACKAGE_DIRECTORY", None)
+    shim = Path(common._child_package_import_root()) / "flowguard"
+    assert shim.is_symlink() and shim.resolve() == Path(common.__file__).resolve().parents[1]
+    monkeypatch.setattr(common, "_CHILD_PACKAGE_DIRECTORY", None)
+    def refused(self, *args, **kwargs):
+        raise OSError(1, "Operation not permitted")
+    monkeypatch.setattr(Path, "symlink_to", refused)
+    with pytest.raises(MapError, match="Operation not permitted"):
+        common._child_package_import_root()

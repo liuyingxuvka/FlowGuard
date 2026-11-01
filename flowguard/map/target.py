@@ -782,8 +782,9 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             try:
                 source_paths = set(read_git_paths(root, "diff", "--relative", "--name-only", "-z", base["git"], "--", "."))
                 source_paths.update(set(read_git_paths(root, "ls-files", "--others", "--exclude-standard", "-z")) & set(inputs))
-            except (OSError, subprocess.CalledProcessError):
-                source_paths = None
+            except subprocess.CalledProcessError as error:  # Nothing is written yet: stop with Git's own message.
+                raise MapError(f"cannot list the changes since the target base {base['git']}: "
+                               f"{os.fsdecode(error.stderr or b'').strip() or error}") from error
         stage = _staging_paths(root, merged, inputs, selected_tests)
         prepared_record = prepare_change(
             root, goal=target.goal, links=target.data.get("requests", []), base=base,

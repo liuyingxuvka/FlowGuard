@@ -965,7 +965,7 @@ IMPLEMENTED_BY = {"Helper": "app.py:helper"}
 raise RuntimeError("the model must never be imported")
 ''')
     (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [
-        {"id": "app", "files": ["app.py"], "models": [".flowguard/models/static_model.py"]}]}))
+        {"id": "app", "files": ["app.py"], "models": [".flowguard/models/static_model.py"], "status": "draft"}]}))
     before = {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
     environment = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1])}
     guarded_module = '''import runpy, sys

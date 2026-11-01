@@ -436,7 +436,7 @@ class _FileVisitor(ast.NodeVisitor):
             try:
                 literal = ast.literal_eval(value)
             except (ValueError, TypeError, SyntaxError):
-                literal = object()
+                literal = object()  # The literal_eval contract: these errors mean "not a literal", a normal answer.
             identity = (self._symbol() + "." if self.scope else "") + target_name
             if literal is None or type(literal) in (str, int, float, bool):
                 self.source_constants[identity] = {"value": literal, "line": line, "symbol": self._symbol()}

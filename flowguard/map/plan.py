@@ -11,7 +11,7 @@ import subprocess
 from .common import Finding, normalize_newlines, read_source, sha256_bytes
 from .mapfile import MapError, model_registry, resolve_model_path
 from .modelstatic import StaticModel
-from .requests import REQUEST_DIR, _metadata, glossary_entries, validate_request_links
+from .requests import REQUEST_DIR, RETIRED_DIR, _metadata, _stems, glossary_entries, validate_request_links
 
 PLAN_RELPATH = Path('.flowguard/target/PLAN.txt')
 # The one line FlowGuard writes into PLAN.txt; every other '#' line is the AI's own note and is kept.
@@ -41,8 +41,10 @@ def _terms(value):
 
 
 def rule_info(root, target, view, *, current_data=None, only_target=True):
-    """Target rule identities and reads from the existing static model owner."""
-    info = {}
+    """Target rule identities and reads from the existing static model owner.
+
+    Returns (rules, unreadable): unreadable maps a model id to the error that kept its rules from being read."""
+    info, unreadable = {}, {}
     data = view.data if view is not None else current_data
     for entry in model_registry(root, data, view=view).entries:
         if entry.kind != 'contract' or only_target and Path(entry.path).name not in target.models:
@@ -53,25 +55,28 @@ def rule_info(root, target, view, *, current_data=None, only_target=True):
         try:
             static = StaticModel(root, entry.path, ast.parse(read_source(path)), view=view)
             rules = static.explorer_rules()
-        except (OSError, SyntaxError, ValueError, TypeError):
+        except (OSError, SyntaxError, ValueError, TypeError) as error:
+            unreadable[entry.id] = f'{type(error).__name__}: {error}'
             continue
         for name, _ in rules or ():
             words = set().union(*(_terms(item) for item in static.rule_read_names(name)), _terms(name))
             info[entry.id + '.' + name] = dict(definition=static.rule_defs.get(name), terms=words)
-    return info
+    return info, unreadable
 
 
 def record_evidence(root, current, target, view, items):
     """Keep the checked lines and the same static rule identities used by PLAN."""
-    before = rule_info(root, target, None, current_data=current, only_target=False)
-    after = rule_info(root, target, view, only_target=False)
+    before, before_unreadable = rule_info(root, target, None, current_data=current, only_target=False)
+    after, after_unreadable = rule_info(root, target, view, only_target=False)
     models = [{entry.id for entry in model_registry(root, data, view=planned).entries
                if entry.kind == 'contract'} for data, planned in ((current, None), (view.data, view))]
-    def fingerprint(info, name, known_models):
+    def fingerprint(info, unreadable, name, known_models):
         if name in info:
             definition = info[name]['definition']
             return 'fp:' + sha256_bytes(definition.encode()) if definition is not None else 'unknown: static definition unavailable'
         model = name.rpartition('.')[0]
+        if model in unreadable:
+            return 'unknown: ' + unreadable[model]
         return None if model not in known_models or any(key.rpartition('.')[0] == model for key in info) else 'unknown: static rule names unavailable'
     origins = {}
     for item in items:
@@ -81,7 +86,8 @@ def record_evidence(root, current, target, view, items):
             origins.setdefault(name, []).append(origin)
     rules = []
     for name in sorted(before.keys() | after.keys() | origins.keys()):
-        old, new = fingerprint(before, name, models[0]), fingerprint(after, name, models[1])
+        old = fingerprint(before, before_unreadable, name, models[0])
+        new = fingerprint(after, after_unreadable, name, models[1])
         if old != new or name in origins:
             rules.append(dict(id=name, old=old, new=new,
                               provenance='; '.join(dict.fromkeys(origins[name])) if name in origins else
@@ -90,7 +96,9 @@ def record_evidence(root, current, target, view, items):
 
 
 def function_identities(text: str) -> dict[str, str | None] | None:
-    """Whole-function ASTs keep signatures/decorators and omit scoped docstrings."""
+    """Whole-function ASTs keep signatures/decorators and omit scoped docstrings.
+
+    None is the explicit unknown for source that does not parse; every caller reports it as unknown."""
     try:
         syntax = ast.parse(normalize_newlines(text.encode('utf-8')))
     except (SyntaxError, ValueError, UnicodeError):
@@ -125,8 +133,8 @@ def _touch_problem(root, path, symbol):
         relative = (root / path).resolve().relative_to(root).as_posix()
         current = function_identities(read_source(root / relative))
         base = json.loads((root / '.flowguard/target/base.json').read_bytes())
-    except (OSError, ValueError, SyntaxError, TypeError):
-        return 'the function or its target-start baseline is unavailable'
+    except (OSError, ValueError, SyntaxError, TypeError) as error:
+        return f'the function or its target-start baseline is unavailable: {error}'
     if not isinstance(base, dict):
         return 'the target-start function baseline is unknown'
     if current is None:
@@ -145,8 +153,8 @@ def _touch_problem(root, path, symbol):
                 old = {}
             else:
                 old = function_identities(normalize_newlines(previous.stdout).decode('utf-8-sig'))
-        except (OSError, UnicodeError, SyntaxError, ValueError):
-            return 'the historical function AST is unavailable'
+        except (OSError, UnicodeError, SyntaxError, ValueError) as error:
+            return f'the historical function AST is unavailable: {error}'
         if old is None:
             return 'the historical function AST is unavailable'
     elif isinstance(base.get('files'), dict):
@@ -162,17 +170,23 @@ def _touch_problem(root, path, symbol):
 
 
 def _glossaries(root):
+    """The owner's confirmed glossaries; a stored file that cannot be read stops the lookup with its error.
+
+    A retired text is not the owner's words and is never used as a glossary."""
     found = []
+    retired = set(_stems(root, RETIRED_DIR))
     for path in sorted((root / REQUEST_DIR).glob('*.json')):
+        if path.stem in retired:
+            continue
         try:
             item = _metadata(path, path.stem)
-            if item['kind'] != 'glossary':
-                continue
-            validate_request_links(root, [dict(id=path.stem, part=True)])
-            for word, terms in glossary_entries(path.with_suffix('.md').read_bytes()):
-                found.append(dict(id=path.stem, word=word, terms=list(terms)))
-        except (OSError, ValueError, KeyError, TypeError, MapError):
-            continue  # The existing request-integrity check reports malformed stored files.
+        except ValueError as error:
+            raise MapError(f'request_meta_edited: {path.stem}: {error}; glossaries cannot be read') from error
+        if item['kind'] != 'glossary':
+            continue
+        validate_request_links(root, [dict(id=path.stem, part=True)])
+        for word, terms in glossary_entries(path.with_suffix('.md').read_bytes()):
+            found.append(dict(id=path.stem, word=word, terms=list(terms)))
     return found
 
 
@@ -202,7 +216,7 @@ def check_plan(root, target, view):
     except (OSError, UnicodeError) as error:
         return [], [Finding('error', 'line_syntax', 'target', f'{path}: {error}')]
     items, findings = [], []
-    rules, glossaries = None, None
+    rules, unreadable, glossaries = None, {}, None
     for number, raw in enumerate(lines, 1):
         line = raw.strip()
         if not line or line == PLAN_HEADER:
@@ -234,7 +248,12 @@ def check_plan(root, target, view):
             findings.append(Finding('error', 'line_syntax', 'target', f'{where}: quote or reason must be nonempty'))
             continue
         if rules is None:
-            rules = rule_info(root, target, view)
+            rules, unreadable = rule_info(root, target, view)
+        if name not in rules and name.rpartition('.')[0] in unreadable:
+            findings.append(Finding('error', 'model_unreadable', 'target',
+                                    f'{where}: the rules of {name.rpartition(".")[0]} cannot be read statically: '
+                                    f'{unreadable[name.rpartition(".")[0]]}'))
+            continue
         if name not in rules:
             findings.append(Finding('error', 'line_syntax', 'target', f'{where}: {name} is not a rule of a model in the target'))
             continue
@@ -340,7 +359,7 @@ def render_owner_block(root, current_data, target, view, items):
         base = json.loads((root / '.flowguard/target/base.json').read_bytes())
         current_started = base.get('started') if isinstance(base, dict) else None
     except (OSError, ValueError):
-        current_started = None
+        current_started = None  # Printed as "relation to this change unknown" below, never guessed.
     if not isinstance(current_started, str) or not current_started:
         current_started = None
 

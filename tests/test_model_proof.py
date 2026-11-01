@@ -245,13 +245,14 @@ def test_child_path_never_exposes_repo_root(shop, tmp_path, monkeypatch):
     assert str(inherited) in paths
     assert set(path.name for path in Path(paths[-1]).iterdir()) == {"flowguard"}
     assert child_import_path(shop, data) == paths
-    # A fresh command exercises the cold concurrent path and the Windows-style
-    # copy fallback, then leaves no temporary engine package behind.
+    # A fresh command exercises the cold concurrent path; where links are refused it stops with a
+    # plain error instead of copying. Either way no temporary engine package is left behind.
     probe = '''from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 import json, sys
 from flowguard.map import common
+from flowguard.map.mapfile import MapError
 created = []
 original = common.tempfile.TemporaryDirectory
 def temporary(*args, **kwargs):
@@ -260,22 +261,31 @@ def temporary(*args, **kwargs):
     return value
 source = (Path(common.__file__).resolve().parents[2] / 'pyproject.toml').is_file()
 with patch.object(common.tempfile, 'TemporaryDirectory', temporary):
-    with patch.object(Path, 'symlink_to', side_effect=OSError('links unavailable')):
+    if sys.argv[2] == 'refused':
+        with patch.object(Path, 'symlink_to', side_effect=OSError('links unavailable')):
+            try:
+                common.child_import_path(Path(sys.argv[1]), {})
+            except MapError as error:
+                assert 'links unavailable' in str(error) or not source, error
+            else:
+                assert not source
+    else:
         with ThreadPoolExecutor(max_workers=4) as pool:
             roots = list(pool.map(lambda _: common.child_import_path(Path(sys.argv[1]), {})[-1], range(8)))
-assert len(set(roots)) == 1
-assert len(created) == int(source), created
-if source:
-    assert {path.name for path in Path(roots[0]).iterdir()} == {'flowguard'}
-    assert not (Path(roots[0]) / 'flowguard').is_symlink()
+        assert len(set(roots)) == 1
+        assert len(created) == int(source), created
+        if source:
+            assert {path.name for path in Path(roots[0]).iterdir()} == {'flowguard'}
+            assert (Path(roots[0]) / 'flowguard').resolve() == Path(common.__file__).resolve().parents[1]
 print(json.dumps(created))
 '''
     environment = dict(os.environ)
     environment.pop("PYTHONPATH", None)
-    command = subprocess.run([sys.executable, "-c", probe, str(shop)],
-                             capture_output=True, text=True, env=environment)
-    assert command.returncode == 0, command.stdout + command.stderr
-    assert all(not Path(folder).exists() for folder in json.loads(command.stdout))
+    for mode in ("linked", "refused"):
+        command = subprocess.run([sys.executable, "-c", probe, str(shop), mode],
+                                 capture_output=True, text=True, env=environment)
+        assert command.returncode == 0, command.stdout + command.stderr
+        assert all(not Path(folder).exists() for folder in json.loads(command.stdout))
 
 
 def test_src_layout_project_imports_its_own_package(shop, capsys):

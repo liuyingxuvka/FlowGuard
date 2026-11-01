@@ -199,7 +199,7 @@ def _placement(path, owners, functions=(), evidence=()):
             **({'reason': 'no unique owner or explicit function/command binding'} if state == 'unknown' else {})}
 
 
-def _commands(raw, programs):
+def _commands(raw, programs, unknown):
     commands = defaultdict(list)
     for path, file in raw['files'].items():
         for entry in file.get('entrypoints', []):
@@ -208,9 +208,12 @@ def _commands(raw, programs):
             options = programs.get(path, {}).get(entry.get('parser_symbol'), set())
             if len(options) != 1:
                 continue
+            prog = next(iter(options))
             try:
-                program = ' '.join(shlex.split(next(iter(options))))
-            except ValueError:
+                program = ' '.join(shlex.split(prog))
+            except ValueError as error:
+                unknown.append({'path': path, 'line': entry.get('line'), 'command': entry['name'],
+                                'reason': f'argparse prog {prog!r} cannot be split into words: {error}'})
                 continue
             command = program + ' ' + entry['name']
             commands[command].append({'path': path, 'line': entry.get('line'),
@@ -224,8 +227,7 @@ def report(root, *, inv=None, raw=None, at=None):
     original = Path(root).resolve()
     cache = _writes_cache(original, at)
     with _source(original, at) as (source, revision):
-        data, map_unknown = _map(source)
-        unknown = [{'reason': value} for value in map_unknown]
+        data, unknown = _map(source), []
         if at is not None or inv is not None and Path(inv.root).resolve() != source:
             inv = raw = None
         inv = inv or build_inventory(source, ignore_patterns(data), with_bodies=False, write_cache=cache, import_roots=data.get('import_roots', ()))
@@ -273,7 +275,7 @@ def report(root, *, inv=None, raw=None, at=None):
                     identifier = _hash((path + ':' + str(first) + ':' + fingerprint).encode())[:20]
                     texts.append({'id': identifier, 'path': path, 'line': first, 'end_line': last, 'text': passage,
                         'fingerprint': fingerprint, 'placement': _placement(path, owners)})
-        locations, commands = _locations(inv, raw, literals), _commands(raw, programs)
+        locations, commands = _locations(inv, raw, literals), _commands(raw, programs, unknown)
         command_texts = defaultdict(list)
         refs_by_file = {}
         for row in texts:

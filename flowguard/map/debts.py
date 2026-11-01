@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import tomllib
 
-from .common import Finding
+from .common import Finding, MapError
 
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}\Z")
 VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)\Z")
@@ -49,11 +49,14 @@ class DebtEvaluation:
 def _project_version(root: Path | None) -> tuple[int, ...] | None:
     if root is None:
         return None
+    path = Path(root) / "pyproject.toml"
+    if not path.is_file():
+        return None  # A project without pyproject.toml has no version: version-based expiry is refused.
     try:
-        with (Path(root) / "pyproject.toml").open("rb") as stream:
+        with path.open("rb") as stream:
             project = tomllib.load(stream).get("project", {})
-    except (OSError, ValueError, TypeError):
-        return None
+    except (OSError, ValueError) as error:
+        raise MapError(f"cannot read the project version from {path}: {error}") from error
     value = project.get("version", "") if isinstance(project, dict) else ""
     match = VERSION.fullmatch(value) if isinstance(value, str) else None
     return tuple(map(int, match.groups())) if match else None
@@ -76,7 +79,7 @@ def evaluate_debts(root: Path | None, data: dict, *, today: date | None = None) 
                 try:
                     deadline = date.fromisoformat(expires)
                 except ValueError:
-                    pass
+                    detail = f" ({expires!r} is not a calendar date)"
                 else:
                     status = "expired" if today >= deadline else "active"
             elif expires.startswith("v") and (match := VERSION.fullmatch(expires[1:])):

@@ -9,7 +9,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .common import Finding, advice, atomic_write_text, normalize_newlines, project_command, sha256_bytes
+from .common import Finding, advice, atomic_write_text, git_common_directory, normalize_newlines, project_command, sha256_bytes
 from .mapfile import MapError
 
 
@@ -26,10 +26,8 @@ class Unverifiable(Exception):
 
 
 def _git(root: Path, *arguments: str):
-    try:
-        return subprocess.run(["git", "-C", str(root), *arguments], capture_output=True)
-    except FileNotFoundError:
-        return None
+    """Git in a repository whose mode _common_directory already decided; callers read the exit status."""
+    return subprocess.run(["git", "-C", str(root), *arguments], capture_output=True)
 
 
 def _paths(root, relative_path):
@@ -43,11 +41,7 @@ def _paths(root, relative_path):
 
 
 def _common_directory(root: Path):
-    result = _git(root, "rev-parse", "--git-common-dir")
-    if result is None or result.returncode:
-        return None
-    directory = Path(os.fsdecode(result.stdout).strip())
-    return (directory if directory.is_absolute() else root / directory).resolve()
+    return git_common_directory(root)
 
 
 def _canonical_path(path: Path):
@@ -110,22 +104,20 @@ def _release_records(root):
 def _stored_digest(root, path, relative, common):
     """One original-byte source, chosen by the file's state; never hash current bytes to learn a baseline.
 
-    Committed in Git: its first committed blob. No Git and in the release snapshot: the snapshot.
-    Otherwise: this checkout's first-write receipt for the current mode. None of these: Unverifiable."""
+    Committed in Git: its first committed blob. No Git and in the release snapshot: the snapshot (an
+    invalid snapshot raises release_snapshot_invalid). Otherwise: this checkout's first-write receipt for
+    the current mode. None of these: Unverifiable."""
     if common is not None:
         first = _first_blob(root, relative, common)
         if first is not None:
-            return sha256_bytes(first), None
+            return sha256_bytes(first)
     else:
-        try:
-            snapshot = _release_records(root)
-        except MapError as error:
-            return None, str(error)
+        snapshot = _release_records(root)
         if snapshot is not None and relative in snapshot['files']:
-            return snapshot['files'][relative], None
+            return snapshot['files'][relative]
     written = _written_path(root, path, common)
     if written.is_file():
-        return _receipt(written)['sha256'], None
+        return _receipt(written)['sha256']
     raise Unverifiable(relative)
 
 
@@ -134,7 +126,7 @@ def _attribute_problem(root: Path, relative: str, common):
         return None
     names = ("text", "eol", "filter", "ident", "working-tree-encoding")
     result = _git(root, "check-attr", "-z", *names, "--", relative)
-    if result is None or result.returncode:
+    if result.returncode:
         return f"cannot check Git attributes for {relative}"
     fields = result.stdout.split(b"\0")
     attributes = {os.fsdecode(fields[index + 1]): os.fsdecode(fields[index + 2])
@@ -202,11 +194,11 @@ def _first_blob(root: Path, relative: str, common):
     if common is None:
         return None
     history = _git(root, "log", "--format=%H", "--diff-filter=A", "--reverse", "--", relative)
-    if history is None or history.returncode or not history.stdout.strip():
+    if history.returncode or not history.stdout.strip():
         return None
     first = history.stdout.splitlines()[0].decode("ascii")
     blob = _git(root, "show", f"{first}:./{relative}")
-    return blob.stdout if blob is not None and not blob.returncode else None
+    return blob.stdout if not blob.returncode else None
 
 
 def integrity_problem(root, relative_path):
@@ -221,32 +213,30 @@ def integrity_problem(root, relative_path):
     if problem:
         return problem
     raw = path.read_bytes()
-    expected, problem = _stored_digest(root, path, relative, common)
-    if problem:
-        return problem
+    expected = _stored_digest(root, path, relative, common)
     if sha256_bytes(raw) != expected:
         return f"immutable file bytes changed: {relative}"
     if common is not None:
         indexed = _git(root, "show", f":./{relative}")
-        if indexed is not None and not indexed.returncode and sha256_bytes(indexed.stdout) != expected:
+        if not indexed.returncode and sha256_bytes(indexed.stdout) != expected:
             return f"immutable file index bytes changed: {relative}"
     return None
 
 
 def _named_paths(root: Path, *arguments):
     result = _git(root, *arguments)
-    if result is None or result.returncode:
+    if result.returncode:
         return set()
     return {os.fsdecode(value).lstrip("\n") for value in result.stdout.split(b"\0") if value.strip(b"\n")}
 
 
 def _committed_digest(root: Path, relative: str, expected):
     history = _git(root, "log", "--all", "--format=%H", "--", relative)
-    if history is None or history.returncode:
+    if history.returncode:
         return False
     for commit in history.stdout.splitlines():
         blob = _git(root, "show", f"{commit.decode('ascii')}:./{relative}")
-        if blob is not None and not blob.returncode and sha256_bytes(blob.stdout) == expected:
+        if not blob.returncode and sha256_bytes(blob.stdout) == expected:
             return True
     return False
 
@@ -258,12 +248,9 @@ def protected_paths(root, relative_dir) -> set[str]:
     current = set()
     historical = None
     paths = set()
-    try:
-        snapshot = _release_records(root)
-        if snapshot is not None:
-            paths.update(name for name in snapshot['files'] if name.startswith(relative.rstrip('/') + '/'))
-    except MapError:
-        pass  # record_findings reports the invalid snapshot independently.
+    snapshot = _release_records(root)
+    if snapshot is not None:
+        paths.update(name for name in snapshot['files'] if name.startswith(relative.rstrip('/') + '/'))
     if common is not None:
         paths.update(_named_paths(root, "ls-files", "-z", "--", relative))
         log = ("log", "--relative", "--format=", "--name-only", "--diff-filter=A", "-z")
@@ -275,11 +262,9 @@ def protected_paths(root, relative_dir) -> set[str]:
                 continue
             receipt = _receipt(written)
             absolute = receipt["path"]
-            try:
-                Path(absolute).relative_to(directory)
-                candidate = Path(absolute).relative_to(root).as_posix()
-            except ValueError:
-                continue
+            if not Path(absolute).is_relative_to(directory):
+                continue  # The receipt directory is shared: this receipt is for another directory's file.
+            candidate = Path(absolute).relative_to(root).as_posix()
             if common is not None and not Path(absolute).exists() and candidate not in paths:
                 if historical is None:
                     historical = _named_paths(root, *log, "--all", "--", relative)
@@ -314,7 +299,7 @@ def _diff_provenance(root, base, inputs, changed_paths):
             try:
                 right = function_identities((root / relative).read_text(encoding='utf-8-sig')) if (root / relative).is_file() else {}
             except (OSError, UnicodeError):
-                right = None
+                right = None  # Named below as an unknown function identity, like a source that does not parse.
             if not isinstance(left, dict) or right is None:
                 unknown.append(relative)
                 continue
@@ -328,13 +313,13 @@ def _diff_provenance(root, base, inputs, changed_paths):
     if changed_paths is None:
         return [], [], "The Git base diff is unavailable; implementation and correction provenance are unknown."
     paths = set(changed_paths)
-    implemented, corrections = [], []
+    implemented, corrections, unknown = [], [], []
     for relative in sorted(paths):
         correction = relative == ".flowguard/skeleton.py" or Path(relative).name in {"world.py", "machine.py"}
         if not relative.endswith(".py") or relative.startswith(".flowguard/") and not correction:
             continue
         previous = _git(root, "show", f"{commit}:./{relative}")
-        before = previous.stdout if previous is not None and not previous.returncode else b""
+        before = previous.stdout if not previous.returncode else b""
         path = root / relative
         after = path.read_bytes() if path.is_file() else b""
         try:
@@ -343,6 +328,7 @@ def _diff_provenance(root, base, inputs, changed_paths):
             left = function_digests(old)["functions"]
             right = function_digests(new)["functions"]
         except (UnicodeError, SyntaxError, ValueError):
+            unknown.append(relative)
             continue
         if not relative.startswith(".flowguard/"):
             implemented.extend(relative + ":" + name for name in sorted(left.keys() | right.keys())
@@ -353,7 +339,8 @@ def _diff_provenance(root, base, inputs, changed_paths):
                 if operation != "equal":
                     corrections.append(dict(path=relative, old="\n".join(old_lines[first:last]),
                                             new="\n".join(new_lines[start:end])))
-    return implemented, corrections, "Implementation provenance lists changed Python function definitions from the Git diff."
+    note = "Implementation provenance lists changed Python function definitions from the Git diff."
+    return implemented, corrections, note + (" Unknown function identities: " + ", ".join(unknown) if unknown else "")
 
 
 def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, deleted, checked,
@@ -439,6 +426,7 @@ def _change_record(root, identifier, files):
             or "base" not in item
             or item.get("base") is not None and not isinstance(item["base"], str)
             or not isinstance(item.get("checked"), str) or not item["checked"].strip()
+            or not isinstance(item.get("promoted"), str)
             or any(not isinstance(item.get(key), list) for key in _RECORD_LISTS)):
         raise ValueError("invalid change record fields")
     moment = datetime.fromisoformat(item["promoted"])
@@ -454,8 +442,11 @@ def _change_record(root, identifier, files):
     return item
 
 
-def change_records(root):
-    """Read only complete, schema-valid, byte-protected successful records."""
+def change_records(root, *, unreadable=None):
+    """Complete, schema-valid, byte-protected successful records; the others are never facts.
+
+    An unreadable record is appended to `unreadable` as (id, error) for the caller to show; record_findings
+    reports it as record_edited and an unverifiable one as immutable_unverified."""
     root = Path(root).resolve()
     records = []
     files = _record_files(root)
@@ -463,9 +454,10 @@ def change_records(root):
         try:
             records.append((identifier, _change_record(root, identifier, files)))
         except Unverifiable:
-            continue  # Not a fact here; record_findings reports immutable_unverified.
-        except (OSError, ValueError, KeyError, TypeError, OverflowError):
-            continue
+            continue  # Not a fact here (DECISIONS FG-801); record_findings reports immutable_unverified.
+        except (OSError, ValueError) as error:
+            if unreadable is not None:
+                unreadable.append((identifier, str(error)))
     return records
 
 
@@ -479,15 +471,18 @@ def save_release_snapshot(root):
     for directory in (Path('.flowguard/requests'), CHANGE_DIR):
         for relative in sorted(protected_paths(root, directory)):
             try:
-                expected, problem = _stored_digest(root, root / relative, relative, common)
+                files[relative] = _stored_digest(root, root / relative, relative, common)
             except Unverifiable:
                 continue  # Never take a baseline from current bytes; check reports immutable_unverified.
-            if problem:
-                raise MapError(problem)
-            files[relative] = expected
+    unreadable = []
+    changes = [identifier for identifier, _ in change_records(root, unreadable=unreadable)]
+    if unreadable:
+        identifier, error = unreadable[0]
+        raise MapError(f"change record {identifier} unreadable: {error}; the release boundary would leave it out "
+                       f"({len(unreadable)} unreadable; python -m flowguard map check)")
     captured = datetime.now(timezone.utc).isoformat()
     records = {'captured': captured, 'files': files}
-    covered = {'captured': captured, 'changes': [identifier for identifier, _ in change_records(root)]}
+    covered = {'captured': captured, 'changes': changes}
     directory = root / RELEASE_DIR
     directory.mkdir(parents=True, exist_ok=True)
     atomic_write_text(directory / 'records.json', json.dumps(records, ensure_ascii=False, sort_keys=True) + '\n')
@@ -497,20 +492,23 @@ def save_release_snapshot(root):
 def since_release(root, records, read_git_paths):
     """Derive the change records and retire records made since a reachable version tag."""
     result = _git(root, 'describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', '--match', '[0-9]*')
-    tag = result.stdout.decode().strip() if result is not None and result.returncode == 0 else None
+    tag = result.stdout.decode().strip() if result.returncode == 0 else None
     retired_dir = '.flowguard/requests/retired/'
     if not tag or not re.fullmatch(r'v?[0-9]+\.[0-9]+\.[0-9]+', tag):
+        snapshot = _release_records(root)
+        boundary = root / RELEASE_DIR / 'covered.json'
+        unknown = {'release': None, 'changes': None, 'released_retired': None}
+        if snapshot is None or not boundary.is_file():
+            return {**unknown, 'known_from': 'unknown: no reachable version release tag or complete legacy release snapshot'}
         try:
-            snapshot = _release_records(root)
-            covered = json.loads((root / RELEASE_DIR / 'covered.json').read_bytes())
-            if (snapshot is None or covered['captured'] != snapshot['captured']
-                    or not isinstance(covered['changes'], list)
+            covered = json.loads(boundary.read_bytes())
+            if (not isinstance(covered, dict) or covered.get('captured') != snapshot['captured']
+                    or not isinstance(covered.get('changes'), list)
                     or any(not isinstance(identifier, str) or not re.fullmatch(r'[0-9]{8}-[0-9]{4}-[0-9a-f]{6}', identifier)
                            for identifier in covered['changes'])):
-                raise ValueError('no complete matching release boundary')
-        except (OSError, ValueError, KeyError, TypeError, AttributeError, MapError):
-            return {'release': None, 'known_from': 'unknown: no reachable version release tag or complete legacy release snapshot',
-                    'changes': None, 'released_retired': None}
+                raise ValueError('it does not name the change records of the snapshot captured ' + snapshot['captured'])
+        except (OSError, ValueError) as error:
+            return {**unknown, 'known_from': f'unknown: release boundary {boundary} is unreadable: {error}'}
         changes = [dict(id=identifier, goal=record['goal'], requests=record['requests'], promoted=record['promoted'])
                    for identifier, record in records if identifier not in covered['changes']]
         retired = sorted(Path(path).stem for path in snapshot['files']
@@ -534,10 +532,6 @@ def record_findings(root):
 
     root = Path(root).resolve()
     findings = []
-    try:
-        _release_records(root)
-    except MapError as error:
-        findings.append(Finding('error', 'release_snapshot_invalid', '', str(error)))
     unverified = []
     files = _record_files(root)
     for identifier in _record_identifiers(files):
@@ -545,7 +539,7 @@ def record_findings(root):
             _change_record(root, identifier, files)
         except Unverifiable:
             unverified.append(identifier)
-        except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
+        except (OSError, ValueError) as error:
             restore = shlex.join(["git", "-C", str(root), "checkout", "--",
                                   *sorted(path for path in files if Path(path).stem == identifier)])
             findings.append(Finding("error", "record_edited", identifier,

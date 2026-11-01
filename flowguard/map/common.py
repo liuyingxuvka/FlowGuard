@@ -8,7 +8,6 @@ import io
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -36,8 +35,39 @@ STOPWORDS = {"a", "an", "the", "of", "to", "and", "or", "for", "in", "on", "by",
              "from", "into", "per", "is", "are", "be", "its", "it", "that", "this", "as"}
 
 
+class MapError(Exception):
+    """The map file is missing or invalid; the message says what to fix."""
+
+
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def git_run(root, *arguments: str, allowed=(0,)) -> subprocess.CompletedProcess:
+    """Run git; a missing executable or an exit outside `allowed` is an error that carries Git's own message."""
+    try:
+        result = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True)
+    except FileNotFoundError as error:
+        raise MapError("git executable not found: FlowGuard reads the project's Git state with it; "
+                       "install Git or put it on PATH") from error
+    if result.returncode not in allowed:
+        reason = os.fsdecode(result.stderr).strip() or f"exit status {result.returncode}"
+        raise MapError(f"git {arguments[0]} failed in {root}: {reason}")
+    return result
+
+
+def git_common_directory(root) -> Path | None:
+    """Decide the Git mode once: the repository's shared Git directory, or None when root is in no Git repository."""
+    result = git_run(root, "rev-parse", "--git-common-dir", allowed=(0, 128))
+    if result.returncode:
+        return None
+    directory = Path(os.fsdecode(result.stdout).strip())
+    return (directory if directory.is_absolute() else Path(root) / directory).resolve()
+
+
+def git_head(root) -> str | None:
+    """The HEAD commit of a Git repository, or None before its first commit (rev-parse -q --verify exits 1)."""
+    return os.fsdecode(git_run(root, "rev-parse", "-q", "--verify", "HEAD", allowed=(0, 1)).stdout).strip() or None
 
 
 def atomic_write_text(path: Path, text: str) -> None:
@@ -67,25 +97,24 @@ def _child_package_import_root() -> str:
     # A model child inherits the parent command's shim. Reuse it rather than
     # building one per subprocess; the waiting parent owns its cleanup.
     for value in os.environ.get("PYTHONPATH", "").split(os.pathsep):
-        if not value:
-            continue
-        candidate = Path(value).resolve()
-        try:
-            if ((candidate / "flowguard").resolve() == package
-                    and {entry.name for entry in candidate.iterdir()} == {"flowguard"}):
-                return str(candidate)
-        except OSError:
-            continue
+        candidate = Path(value).resolve() if value else None
+        if candidate is None or not candidate.is_dir():
+            continue  # Python skips such entries too; a miss only means building the shim below.
+        if (candidate / "flowguard").resolve() == package and {entry.name for entry in candidate.iterdir()} == {"flowguard"}:
+            return str(candidate)
+    # One route: a link to the source package. The engine maps a child's reads through it back to the
+    # package's own files; a platform that refuses the link gets a plain error, never a silent copy.
     global _CHILD_PACKAGE_DIRECTORY
     with _CHILD_PACKAGE_LOCK:
         if _CHILD_PACKAGE_DIRECTORY is None:
             temporary = tempfile.TemporaryDirectory(prefix="flowguard-package-")
-            destination = Path(temporary.name) / "flowguard"
             try:
-                destination.symlink_to(package, target_is_directory=True)
-            except (OSError, NotImplementedError):
-                shutil.copytree(package, destination,
-                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                (Path(temporary.name) / "flowguard").symlink_to(package, target_is_directory=True)
+            except (OSError, NotImplementedError) as error:
+                temporary.cleanup()
+                raise MapError(f"cannot link the flowguard package for child processes ({error}); a source "
+                               "checkout needs symbolic links (on Windows: Developer Mode), or install FlowGuard "
+                               "as a package") from error
             _CHILD_PACKAGE_DIRECTORY = temporary
         return _CHILD_PACKAGE_DIRECTORY.name
 
