@@ -386,6 +386,11 @@ def full_block(root, result: Assembled, f: Finding) -> list[str]:
     refused = _refused(f.detail)
     if refused:
         lines.append(f"  refused there: {refused}")
+    if f.detail.get("example"):                       # a second route: one change both make
+        lines.append(f"  for example: {f.detail['example']}")
+    for r in f.detail.get("refusals") or []:          # a fallback: where each one is the route
+        lines.append(f"  where {r['where']} does it, {r['refuses']} refuses: {r['reason']!r} "
+                     f"({r['states']} of {r['of']} states)")
     if f.detail.get("consequences"):
         lines.append("  then also stuck: " + "; ".join(f.detail["consequences"]))
     explained = _explanation(f)

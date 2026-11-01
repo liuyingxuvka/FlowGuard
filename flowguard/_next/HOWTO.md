@@ -9,7 +9,10 @@ with the shortest path and the requests behind it. Keep it small: leave out ever
 does not change what can happen, and say what you left out in a `note=`.
 
 One model per file: `.flowguard/flow/<name>.py`, ending with `MODEL = m`. Check them all with
-`python -m flowguard._next check` (files starting with `_` are helpers, never models).
+`python -m flowguard._next check` (files starting with `_` are helpers, never models); `check
+--full` also breaks each model on purpose to see that its checks catch it. `python -m
+flowguard._next show` draws what is under discussion: the conflicts, else the change against
+HEAD (`show MODEL`, `show C-...` or `--before REV` name it yourself).
 
 ## Writing a model
 
@@ -102,10 +105,15 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
   really collide): STUCK (a value some state can never leave again, an undeclared dead end, a
   `progress` promise lost), BROKEN (a promise some order breaks), CONTRADICTION (an option
   offered where its action refuses), NEVER REACHED for an action, an option, a declared end,
-  a `reach` promise, or a field value that has a source or that a sourced promise names. Each
-  says which one-setting change would reach it, or that none does.
+  a `reach` promise, or a field value that has a source or that a sourced promise names (each
+  says which one-setting change would reach it, or that none does); a second route to the same
+  result: DUPLICATE ROUTE, SUBSUMED ACTION, FALLBACK ROUTE (one action works exactly where
+  another refuses). Keep one route, or declare the second with `m.second_route`.
 - **Model warnings** (never conflicts): other field values never reached, usually a domain
-  wider than the design needs; settings not read from the code although the model covers code.
+  wider than the design needs; settings not read from the code although the model covers code;
+  a value never left that no `m.terminal` declares (an end on purpose, or a dead end); a fallback
+  on the status field only, an `if` whose two branches end the same, lines no call runs, a guard
+  that never refuses; with `--full`, each break of the model that no check catches.
 - **Model errors**: the model itself failed (an exception, a value outside its domain, a write
   to an unknown field, a declaration mistake). Fix these first.
 - **UNKNOWN**: the search hit its state bound. What it found with a path is certain; nothing is

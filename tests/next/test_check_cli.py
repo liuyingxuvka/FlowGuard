@@ -411,3 +411,35 @@ def test_show_runs_its_parts_in_the_worker_under_the_wait_contract(project):
     assert res.returncode == 0 and res.stdout.startswith("slow: ") and "flowchart LR" in res.stdout
     res, _ = show("nosuch", "--json")
     assert res.returncode == 2 and json.loads(res.stdout)["message"] == "nosuch: no such model (models: rental, slow)"
+
+
+def test_route_conflicts_in_full_with_their_pictures(project):
+    """The routes part runs in every check: a fallback prints both refusals and the path to
+    where the second route is used, every route conflict has its picture, and show draws it
+    with both routes red."""
+    import subprocess
+    from checkrun import command, env
+    project.flow_from(DATA / "toy_next" / "rental_planted.py", "rental")
+    run = timed(project.root)
+    assert run.code == 1 and run.first == "4 new conflicts; complete"
+    heads = [line for line in run.lines if line.startswith("NEW ")]
+    assert [h.split()[1:3] for h in heads] == [["DUPLICATE", "ROUTE"], ["DUPLICATE", "ROUTE"], ["SUBSUMED", "ACTION"],
+                                               ["FALLBACK", "ROUTE"]]
+    i = run.lines.index(heads[3])
+    assert run.lines[i + 1:i + 8] == [
+        "  requests: the AI's own",
+        "  state: cond[T1]='repair', main_busy=True",
+        "  path (3 steps): rent(t='T1', channel='desk') ; return_damaged(t='T1') ; workshop()",
+        "  for example: cond[T1]: 'repair' -> 'shop'",
+        "  where repair_anywhere(t='T1') does it, repaired(t='T1') refuses: 'main is busy' (1 of 2 states)",
+        "  where repaired(t='T1') does it, repair_anywhere(t='T1') refuses: 'main is free: use repaired' "
+        "(1 of 1 states)",
+        f"  picture: .flowguard/cache/flow/pictures/rental-{heads[3].rsplit('[C-', 1)[1][:-1]}."
+        + ("svg" if RENDERER else "mmd (Mermaid text: the picture file was not written)")]
+    assert sum(line.startswith("  picture: ") for line in run.lines) == 4
+    fid = heads[3].rsplit("[", 1)[1][:-1]
+    res = subprocess.run(command("show", fid), cwd=project.root, capture_output=True, text=True, env=env(),
+                         timeout=60)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert res.stdout.startswith(f"rental: FALLBACK ROUTE repair_anywhere / repaired [{fid}]")
+    assert "red: the arrows of the routes repair_anywhere, repaired" in res.stdout
