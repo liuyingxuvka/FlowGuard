@@ -45,6 +45,9 @@ def test_split_into_child_prints_moved_rules_only():
 def test_recorded_rule_prints_no_gap():
     result = _fg403_helpers()["native_case"]("recorded")
     assert "NO GAP one:" in result["text"] and not result["errors"] and not result["todos"]
+    # The NO GAP line is the gap line itself, printed once; it is not also counted as a warning nobody sees.
+    assert "target check: 0 error(s), 0 to-do, 0 warning(s)" in result["text"], result["text"]
+    assert "WARN " not in result["text"], result["text"]
 
 
 def test_no_gap_changed_rule_needs_line(tmp_path):

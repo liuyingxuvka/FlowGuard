@@ -127,7 +127,7 @@ DEFECTS = {
     "stale_debt_hidden": ("debt_made_stale", "none"),
 }
 NATIVE_CASES=CASES
-CASES += tuple(Case('gap_'+gap,'received gap',True,'target',bucket,gap) for gap,bucket in (('expected_gap','todo'),('no_gap','warn'),('moved_only','info'),('no_rule_change','info')))
+CASES += tuple(Case('gap_'+gap,'received gap',True,'target',bucket,gap) for gap,bucket in (('expected_gap','todo'),('no_gap','info'),('moved_only','info'),('no_rule_change','info')))
 CASES += (Case('port_unchanged','received port',True,'target','none',port='unchanged'),Case('port_uncertain','received port',True,'target','warn',port='uncertain'),Case('port_parent_present','received port',True,'target','info',port='escalated',parent_in_target=True),Case('noop_target','unchanged target',True,'target','error'))
 BY_NAME = {case.name: case for case in CASES}
 DESIGN = {"design_failure", "owner_dropped", "responsibility_dropped", "entrypoint_owner", "behaviour_without_rule"}
@@ -159,7 +159,7 @@ class Route:
     def __init__(self,defect=''):self.defect=defect
     def apply(self,event,state):
         if state.event.startswith('gap_') or state.event=='code_gap':
-            bucket={'expected_gap':'todo','no_gap':'warn','moved_only':'info','no_rule_change':'info'}[state.gap]
+            bucket={'expected_gap':'todo','no_gap':'info','moved_only':'info','no_rule_change':'info'}[state.gap]
         elif state.port=='escalated': bucket='info' if state.parent_in_target else 'error'
         elif state.port=='uncertain':bucket='warn'
         elif state.port=='unchanged':bucket='none'

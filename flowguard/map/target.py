@@ -479,10 +479,7 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
             f'{root / TARGET_RELDIR / "PLAN.txt"} with the request that asks for it '
             '(changes: ... by ID "<quote>"), or with your reason (changes: ... because "<reason>") '
             'so the owner sees it, or restore the rule'))
-    for line in report.gaps:
-        if line.startswith("NO GAP "):
-            report.warnings.append(TargetFinding("model " + line.split()[2].rstrip(":"), "no_gap", line))
-    return report
+    return report  # a NO GAP line is printed once, as a gap line; it is not also a warning
 
 
 def gap_lines(root, target, view, report, results, *, goal=None, code_changes=None, unanchored=None,
@@ -655,8 +652,6 @@ def render_target_report(report: TargetReport, *, root: Path | None = None) -> s
     for label, findings in (("ERROR", report.errors), ("TO-DO", report.todos), ("WARN ", report.warnings),
                             ("INFO ", report.info)):
         for finding in findings:
-            if finding.code == "no_gap":
-                continue
             suffix = f" ({_todo_next(finding.code)})" if label == "TO-DO" else ""
             message = finding.message.replace("\n", "\n  ")
             lines.append(f"{label} {finding.node}: {finding.code}: {message}{suffix}")
