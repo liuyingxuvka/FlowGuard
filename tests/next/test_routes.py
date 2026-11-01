@@ -163,11 +163,26 @@ def golden_files():
 @pytest.mark.parametrize("model_file, report_file", golden_files(),
                          ids=[f"{m.parent.name}/{m.stem}" for m, _ in golden_files()])
 def test_e7_counts_equal_the_prototype(model_file, report_file):
-    """Per machine of the file; lines only a sibling machine runs are not NEVER TAKEN."""
+    """Per machine of the file; lines only a sibling machine runs are not NEVER TAKEN. Every
+    line the new check reports is also in the prototype's report of that machine."""
     models, ifs = load_forced_machines(model_file)
     observations = [observe(m, explore(m, Bounds()), ifs) for m in models]
-    got = [summary(judge(o, others=[x for x in observations if x is not o]).raw) for o in observations]
-    assert got == prototype_summaries(report_file)
+    reports = [judge(o, others=[x for x in observations if x is not o]) for o in observations]
+    assert [summary(r.raw) for r in reports] == prototype_summaries(report_file)
+    sections = report_file.read_text(encoding="utf-8").split("\n\n")
+    for report, section in zip(reports, sections):
+        proto = {line.strip() for line in section.splitlines()}
+        for f in report.raw:
+            assert set(f.detail["report"]) <= proto, f.detail["report"]
+
+
+@pytest.mark.parametrize("name", ["rental_planted", "rental_fallback_noguard", "rental_fallback_note",
+                                  "rental_fallback_note2", "rental_r10_fixed"])
+def test_toy_report_lines_are_the_prototype_lines(project, name):
+    report, _ = routes(project, TOY / f"{name}.py")
+    proto = {line.strip() for line in (BRANCH / f"toy_{name}.txt").read_text(encoding="utf-8").splitlines()}
+    lines = [line for f in report.raw for line in f.detail["report"]]
+    assert lines and set(lines) <= proto
 
 
 def test_every_golden_file_has_a_prototype_report():

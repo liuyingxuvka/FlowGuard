@@ -516,7 +516,7 @@ class _Judge:
             if self.is_declared(itertools.combinations(names, 2), "DUPLICATE ROUTE"):
                 continue
             count = self.enabled_count(ns[0])
-            text = (f"{' == '.join(self.label[c] for c in ns)} ({kind_text}"
+            text = (f"{' == '.join(self.label[c] for c in ns)}  ({kind_text}"
                     + (f"; {len(gs)} such groups" if len(gs) > 1 else "") + ")")
             example = self.example(ns[0])
             members = [c for g in gs for c in g]
