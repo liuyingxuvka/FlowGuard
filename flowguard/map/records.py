@@ -9,7 +9,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .common import Finding, atomic_write_text, normalize_newlines, sha256_bytes
+from .common import Finding, advice, atomic_write_text, normalize_newlines, project_command, sha256_bytes
 from .mapfile import MapError
 
 
@@ -357,10 +357,10 @@ def _diff_provenance(root, base, inputs, changed_paths):
 
 
 def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, deleted, checked,
-                   changed_paths=None, owner_block="", plan=(), rules=()):
-    """Prepare a final immutable pair and the exact checked post-promotion view."""
+                   changed_paths=None, plan=(), rules=(), stage=None):
+    """Prepare a final immutable record and the exact checked post-promotion view; the commit message is the AI's own."""
     root = Path(root).resolve()
-    prepare_directory(root, CHANGE_DIR, (".json", ".msg"))
+    prepare_directory(root, CHANGE_DIR, (".json",))
     guard = (CHANGE_DIR / ".gitattributes").as_posix()
     guard_hash = sha256_bytes((root / guard).read_bytes())
     view = {path: digest for path, digest in inputs.items()
@@ -379,45 +379,57 @@ def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, dele
     implemented, corrections, provenance = _diff_provenance(root, base, inputs, changed_paths)
     record = dict(kind="change", goal=goal, requests=links, base=base.get("git"), tree=tree,
                   promoted=now.isoformat(), plan=list(plan), rules=list(rules), acceptances=[], existing_cleared=[],
-                  implemented_by=implemented, new_actions=[], corrections=corrections,
+                  implemented_by=implemented, new_actions=[], corrections=corrections, stage=stage,
                   checked=checked + " " + provenance +
                   " Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty.")
     raw = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    message = (goal + "\n\n" + record["checked"] +
-               ("\n\n" + owner_block if owner_block else "") + "\n").encode("utf-8")
-    validate_new_files(root, (CHANGE_DIR / (identifier + ".msg"), CHANGE_DIR / (identifier + ".json")))
-    return dict(id=identifier, record=record, json=raw, msg=message, map_bytes=map_bytes,
+    validate_new_files(root, (CHANGE_DIR / (identifier + ".json"),))
+    return dict(id=identifier, record=record, json=raw, map_bytes=map_bytes,
                 guard_path=guard, guard_sha256=guard_hash)
 
 
+COMMIT_FILES = ("the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/, .flowguard/changes/ "
+                "and the deletion of .flowguard/target/")
+
+
+def commit_advice(root, record):
+    """The one next step after a promotion, from its stored file list; the commit message is the AI's own."""
+    import shlex
+    if record["stage"] is None:
+        return advice("check", project_command(root, "map", "check", "--strict"),
+                      note="no Git worktree; preserve " + COMMIT_FILES)
+    requests = ", ".join(link["id"] for link in record["requests"])
+    command = shlex.join(["git", "-C", str(Path(root).resolve()), "--literal-pathspecs", "add", "-A", "--", *record["stage"]])
+    return advice("commit", command, note="stage " + COMMIT_FILES + " together",
+                  then="then commit with your own message" + (f"; add the line 'Request: {requests}'" if requests else ""))
+
+
 def publish_change(root, prepared):
-    """Publish JSON last; a failed new pair never becomes a successful record."""
-    created = []
-    try:
-        for extension in ("msg", "json"):
-            write_once(root, CHANGE_DIR / (prepared["id"] + "." + extension),
-                       prepared[extension], _created=created)
-    except (OSError, MapError):
-        for path in reversed(created):
-            try:
-                path.unlink(missing_ok=True)
-            except OSError:
-                pass  # An incomplete pair remains an explicit record_edited finding.
-        raise
+    """Write the record once; a failed write never becomes a successful record."""
+    write_once(root, CHANGE_DIR / (prepared["id"] + ".json"), prepared["json"])
 
 
-def _record_identifiers(root):
-    paths = {path for pattern in ("*.json", "*.msg") for path in (root / CHANGE_DIR).glob(pattern)}
-    paths.update(Path(path) for path in protected_paths(root, CHANGE_DIR)
+def _record_files(root):
+    """Record files on disk or protected; a legacy .msg written by FlowGuard 0.71.x stays protected."""
+    paths = {path.relative_to(root).as_posix() for pattern in ("*.json", "*.msg")
+             for path in (root / CHANGE_DIR).glob(pattern)}
+    paths.update(Path(path).as_posix() for path in protected_paths(root, CHANGE_DIR)
                  if Path(path).suffix in {".json", ".msg"})
-    return sorted({path.stem for path in paths})
+    return paths
 
 
-def _change_record(root, identifier):
+def _record_identifiers(files):
+    return sorted({Path(path).stem for path in files})
+
+
+def _change_record(root, identifier, files):
     if not re.fullmatch(r"[0-9]{8}-[0-9]{4}-[0-9a-f]{6}", identifier):
         raise ValueError("invalid change record name")
     for extension in ("msg", "json"):
-        problem = integrity_problem(root, CHANGE_DIR / (identifier + "." + extension))
+        relative = CHANGE_DIR / (identifier + "." + extension)
+        if extension == "msg" and relative.as_posix() not in files:
+            continue
+        problem = integrity_problem(root, relative)
         if problem:
             raise ValueError(problem)
     item = json.loads((root / CHANGE_DIR / (identifier + ".json")).read_bytes())
@@ -446,9 +458,10 @@ def change_records(root):
     """Read only complete, schema-valid, byte-protected successful records."""
     root = Path(root).resolve()
     records = []
-    for identifier in _record_identifiers(root):
+    files = _record_files(root)
+    for identifier in _record_identifiers(files):
         try:
-            records.append((identifier, _change_record(root, identifier)))
+            records.append((identifier, _change_record(root, identifier, files)))
         except Unverifiable:
             continue  # Not a fact here; record_findings reports immutable_unverified.
         except (OSError, ValueError, KeyError, TypeError, OverflowError):
@@ -482,11 +495,10 @@ def save_release_snapshot(root):
 
 
 def since_release(root, records, read_git_paths):
-    """Derive records and unrecorded code commits from a reachable version tag."""
-    from .common import SOURCE_EXTS
-
+    """Derive the change records and retire records made since a reachable version tag."""
     result = _git(root, 'describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', '--match', '[0-9]*')
     tag = result.stdout.decode().strip() if result is not None and result.returncode == 0 else None
+    retired_dir = '.flowguard/requests/retired/'
     if not tag or not re.fullmatch(r'v?[0-9]+\.[0-9]+\.[0-9]+', tag):
         try:
             snapshot = _release_records(root)
@@ -498,36 +510,22 @@ def since_release(root, records, read_git_paths):
                 raise ValueError('no complete matching release boundary')
         except (OSError, ValueError, KeyError, TypeError, AttributeError, MapError):
             return {'release': None, 'known_from': 'unknown: no reachable version release tag or complete legacy release snapshot',
-                    'changes': None, 'code_commits_without_record': None, 'released_requests': None}
+                    'changes': None, 'released_retired': None}
         changes = [dict(id=identifier, goal=record['goal'], requests=record['requests'], promoted=record['promoted'])
                    for identifier, record in records if identifier not in covered['changes']]
-        requests = sorted(Path(path).stem for path in snapshot['files']
-                          if path.startswith('.flowguard/requests/') and path.endswith('.json'))
+        retired = sorted(Path(path).stem for path in snapshot['files']
+                         if path.startswith(retired_dir) and path.endswith('.json'))
         return {'release': 'snapshot ' + snapshot['captured'],
                 'known_from': 'nongit release snapshot ' + snapshot['captured'] + ' and current immutable records',
-                'changes': changes, 'code_commits_without_record': None, 'released_requests': requests}
+                'changes': changes, 'released_retired': retired}
     prior = read_git_paths(root, 'ls-tree', '-r', '--name-only', '-z', tag, '--',
                            '.flowguard/changes', '.flowguard/requests')
     covered = {Path(path).stem for path in prior if path.startswith('.flowguard/changes/') and path.endswith('.json')}
-    requests = sorted(Path(path).stem for path in prior
-                      if path.startswith('.flowguard/requests/') and path.endswith('.json'))
+    retired = sorted(Path(path).stem for path in prior if path.startswith(retired_dir) and path.endswith('.json'))
     changes = [dict(id=identifier, goal=record['goal'], requests=record['requests'], promoted=record['promoted'])
                for identifier, record in records if identifier not in covered]
-    commits = _git(root, 'log', '--format=%H %P', tag + '..HEAD')
-    unrecorded = []
-    for line in commits.stdout.decode().splitlines() if commits is not None and commits.returncode == 0 else ():
-        commit, *parents = line.split()
-        comparison = (parents[0], commit) if parents else (commit,)
-        paths = read_git_paths(root, 'diff-tree', '--root', '--no-commit-id', '--name-only',
-                               '--relative', '-r', '-z', *comparison, '--', '.')
-        code = [path for path in paths if Path(path).suffix in SOURCE_EXTS and not path.startswith('.flowguard/')]
-        added = read_git_paths(root, 'diff-tree', '--root', '--no-commit-id', '--name-only',
-                               '--relative', '--diff-filter=A', '-r', '-z', *comparison, '--', '.flowguard/changes')
-        if code and not any(path.endswith('.json') and Path(path).stem in {identifier for identifier, _ in records}
-                            for path in added):
-            unrecorded.append(dict(commit=commit, paths=code))
-    return {'release': tag, 'known_from': f'release tag {tag}, current records and Git history (each commit against its first parent)',
-            'changes': changes, 'code_commits_without_record': unrecorded, 'released_requests': requests}
+    return {'release': tag, 'known_from': f'release tag {tag} and current records',
+            'changes': changes, 'released_retired': retired}
 
 
 def record_findings(root):
@@ -541,18 +539,18 @@ def record_findings(root):
     except MapError as error:
         findings.append(Finding('error', 'release_snapshot_invalid', '', str(error)))
     unverified = []
-    for identifier in _record_identifiers(root):
+    files = _record_files(root)
+    for identifier in _record_identifiers(files):
         try:
-            _change_record(root, identifier)
+            _change_record(root, identifier, files)
         except Unverifiable:
             unverified.append(identifier)
         except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
             restore = shlex.join(["git", "-C", str(root), "checkout", "--",
-                                  (CHANGE_DIR / (identifier + ".json")).as_posix(),
-                                  (CHANGE_DIR / (identifier + ".msg")).as_posix()])
+                                  *sorted(path for path in files if Path(path).stem == identifier)])
             findings.append(Finding("error", "record_edited", identifier,
                                     f"{root / CHANGE_DIR / identifier}: {error}; records are written once; "
-                                    f"restore the original pair ({restore} when committed)"))
+                                    f"restore the original record ({restore} when committed)"))
     if unverified:
         findings.append(Finding("info", "immutable_unverified", "",
                                 f"{len(unverified)} change record(s) not used here (first: {CHANGE_DIR / unverified[0]}): "

@@ -130,9 +130,7 @@ def test_promote_prints_owner_block(tmp_path, capsys, as_json):
     assert output.count('old rule:') == 2 and output.count('new rule:') == 2
     assert 'availability_ceiling' in output and 'and state >= 0' in output
     assert '(absent: this rule did not exist)' in output
-    message = next((tmp_path / '.flowguard/changes').glob('*.msg')).read_text()
-    block = message[message.index(header):].rstrip()
-    assert block in output
+    assert not list((tmp_path / '.flowguard/changes').glob('*.msg'))  # the commit message is the AI's own
 
 
 def test_owner_block_marks_stored_requests_and_glossary(tmp_path):
@@ -237,8 +235,13 @@ def _request_target(root, capsys, link):
     model.write_text(model.read_text() + "\nTARGET_REVISION = 2\n", encoding="utf-8")
 
 
-def test_promote_marks_linked_request_done(tmp_path, capsys):
-    from flowguard.map.requests import store_request, request_rows
+def _citations(root):
+    from flowguard.map.requests import owner_words
+    return {row["id"]: row["cited_by"] for row in owner_words(root)["rows"]}
+
+
+def test_promote_records_the_link_without_marking_a_request_done(tmp_path, capsys):
+    from flowguard.map.requests import store_request
 
     for partial in (False, True):
         root = _project(tmp_path / str(partial), capsys)
@@ -248,29 +251,27 @@ def test_promote_marks_linked_request_done(tmp_path, capsys):
         _request_target(root, capsys, "R1:part" if partial else "R1")
         data = json.loads((root / ".flowguard/target/map.json").read_bytes())
         assert data["requests"] == [{"id": "R1", "part": partial}]
-        assert any("R1 in this change" in row for row in request_rows(root))
         code, output, errors = _call(root, capsys, "target", "promote")
         assert code == 0 and not errors, (output, errors)
+        assert "request R1:" not in output and " done" not in output, output
         records = list((root / ".flowguard/changes").glob("*.json"))
         assert len(records) == 1
         item = json.loads(records[0].read_bytes())
         assert item["kind"] == "change" and item["requests"] == data["requests"]
-        assert records[0].with_suffix(".msg").is_file()
-        rows = request_rows(root)
-        assert any(("R1 open since" if partial else "R1 done (change ") in row for row in rows)
-        assert any("R2 open since" in row for row in rows)
+        assert not records[0].with_suffix(".msg").exists()
+        assert _citations(root) == {"R1": ["change " + records[0].stem], "R2": []}
         assert {p.name: p.read_bytes() for p in (root / ".flowguard/requests").glob("R*.*")} == originals
         if not partial:
             from flowguard.map.records import change_records, record_findings
             records[0].write_bytes(records[0].read_bytes() + b" ")
             assert change_records(root) == []
             assert any(item.code == "record_edited" for item in record_findings(root))
-            assert any("R1 open since" in row for row in request_rows(root))
+            assert _citations(root) == {"R1": [], "R2": []}
 
 
 def test_request_link_refusal_and_failed_record_do_not_complete(tmp_path, capsys, monkeypatch):
     from flowguard.map import records
-    from flowguard.map.requests import store_request, request_rows
+    from flowguard.map.requests import store_request
 
     root = _project(tmp_path / "project", capsys)
     code, output, errors = _call(root, capsys, "target", "start", "unknown", "--request", "R9")
@@ -306,24 +307,7 @@ def test_request_link_refusal_and_failed_record_do_not_complete(tmp_path, capsys
     assert not (root / ".flowguard/target").exists()
     assert records.change_records(root) == [] and records.record_findings(root) == []
     assert not list((root / records.CHANGE_DIR).glob("*.msg"))
-    assert any("R1 open since" in row for row in request_rows(root))
-
-
-def test_request_state_prefers_this_target_then_other_worktree(tmp_path, capsys):
-    from flowguard.map.requests import store_request, request_rows
-
-    root = _project(tmp_path / "repository/project", capsys)
-    _git(root.parent, "init", "-q")
-    store_request(root, b"a shared request\n", identifier="R1")
-    _git(root, "add", "--", ".flowguard/map.json", ".flowguard/models", ".flowguard/requests", "shelf", "tests")
-    _git(root, "commit", "-qm", "shared request")
-    peer_root = tmp_path / "peer"
-    _git(root, "worktree", "add", "-qb", "peer", str(peer_root))
-    peer = peer_root / "project"
-    assert _call(peer, capsys, "target", "start", "peer change", "--request", "R1:part")[0] == 0
-    assert any(f"R1 in another change ({peer})" in row for row in request_rows(root))
-    assert _call(root, capsys, "target", "start", "this change", "--request", "R1")[0] == 0
-    assert any("R1 in this change" in row for row in request_rows(root))
+    assert _citations(root) == {"R1": []}
 
 
 def test_req_add_stores_bytes_and_digest(tmp_path, capsys):
@@ -458,18 +442,18 @@ def test_request_after_git_init_is_checked_against_its_first_commit(tmp_path, ca
     assert not body.exists() and not meta.exists()
 
 
-def test_open_request_without_target_is_listed(tmp_path, capsys):
+def test_unclaimed_owner_words_are_listed_by_status(tmp_path, capsys):
     root = _project(tmp_path / "project", capsys)
     source = tmp_path / "owner.md"
     source.write_bytes(b"Keep an unclaimed request visible.\n")
     for identifier in ("R5", "R7"):
         assert _call(root, capsys, "req", "add", str(source), "--id", identifier)[0] == 0
-    code, output, errors = _call(root, capsys, "read")
+    code, output, errors = _call(root, capsys, "status")
     assert code == 0 and not errors
-    header = next(line for line in output.splitlines() if line.startswith("requests:"))
-    today = datetime.now(timezone.utc).date().isoformat()
-    assert f"R7 open since {today} (no target)" in header
-    assert "R5 open since" in header
+    rows = [line.split()[0] for line in output.splitlines() if line.startswith("  R")]
+    assert rows == ["R7", "R5"], output
+    code, output, errors = _call(root, capsys, "read")
+    assert code == 0 and not errors and "requests:" not in output
     assert not (root / ".flowguard/requests/index.json").exists()
 
 

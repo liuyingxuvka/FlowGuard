@@ -50,6 +50,9 @@ production correctness.
 
 ## Current And Target Models
 
+Legacy route, kept until v1.0.0: a normal change needs no target. Change code
+and tests together, run the project's tests and commit in your own words.
+
 The current model is `.flowguard/map.json` plus `.flowguard/models/`.
 Confirmed components store file fingerprints; changed owned code becomes stale
 until its description is reviewed and confirmed.

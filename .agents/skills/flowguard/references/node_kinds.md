@@ -1,8 +1,10 @@
 # Node kinds
 
+Legacy node kinds, kept until v1.0.0; a normal change needs none of them.
+
 ## UI journey
 
-Start/add the owner's target first (SKILL.md). For a new model, use `python -m flowguard template ui-journey --write <scratch>` (`ui-flow` is an alias), then copy the starter model into `.flowguard/target/models/`.
+For a new model, use `python -m flowguard template ui-journey --write <scratch>` (`ui-flow` is an alias), then copy the starter model into `.flowguard/target/models/`.
 Import `UIInteractionModel`, `UIStateNode`, `UIControl`, `UITransition`, `ui_journey_explorer` and `ui_flow_code_facts` from `flowguard.ui_flow`; declare the initial state, screens/form data, controls and submit/cancel/back/retry transitions.
 Bind real handlers in `IMPLEMENTED_BY`, real UI source in `UI_FILES` and real tests in `TESTED_BY`; `conformance()` checks the source controls and handlers through code facts.
 Keep the `show_opens_an_unknown_state` and `details_dialog_cannot_close` known-bad variants; model reachable success, stable cancel and failure recovery.
@@ -22,7 +24,7 @@ Review these questions against real UI code and click-through/component tests; t
 ## Validator
 
 Use when a function/interface has a finite input boundary and every declared bad value must be rejected; this is an ordinary contract model.
-Start/add the owner's target first (SKILL.md); scaffold with `python -m flowguard template validator --write <scratch>` and copy the model into `.flowguard/target/models/`.
+Scaffold with `python -m flowguard template validator --write <scratch>` and copy the model into `.flowguard/target/models/`.
 Import `ContractDimension`, `ContractExhaustionPlan`, `ContractOracle`, `contract_exhaustion_features` and `execute_contract_features` from `flowguard.validator`; bind real code and tests.
 Declare finite dimensions, their values and default mutations. Input/payload defaults include `old_schema_version` and `conflicting_identity`; keep `omitted_family_member` for missing registry members.
 Add `ContractAxis` / `ContractInteractionGroup` only for real interactions; cap the product and inspect the allowed single/pair combinations actually executed.

@@ -42,12 +42,12 @@ def _parse_documented_command_arguments(command: str) -> None:
 
 
 class SkillPackageTests(unittest.TestCase):
-    def test_template_rule_and_skill_name_the_same_exits(self) -> None:
+    def test_template_rules_skill_and_prompt_teach_the_same_plain_flow(self) -> None:
         from flowguard.templates import adoption_template_files
         rules = next(file.content for file in adoption_template_files()
                      if file.path == 'docs/flowguard_agents_rules.md')
         numbered = re.findall(r'^\d\. .+$', rules, re.M)
-        self.assertEqual(6, len(numbered))
+        self.assertEqual(4, len(numbered))
         first = ('1. At the start of a session and after any loss of context, '
                  'run `python -m flowguard status` before anything else.')
         self.assertEqual(first, numbered[0])
@@ -55,46 +55,35 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual(first, own_first.group())
         skill = (SKILL / 'SKILL.md').read_text()
         prompt = (SKILL / 'agents/openai.yaml').read_text().split('default_prompt:', 1)[1]
-        self.assertLess(prompt.index('python -m flowguard status'), prompt.index('python -m flowguard read'))
+        self.assertLess(prompt.index('python -m flowguard status'), prompt.index('python -m flowguard where'))
         self.assertIn('after any loss of context', prompt)
-        self.assertIn('NEXT', prompt)
-        loop = skill.split('## The loop\n', 1)[1].split('\n## ', 1)[0]
-        steps = dict(re.findall(r'^(\d)\. (.+)$', loop, re.M))
-        self.assertIn('python -m flowguard status', skill.split('## The loop', 1)[0])
-        for text in (numbered[1], steps['4']):
-            for word in ('EXPECTED GAP', 'moved rules only', 'no rule change', 'NO GAP', 'PLAN.txt', 'changes:', 'because'):
+        self.assertIn('python -m flowguard status', skill.split('## The owner', 1)[0])
+        for text in (numbered[1], skill, prompt):
+            for word in ('req add <file|-> --id <id>', 'own words'):
                 self.assertIn(word, text)
-            self.assertNotIn('changes.txt', text)
-        for text in (numbered[1], steps['3']):
-            for word in ('req add <file|-> --id <id>', '--request <id>', 'as received', 'touch:'):
-                self.assertIn(word, text)
-        for text in (numbered[1], steps['6']):
-            self.assertIn('when printed', text)
-            self.assertIn('owner block', text)
-            self.assertIn('unchanged', text)
+        for text in (numbered[3], skill, prompt):
+            for word in ('your own words', 'Request: R<n>'):
+                self.assertIn(word, ' '.join(text.split()))
 
     def test_request_and_status_documented_arguments_use_actual_parsers(self) -> None:
         for command in ('req add <file|-> --id <id>', 'req add - --kind glossary --id Words',
+                        'req add <file|-> --id <id> --supersedes <old id>', 'req retire ID --not-owner --note TEXT',
                         'status', 'status --root <root> --json --hook --wait 0'):
             _parse_documented_command_arguments(command)
-        for command in ('req add --id R7', 'status --not-an-option'):
+        for command in ('req add --id R7', 'req retire ID', 'status --not-an-option'):
             with self.assertRaises(SystemExit):
                 _parse_documented_command_arguments(command)
 
-    def test_skill_entry_describes_the_tree(self) -> None:
+    def test_skill_entry_teaches_only_the_plain_flow(self) -> None:
         text=(SKILL/'SKILL.md').read_text(encoding='utf-8')
         headings=re.findall(r'^## ([^\n]+)',text,re.M)
-        self.assertEqual(['Start from the model','Look up source when needed','The loop','Routes by task','The tree','First map, review and release','Honesty rules'],headings)
-        for required in ('python -m flowguard target start','python -m flowguard target check','python -m flowguard target promote','python -m flowguard change --run','python -m flowguard read --find','DISPATCH'):
+        self.assertEqual(['Start',"The owner's words",'Find code','Change, test, commit','Honesty'],headings)
+        for required in ('python -m flowguard status','python -m flowguard req add','python -m flowguard where','python -m pytest -q'):
             self.assertIn(required,text)
-        for retired in ('MESH','closure','consumer_model_id','FunctionContract','hazard','packs','budgeted','child_outside_parent','review children','--expect-gap','IGNORES_PARENT','route (a)','in place','model_tests_elsewhere','upgrade.md','runner_model','DESIGN_ONLY'):
+        taught = set(re.findall(r'python -m flowguard ([a-z]+)', text))
+        self.assertEqual({'status','req','where'}, taught)
+        for retired in ('target start','target add','target check','target promote','map confirm','change --run','read --find','PLAN.txt','owner block','commit -F','NEXT'):
             self.assertNotIn(retired,text)
-        labels=('- Node: ','- Parent: ','- Known-bad: ','- Real binding: ','- Test binding: ','- Readback: ','- Current vs target: ')
-        shared_lines=[(index,line) for index,line in enumerate(text.splitlines()) if line.startswith(labels)]
-        self.assertEqual(7,len(shared_lines))
-        self.assertEqual(labels,tuple(next(label for label in labels if line.startswith(label)) for _,line in shared_lines))
-        start=shared_lines[0][0]
-        self.assertEqual(list(range(start,start+7)),[index for index,_ in shared_lines])
 
     def test_route_sections_are_listed(self) -> None:
         text=(SKILL/'references/routes.md').read_text(encoding='utf-8')
@@ -184,18 +173,14 @@ class SkillPackageTests(unittest.TestCase):
             self.assertNotEqual(0, bad.returncode)
             self.assertIn("environment variable is unset", bad.stderr)
 
-    def test_adoption_generates_six_project_rules_and_claude_md(self) -> None:
+    def test_adoption_generates_four_project_rules_and_claude_md(self) -> None:
         from flowguard.templates import adoption_template_files
         rules = next(f for f in adoption_template_files() if f.path == "docs/flowguard_agents_rules.md")
-        self.assertEqual(6, len(re.findall(r"^\d\. ", rules.content, re.M)))
-        self.assertIn("python -m flowguard change", rules.content)
-        target_rule = next(line for line in rules.content.splitlines() if line.startswith("2. "))
-        for command in ('python -m flowguard target start "<goal>"', 'python -m flowguard target check',
-                        'python -m flowguard target promote', 'python -m flowguard read --find WORDS'):
-            self.assertIn(command, target_rule)
-        self.assertIn('extend it',target_rule)
-        after_rule=next(line for line in rules.content.splitlines() if line.startswith('4. '))
-        for required in ('port changed','consumes','promises:','grow together'):self.assertIn(required,after_rule)
+        self.assertEqual(4, len(re.findall(r"^\d\. ", rules.content, re.M)))
+        self.assertEqual({"status", "req", "where"}, set(re.findall(r"python -m flowguard ([a-z]+)", rules.content)))
+        commit_rule = next(line for line in rules.content.splitlines() if line.startswith("4. "))
+        for required in ("one commit", "your own words", "Request: R<n>"):
+            self.assertIn(required, commit_rule)
         self.assertFalse(any(f.path == "AGENTS.md" for f in adoption_template_files()))
         self.assertEqual(["docs/flowguard_agents_rules.md", "CLAUDE.md"], [f.path for f in adoption_template_files()])
         self.assertEqual("@AGENTS.md\n", next(f.content for f in adoption_template_files() if f.path == "CLAUDE.md"))
@@ -276,11 +261,9 @@ class SkillPackageTests(unittest.TestCase):
         source = "\n".join(path.read_text(encoding='utf-8')
             for directory in (ROOT / 'flowguard', ROOT / '.flowguard/models')
             for path in directory.rglob('*.py'))
-        entry_path, routes_path = SKILL / 'SKILL.md', SKILL / 'references/routes.md'
-        entry, routes = entry_path.read_text(), routes_path.read_text()
+        routes_path = SKILL / 'references/routes.md'
+        routes = routes_path.read_text()
         sections = re.split(r'(?m)(?=^## )', routes)[1:]
-        table = entry.split('## Routes by task\n', 1)[1].split('\n## ', 1)[0]
-        table_rows = [row for row in table.splitlines() if row.startswith('|')][2:]
         links = re.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
 
         def destination(path, link):
@@ -292,12 +275,8 @@ class SkillPackageTests(unittest.TestCase):
 
         for section in sections:
             route = section.splitlines()[0][3:]
-            files = {entry_path.resolve(), routes_path.resolve()}
-            for origin, text in [(routes_path, section),
-                    *[(entry_path, row) for row in table_rows
-                      if any(fragment == slug(route) for link in links.findall(row)
-                             if (resolved := destination(entry_path, link))
-                             for target, fragment in [resolved])]]:
+            files = {routes_path.resolve()}
+            for origin, text in [(routes_path, section)]:
                 for link in links.findall(text):
                     resolved = destination(origin, link)
                     if resolved and resolved[0].is_file():
@@ -329,30 +308,11 @@ class SkillPackageTests(unittest.TestCase):
                                         f'{route}: missing reference: {code}')
             print(f'route {route}: {sum(len(text) for text in texts.values())} characters')
 
-    def test_skill_has_one_route_table(self) -> None:
-        entry=(SKILL/'SKILL.md').read_text(encoding='utf-8')
-        self.assertEqual(1,entry.count('## Routes by task'))
-        section=entry.split('## Routes by task\n',1)[1].split('\n## ',1)[0]
-        rows=[line for line in section.splitlines() if line.startswith('|')][2:]
-        expected=('New function','large_model','large_test_file','port changed','Rename or retire a field','Move or split code','Remove a function','Bug a green model missed','External promise','UI journey','Model before code','model_edited_outside_target')
-        self.assertEqual(len(expected),len(rows))
-        for title,row in zip(expected,rows):self.assertIn(title,row.split('|')[1])
-        self.assertEqual(1,entry.count('Models, tests and code grow together'))
-
-    def test_route_rows_point_to_existing_sections(self) -> None:
-        entry=(SKILL/'SKILL.md').read_text(encoding='utf-8')
-        section=entry.split('## Routes by task\n',1)[1].split('\n## ',1)[0]
-        rows=[line for line in section.splitlines() if line.startswith('|')][2:]
+    def test_route_sections_named_by_findings_exist(self) -> None:
         mapping={0:('routes.md',('New function',)),1:('routes.md',('Split a model',)),2:('routes.md',('Split a test file',)),3:('routes.md',('Interface change',)),4:('routes.md',('Rename or retire a field',)),5:('routes.md',('Add or split a component',)),6:('routes.md',('Remove or merge a node',)),7:('routes.md',('When a green model missed a bug',)),8:('routes.md',('External promise (no silent fallback)',)),9:('node_kinds.md',('UI journey','Validator')),10:('routes.md',('Model before code',))}
         for index,(filename,headings) in mapping.items():
             text=(SKILL/'references'/filename).read_text(encoding='utf-8')
             for heading in headings:self.assertEqual(1,text.splitlines().count('## '+heading),(index,filename,heading))
-        literals={node.value for path in (ROOT/'flowguard').rglob('*.py') for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))) if isinstance(node,ast.Constant) and isinstance(node.value,str)}
-        for row in rows:
-            for code in re.findall(r'`([a-z]+(?:_[a-z]+)*(?:_\*)?)`',row.split('|')[1]):
-                if "_" not in code:continue
-                with self.subTest(code=code):
-                    self.assertTrue(any(value.startswith(code[:-1]) for value in literals) if code.endswith('*') else code in literals)
         for path in SKILL.rglob('*.md'):
             text=path.read_text(encoding='utf-8')
             for retired in ('Add a child** for an independent operation','importers and ancestors are selected too','map impact <file under the failure>'):self.assertNotIn(retired,text,str(path))

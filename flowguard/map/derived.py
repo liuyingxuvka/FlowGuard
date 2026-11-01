@@ -14,12 +14,12 @@ import re
 import subprocess
 import tempfile
 
-from .common import normalize_newlines, read_source
+from .common import normalize_newlines, read_source, render_advice
 from .discover import discover_inventory, function_spans, literal_sites, reachable_functions
 from .inventory import build_inventory, function_digests, syntax_tree
 from .mapfile import MapError, ignore_patterns, load_map, model_registry, owner_index, read_model_contract
 from .records import change_records
-from .requests import request_details
+from .requests import owner_words
 
 
 def _git(root, *args, input=None):
@@ -419,7 +419,6 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
                     group["unresolved"] += sum("not found" in row["state"] for row in refs)
                 result["text_groups"] = list(groups.values())
                 result["unexpanded_texts"] = sum(row["files"] for row in groups.values())
-                result["next"] = "where --text <relative-text-path>"
             return result
         if view == "arch":
             result.update(modules=[{"path": path, "owner": owners.get(path, path), "functions": len(file.get("functions", {})),
@@ -477,7 +476,6 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
                 result["modules"] = [{"path": path, "functions": count} for path, count in sorted(modules.items())]
                 result["module_edges"] = [{"source": caller, "target": callee, "calls": count} for (caller, callee), count in sorted(module_edges.items())]
                 result["unexpanded_functions"], result["unexpanded_edges"] = len(included), len(edges)
-                result["next"] = "where <function-or-module> --flow"
             if name is not None:
                 result["state"] = [row for row in state if _match(name, row["term"]) or set(row["writers"]) & included]
             else:
@@ -497,7 +495,6 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
                 row["without_declared_model_binding"] += bool(fn["writes"] and not fn["model_bindings"])
             result["modules"] = list(modules.values())
             result["unexpanded_functions"] = len(functions)
-            result["next"] = "where <function-or-module>"
             return result
         query = _anchor(name)
         result["functions"] = []
@@ -518,7 +515,7 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
         result["entries"] = [entry for entry in entries if _match(name, entry["name"])]
         result["changes"] = [{"id": identifier, "goal": record["goal"], "requests": record["requests"], "implemented_by": record["implemented_by"]}
                              for identifier, record in records if name == identifier or any(item["id"] == name for item in record["requests"])]
-        result["requests"] = [row for row in request_details(source, records=records, worktrees=[]) if row["id"] == name] if at is None else []
+        result["requests"] = [row for row in owner_words(source, records=records)["rows"] if row["id"] == name] if at is None else []
         result["constants"] = [{"path": path, "name": key, **value} for path, file in raw["files"].items() for key, value in file.get("source_constants", {}).items() if _match(name, key)]
         if not any(result.get(key) for key in ("functions", "references", "literals", "state", "entries", "changes", "requests", "constants")):
             result["unknown"].append("name not resolved in the static source index: " + name)
@@ -571,7 +568,10 @@ def render(result, *, as_json=False):
         for row in result.get("changes", []):
             lines.append("change " + row["id"] + ": " + row["goal"] + " · " + ", ".join(row["implemented_by"]))
         for row in result.get("requests", []):
-            lines.append("request " + row["id"] + ": " + row["state"] + " · " + row["first_line"])
+            state = ("retired: not the owner's words" if row["retired"] else
+                     "superseded by " + ", ".join(row["superseded_by"]) if row["superseded_by"] else "owner words")
+            lines.append("request " + row["id"] + ": " + state + " · " + row["first_line"]
+                         + (" · cited by " + ", ".join(row["cited_by"]) if row["cited_by"] else ""))
         for row in result.get("modules", []):
             lines.append(row["path"] + " · " + str(row["functions"]) + " functions" + (" · owner " + row["owner"] if "owner" in row else "")
                          + (" · imports " + ", ".join(row["imports"]) if "imports" in row else ""))
@@ -580,9 +580,11 @@ def render(result, *, as_json=False):
         for row in result.get("stores", []):
             lines.append(row["path"] + ":" + str(row["line"]) + " store " + str(row.get("last_component") or "unknown") + " · " + row["expression"])
     if "unexpanded_functions" in result:
-        lines.append(str(result["unexpanded_functions"]) + " function details unexpanded · next: " + result["next"])
+        lines.append(str(result["unexpanded_functions"]) + " function details unexpanded")
     if "unexpanded_texts" in result:
-        lines.append(str(result["unexpanded_texts"]) + " text details unexpanded · next: " + result["next"])
+        lines.append(str(result["unexpanded_texts"]) + " text details unexpanded")
+    if result.get("next"):
+        lines.append(render_advice(result["next"]))
     lines.append(result["rule_scope"])
     lines.extend("unknown: " + item for item in result["unknown"])
     return "\n".join(lines)

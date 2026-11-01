@@ -28,7 +28,6 @@ USES = {
 }
 TESTED_BY = {
     'promote_prints_owner_block': ['tests/test_requests.py:test_promote_prints_owner_block', 'tests/test_records.py:test_real_promotion_records_checked_plan_rules_and_function_diff'],
-    'promote_names_stale_components': ['tests/test_target_life_cycle.py:test_promote_names_stale_component_to_confirm'],
     'promote_makes_current_equal_merged': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
     'promote_leaves_no_target': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
     'changed_components_become_draft': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
@@ -56,7 +55,6 @@ class State:
     status: str = ""
     outcome: str = ""
     findings_shown: bool = True
-    stale_components_named: bool = True
     target_deletion_named: bool = True
     current_edited: bool = False
     owner_block_shown: bool = True
@@ -113,8 +111,6 @@ class Promote:
                 new = replace(new, target_count=1)
             if self.defect == "keeps_components_confirmed":
                 new = replace(new, draft=False)
-        if new.status == "promoted" and self.defect == "names_drafts_only":
-            new = replace(new, stale_components_named=False)
         if new.status == "promoted" and self.defect == "staging_line_omits_target":
             new = replace(new, target_deletion_named=False)
         if new.status == "promoted" and self.defect == "owner_block_omits_line":
@@ -137,8 +133,6 @@ INVARIANTS = (
               "a successful promote names the target deletion with usable staging or no-Git verification guidance",
               lambda s,t: _holds(s.status != "promoted" or s.target_deletion_named,
                                  "the promotion guidance omitted the target deletion or a usable next step")),
-    Invariant("promote_names_stale_components", "confirmation guidance includes changed confirmed components",
-              lambda s,t: _holds(s.status != "promoted" or s.stale_components_named, "stale component missing from confirmation")),
     Invariant("refusal_shows_findings", "refusal shows the actual error and changes no current bytes; an unavailable test names test_commands",
               lambda s, t: _holds(s.status != "refused_error" or s.findings_shown, "refusal hid its findings")),
     Invariant("promote_makes_current_equal_merged", "both current map and models equal the prepared merge",
@@ -167,7 +161,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only", "staging_line_omits_target", "promote_overwrites_in_place_edit", "unavailable_tests_point_at_design", "owner_block_omits_line", "record_omits_evidence")}
+            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "staging_line_omits_target", "promote_overwrites_in_place_edit", "unavailable_tests_point_at_design", "owner_block_omits_line", "record_omits_evidence")}
 
 
 class RealPromotion:
@@ -284,15 +278,14 @@ class RealPromotion:
             if code == 0:
                 import shlex
                 lines = output.getvalue().splitlines()
-                last = lines[-1] if lines else ""
+                last = next((line for line in reversed(lines) if line.startswith("next[")), "")
                 names_deletion = "deletion of .flowguard/target/" in output.getvalue()
                 if last.startswith('next[commit]: '):
-                    argv = shlex.split(last.removeprefix('next[commit]: '))
-                    split = argv.index('&&') if '&&' in argv else len(argv)
-                    stage, commit = argv[:split], argv[split + 1:]
+                    # The staging command runs as printed; the commit message is the AI's own.
+                    stage = shlex.split(last.removeprefix('next[commit]: '))
                     usable = (stage[:3] == ["git", "-C", str(self.root.resolve())] and "add" in stage and ".flowguard" in stage
-                              and commit[:5] == ['git', '-C', str(self.root.resolve()), 'commit', '-F']
-                              and len(commit) == 6 and Path(commit[-1]).is_file())
+                              and "commit" not in stage and lines[-1].startswith("then commit with your own message")
+                              and not list((self.root / ".flowguard/changes").glob("*.msg")))
                 else:
                     argv = shlex.split(last.removeprefix("next[check]: "))
                     usable = ("no Git worktree" in output.getvalue()
@@ -310,10 +303,7 @@ class RealPromotion:
                 same_models = all((self.root / ".flowguard/models" / name).read_bytes() == content
                                   for name, content in self.expected_models.items())
                 state = replace(state, status="promoted", target_count=int((self.root / ".flowguard/target").exists()),
-                                draft=loans["status"] == "draft" and any("loans" in line.split()[6:] for line in output.getvalue().splitlines()
-                                      if line.startswith("next[confirm]: python -m flowguard map confirm ")),
-                                stale_components_named=any("catalog" in line.split()[6:] for line in output.getvalue().splitlines()
-                                      if line.startswith("next[confirm]: python -m flowguard map confirm ")),
+                                draft=loans["status"] == "draft",
                                 target_deletion_named=names_deletion and usable,
                                 record_evidence_kept=kept,
                                 owner_block_shown=("owner block (paste it unchanged into your final message):" in output.getvalue()

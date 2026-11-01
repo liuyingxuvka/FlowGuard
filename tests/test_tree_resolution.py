@@ -423,11 +423,11 @@ def test_component_parent_mistakes_are_errors(tmp_path, capsys):
     data["components"][2]["parent"] = "records"
     save(tmp_path, data)
 
-    def _fg233_assert_error(code):
+    def _fg233_assert_error(code, level="ERROR"):
         save(tmp_path, data)
         assert main(["map", "--root", str(tmp_path), "check"]) == 1
         output = capsys.readouterr().out
-        assert any(line.split()[:2] == ["ERROR", code] for line in output.splitlines()), output
+        assert any(line.split()[:2] == [level, code] for line in output.splitlines()), output
         assert not marker.exists()
 
     data["components"][1]["parent"] = "missing"
@@ -440,10 +440,10 @@ def test_component_parent_mistakes_are_errors(tmp_path, capsys):
     _fg233_assert_error("component_parent_layer")
     data["components"][1]["layer"] = "records"
     data["components"][0]["depends_on"] = ["loans"]
-    _fg233_assert_error("dep_unused")
+    _fg233_assert_error("dep_unused", "INFO")  # map upkeep: information
     data["components"][0]["depends_on"] = []
     data["components"][0]["files"] = ["missing.py"]
-    _fg233_assert_error("component_empty")
+    _fg233_assert_error("component_empty", "INFO")
     assert not marker.exists()
     assert not any(name.startswith("parent233_") for name in sys.modules)
 

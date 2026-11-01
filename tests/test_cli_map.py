@@ -176,11 +176,11 @@ def test_impact_accepts_absolute_and_backslash_paths(project, capsys):
     assert code == 0 and "UNMAPPED" not in out and "directly affected: api, orders" in out, out
 
 
-def test_impact_cli_exits_nonzero_for_unmapped_source(impact_project, capsys):
+def test_impact_cli_names_unmapped_source_as_information(impact_project, capsys):
     root, data = impact_project
     map_write(root, "shop/unowned.py", "VALUE = 1\n")
     code, text = run(root, "impact", "shop/unowned.py", capsys=capsys)
-    assert code == 1 and "UNMAPPED" in text
+    assert code == 0 and "UNMAPPED changed files (information" in text
 
 
 def test_save_map_sorts_only_depends_on(project, capsys):

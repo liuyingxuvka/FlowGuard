@@ -16,7 +16,7 @@ USES = {
     'Main': 'flowguard/__main__.py:main',
 }
 HANDOFF={'change_selection':{'selection':'selection'},'map_check':{'check':'check'}}
-TESTED_BY = {'errors_skip_the_run': ['tests/test_packaged_cli_surface.py:test_change_run_skips_when_check_has_errors'], 'exit_follows_check_selection_and_run': ['tests/test_packaged_cli_surface.py:test_change_run_runs_the_selected_checks'], 'stale_component_names_confirm': ['tests/test_packaged_cli_surface.py:test_change_run_ends_with_map_confirm_for_stale_components']}
+TESTED_BY = {'errors_skip_the_run': ['tests/test_packaged_cli_surface.py:test_change_run_skips_when_check_has_errors'], 'exit_follows_check_selection_and_run': ['tests/test_packaged_cli_surface.py:test_change_run_runs_the_selected_checks'], 'map_upkeep_never_blocks_the_run': ['tests/test_packaged_cli_surface.py:test_change_run_on_a_stale_component_runs_without_a_confirm_step']}
 @dataclass(frozen=True)
 class Case:
     run:bool
@@ -31,7 +31,6 @@ class State:
     selection:str='nothing'
     tests:str='pass'
     ran:str='not_asked'
-    next_confirm:bool=False
     exit_code:int=0
 class TakeRequest:
     name='TakeRequest'
@@ -54,33 +53,32 @@ class Run:
     writes=('ran',)
     def __init__(self,defect=''):self.defect=defect
     def apply(self,event,state):
-        blocked=state.check=='error' or state.selection=='blocked'
+        blocked=state.check=='error' or state.selection=='blocked' or state.check=='stale' and self.defect=='upkeep_blocks_run'
         ran='not_asked' if not state.run else 'skipped' if blocked and self.defect!='runs_despite_errors' else 'ran'
         return (FunctionResult(event,replace(state,ran=ran)),)
 class Exit:
     name='Exit'
     reads=('check','selection','ran','tests')
-    writes=('exit_code','next_confirm')
+    writes=('exit_code',)
     def __init__(self,defect=''):self.defect=defect
     def apply(self,event,state):
         failed=state.check=='error' or state.selection=='blocked' or state.ran=='ran' and state.tests=='fail' and self.defect!='ignores_failed_run'
-        confirm=state.run and state.ran=='ran' and state.check=='stale' and self.defect!='omits_confirm_line'
-        return (FunctionResult(int(failed),replace(state,exit_code=int(failed),next_confirm=confirm)),)
+        return (FunctionResult(int(failed),replace(state,exit_code=int(failed))),)
 RULES=(
  Invariant('errors_skip_the_run','errors block the requested run',lambda s,t:not s.run or s.check!='error' and s.selection!='blocked' or s.ran=='skipped'),
  Invariant('exit_follows_check_selection_and_run','exit reflects checks, blocked selection and the selected run',lambda s,t:s.exit_code==int(s.check=='error' or s.selection=='blocked' or s.ran=='ran' and s.tests=='fail')),
- Invariant('stale_component_names_confirm','a completed stale run names confirmation',lambda s,t:not (s.run and s.ran=='ran' and s.check=='stale') or s.next_confirm),
+ Invariant('map_upkeep_never_blocks_the_run','a stale or unowned file (information) never skips the requested run',lambda s,t:not (s.run and s.check=='stale' and s.selection!='blocked') or s.ran=='ran'),
 )
 def make(defect=''):return Explorer(Workflow((TakeRequest(),Check(),Select(),Run(defect),Exit(defect))),(State(),),CASES,invariants=RULES,max_sequence_length=2,progress_steps=0)
 def build_explorer():return make()
-def broken_variants():return {name:make(name) for name in ('runs_despite_errors','ignores_failed_run','omits_confirm_line')}
+def broken_variants():return {name:make(name) for name in ('runs_despite_errors','ignores_failed_run','upkeep_blocks_run')}
 def conformance():
     from flowguard.__main__ import main
     from flowguard.map.cli import cmd_confirm
     from types import SimpleNamespace
     from _target_fixture import make_port_project
     facts=[]
-    for case in ('clean','anchor','missing','stale','failing_test'):
+    for case in ('clean','anchor','missing','stale','unowned','failing_test'):
         with TemporaryDirectory(prefix='fg-change-command-') as directory:
             root=Path(directory);make_port_project(root)
             with redirect_stdout(StringIO()):cmd_confirm(root,SimpleNamespace(ids=['cli','loans']))
@@ -92,19 +90,16 @@ def conformance():
             elif case=='failing_test':
                 p=root/'tests/test_port.py';p.parent.mkdir(exist_ok=True);p.write_text('def test_selected_failure(): assert False\n')
             else:p.write_text(p.read_text().replace('return "lent"','return str("lent")'))
+            if case=='unowned':(root/'shelf/extra.py').write_text('def extra():\n    return 1\n')
             args=['change','--root',str(root)]
-            if case in ('anchor','missing','stale','failing_test'):args+=['--run']
+            if case in ('anchor','missing','stale','unowned','failing_test'):args+=['--run']
             out=StringIO()
             with redirect_stdout(out),redirect_stderr(out):code=main(args)
             text=out.getvalue()
-            valid=(code==0 if case in ('clean','stale') else code==1)
+            valid=(code==0 if case in ('clean','stale','unowned') else code==1)
             if case in ('anchor','missing'):valid &= 'RAN: skipped' in text
-            elif case=='stale':
-                import shlex
-                line = next((line for line in text.splitlines() if line.startswith('next[confirm]: ')), '')
-                command = shlex.split(line.partition(': ')[2])
-                valid &= (command[:5] == ['python', '-m', 'flowguard', 'map', 'confirm']
-                          and '--root' in command and command[command.index('--root') + 1] == str(root.resolve()))
+            elif case in ('stale','unowned'):
+                valid &= 'RAN: skipped' not in text and 'RAN PASS' in text and 'next[confirm]' not in text
             elif case=='failing_test':valid &= 'RAN FAIL' in text
             facts.append(Fact(case,bool(valid),text))
     return CodeFactsReport(tuple(facts))

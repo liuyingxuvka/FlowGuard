@@ -270,7 +270,7 @@ def test_change_run_runs_the_selected_checks(tmp_path):
 
 def test_change_run_skips_when_check_has_errors(tmp_path):
     root = _change_run_project(tmp_path)
-    (root / "stray.py").write_text("def stray():\n    return 1\n", encoding="utf-8")
+    (root / "stray.py").write_text("def stray(:\n    return 1\n", encoding="utf-8")  # a parse error is a real error
     (root / "app.py").write_text("def run():\n    return 1 == 1\n", encoding="utf-8")
     marker = root / "tests/test_app.py"
     marker.write_text("from pathlib import Path\nPath(__file__).with_name('ran.marker').write_text('ran')\n"
@@ -299,8 +299,7 @@ def test_template_writes_into_the_open_target(tmp_path, capsys):
     assert "(into the open target)" in capsys.readouterr().out
 
 
-def test_change_run_ends_with_map_confirm_for_stale_components(tmp_path, capsys):
-    import shlex
+def test_change_run_on_a_stale_component_runs_without_a_confirm_step(tmp_path, capsys):
     from flowguard.__main__ import main
     directory = tmp_path / ".flowguard"
     directory.mkdir()
@@ -312,13 +311,9 @@ def test_change_run_ends_with_map_confirm_for_stale_components(tmp_path, capsys)
     assert main(["map", "confirm", "app", "--root", str(tmp_path)]) == 0
     path.write_text("def answer(): return 2\n")
     assert main(["change", "--root", str(tmp_path), "app.py", "--run"]) == 0
-    last = capsys.readouterr().out.rstrip().splitlines()[-1]
-    assert last.startswith('next[confirm]: ')
-    argv = shlex.split(last.removeprefix('next[confirm]: '))
-    assert argv[:6] == ['python', '-m', 'flowguard', 'map', 'confirm', 'app']
-    assert argv[6:] == ['--root', str(tmp_path.resolve())]
-    result = subprocess.run(argv, cwd=tmp_path.parent, capture_output=True, text=True)
-    assert result.returncode == 0 and 'confirmed 1 component(s)' in result.stdout, result.stderr
+    output = capsys.readouterr().out
+    assert "INFO  stale" in output and "RAN: skipped" not in output, output
+    assert "next[confirm]" not in output
 
 
 def test_find_unknown_symbol_exits_one(tmp_path,capsys):

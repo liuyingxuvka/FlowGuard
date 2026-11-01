@@ -13,8 +13,10 @@ from .mapfile import MapError
 from .records import NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, validate_new_files, write_once
 
 REQUEST_DIR = Path('.flowguard/requests')
+RETIRED_DIR = REQUEST_DIR / 'retired'
 REQUEST_ID = re.compile(r'[A-Za-z][A-Za-z0-9_-]*\Z')
 KINDS = ('request', 'glossary', 'adoption')
+RETIRE_FIELDS = {'id', 'kind', 'not_owner', 'request_sha256', 'retired'}
 
 
 def glossary_entries(raw: bytes) -> list[tuple[str, tuple[str, ...]]]:
@@ -53,10 +55,13 @@ def _stored_during(root: Path):
     return {'goal': target.get('goal', ''), 'started': base.get('started')}
 
 
-def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind: str = 'request') -> dict:
+def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind: str = 'request',
+                  supersedes=()) -> dict:
     root = Path(root).resolve()
     if kind not in KINDS:
         raise MapError('request_kind_invalid: expected request, glossary or adoption')
+    supersedes = list(dict.fromkeys(supersedes))
+    validate_request_links(root, [dict(id=value, part=False) for value in supersedes])
     if kind == 'glossary':
         glossary_entries(raw)
     received = datetime.now(timezone.utc).isoformat()
@@ -74,6 +79,8 @@ def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind
     if exists(identifier):
         raise MapError(f'request_exists: {identifier} is stored; a correction from the owner is a new request')
     item = dict(id=identifier, kind=kind, sha256=digest, received=received, bytes=len(raw))
+    if supersedes:
+        item['supersedes'] = supersedes
     context = _stored_during(root)
     if context is not None:
         item['stored_during'] = context
@@ -97,14 +104,71 @@ def _metadata(path: Path, identifier: str) -> dict:
     received = datetime.fromisoformat(item['received'])
     if received.tzinfo is None or received.utcoffset().total_seconds() != 0:
         raise ValueError('received must be UTC')
+    supersedes = item.get('supersedes', [])
+    if not isinstance(supersedes, list) or any(not isinstance(value, str) or not REQUEST_ID.fullmatch(value)
+                                               for value in supersedes):
+        raise ValueError('supersedes must list request IDs')
     return item
 
 
-def _identifiers(root: Path) -> list[str]:
-    directory = root / REQUEST_DIR
-    paths = {path for suffix in ('*.md', '*.json') for path in directory.glob(suffix)}
-    paths.update(Path(path) for path in protected_paths(root, REQUEST_DIR) if Path(path).suffix in {'.md', '.json'})
+def _stems(root: Path, directory: Path) -> list[str]:
+    """Record names directly inside one directory, on disk or protected."""
+    paths = {path for suffix in ('*.md', '*.json') for path in (root / directory).glob(suffix)}
+    paths.update(Path(path) for path in protected_paths(root, directory)
+                 if Path(path).suffix in {'.md', '.json'} and Path(path).parent == directory)
     return sorted({path.stem for path in paths})
+
+
+def _identifiers(root: Path) -> list[str]:
+    return _stems(root, REQUEST_DIR)
+
+
+def _retire_record(root: Path, identifier: str) -> dict:
+    """A retire record whose bytes are protected and whose sha names the request it retires."""
+    relative = RETIRED_DIR / (identifier + '.json')
+    problem = integrity_problem(root, relative)
+    if problem:
+        raise ValueError(problem)
+    item = json.loads((root / relative).read_bytes())
+    if (not isinstance(item, dict) or not RETIRE_FIELDS <= set(item) or set(item) - RETIRE_FIELDS - {'note'}
+            or item['id'] != identifier or item['kind'] != 'retired' or item['not_owner'] is not True
+            or not isinstance(item.get('note', ''), str)):
+        raise ValueError('invalid retire record fields')
+    sidecar = _metadata(root / REQUEST_DIR / (identifier + '.json'), identifier)
+    if item['request_sha256'] != sidecar['sha256']:
+        raise ValueError(f'it names other bytes than {identifier}')
+    return item
+
+
+def retired_requests(root: Path) -> dict:
+    """Valid retire records by request ID; request_findings reports the invalid ones."""
+    root = Path(root).resolve()
+    found = {}
+    for identifier in _stems(root, RETIRED_DIR):
+        try:
+            found[identifier] = _retire_record(root, identifier)
+        except (OSError, ValueError, KeyError, TypeError, OverflowError):
+            continue
+    return found
+
+
+def retire_request(root: Path, identifier: str, *, note: str | None = None) -> dict:
+    """Record once that a stored text is not the owner's words; the stored bytes stay as they are."""
+    root = Path(root).resolve()
+    relative = RETIRED_DIR / (identifier + '.json')
+    if identifier in _stems(root, RETIRED_DIR):
+        raise MapError(f'request_retired: {identifier} is already retired ({relative.as_posix()})')
+    validate_request_links(root, [dict(id=identifier, part=False)])
+    sidecar = _metadata(root / REQUEST_DIR / (identifier + '.json'), identifier)
+    item = dict(id=identifier, kind='retired', not_owner=True, request_sha256=sidecar['sha256'],
+                retired=datetime.now(timezone.utc).isoformat())
+    if note:
+        item['note'] = note
+    prepare_directory(root, REQUEST_DIR, ('.md', '.json'))
+    raw = (json.dumps(item, ensure_ascii=False, sort_keys=True) + '\n').encode('utf-8')
+    validate_new_files(root, (relative,))
+    write_once(root, relative, raw)
+    return item
 
 
 def request_findings(root: Path) -> list[Finding]:
@@ -141,6 +205,15 @@ def request_findings(root: Path) -> list[Finding]:
                 findings.append(Finding('error', code, identifier,
                     f'{root / path} differs from the stored request: {problem}; restore its original bytes '
                     f'({restore} when committed); a correction from the owner is a new request'))
+    for identifier in _stems(root, RETIRED_DIR):
+        try:
+            _retire_record(root, identifier)
+        except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
+            path = RETIRED_DIR / (identifier + '.json')
+            restore = shlex.join(['git', '-C', str(root), 'checkout', '--', path.as_posix()])
+            findings.append(Finding('error', 'request_retire_edited', identifier,
+                f'{root / path}: {error}; retire records are written once; restore its original bytes '
+                f'({restore} when committed)'))
     if unverified:
         findings.append(Finding('info', 'immutable_unverified', '',
             f'{len(unverified)} request file(s) cannot be checked against their original bytes here '
@@ -149,36 +222,61 @@ def request_findings(root: Path) -> list[Finding]:
     return findings
 
 
-def request_details(root: Path, *, records=None, worktrees=None) -> list[dict]:
-    """One derived state and original context per request, shared by static views."""
+def request_citations(root: Path, records) -> tuple[dict, bool]:
+    """Where owner words are cited: change records, their rules, and `Request: R<n>` commit lines."""
+    cited = {}
+    for change, record in records:
+        for link in record['requests']:
+            cited.setdefault(link['id'], []).append('change ' + change)
+        for rule in record['rules']:
+            provenance = rule.get('provenance') if isinstance(rule, dict) else None
+            for part in provenance.split('; ') if isinstance(provenance, str) else ():
+                if part.startswith('owner '):
+                    cited.setdefault(part[len('owner '):], []).append(f"rule {rule.get('id')} (change {change})")
+    try:
+        log = subprocess.run(['git', '-C', str(root), 'log', '--format=%h%x00%B%x1e', '-E', '--grep=^Request: '],
+                             capture_output=True)
+    except OSError:
+        return cited, False
+    if log.returncode:
+        return cited, False
+    for entry in log.stdout.decode('utf-8', errors='replace').split('\x1e'):
+        commit, _, body = entry.strip('\n').partition('\0')
+        for line in body.splitlines():
+            if line.startswith('Request: '):
+                for identifier in re.split(r'[,\s]+', line[len('Request: '):].strip()):
+                    if REQUEST_ID.fullmatch(identifier):
+                        cited.setdefault(identifier, []).append('commit ' + commit)
+    return cited, True
+
+
+def owner_words(root: Path, *, records=None) -> dict:
+    """Stored owner words, newest first, with supersession, retirement and citations; never a to-do state."""
     from .records import change_records
 
     root = Path(root).resolve()
-    current = {link['id'] for link in _target_links(root)}
-    others = {}
-    for worktree in _other_worktrees(root) if worktrees is None else worktrees:
-        for link in _target_links(worktree):
-            others.setdefault(link['id'], str(worktree))
-    done = {link['id']: identifier for identifier, record in (change_records(root) if records is None else records)
-            for link in record['requests'] if not link['part']}
+    retired = retired_requests(root)
+    cited, commits_known = request_citations(root, change_records(root) if records is None else records)
     rows = []
     for identifier in _identifiers(root):
         try:
             item = _metadata(root / REQUEST_DIR / (identifier + '.json'), identifier)
-            state = ('in this change' if identifier in current else
-                     f'in another change ({others[identifier]})' if identifier in others else
-                     f'done (change {done[identifier]})' if identifier in done else
-                     f"open since {item['received'][:10]} (no target)")
-            first = (root / REQUEST_DIR / (identifier + '.md')).read_bytes().decode('utf-8-sig', errors='replace').splitlines()
-            rows.append(dict(item, state=state, first_line=first[0] if first else ''))
+            text = (root / REQUEST_DIR / (identifier + '.md')).read_bytes().decode('utf-8-sig', errors='replace').splitlines()
         except (OSError, ValueError, KeyError, TypeError, OverflowError):
-            rows.append(dict(id=identifier, received='', state='invalid (run map check)', first_line=''))
-    return sorted(rows, key=lambda row: (row['received'], row['id']))
-
-
-def request_rows(root: Path) -> list[str]:
-    """Keep the compact read view on the same request states as status."""
-    return [f"{item['id']} {item['state']}" for item in request_details(root)]
+            rows.append(dict(id=identifier, kind=None, received='', first_line='', extra_lines=0, supersedes=[],
+                             superseded_by=[], retired=False, cited_by=[], invalid='run python -m flowguard map check'))
+            continue
+        rows.append(dict(id=identifier, kind=item['kind'], received=item['received'],
+                         first_line=text[0] if text else '', extra_lines=max(0, len(text) - 1),
+                         supersedes=item.get('supersedes', []), superseded_by=[],
+                         retired=identifier in retired, cited_by=cited.get(identifier, []), invalid=None))
+    by_id = {row['id']: row for row in rows}
+    for row in rows:
+        for old in row['supersedes']:
+            if old in by_id:
+                by_id[old]['superseded_by'].append(row['id'])
+    rows.sort(key=lambda row: (row['received'], row['id']), reverse=True)
+    return dict(rows=rows, commit_links_known=commits_known)
 
 
 def request_links(root: Path, values) -> list[dict]:
@@ -210,6 +308,10 @@ def validate_request_links(root: Path, links) -> None:
             command = shlex.join(['python', '-m', 'flowguard', 'req', 'add', '<owner-file>',
                                   '--id', identifier, '--root', str(root)])
             raise MapError(f'request_unknown: {identifier} is not stored; store it first: {command}')
+        retired = RETIRED_DIR / (identifier + '.json')
+        if identifier in _stems(root, RETIRED_DIR):
+            raise MapError(f"request_retired: {identifier} was retired as not the owner's words ({retired.as_posix()}); "
+                           "quote or link the owner's own words")
         for path, code in ((body, 'owner_text_edited'), (meta, 'request_meta_edited')):
             try:
                 problem = integrity_problem(root, path)
@@ -225,16 +327,6 @@ def validate_request_links(root: Path, links) -> None:
                 raise ValueError('owner bytes differ from the sidecar')
         except (ValueError, KeyError, TypeError, OverflowError) as error:
             raise MapError(f'request_meta_edited: {identifier}: {error}') from error
-
-
-def _target_links(root: Path):
-    try:
-        target = json.loads((root / '.flowguard/target/map.json').read_bytes())
-        links = target.get('requests', [])
-    except (OSError, ValueError, AttributeError):
-        return []
-    return [link for link in links if isinstance(link, dict)
-            and isinstance(link.get('id'), str) and type(link.get('part')) is bool] if isinstance(links, list) else []
 
 
 def _other_worktrees(root: Path):

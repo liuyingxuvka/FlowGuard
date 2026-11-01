@@ -147,7 +147,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1b3a3dbdede7e969da4664bb2fc8d1f49bcdb50fd9a84b4391fc597b68599c0f"
+      "fingerprint": "sha256:3b7dc77e45b669e870e432b408d640b637ee262deaf206f06c4a1e57870ef1ec"
     },
     {
       "id": "public-api",
@@ -798,6 +798,7 @@
         "tests/test_relation_graph.py",
         "tests/test_requests.py",
         "tests/test_status.py",
+        "tests/test_owner_words.py",
         "tests/test_advice.py"
       ],
       "models": [],
@@ -861,7 +862,8 @@
       "entrypoints": [
         "flowguard/map/requests.py:store_request",
         "flowguard/map/requests.py:request_findings",
-        "flowguard/map/requests.py:request_rows"
+        "flowguard/map/requests.py:owner_words",
+        "flowguard/map/requests.py:retire_request"
       ],
       "depends_on": [
         "map-file",
@@ -912,7 +914,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:81d783083a8d22b2bacc7362be5a00bf4530ba37f56fd5aec074a0d43946de29"
+      "fingerprint": "sha256:bf6bc6457fbc611595eec502d12ac072cf3401621e2aba45925a1169825b55a5"
     },
     {
       "id": "map-rules",

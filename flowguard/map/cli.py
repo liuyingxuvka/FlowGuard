@@ -261,7 +261,7 @@ def cmd_impact(root: Path, a) -> int:
     data, inv = _context(root)
     imp = compute_impact(root, data, inv, a.files or changed_files(root, a.base), None, base=a.base, broad=True)
     print(json.dumps(imp.to_dict(), indent=1) if a.json else render_impact(imp))
-    return 1 if imp.blocked or imp.unmapped else 0
+    return 1 if imp.blocked else 0
 
 
 
@@ -353,7 +353,6 @@ def cmd_change(root: Path, a) -> int:
         bool(
             counts["error"]
             or imp.blocked
-            or unmapped
             or any(f.level == "error" for f in architecture)
         )
     )
@@ -362,16 +361,10 @@ def cmd_change(root: Path, a) -> int:
     if code:
         print("RAN: skipped (fix the errors above first)")
         return code
-    result = _run_selected(
+    return _run_selected(
         root,
         run_commands(imp, moving_models=target_model_paths(root, data, target) if target else None),
     )
-    from .mapfile import is_stale
-
-    stale = sorted(c["id"] for c in data["components"] if is_stale(root, c, inv))
-    if stale:
-        print(render_advice(advice('confirm', project_command(root, 'map', 'confirm', *stale))))
-    return result
 
 
 def _run_selected(root: Path, commands: list[str]) -> int:
@@ -572,7 +565,7 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--json", action="store_true")
         s.add_argument("--limit", type=int, default=80)
     sub.choices["check"].add_argument(
-        "--strict", action="store_true", help="draft and stale are errors (release)"
+        "--strict", action="store_true", help="expired accepted debts and committed target leftovers are errors (release)"
     )
     lint = sub.choices["lint"]
     lint.add_argument(

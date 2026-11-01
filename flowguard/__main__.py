@@ -18,12 +18,12 @@ from .map.common import advice, print_verdict, quiet_broken_pipe, render_advice,
 VERB_PURPOSE = {
     'read': 'Understand the components, models and their relationships.',
     'where': 'Locate source functions, calls, architecture and attributed original text without execution.',
-    'status': 'Resume from static project, target and request facts; never explore.',
+    'status': 'Resume from static project and target facts and the newest owner words; never explore.',
     'change': 'Check an edit and run the affected tests and models.',
     'release': 'Run the release gate, optionally with whole-suite shards.',
     'template': 'Write starter model and test files.',
-    'target': 'Plan, check and promote a behaviour or structure change.',
-    'req': 'Store an owner request byte for byte, with immutable metadata.',
+    'target': 'Legacy route, kept until v1.0.0: plan, check and promote a change of the legacy models.',
+    'req': "Store the owner's words byte for byte, with immutable metadata; retire a stored text the owner did not write.",
     'map': 'Use every map and proof command.',
 }
 
@@ -64,7 +64,15 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         add.add_argument("file", help="owner text file, or - for raw stdin bytes")
         add.add_argument("--id", dest="identifier")
         add.add_argument("--kind", choices=("request", "glossary", "adoption"), default="request")
+        add.add_argument("--supersedes", action="append", default=[], metavar="ID",
+                         help="an earlier stored request that these owner words replace (repeatable)")
         add.add_argument("--root", default=argparse.SUPPRESS)
+        retire = commands.add_parser("retire", help="record once that a stored text is not the owner's words")
+        retire.add_argument("identifier", metavar="ID")
+        retire.add_argument("--not-owner", action="store_true", required=True,
+                            help="the only reason to retire: the stored text was not written by the owner")
+        retire.add_argument("--note", help="why, in your own words")
+        retire.add_argument("--root", default=argparse.SUPPRESS)
         return p
     if verb == "read":
         group = p.add_mutually_exclusive_group()
@@ -203,30 +211,78 @@ def _template(ns: argparse.Namespace) -> int:
 
 
 def _request(ns: argparse.Namespace) -> int:
-    import shlex
     from .map.mapfile import MapError
     from .map.requests import store_request
 
+    from .map.requests import RETIRED_DIR, retire_request
+
     root = Path(ns.root).resolve()
+    if ns.request_command == "retire":
+        try:
+            retire_request(root, ns.identifier, note=ns.note)
+        except (OSError, MapError) as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        print(f"retired {ns.identifier}: not the owner's words ({(RETIRED_DIR / (ns.identifier + '.json')).as_posix()})")
+        return 0
     try:
         raw = sys.stdin.buffer.read() if ns.file == "-" else Path(ns.file).read_bytes()
-        item = store_request(root, raw, identifier=ns.identifier, kind=ns.kind)
+        item = store_request(root, raw, identifier=ns.identifier, kind=ns.kind, supersedes=ns.supersedes)
     except (OSError, MapError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
-    print(f"stored {item['id']} ({item['kind']}, sha {item['sha256'][:12]}, {item['bytes']} bytes)")
-    if not (root / '.flowguard/map.json').is_file():
-        identifier = 'describe'
-        command = ['python', '-m', 'flowguard', 'map', 'scan', '--root', str(root)]
-    elif 'stored_during' in item:
-        identifier = "check"
-        command = ["python", "-m", "flowguard", "target", "check", "--root", str(root)]
-    else:
-        identifier = "target"
-        command = ["python", "-m", "flowguard", "target", "start", f"Work on request {item['id']}",
-                   '--request', item['id'], "--root", str(root)]
-    print(render_advice(advice(identifier, shlex.join(command))))
+    replaces = f"; supersedes {', '.join(item['supersedes'])}" if item.get('supersedes') else ''
+    print(f"stored {item['id']} ({item['kind']}, sha {item['sha256'][:12]}, {item['bytes']} bytes{replaces})")
+    print(render_advice(advice("status", project_command(root, "status"))))
     return 0
+
+
+def _agent_session():
+    """The agent session this process runs in; only Claude Code's own session id is a verified key."""
+    import os
+    if os.environ.get("CLAUDECODE") != "1":
+        return None
+    return os.environ.get("CLAUDE_CODE_SESSION_ID") or ""
+
+
+def _mark_status_shown(root, session):
+    import json
+    from datetime import datetime, timezone
+    from .map.common import atomic_write_text, cache_dir
+    atomic_write_text(cache_dir(root) / "status-shown.json",
+                      json.dumps({"session": session, "shown": datetime.now(timezone.utc).isoformat()}) + "\n")
+
+
+def _status_first(rest):
+    """Show status once per agent session, before the session's first other FlowGuard command."""
+    import json
+    from .map.common import CACHE_RELDIR
+    session = _agent_session()
+    if session is None or {"-h", "--help"} & set(rest):
+        return
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--root", default=".")
+    root = Path(parser.parse_known_args(rest)[0].root).resolve()
+    if not (root / ".flowguard").is_dir():
+        return
+    from .map.common import project_command
+    command = project_command(root, "status")
+    if not session:
+        print(f"flowguard: CLAUDECODE=1 but CLAUDE_CODE_SESSION_ID is unset; status is not shown automatically: {command}",
+              file=sys.stderr)
+        return
+    try:
+        marker = root / CACHE_RELDIR / "status-shown.json"
+        if marker.is_file() and json.loads(marker.read_text(encoding="utf-8")).get("session") == session:
+            return
+        from .map import status
+        from .map.impact_history import read_git_paths
+        screen = status.render_status(status.collect_status(root, read_git_paths=read_git_paths, version=__version__))
+    except Exception as error:  # the requested command still runs; the failure is named, never hidden
+        print(f"flowguard: status could not be shown first ({type(error).__name__}: {error}); run {command}", file=sys.stderr)
+        return
+    print(screen, file=sys.stderr)
+    _mark_status_shown(root, session)
 
 
 def _status(ns):
@@ -236,10 +292,14 @@ def _status(ns):
 
     try:
         root = Path(ns.root).resolve()
-        if ns.hook and not (root / '.flowguard/map.json').is_file():
+        if ns.hook and not (root / '.flowguard').is_dir():
             return 0
-        result = status.collect_status(root, read_git_paths=read_git_paths)
+        result = status.collect_status(root, read_git_paths=read_git_paths, version=__version__)
+        session = _agent_session()
+        result['session'] = session or None
         print(json.dumps(result, ensure_ascii=False) if ns.json else status.render_status(result))
+        if session:
+            _mark_status_shown(root, session)
         return 0
     except Exception as error:
         if ns.hook:
@@ -272,13 +332,13 @@ def _where(ns):
             result["next_queries"] = [project_command(root, "where", selector, *options) for selector in dict.fromkeys(selectors)]
             output = textrules.render(result, as_json=ns.json)
             if not ns.json and result["next_queries"]:
-                output += "\n" + "\n".join("next: " + command for command in result["next_queries"])
+                output += "\n" + "\n".join(render_advice(advice("where", command)) for command in result["next_queries"])
         else:
             result = derived.where(root, ns.name, view=ns.view)
-            if "next" in result:
+            if "unexpanded_functions" in result:
                 modules = result.get("modules", [])
                 options = ([modules[0]["path"]] + (["--flow"] if ns.view == "flow" else [])) if modules else ["--arch"]
-                result["next"] = project_command(root, "where", *options, *(["--json"] if ns.json else []))
+                result["next"] = advice("where", project_command(root, "where", *options, *(["--json"] if ns.json else [])))
             output = derived.render(result, as_json=ns.json)
         print(output)
         return 0
@@ -307,15 +367,17 @@ def main(argv: list[str] | None = None) -> int:
         print(__version__)
         return 0
     verb, rest = args[0], args[1:]
+    if verb not in {"map", "read", "where", "change", "release", "template", "target", "req", "status"}:
+        print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
+        return 2
+    if verb != "status":
+        _status_first(rest)
     if verb == "map":
         return map_main(rest)
     if verb == "target":
         from .map.target import main as target_main
 
         return target_main(rest)
-    if verb not in {"read", "where", "change", "release", "template", "target", "req", "status"}:
-        print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
-        return 2
     parser = _verb_parser(verb)
     ns = parser.parse_args(rest)
     if verb == "where":

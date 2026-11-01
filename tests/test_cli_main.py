@@ -222,7 +222,7 @@ def test_unplanned_catalog_breakage_stays_an_error_with_a_target(tmp_path, capsy
                    and "moving to target:" not in line for line in output.splitlines()), output
 
 
-def test_new_target_file_is_moving_but_strict_remains_an_error(tmp_path, capsys):
+def test_new_target_file_is_moving_and_strict_reports_it_as_information(tmp_path, capsys):
     root = shelf_project(tmp_path)
     capsys.readouterr()
     _install_shelf_target(root, reports=True)
@@ -235,7 +235,7 @@ def test_new_target_file_is_moving_but_strict_remains_an_error(tmp_path, capsys)
     assert code == 0 and not errors, (output, errors)
     assert "moving to target:" in output and "UNMAPPED changed files" not in output
     code, output, errors = _run(root, capsys, "map", "check", "--strict")
-    assert code == 1 and any("ERROR" in line and "file_unmapped" in line
+    assert code == 0 and any(line.startswith("INFO") and "file_unmapped" in line
                             for line in output.splitlines()), (output, errors)
 
 
@@ -310,6 +310,33 @@ def test_every_next_line_has_an_advice_id(tmp_path, capsys):
     assert all(line.split("[", 1)[1].split("]", 1)[0] in ADVICE_IDS for line in outputs)
 
 
+def test_every_printed_next_line_carries_an_advice_id(tmp_path, capsys):
+    """A next step anywhere in a line, in any command, is one next[<id>]: line from render_advice."""
+    import re
+    from flowguard.map.common import ADVICE_IDS
+    root = shelf_project(tmp_path)
+    (root / "SPEC.md").write_text("Lending MUST respect the `MAX_LOANS` ceiling.\n", encoding="utf-8")
+    capsys.readouterr()
+    offenders, ids = [], []
+    for arguments in (("status",), ("where",), ("where", "--flow"), ("where", "--text"), ("where", "--arch"),
+                      ("read", "--find", "borrow"), ("target", "start", "an advice probe"),
+                      ("target", "add", "loans"), ("target", "check"), ("status",)):
+        _, output, errors = _run(root, capsys, *arguments)
+        for line in (output + errors).splitlines():
+            if re.search(r"\bnext(\[[^\]]*\])?:\s", line):
+                match = re.fullmatch(r"(?:NEXT )?next\[([a-z_]+)\]: \S.*", line)
+                if match is None or match.group(1) not in ADVICE_IDS:
+                    offenders.append((arguments, line))
+                else:
+                    ids.append(match.group(1))
+    assert not offenders, offenders
+    assert "where" in ids
+    for arguments in ((), ("--flow",)):
+        _, output, _ = _run(root, capsys, "where", *arguments, "--json")
+        step = json.loads(output)["next"]
+        assert step["id"] == "where" and step["command"].startswith("python -m flowguard where ")
+
+
 def test_json_runtime_failure_preserves_exit_and_one_line(tmp_path, capsys):
     for arguments in (("map", "check"), ("map", "lint"), ("target", "check"),
                       ("target", "promote"), ("release",)):
@@ -344,10 +371,12 @@ def test_target_component_does_not_hide_an_unplanned_model_or_flow(tmp_path, cap
         finding, identity = "flow_step_broken", "unplanned_return"
     _rename_return_toward_target(root)
     changed = ["shelf/loans.py"] + ([identity] if node == "missing_model" else [])
+    # A broken legacy flow description is map upkeep: information, still named and never hidden by the target.
+    level, expected_code = ("INFO", 0) if node == "flow" else ("ERROR", 1)
     for arguments in (("map", "check"), ("change", *changed)):
         code, output, errors = _run(root, capsys, *arguments)
-        assert code == 1 and not errors, (output, errors)
-        assert any("ERROR" in line and finding in line and identity in line
+        assert code == expected_code and not errors, (output, errors)
+        assert any(line.startswith(level) and finding in line and identity in line
                    and "moving to target:" not in line for line in output.splitlines()), output
         assert any("INFO" in line and "moving to target:" in line and "LoanService.give_back" in line
                    for line in output.splitlines()), output
@@ -403,9 +432,10 @@ def test_target_promote_real_shelf_lifecycle_without_dropping_bindings(tmp_path,
     checked_model = (directory / "models/lending.py").read_bytes()
     code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
     assert code == 0 and not errors and output.startswith('promoted "'), (output, errors)
-    assert "next[confirm]: python -m flowguard map confirm loans" in output
+    assert "next[confirm]" not in output and "map confirm" not in output
     assert "deletion of .flowguard/target/ together" in output
-    assert str(root.resolve()) in output.splitlines()[-1]
+    assert str(root.resolve()) in output.splitlines()[-2]
+    assert output.splitlines()[-1] == "then commit with your own message"
     assert not directory.exists()
     assert (root / ".flowguard/models/lending.py").read_bytes() == checked_model
     loans = next(component for component in _load_map(root)["components"] if component["id"] == "loans")
@@ -447,7 +477,7 @@ def test_target_promote_adds_reports_and_removes_the_requested_flow(tmp_path, ca
     reports = next(component for component in data["components"] if component["id"] == "reports")
     assert reports["status"] == "draft" and "fingerprint" not in reports
     assert not any(flow["id"] == "borrow" for flow in data["flows"])
-    assert "next[confirm]: python -m flowguard map confirm reports" in output
+    assert "next[confirm]" not in output
     assert _run(root, capsys, "map", "confirm", "reports")[0] == 0
     code, output, errors = _run(root, capsys, "map", "check")
     assert code == 0 and "0 error(s)" in output and not errors, (output, errors)
@@ -954,7 +984,8 @@ finally:
         assert len(answer.stdout.splitlines()) == 1
         facts = json.loads(answer.stdout)
         if not arguments:
-            command = shlex.split(facts["next"])
+            assert facts["next"]["id"] == "where"
+            command = shlex.split(facts["next"]["command"])
             assert command[:4] == ["python", "-m", "flowguard", "where"]
             assert command[command.index("--root") + 1] == str(root.resolve())
             assert invoke(command[3:]).returncode == 0

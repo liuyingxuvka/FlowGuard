@@ -31,7 +31,7 @@ USES = {
     'MovingToTarget': 'flowguard/map/target.py:moving_to_target',
 }
 NOT_MODELED = {'flowguard/map/target.py:add_to_target': 'requires an open target and calls _add, which target_add anchors'}
-TESTED_BY = {'linked_request_done_at_promote': ['tests/test_requests.py:test_promote_marks_linked_request_done'], 'promote_runs_one_full_check': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'one_target_at_a_time': ['tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line'], 'promote_only_when_clean': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes', 'tests/test_cli_main.py:test_json_verdict_only_with_flag'], 'check_runs_own_bound_tests_after_code': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check', 'tests/test_target_life_cycle.py:test_target_check_runs_own_bound_tests_after_code']}
+TESTED_BY = {'promote_runs_one_full_check': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'one_target_at_a_time': ['tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line'], 'promote_only_when_clean': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes', 'tests/test_cli_main.py:test_json_verdict_only_with_flag'], 'check_runs_own_bound_tests_after_code': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check', 'tests/test_target_life_cycle.py:test_target_check_runs_own_bound_tests_after_code']}
 
 PROGRAMS = (
     ("json_error", ("START", "ADD_COMPONENT", "EDIT_ERROR", "PROMOTE")),
@@ -67,8 +67,6 @@ class State:
     changed: bool = False      # the target differs from the current tree (a comment-only model copy does not)
     bound_test_runs: int = 0
     code_written: bool = False
-    linked_done: bool = False
-    unlinked_done: bool = False
 
 
 def _revisions(state):
@@ -77,12 +75,12 @@ def _revisions(state):
 
 
 HANDOFF = {'target_add': {'added': 'added'}, 'target_findings': {'bucket': 'bucket'}, 'target_promotion': {'outcome': 'promotion'}}
-KEEPS = ("scenario", "position", "changed", "expected_map_revision", "bound_test_runs", "code_written", "linked_done", "unlinked_done")
+KEEPS = ("scenario", "position", "changed", "expected_map_revision", "bound_test_runs", "code_written")
 
 class Advance:
     name = "Advance"
     writes = ("position", "target_count", "target_revision", "current_map_revision", "current_model_revision",
-              "expected_map_revision", "expected_model_revision", "errors", "todos", "action", "added", "bucket", "promotion", "changed", "bound_test_runs", "code_written", "linked_done", "unlinked_done")
+              "expected_map_revision", "expected_model_revision", "errors", "todos", "action", "added", "bucket", "promotion", "changed", "bound_test_runs", "code_written")
     def __init__(self, defect=""):
         self.defect = defect
     def apply(self, event, state):
@@ -136,8 +134,7 @@ class Advance:
             if outcome == "promoted":
                 new = replace(new, target_count=0, expected_map_revision=state.target_revision,
                               current_map_revision=state.target_revision, current_model_revision=state.expected_model_revision,
-                              bound_test_runs=state.bound_test_runs+(2 if self.defect == "promote_checks_twice" else 1),
-                              linked_done=state.scenario == "linked_request" and self.defect != "promote_leaves_request_open")
+                              bound_test_runs=state.bound_test_runs+(2 if self.defect == "promote_checks_twice" else 1))
         return (FunctionResult(output, new, label=action),)
 
 
@@ -150,8 +147,6 @@ def _holds(condition, message):
 
 
 INVARIANTS = (
-    Invariant("linked_request_done_at_promote", "successful promotion completes linked non-part requests through an immutable record; unrelated and partial requests stay open",
-              lambda s,t: _holds(s.scenario != "linked_request" or s.action != "PROMOTE" or s.promotion != "promoted" or s.linked_done and not s.unlinked_done, "linked request was not recorded as done")),
     Invariant("check_runs_own_bound_tests_after_code", "design CHECK runs the target models bound tests only after their code changed since target start",
               lambda s,t: _holds(s.action != "CHECK" or s.bound_test_runs == _previous(s,t).bound_test_runs + (1 if s.code_written else 0), "CHECK bound test phase mismatch")),
     Invariant("promote_runs_one_full_check", "a clean promotion runs its full bound check once",
@@ -177,7 +172,7 @@ def build_explorer():
 
 
 def broken_variants():
-    return {name:_explorer(name) for name in ("check_runs_bound_tests","check_skips_tests_after_code","promote_checks_twice","second_target","unclean_promote","promote_leaves_request_open")}
+    return {name:_explorer(name) for name in ("check_runs_bound_tests","check_skips_tests_after_code","promote_checks_twice","second_target","unclean_promote")}
 
 
 # This is an executable regular contract, not a runner, DTO or design-only model.
@@ -403,12 +398,12 @@ def _request_replay(partial):
             paths = list((root / ".flowguard/changes").glob("*.json"))
             record = json.loads(paths[0].read_bytes()) if len(paths) == 1 else {}
             text = output.getvalue()
-            expected = "R1 open since" if partial else "R1 done (change "
-            ok = (code == 0 and expected in text and "R2 open since" in text
+            # The change record keeps the link; no request is marked done or open anywhere.
+            ok = (code == 0 and "open since" not in text and "done (change " not in text
                   and record.get("requests") == [{"id": "R1", "part": partial}]
                   and {p.name: p.read_bytes() for p in (root / ".flowguard/requests").glob("R*.*")} == originals)
         except (AssertionError, SystemExit, OSError, ValueError) as error:
             ok = False
             text = repr(error) + output.getvalue()
-        return Fact("linked_request_partial" if partial else "linked_request_done_at_promote", ok,
+        return Fact("linked_request_part_recorded" if partial else "linked_request_recorded", ok,
                     "native exit=" + str(code) + "; " + text[-500:])

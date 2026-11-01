@@ -30,7 +30,8 @@ DEFAULT_IGNORE = [".flowguard/**", ".git/**", "**/__pycache__/**", "node_modules
                   "dist/**", "build/**", ".venv/**", "venv/**", "**/*.min.js"]
 LEVELS = ("error", "warn", "info")
 ADVICE_IDS = frozenset({"tests", "design", "code", "promote", "confirm", "commit", "add",
-                        "describe", "extend", "check", "models", "bind", "rule", "target", "test_command"})
+                        "describe", "extend", "check", "models", "bind", "rule", "target", "test_command",
+                        "where", "status"})
 STOPWORDS = {"a", "an", "the", "of", "to", "and", "or", "for", "in", "on", "by", "with",
              "from", "into", "per", "is", "are", "be", "its", "it", "that", "this", "as"}
 
@@ -122,7 +123,9 @@ def child_pytest_environment(environment):
     """Give a new pytest owner its own control and receipt paths."""
     child = dict(environment)
     for name in ("FLOWGUARD_PYTEST_COLLECTION_NODEIDS", "FLOWGUARD_PYTEST_SHARD_NODEIDS",
-                 "FLOWGUARD_PYTEST_SHARD_COLLECTION", "FLOWGUARD_PYTEST_NODEIDS"):
+                 "FLOWGUARD_PYTEST_SHARD_COLLECTION", "FLOWGUARD_PYTEST_NODEIDS",
+                 # a child FlowGuard starts is not the agent's session: it never shows or marks status
+                 "CLAUDECODE", "CLAUDE_CODE_SESSION_ID"):
         child.pop(name, None)
     return child
 
@@ -312,17 +315,21 @@ def project_command(root: Path, *arguments: str) -> str:
     return shlex.join(['python', '-m', 'flowguard', *arguments, '--root', str(Path(root).resolve())])
 
 
-def advice(identifier: str, command: str, *, note: str | None = None) -> dict[str, str]:
+def advice(identifier: str, command: str, *, note: str | None = None, then: str | None = None) -> dict[str, str]:
+    """One next step: a note read before it, the command that runs as printed, and the prose step after it."""
     if identifier not in ADVICE_IDS:
         raise ValueError(f"unknown advice id: {identifier}")
     item = {"id": identifier, "command": command}
     if note:
         item['note'] = note
+    if then:
+        item['then'] = then
     return item
 
 
-def render_advice(item: dict[str, str]) -> str:
-    return (f"note: {item['note']}\n" if item.get('note') else '') + f"next[{item['id']}]: {item['command']}"
+def render_advice(item: dict[str, str], prefix: str = '') -> str:
+    return ((f"note: {item['note']}\n" if item.get('note') else '') + f"{prefix}next[{item['id']}]: {item['command']}"
+            + (f"\n{item['then']}" if item.get('then') else ''))
 
 
 def finding_codes(findings: list[Finding], *, include_info: bool = False) -> list[dict[str, str]]:

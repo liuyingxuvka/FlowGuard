@@ -1,18 +1,25 @@
 # `.flowguard/map.json` format (schema `flowguard.map.v1`)
 
+Legacy map and target formats, kept until v1.0.0; a normal change needs no edit of them.
+
 Owner requests live separately under `.flowguard/requests/`. Store an original
 with `python -m flowguard req add <file> --id R9` (or use `-` for raw stdin bytes).
 The optional kind is `request`, `glossary` or `adoption`; an omitted ID uses the
 UTC date and a content digest. Every `<id>.md` preserves the input bytes, and
 `<id>.json` stores `id`, `kind`, `sha256`, `received` and `bytes`. Both are written
 once. A correction is a new request; there is no request index or `req list`.
-`read` shows open requests. Glossaries use `owner word = term, term` lines.
+`--supersedes <old id>` records that new owner words replace earlier ones.
+`status` lists the newest owner words first and keeps no done or open state.
+When a stored text was not written by the owner (for example a plan an AI stored),
+`python -m flowguard req retire ID --not-owner [--note TEXT]` writes
+`.flowguard/requests/retired/<id>.json` once; the stored bytes stay, status hides
+them, and a quote, target link or `--supersedes` naming that ID is refused.
+Glossaries use `owner word = term, term` lines.
 When a target is open, metadata also records its actual goal and start time;
 an old target without a captured start retains that time as unknown.
 Per-directory Git attributes preserve raw bytes. Integrity checks also compare
 independent first-write digests or the first committed blob, including sidecar
-edits and requests changed before their first commit. Request state is derived,
-never written back into this metadata.
+edits and requests changed before their first commit.
 
 ```json
 {
