@@ -104,6 +104,9 @@ def render(result, *, as_json=False):
     payload["test_probes"] = test_probes
     payload["saved_files"] = {key: value for key, value in result.get("saved_files", {}).items() if key != "candidates"}
     payload["input_gaps"] = sorted({reason for run in runs for reason in run["facts"]["footprint"].get("untracked", [])})
+    if "textrules" in result:
+        from flowguard.map.textrules import render as text_render
+        payload["textrules"] = json.loads(text_render(result["textrules"], as_json=True))
     if as_json:
         return json.dumps(payload, ensure_ascii=False, sort_keys=True)
     first = f"{verdict} {len(items)} new · explored {coverage['hit_functions']}/{coverage['known_functions']} functions"
@@ -243,5 +246,7 @@ def render(result, *, as_json=False):
         lines.append("UNKNOWN " + row.get("check", "scope") + scope + ": " + row.get("reason", row.get("extent", {}).get("reason", "unjudged scope")))
     if payload["engine_defects"]:
         lines.append("engine defect: " + str(len(payload["engine_defects"])) + " items did not replay (why --defects)")
+    if "textrules" in result:
+        lines.append(text_render(result["textrules"]))
     lines.append(f"audit: {len(items)} finding(s), {len(payload['advice'])} advice, {len(unknown)} coverage item(s)")
     return "\n".join(lines)

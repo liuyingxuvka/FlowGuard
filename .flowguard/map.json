@@ -933,7 +933,8 @@
         "render audit evidence with BLOCKED CLEAR UNCHECKED or unfinished-job RUNNING from one payload; finished audits exit zero, usage errors exit two, capped or incomplete work never becomes CLEAR, and JSON is one line",
         "explain and freshly reprove audit findings on demand against the current source with actual deciding outcomes; expose coverage and proof failures without treating stored recipes as current verdicts",
         "when a supported executable skeleton cannot be derived or built, report the real source entries, required Calls TempProject or MACHINE world and missing input contents without executing an empty world or inventing an available API; offer only existing source-bound pin or UI corrections and retain all unjudged behavior and coverage",
-        "dispatch six read-only code-derived where forms before behavior interpreter restrictions, validate any available execution and ordinary test reach facts through the existing content and footprint owners, and pass facts to lower-layer projections without exploring, running tests or creating caches"
+        "dispatch six read-only code-derived where forms before behavior interpreter restrictions, validate any available execution and ordinary test reach facts through the existing content and footprint owners, and pass facts to lower-layer projections without exploring, running tests or creating caches",
+        "include the freshly computed nonblocking text-rule source report in pilot init and audit and on-demand text views without adding its lexical facts to blocking behavior findings or storing dispositions"
       ],
       "files": [
         "flowguard/behave/*.py",
@@ -946,7 +947,8 @@
         "map-derived",
         "map-discover",
         "map-inventory",
-        "map-proof"
+        "map-proof",
+        "map-rules"
       ],
       "tests": [
         "tests/behave/test_entry.py",
@@ -968,11 +970,12 @@
         "tests/behave/test_audit_command.py",
         "tests/behave/test_audit_output.py",
         "tests/behave/test_no_skeleton.py",
-        "tests/behave/test_where.py"
+        "tests/behave/test_where.py",
+        "tests/behave/test_text_report.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b79f4a799d96a13178e584b96cd9b8578aab8794045428a275200dacef7a2815"
+      "fingerprint": "sha256:9d9afd754689322298ac7f5cd3bf2eadd0739541fecbc2bba73dd383786f00fc"
     },
     {
       "id": "map-derived",
@@ -1003,6 +1006,36 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:4d24ff08605b8ed8874bf693553486201e58f3aa12df6e0ecde0a401bd22b395"
+    },
+    {
+      "id": "map-rules",
+      "layer": "map",
+      "summary": "Computed source-bound text rule reports: repeated literal passages, code spelling and path references, and attributed text for the same actual workflow; no semantic conflict verdict or stored dispositions.",
+      "responsibilities": [
+        "compute text-rule facts on demand from the selected source tree and the shared inventory discovery and text-reference owners without a second parser or persistent registry",
+        "retain ordinary text and quoted passages with real path line spans normalized fingerprints and available Git provenance; group shared literal fragments without claiming semantic equivalence",
+        "distinguish exact source spelling or path existence from a licensed owner binding and preserve missing dynamic or constructed reference evidence as unknown",
+        "associate workflow text only through actual complete command or source-reference evidence and present both original passages including wording differences without inventing conflict decisions",
+        "render compact nonblocking summaries by default in human and JSON form and expose complete facts only when explicitly requested"
+      ],
+      "files": [
+        "flowguard/map/textrules.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-derived",
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_map_textrules.py"
+      ],
+      "models": [],
+      "status": "confirmed",
+      "fingerprint": "sha256:4031f896ea7dad8a233f8e5206d737391b0b23af55f30f2b24adcedcd031573b"
     }
   ],
   "flows": [

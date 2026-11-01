@@ -97,7 +97,15 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = where(options.root, options.name, view=options.view, at=options.at,
                            execution=_where_facts(options.root, options.at))
+            text_facts = None
+            if options.view == "text":
+                import json
+                from flowguard.map.textrules import report as text_report, render as text_render
+                text_facts = text_report(options.root, at=result.get("revision") if options.at is not None else None)
+                result["textrules"] = json.loads(text_render(text_facts, as_json=True))
             print(render(result, as_json=options.json))
+            if text_facts is not None and not options.json:
+                print(text_render(text_facts))
             return 0
         except (ValueError, OSError) as exc:
             parser.error(str(exc))
@@ -175,15 +183,16 @@ def main(argv: list[str] | None = None) -> int:
         path = write_pins(options.root, spec)
     except NoSkeleton as exc:
         print(render_fallback(exc.facts))
-        return 0
     except UnsupportedWorld as exc:
         print(render_fallback(fallback_facts(options.root, str(exc))))
-        return 0
     except (ValueError, OSError) as exc:
         print("ERROR " + str(exc), file=sys.stderr)
         return 1
-    print(render(spec))
-    print("pins: " + str(path))
+    else:
+        print(render(spec))
+        print("pins: " + str(path))
+    from flowguard.map.textrules import report as text_report, render as text_render
+    print(text_render(text_report(options.root)))
     return 0
 
 

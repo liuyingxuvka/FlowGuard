@@ -66,6 +66,7 @@ def _cached(path, identity):
 def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_cap=None, use_cache=True, starts=None, base=None):
     """Explore actual worlds; missing check implementations remain explicit on every call."""
     tick = time.monotonic()
+    from flowguard.map.textrules import report as text_report
     def unjudged(facts, errors=None):
         scope = audit_scope(root, facts, [], base=base, elapsed=time.monotonic() - tick)
         entries = [row["path"] + ":" + row["symbol"] for row in facts["entries"]]
@@ -74,7 +75,8 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
                 "engine_defects": [], "facts_reused": 0,
                 "missing_checks": ["GC" + str(number) for number in range(1, 10)],
                 "coverage": {**scope, "front_doors": entries, "ui": "not explored"},
-                "fallback": facts, "next": "python -m flowguard template --list"}
+                "fallback": facts, "textrules": text_report(root),
+                "next": "python -m flowguard template --list"}
     try:
         spec = derive(root)
     except NoSkeleton as exc:
@@ -296,6 +298,7 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
     latest = {"identity": identity, "coverage": result["coverage"], "inputs": result["inputs"], "engine_defects": engine_defects,
               "runs": [{key: value for key, value in run.items() if key != "facts"} | {"extent": run["facts"]["extent"]} for run in runs], "footprint": footprint}
     atomic_write_text(directory / "latest-audit-facts.json", json.dumps({"identity": identity, "body": state_key(latest), "facts": latest}, ensure_ascii=False))
+    result["textrules"] = text_report(root)
     return result
 
 
