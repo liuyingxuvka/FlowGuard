@@ -155,29 +155,51 @@ def _retire_record(root: Path, identifier: str) -> dict:
     return item
 
 
+def _missing_record(path: Path, relative: Path):
+    """What stands where a retire record should be when no regular file is there; None when one is."""
+    name = relative.as_posix()
+    if path.is_file():
+        return None
+    if path.is_symlink():
+        return (f"is missing: {name} is a symbolic link to {os.readlink(path)}"
+                + ("" if path.exists() else ", which does not exist"))
+    if path.is_dir():
+        return f"is missing: a directory stands at {name}"
+    if os.path.lexists(path):
+        return f"is missing: {name} is not a regular file"
+    return f"is missing: {name} was deleted"
+
+
+def _retire_states(root: Path) -> dict:
+    """(kind, problem) of every retire record: the one check behind status and map check.
+
+    kind is None (verified here), 'unverified', 'missing', 'unreadable' or 'edited'."""
+    states = {}
+    for identifier in _stems(root, RETIRED_DIR):
+        relative = RETIRED_DIR / (identifier + '.json')
+        missing = _missing_record(root / relative, relative)
+        if missing:
+            states[identifier] = ('missing', missing)
+            continue
+        try:
+            _retire_record(root, identifier)
+            states[identifier] = (None, None)
+        except Unverifiable:
+            states[identifier] = ('unverified', "cannot be checked here: " + NO_ORIGINAL_FACT)
+        except OSError as error:
+            states[identifier] = ('unreadable', f"cannot be read: {error}")
+        except ValueError as error:
+            states[identifier] = ('edited', f"edited: {error}")
+    return states
+
+
 def retired_requests(root: Path) -> dict:
     """Every retire record as written, by request ID, with its integrity problem (None when verified here).
 
     A retire record applies for display in every checkout; whether its bytes can be verified is a separate
-    fact that status names and request_findings reports (request_retire_edited, request_retire_unreadable,
-    immutable_unverified)."""
-    root = Path(root).resolve()
-    found = {}
-    for identifier in _stems(root, RETIRED_DIR):
-        relative = RETIRED_DIR / (identifier + '.json')
-        if not (root / relative).is_file():
-            found[identifier] = f"is missing: {relative.as_posix()} was deleted"
-            continue
-        try:
-            _retire_record(root, identifier)
-            found[identifier] = None
-        except Unverifiable:
-            found[identifier] = "cannot be checked here: " + NO_ORIGINAL_FACT
-        except OSError as error:
-            found[identifier] = f"cannot be read: {error}"
-        except ValueError as error:
-            found[identifier] = f"edited: {error}"
-    return found
+    fact that status names and request_findings reports (request_retire_missing, request_retire_unreadable,
+    request_retire_edited, immutable_unverified)."""
+    return {identifier: problem for identifier, (_, problem) in _retire_states(Path(root).resolve()).items()}
 
 
 def retire_request(root: Path, identifier: str, *, note: str | None = None) -> dict:
@@ -242,20 +264,14 @@ def request_findings(root: Path) -> list[Finding]:
                 findings.append(Finding('error', code, identifier,
                     f'{root / path} differs from the stored request: {problem}; '
                     f'{restore_advice(root, [path.as_posix()], common)}; a correction from the owner is a new request'))
-    for identifier in _stems(root, RETIRED_DIR):
+    for identifier, (kind, problem) in _retire_states(root).items():
         path = RETIRED_DIR / (identifier + '.json')
-        try:
-            _retire_record(root, identifier)
-        except Unverifiable:
+        if kind == 'unverified':
             unverified.append(path)
-        except OSError as error:
-            findings.append(Finding('error', 'request_retire_unreadable', identifier,
-                f'{root / path} cannot be read: {error}; it still hides {identifier} from the owner\'s words; '
-                f'{restore_advice(root, [path.as_posix()], common)}'))
-        except ValueError as error:
-            findings.append(Finding('error', 'request_retire_edited', identifier,
-                f'{root / path}: {error}; retire records are written once; '
-                f'{restore_advice(root, [path.as_posix()], common)}'))
+        elif kind is not None:
+            findings.append(Finding('error', 'request_retire_' + kind, identifier,
+                f'retire record {identifier} {problem}; it still hides {identifier} from the owner\'s words; '
+                f'retire records are written once; {restore_advice(root, [path.as_posix()], common)}'))
     if unverified:
         findings.append(Finding('info', 'immutable_unverified', '',
             f'{len(unverified)} request file(s) cannot be checked against their original bytes here '

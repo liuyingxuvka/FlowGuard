@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -531,3 +532,33 @@ def test_an_edited_request_beyond_the_newest_three_is_named(tmp_path, capsys):
     named = [line for line in output.splitlines() if line.startswith("WARNING request R1 ")]
     assert len(named) == 1 and "edited after it was stored" in named[0], output
     assert "checkout -- .flowguard/requests/R1.md" in named[0] and "Words someone else wrote." not in output, output
+
+
+@pytest.mark.parametrize("stand_in, what", [
+    ("nothing", "is missing: .flowguard/requests/retired/R1.json was deleted"),
+    ("directory", "is missing: a directory stands at .flowguard/requests/retired/R1.json"),
+    pytest.param("broken link", "is missing: .flowguard/requests/retired/R1.json is a symbolic link to ",
+                 marks=pytest.mark.skipif(sys.platform == "win32", reason="a symbolic link needs extra rights on Windows")),
+])
+def test_a_retire_record_that_is_not_a_file_is_named_for_what_stands_there(tmp_path, capsys, stand_in, what):
+    """Status and map check name what stands where the record was, with one code that matches the message."""
+    import shlex
+    import subprocess
+    from flowguard.map.requests import request_findings, retired_requests
+    root, _ = _retired_copy_without_git(tmp_path, capsys)
+    record = root / ".flowguard/requests/retired/R1.json"
+    record.unlink()
+    if stand_in == "directory":
+        record.mkdir()
+    elif stand_in == "broken link":
+        record.symlink_to(tmp_path / "nowhere" / "R1.json")
+    assert retired_requests(root)["R1"].startswith(what), retired_requests(root)
+    named = [line for line in _call(root, capsys, "status")[1].splitlines() if "retire record" in line]
+    assert len(named) == 1 and named[0].startswith("WARNING retire record R1 " + what), named
+    assert "edited" not in named[0] and (stand_in == "nothing") == ("was deleted" in named[0]), named
+    findings = request_findings(root)  # map check: request_retire_missing, never request_retire_edited
+    assert [(item.code, item.component) for item in findings] == [("request_retire_missing", "R1")], findings
+    assert what in findings[0].message and "edited" not in findings[0].message, findings[0].message
+    command = re.search(r"\((git -C .*?) when committed\)", named[0])
+    subprocess.run(shlex.split(command[1]), check=True, capture_output=True)
+    assert retired_requests(root) == {"R1": None} and request_findings(root) == []
