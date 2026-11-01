@@ -502,12 +502,19 @@ KEEPS = ('event', 'parent_in_target', 'bucket')
 
 
 def _portable_error_advice_facts():
+    import json
     import shlex
     from flowguard.__main__ import _verb_parser
+    from _target_fixture import call_target
+    facts = []
     with TemporaryDirectory(prefix='fg-error-advice-') as directory:
         root = make_project(Path(directory))
-        with redirect_stdout(StringIO()):
-            native.start_target(root, 'inspect the actual target error')
+        call_target(root, 'start', 'inspect the actual target error')
+        call_target(root, 'add', 'component:loans')
+        path = root / '.flowguard/target/map.json'
+        data = json.loads(path.read_text(encoding='utf-8'))
+        data['components'][0]['depends_on'].append('ghost')
+        path.write_text(json.dumps(data), encoding='utf-8')
         report = native.check_target(root, models=False)
         item = native._target_advice(report, root)
         words = shlex.split(item['command'])
@@ -516,4 +523,20 @@ def _portable_error_advice_facts():
             with redirect_stderr(StringIO()):
                 args = _verb_parser('target').parse_args(words[4:])
             valid = args.root == str(root.resolve()) and 'fix the target design' in item.get('note', '')
-        return (Fact('error_advice_preserves_failure_and_absolute_check', valid, repr((report.errors, item))),)
+        facts.append(Fact('error_advice_preserves_failure_and_absolute_check', valid, repr((report.errors, item))))
+    with TemporaryDirectory(prefix='fg-noop-advice-') as directory:
+        # An empty target's next step runs as printed and leaves the state: it drops the target that changes nothing.
+        root = make_project(Path(directory))
+        with redirect_stdout(StringIO()):
+            native.start_target(root, 'nothing changed yet')
+        report = native.check_target(root, models=False)
+        item = native._target_advice(report, root)
+        words = shlex.split(item['command'])
+        valid = ([finding.code for finding in report.errors] and all(finding.code == 'target_noop' for finding in report.errors)
+                 and item['id'] == 'target' and words[:6] == ['python', '-m', 'flowguard', 'target', 'drop', '--yes'])
+        if valid:
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = native.main([*words[4:]])
+            valid = code == 0 and not (root / '.flowguard/target').exists()
+        facts.append(Fact('noop_advice_runs_and_leaves_the_empty_target', bool(valid), repr((report.errors, item))))
+    return tuple(facts)

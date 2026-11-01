@@ -351,6 +351,18 @@ def component_state(root: Path, comp: dict, inv: Inventory, data: dict) -> str:
     return "stale"
 
 
+def confirm_components(root: Path, data: dict, ids, inv: Inventory) -> None:
+    """Accept these components' descriptions as current: status confirmed and a fresh fingerprint (in place)."""
+    by_id = {c["id"]: c for c in data["components"]}
+    for cid in ids:
+        component = by_id[cid]
+        component.pop("_hint", None)
+        component["status"], component["fingerprint"] = "confirmed", fingerprint(root, component_files(component, inv))
+    if all(c.get("status") != "confirmed" or c.get("fingerprint") == fingerprint(root, component_files(c, inv))
+           for c in data["components"]):
+        data["fingerprint_format"] = FINGERPRINT_FORMAT
+
+
 def is_stale(root: Path, comp: dict, inv: Inventory) -> bool:
     return comp.get("status") == "confirmed" and comp.get("fingerprint") != fingerprint(root, component_files(comp, inv))
 

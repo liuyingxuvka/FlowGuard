@@ -173,9 +173,10 @@ def test_target_check_planned_component_is_todo_then_clean(tmp_path, capsys):
     code, output, errors = _check_without_writes(root, capsys)
     assert code == 3 and not errors, (output, errors)
     assert not any(line.startswith("ERROR ") for line in output.splitlines()), output
-    for finding in ("component_empty", "anchor_broken", "dep_unused"):
-        assert any(line.startswith("TO-DO ") and finding in line for line in output.splitlines()), output
-    assert any(line.startswith("WARN ") and "test_missing" in line for line in output.splitlines())
+    assert any(line.startswith("TO-DO ") and "anchor_broken" in line for line in output.splitlines()), output
+    for finding in ("component_empty", "dep_unused", "test_missing"):
+        assert any(line.startswith("INFO ") and finding in line for line in output.splitlines()), output
+        assert not any(line.startswith(("TO-DO ", "WARN ")) and finding in line for line in output.splitlines()), output
     _assert_current_lending(root, capsys)
     for relative in ("shelf/reports.py", "tests/test_reports.py"):
         (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
@@ -439,10 +440,8 @@ def test_target_promote_real_shelf_lifecycle_without_dropping_bindings(tmp_path,
     assert not directory.exists()
     assert (root / ".flowguard/models/lending.py").read_bytes() == checked_model
     loans = next(component for component in _load_map(root)["components"] if component["id"] == "loans")
-    assert loans["status"] == "draft" and "fingerprint" not in loans
+    assert loans["status"] == "confirmed" and loans["fingerprint"].startswith("sha256:"), loans
     assert "tests/test_loans.py" in loans["tests"]
-    code, output, errors = _run(root, capsys, "map", "confirm", "loans")
-    assert code == 0 and not errors, (output, errors)
     code, output, errors = _run(root, capsys, "map", "check")
     assert code == 0 and "0 error(s), 0 warning(s)" in output and not errors, (output, errors)
     code, output, errors, results = _run_models_with_results(root, capsys, "lending", "--tests")
@@ -475,12 +474,12 @@ def test_target_promote_adds_reports_and_removes_the_requested_flow(tmp_path, ca
     assert not directory.exists()
     data = _load_map(root)
     reports = next(component for component in data["components"] if component["id"] == "reports")
-    assert reports["status"] == "draft" and "fingerprint" not in reports
+    assert reports["status"] == "confirmed" and reports["fingerprint"].startswith("sha256:"), reports
     assert not any(flow["id"] == "borrow" for flow in data["flows"])
     assert "next[confirm]" not in output
-    assert _run(root, capsys, "map", "confirm", "reports")[0] == 0
     code, output, errors = _run(root, capsys, "map", "check")
     assert code == 0 and "0 error(s)" in output and not errors, (output, errors)
+    assert not any(code in output for code in ("stale", "draft")), output
 
 
 def test_target_promote_keeps_replacement_filename_when_old_model_id_is_removed(tmp_path, capsys, monkeypatch):

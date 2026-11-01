@@ -789,11 +789,12 @@ def test_removed_component_file_hint_says_delete(tmp_path, capsys):
     unmapped = [
         line
         for line in output.splitlines()
-        if line.startswith("TO-DO ") and "file_unmapped" in line and "shelf/members.py" in line
+        if line.startswith("INFO ") and "file_unmapped" in line and "shelf/members.py" in line
     ]
     assert unmapped and unmapped[0].endswith(
-        "(delete the file, or give it an owner in the target)"
+        "(the target removes or re-files its owner: delete the file, or give it an owner in the target)"
     ), output
+    assert not any(line.startswith("TO-DO ") and "file_unmapped" in line for line in output.splitlines()), output
 
 
 def test_rule_reading_a_changed_table_is_changed():

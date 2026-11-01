@@ -15,7 +15,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field, replace
 
-from .common import (advice, render_advice, print_verdict, matches_any, content_digest,
+from .common import (SOURCE_EXTS, advice, render_advice, print_verdict, matches_any, content_digest,
                      atomic_write_text, normalize_newlines, project_command)
 from .inventory import build_inventory, function_digests
 from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract, save_map, validate_map
@@ -95,6 +95,7 @@ class TargetReport:
     errors: list[TargetFinding] = field(default_factory=list)
     todos: list[TargetFinding] = field(default_factory=list)
     warnings: list[TargetFinding] = field(default_factory=list)
+    info: list[TargetFinding] = field(default_factory=list)  # legacy-map upkeep, exactly as in map check: never blocks
     gaps: list[str] = field(default_factory=list)
     own_tests: list = field(default_factory=list)
     bound_tests: bool = False
@@ -102,7 +103,6 @@ class TargetReport:
     old: int = 0               # problems of unchanged models over unchanged code (warnings, never blocking)
     port_lines: list[str] = field(default_factory=list)
     promise_lines: list[str] = field(default_factory=list)
-    deleting: list = field(default_factory=list)   # file_unmapped TO-DOs of files a removed/re-filed component owned
     plan_items: list = field(default_factory=list)
 
 
@@ -308,8 +308,13 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     for finding in [*run_check(root, view.data, inv, view=view), *dropped_owner_findings(current, view.data, target)]:
         if finding.code in {"draft", "stale", "fingerprint_migrate"} and finding.component in replaced:
             continue
-        # Map-upkeep findings are information for map check and release; the legacy target route still lists them.
-        if finding.level == "info" and (finding.code not in MAP_UPKEEP or " (accepted debt: " in finding.message):
+        # Map-upkeep findings are information here exactly as in map check: never a TO-DO or a warning.
+        if finding.level == "info":
+            if finding.code in MAP_UPKEEP and " (accepted debt: " not in finding.message:
+                message = finding.message
+                if finding.code == "file_unmapped" and _left_by_target(finding, current, target, inv):
+                    message += " (the target removes or re-files its owner: delete the file, or give it an owner in the target)"
+                add("info", _finding_node(finding, tree), finding.code, message)
             continue
         if finding.code == "responsibility_reworded":
             add("warnings", _finding_node(finding, tree), finding.code, finding.message)
@@ -321,8 +326,6 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
         placeholder = "placeholder anchor " in finding.message
         level = "errors" if placeholder else "todos" if finding.code in TODO_CODES else "errors" if finding.level == "error" or finding.code in ERROR_CODES else "warnings"
         add(level, _finding_node(finding, tree), finding.code, finding.message)
-        if finding.code == "file_unmapped" and level == "todos" and _left_by_target(finding, current, target, inv):
-            report.deleting.append(report.todos[-1])
     if view.data.get("accepted_debts"):
         from .lint import run_lint
 
@@ -591,11 +594,9 @@ def _left_by_target(finding, current, target, inv):
         owner in planned and planned[owner].get("files") != before.get(owner, {}).get("files"))
 
 
-def _todo_next(code, deleting=False):
+def _todo_next(code):
     if code in {"model_test_broken", "tested_by_failed", "tested_by_misses_anchor", "test_missing"}:
         return "write the test the target binds"
-    if code == "file_unmapped" and deleting:
-        return "delete the file, or give it an owner in the target"
     if code in {"component_empty", "pattern_dead", "file_unmapped", "model_missing"}:
         return "create the file, or change the target's files"
     if code in {"dep_undeclared", "dep_unused", "layer_violation", "dependency_cycle"}:
@@ -614,6 +615,10 @@ def _target_advice(report: TargetReport, root: Path | None = None) -> dict[str, 
         return advice('test_command', project_command(project, 'target', 'promote'),
                       note=f'declare "test_commands" for the listed test files in {project / ".flowguard/map.json"}, '
                            'or bind them to a test FlowGuard can run, then run target promote')
+    if report.errors and all(finding.code == "target_noop" for finding in report.errors):
+        return advice('target', project_command(project, 'target', 'drop', '--yes'),
+                      note=f'the target changes nothing yet: edit the files under {project / TARGET_RELDIR} and run '
+                           'target check, or drop the empty target')
     identifier = "tests" if tests_only else "design" if report.errors else "code" if report.todos else "promote"
     note = ("write or fix the bound tests named in the ERROR lines" if tests_only else
             f"fix the target design (ERROR lines) in {project / TARGET_RELDIR} first" if report.errors else
@@ -623,7 +628,8 @@ def _target_advice(report: TargetReport, root: Path | None = None) -> dict[str, 
 
 def _target_codes(report: TargetReport) -> list[dict[str, str]]:
     return [dict(level=level, code=finding.code, subject=finding.node)
-            for level, findings in (("error", report.errors), ("todo", report.todos), ("warn", report.warnings))
+            for level, findings in (("error", report.errors), ("todo", report.todos), ("warn", report.warnings),
+                                    ("info", report.info))
             for finding in findings]
 
 
@@ -635,15 +641,17 @@ def render_target_report(report: TargetReport, *, root: Path | None = None) -> s
     lines.extend(report.gaps)
     lines.extend(report.promise_lines)
     lines.extend(report.port_lines)
-    for label, findings in (("ERROR", report.errors), ("TO-DO", report.todos), ("WARN ", report.warnings)):
+    for label, findings in (("ERROR", report.errors), ("TO-DO", report.todos), ("WARN ", report.warnings),
+                            ("INFO ", report.info)):
         for finding in findings:
             if finding.code == "no_gap":
                 continue
-            suffix = f" ({_todo_next(finding.code, finding in report.deleting)})" if label == "TO-DO" else ""
+            suffix = f" ({_todo_next(finding.code)})" if label == "TO-DO" else ""
             message = finding.message.replace("\n", "\n  ")
             lines.append(f"{label} {finding.node}: {finding.code}: {message}{suffix}")
     lines.append(f"target check: {len(report.errors)} error(s), {len(report.todos)} to-do, {len(report.warnings)} warning(s)"
-                 + (f" ({report.old} old)" if report.old else ""))
+                 + (f" ({report.old} old)" if report.old else "")
+                 + (f", {len(report.info)} info (legacy-map upkeep, not required)" if report.info else ""))
     next_step = _target_advice(report, root)
     lines.append(render_advice(next_step))
     if report.own_tests:
@@ -674,8 +682,9 @@ def _staging_paths(root, data, inputs, selected_tests):
         raise MapError(f"cannot list the files to stage: {error}") from error
     patterns = [pattern for component in data["components"]
                 for field in ("files", "tests") for pattern in component.get(field, [])]
+    # A new source file belongs to the change whether or not the legacy map gives it an owner (that is upkeep).
     owned_new = {path for path in untracked if path in inputs
-                 and (matches_any(path, patterns) or path in selected_tests)}
+                 and (matches_any(path, patterns) or path in selected_tests or Path(path).suffix in SOURCE_EXTS)}
     paths = sorted(path for path in (changed & indexed) | owned_new
                    if not Path(path).is_absolute() and ".." not in Path(path).parts
                    and not path.startswith(".flowguard/")
@@ -769,6 +778,15 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             else:
                 print("promote refused: checked inputs changed; run python -m flowguard target check")
             return 1
+        # The target's own component descriptions were reviewed inside the target: promotion confirms them,
+        # so the legacy map shows them current, not draft or stale.
+        from .mapfile import confirm_components
+        by_id = {component["id"]: component for component in merged["components"]}
+        confirm_components(root, merged, [component["id"] for component in target.data.get("components", [])
+                                          if component.get("id") in by_id and by_id[component["id"]].get("summary")
+                                          and by_id[component["id"]].get("responsibilities")],
+                           build_inventory(root, ignore_patterns(merged), with_bodies=False, write_cache=False,
+                                           import_roots=tuple(merged.get("import_roots", ()))))
         problems = validate_map(merged)
         if problems:
             if as_json:
@@ -798,7 +816,8 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             changed_paths=source_paths, plan=plan_facts, rules=rule_facts, stage=stage,
             checked=("This promotion ran one fresh target check with bound tests and the remaining "
                      f"function-selected tests; {len(report.warnings)} warning(s) remained. "
-                     "The tree identifies the checked post-promotion content, before later component confirmation."))
+                     "The tree identifies the checked post-promotion content, including the confirmation of the "
+                     "target's own components."))
         expected_inputs = {prepared_record["guard_path"]: prepared_record["guard_sha256"], **inputs}
         if _promotion_inputs(root, current) != expected_inputs:
             if as_json:

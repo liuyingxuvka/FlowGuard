@@ -156,6 +156,10 @@ def test_target_small_promotion_preserves_map_and_model_bytes(tmp_path, capsys):
     assert not report.errors and not report.todos, report
     current, draft = load_map(root), load_target(root)
     expected = build_target_view(root, current, draft).data
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import confirm_components, ignore_patterns
+    confirm_components(root, expected, [component["id"] for component in draft.data["components"]],
+                       build_inventory(root, ignore_patterns(expected), with_bodies=False, write_cache=False))
     expected_models = {name: (root / rel).read_bytes() for name, rel in draft.models.items()}
     assert expected_models and expected_models["shelf_rule.py"] != (root / ".flowguard/models/shelf_rule.py").read_bytes()
     capsys.readouterr()
@@ -171,7 +175,7 @@ def test_target_small_promotion_preserves_map_and_model_bytes(tmp_path, capsys):
     assert not (root / ".flowguard/target").exists()
     assert not any(flow["id"] == "borrow" for flow in load_map(root)["flows"])
     loans = next(c for c in load_map(root)["components"] if c["id"] == "loans")
-    assert loans["status"] == "draft" and "fingerprint" not in loans
+    assert loans["status"] == "confirmed" and loans["fingerprint"].startswith("sha256:"), loans
 
 
 def test_reworded_duty_is_not_owner_dropped(tmp_path, capsys):

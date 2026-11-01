@@ -1,4 +1,4 @@
-"""Promotion writes the checked merge, removes the target, leaves changed components draft, refuses changed inputs.
+"""Promotion writes the checked merge, removes the target, confirms the target's components, refuses changed inputs.
 
 It starts where the parent target_life_cycle stands right after a clean check
 (project_parent_state). Conformance replays each covering trace on a fresh small
@@ -30,7 +30,7 @@ TESTED_BY = {
     'promote_prints_owner_block': ['tests/test_requests.py:test_promote_prints_owner_block', 'tests/test_records.py:test_real_promotion_records_checked_plan_rules_and_function_diff'],
     'promote_makes_current_equal_merged': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
     'promote_leaves_no_target': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
-    'changed_components_become_draft': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
+    'target_components_confirmed': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'],
     'refusal_shows_findings': ['tests/test_target_life_cycle.py:test_refused_promote_prints_the_report',
                               'tests/test_target_life_cycle.py:test_unavailable_tests_next_names_test_commands'],
     'changed_inputs_refuse_promotion': ['tests/test_target_life_cycle.py:test_promote_refuses_inputs_changed_after_its_check',
@@ -50,7 +50,7 @@ class State:
     expected_model_revision: int
     target_count: int = 1
     edited: bool = False             # the checked inputs changed after the check
-    draft: bool = False              # the target's components are draft after promotion
+    confirmed: bool = False          # the target's own components are confirmed after promotion
     action: str = ""
     status: str = ""
     outcome: str = ""
@@ -102,15 +102,15 @@ class Promote:
               or state.current_edited and self.defect != "promote_overwrites_in_place_edit"):
             new = replace(state, action=event, status="refused")
         else:
-            new = replace(state, action=event, status="promoted", target_count=0, draft=True,
+            new = replace(state, action=event, status="promoted", target_count=0, confirmed=True,
                           current_map_revision=state.target_revision,
                           current_model_revision=state.expected_model_revision)
             if self.defect == "models_only":
                 new = replace(new, current_map_revision=state.current_map_revision)
             if self.defect == "retained_target":
                 new = replace(new, target_count=1)
-            if self.defect == "keeps_components_confirmed":
-                new = replace(new, draft=False)
+            if self.defect == "leaves_components_draft":
+                new = replace(new, confirmed=False)
         if new.status == "promoted" and self.defect == "staging_line_omits_target":
             new = replace(new, target_deletion_named=False)
         if new.status == "promoted" and self.defect == "owner_block_omits_line":
@@ -142,8 +142,9 @@ INVARIANTS = (
                                   "current map or model differs from the merge")),
     Invariant("promote_leaves_no_target", "successful promotion removes the target",
               lambda s, t: _holds(s.status != "promoted" or s.target_count == 0, "promotion retained the target")),
-    Invariant("changed_components_become_draft", "the target's components are draft after promotion",
-              lambda s, t: _holds(s.status != "promoted" or s.draft, "a changed component stayed confirmed")),
+    Invariant("target_components_confirmed",
+              "the target's own components are confirmed after promotion: their descriptions were reviewed in the target",
+              lambda s, t: _holds(s.status != "promoted" or s.confirmed, "a target component was left draft or stale")),
     Invariant("changed_inputs_refuse_promotion", "promote refused: checked inputs changed",
               lambda s, t: _holds(s.action != "PROMOTE" or not (s.edited or s.current_edited) or s.status == "refused",
                                   "a target whose checked inputs changed was promoted")),
@@ -161,7 +162,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "staging_line_omits_target", "promote_overwrites_in_place_edit", "unavailable_tests_point_at_design", "owner_block_omits_line", "record_omits_evidence")}
+            ("models_only", "retained_target", "leaves_components_draft", "promotes_after_edit", "refuses_silently", "staging_line_omits_target", "promote_overwrites_in_place_edit", "unavailable_tests_point_at_design", "owner_block_omits_line", "record_omits_evidence")}
 
 
 class RealPromotion:
@@ -180,7 +181,12 @@ class RealPromotion:
         (self.root / ".flowguard/target/PLAN.txt").write_text(
             'changes: shelf_rule.one_loan_step by RBlock "One loan step stays bounded."\n'
             'changes: shelf_rule.no_duplicate_step because "A duplicate step remains rejected."\n', encoding="utf-8")
-        self.expected = build_target_view(self.root, load_map(self.root), load_target(self.root)).data
+        from flowguard.map.inventory import build_inventory
+        from flowguard.map.mapfile import confirm_components, ignore_patterns
+        target = load_target(self.root)
+        self.expected = build_target_view(self.root, load_map(self.root), target).data
+        confirm_components(self.root, self.expected, [component["id"] for component in target.data.get("components", [])],
+                           build_inventory(self.root, ignore_patterns(self.expected), with_bodies=False, write_cache=False))
         self.expected_models = {path.name: path.read_bytes() for path in (self.root / ".flowguard/target/models").glob("*.py")}
         self.state, self.edit = initial_state, False
         self.current_edit = False
@@ -303,7 +309,7 @@ class RealPromotion:
                 same_models = all((self.root / ".flowguard/models" / name).read_bytes() == content
                                   for name, content in self.expected_models.items())
                 state = replace(state, status="promoted", target_count=int((self.root / ".flowguard/target").exists()),
-                                draft=loans["status"] == "draft",
+                                confirmed=loans["status"] == "confirmed" and loans.get("fingerprint", "").startswith("sha256:"),
                                 target_deletion_named=names_deletion and usable,
                                 record_evidence_kept=kept,
                                 owner_block_shown=("owner block (paste it unchanged into your final message):" in output.getvalue()

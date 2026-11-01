@@ -301,6 +301,10 @@ def _native_replay(scenario, program):
                     facts.append(Fact(scenario+":PROMOTE", code == 2 and snapshot(root) == before, str(code)))
                     continue
                 expected = build_target_view(root, load_map(root), target).data
+                from flowguard.map.inventory import build_inventory
+                from flowguard.map.mapfile import confirm_components, ignore_patterns
+                confirm_components(root, expected, [c["id"] for c in target.data.get("components", [])],
+                                   build_inventory(root, ignore_patterns(expected), with_bodies=False, write_cache=False))
                 models = {name: (root / rel).read_bytes() for name, rel in target.models.items()}
                 output = StringIO()
                 with redirect_stdout(output), redirect_stderr(StringIO()):
@@ -327,7 +331,7 @@ def _native_replay(scenario, program):
                               for name, content in models.items()) and
                           not (root / ".flowguard/target").exists() and
                           not any(flow["id"] == "borrow" for flow in load_map(root)["flows"]) and
-                          all(c["status"] == "draft" and "fingerprint" not in c
+                          all(c["status"] == "confirmed" and c["fingerprint"].startswith("sha256:")
                               for c in load_map(root)["components"] if c["id"] == "loans"))
             else:
                 raise ValueError("unknown finite replay operation " + action)

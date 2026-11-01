@@ -48,7 +48,7 @@ def _replay(item, elsewhere):
     argv = shlex.split(item["command"])
     assert argv[3] in {"read", "status", "map", "target"}
     if argv[3] == "target":
-        assert argv[4] == "check"  # Replaying advice must not promote or stage a target.
+        assert argv[4] in {"check", "drop"}  # Replaying advice must not promote or stage a target.
     if argv[3] == "map":
         assert argv[4] in {"scan", "digest", "find", "show", "models", "check", "lint"}
     elsewhere.mkdir(exist_ok=True)
@@ -90,17 +90,18 @@ def test_target_start_error_and_json_share_executable_advice(tmp_path, capsys):
     assert "target add" in _human(output) and "edit" in _human(output)
     assert _replay(start, tmp_path / "other cwd").returncode == 0
     code, output, errors = _call(root, capsys, "target", "check")
-    assert code == 1 and not errors and "ERROR " in output
+    assert code == 1 and not errors and "ERROR " in output and "target_noop" in output
     item, = _next(output, root)
-    assert "fix the target design" in _human(output)
-    result = _replay(item, tmp_path / "other cwd")
-    assert result.returncode in {0, 1}, (result.stdout, result.stderr)
+    assert "the target changes nothing yet" in _human(output)
     json_code, structured, errors = _call(root, capsys, "target", "check", "--json")
     assert json_code == code and not errors and len(structured.splitlines()) == 1
     payload = json.loads(structured)
     assert payload["verdict"] == "FAIL" and payload["codes"]
     assert {key: payload["next"][key] for key in ("id", "command")} == item
-    assert _call(root, capsys, "target", "check")[0] == 1
+    # The empty target's next step runs as printed and leaves the state instead of repeating the check.
+    result = _replay(item, tmp_path / "other cwd")
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert not (root / ".flowguard/target").exists()
 
 
 def test_target_todo_advice_executes_without_completing_the_plan(tmp_path, capsys):

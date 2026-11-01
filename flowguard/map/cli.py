@@ -31,7 +31,7 @@ from .common import (MAP_RELPATH, advice, finding_codes, print_findings, print_v
 from .impact import run_commands, changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
-from .mapfile import FINGERPRINT_FORMAT, format_guard, MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
+from .mapfile import FINGERPRINT_FORMAT, confirm_components, format_guard, MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
 from .proof import DEFAULT_JOBS, render_results, run_models
 from .scan import new_map
 from .tree import build_tree
@@ -421,13 +421,7 @@ def cmd_confirm(root: Path, a) -> int:
     if empty:
         print(f"fill summary and responsibilities before confirming: {empty}")
         return 1
-    for i in ids:
-        c = by_id[i]
-        c.pop("_hint", None)
-        c["status"], c["fingerprint"] = "confirmed", fingerprint(root, component_files(c, inv))
-    if all(c.get("status") != "confirmed" or c.get("fingerprint") == fingerprint(root, component_files(c, inv))
-           for c in data["components"]):
-        data["fingerprint_format"] = FINGERPRINT_FORMAT
+    confirm_components(root, data, ids, inv)
     save_map(root, data)
     suffix = f"; map fingerprint_format {FINGERPRINT_FORMAT}" if data.get("fingerprint_format") == FINGERPRINT_FORMAT else ""
     print(f"confirmed {len(ids)} component(s){suffix}")
