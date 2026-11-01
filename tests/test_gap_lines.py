@@ -26,8 +26,12 @@ def test_rule_broken_by_old_code_is_an_expected_gap(tmp_path):
     assert "EXPECTED GAP one:" in native.render_target_report(report)
     (root / "native.py").write_text("def value(): return 2\n")
     report = native.check_target(root)
-    assert not report.errors and not report.todos
+    assert not report.errors and [item.code for item in report.todos] == ["rule_changed_without_line"]
     assert "GAP CLOSED one:" in native.render_target_report(report)
+    (root / ".flowguard/target/PLAN.txt").write_text(
+        'changes: one.answer because "The native answer is intentionally raised to two."\n', encoding="utf-8")
+    report = native.check_target(root)
+    assert not report.errors and not report.todos
     assert native.promote_target(root) == 0
     assert "model_digests" in _load_map(root)
 
@@ -150,3 +154,77 @@ def test_helper_table_identity_ignores_unused_entries(tmp_path):
         if not item.endswith("(known-bad)")
     ]
     assert rules == ["~positive"], lines
+
+
+def _probe_git(root, *arguments):
+    import subprocess
+    subprocess.run(["git", "-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "-C", str(root),
+                    *arguments], check=True, capture_output=True)
+
+
+def test_unrelated_helper_edit_does_not_close_a_changed_rule(tmp_path, capsys):
+    import shutil
+    from flowguard.__main__ import main
+
+    root = tmp_path / "tid"
+    shutil.copytree(Path(__file__).parents[1] / "examples/shelf", root,
+                    ignore=shutil.ignore_patterns("target", "after", "__pycache__", "cache", ".git", "README.md"))
+    loans = root / "shelf/loans.py"
+    loans.write_text(loans.read_text() + '\n\ndef describe():\n    """Unrelated helper: not an anchor of any model."""\n'
+                     '    return "loans service"\n')
+
+    def call(*arguments):
+        code = main([*arguments, "--root", str(root)])
+        return code, capsys.readouterr().out
+
+    _probe_git(root, "init", "-q")
+    assert call("map", "confirm", "all")[0] == 0
+    _probe_git(root, "add", "-A")
+    _probe_git(root, "commit", "-qm", "base")
+    assert call("target", "start", "restate the member limit rule")[0] == 0
+    assert call("target", "add", "lending")[0] == 0
+    model = root / ".flowguard/target/models/lending.py"
+    source = model.read_text()
+    assert "== x) <= LIMIT for x" in source
+    model.write_text(source.replace("== x) <= LIMIT for x", "== x) < LIMIT + 1 for x"))
+    code, output = call("target", "check")
+    assert code == 3 and "rule_changed_without_line" in output, output
+    loans.write_text(loans.read_text().replace('return "loans service"', 'return "the loans service"'))
+    code, output = call("target", "check")
+    assert code == 3 and "rule_changed_without_line" in output, output
+    assert "gap closed by shelf/loans.py:describe" not in output
+    assert "changed but not an anchor of lending: shelf/loans.py:describe" in output, output
+
+
+@pytest.mark.parametrize("git", [True, False], ids=["git", "nogit"])
+@pytest.mark.parametrize("edit", ["unrelated_helper", "module_constant", "anchor_noop"])
+def test_changed_rule_needs_owner_line_whatever_else_changed(tmp_path, git, edit):
+    from flowguard.map import target as native
+    helpers = _fg403_helpers()
+    source = helpers["regular_source"](positive=True)
+    helpers["make_project"](tmp_path, source)
+    if git:
+        _probe_git(tmp_path, "init", "-q")
+        _probe_git(tmp_path, "add", "-A")
+        _probe_git(tmp_path, "commit", "-qm", "base")
+    native.start_target(tmp_path, "restate the lower bound")
+    native.add_to_target(tmp_path, "one")
+    model = tmp_path / ".flowguard/target/models/one.py"
+    model.write_text(source.replace("def _positive(s): return s >= 0", "def _positive(s): return s > -1"))
+    report = native.check_target(tmp_path)
+    assert any(item.code == "rule_changed_without_line" for item in report.todos), report
+    path = tmp_path / "native.py"
+    text = path.read_text()
+    path.write_text({"unrelated_helper": text.replace("def other_value(): return 1", "def other_value(): return 7"),
+                     "module_constant": text + "UNUSED = 3\n",
+                     "anchor_noop": text.replace("def value(): return 1", "def value():\n    unused = 0\n    return 1")}[edit])
+    report = native.check_target(tmp_path)
+    rendered = native.render_target_report(report)
+    assert not report.errors, rendered
+    assert any(item.code == "rule_changed_without_line" for item in report.todos), rendered
+    assert "gap closed by native.py:other_value" not in rendered
+    assert native.promote_target(tmp_path) == 1
+    (tmp_path / ".flowguard/target/PLAN.txt").write_text(
+        'changes: one.positive because "The lower bound is restated, not changed."\n', encoding="utf-8")
+    report = native.check_target(tmp_path)
+    assert not report.errors and not report.todos, native.render_target_report(report)

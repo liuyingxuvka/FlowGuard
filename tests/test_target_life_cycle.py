@@ -709,6 +709,8 @@ def test_target_check_runs_own_bound_tests_after_code(tmp_path, monkeypatch):
     assert not report.errors and report.todos and calls == []
     path = tmp_path / "native.py"
     path.write_text(path.read_text().replace("def value(): return 1", "def value(): return 2"))
+    (tmp_path / ".flowguard/target/PLAN.txt").write_text(
+        'changes: one.answer because "The answer is intentionally raised from one to two."\n', encoding="utf-8")
     report = native.check_target(tmp_path)
     assert not report.errors and not report.todos
     assert len(calls) == 1
@@ -716,11 +718,8 @@ def test_target_check_runs_own_bound_tests_after_code(tmp_path, monkeypatch):
     assert "GAP CLOSED one:" in output and "native.py" in output
     assert "bound tests: ran for one" in output
     base = tmp_path / ".flowguard/target/base.json"
-    # A damaged design identity is not an execution result. Fresh proof still
-    # runs once; with its source baseline unknown, name the rule's intended change.
+    # A damaged design identity is not an execution result. Fresh proof still runs once.
     base.write_text("not JSON: this is no stored execution verdict")
-    (tmp_path / ".flowguard/target/PLAN.txt").write_text(
-        'changes: one.answer because "The answer is intentionally raised from one to two."\n', encoding="utf-8")
     assert native.promote_target(tmp_path) == 0
     assert len(calls) == 2
     assert not (tmp_path / ".flowguard/target/base.json").exists()

@@ -413,7 +413,7 @@ def test_owner_text_edited_with_and_without_git(tmp_path, capsys, has_git):
         assert "owner_text_edited" in _call(clone, capsys, "map", "check", "--strict")[1]
 
 
-def test_request_receipts_survive_git_init(tmp_path, capsys):
+def test_request_after_git_init_is_checked_against_its_first_commit(tmp_path, capsys):
     root = _project(tmp_path / 'project', capsys)
     source = tmp_path / 'owner.md'
     source.write_bytes(b'Keep the original request across git init.\r\n')
@@ -423,7 +423,17 @@ def test_request_receipts_survive_git_init(tmp_path, capsys):
     original = body.read_bytes(), meta.read_bytes()
     assert _call(root, capsys, 'map', 'check', '--strict')[0] == 0
     _git(root, 'init', '-q')
-    assert _call(root, capsys, 'map', 'check', '--strict')[0] == 0
+    # Before its first commit a Git project has no original-byte fact for the nongit request.
+    code, output, _ = _call(root, capsys, 'map', 'check', '--strict')
+    assert code == 0 and 'immutable_unverified' in output and 'owner_text_edited' not in output, output
+    body.write_bytes(original[0] + b'edited')
+    code, output, _ = _call(root, capsys, 'map', 'check', '--strict')
+    assert code == 1 and 'owner_text_edited' in output and 'immutable sidecar' in output, output
+    body.write_bytes(original[0])
+    _git(root, 'add', '--', '.flowguard/requests')
+    _git(root, 'commit', '-qm', 'original request')
+    code, output, _ = _call(root, capsys, 'map', 'check', '--strict')
+    assert code == 0 and 'immutable_unverified' not in output, output
     from flowguard.map.records import _written_path
     common = Path(_git(root, 'rev-parse', '--git-common-dir').decode().strip())
     if not common.is_absolute():
@@ -431,8 +441,7 @@ def test_request_receipts_survive_git_init(tmp_path, capsys):
     competing = _written_path(root, body, common)
     competing.parent.mkdir(parents=True, exist_ok=True)
     competing.write_text(json.dumps(dict(path=body.as_posix(), sha256='0' * 64)), encoding='ascii')
-    code, output, _ = _call(root, capsys, 'map', 'check', '--strict')
-    assert code == 1 and 'conflicting first-write receipts' in output
+    assert _call(root, capsys, 'map', 'check', '--strict')[0] == 0  # a receipt never overrides the first commit
     competing.unlink()
     body.write_bytes(original[0] + b'edited')
     item = json.loads(original[1])

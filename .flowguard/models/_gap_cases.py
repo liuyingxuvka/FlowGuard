@@ -157,7 +157,8 @@ def native_cases():
             ok = "only the missing anchor symbol 'future_value' in native.py" in text and "conformance did not run" in text
         elif case in {"closed", "open"}:
             prefix = "GAP CLOSED" if case == "closed" else "GAP OPEN"
-            ok = prefix + " one:" in text and "native.py" in text and "NO GAP one:" not in text
+            ok = (prefix + " one:" in text and "native.py" in text and "NO GAP one:" not in text
+                  and "rule_changed_without_line" in result["todo_codes"])  # changed code never stands in for a PLAN line
         elif case == "shared_tuple":
             ok = result["goal"] == ["model one: ~answer"]
         elif case in {"native", "table", "anchor_exception"}:

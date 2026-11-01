@@ -31,7 +31,7 @@ NOT_MODELED = {}
 OUTPUTS = {'check': ('error', 'stale', 'clean')}
 TESTED_BY = {'error_finding_fails_check': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm',
  'tests/test_cli_main.py:test_json_verdict_only_with_flag',
- 'tests/test_requests.py:test_request_receipts_survive_git_init'],
+ 'tests/test_requests.py:test_request_after_git_init_is_checked_against_its_first_commit'],
  'strict_makes_draft_and_stale_errors': ['tests/test_cli_main.py:test_new_target_file_is_moving_but_strict_remains_an_error'],
  'identical_info_grouped': ['tests/test_map_check.py:test_identical_info_grouped_into_one_line'],
  'debt_needs_reason_and_expiry': ['tests/test_map_check.py:test_debt_without_expiry_refused'],
@@ -281,14 +281,21 @@ def _immutable_request_facts():
         meta = body.with_suffix('.json')
         original = body.read_bytes(), meta.read_bytes()
         data = load_map(root)
-        def observe(name, expected):
+        def observe(name, expected, info=()):
             inventory = build_inventory(root, ignore_patterns(data), write_cache=False)
             findings = run_check(root, data, inventory, strict=True)
             codes = {finding.code for finding in findings if finding.level == 'error'}
-            facts.append(Fact(name, codes == expected, repr(sorted(codes))))
+            notes = {finding.code for finding in findings if finding.level == 'info'}
+            facts.append(Fact(name, codes == expected and set(info) <= notes, repr((sorted(codes), sorted(notes)))))
+        def git(*args):
+            subprocess.run(['git', '-c', 'user.name=probe', '-c', 'user.email=probe@example.invalid',
+                            '-C', str(root), *args], check=True, capture_output=True)
         observe('immutable_before_git_is_clean', set())
-        subprocess.run(['git', '-C', str(root), 'init', '-q'], check=True, capture_output=True)
-        observe('immutable_after_git_init_is_clean', set())
+        git('init', '-q')
+        observe('immutable_after_git_init_is_unverified', set(), ('immutable_unverified',))
+        git('add', '--', '.flowguard/requests')
+        git('commit', '-qm', 'original request')
+        observe('immutable_after_first_commit_is_clean', set())
         body.write_bytes(original[0] + b'edited')
         item = json.loads(original[1])
         item.update(sha256=hashlib.sha256(body.read_bytes()).hexdigest(), bytes=len(body.read_bytes()))

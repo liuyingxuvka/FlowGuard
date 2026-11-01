@@ -4,6 +4,8 @@
 
 - The installed package leaves out the unreleased behavior engine (`flowguard.behave`, now including its job and input-stamp modules) and code for unfinished slices, also when it is built from a checkout that once had an editable install. That code stays in the source repository and its tests still run there.
 - A process-cleanup test no longer fails at random on a busy machine: each timeout in it now starts once the nested helper is running, and a slow helper start is part of the test.
+- A copy of a project without `.git`, or a moved project folder, no longer reports unchanged requests, request metadata or change records as edited: each file is checked against one original-byte source (its first Git commit once committed, otherwise the release snapshot or this checkout's first-write receipt), files with none are listed once as `immutable_unverified` info, owner text is still checked against its sidecar, and linking or quoting such a request is refused with `request_unverifiable`. Receipts no longer carry over `git init` or override the first commit, so every clone gives the same answer and a damaged receipt reports `receipt_unreadable`; this drops a protection that only a planner document, not the owner, had asked for.
+- In a target, every changed rule now needs a `changes:` line in PLAN.txt naming the owner's words or your reason, whatever code changed; editing an unrelated helper, a module constant or an anchor in a no-op way no longer closes the gap and skips that line. Only changes to a model's own anchors are reported as closing its gap, and NO GAP lists other changed functions in the anchor files as "changed but not an anchor".
 
 ## v0.71.1 - 2026-11-01 - Static source and original-text queries
 

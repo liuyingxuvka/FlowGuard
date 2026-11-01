@@ -13,6 +13,18 @@ from .common import Finding, atomic_write_text, normalize_newlines, sha256_bytes
 from .mapfile import MapError
 
 
+NO_ORIGINAL_FACT = ("this checkout holds no first commit, first-write receipt or release snapshot of the original "
+                    "bytes (a copy without .git, a moved folder, or a Git repository before the first commit)")
+
+
+class Unverifiable(Exception):
+    """No original-byte fact exists for this file here; that is not evidence of an edit."""
+
+    def __init__(self, relative: str):
+        self.relative = relative
+        super().__init__(f"cannot verify {relative} here: {NO_ORIGINAL_FACT}")
+
+
 def _git(root: Path, *arguments: str):
     try:
         return subprocess.run(["git", "-C", str(root), *arguments], capture_output=True)
@@ -47,7 +59,7 @@ def _written_directory(root: Path, common):
 
 
 def _written_directories(root: Path, common):
-    """Git initialization does not retire the original nongit receipts."""
+    """Receipt directories for path discovery and write refusal; only the current one supplies a digest."""
     current = _written_directory(root, common)
     previous = _written_directory(root, None)
     return (current,) if current == previous else (current, previous)
@@ -63,12 +75,14 @@ def _written_paths(root: Path, path: Path, common):
 
 
 def _receipt(path: Path):
-    text = path.read_text(encoding="ascii").strip()
     try:
-        value = json.loads(text)
-    except json.JSONDecodeError:
-        return {"sha256": text}  # Earlier local receipts contained only the digest.
-    return value if isinstance(value, dict) else {"sha256": text}
+        value = json.loads(path.read_text(encoding="ascii"))
+        if (not isinstance(value, dict) or not isinstance(value.get("path"), str)
+                or not re.fullmatch("[0-9a-f]{64}", str(value.get("sha256", "")))):
+            raise ValueError('expected {"path": ..., "sha256": ...}')
+    except (OSError, ValueError) as error:
+        raise MapError(f"receipt_unreadable: {path}: {error}") from error
+    return value
 
 
 RELEASE_DIR = Path('.flowguard/release-base')
@@ -94,26 +108,25 @@ def _release_records(root):
 
 
 def _stored_digest(root, path, relative, common):
-    """Original independent facts only; never hash current bytes to learn a baseline."""
-    receipts = [_receipt(written).get('sha256') for written in _written_paths(root, path, common)
-                if written.is_file()]
-    try:
-        snapshot = _release_records(root)
-    except MapError as error:
-        return None, str(error)
-    expected = snapshot['files'].get(relative) if snapshot is not None else None
-    if receipts:
-        if (any(value != receipts[0] for value in receipts[1:])
-                or expected is not None and expected != receipts[0]):
-            return None, f'immutable file has conflicting first-write receipts or release facts: {relative}'
-        return receipts[0], None
-    if expected is not None:
-        return expected, None
-    # A first Git commit is only a fallback when no earlier independent fact exists.
-    first = _first_blob(root, relative, common)
-    if first is not None:
-        return sha256_bytes(first), None
-    return None, f'immutable file has no first-write or committed baseline: {relative}'
+    """One original-byte source, chosen by the file's state; never hash current bytes to learn a baseline.
+
+    Committed in Git: its first committed blob. No Git and in the release snapshot: the snapshot.
+    Otherwise: this checkout's first-write receipt for the current mode. None of these: Unverifiable."""
+    if common is not None:
+        first = _first_blob(root, relative, common)
+        if first is not None:
+            return sha256_bytes(first), None
+    else:
+        try:
+            snapshot = _release_records(root)
+        except MapError as error:
+            return None, str(error)
+        if snapshot is not None and relative in snapshot['files']:
+            return snapshot['files'][relative], None
+    written = _written_path(root, path, common)
+    if written.is_file():
+        return _receipt(written)['sha256'], None
+    raise Unverifiable(relative)
 
 
 def _attribute_problem(root: Path, relative: str, common):
@@ -197,7 +210,9 @@ def _first_blob(root: Path, relative: str, common):
 
 
 def integrity_problem(root, relative_path):
-    """Return a byte-protection diagnostic; never learn a baseline from the file."""
+    """Return a byte-protection diagnostic; never learn a baseline from the file.
+
+    Raises Unverifiable when no original-byte fact exists here, so callers never report it as an edit."""
     root, path, relative = _paths(root, relative_path)
     if not path.is_file():
         return f"immutable file is missing: {relative}"
@@ -259,9 +274,7 @@ def protected_paths(root, relative_dir) -> set[str]:
             if not written.is_file():
                 continue
             receipt = _receipt(written)
-            absolute = receipt.get("path")
-            if not isinstance(absolute, str):
-                continue
+            absolute = receipt["path"]
             try:
                 Path(absolute).relative_to(directory)
                 candidate = Path(absolute).relative_to(root).as_posix()
@@ -270,7 +283,7 @@ def protected_paths(root, relative_dir) -> set[str]:
             if common is not None and not Path(absolute).exists() and candidate not in paths:
                 if historical is None:
                     historical = _named_paths(root, *log, "--all", "--", relative)
-                if candidate in historical and _committed_digest(root, candidate, receipt.get("sha256")):
+                if candidate in historical and _committed_digest(root, candidate, receipt["sha256"]):
                     continue
             paths.add(candidate)
     return {path for path in paths if Path(path).name != ".gitattributes"}
@@ -436,6 +449,8 @@ def change_records(root):
     for identifier in _record_identifiers(root):
         try:
             records.append((identifier, _change_record(root, identifier)))
+        except Unverifiable:
+            continue  # Not a fact here; record_findings reports immutable_unverified.
         except (OSError, ValueError, KeyError, TypeError, OverflowError):
             continue
     return records
@@ -450,7 +465,10 @@ def save_release_snapshot(root):
     files = {}
     for directory in (Path('.flowguard/requests'), CHANGE_DIR):
         for relative in sorted(protected_paths(root, directory)):
-            expected, problem = _stored_digest(root, root / relative, relative, common)
+            try:
+                expected, problem = _stored_digest(root, root / relative, relative, common)
+            except Unverifiable:
+                continue  # Never take a baseline from current bytes; check reports immutable_unverified.
             if problem:
                 raise MapError(problem)
             files[relative] = expected
@@ -522,9 +540,12 @@ def record_findings(root):
         _release_records(root)
     except MapError as error:
         findings.append(Finding('error', 'release_snapshot_invalid', '', str(error)))
+    unverified = []
     for identifier in _record_identifiers(root):
         try:
             _change_record(root, identifier)
+        except Unverifiable:
+            unverified.append(identifier)
         except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
             restore = shlex.join(["git", "-C", str(root), "checkout", "--",
                                   (CHANGE_DIR / (identifier + ".json")).as_posix(),
@@ -532,4 +553,8 @@ def record_findings(root):
             findings.append(Finding("error", "record_edited", identifier,
                                     f"{root / CHANGE_DIR / identifier}: {error}; records are written once; "
                                     f"restore the original pair ({restore} when committed)"))
+    if unverified:
+        findings.append(Finding("info", "immutable_unverified", "",
+                                f"{len(unverified)} change record(s) not used here (first: {CHANGE_DIR / unverified[0]}): "
+                                f"{NO_ORIGINAL_FACT}; check them in a checkout that holds one"))
     return findings
