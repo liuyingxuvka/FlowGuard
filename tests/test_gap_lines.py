@@ -228,3 +228,64 @@ def test_changed_rule_needs_owner_line_whatever_else_changed(tmp_path, git, edit
         'changes: one.positive because "The lower bound is restated, not changed."\n', encoding="utf-8")
     report = native.check_target(tmp_path)
     assert not report.errors and not report.todos, native.render_target_report(report)
+
+
+@pytest.mark.parametrize("git", [True, False], ids=["git", "nogit"])
+def test_gap_closed_credits_only_anchored_functions(tmp_path, git):
+    from flowguard.map import target as native
+    helpers = _fg403_helpers()
+    source = helpers["regular_source"](positive=True)
+    helpers["make_project"](tmp_path, source)
+    if git:
+        _probe_git(tmp_path, "init", "-q")
+        _probe_git(tmp_path, "add", "-A")
+        _probe_git(tmp_path, "commit", "-qm", "base")
+    native.start_target(tmp_path, "restate the lower bound")
+    native.add_to_target(tmp_path, "one")
+    model = tmp_path / ".flowguard/target/models/one.py"
+    model.write_text(source.replace("def _positive(s): return s >= 0", "def _positive(s): return s > -1"))
+    path = tmp_path / "native.py"
+    path.write_text(path.read_text() + "UNUSED = 3\n")
+    rendered = native.render_target_report(native.check_target(tmp_path))
+    if git:
+        assert "GAP CLOSED one" not in rendered, rendered
+        assert "changed but not an anchor of one: native.py (module level)" in rendered, rendered
+    else:
+        line = next(line for line in rendered.splitlines() if line.startswith("GAP CLOSED one"))
+        assert "gap closed by" not in line and "without Git only whole-file facts exist" in line, line
+    path.write_text(path.read_text().replace("def value(): return 1", "def value():\n    return 1"))
+    path.write_text(path.read_text().replace("def value():\n    return 1", "def value():\n    answer = 1\n    return answer"))
+    rendered = native.render_target_report(native.check_target(tmp_path))
+    line = next(line for line in rendered.splitlines() if line.startswith("GAP CLOSED one"))
+    if git:
+        assert "gap closed by native.py:value " in line, line
+    else:
+        assert "without Git only whole-file facts exist" in line, line
+
+
+@pytest.mark.parametrize("git", [True, False], ids=["git", "nogit"])
+def test_a_helper_change_in_an_anchor_file_still_runs_the_bound_tests(tmp_path, git):
+    from flowguard.map import target as native
+    helpers = _fg403_helpers()
+    source = helpers["regular_source"](positive=True).replace(
+        "TESTED_BY = {}", 'TESTED_BY = {"positive": ["tests/test_native.py:test_value"]}')
+    helpers["make_project"](tmp_path, source)
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/test_native.py").write_text(
+        "from native import other_value, value\n\ndef test_value():\n    assert value() == 1 and other_value() == 1\n")
+    if git:
+        _probe_git(tmp_path, "init", "-q")
+        _probe_git(tmp_path, "add", "-A")
+        _probe_git(tmp_path, "commit", "-qm", "base")
+    native.start_target(tmp_path, "restate the lower bound")
+    native.add_to_target(tmp_path, "one")
+    model = tmp_path / ".flowguard/target/models/one.py"
+    model.write_text(source.replace("def _positive(s): return s >= 0", "def _positive(s): return s > -1"))
+    path = tmp_path / "native.py"
+    path.write_text(path.read_text().replace("def other_value(): return 1", "def other_value(): return 7"))
+    report = native.check_target(tmp_path)
+    rendered = native.render_target_report(report)
+    assert report.own_tests == ["one"], rendered
+    assert any(item.code == "tested_by_failed" for item in report.errors), rendered
+    if git:
+        assert "GAP CLOSED one" not in rendered, rendered

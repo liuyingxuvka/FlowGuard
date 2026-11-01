@@ -276,7 +276,8 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     changed_paths = target_model_paths(root, current, target)
     target_ids = {mid for mid, node in tree.nodes.items() if node.path in changed_paths}
     code_changes, unanchored = _code_changes(root, tree, target_ids, base=base) if models else ({}, {})
-    code_changed = set(code_changes) if not tests else set()
+    # A model with any change in its anchor files runs its bound tests here; running tests credits no gap.
+    code_changed = set(code_changes) | set(unanchored) if not tests else set()
     seen = set()
 
     def add(level, node, code, message):
@@ -510,13 +511,15 @@ def gap_lines(root, target, view, report, results, *, goal=None, code_changes=No
                 changed_rules.update((mid, item[1:]) for item in rules if item.startswith("~"))
             symbols = (code_changes or {}).get(mid, [])
             if symbols:
-                changed = ", ".join(symbols[:5])
-                if len(symbols) > 5:
-                    changed += f" +{len(symbols)-5} more"
                 if gaps:
-                    output.append(f"GAP OPEN {mid}: {len(gaps)} code gap(s) for {names} after code changes in {changed}; first: {first}")
+                    output.append(f"GAP OPEN {mid}: {len(gaps)} code gap(s) for {names} after code changes in "
+                                  f"{_listed(symbols)}; first: {first}")
                 else:
-                    output.append(f"GAP CLOSED {mid}: {names} hold; gap closed by {changed} (changed since target start)")
+                    files = [symbol for symbol in symbols if " (whole file: " in symbol]
+                    named = [symbol for symbol in symbols if symbol not in files]
+                    clauses = ([f"gap closed by {_listed(named)} (changed since target start)"] if named else [])
+                    clauses += [f"{_listed(files)} changed since target start"] if files else []
+                    output.append(f"GAP CLOSED {mid}: {names} hold; " + "; ".join(clauses))
             elif gaps:
                 missing = [re.search(r"symbol '([^']+)' not found in (\S+)", gap) for gap in gaps]
                 if all(missing):
@@ -526,8 +529,7 @@ def gap_lines(root, target, view, report, results, *, goal=None, code_changes=No
                     output.append(f"EXPECTED GAP {mid}: {len(gaps)} code gap(s) for {names}; first: {first}")
             else:
                 other = (unanchored or {}).get(mid, [])
-                hint = (f"; changed but not an anchor of {mid}: " + ", ".join(other[:5])
-                        + (f" +{len(other)-5} more" if len(other) > 5 else "")) if other else ""
+                hint = f"; changed but not an anchor of {mid}: {_listed(other)}" if other else ""
                 output.append(f"NO GAP {mid}: the current code satisfies {names}{hint}; a changed rule needs a line in .flowguard/target/PLAN.txt, a new rule records existing behaviour; otherwise conformance() does not drive the real entry (check its call shape)")
         elif moved:
             donors = {}
@@ -540,6 +542,10 @@ def gap_lines(root, target, view, report, results, *, goal=None, code_changes=No
             detail = f"{len(gaps)} code gap(s) are TO-DO; first: {first}" if gaps else "no gap expected"
             output.append(f"no rule change: {mid} (no new or changed rule; {detail})")
     return output
+
+
+def _listed(items):
+    return ", ".join(items[:5]) + (f" +{len(items) - 5} more" if len(items) > 5 else "")
 
 
 OLD_NOTE = ("(already in the current tree; the target does not change this model or its code; "

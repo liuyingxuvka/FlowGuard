@@ -5,7 +5,7 @@ import hashlib
 import json
 import subprocess
 from datetime import datetime, timezone
-from .common import normalize_newlines, read_source
+from .common import git_blob, normalize_newlines, read_source
 from .inventory import build_inventory, function_digests
 from .mapfile import ignore_patterns, load_map
 from .targetfile import TARGET_RELDIR, model_helper_digests
@@ -133,10 +133,15 @@ def _target_base(root):
         return {"git": "HEAD"} if _git_head(root) else {}
 
 
+NO_GIT_FACTS = "without Git only whole-file facts exist"
+
+
 def _code_changes(root, tree, model_ids, *, base=None):
     """(changes to each model's owned and consumed anchors, other changes in its anchor files) since target start.
 
-    Only the first is credited to a model; the second is reported, never counted."""
+    With Git a Python anchor file gives function facts: only a changed anchor, or a function nested in it, is
+    credited; other functions and module-level code are reported, never counted. A file without function facts
+    (no Git, not Python, removed, does not parse) is one whole-file change that says so."""
     base = _target_base(root) if base is None else base
     if "git" not in base and "files" not in base:
         return {}, {}
@@ -156,24 +161,20 @@ def _code_changes(root, tree, model_ids, *, base=None):
             before = base["files"].get(path, {}).get("sha256")
             after = hashlib.sha256(raw).hexdigest() if raw is not None else None
             if before != after:
-                changes[path] = [path]
+                changes[path] = [(f"{path} (whole file: {NO_GIT_FACTS})", True)]
             continue
-        previous = _git(root, "show", base["git"] + ":" + path)
-        old = (
-            previous.stdout
-            if previous is not None and previous.returncode == 0
-            else None
-        )
+        old = git_blob(root, base["git"], path)  # None: added since the base; a failing Git raises
         if old == raw:
             continue
         if raw is None or not path.endswith(".py"):
-            changes[path] = [path]
+            reason = "removed" if raw is None else "not Python source, so no function facts"
+            changes[path] = [(f"{path} (whole file: {reason})", True)]
             continue
         try:
             before = function_digests(normalize_newlines(old or b"").decode("utf-8"))
             after = function_digests(normalize_newlines(raw).decode("utf-8"))
-        except (UnicodeError, SyntaxError, ValueError):
-            changes[path] = [path]
+        except (UnicodeError, SyntaxError, ValueError) as error:
+            changes[path] = [(f"{path} (whole file: it does not parse: {error})", True)]
             continue
 
         def identities(digests):
@@ -201,26 +202,18 @@ def _code_changes(root, tree, model_ids, *, base=None):
                 name.startswith(parent + ".") for parent in changed if parent != name
             )
         )
-        if changed:
-            changes[path] = [path + ":" + name for name in changed]
-        elif (
+        changes[path] = [(path + ":" + name, False) for name in changed]
+        if (
             before["bindings"] != after["bindings"]
             or before["statements"] != after["statements"]
         ):
-            changes[path] = [path]
+            changes[path].append((path + " (module level)", False))
     output, unanchored = {}, {}
     for mid, items in anchors.items():
         relevant, other = [], []
         for path in sorted({anchor.partition(":")[0] for anchor in items}):
-            for changed in changes.get(path, []):
-                if any(
-                    anchor == changed
-                    or changed == path
-                    and anchor.partition(":")[0] == path
-                    or anchor.startswith(changed + ".")
-                    or changed.startswith(anchor + ".")
-                    for anchor in items
-                ):
+            for changed, whole_file in changes.get(path, []):
+                if whole_file or any(anchor == changed or changed.startswith(anchor + ".") for anchor in items):
                     relevant.append(changed)
                 else:
                     other.append(changed)
