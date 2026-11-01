@@ -264,3 +264,30 @@ def test_an_empty_target_prints_a_next_line_that_runs_and_leaves_the_state(tmp_p
     assert not (root / ".flowguard/target").exists()
     code, output, _ = _cli(root, capsys, "status")
     assert code == 0 and "OPEN CHANGE none" in output and not _next_lines(output), output
+
+
+def test_a_target_that_only_reviews_a_stale_description_ends_without_stale(tmp_path, capsys):
+    """target add component:loans, then only code edits: promotion confirms the reviewed description."""
+    root = _committed_shelf(tmp_path, capsys)
+    owner = tmp_path / "owner words.txt"
+    owner.write_text("Loans may charge a fee step.\n", encoding="utf-8")
+    code, output, _ = _cli(root, capsys, "req", "add", str(owner), "--id", "R1")
+    assert code == 0, output
+    _follow(output, tmp_path)
+    code, output, _ = _cli(root, capsys, "target", "start", "add a fee step", "--request", "R1")
+    assert code == 0, output
+    _follow(output, tmp_path)
+    assert _cli(root, capsys, "target", "add", "component:loans")[0] == 0
+    (root / "scratch.txt").write_text("unrelated\n")
+    (root / "shelf/fees.py").write_text("def step():\n    return 1\n")
+    (root / "shelf/loans.py").write_text("from shelf.fees import step\n\ndef advance(value):\n    return value + step()\n")
+    code, output, _ = _cli(root, capsys, "status")
+    assert code == 0
+    (checked,) = _follow(output, tmp_path)
+    assert "target_noop" not in checked, checked
+    assert not any(line.startswith(("TO-DO", "WARN", "ERROR")) for line in checked.splitlines()), checked
+    (promoted,) = _follow(checked, tmp_path)
+    assert "promoted" in promoted, promoted
+    _follow(promoted, tmp_path)
+    _commit_own_words_and_assert_no_stale(root, capsys)
+

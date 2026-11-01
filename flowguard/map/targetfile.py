@@ -301,7 +301,8 @@ def _comparable(data: dict) -> dict:
 
 def target_is_noop(root: Path, current_data: dict, target: Target) -> bool:
     """The merged map equals the current one (ignoring status, fingerprint, _hint), nothing is removed,
-    and every target model file has the same AST as the current file of that name (comments do not count)."""
+    every target model file has the same AST as the current file of that name (comments do not count),
+    and promotion would confirm no draft or stale description of the target's own components."""
     if any(target.remove.values()) or _comparable(merge_target_map(current_data, target)) != _comparable(current_data):
         return False
     for filename, physical in target.models.items():
@@ -312,7 +313,23 @@ def target_is_noop(root: Path, current_data: dict, target: Target) -> bool:
                 return False
         except (OSError, SyntaxError, ValueError):
             return False
-    return True
+    return not _confirms_a_description(root, current_data, target)
+
+
+def _confirms_a_description(root: Path, current_data: dict, target: Target) -> bool:
+    """Whether promotion would confirm a target component whose current description is draft or stale."""
+    from .inventory import build_inventory
+    from .mapfile import ignore_patterns, is_stale
+    ids = {component.get("id") for component in target.data.get("components", [])}
+    reviewed = [component for component in current_data["components"]
+                if component["id"] in ids and component.get("summary") and component.get("responsibilities")]
+    if not reviewed:
+        return False
+    if any(component.get("status") != "confirmed" for component in reviewed):
+        return True
+    inv = build_inventory(root, ignore_patterns(current_data), with_bodies=False, write_cache=False,
+                          import_roots=tuple(current_data.get("import_roots", ())))
+    return any(is_stale(root, component, inv) for component in reviewed)
 
 
 @dataclass(frozen=True)
