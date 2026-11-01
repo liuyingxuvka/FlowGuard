@@ -437,6 +437,9 @@ MODEL = m
     ("", "def pick(a, b):\n    return a", 's["perm", pick(*TOOLS)] = "yes"'),
     ("", "KEY = ('perm', 'T' + '1')", 's[KEY] = "yes"'),
     ("", "PERM = {u: u for u in TOOLS}\nFAV = 'T' + '1'", 's["perm", PERM[FAV]] = "yes"'),
+    ("", "", 'x = None\n    for u in TOOLS:\n        x = u\n    s["perm", x] = "yes"'),
+    ("", "", 'x = None\n    for u in TOOLS:\n        if s["done", u] is False:\n            x = u\n    s["perm", x] = "yes"'),
+    ("", "", 'for u in TOOLS:\n        pass\n    s["perm", u] = "yes"'),
     ("from counter.ids import MAIN_TOOL", "", 's["perm", MAIN_TOOL] = "yes"'),
     ("from fav import FAV", "", 's["perm", FAV] = "yes"'),
     ("", "", 'need(False, "never")\n\n@m.action(t=TOOLS)\ndef pass_(s, t):\n    need(t in "xT1", "not in the text")\n'

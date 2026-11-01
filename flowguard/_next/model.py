@@ -748,6 +748,38 @@ def _target_names(target) -> list[str]:
     return []
 
 
+def _binds(scope, name) -> bool:
+    """Whether a function, lambda or comprehension binds name itself (a parameter, an
+    assignment of its own, a comprehension target): then name there is not the outer one."""
+    if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        args = scope.args
+        params = [a.arg for a in args.posonlyargs + args.args + args.kwonlyargs] + \
+                 [a.arg for a in (args.vararg, args.kwarg) if a is not None]
+        if name in params:
+            return True
+        body = scope.body if isinstance(scope.body, list) else [scope.body]
+        return any(isinstance(n, ast.Name) and n.id == name and isinstance(n.ctx, ast.Store)
+                   for stmt in body for n in ast.walk(stmt))
+    return any(name in _target_names(g.target) for g in scope.generators)
+
+
+def _reads_outside(scope, loop, name) -> bool:
+    """Whether name is read in scope outside the loop (nested scopes that bind name
+    themselves read their own)."""
+    stack = list(ast.iter_child_nodes(scope))
+    while stack:
+        n = stack.pop()
+        if n is loop:
+            continue
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.GeneratorExp, ast.ListComp,
+                          ast.SetComp, ast.DictComp)) and _binds(n, name):
+            continue
+        if isinstance(n, ast.Name) and n.id == name and isinstance(n.ctx, ast.Load):
+            return True
+        stack.extend(ast.iter_child_nodes(n))
+    return False
+
+
 def _spread(form):
     """The form of a display that spreads a collection of this form (`[*IDS]`): its items in
     the order of the ids."""
@@ -1214,6 +1246,8 @@ class _IdUses:
             sh = self.shape(node.iter, env)
             if sh is not None and sh[0] in _COLLECTIONS and _element(sh[0]) == "scalar":
                 self.doubts.append((path, node.lineno, f"unpacks the text of a {sh[1]} id"))
+        if isinstance(node, (ast.For, ast.AsyncFor)):
+            self.judge_loop_keeps(path, node, env)
         if isinstance(node, ast.NamedExpr) and self.in_comprehension(node):
             sh = self.shape(node.value, env)
             if sh is not None:
@@ -1238,6 +1272,28 @@ class _IdUses:
             if family in self.families and (value is None or not self.followed(value, env)):
                 self.doubts.append((path, node.lineno, f"writes a value the rule cannot follow into {family!r}, "
                                                        f"which holds {self.families[family][1]} ids"))
+
+    def judge_loop_keeps(self, path, loop, env):
+        """A loop over ids in their declared order (or a set's) whose variable, or a name it
+        sets to an id inside the loop, is read after the loop keeps the id of one place: the
+        last one, or the last that met a condition."""
+        sh = self.shape(loop.iter, env)
+        if sh is None or sh[0] not in _BY_KIND or _element(sh[0]) is None or _loop_exits(loop.body):
+            return                                 # a loop that stops early is judged as such (judge)
+        inner = dict(env)
+        for name in _target_names(loop.target):
+            inner.pop(name, None)
+        self.bind_target(loop.target, (_element(sh[0]), sh[1]), inner)
+        kept = set(_target_names(loop.target))
+        for target, value, kind in self.sites(loop.body):
+            if kind == "value" and value is not None and self.shape(value, inner) is not None:
+                kept.update(_target_names(target))
+        scope = self.function_of(loop) or dict(self.trees)[path]
+        for name in sorted(kept):
+            if _reads_outside(scope, loop, name):
+                self.violations.append((path, loop.lineno, f"a loop over {sh[1]} ids keeps {name!r} after it ends: "
+                                                           f"the id of one place in the declared order", sh[1]))
+                return
 
     def in_comprehension(self, node):
         up = self.parents.get(id(node))
