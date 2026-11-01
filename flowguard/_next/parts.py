@@ -19,7 +19,7 @@ _PKG = Path(__file__).resolve().parent
 
 def _engine_digest() -> str:
     h = hashlib.sha256()
-    for path in sorted(_PKG.rglob("*.py")):
+    for path in sorted(x for x in _PKG.rglob("*") if x.suffix in (".py", ".js")):   # .js: the picture renderer
         h.update(path.relative_to(_PKG).as_posix().encode() + b"\0")
         h.update(path.read_bytes() + b"\0")
     h.update(f"python {sys.version_info.major}.{sys.version_info.minor}".encode())
