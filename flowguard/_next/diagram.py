@@ -328,6 +328,7 @@ class Scene:
         self.missing = None          # (key, value): a value no setting reaches, drawn dashed
         self.refusal = None          # (state, node text, arrow label)
         self.missing_key = None      # the field of an unreached value
+        self.missing_item = None     # an unreached action, option or reach rule with no explanation
         self.head = ""
         self.extra_caption = []
         if change is not None and change.space is None:
@@ -402,6 +403,8 @@ class Scene:
                 return
         if key is not None:
             self.missing = (key, _value_from_repr(self.space.domains[key], d.get("value")))
+        else:                                         # an action, option or reach rule: named, dashed
+            self.missing_item = f"{f.subject}: never happens"
         if how:
             self.extra_caption.append(f"the variant {how[0]} could not be rebuilt")
         self.head = f"NEVER REACHED {f.subject}: no one-setting change reaches it [{f.id}]"
@@ -778,6 +781,8 @@ class Scene:
         if self.missing is not None and self.missing[0] in keys:
             key, value = self.missing
             boxes.append(Box("missing", [f"{names[keys.index(key)]}={_show(value)}"], " (never reached)", "dashed"))
+        if self.missing_item is not None:
+            boxes.append(Box("missing", [self.missing_item], "", "refusal"))
         if self.refusal is not None:
             u, text, label = self.refusal
             if shown is None or u in shown:

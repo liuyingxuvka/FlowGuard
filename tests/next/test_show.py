@@ -414,3 +414,29 @@ def test_pictures_do_not_depend_on_hash_order(project):
         assert res.returncode == 0, res.stderr
         outs.append(res.stdout)
     assert outs[0] == outs[1] == outs[2] and outs[0].count("flowchart LR") == 6
+
+
+def test_never_reached_action_without_explanation_is_named_in_the_picture():
+    model, = load_machines(DATA / "golden" / "models" / "e7_mach_sonnet1_R9" / "model.py")
+    report = check_model(Loaded(model, ()), Bounds())
+    f = next(f for f in report.findings if f.subject == "action inspected_pass")
+    assert f.cls == CONFLICT and f.detail["explained"] == []
+    pic = parse(diagram.mermaid(diagram.choose_view(report, f).drawing))
+    assert pic["boxes"]["missing"] == "action inspected_pass: never happens"
+    assert pic["classes"]["missing"] == "refusal"
+
+
+def test_before_with_a_conflict_keeps_the_red_path_and_greys_what_went(project):
+    project.flow_from(DATA / "planted" / "rental_fixed.py", "rental")
+    project.file(".gitignore", ".flowguard/cache/\n")
+    project.commit("fixed")
+    project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    code, out = show(project.root, "rental", "--before", "HEAD")
+    assert code == 0 and out.startswith("rental: STUCK branch[*] = 'library'")
+    pic = parse(body(out))
+    assert sorted(a[1] for a in pic["arrows"] if a[3] == "#c00") == ["rent", "return_damaged", "transfer"]
+    removed = [t for b, t in pic["boxes"].items() if pic["classes"].get(b) == "removed"]
+    assert removed == ["cond=transit<br/>branch=library (removed)"]
+    assert sorted(a[1] for a in pic["arrows"] if a[3] == "#999") == ["receive", "return_damaged"]
+    code, out = show(project.root)                       # the default: the conflict picture, as check draws it
+    assert code == 0 and "#999" not in out and ": 6 boxes, 9 arrows" in out.splitlines()[0]
