@@ -1,0 +1,15 @@
+branch check: workshop: one place for all repairs
+measured: 22 states, 10 action calls (action x arguments), 33 state changes, 33 distinct arrows (state -> state), 0 of them made by more than one call
+DUPLICATE ROUTE (0; 0 groups of action calls)
+REDUNDANT ACTION (0)
+FALLBACK ROUTE (0; 0 pairs of action calls)
+FALLBACK ROUTE, status only (0): the same change of the status field (where), other fields differ
+SAME-RESULT BRANCH (0; 7 ifs checked in reachable states, 7 in the file)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 35 7/14, line 51 7/14, line 68 4/8, line 70 2/4, line 93 2/4, line 103 3/8, line 106 4/8)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  transfer 1, receive 2, rent 1, return_tool 3, return_damaged 2, mark_lost 1, inspect 2, repaired 2
+NEVER TAKEN (1)
+  return_tool: line(s) [71] never run in any reachable state (71: s["where"] = "inspection")  (runs only with inspect_every=1, inspect_every=3, maintain_every=0, maintain_every=3, maintain_every=4)
+DEAD GUARD (0)
+NEVER REACHED actions (machine.py's own check): none
+summary: never_taken 1

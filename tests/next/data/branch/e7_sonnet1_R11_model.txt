@@ -1,0 +1,24 @@
+branch check: bring
+measured: 5,776 states, 29 action calls (action x arguments), 33,184 state changes, 32,704 distinct arrows (state -> state), 480 of them made by more than one call
+DUPLICATE ROUTE (0; 0 groups of action calls)
+REDUNDANT ACTION (0)
+  (not findings: 5 action calls share some of their state changes with another)
+    advance(): 480 of 2176 also made by cancel(t='T2', mem='M2'), cancel(t='T1', mem='M2')
+    cancel(t='T1', mem='M1'): 120 of 3040 also made by advance()
+    cancel(t='T1', mem='M2'): 120 of 3040 also made by advance()
+    cancel(t='T2', mem='M1'): 120 of 3040 also made by advance()
+    cancel(t='T2', mem='M2'): 120 of 3040 also made by advance()
+FALLBACK ROUTE (0; 0 pairs of action calls)
+  (not findings: 4 pairs where a parameter must match the state, e.g. bring(t='T1', mem='M1', to='A') vs bring(t='T1', mem='M2', to='A'): bring 4)
+FALLBACK ROUTE, status only (1): the same change of the status field (where), other fields differ
+  transfer(t='T1', to='A') and bring(t='T1', mem='M1', to='A'): where[T1]: 'shop' -> 'transit'; they also change: branch[T1], sentvia[T1] (16 such pairs of calls)
+SAME-RESULT BRANCH (0; 7 ifs checked in reachable states, 7 in the file)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 17 7264/14464, line 36 23104/46208, line 41 3648/9728, line 55 4256/10944, line 61 5248/11552, line 62 4352/7680, line 64 2304/4352)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  rent 1, give_back 1, reserve 1, cancel 3, transfer 1, bring 1, receive 2, advance 4
+  succeeds without changing anything: advance() in 3600 states
+NEVER TAKEN (0)
+DEAD GUARD (1)
+  line 32: need(len(s["queue",t])<2,"full")  (checked, never refuses)
+NEVER REACHED actions (machine.py's own check): none
+summary: dead_guard 1, fallback_status 1
