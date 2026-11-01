@@ -117,3 +117,11 @@ def test_settings_are_read_when_actions_run(project):
     loaded = load(project, "m")
     loaded.model.settings["limit"] = 5                    # what the explanation does in place
     assert len(check_model(loaded, explain=False).graph.states) == 6
+
+
+def test_an_unreached_reach_rule_is_explained_too(project):
+    write(project, 'm.setting("limit", 3, vary=[5], source="R9")\nm.reach("full", lambda s: s["count"] == 5, source="R3")')
+    report = check_model(load(project, "m"))
+    [f] = [f for f in report.findings if f.subject == "reach 'full'"]
+    assert f.cls == "conflict" and f.detail["explained"] == ["limit=5"]
+    assert f.sources == ("R3", "R9")                      # the rule and the setting the explanation names
