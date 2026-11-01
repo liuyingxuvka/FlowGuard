@@ -41,15 +41,15 @@ pip install -e .                                          # 引擎，只依赖 P
 python scripts/install_skill.py --target ~/.claude/skills # 给 AI 安装技能（或 $CODEX_HOME/skills）
 
 cd your-project
-python -m flowguard map scan              # 1. 草拟组件，按 import 猜测试（默认最多 40 个组件）
-python -m flowguard map discover          # 单独查看路由、命令、副作用和状态写入者
-python -m flowguard map digest all        # 2. 接口摘要，签名、赋值和文档；大小随项目变化
-#   编辑 .flowguard/map.json：合并/拆分组件，写 summary、职责、层级……
-python -m flowguard map deps --write      # 3. 从真实 import 生成依赖
-python -m flowguard map check             # 4. 修到 0 个错误
-python -m flowguard map confirm all       # 5. 地图成为当前版本
-python -m flowguard map lint              # 6. 架构审查
+python -m flowguard status                              # 1. 开始或接着做：主人最近的话和未完成的工作
+python -m flowguard req add owner-message.txt --id R1   # 2. 把主人的原话按字节原样存一次
+python -m flowguard where place_order                   # 3. 找到代码、它的负责者和调用者
+python -m pytest -q tests/test_orders.py                # 4. 代码和测试一起改；跑项目自己的测试
+git add -A && git commit -m "Charge each order once" -m "Request: R1"   # 5. 用自己的话提交一次
 ```
+
+这就是完整的流程，项目不需要地图、模型或目标。旧地图（`map scan`、`map check`、`map confirm`）、旧模型和
+target 命令都是可选的，保留到 v1.0.0；[概念说明](docs/concept.md)介绍它们。
 
 ```powershell
 python scripts/install_skill.py --target "$env:USERPROFILE\.claude\skills"
@@ -86,6 +86,8 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 这些查询不运行应用、模型或测试；缺少执行记录时明确未知。字面匹配只是候选，不自动作语义判决，也不阻断改动；模型和独立规则测试仍负责验证行为。既有命令、64 个公开导出和地图格式保持兼容。
 
 ## 能做的事
+
+下面这些用的是旧地图、旧模型和 target 命令：可选，保留到 v1.0.0，正常改动不需要。
 
 | 原来的专项名 | 现在怎么做 |
 | --- | --- |

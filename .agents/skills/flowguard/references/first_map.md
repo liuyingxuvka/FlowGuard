@@ -1,6 +1,9 @@
 # First map of an existing project (reverse wrapping)
 
-Legacy map adoption, kept until v1.0.0; a project needs no map for a normal change.
+> **Legacy, not required.** This page describes how to write a first legacy map, kept only until
+> v1.0.0. A normal change does not use it: run `python -m flowguard status`, store the owner's words with
+> `req add`, find code with `where`, change code and tests together, run the project's tests and commit in
+> your own words with a `Request: R<n>` line.
 
 Goal: a confirmed map with 5-30 components, 0 check errors, and a written list of the main
 architecture findings. With no map yet, start with `python -m flowguard map scan`. Measured on FlowGuard's own map during the 0.70.2 work: about 112k nonblank,

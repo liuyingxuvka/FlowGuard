@@ -1,6 +1,9 @@
 # Node kinds
 
-Legacy node kinds, kept until v1.0.0; a normal change needs none of them.
+> **Legacy, not required.** This page describes the legacy node kinds, kept only until
+> v1.0.0. A normal change does not use it: run `python -m flowguard status`, store the owner's words with
+> `req add`, find code with `where`, change code and tests together, run the project's tests and commit in
+> your own words with a `Request: R<n>` line.
 
 ## UI journey
 

@@ -48,15 +48,16 @@ pip install -e .                                          # engine, standard lib
 python scripts/install_skill.py --target ~/.claude/skills # skill for your agent (or $CODEX_HOME/skills)
 
 cd your-project
-python -m flowguard map scan              # 1. draft components; guess tests from imports (default max 40)
-python -m flowguard map discover          # inspect routes, commands, effects and state writers
-python -m flowguard map digest all        # 2. API outline, signatures, assignments and docstrings; size varies
-#   edit .flowguard/map.json: merge/split components, write summary, responsibilities, layer ...
-python -m flowguard map deps --write      # 3. dependencies from real imports
-python -m flowguard map check             # 4. fix until 0 errors
-python -m flowguard map confirm all       # 5. the map is current
-python -m flowguard map lint              # 6. architecture review
+python -m flowguard status                              # 1. start or resume: the owner's newest words and open work
+python -m flowguard req add owner-message.txt --id R1   # 2. store the owner's own words once, byte for byte
+python -m flowguard where place_order                   # 3. find the code, its owner and its callers
+python -m pytest -q tests/test_orders.py                # 4. change code and tests together; run the project's tests
+git add -A && git commit -m "Charge each order once" -m "Request: R1"   # 5. one commit in your own words
 ```
+
+That is the whole loop; the project needs no map, model or target for it. The legacy map (`map scan`, `map check`,
+`map confirm`), the legacy models and the target commands are optional and kept until v1.0.0; the
+[concept guide](docs/concept.md) describes them.
 
 ```powershell
 python scripts/install_skill.py --target "$env:USERPROFILE\.claude\skills"
@@ -93,6 +94,8 @@ Add `--root DIR` or `--json` as needed. With `--text`, select FILE, `source:<id>
 These queries run no application, model or test. Missing execution records stay unknown. Literal matches are candidates, without an automatic semantic verdict or change gate; models and independent rule tests still validate behavior. Existing commands, 64 public exports and the map format remain compatible.
 
 ## What you can do
+
+These use the legacy map, models and target commands: optional, kept until v1.0.0 and not needed for a normal change.
 
 | former capability | how to do it now |
 | --- | --- |

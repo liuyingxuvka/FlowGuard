@@ -320,3 +320,31 @@ class SkillPackageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_the_five_minute_start_teaches_only_the_new_flow():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    for name in ("README.md", "README.zh-CN.md"):
+        text = (root / name).read_text(encoding="utf-8")
+        start = text.split("## Five-minute start" if name == "README.md" else "## 五分钟上手", 1)[1].split("\n## ", 1)[0]
+        steps = [line.split("#", 1)[0].strip() for line in start.split("cd your-project", 1)[1].split("```", 1)[0].splitlines()
+                 if line.strip()]
+        assert [step.split()[:4] for step in steps] == [
+            ["python", "-m", "flowguard", "status"], ["python", "-m", "flowguard", "req"],
+            ["python", "-m", "flowguard", "where"], ["python", "-m", "pytest", "-q"], ["git", "add", "-A", "&&"]], (name, steps)
+        assert "Request: R1" in steps[-1], steps
+        assert not re.search(r"flowguard (map|target)\b", start.split("```")[1]), (name, start)
+
+
+def test_legacy_procedure_pages_say_so_at_the_top_and_the_skill_needs_none_of_them():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    skill = root / ".agents/skills/flowguard"
+    pages = [root / "docs/concept.md", *(skill / "references" / name for name in
+             ("architecture_review.md", "first_map.md", "map_format.md", "model_recipes.md", "node_kinds.md", "routes.md"))]
+    for page in pages:
+        head = "\n".join(page.read_text(encoding="utf-8").split("\n\n")[1:2])
+        assert head.startswith("> **Legacy, not required.**"), (page, head)
+    text = (skill / "SKILL.md").read_text(encoding="utf-8")
+    assert "references/" not in text and "concept.md" not in text

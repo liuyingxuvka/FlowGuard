@@ -1,6 +1,9 @@
 # Routes
 
-Legacy target routes, kept until v1.0.0; a normal change needs none of them.
+> **Legacy, not required.** This page describes the legacy target routes, kept only until
+> v1.0.0. A normal change does not use it: run `python -m flowguard status`, store the owner's words with
+> `req add`, find code with `where`, change code and tests together, run the project's tests and commit in
+> your own words with a `Request: R<n>` line.
 
 Locate the deepest owner with `python -m flowguard read --find <words | path:function | path::test>`. These routes are for projects that still change their legacy models through one target; a legacy model file may also be edited directly.
 
