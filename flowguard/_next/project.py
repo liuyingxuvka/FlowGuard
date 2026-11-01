@@ -211,21 +211,27 @@ def export_at(root, rev: str, paths: list[str], dest: Path) -> None:
 def overlaps(loaded: list[Loaded]) -> list[Finding]:
     """Until composition (S3a): two models that declare the same field family over code
     they both cover are overlapping views; one warning on each."""
+    return overlap_views([(ld.model.id or ld.model.name, [f.family for f in ld.model.fields], ld.model.covers)
+                          for ld in loaded])
+
+
+def overlap_views(views) -> list[Finding]:
+    """The same warnings from (model id, field families, covers) facts, as a core part
+    records them, so the caller of `check` needs no model code."""
     out = []
-    items = sorted(loaded, key=lambda ld: ld.model.id or ld.model.name)
-    for a in items:
-        fa = {f.family for f in a.model.fields}
-        ca = {c.partition(":")[0] for c in a.model.covers}
-        for b in items:
-            if b is a:
+    items = sorted(views, key=lambda v: v[0])
+    for a, fams_a, covers_a in items:
+        fa = set(fams_a)
+        ca = {c.partition(":")[0] for c in covers_a}
+        for other, fams_b, covers_b in items:
+            if other == a:
                 continue
-            shared_files = ca & {c.partition(":")[0] for c in b.model.covers}
+            shared_files = ca & {c.partition(":")[0] for c in covers_b}
             if not shared_files:
                 continue
-            for fam in sorted(fa & {f.family for f in b.model.fields}):
-                other = b.model.id or b.model.name
+            for fam in sorted(fa & set(fams_b)):
                 out.append(make_finding(
-                    "OVERLAP", WARNING, a.model.id or a.model.name, f"field '{fam}' is also declared by {other}",
+                    "OVERLAP", WARNING, a, f"field '{fam}' is also declared by {other}",
                     f"field '{fam}' is also declared by {other}; overlapping views of "
                     f"{', '.join(sorted(shared_files))} (one owner per field)",
                     detail={"field": fam, "other": other, "files": sorted(shared_files)}))
