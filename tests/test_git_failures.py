@@ -66,6 +66,31 @@ def test_a_missing_base_blob_stops_change_instead_of_reading_a_new_file(tmp_path
     assert code == 2 and "git cat-file failed" in output.err, (output.out, output.err)
 
 
+def test_a_missing_base_tree_stops_change_and_the_origin_reader_instead_of_reading_no_file(tmp_path, capsys):
+    """Git exits 1 both for a path a commit does not hold and for a tree it cannot read on the way to it, so
+    a tree missing from a damaged clone must stop with Git's message, never read as a file added since then."""
+    from flowguard.__main__ import main
+    from flowguard.map.common import git_blob
+    from flowguard.map.textrules import _blame
+    root = _committed_shelf_project(tmp_path)
+    assert git_blob(root, "HEAD", "shelf/absent.py") is None and git_blob(root, ":", "shelf/absent.py") is None
+    tree = _git(root, "rev-parse", "HEAD:shelf").decode().strip()
+    (root / ".git/objects" / tree[:2] / tree[2:]).unlink()  # the index cache-tree keeps git status working
+    loans = root / "shelf/loans.py"
+    loans.write_text(loans.read_text(encoding="utf-8").replace("value + capacity()", "(value + capacity())"),
+                     encoding="utf-8")
+    assert git_blob(root, ":", "shelf/catalog.py") is not None  # the index needs no tree
+    for read in (lambda: git_blob(root, "HEAD", "shelf/loans.py"), lambda: git_blob(root, "HEAD", "shelf/absent.py"),
+                 lambda: _blame(root, "shelf/loans.py", None, loans.read_bytes())):
+        with pytest.raises(MapError, match=tree):
+            read()
+    capsys.readouterr()
+    for arguments in (["change"], ["change", "shelf/loans.py"]):
+        code = main([*arguments, "--root", str(root)])
+        output = capsys.readouterr()
+        assert code == 2 and tree in output.err and "no old source text" not in output.out, (arguments, output)
+
+
 def test_change_in_a_folder_without_git_needs_no_git_executable(tmp_path, capsys, monkeypatch):
     from _fg_helpers import target__target_life_cycle_fixture_helpers as fixture_helpers
     from flowguard.__main__ import main

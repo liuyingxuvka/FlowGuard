@@ -19,7 +19,7 @@
 - A copy of a project without `.git`, or a moved folder, no longer reports unchanged requests or change records as edited. Files that cannot be checked there are listed once as information, and linking or quoting such a request is refused.
 - Once a request or change record is committed, every clone checks it against its first commit and gives the same answer.
 - In a folder without Git, fix advice no longer suggests Git commands, and `status`, `map check`, `where` and `change` work without Git installed.
-- When Git fails inside a repository, FlowGuard stops with Git's own message instead of acting as if there were no Git, no history or no file. This covers a damaged index, a missing object, a broken branch, a repository owned by another user and a checkout whose repository is set to bare.
+- When Git fails inside a repository, FlowGuard stops with Git's own message instead of acting as if there were no Git, no history or no file. This covers a damaged index, a missing commit, tree or file object, a broken branch, a repository owned by another user and a checkout whose repository is set to bare.
 - FlowGuard names the cause instead of guessing when Git is not installed for a repository, or when `map.json`, a change record, an open target, or the `pyproject.toml` a version-dated debt needs cannot be read.
 - `release` saves no release snapshot while a change record cannot be read.
 - Models run from a source checkout that cannot create a symbolic link stop with a plain error.

@@ -100,17 +100,36 @@ def git_head(root) -> str | None:
     raise MapError(f"HEAD in {root} names no commit and no new branch")
 
 
+def git_path_object(root, revision: str, relative: str) -> str | None:
+    """The object id of `relative` at a tree-ish, or in the index (stage 0) when revision is ":".
+
+    None only when Git lists no such path there. Git lists entries with ls-tree and ls-files, which exit 0 with
+    no entry for an absent path and fail with Git's message for a tree or index it cannot read; rev-parse
+    --verify exits 1 for both, so it never answers this question."""
+    relative = Path(relative).as_posix()  # Git lists names with "/", relative to root
+    if revision == ":":
+        listing, field = git_run(root, "ls-files", "--stage", "-z", "--", ":(literal)" + relative).stdout, 1
+    else:
+        listing, field = git_run(root, "ls-tree", "-z", revision, "--", relative).stdout, 2
+    for row in listing.split(b"\0"):
+        description, _, name = row.partition(b"\t")
+        fields = description.split()
+        if os.fsdecode(name) == relative and (revision != ":" or fields[2] == b"0"):
+            return os.fsdecode(fields[field])
+    return None
+
+
 def git_blob(root, revision: str, relative: str) -> bytes | None:
     """The raw bytes of `relative` at a commit, or in the index when revision is ":", in a known Git repository.
 
-    None only when that path is not there; a commit missing from this clone or a failing Git raises."""
+    None only when that path is not there; a commit missing from this clone, a tree Git cannot read or a failing
+    Git raises."""
     if revision != ":" and git_run(root, "rev-parse", "-q", "--verify", revision + "^{commit}", allowed=(0, 1)).returncode:
         raise MapError(f"commit {revision} is not in the Git repository at {root}")
-    name = f":./{relative}" if revision == ":" else f"{revision}:./{relative}"
-    found = git_run(root, "rev-parse", "-q", "--verify", name, allowed=(0, 1))  # exit 1: no such path there
-    if found.returncode:
+    found = git_path_object(root, revision, relative)
+    if found is None:
         return None
-    return git_run(root, "cat-file", "blob", os.fsdecode(found.stdout).strip()).stdout
+    return git_run(root, "cat-file", "blob", found).stdout
 
 
 def atomic_write_text(path: Path, text: str) -> None:

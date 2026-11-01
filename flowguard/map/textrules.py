@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import shlex
 
-from .common import DEFAULT_IGNORE, git_common_directory, git_head, git_run, matches_any, normalize_newlines, read_source
+from .common import DEFAULT_IGNORE, git_common_directory, git_head, git_path_object, git_run, matches_any, normalize_newlines, read_source
 from .derived import _map, _source, _writes_cache, bound as bound_rows, omitted_line, source_names, text_reference_hint, text_references
 from .discover import NORMATIVE as _NORMATIVE, discover_inventory, python_text
 from .inventory import build_inventory, list_files, syntax_tree
@@ -58,8 +58,8 @@ def _blame(root, path, revision, contents):
     if git_common_directory(root) is None:
         return {}
     commit = revision or git_head(root)
-    if commit is None or git_run(root, 'rev-parse', '-q', '--verify', f'{commit}:./{path}', allowed=(0, 1)).returncode:
-        return {}  # exit 1: the commit does not hold this file
+    if commit is None or git_path_object(root, commit, path) is None:
+        return {}  # the commit does not hold this file; a tree Git cannot read raises
     args = ['blame', '--line-porcelain', *([revision] if revision else ['--contents', '-']), '--', path]
     result = git_run(root, *args, input=None if revision else contents)
     found, current, original, commit, source = {}, None, None, None, path
