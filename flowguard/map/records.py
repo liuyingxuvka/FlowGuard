@@ -443,6 +443,10 @@ def _change_record(root, identifier, files):
     return item
 
 
+def _record_restore(root, identifier, files, common):
+    return restore_advice(root, sorted(path for path in files if Path(path).stem == identifier), common)
+
+
 def change_records(root, *, unreadable=None):
     """Complete, schema-valid, byte-protected successful records; the others are never facts.
 
@@ -458,9 +462,10 @@ def change_records(root, *, unreadable=None):
         except Unverifiable:
             continue  # Not a fact here (DECISIONS FG-801); record_findings reports immutable_unverified.
         except (OSError, ValueError) as error:
+            problem = f"{error}; {_record_restore(root, identifier, files, _common_directory(root))}"
             if unreadable is None:
-                raise MapError(f"change record {identifier} unreadable: {error} (python -m flowguard status)") from error
-            unreadable.append((identifier, str(error)))
+                raise MapError(f"change record {identifier} unreadable: {problem}") from error
+            unreadable.append((identifier, problem))
     return records
 
 
@@ -546,9 +551,9 @@ def record_findings(root):
         except Unverifiable:
             unverified.append(identifier)
         except (OSError, ValueError) as error:
-            restore = restore_advice(root, sorted(path for path in files if Path(path).stem == identifier), common)
             findings.append(Finding("error", "record_edited", identifier,
-                                    f"{root / CHANGE_DIR / identifier}: {error}; records are written once; {restore}"))
+                                    f"{root / CHANGE_DIR / identifier}: {error}; records are written once; "
+                                    f"{_record_restore(root, identifier, files, common)}"))
     if unverified:
         findings.append(Finding("info", "immutable_unverified", "",
                                 f"{len(unverified)} change record(s) not used here "

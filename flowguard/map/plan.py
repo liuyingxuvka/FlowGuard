@@ -389,7 +389,7 @@ def render_owner_block(root, current_data, target, view, items):
                            and isinstance(rule.get('provenance'), str)
                            and rule['provenance'].startswith('owner ')}
             lines.extend(f'  change record {key} unreadable ({error}): rules it took from the owner\'s words '
-                         'are not known here (python -m flowguard status)' for key, error in unreadable)
+                         'are not known here' for key, error in unreadable)
         return name in owner_rules
 
     for item in items:

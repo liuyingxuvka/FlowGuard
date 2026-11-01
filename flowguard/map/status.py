@@ -234,8 +234,7 @@ def render_owner_words(words):
             if row['invalid']:
                 text = f"unreadable ({row['invalid']})"
             elif row['edited']:
-                text = (f"edited after it was stored ({row['edited']}); its text is not shown as the owner's words "
-                        "(python -m flowguard map check)")
+                text = f"edited after it was stored, so its text is not shown as the owner's words: {row['edited']}"
             elif row['superseded_by']:
                 text = 'superseded by ' + ', '.join(row['superseded_by'])
             else:
@@ -259,11 +258,10 @@ def render_owner_words(words):
     if unchecked:
         lines.append(f"WARNING retire record{'s' if len(unchecked) > 1 else ''} {', '.join(unchecked)} "
                      f"{problems[unchecked[0]]}; {'they still hide those texts' if len(unchecked) > 1 else 'it still hides that text'} "
-                     "from OWNER WORDS (python -m flowguard map check)")
+                     "from OWNER WORDS")
     for identifier, problem in problems.items():
         if identifier not in unchecked:
-            lines.append(f"WARNING retire record {identifier} {problem}; it still hides {identifier} from OWNER WORDS "
-                         "(python -m flowguard map check)")
+            lines.append(f"WARNING retire record {identifier} {problem}; it still hides {identifier} from OWNER WORDS")
     return lines
 
 
@@ -288,7 +286,7 @@ def render_status(result):
     else:
         lines.append('OPEN CHANGE none [current target directory, static, now]')
     lines.extend(render_owner_words(result['owner_words']))
-    lines.extend(f"WARNING change record {item['id']} unreadable: {item['error']} (python -m flowguard map check)"
+    lines.extend(f"WARNING change record {item['id']} unreadable: {item['error']}"
                  for item in result['unreadable_records'])
     lines.extend(result['skill_warnings'])
     history = result['since_release']

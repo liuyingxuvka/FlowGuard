@@ -457,7 +457,27 @@ def test_owner_text_edited_in_a_checkout_is_not_shown_as_the_owners_words(tmp_pa
     assert code == 0
     _, rows = _owner_lines(output)
     assert rows[0].startswith("R2 ") and "edited after it was stored" in rows[0], rows
-    assert "Words someone else wrote." not in output and "python -m flowguard map check" in rows[0], output
+    assert "Words someone else wrote." not in output and "checkout -- .flowguard/requests/R2.md" in rows[0], output
+
+
+def test_status_without_the_legacy_map_points_only_to_steps_that_run_there(tmp_path, capsys):
+    """map check needs map.json, so status names the restore step for edited owner text and retire records."""
+    import shlex
+    import subprocess
+    root, _ = _retired_copy_without_git(tmp_path, capsys)
+    assert _call(root, capsys, "map", "check")[0] == 2  # no legacy map here
+    (root / ".flowguard/requests/R2.md").write_text("Words someone else wrote.\n", encoding="utf-8")
+    record = root / ".flowguard/requests/retired/R1.json"
+    record.write_bytes(record.read_bytes().replace(b'"not_owner": true', b'"not_owner": false'))
+    output = _call(root, capsys, "status")[1]
+    named = [line for line in output.splitlines() if line.lstrip().startswith(("R2 ", "WARNING retire record R1"))]
+    assert len(named) == 2 and "map check" not in output, output
+    for line in named:
+        command = re.search(r"\((git -C .*?) when committed\)", line)
+        assert command, line
+        subprocess.run(shlex.split(command[1]), check=True, capture_output=True)
+    output = _call(root, capsys, "status")[1]
+    assert "WARNING retire record" not in output and "R2 " in output and "The owner's own words." in output, output
 
 
 def test_a_deleted_retire_record_is_named_missing_not_edited(tmp_path, capsys):

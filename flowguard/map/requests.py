@@ -286,11 +286,14 @@ def request_citations(root: Path, records) -> tuple[dict, bool]:
 
 
 def owner_words(root: Path, *, records=None) -> dict:
-    """Stored owner words, newest first, with supersession, retirement and citations; never a to-do state."""
+    """Stored owner words, newest first, with supersession, retirement and citations; never a to-do state.
+
+    Each integrity problem carries its restore step, which runs in any project (map check needs the legacy map)."""
     from .records import change_records
 
     root = Path(root).resolve()
     retired = retired_requests(root)
+    common = git_common_directory(root)
     cited, commits_known = request_citations(root, change_records(root) if records is None else records)
     rows = []
     for identifier in _identifiers(root):
@@ -309,10 +312,13 @@ def owner_words(root: Path, *, records=None) -> dict:
             if invalid is None and edited is None:
                 text = body.read_bytes().decode('utf-8-sig', errors='replace').splitlines()
         if invalid is not None:
+            files = [(REQUEST_DIR / (identifier + suffix)).as_posix() for suffix in ('.md', '.json')]
             rows.append(dict(id=identifier, kind=None, received='', first_line='', extra_lines=0, supersedes=[],
                              superseded_by=[], retired=identifier in retired, cited_by=[], edited=None,
-                             invalid=f'{invalid}; python -m flowguard map check'))
+                             invalid=f'{invalid}; {restore_advice(root, files, common)}'))
             continue
+        if edited is not None:
+            edited = f"{edited}; {restore_advice(root, [(REQUEST_DIR / (identifier + '.md')).as_posix()], common)}"
         rows.append(dict(id=identifier, kind=item['kind'], received=item['received'],
                          first_line=text[0] if text else '', extra_lines=max(0, len(text) - 1),
                          supersedes=item.get('supersedes', []), superseded_by=[],
@@ -323,7 +329,9 @@ def owner_words(root: Path, *, records=None) -> dict:
             if old in by_id:
                 by_id[old]['superseded_by'].append(row['id'])
     rows.sort(key=lambda row: (row['received'], row['id']), reverse=True)
-    problems = {identifier: problem for identifier, problem in retired.items() if problem is not None}
+    problems = {identifier: problem if problem.startswith('cannot be checked here') else
+                f"{problem}; {restore_advice(root, [(RETIRED_DIR / (identifier + '.json')).as_posix()], common)}"
+                for identifier, problem in retired.items() if problem is not None}
     return dict(rows=rows, commit_links_known=commits_known, retire_problems=problems)
 
 

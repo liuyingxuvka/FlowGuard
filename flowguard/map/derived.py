@@ -417,7 +417,7 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
         unreadable = []
         records = change_records(source, unreadable=unreadable) if at is None else []
         result["unknown"].extend(f"change record {identifier} unreadable ({error}); its change and request facts "
-                                 "are left out here (python -m flowguard status)" for identifier, error in unreadable)
+                                 "are left out here" for identifier, error in unreadable)
         for identifier, fn in functions.items():
             changes = [(key, record) for key, record in records if identifier.replace("#", ":", 1) in record.get("implemented_by", [])]
             fn["last_change"] = changes[-1][0] if changes else None
@@ -603,7 +603,7 @@ def render(result, *, as_json=False, all_rows=False):
         for row in result.get("requests", []):
             state = ("retired: not the owner's words" if row["retired"] else
                      "unreadable (" + row["invalid"] + ")" if row["invalid"] else
-                     "edited after it was stored (" + row["edited"] + "); not the owner's words (python -m flowguard map check)"
+                     "edited after it was stored, so not the owner's words: " + row["edited"]
                      if row["edited"] else
                      "superseded by " + ", ".join(row["superseded_by"]) if row["superseded_by"] else "owner words")
             lines.append("request " + row["id"] + ": " + state + " · " + row["first_line"]

@@ -86,7 +86,8 @@ def test_an_unreadable_change_record_is_named_by_status_and_blocks_the_snapshot(
     root = _plain_folder_request(tmp_path)
     records.write_once(root, ".flowguard/changes/20261101-0000-abcdef.json", b"{}")
     screen = status.render_status(status.collect_status(root, read_git_paths=read_git_paths, version=__version__))
-    assert "change record 20261101-0000-abcdef unreadable" in screen, screen
+    named = [line for line in screen.splitlines() if "change record 20261101-0000-abcdef unreadable" in line]
+    assert len(named) == 1 and "map check" not in named[0] and "copy, archive or backup" in named[0], screen
     with pytest.raises(MapError, match="20261101-0000-abcdef"):
         records.save_release_snapshot(root)
 
