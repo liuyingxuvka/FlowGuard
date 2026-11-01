@@ -106,7 +106,8 @@ def test_change_prints_info_only_for_changed_owners(tmp_path, capsys):
     save(tmp_path, data)
     main(["change", "--root", str(tmp_path), "app.py"])
     out = capsys.readouterr().out
-    assert "INFO" not in out and "not repeated here" in out
+    info = [line for line in out.splitlines() if line.startswith("INFO")]
+    assert info and all(line.split()[2] == "app" for line in info) and "not repeated here" in out, out
 
 
 def test_run_line_counts_files_and_verbose_lists_nodes(tmp_path):

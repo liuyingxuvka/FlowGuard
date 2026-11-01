@@ -59,7 +59,7 @@ def _replay(item, elsewhere):
                           capture_output=True, text=True, timeout=90)
 
 
-def test_request_without_map_advises_real_scan_and_digest(tmp_path, capsys):
+def test_request_without_map_advises_status_that_runs(tmp_path, capsys):
     root = tmp_path / "中文 plain folder"
     root.mkdir()
     source = root / "owner request.txt"
@@ -70,16 +70,13 @@ def test_request_without_map_advises_real_scan_and_digest(tmp_path, capsys):
     assert code == 0 and not errors
     item, = _next(output, root)
     argv = shlex.split(item["command"])
-    assert argv[3:5] == ["map", "scan"] and "--write" not in argv
+    assert item["id"] == "status" and argv[3] == "status"
     requests = root / ".flowguard/requests"
     snapshot = {path.name: path.read_bytes() for path in requests.iterdir() if path.is_file()}
     assert original in snapshot.values()
-    scan = _replay(item, tmp_path / "other cwd")
-    assert scan.returncode == 0, (scan.stdout, scan.stderr)
-    digest, = _next(scan.stdout, root)
-    assert shlex.split(digest["command"])[3:6] == ["map", "digest", "all"]
-    replay = _replay(digest, tmp_path / "other cwd")
-    assert replay.returncode == 0, (replay.stdout, replay.stderr)
+    status = _replay(item, tmp_path / "other cwd")
+    assert status.returncode == 0, (status.stdout, status.stderr)
+    assert not (root / ".flowguard/map.json").exists()
     assert source.read_bytes() == original
     assert snapshot == {path.name: path.read_bytes() for path in requests.iterdir() if path.is_file()}
 

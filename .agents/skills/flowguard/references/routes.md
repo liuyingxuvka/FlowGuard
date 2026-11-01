@@ -1,6 +1,8 @@
 # Routes
 
-Locate the deepest owner with `python -m flowguard read --find <words | path:function | path::test>`. Code-only work uses `change --run`; model or structure work uses one target. Write no current model file in place. The loop and its EXPECTED GAP / moved rules only / NO GAP checkpoints are in SKILL.md.
+Legacy target routes, kept until v1.0.0; a normal change needs none of them.
+
+Locate the deepest owner with `python -m flowguard read --find <words | path:function | path::test>`. These routes are for projects that still change their legacy models through one target; a legacy model file may also be edited directly.
 
 ## Code only
 

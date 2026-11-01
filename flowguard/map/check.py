@@ -17,6 +17,11 @@ from .mapfile import MapError, load_map, component_files, component_graph, compo
 from .tree import component_parent_findings
 
 PLACEHOLDER_ANCHOR = "REPLACE_ME"          # templates ship anchors containing it; they fail until replaced
+# Findings that only say the hand-written legacy map is behind the code. They are
+# information: a plain code change never has to edit the map to pass a check.
+MAP_UPKEEP = frozenset({"file_unmapped", "stale", "draft", "fingerprint_migrate", "dep_unused", "dep_undeclared",
+                        "component_empty", "pattern_dead", "test_missing", "test_unbound", "flow_step_broken",
+                        "model_edited_outside_target", "entrypoint_unmodeled"})
 
 
 def symbol_defined(inv: Inventory, path: str, symbol: str) -> bool:
@@ -90,11 +95,11 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
         near.setdefault(path.rpartition("/")[0], set()).add(cid)
     for f in unmapped:
         here = sorted(near.get(f.rpartition("/")[0], ()))   # point at existing owners before a new component
-        hint = (f"; the files next to it belong to {here[0]}: add it there unless it is a new responsibility"
-                if len(here) == 1 else
-                f"; the files next to it belong to {', '.join(here)}: add it to the one that owns its responsibility"
-                if 1 < len(here) <= 4 else "")
-        out.append(Finding("error", "file_unmapped", "", f"{f} has no owning component{hint}"))
+        hint = (f" (the files next to it belong to {here[0]})" if len(here) == 1 else
+                f" (the files next to it belong to {', '.join(here)})" if 1 < len(here) <= 4 else "")
+        out.append(Finding("info", "file_unmapped", "",
+                           f"{f} has no owner in the legacy map: import checks between components do not see this file; "
+                           f"add it to a component's files only if you want those checks{hint}"))
 
     for path, info in sorted(inv.py.items()):
         if path in inv.source and (path in owner or not is_test_file(path)) and info.parse_error:
@@ -122,7 +127,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
                 owned = component_files(component_scope(data, by_id[comp_id]), inv)
                 python_only = all(f in inv.py for f in owned)
                 if python_only and not any(symbol_defined(inv, f, symbol) for f in owned):
-                    out.append(Finding("error", "flow_step_broken", comp_id,
+                    out.append(Finding("info", "flow_step_broken", comp_id,
                                        f"flow {flow['id']}: symbol {symbol!r} not found in component {comp_id}"))
         if flow.get("model"):
             model_path = resolve_model_path(root, flow["model"], view=view)
@@ -148,11 +153,11 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
         if not contract.get("IMPLEMENTED_BY"):
             out.append(Finding("error", "model_anchor_missing", entry.id,
                                f"{rel}: declares no IMPLEMENTED_BY anchors; name the real code it checks "
-                               "('path:Symbol'), or plan it as a target model (python -m flowguard target start)"))
+                               "('path:Symbol'), or record an accepted debt with its reason"))
         if entry.kind == "contract" and "conformance" not in contract["functions"] and not process:
             out.append(Finding("error", "model_conformance_missing", "",
                                f"{rel}: abstract boundary only: no conformance(); replay the real code or "
-                               "compare it as code facts, or plan it as a target model (python -m flowguard target start)"))
+                               "compare it as code facts, or record an accepted debt with its reason"))
         for comp_id in contract.get("COMPONENTS", []):
             if comp_id not in by_id:
                 out.append(Finding("error", "model_component_unknown", "", f"{rel}: COMPONENTS names unknown {comp_id!r}"))
@@ -185,7 +190,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     for test in inv.tests:
         if test not in owner and (Path(test).name.startswith("test_") or Path(test).name.endswith("_test.py")
                                    or ".test." in test or ".spec." in test) and not matches_any(test, bound_tests):
-            out.append(Finding("warn", "test_unbound", "", f"{test}: no component lists this test in tests"))
+            out.append(Finding("info", "test_unbound", "", f"{test}: no component of the legacy map lists this test in tests"))
     graph = component_graph(data, inv)
     from .discover import discover_inventory
     raw = discover_inventory(root, inv, write_cache=view is None, data=data)
@@ -202,14 +207,13 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
             ids = sorted(declaring)
             out.append(Finding("error", "entrypoint_owner", ids[0],
                                f"{anchor} is listed by {' and '.join(ids)}; one promise has one owner"))
-    stale_level = "error" if strict else "warn"
     for c in data["components"]:
         cid, files = c["id"], component_files(c, inv)
         if not files and not (cid in children and not c.get("files")):
-            out.append(Finding("error", "component_empty", cid, f"files {c.get('files')} match no source file"))
+            out.append(Finding("info", "component_empty", cid, f"files {c.get('files')} match no source file"))
         for pat in c.get("files", []):
             if not any(glob_match(f, pat) for f in inv.source):
-                out.append(Finding("warn", "pattern_dead", cid, f"files pattern {pat!r} matches nothing"))
+                out.append(Finding("info", "pattern_dead", cid, f"files pattern {pat!r} matches nothing"))
         for anchor in c.get("entrypoints", []):
             path = anchor.partition(":")[0]
             if not matches_any(path, c.get("files", [])):
@@ -224,7 +228,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
                 out.append(Finding("error", "anchor_broken", cid, problem))
         for pat in c.get("tests", []):
             if not any(glob_match(f, pat) for f in inv.files):
-                out.append(Finding("error", "test_missing", cid, f"tests pattern {pat!r} matches nothing"))
+                out.append(Finding("info", "test_missing", cid, f"tests pattern {pat!r} matches nothing"))
         for m in c.get("models", []):
             model_path = resolve_model_path(root, m, view=view)
             if model_path is None or not model_path.is_file():
@@ -233,23 +237,23 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
         for d in sorted(declared - set(by_id)):
             out.append(Finding("error", "dep_unknown", cid, f"depends_on {d!r} is not a component"))
         for d in sorted(actual - declared):
-            out.append(Finding("error", "dep_undeclared", cid, f"imports {d} but depends_on does not list it"))
+            out.append(Finding("info", "dep_undeclared", cid, f"imports {d} but the legacy map's depends_on does not list it"))
         unverified = sorted((declared if not files and cid in children else
                              declared - evidence_graph.get(cid, set())) & set(by_id))
         if unverified:
-            out.append(Finding("error", "dep_unused", cid,
+            out.append(Finding("info", "dep_unused", cid,
                                f"no import, module literal, injected collaborator or accepted debt evidence for: {', '.join(unverified)}"))
         if c["status"] == "draft":
-            out.append(Finding(stale_level, "draft", cid, "description not confirmed yet"))
+            out.append(Finding("info", "draft", cid, "description in the legacy map is not confirmed"))
         elif not c.get("summary") or not c.get("responsibilities"):
             out.append(Finding("error", "confirmed_but_empty", cid, "a confirmed component needs summary and responsibilities"))
         else:
             state = component_state(root, c, inv, data)
             if state == "migrate":
-                out.append(Finding(stale_level, "fingerprint_migrate", cid,
+                out.append(Finding("info", "fingerprint_migrate", cid,
                                    f"fingerprint formula changed (format 1 -> 2): confirm {cid} once"))
             elif state == "stale":
-                out.append(Finding(stale_level, "stale", cid, "owned files changed since last confirm; re-read them, update the description if behavior changed, then confirm"))
+                out.append(Finding("info", "stale", cid, "owned files changed since the legacy map last confirmed this description; it may be out of date"))
     from .lint import apply_accepted_debts
     from .lint_models import entrypoint_coverage_findings, model_coverage, model_writer_findings
     covered, not_modeled = model_coverage(root, data, registry, view=view)
@@ -266,14 +270,14 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     from .testtree import test_file_findings
     out.extend(apply_accepted_debts(test_file_findings(root, data, inv, tree),
                                     data.get('accepted_debts', []), evaluation=evaluation)[0])
-    out.extend(model_edit_findings(root, load_map(root) if view is not None else data, stale_level))
+    out.extend(model_edit_findings(root, load_map(root) if view is not None else data))
     for finding in out:
         if finding.code == "model_anchor_missing":
             apply_accepted_debts([finding], data.get("accepted_debts", []), evaluation=evaluation)
     return out
 
 
-def model_edit_findings(root, data, level):
+def model_edit_findings(root, data):
     from .common import content_digest
     from .targetfile import load_target, model_helper_digests, target_helper_baseline
     try:
@@ -291,11 +295,9 @@ def model_edit_findings(root, data, level):
             if Path(logical).name in staged:
                 out.append(_staged_model_edit(root, logical, target))
                 continue
-            out.append(Finding(level, "model_edited_outside_target", "",
-                f"model_edited_outside_target: {logical} changed since the last target promote; "
-                "python -m flowguard target add " + Path(logical).stem +
-                " moves the edit into the target (with git the current file is restored from HEAD; "
-                "without git the old model is lost: write the change in the target and restore the old rules by hand)"))
+            out.append(Finding("info", "model_edited_outside_target", "",
+                f"model_edited_outside_target: {logical} was edited in place since the last target promote "
+                "(allowed; no target needed)"))
     helpers = sorted(name for name in staged if name.startswith("_"))
     if helpers:
         baseline = target_helper_baseline(root)

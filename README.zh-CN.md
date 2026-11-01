@@ -17,21 +17,20 @@ AI 擅长局部修改，但每开一个新会话都要重新弄清：软件由�
 FlowGuard 在项目里保存三样东西：
 
 1. **地图** `.flowguard/map.json`：各个组件、它们的职责、拥有的状态、副作用、文件、入口、依赖、
-   测试和模型。会话开始或恢复时先运行 `python -m flowguard status` 并跟随 NEXT，再用
-   `read --find 关键词` 或 `read --component ID` 按任务检查组件、已有模型及其约束和反例。
+   测试和模型。会话开始或恢复时先运行 `python -m flowguard status`，用
+   `python -m flowguard where NAME` 查找代码、负责者和调用者。
 2. **模型**：关键流程（重试、幂等、缓存、顺序、金额、权限、多步骤流程）的小型可执行模型，形式是
    `输入 x 状态 -> 一组(输出 x 状态)`。FlowGuard 在边界内穷举所有输入序列，给出反例，检查已知的坏版本
    一定会失败，并把模型轨迹放到真实代码上回放比对（一致性检查）。
-3. **目标**：一次行为或结构改动计划中的地图和模型；先实现并检查计划，再提升为当前模型。
+3. **目标**（旧路线，保留到 v1.0.0）：一次旧模型改动计划中的地图和模型；正常改动不需要目标。
 
 地图和模型是一棵树。根节点和组件节点从代码推出，始终生效；任务需要时才在组件下添加行为模型，测试挂在同样的节点上。
 `python -m flowguard read --mermaid` 画出这棵树。
 
-当前树保存在 `.flowguard/map.json` 和 `.flowguard/models/`；计划中的改动保存在 `.flowguard/target/`，一次只有一个目标。
-行为或结构要变时，先写目标，再让代码和测试符合目标。
-`target check` 没有 ERROR 或 TO-DO 后，用 `target promote` 替换当前树并删除目标目录。
+当前树保存在 `.flowguard/map.json` 和 `.flowguard/models/`。正常改动就是一起改代码和测试、跑项目的测试，
+再用自己的话写一次提交；改动来自主人存下的需求时，加一行 `Request: R<n>`。
 
-地图和代码互相校验：每个源文件恰好属于一个组件；入口、流程步骤和模型文件必须真实存在；每个真实的 import 都必须声明；确认组件时会记下它文件的指纹，代码一改就自动标成“过期”，直到有人重新读过并确认。
+每次检查都会对照地图和代码。真正的问题（循环 import、层级违规、缺少模型锚点）是错误；只说明手写地图落后于代码的情况（文件没有负责者、描述过期、依赖没声明或没有证据）只是信息，永远不会让检查失败。
 历史保存在 git 里。
 
 ## 五分钟上手
@@ -62,9 +61,10 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 
 | 什么时候 | 命令 | 作用 |
 | --- | --- | --- |
-| 会话开始或恢复 | `python -m flowguard status` | 跟随 NEXT；用 `read --find 关键词` 或 `read --component ID` 按任务检查已有负责者和模型，再添加代码 |
-| 改行为或结构 | `python -m flowguard target`（`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`） | 先写目标模型，再让代码追上它，最后替换当前模型 |
-| 改完代码 | `python -m flowguard change` | 校验地图和代码；只列出受影响的测试和模型 |
+| 会话开始或恢复 | `python -m flowguard status` | 项目的静态事实，以及什么会挡住提交 |
+| 主人提出要求 | `python -m flowguard req add <file\|-> --id <id>` | 把主人自己的话原样存一次 |
+| 旧的目标路线（保留到 v1.0.0） | `python -m flowguard target`（`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`） | 计划旧模型的改动；正常改动不需要目标 |
+| 旧的检查（保留到 v1.0.0） | `python -m flowguard change` | 校验地图和代码；只列出受影响的测试和模型 |
 | 发布之前 | `python -m flowguard release` | 严格检查、架构错误、重跑全部模型 |
 | 新模型或采用流程 | `python -m flowguard template --list` | 选择 `behaviour`、`validator`、`ui-journey`，或用 `adoption` 生成仓库规则 |
 

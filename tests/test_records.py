@@ -95,16 +95,17 @@ def test_real_promotion_records_checked_plan_rules_and_function_diff(tmp_path, c
     block = verdict["owner_block"]
     assert block.index(lines[0]) < block.index(lines[1]) < block.index(lines[2])
     assert block.count("old rule:") == block.count("new rule:") == 2
-    assert block in (tmp_path / f".flowguard/changes/{identifier}.msg").read_text()
+    assert not (tmp_path / f".flowguard/changes/{identifier}.msg").exists()
 
 
-def test_real_record_pair_is_write_once_before_commit_and_after_clone(tmp_path, capsys):
+def test_real_record_is_write_once_before_commit_and_after_clone(tmp_path, capsys):
     from flowguard.map import records
     from flowguard.map.mapfile import MapError
 
     root = tmp_path / "project"
     record = _promoted_project(root, capsys, git=True)
-    originals = {path.name: path.read_bytes() for path in (record, record.with_suffix(".msg"))}
+    assert not record.with_suffix(".msg").exists()
+    originals = {record.name: record.read_bytes()}
     for name, raw in originals.items():
         path = record.parent / name
         relative = path.relative_to(root)
@@ -117,7 +118,7 @@ def test_real_record_pair_is_write_once_before_commit_and_after_clone(tmp_path, 
         _record_refused(root, capsys)
         path.write_bytes(raw)
     _git(root, "add", "--", ".flowguard/map.json", ".flowguard/models", ".flowguard/requests", ".flowguard/changes")
-    _git(root, "commit", "-qm", "original promoted pair")
+    _git(root, "commit", "-qm", "original promoted record")
     clone = tmp_path / "clone"
     _git(tmp_path, "clone", "-q", str(root), str(clone))
     assert not (clone / ".git/flowguard/written").exists()

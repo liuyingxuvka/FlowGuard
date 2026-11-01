@@ -1,5 +1,7 @@
 # `.flowguard/map.json` format (schema `flowguard.map.v1`)
 
+Legacy map and target formats, kept until v1.0.0; a normal change needs no edit of them.
+
 Owner requests live separately under `.flowguard/requests/`. Store an original
 with `python -m flowguard req add <file> --id R9` (or use `-` for raw stdin bytes).
 The optional kind is `request`, `glossary` or `adoption`; an omitted ID uses the

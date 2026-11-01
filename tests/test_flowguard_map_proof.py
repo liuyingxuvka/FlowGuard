@@ -46,12 +46,14 @@ def test_impact_lists_models_of_affected_components(shop, capsys):
 
 def test_strict_check_and_verify_gate(shop, capsys):
     from flowguard.map import cli
-    assert cli.main(["--root", str(shop), "check", "--strict"]) == 1          # still draft
+    # Draft and stale descriptions of the legacy map are information, even in the release gate.
+    assert cli.main(["--root", str(shop), "check", "--strict"]) == 0
+    assert "INFO  draft" in capsys.readouterr().out
     cli.main(["--root", str(shop), "confirm", "all"])
-    write(shop, "shop/orders.py", FIXED)                                         # now stale
-    assert cli.main(["--root", str(shop), "check", "--strict"]) == 1
-    cli.main(["--root", str(shop), "confirm", "orders"])
+    write(shop, "shop/orders.py", FIXED)
     capsys.readouterr()
+    assert cli.main(["--root", str(shop), "check", "--strict"]) == 0
+    assert "INFO  stale" in capsys.readouterr().out
     assert cli.main(["--root", str(shop), "verify"]) == 0
     assert "verify: PASS" in capsys.readouterr().out
 

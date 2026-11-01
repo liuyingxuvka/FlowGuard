@@ -1,5 +1,7 @@
 # Architecture review with `python -m flowguard map lint`
 
+Legacy map review, kept until v1.0.0; a normal change needs none of it.
+
 | code | level | meaning | usual fix |
 | --- | --- | --- | --- |
 | `layer_violation` | error | a lower layer imports a higher one | move the code down, invert the dependency (callback/interface), or fix the layer assignment |

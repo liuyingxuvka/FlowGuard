@@ -32,7 +32,7 @@ OUTPUTS = {'check': ('error', 'stale', 'clean')}
 TESTED_BY = {'error_finding_fails_check': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm',
  'tests/test_cli_main.py:test_json_verdict_only_with_flag',
  'tests/test_requests.py:test_request_receipts_survive_git_init'],
- 'strict_makes_draft_and_stale_errors': ['tests/test_cli_main.py:test_new_target_file_is_moving_but_strict_remains_an_error'],
+ 'map_upkeep_is_information': ['tests/test_cli_main.py:test_new_target_file_is_moving_and_strict_reports_it_as_information'],
  'identical_info_grouped': ['tests/test_map_check.py:test_identical_info_grouped_into_one_line'],
  'debt_needs_reason_and_expiry': ['tests/test_map_check.py:test_debt_without_expiry_refused'],
  'committed_promoted_target_is_error': ['tests/test_map_check.py:test_strict_check_refuses_committed_promoted_target']}
@@ -85,9 +85,9 @@ class Aggregate:
             errors = tuple(code for code in errors if code not in ('owner_text_edited', 'request_meta_edited', 'record_edited'))
         if self.defect == 'debt_without_expiry_passes':
             errors = tuple(code for code in errors if code != 'debt_without_expiry')
-        strict = state.mode == 'strict' and bool(state.unconfirmed) and self.defect != 'strict_keeps_stale_warning'
+        upkeep_error = state.mode == 'strict' and bool(state.unconfirmed) and self.defect == 'strict_fails_on_stale'
         seam_error = state.mode == 'strict' and bool(state.seam) and self.defect != 'promoted_target_passes_check'
-        value = 'error' if errors or strict or seam_error else 'stale' if state.unconfirmed else 'clean'
+        value = 'error' if errors or upkeep_error or seam_error else 'stale' if state.unconfirmed else 'clean'
         return (FunctionResult(value, replace(state, check=value, phase=2)),)
 
 class Print:
@@ -109,8 +109,8 @@ INVARIANTS = (
               lambda s,t: s.phase != 3 or 'debt_without_expiry' not in s.errors or s.check == 'error'),
     Invariant('error_finding_fails_check', 'errors fail the check; its exit follows its verdict',
               lambda s,t: s.phase != 3 or s.exit_code == int(s.check == 'error') and (not s.errors or s.check == 'error')),
-    Invariant('strict_makes_draft_and_stale_errors', 'strict checks refuse every unconfirmed pointer',
-              lambda s,t: s.phase != 3 or s.mode != 'strict' or not s.unconfirmed or s.check == 'error' and s.exit_code == 1),
+    Invariant('map_upkeep_is_information', 'a draft, stale or unmigrated description never fails a check, strict or not',
+              lambda s,t: s.phase != 3 or s.errors or s.mode == 'strict' and s.seam or s.exit_code == 0),
     Invariant("identical_info_grouped", "three identical INFO codes have one output line", lambda s,t: s.info_lines == 1),
 )
 
@@ -119,7 +119,7 @@ def make(defect=''):
                     invariants=INVARIANTS, max_sequence_length=2, progress_steps=0)
 def build_explorer(): return make()
 def broken_variants():
-    return {name: make(name) for name in ('ignores_edge_errors', 'strict_keeps_stale_warning', 'prints_each_info_line', 'debt_without_expiry_passes', 'promoted_target_passes_check', 'ignores_immutable_errors')}
+    return {name: make(name) for name in ('ignores_edge_errors', 'strict_fails_on_stale', 'prints_each_info_line', 'debt_without_expiry_passes', 'promoted_target_passes_check', 'ignores_immutable_errors')}
 
 def conformance():
     import shutil
@@ -203,10 +203,9 @@ def conformance():
                 expected = int(any(f.level == 'error' for f in findings))
                 with redirect_stdout(StringIO()):
                     exit_code = cmd_check(root, SimpleNamespace(strict=strict, json=False, limit=80))
-                valid = expected == exit_code and (expected == 1 if case != 'stale' else expected == int(strict))
+                valid = expected == exit_code and (expected == 1 if case != 'stale' else expected == 0)
                 if case == 'stale':
-                    valid = valid and any(f.code == 'stale' and f.level == ('error' if strict else 'warn')
-                                          for f in findings)
+                    valid = valid and any(f.code == 'stale' and f.level == 'info' for f in findings)
                 facts.append(Fact(case + str(strict), bool(valid),
                                   repr((exit_code, [(f.code, f.level) for f in findings]))))
                 if case == 'anchor' and not strict:

@@ -32,9 +32,6 @@ def run_system_model(root, data, inv, *, view=None):
     if errors:
         result.problems.append("the map does not match the code:\n" + "\n".join(
             f"{f.code} {f.component}: {f.message}" for f in errors[:5]))
-    unbound = sum(f.code == "test_unbound" for f in consistency)
-    if unbound:
-        result.warnings.append(f"{unbound} test file(s) belong to no component")
     if not data.get("layers"):
         result.warnings.append('no layers in the map: the layer rule cannot be checked; add "layers"')
     if not generated:

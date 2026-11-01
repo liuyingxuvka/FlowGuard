@@ -1,5 +1,7 @@
 # Writing a FlowGuard model
 
+Legacy model format, kept until v1.0.0; a normal change needs no model edit.
+
 A model is a Python file in `.flowguard/models/` with this contract:
 
 ```python
@@ -15,7 +17,7 @@ Selectors are `MODEL_ID` for top-level contract files; component ids are for
 `read --component`. Unknown selectors fail.
 Every selected model executes on every call (no result cache). A model without anchors or
 without conformance fails as "abstract boundary only".
-A model of code that does not exist yet is a target model: write it under `.flowguard/target/models/` (SKILL.md, target first).
+A model of code that does not exist yet can be planned under `.flowguard/target/models/` with the legacy target route.
 
 `TESTED_BY = {"invariant_name": ["tests/test_x.py:test_name"]}` binds model rules
 to real test anchors in both directions. Missing or renamed tests fail `map check`; keys must

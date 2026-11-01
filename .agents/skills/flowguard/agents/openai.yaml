@@ -1,18 +1,13 @@
 interface:
   display_name: "FlowGuard"
-  short_description: "Living model tree: map, executable models, tests bound to code"
+  short_description: "Owner words, code lookup and plain commits for AI code changes"
   default_prompt: >-
-    Use $flowguard at the start of every coding session and after every edit.
-    At session start and after any loss of context, run `python -m flowguard status`
-    first and follow its NEXT for an open target. Read `python -m flowguard read`
-    (the project map) before source, look up existing
-    owners with `read --find`, and open only the files of the components you
-    touch. Behaviour or structure changes start as a target (`python -m
-    flowguard target start`, `target check`, then `target promote` when the
-    code matches). After editing run `python -m flowguard change`, fix every check
-    error, run exactly the tests and models it lists, and confirm reviewed
-    components. For retries, idempotency, caching, ordering, money,
-    permissions or multi-step flows, write or update a target model in
-    .flowguard/target/models/ with known-bad variants and conformance, using
-    the same target-first flow. Never claim a
-    check passed unless you ran it.
+    Use $flowguard at the start of every coding session. At session start and
+    after any loss of context, run `python -m flowguard status` first. When the
+    owner asks for something, store the owner's own words once with
+    `python -m flowguard req add <file|-> --id <id>`; never store a plan or text
+    you wrote. Find code with `python -m flowguard where NAME`. Change code and
+    tests together, run the project's own test command, and make one commit
+    with a message in your own words, adding a line `Request: R<n>` when the
+    change answers a stored owner request. Never claim a check passed unless
+    you ran it.

@@ -14,6 +14,8 @@ from .modelstatic import StaticModel
 from .requests import REQUEST_DIR, _metadata, glossary_entries, validate_request_links
 
 PLAN_RELPATH = Path('.flowguard/target/PLAN.txt')
+# The one line FlowGuard writes into PLAN.txt; every other '#' line is the AI's own note and is kept.
+PLAN_HEADER = '# changes: model.rule by ID "quote" | changes: model.rule because "reason" | touch: path:qualified_name [because "reason"]'
 _CHANGE = re.compile(r'changes:\s+(\S+)\s+(?:by\s+(\S+)|because)\s+"(.+)"\s*\Z')
 _TOUCH = re.compile(r'touch:\s+(.+?)(?:\s+because\s+"(.+)")?\s*\Z')
 
@@ -203,7 +205,10 @@ def check_plan(root, target, view):
     rules, glossaries = None, None
     for number, raw in enumerate(lines, 1):
         line = raw.strip()
-        if not line or line.startswith('#'):
+        if not line or line == PLAN_HEADER:
+            continue
+        if line.startswith('#'):
+            items.append(dict(kind='note', line=raw, number=number))
             continue
         where = f'PLAN.txt:{number}'
         if line.startswith('touch:'):
@@ -269,13 +274,15 @@ def static_plan_rows(root, target, view):
     by_line = {item['number']: item for item in items}
     rows = []
     for source_line, raw in enumerate(path.read_text(encoding='utf-8-sig').splitlines(), 1):
-        if not raw.strip() or raw.lstrip().startswith('#'):
+        if not raw.strip() or raw.strip() == PLAN_HEADER:
             continue
         item = by_line.get(source_line)
         problems = [finding.message for finding in findings
                     if finding.message.startswith(f'PLAN.txt:{source_line}:')]
         state = 'static, now'
-        if item is None or problems:
+        if item is not None and item['kind'] == 'note':
+            state = 'note'
+        elif item is None or problems:
             state = ('not edited' if item and item['kind'] == 'touch'
                      and all('unchanged since target start' in problem for problem in problems) else 'unknown')
         elif item['kind'] == 'touch':
@@ -320,6 +327,7 @@ def _rule_sources(root, data, requested, *, view=None, fallback=None):
 
 def render_owner_block(root, current_data, target, view, items):
     """Show checked PLAN evidence unchanged; never add a judgment or owner claim."""
+    items = [item for item in items if item['kind'] != 'note']
     if not items:
         return ''
     root = Path(root).resolve()

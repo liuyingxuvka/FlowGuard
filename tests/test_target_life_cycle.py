@@ -354,7 +354,7 @@ def test_promote_blocks_failure_of_model_reaching_changed_file(tmp_path, capsys)
     from flowguard.map.mapfile import load_map
 
     root = _target_life_cycle_fixture_helpers("_target_fixture")["reached_failure_target"](tmp_path)
-    assert not model_edit_findings(root, load_map(root), "error"), "The failure must not come from a model edited outside target"
+    assert not model_edit_findings(root, load_map(root)), "The failure must not come from a model edited outside target"
     watched = [root / ".flowguard/map.json", root / ".flowguard/target/map.json",
                *sorted((root / ".flowguard/models").glob("*.py")),
                *sorted((root / ".flowguard/target/models").glob("*.py"))]
@@ -570,32 +570,25 @@ def test_promote_next_line_names_target_deletion(tmp_path, capsys, track_target)
     assert native.promote_target(root) == 0
     output = capsys.readouterr().out
     assert index.read_bytes() == before, "promote must leave staging to the user"
-    last = output.splitlines()[-1]
+    lines = output.splitlines()
     prefix = "next[commit]: "
-    assert last.startswith(prefix), output
-    command = last[len(prefix):]
-    combined = shlex.split(command)
-    split = combined.index('&&')
-    argv, commit = combined[:split], combined[split + 1:]
+    assert lines[-2].startswith(prefix) and lines[-1] == "then commit with your own message", output
+    command = lines[-2][len(prefix):]
+    argv = shlex.split(command)
     assert argv[:3] == ["git", "-C", str(root.resolve())]
     assert "add" in argv and "-A" in argv and "--" in argv and ".flowguard" in argv
     assert (".flowguard/target/" in argv[argv.index("--") + 1:]) is track_target
     assert "already staged.txt" not in argv
-    assert "<code paths>" not in command
-    assert commit[:5] == ['git', '-C', str(root.resolve()), 'commit', '-F'] and len(commit) == 6
-    message = Path(commit[-1])
-    assert message.is_file() and message.parent == root / '.flowguard/changes'
+    assert "<code paths>" not in command and "commit" not in argv
+    assert not list((root / ".flowguard/changes").glob("*.msg"))
     assert '.flowguard/requests/' in output and '.flowguard/changes/' in output
-    git('config', 'user.name', 'probe')
-    git('config', 'user.email', 'probe@example.invalid')
     # Execute the printed POSIX text on POSIX; Windows checks the same argv.
     if os.name == 'nt':
         result = subprocess.run(argv, cwd=tmp_path, capture_output=True, text=True)
-        assert result.returncode == 0, result.stdout + result.stderr
-        result = subprocess.run(commit, cwd=tmp_path, capture_output=True, text=True)
     else:
         result = subprocess.run(command, shell=True, cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
+    git("-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-qm", "Extend the shelf in my own words")
     cached = set(git("diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "HEAD").split("\0"))
     assert {".flowguard/map.json", ".flowguard/models/shelf_rule.py", "shelf/catalog.py",
             "shelf/new helper.py", "tests/test_added.py", "notes [x].md", "obsolete.txt", "already staged.txt"} <= cached
@@ -624,7 +617,7 @@ def test_promote_without_git_keeps_usable_next_step(tmp_path, capsys, monkeypatc
     assert main(argv[3:]) == 0
 
 
-def test_promote_names_stale_component_to_confirm(tmp_path, capsys):
+def test_promote_prints_no_confirm_step_for_a_stale_component(tmp_path, capsys):
     from flowguard.map.cli import cmd_confirm
     from types import SimpleNamespace
     native = _fg403_clean_target(tmp_path)
@@ -633,7 +626,8 @@ def test_promote_names_stale_component_to_confirm(tmp_path, capsys):
     path.write_text(path.read_text() + "\n# source changed after confirmation\n")
     capsys.readouterr()
     assert native.promote_target(tmp_path) == 0
-    assert "next[confirm]: python -m flowguard map confirm app" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "next[confirm]" not in output and "map confirm" not in output
 
 
 def test_port_change_without_parent_is_an_error(tmp_path):

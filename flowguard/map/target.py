@@ -73,7 +73,7 @@ def _remove_readonly(function, path, info):
 TODO_CODES = {"test_file_not_split","anchor_broken", "component_empty", "pattern_dead", "model_anchor_broken",
               "model_missing", "flow_step_broken", "file_unmapped", "dep_undeclared",
               "dep_unused", "layer_violation", "dependency_cycle", "rule_changed_without_line", "plan_item_not_done"}
-ERROR_CODES = {"port_changed_consumer_unhandled", "file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
+ERROR_CODES = {"port_changed_consumer_unhandled", "test_missing", "file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
                "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
                "model_path_unsupported", "parent_unknown", "parent_cycle", "parent_import_mismatch",
                "anchor_outside_home", "duplicate_child_owner", "duplicate_owner", "flow_handoff_invalid", "owner_dropped", "entrypoint_owner", "component_parent_unknown", "component_parent_cycle",
@@ -127,6 +127,7 @@ def target_owns_file(path, target):
 
 def moving_to_target(findings, root, data, target):
     """Annotate only current breakage of what the target actually changes."""
+    from .check import MAP_UPKEEP
     if target is None:
         return findings
     current_components = {c["id"]: c for c in data["components"]}
@@ -139,7 +140,7 @@ def moving_to_target(findings, root, data, target):
     result = []
     for finding in findings:
         planned = False
-        if finding.level in {"error", "warn"}:
+        if finding.level in {"error", "warn"} or (finding.code in MAP_UPKEEP and " (accepted debt: " not in finding.message):
             flow = re.match(r"flow ([^ :]+):", finding.message)
             model = re.match(r"(\.flowguard/models/[^:]+\.py):", finding.message)
             if flow:
@@ -148,7 +149,7 @@ def moving_to_target(findings, root, data, target):
             elif model or finding.code in model_codes or (finding.code == "model_missing" and finding.message.startswith("model file ")):
                 planned = bool(model and finding.code in model_codes and model.group(1) in models)
             elif finding.code == "file_unmapped":
-                planned = target_owns_file(finding.message.split(" has no owning component", 1)[0], target)
+                planned = target_owns_file(finding.message.split(" has no owner in the legacy map", 1)[0], target)
             elif finding.component in target.remove["component"]:
                 planned = True
             elif finding.component in planned_components:
@@ -226,7 +227,7 @@ def _issue_key(node, code, message, tree):
 
 def check_target(root: Path, *, models: bool = True, tests: bool = False, impact=None, jobs: int = 1) -> TargetReport:
     """Fresh native facts and proofs; all engine project-cache writes are disabled."""
-    from .check import run_check
+    from .check import MAP_UPKEEP, run_check
     from .lint import architecture_findings, architecture_variants, dropped_owner_findings
 
     root = root.resolve()
@@ -306,7 +307,8 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     for finding in [*run_check(root, view.data, inv, view=view), *dropped_owner_findings(current, view.data, target)]:
         if finding.code in {"draft", "stale", "fingerprint_migrate"} and finding.component in replaced:
             continue
-        if finding.level == "info":
+        # Map-upkeep findings are information for map check and release; the legacy target route still lists them.
+        if finding.level == "info" and (finding.code not in MAP_UPKEEP or " (accepted debt: " in finding.message):
             continue
         if finding.code == "responsibility_reworded":
             add("warnings", _finding_node(finding, tree), finding.code, finding.message)
@@ -569,7 +571,7 @@ def _left_by_target(finding, current, target, inv):
     """The unowned file belonged to a component the target removes or whose files the target changes."""
     from .mapfile import owner_index
 
-    path = finding.message.split(" has no owning component", 1)[0]
+    path = finding.message.split(" has no owner in the legacy map", 1)[0]
     owner = owner_index(current, inv)[0].get(path)
     planned = {c["id"]: c for c in target.data.get("components", [])}
     before = {c["id"]: c for c in current["components"]}
@@ -643,8 +645,8 @@ def render_target_report(report: TargetReport, *, root: Path | None = None) -> s
 
 
 
-def _promotion_next(root, data, inputs, selected_tests, message):
-    """Print reviewed file operands; never stage them or infer code directories."""
+def _promotion_next(root, data, inputs, selected_tests, links):
+    """Print reviewed file operands; never stage them, infer code directories or write the commit message."""
     import shlex
     from .impact_history import read_git_paths
     from .mapfile import ignore_patterns
@@ -668,12 +670,13 @@ def _promotion_next(root, data, inputs, selected_tests, message):
                            and not matches_any(path, ignore_patterns(data)))
             tracked_target = [".flowguard/target/"] if any(path.startswith(".flowguard/target/") for path in indexed) else []
             argv = ["git", "-C", str(root), "--literal-pathspecs", "add", "-A", "--", ".flowguard", *tracked_target, *paths]
-            commit = shlex.join(['git', '-C', str(root), 'commit', '-F', str(message)])
-            return ["note: commit " + files,
-                    advice('commit', shlex.join(argv) + ' && ' + commit)]
+            requests = ", ".join(link["id"] for link in links)
+            return ["note: stage " + files,
+                    advice('commit', shlex.join(argv)),
+                    "then commit with your own message" + (f"; add the line 'Request: {requests}'" if requests else "")]
         except (OSError, subprocess.CalledProcessError):
             reason = "Git staging paths unavailable"
-    return ["note: " + reason + "; preserve " + files + f'; commit message: {message}',
+    return ["note: " + reason + "; preserve " + files,
             advice("check", shlex.join(["python", "-m", "flowguard", "map", "check", "--strict", "--root", str(root)]))]
 
 
@@ -701,7 +704,6 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             deleted = [entry.path for entry in model_registry(root, current).entries
                        if entry.id in target.remove["model"] and view.resolve(entry.path) is None]
             changes = target_node_changes(root, current, target)
-            drafts = sorted(c["id"] for c in target.data.get("components", []))
             reread = _re_read(root, current, target, view)
         # The same full proof and TESTED_BY path as `target check`, exactly once.
         from .impact import changed_files, compute_impact, test_groups
@@ -773,7 +775,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
         selected_tests = set(impact.tests) | {node.split("::", 1)[0] for node in tested}
         from .records import prepare_change, publish_change
         from .plan import render_owner_block, record_evidence
-        owner_block = render_owner_block(root, current, target, view, report.plan_items) if report.plan_items else ""
+        owner_block = render_owner_block(root, current, target, view, report.plan_items)
         plan_facts, rule_facts = record_evidence(root, current, target, view, report.plan_items)
         from .impact_history import read_git_paths
         base = _target_base(root)
@@ -787,7 +789,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
         prepared_record = prepare_change(
             root, goal=target.goal, links=target.data.get("requests", []), base=base,
             inputs=inputs, merged=merged, model_bytes=model_bytes, deleted=deleted,
-            changed_paths=source_paths, owner_block=owner_block, plan=plan_facts, rules=rule_facts,
+            changed_paths=source_paths, plan=plan_facts, rules=rule_facts,
             checked=("This promotion ran one fresh target check with bound tests and the remaining "
                      f"function-selected tests; {len(report.warnings)} warning(s) remained. "
                      "The tree identifies the checked post-promotion content, before later component confirmation."))
@@ -798,8 +800,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             else:
                 print("promote refused: checked inputs changed; run python -m flowguard target check")
             return 1
-        message = root / '.flowguard/changes' / (prepared_record['id'] + '.msg')
-        next_lines = _promotion_next(root, merged, inputs, selected_tests, message)
+        next_lines = _promotion_next(root, merged, inputs, selected_tests, target.data.get("requests", []))
         backup = root / TARGET_RELDIR / ".replaced"
         for rel in [".flowguard/map.json", *[".flowguard/models/" + name for name in model_bytes], *deleted]:
             source = root / rel
@@ -831,9 +832,6 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             shutil.rmtree(backup, onerror=_remove_readonly)
         directory.rmdir()
         applied = True
-        from .mapfile import is_stale
-        inv = build_inventory(root, ignore_patterns(merged), write_cache=False, import_roots=tuple(merged.get("import_roots", ())))
-        drafts = sorted(set(drafts) | {c["id"] for c in merged["components"] if is_stale(root, c, inv)})
         summaries = []
         for kind, label in (("component", "components"), ("model", "models"), ("flow", "flows")):
             items = [symbol + entry.split(":", 1)[1] for symbol in ("+", "~", "-")
@@ -841,7 +839,7 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             summaries.append(label + " " + (" ".join(items) or "-"))
         publish_change(root, prepared_record)
         if as_json:
-            print_verdict("target promote", 0, _target_codes(report), next_lines[-1],
+            print_verdict("target promote", 0, _target_codes(report), next(line for line in next_lines if isinstance(line, dict)),
                           **({"owner_block": owner_block} if owner_block else {}))
         else:
             print(f'promoted "{target.goal}": ' + "; ".join(summaries))
@@ -852,8 +850,6 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
             for link in target.data.get("requests", []):
                 state = "partial; remains open" if link["part"] else "done"
                 print(f"request {link['id']}: {state} (change {prepared_record['id']})")
-            if drafts:
-                print(render_advice(advice("confirm", project_command(root, 'map', 'confirm', *drafts))))
             for line in next_lines:
                 print(render_advice(line) if isinstance(line, dict) else line)
         return 0
@@ -989,9 +985,8 @@ def start_target(root: Path, goal: str, *, requests=()) -> int:
     if links:
         data["requests"] = links
     _save(root, data)
-    (directory / "PLAN.txt").write_text(
-        '# changes: model.rule by ID "quote" | changes: model.rule because "reason" | touch: path:qualified_name [because "reason"]\n',
-        encoding="utf-8")
+    from .plan import PLAN_HEADER
+    (directory / "PLAN.txt").write_text(PLAN_HEADER + "\n", encoding="utf-8")
     _record_base(root)
     print(f'target started: "{goal}"')
     if not _git_head(root):
@@ -1018,8 +1013,8 @@ def add_to_target(root: Path, node_id: str) -> int:
         raise MapError("; ".join(f"{issue.code}: {issue.message}" for issue in problems))
     _add(root, data, target, node_id)
     from .check import model_edit_findings
-    for finding in model_edit_findings(root, data, "warn"):
-        print("WARN " + finding.message)
+    for finding in model_edit_findings(root, data):
+        print(finding.level.upper() + " " + finding.message)
     return 0
 
 

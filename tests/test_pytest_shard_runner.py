@@ -286,9 +286,7 @@ def test_release_runs_the_whole_suite_in_shards(tmp_path):
     aggregate = json.loads((tmp_path / "suite-fail/aggregate.json").read_text(encoding="utf-8"))
     assert aggregate["pytest_execution"]["failed"] == 1 and aggregate["executed_count"] == 4
 
-    data = json.loads(map_path.read_text(encoding="utf-8"))
-    data["components"][0]["status"] = "draft"
-    map_path.write_text(json.dumps(data), encoding="utf-8")
+    (root / "shop/broken.py").write_text("def broken(:\n    return 1\n", encoding="utf-8")  # a real check error
     log.write_text("", encoding="utf-8")
     env["FLOWGUARD_PYTEST_SHARDS_DIR"] = str(tmp_path / "suite-not-run")
     blocked = invoke("release", "--shards", "2")

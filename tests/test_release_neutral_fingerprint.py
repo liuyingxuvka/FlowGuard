@@ -44,7 +44,7 @@ def test_format1_map_migrates_once(tmp_path):
     inv = build_inventory(tmp_path, [])
     assert component_state(tmp_path, comp, inv, data) == "migrate"
     findings = [f for f in run_check(tmp_path, data, inv, strict=True) if f.code == "fingerprint_migrate"]
-    assert len(findings) == 1 and findings[0].level == "error"
+    assert len(findings) == 1 and findings[0].level == "info"
     assert cli.main(["confirm", "app", "--root", str(tmp_path)]) == 0
     current = load_map(tmp_path)
     assert current["fingerprint_format"] == 2

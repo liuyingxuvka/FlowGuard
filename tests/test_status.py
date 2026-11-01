@@ -115,13 +115,12 @@ def test_status_plan_rows_with_known_from(tmp_path, capsys):
         '# Static plan\ntouch: shelf/loans.py:advance\n'
         'changes: shelf_rule.one_loan_step because "Keep the shelf contract deliberate."\n')
     first = _status(root, capsys)
-    assert [row['number'] for row in first['plan']] == [1, 2]
-    assert first['plan'][0]['state'] == 'not edited'
-    assert first['plan'][1]['state'] == 'static, now'
+    assert [row['number'] for row in first['plan']] == [1, 2, 3]
+    assert [row['state'] for row in first['plan']] == ['note', 'not edited', 'static, now']
     assert all(row['known_from'] == 'static, now' for row in first['plan'])
     (root / 'shelf/loans.py').write_text('def advance(): return 2\n')
     result = _status(root, capsys)
-    assert result['plan'][0]['state'] == 'edited, not verified'
+    assert result['plan'][1]['state'] == 'edited, not verified'
     assert 'shelf/loans.py:advance' in result['change']['edited_functions']
     assert result['verdicts']['stored'] is False
     assert '--root' in result['verdicts']['command']
@@ -179,14 +178,8 @@ def test_status_lists_other_worktree_changes(tmp_path, capsys):
     result = _status(root, capsys)
     assert f'.flowguard/changes/{identifier}.json' in result['git']['uncommitted_paths']
     assert all(not path.startswith('project/') for path in result['git']['uncommitted_paths'])
-    assert result['next']['id'] == 'commit'
-    assert str(root / '.flowguard/changes' / (identifier + '.msg')) in result['next']['command']
-    _git(root, 'config', 'user.name', 'probe')
-    _git(root, 'config', 'user.email', 'probe@example.invalid')
-    _git(root, 'add', '.flowguard/changes')
-    committed = subprocess.run(shlex.split(result['next']['command']), cwd=tmp_path,
-                               text=True, capture_output=True)
-    assert committed.returncode == 0, committed.stderr
+    assert identifier in result['next_note'] and 'your own message' in result['next_note']
+    assert '.msg' not in result['next']['command'] and 'commit -F' not in result['next']['command']
 
 
 def test_status_lists_commits_without_record(tmp_path, capsys):

@@ -202,7 +202,7 @@ def entrypoint_coverage_findings(
             if precise:
                 out.append(
                     Finding(
-                        "warn",
+                        "info",
                         "entrypoint_unmodeled",
                         comp["id"],
                         f"external promise {anchor} ({', '.join(precise)}) has no model anchor; "
@@ -216,7 +216,7 @@ def entrypoint_coverage_findings(
             if effects & dangerous:
                 out.append(
                     Finding(
-                        "warn",
+                        "info",
                         "entrypoint_unmodeled",
                         comp["id"],
                         f"{anchor} reaches {', '.join(sorted(effects & dangerous))} without a model anchor; "

@@ -905,8 +905,8 @@ def test_in_place_edit_without_target_is_named(tmp_path):
     data = _load_map(tmp_path)
     data["model_digests"] = {".flowguard/models/one.py": content_digest(p)}
     p.write_text(p.read_text() + "\n# unplanned edit\n")
-    assert len(model_edit_findings(tmp_path, data, "warn")) == 1
-    assert model_edit_findings(tmp_path, data, "error")[0].level == "error"
+    assert len(model_edit_findings(tmp_path, data)) == 1
+    assert model_edit_findings(tmp_path, data)[0].level == "info"  # an in-place edit is allowed
 
 
 def test_promote_runs_what_function_selection_reaches(tmp_path):

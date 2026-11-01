@@ -109,7 +109,8 @@ def render_impact(
         )
     if missing:
         lines.append(
-            "UNMAPPED changed files (add each to one component's files): " + ", ".join(missing)
+            "UNMAPPED changed files (information: no owner in the legacy map, so import checks between "
+            "components do not see them): " + ", ".join(missing)
         )
     lines.extend("UNCERTAIN " + message for message in imp.uncertainty[:5])
     if len(imp.uncertainty) > 5:

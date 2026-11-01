@@ -22,7 +22,7 @@ VERB_PURPOSE = {
     'change': 'Check an edit and run the affected tests and models.',
     'release': 'Run the release gate, optionally with whole-suite shards.',
     'template': 'Write starter model and test files.',
-    'target': 'Plan, check and promote a behaviour or structure change.',
+    'target': 'Legacy route, kept until v1.0.0: plan, check and promote a change of the legacy models.',
     'req': 'Store an owner request byte for byte, with immutable metadata.',
     'map': 'Use every map and proof command.',
 }
@@ -203,7 +203,6 @@ def _template(ns: argparse.Namespace) -> int:
 
 
 def _request(ns: argparse.Namespace) -> int:
-    import shlex
     from .map.mapfile import MapError
     from .map.requests import store_request
 
@@ -215,17 +214,7 @@ def _request(ns: argparse.Namespace) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 2
     print(f"stored {item['id']} ({item['kind']}, sha {item['sha256'][:12]}, {item['bytes']} bytes)")
-    if not (root / '.flowguard/map.json').is_file():
-        identifier = 'describe'
-        command = ['python', '-m', 'flowguard', 'map', 'scan', '--root', str(root)]
-    elif 'stored_during' in item:
-        identifier = "check"
-        command = ["python", "-m", "flowguard", "target", "check", "--root", str(root)]
-    else:
-        identifier = "target"
-        command = ["python", "-m", "flowguard", "target", "start", f"Work on request {item['id']}",
-                   '--request', item['id'], "--root", str(root)]
-    print(render_advice(advice(identifier, shlex.join(command))))
+    print(render_advice(advice("status", project_command(root, "status"))))
     return 0
 
 

@@ -22,13 +22,13 @@ def model_edit_cases():
         data=dict(schema='flowguard.map.v1',fingerprint_format=2,model_digests={logical:content_digest(path)},components=[dict(id='app',summary='Compute one value',responsibilities=['Compute value'],files=['native.py'],tests=[],models=[],status='draft')])
         (root/'.flowguard/map.json').write_text(json.dumps(data))
         facts=[]
-        facts.append(Fact('unchanged',not model_edit_findings(root,data,'error')))
+        facts.append(Fact('unchanged',not model_edit_findings(root,data)))
         path.write_text(path.read_text()+'# changed model\n')
-        facts.append(Fact('changed',bool(model_edit_findings(root,data,'error'))))
+        facts.append(Fact('changed',bool(model_edit_findings(root,data))))
         with redirect_stdout(StringIO()),redirect_stderr(StringIO()):
             confirmed=map_main(['--root',str(root),'confirm','app'])
         data=json.loads((root/'.flowguard/map.json').read_text())
-        facts.append(Fact('confirm_keeps_guard',confirmed==0 and bool(model_edit_findings(root,data,'error'))))
+        facts.append(Fact('confirm_keeps_guard',confirmed==0 and bool(model_edit_findings(root,data))))
         with redirect_stdout(StringIO()),redirect_stderr(StringIO()):
             started=target_main(['--root',str(root),'start','Plan model edit'])
             added=target_main(['--root',str(root),'add','one'])
@@ -36,9 +36,9 @@ def model_edit_cases():
         intended = copied.read_bytes()
         path.write_bytes(pristine)
         facts.append(Fact('target_owns_edit', started == added == 0 and copied.read_bytes() == intended
-                          and not model_edit_findings(root, data, 'error')))
+                          and not model_edit_findings(root, data)))
         path.write_bytes(pristine + b'# changed while target holds a copy\n')
-        findings = model_edit_findings(root, data, 'warn')
+        findings = model_edit_findings(root, data)
         facts.append(Fact('staged_edit_named_error', any(f.code == 'model_edited_outside_target' and f.level == 'error'
                                                        for f in findings) and copied.read_bytes() == intended,
                           repr(findings)))
@@ -60,9 +60,9 @@ def helper_edit_cases():
             started = start_target(root, 'Preserve helper intent')
         copied = root / '.flowguard/target/models/_local.py'
         copied.write_bytes(pristine)
-        facts = [Fact('captured_helper_unchanged', started == 0 and not model_edit_findings(root, data, 'warn'))]
+        facts = [Fact('captured_helper_unchanged', started == 0 and not model_edit_findings(root, data))]
         path.write_bytes(b'VALUE = "current intent"\n')
-        findings = model_edit_findings(root, data, 'warn')
+        findings = model_edit_findings(root, data)
         facts.append(Fact('staged_helper_named_error', any(f.code == 'model_edited_outside_target' and f.level == 'error'
                                                         for f in findings) and copied.read_bytes() == pristine,
                           repr(findings)))

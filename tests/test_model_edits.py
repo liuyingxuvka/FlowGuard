@@ -86,7 +86,7 @@ def test_staged_helper_presence_and_legacy_identity(tmp_path):
     data = load_map(root)  # Helper protection does not require public model digests.
     helper = root / ".flowguard/models/_existing.py"
     helper.write_bytes(b'VALUE = "original"\r\n')
-    assert not model_edit_findings(root, data, "warn")
+    assert not model_edit_findings(root, data)
     assert start_target(root, "change helper safely") == 0
     copied = root / ".flowguard/target/models/_existing.py"
     copied.write_bytes(helper.read_bytes())
@@ -94,33 +94,33 @@ def test_staged_helper_presence_and_legacy_identity(tmp_path):
     target_added = root / ".flowguard/target/models/_new.py"
     target_added.write_text("NEW = True\n")
     helper.write_bytes(b'VALUE = "original"\n')
-    assert not model_edit_findings(root, data, "warn")  # Source newline equivalence and target-only creation.
+    assert not model_edit_findings(root, data)  # Source newline equivalence and target-only creation.
     added.write_bytes(target_added.read_bytes())
-    assert all(f.level == "error" for f in model_edit_findings(root, data, "warn"))
-    assert model_edit_findings(root, data, "warn")
+    assert all(f.level == "error" for f in model_edit_findings(root, data))
+    assert model_edit_findings(root, data)
     added.unlink()
     helper.unlink()
-    assert model_edit_findings(root, data, "warn")  # Deleting a captured helper is an edit too.
+    assert model_edit_findings(root, data)  # Deleting a captured helper is an edit too.
     helper.write_bytes(copied.read_bytes())
     target_added.unlink()
     base = root / ".flowguard/target/base.json"
     identity = json.loads(base.read_text())
     identity.pop("helpers", None)  # Existing targets have no trustworthy helper history.
     base.write_text(json.dumps(identity))
-    assert not model_edit_findings(root, data, "warn")  # Identical current/copy cannot lose current bytes.
+    assert not model_edit_findings(root, data)  # Identical current/copy cannot lose current bytes.
     for contents in (b'VALUE = "current intent"\n', None):
         if contents is None:
             helper.unlink()
         else:
             helper.write_bytes(contents)
-        findings = model_edit_findings(root, data, "warn")
+        findings = model_edit_findings(root, data)
         assert findings and all(f.level == "error" for f in findings)
         assert "save" in findings[0].message.lower() and "reopen" in findings[0].message.lower()
     helper.write_bytes(b'VALUE = "current intent"\n')
     identity["schema"] = "unrecognized.target-base"
     identity["helpers"] = {helper.relative_to(root).as_posix(): "0" * 64}
     base.write_text(json.dumps(identity))
-    assert "no captured helper baseline" in model_edit_findings(root, data, "warn")[0].message
+    assert "no captured helper baseline" in model_edit_findings(root, data)[0].message
 
 
 def test_map_check_names_model_edited_outside_target(tmp_path):
@@ -143,7 +143,7 @@ def test_map_check_names_model_edited_outside_target(tmp_path):
     path.write_text(path.read_text() + "# modified\n")
     assert fingerprint(tmp_path, ["app.py"]) == pointer  # the model digest, not the code pointer, changes
 
-    assert len(guards()) == 1 and guards()[0].level == "warn"
-    assert len(guards(True)) == 1 and guards(True)[0].level == "error"
+    assert len(guards()) == 1 and guards()[0].level == "info"
+    assert len(guards(True)) == 1 and guards(True)[0].level == "info"
     del data["model_digests"]
     assert guards() == []

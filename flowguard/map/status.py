@@ -94,7 +94,6 @@ def _edited_functions(root, base, data, reader):
 def collect_status(root, *, read_git_paths):
     """Read only; CLI supplies the existing disposable-index Git reader."""
     root = Path(root).resolve()
-    data = load_map(root)
     target = load_target(root)
     peers = other_worktrees(root)
     git = _git_header(root, read_git_paths, peers)
@@ -110,6 +109,7 @@ def collect_status(root, *, read_git_paths):
     requests = [item for item in requests if not item['state'].startswith('done ') or item['since_release'] is not False]
     change, plan = None, []
     if target is not None:
+        data = load_map(root)
         base = json.loads((root / '.flowguard/target/base.json').read_bytes())
         edited, known = _edited_functions(root, base, data, read_git_paths)
         change = dict(goal=target.goal, requests=target.data.get('requests', []), base=base.get('git'),
@@ -136,12 +136,10 @@ def collect_status(root, *, read_git_paths):
     else:
         pending = set(git['uncommitted_paths'] or ())
         unpublished = [identifier for identifier, _ in records if (CHANGE_DIR / (identifier + '.json')).as_posix() in pending]
+        next_step = advice('check', shlex.join(['python', '-m', 'flowguard', 'read', '--root', str(root)]))
         if unpublished:
-            message = root / CHANGE_DIR / (unpublished[-1] + '.msg')
-            next_step = advice('commit', shlex.join(['git', '-C', str(root), 'commit', '-F', str(message)]))
-            note = 'Stage the reviewed code, requests, change record and target deletions before committing.'
-        else:
-            next_step = advice('check', shlex.join(['python', '-m', 'flowguard', 'read', '--root', str(root)]))
+            note = (f'change {unpublished[-1]} is promoted but not committed: stage the reviewed code, requests, '
+                    'change record and target deletions, then commit them with your own message.')
     return dict(root=str(root), scope='legacy static status; no exploration or stored verdicts', git=git,
                 change=change, plan=plan, verdicts=dict(stored=False, command=command), requests=requests,
                 since_release=history, other_changes=others, jobs='none in the legacy runtime',

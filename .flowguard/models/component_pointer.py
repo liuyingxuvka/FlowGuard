@@ -124,7 +124,7 @@ def _confirmed_means_described(state: State, trace) -> InvariantResult:
 INVARIANTS = (
     Invariant('clean_means_current', 'clean is reported only when the code is unchanged since confirm', _clean_means_current),
     Invariant('confirmed_means_described', 'confirm requires summary and responsibilities', _confirmed_means_described),
-    Invariant("model_edited_outside_target_is_named", "model edits need their own target and cannot be silently cleared by confirm",
+    Invariant("model_edited_outside_target_is_named", "an in-place model edit is named (information) and cannot be silently cleared by confirm",
               lambda s,t: InvariantResult.fail("unplanned model edit was hidden") if s.model_edited and s.last_report
               and s.last_report != "model_edited_outside_target" else InvariantResult.pass_()),
 )

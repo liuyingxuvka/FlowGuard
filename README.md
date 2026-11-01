@@ -19,27 +19,26 @@ things in the project:
 
 1. **The map** `.flowguard/map.json` - components, their responsibilities, owned state, side
    effects, files, entrypoints, dependencies, tests and models. Start or resume with
-   `python -m flowguard status` and follow NEXT, then inspect the task's components and existing
-   models, constraints and counterexamples with `read --find WORDS` or `read --component ID`.
+   `python -m flowguard status`, and find code, owners and callers with `python -m flowguard where NAME`.
 2. **Models** - small executable `Input x State -> Set(Output x State)` models of risky flows
    (retries, idempotency, caching, ordering, money, permissions, multi-step workflows). FlowGuard
    explores every input sequence within a bound, reports counterexamples, checks that known-bad
    variants fail, and replays model traces against the real code (conformance).
-3. **The target** - the intended map and models for one planned behaviour or structure change;
-   implement and check that plan before promoting it to the current model.
+3. **The target** (legacy route, kept until v1.0.0) - the intended map and models for one planned
+   change of the legacy models; a normal change needs no target.
 
 The map and models form one tree. Root and component nodes come from the code and stay active;
 behavior models are added beneath components when a task needs them, with tests on the same nodes.
 `python -m flowguard read --mermaid` draws this tree.
 
-The current tree lives in `.flowguard/map.json` and `.flowguard/models/`; planned changes live in one target under `.flowguard/target/` at a time.
-For behaviour or structure changes, write the target first, then make the code and tests match it.
-Once `target check` has no ERROR or TO-DO, `target promote` replaces the current tree and removes the target.
+The current tree lives in `.flowguard/map.json` and `.flowguard/models/`. A normal change is code and tests
+changed together, the project's tests run, and one commit with a message in your own words; add a line
+`Request: R<n>` when the change answers a stored owner request.
 
-Map and code verify each other: every source file belongs to exactly one component; entrypoints,
-flow steps and model files must exist; every real import must be declared;
-confirming a component records a fingerprint of its files, so any code change marks it STALE until
-someone re-reads and re-confirms it. History lives in git.
+Map and code are compared on every check. Real problems such as import cycles, layer violations and
+missing model anchors are errors. Gaps that only mean the hand-written map is behind the code (a file
+without an owner, a stale description, an undeclared or unproven dependency) are information and never
+fail a check. History lives in git.
 
 ## Five-minute start
 
@@ -69,9 +68,10 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 
 | when | command | what it does |
 | --- | --- | --- |
-| session start or resume | `python -m flowguard status` | follow NEXT; use `read --find WORDS` or `read --component ID` to inspect the task's existing owners and models before adding code |
-| behaviour or structure change | `python -m flowguard target` (`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`) | write the target model first, make the code match it, then replace the current model |
-| after editing | `python -m flowguard change` | verify map vs code; list only the affected tests and models |
+| session start or resume | `python -m flowguard status` | the project's static facts and what blocks a commit |
+| the owner asks for something | `python -m flowguard req add <file\|-> --id <id>` | store the owner's own words once, byte for byte |
+| legacy target route (until v1.0.0) | `python -m flowguard target` (`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`) | plan a change of the legacy models; a normal change needs no target |
+| legacy check (until v1.0.0) | `python -m flowguard change` | verify map vs code; list only the affected tests and models |
 | before release | `python -m flowguard release` | strict check, lint errors, every model re-run |
 | start a model or adopt the workflow | `python -m flowguard template --list` | choose `behaviour`, `validator`, `ui-journey` or repository rules with `adoption` |
 

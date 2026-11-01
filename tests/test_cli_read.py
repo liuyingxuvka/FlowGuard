@@ -70,8 +70,8 @@ def test_find_and_check_point_at_the_existing_owner(tmp_path, capsys):
     assert "state: order status" in out and "create a new component only when none does" in out
     write(tmp_path, "shop/refunds.py", "def refund():\n    return 1\n")
     assert [f.message for f in findings(tmp_path) if f.code == "file_unmapped"] == [
-        "shop/refunds.py has no owning component; the files next to it belong to orders: "
-        "add it there unless it is a new responsibility"
+        "shop/refunds.py has no owner in the legacy map: import checks between components do not see this file; "
+        "add it to a component's files only if you want those checks (the files next to it belong to orders)"
     ]
     write(tmp_path, "shop/billing.py", "def bill():\n    return 1\n")
     data["components"].append(
@@ -89,8 +89,8 @@ def test_find_and_check_point_at_the_existing_owner(tmp_path, capsys):
     )
     save(tmp_path, data)
     assert [f.message for f in findings(tmp_path) if f.code == "file_unmapped"] == [
-        "shop/refunds.py has no owning component; the files next to it belong to billing, orders: "
-        "add it to the one that owns its responsibility"
+        "shop/refunds.py has no owner in the legacy map: import checks between components do not see this file; "
+        "add it to a component's files only if you want those checks (the files next to it belong to billing, orders)"
     ]
 
 

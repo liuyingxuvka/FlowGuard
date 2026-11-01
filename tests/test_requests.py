@@ -130,9 +130,7 @@ def test_promote_prints_owner_block(tmp_path, capsys, as_json):
     assert output.count('old rule:') == 2 and output.count('new rule:') == 2
     assert 'availability_ceiling' in output and 'and state >= 0' in output
     assert '(absent: this rule did not exist)' in output
-    message = next((tmp_path / '.flowguard/changes').glob('*.msg')).read_text()
-    block = message[message.index(header):].rstrip()
-    assert block in output
+    assert not list((tmp_path / '.flowguard/changes').glob('*.msg'))  # the commit message is the AI's own
 
 
 def test_owner_block_marks_stored_requests_and_glossary(tmp_path):
@@ -255,7 +253,7 @@ def test_promote_marks_linked_request_done(tmp_path, capsys):
         assert len(records) == 1
         item = json.loads(records[0].read_bytes())
         assert item["kind"] == "change" and item["requests"] == data["requests"]
-        assert records[0].with_suffix(".msg").is_file()
+        assert not records[0].with_suffix(".msg").exists()
         rows = request_rows(root)
         assert any(("R1 open since" if partial else "R1 done (change ") in row for row in rows)
         assert any("R2 open since" in row for row in rows)
