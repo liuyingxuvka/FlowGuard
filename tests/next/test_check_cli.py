@@ -162,21 +162,22 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
                         r"branch\[\*\] = 'library' can never change again "
                         r"\(tools T1, T2\)   \[C-[0-9a-f]{12}\]", heads[0])
     i = run.lines.index(heads[0])
-    stuck = run.lines[i:i + 14]
-    assert stuck[1:7] == ["  rent(t='T1') refused: 'not on the shelf' (R4)",
+    stuck = run.lines[i:i + 15]
+    assert stuck[1:8] == ["  rent(t='T1') refused: 'not on the shelf' (R4)",
+                          "  arrive(t='T1') refused: 'not on the way' (R10)",     # the exit that never works
                           "  repaired(t='T1') refused: 'not in repair' (R9)",
                           "  move(t='T1', b='main') refused: 'only shelf tools move' (R6)",
                           "  later, where cond[*] = 'repair': give_back(t='T1') refused: 'not on loan' (R9)",
                           "  later, where cond[*] = 'repair': repaired(t='T1') refused: 'repairs only at main' "
                           "(R10)",
                           "  entered by rent(t='T1') (R4)"]
-    assert stuck[7] == ('  requests: R4 "# Request 4: renting tools" | R6 "# Request 6: two branches" | '
+    assert stuck[8] == ('  requests: R4 "# Request 4: renting tools" | R6 "# Request 6: two branches" | '
                         'R9 "# Request 9: regular maintenance" | R10 "Repairs are done only at the main branch."')
-    assert stuck[8] == "  state: cond[T1]='loan', branch[T1]='library', rentals[T1]=4"
-    assert stuck[9].startswith("  path (8 steps): rent(t='T1') ; give_back(t='T1') ;")
-    assert stuck[10] == ("  then also stuck: cond[*] = 'repair'; progress 'a tool in repair or on the way gets back "
+    assert stuck[9] == "  state: cond[T1]='loan', branch[T1]='library', rentals[T1]=4"
+    assert stuck[10].startswith("  path (8 steps): rent(t='T1') ; give_back(t='T1') ;")
+    assert stuck[11] == ("  then also stuck: cond[*] = 'repair'; progress 'a tool in repair or on the way gets back "
                          "to a shelf' (1 counter value folded: rentals[*])")
-    assert stuck[11] == "  note: clamped at maintain_every: more rentals behave the same"
+    assert stuck[12] == "  note: clamped at maintain_every: more rentals behave the same"
     assert "  no one-setting change reaches it" in run.lines
     assert run.lines[-1].startswith("workshop: complete, 171 states")
     ids = [h.rsplit("[", 1)[1][:-1] for h in heads]

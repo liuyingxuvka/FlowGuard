@@ -9,7 +9,11 @@ hold, the declared/derived ends. Only the class may differ (M3): unreached field
 without a source are model warnings, so a model whose only findings were such values
 is now clean. One finding is new (G8, s1aplan/undeclared_end.md): a derived end the
 prototype listed under ENDS ("if that is not the design, it is a dead end") is also a
-STUCK conflict when no m.terminal declares it; it is compared separately.
+STUCK conflict when no m.terminal declares it; it is compared separately. And where a
+counter value and another value are stuck in as many states, the new engine names the group
+by the other value (G2: a report is named by the object's state, the counter is folded under
+it), while the prototype took the first by key: groups are compared as sets of labels, and the
+root may differ from the prototype's only that way.
 """
 from __future__ import annotations
 
@@ -137,6 +141,18 @@ def render(report):
     return out
 
 
+def _group(s):
+    return frozenset([s["label"]] + s["under"]), s["path"]
+
+
+def _counter(label):
+    return re.match(r"\S+ = -?\d+: ", label) is not None
+
+
+def _states(label):
+    return re.search(r"\((\d[\d,]*) states?, complete search\)", label).group(1)
+
+
 CASES = [pytest.param(p, id=p.stem) for p in OUTS]
 
 
@@ -159,7 +175,11 @@ def test_golden(out_path):
         got = render(report)
         for key in ("states", "steps", "complete", "errors"):
             assert got[key] == want[key], (model.name, key)
-        assert got["stuck"] == want["stuck"], model.name
+        assert [_group(s) for s in got["stuck"]] == [_group(s) for s in want["stuck"]], model.name
+        for g_, w_ in zip(got["stuck"], want["stuck"]):
+            if g_["label"] != w_["label"]:          # only a counter root gives way to a value stuck as long
+                assert _counter(w_["label"]) and not _counter(g_["label"]), (model.name, g_["label"])
+                assert _states(g_["label"]) == _states(w_["label"]), model.name
         assert got["never"] == want["never"], model.name
         assert got["reach"] == want["reach"], model.name
         assert got["broken"] == want["broken"], model.name

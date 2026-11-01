@@ -306,8 +306,8 @@ def test_a_stuck_report_names_the_object_its_refusals_and_its_way_in(project):
     stuck = one(report, "STUCK")
     assert stuck.text.startswith("T1 stuck with cond='loan', branch='library', rentals=4: branch[*] = 'library'")
     refused = [(r["call"].partition("(")[0], r["reason"], r["source"]) for r in stuck.detail["refused"]]
-    assert refused == [("rent", "not on the shelf", "R4"), ("repaired", "not in repair", "R9"),
-                       ("move", "only shelf tools move", "R6")]
+    assert refused == [("rent", "not on the shelf", "R4"), ("arrive", "not on the way", "R10"),
+                       ("repaired", "not in repair", "R9"), ("move", "only shelf tools move", "R6")]
     later = [(r["at"], r["call"], r["reason"], r["source"]) for r in stuck.detail["later"]]
     assert ("cond[*] = 'repair'", "repaired(t='T1')", "repairs only at main", "R10") in later
     assert stuck.detail["entered"] == {"call": "rent(t='T1')", "sources": ["R4"]}

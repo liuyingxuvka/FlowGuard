@@ -677,9 +677,15 @@ class _Run:
         return f"{_subject_key(line['key'])} = {self.subject_value(line['value'])}"
 
     def group(self, lines) -> list[Finding]:
-        """Roots and consequences (port of group_stuck), then one finding per root."""
+        """Roots and consequences (port of group_stuck), then one finding per root. Among lines
+        stuck in as many states, a counter value is never the root while another value is
+        (it is folded under it): the report is named by the object's state (G2)."""
         P = self.fr.P
-        order = sorted(range(len(lines)), key=lambda n: (-len(lines[n]["where"]), lines[n]["first"]))
+
+        def counter(line):
+            return line["kind"] != "progress" and _is_counter(self.field_by_key[line["key"]].domain)
+        order = sorted(range(len(lines)), key=lambda n: (-len(lines[n]["where"]), counter(lines[n]),
+                                                         lines[n]["first"]))
         roots, under = [], {}
         for n in order:
             where = lines[n]["where"]
@@ -712,7 +718,7 @@ class _Run:
             sources |= self.stuck_sources(m_, calls)
             notes += [x for x in self.stuck_notes(m_) if x not in notes]
         who, plain = self.object_state(line)
-        refused = self.refused_object(line["first"], self.object_positions(line))
+        refused = self.refused_object(line["first"], self.object_positions(line), self.stuck_object(line))
         said = {(r["call"].partition("(")[0], r["reason"], r["source"]) for r in refused}
         shown, folded = [], []
         later = []
@@ -723,11 +729,12 @@ class _Run:
             shown.append(c)
             if c["kind"] == "progress":
                 continue
-            for r in self.refused_object(c["first"], self.object_positions(c)):
+            for r in self.refused_object(c["first"], self.object_positions(c), self.stuck_object(c)):
                 k = (r["call"].partition("(")[0], r["reason"], r["source"])
                 if k not in said:
                     said.add(k)
                     later.append(dict(r, at=self.line_subject(c)))
+        sources |= {r["source"] for r in refused + later}     # what the report names refusing is its cause
         subject = self.line_subject(line)
         detail = {
             "stuck": line["kind"], "label": self.label(line), "count": len(line["where"]),
@@ -789,21 +796,27 @@ class _Run:
             return "", show_tuple(self.g, end)
         return who, ", ".join(f"{self.keys[q][0]}={end[q]!r}" for q in positions)
 
-    def refused_object(self, u, positions):
-        """Every call that changes one of the positions somewhere and refuses at the concrete
-        state u, once per action, reason and source, in call order."""
+    def refused_object(self, u, positions, obj=None):
+        """Every call refused at the concrete state u that bears on the stuck object, once per
+        action, reason and source, in call order: a call that changes one of its positions
+        somewhere, and any other call whose arguments name no object but the stuck one (an
+        exit that never works anywhere, such as a repair refused by its own guard, changes
+        nothing anywhere and would otherwise go unnamed)."""
         g, fr = self.g, self.fr
         i, cid = divmod(u, fr.P)
         cands = set()
         for q in positions:
             cands |= self.closed_changers(fr.dest(fr.inv(cid), q) if fr.P > 1 else q)
+        mine = set(obj or ())
         found = []
-        for c in cands:
+        for c in range(len(g.calls)):
             v = g.out[i][c]
             if v > -3:                                # possible here, or dropped by the bound / an error
                 continue
             cc = c if fr.P == 1 or cid == 0 else g.sym.call_perm[cid][c]
-            found.append((cc, g.refusals[-1 - v]))
+            named = {x for x in g.calls[cc].args if isinstance(x, str) and x in self.ids}
+            if c in cands or named <= mine:
+                found.append((cc, g.refusals[-1 - v]))
         out, seen = [], set()
         for cc, r in sorted(found, key=lambda x: x[0]):
             k = (g.calls[cc].action.name, r.reason, r.source)
@@ -812,6 +825,13 @@ class _Run:
             seen.add(k)
             out.append({"call": show_step(g.calls[cc].step()), "reason": r.reason, "source": r.source})
         return out
+
+    def stuck_object(self, line):
+        """The concrete ids of the stuck object (empty for the fields of no object)."""
+        if line["kind"] == "progress":
+            return () if line["rule"].obj is None else (line["rule"].obj,)
+        key = line["key"]
+        return tuple(x for x in key[1:] if isinstance(x, str) and x in self.ids) if isinstance(key, tuple) else ()
 
     def entered(self, calls):
         """The step that entered the stuck set, with its action's and its marked effects' sources."""

@@ -243,3 +243,93 @@ def test_a_dead_end_with_a_counter_that_still_ticks_is_a_dead_end(project):
     assert "B1 stuck with where='repair', waiting=2" in end.text
     assert end.path == ("lend(b='B1')", "damaged(b='B1')", "night()", "night()")
     assert "m.terminal('where', ['repair'])" in end.text
+
+
+FUSE = '''
+from flowguard._next import Model, need
+
+m = Model("lamps")
+LAMPS = m.objects("lamp", "L1", "L2")
+m.field("state", ["off", "on"], "off", over=LAMPS, source="R1")
+m.field("fuse", ["ok", "blown"], "ok", source="R2")
+m.field("count", range(0, 3), 0, source="R3")
+
+@m.action(l=LAMPS, source="R1")
+def switch_on(s, l):
+    need(s["state", l] == "off", "not off")
+    s["state", l] = "on"
+    s["count"] = min(s["count"] + 1, 2)
+    if s["count"] == 2:
+        s["fuse"] = "blown"
+
+@m.action(l=LAMPS, source="R1")
+def switch_off(s, l):
+    need(s["state", l] == "on", "not on")
+    need(s["fuse"] == "ok", "no power")
+    s["state", l] = "off"
+    s["count"] = 0
+
+@m.action(source="R4")
+def replace_fuse(s):
+    need(s["fuse"] == "blown", "the fuse is fine")
+    need(s["count"] == 0, "the meter is not reset", source="R4")
+    s["fuse"] = "ok"
+MODEL = m
+'''
+
+
+def test_a_dead_end_names_the_exit_that_never_works_anywhere(project):
+    """G2 round 2: the refusals of a STUCK report are every call refused where the object is
+    stuck that names no other object, not only the calls that change it somewhere: an exit
+    that never succeeds anywhere (replace_fuse, refused by R4) is the real cause and is named
+    with its request; it once showed only as a separate NEVER REACHED action."""
+    project.flow("lamps", FUSE)
+    report = check_model(load_model(project.root / ".flowguard/flow/lamps.py", project.root))
+    [stuck] = [f for f in report.findings if f.kind == "STUCK"]
+    refused = {(r["call"], r["reason"], r["source"]) for r in stuck.detail["refused"]}
+    assert ("replace_fuse()", "the meter is not reset", "R4") in refused
+    assert ("switch_off(l='L1')", "no power", "R1") in refused
+    assert not any("L2" in call for call, _, _ in refused)
+    assert "R4" in stuck.sources
+
+
+DOOR = '''
+from flowguard._next import Model, need
+
+m = Model("door")
+m.field("count", range(0, 3), 0, source="R2")
+m.field("state", ["open", "locked"], "open", source="R1")
+
+@m.action(source="R1")
+def lock(s):
+    need(s["state"] == "open", "not open")
+    s["state"], s["count"] = "locked", min(s["count"] + 1, 2)
+
+@m.action(source="R1")
+def unlock(s):
+    need(s["state"] == "locked", "not locked")
+    need(s["count"] < 2, "worn out", source="R4")
+    s["state"] = "open"
+
+@m.action(source="R2")
+def wear(s):
+    need(s["state"] == "open", "not open")
+    s["count"] = 2
+
+@m.action(source="R2")
+def reset(s):
+    need(s["state"] == "open", "not open")
+    s["count"] = 0
+MODEL = m
+'''
+
+
+def test_a_dead_end_is_named_by_its_state_not_by_a_counter(project):
+    """G2 round 2: where a counter value and a text value are stuck in the same states, the
+    report is named by the text value (the counter is folded under it), not by the counter."""
+    project.flow("door", DOOR)
+    report = check_model(load_model(project.root / ".flowguard/flow/door.py", project.root))
+    [stuck] = [f for f in report.findings if f.kind == "STUCK"]
+    assert stuck.subject == "state = 'locked'"
+    assert stuck.detail["folded"] == {"count": 1, "fields": ["count"]}
+    assert ("unlock()", "worn out", "R4") in {(r["call"], r["reason"], r["source"]) for r in stuck.detail["refused"]}
