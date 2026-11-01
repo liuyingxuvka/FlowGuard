@@ -3,6 +3,19 @@ import pytest,os,json
 from pathlib import Path
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """A skip raised while another exception is being handled fails and names the swallowed error."""
+    outcome = yield
+    report = outcome.get_result()
+    excinfo = call.excinfo
+    if report.skipped and excinfo is not None and excinfo.errisinstance(pytest.skip.Exception):
+        hidden = excinfo.value.__cause__ or excinfo.value.__context__
+        if hidden is not None:
+            report.outcome = "failed"
+            report.longrepr = f"skip raised while handling {type(hidden).__name__}: {hidden!r}"
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _outside_an_agent_session():
     """Tests run as plain processes; only tests that set the agent's session variables see status first."""
