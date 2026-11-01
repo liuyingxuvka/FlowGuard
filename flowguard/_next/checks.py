@@ -941,16 +941,16 @@ class _Run:
         missing += [("action", a.name) for a in model.actions if a.name not in g.done_actions]
         missing += [("option", o.name) for o in model.options if o.name not in g.offered]
         reach_missing = self.reach_unreached()
-        explained, capped = ({}, [])
+        explained, capped, cut = ({}, [], [])
         if self.explain and (missing or reach_missing):
-            explained, capped = self.explanations(missing, reach_missing)
-        self.explanations_capped = capped
+            explained, capped, cut = self.explanations(missing, reach_missing)
+        self.explanations_capped, self.explanations_cut = capped, cut
         out = []
         for item in missing + [("reach", r) for r in reach_missing]:
-            out.append(self.never_finding(item, explained, capped))
+            out.append(self.never_finding(item, explained, capped, cut))
         return out, reach_missing, explained
 
-    def never_finding(self, item, explained, capped):
+    def never_finding(self, item, explained, capped, cut=()):
         g, model = self.g, self.model
         kind, what = item
         how = explained.get(self._item_key(item)) if self.explain else None
@@ -963,6 +963,7 @@ class _Run:
                     setting_notes.append(info.note)
         # a variant that reached the item decided it; it is UNKNOWN only for the items it did not reach
         detail = {"item": kind, "explained": how, "capped": [c for c in capped if c not in (how or [])],
+                  "cut": [c for c in cut if c not in (how or [])],
                   "explanation_errors": list(self.explanation_errors)}
         if kind == "value":
             key, v = what
@@ -1036,7 +1037,7 @@ class _Run:
         model = self.model
         found = {self._item_key(m): [] for m in missing}
         found.update({("reach", r.name): [] for r in reach_missing})
-        capped = []
+        capped, cut = [], []
         targets = {"value": [w for k, w in missing if k == "value"],
                    "action": {w for k, w in missing if k == "action"},
                    "option": {w for k, w in missing if k == "option"},
@@ -1057,7 +1058,9 @@ class _Run:
                 vg = explore(model, Bounds(cap), check_domains=False, targets=targets, reduce=self.reduce)
             finally:
                 model.settings[name] = old
-            if not vg.complete and not vg.stopped_early:
+            if vg.cut:                                  # a model error cut the variant's search short
+                cut.append(f"{name}={value}")
+            elif not vg.complete and not vg.stopped_early:
                 capped.append(f"{name}={value}")
             if vg.errors:
                 self.explanation_errors.append(f"{name}={value}: {vg.errors[0].text}")
@@ -1077,7 +1080,7 @@ class _Run:
                     hit = False
                 if hit:
                     found[("reach", r.name)].append(f"{name}={value}")
-        return found, capped
+        return found, capped, cut
 
     # -------------------------------------------------------------- BROKEN, CONTRADICTION
     def broken(self) -> list[Finding]:
@@ -1170,6 +1173,7 @@ class _Run:
                     for n, s in model.setting_info.items()]
         return {
             "model": self.mid, "name": model.name, "complete": g.complete, "states": len(g.states),
+            "capped": g.bounded, "cut": g.cut,
             "steps": g.steps, "max_states": self.bounds.max_states,
             "symmetry": list(g.sym.kinds) if g.sym is not None else [],
             "symmetry_doubt": model.__dict__.get("_symmetry_doubt"),
@@ -1179,6 +1183,7 @@ class _Run:
             "world_can_end": bool(getattr(self, "world_can_end", False)),
             "note": model.note, "unknown": list(unknown),
             "explanations_capped": list(getattr(self, "explanations_capped", [])),
+            "explanations_cut": list(getattr(self, "explanations_cut", [])),
             "explanation_errors": list(self.explanation_errors),
         }
 
@@ -1291,8 +1296,9 @@ def reach_line(reach: dict) -> str:
     if reach["complete"]:
         head = f"complete, {_plural(reach['states'], 'state')}"
     else:
-        head = (f"CAPPED at {reach['max_states']:,} states: UNKNOWN for "
-                f"{', '.join(reach['unknown']) or 'nothing'}")
+        how = (f"CUT SHORT by {_plural(reach['cut'], 'model error')}" if reach.get("cut")
+               else f"CAPPED at {reach['max_states']:,} states")
+        head = f"{how}: UNKNOWN for {', '.join(reach['unknown']) or 'nothing'}"
     if reach["symmetry"]:
         head += f" ({', '.join(k + 's' for k in reach['symmetry'])} explored up to renaming)"
     elif reach.get("symmetry_doubt"):
@@ -1425,7 +1431,7 @@ def _replay_stuck(model, spec, t, keys, bounds):
         if moved is not None:
             return GONE, f"from where its path ends, {spec['key']} can change again (to {moved[pos]!r})"
     if not g.complete:
-        return UNDECIDED, f"the search from where its path ends is capped at {bounds.max_states:,} states"
+        return UNDECIDED, f"the search from where its path ends is {g.unfinished()}"
     return REPLAYED, "its stored path still reproduces it"
 
 

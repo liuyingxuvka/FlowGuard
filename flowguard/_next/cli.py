@@ -225,14 +225,27 @@ class ModelView:
     @property
     def complete(self) -> bool:
         """Every part finished on a complete search of a model that loaded (a model that does
-        not load was not explored: nothing about it is complete)."""
+        not load was not explored, and a search a model error cut short is not the model's:
+        nothing about either is complete)."""
         return self.finished and self.loaded and all(r.complete for _, r, _, _ in self.parts)
 
     @property
+    def cut(self) -> int:
+        """The model errors that cut the model's search short (0: none, or it did not load)."""
+        core = self.result("core")
+        return core.info["reach"].get("cut", 0) if core is not None and core.info["loaded"] else 0
+
+    @property
+    def errors(self) -> int:
+        """The model errors any part of the model reported."""
+        return sum(1 for _, r, _, _ in self.parts if r is not None for d in r.findings if d["cls"] == ERROR_CLS)
+
+    @property
     def explored(self) -> bool:
-        """A complete exploration of the model as it is: the only run that closes a conflict
-        it no longer finds (a capped run, or a model that does not load, closes none)."""
-        return self.complete
+        """A complete exploration of the model as it is, every check of it run without a
+        model error: the only run that closes a conflict it no longer finds (a capped run, a
+        model that does not load and a check a model error broke off close none)."""
+        return self.complete and not self.errors
 
     def result(self, kind: str):
         for p, r, _, _ in self.parts:
@@ -320,7 +333,8 @@ def _kept(root, models: dict, previous: dict | None, found: set, whole: bool) ->
             closed.append((c, why))
             continue
         core = view.result("core")
-        scope = "this check is capped" if core is not None and core.info["loaded"] else "the model does not load"
+        scope = ("the model does not load" if core is None or not core.info["loaded"]
+                 else "a model error cut this check short" if view.errors else "this check is capped")
         if outcome == "reproduces":
             reason = f"{why}; {scope}"
         elif why == scope:
@@ -364,7 +378,8 @@ def verdict(result: Assembled, resume: str) -> tuple[str, int]:
         return running_line(o, resume), EXIT_RUNNING
     n_new = len([f for f in result.conflicts if f.id in result.new])
     n_open = len(result.conflicts) - n_new
-    capped = [m for m, v in result.models.items() if v.loaded and not v.complete]
+    cut = [m for m, v in result.models.items() if v.loaded and v.cut]
+    capped = [m for m, v in result.models.items() if v.loaded and not v.complete and not v.cut]
     unexplored = [m for m, v in result.models.items() if not v.loaded]
     head = []
     if n_new and n_open:
@@ -373,16 +388,20 @@ def verdict(result: Assembled, resume: str) -> tuple[str, int]:
         head.append(_plural(n_new, "new conflict"))
     elif n_open:
         head.append(_plural(n_open, "open conflict"))
-    elif capped:
+    elif capped or cut:
         head.append("no conflict found")
     if result.errors:
         head.append(_plural(len(result.errors), "model error"))
-    if capped or unexplored:
+    if capped or cut or unexplored:
         why = []
         if capped:
             why.append(f"{', '.join(capped)} capped at {result.max_states:,} states")
             if not result.conflicts:
                 why[-1] += f" ({', '.join(_undecided(result, capped))} undecided)"
+        if cut:
+            why.append(f"{', '.join(cut)} cut short by a model error")
+            if not result.conflicts:
+                why[-1] += f" ({', '.join(_undecided(result, cut))} undecided)"
         if unexplored:
             why.append(f"{', '.join(unexplored)} not explored (model error)")
         tail = "UNKNOWN: " + "; ".join(why)
@@ -420,9 +439,12 @@ def _explanation(f: Finding) -> str:
     if f.kind != "NEVER REACHED" or how is None:
         return ""
     capped = f.detail.get("capped") or []
+    cut = f.detail.get("cut") or []
     text = f"reached only with {', '.join(how)}" if how else "no one-setting change reaches it"
     if capped:
         text += f"; UNKNOWN with {', '.join(capped)} (capped)"
+    if cut:
+        text += f"; UNKNOWN with {', '.join(cut)} (cut short by a model error)"
     return text
 
 
@@ -618,7 +640,8 @@ def conflicts_data(root, result: Assembled, previous: dict | None) -> dict:
     entries = list(entries.values())
     models = dict(kept)
     for mid, view in result.models.items():
-        models[mid] = {"complete": view.complete, "loaded": view.loaded,
+        models[mid] = {"complete": view.complete, "loaded": view.loaded, "cut": view.cut,
+                       "errors": len([f for f in result.errors if f.model == mid]),
                        "parts": sorted(r.digest for _, r, _, _ in view.parts),
                        "warnings": len([f for f in result.warnings if f.model == mid])}
     digests = sorted(d for v in models.values() for d in v["parts"])
@@ -653,18 +676,23 @@ def status_lines(root) -> list[str]:
     conflicts = data["conflicts"]
     unknown = data["unknown"]
     models = data.get("models", {})
-    capped = [m for m in unknown if models.get(m, {}).get("loaded", True)]
-    unexplored = [m for m in unknown if m not in capped]
+    unexplored = [m for m in unknown if not models.get(m, {}).get("loaded", True)]
+    erring = {m: v["errors"] for m, v in models.items() if v.get("errors") and m not in unexplored}
+    capped = [m for m in unknown if m not in unexplored and not models.get(m, {}).get("cut")]
     if conflicts:
         ids = ", ".join(c["id"] for c in conflicts)
         line = f"flow models: {_plural(len(conflicts), 'open conflict')} ({ids}); a commit is blocked until fixed"
-    elif unknown:
+    elif unknown or erring:
         line = "flow models: no conflict found"
     else:
         line = "flow models: clean"
     if capped:
         line += (f"; capped: {', '.join(capped)} (what a capped search could not decide is UNKNOWN; "
                  f"that alone does not block)")
+    if erring:
+        shown = [f"{m} ({_plural(n, 'model error')}" + ("; its search was cut short" if models[m].get("cut") else "")
+                 + ")" for m, n in sorted(erring.items(), key=lambda x: natural_key(x[0]))]
+        line += f"; model errors: {', '.join(shown)}" + ("" if conflicts else "; a commit is blocked until fixed")
     if unexplored:
         line += f"; not explored: {', '.join(unexplored)} (the model does not load; a commit is blocked until fixed)"
     return [line]

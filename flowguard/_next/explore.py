@@ -323,7 +323,9 @@ class Graph:
         self.refusals = [Refusal("dropped by the state bound", None, None, None),
                          Refusal("model error", None, None, None)]
         self.parent = []
-        self.complete = True
+        self.complete = True             # every reachable state expanded, with no model error on the way
+        self.bounded = False             # the state bound was hit
+        self.cut = 0                     # model errors the search met (each one cuts the graph short)
         self.stopped_early = False
         self.errors = []
         self.broken = {}
@@ -337,6 +339,17 @@ class Graph:
         self.init = None
         self._pairs = {}
         self._staterev = None
+
+    def unfinished(self, loud: bool = False) -> str:
+        """Why the search is not complete, in words (a model error before the bound); loud:
+        the first word in capitals, as a picture's caption and the reach line put it."""
+        if self.cut:
+            how, rest = "cut short", f" by {self.cut} model error{'s' if self.cut != 1 else ''}"
+        elif self.bounded:
+            how, rest = "capped", f" at {self.max_states:,} states"
+        else:
+            how, rest = "stopped early", ""
+        return (how.upper() if loud else how) + rest
 
     # ------------------------------------------------------------------ reading
     def outcome(self, i, c):
@@ -641,7 +654,7 @@ def explore(model: Model, bounds: Bounds = Bounds(), *, targets=None, check_doma
             j = index.get(t)
             if j is None:
                 if len(states) >= max_states:
-                    g.complete = False
+                    g.complete, g.bounded = False, True
                     row[c] = -1 - BOUND
                     continue
                 j = len(states)
@@ -683,6 +696,8 @@ def explore(model: Model, bounds: Bounds = Bounds(), *, targets=None, check_doma
             progress({"states": len(states)})
     if g.stopped_early:
         g.complete = False                       # states found but not expanded stay listed
+    if errors:                                   # a step that raised has no successor: the graph is not the model's
+        g.cut, g.complete = len(errors), False
     g.seconds = time.perf_counter() - t0
     g.steps = sum(len({j for j in row if j >= 0}) for row in out)
     return g

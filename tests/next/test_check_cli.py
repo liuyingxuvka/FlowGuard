@@ -586,6 +586,50 @@ def test_a_model_error_closes_no_conflict(project):
     assert [c["id"] for c in json.loads(saved.read_text())["conflicts"]] == [cid]
 
 
+CUT_SHORT = [('''    need(s["cond", t] == "loan", "not out")
+    s["cond", t] = "repair"''', '''    need(s["cond", t] == "loan", "not out")
+    if s["branch", t] == "library":
+        raise RuntimeError("no repair desk here")
+    s["cond", t] = "repair"'''),
+             ('''    s["branch", t] = "library" if s["branch", t] == "main" else "main"''', '''    if s["branch", t] == "library":
+        raise RuntimeError("no van back")
+    s["branch", t] = "library"''')]
+
+
+def test_a_model_error_in_the_search_closes_nothing_and_proves_nothing(project):
+    """G1 round 2: a model that loads but raises during the search was counted as a complete
+    exploration. Its proven STUCK vanished from the output and conflicts.json with no
+    "closed" line, and the cut-short graph made false conflicts that were stored as proven.
+    A search a model error cuts short decides no STUCK and no NEVER REACHED, closes nothing,
+    and says it was cut short."""
+    from flowguard._next.cli import status_lines
+    saved = project.root / ".flowguard/conflicts.json"
+    path = project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    assert timed(project.root).code == 1
+    [cid] = [c["id"] for c in json.loads(saved.read_text())["conflicts"]]
+    text = path.read_text()
+    cut = text
+    for old, new in CUT_SHORT:
+        assert old in cut
+        cut = cut.replace(old, new)
+    path.write_text(cut)
+    run = timed(project.root)
+    assert run.code == 2, run.out
+    assert run.first == "1 open conflict; 2 model errors; UNKNOWN: rental cut short by a model error", run.out
+    assert not any(x.startswith(("NEW ", "closed ")) for x in run.lines), run.out
+    [line] = [x for x in run.lines if x.startswith("OPEN ")]
+    assert f"[{cid}]" in line and line.endswith("a model error cut this check short)"), line
+    assert "rental: CUT SHORT by 2 model errors: UNKNOWN for STUCK, NEVER REACHED" in run.out
+    data = json.loads(saved.read_text())
+    assert [c["id"] for c in data["conflicts"]] == [cid] and data["unknown"] == ["rental"]
+    [status] = status_lines(project.root)
+    assert "a commit is blocked until fixed" in status and "rental (2 model errors" in status, status
+    path.write_text(text)                                        # restored: a capped check keeps only the real one
+    capped = timed(project.root, "--max-states", "3")
+    assert capped.code == 1 and capped.first == "1 open conflict; UNKNOWN: rental capped at 3 states", capped.out
+    assert [c["id"] for c in json.loads(saved.read_text())["conflicts"]] == [cid]
+
+
 def test_the_text_names_the_declared_second_routes(project):
     """G4: a kept second route is printed in the text, not only in --json."""
     text = (DATA / "toy_next" / "rental_planted.py").read_text(encoding="utf-8").replace(

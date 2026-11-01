@@ -287,6 +287,11 @@ def run_mutants(loaded: Loaded, bounds: Bounds, *, progress=None) -> MutationRep
         else:
             mloaded = Loaded(mutant.wrap(model), loaded.reads)
         report = check_model(mloaded, bounds, explain=False)
+        if report.graph.cut:                       # the break makes the model raise: its model error catches it
+            outcomes.append({"op": mutant.op, "what": mutant.what, "outcome": "caught",
+                             "by": [f"{f.kind} {f.subject}" for fid, f in _blocking(report).items() if fid not in known
+                                    and f.cls == ERROR_CLS], "removes": []})
+            continue
         if not report.graph.complete:
             unknown.append(mutant.what)
             outcomes.append({"op": mutant.op, "what": mutant.what, "outcome": "unknown", "by": []})
