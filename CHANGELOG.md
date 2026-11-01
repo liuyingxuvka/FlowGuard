@@ -29,7 +29,7 @@
 - Legacy targets: map-upkeep findings are information, as in `map check`. Promotion confirms the target's own component descriptions, so they are not stale or draft afterwards.
 - Legacy targets: a target that only holds a component whose description went stale is promoted, not treated as empty. An empty target prints a step that drops it.
 - Legacy targets: `target check`, `target promote` and `status` stop and name `base.json` when it cannot be read.
-- Legacy targets: the `target check` summary no longer counts a NO GAP line as a warning.
+- Legacy targets: the `target check` summary no longer counts a NO GAP line as a warning. A target that only copied a model or component says it changes nothing yet and names the copy, instead of counting it as a changed node.
 - Every next step that `status` and the legacy target commands print runs as printed. After following them from a new target to the commit, `map check` and `release` show none of the target's components as stale or draft.
 - Promotion prints one staging command that includes new source files without an owner, and `status` repeats it until you commit. If Git cannot list the files, promotion stops before changing anything.
 - A promotion refused because a model or test failed prints `target promote` again, not `target check`.

@@ -304,6 +304,11 @@ def test_target_check_names_an_empty_target_once_and_a_request_finding_as_a_requ
     assert code == 1 and [line for line in output.splitlines() if "target_noop" in line and line.startswith("ERROR")] == [
         "ERROR target: target_noop: the target changes nothing yet: edit .flowguard/target/ (components, models or "
         "remove) or drop it with python -m flowguard target drop --yes"], output
+    # The headline says what the target is, a copy that changes nothing, instead of counting the copy as changed.
+    headline = 'target: "nothing changed yet" (changes nothing yet; copied unchanged: model:shelf_rule)'
+    assert output.splitlines()[0] == headline, output
+    shown = _cli(root, capsys, "read", "--target")[1]
+    assert headline in shown.splitlines() and "nodes)" not in shown, shown
     request = root / ".flowguard/requests/R1.md"
     request.write_bytes(request.read_bytes().replace(b"Keep", b"Drop"))
     code, output, _ = _cli(root, capsys, "target", "check")

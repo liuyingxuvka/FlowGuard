@@ -305,6 +305,14 @@ def target_node_changes(root: Path, current_data: dict, target: Target) -> dict[
     return {symbol: sorted(values) for symbol, values in changes.items()}
 
 
+def target_headline(goal, counts, unchanged=None) -> str:
+    """The one target headline: node counts, or, for a target that changes nothing yet, what it only copied."""
+    if unchanged is None:
+        return f'target: "{goal}" (+{counts["+"]} ~{counts["~"]} -{counts["-"]} nodes)'
+    copied = f"; copied unchanged: {', '.join(unchanged)}" if unchanged else ""
+    return f'target: "{goal}" (changes nothing yet{copied})'
+
+
 _VOLATILE = ("status", "fingerprint", "_hint")
 
 

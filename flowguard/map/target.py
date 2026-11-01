@@ -19,7 +19,7 @@ from .common import (SOURCE_EXTS, advice, render_advice, print_verdict, matches_
                      atomic_write_text, git_blob, git_common_directory, git_run, normalize_newlines, project_command, project_root)
 from .inventory import build_inventory, function_digests
 from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract, save_map, validate_map
-from .targetfile import (TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_is_noop, target_node_changes,
+from .targetfile import (TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_headline, target_is_noop, target_node_changes,
                          validate_target)
 from .tree import build_tree
 from .proof import DEFAULT_JOBS
@@ -643,7 +643,9 @@ def _target_codes(report: TargetReport) -> list[dict[str, str]]:
 
 def render_target_report(report: TargetReport, *, root: Path | None = None) -> str:
     changes = report.changes
-    lines = [f'target: "{report.goal}" (+{len(changes["+"])} ~{len(changes["~"])} -{len(changes["-"])} nodes)']
+    noop = any(finding.code == "target_noop" for finding in report.errors)  # then every node is an unchanged copy
+    lines = [target_headline(report.goal, {mark: len(names) for mark, names in changes.items()},
+                             changes["~"] if noop else None)]
     if report.goal_rules:
         lines.append(report.goal_rules)
     lines.extend(report.gaps)

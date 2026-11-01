@@ -10,7 +10,7 @@ from .facets import (
     used_by_lines,
 )
 from .mapfile import component_files, component_graph, component_subtree, owner_index
-from .targetfile import build_target_view, target_node_changes
+from .targetfile import build_target_view, target_headline, target_is_noop, target_node_changes
 from .tree import build_tree
 from .view_format import (
     _read_facts,
@@ -156,9 +156,11 @@ def _render_target_show(root, data, inv, target, *, component, detail):
     elif component == "system":
         component_ids = set()
     counts = {mark: sum(value == mark for value in changes.values()) for mark in "+~-"}
+    unchanged = (sorted(f"{kind}:{name}" for (kind, name), mark in changes.items() if mark == "~")
+                 if target_is_noop(root, data, target) else None)
     lines = [
         _show_header(merged, graph, inv),
-        f'target: "{target.goal}" (+{counts["+"]} ~{counts["~"]} -{counts["-"]} nodes)',
+        target_headline(target.goal, counts, unchanged),
         goal_rules_line(root, data, target, view)[0],
         next(line for line in new_system.code if line.startswith("coverage:")),
     ]
