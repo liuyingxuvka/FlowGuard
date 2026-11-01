@@ -98,6 +98,23 @@ def model_helper_digests(root: Path) -> dict[str, str]:
             for path in sorted((root / ".flowguard/models").glob("_*.py")) if path.is_file()}
 
 
+def target_base(root: Path) -> dict:
+    """The target-start identity in base.json; a damaged file is an error, never a base at HEAD.
+
+    A target directory without base.json (written by an older FlowGuard, or a hand-made fixture) keeps the
+    legacy reading: HEAD when there is a commit, otherwise no baseline."""
+    path = root / TARGET_RELDIR / "base.json"
+    if not path.exists():
+        return {"git": "HEAD"} if git_common_directory(root) is not None and git_head(root) is not None else {}
+    try:
+        base = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(base, dict):
+            raise ValueError("expected a JSON object")
+    except (OSError, ValueError) as error:
+        raise MapError(f"target_base_invalid: {path}: {error}; drop and restart the target") from error
+    return base
+
+
 def target_helper_baseline(root: Path) -> dict[str, str]:
     """The complete helper set captured when the target started; a missing, damaged or older base is an error."""
     path = root / TARGET_RELDIR / "base.json"

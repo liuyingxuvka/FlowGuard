@@ -6,8 +6,8 @@ import json
 from datetime import datetime, timezone
 from .common import git_blob, git_common_directory, git_head, normalize_newlines, read_source
 from .inventory import build_inventory, function_digests
-from .mapfile import MapError, ignore_patterns, load_map
-from .targetfile import TARGET_RELDIR, model_helper_digests
+from .mapfile import ignore_patterns, load_map
+from .targetfile import TARGET_RELDIR, model_helper_digests, target_base
 
 _FIELD_CODES = {
     "pattern_dead": ("files",),
@@ -116,21 +116,7 @@ def _record_base(root):
     )
 
 
-def _target_base(root):
-    """The target-start identity in base.json; a damaged file is an error, never a base at HEAD.
-
-    A target directory without base.json (written by an older FlowGuard, or a hand-made fixture) keeps the
-    legacy reading: HEAD when there is a commit, otherwise no baseline."""
-    path = root / TARGET_RELDIR / "base.json"
-    if not path.exists():
-        return {"git": "HEAD"} if _git_head(root) else {}
-    try:
-        base = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(base, dict):
-            raise ValueError("expected a JSON object")
-    except (OSError, ValueError) as error:
-        raise MapError(f"target_base_invalid: {path}: {error}; drop and restart the target") from error
-    return base
+_target_base = target_base  # the one reader, in targetfile so status reads it without the target commands
 
 
 NO_GIT_FACTS = "without Git only whole-file facts exist"

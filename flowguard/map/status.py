@@ -15,8 +15,7 @@ from .mapfile import ignore_patterns, load_map
 from .plan import PLAN_RELPATH, function_identities, static_plan_rows
 from .records import CHANGE_DIR, change_records, commit_advice, since_release
 from .requests import other_worktrees, owner_words
-from .target_identity import _target_base
-from .targetfile import build_target_view, load_target
+from .targetfile import build_target_view, load_target, target_base
 
 
 def _age(moment):
@@ -106,7 +105,7 @@ def collect_status(root, *, read_git_paths, version):
     change, plan = None, []
     if target is not None:
         data = load_map(root)
-        base = _target_base(root)  # a damaged base.json is named, never read as no base
+        base = target_base(root)  # a damaged base.json is named, never read as no base
         edited, known = _edited_functions(root, base, data, read_git_paths)
         change = dict(goal=target.goal, requests=target.data.get('requests', []), base=base.get('git'),
                       started=base.get('started'), age=_age(base.get('started')), edited_functions=edited,
