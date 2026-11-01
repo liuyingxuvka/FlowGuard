@@ -16,3 +16,4 @@ touch: flowguard/behave/testrec.py:record because "Attach each existing ordinary
 touch: flowguard/behave/__main__.py:_where_facts because "Read and validate matching existing coverage and per-test reach facts without creating a cache or running behavior"
 touch: flowguard/behave/__main__.py:build_parser because "Expose only the six implemented static where forms and their actual Git text reference input"
 touch: flowguard/behave/__main__.py:main because "Dispatch static where before the behavior-only Python guard and pass optional validated facts to its single lower owner"
+touch: flowguard/map/discovery_syntax.py:_FileVisitor.visit_AnnAssign because "Bind annotated literal and parser aliases through the same source assignment facts as ordinary assignments"
