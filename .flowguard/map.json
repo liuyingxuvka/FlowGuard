@@ -92,7 +92,7 @@
         "run bound tests and, on request, the checks an edit needs",
         "write templates and their aliases into the active target when one exists",
         "hint splits for large scan drafts and say when discovery finds nothing",
-        "dispatch six public static where forms to the existing derived and text-rule owners; keep selected originals on demand and next commands executable with the same absolute root and selected text revision"
+        "dispatch six public static where forms to the existing derived and text-rule owners; print their one bounded projection, or every row with --all, and add the executable --all command when rows were left out; keep selected originals on demand and next commands executable with the same absolute root and selected text revision"
       ],
       "files": [
         "flowguard/__main__.py",
@@ -260,7 +260,7 @@
         "build a read-only inventory without creating or writing caches on request",
         "parse bound-test item selectors as plain strings",
         "derive lexical function, class and module-binding digests from source on demand",
-        "Share content-keyed read-only Python syntax with test analysis within the command; keep persisted inventory invalidation tied to parser identity.",
+        "Share content-keyed read-only Python syntax with test analysis within the command; key persisted parse reuse by content digest and parser identity, never by file size or modification time.",
         "choose project-first subprocess import roots without exposing the FlowGuard source repository"
       ],
       "files": [
@@ -364,7 +364,8 @@
         "build one static call graph from current or target source facts",
         "report no entrypoint or effect from words inside strings",
         "retain complete read references, constructor-only state and file destination facts for derived views alongside the existing lifecycle summaries without truncating the raw source graph",
-        "bind explicit command handlers from actual parser registrations and dispatch facts and retain ambiguous or unresolved front doors instead of treating parser construction as command execution"
+        "bind explicit command handlers from actual parser registrations and dispatch facts and retain ambiguous or unresolved front doors instead of treating parser construction as command execution",
+        "compute per-file text blocks, token literals, parser program names and pure Boolean shapes with the other per-file facts, keyed by content digest; rewrite the cache only when those facts changed"
       ],
       "files": [
         "flowguard/map/discover.py",
@@ -388,7 +389,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:92c33682fc933a3f98200126411cf0b0801dc3e135c89ca8f0acb849d53bbb43"
+      "fingerprint": "sha256:df6e5f0b89fc75d495104c3d875ce29fea152cd10e29681616fea2e8c152f749"
     },
     {
       "id": "map-target",
@@ -895,7 +896,10 @@
         "show source-backed architecture and multiple-entry state-writing facts without treating missing rule provenance or missing test execution as proof of absence",
         "consume only supplied validated runtime or test-reach facts and distinguish them from declared bindings, stale facts and unrecorded scope",
         "read selected Git-reference code and text from the same source tree, attribute spellings to actual files and lines, and distinguish source spellings from document-relative exact or unique basename file candidates without granting owner bindings",
-        "derive shared cohesion facts from resolved static call edges, unique declared or module owners and actual entry facts; report candidate helper boundaries without licensing normative predicate ownership"
+        "derive shared cohesion facts from resolved static call edges, unique declared or module owners and actual entry facts; report candidate helper boundaries without licensing normative predicate ownership",
+        "print one bounded projection per view in a stated relevance order with counts of the rows left out; --all prints every row; per function, routes it is not on and the project-wide unknown entry bindings appear only with --all",
+        "report string literals equal to the queried name with their syntax role and enclosing function, reading only files whose inventory holds that string",
+        "decide for where views and text reports that the inventory and discovery owners keep their parse caches only in an adopted project, never for a Git reference or a project without .flowguard"
       ],
       "files": [
         "flowguard/map/derived.py"
@@ -910,7 +914,8 @@
         "map-requests"
       ],
       "tests": [
-        "tests/test_map_derived.py"
+        "tests/test_map_derived.py",
+        "tests/test_where_fg806.py"
       ],
       "models": [],
       "status": "confirmed",
@@ -922,11 +927,11 @@
       "summary": "Computed source-bound text rule reports: repeated literal passages, code spelling and path references, and attributed text for the same actual workflow; no semantic conflict verdict or stored dispositions.",
       "responsibilities": [
         "compute text-rule facts on demand from the selected source tree and the shared inventory discovery and text-reference owners without a second parser or persistent registry",
-        "retain ordinary text and quoted passages with real path line spans normalized fingerprints and available Git provenance; group shared literal fragments without claiming semantic equivalence",
+        "retain ordinary text and quoted passages with real path line spans and normalized fingerprints; blame only passages printed with their text, from the exact bytes the report read; group shared literal fragments without claiming semantic equivalence",
         "distinguish exact source spelling or path existence from a licensed owner binding and preserve missing dynamic or constructed reference evidence as unknown",
         "associate workflow text only through actual complete command or source-reference evidence and present both original passages including wording differences without inventing conflict decisions",
         "render compact nonblocking summaries by default in human and JSON form; expose stable computed source and group selectors for complete selected original text and provenance without a registry",
-        "select originals by explicit literal substring without semantic judgments; bound related-group hints and reference summaries in selected human and JSON views while retaining full facts for explicit export"
+        "select originals by explicit literal substring without semantic judgments, passages with unresolved references or shared literals first; bound every list of the summary and selected views with the shared row limit and counts of the rows left out, while retaining full facts for explicit export"
       ],
       "files": [
         "flowguard/map/textrules.py"
@@ -945,7 +950,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:21d2b1c2dbd2cfdcbd0485a169e1d0625d12dbfd21f4f80f39cfe6ee98315829"
+      "fingerprint": "sha256:9402a325c6834b48b0a89811e32cbc4599b4197ba6618e1c98d5f9f2155557f0"
     },
     {
       "id": "behave",

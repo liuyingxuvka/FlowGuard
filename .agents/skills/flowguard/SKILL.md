@@ -15,7 +15,7 @@ When the owner asks for something, store the owner's own words once, as received
 
 ## Find code
 
-`python -m flowguard where NAME` shows where NAME is defined, who calls it, which component owns it and which entry routes reach it; with no NAME it gives a compact module overview. `--flow`, `--arch`, `--text` and `--keyflows` show calls, architecture, original text and shared state; add `--root DIR` or `--json` when needed. It runs no application, model or test.
+`python -m flowguard where NAME` shows where NAME is defined, who calls it, which component owns it and which entry routes reach it; with no NAME it gives a compact module overview. `--flow`, `--arch`, `--text` and `--keyflows` show calls, architecture, original text and shared state. Each list shows its most relevant rows and says how many it left out; `--all` prints every row. Add `--root DIR` or `--json` when needed. It runs no application, model or test.
 
 ## Change, test, commit
 

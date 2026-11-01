@@ -1,7 +1,6 @@
 """Computed text/source relationships, never semantic verdicts or a stored registry."""
 from __future__ import annotations
 
-import ast
 from collections import defaultdict
 import hashlib
 import json
@@ -10,13 +9,12 @@ import re
 import shlex
 
 from .common import DEFAULT_IGNORE, matches_any, normalize_newlines, read_source
-from .derived import _git, _map, _source, source_names, text_reference_hint, text_references
-from .discover import discover_inventory
+from .derived import _git, _map, _source, _writes_cache, bound as bound_rows, omitted_line, source_names, text_reference_hint, text_references
+from .discover import NORMATIVE as _NORMATIVE, discover_inventory, python_text
 from .inventory import build_inventory, list_files, syntax_tree
 from .mapfile import ignore_patterns, model_registry, owner_index
 
 _WORDS = re.compile(r"[A-Za-z_][A-Za-z_0-9]*|[\u3400-\u9fff]+")
-_NORMATIVE = re.compile(r"\b(?:shall|must|should|never|always|require[sd]?|stop|return|keep|before|after|every|only|priority)\b|必须|不得|不能|应当|优先|禁止", re.I)
 _ORDINARY = re.compile(r"\b[A-Za-z_][\w]*(?:_[\w]+|[.:/#-][\w./:#-]+)\b")
 _BLOCK = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+|\|)")
 
@@ -53,48 +51,10 @@ def _paragraphs(text, base=1):
         yield start, start + len(rows) - 1, '\n'.join(rows)
 
 
-def _python_text(text):
-    """Use the shared syntax owner, retaining physical template spans, not executing strings."""
-    tree = syntax_tree(text)
-    docstrings, formatted = set(), set()
-    functions = []
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
-            first = node.body[0] if node.body else None
-            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
-                docstrings.add(id(first.value))
-        if isinstance(node, ast.JoinedStr):
-            formatted.update(id(child) for child in ast.walk(node))
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            functions.append(node)
-    blocks, literals, programs = [], [], defaultdict(set)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings | formatted:
-            function = min((fn for fn in functions if fn.lineno <= node.lineno <= fn.end_lineno),
-                           key=lambda fn: fn.end_lineno - fn.lineno, default=None)
-            if re.fullmatch(r'[A-Za-z_][\w.:-]*', node.value):
-                literals.append({'name': node.value, 'line': node.lineno,
-                                 'function': function.name if function else None})
-            if node.end_lineno > node.lineno or (re.search(r'\s', node.value) and (_NORMATIVE.search(node.value) or '`' in node.value)):
-                segment = ast.get_source_segment(text, node) or ''
-                match = re.match(r"(?i)^[rub]*(['\"]{3}|['\"])", segment)
-                if match and segment.endswith(match[1]):
-                    segment = segment[match.end():-len(match[1])]
-                    blocks.append((node.lineno, segment))
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'ArgumentParser':
-            function = min((fn for fn in functions if fn.lineno <= node.lineno <= fn.end_lineno),
-                           key=lambda fn: fn.end_lineno - fn.lineno, default=None)
-            for keyword in node.keywords:
-                if keyword.arg == 'prog' and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
-                    programs[function.name if function else '<module>'].add(keyword.value.value)
-    return blocks, literals, programs
-
-
-def _blame(root, path, revision):
-    args = ['blame', '--line-porcelain']
-    if revision:
-        args.append(revision)
-    result = _git(root, *args, '--', path)
+def _blame(root, path, revision, contents):
+    """Origins of exactly the bytes the facts were read from: the revision's file, or the bytes read from the working tree."""
+    args = ['blame', '--line-porcelain', *([revision] if revision else ['--contents', '-']), '--', path]
+    result = _git(root, *args, input=None if revision else contents)
     if result.returncode:
         return {}
     found, current, original, commit, source = {}, None, None, None, path
@@ -120,6 +80,20 @@ def _provenance(blame, first, last):
             rows.append(value)
     return {'state': 'partial' if rows and missing else 'git' if rows else 'unknown',
             'origins': rows, **({'reason': 'some source lines have no committed Git origin'} if missing else {})}
+
+
+def _origin(row):
+    """Compact origin: consecutive lines of one commit and path as one span, e.g. git e2664de144b9 3-8."""
+    provenance, spans = row['provenance'], []
+    for origin in provenance['origins']:
+        last = spans[-1] if spans else None
+        if last and last[:2] == (origin['revision'], origin['path']) and last[3] + 1 == origin['line']:
+            spans[-1] = (*last[:3], origin['line'])
+        else:
+            spans.append((origin['revision'], origin['path'], origin['line'], origin['line']))
+    text = ', '.join('git ' + revision[:12] + ' ' + ('' if path == row['path'] else path + ':') + f'{first}-{last}'
+                     for revision, path, first, last in spans)
+    return {'git': text, 'partial': text + '; some lines are not committed'}.get(provenance['state'], 'origin unknown: no committed Git origin')
 
 
 def _literal_groups(texts):
@@ -248,13 +222,14 @@ def _commands(raw, programs):
 def report(root, *, inv=None, raw=None, at=None):
     """Compute complete facts once; callers render the single compact projection by default."""
     original = Path(root).resolve()
+    cache = _writes_cache(original, at)
     with _source(original, at) as (source, revision):
         data, map_unknown = _map(source)
         unknown = [{'reason': value} for value in map_unknown]
         if at is not None or inv is not None and Path(inv.root).resolve() != source:
             inv = raw = None
-        inv = inv or build_inventory(source, ignore_patterns(data), with_bodies=False, write_cache=False, import_roots=data.get('import_roots', ()))
-        raw = raw or discover_inventory(source, inv, write_cache=False, data=data)
+        inv = inv or build_inventory(source, ignore_patterns(data), with_bodies=False, write_cache=cache, import_roots=data.get('import_roots', ()))
+        raw = raw or discover_inventory(source, inv, write_cache=cache, data=data)
         unknown.extend({'path': path, 'reason': 'source not parsed: ' + file['parse_error']}
                        for path, file in raw['files'].items() if file.get('parse_error'))
         raw = {**raw, 'files': {path: file for path, file in raw['files'].items() if not file.get('parse_error') and 'module' in file}}
@@ -273,15 +248,18 @@ def report(root, *, inv=None, raw=None, at=None):
         text_paths = {path for path in list_files(source) if Path(path).suffix.lower() in {'.md', '.rst', '.txt'}
                       and not matches_any(path, DEFAULT_IGNORE)}
         python_paths = set(raw['files']) | model_paths
-        texts, references, literals, programs, file_bytes = [], [], [], {}, {}
+        texts, references, literals, programs, file_bytes, contents = [], [], [], {}, {}, {}
         for path in sorted(text_paths | python_paths):
             try:
-                text = read_source(source / path)
-                file_bytes[path] = normalize_newlines((source / path).read_bytes()).splitlines(keepends=True)
+                contents[path] = (source / path).read_bytes()
+                text = read_source(source / path, data=contents[path])
+                file_bytes[path] = normalize_newlines(contents[path]).splitlines(keepends=True)
                 if path in python_paths:
-                    blocks, constants, progs = _python_text(text)
-                    literals.extend({'path': path, 'kind': 'literal spelling', **row} for row in constants)
-                    programs[path] = progs
+                    # Discovery's per-file facts carry these for its sources; model files are read here.
+                    facts = raw['files'][path]['python_text'] if path in raw['files'] else python_text(text, syntax_tree(text))
+                    literals.extend({'path': path, 'kind': 'literal spelling', **row} for row in facts['literals'])
+                    programs[path] = facts['programs']
+                    blocks = facts['blocks']
                 else:
                     blocks = [(1, text)]
             except (OSError, ValueError, SyntaxError) as exc:
@@ -298,13 +276,10 @@ def report(root, *, inv=None, raw=None, at=None):
         locations, commands = _locations(inv, raw, literals), _commands(raw, programs)
         command_texts = defaultdict(list)
         refs_by_file = {}
-        blame_by_file = {}
         for row in texts:
             path, first, last = row['path'], row['line'], row['end_line']
             if path not in refs_by_file:
                 refs_by_file[path] = text_references(source, path, inv, raw, names=names)
-                blame_by_file[path] = _blame(original, path, revision if at is not None else None)
-            row['provenance'] = _provenance(blame_by_file[path], first, last)
             found = {(ref['line'], ref['name']): dict(ref) for ref in refs_by_file[path] if first <= ref['line'] <= last}
             for offset, line in enumerate(row['text'].splitlines(), first):
                 for match in _ORDINARY.finditer(line):
@@ -350,11 +325,18 @@ def report(root, *, inv=None, raw=None, at=None):
         return {'projection': 'full', 'root': str(original), 'source': str(at) if at is not None else 'working tree',
             'revision': revision, 'scope': 'computed text/source facts; shared literals do not prove equivalent obligations; spelling existence does not prove owner binding; no semantic conflict or check verdict',
             'summary': summary, 'texts': texts, 'references': references, 'literal_groups': groups,
-            'workflow_groups': workflows, 'code_literals': literals, 'unknown': unknown}
+            'workflow_groups': workflows, 'code_literals': literals, 'unknown': unknown,
+            # A later selection blames exactly these bytes, not a working tree edited since.
+            'blame_source': {'revision': revision if at is not None else None,
+                             'contents': {path: contents[path] for path in {row['path'] for row in texts}}}}
 
 
-def select(result, selector):
-    """Select full originals; text: uses a case-insensitive literal substring, not semantics."""
+def select(result, selector, *, origins=False):
+    """Select full originals in relevance order; text: uses a case-insensitive literal substring, not semantics.
+
+    Passages printed with their text get their Git origin: source: and group: selections, and
+    every selected passage with ``origins``; other selections list passages without blaming a file.
+    """
     if result.get('projection') != 'full':
         raise ValueError('text selection requires full facts, not a compact projection')
     texts = {row['id']: row for row in result['texts']}
@@ -387,10 +369,21 @@ def select(result, selector):
             if sources & identifiers and (phrase is None or phrase in row.get('fragment', row.get('command', '')).casefold()):
                 related.append({'id': row['id'], 'selector': 'group:' + row['id'], 'count': len(sources),
                                 **({'command': row['command']} if 'command' in row else {'fragment': row['fragment'][:160]})})
+    unresolved = {row['source'] for row in result['references'] if 'not found' in row['state']}
+    shared = {hit['source'] for row in result['literal_groups'] for hit in row['occurrences']}
+    shared.update(identifier for row in result['workflow_groups'] for identifier in row['sources'])
+    chosen = sorted((row for row in result['texts'] if row['id'] in identifiers),
+                    key=lambda row: (row['id'] not in unresolved, row['id'] not in shared, row['path'], row['line']))
+    if origins or kind in {'source', 'group'}:
+        blamed, source = {}, result['blame_source']
+        for path in dict.fromkeys(row['path'] for row in chosen):
+            blamed[path] = _blame(result['root'], path, source['revision'], source['contents'][path])
+        chosen = [{**row, 'provenance': _provenance(blamed[row['path']], row['line'], row['end_line'])} for row in chosen]
     return {key: result[key] for key in ('source', 'revision', 'scope')} | {
         'projection': 'selected', 'selection': {'selector': selector, 'kind': kind},
-        'texts': [row for row in result['texts'] if row['id'] in identifiers],
-        'references': [row for row in result['references'] if row['source'] in identifiers],
+        'texts': chosen,
+        'references': sorted((row for row in result['references'] if row['source'] in identifiers),
+                             key=lambda row: ('not found' not in row['state'], row['path'], row['line'])),
         'literal_groups': [group] if group and 'occurrences' in group else [],
         'workflow_groups': [group] if group and 'sources' in group else [],
         'related_groups': related,
@@ -404,47 +397,71 @@ def _compact(result):
     texts = {row['id']: row for row in result['texts']}
     groups = [{key: row[key] for key in ('id', 'token_count', 'relation')} | {
         'selector': 'group:' + row['id'],
-        'fragment': row['fragment'][:160], 'count': len(row['occurrences']), 'sources': row['occurrences'][:3]}
-        for row in result['literal_groups'][:3]]
+        'fragment': row['fragment'][:160], 'count': len(row['occurrences']), 'sources': row['occurrences']}
+        for row in result['literal_groups']]
     workflows = [{key: row[key] for key in ('id', 'command', 'functions', 'relation')} | {
         'selector': 'group:' + row['id'],
-        'count': len(row['sources']), 'sources': [{key: texts[identifier][key] for key in ('id', 'path', 'line', 'end_line')} for identifier in row['sources'][:3]]}
-        for row in result['workflow_groups'][:3]]
-    refs = [{key: row[key] for key in ('source', 'path', 'line', 'name', 'state')} for row in result['references'] if 'not found' in row['state']][:3]
+        'count': len(row['sources']), 'sources': [{key: texts[identifier][key] for key in ('id', 'path', 'line', 'end_line')} for identifier in row['sources']]}
+        for row in result['workflow_groups']]
+    refs = [{key: row[key] for key in ('source', 'path', 'line', 'name', 'state')} for row in result['references'] if 'not found' in row['state']]
     return {key: result[key] for key in ('source', 'revision', 'scope', 'summary')} | {
         'projection': 'compact', 'literal_groups': groups, 'workflow_groups': workflows,
-        'references': refs, 'unknown': result['unknown'][:3],
-        'unexpanded': {'texts': len(texts), 'literal_groups': len(result['literal_groups']) - len(groups),
-                       'workflow_groups': len(result['workflow_groups']) - len(workflows)},
-        'selectors': ['FILE', 'source:<id>', 'group:<id>']}
+        'references': refs, 'unknown': result['unknown'], 'selectors': ['FILE', 'source:<id>', 'group:<id>']}
 
 
-def render(result, *, as_json=False, full=False):
+_SELECTED = (('texts', 'passages'), ('related_groups', 'related groups'), ('references', 'references'), ('unknown', 'unknown'))
+_SUMMARY = (('literal_groups', 'literal groups'), ('references', 'unresolved references'), ('workflow_groups', 'workflows'), ('unknown', 'unknown'))
+
+
+def project(result, *, all_rows=False):
+    """The one projection human and JSON output print, bounded unless all_rows; projecting twice changes nothing."""
+    result = result if result.get('projection') == 'selected' else _compact(result)
+    omitted, keep = dict(result.get('omitted', {})), dict(all_rows=all_rows)
+    shown = {**result, **{key: bound_rows(result[key], label, omitted, **keep)
+                          for key, label in (_SELECTED if result['projection'] == 'selected' else _SUMMARY)}}
+    if result['projection'] == 'selected':
+        shown['references'] = [{key: row[key] for key in ('source', 'path', 'line', 'name', 'state')} for row in shown['references']]
+    else:
+        # A group's count states how many passages share it; its listed locations are bounded alike.
+        for key in ('literal_groups', 'workflow_groups'):
+            shown[key] = [{**row, 'sources': bound_rows(row['sources'], 'sources', {}, **keep)} for row in shown[key]]
+    if not all_rows:
+        shown['omitted'] = omitted
+    return shown
+
+
+def _unknown(row):
+    place = row['path'] + (':' + str(row['line']) if 'line' in row else '') if 'path' in row else ''
+    return 'unknown: ' + ' · '.join(part for part in (place, row.get('command'), row['reason']) if part)
+
+
+def _excerpt(text, width=100):
+    flat = ' '.join(text.split())
+    return flat if len(flat) <= width else flat[:width] + '…'
+
+
+def render(result, *, as_json=False, full=False, all_rows=False):
     """Default human and JSON share one bounded projection; full is explicit fact export."""
     if full:
-        return json.dumps(result, ensure_ascii=False, sort_keys=True, indent=None if as_json else 2)
-    if result.get('projection') == 'selected':
-        related, references = result['related_groups'], result['references']
-        result = {**result, 'related_groups': related[:3],
-                  'references': [{key: row[key] for key in ('source', 'path', 'line', 'name', 'state')} for row in references[:3]],
-                  'unexpanded': {'related_groups': max(0, len(related) - 3), 'references': max(0, len(references) - 3)}}
-        if as_json:
-            return json.dumps(result, ensure_ascii=False, sort_keys=True)
+        facts = {key: value for key, value in result.items() if key != 'blame_source'}
+        return json.dumps(facts, ensure_ascii=False, sort_keys=True, indent=None if as_json else 2)
+    result = project(result, all_rows=all_rows)
+    if as_json:
+        return json.dumps(result, ensure_ascii=False, sort_keys=True)
+    if result['projection'] == 'selected':
         lines = [f"text rules · {result['source']} · {result['selection']['selector']} · original passages"]
         for row in result['texts']:
-            lines.extend([f"{row['path']}:{row['line']}-{row['end_line']} · source:{row['id']}",
-                          row['text'], 'provenance: ' + json.dumps(row['provenance'], ensure_ascii=False, sort_keys=True)])
+            head = f"{row['path']}:{row['line']}-{row['end_line']} · source:{row['id']}"
+            lines.extend([head + ' · ' + _origin(row), row['text']] if 'provenance' in row else [head + ' · ' + _excerpt(row['text'])])
         for row in result['related_groups']:
             label = row['command'] if 'command' in row else 'shared literal ' + repr(row['fragment'])
             lines.append(row['selector'] + ' · ' + label + ' · ' + str(row['count']) + ' original passages')
         for row in result['references']:
             lines.append(row['path'] + ':' + str(row['line']) + ' ' + row['name'] + ' · ' + row['state'])
-        omitted = result['unexpanded']
-        lines.append(f"unexpanded: {omitted['related_groups']} related groups, {omitted['references']} references; text:<literal phrase> narrows original passages and group hints")
+        if (line := omitted_line(result.get('omitted'), 'passages with unresolved references, then shared literals, then file order')):
+            lines.append(line + '; text:<literal phrase> narrows original passages and group hints')
+        lines.extend(_unknown(row) for row in result['unknown'])
         return '\n'.join(lines)
-    result = _compact(result)
-    if as_json:
-        return json.dumps(result, ensure_ascii=False, sort_keys=True)
     summary = result['summary']
     lines = [f"text rules · {result['source']} · report only", f"{summary['texts']} passages in {summary['source_files']} files; {summary['literal_groups']} literal groups; {summary['unresolved_references']} unresolved references; {summary['workflow_groups']} attributed workflows; {summary['unplaced']} unplaced"]
     for row in result['literal_groups']:
@@ -453,7 +470,8 @@ def render(result, *, as_json=False, full=False):
         lines.append(row['path'] + ':' + str(row['line']) + ' ' + row['name'] + ' · ' + row['state'])
     for row in result['workflow_groups']:
         lines.append(row['selector'] + ' · ' + row['command'] + ' → ' + ', '.join(row['functions']) + ' · ' + str(row['count']) + ' original passages')
-    omitted = result['unexpanded']
-    lines.append(f"unexpanded: {omitted['texts']} original passages, {omitted['literal_groups']} literal groups, {omitted['workflow_groups']} workflows; select FILE, source:<id> or group:<id> for originals")
-    lines.extend('unknown: ' + row['reason'] for row in result['unknown'])
+    hint = 'select FILE, source:<id> or group:<id> for original passages'
+    line = omitted_line(result.get('omitted'), 'literal groups by length')
+    lines.append(line + '; ' + hint if line else hint)
+    lines.extend(_unknown(row) for row in result['unknown'])
     return '\n'.join(lines)

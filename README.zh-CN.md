@@ -81,7 +81,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | `python -m flowguard where --text` | 文字与引用摘要 |
 | `python -m flowguard where --keyflows` | 共享状态和文件写入位置 |
 
-按需加 `--root DIR` 或 `--json`。文字查询可在 `--text` 后选 FILE、`source:<id>`、`group:<id>` 或 `"text:<literal phrase>"`，读取原文及可获得的 Git 来源。默认保持摘要并给出下一查的命令；字面搜索按不区分大小写的子串匹配。`--at REF` 同时读取该 Git 版本的文字和代码。
+按需加 `--root DIR` 或 `--json`。文字查询可在 `--text` 后选 FILE、`source:<id>`、`group:<id>` 或 `"text:<literal phrase>"`，读取原文及可获得的 Git 来源。默认只给每个列表最相关的几行，写明省略了多少，并给出下一查的命令；`--all` 给出全部。字面搜索按不区分大小写的子串匹配。`--at REF` 同时读取该 Git 版本的文字和代码。
 
 这些查询不运行应用、模型或测试；缺少执行记录时明确未知。字面匹配只是候选，不自动作语义判决，也不阻断改动；模型和独立规则测试仍负责验证行为。既有命令、64 个公开导出和地图格式保持兼容。
 

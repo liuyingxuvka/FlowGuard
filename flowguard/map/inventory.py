@@ -1,9 +1,9 @@
 """Repository inventory: files, Python symbols/imports/duplicate fingerprints, JS imports.
 
 Parse results are cached in .flowguard/cache/inventory.json keyed by
-(size, mtime_ns, module) plus the parser code and Python version; files
-written in the last 3 s are never cached.  The cache is a speed-up only,
-never authority: deleting .flowguard/cache/ is always safe.
+(content digest, module) plus the parser code and Python version, so an edit
+is seen whatever its size or modification time.  The cache is a speed-up
+only, never authority: deleting .flowguard/cache/ is always safe.
 """
 
 from __future__ import annotations
@@ -15,13 +15,12 @@ import os
 import re
 import subprocess
 import sys
-import time
 from functools import lru_cache
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import atomic_write_text, cache_dir, CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_paths, is_test_file, matches_any, norm, read_source, sha256_bytes
+from .common import atomic_write_text, cache_dir, CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_paths, is_test_file, matches_any, norm, normalize_newlines, read_source, sha256_bytes
 
 @lru_cache(maxsize=4096)
 def syntax_tree(text):
@@ -33,7 +32,6 @@ CACHE_SCHEMA = "flowguard.map.inventory_cache.v5"
 # A parse cache is reused only by the exact parser code that wrote it (upgrades never keep stale parses).
 PARSER_ID = sha256_bytes(Path(__file__).read_bytes() + (Path(__file__).parent / "common.py").read_bytes()
                          + sys.version.encode())[:16]   # ast results differ between Python versions
-RACY_NS = 3_000_000_000  # never cache the parse of a file written in the last 3 s (FAT/SMB/NTFS clock ticks)
 MIN_DUP_NODES = 40   # functions smaller than this many AST nodes are ignored by duplicate detection
 JS_IMPORT = re.compile(r"""(?:import\s[^'"]*?from\s*|import\s*\(\s*|require\s*\(\s*|import\s+)['"](\.{1,2}/[^'"]+)['"]""")
 
@@ -122,10 +120,11 @@ def is_type_checking_guard(node: ast.AST) -> bool:
             or isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING")
 
 
-def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = True) -> PyInfo:
+def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = True, data: bytes | None = None) -> PyInfo:
+    """Parse ``data`` when the caller already read the file's bytes, otherwise read them."""
     info = PyInfo(module=module)
     try:
-        text = read_source(root / path)
+        text = read_source(root / path, data=data)
     except OSError as exc:
         info.parse_error = str(exc)
         return info
@@ -327,14 +326,13 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, 
     old, new = _read_cache(cache_path), {}
     py: dict[str, PyInfo] = {}
     mod_to_path: dict[str, str] = {}
-    now_ns = time.time_ns()
     for f in py_files:
         module = module_name(f, roots)
         try:
-            st = (root / f).stat()
-            key = [st.st_size, st.st_mtime_ns, module] if now_ns - st.st_mtime_ns > RACY_NS else None
+            data = (root / f).read_bytes()
+            key = [sha256_bytes(normalize_newlines(data)), module]
         except OSError:
-            key = None
+            data = key = None
         hit = old.get(f)
         if key is not None and hit and hit.get("key") == key and (hit.get("bodies") is not None or not with_bodies):
             info = PyInfo(module, set(hit["symbols"]), set(hit["imports"]), hit["loc"], hit["parse_error"], hit["bodies"] or [],
@@ -342,7 +340,7 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, 
                           set(hit["import_literals"]))
             bodies_known = hit.get("bodies") is not None
         else:
-            info = parse_python(root, f, module, collect_bodies=with_bodies)
+            info = parse_python(root, f, module, collect_bodies=with_bodies, data=data)
             bodies_known = with_bodies
         if key is not None:
             new[f] = {"key": key, "symbols": sorted(info.symbols), "imports": sorted(info.imports),

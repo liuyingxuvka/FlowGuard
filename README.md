@@ -88,7 +88,7 @@ When finding source or its owner needs more than one grep hop, use these static 
 | `python -m flowguard where --text` | text and reference summary |
 | `python -m flowguard where --keyflows` | shared state and file destinations |
 
-Add `--root DIR` or `--json` as needed. With `--text`, select FILE, `source:<id>`, `group:<id>` or `"text:<literal phrase>"` to read original passages and available Git provenance. The default stays compact and prints commands for the next query; literal searches use case-insensitive substrings. `--at REF` reads both text and code at that Git revision.
+Add `--root DIR` or `--json` as needed. With `--text`, select FILE, `source:<id>`, `group:<id>` or `"text:<literal phrase>"` to read original passages and available Git provenance. The default shows the most relevant rows of each list, says how many it left out and prints commands for the next query; `--all` prints every row. Literal searches use case-insensitive substrings. `--at REF` reads both text and code at that Git revision.
 
 These queries run no application, model or test. Missing execution records stay unknown. Literal matches are candidates, without an automatic semantic verdict or change gate; models and independent rule tests still validate behavior. Existing commands, 64 public exports and the map format remain compatible.
 

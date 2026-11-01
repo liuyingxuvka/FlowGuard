@@ -150,8 +150,8 @@ def dispatch():
     result = where(tmp_path, "Service.bump", inv=inv, raw=raw)
     function, = result["functions"]
     assert function["reaching_entries"]
-    assert function["unresolved_entries"]
-    assert any("orphan" in entry for entry in function["unresolved_entries"])
+    assert "unresolved_entries" not in function  # one project-wide list, not repeated per function
+    assert any("orphan" in entry for entry in result["unresolved_entries"])
     assert "never" not in render(result).lower()
 
 
