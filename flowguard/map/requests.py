@@ -155,7 +155,9 @@ def retired_requests(root: Path) -> dict:
             found[identifier] = None
         except Unverifiable:
             found[identifier] = "cannot be checked here: " + NO_ORIGINAL_FACT
-        except (OSError, ValueError) as error:
+        except OSError as error:
+            found[identifier] = f"cannot be read: {error}"
+        except ValueError as error:
             found[identifier] = f"edited: {error}"
     return found
 

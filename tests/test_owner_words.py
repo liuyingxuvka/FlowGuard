@@ -420,3 +420,15 @@ def test_every_entry_finds_the_project_from_a_subdirectory_the_same_way(tmp_path
         assert "no map at" not in result.stderr, (arguments, result.stderr)
     assert run("flowguard", "map", "check").returncode == 0
     assert not (inner / ".flowguard").exists()
+
+
+def test_a_retire_record_that_cannot_be_read_is_not_called_edited(tmp_path, capsys, monkeypatch):
+    from flowguard.map import requests
+    root, _ = _retired_copy_without_git(tmp_path, capsys)
+    def unreadable(root, identifier):
+        raise PermissionError(13, "Permission denied", str(root / requests.RETIRED_DIR / (identifier + ".json")))
+    monkeypatch.setattr(requests, "_retire_record", unreadable)
+    problem = requests.retired_requests(root)["R1"]
+    assert problem.startswith("cannot be read: ") and "edited" not in problem, problem
+    named = [line for line in _call(root, capsys, "status")[1].splitlines() if "retire record" in line]
+    assert len(named) == 1 and "R1 cannot be read: " in named[0], named
