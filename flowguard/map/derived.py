@@ -19,7 +19,7 @@ from .discover import discover_inventory, function_spans, literal_sites, reachab
 from .inventory import build_inventory, function_digests, syntax_tree
 from .mapfile import MapError, ignore_patterns, load_map, model_registry, owner_index, read_model_contract
 from .records import change_records
-from .requests import request_details
+from .requests import owner_words
 
 
 def _git(root, *args, input=None):
@@ -515,7 +515,7 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
         result["entries"] = [entry for entry in entries if _match(name, entry["name"])]
         result["changes"] = [{"id": identifier, "goal": record["goal"], "requests": record["requests"], "implemented_by": record["implemented_by"]}
                              for identifier, record in records if name == identifier or any(item["id"] == name for item in record["requests"])]
-        result["requests"] = [row for row in request_details(source, records=records, worktrees=[]) if row["id"] == name] if at is None else []
+        result["requests"] = [row for row in owner_words(source, records=records)["rows"] if row["id"] == name] if at is None else []
         result["constants"] = [{"path": path, "name": key, **value} for path, file in raw["files"].items() for key, value in file.get("source_constants", {}).items() if _match(name, key)]
         if not any(result.get(key) for key in ("functions", "references", "literals", "state", "entries", "changes", "requests", "constants")):
             result["unknown"].append("name not resolved in the static source index: " + name)
@@ -568,7 +568,10 @@ def render(result, *, as_json=False):
         for row in result.get("changes", []):
             lines.append("change " + row["id"] + ": " + row["goal"] + " · " + ", ".join(row["implemented_by"]))
         for row in result.get("requests", []):
-            lines.append("request " + row["id"] + ": " + row["state"] + " · " + row["first_line"])
+            state = ("retired: not the owner's words" if row["retired"] else
+                     "superseded by " + ", ".join(row["superseded_by"]) if row["superseded_by"] else "owner words")
+            lines.append("request " + row["id"] + ": " + state + " · " + row["first_line"]
+                         + (" · cited by " + ", ".join(row["cited_by"]) if row["cited_by"] else ""))
         for row in result.get("modules", []):
             lines.append(row["path"] + " · " + str(row["functions"]) + " functions" + (" · owner " + row["owner"] if "owner" in row else "")
                          + (" · imports " + ", ".join(row["imports"]) if "imports" in row else ""))

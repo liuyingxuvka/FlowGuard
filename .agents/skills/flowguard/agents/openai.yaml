@@ -5,8 +5,8 @@ interface:
     Use $flowguard at the start of every coding session. At session start and
     after any loss of context, run `python -m flowguard status` first. When the
     owner asks for something, store the owner's own words once with
-    `python -m flowguard req add <file|-> --id <id>`; never store a plan or text
-    you wrote. Find code with `python -m flowguard where NAME`. Change code and
+    `python -m flowguard req add <file|-> --id <id>`; it stores only words the
+    owner wrote, never a plan, a list or text an AI wrote. Find code with `python -m flowguard where NAME`. Change code and
     tests together, run the project's own test command, and make one commit
     with a message in your own words, adding a line `Request: R<n>` when the
     change answers a stored owner request. Never claim a check passed unless

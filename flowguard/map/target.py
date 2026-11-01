@@ -840,9 +840,6 @@ def promote_target(root: Path, *, jobs: int = 1, as_json: bool = False) -> int:
                 print(owner_block)
             for line in reread:
                 print(line)
-            for link in target.data.get("requests", []):
-                state = "partial; remains open" if link["part"] else "done"
-                print(f"request {link['id']}: {state} (change {prepared_record['id']})")
             print(render_advice(next_step))
         return 0
     except OSError as exc:

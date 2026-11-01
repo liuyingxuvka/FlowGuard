@@ -3,6 +3,15 @@ import pytest,os,json
 from pathlib import Path
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _outside_an_agent_session():
+    """Tests run as plain processes; only tests that set the agent's session variables see status first."""
+    with pytest.MonkeyPatch.context() as patch:
+        patch.delenv("CLAUDECODE", raising=False)
+        patch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+        yield
+
+
 @pytest.fixture(scope="module")
 def _project_template(tmp_path_factory) -> Path:
     from _fg_helpers import map_write as write, map_git as git

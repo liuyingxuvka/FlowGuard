@@ -123,7 +123,9 @@ def child_pytest_environment(environment):
     """Give a new pytest owner its own control and receipt paths."""
     child = dict(environment)
     for name in ("FLOWGUARD_PYTEST_COLLECTION_NODEIDS", "FLOWGUARD_PYTEST_SHARD_NODEIDS",
-                 "FLOWGUARD_PYTEST_SHARD_COLLECTION", "FLOWGUARD_PYTEST_NODEIDS"):
+                 "FLOWGUARD_PYTEST_SHARD_COLLECTION", "FLOWGUARD_PYTEST_NODEIDS",
+                 # a child FlowGuard starts is not the agent's session: it never shows or marks status
+                 "CLAUDECODE", "CLAUDE_CODE_SESSION_ID"):
         child.pop(name, None)
     return child
 

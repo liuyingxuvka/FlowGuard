@@ -11,7 +11,7 @@ Run `python -m flowguard status` first in every session and after any loss of co
 
 ## The owner's words
 
-When the owner asks for something, store the owner's own words once, as received: `python -m flowguard req add <file|-> --id <id>`. Store nothing else there: never a plan, a list or text you wrote, and never edit `.flowguard/requests/`.
+When the owner asks for something, store the owner's own words once, as received: `python -m flowguard req add <file|-> --id <id>`. It stores only words the owner wrote, byte for byte: never a plan, a list or text an AI wrote, and never edit `.flowguard/requests/`. When a new owner message replaces an earlier one, add `--supersedes <old id>`. `status` lists the newest owner words first.
 
 ## Find code
 

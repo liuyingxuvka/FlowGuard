@@ -803,6 +803,7 @@
         "tests/test_relation_graph.py",
         "tests/test_requests.py",
         "tests/test_status.py",
+        "tests/test_owner_words.py",
         "tests/test_advice.py"
       ],
       "models": [],
@@ -866,7 +867,8 @@
       "entrypoints": [
         "flowguard/map/requests.py:store_request",
         "flowguard/map/requests.py:request_findings",
-        "flowguard/map/requests.py:request_rows"
+        "flowguard/map/requests.py:owner_words",
+        "flowguard/map/requests.py:retire_request"
       ],
       "depends_on": [
         "map-file",

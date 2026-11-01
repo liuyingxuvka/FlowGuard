@@ -46,7 +46,7 @@ def _record(root, links):
     return prepared['id']
 
 
-def test_status_request_status_derived(tmp_path, capsys):
+def test_status_owner_words_carry_citations_not_states(tmp_path, capsys):
     from flowguard.__main__ import main
     from flowguard.map.requests import store_request
 
@@ -54,20 +54,21 @@ def test_status_request_status_derived(tmp_path, capsys):
     store_request(tmp_path, b'Keep the unclaimed request visible.\n', identifier='R7')
     assert main(['status', '--root', str(tmp_path), '--json']) == 0
     result = json.loads(capsys.readouterr().out)
-    assert result['requests'][0]['id'] == 'R7'
-    assert result['requests'][0]['state'].startswith('open since ')
+    assert [row['id'] for row in result['owner_words']['rows']] == ['R7']
+    assert 'requests' not in result and 'state' not in result['owner_words']['rows'][0]
 
     store_request(tmp_path, b'Completed request\n', identifier='R5')
     store_request(tmp_path, b'Partial request\n', identifier='R6')
     identifier = _record(tmp_path, [dict(id='R5', part=False), dict(id='R6', part=True)])
     result = _status(tmp_path, capsys)
-    states = {row['id']: row['state'] for row in result['requests']}
-    assert states['R5'] == f'done (change {identifier})'
-    assert states['R6'].startswith('open since ') and states['R7'].startswith('open since ')
+    rows = result['owner_words']['rows']
+    assert [row['id'] for row in rows] == ['R6', 'R5', 'R7']
+    assert {row['id']: row['cited_by'] for row in rows} == {
+        'R5': [f'change {identifier}'], 'R6': [f'change {identifier}'], 'R7': []}
     _start(tmp_path, 'R5:part')
     capsys.readouterr()
     result = _status(tmp_path, capsys)
-    assert next(row for row in result['requests'] if row['id'] == 'R5')['state'] == 'in this change'
+    assert all('state' not in row for row in result['owner_words']['rows'])
 
 
 def test_status_never_explores_or_writes(tmp_path, capsys, monkeypatch):
@@ -103,7 +104,7 @@ def test_status_never_explores_or_writes(tmp_path, capsys, monkeypatch):
     first = _status(root, capsys)
     shutil.rmtree(root / '.flowguard/cache', ignore_errors=True)
     again = _status(root, capsys)
-    for field in ('root', 'git', 'plan', 'requests', 'since_release', 'next'):
+    for field in ('root', 'git', 'plan', 'owner_words', 'since_release', 'next'):
         assert first[field] == again[field]
 
 
@@ -170,7 +171,7 @@ def test_status_lists_other_worktree_changes(tmp_path, capsys):
     capsys.readouterr()
     result = _status(root, capsys)
     assert result['git']['worktree_count'] == 2
-    assert result['requests'][0]['state'] == f'in another change ({peer})'
+    assert [row['id'] for row in result['owner_words']['rows']] == ['R11']
     assert result['other_changes'][0]['root'] == str(peer)
     assert result['other_changes'][0]['goal'] == 'resume the shelf change'
     identifier = _record(root, [])
@@ -181,7 +182,8 @@ def test_status_lists_other_worktree_changes(tmp_path, capsys):
     assert f'change {identifier} records no file list' in result['next_note'] and result['next'] is None
 
 
-def test_status_lists_commits_without_record(tmp_path, capsys):
+def test_status_counts_changes_since_release_and_no_unrecorded_commits(tmp_path, capsys):
+    """A plain commit without a change record is the normal flow, so it is not counted against anything."""
     from flowguard.__main__ import main
     root = _project(tmp_path)
     _git(root, 'init', '-q')
@@ -190,38 +192,22 @@ def test_status_lists_commits_without_record(tmp_path, capsys):
     _git(root, 'tag', 'v0.1.0')
     (root / 'shelf/loans.py').write_text('def advance(): return 2\n')
     _git(root, 'add', '.')
-    _git(root, 'commit', '-qm', 'unrecorded code')
-    code_commit = _git(root, 'rev-parse', 'HEAD')
+    _git(root, 'commit', '-qm', 'plain code commit')
     _record(root, [])
     _git(root, 'add', '.')
     _git(root, 'commit', '-qm', 'add a record separately')
     result = _status(root, capsys)
     assert result['since_release']['release'] == 'v0.1.0'
-    assert [row['commit'] for row in result['since_release']['code_commits_without_record']] == [code_commit]
+    assert 'code_commits_without_record' not in result['since_release']
     assert len(result['since_release']['changes']) == 1
     assert main(['status', '--root', str(root)]) == 0
     text = capsys.readouterr().out
-    assert '1 changes; 1 code commits without a record' in text
-    assert code_commit not in text and code_commit[:12] not in text
+    assert 'SINCE RELEASE v0.1.0: 1 changes [' in text and 'without a record' not in text
     assert 'status --json --root' in text
 
-    original = _git(root, 'branch', '--show-current')
-    _git(root, 'checkout', '-qb', 'side')
-    (root / 'side.py').write_text('def side(): return True\n')
-    _git(root, 'add', 'side.py')
-    _git(root, 'commit', '-qm', 'side code')
-    _git(root, 'checkout', original)
-    (root / 'main.py').write_text('def main(): return True\n')
-    _git(root, 'add', 'main.py')
-    _git(root, 'commit', '-qm', 'main code')
-    _git(root, 'merge', '--no-ff', '-qm', 'merge side', 'side')
-    merge = _git(root, 'rev-parse', 'HEAD')
-    result = _status(root, capsys)
-    merged = next(row for row in result['since_release']['code_commits_without_record'] if row['commit'] == merge)
-    assert merged['paths'] == ['side.py']
 
-
-def test_status_lists_requests_stored_since_release(tmp_path, capsys):
+def test_status_lists_owner_words_newest_first_across_a_release(tmp_path, capsys):
+    from flowguard.__main__ import main
     from flowguard.map.requests import store_request
     root = _project(tmp_path)
     _git(root, 'init', '-q')
@@ -233,10 +219,11 @@ def test_status_lists_requests_stored_since_release(tmp_path, capsys):
     store_request(root, '主人第一行\nDo not lose this request.\n'.encode(), identifier='R7')
     capsys.readouterr()
     result = _status(root, capsys)
-    rows = {row['id']: row for row in result['requests']}
-    assert rows['R5']['since_release'] is False
-    assert rows['R7']['since_release'] is True
-    assert rows['R7']['first_line'] == '主人第一行'
-    assert rows['R7']['kind'] == 'request'
-    assert rows['R7']['stored_during']['goal'] == 'resume the shelf change'
+    rows = result['owner_words']['rows']
+    assert [row['id'] for row in rows] == ['R7', 'R5']
+    assert rows[0]['first_line'] == '主人第一行' and rows[0]['extra_lines'] == 1
+    assert rows[0]['kind'] == 'request' and rows[0]['retired'] is False
+    assert main(['status', '--root', str(root)]) == 0
+    text = capsys.readouterr().out
+    assert ': 主人第一行 (+1 line)' in text and ': Old first line' in text
     assert 'release' in result['since_release']['known_from']

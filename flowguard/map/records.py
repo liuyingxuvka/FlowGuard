@@ -477,11 +477,10 @@ def save_release_snapshot(root):
 
 
 def since_release(root, records, read_git_paths):
-    """Derive records and unrecorded code commits from a reachable version tag."""
-    from .common import SOURCE_EXTS
-
+    """Derive the change records and retire records made since a reachable version tag."""
     result = _git(root, 'describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', '--match', '[0-9]*')
     tag = result.stdout.decode().strip() if result is not None and result.returncode == 0 else None
+    retired_dir = '.flowguard/requests/retired/'
     if not tag or not re.fullmatch(r'v?[0-9]+\.[0-9]+\.[0-9]+', tag):
         try:
             snapshot = _release_records(root)
@@ -493,36 +492,22 @@ def since_release(root, records, read_git_paths):
                 raise ValueError('no complete matching release boundary')
         except (OSError, ValueError, KeyError, TypeError, AttributeError, MapError):
             return {'release': None, 'known_from': 'unknown: no reachable version release tag or complete legacy release snapshot',
-                    'changes': None, 'code_commits_without_record': None, 'released_requests': None}
+                    'changes': None, 'released_retired': None}
         changes = [dict(id=identifier, goal=record['goal'], requests=record['requests'], promoted=record['promoted'])
                    for identifier, record in records if identifier not in covered['changes']]
-        requests = sorted(Path(path).stem for path in snapshot['files']
-                          if path.startswith('.flowguard/requests/') and path.endswith('.json'))
+        retired = sorted(Path(path).stem for path in snapshot['files']
+                         if path.startswith(retired_dir) and path.endswith('.json'))
         return {'release': 'snapshot ' + snapshot['captured'],
                 'known_from': 'nongit release snapshot ' + snapshot['captured'] + ' and current immutable records',
-                'changes': changes, 'code_commits_without_record': None, 'released_requests': requests}
+                'changes': changes, 'released_retired': retired}
     prior = read_git_paths(root, 'ls-tree', '-r', '--name-only', '-z', tag, '--',
                            '.flowguard/changes', '.flowguard/requests')
     covered = {Path(path).stem for path in prior if path.startswith('.flowguard/changes/') and path.endswith('.json')}
-    requests = sorted(Path(path).stem for path in prior
-                      if path.startswith('.flowguard/requests/') and path.endswith('.json'))
+    retired = sorted(Path(path).stem for path in prior if path.startswith(retired_dir) and path.endswith('.json'))
     changes = [dict(id=identifier, goal=record['goal'], requests=record['requests'], promoted=record['promoted'])
                for identifier, record in records if identifier not in covered]
-    commits = _git(root, 'log', '--format=%H %P', tag + '..HEAD')
-    unrecorded = []
-    for line in commits.stdout.decode().splitlines() if commits is not None and commits.returncode == 0 else ():
-        commit, *parents = line.split()
-        comparison = (parents[0], commit) if parents else (commit,)
-        paths = read_git_paths(root, 'diff-tree', '--root', '--no-commit-id', '--name-only',
-                               '--relative', '-r', '-z', *comparison, '--', '.')
-        code = [path for path in paths if Path(path).suffix in SOURCE_EXTS and not path.startswith('.flowguard/')]
-        added = read_git_paths(root, 'diff-tree', '--root', '--no-commit-id', '--name-only',
-                               '--relative', '--diff-filter=A', '-r', '-z', *comparison, '--', '.flowguard/changes')
-        if code and not any(path.endswith('.json') and Path(path).stem in {identifier for identifier, _ in records}
-                            for path in added):
-            unrecorded.append(dict(commit=commit, paths=code))
-    return {'release': tag, 'known_from': f'release tag {tag}, current records and Git history (each commit against its first parent)',
-            'changes': changes, 'code_commits_without_record': unrecorded, 'released_requests': requests}
+    return {'release': tag, 'known_from': f'release tag {tag} and current records',
+            'changes': changes, 'released_retired': retired}
 
 
 def record_findings(root):

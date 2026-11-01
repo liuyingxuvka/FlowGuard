@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
+import re
 import shlex
 import subprocess
 
@@ -12,7 +14,7 @@ from .inventory import list_files
 from .mapfile import ignore_patterns, load_map
 from .plan import PLAN_RELPATH, function_identities, static_plan_rows
 from .records import CHANGE_DIR, change_records, commit_advice, since_release
-from .requests import other_worktrees, request_details
+from .requests import other_worktrees, owner_words
 from .targetfile import build_target_view, load_target
 
 
@@ -91,7 +93,7 @@ def _edited_functions(root, base, data, reader):
     return edited, 'static, now; unknown function identities: ' + ', '.join(unknown) if unknown else 'target-start AST identities, static, now'
 
 
-def collect_status(root, *, read_git_paths):
+def collect_status(root, *, read_git_paths, version):
     """Read only; CLI supplies the existing disposable-index Git reader."""
     root = Path(root).resolve()
     target = load_target(root)
@@ -99,14 +101,10 @@ def collect_status(root, *, read_git_paths):
     git = _git_header(root, read_git_paths, peers)
     records = change_records(root)
     history = since_release(root, records, read_git_paths)
-    requests = request_details(root, records=records, worktrees=peers)
-    released = history.pop('released_requests')
-    for item in requests:
-        item.update({'age': _age(item.get('received')),
-                     'since_release': None if released is None else item['id'] not in released,
-                     'known_from': 'request sidecar and current target/worktree/record links, static, now'})
-    # Completed requests from before a known release do not make the screen grow with history.
-    requests = [item for item in requests if not item['state'].startswith('done ') or item['since_release'] is not False]
+    words = owner_words(root, records=records)
+    released = history.pop('released_retired')
+    words['retired_since_release'] = [row['id'] for row in words['rows']
+                                      if row['retired'] and (released is None or row['id'] not in released)]
     change, plan = None, []
     if target is not None:
         data = load_map(root)
@@ -143,9 +141,71 @@ def collect_status(root, *, read_git_paths):
             note = (f'change {unpublished[-1][0]} records no file list (promoted before FlowGuard 0.72.0 or outside Git): '
                     'stage its files, then commit them with your own message.')
     return dict(root=str(root), scope='legacy static status; no exploration or stored verdicts', git=git,
-                change=change, plan=plan, verdicts=dict(stored=False), requests=requests,
+                change=change, plan=plan, verdicts=dict(stored=False), owner_words=words,
                 since_release=history, other_changes=others, jobs='none in the legacy runtime',
-                next=next_step, next_note=note)
+                skill_warnings=installed_skill_warnings(version), next=next_step, next_note=note)
+
+
+def installed_skill_warnings(version):
+    """Compare the documented skill install targets with the running package version; absent copies say nothing."""
+    current = tuple(int(part) for part in version.split('.')[:3])
+    codex = Path(os.environ['CODEX_HOME']) if os.environ.get('CODEX_HOME') else Path.home() / '.codex'
+    warnings = []
+    for path in (Path.home() / '.claude/skills/flowguard/SKILL.md', codex / 'skills/flowguard/SKILL.md'):
+        if not path.exists():
+            continue
+        try:
+            text = path.read_text(encoding='utf-8', errors='replace')
+        except OSError as error:
+            warnings.append(f'WARNING cannot read installed skill text {path}: {error}')
+            continue
+        match = re.search(r'FlowGuard\.git@v(\d+)\.(\d+)\.(\d+)', text)
+        installed = tuple(int(part) for part in match.groups()) if match else None
+        if installed == current:
+            continue
+        if installed is not None and installed > current:
+            warnings.append(f"WARNING installed skill text {path} is for v{'.'.join(map(str, installed))} but FlowGuard "
+                            f"here is {version}: ask the owner to install FlowGuard v{'.'.join(map(str, installed))}")
+            continue
+        named = f"is for v{'.'.join(map(str, installed))}" if installed else 'names no version'
+        warnings.append(f'WARNING installed skill text {path} {named}; FlowGuard here is {version}: trust AGENTS.md '
+                        f'and this tool\'s output; ask the owner to reinstall it (python scripts/install_skill.py '
+                        f'--target {path.parent.parent}, from a v{version} clone)')
+    return warnings
+
+
+SHOWN_OWNER_WORDS = 3
+
+
+def render_owner_words(words):
+    """The newest owner words in full first lines; retired planner text never appears as owner words."""
+    rows = [row for row in words['rows'] if not row['retired']]
+    lines = []
+    if not rows:
+        lines.append('OWNER WORDS none stored')
+    else:
+        lines.append('OWNER WORDS newest first (full text: .flowguard/requests/<id>.md)'
+                     + ('' if words['commit_links_known'] else '; commit links unknown (no Git history)'))
+        for row in rows[:SHOWN_OWNER_WORDS]:
+            when = row['received'][:16].replace('T', ' ') + ' UTC' if row['received'] else 'unknown time'
+            kind = '' if row['kind'] in (None, 'request') else f" [{row['kind']}]"
+            if row['invalid']:
+                text = f"unreadable ({row['invalid']})"
+            elif row['superseded_by']:
+                text = 'superseded by ' + ', '.join(row['superseded_by'])
+            else:
+                more = row['extra_lines']
+                text = row['first_line'] + (f" (+{more} line{'s' if more > 1 else ''})" if more else '')
+            cited = ''
+            if row['cited_by']:
+                cited = '  cited by: ' + ', '.join(row['cited_by'][:2]) + (f" (+{len(row['cited_by']) - 2})" if len(row['cited_by']) > 2 else '')
+            lines.append(f"  {row['id']}{kind} {when}: {text}{cited}")
+        older = [row['id'] for row in rows[SHOWN_OWNER_WORDS:]]
+        if older:
+            lines.append(f"  older: {', '.join(older)} (python -m flowguard where {older[0]})")
+    if words['retired_since_release']:
+        lines.append("RETIRED (not the owner's words): " + ', '.join(words['retired_since_release']))
+    return lines
 
 
 def render_status(result):
@@ -168,16 +228,10 @@ def render_status(result):
             lines.append('  added after code: unknown; static status stores no edit-order or completion verdict')
     else:
         lines.append('OPEN CHANGE none [current target directory, static, now]')
-    for item in result['requests']:
-        context = item.get('stored_during')
-        suffix = f"; stored during {context.get('goal', '')!r} (started {context.get('started') or 'unknown'})" if context else ''
-        marker = '; stored since release' if item['since_release'] else '; release boundary unknown' if item['since_release'] is None else ''
-        lines.append(f"REQUEST {item['id']} {item['state']} ({item['age']}); {item.get('kind', 'unknown')}: "
-                     f"{item['first_line']}{suffix}{marker} [sidecar/current links, static, now]")
+    lines.extend(render_owner_words(result['owner_words']))
+    lines.extend(result['skill_warnings'])
     history = result['since_release']
-    commits = history['code_commits_without_record']
-    counts = (f"{len(history['changes'])} changes; " + (f"{len(commits)} code commits without a record" if commits is not None else 'code commits unknown (no Git boundary)')
-              if history['changes'] is not None else 'change/commit counts unknown')
+    counts = f"{len(history['changes'])} changes" if history['changes'] is not None else 'change count unknown'
     lines.append(f"SINCE RELEASE {history['release'] or 'unknown'}: {counts} [{history['known_from']}]")
     if history['changes'] is not None:
         lines.append('  details: ' + shlex.join(['python', '-m', 'flowguard', 'status', '--json', '--root', result['root']]))

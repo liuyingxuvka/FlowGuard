@@ -8,6 +8,7 @@
 - Target promotion no longer writes a commit message file or prints a confirm step: it prints the staging command and asks you to commit with your own message. Notes you write as `#` lines in `PLAN.txt` are kept in the change record, and `req add` now points to `status` instead of starting a target.
 - The skill text, the adoption rules and the README teach only `status`, `req add`, `where`, the project's own tests and a commit in your own words with a `Request: R<n>` line; the map, models and target commands are marked as legacy until v1.0.0.
 - Every next step that `where` prints is now a `next[where]: ...` line like the other commands' next steps, and `where --json` reports `next` as an `{id, command}` object; the overview no longer shows unrunnable placeholder commands.
+- `status` now lists the owner's newest stored words first, with the change records and `Request: R<n>` commit lines that cite them, instead of open, done or in-change request states; `req add --supersedes ID` marks earlier words as replaced, `req retire ID --not-owner` hides a stored text that the owner did not write and refuses any quote or link to it, and status no longer counts commits without a change record. In a Claude Code session the first FlowGuard command shows `status` once on stderr, and `status` warns when an installed skill copy is for a different FlowGuard version.
 
 ## v0.71.1 - 2026-11-01 - Static source and original-text queries
 

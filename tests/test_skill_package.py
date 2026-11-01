@@ -67,9 +67,10 @@ class SkillPackageTests(unittest.TestCase):
 
     def test_request_and_status_documented_arguments_use_actual_parsers(self) -> None:
         for command in ('req add <file|-> --id <id>', 'req add - --kind glossary --id Words',
+                        'req add <file|-> --id <id> --supersedes <old id>', 'req retire ID --not-owner --note TEXT',
                         'status', 'status --root <root> --json --hook --wait 0'):
             _parse_documented_command_arguments(command)
-        for command in ('req add --id R7', 'status --not-an-option'):
+        for command in ('req add --id R7', 'req retire ID', 'status --not-an-option'):
             with self.assertRaises(SystemExit):
                 _parse_documented_command_arguments(command)
 

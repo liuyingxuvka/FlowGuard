@@ -133,7 +133,7 @@ def test_real_record_is_write_once_before_commit_and_after_clone(tmp_path, capsy
 
 def test_independent_branches_merge_automatic_requests_and_real_records(tmp_path, capsys):
     from flowguard.map import records
-    from flowguard.map.requests import request_details, store_request
+    from flowguard.map.requests import owner_words, store_request
 
     root = _project(tmp_path / "project", capsys)
     _seed_git(root)
@@ -154,7 +154,8 @@ def test_independent_branches_merge_automatic_requests_and_real_records(tmp_path
     _git(root, "merge", "--no-edit", "left")
     assert {identifier for identifier, _ in records.change_records(root)} == set(changes)
     assert records.record_findings(root) == []
-    assert {row["id"] for row in request_details(root) if row["state"].startswith("done ")} == set(identifiers)
+    assert {row["id"] for row in owner_words(root)["rows"]
+            if any(cited.startswith("change ") for cited in row["cited_by"])} == set(identifiers)
     assert _git(root, "ls-files", "-u") == b""
     assert not (root / ".flowguard/requests/index.json").exists()
     assert not (root / ".flowguard/changes/index.json").exists()
@@ -163,10 +164,12 @@ def test_independent_branches_merge_automatic_requests_and_real_records(tmp_path
 def test_nongit_release_snapshot_survives_cache_loss_and_rejects_edited_record(tmp_path, capsys):
     from flowguard.map import records
     from flowguard.map.impact_history import read_git_paths
-    from flowguard.map.requests import request_findings, store_request
+    from flowguard.map.requests import request_findings, retire_request, store_request
 
     record = _promoted_project(tmp_path, capsys)
     store_request(tmp_path, b"Keep this pending request visible.\n", identifier="RWaiting")
+    store_request(tmp_path, b"1. a plan an AI stored\n", identifier="RPlan")
+    retire_request(tmp_path, "RPlan")
     code, output, errors = _call(tmp_path, capsys, "release", "--json")
     assert code == 0 and not errors and json.loads(output)["verdict"] == "PASS", (output, errors)
     snapshots = [tmp_path / ".flowguard/release-base" / name for name in ("records.json", "covered.json")]
@@ -176,11 +179,13 @@ def test_nongit_release_snapshot_survives_cache_loss_and_rejects_edited_record(t
     history = records.since_release(tmp_path, records.change_records(tmp_path), read_git_paths)
     assert history["changes"] == [] and "snapshot" in history["known_from"].lower()
     store_request(tmp_path, b"A later request.\n", identifier="RLater")
+    retire_request(tmp_path, "RWaiting")
     code, output, _ = _call(tmp_path, capsys, "status", "--json")
     assert code == 0
-    requests = {row["id"]: row for row in json.loads(output)["requests"]}
-    assert requests["RWaiting"]["since_release"] is False
-    assert requests["RLater"]["since_release"] is True
+    words = json.loads(output)["owner_words"]
+    assert [row["id"] for row in words["rows"] if not row["retired"]] == ["RLater", "R1"]
+    assert words["retired_since_release"] == ["RWaiting"]
+    assert request_findings(tmp_path) == []
     original_record = record.read_bytes()
     record.write_bytes(original_record + b"\n")  # valid JSON; byte protection must catch it
     _record_refused(tmp_path, capsys)

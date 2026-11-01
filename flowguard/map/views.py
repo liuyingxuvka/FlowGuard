@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .common import Finding, advice, project_command, read_source, render_advice, tokens
-from .requests import request_rows
 from .inventory import Inventory, resolve_import
 from .facets import model_port_line, used_by_lines, _test_function_index, component_facets, coverage_facts, coverage_line, goal_rules_line, model_facets, system_facets
 from .discover import anchor_matches, discover_inventory, relied_models
@@ -120,7 +119,6 @@ def render_show(
             head,
             coverage_line(coverage, summary=True),
             tests_line,
-            *(["requests: " + ", ".join(rows)] if (rows := request_rows(root)) else []),
             models_line,
             *target_lines,
             *flows,
