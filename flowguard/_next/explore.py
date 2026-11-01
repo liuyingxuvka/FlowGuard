@@ -707,10 +707,15 @@ def replay(graph: Graph, call_indices) -> list[tuple]:
     keys = graph.keys
     t = graph.init
     out = []
-    for c in call_indices:
+    for n, c in enumerate(call_indices, 1):
         call = graph.calls[c]
         w = RecordingState(zip(keys, t))
-        call.action.fn(w, *call.args)
+        try:
+            call.action.fn(w, *call.args)
+            t = tuple(w[k] for k in keys)
+        except Exception as err:  # model code: a step of a found run must work again
+            file, line = _location(err, graph.model.root)
+            raise ModelError(f"replaying step {n} {show_step(call.step())} raised {type(err).__name__}: "
+                             f"{err} (the model does not give the same result twice)", file, line) from err
         out.append((call, {src for _, _, src in w.writes if src is not None}))
-        t = tuple(w[k] for k in keys)
     return out

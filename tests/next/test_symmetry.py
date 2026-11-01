@@ -227,3 +227,14 @@ def back(s, t):
 def test_explore_without_reduction_is_the_plain_search(project):
     loaded = load(project, SYM)
     assert len(explore(loaded.model, reduce=False).states) == 144
+
+
+def test_symmetric_findings_are_the_same_under_every_hash_seed(project):
+    from conftest import findings_under_seeds
+    project.kit()
+    path = project.flow_from(DATA / "kit" / "workshop_naive.py")
+    runs = findings_under_seeds(project.root, path)
+    assert runs[0] == runs[1] == runs[2] and runs[0]
+    lend = project.flow("lending", lending())
+    runs = findings_under_seeds(project.root, lend)
+    assert runs[0] == runs[1] == runs[2] and runs[0]

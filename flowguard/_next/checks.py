@@ -231,6 +231,7 @@ class _Run:
         self.field_by_key = {f.key: f for f in self.model.fields}
         self.keys = self.g.keys
         self.pos = {k: p for p, k in enumerate(self.keys)}
+        self.explanation_errors = []           # model errors seen in one-setting variants
         self._closed_changers = {}
 
     # -------------------------------------------------------------- helpers
@@ -662,9 +663,13 @@ class _Run:
         g, fr = self.g, self.fr
         out = set()
         if calls:                                  # the step that entered the stuck set
-            call, marked = replay(g, calls)[-1]
-            out.add(call.action.source)
-            out |= marked
+            try:
+                call, marked = replay(g, calls)[-1]
+            except ModelError as err:
+                self.errors.append(err)
+            else:
+                out.add(call.action.source)
+                out |= marked
         if line["kind"] == "progress":
             out.add(line["rule"].source)
             return out
@@ -778,7 +783,8 @@ class _Run:
                 setting_srcs.add(info.source)
                 if info.note and info.note not in setting_notes:
                     setting_notes.append(info.note)
-        detail = {"item": kind, "explained": how, "capped": list(capped)}
+        detail = {"item": kind, "explained": how, "capped": list(capped),
+                  "explanation_errors": list(self.explanation_errors)}
         if kind == "value":
             key, v = what
             f = self.field_by_key[key]
@@ -891,6 +897,8 @@ class _Run:
                 model.settings[name] = old
             if not vg.complete and not vg.stopped_early:
                 capped.append(f"{name}={value}")
+            if vg.errors:
+                self.explanation_errors.append(f"{name}={value}: {vg.errors[0].text}")
             values = vg.reached_values()
             for item in missing:
                 kind, what = item
@@ -919,7 +927,12 @@ class _Run:
             calls = g.path_calls(i, c)
             state = show_tuple(g, g.end_state(i))
             sources = {r.source}
-            for call, marked in replay(g, calls):
+            try:
+                steps = replay(g, calls)
+            except ModelError as err:
+                self.errors.append(err)
+                steps = []
+            for call, marked in steps:
                 sources.add(call.action.source)
                 sources |= marked
             subject = f"{r.kind} {r.base!r}"
@@ -992,6 +1005,7 @@ class _Run:
             "world_can_end": bool(getattr(self, "world_can_end", False)),
             "note": model.note, "unknown": list(unknown),
             "explanations_capped": list(getattr(self, "explanations_capped", [])),
+            "explanation_errors": list(self.explanation_errors),
         }
 
 

@@ -240,3 +240,58 @@ def test_the_search_records_no_effects(project):
     project.kit().flow_from(KIT / "workshop.py")
     g = explore(load(project, "workshop").model)
     assert all(type(t) is tuple for t in g.states)
+
+
+# ---------------------------------------------------------------- what the parts build on
+def test_a_transform_rewrites_the_model_file_only(project):
+    import ast as _ast
+
+    class DropNeeds(_ast.NodeTransformer):
+        def visit_Expr(self, node):
+            call = node.value
+            if isinstance(call, _ast.Call) and getattr(call.func, "id", None) == "need":
+                return _ast.Pass()
+            return node
+
+    project.flow("m", BASE.format(model_args="", extra=""))
+    plain = load_model(project.root / ".flowguard/flow/m.py", project.root)
+    dropped = load_model(project.root / ".flowguard/flow/m.py", project.root,
+                         transform=lambda tree: DropNeeds().visit(tree))
+    assert [f.kind for f in check_model(plain).findings] == []
+    assert [f.kind for f in check_model(dropped).findings] == ["MODEL ERROR"]   # x = 3 is outside 0..2
+
+
+def test_calls_and_replace_actions(project):
+    project.kit().flow_from(KIT / "workshop.py")
+    model = load(project, "workshop").model
+    calls = model.calls()
+    assert [c.step()[0] for c in calls[:3]] == ["rent", "rent", "give_back"]
+    assert [c.index for c in calls] == list(range(len(calls)))
+    assert len(calls) == 2 + 2 + 2 + 2 + 4
+    copy = model.replace_actions(model.actions[:1])
+    assert [c.action.name for c in copy.calls()] == ["rent", "rent"] and len(model.calls()) == 12
+
+
+NONDETERMINISTIC = '''
+from flowguard._next import Model, need
+SEEN = set()
+m = Model("once")
+m.field("x", [0, 1, 2], 0)
+
+@m.action()
+def up(s):
+    need(s["x"] not in SEEN, "already went up from here")
+    SEEN.add(s["x"])
+    s["x"] = min(s["x"] + 1, 2)
+
+m.always("x stays below 2", lambda s: s["x"] < 2)
+MODEL = m
+'''
+
+
+def test_a_model_that_answers_differently_on_replay_is_a_model_error(project):
+    project.flow("once", NONDETERMINISTIC)
+    report = check_model(load(project, "once"))
+    kinds = [f.kind for f in report.findings]
+    assert kinds == ["BROKEN", "MODEL ERROR"]
+    assert "does not give the same result twice" in report.findings[-1].text
