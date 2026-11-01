@@ -1,0 +1,15 @@
+branch check: rental R10 fixed
+measured: 6 states, 6 action calls (action x arguments), 10 state changes, 10 distinct arrows (state -> state), 0 of them made by more than one call
+DUPLICATE ROUTE (0; 0 groups of action calls)
+REDUNDANT ACTION (0)
+FALLBACK ROUTE (0; 0 pairs of action calls)
+FALLBACK ROUTE, status only (0): the same change of the status field (cond), other fields differ
+SAME-RESULT BRANCH (0; 2 ifs checked in reachable states, 2 in the file)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 21 2/4, line 40 2/4)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  rent 1, return_ok 1, return_damaged 2, receive 1, repaired 1, transfer 1
+NEVER TAKEN (0)
+DEAD GUARD (1)
+  line 34: need(s["branch", t] == "main", "R10: repairs only at main")  (checked, never refuses)
+NEVER REACHED actions (machine.py's own check): none
+summary: dead_guard 1

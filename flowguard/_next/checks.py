@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import inspect
 import json
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -147,8 +148,9 @@ def _fn_consts(fns):
 
 
 def _with_helpers(fn):
-    """fn and the plain functions of its own file that it calls by name (transitively)."""
-    seen, stack, out = set(), [fn], []
+    """fn and the plain functions of its own file that it calls by name (transitively).
+    A wrapped action (functools.wraps, as mutation wraps them) counts as the function it wraps."""
+    seen, stack, out = set(), [inspect.unwrap(fn)], []
     while stack:
         f = stack.pop()
         if id(f) in seen or not hasattr(f, "__code__"):
@@ -165,6 +167,29 @@ def _with_helpers(fn):
             g = f.__globals__.get(n)
             if callable(g) and hasattr(g, "__code__") and g.__code__.co_filename == f.__code__.co_filename:
                 stack.append(g)
+    return out
+
+
+def setting_variations(model: Model) -> list[tuple[str, object]]:
+    """The one-setting changes an explanation tries (port of variations_of): a bool its
+    other value; an int 0, 1, 2, v-1, v+1, 2v without negatives; vary= replaces the list."""
+    out = []
+    for name, value in model.settings.items():
+        info = model.setting_info.get(name)
+        vary = info.vary if info is not None else None
+        if vary is not None:
+            cands = list(vary)
+        elif isinstance(value, bool):
+            cands = [not value]
+        elif isinstance(value, int):
+            cands = [0, 1, 2, value - 1, value + 1, 2 * value]
+        else:
+            cands = []
+        seen = []
+        for c in cands:
+            if c != value and c not in seen and not (isinstance(c, int) and not isinstance(c, bool) and c < 0):
+                seen.append(c)
+        out += [(name, c) for c in seen]
     return out
 
 
@@ -849,24 +874,7 @@ class _Run:
         return ("reach", what.name) if kind == "reach" else item
 
     def variations(self):
-        out = []
-        for name, value in self.model.settings.items():
-            info = self.model.setting_info.get(name)
-            vary = info.vary if info is not None else None
-            if vary is not None:
-                cands = list(vary)
-            elif isinstance(value, bool):
-                cands = [not value]
-            elif isinstance(value, int):
-                cands = [0, 1, 2, value - 1, value + 1, 2 * value]
-            else:
-                cands = []
-            seen = []
-            for c in cands:
-                if c != value and c not in seen and not (isinstance(c, int) and not isinstance(c, bool) and c < 0):
-                    seen.append(c)
-            out += [(name, c) for c in seen]
-        return out
+        return setting_variations(self.model)
 
     def explanations(self, missing, reach_missing):
         """For each missing item, the one-setting changes that reach it (port of explain):

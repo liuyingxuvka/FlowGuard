@@ -1,0 +1,34 @@
+branch check: collect at your own counter
+measured: 1,233 states, 25 action calls (action x arguments), 8,328 state changes, 7,770 distinct arrows (state -> state), 558 of them made by more than one call
+DUPLICATE ROUTE (0; 0 groups of action calls)
+REDUNDANT ACTION (0)
+  (not findings: 7 action calls share some of their state changes with another)
+    back_home(): 414 of 813 also made by new_session(b='main'), new_session(b='east')
+    advance(): 144 of 432 also made by cancel(who='M2'), cancel(who='M1')
+    cancel(who='M2'): 108 of 717 also made by advance()
+    cancel(who='M1'): 36 of 252 also made by advance()
+    new_session(b='main'): 138 of 1161 also made by back_home()
+FALLBACK ROUTE (1; 6 pairs of action calls)
+  bring(who='M1', b='main') and transfer(b='main') are never possible in the same state, and make the same change (6 such pairs of calls)
+    for example: at: 'north' -> 'main', cond: 'shop' -> 'transit' (made from 48 and 36 states)
+    where transfer(b='main') does it, bring(who='M1', b='main') refuses: 'not on the item screen' (24 of 36 states)
+    where bring(who='M1', b='main') does it, transfer(b='main') refuses: 'only an available tool can be sent' (48 of 48 states)
+    decided by: holder ['M1'] vs [None]; left [1, 2] vs [0]
+    shortest path to a state where transfer(b='main') is the route (2 steps): transfer(b='north') ; receive()
+  (not findings: 3 pairs where a parameter must match the state, e.g. bring(who='M1', b='main') vs bring(who='M2', b='main'): bring 3)
+FALLBACK ROUTE, status only (2): the same change of the status field (waiting), other fields differ
+  cancel(who='M2') and return_tool(who='M2'): waiting: 'M1' -> None; they also change: cond, holder, left, renter (2 such pairs of calls)
+  receive() and return_tool(who='M2'): waiting: 'M1' -> None; they also change: cond, holder, left, renter (2 such pairs of calls)
+SAME-RESULT BRANCH (0; 8 ifs checked in reachable states, 9 in the file)
+  (not a finding: line 168 (advance) tests only a setting or variant flag, and flipping it changes nothing in this machine's 216 calls: if S["naive_back_in_shop"]:)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 48 1539/3078, line 54 216/1494, line 109 969/1938, line 111 288/1152, line 150 270/1158, line 164 1233/2466, line 166 432/864)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  go_reservations 1, back_home 1, new_session 1, open_item 2, reserve 1, cancel 3, rent 1, bring 1, transfer 1, receive 3, return_tool 2, advance 4
+  succeeds without changing anything: advance() in 801 states, new_session(b='main') in 72 states, new_session(b='north') in 72 states, new_session(b='east') in 72 states
+NEVER TAKEN (3)
+  back_in_shop: line(s) [55, 56, 57, 58] never run in any reachable state (55: s["cond"] = "shop"; 56: if s["waiting"] is not None:         # ...even when someone already holds it; 57: start_hold(s, s["waiting"]))  (runs only with naive_back_in_shop=True)
+  cancel: line(s) [112] never run in any reachable state (112: back_in_shop(s))  (runs only with naive_back_in_shop=True)
+  advance: line(s) [169] never run in any reachable state (169: back_in_shop(s))  (runs only with naive_back_in_shop=True)
+DEAD GUARD (0)
+NEVER REACHED actions (machine.py's own check): none
+summary: fallback 1, fallback_status 2, never_taken 3

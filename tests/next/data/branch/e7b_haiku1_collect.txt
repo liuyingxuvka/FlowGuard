@@ -1,0 +1,24 @@
+branch check: held tool brought to another branch
+measured: 46 states, 13 action calls (action x arguments), 124 state changes, 114 distinct arrows (state -> state), 10 of them made by more than one call
+DUPLICATE ROUTE (0; 0 groups of action calls)
+REDUNDANT ACTION (0)
+  (not findings: 5 action calls share some of their state changes with another)
+    day(t='T'): 8 of 16 also made by cancel(t='T', who='N'), cancel(t='T', who='M')
+    cancel(t='T', who='M'): 4 of 16 also made by day(t='T')
+    cancel(t='T', who='N'): 4 of 16 also made by day(t='T')
+    rent(t='T', who='M'): 2 of 10 also made by rent(t='T', who='N')
+    rent(t='T', who='N'): 2 of 10 also made by rent(t='T', who='M')
+FALLBACK ROUTE (0; 0 pairs of action calls)
+  (not findings: 2 pairs where a parameter must match the state, e.g. bring(t='T', who='M', to='main') vs bring(t='T', who='N', to='main'): bring 2)
+FALLBACK ROUTE, status only (2): the same change of the status field (waiting), other fields differ
+  return_tool(t='T') and receive(t='T'): waiting[T]: 'M' -> 'none'; they also change: hold[T], where[T] (2 such pairs of calls)
+  return_tool(t='T') and cancel(t='T', who='N'): waiting[T]: 'M' -> 'none'; they also change: clock[T], hold[T], where[T] (2 such pairs of calls)
+SAME-RESULT BRANCH (0; 5 ifs checked in reachable states, 11 in the file)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 45 20/72, line 86 12/44, line 96 16/64, line 103 46/92, line 106 16/32)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  reserve 1, rent 1, return_tool 2, bring 1, receive 3, cancel 3, day 4
+  succeeds without changing anything: day(t='T') in 30 states
+NEVER TAKEN (0)
+DEAD GUARD (0)
+NEVER REACHED actions (machine.py's own check): none
+summary: fallback_status 2
