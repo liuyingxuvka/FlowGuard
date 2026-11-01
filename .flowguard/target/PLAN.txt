@@ -1,0 +1,2 @@
+# Withdraw the failed isolated behavior slice; preserve independent static views and all legacy models.
+# No retained Python implementation changes in this removal: only the component, its package/tests and its dedicated CI/instruction commitments are retired.
