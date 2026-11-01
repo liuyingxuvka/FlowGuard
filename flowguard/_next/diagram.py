@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -26,8 +27,8 @@ from .explore import Bounds, explore, show_step
 from .jobs import ends_with_this_process
 from .model import ModelError, load_model, show_key
 from .parts import PartContext, PartResult, PartSpec, kinds, part_digest, register, run_part
-from .project import (PROG, ProjectError, cache_dir, changed_models, export_at, model_files, new_and_open,
-                      read_conflicts, write_manifest)
+from .project import (PROG, ProjectError, cache_dir, changed_files, changed_models, export_at, model_files,
+                      new_and_open, read_conflicts, read_manifest, write_manifest)
 from .routes import route_checks
 
 MAX_BOXES = 12                 # a target the tool groups toward (proto12-modelcheck 4.3), never a pass mark
@@ -265,6 +266,8 @@ class Drawing:
     folded: list
     subject: str                 # what the picture is about (first line)
     states_text: str             # "6 states" for the comment line
+    capped: str = ""             # "CAPPED at 4 states: only the explored part" when the search was bounded
+    change_unseen: bool = False  # a change is drawn, but nothing in this view is green or grey
 
     @property
     def n_boxes(self):
@@ -456,17 +459,30 @@ class Scene:
             for k, x, y in zip(union, a, b):
                 if x != y:
                     changed.add(k)
-        ch.keys = tuple(k for k in new_keys if k in changed)
+        keys = tuple(k for k in new_keys if k in changed)
+        # with two or more objects, one object's fields (as a conflict's picture has): the
+        # requested object, else the first whose fields the change touches
+        objs = sorted({str(obj_of(k)) for k in keys if obj_of(k) is not None}, key=_natural)
+        pick = None
+        if len(objs) > 1 or (objs and self.obj is not None):
+            pick = str(self.obj) if self.obj is not None and str(self.obj) in objs else objs[0]
+            keys = tuple(k for k in keys if obj_of(k) is None or str(obj_of(k)) == pick)
+        ch.keys = keys
         proj = self.space.projector(union, fill_new)
         ch.new_states = [u for u in range(len(self.space)) if proj(u) not in so]
+        if pick is not None:                     # counted on what is drawn: that object's fields
+            tn, _ = _transitions(self.space, keys, {})
+            to, _ = _transitions(ch.space, keys, fill_old)
+            added, removed = tn - to, to - tn
         ch.added, ch.removed = len(added), len(removed)
         self.targets = ch.new_states
         self.target_text = "what is new"
+        drawn = f" (drawn for {pick} of {', '.join(objs)})" if pick is not None and len(objs) > 1 else ""
         if not added and not removed:
-            self.head = f"the change against {ch.rev}: no step is added or removed"
+            self.head = f"the change against {ch.rev}: no step is added or removed{drawn}"
         else:
             self.head = (f"the change against {ch.rev}: {_plural(len(added), 'step')} added (green), "
-                         f"{_plural(len(removed), 'step')} removed (grey)")
+                         f"{_plural(len(removed), 'step')} removed (grey){drawn}")
 
     # -------------------------------------------------------------- candidate views
     def status(self):
@@ -531,6 +547,11 @@ class Scene:
             names = ", ".join(show_key(k) for k in keys)
             fo = ("--fields", ",".join(show_key(k) for k in keys))
             out.append(View(f"the fields the change's steps change ({names}), whole space", keys, options=fo))
+            plain = tuple(k for k in keys if not _is_counter(sp.domains[k]))
+            if plain and plain != keys:                       # counters only when nothing else fits
+                pn = ", ".join(show_key(k) for k in plain)
+                out.append(View(f"the fields the change's steps change, counters left out ({pn}), whole space",
+                                plain, options=("--fields", ",".join(show_key(k) for k in plain))))
             if self.change.new_states:
                 for k in (3, 2, 1):
                     out.append(View(f"{_plural(k, 'step')} around what is new, fields {names}", keys, "focus", k,
@@ -841,14 +862,22 @@ class Scene:
             folded.append("steps that change only undrawn fields")
         if folded_args:
             folded.append("arguments on arrows")
+        capped = (f"CAPPED at {self.report.graph.max_states:,} states: only the explored part"
+                  if not self.report.graph.complete else "")
+        unseen = (old_boxes is not None and not any(b.style in ("added", "removed") for b in boxes)
+                  and not any(a.style in ("green", "grey") for a in out_arrows))
         return Drawing(self.mid, view, boxes, out_arrows, start, caption, n_shown, len(sp), folded,
-                       self.head, _plural(len(sp), "state"))
+                       self.head, _plural(len(sp), "state"), capped, unseen)
 
     def box_names(self, keys):
         objs = {obj_of(k) for k in keys if obj_of(k) is not None}
         if len(objs) <= 1 and len({family(k) for k in keys}) == len(keys):
             return [family(k) for k in keys]
         return [show_key(k) for k in keys]
+
+
+def _natural(text):
+    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", str(text))]
 
 
 def _key_list(keys, limit=8):
@@ -1005,8 +1034,9 @@ def mermaid(d: Drawing) -> str:
 
 def first_line(d: Drawing) -> str:
     """What the picture covers and what was folded (the picture path is added by the caller)."""
-    head = f"{d.model}: " + (d.subject + "; " if d.subject else "")
-    return (f"{head}{d.view.name}: {_plural(d.n_boxes, 'box')}, {_plural(d.n_arrows, 'arrow')}; "
+    head = f"{d.model}: " + (d.capped + "; " if d.capped else "") + (d.subject + "; " if d.subject else "")
+    unseen = "; nothing of the change shows in this view" if d.change_unseen else ""
+    return (f"{head}{d.view.name}: {_plural(d.n_boxes, 'box')}, {_plural(d.n_arrows, 'arrow')}{unseen}; "
             f"folded: {'; '.join(d.folded) if d.folded else 'nothing'}")
 
 
@@ -1297,7 +1327,10 @@ def _plan_show(root, a, view_opts, runner):
             if model not in models:
                 raise _Usage(f"{model}: no such model (models: {', '.join(sorted(models))})")
             found = _conflicts(root, runner, [model], a.max_states)
-            subjects.append((model, found[model][0].id if found[model] else "", before, obj or None))
+            if found[model]:
+                subjects.append((model, found[model][0].id, before, obj or None))
+            else:                                         # no conflict: the fields its latest change touched
+                subjects.append((model, "", before or _latest_change(root, models[model]), obj or None))
     elif before is not None:
         subjects += [(m, "", before, None) for m in sorted(models)]
     else:
@@ -1356,6 +1389,33 @@ def _plan_show(root, a, view_opts, runner):
                          "rendered": info.get("rendered", False), "reason": info.get("reason"),
                          "subject": info.get("subject"), "boxes": info.get("boxes"), "arrows": info.get("arrows")})
     return code, pictures, more, message
+
+
+def _latest_change(root: Path, path: Path):
+    """(revision label, commit) to draw a model's latest change against: HEAD when the files
+    its load reads differ from HEAD, else the parent of the last commit that changed them.
+    None when git has no such change (no repository, no history, or the model was added in
+    its only commit): the picture then shows the model as it is."""
+    root = Path(root)
+    reads = read_manifest(root, path.stem) or [path.relative_to(root).as_posix()]
+    try:
+        changed = changed_files(root)
+    except (ProjectError, FileNotFoundError):
+        return None
+    if not _has_head(root):
+        return None
+    if any(r in changed for r in reads):
+        return ("HEAD", _git_commit(root, "HEAD"))
+    res = subprocess.run(["git", "-C", str(root), "log", "-1", "--format=%H%x00%s", "--", *reads],
+                         capture_output=True, text=True, check=False)
+    if res.returncode != 0 or not res.stdout.strip():
+        return None
+    commit, _, subject = res.stdout.strip().partition("\0")
+    try:
+        parent = _git_commit(root, f"{commit}^")
+    except ProjectError:
+        return None
+    return (f"{commit[:7]}^ (before its latest commit {commit[:7]} {subject!r})", parent)
 
 
 def _has_head(root) -> bool:

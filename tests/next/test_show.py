@@ -465,3 +465,80 @@ def test_a_fallback_route_is_focused_where_the_second_route_is_used(project):
     choice = diagram.choose_view(report, duplicate)
     assert not [v for v, _, _ in choice.tried if v.kind == "focus"] and choice.drawing.n_boxes > 0
     assert "red: the arrows of the routes" in diagram.mermaid(choice.drawing)
+
+
+# ---------------------------------------------------------------------- G7
+def _kit_change(project, commit_fixed=False):
+    project.kit()
+    project.file(".gitignore", ".flowguard/cache/\n__pycache__/\n")
+    project.flow_from(DATA / "kit" / "workshop_naive.py", "workshop")
+    project.commit("naive R10")
+    project.flow_from(DATA / "kit" / "workshop.py", "workshop")
+    if commit_fixed:
+        project.commit("R10: a tool due away from main travels to main first")
+
+
+def test_a_change_with_two_tools_is_drawn_for_one_tool_in_green_and_grey(project):
+    """G7: with two or more objects the change view narrows to one object, as conflict
+    views do, and colours what the change adds and removes."""
+    _kit_change(project)
+    code, out = show(project.root)
+    assert code == 0, out
+    first = out.splitlines()[0]
+    assert first.startswith("workshop: the change against HEAD: ") and "drawn for T1" in first
+    assert "branch" in first.split(": ", 2)[2] and "cond" in first
+    assert "[T2]" not in first.split("; folded")[0]
+    got = parse(body(out))
+    assert any(got["classes"].get(b) == "added" for b in got["boxes"]) or any(a[3] == "#080" for a in got["arrows"])
+    assert any(a[3] == "#999" for a in got["arrows"]) or any(c == "removed" for c in got["classes"].values())
+
+
+def test_a_model_without_conflict_is_drawn_with_its_latest_change(project):
+    """G7: `show MODEL` of a model with no conflict draws the fields its latest change
+    touched (the model's last commit against its parent), not the status field alone."""
+    _kit_change(project, commit_fixed=True)
+    code, out = show(project.root, "workshop")
+    assert code == 0, out
+    first = out.splitlines()[0]
+    assert "the change against" in first and "R10: a tool due away from main travels to main first" in first
+    assert "branch" in first.split("; folded")[0]
+
+
+def test_a_capped_picture_says_so_in_its_first_line(project):
+    """G7: CAPPED is in the first line the AI reads, not only in the picture's caption."""
+    project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    code, out = show(project.root, "rental", "--max-states", "4")
+    first = out.splitlines()[0]
+    assert first.startswith("rental: CAPPED at 4 states: only the explored part; "), first
+
+
+def test_an_explanation_never_says_reached_and_unknown_for_one_setting(project):
+    """G7: a variant that reaches an item is not also listed as capped (UNKNOWN) for it; it
+    stays UNKNOWN only for the items it did not reach before its cap."""
+    project.flow("lim", '''
+from flowguard._next import Model, need
+m = Model("lim")
+S = m.settings
+m.setting("limit", 2, vary=[40])
+m.field("n", range(0, 50), 0)
+m.field("flag", [False, True], False, source="R1")
+
+@m.action()
+def inc(s):
+    need(s["n"] < S["limit"], "at the limit")
+    s["n"] += 1
+
+@m.action(source="R1")
+def big(s):
+    need(s["n"] >= 3, "too small")
+    s["flag"] = True
+
+@m.action(source="R2")
+def never(s):
+    need(False, "never")
+MODEL = m
+''')
+    report = check_model(load_model(project.root / ".flowguard/flow/lim.py", project.root), Bounds(10))
+    by = {f.subject: f.detail for f in report.findings if f.kind == "NEVER REACHED"}
+    assert by["action big"]["explained"] == ["limit=40"] and by["action big"]["capped"] == []
+    assert by["action never"]["explained"] == [] and by["action never"]["capped"] == ["limit=40"]

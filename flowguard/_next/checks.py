@@ -897,7 +897,8 @@ class _Run:
                 setting_srcs.add(info.source)
                 if info.note and info.note not in setting_notes:
                     setting_notes.append(info.note)
-        detail = {"item": kind, "explained": how, "capped": list(capped),
+        # a variant that reached the item decided it; it is UNKNOWN only for the items it did not reach
+        detail = {"item": kind, "explained": how, "capped": [c for c in capped if c not in (how or [])],
                   "explanation_errors": list(self.explanation_errors)}
         if kind == "value":
             key, v = what
