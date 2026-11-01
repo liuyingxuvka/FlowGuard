@@ -218,7 +218,14 @@ def back(s, t):
     s["cond", t] = "shop"
 '''))
     loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    # G3 round 2: an id compared with a value the rule cannot follow is a doubt: no reduction
+    assert "compares a tool id with a value the rule cannot follow" in loaded.model._symmetry_doubt
+    assert check_model(loaded).graph.sym is None
+    # the unreduced comparison is the backstop for what no rule sees: forced reduction is caught
+    del loaded.model.__dict__["_symmetry_doubt"]
+    loaded.model.__dict__.pop("_symmetry", None)
     reduced = check_model(loaded)
+    assert reduced.graph.sym is not None
     result = verify_symmetry(loaded, Bounds(), reduced)
     assert result["verified"] is False and result["finding"].kind == "MODEL ERROR"
     assert "not interchangeable" in result["text"]
@@ -297,3 +304,90 @@ def test_a_parameter_ordered_by_its_text_is_explored_without_renaming(project):
     line = reach_line(report.reach)
     assert "machines not explored up to renaming (in doubt:" in line and "every renaming explored" in line
     assert any(f.kind == "STUCK" for f in report.findings)          # M2 is stuck busy: found, not reduced away
+
+
+FINISH = '''
+from flowguard._next import Model, need
+m = Model("machines")
+MACHINES = m.objects("machine", "M1", "M2")
+m.field("state", ["idle", "busy"], "idle", over=MACHINES)
+PRELUDE
+
+@m.action(t=MACHINES)
+def start(s, t):
+    need(s["state", t] == "idle", "busy")
+    s["state", t] = "busy"
+
+@m.action(t=MACHINES)
+def finish(s, t):
+    need(s["state", t] == "busy", "idle")
+    need(GUARD, "only the first may finish")
+    s["state", t] = "idle"
+MODEL = m
+'''
+
+PAIRS = FINISH.replace("PRELUDE", "PAIRS = [(a, b) for a in MACHINES for b in MACHINES if a != b]").replace(
+    '''@m.action(t=MACHINES)
+def finish(s, t):
+    need(s["state", t] == "busy", "idle")
+    need(GUARD, "only the first may finish")
+    s["state", t] = "idle"''', '''@m.action(p=PAIRS)
+def finish(s, p):
+    need(s["state", p[0]] == "busy", "idle")
+    need(p[0] > p[1], "only the first may finish")
+    s["state", p[0]] = "idle"''')
+
+
+@pytest.mark.parametrize("prelude, guard, text", [
+    ("", "t == list(MACHINES)[0]", "picks one machine id"),
+    ("", "t == tuple(MACHINES)[0]", "picks one machine id"),
+    ("ORDER = list(MACHINES)", "ORDER.index(t) == 0", "depends on the order of the machine ids"),
+    ("ORDER = list(MACHINES)", "t == ORDER[0]", "picks one machine id"),
+    ("for u in list(MACHINES):\n    FIRST = u\n    break", "t == FIRST", "stops early"),
+    ("", "t == next(iter(set(MACHINES)))", "picks one machine id"),
+    ("RANK = dict(zip(list(MACHINES), [0, 1]))", "RANK[t] == 0", None),
+    ("PAIRS", None, "compares machine ids by order"),
+])
+def test_a_pick_from_a_copy_of_the_ids_is_never_reduced(project, prelude, guard, text):
+    """G3 (round 2): ids picked from a copy of the id list (list(), tuple(), a module-level
+    copy, a loop that breaks, the first of a set), a table built from their order, or an
+    action domain derived from them (pairs) once gave "clean, complete" with the renaming on,
+    although only M1 may finish and M2 stays busy. Each is now a model error naming the
+    use, or (a table the rule cannot judge) a doubt that turns the renaming off."""
+    source = PAIRS if prelude == "PAIRS" else FINISH.replace("PRELUDE", prelude).replace("GUARD", guard)
+    project.flow("machines", source)
+    path = project.root / ".flowguard/flow/machines.py"
+    if text is not None:
+        with pytest.raises(ModelError, match="treats machine ids asymmetrically") as err:
+            load_model(path, project.root)
+        assert text in err.value.text, err.value.text
+        return
+    loaded = load_model(path, project.root)
+    report = check_model(loaded)
+    assert report.graph.sym is None and report.reach["symmetry_doubt"]
+    assert any(f.kind == "STUCK" for f in report.findings)
+
+
+@pytest.mark.parametrize("extra, text", [
+    ('@m.action()\ndef reset(s):\n    s["holder"] = "T" + "1"', "writes a value the rule cannot follow into 'holder'"),
+    ('m.always("first field", lambda s: list(s.values())[0] == "shop")', "uses the model state"),
+    ('@m.action(t=TOOLS)\ndef peek(s, t):\n    need(eval("t") != "T" + "1", "hidden")', "runs code the rule cannot follow"),
+    ('@m.action(t=TOOLS)\ndef peek(s, t):\n    need(t in BLOCKED, "blocked")\nBLOCKED = {"T" + "1"}',
+     "looks a tool id up in a value the rule cannot follow"),
+])
+def test_uses_the_rule_cannot_follow_turn_the_renaming_off(project, extra, text):
+    """G3 round 2: text made into an id and written into an id-valued field, reading the
+    state other than by key, dynamic code, and membership in a value the rule does not
+    follow can each tell the ids apart; in doubt the model is explored without renaming."""
+    project.flow("tools", SCALARSET.format(init='"shop"', extra='m.field("holder", [None] + TOOLS, None)\n' + extra))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert text in (loaded.model.__dict__.get("_symmetry_doubt") or ""), loaded.model.__dict__.get("_symmetry_doubt")
+    assert check_model(loaded).graph.sym is None
+
+
+def test_a_function_nothing_runs_is_not_judged(project):
+    """A def that is no action, no rule and called by nothing never runs: its parameters
+    hold nothing the rule can follow, and judging them would only turn the renaming off."""
+    project.flow("tools", SCALARSET.format(init='"shop"', extra='def unused(s, t, u):\n    return t == u'))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None and check_model(loaded).graph.sym is not None

@@ -700,25 +700,46 @@ def scalarset_violations(tree: ast.Module, ids: dict, model_file: bool) -> list[
 _ORDER_OPS = (ast.Lt, ast.Gt, ast.LtE, ast.GtE)
 _ORDER_FUNCS = {"sorted", "min", "max"}
 _TEXT_FUNCS = {"str", "repr", "hash", "ord", "int", "float", "format", "len", "ascii"}
-_ALIKE_FUNCS = _SYM_CALLS | {"bool", "isinstance", "need", "enumerate", "zip", "reversed", "iter", "next", "dict"}
-_ALIKE_METHODS = {"index", "count", "union", "intersection", "difference", "symmetric_difference", "issubset",
-                  "issuperset", "isdisjoint", "get", "keys", "values", "items", "copy"}
+_ALIKE_FUNCS = {"all", "any", "sum", "len", "set", "frozenset", "bool", "isinstance", "need", "list", "tuple",
+                "reversed", "iter"}
+_SET_METHODS = {"union", "intersection", "difference", "symmetric_difference", "issubset", "issuperset",
+                "isdisjoint"}
 _DECLARATIONS = {"action", "option", "progress", "reach", "only_when", "after", "always", "field", "setting",
                  "objects", "terminal", "second_route", "source"}
+# What an expression holding ids is (its form) decides which uses treat the ids alike:
+#   scalar     one id                          record   a tuple holding ids at data positions
+#   kindlist   ids in the declared order       kindrecs records in an order taken from it
+#   kindvals   other values in that order      unordered a set of ids (iteration follows hashes)
+#   sequence   ids in data order (a field value that is a tuple)
+#   table      a mapping keyed by ids, built over all of them
+_COLLECTIONS = {"kindlist", "kindrecs", "kindvals", "unordered", "sequence", "record", "table"}
+_BY_KIND = {"kindlist", "kindrecs", "kindvals", "unordered", "table"}     # their order is no data
+_TRANSPARENT = (ast.Tuple, ast.List, ast.Set, ast.IfExp, ast.Starred)
+_DYNAMIC = {"eval", "exec", "compile", "globals", "locals", "vars", "getattr", "setattr", "delattr", "__import__"}
+_STATE = ("state", None)                  # the model state an action or rule receives
+
+
+def _element(form):
+    """What iterating over a collection of this form yields."""
+    return {"kindrecs": "record", "kindvals": None}.get(form, "scalar")
 
 
 class _IdUses:
     """Where interchangeable ids flow in a model file and its helpers, beyond the names
-    bound to m.objects: action, option and rule parameters whose domain is a kind, loop
-    variables over ids, field values that hold ids, and names assigned from them. A use
-    that orders or compares them (<, >, sorted, min, max) is a violation; a use the rule
-    cannot judge (the id's text, or an id passed to a function the model does not define)
-    is a doubt, and a model in doubt is explored without reduction."""
+    bound to m.objects: action, option and rule parameters whose domain holds ids (a kind,
+    a copy of it, or values built from it such as pairs), loop variables, field values that
+    hold ids, module-level and local names assigned from any of these, and what helpers
+    return. Every expression that holds ids is judged by where it is used (a whitelist):
+    ordering ids, picking one by its place in the declared order (or in a set), or a loop
+    over them that stops early is a violation; a use the rule cannot judge (the id's text,
+    a table built from their order, a function the model does not define) is a doubt, and
+    a model in doubt is explored without reduction."""
 
     def __init__(self, trees: list, model: "Model", kinds: dict):
         self.trees = trees                         # (path, tree)
         self.kinds = kinds                         # name bound to m.objects -> kind
         self.ids = {i: k for k, idl in model.kinds.items() for i in idl}
+        self.all_families = {f.family for f in model.fields}
         fam = {}
         for f in model.fields:
             for v in f.domain:
@@ -726,26 +747,37 @@ class _IdUses:
                     fam.setdefault(f.family, set()).add(("scalar", self.ids[v]))
                 elif isinstance(v, (tuple, frozenset)) and any(isinstance(x, str) and x in self.ids for x in v):
                     kind = next(self.ids[x] for x in v if isinstance(x, str) and x in self.ids)
-                    fam.setdefault(f.family, set()).add(("collection", kind))
-        self.families = {f: sorted(v)[0] for f, v in fam.items()}    # family -> (shape, kind)
-        self.actions = {}                          # action name -> {param: kind}
-        self.params = {}                           # id(function node) -> {param: (shape, kind)}
+                    fam.setdefault(f.family, set()).add(("unordered" if isinstance(v, frozenset) else "sequence",
+                                                         kind))
+        self.families = {f: sorted(v)[0] for f, v in fam.items()}    # family -> (form, kind)
+        self.actions = {}                          # action name -> {param: (form, kind)}
+        self.params = {}                           # id(function node) -> {param: (form, kind)}
+        self.returns = {}                          # helper name -> (form, kind) of what it returns
         self.functions = {}                        # helper name -> FunctionDef
+        self.parents = {}                          # id(node) -> parent node
+        self.modules = {}                          # path -> module-level names holding ids
+        self.enclosing = {}                        # id(function node) -> enclosing function node
         self.violations, self.doubts = [], []
+        for path, tree in trees:
+            for node in ast.walk(tree):
+                for child in ast.iter_child_nodes(node):
+                    self.parents[id(child)] = node
 
     # -------------------------------------------------------------- which parameters hold ids
-    def kind_of(self, node):
-        for n in ast.walk(node):
-            if isinstance(n, ast.Name) and n.id in self.kinds:
-                return self.kinds[n.id]
-        return None
+    def domain(self, node, env):
+        """(form, kind) of one value of a declared domain (an action parameter's, an over=)."""
+        sh = self.shape(node, env)
+        if sh is None or sh[0] not in _COLLECTIONS:
+            return None
+        form = _element(sh[0])
+        return (form, sh[1]) if form is not None else None
 
-    def mark(self, fn, position, shape, kind):
-        if fn is None or kind is None:
+    def mark(self, fn, position, sh):
+        if fn is None or sh is None:
             return
         args = [a.arg for a in fn.args.args]
         if position < len(args):
-            self.params.setdefault(id(fn), {}).setdefault(args[position], (shape, kind))
+            self.params.setdefault(id(fn), {}).setdefault(args[position], sh)
 
     def callable_node(self, node):
         if isinstance(node, ast.Lambda):
@@ -754,22 +786,47 @@ class _IdUses:
             return self.functions.get(node.id)
         return None
 
+    def module_env(self, path):
+        env = self.modules.get(path)
+        if env is None:
+            env = self.modules[path] = {}
+            tree = dict(self.trees)[path]
+            body = [n for n in tree.body if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+            for node in body:                      # names imported from a helper that hold ids there
+                if isinstance(node, ast.ImportFrom) and node.module:
+                    for other, _ in self.trees:
+                        if other != path and other.stem == node.module.split(".")[-1]:
+                            theirs = self.module_env(other)
+                            for alias in node.names:
+                                if alias.name in theirs:
+                                    env[alias.asname or alias.name] = theirs[alias.name]
+            self.bind(body, env)
+        return env
+
     def declarations(self):
         calls = []
         for path, tree in self.trees:
+            env = self.module_env(path)
             for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        self.functions.setdefault(node.name, node)
+                    up = self.parents.get(id(node))
+                    while up is not None and not isinstance(up, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                        up = self.parents.get(id(up))
+                    if up is not None:
+                        self.enclosing[id(node)] = up
                 if isinstance(node, ast.FunctionDef):
-                    self.functions.setdefault(node.name, node)
                     for dec in node.decorator_list:
                         if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and dec.func.attr == "action":
-                            kinds = {k.arg: self.kind_of(k.value) for k in dec.keywords
+                            kinds = {k.arg: self.domain(k.value, env) for k in dec.keywords
                                      if k.arg not in (None, "source", "note")}
                             self.actions[node.name] = kinds
+                            self.mark(node, 0, _STATE)
                             for pos, a in enumerate(node.args.args[1:], 1):
-                                if kinds.get(a.arg):
-                                    self.mark(node, pos, "scalar", kinds[a.arg])
+                                self.mark(node, pos, kinds.get(a.arg))
                 elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                    calls.append(node)
+                    calls.append((node, env))
 
         def arg(call, n, name):
             for k in call.keywords:
@@ -777,120 +834,204 @@ class _IdUses:
                     return k.value
             return call.args[n] if len(call.args) > n else None
 
-        for call in calls:
+        for call, env in calls:
             what = call.func.attr
+            if what == "always":
+                self.mark(self.callable_node(arg(call, 1, "pred")), 0, _STATE)
             if what == "option":
                 fn = self.callable_node(arg(call, 1, "offered"))
+                self.mark(fn, 0, _STATE)
                 params = [k for k in call.keywords if k.arg not in (None, "action", "source", "note")]
                 for pos, k in enumerate(params, 1):
-                    self.mark(fn, pos, "scalar", self.kind_of(k.value))
+                    self.mark(fn, pos, self.domain(k.value, env))
             elif what in ("progress", "reach"):
                 over = arg(call, 99, "over")
-                kind = self.kind_of(over) if over is not None else None
+                sh = self.domain(over, env) if over is not None else None
                 for n, name in ((1, "when"), (2, "goal")) if what == "progress" else ((1, "pred"),):
-                    self.mark(self.callable_node(arg(call, n, name)), 1, "scalar", kind)
+                    self.mark(self.callable_node(arg(call, n, name)), 0, _STATE)
+                    self.mark(self.callable_node(arg(call, n, name)), 1, sh)
             elif what in ("only_when", "after"):
                 action = arg(call, 1, "action")
                 fn = self.callable_node(arg(call, 2, "pred"))
                 lead = 1 if what == "only_when" else 2
+                for pos in range(lead):
+                    self.mark(fn, pos, _STATE)
                 if isinstance(action, ast.Constant) and action.value == "*":
-                    self.mark(fn, 3, "collection", next(iter(self.ids.values()), None))
+                    self.mark(fn, 3, ("record", next(iter(self.ids.values()), None)) if self.ids else None)
                 elif isinstance(action, ast.Constant) and action.value in self.actions:
                     act = self.functions.get(action.value)
                     names = [a.arg for a in act.args.args[1:]] if act is not None else []
                     for pos, name in enumerate(names, lead):
-                        self.mark(fn, pos, "scalar", self.actions[action.value].get(name))
+                        self.mark(fn, pos, self.actions[action.value].get(name))
 
     # -------------------------------------------------------------- what an expression holds
-    def shape(self, node, local):
-        """("scalar" | "collection", kind) when the expression holds ids, else None."""
+    def state_access(self, node):
+        """s["field", ...] or s["field"]: a read or write of the model's state."""
+        key = node.slice
+        first = key.elts[0] if isinstance(key, ast.Tuple) and key.elts else key
+        return isinstance(first, ast.Constant) and isinstance(first.value, str) and first.value in self.all_families
+
+    def shape(self, node, env):
+        """(form, kind) when the expression holds ids (or values ordered by them), else None."""
         if isinstance(node, ast.Name):
-            if node.id in local:
-                return local[node.id]
+            if node.id in env:
+                return env[node.id]
             if node.id in self.kinds:
-                return ("collection", self.kinds[node.id])
+                return ("kindlist", self.kinds[node.id])
             return None
         if isinstance(node, ast.Subscript):
-            key = node.slice
-            first = key.elts[0] if isinstance(key, ast.Tuple) and key.elts else key
-            if isinstance(first, ast.Constant) and isinstance(first.value, str) and first.value in self.families:
-                return self.families[first.value]
-            inner = self.shape(node.value, local)
-            if inner is not None and inner[0] == "collection" and not isinstance(node.slice, ast.Slice):
-                return ("scalar", inner[1])
-            return inner if inner is not None and isinstance(node.slice, ast.Slice) else None
+            if self.state_access(node):
+                key = node.slice
+                first = key.elts[0] if isinstance(key, ast.Tuple) else key
+                return self.families.get(first.value)
+            inner = self.shape(node.value, env)
+            if inner is None or inner[0] not in _COLLECTIONS:
+                return None
+            if isinstance(node.slice, ast.Slice):
+                return inner
+            if inner[0] == "table":
+                return None
+            form = _element(inner[0])
+            return (form, inner[1]) if form is not None else None
         if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
             for e in node.elts:
-                sh = self.shape(e, local)
+                sh = self.shape(e, env)
                 if sh is not None:
-                    return ("collection", sh[1])
+                    return ({ast.Tuple: "record", ast.List: "sequence", ast.Set: "unordered"}[type(node)], sh[1])
             return None
-        if isinstance(node, (ast.GeneratorExp, ast.ListComp, ast.SetComp)):
-            sh = self.shape(node.elt, self.comprehension_locals(node, local))
-            return ("collection", sh[1]) if sh is not None else None
+        if isinstance(node, ast.Starred):
+            return self.shape(node.value, env)
+        if isinstance(node, ast.Dict):
+            for k in node.keys:
+                sh = self.shape(k, env) if k is not None else None
+                if sh is not None:
+                    return ("table", sh[1])
+            return None
+        if isinstance(node, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+            inner = self.comprehension_locals(node, env)
+            iters = [self.shape(g.iter, env if n == 0 else inner) for n, g in enumerate(node.generators)]
+            by_kind = next((sh for sh in iters if sh is not None and sh[0] in _BY_KIND), None)
+            if isinstance(node, ast.DictComp):
+                key = self.shape(node.key, inner)
+                return ("table", key[1]) if key is not None else (("kindvals", by_kind[1]) if by_kind else None)
+            elt = self.shape(node.elt, inner)
+            if isinstance(node, ast.SetComp):
+                return ("unordered", elt[1]) if elt is not None else None
+            if by_kind is not None:
+                if elt is None:
+                    return ("kindvals", by_kind[1])
+                return ("kindrecs" if elt[0] in ("record", "sequence") else "kindlist", elt[1])
+            return ("sequence", elt[1]) if elt is not None else None
         if isinstance(node, ast.IfExp):
-            return self.shape(node.body, local) or self.shape(node.orelse, local)
+            return self.shape(node.body, env) or self.shape(node.orelse, env)
         if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.BitOr, ast.Sub, ast.BitAnd)):
-            left, right = self.shape(node.left, local), self.shape(node.right, local)
-            both = [x for x in (left, right) if x is not None and x[0] == "collection"]
-            return both[0] if both else None
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in (
-                "tuple", "list", "set", "frozenset", "sorted", "reversed"):
-            return self.shape(node.args[0], local) if node.args else None
+            sides = [x for x in (self.shape(node.left, env), self.shape(node.right, env)) if x is not None]
+            if not sides:
+                return None
+            if not isinstance(node.op, ast.Add):
+                return ("unordered", sides[0][1])
+            return next((x for x in sides if x[0] in _BY_KIND), sides[0])
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name):
+                if func.id in ("tuple", "list", "reversed", "iter", "sorted") and node.args:
+                    return self.shape(node.args[0], env)
+                if func.id in ("set", "frozenset") and node.args:
+                    sh = self.shape(node.args[0], env)
+                    if sh is None:
+                        return None
+                    return ("unordered", sh[1]) if _element(sh[0]) is not None else sh
+                if func.id in self.returns:
+                    return self.returns[func.id]
+                return None
+            if isinstance(func, ast.Attribute):
+                owner = self.shape(func.value, env)
+                if owner is None:
+                    return None
+                if owner[0] == "table" and func.attr in ("keys", "values", "items"):
+                    return ({"keys": "kindlist", "values": "kindvals", "items": "kindrecs"}[func.attr], owner[1])
+                if func.attr == "copy" or func.attr in _SET_METHODS:
+                    return owner if func.attr == "copy" else ("unordered", owner[1])
+            return None
         return None
 
-    def comprehension_locals(self, node, local):
-        local = dict(local)
+    def comprehension_locals(self, node, env):
+        env = dict(env)
         for gen in node.generators:
-            sh = self.shape(gen.iter, local)
-            if sh is not None and sh[0] == "collection" and isinstance(gen.target, ast.Name):
-                local[gen.target.id] = ("scalar", sh[1])
-        return local
+            sh = self.shape(gen.iter, env)
+            if sh is not None and sh[0] in _COLLECTIONS:
+                self.bind_target(gen.target, (_element(sh[0]), sh[1]) if _element(sh[0]) else None, env)
+        return env
 
-    def scope_locals(self, fn):
-        local = dict(self.params.get(id(fn), {}))
-        body = fn.body if isinstance(fn.body, list) else [fn.body]
+    def bind_target(self, target, sh, env):
+        if sh is None:
+            return False
+        if isinstance(target, ast.Name):
+            if target.id not in env:
+                env[target.id] = sh
+                return True
+            return False
+        if isinstance(target, (ast.Tuple, ast.List)):     # unpacking a record: each part may be an id
+            return any([self.bind_target(t, ("scalar", sh[1]), env) for t in target.elts])
+        return False
+
+    def bind(self, body, env):
+        """Names a block assigns from expressions that hold ids (to a fixpoint)."""
         changed = True
         while changed:
             changed = False
             for stmt in body:
                 for node in ast.walk(stmt):
-                    targets = []
-                    if isinstance(node, (ast.For, ast.AsyncFor)):
-                        sh = self.shape(node.iter, local)
-                        if sh is not None and sh[0] == "collection":
-                            targets.append((node.target, ("scalar", sh[1])))
-                    elif isinstance(node, ast.comprehension):
-                        sh = self.shape(node.iter, local)
-                        if sh is not None and sh[0] == "collection":
-                            targets.append((node.target, ("scalar", sh[1])))
-                    elif isinstance(node, ast.Assign):
-                        for t in node.targets:
-                            if isinstance(t, ast.Tuple) and isinstance(node.value, ast.Tuple):
-                                targets += list(zip(t.elts, [self.shape(v, local) for v in node.value.elts]))
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+                        continue
+                    if isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension)):
+                        sh = self.shape(node.iter, env)
+                        if sh is not None and sh[0] in _COLLECTIONS and _element(sh[0]) is not None:
+                            changed |= self.bind_target(node.target, (_element(sh[0]), sh[1]), env)
+                    elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+                        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                        if node.value is None:
+                            continue
+                        for t in targets:
+                            if isinstance(t, (ast.Tuple, ast.List)) and isinstance(node.value, (ast.Tuple, ast.List)):
+                                for a, b in zip(t.elts, node.value.elts):
+                                    changed |= self.bind_target(a, self.shape(b, env), env)
                             else:
-                                targets.append((t, self.shape(node.value, local)))
-                    for t, sh in targets:
-                        if isinstance(t, ast.Name) and sh is not None and t.id not in local:
-                            local[t.id] = sh
-                            changed = True
-        return local
+                                changed |= self.bind_target(t, self.shape(node.value, env), env)
+
+    def scope_env(self, path, fn):
+        up = self.enclosing.get(id(fn))
+        env = dict(self.scope_env(path, up)) if up is not None else dict(self.module_env(path))
+        for name in [a.arg for a in fn.args.args]:
+            env.pop(name, None)                    # a parameter shadows an outer name
+        env.update(self.params.get(id(fn), {}))
+        self.bind(fn.body if isinstance(fn.body, list) else [fn.body], env)
+        return env
 
     # -------------------------------------------------------------- uses
     def scopes(self):
+        """Every function, lambda and module body that can run: a def that nothing names and
+        no decorator registers never runs, so its parameters are not judged."""
+        named = {n.id for _, tree in self.trees for n in ast.walk(tree)
+                 if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+        named |= {n.attr for _, tree in self.trees for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
         for path, tree in self.trees:
             for node in ast.walk(tree):
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if node.decorator_list or node.name in named:
+                        yield path, node
+                elif isinstance(node, ast.Lambda):
                     yield path, node
             yield path, tree
 
     def run(self):
-        self.declarations()
-        for _ in range(4):                         # helpers called with ids: parameters hold ids too
-            before = {k: dict(v) for k, v in self.params.items()}
+        for _ in range(6):                         # helpers called with ids: parameters and returns hold ids
+            before = ({k: dict(v) for k, v in self.params.items()}, dict(self.returns))
+            self.modules = {}                      # module names may hold what a helper returns
+            self.declarations()
             for path, fn in self.scopes():
                 self.uses(path, fn, propagate_only=True)
-            if before == self.params:
+            if before == (self.params, self.returns):
                 break
         for path, fn in self.scopes():
             self.uses(path, fn)
@@ -898,82 +1039,246 @@ class _IdUses:
 
     def uses(self, path, fn, propagate_only=False):
         if isinstance(fn, ast.Module):
-            local = {}
-            body = [n for n in fn.body if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+            env = self.module_env(path)
+            body = fn.body
         else:
-            local = self.scope_locals(fn)
+            env = self.scope_env(path, fn)
             body = fn.body if isinstance(fn.body, list) else [fn.body]
         for stmt in body:
-            for node in ast.walk(stmt):
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node is not fn:
-                    continue
-                if isinstance(node, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
-                    inner = self.comprehension_locals(node, local)
-                    for elt in ([node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]) + [
-                            c for g in node.generators for c in g.ifs]:
-                        for sub in ast.walk(elt):
-                            self.use(path, sub, inner, propagate_only)
-                    continue
-                self.use(path, node, local, propagate_only)
+            self.visit(path, stmt, env, propagate_only)
 
-    def use(self, path, node, local, propagate_only):
+    def visit(self, path, node, env, propagate_only):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for dec in node.decorator_list:        # the declaration is code of the enclosing scope
+                self.visit(path, dec, env, propagate_only)
+            return                                 # the body is its own scope
+        if isinstance(node, ast.Lambda):
+            return
+        if isinstance(node, ast.ClassDef):
+            for stmt in node.body:
+                self.visit(path, stmt, env, propagate_only)
+            return
+        if isinstance(node, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+            inner = self.comprehension_locals(node, env)
+            for n, gen in enumerate(node.generators):
+                self.visit(path, gen.iter, env if n == 0 else inner, propagate_only)
+                for cond in gen.ifs:
+                    self.visit(path, cond, inner, propagate_only)
+            for part in ([node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]):
+                self.visit(path, part, inner, propagate_only)
+        else:
+            for child in ast.iter_child_nodes(node):
+                self.visit(path, child, env, propagate_only)
+        if isinstance(node, ast.Return) and node.value is not None:
+            fn = self.function_of(node)
+            sh = self.shape(node.value, env)
+            if fn is not None and sh is not None and isinstance(fn, ast.FunctionDef):
+                self.returns.setdefault(fn.name, sh)
         if isinstance(node, ast.Call):
-            self.call(path, node, local, propagate_only)
+            self.propagate(node, env)
+        if not propagate_only and self.ids:
+            self.judge_code(path, node, env)
+        if propagate_only or not isinstance(node, ast.expr):
             return
-        if propagate_only:
+        if isinstance(getattr(node, "ctx", None), (ast.Store, ast.Del)):
             return
-        if isinstance(node, ast.Compare):
-            items = [node.left] + list(node.comparators)
-            for op, a, b in zip(node.ops, items, items[1:]):
-                sh = self.shape(a, local) or self.shape(b, local)
-                if isinstance(op, _ORDER_OPS) and sh is not None:
-                    self.violations.append((path, node.lineno, f"compares {sh[1]} ids by order"))
-        elif isinstance(node, ast.Attribute) and not isinstance(node.ctx, ast.Store):
-            sh = self.shape(node.value, local)
-            if sh is not None and sh[0] == "scalar":
-                self.doubts.append((path, node.lineno, f"uses the text of a {sh[1]} id (.{node.attr})"))
-        elif isinstance(node, ast.Subscript):
-            sh = self.shape(node.value, local)
-            if sh is not None and sh[0] == "scalar" and not isinstance(node.value, ast.Subscript):
-                self.doubts.append((path, node.lineno, f"uses the text of a {sh[1]} id ([...])"))
-        elif isinstance(node, ast.FormattedValue):
-            sh = self.shape(node.value, local)
-            if sh is not None:
-                self.doubts.append((path, node.lineno, f"writes a {sh[1]} id into text"))
-        elif isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Mod)):
-            for side, other in ((node.left, node.right), (node.right, node.left)):
-                sh = self.shape(side, local)
-                if sh is not None and sh[0] == "scalar" and isinstance(other, (ast.Constant, ast.JoinedStr)):
-                    self.doubts.append((path, node.lineno, f"uses the text of a {sh[1]} id ({type(node.op).__name__})"))
-                    break
+        sh = self.shape(node, env)
+        if sh is not None:
+            self.judge(path, node, sh, env)
 
-    def call(self, path, node, local, propagate_only):
+    def judge_code(self, path, node, env):
+        """Dynamic code, and a write of a value the rule cannot follow into a field that
+        holds ids (an id made from text): both can tell the ids apart unseen."""
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _DYNAMIC:
+            self.doubts.append((path, node.lineno, f"runs code the rule cannot follow ({node.func.id}())"))
+        pairs = []
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, (ast.Tuple, ast.List)) and isinstance(node.value, (ast.Tuple, ast.List)):
+                    pairs += list(zip(target.elts, node.value.elts))
+                elif isinstance(target, (ast.Tuple, ast.List)):
+                    pairs += [(x, None) for x in target.elts]
+                else:
+                    pairs.append((target, node.value))
+        elif isinstance(node, ast.AugAssign):
+            pairs.append((node.target, None))
+        for target, value in pairs:
+            if not (isinstance(target, ast.Subscript) and self.state_access(target)):
+                continue
+            key = target.slice
+            family = (key.elts[0] if isinstance(key, ast.Tuple) else key).value
+            if family in self.families and (value is None or not self.followed(value, env)):
+                self.doubts.append((path, node.lineno, f"writes a value the rule cannot follow into {family!r}, "
+                                                       f"which holds {self.families[family][1]} ids"))
+
+    def function_of(self, node):
+        up = self.parents.get(id(node))
+        while up is not None and not isinstance(up, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            up = self.parents.get(id(up))
+        return up
+
+    def propagate(self, node, env):
+        """A helper of the model called with ids: its parameters hold ids too."""
         func = node.func
-        args = list(node.args) + [k.value for k in node.keywords]
-        held = [(n, self.shape(a, local)) for n, a in enumerate(args)]
-        held = [(n, sh) for n, sh in held if sh is not None]
         if isinstance(func, ast.Name) and func.id in self.functions:
             fn = self.functions[func.id]
-            for n, sh in held:
-                if n < len(node.args):
-                    self.mark(fn, n, sh[0], sh[1])
+            for n, a in enumerate(node.args):
+                self.mark(fn, n, self.shape(a, env))
+            names = [a.arg for a in fn.args.args]
+            for k in node.keywords:
+                if k.arg in names:
+                    self.mark(fn, names.index(k.arg), self.shape(k.value, env))
+
+    def judge(self, path, e, sh, env):
+        """The use of an expression that holds ids, by its parent."""
+        form, kind = sh
+        p = self.parents.get(id(e))
+        line = getattr(e, "lineno", getattr(p, "lineno", 0))
+        bad = lambda text: self.violations.append((path, line, text, kind))  # noqa: E731
+        doubt = lambda text: self.doubts.append((path, line, text))         # noqa: E731
+        if form == "state":
+            self.judge_state(e, p, doubt)
             return
-        if propagate_only or not held:
+        if p is None or isinstance(p, (ast.Expr, ast.Assign, ast.AnnAssign, ast.NamedExpr, ast.Return,
+                                       ast.BoolOp, ast.Assert, ast.If, ast.While, ast.Lambda, ast.Await)):
+            return
+        if isinstance(p, ast.UnaryOp):
+            if isinstance(p.op, ast.Not):
+                return
+            doubt(f"computes with a {kind} id ({type(p.op).__name__})")
+            return
+        if isinstance(p, _TRANSPARENT) or isinstance(p, (ast.Dict, ast.comprehension, ast.GeneratorExp, ast.ListComp,
+                                                         ast.SetComp, ast.DictComp)):
+            if isinstance(p, ast.comprehension) and p.iter is not e:
+                return
+            return                                 # the container holds the ids: judged where it is used
+        if isinstance(p, (ast.For, ast.AsyncFor)):
+            if p.iter is e and form in _BY_KIND and _loop_exits(p.body):
+                bad(f"a loop over {kind} ids that stops early depends on the order of the {kind} ids")
+            return
+        if isinstance(p, ast.Compare):
+            items = [p.left] + list(p.comparators)
+            for op, a, b in zip(p.ops, items, items[1:]):
+                if e is not a and e is not b:
+                    continue
+                other = b if e is a else a
+                if isinstance(op, _ORDER_OPS):
+                    bad(f"compares {kind} ids by order")
+                elif isinstance(op, (ast.In, ast.NotIn)):
+                    if e is a and form in ("scalar", "record") and not self.followed(other, env):
+                        doubt(f"looks a {kind} id up in a value the rule cannot follow")
+                elif form in _BY_KIND - {"unordered", "table"}:
+                    doubt(f"compares a list in the declared order of the {kind} ids")
+                elif form in ("scalar", "record") and not self.followed(other, env):
+                    doubt(f"compares a {kind} id with a value the rule cannot follow")
+            return
+        if isinstance(p, ast.Subscript):
+            if p.value is e:
+                if form == "scalar":
+                    doubt(f"uses the text of a {kind} id ([...])")
+                elif form in _BY_KIND - {"table"} and not isinstance(p.slice, ast.Slice):
+                    bad(f"[...] picks one {kind} id by its place in the declared order")
+                elif form in _BY_KIND - {"table"} and (p.slice.lower is not None or p.slice.upper is not None):
+                    bad(f"[...] picks {kind} ids by their place in the declared order")
+                return
+            if self.state_access(p):
+                return
+            owner = self.shape(p.value, env)
+            if owner is not None and owner[0] in ("table", "state"):
+                return
+            doubt(f"looks a {kind} id up in a table the rule cannot judge")
+            return
+        if isinstance(p, ast.BinOp):
+            if isinstance(p.op, (ast.Add, ast.BitOr, ast.Sub, ast.BitAnd)) and form in _COLLECTIONS:
+                return
+            doubt(f"computes with a {kind} id ({type(p.op).__name__})")
+            return
+        if isinstance(p, (ast.FormattedValue, ast.JoinedStr)):
+            doubt(f"writes a {kind} id into text")
+            return
+        if isinstance(p, ast.Attribute):
+            call = self.parents.get(id(p))
+            if not (isinstance(call, ast.Call) and call.func is p):
+                doubt(f"uses the text of a {kind} id (.{p.attr})")
+                return
+            if form == "scalar":
+                doubt(f"uses the text of a {kind} id (.{p.attr})")
+            elif p.attr == "index" and form in _BY_KIND:
+                bad(f"{kind} ids .index() depends on the order of the {kind} ids")
+            elif p.attr in ("count", "index", "copy", "keys", "values", "items", "get") or p.attr in _SET_METHODS:
+                pass
+            else:
+                doubt(f"passes {kind} ids to .{p.attr}()")
+            return
+        call, keyword = (self.parents.get(id(p)), p) if isinstance(p, ast.keyword) else (p, None)
+        if isinstance(call, ast.Call):
+            self.judge_call(call, e, form, kind, bad, doubt, env)
+            return
+        doubt(f"uses a {kind} id in a way the rule cannot judge ({type(p).__name__})")
+
+    def judge_state(self, e, p, doubt):
+        """The model state may be read and written by key, mark its effects (s.source) and go to
+        a helper of the model; anything else (its keys, values, length, iteration) can tell
+        the objects apart by their declared order."""
+        if isinstance(p, ast.Subscript) and p.value is e:
+            return
+        if isinstance(p, ast.Attribute) and p.value is e and p.attr == "source":
+            return
+        if isinstance(p, (ast.Assign, ast.Expr, ast.Return, ast.IfExp, ast.BoolOp)):
+            return
+        if isinstance(p, ast.Call) and e in p.args and isinstance(p.func, ast.Name) and p.func.id in self.functions:
+            return
+        what = f".{p.attr}" if isinstance(p, ast.Attribute) else type(p).__name__
+        doubt(f"uses the model state in a way the rule cannot judge ({what})")
+
+    def followed(self, node, env):
+        """Whether the rule knows what the other side of a comparison holds: ids it follows,
+        a constant, or a display of constants (a constant equal to an id is refused anyway)."""
+        if self.shape(node, env) is not None or isinstance(node, ast.Constant):
+            return True
+        if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+            return all(self.followed(x, env) for x in node.elts)
+        return False
+
+    def judge_call(self, call, e, form, kind, bad, doubt, env):
+        func = call.func
+        if func is e:
+            doubt(f"calls a {kind} id")
             return
         if isinstance(func, ast.Name):
-            if func.id in _ORDER_FUNCS:
-                self.violations.append((path, node.lineno, f"{func.id}(...) orders {held[0][1][1]} ids"))
-            elif func.id in _TEXT_FUNCS and any(sh[0] == "scalar" for _, sh in held):
-                self.doubts.append((path, node.lineno, f"uses the text of a {held[0][1][1]} id ({func.id}())"))
-            elif func.id not in _ALIKE_FUNCS:
-                self.doubts.append((path, node.lineno, f"passes a {held[0][1][1]} id to {func.id}()"))
-        elif isinstance(func, ast.Attribute):
-            owner = self.shape(func.value, local)
-            if func.attr in _DECLARATIONS or func.attr in _ALIKE_METHODS and (owner is None or owner[0] == "collection"):
+            name = func.id
+            if name in self.functions:
+                return                             # a helper of the model: its parameter is judged there
+            if name in _ORDER_FUNCS:
+                if form != "kindvals":
+                    bad(f"{name}(...) orders {kind} ids")
                 return
-            self.doubts.append((path, node.lineno, f"passes a {held[0][1][1]} id to .{func.attr}()"))
-        else:
-            self.doubts.append((path, node.lineno, f"passes a {held[0][1][1]} id to a computed function"))
+            if name == "next":
+                if form in _BY_KIND:
+                    bad(f"next(...) picks one {kind} id by its place in the declared order")
+                else:
+                    doubt(f"passes a {kind} id to next()")
+                return
+            if name in _TEXT_FUNCS and form == "scalar":
+                doubt(f"uses the text of a {kind} id ({name}())")
+                return
+            if name in _ALIKE_FUNCS:
+                return
+            doubt(f"passes a {kind} id to {name}()")
+            return
+        if isinstance(func, ast.Attribute):
+            if func.attr in _DECLARATIONS:
+                return
+            owner = self.shape(func.value, env)
+            if func.attr in ("get", "index", "count") and owner is not None:
+                if func.attr == "index" and owner[0] in _BY_KIND:
+                    bad(f".index(...) depends on the order of the {kind} ids")
+                return
+            if func.attr in _SET_METHODS and owner is not None:
+                return
+            doubt(f"passes a {kind} id to .{func.attr}()")
+            return
+        doubt(f"passes a {kind} id to a computed function")
 
 
 def check_symmetry_rule(model: Model, files: list[Path], root: Path) -> None:
@@ -997,8 +1302,7 @@ def check_symmetry_rule(model: Model, files: list[Path], root: Path) -> None:
             bound = _bound_kinds(tree)
     violations, doubts = _IdUses(trees, model, bound).run()
     if violations:
-        path, line, text = min(violations, key=lambda v: (str(v[0]), v[1]))
-        kind = text.split(" ids", 1)[0].rsplit(" ", 1)[-1]
+        path, line, text, kind = min(violations, key=lambda v: (str(v[0]), v[1], v[2]))
         raise ModelError(f"treats {kind} ids asymmetrically ({text}); write it symmetrically "
                          f"or use a plain list", _rel(path), line)
     if doubts:

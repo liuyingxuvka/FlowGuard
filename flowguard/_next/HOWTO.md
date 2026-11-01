@@ -30,8 +30,8 @@ with no conflict draws its latest change, one object's fields at a time).
 | `m.always / only_when / after / progress / reach(...)` | the promises: hold in every state; hold before every success of an action; hold after it; from every such state the goal stays reachable; some state has it |
 | `m.second_route(a, b, source="R11", why=...)` | the only way to keep a second route to the same result; `source=` must be a stored request (`.flowguard/requests/R11.md`), and `check` prints the kept pair |
 
-Ids are used only symmetrically: in `over=`, action parameters, `[None] + IDS`, loops and
-comprehensions over them. `IDS[0]` or a literal `"T1"` in the model is a model error.
+Ids are used only symmetrically: in `over=`, action parameters, `[None] + IDS`, loops and comprehensions
+over them. Picking one by its place (`IDS[0]`, `list(IDS)[0]`, a loop that breaks) or `"T1"` is a model error.
 
 ## A small example (not your application): `.flowguard/flow/parcels.py`
 

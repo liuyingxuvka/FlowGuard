@@ -314,15 +314,20 @@ def test_full_verifies_the_renaming_without_reduction(project):
     assert not plain["models"]["workshop"]["symmetry"]
 
 
-def test_full_turns_a_hidden_asymmetry_into_a_model_error(project):
+def test_a_hidden_asymmetry_is_never_reduced(project):
+    """G3 round 2: an id compared with a value the rule cannot follow (here made from text in
+    a helper) is a doubt, so the plain check already explores every renaming and finds that
+    only T1 is stuck; it once relied on --full to catch it. (The unreduced comparison that
+    --full adds stays as the backstop: test_symmetry.py forces a reduction to exercise it.)"""
     project.file(".flowguard/flow/_ids.py", 'FAVOURITE = "T" + "1"\n')
     project.flow("tools", HIDDEN)
     plain = run_check(project.root)
     assert plain.code == 1 and not any(line.startswith("MODEL ERROR") for line in plain.lines)
+    assert "T1 stuck with cond='loan'" in plain.out and "(tools T1)" in plain.out
+    assert ("tools not explored up to renaming (in doubt: .flowguard/flow/tools.py:15 compares a tool id with a "
+            "value the rule cannot follow); every renaming explored") in plain.lines[-1]
     full = run_check(project.root, "--full")
-    assert full.code == 2
-    assert full.first.endswith("; 1 model error; complete")
-    assert any(line.startswith("MODEL ERROR tools: objects are not interchangeable") for line in full.lines)
+    assert full.code == 1 and not any(line.startswith("MODEL ERROR") for line in full.lines)
 
 
 # ---------------------------------------------------------------------- the guide
