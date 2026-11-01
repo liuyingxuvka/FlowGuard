@@ -11,7 +11,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import DEFAULT_TEST_COMMAND, SOURCE_EXTS, git_paths, glob_match, is_collectable_test, is_product_file, is_test_file, matches_any, norm, normalize_newlines, read_source
+from .common import DEFAULT_TEST_COMMAND, SOURCE_EXTS, git_blob, glob_match, is_collectable_test, is_product_file, is_test_file, matches_any, norm, normalize_newlines, read_source
 from .inventory import Inventory
 from .mapfile import component_files, component_scope, component_subtree, component_graph, dependency_evidence, flow_step_parts, ignore_patterns, is_stale, model_registry, read_model_contract, top_level_imports
 
@@ -281,12 +281,12 @@ def _changed_symbols(root, inv, changed, base, raw, *, origins=None):
         if path.endswith('__init__.py') and path in inv.py and inv.py[path].lazy_exports:
             uncertain[path] = 'lazy package exports'
             continue
-        previous = subprocess.run(['git','-C',str(root),'show',f'{base}:{path}'],capture_output=True) if base else None
-        if previous is None or previous.returncode:
+        previous = git_blob(root, base, path) if base else None  # None: no Git base, or added since it
+        if previous is None:
             uncertain[path] = 'no old source text'
             continue
         try:
-            before = function_digests(normalize_newlines(previous.stdout))
+            before = function_digests(normalize_newlines(previous))
             source = read_source(root/path)
             after = function_digests(source)
         except (OSError, SyntaxError, ValueError):
@@ -506,6 +506,7 @@ def compute_impact(
     if changed is None:
         changed = changed_files(root, base or "HEAD", data=data, inv=inv)
     no_git = getattr(changed, "no_git", "")
+    base = history_base(root, base, no_git)
     changed = sorted(
         {
             project_relative(root, path)
@@ -749,7 +750,7 @@ def compute_impact(
     return result
 
 
-from .impact_history import (_anchor_changed, _binding_indexes, _commands_for_tests, _comment_only, _git_promise_notes, _literal_impact, _owner_model_paths, _previous_map, _read_git_paths, _removed_model_context, _tests_reaching, project_relative)
+from .impact_history import (_anchor_changed, _binding_indexes, _commands_for_tests, _comment_only, _git_promise_notes, _literal_impact, _owner_model_paths, _previous_map, _read_git_paths, _removed_model_context, _tests_reaching, history_base, project_relative)
 
 from .impact_scope import (
     Impact,

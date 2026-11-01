@@ -607,3 +607,46 @@ def test_a_missing_base_blob_stops_the_touch_check_instead_of_crediting_the_line
     _drop_blob(root, "HEAD", "native.py")
     with pytest.raises(MapError, match="git cat-file failed"):
         check_plan(root, target, view)
+
+
+def _committed_shelf_project(tmp_path):
+    from _fg_helpers import target__target_life_cycle_fixture_helpers as fixture_helpers
+    from flowguard.__main__ import main
+    root = tmp_path / "repo"
+    fixture_helpers()["make_project"](root)
+    assert main(["map", "confirm", "all", "--root", str(root)]) == 0
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    return root
+
+
+@pytest.mark.parametrize("path", ["shelf/loans.py", ".flowguard/models/shelf_rule.py", ".flowguard/map.json"])
+def test_a_missing_base_blob_stops_change_instead_of_reading_a_new_file(tmp_path, capsys, path):
+    """Named files skip git diff; their old text then comes from the base commit alone."""
+    from flowguard.__main__ import main
+    root = _committed_shelf_project(tmp_path)
+    changed = root / path
+    changed.write_bytes(changed.read_bytes().rstrip(b"\n") + (b" \n" if path.endswith(".json") else b"\n# edited\n"))
+    _git(root, "add", "-A")  # the index holds the new bytes, so only the base blob is missing
+    _drop_blob(root, "HEAD", path)
+    capsys.readouterr()
+    code = main(["change", path, "--root", str(root)])
+    output = capsys.readouterr()
+    assert code == 2 and "git cat-file failed" in output.err, (output.out, output.err)
+
+
+def test_change_in_a_folder_without_git_needs_no_git_executable(tmp_path, capsys, monkeypatch):
+    from _fg_helpers import target__target_life_cycle_fixture_helpers as fixture_helpers
+    from flowguard.__main__ import main
+    root = tmp_path / "plain"
+    fixture_helpers()["make_project"](root)
+    assert main(["map", "confirm", "all", "--root", str(root)]) == 0
+    (root / "shelf/loans.py").write_text("from shelf.catalog import capacity\n\ndef advance(value):\n"
+                                         "    return capacity() + value\n", encoding="utf-8")
+    monkeypatch.setenv("PATH", str(tmp_path / "no-bin"))
+    capsys.readouterr()
+    for arguments in (["change"], ["change", "shelf/loans.py"]):
+        assert main([*arguments, "--root", str(root)]) == 0, (arguments, capsys.readouterr())
+        output = capsys.readouterr()
+        assert "git executable not found" not in output.err and "changed functions" not in output.out, output

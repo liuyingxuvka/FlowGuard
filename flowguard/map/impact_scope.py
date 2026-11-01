@@ -1,13 +1,14 @@
 """Impact report data and the component-wide caller closure."""
 
 from __future__ import annotations
-import subprocess
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from .common import (
     DEFAULT_TEST_COMMAND,
     SOURCE_EXTS,
+    git_blob,
+    git_run,
     glob_match,
     is_collectable_test,
     is_product_file,
@@ -436,19 +437,9 @@ def _broad_impact(
     if ".flowguard/map.json" in changed:
         if previous is None:
             if (
-                base is not None
-                and subprocess.run(
-                    [
-                        "git",
-                        "-C",
-                        str(root),
-                        "ls-files",
-                        "--error-unmatch",
-                        ".flowguard/map.json",
-                    ],
-                    capture_output=True,
-                ).returncode
-                == 0
+                base is not None  # exit 1: the map is not tracked; any other failure raises
+                and git_run(root, "ls-files", "--error-unmatch", "--", ".flowguard/map.json",
+                            allowed=(0, 1)).returncode == 0
             ):
                 blocked.append(
                     ".flowguard/map.json: previous map unavailable; verification scope cannot be compared"
@@ -569,27 +560,12 @@ def _broad_impact(
         mid = registered[path].id
         if mid not in ports:
             continue
-        blob = (
-            subprocess.run(
-                ["git", "-C", str(root), "show", f"{base}:{path}"], capture_output=True
-            )
-            if base
-            else None
-        )
-        available = blob is not None and blob.returncode == 0
-        missing = False
-        if blob is not None and not available:
-            # Distinguish an actual new file from an unavailable revision/repository.
-            missing = (
-                subprocess.run(
-                    ["git", "-C", str(root), "rev-parse", "--verify", base],
-                    capture_output=True,
-                ).returncode
-                == 0
-            )
+        blob = git_blob(root, base, path) if base else None  # a failing Git raises with its own message
+        available = blob is not None
+        missing = base is not None and blob is None  # a model added since the base
         try:
             previous_port = (
-                model_port(normalize_newlines(blob.stdout)) if available else None
+                model_port(normalize_newlines(blob)) if available else None
             )
         except (SyntaxError, ValueError, TypeError):
             previous_port, available, missing = None, False, False

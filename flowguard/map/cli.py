@@ -29,6 +29,7 @@ from .check import run_check
 from .common import (MAP_RELPATH, advice, finding_codes, print_findings, print_verdict,
                      quiet_broken_pipe, render_advice, safe_stdio, project_command, project_root)
 from .impact import run_commands, changed_files, compute_impact, render_impact
+from .impact_history import history_base
 from .inventory import build_inventory
 from .lint import Limits, run_lint
 from .mapfile import FINGERPRINT_FORMAT, confirm_components, format_guard, MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
@@ -268,15 +269,14 @@ def cmd_change(root: Path, a) -> int:
     changes = a.files or changed_files(root, a.base, data=data, inv=inv)
     findings = run_check(root, data, inv)
     formula_path = "flowguard/map/mapfile.py"
-    if formula_path in changes and formula_path in inv.source:
-        from .common import Finding, read_source
+    base = history_base(root, a.base, getattr(changes, "no_git", ""))
+    if base is not None and formula_path in changes and formula_path in inv.source:
+        from .common import Finding, git_blob, read_source
 
-        previous = subprocess.run(
-            ["git", "show", a.base + ":" + formula_path], cwd=root, capture_output=True
-        )
-        if previous.returncode == 0:
+        previous = git_blob(root, base, formula_path)  # None: added since the base; a failing Git raises
+        if previous is not None:
             message = format_guard(
-                previous.stdout.decode("utf-8"), read_source(root / formula_path)
+                previous.decode("utf-8"), read_source(root / formula_path)
             )
             if message:
                 findings.append(

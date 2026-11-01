@@ -236,12 +236,6 @@ def read_source(path: Path, *, data: bytes | None = None) -> str:
     return text.replace("\r\n", "\n")
 
 
-def git_paths(root: Path, *args: str) -> list[str]:
-    """NUL-separated git output (run with -z) as file names; never quoted, never locale-decoded."""
-    out = subprocess.run(["git", "-C", str(root), *args], capture_output=True, check=True).stdout
-    return [os.fsdecode(item) for item in out.split(b"\0") if item]
-
-
 def safe_stdio() -> None:
     """Print text the console code page cannot encode as escapes instead of crashing (Windows cp1252/GBK)."""
     for stream in (sys.stdout, sys.stderr):

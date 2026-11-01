@@ -7,9 +7,9 @@ import subprocess
 import tempfile
 from collections import defaultdict, deque
 from pathlib import Path
-from .common import glob_match, is_collectable_test, norm, normalize_newlines, read_source
+from .common import git_blob, git_common_directory, git_head, glob_match, is_collectable_test, norm, normalize_newlines, read_source
 from .inventory import Inventory
-from .mapfile import model_registry, read_model_contract, top_level_imports
+from .mapfile import MapError, model_registry, read_model_contract, top_level_imports
 
 
 
@@ -23,13 +23,21 @@ def project_relative(root: Path, path: str) -> str:
             pass                                    # outside the project: reported as unmapped
     return norm(path)
 
+def history_base(root: Path, base: str | None, no_git: str = "") -> str | None:
+    """The commit old text is read from, or None when there is none: no Git here, or no commit yet.
+
+    With a base, every old text comes from git_blob: an absent path is a file added since the base, and a
+    failing Git raises with its own message."""
+    if base is None or no_git or git_common_directory(root) is None or git_head(root) is None:
+        return None
+    return base
+
 def _previous_map(root: Path, base: str | None) -> dict | None:
     if base is None:
         return None
-    res = subprocess.run(["git", "-C", str(root), "show", f"{base}:.flowguard/map.json"],
-                         capture_output=True)                     # bytes: json.loads decodes UTF-8 itself
+    raw = git_blob(root, base, ".flowguard/map.json")  # bytes: json.loads decodes UTF-8 itself
     try:
-        data = json.loads(res.stdout) if res.returncode == 0 else None
+        data = json.loads(raw) if raw is not None else None
         return data if isinstance(data, dict) and isinstance(data.get("components"), list) else None
     except ValueError:
         return None
@@ -38,11 +46,13 @@ def _comment_only(root: Path, base: str | None, path: str) -> bool:
     """Changed, AST-equivalent source only; physical newline differences alone keep the full impact closure."""
     if base is None or not path.endswith(".py"):
         return False
-    old = subprocess.run(["git", "-C", str(root), "show", f"{base}:{path}"], capture_output=True)
+    old = git_blob(root, base, path)
+    if old is None:
+        return False  # added since the base
     try:
-        previous = normalize_newlines(old.stdout)
+        previous = normalize_newlines(old)
         new = normalize_newlines((root / path).read_bytes())
-        return old.returncode == 0 and previous != new and ast.dump(ast.parse(previous)) == ast.dump(ast.parse(new))
+        return previous != new and ast.dump(ast.parse(previous)) == ast.dump(ast.parse(new))
     except (OSError, SyntaxError, ValueError):
         return False
 
@@ -65,12 +75,12 @@ def _removed_model_context(root: Path, base: str | None, changed: list[str]) -> 
     with tempfile.TemporaryDirectory(prefix="flowguard-previous-models-") as directory:
         prior_root = Path(directory)
         for path in paths:
-            blob = subprocess.run(["git", "-C", str(root), "show", f"{base}:{path}"], capture_output=True)
-            if blob.returncode:
-                return removed, {}, {p: [] for p in removed}  # an incomplete namespace cannot prove unique identity
+            blob = git_blob(root, base, path)  # listed at the base, so a failing Git raises rather than None
+            if blob is None:
+                raise MapError(f"git ls-tree lists {path} at {base}, but that commit does not hold it")
             target = prior_root / path
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(blob.stdout)
+            target.write_bytes(blob)
             if path in removed:
                 try:
                     imports[path] = top_level_imports(ast.parse(read_source(target)))
@@ -128,10 +138,10 @@ def _tests_reaching(inv: Inventory, changed: list[str], *, package_init: bool = 
 def _anchor_changed(root, base, path, symbol):
     from .inventory import function_digests
     if base is None or not path.endswith('.py'): return True
-    previous=subprocess.run(['git','-C',str(root),'show',f'{base}:{path}'],capture_output=True)
-    if previous.returncode: return True
+    previous=git_blob(root,base,path)
+    if previous is None: return True  # added since the base
     try:
-        old=function_digests(normalize_newlines(previous.stdout))
+        old=function_digests(normalize_newlines(previous))
         new=function_digests(read_source(root/path))
     except (OSError,SyntaxError,ValueError): return True
     return any(old[group].get(symbol)!=new[group].get(symbol) for group in ('functions','classes')) or not any(symbol in old[group] for group in ('functions','classes'))
@@ -248,18 +258,8 @@ def _literal_impact(root, data, inv, tree, changed, base, *, function_origins=No
     for source in sorted(changed):
         if inv.is_test(source) or not source.endswith(".py"):
             continue
-        blob = (
-            subprocess.run(
-                ["git", "-C", str(root), "show", f"{base}:{source}"], capture_output=True
-            )
-            if base
-            else None
-        )
-        previous = (
-            read_source(root / source, data=blob.stdout)
-            if blob is not None and blob.returncode == 0
-            else ""
-        )
+        blob = git_blob(root, base, source) if base else None  # None: added since the base, or no base
+        previous = read_source(root / source, data=blob) if blob is not None else ""
         before = literal_sites(previous)
         after = get(source)
         histories[source] = (previous, before, after)
@@ -406,9 +406,9 @@ def _git_promise_notes(root, data, changed, base):
         old_root=Path(directory)
         for path in paths:
             if Path(path).parent.as_posix()!='.flowguard/models' or not path.endswith('.py'):continue
-            blob=subprocess.run(['git','-C',str(root),'show',f'{base}:{path}'],capture_output=True)
-            if blob.returncode:continue
-            destination=old_root/path;destination.parent.mkdir(parents=True,exist_ok=True);destination.write_bytes(blob.stdout)
+            blob=git_blob(root,base,path)  # listed at the base; a failing Git raises
+            if blob is None:raise MapError(f"git ls-tree lists {path} at {base}, but that commit does not hold it")
+            destination=old_root/path;destination.parent.mkdir(parents=True,exist_ok=True);destination.write_bytes(blob)
         before=promise_records(old_root,{'components':[],'flows':[]})
         after=promise_records(root,data)
         ids={mid for mid,record in {**before,**after}.items() if record[5] in changed}
