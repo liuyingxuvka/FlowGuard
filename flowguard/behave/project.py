@@ -86,7 +86,7 @@ class _Inputs:
             pass
 
     def record(self, event, args, *, caller=None):
-        if self.busy:
+        if self.busy or event not in {"open", "os.listdir", "os.scandir", "metadata", "import"}:
             return
         self.busy = True
         try:
@@ -398,7 +398,11 @@ def _diagnostic(text, arena):
 
 class _Graph:
     def __init__(self, arena):
-        self.arena = Path(arena).resolve()
+        # The worker has already canonicalized this owned root. Other paths still
+        # resolve normally, including relative paths and aliases supplied by callers.
+        self.arena = (_ACTIVE_ARENA if _ACTIVE_ARENA is not None
+                      and type(arena) is type(_ACTIVE_ARENA) and arena == _ACTIVE_ARENA
+                      else Path(arena).resolve())
         self.seen = {}
         self.nodes = []
 
@@ -688,9 +692,14 @@ def _arena_guard(arena, inputs=None):
                 raise UnsupportedWorld("write outside the disposable world") from exc
 
     def audit(event, args):
-        if not active:
+        if not active or event not in {
+            "open", "os.listdir", "os.scandir", "metadata", "import",
+            "os.mkdir", "os.remove", "os.rmdir", "os.chdir", "os.chmod", "os.chown", "os.utime", "os.truncate",
+            "os.rename", "os.link", "os.symlink", "socket.connect", "subprocess.Popen", "os.fork", "os.system",
+            "os.exec", "os.posix_spawn", "os.putenv", "os.unsetenv",
+        }:
             return
-        if inputs is not None:
+        if inputs is not None and event in {"open", "os.listdir", "os.scandir", "metadata", "import"}:
             inputs.record(event, args, caller=sys._getframe(1) if event in {"os.listdir", "os.scandir"} else None)
         if event == "open":
             _path, mode, flags = args
@@ -914,7 +923,7 @@ def _worker(request_path, response_path):
     response = None
     # This directory belongs only to this interpreter; protocol files stay outside it.
     with tempfile.TemporaryDirectory(prefix="flowguard-world-") as directory:
-        arena = Path(directory)
+        arena = Path(directory).resolve()
         original_directory = Path.cwd()
         os.chdir(arena)
         _ACTIVE_ARENA = arena
@@ -933,7 +942,7 @@ def _worker(request_path, response_path):
         if recording_active:
             # Ordinary tests run as tests; every retained public prefix still needs the guarded native replay.
             def record_inputs(event, args):
-                if recording_active:
+                if recording_active and event in {"open", "os.listdir", "os.scandir", "metadata", "import"}:
                     inputs.record(event, args, caller=sys._getframe(1) if event in {"os.listdir", "os.scandir"} else None)
             sys.addaudithook(record_inputs)
             finish_guard = lambda: None

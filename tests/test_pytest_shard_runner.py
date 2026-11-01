@@ -120,6 +120,65 @@ def test_nested_timeout_kills_only_its_own_child(tmp_path):
     assert result.returncode == 0 and "outer-survived 124 True" in result.stdout
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux owned session and descendant observation")
+def test_interrupt_cleans_owned_descendant_groups_and_reraises(tmp_path, monkeypatch):
+    import time
+    from flowguard.map import runner
+
+    ready = tmp_path / "owned-pids.json"
+    worker = ("import json,os,subprocess,sys,time;from pathlib import Path;"
+              "child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'],process_group=0);"
+              f"Path({str(ready)!r}).write_text(json.dumps([os.getpid(),os.getsid(0),child.pid]));"
+              "time.sleep(30)")
+    outsider = subprocess.Popen([sys.executable, "-c", "import time;time.sleep(30)"])
+    original = subprocess.Popen.communicate
+    previous_handler = signal.getsignal(signal.SIGINT)
+    interruption = KeyboardInterrupt("owned coordinator interrupted")
+    fired = False
+
+    def interrupt_handler(signum, frame):
+        raise interruption
+
+    def communicate(process, *args, **kwargs):
+        nonlocal fired
+        if not fired:
+            deadline = time.monotonic() + 5
+            while not ready.exists() and time.monotonic() < deadline:
+                time.sleep(.01)
+            assert ready.exists(), "the real worker did not start its descendant"
+            fired = True
+            os.kill(os.getpid(), signal.SIGINT)
+        return original(process, *args, **kwargs)
+
+    def active(pid):
+        try:
+            return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] not in {"Z", "X"}
+        except FileNotFoundError:
+            return False
+
+    try:
+        signal.signal(signal.SIGINT, interrupt_handler)
+        monkeypatch.setattr(subprocess.Popen, "communicate", communicate)
+        env = dict(os.environ)
+        env.pop(runner.PROCESS_OWNER_ENV, None)  # This test coordinates its own separate session.
+        with pytest.raises(KeyboardInterrupt) as caught:
+            runner.run_isolated_process([sys.executable, "-c", worker], cwd=tmp_path, env=env,
+                                        timeout=10, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        owner, session, descendant = json.loads(ready.read_text())
+        assert caught.value is interruption and fired
+        assert session == owner and session != os.getsid(0)
+        assert not active(owner) and not active(descendant)
+        assert outsider.poll() is None
+    finally:
+        signal.signal(signal.SIGINT, previous_handler)
+        if ready.exists():
+            owner, session, descendant = json.loads(ready.read_text())
+            if session == owner and session != os.getsid(0):
+                runner._kill_owned(session, session=True)
+        outsider.kill()
+        outsider.wait(timeout=5)
+
+
 def test_inaccessible_process_inventory_does_not_claim_cleanup(monkeypatch):
     from flowguard.map import runner
     monkeypatch.setattr(runner.sys, "platform", "linux")

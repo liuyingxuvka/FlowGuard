@@ -135,55 +135,60 @@ def run_isolated_process(command: list[str], *, cwd: Path, env: dict,
     nested_group = inherited is not None and sys.platform.startswith("linux")
     owns_session = inherited is None
     group = process.pid if owns_session or nested_group else inherited
-    timed_out = False
+    timed_out = interrupted = False
     output = error = None
     try:
-        output, error = process.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        timed_out = True
-    lingering = os.name != "nt" and (owns_session or nested_group) and _group_active(group,session=owns_session)
-    cleanup = True
-    if timed_out or lingering:
-        if os.name == "nt":
-            try:
-                killed = subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                        timeout=5, check=False)
-                cleanup = killed.returncode == 0
-            except (OSError, subprocess.TimeoutExpired):
-                cleanup = False
-        elif inherited is not None and not nested_group:
-            for pid in _descendants(process.pid):      # a nested helper never kills its owner's group
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                except OSError:
-                    pass
-        else:
-            try:
-                _kill_owned(group,session=owns_session)
-            except ProcessLookupError:
-                pass
-            except OSError:
-                cleanup = False
         try:
-            process.kill()
-        except OSError:
-            pass
-        try:
-            output, error = process.communicate(timeout=5)
+            output, error = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
-            cleanup = False
-            for pipe in (process.stdout, process.stderr):
-                if pipe is not None:
-                    pipe.close()
-        if os.name != "nt" and (owns_session or nested_group):
-            deadline = time.monotonic() + 1
-            while _group_active(group,session=owns_session) and time.monotonic() < deadline:
-                try:_kill_owned(group,session=owns_session)
-                except OSError:cleanup=False
-                time.sleep(.01)
-            cleanup = cleanup and not _group_active(group,session=owns_session)
-    cleanup = cleanup and process.poll() is not None
+            timed_out = True
+        except BaseException:
+            interrupted = True
+            raise
+    finally:
+        lingering = os.name != "nt" and (owns_session or nested_group) and _group_active(group,session=owns_session)
+        cleanup = True
+        if timed_out or lingering or interrupted:
+            if os.name == "nt":
+                try:
+                    killed = subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                            timeout=5, check=False)
+                    cleanup = killed.returncode == 0
+                except (OSError, subprocess.TimeoutExpired):
+                    cleanup = False
+            elif inherited is not None and not nested_group:
+                for pid in _descendants(process.pid):      # a nested helper never kills its owner's group
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                    except OSError:
+                        pass
+            else:
+                try:
+                    _kill_owned(group,session=owns_session)
+                except ProcessLookupError:
+                    pass
+                except OSError:
+                    cleanup = False
+            try:
+                process.kill()
+            except OSError:
+                pass
+            try:
+                output, error = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                cleanup = False
+                for pipe in (process.stdout, process.stderr):
+                    if pipe is not None:
+                        pipe.close()
+            if os.name != "nt" and (owns_session or nested_group):
+                deadline = time.monotonic() + 1
+                while _group_active(group,session=owns_session) and time.monotonic() < deadline:
+                    try:_kill_owned(group,session=owns_session)
+                    except OSError:cleanup=False
+                    time.sleep(.01)
+                cleanup = cleanup and not _group_active(group,session=owns_session)
+        cleanup = cleanup and process.poll() is not None
     code = 124 if timed_out else (70 if not cleanup else process.returncode)
     completed = subprocess.CompletedProcess(command, code, output or "", error or "")
     completed.lingering_killed = bool(lingering)      # leftover background processes were killed; not a failure
