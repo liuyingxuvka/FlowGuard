@@ -399,3 +399,52 @@ def test_a_dead_end_is_named_by_its_state_not_by_a_counter(project):
     assert stuck.subject == "state = 'locked'"
     assert stuck.detail["folded"] == {"count": 1, "fields": ["count"]}
     assert ("unlock()", "worn out", "R4") in {(r["call"], r["reason"], r["source"]) for r in stuck.detail["refused"]}
+
+
+SCRAP = '''
+from flowguard._next import Model, need
+
+m = Model("scrap yard")
+TOOLS = m.objects("tool", "T1")
+m.field("cond", ["shop", "loan", "lost"], "shop", over=TOOLS, source="R1")
+m.field("branch", ["main", "library", "scrap"], "main", over=TOOLS, source="R6")
+m.terminal("cond", ["lost"], source="R4")
+
+@m.action(t=TOOLS, source="R1")
+def rent(s, t):
+    need(s["cond", t] == "shop" and s["branch", t] != "scrap", "not on a shelf")
+    s["cond", t] = "loan"
+
+@m.action(t=TOOLS, source="R1")
+def give_back(s, t):
+    need(s["cond", t] == "loan", "not out")
+    s["cond", t] = "shop"
+
+@m.action(t=TOOLS, source="R4")
+def lose(s, t):
+    need(s["cond", t] == "loan", "not out")
+    s["cond", t] = "lost"
+
+@m.action(t=TOOLS, source="R6")
+def transfer(s, t):
+    need(s["cond", t] == "shop" and s["branch", t] != "scrap", "only shelf tools move")
+    s["branch", t] = "library" if s["branch", t] == "main" else "main"
+
+@m.action(t=TOOLS, source="R7")
+def scrap(s, t):
+    need(s["cond", t] == "shop" and s["branch", t] == "main", "only at main")
+    s["branch", t] = "scrap"
+MODEL = m
+'''
+
+
+def test_a_lost_tool_is_no_dead_end_of_a_field_with_an_undeclared_end(project):
+    """Review round 2, minor: once another value of a field (branch = 'scrap', where the tool
+    halts) was taken as an undeclared end, a lost tool (its declared end) was reported as
+    "branch[*] = 'main' can never change again". A field's own undeclared end keeps the
+    exemption of an object that has reached its declared end."""
+    project.flow("scrap", SCRAP)
+    report = check_model(load_model(project.root / ".flowguard/flow/scrap.py", project.root))
+    stuck = [f.subject for f in report.findings if f.cls == CONFLICT and f.kind == "STUCK"]
+    assert "branch[*] = 'scrap'" in stuck, stuck                       # the undeclared end itself
+    assert "branch[*] = 'main'" not in stuck and "branch[*] = 'library'" not in stuck, stuck

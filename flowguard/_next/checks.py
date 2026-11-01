@@ -513,7 +513,7 @@ class _Run:
                 if ok[i * n + k]:
                     continue
                 key = keys[p]
-                if name not in ends:
+                if name not in model.terminals:           # an undeclared end of the field keeps the exemption
                     owners = [x for x in (key[1:] if isinstance(key, tuple) else ()) if x in objects]
                     if any(_fin(finishable(x), i, x) for x in owners):
                         continue
