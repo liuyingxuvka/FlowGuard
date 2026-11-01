@@ -305,6 +305,7 @@ class Change:
     new_states: list = field(default_factory=list)
     added: int = 0
     removed: int = 0
+    unknown: tuple = ()          # "added" / "removed": not decided, the old / new search is capped
     note: str = ""
 
 
@@ -334,6 +335,7 @@ class Scene:
         self.missing_key = None      # the field of an unreached value
         self.missing_item = None     # an unreached action, option or reach rule with no explanation
         self.head = ""
+        self.change_drawn = ""       # "(drawn for T1 of T1, T2)" when a change is drawn for one object
         self.extra_caption = []
         if change is not None and change.space is None:
             self.extra_caption.append(f"new model: no before picture ({change.note})")
@@ -454,6 +456,11 @@ class Scene:
         tn, _ = _transitions(self.space, union, fill_new)
         to, so = _transitions(ch.space, union, fill_old)
         added, removed = tn - to, to - tn
+        # a step one search did not reach is no change when that search is capped
+        ch.unknown = tuple(w for w, capped in (("added", not ch.space.graph.complete),
+                                               ("removed", not self.space.graph.complete)) if capped)
+        added = set() if "added" in ch.unknown else added
+        removed = set() if "removed" in ch.unknown else removed
         changed = set()
         for a, b, _ in added | removed:
             for k, x, y in zip(union, a, b):
@@ -470,19 +477,31 @@ class Scene:
         ch.keys = keys
         proj = self.space.projector(union, fill_new)
         ch.new_states = [u for u in range(len(self.space)) if proj(u) not in so]
-        if pick is not None:                     # counted on what is drawn: that object's fields
-            tn, _ = _transitions(self.space, keys, {})
-            to, _ = _transitions(ch.space, keys, fill_old)
-            added, removed = tn - to, to - tn
         ch.added, ch.removed = len(added), len(removed)
         self.targets = ch.new_states
         self.target_text = "what is new"
-        drawn = f" (drawn for {pick} of {', '.join(objs)})" if pick is not None and len(objs) > 1 else ""
-        if not added and not removed:
-            self.head = f"the change against {ch.rev}: no step is added or removed{drawn}"
-        else:
-            self.head = (f"the change against {ch.rev}: {_plural(len(added), 'step')} added (green), "
-                         f"{_plural(len(removed), 'step')} removed (grey){drawn}")
+        self.change_drawn = f" (drawn for {pick} of {', '.join(objs)})" if pick is not None and len(objs) > 1 else ""
+        self.head = self.change_head(None, None)
+
+    def change_head(self, green, grey) -> str:
+        """The first words of a change picture: what the drawn view shows in green and grey
+        (green, grey: its arrows; None before a view is drawn), then the whole model's
+        counts when they differ, and what a capped search leaves UNKNOWN."""
+        ch, drawn = self.change, self.change_drawn
+        model = [f"{_plural(ch.added, 'step')} added" if "added" not in ch.unknown else
+                 "added steps UNKNOWN (the old search is capped)",
+                 f"{ch.removed} removed" if "removed" not in ch.unknown else
+                 "removed steps UNKNOWN (the new search is capped)"]
+        head = f"the change against {ch.rev}: "
+        if green is None or (green, grey) == (ch.added, ch.removed) and not ch.unknown:
+            if not ch.added and not ch.removed and not ch.unknown:
+                return head + f"no step is added or removed{drawn}"
+            if not ch.unknown:
+                return head + (f"{_plural(ch.added, 'step')} added (green), {_plural(ch.removed, 'step')} "
+                               f"removed (grey){drawn}")
+            return head + "; ".join(model) + drawn
+        return (head + f"{_plural(green, 'arrow')} added (green), {grey} removed (grey) in this view; "
+                f"in the whole model {', '.join(model)}{drawn}")
 
     # -------------------------------------------------------------- candidate views
     def status(self):
@@ -734,7 +753,7 @@ class Scene:
         # boxes, in the order of their first state
         ordered = sorted(box_states, key=lambda b: box_states[b][0])
         removed_boxes, removed_arrows = [], {}
-        if old_boxes is not None:
+        if old_boxes is not None and "removed" not in self.change.unknown:
             drawn = set(ordered)
             for pair, labels in old_arrows.items():
                 if pair in arrows:
@@ -770,7 +789,7 @@ class Scene:
                 elif hit:                                 # some states of the box only
                     mark = " (can be STUCK)" if self.mark == " (STUCK)" else self.mark
                     style = "stuck"
-            if not style and old_boxes is not None and b not in old_boxes:
+            if not style and old_boxes is not None and b not in old_boxes and "added" not in self.change.unknown:
                 style = "added"
             boxes.append(Box(ids[b], lines or ["(all)"], mark, style, len(sts)))
         for b in removed_boxes:
@@ -787,7 +806,7 @@ class Scene:
             style = ""
             if (a, b) in red_pairs or (self.red_actions & set(labels)):
                 style = "red"
-            elif old_arrows is not None:
+            elif old_arrows is not None and "added" not in self.change.unknown:
                 before = old_arrows.get((a, b))
                 if before is None:
                     style = "green"
@@ -829,8 +848,12 @@ class Scene:
             text = (f"{_plural(len(steps), 'step')}: " + ", ".join(steps) if len(steps) <= 4 else
                     f"{_plural(len(steps), 'step')}: {', '.join(steps[:2])} ... {steps[-1]}")
             start = (ids[proj(inside_story)], text, bool(self.story) and inside_story in self.story)
+        head = self.head
+        if self.change is not None and self.subject is None and old_boxes is not None:
+            head = self.change_head(sum(a.style == "green" for a in out_arrows),
+                                    sum(a.style == "grey" for a in out_arrows))
         # caption and what was folded
-        caption = [self.head.split(" [C-")[0] if self.head else f"{self.mid}: {view.name}"]
+        caption = [head.split(" [C-")[0] if head else f"{self.mid}: {view.name}"]
         caption += self.extra_caption
         objs = sorted({str(obj_of(k)) for k in keys if obj_of(k) is not None})
         if self.report.graph.sym is not None and objs:
@@ -867,7 +890,7 @@ class Scene:
         unseen = (old_boxes is not None and not any(b.style in ("added", "removed") for b in boxes)
                   and not any(a.style in ("green", "grey") for a in out_arrows))
         return Drawing(self.mid, view, boxes, out_arrows, start, caption, n_shown, len(sp), folded,
-                       self.head, _plural(len(sp), "state"), capped, unseen)
+                       head, _plural(len(sp), "state"), capped, unseen)
 
     def box_names(self, keys):
         objs = {obj_of(k) for k in keys if obj_of(k) is not None}

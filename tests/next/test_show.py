@@ -493,6 +493,41 @@ def test_a_change_with_two_tools_is_drawn_for_one_tool_in_green_and_grey(project
     assert any(a[3] == "#999" for a in got["arrows"]) or any(c == "removed" for c in got["classes"].values())
 
 
+def _counts(first):
+    m = re.search(r"(\d+) (?:steps?|arrows?) added \(green\), (\d+) (?:steps? |arrows? )?removed \(grey\)", first)
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+@pytest.mark.parametrize("argv", [(), ("--fields", "cond,branch", "--object", "T1")])
+def test_the_change_head_counts_what_the_view_draws(project, argv):
+    """#10 (round 2): the first line's green and grey counts are the green and grey arrows of
+    the drawn view (a view that leaves the counters out once said 36 steps added and drew 2);
+    the whole model's counts follow, said as such when they differ."""
+    _kit_change(project)
+    code, out = show(project.root, *argv)
+    assert code == 0, out
+    first = out.splitlines()[0]
+    got = parse(body(out))
+    green = sum(1 for a in got["arrows"] if a[3] == "#080")
+    grey = sum(1 for a in got["arrows"] if a[3] == "#999")
+    assert _counts(first) == (green, grey), first
+    if "in this view" in first:
+        assert re.search(r"in the whole model \d+ steps? added, \d+ removed", first), first
+
+
+def test_a_capped_change_claims_no_removed_step(project):
+    """#10 (round 2): when the search of the new model is capped, a step of the old model it
+    did not reach is no removed step; the change says removed steps are UNKNOWN and draws no
+    grey arrow for them."""
+    _kit_change(project)
+    code, out = show(project.root, "--max-states", "40")
+    first = out.splitlines()[0]
+    assert first.startswith("workshop: CAPPED at 40 states"), first
+    got = parse(body(out))
+    assert not any(a[3] == "#999" for a in got["arrows"]) and not any(c == "removed" for c in got["classes"].values())
+    assert "removed steps UNKNOWN" in first, first
+
+
 def test_a_model_without_conflict_is_drawn_with_its_latest_change(project):
     """G7: `show MODEL` of a model with no conflict draws the fields its latest change
     touched (the model's last commit against its parent), not the status field alone."""
