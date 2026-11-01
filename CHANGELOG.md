@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Every next step that `where` prints is now a `next[where]: ...` line like the other commands' next steps, and `where --json` reports `next` as an `{id, command}` object; the overview no longer shows unrunnable placeholder commands.
+
 ## v0.71.1 - 2026-11-01 - Static source and original-text queries
 
 - Add optional, read-only `where` queries for names, owners and callers, module overviews, static flows, architecture, shared state and file destinations. Queries do not run application code, models or tests; missing execution records remain explicit.

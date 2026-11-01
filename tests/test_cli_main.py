@@ -310,6 +310,33 @@ def test_every_next_line_has_an_advice_id(tmp_path, capsys):
     assert all(line.split("[", 1)[1].split("]", 1)[0] in ADVICE_IDS for line in outputs)
 
 
+def test_every_printed_next_line_carries_an_advice_id(tmp_path, capsys):
+    """A next step anywhere in a line, in any command, is one next[<id>]: line from render_advice."""
+    import re
+    from flowguard.map.common import ADVICE_IDS
+    root = shelf_project(tmp_path)
+    (root / "SPEC.md").write_text("Lending MUST respect the `MAX_LOANS` ceiling.\n", encoding="utf-8")
+    capsys.readouterr()
+    offenders, ids = [], []
+    for arguments in (("status",), ("where",), ("where", "--flow"), ("where", "--text"), ("where", "--arch"),
+                      ("read", "--find", "borrow"), ("target", "start", "an advice probe"),
+                      ("target", "add", "loans"), ("target", "check"), ("status",)):
+        _, output, errors = _run(root, capsys, *arguments)
+        for line in (output + errors).splitlines():
+            if re.search(r"\bnext(\[[^\]]*\])?:\s", line):
+                match = re.fullmatch(r"(?:NEXT )?next\[([a-z_]+)\]: \S.*", line)
+                if match is None or match.group(1) not in ADVICE_IDS:
+                    offenders.append((arguments, line))
+                else:
+                    ids.append(match.group(1))
+    assert not offenders, offenders
+    assert "where" in ids
+    for arguments in ((), ("--flow",)):
+        _, output, _ = _run(root, capsys, "where", *arguments, "--json")
+        step = json.loads(output)["next"]
+        assert step["id"] == "where" and step["command"].startswith("python -m flowguard where ")
+
+
 def test_json_runtime_failure_preserves_exit_and_one_line(tmp_path, capsys):
     for arguments in (("map", "check"), ("map", "lint"), ("target", "check"),
                       ("target", "promote"), ("release",)):
@@ -954,7 +981,8 @@ finally:
         assert len(answer.stdout.splitlines()) == 1
         facts = json.loads(answer.stdout)
         if not arguments:
-            command = shlex.split(facts["next"])
+            assert facts["next"]["id"] == "where"
+            command = shlex.split(facts["next"]["command"])
             assert command[:4] == ["python", "-m", "flowguard", "where"]
             assert command[command.index("--root") + 1] == str(root.resolve())
             assert invoke(command[3:]).returncode == 0

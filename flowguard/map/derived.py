@@ -14,7 +14,7 @@ import re
 import subprocess
 import tempfile
 
-from .common import normalize_newlines, read_source
+from .common import normalize_newlines, read_source, render_advice
 from .discover import discover_inventory, function_spans, literal_sites, reachable_functions
 from .inventory import build_inventory, function_digests, syntax_tree
 from .mapfile import MapError, ignore_patterns, load_map, model_registry, owner_index, read_model_contract
@@ -419,7 +419,6 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
                     group["unresolved"] += sum("not found" in row["state"] for row in refs)
                 result["text_groups"] = list(groups.values())
                 result["unexpanded_texts"] = sum(row["files"] for row in groups.values())
-                result["next"] = "where --text <relative-text-path>"
             return result
         if view == "arch":
             result.update(modules=[{"path": path, "owner": owners.get(path, path), "functions": len(file.get("functions", {})),
@@ -477,7 +476,6 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
                 result["modules"] = [{"path": path, "functions": count} for path, count in sorted(modules.items())]
                 result["module_edges"] = [{"source": caller, "target": callee, "calls": count} for (caller, callee), count in sorted(module_edges.items())]
                 result["unexpanded_functions"], result["unexpanded_edges"] = len(included), len(edges)
-                result["next"] = "where <function-or-module> --flow"
             if name is not None:
                 result["state"] = [row for row in state if _match(name, row["term"]) or set(row["writers"]) & included]
             else:
@@ -497,7 +495,6 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
                 row["without_declared_model_binding"] += bool(fn["writes"] and not fn["model_bindings"])
             result["modules"] = list(modules.values())
             result["unexpanded_functions"] = len(functions)
-            result["next"] = "where <function-or-module>"
             return result
         query = _anchor(name)
         result["functions"] = []
@@ -580,9 +577,11 @@ def render(result, *, as_json=False):
         for row in result.get("stores", []):
             lines.append(row["path"] + ":" + str(row["line"]) + " store " + str(row.get("last_component") or "unknown") + " · " + row["expression"])
     if "unexpanded_functions" in result:
-        lines.append(str(result["unexpanded_functions"]) + " function details unexpanded · next: " + result["next"])
+        lines.append(str(result["unexpanded_functions"]) + " function details unexpanded")
     if "unexpanded_texts" in result:
-        lines.append(str(result["unexpanded_texts"]) + " text details unexpanded · next: " + result["next"])
+        lines.append(str(result["unexpanded_texts"]) + " text details unexpanded")
+    if result.get("next"):
+        lines.append(render_advice(result["next"]))
     lines.append(result["rule_scope"])
     lines.extend("unknown: " + item for item in result["unknown"])
     return "\n".join(lines)

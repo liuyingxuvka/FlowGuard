@@ -30,7 +30,8 @@ DEFAULT_IGNORE = [".flowguard/**", ".git/**", "**/__pycache__/**", "node_modules
                   "dist/**", "build/**", ".venv/**", "venv/**", "**/*.min.js"]
 LEVELS = ("error", "warn", "info")
 ADVICE_IDS = frozenset({"tests", "design", "code", "promote", "confirm", "commit", "add",
-                        "describe", "extend", "check", "models", "bind", "rule", "target", "test_command"})
+                        "describe", "extend", "check", "models", "bind", "rule", "target", "test_command",
+                        "where"})
 STOPWORDS = {"a", "an", "the", "of", "to", "and", "or", "for", "in", "on", "by", "with",
              "from", "into", "per", "is", "are", "be", "its", "it", "that", "this", "as"}
 

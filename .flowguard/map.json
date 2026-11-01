@@ -147,7 +147,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1b3a3dbdede7e969da4664bb2fc8d1f49bcdb50fd9a84b4391fc597b68599c0f"
+      "fingerprint": "sha256:3b7dc77e45b669e870e432b408d640b637ee262deaf206f06c4a1e57870ef1ec"
     },
     {
       "id": "public-api",
@@ -296,7 +296,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:724d6dc2e4849c39b251acd803dc5ac8b1ad520c07bf615bf786eef1642d07e6"
+      "fingerprint": "sha256:96f10b576b47a05106d9e43d0235de16f3dae801a672f035c3aebd3317ebcb46"
     },
     {
       "id": "map-file",
@@ -917,7 +917,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:81d783083a8d22b2bacc7362be5a00bf4530ba37f56fd5aec074a0d43946de29"
+      "fingerprint": "sha256:bf6bc6457fbc611595eec502d12ac072cf3401621e2aba45925a1169825b55a5"
     },
     {
       "id": "map-rules",

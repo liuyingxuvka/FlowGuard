@@ -272,13 +272,13 @@ def _where(ns):
             result["next_queries"] = [project_command(root, "where", selector, *options) for selector in dict.fromkeys(selectors)]
             output = textrules.render(result, as_json=ns.json)
             if not ns.json and result["next_queries"]:
-                output += "\n" + "\n".join("next: " + command for command in result["next_queries"])
+                output += "\n" + "\n".join(render_advice(advice("where", command)) for command in result["next_queries"])
         else:
             result = derived.where(root, ns.name, view=ns.view)
-            if "next" in result:
+            if "unexpanded_functions" in result:
                 modules = result.get("modules", [])
                 options = ([modules[0]["path"]] + (["--flow"] if ns.view == "flow" else [])) if modules else ["--arch"]
-                result["next"] = project_command(root, "where", *options, *(["--json"] if ns.json else []))
+                result["next"] = advice("where", project_command(root, "where", *options, *(["--json"] if ns.json else [])))
             output = derived.render(result, as_json=ns.json)
         print(output)
         return 0
