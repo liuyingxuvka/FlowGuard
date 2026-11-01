@@ -606,8 +606,9 @@ def render(result, *, as_json=False, all_rows=False):
                       if row["edited"] else "")
             state = ("retired: not the owner's words" + ("; " + damage if damage else "") if row["retired"] else damage or
                      ("superseded by " + ", ".join(row["superseded_by"]) if row["superseded_by"] else "owner words"))
-            lines.append("request " + row["id"] + ": " + state + " · " + row["first_line"]
-                         + (" · cited by " + ", ".join(row["cited_by"]) if row["cited_by"] else ""))
+            facts = ("request " + row["id"] + ": " + state, row["first_line"],
+                     "cited by " + ", ".join(row["cited_by"]) if row["cited_by"] else "")
+            lines.append(" · ".join(fact for fact in facts if fact))
         for row in result.get("drift", []):
             lines.append("drift class " + str(row["class"]) + " " + row["kind"] + " " + row["source"] + ":" + str(row["line"]) + " · " + row.get("fact", row.get("target", "")))
         for row in result.get("modules", []):

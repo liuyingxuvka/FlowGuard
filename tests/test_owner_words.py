@@ -562,3 +562,16 @@ def test_a_retire_record_that_is_not_a_file_is_named_for_what_stands_there(tmp_p
     command = re.search(r"\((git -C .*?) when committed\)", named[0])
     subprocess.run(shlex.split(command[1]), check=True, capture_output=True)
     assert retired_requests(root) == {"R1": None} and request_findings(root) == []
+
+
+def test_where_ends_a_request_line_with_its_last_fact(tmp_path, capsys):
+    root, _ = _retired_copy_without_git(tmp_path, capsys)
+    (root / ".flowguard/requests/R2.md").write_text("Words someone else wrote.\n", encoding="utf-8")
+    (root / ".flowguard/requests/R1.md").write_text("A PASTED plan, not owner words.\n", encoding="utf-8")
+    for name in ("R1", "R2"):
+        output = _call(root, capsys, "where", name)[1]
+        line = next(line for line in output.splitlines() if line.startswith(f"request {name}: "))
+        assert "edited after it was stored" in line and line.endswith(f"checkout -- .flowguard/requests/{name}.md when committed)"), line
+    _git(root, "checkout", "--", ".flowguard/requests")
+    output = _call(root, capsys, "where", "R2")[1]
+    assert "request R2: owner words · The owner's own words.\n" in output, output
