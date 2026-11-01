@@ -624,6 +624,12 @@ def _target_advice(report: TargetReport, root: Path | None = None) -> dict[str, 
         return advice('target', project_command(project, 'target', 'drop', '--yes'),
                       note=f'the target changes nothing yet: edit the files under {project / TARGET_RELDIR} and run '
                            'target check, or drop the empty target')
+    run_errors = test_errors | {"model_proof", "selected_tests_failed"}
+    if report.bound_tests and report.errors and all(finding.code in run_errors for finding in report.errors):
+        # Promotion also runs the models and tests the change reaches; target check runs only the target's own.
+        return advice('tests', project_command(project, 'target', 'promote'),
+                      note='fix the code or the tests named in the ERROR lines; target promote runs them again '
+                           '(target check runs only the target\'s own models and tests)')
     identifier = "tests" if tests_only else "design" if report.errors else "code" if report.todos else "promote"
     note = ("write or fix the bound tests named in the ERROR lines" if tests_only else
             f"fix the target design (ERROR lines) in {project / TARGET_RELDIR} first" if report.errors else

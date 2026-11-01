@@ -306,3 +306,21 @@ def test_target_check_names_an_empty_target_once_and_a_request_finding_as_a_requ
     request.write_bytes(request.read_bytes().replace(b"Keep", b"Drop"))
     code, output, _ = _cli(root, capsys, "target", "check")
     assert any(line.startswith("ERROR request R1: owner_text_edited:") for line in output.splitlines()), output
+
+
+def test_a_promotion_refused_by_its_own_checks_prints_the_step_that_runs_them_again(tmp_path, capsys):
+    """target check runs only the target's own models; promotion also runs the models and tests the change reaches."""
+    root = _committed_shelf(tmp_path, capsys)
+    assert _cli(root, capsys, "target", "start", "count two copies")[0] == 0
+    assert _cli(root, capsys, "target", "add", "component:catalog")[0] == 0
+    catalog = root / "shelf/catalog.py"
+    catalog.write_text(catalog.read_text().replace("return 1", "return 2"))  # breaks loans' bound test
+    code, checked, _ = _cli(root, capsys, "target", "check")
+    assert code == 0 and _next_lines(checked) == [line for line in _next_lines(checked) if "target promote" in line], checked
+    code, refused, _ = _cli(root, capsys, "target", "promote")
+    assert code == 1 and "promote refused" in refused, refused
+    (line,) = _next_lines(refused)
+    assert line.split("]: ", 1)[1].startswith("python -m flowguard target promote "), refused
+    catalog.write_text("def capacity():\n    return 1\n\n\ndef spare():\n    return 0\n")  # the fix keeps a change
+    (promoted,) = _follow(refused, tmp_path)
+    assert "promoted" in promoted, promoted
