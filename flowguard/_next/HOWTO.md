@@ -12,7 +12,8 @@ One model per file: `.flowguard/flow/<name>.py`, ending with `MODEL = m`. Check 
 `python -m flowguard._next check` (files starting with `_` are helpers, never models); `check
 --full` also breaks each model on purpose to see that its checks catch it. `python -m
 flowguard._next show` draws what is under discussion: the conflicts, else the change against
-HEAD (`show MODEL`, `show C-...` or `--before REV` name it yourself).
+HEAD (`show MODEL`, `show C-...` or `--before REV` name it yourself; `show MODEL` of a model
+with no conflict draws its latest change, one object's fields at a time).
 
 ## Writing a model
 
