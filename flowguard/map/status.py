@@ -9,7 +9,8 @@ import re
 import shlex
 import subprocess
 
-from .common import advice, git_common_directory, git_head, git_run, matches_any, read_source, render_advice
+from .common import (CACHE_RELDIR, advice, atomic_write_text, cache_dir, find_project_root, git_common_directory, git_head,
+                     git_run, matches_any, project_command, read_source, render_advice)
 from .inventory import list_files
 from .mapfile import MapError, ignore_patterns, load_map
 from .plan import PLAN_RELPATH, function_identities, static_plan_rows
@@ -153,6 +154,50 @@ def collect_status(root, *, read_git_paths, version):
                 skill_warnings=installed_skill_warnings(version), next=next_step, next_note=note)
 
 
+def agent_session():
+    """The agent session this process runs in; only Claude Code's own session id is a verified key."""
+    if os.environ.get("CLAUDECODE") != "1":
+        return None
+    return os.environ.get("CLAUDE_CODE_SESSION_ID") or ""
+
+
+def mark_status_shown(root, session):
+    atomic_write_text(cache_dir(root) / "status-shown.json",
+                      json.dumps({"session": session, "shown": datetime.now(timezone.utc).isoformat()}) + "\n")
+
+
+def show_status_first(arguments, version, *, read_git_paths):
+    """Show status once per agent session, before the session's first other FlowGuard command.
+
+    Every entry point calls this (python -m flowguard and python -m flowguard.map). The project is the nearest
+    directory at or above --root (default: the current directory) that holds .flowguard/."""
+    import argparse
+    import sys
+    session = agent_session()
+    if session is None or {"-h", "--help"} & set(arguments):
+        return
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--root", default=".")
+    root = find_project_root(parser.parse_known_args(arguments)[0].root)
+    if root is None:
+        return
+    command = project_command(root, "status")
+    if not session:
+        print(f"flowguard: CLAUDECODE=1 but CLAUDE_CODE_SESSION_ID is unset; status is not shown automatically: {command}",
+              file=sys.stderr)
+        return
+    try:
+        marker = root / CACHE_RELDIR / "status-shown.json"
+        if marker.is_file() and json.loads(marker.read_text(encoding="utf-8")).get("session") == session:
+            return
+        screen = render_status(collect_status(root, read_git_paths=read_git_paths, version=version))
+    except Exception as error:  # the requested command still runs; the failure is named, never hidden
+        print(f"flowguard: status could not be shown first ({type(error).__name__}: {error}); run {command}", file=sys.stderr)
+        return
+    print(screen, file=sys.stderr)
+    mark_status_shown(root, session)
+
+
 def installed_skill_warnings(version):
     """Compare the documented skill install targets with the running package version; absent copies say nothing."""
     current = tuple(int(part) for part in version.split('.')[:3])
@@ -205,13 +250,27 @@ def render_owner_words(words):
                 text = row['first_line'] + (f" (+{more} line{'s' if more > 1 else ''})" if more else '')
             cited = ''
             if row['cited_by']:
-                cited = '  cited by: ' + ', '.join(row['cited_by'][:2]) + (f" (+{len(row['cited_by']) - 2})" if len(row['cited_by']) > 2 else '')
+                more = len(row['cited_by']) - 2
+                cited = ('  cited by: ' + ', '.join(row['cited_by'][:2])
+                         + (f" and {more} more (python -m flowguard where {row['id']})" if more > 0 else ''))
             lines.append(f"  {row['id']}{kind} {when}: {text}{cited}")
-        older = [row['id'] for row in rows[SHOWN_OWNER_WORDS:]]
+        older = rows[SHOWN_OWNER_WORDS:]
         if older:
-            lines.append(f"  older: {', '.join(older)} (python -m flowguard where {older[0]})")
+            names = ', '.join(row['id'] + (f" (superseded by {', '.join(row['superseded_by'])})" if row['superseded_by'] else '')
+                              for row in older)
+            lines.append(f"  older: {names} (python -m flowguard where {older[0]['id']})")
     if words['retired_since_release']:
         lines.append("RETIRED (not the owner's words): " + ', '.join(words['retired_since_release']))
+    problems = words.get('retire_problems', {})
+    unchecked = [identifier for identifier, problem in problems.items() if problem.startswith('cannot be checked here')]
+    if unchecked:
+        lines.append(f"WARNING retire record{'s' if len(unchecked) > 1 else ''} {', '.join(unchecked)} "
+                     f"{problems[unchecked[0]]}; {'they still hide those texts' if len(unchecked) > 1 else 'it still hides that text'} "
+                     "from OWNER WORDS (python -m flowguard map check)")
+    for identifier, problem in problems.items():
+        if identifier not in unchecked:
+            lines.append(f"WARNING retire record {identifier} {problem}; it still hides {identifier} from OWNER WORDS "
+                         "(python -m flowguard map check)")
     return lines
 
 

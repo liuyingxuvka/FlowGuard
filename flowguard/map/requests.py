@@ -143,17 +143,20 @@ def _retire_record(root: Path, identifier: str) -> dict:
 
 
 def retired_requests(root: Path) -> dict:
-    """Valid retire records by request ID; the others are never facts.
+    """Every retire record as written, by request ID, with its integrity problem (None when verified here).
 
-    request_findings reports an invalid record as request_retire_edited and an unverifiable one as
-    immutable_unverified; validate_request_links still refuses to quote or link either request."""
+    A retire record applies for display in every checkout; whether its bytes can be verified is a separate
+    fact that status names and request_findings reports (request_retire_edited, immutable_unverified)."""
     root = Path(root).resolve()
     found = {}
     for identifier in _stems(root, RETIRED_DIR):
         try:
-            found[identifier] = _retire_record(root, identifier)
-        except (Unverifiable, OSError, ValueError):
-            continue
+            _retire_record(root, identifier)
+            found[identifier] = None
+        except Unverifiable:
+            found[identifier] = "cannot be checked here: " + NO_ORIGINAL_FACT
+        except (OSError, ValueError) as error:
+            found[identifier] = f"edited: {error}"
     return found
 
 
@@ -278,7 +281,8 @@ def owner_words(root: Path, *, records=None) -> dict:
             if old in by_id:
                 by_id[old]['superseded_by'].append(row['id'])
     rows.sort(key=lambda row: (row['received'], row['id']), reverse=True)
-    return dict(rows=rows, commit_links_known=commits_known)
+    problems = {identifier: problem for identifier, problem in retired.items() if problem is not None}
+    return dict(rows=rows, commit_links_known=commits_known, retire_problems=problems)
 
 
 def request_links(root: Path, values) -> list[dict]:

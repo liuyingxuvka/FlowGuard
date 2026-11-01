@@ -273,6 +273,12 @@ def quiet_broken_pipe(command):
     return run
 
 
+def find_project_root(start) -> Path | None:
+    """The nearest directory at or above start that holds a .flowguard folder, or None outside any project."""
+    start = Path(start).resolve()
+    return next((directory for directory in (start, *start.parents) if (directory / ".flowguard").is_dir()), None)
+
+
 def cache_dir(root: Path) -> Path:
     """Disposable cache ignores itself, including in newly adopted repositories."""
     directory = root / CACHE_RELDIR

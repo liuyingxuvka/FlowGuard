@@ -238,54 +238,6 @@ def _request(ns: argparse.Namespace) -> int:
     return 0
 
 
-def _agent_session():
-    """The agent session this process runs in; only Claude Code's own session id is a verified key."""
-    import os
-    if os.environ.get("CLAUDECODE") != "1":
-        return None
-    return os.environ.get("CLAUDE_CODE_SESSION_ID") or ""
-
-
-def _mark_status_shown(root, session):
-    import json
-    from datetime import datetime, timezone
-    from .map.common import atomic_write_text, cache_dir
-    atomic_write_text(cache_dir(root) / "status-shown.json",
-                      json.dumps({"session": session, "shown": datetime.now(timezone.utc).isoformat()}) + "\n")
-
-
-def _status_first(rest):
-    """Show status once per agent session, before the session's first other FlowGuard command."""
-    import json
-    from .map.common import CACHE_RELDIR
-    session = _agent_session()
-    if session is None or {"-h", "--help"} & set(rest):
-        return
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--root", default=".")
-    root = Path(parser.parse_known_args(rest)[0].root).resolve()
-    if not (root / ".flowguard").is_dir():
-        return
-    from .map.common import project_command
-    command = project_command(root, "status")
-    if not session:
-        print(f"flowguard: CLAUDECODE=1 but CLAUDE_CODE_SESSION_ID is unset; status is not shown automatically: {command}",
-              file=sys.stderr)
-        return
-    try:
-        marker = root / CACHE_RELDIR / "status-shown.json"
-        if marker.is_file() and json.loads(marker.read_text(encoding="utf-8")).get("session") == session:
-            return
-        from .map import status
-        from .map.impact_history import read_git_paths
-        screen = status.render_status(status.collect_status(root, read_git_paths=read_git_paths, version=__version__))
-    except Exception as error:  # the requested command still runs; the failure is named, never hidden
-        print(f"flowguard: status could not be shown first ({type(error).__name__}: {error}); run {command}", file=sys.stderr)
-        return
-    print(screen, file=sys.stderr)
-    _mark_status_shown(root, session)
-
-
 def _status(ns):
     import json
     from .map import status
@@ -296,11 +248,11 @@ def _status(ns):
         if ns.hook and not (root / '.flowguard').is_dir():
             return 0
         result = status.collect_status(root, read_git_paths=read_git_paths, version=__version__)
-        session = _agent_session()
+        session = status.agent_session()
         result['session'] = session or None
         print(json.dumps(result, ensure_ascii=False) if ns.json else status.render_status(result))
         if session:
-            _mark_status_shown(root, session)
+            status.mark_status_shown(root, session)
         return 0
     except Exception as error:
         if ns.hook:
@@ -379,7 +331,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
         return 2
     if verb != "status":
-        _status_first(rest)
+        from .map.impact_history import read_git_paths
+        from .map.status import show_status_first
+        show_status_first(rest, __version__, read_git_paths=read_git_paths)
     if verb == "map":
         return map_main(rest)
     if verb == "target":

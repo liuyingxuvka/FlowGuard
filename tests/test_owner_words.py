@@ -124,7 +124,7 @@ def test_an_edited_retire_record_is_an_error(tmp_path, capsys):
     path = root / ".flowguard/requests/retired/R1.json"
     path.write_bytes(path.read_bytes().replace(b'"not_owner": true', b'"not_owner": false'))
     assert [item.code for item in request_findings(root)] == ["request_retire_edited"]
-    assert retired_requests(root) == {}
+    assert list(retired_requests(root)) == ["R1"] and "immutable file bytes changed" in retired_requests(root)["R1"]
 
 
 def test_a_retire_record_in_a_copy_without_git_is_unverifiable_not_edited(tmp_path, capsys):
@@ -142,7 +142,7 @@ def test_a_retire_record_in_a_copy_without_git_is_unverifiable_not_edited(tmp_pa
     shutil.copytree(root, copy, ignore=shutil.ignore_patterns(".git"))
     findings = request_findings(copy)
     assert [(item.level, item.code) for item in findings] == [("info", "immutable_unverified")], findings
-    assert retired_requests(copy) == {}
+    assert list(retired_requests(copy)) == ["R1"] and "cannot be checked here" in retired_requests(copy)["R1"]
     code, _, errors = _call(copy, capsys, "req", "add", str(tmp_path / "owner-1.md"), "--id", "R2", "--supersedes", "R1")
     assert code == 2 and "request_retired: R1" in errors, errors
 
@@ -300,3 +300,91 @@ def test_children_flowguard_starts_are_not_the_agent_session():
     from flowguard.map.common import child_pytest_environment
     child = child_pytest_environment({"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "session-a", "PATH": "/bin"})
     assert child == {"PATH": "/bin"}
+
+
+def _retired_copy_without_git(tmp_path, capsys):
+    import shutil
+    root = _plain(tmp_path)
+    _words(root, capsys, "1. a planner list\n", "The owner's own words.\n")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "stored words")
+    assert _call(root, capsys, "req", "retire", "R1", "--not-owner")[0] == 0
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "retire")
+    copy = tmp_path / "copy"
+    shutil.copytree(root, copy, ignore=shutil.ignore_patterns(".git"))
+    return root, copy
+
+
+def test_a_retire_record_applies_in_a_copy_without_git_and_status_names_it_once(tmp_path, capsys):
+    _, copy = _retired_copy_without_git(tmp_path, capsys)
+    code, output, _ = _call(copy, capsys, "status")
+    assert code == 0
+    _, rows = _owner_lines(output)
+    assert [row.split(" ", 1)[0] for row in rows] == ["R2"] and "a planner list" not in output, output
+    named = [line for line in output.splitlines() if "retire record" in line]
+    assert len(named) == 1 and "R1" in named[0] and "cannot be checked here" in named[0], output
+    from flowguard.map.requests import request_findings
+    assert [(item.level, item.code) for item in request_findings(copy)] == [("info", "immutable_unverified")]
+
+
+def test_an_edited_retire_record_still_hides_the_text_and_status_names_it(tmp_path, capsys):
+    root, _ = _retired_copy_without_git(tmp_path, capsys)
+    path = root / ".flowguard/requests/retired/R1.json"
+    path.write_bytes(path.read_bytes().replace(b'"retired": "', b'"retired": " '))
+    code, output, _ = _call(root, capsys, "status")
+    assert code == 0
+    _, rows = _owner_lines(output)
+    assert [row.split(" ", 1)[0] for row in rows] == ["R2"] and "a planner list" not in output, output
+    named = [line for line in output.splitlines() if "retire record" in line]
+    assert len(named) == 1 and "R1" in named[0] and "edited" in named[0], output
+    from flowguard.map.requests import request_findings
+    assert [(item.level, item.code) for item in request_findings(root)] == [("error", "request_retire_edited")]
+
+
+def test_superseded_words_beyond_the_newest_three_are_marked(tmp_path, capsys):
+    root = _plain(tmp_path)
+    _words(root, capsys, "First words.\n", "Second words.\n", "Third words.\n", "Fourth words.\n")
+    source = tmp_path / "fifth.md"
+    source.write_text("Fifth words replace the first.\n", encoding="utf-8")
+    assert _call(root, capsys, "req", "add", str(source), "--id", "R5", "--supersedes", "R1")[0] == 0
+    _, rows = _owner_lines(_call(root, capsys, "status")[1])
+    assert rows[3] == "older: R2, R1 (superseded by R5) (python -m flowguard where R2)", rows
+
+
+def test_citations_beyond_the_shown_ones_say_how_to_see_them(tmp_path, capsys):
+    root = _plain(tmp_path)
+    _words(root, capsys, "Keep receipts.\n")
+    _git(root, "init", "-q")
+    for number in range(3):
+        (root / f"change{number}.txt").write_text(str(number), encoding="utf-8")
+        _git(root, "add", "-A")
+        _git(root, "commit", "-qm", f"Change {number}\n\nRequest: R1")
+    _, rows = _owner_lines(_call(root, capsys, "status")[1])
+    assert "(+" not in rows[0], rows
+    assert rows[0].endswith(" and 1 more (python -m flowguard where R1)"), rows
+
+
+def _agent_run(arguments, cwd, session):
+    import os
+    import subprocess
+    import sys
+    environment = {**os.environ, "CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": session,
+                   "PYTHONPATH": os.pathsep.join(filter(None, [str(ROOT), os.environ.get("PYTHONPATH")]))}
+    return subprocess.run([sys.executable, "-m", *arguments], cwd=cwd, env=environment, capture_output=True, text=True,
+                          timeout=120)
+
+
+def test_status_comes_first_for_flowguard_map_and_from_a_project_subdirectory(tmp_path, capsys):
+    root = _plain(tmp_path)
+    _words(root, capsys, "Keep receipts.\n")
+    result = _agent_run(["flowguard.map", "check", "--root", str(root)], root, "session-map")
+    assert result.stderr.startswith(f"FLOWGUARD STATUS {root.resolve()} "), result.stderr
+    assert _marker(root)["session"] == "session-map"
+    inner = root / "pkg" / "deep"
+    inner.mkdir(parents=True)
+    result = _agent_run(["flowguard", "where", "R1"], inner, "session-sub")
+    assert result.stderr.startswith(f"FLOWGUARD STATUS {root.resolve()} "), result.stderr
+    assert _marker(root)["session"] == "session-sub"
+    assert not (inner / ".flowguard").exists()
