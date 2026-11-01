@@ -383,6 +383,9 @@ class Scene:
             self._never(f)
         elif f.kind in ROUTE_KINDS:
             self.red_actions = set(d.get("actions", ()))
+            if len(self.story) > 1:                   # a fallback: the path to where the second route is used
+                self.targets = [self.story[-1]]
+                self.target_text = "where the second route is used"
             self.extra_caption.append("red: the arrows of the routes " + ", ".join(sorted(self.red_actions)))
             self.head = f"{f.kind} {f.subject} [{f.id}]"
         else:
@@ -509,7 +512,7 @@ class Scene:
                 names = ", ".join(show_key(k) for k in keys)
                 fo = ("--fields", ",".join(show_key(k) for k in keys))
                 out.append(View(f"the fields the counterexample changes ({names}), whole space", keys, options=fo))
-                for k in (3, 2, 1):
+                for k in (3, 2, 1) if self.targets else ():
                     out.append(View(f"{_plural(k, 'step')} around {self.target_text}, fields {names}", keys, "focus", k,
                                     options=("--focus", str(k)) + fo))
                 out.append(View(f"the counterexample alone, fields {names}", keys, "story",

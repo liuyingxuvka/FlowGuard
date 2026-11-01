@@ -445,3 +445,23 @@ def test_before_with_a_conflict_keeps_the_red_path_and_greys_what_went(project):
     assert sorted(a[1] for a in pic["arrows"] if a[3] == "#999") == ["receive", "return_damaged"]
     code, out = show(project.root)                       # the default: the conflict picture, as check draws it
     assert code == 0 and "#999" not in out and ": 6 boxes, 9 arrows" in out.splitlines()[0]
+
+
+def test_a_fallback_route_is_focused_where_the_second_route_is_used(project):
+    """A route conflict with a path (FALLBACK ROUTE) focuses on where the second route is
+    used; one without a path (DUPLICATE ROUTE) is offered no focus view at all, so no
+    picture is ever an empty focus."""
+    from flowguard._next.routes import route_checks
+    path = project.flow_from(DATA / "toy_next" / "rental_planted.py", "rental")
+    _, _, routes = route_checks(path, project.root, Bounds())
+    report = check_model(load_model(path, project.root))
+    fallback = next(f for f in routes.findings if f.kind == "FALLBACK ROUTE")
+    choice = diagram.choose_view(report, fallback, request=diagram.Request(max_boxes=4, max_arrows=5))
+    focus = [(v.name, nb) for v, nb, _ in choice.tried if v.kind == "focus"]
+    assert [name for name, _ in focus] == [f"{k} step{'s' if k > 1 else ''} around where the second route is used, "
+                                           "fields cond[T1], main_busy" for k in (3, 2, 1)]
+    assert all(nb > 0 for _, nb in focus)
+    duplicate = next(f for f in routes.findings if f.kind == "DUPLICATE ROUTE")
+    choice = diagram.choose_view(report, duplicate)
+    assert not [v for v, _, _ in choice.tried if v.kind == "focus"] and choice.drawing.n_boxes > 0
+    assert "red: the arrows of the routes" in diagram.mermaid(choice.drawing)
