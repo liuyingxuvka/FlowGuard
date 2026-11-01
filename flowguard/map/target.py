@@ -16,7 +16,7 @@ import subprocess
 from dataclasses import dataclass, field, replace
 
 from .common import (SOURCE_EXTS, advice, render_advice, print_verdict, matches_any, content_digest,
-                     atomic_write_text, normalize_newlines, project_command)
+                     atomic_write_text, git_blob, git_common_directory, git_run, normalize_newlines, project_command)
 from .inventory import build_inventory, function_digests
 from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract, save_map, validate_map
 from .targetfile import (TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_is_noop, target_node_changes,
@@ -29,7 +29,6 @@ from .target_identity import (
     _subject_changed,
     _file_hash,
     _promotion_inputs,
-    _git,
     _git_head,
     _record_base,
     _target_base,
@@ -268,9 +267,9 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
         from .common import read_source
         from .mapfile import format_guard
         if base.get("git"):
-            previous = _git(root, "show", base["git"] + ":" + formula_path)
-            if previous is not None and previous.returncode == 0:
-                message = format_guard(previous.stdout.decode("utf-8"), read_source(root / formula_path))
+            previous = git_blob(root, base["git"], formula_path)
+            if previous is not None:
+                message = format_guard(previous.decode("utf-8"), read_source(root / formula_path))
                 if message:
                     report.warnings.append(TargetFinding("target", "fingerprint_format_unchanged", message.removeprefix("fingerprint_format_unchanged: ")))
     changed_paths = target_model_paths(root, current, target)
@@ -670,9 +669,9 @@ def _staging_paths(root, data, inputs, selected_tests):
     from .impact_history import read_git_paths
     from .mapfile import ignore_patterns
 
-    worktree = _git(root, "rev-parse", "--is-inside-work-tree")
-    if worktree is None or worktree.returncode != 0 or worktree.stdout.strip() != b"true":
-        return None
+    if (git_common_directory(root) is None
+            or git_run(root, "rev-parse", "--is-inside-work-tree").stdout.strip() != b"true"):
+        return None  # A failing Git raises with its own message before anything is applied.
     try:
         indexed = set(read_git_paths(root, "ls-files", "--cached", "-z", "--", "."))
         args = ["diff", "--relative", "--no-renames", "--name-only", "-z"]
@@ -950,17 +949,17 @@ def _add(root: Path, data: dict, target, requested: str) -> None:
         print(f"added model {name}: {destination.relative_to(root).as_posix()}")
         contract = read_model_contract(destination)
         if _git_head(root):
-            tracked = _git(root, "ls-files", "--error-unmatch", entry.path)
+            tracked = git_run(root, "ls-files", "--error-unmatch", "--", entry.path, allowed=(0, 1))
             if tracked.returncode:
                 print(f"note: {entry.path} is not tracked by git; it stays the current model until target promote (commit .flowguard/ so git also holds it)")
             else:
-                dirty = _git(root, "diff", "--quiet", "HEAD", "--", entry.path).returncode == 1
+                dirty = git_run(root, "diff", "--quiet", "HEAD", "--", entry.path, allowed=(0, 1)).returncode == 1
                 digest = content_digest(root / entry.path)
                 if dirty and digest != data.get("model_digests", {}).get(entry.path):
-                    original = _git(root, "show", "HEAD:" + entry.path)
-                    if original.returncode:
-                        raise MapError(f"cannot read HEAD model {entry.path}")
-                    (root / entry.path).write_bytes(original.stdout)
+                    original = git_blob(root, "HEAD", entry.path)
+                    if original is None:
+                        raise MapError(f"cannot read HEAD model {entry.path}: HEAD does not hold it")
+                    (root / entry.path).write_bytes(original)
                     print(f"moved uncommitted edits of {entry.path} into the target; the current model is HEAD again")
         for helper in contract["imports"]:
             if helper.startswith("_") and (root / ".flowguard/models" / f"{helper}.py").is_file():

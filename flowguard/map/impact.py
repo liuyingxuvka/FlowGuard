@@ -24,14 +24,18 @@ from .tree import build_tree
 
 def changed_files(root: Path, base: str, *, data=None, inv=None) -> list[str]:
     """Keep both sides of renames and deleted paths, plus untracked files."""
+    from .common import MapError, git_common_directory, git_head
+    if git_common_directory(root) is None or base == "HEAD" and git_head(root) is None:
+        return _no_git_changes(root, data, inv)  # No Git here, or no first commit to compare with.
     files: set[str] = set()
     commands = (["git", "-C", str(root), "diff", "--name-status", "-z", "-M", base],
                 ["git", "-C", str(root), "ls-files", "-o", "--exclude-standard", "-z"])
     for i, cmd in enumerate(commands):
         try:
             fields = _read_git_paths(root, *cmd[3:])
-        except subprocess.CalledProcessError as exc:
-            return _no_git_changes(root,data,inv)
+        except subprocess.CalledProcessError as exc:  # Inside Git a failure is an error with Git's own message.
+            reason = os.fsdecode(exc.stderr or b"").strip() or f"exit status {exc.returncode}"
+            raise MapError(f"git {cmd[3]} failed in {root}: {reason}") from exc
         if i == 1:
             files.update(norm(f) for f in fields)
             continue

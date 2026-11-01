@@ -3,9 +3,8 @@
 from __future__ import annotations
 import hashlib
 import json
-import subprocess
 from datetime import datetime, timezone
-from .common import git_blob, normalize_newlines, read_source
+from .common import git_blob, git_common_directory, git_head, normalize_newlines, read_source
 from .inventory import build_inventory, function_digests
 from .mapfile import ignore_patterns, load_map
 from .targetfile import TARGET_RELDIR, model_helper_digests
@@ -90,24 +89,18 @@ def _promotion_inputs(root, data):
     return {path: _file_hash(root / path) for path in sorted(paths)}
 
 
-def _git(root, *arguments):
-    try:
-        return subprocess.run(["git", "-C", str(root), *arguments], capture_output=True)
-    except OSError:
-        return None
-
-
 def _git_head(root):
-    result = _git(root, "rev-parse", "--verify", "HEAD")
-    return result is not None and result.returncode == 0
+    """Whether root is in a Git repository with a first commit; a failing Git raises with its own message."""
+    return git_common_directory(root) is not None and git_head(root) is not None
 
 
 def _record_base(root):
     """Capture design inputs and complete helper source state, never proof results."""
     data = {"schema": "flowguard.target-base.v1", "helpers": model_helper_digests(root),
             "started": datetime.now(timezone.utc).isoformat()}
-    if _git_head(root):
-        data["git"] = _git(root, "rev-parse", "HEAD").stdout.decode().strip()
+    head = git_head(root) if git_common_directory(root) is not None else None
+    if head:
+        data["git"] = head
     else:
         from .plan import function_identities
         current = load_map(root) if (root / ".flowguard/map.json").exists() else {}

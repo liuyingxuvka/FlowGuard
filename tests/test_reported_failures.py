@@ -401,3 +401,53 @@ def test_fix_advice_in_a_folder_without_git_suggests_no_git_command(tmp_path, ki
     assert errors, findings
     for message in errors:
         assert "git -C" not in message and "checkout --" not in message, message
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX shell script stands in for a failing git")
+def test_a_failing_git_stops_target_start_instead_of_recording_a_folder_base(tmp_path, monkeypatch):
+    from flowguard.map import target as native
+    root = tmp_path / "repo"
+    (root / ".flowguard").mkdir(parents=True)
+    (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [], "flows": []}),
+                                              encoding="utf-8")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    _failing_git(tmp_path, monkeypatch, "--verify")
+    with pytest.raises(MapError, match="simulated --verify failure"):
+        native.start_target(root, "change something")
+    assert not (root / ".flowguard/target/base.json").exists()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX shell script stands in for a failing git")
+def test_a_failing_git_stops_promote_instead_of_giving_no_git_advice(tmp_path, capsys, monkeypatch):
+    from flowguard.map import target as native
+    from _fg_helpers import target__target_life_cycle_fixture_helpers as helpers_of
+    helpers = helpers_of("target_findings")
+    root = helpers["make_project"](tmp_path / "project")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    helpers["stage_target"](root)
+    before = (root / ".flowguard/map.json").read_bytes()
+    _failing_git(tmp_path, monkeypatch, "--is-inside-work-tree")
+    code = native.promote_target(root)
+    captured = capsys.readouterr()
+    assert code == 2 and "simulated --is-inside-work-tree failure" in captured.err, (captured.out, captured.err)
+    assert (root / ".flowguard/target").exists() and (root / ".flowguard/map.json").read_bytes() == before
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX shell script stands in for a failing git")
+def test_a_failing_git_diff_stops_change_selection_instead_of_the_no_git_route(tmp_path, monkeypatch):
+    from flowguard.map.impact import changed_files
+    root = tmp_path / "repo"
+    (root / ".flowguard").mkdir(parents=True)
+    (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [], "flows": []}),
+                                              encoding="utf-8")
+    (root / "a.py").write_text("x = 1\n", encoding="utf-8")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "base")
+    _failing_git(tmp_path, monkeypatch, "diff")
+    with pytest.raises(MapError, match="simulated diff failure"):
+        changed_files(root, "HEAD")
