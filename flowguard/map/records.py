@@ -13,6 +13,15 @@ from .common import Finding, atomic_write_text, normalize_newlines, sha256_bytes
 from .mapfile import MapError
 
 
+class Unverifiable(Exception):
+    """No original-byte fact exists for this file here; that is not evidence of an edit."""
+
+    def __init__(self, relative: str):
+        self.relative = relative
+        super().__init__(f"cannot verify {relative} here: this checkout has no Git history, first-write receipt "
+                         "or release snapshot for it (a copy without .git or a moved folder)")
+
+
 def _git(root: Path, *arguments: str):
     try:
         return subprocess.run(["git", "-C", str(root), *arguments], capture_output=True)
@@ -113,7 +122,7 @@ def _stored_digest(root, path, relative, common):
     first = _first_blob(root, relative, common)
     if first is not None:
         return sha256_bytes(first), None
-    return None, f'immutable file has no first-write or committed baseline: {relative}'
+    raise Unverifiable(relative)
 
 
 def _attribute_problem(root: Path, relative: str, common):
@@ -197,7 +206,9 @@ def _first_blob(root: Path, relative: str, common):
 
 
 def integrity_problem(root, relative_path):
-    """Return a byte-protection diagnostic; never learn a baseline from the file."""
+    """Return a byte-protection diagnostic; never learn a baseline from the file.
+
+    Raises Unverifiable when no original-byte fact exists here, so callers never report it as an edit."""
     root, path, relative = _paths(root, relative_path)
     if not path.is_file():
         return f"immutable file is missing: {relative}"
@@ -436,6 +447,8 @@ def change_records(root):
     for identifier in _record_identifiers(root):
         try:
             records.append((identifier, _change_record(root, identifier)))
+        except Unverifiable:
+            continue  # Not a fact here; record_findings reports immutable_unverified.
         except (OSError, ValueError, KeyError, TypeError, OverflowError):
             continue
     return records
@@ -450,7 +463,10 @@ def save_release_snapshot(root):
     files = {}
     for directory in (Path('.flowguard/requests'), CHANGE_DIR):
         for relative in sorted(protected_paths(root, directory)):
-            expected, problem = _stored_digest(root, root / relative, relative, common)
+            try:
+                expected, problem = _stored_digest(root, root / relative, relative, common)
+            except Unverifiable:
+                continue  # Never take a baseline from current bytes; check reports immutable_unverified.
             if problem:
                 raise MapError(problem)
             files[relative] = expected
@@ -522,9 +538,12 @@ def record_findings(root):
         _release_records(root)
     except MapError as error:
         findings.append(Finding('error', 'release_snapshot_invalid', '', str(error)))
+    unverified = []
     for identifier in _record_identifiers(root):
         try:
             _change_record(root, identifier)
+        except Unverifiable:
+            unverified.append(identifier)
         except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
             restore = shlex.join(["git", "-C", str(root), "checkout", "--",
                                   (CHANGE_DIR / (identifier + ".json")).as_posix(),
@@ -532,4 +551,9 @@ def record_findings(root):
             findings.append(Finding("error", "record_edited", identifier,
                                     f"{root / CHANGE_DIR / identifier}: {error}; records are written once; "
                                     f"restore the original pair ({restore} when committed)"))
+    if unverified:
+        findings.append(Finding("info", "immutable_unverified", "",
+                                f"{len(unverified)} change record(s) not used here (first: {CHANGE_DIR / unverified[0]}): "
+                                "this checkout has no Git history, first-write receipt or release snapshot for them, "
+                                "as in a copy without .git or a moved folder; check them in a Git clone or the original folder"))
     return findings

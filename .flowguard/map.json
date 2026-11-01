@@ -851,7 +851,7 @@
     {
       "id": "map-requests",
       "layer": "map",
-      "summary": "Preserve original requests, checked PLAN/model provenance and immutable change records; copy independent byte identities only after successful nongit releases and derive request/release history from those facts.",
+      "summary": "Preserve original requests, checked PLAN/model provenance and immutable change records; report a file with no original-byte fact here as unverifiable, never as edited; copy independent byte identities only after successful nongit releases and derive request/release history from those facts.",
       "responsibilities": [
         "preserve original owner request bytes and sidecars",
         "protect immutable tool-written files",
@@ -886,7 +886,7 @@
         "writes request files, change record pairs, raw-byte guards and independent written receipts"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:104e99820bcba27013815ae7253a186a32815a8700c7c592751dc51c5f2249dd"
+      "fingerprint": "sha256:379d1ba84f4a5e985ef6b96c45d9f5ea23479ed15009b43f5e19461ef04d8704"
     },
     {
       "id": "map-derived",

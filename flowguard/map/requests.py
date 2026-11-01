@@ -10,7 +10,7 @@ import subprocess
 
 from .common import Finding, sha256_bytes
 from .mapfile import MapError
-from .records import integrity_problem, prepare_directory, protected_paths, validate_new_files, write_once
+from .records import Unverifiable, integrity_problem, prepare_directory, protected_paths, validate_new_files, write_once
 
 REQUEST_DIR = Path('.flowguard/requests')
 REQUEST_ID = re.compile(r'[A-Za-z][A-Za-z0-9_-]*\Z')
@@ -113,11 +113,18 @@ def request_findings(root: Path) -> list[Finding]:
 
     root = Path(root).resolve()
     findings = []
+    unverified = []
+    def problem_of(path):
+        try:
+            return integrity_problem(root, path)
+        except Unverifiable:
+            unverified.append(path)
+            return None
     for identifier in _identifiers(root):
         body = REQUEST_DIR / (identifier + '.md')
         meta = body.with_suffix('.json')
-        body_problem = integrity_problem(root, body)
-        meta_problem = integrity_problem(root, meta)
+        body_problem = problem_of(body)
+        meta_problem = problem_of(meta)
         try:
             item = _metadata(root / meta, identifier)
         except (OSError, ValueError, KeyError, TypeError, OverflowError) as error:
@@ -134,6 +141,12 @@ def request_findings(root: Path) -> list[Finding]:
                 findings.append(Finding('error', code, identifier,
                     f'{root / path} differs from the stored request: {problem}; restore its original bytes '
                     f'({restore} when committed); a correction from the owner is a new request'))
+    if unverified:
+        findings.append(Finding('info', 'immutable_unverified', '',
+            f'{len(unverified)} request file(s) cannot be checked against their original bytes here '
+            f'(first: {unverified[0].as_posix()}): this checkout has no Git history, first-write receipt or release '
+            'snapshot for them, as in a copy without .git or a moved folder; owner text is still checked against its '
+            'sidecar digest; check the rest in a Git clone or the original folder'))
     return findings
 
 
@@ -199,7 +212,11 @@ def validate_request_links(root: Path, links) -> None:
                                   '--id', identifier, '--root', str(root)])
             raise MapError(f'request_unknown: {identifier} is not stored; store it first: {command}')
         for path, code in ((body, 'owner_text_edited'), (meta, 'request_meta_edited')):
-            problem = integrity_problem(root, path)
+            try:
+                problem = integrity_problem(root, path)
+            except Unverifiable as error:
+                raise MapError(f'request_unverifiable: {identifier}: {error}; link or quote it from a Git clone '
+                               'or the original folder') from error
             if problem:
                 raise MapError(f'{code}: {problem}')
         try:

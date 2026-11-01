@@ -214,3 +214,42 @@ def test_release_snapshot_writer_failure_has_one_failing_json_verdict(tmp_path, 
     assert json.loads(output)["verdict"] == "FAIL" and "PASS" not in output
     assert "release snapshot writer unavailable" in errors
     assert {path.name: path.read_bytes() for path in directory.iterdir() if path.is_file()} == original
+
+
+def _immutable_codes(output):
+    return {code for code in ("owner_text_edited", "request_meta_edited", "record_edited") if code in output}
+
+
+def test_unedited_copy_without_git_is_unverifiable_not_edited(tmp_path, capsys):
+    root = tmp_path / "project"
+    _promoted_project(root, capsys, git=True)
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "promoted change")
+    copy = tmp_path / "copy"
+    shutil.copytree(root, copy, ignore=shutil.ignore_patterns(".git"))
+    code, output, _ = _call(copy, capsys, "map", "check", "--strict")
+    assert code == 0 and not _immutable_codes(output), output
+    assert "immutable_unverified" in output
+    code, output, _ = _call(copy, capsys, "release", "--json")
+    assert not _immutable_codes(output), output
+    body = copy / ".flowguard/requests/R1.md"
+    body.write_bytes(body.read_bytes() + b"x")
+    code, output, _ = _call(copy, capsys, "map", "check", "--strict")
+    assert code == 1 and "owner_text_edited" in output, output
+
+
+def test_moved_nongit_project_is_unverifiable_not_edited(tmp_path, capsys):
+    root = _project(tmp_path / "project", capsys)
+    source = tmp_path / "owner.md"
+    source.write_bytes(b"Keep this request after the folder moves.\n")
+    assert _call(root, capsys, "req", "add", str(source), "--id", "R1")[0] == 0
+    assert _call(root, capsys, "map", "check", "--strict")[0] == 0
+    moved = tmp_path / "moved"
+    root.rename(moved)
+    code, output, _ = _call(moved, capsys, "map", "check", "--strict")
+    assert code == 0 and not _immutable_codes(output), output
+    assert "immutable_unverified" in output
+    body = moved / ".flowguard/requests/R1.md"
+    body.write_bytes(body.read_bytes() + b"x")
+    code, output, _ = _call(moved, capsys, "map", "check", "--strict")
+    assert code == 1 and "owner_text_edited" in output, output

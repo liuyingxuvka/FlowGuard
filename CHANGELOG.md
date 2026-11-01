@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A copy of a project without `.git`, or a project folder moved elsewhere, no longer reports unchanged requests, request metadata or change records as edited. Files whose original bytes cannot be checked there are listed once as `immutable_unverified` info, owner text is still checked against its sidecar, and linking or quoting such a request is refused with `request_unverifiable`.
+
 ## v0.71.1 - 2026-11-01 - Static source and original-text queries
 
 - Add optional, read-only `where` queries for names, owners and callers, module overviews, static flows, architecture, shared state and file destinations. Queries do not run application code, models or tests; missing execution records remain explicit.
