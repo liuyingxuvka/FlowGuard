@@ -219,8 +219,21 @@ def installed_skill_warnings(version):
 SHOWN_OWNER_WORDS = 3
 
 
+def _damage(row):
+    """How a stored request's own files changed, with the restore step; None when they hold."""
+    if row['invalid']:
+        return f"unreadable ({row['invalid']})"
+    if row['edited']:
+        hidden = '' if row['retired'] else ", so its text is not shown as the owner's words"
+        return f"edited after it was stored{hidden}: {row['edited']}"
+    return None
+
+
 def render_owner_words(words):
-    """The newest owner words in full first lines; retired planner text never appears as owner words."""
+    """The newest owner words in full first lines; retired planner text never appears as owner words.
+
+    A request whose files changed is named with its restore step: in its row when the row is shown in full,
+    in one WARNING line when it is retired or older than the rows shown."""
     rows = [row for row in words['rows'] if not row['retired']]
     lines = []
     if not rows:
@@ -231,13 +244,10 @@ def render_owner_words(words):
         for row in rows[:SHOWN_OWNER_WORDS]:
             when = row['received'][:16].replace('T', ' ') + ' UTC' if row['received'] else 'unknown time'
             kind = '' if row['kind'] in (None, 'request') else f" [{row['kind']}]"
-            if row['invalid']:
-                text = f"unreadable ({row['invalid']})"
-            elif row['edited']:
-                text = f"edited after it was stored, so its text is not shown as the owner's words: {row['edited']}"
-            elif row['superseded_by']:
+            text = _damage(row)
+            if text is None and row['superseded_by']:
                 text = 'superseded by ' + ', '.join(row['superseded_by'])
-            else:
+            elif text is None:
                 more = row['extra_lines']
                 text = row['first_line'] + (f" (+{more} line{'s' if more > 1 else ''})" if more else '')
             cited = ''
@@ -253,6 +263,10 @@ def render_owner_words(words):
             lines.append(f"  older: {names} (python -m flowguard where {older[0]['id']})")
     if words['retired_since_release']:
         lines.append("RETIRED (not the owner's words): " + ', '.join(words['retired_since_release']))
+    shown = {row['id'] for row in rows[:SHOWN_OWNER_WORDS]}
+    for row in words['rows']:
+        if row['id'] not in shown and _damage(row):
+            lines.append(f"WARNING {'retired request' if row['retired'] else 'request'} {row['id']} {_damage(row)}")
     problems = words.get('retire_problems', {})
     unchecked = [identifier for identifier, problem in problems.items() if problem.startswith('cannot be checked here')]
     if unchecked:

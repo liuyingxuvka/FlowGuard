@@ -488,3 +488,46 @@ def test_a_deleted_retire_record_is_named_missing_not_edited(tmp_path, capsys):
     (root / ".flowguard/requests/retired/R1.json").unlink()
     named = [line for line in _call(root, capsys, "status")[1].splitlines() if "retire record" in line]
     assert len(named) == 1 and "R1 is missing" in named[0] and "edited" not in named[0], named
+
+
+def test_an_edited_retired_request_is_named_with_its_restore_step(tmp_path, capsys):
+    """A retired request's own files get the same byte check as any request; status and where name the edit."""
+    import shlex
+    import subprocess
+    root, _ = _retired_copy_without_git(tmp_path, capsys)
+    assert _call(root, capsys, "map", "check")[0] == 2  # no legacy map here: status and where must say it
+    body, sidecar = root / ".flowguard/requests/R1.md", root / ".flowguard/requests/R1.json"
+    for path, raw, edit in (
+            (sidecar, sidecar.read_bytes().replace(b'"bytes": ', b'"bytes":  '),
+             "unreadable (immutable file bytes changed: .flowguard/requests/R1.json"),
+            (body, b"A PASTED plan, not owner words.\n",
+             "edited after it was stored: immutable file bytes changed: .flowguard/requests/R1.md")):
+        path.write_bytes(raw)
+        output = _call(root, capsys, "status")[1]
+        named = [line for line in output.splitlines() if "R1" in line and line.startswith("WARNING")]
+        assert len(named) == 1 and named[0].startswith("WARNING retired request R1 " + edit), output
+        assert "A PASTED plan" not in output and "map check" not in output, output
+        where = _call(root, capsys, "where", "R1")[1]
+        request = next(line for line in where.splitlines() if line.startswith("request R1: "))
+        assert request.startswith("request R1: retired: not the owner's words; " + edit), where
+        assert "A PASTED plan" not in where, where
+        command = re.search(r"\((git -C .*?) when committed\)", named[0])
+        subprocess.run(shlex.split(command[1]), check=True, capture_output=True)
+    output = _call(root, capsys, "status")[1]
+    assert not [line for line in output.splitlines() if line.startswith("WARNING retired request")], output
+    assert "request R1: retired: not the owner's words · 1. a planner list" in _call(root, capsys, "where", "R1")[1]
+
+
+def test_an_edited_request_beyond_the_newest_three_is_named(tmp_path, capsys):
+    root = _plain(tmp_path)
+    _words(root, capsys, "First words.\n", "Second words.\n", "Third words.\n", "Fourth words.\n")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "stored words")
+    (root / ".flowguard/requests/R1.md").write_text("Words someone else wrote.\n", encoding="utf-8")
+    output = _call(root, capsys, "status")[1]
+    _, rows = _owner_lines(output)
+    assert rows[3] == "older: R1 (python -m flowguard where R1)", rows
+    named = [line for line in output.splitlines() if line.startswith("WARNING request R1 ")]
+    assert len(named) == 1 and "edited after it was stored" in named[0], output
+    assert "checkout -- .flowguard/requests/R1.md" in named[0] and "Words someone else wrote." not in output, output

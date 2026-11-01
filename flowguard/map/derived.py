@@ -601,11 +601,11 @@ def render(result, *, as_json=False, all_rows=False):
         for row in result.get("changes", []):
             lines.append("change " + row["id"] + ": " + row["goal"] + " · " + ", ".join(row["implemented_by"]))
         for row in result.get("requests", []):
-            state = ("retired: not the owner's words" if row["retired"] else
-                     "unreadable (" + row["invalid"] + ")" if row["invalid"] else
-                     "edited after it was stored, so not the owner's words: " + row["edited"]
-                     if row["edited"] else
-                     "superseded by " + ", ".join(row["superseded_by"]) if row["superseded_by"] else "owner words")
+            damage = ("unreadable (" + row["invalid"] + ")" if row["invalid"] else
+                      "edited after it was stored" + ("" if row["retired"] else ", so not the owner's words") + ": " + row["edited"]
+                      if row["edited"] else "")
+            state = ("retired: not the owner's words" + ("; " + damage if damage else "") if row["retired"] else damage or
+                     ("superseded by " + ", ".join(row["superseded_by"]) if row["superseded_by"] else "owner words"))
             lines.append("request " + row["id"] + ": " + state + " · " + row["first_line"]
                          + (" · cited by " + ", ".join(row["cited_by"]) if row["cited_by"] else ""))
         for row in result.get("drift", []):

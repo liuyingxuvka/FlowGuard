@@ -302,20 +302,12 @@ def owner_words(root: Path, *, records=None) -> dict:
     cited, commits_known = request_citations(root, change_records(root) if records is None else records)
     rows = []
     for identifier in _identifiers(root):
-        # A retire record applies as written, whatever the state of the request files it hides; the owner
-        # words shown are checked as map check checks them, and edited text is never shown as the owner's.
+        # A retire record applies as written, whatever the state of the request files it hides. Every
+        # request's files, retired or not, are checked as map check checks them, and edited text is never shown.
         body = root / REQUEST_DIR / (identifier + '.md')
-        edited, invalid, text = None, None, []
-        if identifier in retired:
-            try:
-                item = _metadata(body.with_suffix('.json'), identifier)
-                text = body.read_bytes().decode('utf-8-sig', errors='replace').splitlines()
-            except (OSError, ValueError) as error:
-                invalid = str(error)
-        else:
-            edited, invalid, item = _request_problems(root, identifier, [])
-            if invalid is None and edited is None:
-                text = body.read_bytes().decode('utf-8-sig', errors='replace').splitlines()
+        edited, invalid, item = _request_problems(root, identifier, [])
+        intact = invalid is None and edited is None
+        text = body.read_bytes().decode('utf-8-sig', errors='replace').splitlines() if intact else []
         if invalid is not None:
             files = [(REQUEST_DIR / (identifier + suffix)).as_posix() for suffix in ('.md', '.json')]
             rows.append(dict(id=identifier, kind=None, received='', first_line='', extra_lines=0, supersedes=[],
