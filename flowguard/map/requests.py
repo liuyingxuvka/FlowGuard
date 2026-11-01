@@ -159,7 +159,8 @@ def retired_requests(root: Path) -> dict:
     """Every retire record as written, by request ID, with its integrity problem (None when verified here).
 
     A retire record applies for display in every checkout; whether its bytes can be verified is a separate
-    fact that status names and request_findings reports (request_retire_edited, immutable_unverified)."""
+    fact that status names and request_findings reports (request_retire_edited, request_retire_unreadable,
+    immutable_unverified)."""
     root = Path(root).resolve()
     found = {}
     for identifier in _stems(root, RETIRED_DIR):
@@ -247,7 +248,11 @@ def request_findings(root: Path) -> list[Finding]:
             _retire_record(root, identifier)
         except Unverifiable:
             unverified.append(path)
-        except (OSError, ValueError) as error:
+        except OSError as error:
+            findings.append(Finding('error', 'request_retire_unreadable', identifier,
+                f'{root / path} cannot be read: {error}; it still hides {identifier} from the owner\'s words; '
+                f'{restore_advice(root, [path.as_posix()], common)}'))
+        except ValueError as error:
             findings.append(Finding('error', 'request_retire_edited', identifier,
                 f'{root / path}: {error}; retire records are written once; '
                 f'{restore_advice(root, [path.as_posix()], common)}'))

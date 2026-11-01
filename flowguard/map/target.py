@@ -201,7 +201,7 @@ def _finding_node(finding, tree):
     if model:
         node = next((n for n in tree.nodes.values() if n.path == model.group(1)), None)
         return "model " + (node.id if node else Path(model.group(1)).stem)
-    if finding.code in {"owner_text_edited", "request_meta_edited", "request_retire_edited"}:
+    if finding.code in {"owner_text_edited", "request_meta_edited", "request_retire_edited", "request_retire_unreadable"}:
         return "request " + finding.component
     if finding.code == "record_edited":
         return "change " + finding.component

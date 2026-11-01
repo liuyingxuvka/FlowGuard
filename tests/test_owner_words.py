@@ -432,6 +432,9 @@ def test_a_retire_record_that_cannot_be_read_is_not_called_edited(tmp_path, caps
     assert problem.startswith("cannot be read: ") and "edited" not in problem, problem
     named = [line for line in _call(root, capsys, "status")[1].splitlines() if "retire record" in line]
     assert len(named) == 1 and "R1 cannot be read: " in named[0], named
+    findings = requests.request_findings(root)  # map check: its own code, never request_retire_edited
+    assert [(item.code, item.component) for item in findings] == [("request_retire_unreadable", "R1")], findings
+    assert "cannot be read" in findings[0].message and "Permission denied" in findings[0].message
 
 
 def test_an_unreadable_sidecar_of_a_retired_request_keeps_it_retired_and_blames_the_sidecar(tmp_path, capsys):
