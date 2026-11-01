@@ -102,3 +102,52 @@ def test_output_order_is_conflicts_then_warnings_then_errors():
     report = report_of(MODELS / "e7b_machine_haiku1" / "model.py", drop_rules=False)
     order = [f.cls for f in report.findings]
     assert order == sorted(order, key=["conflict", "warning", "error"].index)
+
+
+SHELF = '''
+from flowguard._next import Model, need
+
+m = Model("shelf")
+BOOKS = m.objects("book", "B1", "B2")
+m.field("where", ["shelf", "loan", "repair"], "shelf", over=BOOKS, source="R1", value_sources={"repair": "R4"})
+
+@m.action(b=BOOKS, source="R1")
+def lend(s, b):
+    need(s["where", b] == "shelf", "not on the shelf")
+    s["where", b] = "loan"
+
+@m.action(b=BOOKS, source="R1")
+def give_back(s, b):
+    need(s["where", b] == "loan", "not on loan")
+    s["where", b] = "shelf"
+
+@m.action(b=BOOKS, source="R4")
+def damaged(s, b):
+    need(s["where", b] == "loan", "not on loan")
+    s["where", b] = "repair"
+EXTRA
+MODEL = m
+'''
+
+
+def test_a_value_never_left_that_no_end_declares_is_a_warning(project):
+    """The prototype printed it under ENDS ("if that is not the design, it is a dead end"):
+    a book sent to repair that never comes back is taken as the end of its life."""
+    flow = project.root / ".flowguard" / "flow"
+    project.flow("forgotten", SHELF.replace("EXTRA", ""))
+    report = check_model(load_model(flow / "forgotten.py", project.root))
+    [end] = [f for f in report.findings if f.kind == "UNDECLARED END"]
+    assert end.cls == WARNING and end.subject == "where[*] = 'repair'" and end.objects == ("B1", "B2")
+    assert end.sources == ("R1", "R4") and "m.terminal('where', ['repair'])" in end.text
+    assert not [f for f in report.findings if f.cls == CONFLICT]
+    project.flow("declared", SHELF.replace("EXTRA", 'm.terminal("where", ["repair"], source="R4")'))
+    report = check_model(load_model(flow / "declared.py", project.root))
+    assert not [f for f in report.findings if f.kind == "UNDECLARED END"]
+    project.flow("fixed", SHELF.replace("EXTRA", '''
+@m.action(b=BOOKS, source="R4")
+def repaired(s, b):
+    need(s["where", b] == "repair", "not in repair")
+    s["where", b] = "shelf"
+'''))
+    report = check_model(load_model(flow / "fixed.py", project.root))
+    assert report.findings == []

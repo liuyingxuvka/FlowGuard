@@ -304,6 +304,7 @@ class _Run:
         if g.complete:
             stuck = self.stuck()
             raw += stuck
+            raw += self.undeclared_ends()
             stuck_names = {n for f in stuck for n in f.detail.get("progress_names", [])}
             never, reach_missing, explained = self.never()
             raw += never
@@ -976,6 +977,26 @@ class _Run:
         return out
 
     # -------------------------------------------------------------- warnings, errors
+    def undeclared_ends(self):
+        """A text value no state leaves again, in a field with no declared ends, is taken as
+        the end of its object's life (the prototype's ENDS); it is reported, since it is a
+        dead end unless the design means it."""
+        out = []
+        for name, values, declared in self.terminal:
+            if declared:
+                continue
+            fields = [f for f in self.model.fields if f.family == name]
+            objects = sorted({f.obj for f in fields if f.obj is not None}, key=natural_key)
+            sources = {f.source for f in fields} | {f.value_sources.get(v) for f in fields for v in values}
+            shown = ", ".join(repr(v) for v in values)
+            subject = f"{name}[*] = {shown}"
+            out.append(make_finding("UNDECLARED END", WARNING, self.mid, subject,
+                                    f"{subject} is never left: taken as the end of a life, which nothing declares "
+                                    f"(m.terminal({name!r}, [{shown}]) if it is meant; otherwise it is a dead end)",
+                                    objects=objects, sources=sources, detail={"field": name, "values": list(values)},
+                                    line=fields[0].line))
+        return out
+
     def settings_warning(self):
         model = self.model
         literal = [n for n, s in model.setting_info.items() if s.origin == "model only"]
