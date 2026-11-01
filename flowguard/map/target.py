@@ -507,6 +507,8 @@ def gap_lines(root, target, view, report, results, *, goal=None, code_changes=No
             if finding.node == "model " + mid and finding.code == "model_anchor_broken" and not gaps:
                 gaps.append(finding.message)
         first = gaps[0].splitlines()[0] if gaps else ""
+        other = (unanchored or {}).get(mid, [])
+        hint = f"; changed but not an anchor of {mid}: {_listed(other)}" if other else ""
         if rules:
             names = " ".join(rules)
             if changed_rules is not None:
@@ -515,23 +517,21 @@ def gap_lines(root, target, view, report, results, *, goal=None, code_changes=No
             if symbols:
                 if gaps:
                     output.append(f"GAP OPEN {mid}: {len(gaps)} code gap(s) for {names} after code changes in "
-                                  f"{_listed(symbols)}; first: {first}")
+                                  f"{_listed(symbols)}{hint}; first: {first}")
                 else:
                     files = [symbol for symbol in symbols if " (whole file: " in symbol]
                     named = [symbol for symbol in symbols if symbol not in files]
                     clauses = ([f"gap closed by {_listed(named)} (changed since target start)"] if named else [])
                     clauses += [f"{_listed(files)} changed since target start"] if files else []
-                    output.append(f"GAP CLOSED {mid}: {names} hold; " + "; ".join(clauses))
+                    output.append(f"GAP CLOSED {mid}: {names} hold; " + "; ".join(clauses) + hint)
             elif gaps:
                 missing = [re.search(r"symbol '([^']+)' not found in (\S+)", gap) for gap in gaps]
                 if all(missing):
                     anchors = ", ".join(dict.fromkeys(f"'{match.group(1)}' in {match.group(2)}" for match in missing))
-                    output.append(f"EXPECTED GAP {mid}: only the missing anchor symbol {anchors} for {names}; conformance did not run, so this says nothing about the rule: add the symbol with today's behaviour, check again to see the rule's real gap, then change it")
+                    output.append(f"EXPECTED GAP {mid}: only the missing anchor symbol {anchors} for {names}{hint}; conformance did not run, so this says nothing about the rule: add the symbol with today's behaviour, check again to see the rule's real gap, then change it")
                 else:
-                    output.append(f"EXPECTED GAP {mid}: {len(gaps)} code gap(s) for {names}; first: {first}")
+                    output.append(f"EXPECTED GAP {mid}: {len(gaps)} code gap(s) for {names}{hint}; first: {first}")
             else:
-                other = (unanchored or {}).get(mid, [])
-                hint = f"; changed but not an anchor of {mid}: {_listed(other)}" if other else ""
                 output.append(f"NO GAP {mid}: the current code satisfies {names}{hint}; a changed rule needs a line in .flowguard/target/PLAN.txt, a new rule records existing behaviour; otherwise conformance() does not drive the real entry (check its call shape)")
         elif moved:
             donors = {}

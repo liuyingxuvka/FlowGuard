@@ -289,3 +289,29 @@ def test_a_helper_change_in_an_anchor_file_still_runs_the_bound_tests(tmp_path, 
     assert any(item.code == "tested_by_failed" for item in report.errors), rendered
     if git:
         assert "GAP CLOSED one" not in rendered, rendered
+
+
+def test_gap_closed_and_gap_open_lines_name_changes_that_are_not_anchors(tmp_path):
+    from flowguard.map import target as native
+    helpers = _fg403_helpers()
+    helpers["make_project"](tmp_path, helpers["regular_source"]())
+    _probe_git(tmp_path, "init", "-q")
+    _probe_git(tmp_path, "add", "-A")
+    _probe_git(tmp_path, "commit", "-qm", "base")
+    native.start_target(tmp_path, "raise the native answer")
+    native.add_to_target(tmp_path, "one")
+    (tmp_path / ".flowguard/target/models/one.py").write_text(helpers["regular_source"](expected=2))
+    path = tmp_path / "native.py"
+    path.write_text(path.read_text().replace("def other_value(): return 1", "def other_value(): return 7") + "EXTRA = 1\n")
+    hint = "changed but not an anchor of one: native.py (module level), native.py:other_value"
+    line = next(line for line in native.render_target_report(native.check_target(tmp_path)).splitlines()
+                if line.startswith("EXPECTED GAP one"))
+    assert hint in line, line
+    path.write_text(path.read_text().replace("def value(): return 1", "def value(): return 3"))
+    line = next(line for line in native.render_target_report(native.check_target(tmp_path)).splitlines()
+                if line.startswith("GAP OPEN one"))
+    assert "native.py:value" in line and hint in line, line
+    path.write_text(path.read_text().replace("def value(): return 3", "def value(): return 2"))
+    line = next(line for line in native.render_target_report(native.check_target(tmp_path)).splitlines()
+                if line.startswith("GAP CLOSED one"))
+    assert "gap closed by native.py:value " in line and hint in line, line
