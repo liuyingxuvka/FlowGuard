@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from .checks import ERROR_CLS, check_model, make_finding, reach_line
+from .checks import ERROR_CLS, check_model, make_finding, reach_line, verify_symmetry
 from .explore import Bounds
 from .model import ModelError, load_model
 from .project import file_digest
@@ -97,7 +97,10 @@ def part_digest(root: Path, spec: PartSpec, reads: list[str]) -> str:
 
 
 def core_part(ctx: PartContext) -> PartResult:
-    """Load, explore, run the prepared checks with their explanations."""
+    """Load, explore, run the prepared checks with their explanations. With the option
+    verify_symmetry (check --full) the model is also explored without renaming and the
+    fingerprints compared. The digest is taken right after the load, so it names the file
+    contents the run used even if a file changes while it explores."""
     root, spec = Path(ctx.root), ctx.spec
     max_states = spec.option("max_states", Bounds().max_states)
     try:
@@ -109,14 +112,24 @@ def core_part(ctx: PartContext) -> PartResult:
                                detail={"file": err.file}, line=err.line)
         return PartResult(spec.kind, spec.model, part_digest(root, spec, reads), True, [finding.to_json()],
                           {"loaded": False}, sorted(reads), [])
+    reads = list(loaded.reads)
+    digest = part_digest(root, spec, reads)
     report = check_model(loaded, Bounds(max_states),
                          progress=lambda d: ctx.progress({"model": spec.model, "kind": spec.kind, **d}))
+    model = loaded.model
     info = {"loaded": True, "reach": report.reach, "reach_line": reach_line(report.reach),
             "holds": [list(h) for h in report.holds], "unknown": list(report.unknown),
-            "seconds": round(report.graph.seconds, 3)}
-    reads = list(loaded.reads)
-    return PartResult(spec.kind, spec.model, part_digest(root, spec, reads), report.graph.complete,
-                      [f.to_json() for f in report.findings], info, reads, [])
+            "seconds": round(report.graph.seconds, 3), "covers": list(model.covers),
+            "families": sorted({f.family for f in model.fields}),
+            "objects": {kind: list(ids) for kind, ids in model.kinds.items()}}
+    findings = list(report.findings)
+    if spec.option("verify_symmetry", False):
+        sym = verify_symmetry(loaded, Bounds(max_states), report)
+        info["symmetry"] = {"verified": sym["verified"], "text": sym["text"]}
+        if sym["finding"] is not None:
+            findings.append(sym["finding"])
+    return PartResult(spec.kind, spec.model, digest, report.graph.complete,
+                      [f.to_json() for f in findings], info, reads, [])
 
 
 register("core", core_part)
