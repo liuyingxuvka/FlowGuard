@@ -656,3 +656,21 @@ def conformance():
         ),
     )
     assert findings() == []
+
+
+def test_a_review_debt_that_can_never_arise_is_stale(tmp_path):
+    """A review-only debt on a component with no state and no side effects can never match; lint says so."""
+    from flowguard.map.cli import _context
+    from flowguard.map.lint import run_lint
+
+    data = project(tmp_path)
+    data["accepted_debts"] = [{"code": "unmodeled_owner", "component": "app",
+                               "reason": "wrong code for an entrypoint without a model", "expires": "9999-12-31"}]
+    save(tmp_path, data)
+    loaded, inv = _context(tmp_path)
+    assert any(f.code == "debt_stale" and "wrong code" in f.message for f in run_lint(tmp_path, loaded, inv))
+    data["components"][0]["side_effects"] = ["writes the run log"]
+    data["accepted_debts"][0]["reason"] = "the run log needs no model yet"
+    save(tmp_path, data)
+    loaded, inv = _context(tmp_path)
+    assert not any(f.code == "debt_stale" for f in run_lint(tmp_path, loaded, inv))

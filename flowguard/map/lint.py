@@ -550,6 +550,9 @@ def run_lint(
                 )
             )
     out, used = apply_accepted_debts(out, normalized_debts(data), evaluation=evaluation)
+    suggestions = review_suggestions(data, inv, graph, tree)
+    used |= {index for index, debt in enumerate(normalized_debts(data))
+             if (debt.get("code"), debt.get("component", "")) in suggestions}
     if used_debts is not None:
         used_debts.update(used)
     out.extend(stale_debt_findings(data, inv, raw, used, evaluation=evaluation))
@@ -559,6 +562,29 @@ def run_lint(
 
 REVIEW_DEBTS = {"unmodeled_owner", "hub", "flow_without_model", "never_imported", "unbound_models"}
 CLOSABLE_DEBTS = REVIEW_DEBTS | {"large_model", "large_test_file", "test_file_mixes_models"}
+HUB_USERS, HUB_USES, HUB_LOC, HUB_DUTIES = 3, 3, 1500, 7
+
+
+def review_suggestions(data: dict, inv: Inventory, graph: dict[str, set[str]], tree) -> dict:
+    """(code, owner) -> (detail, size) for the suggestions only the review raises: the review ranks them and
+    lint counts a debt on one as used, so a debt whose suggestion can never arise is reported debt_stale."""
+    used_by = defaultdict(set)
+    for source, targets in graph.items():
+        for target in targets:
+            used_by[target].add(source)
+    found = {}
+    for component in data["components"]:
+        cid = component["id"]
+        loc = sum(inv.loc.get(path, 0) for path in component_files(component, inv))
+        duties, uses, users = len(component.get("responsibilities", [])), len(graph.get(cid, ())), len(used_by[cid])
+        if users >= HUB_USERS and uses >= HUB_USES and (loc >= HUB_LOC or duties >= HUB_DUTIES):
+            found[("hub", cid)] = (f"hub (used by {users}, uses {uses}, {duties} duties, {loc} loc)", loc)
+        if (component.get("state") or component.get("side_effects")) and not tree.models_for_component(cid):
+            found[("unmodeled_owner", cid)] = ("owns state or side effects but has no model", 1)
+    for flow in data.get("flows", []):
+        if not flow.get("model"):
+            found[("flow_without_model", flow["id"])] = ("no model", 1)
+    return found
 
 
 def stale_debt_findings(data: dict, inv: Inventory, raw: dict, used: set[int], *, evaluation=None) -> list[Finding]:
@@ -574,7 +600,7 @@ def stale_debt_findings(data: dict, inv: Inventory, raw: dict, used: set[int], *
                         and debt.get("contains") not in bare.get(debt.get("component"), set())}
     return [Finding("warn", "debt_stale", debt.get("component", ""), f"accepted debt matches no finding: {debt['reason']}")
             for index, debt in enumerate(debts) if index in eligible and index not in used
-            and debt.get("code") not in REVIEW_DEBTS | {"large_model"}]
+            and debt.get("code") != "large_model"]
 
 
 def test_source(root, path, source_cache=None):

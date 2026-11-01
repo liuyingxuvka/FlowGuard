@@ -237,13 +237,8 @@ def cmd_lint(root: Path, a) -> int:
     used_debts = set()
     findings = run_lint(root, data, inv, limits, evaluation=evaluation, used_debts=used_debts)
     if getattr(a, "debts", False) and not getattr(a, "json", False):
-        from .review import declined_debts
-        matched = declined_debts(root, data, inv)
         for state, debt in zip(evaluation.states, data.get("accepted_debts", [])):
-            used = state.index in used_debts
-            if debt.get("code") in {"unmodeled_owner", "hub", "flow_without_model", "unbound_models"}:
-                used = (debt["code"], debt.get("component", "")) in matched
-            used = used and state.status == "active"
+            used = state.index in used_debts and state.status == "active"
             deferred = state.status == "active" and debt["code"] == "large_model" and not used
             print(f"{debt['code']} {debt.get('component', '*')}: {debt.get('reason', '')}"
                   f" (expires {debt.get('expires', '')})"

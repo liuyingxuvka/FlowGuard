@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .facets import component_facets, model_facets
 from .inventory import Inventory
-from .lint import CLOSABLE_DEBTS, run_lint
+from .lint import CLOSABLE_DEBTS, review_suggestions, run_lint
 from .mapfile import component_files, component_graph
 from .tree import build_tree
 from .views import _layer_order, _read_facts
@@ -38,7 +38,6 @@ REVIEW_ACTIONS = {
     "unbound_models": (60, "bind tests", "references/model_recipes.md#Run the bound tests"),
     "never_imported": (50, "delete or list", "references/routes.md#Remove or merge a node"),
 }
-HUB_USERS, HUB_USES, HUB_LOC, HUB_DUTIES = 3, 3, 1500, 7
 SHOWN_STEPS = 5
 
 
@@ -92,7 +91,7 @@ def _defect_lines(findings) -> list[str]:
     return lines or ["  none"]
 
 
-def _candidates(findings, data, inv, graph, tree, coverage, rows, *, matched=None):
+def _candidates(findings, data, inv, graph, tree, coverage, *, matched=None):
     from .debts import active_debts
 
     steps = []
@@ -124,26 +123,18 @@ def _candidates(findings, data, inv, graph, tree, coverage, rows, *, matched=Non
             offer("never_imported", finding.component, detail, 1)
     for component in data["components"]:
         cid = component["id"]
-        row = rows[cid]
-        if row["used_by"] >= HUB_USERS and row["uses"] >= HUB_USES and (row["loc"] >= HUB_LOC or row["duties"] >= HUB_DUTIES):
-            offer("hub", cid, f"hub (used by {row['used_by']}, uses {row['uses']}, {row['duties']} duties, "
-                                            f"{row['loc']} loc)", row["loc"])
         own_files = set(component_files(component, inv))
         own = [anchor for anchor in coverage[cid]["unexplained"] if anchor.partition(":")[0] in own_files
                or anchor in component.get("entrypoints", [])]
         if own:
             offer("unexplained", cid, f"{len(own)} unexplained entrypoints and state writers", 200 + len(own))
-        models = tree.models_for_component(cid)
-        if (component.get("state") or component.get("side_effects")) and not models:
-            offer("unmodeled_owner", cid, "owns state or side effects but has no model", 1)
-    for flow in data.get("flows", []):
-        if not flow.get("model"):
-            offer("flow_without_model", flow["id"], "no model", 1)
+    for (code, owner), (detail, size) in review_suggestions(data, inv, graph, tree).items():
+        offer(code, owner, detail, size)
     steps.sort(key=lambda step: (-step[0], -step[1], step[2]))
     return [text for *_, text in steps]
 
 
-def render_review(root: Path, data: dict, inv: Inventory, *, _declined=None) -> str:
+def render_review(root: Path, data: dict, inv: Inventory) -> str:
     from .debts import active_debts
 
     graph = component_graph(data, inv)
@@ -155,7 +146,7 @@ def render_review(root: Path, data: dict, inv: Inventory, *, _declined=None) -> 
     for source, targets in graph.items():
         for target in targets:
             used_by[target].add(source)
-    rows, table = {}, []
+    table = []
     for component, _ in _layer_order(data, {c["id"] for c in data["components"]}):
         cid = component["id"]
         files = component_files(component, inv)
@@ -188,7 +179,6 @@ def render_review(root: Path, data: dict, inv: Inventory, *, _declined=None) -> 
             used_by=len(used_by[cid]),
             bound=bound,
         )
-        rows[cid] = row
         unexplained = len(coverage[cid]["unexplained"])
         table.append(
             f"  {cid} {component.get('layer') or '-'} {row['files']}/{row['loc']} {row['duties']} "
@@ -226,8 +216,8 @@ def render_review(root: Path, data: dict, inv: Inventory, *, _declined=None) -> 
         ),
         model_data,
     )
-    matched = _declined if _declined is not None else set()
-    steps = _candidates(findings, data, inv, graph, tree, coverage, rows, matched=matched)
+    matched = set()
+    steps = _candidates(findings, data, inv, graph, tree, coverage, matched=matched)
     ranked = [f"  {index}. {text}" for index, text in enumerate(steps[:SHOWN_STEPS], 1)]
     if len(steps) > SHOWN_STEPS:
         ranked.append(f"  +{len(steps) - SHOWN_STEPS} more (python -m flowguard map lint)")
@@ -247,9 +237,3 @@ def render_review(root: Path, data: dict, inv: Inventory, *, _declined=None) -> 
     hubs = hub_lines(tree, relations(root, data, inv, tree, raw))
     return "\n".join(before + table + hubs + after)
 
-
-def declined_debts(root, data, inv):
-    """Recompute closable suggestions for the debt listing; never persist review output."""
-    matched = set()
-    render_review(root, data, inv, _declined=matched)
-    return matched
