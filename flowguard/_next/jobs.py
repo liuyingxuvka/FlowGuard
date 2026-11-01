@@ -408,19 +408,24 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
     job = _ensure_job(root, planned)
     replaced_done = 0
     running = False
+    looked = None
     try:
         while True:
             status = job.status() or {}
-            for i, item in enumerate(planned):
-                if results[i] is None:
-                    results[i] = lookup(root, item)
-                    entry = status.get("parts", {}).get(item.id)
-                    if results[i] is not None and entry is not None:
-                        workers[i] = entry["pid"]
+            alive = job.alive()
+            marker = (job.dir, len(status.get("parts", {})), alive)
+            if marker != looked:                  # the cache is read again only when the worker moved on
+                looked = marker
+                for i, item in enumerate(planned):
+                    if results[i] is None:
+                        results[i] = lookup(root, item)
+                        entry = status.get("parts", {}).get(item.id)
+                        if results[i] is not None and entry is not None:
+                            workers[i] = entry["pid"]
             if all(r is not None for r in results):
                 out.finished = True
                 break
-            if not job.alive():
+            if not alive:
                 status = job.status() or {}
                 state = status.get("state")
                 if state == "failed" or (job.spawned and state != "done"):
