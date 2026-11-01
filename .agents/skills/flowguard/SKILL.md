@@ -7,7 +7,7 @@ description: "Start software changes from the living map, executable models and 
 
 ## Start from the model
 
-At the start of a session and after any loss of context, run `python -m flowguard status` before anything else; follow its NEXT for an open target. Read `python -m flowguard read` before source. No map: `map scan`; `references/first_map.md`. Install only `git+https://github.com/liuyingxuvka/FlowGuard.git@<tag>`; tests need pytest>=8.
+At the start of a session and after any loss of context, run `python -m flowguard status` before anything else; follow its NEXT for an open target. Read `python -m flowguard read` before source. No map: `map scan`; `references/first_map.md`. Install only `git+https://github.com/liuyingxuvka/FlowGuard.git@v0.71.1`; tests need pytest>=8.
 
 1. **node**: one tree rooted at system.
 2. **parent**: `parent`/`PARENT`; omitted: inferred, shown by read.
@@ -23,6 +23,12 @@ At the start of a session and after any loss of context, run `python -m flowguar
 12. **locate → model → port changed? → parent and consumers**.
 
 Models, tests and code grow together. Split a model that is too big, staged or dispatching: its stages or branches become a coarse parent with children, different aspects and shared parts become separate models; never a parent only to group models. Split a test file that is too big or mixes models along the models it tests; a file that tests only one model splits with it. map check warns at the soft limits and refuses at the hard ones; time is advice. Every model has rules and known-bad variants that must fail. It binds code once it describes code that exists (a process model with no code yet carries a model_anchor_missing debt with its reason) and binds tests once tests exercise it (a model without tests carries an unbound_models debt with its reason); a bound test feeds the model's entry seeds into the real entry and checks its exits. A test may have no model.
+
+## Look up source when needed
+
+When finding source or its owner needs more than one grep hop, use `python -m flowguard where` (0.71.1+): NAME finds names/callers/owners; no argument gives a compact module overview; `--flow [NAME]` shows calls; `--arch [NAME]` architecture; `--text [SELECTOR]` text and source references; `--keyflows [NAME]` shared state and stores. Add `--root DIR` or `--json` as needed. These reads run no application, model or test; missing execution records stay unknown.
+
+Text selectors are FILE, `source:<id>`, `group:<id>` or `"text:<literal phrase>"` (case-insensitive substring). Start with the summary and follow its commands for original passages and available Git provenance; `--at REF` reads text and code at the same revision. Literal matches are candidates, without an automatic semantic verdict or change gate. Models and independent rule tests still validate behavior; use the existing loop below for changes.
 
 ## The loop
 

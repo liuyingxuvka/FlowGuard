@@ -45,7 +45,7 @@ someone re-reads and re-confirms it. History lives in git.
 
 ```bash
 pip install -e .                                          # engine, standard library only
-# or from GitHub: python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@<tag>"; the PyPI package named flowguard is a different project
+# or from GitHub: python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.71.1"; the PyPI package named flowguard is a different project
 python scripts/install_skill.py --target ~/.claude/skills # skill for your agent (or $CODEX_HOME/skills)
 
 cd your-project
@@ -74,6 +74,23 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | after editing | `python -m flowguard change` | verify map vs code; list only the affected tests and models |
 | before release | `python -m flowguard release` | strict check, lint errors, every model re-run |
 | start a model or adopt the workflow | `python -m flowguard template --list` | choose `behaviour`, `validator`, `ui-journey` or repository rules with `adoption` |
+
+## Find source and original text
+
+When finding source or its owner needs more than one grep hop, use these static queries (FlowGuard 0.71.1+):
+
+| Command | Shows |
+| --- | --- |
+| `python -m flowguard where NAME` | source, owners and callers |
+| `python -m flowguard where` | compact module overview |
+| `python -m flowguard where --flow` | static calls; add NAME to focus |
+| `python -m flowguard where --arch` | architecture and source-backed suggestions |
+| `python -m flowguard where --text` | text and reference summary |
+| `python -m flowguard where --keyflows` | shared state and file destinations |
+
+Add `--root DIR` or `--json` as needed. With `--text`, select FILE, `source:<id>`, `group:<id>` or `"text:<literal phrase>"` to read original passages and available Git provenance. The default stays compact and prints commands for the next query; literal searches use case-insensitive substrings. `--at REF` reads both text and code at that Git revision.
+
+These queries run no application, model or test. Missing execution records stay unknown. Literal matches are candidates, without an automatic semantic verdict or change gate; models and independent rule tests still validate behavior. Existing commands, 64 public exports and the map format remain compatible.
 
 ## What you can do
 

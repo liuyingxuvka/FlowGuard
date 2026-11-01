@@ -286,6 +286,6 @@ def test_read_header_keeps_size_advice_out_of_warning_count(tmp_path):
         shape_findings(data, inv, {"busy": set()}), data["accepted_debts"]
     )
     assert not used
-    assert any(finding.code == "too_many_responsibilities" and finding.level == "info"
-               and "(advice, not a gate)" in finding.message for finding in findings)
+    # The legacy limit/debt remains readable, but duty counts no longer emit advice.
+    assert not any(finding.code == "too_many_responsibilities" for finding in findings)
     assert all("accepted debt:" not in finding.message for finding in findings)

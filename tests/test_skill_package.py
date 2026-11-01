@@ -84,7 +84,7 @@ class SkillPackageTests(unittest.TestCase):
     def test_skill_entry_describes_the_tree(self) -> None:
         text=(SKILL/'SKILL.md').read_text(encoding='utf-8')
         headings=re.findall(r'^## ([^\n]+)',text,re.M)
-        self.assertEqual(['Start from the model','The loop','Routes by task','The tree','First map, review and release','Honesty rules'],headings)
+        self.assertEqual(['Start from the model','Look up source when needed','The loop','Routes by task','The tree','First map, review and release','Honesty rules'],headings)
         for required in ('python -m flowguard target start','python -m flowguard target check','python -m flowguard target promote','python -m flowguard change --run','python -m flowguard read --find','DISPATCH'):
             self.assertIn(required,text)
         for retired in ('MESH','closure','consumer_model_id','FunctionContract','hazard','packs','budgeted','child_outside_parent','review children','--expect-gap','IGNORES_PARENT','route (a)','in place','model_tests_elsewhere','upgrade.md','runner_model','DESIGN_ONLY'):
@@ -131,7 +131,7 @@ class SkillPackageTests(unittest.TestCase):
         subs = next(a for a in build_parser()._actions if isinstance(a, argparse._SubParsersAction))
         map_cmds, templates = set(subs.choices), set(template_factories())
         target_cmds = set(next(a for a in target_parser()._actions if isinstance(a, argparse._SubParsersAction)).choices)
-        verbs = {"read", "change", "release", "map", "template", "target", "req", "status", "--help", "--version"}
+        verbs = {"read", "change", "release", "map", "template", "target", "req", "status", "where", "--help", "--version"}
         docs = [ROOT / "README.md", ROOT / "README.zh-CN.md", ROOT / "AGENTS.md",
                 *sorted((ROOT / "docs").glob("*.md")), *sorted(SKILL.rglob("*.md"))]
         problems = []
@@ -271,7 +271,7 @@ class SkillPackageTests(unittest.TestCase):
             return found
 
         flags = set().union(*(options(parser) for parser in
-            [*(_verb_parser(verb) for verb in ('read', 'change', 'release', 'template', 'req', 'status')),
+            [*(_verb_parser(verb) for verb in ('read', 'change', 'release', 'template', 'req', 'status', 'where')),
              target_parser(), map_parser()]))
         source = "\n".join(path.read_text(encoding='utf-8')
             for directory in (ROOT / 'flowguard', ROOT / '.flowguard/models')

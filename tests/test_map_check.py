@@ -38,12 +38,16 @@ def test_shape_findings_are_advice(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(lint, "Limits", lambda: limits)
     monkeypatch.setattr(cli, "Limits", lambda: limits)
     loaded, inv = cli._context(tmp_path)
-    shape_codes = {"large_component", "large_file", "too_many_responsibilities", "high_fan_out"}
+    shape_codes = {"large_component", "large_file", "cohesion_candidate", "high_fan_out"}
     findings = lint.run_lint(tmp_path, loaded, inv)
     advice = [finding for finding in findings if finding.code in shape_codes]
     assert {finding.code for finding in advice} == shape_codes
     assert all(finding.level == "info" and "(advice, not a gate)" in finding.message
                for finding in advice), advice
+    assert not any(finding.code == "too_many_responsibilities" for finding in findings)
+    cohesion = next(finding for finding in advice if finding.code == "cohesion_candidate")
+    assert "app.py#run:3 -> lib.py#answer:1" in cohesion.message
+    assert len([finding for finding in findings if finding.code == "cohesion_scope"]) == 1
     assert cli.main(["--root", str(tmp_path), "lint"]) == 0
     output = capsys.readouterr().out
     assert "0 warning(s)" in output and "INFO" in output

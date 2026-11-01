@@ -38,7 +38,7 @@ FlowGuard 在项目里保存三样东西：
 
 ```bash
 pip install -e .                                          # 引擎，只依赖 Python 标准库
-# 或从 GitHub：python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@<tag>"；PyPI 上名为 flowguard 的包是另一个项目
+# 或从 GitHub：python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.71.1"；PyPI 上名为 flowguard 的包是另一个项目
 python scripts/install_skill.py --target ~/.claude/skills # 给 AI 安装技能（或 $CODEX_HOME/skills）
 
 cd your-project
@@ -67,6 +67,23 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | 改完代码 | `python -m flowguard change` | 校验地图和代码；只列出受影响的测试和模型 |
 | 发布之前 | `python -m flowguard release` | 严格检查、架构错误、重跑全部模型 |
 | 新模型或采用流程 | `python -m flowguard template --list` | 选择 `behaviour`、`validator`、`ui-journey`，或用 `adoption` 生成仓库规则 |
+
+## 找源码和文字原文
+
+寻找源码或负责者需要多跳 grep 时，可按需使用静态查询（FlowGuard 0.71.1+）：
+
+| 命令 | 查看内容 |
+| --- | --- |
+| `python -m flowguard where NAME` | 源码、负责者和调用方 |
+| `python -m flowguard where` | 精简的模块概览 |
+| `python -m flowguard where --flow` | 静态调用关系；加 NAME 可缩小范围 |
+| `python -m flowguard where --arch` | 架构和有源码依据的建议 |
+| `python -m flowguard where --text` | 文字与引用摘要 |
+| `python -m flowguard where --keyflows` | 共享状态和文件写入位置 |
+
+按需加 `--root DIR` 或 `--json`。文字查询可在 `--text` 后选 FILE、`source:<id>`、`group:<id>` 或 `"text:<literal phrase>"`，读取原文及可获得的 Git 来源。默认保持摘要并给出下一查的命令；字面搜索按不区分大小写的子串匹配。`--at REF` 同时读取该 Git 版本的文字和代码。
+
+这些查询不运行应用、模型或测试；缺少执行记录时明确未知。字面匹配只是候选，不自动作语义判决，也不阻断改动；模型和独立规则测试仍负责验证行为。既有命令、64 个公开导出和地图格式保持兼容。
 
 ## 能做的事
 

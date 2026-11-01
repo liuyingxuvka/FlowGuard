@@ -3,10 +3,13 @@
 import json
 import subprocess
 
+import pytest
+
+from flowguard.map.derived import source_names, where
 from flowguard.map.discover import discover_inventory
 from flowguard.map.inventory import build_inventory
 from flowguard.map.mapfile import SCHEMA
-from flowguard.map.textrules import render, report
+from flowguard.map.textrules import _literal_groups, render, report, select
 
 
 FACT_KEYS = {
@@ -177,6 +180,12 @@ def main(argv=None):
     assert {template_text["id"], skill_text["id"]} <= set(group["sources"])
     assert group["evidence"]
     assert "unknown" not in group["state"].lower()
+    selected = select(result, "group:" + group["id"])
+    assert {template_text["id"], skill_text["id"]} <= {row["id"] for row in selected["texts"]}
+    assert selected["workflow_groups"] == [group]
+    file_selected = select(result, ".agents/skills/flowguard/SKILL.md")
+    assert {"id": group["id"], "selector": "group:" + group["id"], "command": group["command"], "count": len(group["sources"])} in file_selected["related_groups"]
+    assert "group:" + group["id"] in render(select(result, "text:" + group["command"]))
     # Output labels are prose, with or without Markdown markup, not missing APIs.
     assert not any(
         row["name"] in {"EXPECTED", "GAP", "EXPECTED GAP", "NO GAP", "ERROR"}
@@ -258,3 +267,134 @@ def test_fingerprints_normalize_newlines_and_origins_need_real_blame(tmp_path):
     assert [row["fingerprint"] for row in recorded["texts"]] == [row["fingerprint"] for row in left["texts"]]
     for row in recorded["texts"]:
         assert revision in json.dumps(row["provenance"]["origins"])
+
+
+def test_selected_originals_keep_complete_text_and_provenance_without_rescanning(tmp_path):
+    repository(tmp_path)
+    original = "You MUST preserve " + " ".join("word%d" % index for index in range(45)) + "."
+    extra = "\n\n".join(("You MUST preserve amber bronze copper.", "You MUST keep violet indigo azure.", "You MUST return north south west."))
+    write(tmp_path, "left.md", original + "\n\nYou MUST retain the independent second passage.\n\n" + extra + "\n")
+    write(tmp_path, "right.md", original + "\n\n" + extra + "\n")
+    git(tmp_path, "add", ".")
+    git(tmp_path, "commit", "-qm", "record original text")
+    revision = git(tmp_path, "rev-parse", "HEAD")
+    result = report(tmp_path)
+    group = next(row for row in result["literal_groups"] if row["token_count"] > 40)
+    compact = json.loads(render(result, as_json=True))
+    assert compact["literal_groups"][0]["selector"] == "group:" + group["id"]
+    assert original not in render(result)
+    assert compact["unexpanded"]["texts"] == 9
+    # Selecting saved facts must not depend on a later working-tree edit.
+    write(tmp_path, "left.md", "Unrelated replacement.\n")
+    selected = select(result, "group:" + group["id"])
+    assert len(selected["texts"]) == 2
+    assert all(row["text"] == original for row in selected["texts"])
+    assert all(revision in json.dumps(row["provenance"]["origins"]) for row in selected["texts"])
+    assert original in render(selected)
+    assert json.loads(render(selected, as_json=True))["texts"] == selected["texts"]
+    identifier = selected["texts"][0]["id"]
+    assert select(result, "source:" + identifier)["texts"] == [selected["texts"][0]]
+    assert len(select(result, "left.md")["texts"]) == 5
+    visible = {row["id"] for row in compact["literal_groups"]}
+    hidden = next(row for row in result["literal_groups"] if row["id"] not in visible)
+    hit = hidden["occurrences"][0]
+    file_selected = select(result, hit["path"])
+    summary = next(row for row in file_selected["related_groups"] if row["id"] == hidden["id"])
+    assert summary["count"] == len(hidden["occurrences"])
+    assert set(summary) == {"id", "selector", "count", "fragment"}
+    assert all(row["path"] == hit["path"] for row in file_selected["texts"])
+    assert summary in select(result, "source:" + hit["source"])["related_groups"]
+    expanded = select(result, summary["selector"])
+    expected = {row["source"] for row in hidden["occurrences"]}
+    assert {row["id"] for row in expanded["texts"]} == expected
+    assert expanded["literal_groups"] == [hidden]
+    assert expanded["related_groups"] == []
+    displayed = json.loads(render(file_selected, as_json=True))
+    assert len(displayed["related_groups"]) <= 3
+    assert displayed["unexpanded"]["related_groups"] == len(file_selected["related_groups"]) - len(displayed["related_groups"])
+    assert displayed["unexpanded"]["references"] == max(0, len(file_selected["references"]) - 3)
+    assert displayed["texts"] == file_selected["texts"]
+    assert json.loads(render(file_selected, as_json=True, full=True)) == file_selected
+    shown = {row["id"] for row in displayed["related_groups"]}
+    narrowed = next(row for row in result["literal_groups"] if row["id"] not in shown and row["token_count"] >= 6)
+    literal = select(result, "text:" + narrowed["fragment"])
+    assert all(narrowed["fragment"] in row["text"].casefold() for row in literal["texts"])
+    assert any(row["id"] == narrowed["id"] for row in literal["related_groups"])
+    assert "group:" + narrowed["id"] in render(literal)
+    assert any(row["id"] == narrowed["id"] for row in json.loads(render(literal, as_json=True))["related_groups"])
+    with pytest.raises(ValueError, match="nonempty"):
+        select(result, "text:")
+    for bad in ("group:absent", "source:absent", "absent.md", "../left.md"):
+        with pytest.raises(ValueError):
+            select(result, bad)
+    with pytest.raises(ValueError, match="full facts"):
+        select(compact, "left.md")
+
+
+def test_left_maximal_groups_use_all_occurrences_and_preserve_independent_runs():
+    rows = [
+        {"id": "a", "path": "a.md", "line": 10,
+         "text": "keep alpha\nbeta gamma now bright blue sky x red green field end alpha beta gamma tail"},
+        {"id": "b", "path": "b.md", "line": 20,
+         "text": "run alpha\nbeta gamma next bright blue sky y red green field stop other beta gamma tail"},
+    ]
+    groups = _literal_groups(rows)
+    by_fragment = {row["fragment"]: row for row in groups}
+    assert {"alpha beta gamma", "bright blue sky", "red green field", "beta gamma tail"} <= by_fragment.keys()
+    assert "gamma tail" not in by_fragment and "blue sky" not in by_fragment
+    assert [(hit["line"], hit["end_line"]) for hit in by_fragment["alpha beta gamma"]["occurrences"]] == [(10, 11), (20, 21)]
+    # alpha precedes the first beta/gamma in both documents, but not every
+    # occurrence: compression to one hit per passage would lose a real group.
+    assert "beta gamma" in by_fragment
+    assert {row["id"] for row in groups} == {row["id"] for row in _literal_groups(list(reversed(rows)))}
+
+
+def test_weak_prose_does_not_displace_real_code_hints(tmp_path):
+    write(tmp_path, "core.py", 'LABEL = "registered-name"\ndef current_name(): return 1\n')
+    write(tmp_path, "README.md", "This tool-rental application covers R1-R11.\n"
+          "You MUST check `tool-rental`, `R1-R11`, registered-name and `route_and_guard_model` before skip_with_reason.\n")
+    result = report(tmp_path)
+    refs = {row["name"]: row for row in result["references"]}
+    assert refs["tool-rental"]["kind"] == refs["R1-R11"]["kind"] == "prose candidate"
+    assert refs["registered-name"]["state"] == "found in static source"
+    unresolved = {row["name"] for row in json.loads(render(result, as_json=True))["references"]}
+    assert unresolved == {"route_and_guard_model", "skip_with_reason"}
+    assert result["summary"]["unresolved_references"] == 2
+
+
+def test_filename_candidates_stay_typed_and_never_grant_owner_or_symbol_binding(tmp_path):
+    write(tmp_path, "counter/config.py", "def configure(): return 1\n")
+    write(tmp_path, "left/shared.py", "def left(): return 1\n")
+    write(tmp_path, "right/shared.py", "def right(): return 1\n")
+    write(tmp_path, "local.py", "def root_local(): return 1\n")
+    write(tmp_path, "docs/local.py", "def document_local(): return 1\n")
+    write(tmp_path, "docs/guide.md", "You MUST inspect `config.py`, `shared.py`, `local.py` and `counter.config.configure`.\n")
+    inv, raw = facts(tmp_path)
+    names = source_names(inv, raw)
+    assert "config.py" not in names and "shared.py" not in names
+    result = report(tmp_path, inv=inv, raw=raw)
+    refs = {row["name"]: row for row in result["references"]}
+    for name, paths in {"config.py": ["counter/config.py"], "shared.py": ["left/shared.py", "right/shared.py"], "local.py": ["docs/local.py"]}.items():
+        assert refs[name]["kind"] == "file candidate"
+        assert refs[name]["files"] == paths
+        assert {row["path"] for row in refs[name]["locations"]} == set(paths)
+        assert not refs[name]["placement"]["owners"] and not refs[name]["placement"]["functions"]
+    assert "ambiguous" in refs["shared.py"]["state"]
+    assert refs["counter.config.configure"]["placement"]["functions"] == ["counter/config.py#configure"]
+    text_refs = {row["name"]: row for row in where(tmp_path, "docs/guide.md", view="text", inv=inv, raw=raw)["references"]}
+    assert text_refs["config.py"]["files"] == ["counter/config.py"]
+    assert source_names(inv, raw) == names
+
+
+def test_text_file_keeps_backticked_heading_as_original_passage(tmp_path):
+    write(tmp_path, "core.py", "def current_name(): return 1\n")
+    heading = "# API: `former_name`"
+    write(tmp_path, "guide.md", heading + "\n\n```\n# Example: `ignored_example`\n```\n")
+    result = report(tmp_path)
+    selected = select(result, "guide.md")
+    passage, = selected["texts"]
+    assert passage["text"] == heading and passage["line"] == passage["end_line"] == 1
+    reference, = [row for row in result["references"] if row["name"] == "former_name"]
+    assert reference["path"] == "guide.md" and reference["line"] == 1
+    assert "not found" in reference["state"]
+    assert not any(row["name"] == "ignored_example" for row in result["references"])

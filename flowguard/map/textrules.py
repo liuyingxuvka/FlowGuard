@@ -10,7 +10,7 @@ import re
 import shlex
 
 from .common import DEFAULT_IGNORE, matches_any, normalize_newlines, read_source
-from .derived import _git, _map, _source, source_names, text_references
+from .derived import _git, _map, _source, source_names, text_reference_hint, text_references
 from .discover import discover_inventory
 from .inventory import build_inventory, list_files, syntax_tree
 from .mapfile import ignore_patterns, model_registry, owner_index
@@ -41,7 +41,11 @@ def _paragraphs(text, base=1):
         if boundary and rows:
             yield start, line - 1, '\n'.join(rows)
             rows = []
-        if value.strip() and not value.lstrip().startswith('#'):
+        if value.lstrip().startswith('#'):
+            if '`' in value:
+                yield line, line, value
+            continue
+        if value.strip():
             if not rows:
                 start = line
             rows.append(value)
@@ -123,12 +127,15 @@ def _literal_groups(texts):
     stream, positions, vocabulary, strings = [], [], {}, {}
     by_id = {row['id']: row for row in texts}
     for index, row in enumerate(texts):
+        line, cursor = row['line'], 0
         for match in _WORDS.finditer(row['text']):
+            line += row['text'][cursor:match.start()].count('\n')
+            cursor = match.end()
             word = match[0].casefold()
             token = vocabulary.setdefault(word, len(vocabulary))
             strings[token] = word
             stream.append(token)
-            positions.append((row['id'], row['line'] + row['text'][:match.start()].count('\n')))
+            positions.append((row['id'], line))
         stream.append(-index - 1)  # Different boundaries cannot share a cross-passage match.
         positions.append(None)
     size = len(stream)
@@ -161,6 +168,13 @@ def _literal_groups(texts):
             matched += 1
         common[index] = matched
         matched = max(0, matched - 1)
+    # A right-maximal LCP interval is redundant if every actual occurrence has
+    # the same ordinary predecessor. Check before collapsing repeated passages.
+    predecessors, left_runs = [], []
+    for index, pos in enumerate(suffixes):
+        previous = stream[pos - 1] if pos and positions[pos - 1] is not None else -pos - 1
+        predecessors.append(previous)
+        left_runs.append(left_runs[-1] if index and previous == predecessors[index - 1] else index)
     groups, stack = {}, [(0, 0)]
     for index in range(1, size + 1):
         length, left = common[index], index - 1
@@ -168,6 +182,8 @@ def _literal_groups(texts):
             count, first = stack.pop()
             left = first
             if count < 2:
+                continue
+            if predecessors[first] >= 0 and left_runs[index - 1] <= first:
                 continue
             occurrence = {}
             for pos in suffixes[first:index]:
@@ -179,7 +195,8 @@ def _literal_groups(texts):
                 continue
             phrase = ' '.join(strings[token] for token in stream[suffixes[first]:suffixes[first] + count])
             key = phrase, tuple(sorted(occurrence))
-            groups[key] = {'fragment': phrase, 'token_count': count, 'relation': 'literal occurrence only',
+            identifier = _hash(json.dumps(key, ensure_ascii=False).encode())[:20]
+            groups[key] = {'id': identifier, 'fragment': phrase, 'token_count': count, 'relation': 'literal occurrence only',
                            'occurrences': sorted(occurrence.values(), key=lambda row: (row['path'], row['line']))}
         if stack[-1][0] < length:
             stack.append((length, left))
@@ -247,6 +264,9 @@ def report(root, *, inv=None, raw=None, at=None):
         model_paths = {entry.path for entry in models.entries}
         model_names = {name for entry in models.entries for name in (entry.id, entry.path, Path(entry.path).stem)}
         names = source_names(inv, raw, model_names)
+        basenames = defaultdict(list)
+        for path in inv.files:
+            basenames[Path(path).name].append(path)
         # A code-analysis ignore such as docs/** must not erase the normative text
         # whose stale references this report is meant to expose. Reuse the shared
         # file listing; do not build a second source inventory or bypass artifacts.
@@ -290,7 +310,7 @@ def report(root, *, inv=None, raw=None, at=None):
                 for match in _ORDINARY.finditer(line):
                     value = match[0].rstrip('.:')
                     found.setdefault((offset, value), {'path': path, 'line': offset, 'name': value,
-                        'state': 'found in static source' if value in names else 'not found in static source; dynamic binding unknown', 'form': 'ordinary text'})
+                        **text_reference_hint(source, path, value, names, basenames=basenames), 'form': 'ordinary text'})
             functions, evidence = set(), []
             for command, bindings in commands.items():
                 if not re.search(r'(?<![\w-])' + re.escape(command) + r'(?![\w-])', row['text']):
@@ -305,6 +325,8 @@ def report(root, *, inv=None, raw=None, at=None):
                     unknown.append({'path': path, 'line': first, 'command': command, 'reason': 'command handler binding is unknown or ambiguous'})
             for ref in found.values():
                 matches = locations.get(ref['name'], [])
+                if ref.get('kind') == 'file candidate':
+                    matches = [{'path': file, 'kind': 'file candidate'} for file in ref['files']]
                 explicit = [value for value in matches if value.get('function') and ref['name'] in {
                     value['path'] + '#' + value['function'], value['path'] + ':' + value['function'],
                     raw['files'].get(value['path'], {}).get('module', '') + '.' + value['function']}]
@@ -315,7 +337,8 @@ def report(root, *, inv=None, raw=None, at=None):
                     [{'kind': 'explicit source reference', 'name': ref['name']}] if len(set(bound)) == 1 else ())
                 references.append({**ref, 'source': row['id'], 'locations': matches, 'placement': placement})
             row['placement'] = _placement(path, owners, functions, evidence)
-        workflows = [{'command': command, 'state': 'bound',
+        workflows = [{'id': _hash(json.dumps(['workflow', command, sorted(set(identifiers))]).encode())[:20],
+            'command': command, 'state': 'bound',
             'functions': sorted({fn for binding in commands[command] for fn in binding['functions']}),
             'sources': sorted(set(identifiers)), 'evidence': commands[command], 'relation': 'attributed original text only'}
             for command, identifiers in sorted(command_texts.items()) if len(set(identifiers)) > 1]
@@ -330,36 +353,107 @@ def report(root, *, inv=None, raw=None, at=None):
             'workflow_groups': workflows, 'code_literals': literals, 'unknown': unknown}
 
 
+def select(result, selector):
+    """Select full originals; text: uses a case-insensitive literal substring, not semantics."""
+    if result.get('projection') != 'full':
+        raise ValueError('text selection requires full facts, not a compact projection')
+    texts = {row['id']: row for row in result['texts']}
+    group, kind, phrase = None, 'file', None
+    if selector.startswith('source:'):
+        kind = 'source'
+        identifiers = {selector[7:]} & texts.keys()
+    elif selector.startswith('group:'):
+        kind = 'group'
+        group = next((row for row in result['literal_groups'] + result['workflow_groups']
+                      if row['id'] == selector[6:]), None)
+        identifiers = set(group.get('sources', ())) if group and 'sources' in group else {
+            hit['source'] for hit in group['occurrences']} if group else set()
+    elif selector.startswith('text:'):
+        kind, phrase = 'literal', selector[5:].casefold()
+        if not phrase:
+            raise ValueError('text: requires a nonempty literal substring')
+        identifiers = {row['id'] for row in result['texts'] if phrase in row['text'].casefold()}
+    else:
+        path = Path(selector)
+        if path.is_absolute() or '..' in path.parts:
+            raise ValueError('text selector must use a relative file, source:<id>, group:<id> or text:<literal phrase>')
+        identifiers = {row['id'] for row in result['texts'] if row['path'] == path.as_posix()}
+    if not identifiers:
+        raise ValueError('no recorded original passages for text selector: ' + selector)
+    related = []
+    if kind != 'group':
+        for row in result['literal_groups'] + result['workflow_groups']:
+            sources = set(row['sources']) if 'sources' in row else {hit['source'] for hit in row['occurrences']}
+            if sources & identifiers and (phrase is None or phrase in row.get('fragment', row.get('command', '')).casefold()):
+                related.append({'id': row['id'], 'selector': 'group:' + row['id'], 'count': len(sources),
+                                **({'command': row['command']} if 'command' in row else {'fragment': row['fragment'][:160]})})
+    return {key: result[key] for key in ('source', 'revision', 'scope')} | {
+        'projection': 'selected', 'selection': {'selector': selector, 'kind': kind},
+        'texts': [row for row in result['texts'] if row['id'] in identifiers],
+        'references': [row for row in result['references'] if row['source'] in identifiers],
+        'literal_groups': [group] if group and 'occurrences' in group else [],
+        'workflow_groups': [group] if group and 'sources' in group else [],
+        'related_groups': related,
+        'unknown': [row for row in result['unknown'] if 'path' not in row or
+                    row['path'] in {texts[identifier]['path'] for identifier in identifiers}]}
+
+
 def _compact(result):
     if result.get('projection') == 'compact':
         return result
     texts = {row['id']: row for row in result['texts']}
-    groups = [{key: row[key] for key in ('token_count', 'relation')} | {
+    groups = [{key: row[key] for key in ('id', 'token_count', 'relation')} | {
+        'selector': 'group:' + row['id'],
         'fragment': row['fragment'][:160], 'count': len(row['occurrences']), 'sources': row['occurrences'][:3]}
         for row in result['literal_groups'][:3]]
-    workflows = [{key: row[key] for key in ('command', 'functions', 'relation')} | {
-        'count': len(row['sources']), 'sources': [{key: texts[identifier][key] for key in ('path', 'line', 'end_line')} for identifier in row['sources'][:3]]}
+    workflows = [{key: row[key] for key in ('id', 'command', 'functions', 'relation')} | {
+        'selector': 'group:' + row['id'],
+        'count': len(row['sources']), 'sources': [{key: texts[identifier][key] for key in ('id', 'path', 'line', 'end_line')} for identifier in row['sources'][:3]]}
         for row in result['workflow_groups'][:3]]
-    refs = [{key: row[key] for key in ('path', 'line', 'name', 'state')} for row in result['references'] if 'not found' in row['state']][:3]
+    refs = [{key: row[key] for key in ('source', 'path', 'line', 'name', 'state')} for row in result['references'] if 'not found' in row['state']][:3]
     return {key: result[key] for key in ('source', 'revision', 'scope', 'summary')} | {
         'projection': 'compact', 'literal_groups': groups, 'workflow_groups': workflows,
-        'references': refs, 'unknown': result['unknown'][:3]}
+        'references': refs, 'unknown': result['unknown'][:3],
+        'unexpanded': {'texts': len(texts), 'literal_groups': len(result['literal_groups']) - len(groups),
+                       'workflow_groups': len(result['workflow_groups']) - len(workflows)},
+        'selectors': ['FILE', 'source:<id>', 'group:<id>']}
 
 
 def render(result, *, as_json=False, full=False):
     """Default human and JSON share one bounded projection; full is explicit fact export."""
     if full:
         return json.dumps(result, ensure_ascii=False, sort_keys=True, indent=None if as_json else 2)
+    if result.get('projection') == 'selected':
+        related, references = result['related_groups'], result['references']
+        result = {**result, 'related_groups': related[:3],
+                  'references': [{key: row[key] for key in ('source', 'path', 'line', 'name', 'state')} for row in references[:3]],
+                  'unexpanded': {'related_groups': max(0, len(related) - 3), 'references': max(0, len(references) - 3)}}
+        if as_json:
+            return json.dumps(result, ensure_ascii=False, sort_keys=True)
+        lines = [f"text rules · {result['source']} · {result['selection']['selector']} · original passages"]
+        for row in result['texts']:
+            lines.extend([f"{row['path']}:{row['line']}-{row['end_line']} · source:{row['id']}",
+                          row['text'], 'provenance: ' + json.dumps(row['provenance'], ensure_ascii=False, sort_keys=True)])
+        for row in result['related_groups']:
+            label = row['command'] if 'command' in row else 'shared literal ' + repr(row['fragment'])
+            lines.append(row['selector'] + ' · ' + label + ' · ' + str(row['count']) + ' original passages')
+        for row in result['references']:
+            lines.append(row['path'] + ':' + str(row['line']) + ' ' + row['name'] + ' · ' + row['state'])
+        omitted = result['unexpanded']
+        lines.append(f"unexpanded: {omitted['related_groups']} related groups, {omitted['references']} references; text:<literal phrase> narrows original passages and group hints")
+        return '\n'.join(lines)
     result = _compact(result)
     if as_json:
         return json.dumps(result, ensure_ascii=False, sort_keys=True)
     summary = result['summary']
     lines = [f"text rules · {result['source']} · report only", f"{summary['texts']} passages in {summary['source_files']} files; {summary['literal_groups']} literal groups; {summary['unresolved_references']} unresolved references; {summary['workflow_groups']} attributed workflows; {summary['unplaced']} unplaced"]
     for row in result['literal_groups']:
-        lines.append('shared literal ' + repr(row['fragment']) + ' · ' + str(row['count']) + ' passages · ' + ', '.join(item['path'] + ':' + str(item['line']) for item in row['sources']))
+        lines.append(row['selector'] + ' · shared literal ' + repr(row['fragment']) + ' · ' + str(row['count']) + ' passages · ' + ', '.join(item['path'] + ':' + str(item['line']) for item in row['sources']))
     for row in result['references']:
         lines.append(row['path'] + ':' + str(row['line']) + ' ' + row['name'] + ' · ' + row['state'])
     for row in result['workflow_groups']:
-        lines.append(row['command'] + ' → ' + ', '.join(row['functions']) + ' · ' + str(row['count']) + ' original passages')
+        lines.append(row['selector'] + ' · ' + row['command'] + ' → ' + ', '.join(row['functions']) + ' · ' + str(row['count']) + ' original passages')
+    omitted = result['unexpanded']
+    lines.append(f"unexpanded: {omitted['texts']} original passages, {omitted['literal_groups']} literal groups, {omitted['workflow_groups']} workflows; select FILE, source:<id> or group:<id> for originals")
     lines.extend('unknown: ' + row['reason'] for row in result['unknown'])
     return '\n'.join(lines)

@@ -125,7 +125,7 @@ RULES=(
  Invariant('expired_debt_fails_release', 'release fails while an accepted debt has expired',
            lambda s,t: not s.expired_debt or s.verdict == 'fail'),
  Invariant('advice_never_gates',
-           'size and count lint findings are advice: release never fails on them and they need no accepted debt',
+           'size, fan-out and source-bound cohesion findings are advice: release never fails on them and they need no accepted debt',
            lambda s,t: s.expired_debt or s.snapshot_failed or s.lint != 'advice' or s.check != 'clean' or s.models != 'pass'
            or (s.shards and s.suite != 'pass') or s.verdict == 'pass'),
  Invariant('release_passes_only_when_every_gate_passes','release reflects checks, lint, model proof, requested suite and successful original-byte snapshot persistence',lambda s,t:(s.verdict=='pass')==(not s.expired_debt and not s.snapshot_failed and s.check == 'clean' and s.lint in ('clean', 'advice') and s.models=='pass' and (not s.shards or s.suite=='pass')) and s.exit_code==int(s.verdict!='pass')),
@@ -159,7 +159,8 @@ def conformance():
             if case == 'advice':
                 path = root / '.flowguard/map.json'
                 data = json.loads(path.read_text())
-                data['components'][0]['responsibilities'].append('advance the active quantity')
+                # The real catalog helper has one external calling owner, with no independent public entry.
+                data['components'][1]['entrypoints'] = []
                 data['components'][1]['tests'] = ['tests/test_shelf.py']
                 path.write_text(json.dumps(data))
                 model = root / '.flowguard/models/shelf_rule.py'
@@ -212,7 +213,7 @@ def conformance():
                     data, inventory = _context(root)
                     shape = [finding for finding in lint.run_lint(root, data, inventory)
                              if finding.code in {'large_component', 'large_file',
-                                                 'too_many_responsibilities', 'high_fan_out'}]
+                                                 'cohesion_candidate', 'high_fan_out'}]
             text = output.getvalue()
             failing = case in ('failed', 'suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged', 'json_failed', 'snapshot_failed')
             valid = code == int(failing) and ('verify: FAIL' if failing else 'verify: PASS') in text
@@ -241,7 +242,7 @@ def conformance():
                 valid = valid and 'suite: not run' in text
             if case == 'advice':
                 valid = (valid and {finding.code for finding in shape}
-                         == {'large_component', 'large_file', 'too_many_responsibilities', 'high_fan_out'}
+                         == {'large_component', 'large_file', 'cohesion_candidate', 'high_fan_out'}
                          and all(finding.level == 'info' and '(advice, not a gate)' in finding.message
                                  for finding in shape)
                          and 'lint: 0 error(s) gating; 0 warning(s),' in text)

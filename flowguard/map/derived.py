@@ -168,6 +168,32 @@ def source_names(inv, raw, extra_names=()):
     return names
 
 
+def text_reference_hint(root, path, spelling, names, *, basenames=None):
+    """Classify a spelling; filename candidates never establish a symbol or owner."""
+    query = _anchor(spelling.split("(", 1)[0])
+    candidate = Path(spelling)
+    if ('.' in spelling or '/' in spelling or basenames and spelling in basenames) and not any(char.isspace() for char in spelling) and not candidate.is_absolute():
+        for relative in (Path(path).parent / candidate, candidate):
+            selected = root / relative
+            resolved = selected.resolve()
+            if resolved.is_relative_to(root.resolve()) and selected.is_file():
+                return {"state": "file exists in selected tree", "kind": "file candidate",
+                        "files": [resolved.relative_to(root.resolve()).as_posix()]}
+        if spelling not in names and query not in names and candidate.name == spelling and basenames and spelling in basenames:
+            files = sorted(basenames[spelling])
+            return {"state": "file candidate; " + ("unique basename" if len(files) == 1 else "ambiguous basename") + " in selected tree",
+                    "kind": "file candidate", "files": files}
+    if spelling in names or query in names:
+        return {"state": "found in static source", "kind": "source spelling"}
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+", spelling):
+        return {"state": "prose candidate; code binding unknown", "kind": "prose candidate"}
+    if re.fullmatch(r"[A-Za-z_][\w.:-]*", query):
+        return {"state": "not found in static source; dynamic binding unknown", "kind": "unresolved code"}
+    if "/" in spelling and not any(char.isspace() for char in spelling):
+        return {"state": "path not found in selected tree", "kind": "unresolved path"}
+    return {"state": "not a single static code name", "kind": "unclassified text"}
+
+
 def text_references(root, path, inv, raw, extra_names=(), *, names=None):
     candidate = Path(path)
     if candidate.is_absolute() or ".." in candidate.parts:
@@ -176,6 +202,9 @@ def text_references(root, path, inv, raw, extra_names=(), *, names=None):
     if not source.is_file():
         raise ValueError("text is absent from the selected source tree: " + str(path))
     names = source_names(inv, raw, extra_names) if names is None else names
+    basenames = defaultdict(list)
+    for file in inv.files:
+        basenames[Path(file).name].append(file)
     references = []
     fenced = False
     for line, text in enumerate(read_source(source).splitlines(), 1):
@@ -186,16 +215,8 @@ def text_references(root, path, inv, raw, extra_names=(), *, names=None):
             continue
         for value in re.findall(r"(?<!`)`([^`\n]+)`(?!`)", text):
             spelling = value.strip()
-            query = _anchor(spelling.split("(", 1)[0])
-            if spelling in names or query in names:
-                state = "found in static source"
-            elif re.fullmatch(r"[A-Za-z_][\w.:-]*", query):
-                state = "not found in static source; dynamic binding unknown"
-            elif "/" in spelling and not any(char.isspace() for char in spelling):
-                state = "path not found in selected tree" if not (root / spelling).exists() else "path exists"
-            else:
-                state = "not a single static code name"
-            references.append({"path": str(candidate), "line": line, "name": spelling, "state": state})
+            hint = text_reference_hint(root, path, spelling, names, basenames=basenames)
+            references.append({"path": str(candidate), "line": line, "name": spelling, **hint})
     return references
 
 
@@ -264,6 +285,69 @@ def _predicate_sites(root, raw):
     return helpers, sites
 
 
+COHESION_UNKNOWN = (
+    "normative predicate bindings, passed normative text and per-rule ownership are unknown; "
+    "model/test names and TESTED_BY do not license them"
+)
+
+
+def cohesion_facts(inv, raw, data):
+    """Candidate helper boundaries from the existing static graph, without reparsing.
+
+    The graph includes conservative may-call edges (including passed functions).
+    Locations identify the actual caller/callee definitions, not inferred call sites.
+    """
+    _, declared = owner_index(data, inv)
+    files = raw.get("files", {})
+    entries = {path for path, file in files.items() if file.get("entrypoints")}
+    entries.update(anchor.partition(":")[0] for component in data["components"]
+                   for anchor in component.get("entrypoints", []))
+
+    def owner(path):
+        ids = set(declared.get(path, ()))
+        return (next(iter(ids)), "declared component") if len(ids) == 1 else (
+            (path, "module") if not ids else (None, "ambiguous declared owners"))
+
+    incoming = defaultdict(list)
+    ambiguous = set()
+    for caller, targets in sorted(raw.get("edges", {}).items()):
+        source, _, symbol = caller.partition("#")
+        function = files.get(source, {}).get("functions", {}).get(symbol)
+        if function is None or inv.is_test(source):
+            continue
+        source_owner, source_basis = owner(source)
+        for target in targets:
+            path, _, name = target.partition("#")
+            callee = files.get(path, {}).get("functions", {}).get(name)
+            if source == path or callee is None or inv.is_test(path):
+                continue
+            target_owner, target_basis = owner(path)
+            if source_owner is None or target_owner is None:
+                ambiguous.add(path)
+                continue
+            if source_owner != target_owner:
+                incoming[path].append({"caller": caller, "caller_line": function["line"],
+                                       "callee": target, "callee_line": callee["line"],
+                                       "caller_owner": source_owner, "caller_owner_basis": source_basis,
+                                       "callee_owner": target_owner, "callee_owner_basis": target_basis})
+    out = []
+    for path, edges in sorted(incoming.items()):
+        external = {edge["caller_owner"] for edge in edges}
+        if (len(external) != 1 or path in ambiguous or path in entries
+                or Path(path).name == "__init__.py" or "examples" in Path(path).parts):
+            continue
+        target_owner, basis = owner(path)
+        out.append({"class": 5, "kind": "module_without_boundary", "source": path,
+                    "line": min(edge["callee_line"] for edge in edges),
+                    "owner": target_owner, "owner_basis": basis,
+                    "external_owner": next(iter(external)),
+                    "callers": sorted({edge["caller"].partition("#")[0] for edge in edges}),
+                    "call_edges": edges,
+                    "fact": "resolved external may-call edges have one owner; no declared or indexed independent entry",
+                    "scope": "static helper-boundary candidate, not a semantic cohesion verdict; dynamic uses remain unknown"})
+    return out
+
+
 def _architecture(root, inv, raw, data, functions, entries):
     drift = []
     owners, _ = owner_index(data, inv)
@@ -285,14 +369,7 @@ def _architecture(root, inv, raw, data, functions, entries):
         drift.append({"class": 4, "kind": "foreign_write", "source": row["source"], "line": row["line"],
                       "target": row["class_path"] + "#" + row["class"] + "." + row["attr"],
                       "owner": owners.get(row["class_path"], row["class_path"]), "owner_basis": "declared component or writing module"})
-    entry_paths = {entry["path"] for entry in entries}
-    for path in raw["files"]:
-        callers = {source for source, dependencies in inv.file_deps.items() if path in dependencies and source != path}
-        sources = {owners.get(source, source) for source in callers if owners.get(source, source) != owners.get(path, path)}
-        if len(sources) == 1 and callers and path not in entry_paths and Path(path).name != "__init__.py" and "examples" not in Path(path).parts:
-            drift.append({"class": 5, "kind": "module_without_boundary", "source": path, "line": 0,
-                          "callers": sorted(callers), "fact": "resolved outside importers belong to one owner; no indexed public entry point",
-                          "scope": "dynamic importers and runtime uses remain unknown"})
+    drift.extend(cohesion_facts(inv, raw, data))
     return sorted(drift, key=lambda row: (row["class"], "/" not in row.get("helper", ""), row["source"], row["line"], row.get("helper", "")))
 
 
@@ -349,6 +426,7 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
                                     "imports": sorted(inv.file_deps.get(path, [])), "entrypoints": [entry["name"] for entry in entries if entry["path"] == path]} for path, file in sorted(raw["files"].items())],
                           drift=_architecture(source, inv, raw, data, functions, entries))
             result["drift_scope"] = "source-backed Boolean-helper reuse, foreign writes and resolved module boundaries; runtime adapter agreement and registered rule conventions are not judged"
+            result["unknown"].append(COHESION_UNKNOWN)
             if name:
                 paths = {row["path"] for row in result["modules"] if name in {row["path"], row["owner"], raw["files"][row["path"]]["module"]}
                          or row["path"].startswith(name.rstrip("/") + "/")}

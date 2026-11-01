@@ -17,6 +17,7 @@ from .map.common import advice, print_verdict, quiet_broken_pipe, render_advice,
 
 VERB_PURPOSE = {
     'read': 'Understand the components, models and their relationships.',
+    'where': 'Locate source functions, calls, architecture and attributed original text without execution.',
     'status': 'Resume from static project, target and request facts; never explore.',
     'change': 'Check an edit and run the affected tests and models.',
     'release': 'Run the release gate, optionally with whole-suite shards.',
@@ -42,6 +43,16 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         p.add_argument("--force", action="store_true", help="overwrite existing files when writing")
         return p
     p.add_argument("--root", default=".")
+    if verb == "where":
+        p.add_argument("name", nargs="?", metavar="NAME", help="source name or, with --text, FILE, source:<id>, group:<id> or text:<literal phrase>")
+        views = p.add_mutually_exclusive_group()
+        for view, purpose in (("flow", "static calls"), ("arch", "source architecture"),
+                              ("text", "original text and source references"), ("keyflows", "shared state and stores")):
+            views.add_argument("--" + view, dest="view", action="store_const", const=view, help="show " + purpose)
+        p.set_defaults(view="tree")
+        p.add_argument("--at", metavar="REF", help="read text and code from the same Git reference (requires --text)")
+        p.add_argument("--json", action="store_true", help="print one structured static view")
+        return p
     if verb == "status":
         p.add_argument('--json', action='store_true', help='print one structured static view')
         p.add_argument('--hook', action='store_true', help='silent outside a project; internal errors never fail the hook')
@@ -238,6 +249,44 @@ def _status(ns):
         return 2
 
 
+def _where(ns):
+    from .map import derived, textrules
+    from .map.mapfile import MapError
+
+    root = Path(ns.root).resolve()
+    try:
+        if ns.view == "text":
+            facts = textrules.report(root, at=ns.at)
+            result = textrules.select(facts, ns.name) if ns.name else textrules._compact(facts)
+            groups = result.get("related_groups", result["literal_groups"] + result["workflow_groups"])[:3]
+            selectors = ["group:" + row["id"] for row in groups]
+            texts = result.get("texts", facts["texts"])
+            if texts and ns.name != texts[0]["path"]:
+                selectors.append(texts[0]["path"])
+            if texts:
+                literal = 'text:' + texts[0]['text'].splitlines()[0][:160]
+                if literal != ns.name:
+                    selectors.append(literal)
+            options = ["--text", *(["--at", ns.at] if ns.at else []), *(["--json"] if ns.json else [])]
+            result["selectors"] = ["FILE", "source:<id>", "group:<id>", "text:<literal phrase>"]
+            result["next_queries"] = [project_command(root, "where", selector, *options) for selector in dict.fromkeys(selectors)]
+            output = textrules.render(result, as_json=ns.json)
+            if not ns.json and result["next_queries"]:
+                output += "\n" + "\n".join("next: " + command for command in result["next_queries"])
+        else:
+            result = derived.where(root, ns.name, view=ns.view)
+            if "next" in result:
+                modules = result.get("modules", [])
+                options = ([modules[0]["path"]] + (["--flow"] if ns.view == "flow" else [])) if modules else ["--arch"]
+                result["next"] = project_command(root, "where", *options, *(["--json"] if ns.json else []))
+            output = derived.render(result, as_json=ns.json)
+        print(output)
+        return 0
+    except (OSError, ValueError, RuntimeError, MapError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
+
+
 @quiet_broken_pipe
 def main(argv: list[str] | None = None) -> int:
     safe_stdio()
@@ -264,11 +313,15 @@ def main(argv: list[str] | None = None) -> int:
         from .map.target import main as target_main
 
         return target_main(rest)
-    if verb not in {"read", "change", "release", "template", "target", "req", "status"}:
+    if verb not in {"read", "where", "change", "release", "template", "target", "req", "status"}:
         print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
         return 2
     parser = _verb_parser(verb)
     ns = parser.parse_args(rest)
+    if verb == "where":
+        if ns.at is not None and ns.view != "text":
+            parser.error("--at requires --text")
+        return _where(ns)
     if verb == 'status':
         return _status(ns)
     if verb == "req":

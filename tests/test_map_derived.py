@@ -24,6 +24,56 @@ def facts(root):
     return inventory, discover_inventory(root, inventory, write_cache=False)
 
 
+def test_cohesion_advice_shares_real_graph_and_keeps_owner_scope(tmp_path, monkeypatch):
+    from copy import deepcopy
+    import pytest
+    from flowguard.map import derived, lint
+
+    (tmp_path / "app.py").write_text("from helper import answer\ndef run():\n    return answer()\n")
+    (tmp_path / "helper.py").write_text("def answer():\n    return True\n")
+    (tmp_path / "import_only.py").write_text("from helper import answer\n")
+    inv, raw = facts(tmp_path)
+    data = {"components": [
+        {"id": "app", "files": ["app.py", "import_only.py"], "entrypoints": ["app.py:run"],
+         "responsibilities": ["serve an answer"], "tests": ["tests/test_app.py"], "depends_on": ["helper"]},
+        {"id": "helper", "files": ["helper.py"], "entrypoints": [],
+         "responsibilities": ["supply a value"], "tests": ["tests/test_app.py"], "depends_on": []}],
+        "flows": []}
+    rows = derived.cohesion_facts(inv, raw, data)
+    assert len(rows) == 1 and rows[0]["external_owner"] == "app"
+    assert rows[0]["call_edges"] == [{"caller": "app.py#run", "caller_line": 2,
+        "callee": "helper.py#answer", "callee_line": 1, "caller_owner": "app",
+        "caller_owner_basis": "declared component", "callee_owner": "helper",
+        "callee_owner_basis": "declared component"}]
+    assert rows[0]["callers"] == ["app.py"]  # An import alone supplies no call evidence.
+    assert derived._architecture(tmp_path, inv, raw, data, {}, []) == rows
+    calls = []
+    def discovered(*args, **kwargs):
+        calls.append(1)
+        return raw
+    monkeypatch.setattr(lint, "discover_inventory", discovered)
+    monkeypatch.setattr(derived, "_predicate_sites", lambda *args: pytest.fail("lint reparsed architecture"))
+    findings = lint.run_lint(tmp_path, data, inv, write_cache=False)
+    assert len(calls) == 1
+    candidates = [finding for finding in findings if finding.code == "cohesion_candidate"]
+    assert len(candidates) == 1 and candidates[0].level == "info"
+    debt = [{"code": "cohesion_candidate", "component": "helper", "reason": "no required debt",
+             "expires": "9999-12-31"}]
+    _, used = lint.apply_accepted_debts(candidates, debt)
+    assert not used and "accepted debt:" not in candidates[0].message
+    assert len([finding for finding in findings if finding.code == "cohesion_scope"]) == 1
+    assert "TESTED_BY do not license" in next(f.message for f in findings if f.code == "cohesion_scope")
+    declared_entry = deepcopy(data)
+    declared_entry["components"][1]["entrypoints"] = ["helper.py:answer"]
+    assert derived.cohesion_facts(inv, raw, declared_entry) == []
+    ambiguous = deepcopy(data)
+    ambiguous["components"].append({"id": "other", "files": ["app.py"]})
+    assert derived.cohesion_facts(inv, raw, ambiguous) == []
+    same_owner = deepcopy(data)
+    same_owner["components"] = [{"id": "app", "files": ["app.py", "helper.py"]}]
+    assert derived.cohesion_facts(inv, raw, same_owner) == []
+
+
 PROGRAM = '''import argparse
 from pathlib import Path
 LIMIT = 3
@@ -202,3 +252,20 @@ def test_request_and_change_lookup_uses_real_immutable_records(tmp_path):
     function = where(tmp_path, "changed")["functions"][0]
     assert function["last_requests"] == ["R8"] and function["last_change"] == prepared["id"]
     assert function["changed_since"]["state"] == "unknown"
+
+
+def test_static_queries_do_not_embed_acceptance_material():
+    import ast
+    import re
+
+    root = Path(__file__).resolve().parents[1] / "flowguard"
+    # Exact fixture package paths and domain-specific identifiers, not generic
+    # words such as Counter or inspect that legitimate static tools may use.
+    fixture = re.compile(r"(?:counter[/\\.](?:accounts|audit|catalogue|workshop)|\b(?:rental_price|late_fee|tool_id|member_id)\b)")
+    for name in ("map/derived.py", "map/textrules.py"):
+        source = (root / name).read_text(encoding="utf-8")
+        assert not fixture.search(source), name
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                modules = [node.module or ""] if isinstance(node, ast.ImportFrom) else [alias.name for alias in node.names]
+                assert all(module != "counter" and not module.startswith("counter.") for module in modules), name

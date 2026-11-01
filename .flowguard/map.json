@@ -91,7 +91,8 @@
         "run release with the system root counted and optional whole-suite shards; reject expired debts in strict release checks and display explicit debt deadlines; reject already-applied committed targets and target deletions not staged, preserving the warning for real open targets",
         "run bound tests and, on request, the checks an edit needs",
         "write templates and their aliases into the active target when one exists",
-        "hint splits for large scan drafts and say when discovery finds nothing"
+        "hint splits for large scan drafts and say when discovery finds nothing",
+        "dispatch six public static where forms to the existing derived and text-rule owners; keep selected originals on demand and next commands executable with the same absolute root and selected text revision"
       ],
       "files": [
         "flowguard/__main__.py",
@@ -110,6 +111,7 @@
       ],
       "depends_on": [
         "map-check",
+        "map-derived",
         "map-discover",
         "map-file",
         "map-impact",
@@ -117,6 +119,7 @@
         "map-proof",
         "map-read",
         "map-requests",
+        "map-rules",
         "map-target",
         "public-api",
         "templates"
@@ -144,7 +147,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e838870d5516ba86c6bc2793acf239fcdeed9aab26d375f8b5cb82679d82151b"
+      "fingerprint": "sha256:1b3a3dbdede7e969da4664bb2fc8d1f49bcdb50fd9a84b4391fc597b68599c0f"
     },
     {
       "id": "public-api",
@@ -718,7 +721,7 @@
         "report one owner per entrypoint, responsibility, state and side effect",
         "lint cycles, layers, sizes and private names, then apply only active accepted debts while keeping original record indices; report invalid deadlines as errors and expired deadlines as warnings, or errors in strict checks",
         "explain entrypoints and state writers by model, test or reason",
-        "report file and component sizes, duty counts and fan-out as non-gating facts without debt coverage"
+        "report file and component sizes, fan-out and shared source-bound helper cohesion candidates as non-gating advice without debt coverage; leave normative predicate and per-rule ownership unknown"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -733,6 +736,7 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
+        "map-derived",
         "map-discover",
         "map-file",
         "map-inventory",
@@ -752,7 +756,7 @@
         ".flowguard/models/private_use.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:0a0a6fd67a35962b0e048503942c40b11dfa671537b48cf88f4c4bbbb682daa9"
+      "fingerprint": "sha256:396acc6df63803c7349fe368a91dd846beed4450ba5d50996e9f5c26ca1753ff"
     },
     {
       "id": "map-read",
@@ -887,8 +891,9 @@
         "project the complete shared source inventory and discovery graph into where name tree flow architecture text and keyflow views without another parser or stored index",
         "locate source owners, references, constants, callers and actual command handlers while keeping unresolved bindings explicit",
         "show source-backed architecture and multiple-entry state-writing facts without treating missing rule provenance or missing test execution as proof of absence",
-        "read selected Git-reference code and text from the same source tree and attribute text/code spellings to actual files and lines",
-        "consume only supplied validated runtime or test-reach facts and distinguish them from declared bindings, stale facts and unrecorded scope"
+        "consume only supplied validated runtime or test-reach facts and distinguish them from declared bindings, stale facts and unrecorded scope",
+        "read selected Git-reference code and text from the same source tree, attribute spellings to actual files and lines, and distinguish source spellings from document-relative exact or unique basename file candidates without granting owner bindings",
+        "derive shared cohesion facts from resolved static call edges, unique declared or module owners and actual entry facts; report candidate helper boundaries without licensing normative predicate ownership"
       ],
       "files": [
         "flowguard/map/derived.py"
@@ -907,7 +912,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4d24ff08605b8ed8874bf693553486201e58f3aa12df6e0ecde0a401bd22b395"
+      "fingerprint": "sha256:81d783083a8d22b2bacc7362be5a00bf4530ba37f56fd5aec074a0d43946de29"
     },
     {
       "id": "map-rules",
@@ -918,7 +923,8 @@
         "retain ordinary text and quoted passages with real path line spans normalized fingerprints and available Git provenance; group shared literal fragments without claiming semantic equivalence",
         "distinguish exact source spelling or path existence from a licensed owner binding and preserve missing dynamic or constructed reference evidence as unknown",
         "associate workflow text only through actual complete command or source-reference evidence and present both original passages including wording differences without inventing conflict decisions",
-        "render compact nonblocking summaries by default in human and JSON form and expose complete facts only when explicitly requested"
+        "render compact nonblocking summaries by default in human and JSON form; expose stable computed source and group selectors for complete selected original text and provenance without a registry",
+        "select originals by explicit literal substring without semantic judgments; bound related-group hints and reference summaries in selected human and JSON views while retaining full facts for explicit export"
       ],
       "files": [
         "flowguard/map/textrules.py"
@@ -937,7 +943,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4031f896ea7dad8a233f8e5206d737391b0b23af55f30f2b24adcedcd031573b"
+      "fingerprint": "sha256:21d2b1c2dbd2cfdcbd0485a169e1d0625d12dbfd21f4f80f39cfe6ee98315829"
     }
   ],
   "flows": [
@@ -1087,7 +1093,7 @@
     ".flowguard/models/read_review.py": "70cc52cc776e431a27a0a52c64af36ad7ac089b4768d4c7620ec13827343d82d",
     ".flowguard/models/read_show.py": "02ab182b95a772690cebed315c6d596c195a72219af5a32a2fdbeaf8cd1c1914",
     ".flowguard/models/relation_graph.py": "7c7839800bc2ffd986e1348ed44a51500dce1d1a466ff59ee74d8ef9ef2fe551",
-    ".flowguard/models/release_gate.py": "ef7184926e9fe794db8f661061991c853e7f28738024843db0f31ecd1e542fbb",
+    ".flowguard/models/release_gate.py": "ac63e788767beb9855b50693178705a3c462ba02b77197110e85429722487fc8",
     ".flowguard/models/release_neutral_fingerprint.py": "51d5ae79b7f14473299562517b8acbc5b62004e7641f905364ad954dd4621948",
     ".flowguard/models/replay_conformance.py": "311629f611c211acfecac54cd2d745cec295cc820fcf1b6c104f3f355441b97b",
     ".flowguard/models/scan_coverage.py": "8fcd28bbc5f6ca58f83bc6d06426919fb752113c8c68c9684f10e517f2b4b4c8",

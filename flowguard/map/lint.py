@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .common import Finding, matches_any, read_source, tokens
 from .debts import evaluate_debts
+from .derived import COHESION_UNKNOWN, cohesion_facts
 from .discover import anchor_state_writes, discover_inventory, reachable_effects
 from .inventory import Inventory, is_type_checking_guard, parse_python, resolve_import
 from .tree import build_tree
@@ -120,7 +121,7 @@ def apply_accepted_debts(findings: list[Finding], debts: list[dict], *,
         if finding.code == "dependency_cycle":
             component_ids.update(_cycle_members(finding.message))
     for f in findings:
-        if f.code in SHAPE_ADVICE_CODES:
+        if f.code in SHAPE_ADVICE_CODES or f.code in {"cohesion_candidate", "cohesion_scope"}:
             continue
         if f.level == "error" and f.code in {"large_model", "large_test_file", "test_file_mixes_models"}:
             continue
@@ -314,8 +315,8 @@ def architecture_variants(data, graph, *, only=None, root=None):
             break
 
 
-SHAPE_CODES = ("large_component", "too_many_responsibilities", "untested_component", "high_fan_out", "large_file")
-SHAPE_ADVICE_CODES = frozenset({"large_component", "large_file", "too_many_responsibilities", "high_fan_out"})
+SHAPE_CODES = ("large_component", "untested_component", "high_fan_out", "large_file")
+SHAPE_ADVICE_CODES = frozenset({"large_component", "large_file", "high_fan_out"})
 
 
 def shape_findings(data: dict, inv: Inventory, graph: dict[str, set[str]], limits: Limits | None = None) -> list[Finding]:
@@ -328,9 +329,6 @@ def shape_findings(data: dict, inv: Inventory, graph: dict[str, set[str]], limit
         if loc > limits.max_component_loc:
             out.append(Finding("info", "large_component", c["id"],
                                f"{loc} lines in {len(files)} files (advice, not a gate)"))
-        if len(c.get("responsibilities", [])) > limits.max_responsibilities:
-            out.append(Finding("info", "too_many_responsibilities", c["id"],
-                               f"{len(c['responsibilities'])} responsibilities (advice, not a gate)"))
         if not c.get("tests"):
             out.append(Finding("warn", "untested_component", c["id"], "no tests mapped"))
         if len(graph.get(c["id"], ())) > limits.max_fan_out:
@@ -416,6 +414,15 @@ def run_lint(
             )
 
     raw = discover_inventory(root, inv, write_cache=write_cache, data=data)
+    out.append(Finding("info", "cohesion_scope", "", COHESION_UNKNOWN))
+    for fact in cohesion_facts(inv, raw, data):
+        locations = "; ".join(f"{edge['caller']}:{edge['caller_line']} -> "
+                              f"{edge['callee']}:{edge['callee_line']}"
+                              for edge in fact["call_edges"])
+        out.append(Finding("info", "cohesion_candidate", fact["owner"],
+                           f"{fact['source']}: {fact['fact']} ({fact['external_owner']}); "
+                           f"caller/callee definitions: {locations}; consider keeping the helper with "
+                           "that owner after reviewing dynamic uses (advice, not a gate)"))
     modules = {info.module: path for path, info in inv.py.items()}
     declared_state = {c["id"]: set(c.get("state", [])) for c in comps}
     for path, facts in raw["files"].items():
@@ -781,7 +788,7 @@ def dependency_import_sites(root: Path, data: dict, inv: Inventory, src: str, ds
 
 
 ARCHITECTURE_CODES = {"dependency_cycle", "layer_violation", "duplicate_owner", "possible_duplicate",
-                      "duplicate_code", "foreign_state_write", "private_cross_component_use", "large_component", "large_file", "too_many_responsibilities", "high_fan_out"}
+                      "duplicate_code", "foreign_state_write", "private_cross_component_use", "large_component", "large_file", "high_fan_out", "cohesion_candidate", "cohesion_scope"}
 
 
 def private_name(name: str) -> bool:
