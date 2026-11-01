@@ -24,6 +24,7 @@ collect_ignore = [
     "test_gc6_crash.py",
     "test_gc8_diff.py",
     "test_honest_output.py",
+    "test_input_facts.py",
     "test_project.py",
     "test_proof.py",
     "test_skeleton.py",

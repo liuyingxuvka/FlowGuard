@@ -24,6 +24,7 @@ import types
 
 from flowguard.map.common import child_import_path
 from flowguard.map.runner import run_isolated_process
+from flowguard.map.inputs import directory_stamp, file_stamp, module_lookup_stamp
 
 _ACTIVE_ARENA = None
 _ACTIVE_CLASSES = set()
@@ -34,33 +35,6 @@ def state_key(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
 
-def file_stamp(value):
-    path = Path(value)
-    try:
-        info = path.lstat()
-        row = {"mode": stat.S_IMODE(info.st_mode), "resolved": str(path.resolve())}
-        if path.is_symlink():
-            row["link"] = os.readlink(path)
-        if path.is_file():
-            row["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
-        elif path.is_dir():
-            row["directory"] = True
-        else:
-            row["opaque"] = True
-        return row
-    except FileNotFoundError:
-        return {"missing": True}
-
-
-def directory_stamp(value):
-    path = Path(value)
-    if not path.is_dir():
-        return {"missing": True}
-    # Preserve actual enumeration order: applications may consume it.
-    return {"entries": [[item.name, "link" if item.is_symlink() else "directory" if item.is_dir() else "file",
-                          stat.S_IMODE(item.lstat().st_mode), os.readlink(item) if item.is_symlink() else None]
-                         for item in path.iterdir()]}
-
 
 class _Inputs:
     def __init__(self, arena, source_root, empty_bytecode):
@@ -68,6 +42,7 @@ class _Inputs:
         self.source_root = str(Path(source_root).resolve()) + os.sep
         self.empty_bytecode = Path(empty_bytecode)
         self.files, self.directories = {}, {}
+        self.directory_uses = {}
         self.busy = False
         self.reusable = True
         self.recording_tests = False
@@ -146,15 +121,45 @@ class _Inputs:
                 key = str(path)
                 if key not in rows:
                     rows[key] = stamp(path)
+                if rows is self.directories:
+                    self._directory_use(path, event, args, caller)
         except (OSError, TypeError, ValueError):
             self.reusable = False
             self.untracked.add("unidentified filesystem input: " + event)
         finally:
             self.busy = False
 
+    def _directory_use(self, path, event, args, caller):
+        """Keep physical listings; narrow only a real module finder lookup."""
+        key = str(path)
+        previous = self.directory_uses.get(key)
+        if previous and previous["kind"] == "listing":
+            return
+        name = None
+        if event == "import" and isinstance(args[0], str):
+            name = args[0].split(".", 1)[0]
+        elif caller is not None:
+            finder_type = importlib.machinery.FileFinder
+            if caller.f_code is finder_type._fill_cache.__code__:
+                finder = caller.f_locals.get("self")
+                frame = caller.f_back
+                while frame is not None and frame.f_code.co_filename.startswith("<frozen importlib"):
+                    if frame.f_code is finder_type.find_spec.__code__ and frame.f_locals.get("self") is finder:
+                        fullname = frame.f_locals.get("fullname")
+                        if isinstance(fullname, str) and Path(finder.path).absolute() == path:
+                            name = fullname.rsplit(".", 1)[-1]
+                        break
+                    frame = frame.f_back
+        if name:
+            usage = self.directory_uses.setdefault(key, {"kind": "module-lookup", "lookups": {}})
+            usage["lookups"].setdefault(name, module_lookup_stamp(path, name))
+        else:
+            self.directory_uses[key] = {"kind": "listing", "event": event,
+                "caller": [caller.f_code.co_filename, caller.f_code.co_qualname] if caller is not None else None}
+
     def receipt(self):
         return {"files": self.files, "directories": self.directories, "reusable": self.reusable,
-                "untracked": sorted(self.untracked)}
+                "directory_uses": self.directory_uses, "untracked": sorted(self.untracked)}
 
 
 class _ObservedState:

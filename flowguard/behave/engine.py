@@ -9,9 +9,10 @@ import sys
 import time
 
 from flowguard.map.common import atomic_write_text, normalize_newlines
+from flowguard.map.inputs import directory_stamp, file_stamp, footprint_identity
 
 from .capture import merge
-from .project import UnsupportedWorld, directory_stamp, file_stamp, replay, state_key, ui_identity
+from .project import UnsupportedWorld, replay, state_key, ui_identity
 from .skeleton import NoSkeleton, derive, fallback_facts
 
 
@@ -34,21 +35,6 @@ def content_identity(spec):
     source[".flowguard/skeleton.py"] = file_stamp(Path(spec["root"]) / ".flowguard/skeleton.py")
     return state_key({"engine_source": engine, "python": sys.version,
                       "executable": file_stamp(sys.executable), "source": source, "spec": spec})
-
-
-def footprint_identity(footprint):
-    if not footprint.get("reusable", False):
-        return None
-    try:
-        for path, previous in footprint["files"].items():
-            if file_stamp(path) != previous:
-                return None
-        for path, previous in footprint["directories"].items():
-            if directory_stamp(path) != previous:
-                return None
-    except (OSError, ValueError):
-        return None
-    return state_key(footprint)
 
 
 def cache_root(root, *, create=True):
@@ -77,7 +63,7 @@ def _cached(path, identity):
 
 
 def _combined_footprint(facts):
-    footprint = {"reusable": True, "files": {}, "directories": {}, "untracked": []}
+    footprint = {"reusable": True, "files": {}, "directories": {}, "directory_uses": {}, "untracked": []}
     for row in facts:
         actual = row.get("footprint", {})
         if not footprint_identity(actual):
@@ -87,9 +73,28 @@ def _combined_footprint(facts):
         for kind in ("files", "directories"):
             for path, stamp in actual.get(kind, {}).items():
                 if path in footprint[kind] and footprint[kind][path] != stamp:
-                    footprint["reusable"] = False
-                    footprint["untracked"].append("audit child input identities disagree: " + path)
+                    lookup_only = (kind == "directories"
+                        and footprint["directory_uses"].get(path, {}).get("kind") == "module-lookup"
+                        and actual.get("directory_uses", {}).get(path, {}).get("kind") == "module-lookup")
+                    if not lookup_only:
+                        footprint["reusable"] = False
+                        footprint["untracked"].append("audit child input identities disagree: " + path)
                 footprint[kind][path] = stamp
+        for path in actual.get("directories", {}):
+            use = actual.get("directory_uses", {}).get(path, {"kind": "listing"})
+            previous = footprint["directory_uses"].get(path)
+            if previous is None:
+                footprint["directory_uses"][path] = json.loads(json.dumps(use))
+            elif previous.get("kind") != "module-lookup" or use.get("kind") != "module-lookup":
+                footprint["directory_uses"][path] = {"kind": "listing"}
+            else:
+                for name, stamp in use.get("lookups", {}).items():
+                    if name in previous["lookups"] and previous["lookups"][name] != stamp:
+                        footprint["directory_uses"][path] = {"kind": "listing"}
+                        footprint["reusable"] = False
+                        footprint["untracked"].append("audit child module lookup identities disagree: " + path)
+                        break
+                    previous["lookups"][name] = stamp
     footprint["untracked"] = sorted(set(footprint["untracked"]))
     return footprint
 

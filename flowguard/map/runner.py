@@ -193,3 +193,34 @@ def run_isolated_process(command: list[str], *, cwd: Path, env: dict,
     completed = subprocess.CompletedProcess(command, code, output or "", error or "")
     completed.lingering_killed = bool(lingering)      # leftover background processes were killed; not a failure
     return completed, timed_out, cleanup
+
+
+_DETACHED_PROCESSES = []
+
+
+def start_detached_process(command: list[str], *, cwd: Path, env: dict,
+                           stdout_path: Path, stderr_path: Path) -> int:
+    """Start a durable coordinator; this module remains the sole Popen owner.
+
+    The coordinator runs the existing finite-process owner without an outer
+    timeout. It survives the requesting CLI and cleans the worker's remaining
+    descendants if its leader dies. Native calls retain their own timeouts.
+    No environment or credentials are serialized to disk.
+    """
+    global _DETACHED_PROCESSES
+    _DETACHED_PROCESSES = [process for process in _DETACHED_PROCESSES if process.poll() is None]
+    child_env = dict(env)
+    child_env.pop(PROCESS_OWNER_ENV, None)
+    supervisor = (
+        "import os,sys;from pathlib import Path;"
+        "from flowguard.map.runner import run_isolated_process;"
+        "done,_,_=run_isolated_process(sys.argv[1:],cwd=Path.cwd(),env=dict(os.environ),timeout=None);"
+        "raise SystemExit(done.returncode)"
+    )
+    options = ({"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
+               if os.name == "nt" else {"start_new_session": True})
+    with Path(stdout_path).open("ab") as output, Path(stderr_path).open("ab") as error:
+        process = subprocess.Popen([sys.executable, "-c", supervisor, *command], cwd=cwd, env=child_env,
+                                   stdin=subprocess.DEVNULL, stdout=output, stderr=error, close_fds=True, **options)
+    _DETACHED_PROCESSES.append(process)
+    return process.pid
