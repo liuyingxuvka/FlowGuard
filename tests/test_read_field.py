@@ -15,7 +15,7 @@ def test_read_field_status_names_writers_and_model():
     from flowguard.map.inventory import build_inventory
     root=Path(__file__).resolve().parents[1];data=load_map(root)
     text=render_field(root,data,build_inventory(root,ignore_patterns(data),write_cache=False),'status')
-    assert 'component_pointer' in text and 'cmd_confirm' in text and 'merge_target_map' in text
+    assert 'component_pointer' in text and 'confirm_components' in text and 'merge_target_map' in text
 
 
 def test_json_key_written_and_read_across_components(tmp_path):
