@@ -469,7 +469,7 @@ def derive(root):
             value = item.slice if isinstance(item, ast.Subscript) and _name(item.value) == kw else item.args[0] if isinstance(item, ast.Call) and _name(item.func) == str(kw) + ".get" and item.args else None
             if isinstance(value, ast.Constant) and isinstance(value.value, str):
                 inputs.add(value.value)
-        option_inputs = {}
+        option_inputs, input_refusals = {}, []
         option_arg = choose.args.args[1].arg if len(choose.args.args) > 1 else None
         for item in ast.walk(choose):
             if not isinstance(item, ast.If) or not isinstance(item.test, ast.Compare):
@@ -493,6 +493,25 @@ def derive(root):
             for value in selected:
                 if isinstance(value, str) and value in options:
                     option_inputs[value] = sorted(fields)
+                    # A chosen option can still reject an input outside its
+                    # source-declared membership domain. Retain the exact
+                    # refusal site; no private helper is executed by the tool.
+                    for guard in item.body:
+                        if not isinstance(guard, ast.If) or len(guard.body) != 1 or not isinstance(guard.body[0], ast.Raise):
+                            continue
+                        test = guard.test
+                        if not (isinstance(test, ast.Compare) and len(test.ops) == 1 and isinstance(test.ops[0], ast.NotIn)):
+                            continue
+                        argument = test.left
+                        key = argument.slice if isinstance(argument, ast.Subscript) and _name(argument.value) == kw else argument.args[0] if isinstance(argument, ast.Call) and _name(argument.func) == str(kw) + ".get" and argument.args else None
+                        refusal = guard.body[0]
+                        if not (isinstance(key, ast.Constant) and isinstance(key.value, str)
+                                and _name(refusal.exc) in {"ValueError", "TypeError", "KeyError", "IndexError", "RuntimeError"}):
+                            continue
+                        input_refusals.append({"option": value, "input": key.value,
+                            "condition": ast.unparse(test),
+                            "source": {"path": ui_path, "function": ui_class.name + "." + choose.name,
+                                       "line": refusal.lineno}})
         # Values assembled by the offer method but not chosen through a static
         # condition retain the unknown input boundary, rather than an empty one.
         if missing := options - option_inputs.keys():
@@ -531,7 +550,8 @@ def derive(root):
                           "source": {"path": ui_path, "function": ui_class.name + ".__init__", "line": ctor.lineno if ctor else ui_class.lineno}}
         if len(references) != 1:
             unknown.append("UI constructor system reference is not uniquely bound")
-        ui_facts = {"options": sorted(options), "screens": sorted(screens), "inputs": sorted(inputs), "option_inputs": option_inputs}
+        ui_facts = {"options": sorted(options), "screens": sorted(screens), "inputs": sorted(inputs), "option_inputs": option_inputs,
+                    "input_refusals": input_refusals}
 
     # These are source-bound search hints, not an evaluator for arbitrary Python.
     settings_attributes = set()
@@ -838,8 +858,25 @@ def derive(root):
                 if recipe is None:
                     unbound_choices.add(option)
                     return
+                # A UI can offer an attempt and handle the domain's refusal.
+                # Only an unhandled call (or an explicit offer-side predictor)
+                # promises that UI availability implies domain permission.
+                handled = False
+                if fn is not options_fn:
+                    raised = {resolve(_name(row.exc), symbol.partition("#")[0])
+                              for symbol in closure(method_symbols[action]) if symbol in functions for row in ast.walk(functions[symbol])
+                              if isinstance(row, ast.Raise) and row.exc is not None}
+                    raised = {locator for locator in raised if locator and is_refusal(locator)}
+                    for attempt in ast.walk(fn):
+                        if not isinstance(attempt, ast.Try) or not any(item is row for statement in attempt.body for row in ast.walk(statement)):
+                            continue
+                        for handler in attempt.handlers:
+                            caught = list(handler.type.elts) if isinstance(handler.type, ast.Tuple) else [handler.type]
+                            covers = handler.type is None or any(_name(row) in {"Exception", "BaseException"}
+                                      or resolve(_name(row), ui_path) in raised for row in caught)
+                            handled |= bool(raised and covers and not any(isinstance(row, ast.Raise) for statement in handler.body for row in ast.walk(statement)))
                 ui_bindings.append({"option": option, "action": action, "predictor": predictor["predictor"], "allow": predictor["allow"], **recipe,
-                                    "guards": list(phases), "context_unknown": uncertain,
+                                    "guards": list(phases), "context_unknown": uncertain, "handles_refusal": handled,
                                     "sources": [location(ui_path, ui_class.name + "." + fn.name, item), *predictor["sources"]]})
             def visit(statements, env, guards, phases, uncertain):
                 for statement in statements:

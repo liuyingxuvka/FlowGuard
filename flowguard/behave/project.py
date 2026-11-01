@@ -859,13 +859,17 @@ class _Session:
             _load(self.spec["settings"])
         if self.spec.get("ui"):
             _load(self.spec["ui"])
+        self.refusals = tuple(_load(name) for name in self.spec.get("refusal", []))
         self.observed.enabled = True
         output, error = io.StringIO(), io.StringIO()
-        with redirect_stdout(output), redirect_stderr(error):
-            self.objects, self.defaults, self.seeded = construct(self.spec, self.start)
+        try:
+            with redirect_stdout(output), redirect_stderr(error):
+                self.objects, self.defaults, self.seeded = construct(self.spec, self.start)
+        except self.refusals as exc:
+            kind = type(exc).__module__ + ":" + type(exc).__qualname__
+            raise UnsupportedWorld("declared construction refusal " + kind + ": " + _diagnostic(str(exc), self.arena)) from exc
         self.construction_stdout = _diagnostic(output.getvalue(), self.arena)
         self.construction_stderr = _diagnostic(error.getvalue(), self.arena)
-        self.refusals = tuple(_load(name) for name in self.spec.get("refusal", []))
         self.prefix, self.results, self.outcomes = [], [], []
         self.last = None
         self.current = snapshot(self.objects, self.arena, self.defaults)
@@ -925,6 +929,7 @@ class _Session:
         return row
 
     def query(self, receiver, name, args=(), kwargs=None, *, property=False):
+        previous = self.current
         key = (self.current_key, receiver, name, state_key(_Graph(self.arena).pack([list(args), kwargs or {}, property])))
         reusable = self.observed.inputs is not None and self.observed.inputs.reusable
         if reusable and key in self.query_facts:
@@ -932,7 +937,10 @@ class _Session:
         row = self.step({"receiver": receiver, "name": name, "args": list(args), "kwargs": kwargs or {}, "property": property}, keep=False)
         if row["outcome"] != "success" or row["before_key"] != row["after_key"]:
             raise UnsupportedWorld("a required public query is not a pure successful observation")
-        if reusable and self.observed.inputs.reusable:
+        same_observation = key[0] == row["before_key"] == row["after_key"]
+        if same_observation:
+            self.current = previous
+        if same_observation and reusable and self.observed.inputs.reusable:
             self.query_facts[key] = row["value"]
         return row["value"]
 

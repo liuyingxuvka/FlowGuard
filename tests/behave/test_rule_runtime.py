@@ -1,6 +1,8 @@
 """Rules judge captured native facts; a failure needs its own fresh replay."""
 
 import json
+from pathlib import Path
+import subprocess
 import sys
 
 import pytest
@@ -68,6 +70,14 @@ def test_owner_step_rule_is_judged_offline_and_freshly_reproduced(tmp_path):
     assert shown["rule_evidence"]["message"] == "count exceeds the owner bound"
     assert shown["rule_evidence"]["provenance"][0]["kind"] == "owner"
     assert "BROKEN counting.test_count_limit" in render(result) and "owner R1" in render(result)
+    replayed = subprocess.run([sys.executable, "-m", "flowguard.behave", "why", item["id"],
+                               "--root", str(tmp_path), "--json"],
+                              cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True)
+    assert replayed.returncode == 0, replayed.stderr
+    current = json.loads(replayed.stdout)
+    assert current["state"] == "reproduced" and current["matched"]
+    assert current["details"]["rule"]["message"] == "count exceeds the owner bound"
+    assert current["details"]["rule"]["provenance"][0]["request"] == "R1"
 
 
 def test_correct_owner_bound_is_clean_in_the_captured_requested_scope(tmp_path):

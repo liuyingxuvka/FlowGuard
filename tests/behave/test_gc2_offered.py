@@ -235,3 +235,62 @@ def test_agreement_branches_match_independent_prefix_baselines_without_leaks(tmp
         assert independent["matched"] and not independent["unknown"]
         assert independent["candidates"][0]["semantic"] == row["semantic"]
         assert independent["candidates"][0]["comparison"] == row["comparison"]
+
+
+def test_ui_membership_input_refusal_is_not_an_offer_contradiction(tmp_path):
+    source = PROGRAM.replace("PREDICTOR", "why_not_advance").replace("ANSWER", "None")
+    source = source.replace("ACTION", 'raise Refusal("valid offered input was refused")')
+    view = VIEW.replace("OFFER_GUARD", "pass")
+    view = view.replace("    def options(self):", "    def _listed(self): return self.program.units()[:1]\n    def options(self):")
+    view = view.replace("CHOOSE_GUARD", 'if inputs.get("unit_id") not in self._listed(): raise ValueError("not listed")')
+    view = view.replace("self.program.advance(self.unit_id)", 'self.program.advance(inputs["unit_id"])')
+    (tmp_path / "program.py").write_text(source + view)
+    spec = derive(tmp_path)
+    site, = [row for row in spec["ui_facts"]["input_refusals"] if row["option"] == "next"]
+    assert site["input"] == "unit_id" and site["source"]["function"] == "View.choose"
+    prefix = [{"construct": "ui", "receiver": "ui:0", "args": ["U1"]}]
+    def comparison(unit):
+        return {"predictor": {"receiver": "ui:0", "name": "options"}, "predictor_mode": "offered",
+                "option": "next", "action": {"receiver": "ui:0", "name": "choose", "args": ["next"],
+                                              "kwargs": {"unit_id": unit}}}
+    rejected = replay(spec, prefix, {"world": "small"}, operation="agreement-proof",
+                      options={"comparison": comparison("outside-list")})
+    assert not rejected["matched"] and not rejected["candidates"] and not rejected["unknown"]
+    assert rejected["compared"] == 0 and rejected["not_applicable"]
+    valid = replay(spec, prefix, {"world": "small"}, operation="agreement-proof",
+                   options={"comparison": comparison("U1")})
+    assert valid["matched"] and valid["compared"] == 1
+    candidate, = valid["candidates"]
+    assert candidate["comparison"]["answer"]["exception"]["message"] == "valid offered input was refused"
+    from flowguard.behave.engine import prove
+    assert prove(tmp_path, candidate)["matched"]
+
+
+def test_ui_handled_domain_refusal_is_an_attempt_not_a_permission_promise(tmp_path):
+    source = PROGRAM.replace("PREDICTOR", "why_not_advance").replace("ANSWER", '"blocked"')
+    source = source.replace("ACTION", 'raise Refusal("blocked")')
+    view = VIEW.replace("OFFER_GUARD", "pass").replace(
+        "            CHOOSE_GUARD\n            self.program.advance(self.unit_id)",
+        '            try:\n                self.program.advance(self.unit_id)\n'
+        '            except Refusal:\n                self.screen = "blocked"')
+    path = tmp_path / "program.py"
+    path.write_text(source + view)
+    spec = derive(tmp_path)
+    assert any(row["option"] == "next" and row["handles_refusal"] for row in spec["ui_bindings"])
+    prefix = [{"construct": "ui", "receiver": "ui:0", "args": ["U1"]}]
+    previous = {"predictor": {"receiver": "ui:0", "name": "options"}, "predictor_mode": "offered",
+                "option": "next", "action": {"receiver": "ui:0", "name": "choose", "args": ["next"], "kwargs": {}},
+                "other_predictor": {"receiver": "system", "name": "why_not_advance", "kwargs": {"unit_id": "U1"}},
+                "other_mode": "why_not", "expected_permission": True, "observed": False}
+    scoped = replay(spec, prefix, {"world": "small"}, operation="agreement-proof", options={"comparison": previous})
+    assert scoped["not_applicable"] and not scoped["matched"] and not scoped["unknown"]
+    assert "handles" in scoped["reason"]
+    observed = replay(spec, [], {"world": "small"}, operation="agreement", options={
+        "facts": {}, "states": [{"prefix": prefix, "start": {"world": "small"}}]})
+    assert not observed["candidates"] and not observed["unknown"]
+    # Propagating that same refusal keeps the offer/action contradiction.
+    path.write_text((source + view).replace('self.screen = "blocked"', 'raise'))
+    unhandled = replay(derive(tmp_path), [], {"world": "small"}, operation="agreement", options={
+        "facts": {}, "states": [{"prefix": prefix, "start": {"world": "small"}}]})
+    assert any(row["comparison"].get("other_predictor") or row["semantic"]["observed"] == "refusal"
+               for row in unhandled["candidates"])

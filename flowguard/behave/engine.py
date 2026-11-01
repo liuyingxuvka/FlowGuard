@@ -146,7 +146,7 @@ def _audit_phases(spec, start, options, *, identity, directory, known, recorded,
     """Persist completed computations, never a verdict or an unfinished child."""
     phases = ("walk", "crash", "agreement", "reach", "stuck")
     progress = {"world": start["world"], "seed": start["seed"], "done": [],
-                "pending": list(phases), "reused": []}
+                "pending": list(phases), "reused": [], "failures": []}
     completed = {}
     cacheable = recording_token is not None and replay_token is not None
     for phase in phases:
@@ -167,8 +167,11 @@ def _audit_phases(spec, start, options, *, identity, directory, known, recorded,
             try:
                 facts = replay(spec, [], start, operation="audit-phase", options=request_options, timeout=native_timeout)
             except UnsupportedWorld as exc:
-                progress["reason"] = str(exc)
-                break
+                progress["failures"].append({"phase": phase, "reason": str(exc)})
+                progress.setdefault("reason", str(exc))
+                if phase == "walk":
+                    break
+                continue
             if cacheable and footprint_identity(facts.get("footprint", {})):
                 atomic_write_text(path, json.dumps({"identity": identity, "inputs": inputs,
                                   "body": state_key(facts), "facts": facts}, ensure_ascii=False))
@@ -289,8 +292,7 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
             recording_token=recording_token, replay_token=replay_token, shared_test_probes=shared_test_probes,
             use_cache=use_cache, native_timeout=native_timeout)
         phase_progress.append(progress)
-        if progress["pending"]:
-            errors.append({"world": world, "seed": seed, "phase": progress["pending"][0], "reason": progress["reason"]})
+        errors.extend({"world": world, "seed": seed, **failure} for failure in progress["failures"])
         if facts is None:
             continue
         for witness in facts["witnesses"]:
@@ -345,23 +347,29 @@ def audit(root, *, worlds=None, seeds=None, steps=None, node_cap=None, alphabet_
     saved_candidates = []
     saved_hits = set()
     for seed in selected_seeds if saved["saves"] else ():
-        options = dict(saves=saved["saves"], seed=seed, **common_bounds)
-        key = state_key({"identity": identity, "saved_files": options})
-        path = directory / ("saved-" + key + ".json")
-        facts = _cached(path, identity) if use_cache else None
-        if facts is None:
-            try:
-                facts = replay(spec, [], operation="saved", options=options, timeout=300)
-            except UnsupportedWorld as exc:
-                saved_scope["unknown"].append({"check": "GC4", "reason": str(exc), "seed": seed})
-                continue
-            if footprint_identity(facts["footprint"]):
-                atomic_write_text(path, json.dumps({"identity": identity, "body": state_key(facts), "facts": facts}, ensure_ascii=False))
-        saved_scope["files"].extend({**row, "seed": seed} for row in facts["files"])
-        extra_facts.append(facts)
-        saved_scope["unknown"].extend(facts["unknown"])
-        saved_hits.update(facts["execution"]["hit_functions"])
-        saved_candidates.extend({**candidate, "identity": identity, "footprint": facts["footprint"]} for candidate in facts["candidates"])
+        for saved_file in saved["saves"]:
+            options = dict(saves=[saved_file], seed=seed, **common_bounds)
+            key = state_key({"identity": identity, "saved_files": options})
+            path = directory / ("saved-" + key + ".json")
+            facts = _cached(path, identity) if use_cache else None
+            if facts is None:
+                try:
+                    facts = replay(spec, [], operation="saved", options=options, timeout=300)
+                except UnsupportedWorld as exc:
+                    provenance = {"source": saved_file["source"], "schema": saved_file.get("schema"),
+                                  "file": {name: saved_file["file"][name] for name in ("name", "sha256", "fixture") if name in saved_file["file"]},
+                                  "seed": seed}
+                    saved_scope["unknown"].append({"check": "GC4", **provenance, "reason": str(exc)})
+                    saved_scope["files"].append({**provenance, "old_outcome": saved_file.get("old_load", {}).get("outcome"),
+                                                 "status": "unchecked", "reason": str(exc)})
+                    continue
+                if footprint_identity(facts["footprint"]):
+                    atomic_write_text(path, json.dumps({"identity": identity, "body": state_key(facts), "facts": facts}, ensure_ascii=False))
+            saved_scope["files"].extend({**row, "seed": seed} for row in facts["files"])
+            extra_facts.append(facts)
+            saved_scope["unknown"].extend({**row, "seed": seed} for row in facts["unknown"])
+            saved_hits.update(facts["execution"]["hit_functions"])
+            saved_candidates.extend({**candidate, "identity": identity, "footprint": facts["footprint"]} for candidate in facts["candidates"])
     hits = saved_hits | set(settings.get("execution", {}).get("hit_functions", [])) | {name for run in all_walks for name in run["facts"]["execution"]["hit_functions"]}
     candidates = {}
     candidate_facts = [run["facts"] for run in all_walks]

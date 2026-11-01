@@ -102,14 +102,16 @@ def test_completed_phases_survive_failure_and_real_input_change_invalidates(tmp_
     (tmp_path / "program.py").write_text(PROGRAM)
     data = tmp_path / "data.txt"
     data.write_text("first")
-    actual, calls, interrupt = engine.replay, [], [True]
+    actual, calls = engine.replay, []
+    interruptions = {"agreement": "deliberate interruption before native agreement",
+                     "reach": "deliberate interruption before native reach"}
 
     def interrupted(*args, **kwargs):
         if kwargs.get("operation") == "audit-phase":
             phase = kwargs["options"]["phase"]
             calls.append(phase)
-            if phase == "reach" and interrupt[0]:
-                raise UnsupportedWorld("deliberate interruption before native reach")
+            if phase in interruptions:
+                raise UnsupportedWorld(interruptions[phase])
         return actual(*args, **kwargs)
 
     monkeypatch.setattr(engine, "replay", interrupted)
@@ -117,12 +119,17 @@ def test_completed_phases_survive_failure_and_real_input_change_invalidates(tmp_
     partial = audit(tmp_path, **options)
     assert not partial["runs"] and len(partial["partial_runs"]) == 1
     progress, = partial["phase_progress"]
-    assert progress["done"] == ["walk", "crash", "agreement"]
-    assert progress["pending"] == ["reach", "stuck"]
-    assert "deliberate interruption" in progress["reason"]
+    assert calls == ["walk", "crash", "agreement", "reach", "stuck"]
+    assert progress["done"] == ["walk", "crash", "stuck"]
+    assert progress["pending"] == ["agreement", "reach"]
+    failures = [{"phase": phase, "reason": reason} for phase, reason in interruptions.items()]
+    assert progress["failures"] == failures
+    assert progress["reason"] == interruptions["agreement"]
+    assert [{key: row[key] for key in ("phase", "reason")} for row in partial["errors"]] == failures
     saved = [json.loads(path.read_text())["facts"]["phase"]
              for path in engine.cache_root(tmp_path).glob("phase-*.json")]
-    assert sorted(saved) == ["agreement", "crash", "walk"]
+    assert sorted(saved) == ["crash", "stuck", "walk"]
+    assert "stuck" in partial["partial_runs"][0]["facts"]["execution"]["phases"]
     crash, = [item for item in partial["items"] if item["label"] == "CRASH"]
     assert crash["proof"]["matched"]
     assert crash["proof"]["proof"]["execution"]["child_pid"] not in partial["partial_runs"][0]["facts"]["execution"]["child_pids"]
@@ -130,11 +137,12 @@ def test_completed_phases_survive_failure_and_real_input_change_invalidates(tmp_
     assert json.loads(render(partial, as_json=True))["verdict"] != "CLEAR"
 
     calls.clear()
-    interrupt[0] = False
+    interruptions.clear()
     finished = audit(tmp_path, **options)
     assert len(finished["runs"]) == 1 and not finished["partial_runs"]
-    assert calls == ["reach", "stuck"]
-    assert finished["phase_progress"][0]["reused"] == ["walk", "crash", "agreement"]
+    assert calls == ["agreement", "reach"]
+    assert finished["phase_progress"][0]["reused"] == ["walk", "crash", "stuck"]
+    assert finished["phase_progress"][0]["failures"] == []
     calls.clear()
     assert audit(tmp_path, **options)["facts_reused"] == 1
     assert calls == []

@@ -482,6 +482,10 @@ def focused_search(session, *, goal, prefix=(), depth=3, node_cap=1000, alphabet
                     extent.update(visited=len(seen), capped=True, reason="node cap")
                     return {"found": False, "goal": goal, "extent": extent, "answers": answers}
                 seen[key] = distance + 1
+                # Query/action goals were just checked after the native call.
+                # UI goals retain their queued construction/observation path.
+                if distance + 1 == depth and goal.get("kind") in {"query", "action"}:
+                    continue
                 saved = session.checkpoint()
                 if priority:
                     rank = _guard_distance(session, goal, observations(session), hints)

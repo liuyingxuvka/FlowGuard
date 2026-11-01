@@ -202,3 +202,61 @@ def test_no_history_or_saved_fixture_is_explicit_scope(tmp_path, monkeypatch):
                for row in fresh["runs"][0]["facts"]["reach"]["candidates"])
     assert fresh["saved_files"]["fixture_scope"]["other_formats"] == "not screened"
     assert "other formats not screened" in render(fresh)
+
+
+def test_saved_file_failure_keeps_later_native_lost_and_retries_only_missing(history, monkeypatch):
+    from pathlib import Path
+    from flowguard.behave import engine
+    from flowguard.behave.project import UnsupportedWorld, state_key
+
+    collected = collect_saves(history, steps=1, node_cap=2, alphabet_cap=32)
+    accepted = next(row for row in collected["saves"] if row["file"]["name"] == "fixtures/committed.json")
+    lost = next(row for row in collected["saves"] if row["recipe"] is not None)
+    assert accepted["old_load"]["outcome"] == lost["old_load"]["outcome"] == "success"
+    assert accepted["file"]["sha256"] != lost["file"]["sha256"]
+    assert Path(accepted["file"]["name"]).name != Path(lost["file"]["name"]).name
+    program = history / "program.py"
+    policy = f'if Path(path).name == {Path(lost["file"]["name"]).name!r}: raise Refusal("retired")'
+    program.write_text(program.read_text().replace("# LOAD_POLICY", policy))
+    spec = derive(history)
+    load = {"receiver": "system", "name": spec["persistence"]["load"],
+            "args": [{"$file": accepted["file"]["name"]}], "replace": True}
+    # The interrupted slice is genuinely accepted by the current public native loader.
+    loaded = replay(spec, [load], {"files": {accepted["file"]["name"]: accepted["file"]["bytes"]}, "seed": 0})
+    assert loaded["steps"][0]["outcome"] == "success"
+    selected = [accepted, lost]
+    monkeypatch.setattr(engine, "collect_saves", lambda root, **bounds: {**collected, "saves": selected})
+    actual, calls = engine.replay, []
+
+    def interrupted(*args, **kwargs):
+        if kwargs.get("operation") == "saved":
+            files = [row["file"]["sha256"] for row in kwargs["options"]["saves"]]
+            calls.append(files)
+            if accepted["file"]["sha256"] in files:
+                # Explicit owned native-phase failure; no sleep and no fabricated SUT verdict.
+                raise UnsupportedWorld("owned saved child failed before post-load completion")
+        return actual(*args, **kwargs)
+
+    monkeypatch.setattr(engine, "replay", interrupted)
+    bounds = dict(steps=1, node_cap=2, alphabet_cap=32)
+    result = audit(history, worlds=["small"], seeds=[0], **bounds)
+    items = [item for item in result["items"] if item["semantic"].get("kind") == "loading"
+             and item["semantic"].get("file") == lost["file"]["sha256"]]
+    assert items, "an unfinished accepted-file slice must not swallow the later actual LOST"
+    item, = items
+    assert item["label"] == "LOST" and item["saved_file"] == lost and item["proof"]["matched"]
+    assert calls == [[accepted["file"]["sha256"]], [lost["file"]["sha256"]]]
+    unknown = [row for row in result["saved_files"]["unknown"]
+               if row.get("file", {}).get("sha256") == accepted["file"]["sha256"]]
+    assert len(unknown) == 1 and unknown[0]["seed"] == 0 and unknown[0]["source"] == accepted["source"]
+    statuses = {row["file"]["sha256"]: row["status"] for row in result["saved_files"]["files"]}
+    assert statuses[accepted["file"]["sha256"]] == "unchecked"
+    assert statuses[lost["file"]["sha256"]] == "candidate"
+    for saved_file in selected:
+        key = state_key({"identity": result["identity"], "saved_files": {"saves": [saved_file], "seed": 0, **bounds}})
+        assert (cache_root(history) / ("saved-" + key + ".json")).is_file() == (saved_file is lost)
+    assert why(history, item["id"])["matched"]  # real independent old reproduction + fresh current load
+    calls.clear()
+    again = audit(history, worlds=["small"], seeds=[0], **bounds)
+    assert calls == [[accepted["file"]["sha256"]]]  # completed file facts reused; failure never marked done
+    assert any(row["id"] == item["id"] and row["proof"]["matched"] for row in again["items"])

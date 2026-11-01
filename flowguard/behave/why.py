@@ -24,7 +24,7 @@ def why(root, identifier=None, *, coverage=False, defects=False):
                 key: facts.get(key, {} if coverage else []), "inputs": facts.get("inputs", [])}
     if identifier is None:
         raise ValueError("give a finding id, --coverage or --defects")
-    if len(identifier) not in {6, 8} or identifier[:2] not in {"W-", "N-", "S-", "L-", "C-", "A-", "T-", "U-"} or any(char not in "0123456789abcdef" for char in identifier[2:]):
+    if len(identifier) not in {6, 8} or identifier[:2] not in {"W-", "N-", "S-", "L-", "C-", "A-", "T-", "U-", "B-"} or any(char not in "0123456789abcdef" for char in identifier[2:]):
         raise ValueError("unknown witness id")
     path = cache_root(root) / "witnesses" / (identifier + ".json")
     try:
@@ -41,6 +41,10 @@ def why(root, identifier=None, *, coverage=False, defects=False):
     if candidate.get("origin"):
         result["origin"] = candidate["origin"]
     result["details"] = {key: candidate[key] for key in ("search", "answers", "comparison", "effects", "dead_code") if key in candidate}
+    if candidate.get("rule_evidence"):
+        result["details"]["rule"] = {key: candidate["rule_evidence"][key] for key in (
+            "rule", "message", "fixture", "path", "line", "provenance",
+        ) if key in candidate["rule_evidence"]}
     if result.get("evidence"):
         result["details"]["versions"] = result["evidence"]
     if result.get("matched"):

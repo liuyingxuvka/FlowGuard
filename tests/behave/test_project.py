@@ -233,3 +233,59 @@ def test_descriptor_relative_writes_are_unsupported_but_mkstemp_save_works(examp
             replay(spec, [{"name": name, "args": [str(example), "sentinel"]}])
         assert sentinel.read_bytes() == b"sentinel"
         assert sentinel.stat().st_mode == mode
+
+
+def test_pure_queries_keep_validated_observation_and_full_purity_checks(example, monkeypatch):
+    from flowguard.behave import project
+    original = project.run_isolated_process
+    control = '''from flowguard.behave import project as native, explore as walk
+run_session = native._run_session
+def controlled(request, arena, observed):
+    if not request.get("options", {}).get("control_queries"):
+        return run_session(request, arena, observed)
+    session = native._Session(request["spec"], request.get("start", {}), arena, observed)
+    session.reset()
+    initial, calls = session.current, session.executed_calls
+    counts = {"memo_builds": 0, "snapshots": 0}
+    key, snap = native.state_key, native.snapshot
+    def counted_key(value):
+        if value is session.current: counts["memo_builds"] += 1
+        return key(value)
+    def counted_snapshot(*args, **kwargs):
+        counts["snapshots"] += 1
+        return snap(*args, **kwargs)
+    native.state_key, native.snapshot = counted_key, counted_snapshot
+    values = [walk.plain(session.query("system", name, args))
+              for name, args in (("status", ["E1"]), ("entries", []))]
+    return {"values": values, "same_observation": session.current is initial,
+            "query_calls": session.executed_calls - calls, **counts, "execution": session.receipt()}
+native._run_session = controlled
+'''
+    def observed(command, **kwargs):
+        command = list(command)
+        command[2] = control + command[2]
+        return original(command, **kwargs)
+    monkeypatch.setattr(project, "run_isolated_process", observed)
+    result = replay(derive(example), [], {"world": "small"}, options={"control_queries": True})
+    assert result["values"] == ["ready", ["E1"]]
+    assert result["same_observation"] and result["memo_builds"] == 1
+    assert result["query_calls"] == 2 and result["snapshots"] == 4
+
+
+def test_query_does_not_reuse_or_cache_under_a_changed_defaults_alias(tmp_path):
+    from types import SimpleNamespace
+    from flowguard.behave import project
+    session = project._Session({}, {}, tmp_path, SimpleNamespace(inputs=SimpleNamespace(reusable=True)))
+    defaults, objects = {"limit": 3}, {"system": {}}
+    previous = session.current = project.snapshot(objects, tmp_path, defaults)
+    def changed_defaults(recipe, *, keep):
+        before = project.snapshot(objects, tmp_path, defaults)
+        defaults["limit"] = 4
+        after = project.snapshot(objects, tmp_path, defaults)
+        session.current = after
+        return {"outcome": "success", "before_key": project.state_key(before),
+                "after_key": project.state_key(after), "value": 4}
+    session.step = changed_defaults
+    assert session.query("system", "limit") == 4
+    assert session.current is not previous and session.current["defaults"]["limit"] == 4
+    assert session.query_facts == {}

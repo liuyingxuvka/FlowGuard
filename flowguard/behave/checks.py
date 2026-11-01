@@ -123,9 +123,6 @@ def stuck(session, facts, *, states=(), depth=5, node_cap=None, alphabet_cap=Non
             seen.add(key)
             goal = {"kind": "query", "query": term["query"], "args": term["args"], "value": term["value"], "comparison": "ne"}
             selected = {"query": term["query"], "identifier": term["args"][0]}
-            probe = focused_search(session, goal=goal, prefix=state["prefix"], related=selected, **{**bounds, "depth": 1})
-            if probe["found"]:
-                continue
             result = focused_search(session, goal=goal, prefix=state["prefix"], related=selected, **bounds)
             if not result["found"]:
                 if not result["extent"]["complete"]:
@@ -607,6 +604,7 @@ def offered(session, facts, *, states=(), case=None):
     from .project import state_key, ui_identity
 
     candidates, unknown, compared = [], [], 0
+    input_not_applicable = None
     original = session.start
 
     def compact_unknown():
@@ -637,7 +635,7 @@ def offered(session, facts, *, states=(), case=None):
         raise UnsupportedWorld("the predictor has no declared permission answer")
 
     def compare(comparison, checkpoint=None):
-        nonlocal compared
+        nonlocal compared, input_not_applicable
         if checkpoint is None:
             checkpoint = session.checkpoint()
         prefix, outcomes = list(session.prefix), list(session.outcomes)
@@ -661,6 +659,13 @@ def offered(session, facts, *, states=(), case=None):
                 observed = row["outcome"]
                 if observed not in {"success", "refusal"}:
                     raise UnsupportedWorld("the compared action crashed rather than succeeding or refusing")
+                if comparison["predictor_mode"] == "offered" and observed == "refusal" and row["before_key"] == row["after_key"]:
+                    source = (row.get("exception") or {}).get("source") or {}
+                    if any(site["option"] == comparison.get("option")
+                           and all(source.get(key) == value for key, value in site["source"].items())
+                           for site in session.spec.get("ui_facts", {}).get("input_refusals", [])):
+                        input_not_applicable = "input rejected by its source-bound membership guard"
+                        return  # The actual unchanged refusal proves the input guard rejected it.
                 mismatch = expected != (observed == "success")
             compared += 1
             if not mismatch or "observed" in comparison and observed != comparison["observed"]:
@@ -726,7 +731,8 @@ def offered(session, facts, *, states=(), case=None):
         return True
 
     bindings = session.spec.get("predictor_bindings", [])
-    ui_bindings = session.spec.get("ui_bindings", [])
+    all_ui_bindings = session.spec.get("ui_bindings", [])
+    ui_bindings = [row for row in all_ui_bindings if not row.get("handles_refusal")]
     if case is not None:
         current = False
         if case["predictor_mode"] == "offered":
@@ -744,7 +750,7 @@ def offered(session, facts, *, states=(), case=None):
                        and case["action"]["name"] == session.spec["ui_methods"]["choose"]
                        and case["action"].get("args") == [case.get("option")])
             if "other_predictor" in case:
-                options = [row for row in ui_bindings if row["option"] == case.get("option")]
+                options = [row for row in all_ui_bindings if row["option"] == case.get("option")]
                 active = []
                 for binding in options:
                     try:
@@ -758,17 +764,22 @@ def offered(session, facts, *, states=(), case=None):
                 options = active
                 shapes = {json.dumps({key: row[key] for key in ("action", "args", "kwargs")}, sort_keys=True) for row in options}
                 current = current and len(shapes) == 1
-                matched = False
+                matched = handled = False
                 for binding in options if current else ():
                     try:
                         actual = {"name": binding["action"], "args": [resolve(item, receiver, case["action"].get("kwargs", {})) for item in binding["args"]],
                                   "kwargs": {name: resolve(item, receiver, case["action"].get("kwargs", {})) for name, item in binding["kwargs"].items()}}
                         for pair in bindings:
                             if pair["predictor"] == binding["predictor"] and pair["action"] == binding["action"]:
-                                matched |= (bound_predictor(pair, actual) == case["other_predictor"]
-                                            and case["other_mode"] == ("why_not" if pair["allow"] == "none" else "can"))
+                                agrees = (bound_predictor(pair, actual) == case["other_predictor"]
+                                          and case["other_mode"] == ("why_not" if pair["allow"] == "none" else "can"))
+                                matched |= agrees and not binding.get("handles_refusal", False)
+                                handled |= agrees and binding.get("handles_refusal", False)
                     except (UnsupportedWorld, KeyError, IndexError, TypeError):
                         continue
+                if current and handled and not matched:
+                    return {"candidates": [], "unknown": [], "compared": 0, "matched": False,
+                            "not_applicable": True, "reason": "the UI handles the domain refusal; its offer does not promise domain permission"}
                 current = current and matched
         else:
             current = any(pair["action"] == case["action"]["name"]
@@ -779,7 +790,10 @@ def offered(session, facts, *, states=(), case=None):
             compare(case)
         else:
             unknown.append({"check": "GC2", "reason": "the compared pair has no current unique source binding"})
-        return {"candidates": candidates, "unknown": compact_unknown(), "compared": compared, "matched": bool(candidates)}
+        result = {"candidates": candidates, "unknown": compact_unknown(), "compared": compared, "matched": bool(candidates)}
+        if input_not_applicable:
+            result.update(not_applicable=True, reason=input_not_applicable)
+        return result
 
     if not bindings and not ui_bindings and not session.spec.get("ui"):
         return {"candidates": [], "unknown": [], "compared": 0, "scope": "observed public calls"}

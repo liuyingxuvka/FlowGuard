@@ -121,3 +121,28 @@ def test_loaded_configuration_override_and_unbound_serializer_are_not_unused(tmp
         "traces": [{"start": {"world": "small"}, "prefix": [], "outcomes": []}], "setting": "factor"})
     assert not wrong_type["candidates"]
     assert any("subtree does not match" in row["reason"] for row in wrong_type["unknown"])
+
+
+def test_declared_invalid_configuration_does_not_abort_other_setting_profiles(tmp_path):
+    from flowguard.behave.project import UnsupportedWorld
+
+    source = PROGRAM.replace('    def to_data(self): return asdict(self)',
+        '    def __post_init__(self):\n        if self.factor < 1: raise Refusal("factor must be at least one")\n    def to_data(self): return asdict(self)')
+    source = source.replace('        self._units = {}',
+        '        if self._settings.factor == 999: raise RuntimeError("unexpected constructor")\n        self._units = {}')
+    source += '\n    def decline(self): raise Refusal("declared action")\n    def explode(self):\n        self._charges.append(0)\n        raise RuntimeError("unexpected action")\n'
+    (tmp_path / "program.py").write_text(source)
+    spec = derive(tmp_path)
+    traces = [{"start": {"world": "small"}, "prefix": [], "outcomes": []}]
+    facts = replay(spec, [], operation="settings", options={"traces": traces, "alphabet_cap": 32})
+    invalid, = [row for row in facts["profiles"] if row["setting"] == "factor" and row["value"] == 0]
+    assert invalid["state"] == "not-buildable"
+    assert any(row["setting"] == "factor" and row["value"] == 1 and row["replays"] > 0 for row in facts["profiles"])
+    assert any(row["setting"] == "capacity" and row["replays"] > 0 for row in facts["profiles"])
+    assert any(row["setting"] == "unused" for row in facts["information"])
+    assert any("Refusal" in row["reason"] and "factor must be at least one" in row["reason"] for row in facts["unknown"])
+    actual = replay(spec, [{"name": "decline"}, {"name": "explode"}])
+    assert [row["outcome"] for row in actual["steps"]] == ["refusal", "crash"]
+    assert actual["steps"][1]["exception"]["type"] == "builtins:RuntimeError"
+    with pytest.raises(UnsupportedWorld, match="RuntimeError: unexpected constructor"):
+        replay(spec, [], {"settings": {"factor": 999}})

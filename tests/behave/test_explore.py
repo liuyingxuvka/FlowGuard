@@ -192,3 +192,35 @@ walk._guard_distance = rank
                    options={"goal": goal(99), "priority": True, "depth": 4, "node_cap": 8, "alphabet_cap": 8})
     assert not facts["found"] and facts["extent"]["complete"] and facts["extent"]["visited"] == 5
     assert ["first", "first", "first"] not in facts["execution"]["control_restores"]
+
+
+@pytest.mark.parametrize("target", [goal(99), {"kind": "action", "name": "absent", "outcome": "success"}])
+def test_search_keeps_leaf_facts_without_copying_finished_query_action_nodes(program, monkeypatch, target):
+    original = project.run_isolated_process
+    control = '''from flowguard.behave import project as native
+checkpoints, restores = [], []
+checkpoint, restore, receipt = native._Session.checkpoint, native._Session.restore_checkpoint, native._Session.receipt
+def counted_checkpoint(self):
+    checkpoints.append(len(self.prefix))
+    return checkpoint(self)
+def counted_restore(self, saved):
+    restores.append(len(saved["prefix"]))
+    return restore(self, saved)
+def counted_receipt(self):
+    return {**receipt(self), "control_checkpoints": checkpoints, "control_restores": restores}
+native._Session.checkpoint = counted_checkpoint
+native._Session.restore_checkpoint = counted_restore
+native._Session.receipt = counted_receipt
+'''
+    def observed(command, **kwargs):
+        command = list(command)
+        command[2] = control + command[2]
+        return original(command, **kwargs)
+    monkeypatch.setattr(project, "run_isolated_process", observed)
+    result = replay(derive(program), [], {"world": "small"}, operation="search", options={
+        "goal": target, "depth": 2, "node_cap": 8, "alphabet_cap": 8, "actions": ["advance"]})
+    assert not result["found"] and result["extent"]["complete"]
+    assert result["extent"]["visited"] == 3 and result["extent"]["attempted"] == 2
+    assert [row["call"] for row in result["answers"]] == [{"name": "advance", "args": ["U1"]}]
+    assert 2 not in result["execution"]["control_checkpoints"]
+    assert 2 not in result["execution"]["control_restores"]

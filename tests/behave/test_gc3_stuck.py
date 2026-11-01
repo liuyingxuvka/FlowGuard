@@ -209,3 +209,39 @@ def test_stuck_keeps_distinct_numeric_origins_with_the_same_labels(tmp_path):
     trap_prefix = [{"name": "advance", "args": ["U1"]}] * 2
     assert any(row["prefix"] == trap_prefix and row["search"]["complete"]
                for row in result["stuck"]["candidates"]), result["stuck"]
+
+
+def test_stuck_search_reuses_its_first_bfs_layer(tmp_path, monkeypatch):
+    from flowguard.behave import project
+    (tmp_path / "program.py").write_text(RELATED_PROGRAM)
+    original = project.run_isolated_process
+    control = '''from flowguard.behave import checks, explore as walk, project as native
+run_session = native._run_session
+def controlled(request, arena, observed):
+    if not request.get("options", {}).get("control_stuck"):
+        return run_session(request, arena, observed)
+    session = native._Session(request["spec"], request.get("start", {}), arena, observed)
+    session.reset()
+    records = []
+    for recipe in ({"name": "begin", "args": ["U1"]}, {"name": "settle", "args": ["A1"]}, {"name": "finish", "args": ["U1"]}):
+        session.step(recipe)
+        records.append({"prefix": list(session.prefix), "start": dict(session.start),
+                        "observations": walk.observations(session, all_queries=True)})
+    searches, search = [], checks.focused_search
+    def counted(*args, **kwargs):
+        searches.append(kwargs["depth"])
+        return search(*args, **kwargs)
+    checks.focused_search = counted
+    result = checks.stuck(session, {"states": records[:1], "extent": {"node_cap": 16, "alphabet_cap": 32}},
+                          states=records, depth=2)
+    return {**result, "control_depths": searches, "execution": session.receipt()}
+native._run_session = controlled
+'''
+    def observed(command, **kwargs):
+        command = list(command)
+        command[2] = control + command[2]
+        return original(command, **kwargs)
+    monkeypatch.setattr(project, "run_isolated_process", observed)
+    result = replay(derive(tmp_path), [], {"world": "small"}, options={"control_stuck": True})
+    assert result["control_depths"] == [2]
+    assert result["candidates"] == [] and result["unknown"] == []
