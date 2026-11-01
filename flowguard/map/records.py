@@ -549,6 +549,7 @@ def record_findings(root):
                                     f"{root / CHANGE_DIR / identifier}: {error}; records are written once; {restore}"))
     if unverified:
         findings.append(Finding("info", "immutable_unverified", "",
-                                f"{len(unverified)} change record(s) not used here (first: {CHANGE_DIR / unverified[0]}): "
+                                f"{len(unverified)} change record(s) not used here "
+                                f"(first: {min(path for path in files if Path(path).stem == unverified[0])}): "
                                 f"{NO_ORIGINAL_FACT}; check them in a checkout that holds one"))
     return findings

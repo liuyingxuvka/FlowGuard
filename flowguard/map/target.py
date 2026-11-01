@@ -201,6 +201,10 @@ def _finding_node(finding, tree):
     if model:
         node = next((n for n in tree.nodes.values() if n.path == model.group(1)), None)
         return "model " + (node.id if node else Path(model.group(1)).stem)
+    if finding.code in {"owner_text_edited", "request_meta_edited", "request_retire_edited"}:
+        return "request " + finding.component
+    if finding.code == "record_edited":
+        return "change " + finding.component
     return "component " + finding.component if finding.component else "target"
 
 
@@ -307,6 +311,8 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     for finding in [*run_check(root, view.data, inv, view=view), *dropped_owner_findings(current, view.data, target)]:
         if finding.code in {"draft", "stale", "fingerprint_migrate"} and finding.component in replaced:
             continue
+        if finding.code == "target_noop":
+            continue  # map check's view of this same target; the check above reports it once
         # Map-upkeep findings are information here exactly as in map check: never a TO-DO or a warning.
         if finding.level == "info":
             if finding.code in MAP_UPKEEP and " (accepted debt: " not in finding.message:

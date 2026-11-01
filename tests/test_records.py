@@ -196,6 +196,7 @@ def test_nongit_release_snapshot_survives_cache_loss_and_rejects_edited_record(t
     _seed_git(tmp_path)
     code, output, _ = _call(tmp_path, capsys, 'map', 'check', '--strict')
     assert code == 0 and 'immutable_unverified' in output and 'record_edited' not in output, output
+    assert f'(first: .flowguard/changes/{record.name})' in output, output  # the file, not a bare record id
     assert records.change_records(tmp_path) == []
     _git(tmp_path, 'add', '--', '.flowguard/changes', '.flowguard/release-base')
     _git(tmp_path, 'commit', '-qm', 'first committed record bytes')

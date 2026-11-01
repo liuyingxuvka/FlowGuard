@@ -291,3 +291,18 @@ def test_a_target_that_only_reviews_a_stale_description_ends_without_stale(tmp_p
     _follow(promoted, tmp_path)
     _commit_own_words_and_assert_no_stale(root, capsys)
 
+
+def test_target_check_names_an_empty_target_once_and_a_request_finding_as_a_request(tmp_path, capsys):
+    from flowguard.map.requests import store_request
+    root = _fixture_helpers("target_findings")["make_project"](tmp_path / "plain project")  # a folder without Git
+    store_request(root, b"Keep every loan step.\n", identifier="R1")
+    assert _cli(root, capsys, "target", "start", "nothing changed yet")[0] == 0
+    assert _cli(root, capsys, "target", "add", "model:shelf_rule")[0] == 0
+    code, output, _ = _cli(root, capsys, "target", "check")
+    assert code == 1 and [line for line in output.splitlines() if "target_noop" in line and line.startswith("ERROR")] == [
+        "ERROR target: target_noop: the target changes nothing yet: edit .flowguard/target/ (components, models or "
+        "remove) or drop it with python -m flowguard target drop --yes"], output
+    request = root / ".flowguard/requests/R1.md"
+    request.write_bytes(request.read_bytes().replace(b"Keep", b"Drop"))
+    code, output, _ = _cli(root, capsys, "target", "check")
+    assert any(line.startswith("ERROR request R1: owner_text_edited:") for line in output.splitlines()), output
