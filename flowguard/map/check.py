@@ -314,13 +314,13 @@ def model_edit_findings(root, data):
 
 
 def _staged_model_edit(root, logical, target):
-    import shlex
+    from .common import git_common_directory
+    from .records import restore_advice
     absolute_root = Path(root).resolve()
     current_path = absolute_root / logical
     target_path = absolute_root / target.models[Path(logical).name]
-    restore = shlex.join(['git', '-C', str(absolute_root), '--literal-pathspecs',
-                          'checkout', '--', str(current_path)])
+    restore = restore_advice(absolute_root, [logical], git_common_directory(absolute_root))  # no Git: no Git command
     message = (f"model_edited_outside_target: {current_path} was edited in place while the target holds a copy; "
                f"promote would overwrite it. Move the edit into the target copy ({target_path}) "
-               f"and restore the current file (with Git: {restore}), or drop the edit")
+               f"and, for {current_path}, {restore}; or drop the edit")
     return Finding("error", "model_edited_outside_target", "", message)

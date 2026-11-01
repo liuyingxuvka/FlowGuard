@@ -6,8 +6,10 @@ from pathlib import Path
 from _fg_helpers import target__target_life_cycle_fixture_helpers as model_fixture
 
 
-def test_in_place_edit_of_staged_model_refused(tmp_path, capsys):
+@pytest.mark.parametrize("git_backed", [False, True])
+def test_in_place_edit_of_staged_model_refused(tmp_path, capsys, git_backed):
     import shlex
+    import subprocess
     from flowguard.__main__ import main
     from flowguard.map import target as native
     from flowguard.map.mapfile import load_map, model_digests
@@ -16,6 +18,10 @@ def test_in_place_edit_of_staged_model_refused(tmp_path, capsys):
     current = load_map(root)
     current["model_digests"] = model_digests(root)
     (root / ".flowguard/map.json").write_text(json.dumps(current))
+    if git_backed:
+        for arguments in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "base"]):
+            subprocess.run(["git", "-c", "user.name=probe", "-c", "user.email=probe@example.invalid",
+                            "-C", str(root), *arguments], check=True, capture_output=True)
     assert native.start_target(root, "retain a model edit") == 0
     assert native.add_to_target(root, "shelf_rule") == 0
     copied = root / ".flowguard/target/models/shelf_rule.py"
@@ -33,7 +39,10 @@ def test_in_place_edit_of_staged_model_refused(tmp_path, capsys):
         output = capsys.readouterr().out
         assert "ERROR" in output and "model_edited_outside_target" in output
         assert str(path.resolve()) in output and str(copied.resolve()) in output
-        assert "git -C " + shlex.quote(str(root.resolve())) in output
+        if git_backed:
+            assert "git -C " + shlex.quote(str(root.resolve())) in output
+        else:  # a folder without Git gets no Git command to restore the file
+            assert "git " not in output and "from the copy, archive or backup" in output, output
     report = native.check_target(root)
     assert any(f.code == "model_edited_outside_target" for f in report.errors), report
     assert native.promote_target(root) == 1
