@@ -49,6 +49,33 @@ def test_private_edits_and_nonreproducing_same_input_claims_are_not_proofs(progr
     assert not result["matched"] and result["state"] == "engine-defect"
 
 
+def test_incomplete_fresh_negative_search_is_unchecked_and_keeps_its_extent(program):
+    spec = derive(program)
+    start = {"world": "small"}
+    initial = replay(spec, [], start)
+    candidate = {"semantic": {"check": "GC1", **goal(99)}, "negative": True,
+                 "prefix": [], "start": start, "identity": content_identity(spec),
+                 "footprint": initial["footprint"],
+                 "bounds": {"depth": 4, "node_cap": 2, "alphabet_cap": 1000}}
+    capped = prove(program, candidate, persist=False)
+    assert not capped["matched"] and capped["state"] == "unchecked"
+    assert capped["reason"] == capped["extent"]["reason"] == "node cap"
+    assert capped["extent"]["capped"] and not capped["extent"]["complete"]
+    assert capped["proof"]["extent"] == capped["extent"]
+    assert not capped["proof"]["found"]
+
+    complete = prove(program, {**candidate, "bounds": {**candidate["bounds"], "node_cap": 8}}, persist=False)
+    assert complete["matched"] and complete["state"] == "reproduced"
+    assert complete["proof"]["extent"]["complete"]
+    # The first complete proof created its cache directory, changing a real input listing.
+    current = replay(spec, [], start)
+    counterexample = prove(program, {**candidate, "semantic": {"check": "GC1", **goal(2)},
+                                    "footprint": current["footprint"],
+                                    "bounds": {**candidate["bounds"], "node_cap": 8}}, persist=False)
+    assert not counterexample["matched"] and counterexample["state"] == "engine-defect"
+    assert counterexample["proof"]["found"]
+
+
 def test_semantic_ids_ignore_seed_and_incidental_trace_metadata():
     semantic = goal(2)
     assert item_id(semantic) == item_id({**semantic, "seed": 99, "prefix": [{"name": "extra"}], "timestamp": "later"})

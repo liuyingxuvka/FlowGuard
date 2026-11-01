@@ -508,6 +508,9 @@ def prove(root, candidate, *, persist=True):
         return {"state": "unchecked", "reason": str(exc), "matched": False, "ignored_settings": ignored}
     if not footprint_identity(facts["footprint"]):
         return {"state": "unchecked", "reason": "execution inputs are incomplete or changed during proof", "matched": False}
+    if candidate.get("negative") and not facts["found"] and not facts["extent"]["complete"]:
+        return {"state": "unchecked", "reason": facts["extent"]["reason"], "matched": False,
+                "ignored_settings": ignored, "extent": facts["extent"], "proof": facts, "identity": identity}
     identifier = item_id(candidate["semantic"])
     previous_path = cache_root(root) / "witnesses" / (identifier + ".json")
     if previous_path.is_file():
