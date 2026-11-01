@@ -275,7 +275,9 @@
       "tests": [
         "tests/behave/test_jobs.py"
       ],
-      "models": []
+      "models": [
+        ".flowguard/models/runtime_jobs.py"
+      ]
     }
   ],
   "flows": [],
