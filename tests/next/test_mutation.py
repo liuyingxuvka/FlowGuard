@@ -214,11 +214,29 @@ def test_a_guard_whose_drop_removes_a_conflict_is_named_as_its_cause(project):
 
 
 def test_check_full_prints_the_cause_under_its_conflict(project):
+    """G5 round 2: every guard whose drop removes the conflict is its cause, the requested one
+    (own source=) first and one that carries its action's source after it, in the text and in
+    --json (which also lists every other change that removes it); none is a survivor."""
     from checkrun import run_check
     project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
     run = run_check(project.root, "--full")
     assert run.code == 1, run.out
-    assert ("  cause (check --full): without guard 'repairs only at main' (repaired, line 32; R10) this conflict "
-            "does not occur") in run.lines
+    causes = [line for line in run.lines if line.startswith("  cause (check --full): ")]
+    assert causes == [
+        "  cause (check --full): without guard 'repairs only at main' (repaired, line 32; R10) this conflict "
+        "does not occur",
+        "  cause (check --full): without guard 'not on the shelf' (rent, line 13; the action's R4) this conflict "
+        "does not occur",
+        "  cause (check --full): without guard 'not out' (return_ok, line 19; the action's R4) this conflict "
+        "does not occur",
+        "  cause (check --full): without guard 'only shelf tools move' (transfer, line 38; the action's R6) this "
+        "conflict does not occur"], run.out
+    assert '  4 other changes of the model remove it too (check --full --json: "causes")' in run.lines
     assert not any("mutant survives: drop guard 'repairs only at main'" in line for line in run.lines)
-    assert sum(line.startswith("  cause (check --full): ") for line in run.lines) == 1
+    assert not any("mutant survives: drop guard 'only shelf tools move'" in line for line in run.lines)
+    data = run_check(project.root, "--full", "--json").data
+    [conflict] = data["conflicts"]
+    whats = [c["what"] for c in conflict["causes"]]
+    assert "drop guard 'repairs only at main' (repaired, line 32)" in whats
+    assert "drop guard 'only shelf tools move' (transfer, line 38)" in whats
+    assert all(c["cause"] or c["op"] not in ("drop guard", "widen guard") for c in conflict["causes"])

@@ -134,7 +134,7 @@ def guard_mutants(model: Model) -> list[Mutant]:
         base = f"{reason!r} in {fname}"
         seen[base] += 1
         tag = "" if seen[base] == 1 else f" #{seen[base]}"
-        by = src or "the AI's own"
+        by = own or (f"the action's {src}" if src else "the AI's own")
         out.append(Mutant("drop guard", f"drop guard {reason!r} ({where})", f"drop guard {base}{tag}", call.lineno,
                           (src,), _transform(ast.Expr, _pos(stmt), _drop_statement), None,
                           f"without guard {reason!r} ({where}; {by})", own is not None))

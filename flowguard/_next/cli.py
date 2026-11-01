@@ -523,14 +523,28 @@ def full_block(root, result: Assembled, f: Finding) -> list[str]:
     return lines
 
 
-def cause_lines(result: Assembled, f: Finding) -> list[str]:
-    """With --full: each requested guard (one with its own source=) whose drop or widening
-    removes this conflict: what the conflict rests on, said as its cause (G5). Every change
-    that removes it is in --json (the mutate part's causes)."""
+def causes_of(result: Assembled, f: Finding) -> list[dict]:
+    """With --full: every change of the model whose mutant no longer has this conflict (the
+    mutate part's causes: guards dropped or widened, transitions removed, ends cut off)."""
     view = result.models.get(f.model)
     mutate = view.result("mutate") if view is not None else None
-    causes = (mutate.info.get("causes", {}) if mutate is not None else {}).get(f.id, [])
-    return [f"  cause (check --full): {c['cause']} this conflict does not occur" for c in causes if c["requested"]]
+    return list((mutate.info.get("causes", {}) if mutate is not None else {}).get(f.id, []))
+
+
+def cause_lines(result: Assembled, f: Finding) -> list[str]:
+    """With --full: each guard whose drop or widening removes this conflict, said as its cause
+    (G5: what the conflict rests on, never a survivor inviting to delete the guard): the
+    requested guards (their own source=) first, then the guards that carry their action's
+    source. Every change that removes it, guards and others, is in --json ("causes")."""
+    every = causes_of(result, f)
+    guards = [c for c in every if c["op"] in ("drop guard", "widen guard")]
+    guards.sort(key=lambda c: (not c["requested"], c["line"] or 0))
+    out = [f"  cause (check --full): {c['cause']} this conflict does not occur" for c in guards]
+    others = len(every) - len(guards)
+    if others:
+        out.append(f"  {_plural(others, 'other change')} of the model remove{'s' if others == 1 else ''} it too "
+                   f"(check --full --json: \"causes\")")
+    return out
 
 
 def _one_line(result: Assembled, f: Finding, lead: str) -> str:
@@ -610,7 +624,7 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
     data = {
         "verdict": line, "exit": code, "complete": o.finished and all(v.complete for v in result.models.values()),
         "conflicts": [dict(f.to_json(), new=f.id in result.new, requests=request_lines(root, f.sources),
-                           picture=picture(result, f)) for f in result.conflicts],
+                           picture=picture(result, f), causes=causes_of(result, f)) for f in result.conflicts],
         "warnings": [f.to_json() for f in result.warnings],
         "errors": [f.to_json() for f in result.errors],
         "unknown": [m for m, v in result.models.items() if v.finished and not v.complete],
