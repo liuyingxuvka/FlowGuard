@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.71.1 - 2026-11-01 - Static source and original-text queries
+
+- Add optional, read-only `where` queries for names, owners and callers, module overviews, static flows, architecture, shared state and file destinations. Queries do not run application code, models or tests; missing execution records remain explicit.
+- Add compact text and source-reference summaries with file, original-passage, group and literal-phrase selectors. Preserve original text and available Git provenance, and inspect text and code at the same revision with `--at`. Literal and workflow matches remain candidates for review.
+- Give executable next-query commands and show source-backed helper-boundary suggestions from resolved calls. Responsibility counts no longer stand in for cohesion; suggestions remain non-gating advice.
+- Improve the shared source index for constant and annotated assignments, complete references, command-handler bindings and field lifecycle facts without creating a second index.
+- Clean up owned child processes after an interrupted check while preserving the interrupt and leaving unrelated processes alone.
+- Keep Python 3.11 support, the existing model workflow, 64 public exports and the current map format.
+
 ## v0.71.0 - 2026-10-31 - Model-linked plans, original requests and runnable next steps
 
 - Add read-only static status for resuming open plans, viewing unclaimed requests with their original context, and following one absolute next command. Hook mode stays silent outside a project; the legacy runtime does not store verdicts or start jobs.
