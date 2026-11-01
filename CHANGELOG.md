@@ -2,28 +2,44 @@
 
 ## Unreleased
 
-- A normal change no longer needs the legacy map, models or target commands. Run `status`, store the owner's words with `req add`, find code with `where`, run your project's tests and commit in your own words with a `Request: R<n>` line. The skill, the adoption rules and the README's five-minute start teach only this.
-- The concept guide and the skill pages about the map, models and target commands now say at the top that they are legacy and optional until v1.0.0.
-- `map check`, `release` and `change --run` no longer fail just because the legacy map is behind the code. Files without an owner, stale or draft descriptions, dependency mismatches, unmodeled entrypoints and models edited in place are shown as information. Import cycles, layer violations, broken anchors and files with two owners are still errors.
-- `status` shows the owner's three newest messages first, lists older ones by ID, and names the change records and `Request: R<n>` commits that cite them. It no longer shows requests as open or done, and prints `NEXT` only when a step is pending.
-- `req add --supersedes ID` marks an earlier message as replaced; `status` shows the mark.
-- `req retire ID --not-owner` records once that a stored text is not the owner's words. That text then stays out of the owner's words in every copy of the project, and linking or quoting it is refused. When a retire record cannot be checked, cannot be read or was edited, `status` says so in one line and `map check` reports it.
-- Without `--root`, every command works on the nearest folder at or above the current directory that holds `.flowguard/`. A command run from a subdirectory no longer reads or creates a `.flowguard/` folder there.
-- In a Claude Code session, the first FlowGuard command shows `status` once, also through `python -m flowguard.map`. `status` warns when the installed skill names another FlowGuard version or none.
-- A copy of a project without `.git`, or a moved folder, no longer reports unchanged requests or change records as edited. Files that cannot be checked there are listed once as information; owner text is still checked against its stored digest, and linking or quoting such a request is refused. `status`, `map check` and `where` in a folder outside any Git repository no longer need Git installed.
+- A normal change no longer needs the legacy map, models or target commands. Run `status`, store the owner's words with `req add`, find code with `where`, run your tests, and commit in your own words with a `Request: R<n>` line.
+- The README's five-minute start, the skill and the adoption rules teach only this flow.
+- The concept guide and the skill pages about the map, models and targets say at the top that they are legacy and optional.
+- `map check`, `release` and `change --run` no longer fail because the legacy map is behind the code. Unowned files, stale or draft descriptions, dependency mismatches, unmodeled entrypoints and models edited in place are shown as information.
+- Import cycles, layer violations, broken anchors and files with two owners are still errors.
+- `status` shows the owner's three newest messages, lists older ones by ID, and names the change records and `Request: R<n>` commits that cite them.
+- `status` no longer shows requests as open or done, and prints `NEXT` only when a step is pending.
+- `req add --supersedes ID` marks an earlier message as replaced.
+- `req retire ID --not-owner` records once that a stored text is not the owner's words. That text stays out of the owner's words in every copy, and linking or quoting it is refused.
+- When a retire record cannot be checked, cannot be read, was edited or was deleted, `status` says so in one line and `map check` reports it.
+- Owner text edited after it was stored is marked in `status` and `where`, never shown as the owner's words.
+- Without `--root`, every command works on the nearest folder at or above the current one that holds `.flowguard/`. A command run from a subdirectory no longer creates a `.flowguard/` folder there.
+- In a Claude Code session, the first FlowGuard command shows `status` once, also through `python -m flowguard.map`.
+- `status` warns when the installed skill names another FlowGuard version or none.
+- A copy of a project without `.git`, or a moved folder, no longer reports unchanged requests or change records as edited. Files that cannot be checked there are listed once as information, and linking or quoting such a request is refused.
 - Once a request or change record is committed, every clone checks it against its first commit and gives the same answer.
-- When Git fails inside a repository (a damaged index, a broken branch, a missing object, or a repository owned by another user), FlowGuard stops with Git's own message. It no longer acts as if there were no Git, no commits, no history, no listed files or no Git origin.
-- FlowGuard also stops and names the cause when Git is not installed for a repository, when `map.json` or the release snapshot is invalid, when `pyproject.toml` cannot be parsed for a debt dated by version, or when a source checkout cannot link the package for model runs. `map check` reports an open target it cannot read, `status` names change records it cannot read, and `release` saves no release snapshot while one cannot be read.
-- In a folder without Git, the fix advice for an edited request or change record no longer suggests a Git command.
-- Legacy targets: every changed rule needs a `changes:` line in PLAN.txt that quotes the owner's words or gives your reason. With Git, only a change to one of the model's anchor functions closes its gap; the gap line lists other changed code in the anchor files as "changed but not an anchor". Any change in an anchor file still runs the model's bound tests. Without Git, the gap line says that only whole-file facts exist.
-- Legacy targets: map-upkeep findings are information, as in `map check`. Promotion confirms the target's own component descriptions, so they are not draft or stale afterwards. A target that only holds a component whose description went stale is promoted, not treated as empty.
-- Every next step that `status` and the legacy target commands print runs as printed. After following them from a new target to the commit, `map check` and `release` show none of the target's components as stale or draft. Promotion prints one staging command that includes new source files without an owner, and `status` repeats it until you commit. An empty target prints a step that drops it. A promotion refused because a model or test it runs failed prints `target promote` again, not `target check`, which does not run those. If Git cannot list the files, promotion stops before changing anything.
-- Promotion no longer writes a commit message file: you commit in your own words. `#` notes in PLAN.txt are kept in the change record, and `req add` points to `status` instead of starting a target.
-- Every next step that `where` prints is a `next[where]: ...` line, and `where --json` reports `next` as `{id, command}`. The overview no longer shows placeholder commands.
-- `where` prints the most relevant rows of each list and says how many it left out; `--all` (also with `--json`) prints every row. The fixed disclaimer lines are gone, `--arch` lists the largest modules first, and a name query also finds equal string literals with their function.
-- Repeating a `where` query is much faster. In a project with a `.flowguard/` folder, parse results are cached by file content in the git-ignored `.flowguard/cache/`, and text views look up Git origins only for the passages they print.
+- In a folder without Git, fix advice no longer suggests Git commands, and `status`, `map check`, `where` and `change` work without Git installed.
+- When Git fails inside a repository, FlowGuard stops with Git's own message instead of acting as if there were no Git, no history or no file. This covers a damaged index, a missing object, a broken branch, a repository owned by another user and a checkout whose repository is set to bare.
+- FlowGuard names the cause instead of guessing when Git is not installed for a repository, or when `map.json`, a change record, an open target, or the `pyproject.toml` a version-dated debt needs cannot be read.
+- `release` saves no release snapshot while a change record cannot be read.
+- Models run from a source checkout that cannot create a symbolic link stop with a plain error.
+- Legacy targets: every changed rule needs a `changes:` line in PLAN.txt that quotes the owner's words or gives your reason.
+- Legacy targets: with Git, only a change to one of a model's anchor functions closes its gap, and the gap line lists the other changed code in its anchor files. Without Git, the gap line says that only whole-file facts exist.
+- Legacy targets: any change in an anchor file still runs the model's bound tests.
+- Legacy targets: map-upkeep findings are information, as in `map check`. Promotion confirms the target's own component descriptions, so they are not stale or draft afterwards.
+- Legacy targets: a target that only holds a component whose description went stale is promoted, not treated as empty. An empty target prints a step that drops it.
+- Legacy targets: `target check`, `target promote` and `status` stop and name `base.json` when it cannot be read.
+- Every next step that `status` and the legacy target commands print runs as printed. After following them from a new target to the commit, `map check` and `release` show none of the target's components as stale or draft.
+- Promotion prints one staging command that includes new source files without an owner, and `status` repeats it until you commit. If Git cannot list the files, promotion stops before changing anything.
+- A promotion refused because a model or test failed prints `target promote` again, not `target check`.
+- Promotion no longer writes a commit message file; you commit in your own words. `#` notes in PLAN.txt are kept in the change record.
+- `req add` points to `status` instead of starting a target.
+- `where` prints its next steps as `next[where]: ...` lines, and `where --json` reports `next` as `{id, command}`. The overview no longer shows placeholder commands.
+- `where` prints the most relevant rows of each list and says how many it left out. `--all` prints every row, also with `--json`.
+- `where` no longer prints fixed disclaimer lines, `--arch` lists the largest modules first, and a name query also finds equal string literals with their function.
+- Repeating a `where` query is much faster: in a project with `.flowguard/`, parse results are cached by file content in the git-ignored `.flowguard/cache/`.
 - `map lint` reports an accepted debt for a review suggestion that can no longer arise as `debt_stale`, so you can remove it.
-- The installed package no longer contains the unreleased behavior engine (`python -m flowguard.behave`), even when it is built from a checkout that once had an editable install. The engine stays in the source repository.
+- The installed package no longer contains the unreleased behavior engine (`python -m flowguard.behave`). It stays in the source repository.
 
 ## v0.71.1 - 2026-11-01 - Static source and original-text queries
 
