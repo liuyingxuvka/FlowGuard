@@ -67,32 +67,63 @@ def test_default_output_is_a_short_summary(tmp_path, monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out)["status"] == "pass"
 
 
+# Under load the nested helper can take longer to start than the 0.3 s and
+# 0.8 s deadlines below; this delay makes that start-up deterministic.
+_HELPER_START_DELAY = 1.0
+
+# Each case asserts on the record the nested helper writes, so every owner in
+# the case starts its deadline only after that record exists. Installed in this
+# process for the outside owner and prefixed to the nested owner's script.
+_DEADLINE_AFTER_RECORD = """
+import subprocess as _subprocess, time as _time
+from pathlib import Path as _Path
+_communicate = _subprocess.Popen.communicate
+def _communicate_after_record(self, input=None, timeout=None):
+    if timeout is not None and not getattr(self, "_record_waited", False):
+        self._record_waited = True
+        limit = _time.monotonic() + 60
+        while not _Path(RECORD).exists():
+            if _time.monotonic() > limit:
+                raise AssertionError("the nested helper did not record itself within 60 s")
+            _time.sleep(.01)
+    return _communicate(self, input, timeout)
+"""
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX session ownership")
 @pytest.mark.parametrize("case", ["normal", "outer_timeout", "inner_timeout", "orphan_nested"])
-def test_nested_process_helpers_share_one_finite_owner(tmp_path, case):
+def test_nested_process_helpers_share_one_finite_owner(tmp_path, case, monkeypatch):
     from flowguard.map.runner import run_isolated_process
     record = tmp_path / "inner.json"
     delay = 0 if case == "normal" else 30
     inner = ("import json,os,time;from pathlib import Path;"
-             f"Path({str(record)!r}).write_text(json.dumps([os.getpid(),os.getpgrp(),os.getsid(0),int(os.environ['_FLOWGUARD_PROCESS_OWNER'].split(':')[1])]));"
+             f"time.sleep({_HELPER_START_DELAY});"
+             f"Path({str(record) + '.tmp'!r}).write_text(json.dumps([os.getpid(),os.getpgrp(),os.getsid(0),int(os.environ['_FLOWGUARD_PROCESS_OWNER'].split(':')[1])]));"
+             f"os.replace({str(record) + '.tmp'!r},{str(record)!r});"
              f"print('nested-ok',flush=True);time.sleep({delay})")
-    outer = ("import os,sys;from pathlib import Path;"
+    gate = f"RECORD={str(record)!r}\n" + _DEADLINE_AFTER_RECORD + "_subprocess.Popen.communicate=_communicate_after_record\n"
+    outer = (gate + "import os,sys;from pathlib import Path;"
              "from flowguard.map.runner import run_isolated_process;"
              f"p,t,c=run_isolated_process([sys.executable,'-c',{inner!r}],"
              "cwd=Path.cwd(),env=dict(os.environ),"
              f"timeout={.3 if case == 'inner_timeout' else 20});"
              "raise SystemExit(p.returncode)")
     if case == "orphan_nested":
-        worker = "import time;time.sleep(.15);" + outer
-        outer = "import subprocess,sys;subprocess.Popen([sys.executable,'-c'," + repr(worker) + "])"
+        # The worker runs the nested owner only once its launcher has exited.
+        worker = "import os,sys,time\nwhile os.getppid()==int(sys.argv[1]):time.sleep(.01)\n" + outer
+        outer = "import os,subprocess,sys;subprocess.Popen([sys.executable,'-c'," + repr(worker) + ",str(os.getpid())])"
     env = dict(os.environ, PYTHONPATH=str(Path(shard_runner.__file__).resolve().parents[1]))
     # A foreign/stale marker must not make this outside coordinator join or
     # kill its caller's group. The bootstrap installs the actual child owner.
     env["_FLOWGUARD_PROCESS_OWNER"] = "1:1:1"
+    namespace = {"RECORD": str(record)}
+    exec(_DEADLINE_AFTER_RECORD, namespace)
+    monkeypatch.setattr(subprocess.Popen, "communicate", namespace["_communicate_after_record"])
     result, timed_out, cleaned = run_isolated_process(
         [sys.executable, "-c", outer], cwd=tmp_path, env=env,
         timeout=.8 if case in {"outer_timeout", "orphan_nested"} else 3,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert record.exists(), (case, result.returncode, result.stdout, result.stderr)
     pid, group, session, owner_session = json.loads(record.read_text())
     assert session == owner_session and session != pid  # a nested group stays in its owned session
     assert cleaned
