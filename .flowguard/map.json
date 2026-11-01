@@ -399,7 +399,7 @@
       "summary": "Check one target and its model evidence, preserve real failures and manual repair instructions, and name absolute verification, confirmation and reviewed-stage/message commit commands. Explicitly list tracked target deletions in staging guidance and omit that operand when the target was never tracked.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
-        "classify merged-tree design errors, semantic rule changes, moved rules and native gaps before or after code changes; run the changed target models own bound tests and reject unreceived escalated outputs",
+        "classify merged-tree design errors, semantic rule changes, moved rules and native gaps before or after code changes, crediting only changes to a model's own anchors; require a PLAN quote or reason for every changed rule; run the changed target models own bound tests and reject unreceived escalated outputs",
         "mark only the breakage of a changed subject as moving to target",
         "refuse a target that changes nothing, drops a promise or leaves it untied",
         "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions; print absolute literal-file staging guidance including target deletion, or honest no-Git preservation and verification guidance, without changing the Git index",
@@ -453,7 +453,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:a9ea82fb8b3a5313a9a7d200c498d7cf9ad92d536012289293f258634f152c06"
+      "fingerprint": "sha256:19f0fd400894c25965e391d6f9a8e11dd3d097e47314e7c03f3ff644ead435c3"
     },
     {
       "id": "map-proof",

@@ -134,10 +134,12 @@ def _target_base(root):
 
 
 def _code_changes(root, tree, model_ids, *, base=None):
-    """Changed source symbols relevant to each target's owned and consumed anchors."""
+    """(changes to each model's owned and consumed anchors, other changes in its anchor files) since target start.
+
+    Only the first is credited to a model; the second is reported, never counted."""
     base = _target_base(root) if base is None else base
     if "git" not in base and "files" not in base:
-        return {}
+        return {}, {}
     anchors = {}
     for mid in sorted(model_ids):
         contract = tree.nodes[mid].contract
@@ -206,25 +208,24 @@ def _code_changes(root, tree, model_ids, *, base=None):
             or before["statements"] != after["statements"]
         ):
             changes[path] = [path]
-    output = {}
+    output, unanchored = {}, {}
     for mid, items in anchors.items():
-        relevant = []
-        fallback = []
+        relevant, other = [], []
         for path in sorted({anchor.partition(":")[0] for anchor in items}):
-            candidates = changes.get(path, [])
-            fallback.extend(candidates)
-            for changed in candidates:
-                for anchor in items:
-                    if (
-                        anchor == changed
-                        or changed == path
-                        and anchor.partition(":")[0] == path
-                        or anchor.startswith(changed + ".")
-                        or changed.startswith(anchor + ".")
-                    ):
-                        relevant.append(changed)
-                        break
-        values = sorted(set(relevant or fallback))
-        if values:
-            output[mid] = values
-    return output
+            for changed in changes.get(path, []):
+                if any(
+                    anchor == changed
+                    or changed == path
+                    and anchor.partition(":")[0] == path
+                    or anchor.startswith(changed + ".")
+                    or changed.startswith(anchor + ".")
+                    for anchor in items
+                ):
+                    relevant.append(changed)
+                else:
+                    other.append(changed)
+        if relevant:
+            output[mid] = sorted(set(relevant))
+        if other:
+            unanchored[mid] = sorted(set(other))
+    return output, unanchored

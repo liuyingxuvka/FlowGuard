@@ -274,7 +274,7 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
                     report.warnings.append(TargetFinding("target", "fingerprint_format_unchanged", message.removeprefix("fingerprint_format_unchanged: ")))
     changed_paths = target_model_paths(root, current, target)
     target_ids = {mid for mid, node in tree.nodes.items() if node.path in changed_paths}
-    code_changes = _code_changes(root, tree, target_ids, base=base) if models else {}
+    code_changes, unanchored = _code_changes(root, tree, target_ids, base=base) if models else ({}, {})
     code_changed = set(code_changes) if not tests else set()
     seen = set()
 
@@ -458,13 +458,13 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
             add(bucket, node, code, problem)
         for warning in result.warnings:
             add("warnings", node, "invariant_untested" if warning.startswith("invariant_untested: ") else "model_warning", warning)
-    no_gap_rules = set()
+    changed_rules = set()
     report.gaps = gap_lines(root, target, view, report, results, goal=goal, code_changes=code_changes,
-                           no_gap_rules=no_gap_rules)
+                           unanchored=unanchored, changed_rules=changed_rules)
     recorded = {(item['model'], item['rule']) for item in report.plan_items if item['kind'] == 'changes'}
-    for mid, name in sorted(no_gap_rules - recorded):
+    for mid, name in sorted(changed_rules - recorded):
         report.todos.append(TargetFinding("model " + mid, "rule_changed_without_line",
-            f'{mid}.{name}: the rule changed and the code already satisfies it; name it in '
+            f'{mid}.{name}: the rule changed; name it in '
             f'{root / TARGET_RELDIR / "PLAN.txt"} with the request that asks for it '
             '(changes: ... by ID "<quote>"), or with your reason (changes: ... because "<reason>") '
             'so the owner sees it, or restore the rule'))
@@ -474,8 +474,11 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     return report
 
 
-def gap_lines(root, target, view, report, results, *, goal=None, code_changes=None, no_gap_rules=None):
-    """Describe each target model's rule delta against genuine native code gaps."""
+def gap_lines(root, target, view, report, results, *, goal=None, code_changes=None, unanchored=None,
+              changed_rules=None):
+    """Describe each target model's rule delta against genuine native code gaps.
+
+    Every changed rule goes into changed_rules: whatever code changed, it needs an owner quote or a reason."""
     from .facets import target_goal_rules
     changes = {line.split(": ", 1)[0][6:]: line.split(": ", 1)[1]
                for line in (target_goal_rules(root, target, view) if goal is None else goal)}
@@ -501,6 +504,8 @@ def gap_lines(root, target, view, report, results, *, goal=None, code_changes=No
         first = gaps[0].splitlines()[0] if gaps else ""
         if rules:
             names = " ".join(rules)
+            if changed_rules is not None:
+                changed_rules.update((mid, item[1:]) for item in rules if item.startswith("~"))
             symbols = (code_changes or {}).get(mid, [])
             if symbols:
                 changed = ", ".join(symbols[:5])
@@ -518,9 +523,10 @@ def gap_lines(root, target, view, report, results, *, goal=None, code_changes=No
                 else:
                     output.append(f"EXPECTED GAP {mid}: {len(gaps)} code gap(s) for {names}; first: {first}")
             else:
-                if no_gap_rules is not None:
-                    no_gap_rules.update((mid, item[1:]) for item in rules if item.startswith("~"))
-                output.append(f"NO GAP {mid}: the current code already satisfies {names}; a changed rule needs a line in .flowguard/target/PLAN.txt, a new rule records existing behaviour; otherwise conformance() does not drive the real entry (check its call shape)")
+                other = (unanchored or {}).get(mid, [])
+                hint = (f"; changed but not an anchor of {mid}: " + ", ".join(other[:5])
+                        + (f" +{len(other)-5} more" if len(other) > 5 else "")) if other else ""
+                output.append(f"NO GAP {mid}: the current code satisfies {names}{hint}; a changed rule needs a line in .flowguard/target/PLAN.txt, a new rule records existing behaviour; otherwise conformance() does not drive the real entry (check its call shape)")
         elif moved:
             donors = {}
             for item in moved:
