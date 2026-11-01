@@ -561,3 +561,18 @@ def test_a_folder_outside_any_repository_needs_no_git_executable(tmp_path, monke
     for command in (["status"], ["map", "check", "--strict"], ["where", "f"]):
         assert main([*command, "--root", str(root)]) == 0, (command, capsys.readouterr())
         assert "git executable not found" not in capsys.readouterr().err, command
+
+
+def test_a_folder_inside_the_git_directory_is_a_folder_without_git(tmp_path):
+    """A cache under .git/ has no work tree: Git says so, and its files are walked instead of listed by Git."""
+    from flowguard.map.common import git_common_directory
+    from flowguard.map.inventory import list_files
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q")
+    cache = root / ".git/flowguard/cache/snapshot"
+    (cache / "src").mkdir(parents=True)
+    (cache / "src/program.py").write_text("x = 1\n", encoding="utf-8")
+    assert git_common_directory(root) == (root / ".git").resolve()
+    assert git_common_directory(cache) is None
+    assert list_files(cache) == ["src/program.py"]

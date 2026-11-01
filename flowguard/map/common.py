@@ -62,18 +62,22 @@ def git_common_directory(root) -> Path | None:
 
     A .git in root or a parent, or GIT_DIR, means a repository. Git exits 128 both where there is none and for a
     repository it cannot open (one owned by another user, a damaged .git), so in a repository that exit raises; a
-    folder in no repository needs no Git executable."""
+    folder in no repository needs no Git executable. A folder inside the Git directory itself (a cache under
+    .git/) has no work tree, so Git says it is not inside one and it is read as a folder without Git."""
     place = Path(root).resolve()
     repository = "GIT_DIR" in os.environ or any((folder / ".git").exists() for folder in (place, *place.parents))
     if not repository and shutil.which("git") is None:
         return None
-    result = git_run(root, "rev-parse", "--git-common-dir", allowed=(0, 128))
+    result = git_run(root, "rev-parse", "--is-inside-work-tree", "--git-common-dir", allowed=(0, 128))
     if result.returncode:
         if repository:
             reason = os.fsdecode(result.stderr).strip() or f"exit status {result.returncode}"
             raise MapError(f"git rev-parse failed in {root}: {reason}")
         return None
-    directory = Path(os.fsdecode(result.stdout).strip())
+    inside, _, directory = os.fsdecode(result.stdout).strip().partition("\n")
+    if inside.strip() != "true":
+        return None
+    directory = Path(directory.strip())
     return (directory if directory.is_absolute() else Path(root) / directory).resolve()
 
 
