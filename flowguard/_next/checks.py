@@ -14,6 +14,7 @@ from .model import Loaded, Model, ModelError, State, natural_key, show_key
 
 CONFLICT, WARNING, ERROR_CLS = "conflict", "warning", "error"
 _CLASS_ORDER = {CONFLICT: 0, WARNING: 1, ERROR_CLS: 2}
+_IN_PROCESS = ("states", "where")      # detail keys that hold graph indices (not saved)
 _CONCURRENCY = ("threading", "asyncio", "multiprocessing", "concurrent.futures", "queue", "selectors",
                 "socketserver")
 
@@ -44,7 +45,7 @@ class Finding:
         return {"id": self.id, "kind": self.kind, "cls": self.cls, "model": self.model,
                 "subject": self.subject, "text": self.text, "objects": list(self.objects),
                 "sources": list(self.sources), "path": list(self.path), "state": self.state,
-                "detail": {k: v for k, v in self.detail.items() if k != "states"}, "line": self.line}
+                "detail": {k: v for k, v in self.detail.items() if k not in _IN_PROCESS}, "line": self.line}
 
     @staticmethod
     def from_json(d: dict) -> "Finding":
@@ -628,6 +629,7 @@ class _Run:
                 "refused": refused, "notes": notes,
                 "progress_names": [m_["rule"].name for m_ in members if m_["kind"] == "progress"],
                 "states": sorted({u // P for u in line["where"]}),
+                "where": sorted(line["where"]),        # unreduced ids i * P + renaming (pictures)
             }
             if line["kind"] == "progress":
                 text = f"progress {line['rule'].base!r} can never be satisfied again"
