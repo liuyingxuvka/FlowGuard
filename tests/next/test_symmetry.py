@@ -106,7 +106,15 @@ def test_findings_are_the_same_with_and_without_renaming(project, name):
 
 
 def test_an_id_valued_field_is_stuck_once_for_every_member(project):
-    project.flow("lending", lending())
+    """With the ban declared an end, the holder is stuck once for every member. Undeclared,
+    the ban no state leaves (G8 round 4: any field and domain) is the dead end itself, and
+    the holder values it freezes are its consequences."""
+    project.flow("undeclared", lending())
+    [end] = [f for f in check_model(load_model(project.root / ".flowguard/flow/undeclared.py",
+                                               project.root)).findings if f.kind == "STUCK"]
+    assert end.subject == "banned = True" and end.detail["stuck"] == "end", end.text
+    assert "holder = '<member>'" in end.detail["consequences"], end.detail["consequences"]
+    project.flow("lending", lending().replace("MODEL = m", 'm.terminal("banned", [True])\nMODEL = m'))
     report = check_model(load_model(project.root / ".flowguard/flow/lending.py", project.root))
     [stuck] = [f for f in report.findings if f.kind == "STUCK"]
     assert stuck.subject == "holder = '<member>'" and stuck.objects == ("M1", "M2", "M3")

@@ -448,3 +448,120 @@ def test_a_lost_tool_is_no_dead_end_of_a_field_with_an_undeclared_end(project):
     stuck = [f.subject for f in report.findings if f.cls == CONFLICT and f.kind == "STUCK"]
     assert "branch[*] = 'scrap'" in stuck, stuck                       # the undeclared end itself
     assert "branch[*] = 'main'" not in stuck and "branch[*] = 'library'" not in stuck, stuck
+
+
+ONE_BOOK = '''
+from flowguard._next import Model, need
+
+m = Model("book", note="one book at the desk")
+m.field("where", ["shelf", "held", "loan", "repair"], "shelf", source="R1", value_sources={"repair": "R4"})
+m.field("day", range(0, 4), 0, note="a clock that runs out: day 3 is its last")
+EXTRA
+
+
+@m.action(source="R1")
+def hold(s):
+    need(s["where"] == "shelf", "not on the shelf")
+    s["where"] = "held"
+
+
+@m.action(source="R1")
+def lend(s):
+    need(s["where"] == "held", "not held")
+    s["where"] = "loan"
+
+
+@m.action(source="R3")
+def give_back(s):
+    need(s["where"] == "loan", "not on loan")
+    s["where"] = "shelf"
+
+
+@m.action(source="R4")
+def damaged(s):
+    need(s["where"] == "loan", "not on loan")
+    s["where"] = "repair"
+
+
+@m.action()
+def tick(s):
+    need(s["day"] < 3, "the last day")
+    s["day"] += 1
+MODEL = m
+'''
+
+NEVER_FREED = '''
+from flowguard._next import Model, need
+
+m = Model("tools", note="two tools on a plain list: T1 is never freed")
+TOOLS = ["T1", "T2"]
+m.field("busy", [False, True], False, over=TOOLS, source="R1")
+m.field("uses", range(0, 3), 0, note="a total that stops at 2")
+EXTRA
+
+
+@m.action(t=TOOLS, source="R1")
+def take(s, t):
+    need(not s["busy", t], "busy")
+    s["busy", t] = True
+    s["uses"] = min(s["uses"] + 1, 2)
+
+
+@m.action(t=TOOLS, source="R1")
+def free(s, t):
+    need(s["busy", t], "not busy")
+    need(t != "T1", "T1 is never freed")
+    s["busy", t] = False
+MODEL = m
+'''
+
+
+@pytest.mark.parametrize("name, text, subject, head", [
+    ("one book", ONE_BOOK, "where = 'repair'", "stuck with where='repair'"),
+    ("a never-freed tool", NEVER_FREED, "busy[*] = True", "T1 stuck with busy=True"),
+])
+def test_a_value_never_left_is_a_dead_end_for_plain_fields_and_any_domain(project, name, text, subject, head):
+    """G8 round 4: the undeclared-end rule judged only text values of per-object fields. A
+    one-book desk on a plain field (damaged -> 'repair', no way back) and a tool on a plain
+    list that is never freed (busy False/True) were "clean, complete": nothing of the book,
+    nothing of T1 ever changes again. Such a value is now a STUCK end unless m.terminal
+    declares it. A clock that runs out (day 3) and a total that stops (uses 2) are no end:
+    only the step that advances them is lost."""
+    flow = project.root / ".flowguard" / "flow"
+    project.flow("naive", text.replace("EXTRA", ""))
+    report = check_model(load_model(flow / "naive.py", project.root))
+    stuck = [f for f in report.findings if f.kind == "STUCK"]
+    assert [f.subject for f in stuck] == [subject], [f.text for f in stuck]
+    [end] = stuck
+    assert end.cls == CONFLICT and end.detail["stuck"] == "end" and head in end.text, end.text
+    family = subject.split(" ")[0].split("[")[0]
+    value = subject.split(" = ")[1]
+    assert f"m.terminal({family!r}, [{value}])" in end.text, end.text
+    project.flow("declared", text.replace("EXTRA", f"m.terminal({family!r}, [{value}])"))
+    report = check_model(load_model(flow / "declared.py", project.root))
+    assert not [f for f in report.findings if f.kind == "STUCK"], [f.text for f in report.findings]
+
+
+CONSTANT = '''
+from flowguard._next import Model, need
+
+m = Model("lamp")
+m.field("mode", ["auto", "manual"], "auto", note="no action sets it: it keeps its start")
+m.field("level", range(0, 3), 1, note="no action changes it")
+m.field("on", [False, True], False)
+
+
+@m.action()
+def flip(s):
+    s["on"] = not s["on"]
+MODEL = m
+'''
+
+
+def test_a_value_held_from_the_start_that_nothing_changes_is_no_end(project):
+    """The other side of G8 round 4: a field no step ever changes keeps its start value in
+    every state. That value is never left, but no step enters it either: it is a constant,
+    not the end of anything (an unreached domain value is the NEVER REACHED warning's)."""
+    project.flow("lamp", CONSTANT)
+    report = check_model(load_model(project.root / ".flowguard/flow/lamp.py", project.root))
+    assert not [f for f in report.findings if f.kind == "STUCK"], [f.text for f in report.findings]

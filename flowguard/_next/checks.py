@@ -94,6 +94,11 @@ class Report:
 
 
 # ---------------------------------------------------------------------- small helpers
+def _owner(key):
+    """The object a field key belongs to (key[1:]), None for a field of no object."""
+    return key[1:] if isinstance(key, tuple) else None
+
+
 def _subject_key(key):
     if isinstance(key, tuple):
         return f"{key[0]}[{','.join('*' for _ in key[1:])}]"
@@ -306,7 +311,6 @@ class _Run:
         if g.complete:
             stuck = self.stuck()
             raw += stuck
-            raw += self.undeclared_ends()
             stuck_names = {n for f in stuck for n in f.detail.get("progress_names", [])}
             never, reach_missing, explained = self.never()
             raw += never
@@ -421,24 +425,26 @@ class _Run:
                     values[oi].add(c_)
                     if ch[i]:
                         leaves[oi].add(c_)
-        obj_pos = {}                                      # an object (key[1:]) -> its positions
-        for p, k in enumerate(keys):
+        obj_pos = {None: list(range(width))}              # an object (key[1:]) -> its positions; a field
+        for p, k in enumerate(keys):                      # of no object belongs to the whole model (None)
             if isinstance(k, tuple) and len(k) > 1:
                 obj_pos.setdefault(k[1:], []).append(p)
         ends = {}                                         # family -> (values, declared)
         self.frozen_ends = []                             # (class, nodes, orbit): undeclared, the object freezes
         self.narrowed = []                                # (class, nodes, orbit, lost, kept): it loses steps for good
         for oi, o in enumerate(orbits):
-            name = family[o[0]]
-            if name is None:
-                continue
+            f0 = self.field_by_key[keys[o[0]]]
+            name, plain = f0.family, family[o[0]] is None
             if name in model.terminals:
-                ends[name] = (set(model.terminals[name]), True)
+                if not plain:
+                    ends[name] = (set(model.terminals[name]), True)
                 continue
-            never = values[oi] - leaves[oi]
-            domain = self.field_by_key[keys[o[0]]].domain
-            if not (never and all(isinstance(v, str) or v is None for v in domain)):
+            # a value held from the start that no state leaves: no step ever changes the field
+            # (a constant, or a counter nothing advances), so no step enters it and it ends nothing
+            never = values[oi] - leaves[oi] - {cls(p, states[0][p]) for p in o}
+            if not never:
                 continue
+            text = all(isinstance(v, str) or v is None for v in f0.domain)
             n = len(o)
             for c_ in sorted(never, key=repr):
                 # a value no state leaves ends its object's life when only finitely many changes
@@ -451,13 +457,19 @@ class _Run:
                 if halted is None:
                     # it goes on changing there; still a dead end when it can never again take a
                     # step it took before (a side flag that toggles keeps no life going)
-                    lost, kept = self.lost_steps(c_, nodes, o, obj_pos, cls)
+                    lost, kept = self.lost_steps(c_, nodes, o, obj_pos, cls, own=not text)
                     if lost:
                         self.narrowed.append((c_, nodes, o, lost, kept))
                     continue
+                # where its object has come to a declared end (a retired tool's repair count)
+                # the value ends nothing more: the life is over by design
+                halted = [x for x in halted if not self.at_declared_end(x // n, _owner(keys[o[x % n]]), obj_pos)]
+                if not halted:
+                    continue
                 self.frozen_ends.append((c_, halted, o))
-                old = ends.get(name, (set(), False))[0]
-                ends[name] = (old | {fr.ren(q, c_[1]) for q in range(P)}, False)
+                if not plain:                                 # the end of an object's life (exemptions)
+                    old = ends.get(name, (set(), False))[0]
+                    ends[name] = (old | {fr.ren(q, c_[1]) for q in range(P)}, False)
 
         def is_end(p, v):
             return v in ends[family[p]][0]
@@ -497,12 +509,13 @@ class _Run:
             pg = g.pair_graph(o, lambda q, x: fr.dest(q, x))
             n = pg.n
             name = family[o[0]]
-            if name in model.terminals:                   # declared ends: other never-left values
-                never = values[oi] - leaves[oi]
+            fam = self.field_by_key[keys[o[0]]].family
+            if fam in model.terminals:                    # declared ends: other never-left values
+                never = values[oi] - leaves[oi] - {cls(p, states[0][p]) for p in o}
                 for c_ in never:
                     nodes = [i * n + k for k, p in enumerate(o) for i in range(N) if cls(p, states[i][p]) == c_]
                     for q, w, where in self.expand(c_, nodes, o):
-                        if w in model.terminals[name]:
+                        if w in model.terminals[fam]:
                             continue
                         found.append((keys[q], w, min(where), frozenset(where), "dead end"))
             cand = [(i, k) for k, p in enumerate(o) for i in range(N)
@@ -532,6 +545,7 @@ class _Run:
         prog_rules = [r for r in model.rules if r.kind == "progress"]
         for r, where in self.progress_lost(prog_rules):
             lines.append({"kind": "progress", "rule": r, "first": min(where), "where": frozenset(where)})
+        lines += self.undeclared_ends()
         return self.group(lines)
 
     def halts(self, nodes, o, obj_pos):
@@ -543,14 +557,14 @@ class _Run:
         g, fr, keys = self.g, self.fr, self.keys
         states, sym = g.states, g.sym
         n = len(o)
-        obj = keys[o[0]][1:]
+        obj = _owner(keys[o[0]])                          # None: a field of no object, the whole model
         items = orbit(g, obj)
         pg = g.pair_graph(items, lambda q, x: fr.ren(q, x))
         idx = {x: k for k, x in enumerate(items)}
         of = {}                                           # object node -> its position node
         for x in nodes:
             i, k = divmod(x, n)
-            of[i * pg.n + idx[keys[o[k]][1:]]] = x
+            of[i * pg.n + idx[_owner(keys[o[k]])]] = x
         succ, moves = {}, set()                           # edges among the nodes; those that change the object
         for u in of:
             i, ko = divmod(u, pg.n)
@@ -574,16 +588,36 @@ class _Run:
         live = pg.reverse_reach([u for u, _ in moves])
         return [of[u] for u in sorted(of) if not live[u]]
 
-    def lost_steps(self, c_, nodes, o, obj_pos, cls):
+    def at_declared_end(self, i, obj, obj_pos) -> bool:
+        """Whether at state i the object's life has ended by design: one of its fields holds a
+        value m.terminal declares. The whole model (obj None) has ended when a field of no
+        object holds one, or when every object with declared ends holds one of them."""
+        keys, t, ends = self.keys, self.g.states[i], self.model.terminals
+
+        def holds(q):
+            fam = self.field_by_key[keys[q]].family
+            return fam in ends and t[q] in ends[fam]
+        if obj is not None:
+            return any(holds(q) for q in obj_pos[obj])
+        if any(holds(q) for q in obj_pos[None] if _owner(keys[q]) is None):
+            return True
+        lives = {_owner(keys[q]) for q in obj_pos[None]
+                 if _owner(keys[q]) is not None and self.field_by_key[keys[q]].family in ends}
+        return bool(lives) and all(any(holds(q) for q in obj_pos[x]) for x in lives)
+
+    def lost_steps(self, c_, nodes, o, obj_pos, cls, own=False):
         """For a value no state leaves, at which its object goes on changing for ever: (the
         actions that change the object somewhere but never once it holds the value, the ones
         that still change it there). An action whose every change of the object enters the
         value is left out (the step that sets a one-way flag is not lost). Nothing lost: a
-        one-way marker, the object still does all it did (a flag set on the first loan)."""
+        one-way marker, the object still does all it did (a flag set on the first loan).
+        own (a number or flag field): an action whose every change of the object changes this
+        field alone is left out too; it is the field's own step (a clock that runs out, a
+        total that stops), and losing it at the last value ends nothing else."""
         g, keys, states, sym = self.g, self.keys, self.g.states, self.g.sym
         n = len(o)
         held = set(nodes)
-        changes, after, entering = set(), set(), {}
+        changes, after, entering, alone = set(), set(), {}, {}
         for i, row in enumerate(g.out):
             si = states[i]
             prow = g.perm[i] if g.perm is not None else None
@@ -594,14 +628,16 @@ class _Run:
                 raw = states[j] if p_ == 0 else sym.apply(sym.inv[p_], states[j])
                 name = g.calls[c].action.name
                 for k, p in enumerate(o):
-                    if not any(si[q] != raw[q] for q in obj_pos[keys[p][1:]]):
+                    moved = [q for q in obj_pos[_owner(keys[p])] if si[q] != raw[q]]
+                    if not moved:
                         continue
                     changes.add(name)
                     if i * n + k in held:
                         after.add(name)
                     enters = cls(p, si[p]) != c_ and cls(p, raw[p]) == c_
                     entering[name] = entering.get(name, True) and enters
-        return sorted(a for a in changes - after if not entering[a]), sorted(after)
+                    alone[name] = alone.get(name, True) and moved == [p]
+        return sorted(a for a in changes - after if not entering[a] and not (own and alone[a])), sorted(after)
 
     def expand(self, c_, nodes, o):
         """The concrete (position, value, unreduced states) of a class seen at pair nodes."""
@@ -702,12 +738,13 @@ class _Run:
         if line["kind"] == "dead end":
             return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, and it is "
                     f"not a declared end ({n} state{'s' if n != 1 else ''}, complete search)")
+        who = "the object" if isinstance(line.get("key"), tuple) else "the model"
         if line["kind"] == "end" and line.get("lost"):
-            return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, the object "
+            return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, {who} "
                     f"can never again {', '.join(line['lost'])} there, and no end is declared "
                     f"({n} state{'s' if n != 1 else ''}, complete search)")
         if line["kind"] == "end":
-            return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, the object "
+            return (f"{show_key(line['key'])} = {line['value']!r}: no state ever leaves this value, {who} "
                     f"comes to a halt there, and no end is declared ({n} state{'s' if n != 1 else ''}, "
                     f"complete search)")
         return (f"progress {line['rule'].name!r}: from here it can never be satisfied again "
@@ -721,12 +758,18 @@ class _Run:
     def group(self, lines) -> list[Finding]:
         """Roots and consequences (port of group_stuck), then one finding per root. Among lines
         stuck in as many states, a counter value is never the root while another value is
-        (it is folded under it): the report is named by the object's state (G2)."""
+        (it is folded under it), nor a flag while a state field's value is: the report is named
+        by the object's state (G2); next, a value no state leaves (the cause) comes before a
+        value that only stops changing there."""
         P = self.fr.P
 
-        def counter(line):
-            return line["kind"] != "progress" and _is_counter(self.field_by_key[line["key"]].domain)
-        order = sorted(range(len(lines)), key=lambda n: (-len(lines[n]["where"]), counter(lines[n]),
+        def aside(line):                                   # 2: a counter, 1: a flag, 0: a state field
+            if line["kind"] == "progress":
+                return 0
+            domain = self.field_by_key[line["key"]].domain
+            return 2 if _is_counter(domain) else 1 if all(isinstance(v, bool) for v in domain) else 0
+        order = sorted(range(len(lines)), key=lambda n: (-len(lines[n]["where"]), aside(lines[n]),
+                                                         lines[n]["kind"] not in ("end", "dead end"),
                                                          lines[n]["first"]))
         roots, under = [], {}
         for n in order:
@@ -802,14 +845,14 @@ class _Run:
             elif line["kind"] == "dead end":
                 text = f"{head}: {subject} is never left, and it is not a declared end"
             else:
-                fam = line["key"][0]
+                fam = self.field_by_key[line["key"]].family
                 if line.get("lost"):
                     kept = line["kept"]
-                    how = (f"from here {who or 'it'} can never again {', '.join(line['lost'])} (only "
+                    how = (f"from here {who or 'the model'} can never again {', '.join(line['lost'])} (only "
                            f"{', '.join(kept)} still change{'s' if len(kept) == 1 else ''} it)")
                     detail.update(lost=list(line["lost"]), kept=list(kept))
                 else:
-                    how = f"from here nothing of {who} ever changes again"
+                    how = f"from here nothing{f' of {who}' if who else ''} ever changes again"
                 text = (f"{head}: {subject} is never left, and {how}; no end is declared "
                         f"(m.terminal({fam!r}, [{line['value']!r}]) if it ends a life on purpose)")
             objects = _key_objects(line["key"]) + _value_ids(line["value"], self.ids)
@@ -1208,19 +1251,22 @@ class _Run:
 
     # -------------------------------------------------------------- warnings, errors
     def undeclared_ends(self):
-        """G8: a value no state leaves, in a field no m.terminal declares ends for, is a dead end
-        (STUCK) unless it is declared, when its object comes to a halt there or can never again
-        take a step it took before (only a side flag still toggles)."""
-        out = []
+        """G8: the STUCK lines of the values no state leaves, in a field no m.terminal declares
+        ends for, where the object (the whole model, for a field of no object) comes to a halt
+        or can never again take a step it took before (only a side flag still toggles). They
+        are grouped with the other STUCK lines: a counter that stops where the object halts
+        (a repair count, a clamped wait) is folded under the value that names its state, and
+        one dead end is one finding."""
+        lines = []
         for c_, nodes, o in self.frozen_ends:
             for q, w, where in self.expand(c_, nodes, o):
-                out.append(self.stuck_finding({"kind": "end", "key": self.keys[q], "value": w, "first": min(where),
-                                               "where": frozenset(where)}, []))
+                lines.append({"kind": "end", "key": self.keys[q], "value": w, "first": min(where),
+                              "where": frozenset(where)})
         for c_, nodes, o, lost, kept in self.narrowed:
             for q, w, where in self.expand(c_, nodes, o):
-                out.append(self.stuck_finding({"kind": "end", "key": self.keys[q], "value": w, "first": min(where),
-                                               "where": frozenset(where), "lost": lost, "kept": kept}, []))
-        return out
+                lines.append({"kind": "end", "key": self.keys[q], "value": w, "first": min(where),
+                              "where": frozenset(where), "lost": lost, "kept": kept})
+        return lines
 
     def settings_warning(self):
         model = self.model

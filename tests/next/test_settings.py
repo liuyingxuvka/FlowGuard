@@ -104,11 +104,13 @@ def test_literal_settings_in_a_project_model_are_a_warning(project):
 
 def test_vary_replaces_the_tried_values(project, tmp_path):
     write(project, 'm.setting("limit", 3, vary=[5])')
-    missing = {f.subject: f.detail["explained"] for f in check_model(load(project, "m")).findings}
+    missing = {f.subject: f.detail["explained"] for f in check_model(load(project, "m")).findings
+               if "explained" in f.detail}            # (count = 3, where the model halts, is a STUCK end)
     assert missing["value count = 4"] == ["limit=5"]
     assert missing["value count = 5"] == ["limit=5"]
     other = write(Project(tmp_path / "default"), 'm.setting("limit", 3)')
-    missing = {f.subject: f.detail["explained"] for f in check_model(load(other, "m")).findings}
+    missing = {f.subject: f.detail["explained"] for f in check_model(load(other, "m")).findings
+               if "explained" in f.detail}
     assert missing["value count = 4"] == ["limit=4", "limit=6"]       # 0, 1, 2, v-1, v+1, 2v
 
 

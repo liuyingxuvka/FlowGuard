@@ -254,7 +254,7 @@ def test_a_transform_rewrites_the_model_file_only(project):
                 return _ast.Pass()
             return node
 
-    project.flow("m", BASE.format(model_args="", extra=""))
+    project.flow("m", BASE.format(model_args="", extra='m.terminal("x", [2])'))     # x = 2 ends it on purpose
     plain = load_model(project.root / ".flowguard/flow/m.py", project.root)
     dropped = load_model(project.root / ".flowguard/flow/m.py", project.root,
                          transform=lambda tree: DropNeeds().visit(tree))
@@ -286,6 +286,7 @@ def up(s):
     s["x"] = min(s["x"] + 1, 2)
 
 m.always("x stays below 2", lambda s: s["x"] < 2)
+m.terminal("x", [2])
 MODEL = m
 '''
 

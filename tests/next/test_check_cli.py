@@ -768,13 +768,12 @@ def up(s):
 
 @m.action()
 def side(s):
-    need(s["b"] < WIDTH, "at the end")
-    s["b"] += 1
+    s["b"] = s["b"] + 1 if s["b"] < WIDTH else 0         # goes round: the model never halts
 
 @m.action(source="R1")
 def finish(s):
     need(s["a"] == 60, "not at the top")
-    s["done"] = True
+    s["done"] = not s["done"]
 m.reach("finished", lambda s: s["done"], source="R1")
 MODEL = m
 '''

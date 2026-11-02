@@ -71,9 +71,11 @@ def test_parcel_locker_guards_are_caught_except_the_reviewed_survivors(project):
 def test_without_rules_graph_changing_guard_drops_survive_and_are_listed(project):
     report, _ = mutate(project, DATA / "planted" / "tool_life.py")
     survived = {o["what"] for o in report.outcomes if o["outcome"] == "survived" and o["op"] == "drop guard"}
-    assert survived == {"drop guard 'not on the shelf' (rent, line 13)", "drop guard 'not on loan' (give_back, line 19)",
-                        "drop guard 'not in repair' (repaired, line 25)", "drop guard 'not in repair' (retire, line 32)",
+    assert survived == {"drop guard 'not in repair' (repaired, line 25)", "drop guard 'not in repair' (retire, line 32)",
                         "drop guard 'not worn out yet' (retire, line 33)"}
+    caught = {o["what"]: o["by"] for o in report.outcomes if o["outcome"] == "caught" and o["op"] == "drop guard"}
+    for what in ("drop guard 'not on the shelf' (rent, line 13)", "drop guard 'not on loan' (give_back, line 19)"):
+        assert "STUCK repairs[*] = 3" in caught[what], caught  # a retired tool rented again is never repaired
     listed = {f.detail["what"] for f in report.findings}
     assert survived <= listed
 
@@ -150,7 +152,8 @@ def test_a_capped_mutant_is_unknown(project):
     assert not report.complete and report.unknown == ["mutation"]
     assert "drop guard 'at the limit' in inc" not in {f.subject for f in report.findings}
     widen = outcome(report, "widen guard 'at the limit' (inc, line 6): `<` -> `<=` in `s['c'] < 2`")
-    assert widen["outcome"] == "survived"         # 4 states fit: decided
+    assert widen["outcome"] == "caught"           # 4 states fit: decided (the end moves from c = 2 to c = 3)
+    assert "STUCK c = 3" in widen["by"], widen
 
 
 def test_a_capped_original_decides_nothing(project):

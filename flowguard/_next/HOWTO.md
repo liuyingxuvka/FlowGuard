@@ -104,9 +104,9 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
 ## Reading the report
 
 - **Conflicts** (fix them in the design, then in the code, or ask the owner when two requests
-  really collide): STUCK (a value some state can never leave again; a value no state leaves where
-  its object halts or can never again take a step it took before, unless `m.terminal` declares that
-  end; a `progress` promise lost; each names the stuck object's fields, every call that refuses there with its request, and
+  really collide): STUCK (a value some state can never leave again; a value a step enters and no
+  state leaves where its object (the whole model, for a field of no object) halts or can never again
+  take a step it took before, unless `m.terminal` declares that end; a `progress` promise lost; each names the stuck object's fields, every call that refuses there with its request, and
   the step that led in), BROKEN (a promise some order breaks), CONTRADICTION (an option
   offered where its action refuses), NEVER REACHED for an action, an option, a declared end,
   a `reach` promise, or a field value that has a source or that a sourced promise names (each
