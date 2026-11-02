@@ -383,6 +383,9 @@ def test_a_pick_from_a_copy_of_the_ids_is_never_reduced(project, prelude, guard,
     ("", '("M" + "1") in {t: 1}', "looks a value the rule cannot follow up among machine ids"),
     ("", '[t] == ["M" + "1"]', "compares machine ids with a value the rule cannot follow"),
     ("", '{t} == {"M" + "1"}', "compares machine ids with a value the rule cannot follow"),
+    ("", 'set([t]) == {"M" + "1"}', "compares machine ids with a value the rule cannot follow"),
+    ("", '{t} == frozenset({"M" + "1"})', "compares machine ids with a value the rule cannot follow"),
+    ("", '{u for u in MACHINES if u == t} != {"M" + "2"}', "compares machine ids with a value the rule cannot follow"),
     ("", '{t: 1} == {"M" + "1": 1}', "compares machine ids with a value the rule cannot follow"),
     ("", '[t].count("M" + "1") == 1', "looks a value the rule cannot follow up among machine ids (.count)"),
     ("", '{t: 1}.get("M" + "1")', "looks a value the rule cannot follow up among machine ids (.get)"),
@@ -939,3 +942,57 @@ def test_a_search_among_values_in_the_declared_order_keeps_the_renaming(project,
     loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
     assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
     assert check_model(loaded).graph.sym is not None
+
+
+@pytest.mark.parametrize("guard", [
+    'need(tuple(sorted(s["busy", u] for u in TOOLS)) not in {(False, True)}, "never")',
+    'need(sorted(s["busy", u] for u in TOOLS)[0] or True, "never")',
+    'need(set(s["busy", u] for u in TOOLS) != {True}, "never")',
+    'need(frozenset([s["busy", u] for u in TOOLS]) != frozenset(), "never")'])
+def test_per_id_values_sorted_or_put_in_a_set_keep_the_renaming(project, guard):
+    """G3 round 5, minor: per-id values sorted by value, or put in a set, keep no
+    trace of the declared order (the values are no ids, or ids the rule does not follow),
+    yet a search or a comparison of them turned the renaming off, and [0] of the sorted
+    values (the least value) was a model error ("picks one tool id by its place")."""
+    project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
+    assert check_model(loaded).graph.sym is not None
+
+
+@pytest.mark.parametrize("guard, text", [
+    ('need(next(iter({s["busy", u] for u in TOOLS})) or True, "never")', "next(...) picks one tool id"),
+    ('for v in {s["busy", u] for u in TOOLS}:\n        need(v, "never")\n        break', "stops early"),
+    ('need(sorted((s["busy", u] for u in TOOLS), key=lambda x: 0)[0] is not True, "the first stays busy")',
+     "picks one tool id by its place"),
+    ('need(tuple(set(s["busy", u] for u in TOOLS)) != (True,), "never")', None)])
+def test_per_id_values_in_the_order_a_set_or_a_stable_sort_keeps_are_judged(project, guard, text):
+    """The other side: a set iterates its items in the order they went in when their hashes
+    collide (set(...) of per-id values already said so, {... for u in TOOLS} was not judged
+    at all), and a sort by a key keeps the declared order among equal keys. Those uses are
+    judged in the declared order: a pick by place is a model error, a comparison a doubt."""
+    project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", guard))
+    path = project.root / ".flowguard/flow/tools.py"
+    if text is not None:
+        with pytest.raises(ModelError, match="treats tool ids asymmetrically") as err:
+            load_model(path, project.root)
+        assert text in err.value.text, err.value.text
+        return
+    loaded = load_model(path, project.root)
+    assert "a list in the declared order" in (loaded.model.__dict__.get("_symmetry_doubt") or "")
+    assert check_model(loaded).graph.sym is None
+
+
+@pytest.mark.parametrize("guard", [
+    'need(tuple(map(lambda u: s["busy", u], TOOLS)) not in {(True, False)}, "the first stays busy")',
+    'need(len(list(filter(lambda u: s["busy", u], TOOLS))) != 1 or s["busy", t], "never")'])
+def test_ids_passed_to_map_or_filter_are_a_doubt_not_a_model_error(project, guard):
+    """G3 round 5, minor: map(f, TOOLS) and filter(f, TOOLS) were a model error ("uses
+    TOOLS in a way that can tell the tool ids apart") whatever f did. The rule does not
+    follow f, so the ids passed to it are a doubt: the model loads and is explored without
+    renaming."""
+    project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    doubt = loaded.model.__dict__.get("_symmetry_doubt") or ""
+    assert "passes a tool id to " in doubt, doubt
+    assert check_model(loaded).graph.sym is None

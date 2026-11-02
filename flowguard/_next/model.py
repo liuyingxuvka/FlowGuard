@@ -688,6 +688,9 @@ def scalarset_violations(tree: ast.Module, ids: dict, model_file: bool) -> list[
             pass
         elif isinstance(p, ast.Call) and node in p.args and isinstance(p.func, ast.Name) and p.func.id in _ORDER_CALLS:
             problem = f"{p.func.id}({name}) depends on the order of the {kind} ids"
+        elif isinstance(p, ast.Call) and node in p.args[1:] and isinstance(p.func, ast.Name) \
+                and p.func.id in ("map", "filter"):
+            pass                                   # the use rule doubts ids passed to a function it does not follow
         elif isinstance(p, ast.comprehension) and p.iter is node:
             pass
         elif isinstance(p, (ast.For, ast.AsyncFor)) and p.iter is node:
@@ -988,6 +991,13 @@ def _reads_outside(scope, loop, name) -> bool:
             return True
         stack.extend(ast.iter_child_nodes(n))
     return False
+
+
+def _a_set(node) -> bool:
+    """A set built where it is used (set(...), frozenset(...), {... for ...}): == and in
+    compare its items by value, not by the order they went in."""
+    return isinstance(node, ast.SetComp) or (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                                             and node.func.id in ("set", "frozenset"))
 
 
 def _spread(form):
@@ -1357,8 +1367,8 @@ class _IdUses:
                 key = self.shape(node.key, inner)
                 return ("table", key[1]) if key is not None else (("kindvals", by_kind[1]) if by_kind else None)
             elt = self.shape(node.elt, inner)
-            if isinstance(node, ast.SetComp):
-                return ("unordered", elt[1]) if elt is not None else None
+            if isinstance(node, ast.SetComp):              # values: iterated in the order they went in
+                return ("unordered", elt[1]) if elt is not None else (("kindvals", by_kind[1]) if by_kind else None)
             if by_kind is not None:
                 if elt is None:
                     return ("kindvals", by_kind[1])
@@ -1376,6 +1386,9 @@ class _IdUses:
         if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Name):
+                if func.id == "sorted" and node.args and not any(k.arg == "key" for k in node.keywords) \
+                        and (self.shape(node.args[0], env) or ("",))[0] == "kindvals":
+                    return None                    # values in their own order, as min() and max() see them
                 if func.id in ("tuple", "list", "reversed", "iter", "sorted") and node.args:
                     inner = self.shape(node.args[0], env)
                     return ("kindlist", inner[1]) if inner is not None and inner[0] == "table" else inner
@@ -2018,6 +2031,9 @@ class _IdUses:
                 other = b if e is a else a
                 if isinstance(op, _ORDER_OPS):
                     bad(f"compares {kind} ids by order")
+                elif form == "kindvals" and _a_set(e) and isinstance(op, (ast.Eq, ast.NotEq, ast.In, ast.NotIn)) \
+                        and self.followed(other, env):
+                    pass                                  # sets of values are equal whatever order they went in
                 elif isinstance(op, (ast.In, ast.NotIn)):
                     if e is a and form in _IN_ORDER:      # an equality test with each item, like ==
                         doubt(f"looks for a list in the declared order of the {kind} ids in a container")
@@ -2126,11 +2142,15 @@ class _IdUses:
 
     def followed(self, node, env):
         """Whether the rule knows what the other side of a comparison holds: ids it follows,
-        a constant, or a display of constants (a constant equal to an id is refused anyway)."""
+        a constant, or a display of constants, also built by set(), tuple() and the like (a
+        constant equal to an id is refused anyway)."""
         if self.shape(node, env) is not None or isinstance(node, ast.Constant):
             return True
         if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
             return all(self.followed(x, env) for x in node.elts)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and not node.keywords \
+                and node.func.id in ("set", "frozenset", "tuple", "list") and node.func.id not in self.functions:
+            return all(self.followed(x, env) for x in node.args)       # frozenset(), set((1, 2))
         return False
 
     def judge_call(self, call, e, form, kind, bad, doubt, env):
