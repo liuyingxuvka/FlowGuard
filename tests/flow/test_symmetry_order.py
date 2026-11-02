@@ -610,3 +610,92 @@ def test_per_id_values_the_rule_cannot_rank_alike_in_every_order_are_a_doubt(pro
     assert "keeps the first of them in the declared order" in (loaded.model.__dict__.get("_symmetry_doubt") or ""), \
         loaded.model.__dict__.get("_symmetry_doubt")
     assert check_model(loaded).graph.sym is None
+
+
+STORE = '''
+from flowguard.flow import Model, need
+m = Model("tools")
+TOOLS = m.objects("tool", "T1", "T2")
+SNAPS = [(a, b) for a in ("idle", "busy") for b in ("idle", "busy")]
+m.field("busy", ["idle", "busy"], "idle", over=TOOLS, source="R1")
+m.field("log", SNAPS, ("idle", "idle"))
+m.field("seen", SNAPS, ("idle", "idle"), over=TOOLS)
+HELP
+
+@m.action(t=TOOLS, source="R1")
+def take(s, t):
+    need(s["busy", t] == "idle", "busy")
+    s["busy", t] = "busy"
+
+@m.action(t=TOOLS, source="R1")
+def free(s, t):
+    need(s["busy", t] == "busy", "not busy")
+    s["busy", t] = "idle"
+
+ACT
+RULE
+MODEL = m
+'''
+NOT_SECOND_ALONE = "m.always('x', lambda s: s['log'] != ('idle', 'busy'), source='R1')"
+WRITE_LOG = "@m.action(source='R1')\ndef write_log(s):\n    "
+STORED = {   # the reviewer's nine variants (rf3/sym/cases_store2.py), plus a writer helper and a kind list
+    "a tuple of a generator": (WRITE_LOG + "s['log'] = tuple(s['busy', u] for u in TOOLS)", NOT_SECOND_ALONE, ""),
+    "through a name": (WRITE_LOG + "v = tuple(s['busy', u] for u in TOOLS)\n    s['log'] = v", NOT_SECOND_ALONE, ""),
+    "a tuple of a list comprehension": (WRITE_LOG + "s['log'] = tuple([s['busy', u] for u in TOOLS])",
+                                        NOT_SECOND_ALONE, ""),
+    "a helper's result": (WRITE_LOG + "s['log'] = snap(s)", NOT_SECOND_ALONE,
+                          "def snap(s):\n    return tuple(s['busy', u] for u in TOOLS)"),
+    "a per-id field": ("@m.action(t=TOOLS, source='R1')\ndef look(s, t):\n    s['seen', t] = tuple(s['busy', u] for u in TOOLS)",
+                       "m.always('x', lambda s: all(s['seen', u] != ('idle', 'busy') for u in TOOLS), source='R1')", ""),
+    "a parameterised writer": ("@m.action(t=TOOLS, source='R1')\ndef write_log(s, t):\n    need(s['busy', t] == 'busy', 'idle')\n"
+                               "    s['log'] = tuple(s['busy', u] for u in TOOLS)", NOT_SECOND_ALONE, ""),
+    "starred": (WRITE_LOG + "s['log'] = (*(s['busy', u] for u in TOOLS),)", NOT_SECOND_ALONE, ""),
+    "a rule reading one place": (WRITE_LOG + "s['log'] = tuple(s['busy', u] for u in TOOLS)",
+                                 "m.always('x', lambda s: s['log'][0] == 'busy' or s['log'][1] == 'idle', source='R1')", ""),
+    "a guard reading it": (WRITE_LOG + "s['log'] = tuple(s['busy', u] for u in TOOLS)\n@m.action(t=TOOLS, source='R1')\n"
+                           "def alarm(s, t):\n    need(s['log'] == ('idle', 'busy'), 'no')\n    s['busy', t] = 'busy'",
+                           "m.always('y', lambda s: True, source='R1')", ""),
+    "a helper that writes it": (WRITE_LOG + "put(s, tuple(s['busy', u] for u in TOOLS))", NOT_SECOND_ALONE,
+                                "def put(s, v):\n    s['log'] = v"),
+    "a list comprehension written through a name": (WRITE_LOG + "row = [s['busy', u] for u in TOOLS]\n"
+                                                    "    s['log'] = tuple(row)", NOT_SECOND_ALONE, ""),
+}
+
+
+@pytest.mark.parametrize("how", list(STORED))
+def test_per_id_values_in_the_declared_order_written_into_the_state_are_never_reduced(project, how):
+    """Acceptance A4: a tuple of per-id values in the declared order compared as a whole was a
+    doubt, but the same tuple written into a state field was never judged: the field keeps
+    the order of the tool ids, and a rule or guard reading it told them apart unseen ("clean,
+    complete" for a rule `take(T2) ; write_log()` breaks, a false NEVER REACHED for a guard).
+    Writing it into the state is now a doubt: no renaming, and the reduced and plain checks
+    find the same."""
+    act, rule, help_ = STORED[how]
+    project.flow("tools", STORE.replace("ACT", act).replace("RULE", rule).replace("HELP", help_))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    doubt = loaded.model.__dict__.get("_symmetry_doubt") or ""
+    assert "into the state" in doubt, doubt
+    report = check_model(loaded)
+    assert report.graph.sym is None, "reduced although the stored order tells the tools apart"
+    plain = check_model(loaded, reduce=False)
+    assert sorted((f.cls, f.kind, f.subject, tuple(f.objects)) for f in report.findings) == \
+        sorted((f.cls, f.kind, f.subject, tuple(f.objects)) for f in plain.findings)
+
+
+@pytest.mark.parametrize("write", [
+    "s['n'] = sum(s['busy', u] == 'busy' for u in TOOLS)",
+    "s['n'] = len([u for u in TOOLS if s['busy', u] == 'busy'])",
+    "s['all'] = frozenset(s['busy', u] for u in TOOLS)",
+    "s['all'] = frozenset(s['busy', u] for u in TOOLS if s['busy', u] == 'busy')",
+    "s['n'] = min(2, sum(1 for u in TOOLS if s['busy', u] == 'busy'))",
+])
+def test_what_every_order_of_the_ids_gives_alike_may_be_written_and_keeps_the_renaming(project, write):
+    """The other side: a count, or a set, of the per-id values is the same in every order of the
+    ids, so writing it into the state tells no tool apart."""
+    text = STORE.replace("HELP", 'm.field("n", range(0, 3), 0)\nm.field("all", [frozenset(), frozenset({"idle"}), '
+                                 'frozenset({"busy"}), frozenset({"idle", "busy"})], frozenset())')
+    text = text.replace("ACT", WRITE_LOG + write).replace("RULE", "")
+    project.flow("tools", text)
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
+    assert check_model(loaded).graph.sym is not None

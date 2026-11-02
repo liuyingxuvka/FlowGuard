@@ -32,7 +32,7 @@ with no conflict draws its latest change, one object's fields at a time).
 
 Ids are used only symmetrically: in `over=`, action parameters, `[None] + IDS`, loops and comprehensions
 over them. Picking one by its place (`IDS[0]`, unpacking, a loop that breaks) or `"T1"` is a model error; an id
-made from text or taken from elsewhere (`m.kinds`, project code), a loop that carries more than a count, a flag or each id's own cells on to the next id, or per-id values in the declared order compared as a whole (`==`, `in`, put in a container), turns the renaming off (said on the last line).
+made from text or taken from elsewhere (`m.kinds`, project code), a loop that carries more than a count, a flag or each id's own cells on to the next id, or per-id values in the declared order compared as a whole (`==`, `in`, put in a container) or written into the state, turns the renaming off (said on the last line).
 
 ## A small example (not your application): `.flowguard/flow/parcels.py`
 

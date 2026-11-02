@@ -2410,6 +2410,16 @@ class _IdUses:
             if fn is not None and not self.result_followed(fn):
                 doubt(f"returns {kind} ids from a function whose calls the rule does not follow")
             return
+        if form in _IN_ORDER and isinstance(p, (ast.Assign, ast.AnnAssign)) and p.value is e \
+                and not (form == "kindvals" and _a_set(e)):      # a set of the values: alike in every order
+            written = [t for t in (p.targets if isinstance(p, ast.Assign) else [p.target])
+                       if isinstance(t, ast.Subscript) and self.state_access(t)]
+            if written:                            # the field keeps their order: whatever reads it can tell them apart
+                fields = ", ".join(repr((t.slice.elts[0] if isinstance(t.slice, ast.Tuple) else t.slice).value)
+                                   for t in written)
+                what = "per-id values" if form == "kindvals" else f"{kind} ids"
+                doubt(f"writes {what} in the declared order of the {kind} ids into the state ({fields})")
+                return
         if p is None or isinstance(p, (ast.Expr, ast.Assign, ast.AnnAssign, ast.NamedExpr, ast.BoolOp, ast.Assert,
                                        ast.If, ast.While, ast.Await, ast.arguments)):
             return                                 # a default: judged where the parameter is used
