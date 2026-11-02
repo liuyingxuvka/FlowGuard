@@ -484,9 +484,9 @@ def test_a_change_that_sends_books_to_repair_with_no_way_back_is_not_clean(proje
 
 
 def test_a_capped_check_never_closes_a_proven_conflict(project):
-    """G1 (M6): a conflict proven by a complete check stays open through a capped check while
-    its stored shrunk path still reproduces it; it closes only when a complete check no
-    longer finds it or the stored path no longer reproduces it."""
+    """G1 (M6, as the coordinator decided): a conflict proven by a complete check stays open
+    and blocking through every capped check, also once its stored shrunk path no longer
+    replays; it closes only when a complete check of its model no longer finds it."""
     from flowguard._next.cli import status_lines
     saved = project.root / ".flowguard/conflicts.json"
     project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
@@ -507,10 +507,64 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
     path = project.root / ".flowguard/flow/rental.py"
     path.write_text("\n".join(x for x in path.read_text().splitlines() if 'need(s["branch", t]' not in x) + "\n")
     fixed = timed(project.root, "--max-states", "4")             # 6 states now; 4 from where the path ends
-    assert fixed.code == 3, fixed.out
-    assert fixed.first.startswith("no conflict found; UNKNOWN: rental capped at 4 states")
-    assert any(x.startswith(f"closed {cid} STUCK rental: its stored path no longer reproduces it") for x in fixed.lines)
+    assert fixed.code == 1 and fixed.first == "1 open conflict; UNKNOWN: rental capped at 4 states", fixed.out
+    assert not any(x.startswith("closed ") for x in fixed.lines), fixed.out
+    [line] = [x for x in fixed.lines if x.startswith("OPEN ")]
+    assert f"[{cid}]" in line and "(kept: its stored path no longer replays (from where its path ends, " in line, line
+    assert line.endswith("this check is capped; a complete check will settle it)"), line
+    assert [c["id"] for c in json.loads(saved.read_text())["conflicts"]] == [cid]
+    complete = timed(project.root)                               # only a complete check closes it
+    assert complete.code == 0 and complete.first == "clean, complete", complete.out
+    assert f"closed {cid} STUCK rental: a complete check of rental no longer finds it" in complete.lines
     assert json.loads(saved.read_text())["conflicts"] == []
+
+
+NO_TRANSIT = [
+    ('m.field("cond", ["shop", "loan", "transit", "repair"], "shop", over=TOOLS, source="R4",\n'
+     '        value_sources={"transit": "R10"})',
+     'm.field("cond", ["shop", "loan", "repair"], "shop", over=TOOLS, source="R4")'),
+    ('@m.action(t=TOOLS, source="R10")\ndef arrive(s, t):\n    need(s["cond", t] == "transit", "not on the way")\n'
+     '    s["cond", t], s["branch", t] = "repair", "main"\n', ""),
+    ('when=lambda s, t: s["cond", t] in ("transit", "repair")', 'when=lambda s, t: s["cond", t] == "repair"'),
+    ('m.reach("a tool due at the library goes to main", lambda s: any(s["cond", t] == "transit" for t in TOOLS),\n'
+     '        source="R10")\n', "")]
+
+
+def test_a_capped_check_after_a_settings_change_keeps_every_proven_conflict(project):
+    """G1 round 4 (the coordinator's decision, design M6 changed): with maintain_every
+    changed from 4 to 3 the stored paths no longer replay, and a capped check closed all
+    three proven conflicts ("no conflict found; UNKNOWN", exit 3, status "does not
+    block"); the next complete check found the same three again as NEW. A failed replay
+    now closes nothing: they stay open and block, marked so, and the complete check that
+    still finds them reports them as open."""
+    from flowguard._next.cli import status_lines
+    saved = project.root / ".flowguard/conflicts.json"
+    text = (KIT / "workshop_naive.py").read_text()
+    for old, new in NO_TRANSIT:
+        assert old in text
+        text = text.replace(old, new)
+    project.kit().flow("workshop", text)
+    first = timed(project.root)
+    assert first.code == 1 and first.first == "3 new conflicts; complete", first.out
+    ids = sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"])
+    config = project.root / "counter" / "config.py"
+    config.write_text(config.read_text().replace("maintain_every: int = 4", "maintain_every: int = 3"))
+    capped = timed(project.root, "--max-states", "30")
+    assert capped.code == 1, capped.out
+    assert capped.first == "3 open conflicts; UNKNOWN: workshop capped at 30 states", capped.out
+    assert not any(x.startswith(("closed ", "NEW ")) for x in capped.lines), capped.out
+    opened = [x for x in capped.lines if x.startswith("OPEN ")]
+    assert len(opened) == 3, capped.out
+    for line in opened:
+        assert "(kept: its stored path no longer replays (step " in line, line
+        assert line.endswith("this check is capped; a complete check will settle it)"), line
+    assert sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"]) == ids
+    [status] = status_lines(project.root)
+    assert "3 open conflicts" in status and "a commit is blocked until fixed" in status, status
+    assert "does not block" not in status, status
+    again = timed(project.root)
+    assert again.code == 1 and again.first == "3 open conflicts; complete", again.out
+    assert sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"]) == ids
 
 
 @pytest.mark.parametrize("model, old, new", [
@@ -726,11 +780,11 @@ MODEL = m
 '''
 
 
-def test_a_capped_check_that_reaches_a_never_reached_item_closes_it(project):
-    """G1 round 2: a NEVER REACHED conflict proven by a complete check is disproved by any
-    search that reaches the item: a reaching path is a fact. A capped check that reaches it
-    once kept it OPEN (exit 1) while its own reach line said the rule was reached. It is
-    now closed, saying so; one the capped search does not reach stays open."""
+def test_a_capped_check_that_reaches_a_never_reached_item_keeps_it_until_a_complete_check(project):
+    """G1 round 4 (the coordinator's decision): a capped check never closes a proven
+    conflict, also a NEVER REACHED one its search reaches (it once closed it: "this check
+    reaches it", exit 3). It stays open and blocking, and says the capped check reaches it
+    now, so the line agrees with the reach line; a complete check of the model closes it."""
     project.request("R1", "# Request 1: the goal can be reached\n")
     saved = project.root / ".flowguard/conflicts.json"
     path = project.flow("goal", GOAL.replace("TOP", "2").replace("WIDTH", "3"))
@@ -740,12 +794,19 @@ def test_a_capped_check_that_reaches_a_never_reached_item_closes_it(project):
     assert set(ids) == {"action finish", "reach 'finished'"}, ids
     path.write_text(GOAL.replace("TOP", "60").replace("WIDTH", "399"))     # 48,800 states: capped below
     capped = timed(project.root, "--max-states", "5000")
-    assert capped.code == 3, capped.out
-    assert capped.first.startswith("no conflict found; UNKNOWN: goal capped at 5,000 states"), capped.out
+    assert capped.code == 1, capped.out
+    assert capped.first == "2 open conflicts; UNKNOWN: goal capped at 5,000 states", capped.out
+    assert not any(x.startswith("closed ") for x in capped.lines), capped.out
     for subject, cid in ids.items():
-        assert any(x.startswith(f"closed {cid} NEVER REACHED goal: this check reaches it") for x in capped.lines), \
-            capped.out
-    assert not any(x.startswith("OPEN ") for x in capped.lines), capped.out
+        [line] = [x for x in capped.lines if x.startswith("OPEN NEVER REACHED goal: ") and f"[{cid}]" in x]
+        assert line.endswith("(kept: this check reaches it now; this check is capped; a complete check will "
+                             "settle it)"), line
+    assert sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"]) == sorted(ids.values())
+    path.write_text(GOAL.replace("TOP", "60").replace("WIDTH", "3"))       # small enough to explore completely
+    complete = timed(project.root)
+    assert complete.code == 0, complete.out
+    for subject, cid in ids.items():
+        assert f"closed {cid} NEVER REACHED goal: a complete check of goal no longer finds it" in complete.lines
     assert json.loads(saved.read_text())["conflicts"] == []
 
 

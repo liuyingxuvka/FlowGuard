@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import diagram, jobs
-from .checks import CONFLICT, ERROR_CLS, WARNING, Finding, explanation_text
+from .checks import CONFLICT, ERROR_CLS, GONE, REPLAYED, WARNING, Finding, explanation_text
 from .explore import Bounds
 from .model import natural_key
 from .parts import ENGINE_DIGEST
@@ -266,7 +266,7 @@ class Assembled:
     errors: list
     new: set
     max_states: int
-    closed: list = field(default_factory=list)     # (entry, why): disproved by a capped check (path or reach)
+    closed: list = field(default_factory=list)     # (entry, why): a complete check no longer finds it
 
 
 def assemble(root, outcome, previous: dict | None, *, max_states: int | None = None,
@@ -309,12 +309,13 @@ def _kept_finding(c: dict, reason: str) -> Finding:
 
 
 def _kept(root, models: dict, previous: dict | None, found: set, whole: bool) -> tuple[list, list]:
-    """The stored conflicts a check of their model did not find again, when that check
-    cannot close them (design M6): it was capped, or the model did not load, or the model's
-    file is gone (nothing explored its scope). Each stays open unless the replay of its
-    stored shrunk path no longer reproduces it, or (NEVER REACHED) the model still defines
-    the item and this check reaches every instance of it (closed); a renamed or removed
-    item is reached by nothing and stays open."""
+    """The stored conflicts a check of their model did not find again: (kept, closed).
+    Only a complete exploration of the model as it is (ModelView.explored) closes one
+    (design M6 as the coordinator decided). Every other check keeps it open and blocking:
+    a capped one (also when the replay of its stored shrunk path fails, say after a
+    setting changed, or when it reaches a NEVER REACHED item), one a model error cut
+    short, a model that does not load, a model file that is gone. The reason says what
+    this check saw and that a complete check will settle it."""
     kept, closed = [], []
     existing = {p.stem for p in model_files(root)}
     for c in (previous or {}).get("conflicts", []):
@@ -326,22 +327,23 @@ def _kept(root, models: dict, previous: dict | None, found: set, whole: bool) ->
                 kept.append(_kept_finding(c, f"its model file {FLOW_DIR.as_posix()}/{c['model']}.py is gone; it "
                                              f"closes only when a complete check of {c['model']} no longer finds it"))
             continue
-        if not view.finished or view.explored:
+        if not view.finished:
+            continue
+        if view.explored:
+            closed.append((c, f"a complete check of {c['model']} no longer finds it"))
             continue
         core = view.result("core")
-        if c["kind"] == "NEVER REACHED" and core is not None and core.info.get("loaded") \
-                and c["subject"] in core.info.get("reached", []):
-            closed.append((c, "this check reaches it"))       # a reaching path is a fact, capped or not
-            continue
+        scope = ("the model does not load" if core is None or not core.info["loaded"]
+                 else "a model error cut this check short" if view.errors else "this check is capped")
         replay = view.result("replay")
         outcome, why = (replay.info["replays"].get(c["id"]) if replay is not None else None) or (
             None, "no stored path to replay")
-        if outcome == "gone":
-            closed.append((c, f"its stored path no longer reproduces it ({why})"))
-            continue
-        scope = ("the model does not load" if core is None or not core.info["loaded"]
-                 else "a model error cut this check short" if view.errors else "this check is capped")
-        if outcome == "reproduces":
+        if c["kind"] == "NEVER REACHED" and core is not None and core.info.get("loaded") \
+                and c["subject"] in core.info.get("reached", []):
+            reason = f"this check reaches it now; {scope}; a complete check will settle it"
+        elif outcome == GONE:
+            reason = f"its stored path no longer replays ({why}); {scope}; a complete check will settle it"
+        elif outcome == REPLAYED:
             reason = f"{why}; {scope}"
         elif why == scope:
             reason = f"proven by an earlier complete check; {scope}"
@@ -697,9 +699,13 @@ def status_lines(root) -> list[str]:
         line = "flow models: no conflict found"
     else:
         line = "flow models: clean"
-    if capped:
-        line += (f"; capped: {', '.join(capped)} (what a capped search could not decide is UNKNOWN; "
-                 f"that alone does not block)")
+    held = {c["model"] for c in conflicts}                 # a capped check never closes a proven conflict
+    if [m for m in capped if m not in held]:
+        line += (f"; capped: {', '.join(m for m in capped if m not in held)} (what a capped search could not "
+                 f"decide is UNKNOWN; that alone does not block)")
+    if [m for m in capped if m in held]:
+        line += (f"; capped with open conflicts: {', '.join(m for m in capped if m in held)} (they stay open and "
+                 f"block until a complete check settles them)")
     if erring:
         shown = [f"{m} ({_plural(n, 'model error')}" + ("; its search was cut short" if models[m].get("cut") else "")
                  + ")" for m, n in sorted(erring.items(), key=lambda x: natural_key(x[0]))]
