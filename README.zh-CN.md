@@ -65,8 +65,25 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | 主人提出要求 | `python -m flowguard req add <file\|-> --id <id>` | 把主人自己的话原样存一次 |
 | 旧的目标路线（保留到 v1.0.0） | `python -m flowguard target`（`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`） | 计划旧模型的改动；正常改动不需要目标 |
 | 旧的检查（保留到 v1.0.0） | `python -m flowguard change` | 校验地图和代码；只列出受影响的测试和模型 |
-| 发布之前 | `python -m flowguard release` | 严格检查、架构错误、重跑全部模型 |
+| 发布之前 | `python -m flowguard release` | 严格检查、架构错误、重跑全部模型、流程模型的完整检查 |
 | 新模型或采用流程 | `python -m flowguard template --list` | 选择 `behaviour`、`validator`、`ui-journey`，或用 `adoption` 生成仓库规则 |
+
+## 流程模型
+
+流程模型是一次改动涉及的那部分设计，写成 `.flowguard/flow/<name>.py` 里的一台小机器：几个字段、改变它们的动作，
+以及主人的要求所作的承诺（`from flowguard.flow import Model, need`，每个文件一个模型，以 `MODEL = m` 结尾）。
+`check` 在每个能到达的状态里尝试每个动作，报告哪里会卡住、什么永远不会发生、哪种顺序会打破哪条承诺，每条都附最短路径
+和背后的要求。写模型的一页说明是 [flowguard/flow/HOWTO.md](./flowguard/flow/HOWTO.md)，安装的包里也有。
+
+| 命令 | 作用 |
+| --- | --- |
+| `python -m flowguard check` | 探索每个流程模型；第一行是结论；退出码 0 无问题，1 有冲突，2 模型错误，3 未知（搜索到上限），4 仍在运行 |
+| `python -m flowguard check --full` | 另外故意把每个模型改坏，看它的检查能否抓到；有可互换对象的模型再不做改名约简地探索一遍 |
+| `python -m flowguard show` | 把冲突画成流程图，没有冲突时画出相对 HEAD 的改动（`show MODEL`、`show C-...`、`--before REV`） |
+
+`check` 最多等 `--wait` 秒（默认 90）就返回。还在运行（RUNNING）的工作会再保留 `--keep` 秒，用同一条命令接着做。
+`--json` 只打印一行。冲突记在 `.flowguard/conflicts.json`（要提交）：`status` 显示未解决的冲突，`release` 运行
+`check --full`。画图需要装了 Playwright 的 node；没有时 `show` 写出 Mermaid 文本。
 
 ## 找源码和文字原文
 
@@ -117,7 +134,8 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 
 ## 仓库结构
 
-- `flowguard/` 引擎、节点种类和计算出的面；`flowguard/map/` 地图、目标、自动发现和证明层
+- `flowguard/` 引擎、节点种类和计算出的面；`flowguard/map/` 地图、目标、自动发现和证明层；
+  `flowguard/flow/` `check` 和 `show` 背后的流程模型引擎
 - `.agents/skills/flowguard/` 给 AI 用的技能
 - `.flowguard/` FlowGuard 自己的地图和模型（它用自己维护自己）
 - `examples/` 可运行的教学模型；`docs/` 长篇说明

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Flow models: write the part of the design a change touches as a small model in `.flowguard/flow/<name>.py`, one model per file, importing `from flowguard.flow import Model, need`. The one-page guide is `flowguard/flow/HOWTO.md`, which the installed package carries too.
+- `python -m flowguard check` tries every action of every flow model in every reachable state. It reports conflicts (something that gets stuck, an action, option, end or promise that is never reached, a promise some order breaks, an option offered where its action refuses, a second route to the same result) with the shortest path and the requests behind each, then model warnings, and what a capped search left UNKNOWN.
+- The first line of `check` is the verdict. It exits 0 when clean, 1 on a conflict, 2 on a model error, 3 when only UNKNOWN is left, and 4 while work is still running. `--json` prints one line.
+- `check` returns within `--wait` seconds (90 by default). Work still running continues for `--keep` seconds, and the same command resumes it.
+- `check --full` also breaks each model on purpose and lists the breaks no check catches, and explores a model with interchangeable ids once more without renaming them.
+- Conflicts are recorded in `.flowguard/conflicts.json`; commit it. A conflict stays open until a complete check of its model no longer finds it.
+- `python -m flowguard show` draws the conflicts, or else the change against HEAD, as a flowchart: Mermaid text, plus SVG and PNG pictures where node with Playwright is installed.
+- `status` shows the flow models' open conflicts and whether they block a commit.
+- `release` runs the full check of the flow models after the legacy models, and fails on a conflict or a model error.
+
 ## v0.72.0 - 2026-11-02 - A plain change flow, the owner's newest words and honest Git checks
 
 - A normal change no longer needs the legacy map, models or target commands. Run `status`, store the owner's words with `req add`, find code with `where`, run your tests, and commit in your own words with a `Request: R<n>` line.

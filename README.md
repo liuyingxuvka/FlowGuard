@@ -73,8 +73,28 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | the owner asks for something | `python -m flowguard req add <file\|-> --id <id>` | store the owner's own words once, byte for byte |
 | legacy target route (until v1.0.0) | `python -m flowguard target` (`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`) | plan a change of the legacy models; a normal change needs no target |
 | legacy check (until v1.0.0) | `python -m flowguard change` | verify map vs code; list only the affected tests and models |
-| before release | `python -m flowguard release` | strict check, lint errors, every model re-run |
+| before release | `python -m flowguard release` | strict check, lint errors, every model re-run, the flow models' full check |
 | start a model or adopt the workflow | `python -m flowguard template --list` | choose `behaviour`, `validator`, `ui-journey` or repository rules with `adoption` |
+
+## Flow models
+
+A flow model is the part of the design a change touches, written as a small machine in
+`.flowguard/flow/<name>.py`: a few fields, the actions that change them and the promises the owner's
+requests make (`from flowguard.flow import Model, need`, one model per file, ending with `MODEL = m`).
+`check` tries every action in every reachable state and reports what gets stuck, what never happens and
+which promise some order breaks, each with its shortest path and the requests behind it. The one-page
+guide to writing them is [flowguard/flow/HOWTO.md](./flowguard/flow/HOWTO.md), also in the installed package.
+
+| command | what it does |
+| --- | --- |
+| `python -m flowguard check` | explore every flow model; line 1 is the verdict; exit 0 clean, 1 conflict, 2 model error, 3 UNKNOWN (search capped), 4 RUNNING |
+| `python -m flowguard check --full` | also break each model on purpose to see that its checks catch it, and explore a model with interchangeable ids once more without renaming them |
+| `python -m flowguard show` | draw the conflicts, else the change against HEAD, as a flowchart (`show MODEL`, `show C-...`, `--before REV`) |
+
+`check` returns within `--wait` seconds (default 90). Work left RUNNING continues for `--keep` seconds, and the
+same command resumes it. `--json` prints one line. Conflicts are kept in `.flowguard/conflicts.json` (commit it):
+`status` shows the open ones, and `release` runs `check --full`. Pictures need node with Playwright; without them
+`show` writes the Mermaid text.
 
 ## Find source and original text
 
@@ -130,7 +150,8 @@ find the globally best architecture. It keeps one model tree bound to the code a
 
 ## Repository layout
 
-- `flowguard/` engine, node kinds and computed facets; `flowguard/map/` map, target, discovery and proof layer
+- `flowguard/` engine, node kinds and computed facets; `flowguard/map/` map, target, discovery and proof layer;
+  `flowguard/flow/` the flow-model engine behind `check` and `show`
 - `.agents/skills/flowguard/` the agent skill
 - `.flowguard/` FlowGuard's own map and models (it maintains itself with itself)
 - `examples/` runnable teaching models; `docs/` long-form notes
