@@ -612,12 +612,14 @@ class _Run:
         value is left out (the step that sets a one-way flag is not lost). Nothing lost: a
         one-way marker, the object still does all it did (a flag set on the first loan).
         own (a number or flag field): an action whose every change of the object changes this
-        field alone is left out too; it is the field's own step (a clock that runs out, a
-        total that stops), and losing it at the last value ends nothing else."""
+        field alone and counts it toward the value (_counts_toward) is left out too; it is the
+        field's own step (a clock that runs out, a total that stops), and losing it at the
+        last value ends nothing else. A step that takes the number away from the value (a
+        place coded 0 shelf, 1 loan, 2 repair: give_back 1 -> 0) is no count and is lost."""
         g, keys, states, sym = self.g, self.keys, self.g.states, self.g.sym
         n = len(o)
         held = set(nodes)
-        changes, after, entering, alone = set(), set(), {}, {}
+        changes, after, entering, counts = set(), set(), {}, {}
         for i, row in enumerate(g.out):
             si = states[i]
             prow = g.perm[i] if g.perm is not None else None
@@ -636,8 +638,8 @@ class _Run:
                         after.add(name)
                     enters = cls(p, si[p]) != c_ and cls(p, raw[p]) == c_
                     entering[name] = entering.get(name, True) and enters
-                    alone[name] = alone.get(name, True) and moved == [p]
-        return sorted(a for a in changes - after if not entering[a] and not (own and alone[a])), sorted(after)
+                    counts[name] = counts.get(name, True) and moved == [p] and _counts_toward(si[p], raw[p], c_[1])
+        return sorted(a for a in changes - after if not entering[a] and not (own and counts[a])), sorted(after)
 
     def expand(self, c_, nodes, o):
         """The concrete (position, value, unreduced states) of a class seen at pair nodes."""
@@ -1356,6 +1358,14 @@ def _components(nodes, succ) -> dict:
                     if w == v:
                         break
     return comp
+
+
+def _counts_toward(a, b, end) -> bool:
+    """Whether a step of a number from a to b counts toward end without passing it (a clock
+    that runs out, a total that stops, a count down to 0)."""
+    if not all(isinstance(x, (int, float)) for x in (a, b, end)):    # bool is an int
+        return False
+    return a < b <= end or a > b >= end
 
 
 def _is_counter(domain) -> bool:

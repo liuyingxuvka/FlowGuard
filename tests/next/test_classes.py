@@ -542,6 +542,130 @@ def test_a_value_never_left_is_a_dead_end_for_plain_fields_and_any_domain(projec
     assert not [f for f in report.findings if f.kind == "STUCK"], [f.text for f in report.findings]
 
 
+INT_PHASE = '''
+from flowguard._next import Model, need
+
+m = Model("book", note="the book's place as a number: 0 shelf, 1 loan, 2 repair; nothing repairs it")
+m.field("phase", range(0, 3), 0, source="R1")
+m.field("day", range(0, 3), 0, note="a day clock that keeps running")
+
+
+@m.action(source="R1")
+def lend(s):
+    need(s["phase"] == 0, "not on the shelf")
+    s["phase"] = 1
+
+
+@m.action(source="R1")
+def give_back(s):
+    need(s["phase"] == 1, "not on loan")
+    s["phase"] = 0
+
+
+@m.action(source="R4")
+def damaged(s):
+    need(s["phase"] == 1, "not on loan")
+    s["phase"] = 2
+
+
+@m.action()
+def night(s):
+    s["day"] = (s["day"] + 1) % 3
+MODEL = m
+'''
+
+INT_PHASE_TOOLS = '''
+from flowguard._next import Model, need
+
+m = Model("tools", note="each tool's place as a number: 0 shelf, 1 loan, 2 repair; nothing repairs it")
+TOOLS = OBJECTS
+m.field("phase", range(0, 3), 0, over=TOOLS, source="R1")
+m.field("age", [0, 1], 0, over=TOOLS, note="each tool's own clock")
+
+
+@m.action(t=TOOLS, source="R1")
+def rent(s, t):
+    need(s["phase", t] == 0, "not on the shelf")
+    s["phase", t] = 1
+
+
+@m.action(t=TOOLS, source="R1")
+def give_back(s, t):
+    need(s["phase", t] == 1, "not on loan")
+    s["phase", t] = 0
+
+
+@m.action(t=TOOLS, source="R4")
+def damaged(s, t):
+    need(s["phase", t] == 1, "not on loan")
+    s["phase", t] = 2
+
+
+@m.action(t=TOOLS)
+def age(s, t):
+    s["age", t] = 1 - s["age", t]
+MODEL = m
+'''
+
+
+@pytest.mark.parametrize("name, text, subject", [
+    ("a plain field", INT_PHASE, "phase = 2"),
+    ("a plain list", INT_PHASE_TOOLS.replace("OBJECTS", '["T1", "T2"]'), "phase[*] = 2"),
+    ("interchangeable tools", INT_PHASE_TOOLS.replace("OBJECTS", 'm.objects("tool", "T1", "T2")'), "phase[*] = 2"),
+])
+def test_a_number_used_as_a_state_is_a_dead_end_while_a_clock_runs(project, name, text, subject):
+    """G8 round 5: the own step of a number (a step that changes only this field) was never
+    a lost step, so a place coded as a number (0 shelf, 1 loan, 2 repair; nothing leaves
+    2) was "clean, complete", exit 0, while a day clock or an age kept running: lend and
+    give_back change only `phase`. The same model with text values was a STUCK. Only a
+    step that counts the number toward the value (a clock that runs out, a total that
+    stops) is the field's own step; give_back takes the number away from 2 and is lost."""
+    project.flow("book", text)
+    report = check_model(load_model(project.root / ".flowguard/flow/book.py", project.root))
+    stuck = [f for f in report.findings if f.kind == "STUCK"]
+    assert [f.subject for f in stuck] == [subject], [f.text for f in stuck]
+    [end] = stuck
+    assert end.cls == CONFLICT and end.detail["stuck"] == "end", end.text
+    assert "can never again give_back" in end.text and "m.terminal('phase', [2])" in end.text, end.text
+
+
+COUNTDOWN = '''
+from flowguard._next import Model, need
+
+m = Model("lamp")
+m.field("left", range(0, 3), 2, note="uses left: counts down to 0 and stops there")
+m.field("warnings", range(0, 3), 0, note="counts up to 2 and stops there")
+m.field("on", [False, True], False)
+
+
+@m.action()
+def use(s):
+    need(s["left"] > 0, "used up")
+    s["left"] -= 1
+
+
+@m.action()
+def warn(s):
+    need(s["warnings"] < 2, "warned twice")
+    s["warnings"] += 1
+
+
+@m.action()
+def flip(s):
+    s["on"] = not s["on"]
+MODEL = m
+'''
+
+
+def test_a_number_that_counts_to_its_last_value_while_the_model_goes_on_is_no_end(project):
+    """The other side of G8 round 5: a number whose own step only counts toward the value
+    no state leaves (left 2, 1, 0; warnings 0, 1, 2) has run out there, as a clock that
+    runs out does; the lamp goes on, so nothing is reported."""
+    project.flow("lamp", COUNTDOWN)
+    report = check_model(load_model(project.root / ".flowguard/flow/lamp.py", project.root))
+    assert not [f for f in report.findings if f.kind == "STUCK"], [f.text for f in report.findings]
+
+
 CONSTANT = '''
 from flowguard._next import Model, need
 
