@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from .explore import Bounds, Graph, explore, orbit, replay, show_step, show_tuple
-from .model import Loaded, Model, ModelError, Refused, State, natural_key, show_key
+from .model import Loaded, Model, ModelError, Refused, State, natural_key, show_key, vary_setting
 
 CONFLICT, WARNING, ERROR_CLS = "conflict", "warning", "error"
 _CLASS_ORDER = {CONFLICT: 0, WARNING: 1, ERROR_CLS: 2}
@@ -1166,9 +1166,7 @@ class _Run:
                    "reach": list(reach_missing)}
         cap = min(self.bounds.max_states, max(20_000, len(self.g.states)))
         for name, value in self.variations():
-            old = model.settings[name]
-            model.settings[name] = value
-            try:
+            with vary_setting(model, name, value):
                 if model.valid is not None:
                     try:
                         ok = model.valid(model.settings)
@@ -1178,8 +1176,6 @@ class _Run:
                     if not ok:
                         continue
                 vg = explore(model, Bounds(cap), check_domains=False, targets=targets, reduce=self.reduce)
-            finally:
-                model.settings[name] = old
             if vg.cut:                                  # a model error cut the variant's search short
                 cut.append(f"{name}={value}")
             elif not vg.complete and not vg.stopped_early:
@@ -1272,14 +1268,23 @@ class _Run:
         return lines
 
     def settings_warning(self):
+        """The model's own setting values in a model that covers code: never silent. A value
+        for a setting the covered code's settings object has is a model error at load
+        (model.check_settings_from_code); what is left here the code was not found to have."""
         model = self.model
         literal = [n for n, s in model.setting_info.items() if s.origin == "model only"]
         if not (model.covers and literal and model.config is None):
             return []
-        names = ", ".join(f"{n}={model.settings[n]!r}" for n in literal)
-        return [make_finding("SETTINGS", WARNING, self.mid, "settings are not imported from the code",
-                             f"settings are not imported from the code: {names} are the model's own values; "
-                             f"give the model config= to read them from the code", detail={"settings": literal},
+        own = ", ".join(f"{n}={model.settings[n]!r}" for n in literal)
+        own += " is the model's own value" if len(literal) == 1 else " are the model's own values"
+        configs = getattr(model, "code_configs", [])
+        read = [f"{c['file']}: {c['spec'].partition(':')[2]}" for c in configs if "obj" in c]
+        why = (f"{', '.join(read)}, which the covered code uses, has no such setting" if read
+               else "no settings object was found in the covered code")
+        why += "".join(f"; {c['spec']} could not be read ({c['error']})" for c in configs if "error" in c)
+        return [make_finding("SETTINGS", WARNING, self.mid, "settings not read from the code",
+                             f"settings not read from the code: {own}; {why}; when the code has them, give the "
+                             f"model config= to read them from the code", detail={"settings": literal},
                              line=model.line)]
 
     def error_findings(self):

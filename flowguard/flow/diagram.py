@@ -25,7 +25,7 @@ from pathlib import Path
 from .checks import CONFLICT, Finding, Report, check_model, explanation_text
 from .explore import Bounds, explore, show_step
 from .jobs import ending_with_this_process
-from .model import ModelError, load_model, show_key
+from .model import ModelError, load_model, show_key, vary_setting
 from .parts import PartContext, PartResult, PartSpec, kinds, part_digest, register, run_part
 from .project import (PROG, ProjectError, cache_dir, changed_files, changed_models, export_at, model_files,
                       new_and_open, read_conflicts, read_manifest, write_manifest)
@@ -439,11 +439,8 @@ class Scene:
             value = next((v for v in ((info.vary or ()) if info else ()) if str(v) == raw), None)
             if value is None:
                 return None
-        model.settings[name] = value
-        try:
+        with vary_setting(model, name, value):
             g = explore(model, self.bounds, check_domains=False)
-        finally:
-            model.settings[name] = cur
         if not g.complete:
             self.extra_caption.append(f"the variant {text} is {g.unfinished()}")
         return Space(g)

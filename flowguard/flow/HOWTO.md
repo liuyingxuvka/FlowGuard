@@ -21,7 +21,7 @@ with no conflict draws its latest change, one object's fields at a time).
 |---|---|
 | `m = Model(name, covers=["pkg/mod.py:Class"], config="pkg.config:Config", note=...)` | the model; `covers` names the code it describes, `config` the code's settings object |
 | `m.setting("limit", source="R9")` | a setting read from the code (`getattr(Config, "limit")`); read it in actions as `S["limit"]` with `S = m.settings` |
-| `m.setting("limit", 2, source="R12")` | a setting the code does not have yet (only then give a value) |
+| `m.setting("limit", 2, source="R12")` | a setting the code does not have yet (only then give a value: a value for a setting the covered code's settings object has is a model error that names both values, `settings not read from the code: limit=2 (code default 4)`); `m.settings` is read-only |
 | `IDS = m.objects("tool", "T1", "T2")` | interchangeable ids (at most 4); a plain list when they are not interchangeable. Never order them (`<`, `sorted`, `min`), name one, or read their text: ordering or naming one is a model error, and a use the check cannot judge turns the renaming off (said on the last line) |
 | `m.field(name, domain, init, over=IDS, source=, value_sources={"transit": "R10"}, note=)` | one field, or one per object (`s[name, t]`); small domains, counters clamped |
 | `@m.action(t=IDS, source="R4")` with `need(cond, "reason", source=)` | an action tried with every argument; `need` is the guard (it carries the action's source unless it names its own), assignments are the effect; `with s.source("R10"): ...` marks effects |
@@ -118,8 +118,8 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
   wider than the design needs; settings not read from the code although the model covers code; a
   fallback on the status field only, an `if` whose two branches end the same, lines no call runs, a
   guard that never refuses; with `--full`, each break of the model that no check catches.
-- **Model errors**: the model itself failed (an exception, a value outside its domain, a write
-  to an unknown field, a declaration mistake). Fix these first.
+- **Model errors**: the model itself failed (an exception, a value outside its domain, a write to an
+  unknown field or to `m.settings`, a declaration mistake, an own value for a setting the code has). Fix these first.
 - **UNKNOWN**: the search hit its state bound ("capped"), a model error cut it short (no STUCK or
   NEVER REACHED is decided there), or a model did not load ("not explored"). What it found with a
   path is certain; nothing is reported as holding or clean. Make the model smaller, not the bound.

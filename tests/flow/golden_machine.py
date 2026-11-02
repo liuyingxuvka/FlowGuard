@@ -62,7 +62,8 @@ class Machine:
 
     def to_model(self, drop_rules=False) -> Model:
         m = Model(self.name, valid=self.valid)
-        m.settings = self.settings            # the live dict the model's actions read
+        m._settings = self.settings           # the prototype's live dict its actions read (the test's
+                                              # adapter only: model code never replaces m.settings)
         for k, v in list(self.settings.items()):
             m.setting(k, v, vary=self.variations.get(k))
         for name, domain, init, over in self.fields:

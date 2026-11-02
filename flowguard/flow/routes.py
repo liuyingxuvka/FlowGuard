@@ -31,7 +31,7 @@ from pathlib import Path
 
 from .checks import CONFLICT, ERROR_CLS, WARNING, check_model, make_finding, merge, setting_variations
 from .explore import BOUND, ERROR, Bounds, Graph, explore, show_step, show_tuple
-from .model import Loaded, Model, ModelError, Refused, State, load_model, natural_key, show_key
+from .model import Loaded, Model, ModelError, Refused, State, load_model, natural_key, show_key, vary_setting
 from .parts import PartContext, PartResult, part_digest, register
 
 _PKG = __name__.rpartition(".")[0]
@@ -884,9 +884,7 @@ class _Judge:
         found, undecided = defaultdict(list), []
         cap = min(g.max_states, max(20_000, len(g.states)))
         for name, value in setting_variations(model):
-            old = model.settings[name]
-            model.settings[name] = value
-            try:
+            with vary_setting(model, name, value):
                 if model.valid is not None:
                     try:
                         ok = model.valid(model.settings)
@@ -900,8 +898,6 @@ class _Judge:
                     undecided.append(f"{name}={value!r} (capped)")
                     continue
                 _, ran = _run_calls(vg.states, vg.keys, vg.calls, self.obs.files)
-            finally:
-                model.settings[name] = old
             lines = set()
             for row in ran:
                 for ls in row:

@@ -10,6 +10,7 @@ import builtins
 import contextlib
 import copy
 import importlib
+import importlib.util
 import itertools
 import operator
 import os
@@ -175,6 +176,35 @@ class Setting:
     source: str | None
     vary: tuple | None
     note: str | None
+    line: int | None = None           # the m.setting(...) line in the model file
+
+
+_READ_ONLY = ("m.settings is read-only: declare a setting with m.setting(name) to read it from the code "
+              "(config=), or m.setting(name, value) for one the code does not have yet")
+
+
+class SettingValues(dict):
+    """m.settings: the settings' values, read in actions as S[name]. Model code never writes
+    here, so the origin of every value (the code's config or the model) is known and said;
+    a write is a model error. The engine tries a one-setting variant with vary_setting()."""
+
+    def _read_only(self, *args, **kwargs):
+        _fail(_READ_ONLY)
+
+    __setitem__ = __delitem__ = __ior__ = _read_only
+    update = setdefault = pop = popitem = clear = _read_only
+
+
+@contextlib.contextmanager
+def vary_setting(model, name, value):
+    """One setting changed in the live mapping the actions read, restored afterwards (the
+    one-setting explanations and variant pictures; never model code)."""
+    old = model.settings[name]
+    dict.__setitem__(model.settings, name, value)
+    try:
+        yield
+    finally:
+        dict.__setitem__(model.settings, name, old)
 
 
 @dataclass(frozen=True)
@@ -293,7 +323,7 @@ class Model:
         self.config = config
         self.note = _check_note(note, f"model {name!r}")
         self.valid = valid
-        self.settings = {}
+        self._settings = SettingValues()
         self.setting_info = {}
         self.fields = []
         self.actions = []
@@ -307,11 +337,21 @@ class Model:
         self._calls = None
         self._config_obj = _MISSING
         self._config_file = None
+        self.code_configs = []            # the covered code's settings objects (set by the loader)
         if config is not None:
             self._config_obj, self._config_file = _import_config(config)
 
     def __repr__(self):
         return f"Model({self.name!r})"
+
+    @property
+    def settings(self):
+        """The settings' values (read-only: declare them with m.setting)."""
+        return self._settings
+
+    @settings.setter
+    def settings(self, value):
+        _fail(_READ_ONLY)
 
     # ------------------------------------------------------------------ declaring
     def setting(self, name, value=_MISSING, *, source=None, vary=None, note=None):
@@ -333,12 +373,12 @@ class Model:
                 _fail(f"{what}: {self.config} has no attribute {name!r}")
             value = getattr(self._config_obj, name)
             where = f"{_rel(self._config_file)}: {self.config.split(':')[1]}.{name}"
-            info = Setting(name, value, "code", where, source, vary, note)
+            info = Setting(name, value, "code", where, source, vary, note, _here()[1])
         else:
             if self._config_obj is not _MISSING and hasattr(self._config_obj, name):
                 _fail(f"{what}: {self.config} has it; read it from the code: drop the value")
-            info = Setting(name, value, "model only", None, source, vary, note)
-        self.settings[name] = value
+            info = Setting(name, value, "model only", None, source, vary, note, _here()[1])
+        dict.__setitem__(self._settings, name, value)
         self.setting_info[name] = info
         return value
 
@@ -522,6 +562,102 @@ def _import_config(spec):
             _fail(f"config {spec!r}: {modname} has no {objpath!r}")
         obj = getattr(obj, part)
     return obj, getattr(module, "__file__", None)
+
+
+# ---------------------------------------------------------------------- settings the covered code has
+_CONFIG_WORD = re.compile(r"(?i)config|settings")
+
+
+def _module_parts(rel: str) -> tuple[list[str], list[str]]:
+    """(module parts, package parts) of a project file given relative to the root."""
+    parts = list(Path(rel).with_suffix("").parts)
+    if parts and parts[-1] == "__init__":
+        return parts[:-1], parts[:-1]
+    return parts, parts[:-1]
+
+
+def _config_candidates(rel: str, tree: ast.Module) -> list[tuple[str, str]]:
+    """(module, name) of each settings object a covered file names: a name it imports that
+    says config or settings, any name it imports from a module so named, a class it defines
+    so named. Relative imports are resolved against the file's package."""
+    modparts, package = _module_parts(rel)
+    out = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level:
+                if node.level - 1 > len(package):
+                    continue
+                base = package[:len(package) - (node.level - 1)]
+                module = ".".join(base + ([node.module] if node.module else []))
+            else:
+                module = node.module or ""
+            for alias in node.names:
+                if alias.name != "*" and module and (
+                        _CONFIG_WORD.search(alias.name) or _CONFIG_WORD.search(module.rpartition(".")[2])):
+                    out.append((module, alias.name))
+        elif isinstance(node, ast.ClassDef) and _CONFIG_WORD.search(node.name) and modparts:
+            out.append((".".join(modparts), node.name))
+    return out
+
+
+def covered_configs(model: Model, root: Path) -> list[dict]:
+    """The settings objects the covered code uses, found by reading its files: for each one
+    in a module of the project, {"spec": "pkg.config:Config", "file", "obj"}, or "error"
+    instead of "obj" when it cannot be imported (modules outside the project are skipped)."""
+    root = Path(root).resolve()
+    out, seen = [], set()
+    for entry in model.covers:
+        rel = entry.partition(":")[0]
+        path = root / rel
+        if path.suffix != ".py" or not path.is_file():
+            continue                                   # check_covers names a missing file
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except (SyntaxError, UnicodeDecodeError, OSError):
+            continue
+        for module, name in _config_candidates(rel, tree):
+            spec = f"{module}:{name}"
+            if spec in seen:
+                continue
+            seen.add(spec)
+            try:
+                found = importlib.util.find_spec(module)
+                origin = getattr(found, "origin", None)
+                if origin is None or not Path(origin).resolve().is_relative_to(root):
+                    continue                               # not the project's own module
+                obj = getattr(importlib.import_module(module), name)
+            except Exception as err:  # project code: named in the result, never silent
+                out.append({"spec": spec, "file": module.replace(".", "/") + ".py",
+                            "error": f"{type(err).__name__}: {err}"})
+                continue
+            out.append({"spec": spec, "file": _rel(origin), "obj": obj})
+    return out
+
+
+def check_settings_from_code(model: Model, root: Path) -> None:
+    """A model that covers code and gives a setting its own value where the covered code's
+    settings object has that setting checks another system than the one the code ships: a
+    model error that names each own value and the code's, as a value beside config= is. The
+    objects found are kept (model.code_configs) for the warning about the other own values."""
+    model.code_configs = []
+    literal = [(n, s) for n, s in model.setting_info.items() if s.origin == "model only"]
+    if model.config is not None or not model.covers or not literal:
+        return
+    model.code_configs = covered_configs(model, root)
+    clashes = []
+    for name, info in literal:
+        hit = next((c for c in model.code_configs if "obj" in c and hasattr(c["obj"], name)), None)
+        if hit is not None:
+            clashes.append((name, info, hit))
+    if not clashes:
+        return
+    shown = ", ".join(f"{n}={model.settings[n]!r} (code default {getattr(c['obj'], n)!r})" for n, _, c in clashes)
+    first = clashes[0][2]
+    declare = ", ".join(f"m.setting({n!r})" for n, _, _ in clashes)
+    raise ModelError(f"settings not read from the code: {shown}; the covered code has them in {first['file']}: "
+                     f"{first['spec'].partition(':')[2]}: give the model config={first['spec']!r} and declare "
+                     f"{declare} without a value (vary= tries other values)",
+                     _rel(model.path), clashes[0][1].line)
 
 
 # ---------------------------------------------------------------------- declaration checks
@@ -2659,6 +2795,7 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
         model.id = path.stem
         model.path = path
         model.root = root
+        check_settings_from_code(model, root)      # may import the covered code's settings: a read
         project = _project_modules(root)
         reads.update(project.values())
         validate(model)
