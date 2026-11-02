@@ -169,7 +169,8 @@ def _template(ns: argparse.Namespace) -> int:
     if ns.write:
         from .map.mapfile import MapError
         from .map.targetfile import load_target
-        from .templates import OWNER_FILES, TemplateFile, adoption_rules_in, write_template_files
+        from .templates import (EARLIER_RULES_MARKERS, OWNER_FILES, AdoptionRulesFound, TemplateFile,
+                                adoption_rules_in, write_template_files)
 
         current_prefix = ".flowguard/models/"
         target_prefix = ".flowguard/target/models/"
@@ -194,18 +195,32 @@ def _template(ns: argparse.Namespace) -> int:
                 continue
             if file.path == "AGENTS.md" and path.is_file():
                 try:
-                    held, found = adoption_rules_in(path.read_text(encoding="utf-8-sig", errors="replace"))
+                    found = adoption_rules_in(path.read_text(encoding="utf-8-sig", errors="replace"))
                 except OSError as error:
-                    held, found = False, ()
+                    found = AdoptionRulesFound(False, (), ())
                     print(f"cannot read {path.absolute()}: {error}")
-                if held:
+                begin, end = EARLIER_RULES_MARKERS
+                named = sorted([(first, f"  lines {first}-{last}: the earlier FlowGuard block, from {begin} to {end}, "
+                                        "markers included") for first, last in found.blocks]
+                               + ([] if found.held else [(number, f"  line {number}: "
+                                                                  + (line if len(line) <= 100 else line[:97] + "..."))
+                                                         for number, line in found.lines]))
+                if found.held and not named:
                     print(f"kept AGENTS.md: {path.absolute()} already holds the current FlowGuard rules; nothing to add")
                     continue
+                if found.held:  # an earlier block is left beside the current rules: remove it, add nothing
+                    print("kept AGENTS.md (it exists): FlowGuard does not edit it; it holds the current FlowGuard rules,"
+                          " and these lines of it hold "
+                          + ("an earlier FlowGuard block:" if len(named) == 1 else "earlier FlowGuard blocks:"))
+                    print(*(entry for _, entry in named), sep="\n")
+                    print(f"remove those lines from {path.absolute()}; keep the current rules there")
+                    continue
                 print("kept AGENTS.md (it exists): FlowGuard does not edit it"
-                      + ("; these lines of it look like earlier FlowGuard rules:" if found else ""))
-                for number, line in found:
-                    print(f"  line {number}: {line if len(line) <= 100 else line[:97] + '...'}")
-                print(f"add these lines to {path.absolute()}, replacing any earlier FlowGuard rules there:")
+                      + ("; these lines of it look like earlier FlowGuard rules:" if named else ""))
+                for _, entry in named:
+                    print(entry)
+                print(f"put these lines in {path.absolute()} in place of the lines named above:" if named else
+                      f"add these lines to {path.absolute()}, replacing any earlier FlowGuard rules there:")
                 print(file.content, end="")
             elif file.path == "AGENTS.md":
                 print(f"{path.absolute()} is not a file: replace it with a file that holds these lines:")

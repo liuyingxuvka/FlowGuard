@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
+from typing import NamedTuple
 
 
 from .template_text.behaviour import BEHAVIOUR_MODEL_TEMPLATE
@@ -39,22 +40,52 @@ def adoption_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def adoption_rules_in(text: str) -> tuple[bool, tuple[tuple[int, str], ...]]:
-    """Whether an AGENTS.md text holds every current rule line, and its numbered lines that look like FlowGuard rules.
+# The markers around the FlowGuard block that earlier releases put into a project's AGENTS.md.
+EARLIER_RULES_MARKERS = ("<!-- BEGIN FLOWGUARD PROJECT RULES -->", "<!-- END FLOWGUARD PROJECT RULES -->")
 
-    A line looks like one when it is a numbered rule that mentions ``-m flowguard`` (every FlowGuard rule set had
-    that form), names FlowGuard in a heading or repeats a line of the current rules; a current rule found there is
-    named too, so it is replaced, never added twice. The project's own lines, such as a bullet that runs a FlowGuard
-    command in CI, are not named."""
+
+class AdoptionRulesFound(NamedTuple):
+    """What an existing AGENTS.md holds of the FlowGuard rules; line numbers count from 1."""
+
+    held: bool  # every current rule line is there, outside any earlier marked block
+    blocks: tuple[tuple[int, int], ...]  # first and last line of each earlier marked block, markers included
+    lines: tuple[tuple[int, str], ...]  # other lines, outside those blocks, that look like FlowGuard rules
+
+
+def adoption_rules_in(text: str) -> AdoptionRulesFound:
+    """Whether an AGENTS.md text holds every current rule line, and its parts that look like earlier FlowGuard rules.
+
+    An earlier marked block runs from a begin marker to the next end marker; it is named whole, every line inside
+    it included, and current rules inside it do not count as held. Outside such blocks a line looks like a rule when
+    it is a numbered rule that mentions ``-m flowguard`` (every FlowGuard rule set had that form) or repeats a
+    numbered line of the current rules, a marker without its pair, or a heading that names FlowGuard and whose next
+    non-blank line is such a numbered rule. A current rule found there is named too, so it is replaced, never added
+    twice. The project's own lines, such as a bullet that runs a FlowGuard command in CI or a FlowGuard heading over
+    it, are not named."""
     template = next(file.content for file in adoption_template_files() if file.path == "AGENTS.md").splitlines()
     numbered = re.compile(r"\d+\. ")
     lines = [line.strip() for line in text.split("\n")]
-    found = tuple((number, line) for number, line in enumerate(lines, 1) if line and (
-        numbered.match(line) and "-m flowguard" in line or line in template
-        or line.startswith("#") and "flowguard" in line.lower()))
-    return {line for line in template if numbered.match(line)} <= set(lines), found
+    begin, end = EARLIER_RULES_MARKERS
+    blocks: list[tuple[int, int]] = []
+    start = None
+    for number, line in enumerate(lines, 1):
+        if line == begin and start is None:
+            start = number
+        elif line == end and start is not None:
+            blocks.append((start, number))
+            start = None
+    inside = {number for first, last in blocks for number in range(first, last + 1)}
+    filled = [(number, line) for number, line in enumerate(lines, 1) if line]
+    following = {number: after for (number, _), after in zip(filled, filled[1:])}
 
+    def rule(number: int, line: str) -> bool:
+        return number not in inside and bool(numbered.match(line)) and ("-m flowguard" in line or line in template)
 
+    found = tuple((number, line) for number, line in filled if number not in inside and (
+        rule(number, line) or line in EARLIER_RULES_MARKERS
+        or line.startswith("#") and "flowguard" in line.lower() and number in following and rule(*following[number])))
+    held = {line for line in template if numbered.match(line)} <= {line for number, line in filled if number not in inside}
+    return AdoptionRulesFound(held, tuple(blocks), found)
 
 
 def behaviour_template_files() -> tuple[TemplateFile, ...]:

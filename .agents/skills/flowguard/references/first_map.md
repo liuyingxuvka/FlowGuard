@@ -59,12 +59,19 @@ project and read components in batches. `read` prints every component and model;
 8. `python -m flowguard template adoption --write .` writes AGENTS.md and CLAUDE.md only when they are missing and
    never changes an existing one, also with `--force`. What it does with each:
    - AGENTS.md missing: it writes the four project rules there.
-   - AGENTS.md exists and holds every current rule line: it prints `already holds the current FlowGuard rules` and
-     asks for nothing.
-   - AGENTS.md exists without them: it prints the rules after `replacing any earlier FlowGuard rules there`, first
-     naming by line number the lines that look like earlier FlowGuard rules (a heading that names FlowGuard, a
-     numbered rule that runs `python -m flowguard`, a line of the current rules). Put the rules in place of those
-     lines yourself; the project's own lines stay. If AGENTS.md cannot be read, it says so and prints the rules.
+   - AGENTS.md holds every current rule line and no earlier FlowGuard block: it prints
+     `already holds the current FlowGuard rules` and asks for nothing.
+   - AGENTS.md holds the current rules and an earlier FlowGuard block: it names the block by its line range (see the
+     next case) and prints `remove those lines`; it prints no rules and does not call the file complete. Rules inside
+     the block do not count as held.
+   - AGENTS.md exists without the current rules: it names the lines that look like earlier FlowGuard rules and prints
+     the rules to put `in place of the lines named above`. An earlier FlowGuard block, from
+     `<!-- BEGIN FLOWGUARD PROJECT RULES -->` to the next `<!-- END FLOWGUARD PROJECT RULES -->`, is named whole by
+     its line range: both markers and every line inside, numbered or not. Outside such a block it names by line number
+     each numbered rule that runs `python -m flowguard`, each line of the current rules, a marker without its pair,
+     and a heading that names FlowGuard only when its next non-blank line is one of those numbered rules. Put the
+     rules in place of the named lines yourself; the project's own lines stay. When it names no line, it prints the
+     rules after `replacing any earlier FlowGuard rules there`, as it does when AGENTS.md cannot be read (it says so).
    - AGENTS.md is a directory or another non-file: it prints `is not a file` and the rules for the file to put there.
    - CLAUDE.md missing: it writes the one line `@AGENTS.md`, but only when AGENTS.md is a file (existing or just
      written); otherwise it writes no CLAUDE.md and prints `did not write CLAUDE.md` with the reason.
