@@ -36,6 +36,7 @@ MAX_ARROWS = 20
 MAX_PICTURES = 3               # pictures one default `show` draws; the rest are listed
 ROUTE_KINDS = ("DUPLICATE ROUTE", "SUBSUMED ACTION", "FALLBACK ROUTE")   # Part A; detail["actions"]
 RED, GREEN, GREY = "#c00", "#080", "#999"
+CHANGED = "#d70"                     # an arrow of a change that only lost some of its steps
 _PKG = Path(__file__).resolve().parent
 RENDER_JS = _PKG / "render.js"
 MERMAID_JS = _PKG / "vendor" / "mermaid.min.js"        # Mermaid 10.9.1 (MIT), as the prototype used
@@ -483,24 +484,26 @@ class Scene:
         self.change_drawn = f" (drawn for {pick} of {', '.join(objs)})" if pick is not None and len(objs) > 1 else ""
         self.head = self.change_head(None, None)
 
-    def change_head(self, green, grey) -> str:
+    def change_head(self, green, grey, changed=0) -> str:
         """The first words of a change picture: what the drawn view shows in green and grey
-        (green, grey: its arrows; None before a view is drawn), then the whole model's
-        counts when they differ, and what a capped search leaves UNKNOWN."""
+        (green, grey: its arrows; None before a view is drawn; changed: its arrows that only
+        lost some steps, drawn orange), then the whole model's counts when they differ, and
+        what a capped search leaves UNKNOWN."""
         ch, drawn = self.change, self.change_drawn
         model = [f"{_plural(ch.added, 'step')} added" if "added" not in ch.unknown else
                  "added steps UNKNOWN (the old search is capped)",
                  f"{ch.removed:,} removed" if "removed" not in ch.unknown else
                  "removed steps UNKNOWN (the new search is capped)"]
         head = f"the change against {ch.rev}: "
-        if green is None or (green, grey) == (ch.added, ch.removed) and not ch.unknown:
+        if green is None or (green, grey) == (ch.added, ch.removed) and not ch.unknown and not changed:
             if not ch.added and not ch.removed and not ch.unknown:
                 return head + f"no step is added or removed{drawn}"
             if not ch.unknown:
                 return head + (f"{_plural(ch.added, 'step')} added (green), {_plural(ch.removed, 'step')} "
                                f"removed (grey){drawn}")
             return head + "; ".join(model) + drawn
-        return (head + f"{_plural(green, 'arrow')} added (green), {grey:,} removed (grey) in this view; "
+        fewer = f", {changed:,} with fewer steps (orange)" if changed else ""
+        return (head + f"{_plural(green, 'arrow')} added (green), {grey:,} removed (grey){fewer} in this view; "
                 f"in the whole model {', '.join(model)}{drawn}")
 
     # -------------------------------------------------------------- candidate views
@@ -811,7 +814,7 @@ class Scene:
                 if before is None:
                     style = "green"
                 elif before != set(labels):
-                    style = "green"
+                    style = "green" if set(labels) - before else "changed"    # only lost steps: nothing added
                     gone = sorted(before - set(labels))
                     label = ", ".join(("+" + x) if x not in before else x for x in sorted(labels))
                     if gone:
@@ -851,7 +854,8 @@ class Scene:
         head = self.head
         if self.change is not None and self.subject is None and old_boxes is not None:
             head = self.change_head(sum(a.style == "green" for a in out_arrows),
-                                    sum(a.style == "grey" for a in out_arrows))
+                                    sum(a.style == "grey" for a in out_arrows),
+                                    sum(a.style == "changed" for a in out_arrows))
         # caption and what was folded
         caption = [head.split(" [C-")[0] if head else f"{self.mid}: {view.name}"]
         caption += self.extra_caption
@@ -861,7 +865,9 @@ class Scene:
             if kinds:
                 caption.append(f"{', '.join(objs)} stands for any {' or '.join(kinds)} (interchangeable)")
         if old_boxes is not None and self.subject is not None:
-            caption.append(f"green: new since {self.change.rev}; grey dashed: gone since {self.change.rev}")
+            caption.append(f"green: new since {self.change.rev}; grey dashed: gone since {self.change.rev}"
+                           + (f"; orange: fewer steps since {self.change.rev}"
+                              if any(a.style == "changed" for a in out_arrows) else ""))
         if constant:
             caption.append("in every box: " + ", ".join(f"{k}={_show(v)}" for k, v in constant.items()))
         if not self.report.graph.complete:
@@ -888,7 +894,7 @@ class Scene:
         capped = (f"{self.report.graph.unfinished(loud=True)}: only the explored part"
                   if not self.report.graph.complete else "")
         unseen = (old_boxes is not None and not any(b.style in ("added", "removed") for b in boxes)
-                  and not any(a.style in ("green", "grey") for a in out_arrows))
+                  and not any(a.style in ("green", "grey", "changed") for a in out_arrows))
         return Drawing(self.mid, view, boxes, out_arrows, start, caption, n_shown, len(sp), folded,
                        head, _plural(len(sp), "state"), capped, unseen)
 
@@ -1049,7 +1055,8 @@ def mermaid(d: Drawing) -> str:
             out.append(f"  classDef {name} {css}")
             out.append(f"  class {','.join(members)} {name}")
     link_css = {"red": f"stroke:{RED},stroke-width:3px", "green": f"stroke:{GREEN},stroke-width:3px",
-                "grey": f"stroke:{GREY},stroke-width:2px", "dashed": f"stroke:{RED},stroke-width:2px"}
+                "grey": f"stroke:{GREY},stroke-width:2px", "dashed": f"stroke:{RED},stroke-width:2px",
+                "changed": f"stroke:{CHANGED},stroke-width:3px"}
     for k, style in links:
         out.append(f"  linkStyle {k} {link_css[style]}")
     return "\n".join(out) + "\n"

@@ -610,3 +610,42 @@ MODEL = m
     by = {f.subject: f.detail for f in report.findings if f.kind == "NEVER REACHED"}
     assert by["action big"]["explained"] == ["limit=40"] and by["action big"]["capped"] == []
     assert by["action never"]["explained"] == [] and by["action never"]["capped"] == ["limit=40"]
+
+
+CANCEL = '''
+
+@m.action(b=BOOKS, source="R2")
+def cancel(s, b):
+    need(s["where", b] == "held", "not held")
+    s["where", b], s["nights", b] = "shelf", 0
+'''
+
+
+def test_an_arrow_that_only_lost_steps_is_no_added_arrow(project):
+    """G7 round 4: a change that only removes `cancel` printed "1 arrow added (green), 1
+    removed (grey) in this view" and drew 'night (no longer: cancel)' green: an arrow whose
+    labels changed was taken as added even when it only lost some. Such an arrow is drawn
+    as changed (its own colour, never green) and counted as changed in the first line."""
+    desk = DATA / "desk"
+    shutil.copytree(desk / "app", project.root / "app")
+    for p in (desk / "requests").glob("*.md"):
+        shutil.copy(p, project.root / ".flowguard" / "requests" / p.name)
+    project.file(".gitignore", ".flowguard/cache/\n__pycache__/\n")
+    text = (desk / "desk.py").read_text()
+    anchor = '''    s["where", b], s["nights", b] = "held", 0
+'''
+    assert text.count(anchor) == 1
+    path = project.flow("desk", text.replace(anchor, anchor + CANCEL))
+    project.commit("cancel a hold")
+    path.write_text(text)                                        # the change removes cancel again
+    code, out = show(project.root)
+    assert code == 0, out
+    first = out.splitlines()[0]
+    got = parse(body(out))
+    green = [a for a in got["arrows"] if a[3] == "#080"]
+    assert not green, green
+    changed = [a for a in got["arrows"] if "(no longer: cancel)" in a[1]]
+    assert changed and all(a[3] == diagram.CHANGED for a in changed), got["arrows"]
+    grey = [a for a in got["arrows"] if a[3] == "#999"]
+    assert "0 arrows added (green), " in first, first
+    assert f"{len(grey)} removed (grey), {len(changed)} with fewer steps (orange) in this view" in first, first
