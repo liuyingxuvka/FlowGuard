@@ -473,6 +473,14 @@ def test_a_repository_git_refuses_to_open_is_an_error_not_a_folder_without_git(t
     plain = tmp_path / "plain"
     plain.mkdir()
     monkeypatch.setenv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")  # Git's own switch for a repository owned by another user
+    # A safe.directory entry in the machine's system or global Git config (GitHub runners set one) would let Git
+    # open the repository after all, so the refusal this test is about would not happen. Read neither.
+    empty_config = tmp_path / "empty.gitconfig"
+    empty_config.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty_config))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    for name in ("GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT"):
+        monkeypatch.delenv(name, raising=False)
     for place in (root, root / "pkg"):
         with pytest.raises(MapError, match="dubious ownership"):
             git_common_directory(place)
