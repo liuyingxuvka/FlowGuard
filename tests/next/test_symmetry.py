@@ -1003,3 +1003,77 @@ def test_ids_passed_to_map_or_filter_are_a_doubt_not_a_model_error(project, guar
     doubt = loaded.model.__dict__.get("_symmetry_doubt") or ""
     assert "passes a tool id to " in doubt, doubt
     assert check_model(loaded).graph.sym is None
+
+
+SECOND_ONLY = '"the second stays busy"'
+HIDDEN = {
+    "sorted = list": ("sorted = list", f"need(sorted(u == t for u in TOOLS) != [False, True], {SECOND_ONLY})"),
+    "an import as set": ("from builtins import tuple as set",
+                         f"need(set(u == t for u in TOOLS) != (False, True), {SECOND_ONLY})"),
+    "frozenset = tuple": ("frozenset = tuple", f"need(frozenset(u == t for u in TOOLS) != (False, True), {SECOND_ONLY})"),
+    "set = tuple around a tuple": ("set = tuple", f"need(set(tuple(u == t for u in TOOLS)) != (False, True), "
+                                                  f"{SECOND_ONLY})"),
+    "a loop target": ("for sorted in [list]:\n    pass",
+                      f"need(sorted(u == t for u in TOOLS) != [False, True], {SECOND_ONLY})"),
+    "a global set in a def": ("def _hide():\n    global sorted\n    sorted = list\n_hide()",
+                              f"need(sorted(u == t for u in TOOLS) != [False, True], {SECOND_ONLY})"),
+    "a lambda parameter": ("", f"need((lambda sorted=list: sorted(u == t for u in TOOLS))() != [False, True], "
+                               f"{SECOND_ONLY})"),
+    "a star import of a module the rule does not read": (
+        "from app.util import *", f"need(sorted(u == t for u in TOOLS) != [False, True], {SECOND_ONLY})"),
+    "a def named like a cache decorator": (
+        "def cache(f):\n    return lambda x: x.endswith('2')\n@cache\ndef second(x):\n    return False",
+        f"need(not second(t), {SECOND_ONLY})"),
+    "an attribute named like a cache decorator": (
+        "import types\nF = types.SimpleNamespace(cache=lambda f: (lambda x: x.endswith('2')))\n@F.cache\n"
+        "def second(x):\n    return False", f"need(not second(t), {SECOND_ONLY})"),
+}
+
+
+@pytest.mark.parametrize("how", list(HIDDEN))
+def test_a_builtin_hidden_by_any_binding_is_never_judged_as_the_builtin(project, how):
+    """G3 round 6 (a): sorted(), set() and frozenset() of per-id values keep the renaming
+    by the builtin's name, and only a def of that name was a doubt. `sorted = list`, `from
+    builtins import tuple as set`, `frozenset = tuple`, a loop target, a global, a lambda
+    parameter or a star import of a module the rule does not read hide the builtin as well:
+    "clean, complete; tools explored up to renaming", exit 0, for a guard only the second
+    tool fails (81aa362a: a doubt and the stuck tool found). A decorator named like a cache
+    (a def named cache, an attribute .cache of anything but functools) was taken to keep the
+    function it decorates. Each is now a doubt: no renaming, T2 found stuck."""
+    helpers, guard = HIDDEN[how]
+    project.file("app/__init__.py", "")
+    project.file("app/util.py", "def sorted(x):\n    return list(x)\n")
+    project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt"), "no doubt recorded"
+    report = check_model(loaded)
+    assert report.graph.sym is None, "reduced although a tool may be told apart"
+    plain = check_model(loaded, reduce=False)
+    assert sorted((f.kind, f.subject, tuple(f.objects)) for f in report.findings) == \
+        sorted((f.kind, f.subject, tuple(f.objects)) for f in plain.findings)
+    assert any(f.kind == "STUCK" for f in report.findings), [f.kind for f in report.findings]
+
+
+@pytest.mark.parametrize("helpers, text", [
+    ("import builtins", "imports the builtins module"),
+    ("def _h():\n    return __builtins__", "__builtins__")])
+def test_a_model_that_can_change_the_builtins_is_a_doubt(project, helpers, text):
+    """The builtins module itself (import builtins, __builtins__) can rename any builtin the
+    rule judges by name for every file at once (builtins.sorted = list): a doubt."""
+    project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", "pass"))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert text in (loaded.model.__dict__.get("_symmetry_doubt") or ""), loaded.model.__dict__.get("_symmetry_doubt")
+
+
+@pytest.mark.parametrize("helpers, guard", [
+    ("from builtins import sorted", 'need(sorted(s["busy", u] for u in TOOLS)[0] or True, "never")'),
+    ("def label(id, max=2):\n    return id", 'need(label(t) == t, "never")'),
+    ("from functools import lru_cache\n@lru_cache\ndef first(x):\n    return True", 'need(first(t), "never")'),
+    ("import functools\n@functools.cache\ndef first(x):\n    return True", 'need(first(t), "never")')])
+def test_the_real_builtin_or_a_parameter_never_called_keeps_the_renaming(project, helpers, guard):
+    """The other side: an import of the builtin itself, flowguard's need, a cache from
+    functools, and a parameter named like a builtin that is never called hide nothing."""
+    project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
+    assert check_model(loaded).graph.sym is not None

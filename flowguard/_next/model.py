@@ -923,12 +923,14 @@ def _root_name(node):
 
 
 def _plain_decorator(dec) -> bool:
-    """A decorator that keeps the function it decorates: m.action(...) or a cache."""
+    """A decorator that keeps the function it decorates: m.action(...) or a cache of
+    functools (by its name, or as functools.cache; a name bound otherwise is a doubt)."""
     func = dec.func if isinstance(dec, ast.Call) else dec
     if isinstance(dec, ast.Call) and isinstance(func, ast.Attribute) and func.attr == "action":
         return True
-    return (isinstance(func, ast.Name) and func.id in _CACHES) or (isinstance(func, ast.Attribute)
-                                                                   and func.attr in _CACHES)
+    return (isinstance(func, ast.Name) and func.id in _CACHES) or (
+        isinstance(func, ast.Attribute) and func.attr in _CACHES and isinstance(func.value, ast.Name)
+        and func.value.id == "functools")
 
 
 def _element(form):
@@ -1054,41 +1056,80 @@ class _IdUses:
         only by declarations or a cache. A name also bound otherwise (a parameter, an
         assignment, a second def, an import of something else) or a def a decorator may
         replace calls code the rule cannot tell, so a call of it is judged as a call of a
-        function the model does not define."""
-        defs, other = {}, set()
+        function the model does not define.
+
+        A name the rule judges by its name (a builtin such as sorted or set, flowguard's
+        need, a cache of functools) means that only while nothing hides it: a def of that
+        name, and any other binding of it that is called (an assignment, a parameter, a
+        loop target, an import of something else, as in `from builtins import tuple as
+        set`), a star import of a module the rule does not read, and the builtins module
+        itself are a doubt. An import of the name itself (from builtins, functools or
+        flowguard) hides nothing."""
+        defs, other, hides, called, doubts = {}, set(), {}, set(), []
         stems = {path.stem: tree for path, tree in self.trees}
         for path, tree in self.trees:
+
+            def bind(name, node, real=False):
+                other.add(name)
+                if not real:
+                    hides.setdefault(name, (path, getattr(node, "lineno", 0)))
+
             for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                    called.add(node.func.id)
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    called.update(_root_name(d.func if isinstance(d, ast.Call) else d) for d in node.decorator_list)
+                if isinstance(node, ast.Name) and node.id == "__builtins__":
+                    doubts.append((path, node.lineno, "uses __builtins__, which can change a builtin the rule "
+                                                      "judges by name"))
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     defs.setdefault(node.name, []).append(node)
                 elif isinstance(node, ast.arg):
-                    other.add(node.arg)
+                    bind(node.arg, node)
                 elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
-                    other.add(node.id)
+                    bind(node.id, node)
                 elif isinstance(node, ast.ClassDef):
-                    other.add(node.name)
+                    bind(node.name, node)
                 elif isinstance(node, (ast.Global, ast.Nonlocal)):
-                    other.update(node.names)
+                    for name in node.names:
+                        bind(name, node)
                 elif isinstance(node, ast.ExceptHandler) and node.name:
-                    other.add(node.name)
+                    bind(node.name, node)
                 elif isinstance(node, ast.Import):
-                    other.update((a.asname or a.name).split(".")[0] for a in node.names)
-                elif isinstance(node, ast.ImportFrom):
-                    helper = stems.get((node.module or "").split(".")[-1])
                     for a in node.names:
+                        if a.name == "builtins" or a.name.startswith("builtins."):
+                            doubts.append((path, node.lineno, "imports the builtins module, which can change a "
+                                                              "builtin the rule judges by name"))
+                        bind((a.asname or a.name).split(".")[0], node, real=a.asname is None and a.name == "functools")
+                elif isinstance(node, ast.ImportFrom):
+                    module = node.module or ""
+                    helper = stems.get(module.split(".")[-1])
+                    itself = node.level == 0 and (module in ("builtins", "functools") or _engine_module(module))
+                    for a in node.names:
+                        if a.name == "*":
+                            if not itself and helper is None:
+                                doubts.append((path, node.lineno, f"imports every name of {module or '.'}, which "
+                                                                  f"the rule does not read and which may hide a "
+                                                                  f"builtin it judges by name"))
+                            continue
                         same = helper is not None and a.asname in (None, a.name) and any(
                             isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == a.name
                             for n in helper.body)
                         if not same:
-                            other.add(a.asname or a.name)
+                            bind(a.asname or a.name, node, real=itself and a.asname in (None, a.name))
                 elif hasattr(ast, "MatchAs") and isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name:
-                    other.add(node.name)
-        by_name = _BUILTIN_NAMES | _ALIKE_FUNCS | _ORDER_FUNCS | _TEXT_FUNCS | {"next"}
+                    bind(node.name, node)
+        by_name = _BUILTIN_NAMES | _ALIKE_FUNCS | _ORDER_FUNCS | _TEXT_FUNCS | _CACHES | {"next", "functools"}
         for name, nodes in defs.items():               # a def hiding a name the rule judges by name
             if name in by_name:
                 path = next(p for p, tree in self.trees if any(n is nodes[0] for n in ast.walk(tree)))
-                self.doubts.append((path, nodes[0].lineno, f"defines {name}(), a name the rule judges as the "
-                                                           f"builtin or flowguard function it hides"))
+                doubts.append((path, nodes[0].lineno, f"defines {name}(), a name the rule judges as the "
+                                                      f"builtin or flowguard function it hides"))
+        for name, (path, line) in hides.items():        # any other binding of it, where it is called
+            if name in by_name and name in called and name not in defs:
+                doubts.append((path, line, f"binds {name}, a name the rule judges as the builtin or flowguard "
+                                           f"function it hides"))
+        self.doubts += doubts
         return {name: nodes[0] for name, nodes in defs.items()
                 if len(nodes) == 1 and name not in other and name not in by_name
                 and all(_plain_decorator(d) for d in nodes[0].decorator_list)}
