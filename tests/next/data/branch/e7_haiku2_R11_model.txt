@@ -1,0 +1,60 @@
+branch check: request 11, design
+measured: 339 states, 24 action calls (action x arguments), 1,658 state changes, 1,598 distinct arrows (state -> state), 60 of them made by more than one call
+DUPLICATE ROUTE (0; 0 groups of action calls)
+REDUNDANT ACTION (0)
+  (not findings: 4 action calls share some of their state changes with another)
+    advance(): 60 of 120 also made by cancel(who='M2'), cancel(who='M1')
+    cancel(who='M2'): 20 of 217 also made by advance()
+    cancel(who='M3'): 20 of 217 also made by advance()
+    cancel(who='M1'): 20 of 220 also made by advance()
+FALLBACK ROUTE (1; 6 pairs of action calls)
+  bring(who='M1', b='main') and transfer(b='main') are never possible in the same state, and make the same change (6 such pairs of calls)
+    for example: cond: 'shop' -> 'transit', branch: 'B2' -> 'main' (made from 20 and 2 states)
+    where transfer(b='main') does it, bring(who='M1', b='main') refuses: 'not held for them elsewhere, or not on the shelf' (2 of 2 states)
+    where bring(who='M1', b='main') does it, transfer(b='main') refuses: 'only an available tool can be sent' (20 of 20 states)
+    decided by: hold ['M1'] vs [None]
+    shortest path to a state where transfer(b='main') is the route (2 steps): transfer(b='B2') ; receive()
+  (not findings: 6 pairs where a parameter must match the state, e.g. bring(who='M1', b='main') vs bring(who='M2', b='main'): bring 6)
+FALLBACK ROUTE, status only (1): the same change of the status field (hold), other fields differ
+  return_tool(who='M1') and receive(): hold: None -> 'M2'; they also change: cond, loan, queue (6 such pairs of calls)
+SAME-RESULT BRANCH (0; 16 ifs checked in reachable states, 17 in the file)
+  (not a finding: line 129 (advance) tests only a setting or variant flag, and flipping it changes nothing in this machine's 60 calls: if naive:)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 45 275/550, line 49 297/2034, line 51 372/1704, line 53 120/744, line 63 120/4068, line 70 66/264, line 83 68/280, line 88 1017/2034, line 93 120/480, line 95 192/480, line 108 144/320, line 122 179/678 ...)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  rent 2, return_tool 2, reserve 2, cancel 4, bring 1, receive 3, transfer 1, advance 5, open_item 1, leave_item 1
+  succeeds without changing anything: advance() in 219 states
+NEVER TAKEN (0)
+  (not findings: lines only another machine of this file runs: can_rent [54]; cancel [94]; advance [130])
+DEAD GUARD (0)
+NEVER REACHED actions (machine.py's own check): none
+summary: fallback 1, fallback_status 1
+
+branch check: request 11, current code extended naively
+measured: 549 states, 24 action calls (action x arguments), 3,263 state changes, 2,905 distinct arrows (state -> state), 286 of them made by more than one call
+DUPLICATE ROUTE (0; 0 groups of action calls)
+REDUNDANT ACTION (0)
+  (not findings: 5 action calls share some of their state changes with another)
+    receive(): 144 of 275 also made by advance(), cancel(who='M2')
+    advance(): 214 of 428 also made by receive(), cancel(who='M1')
+    cancel(who='M1'): 96 of 314 also made by advance(), receive()
+    cancel(who='M2'): 95 of 312 also made by advance(), receive()
+    cancel(who='M3'): 95 of 312 also made by advance(), receive()
+FALLBACK ROUTE (1; 6 pairs of action calls)
+  bring(who='M1', b='main') and transfer(b='main') are never possible in the same state, and make the same change (6 such pairs of calls)
+    for example: cond: 'shop' -> 'transit', branch: 'B2' -> 'main' (made from 36 and 2 states)
+    where transfer(b='main') does it, bring(who='M1', b='main') refuses: 'not held for them elsewhere, or not on the shelf' (2 of 2 states)
+    where bring(who='M1', b='main') does it, transfer(b='main') refuses: 'only an available tool can be sent' (36 of 36 states)
+    decided by: hold ['M1'] vs [None]
+    shortest path to a state where transfer(b='main') is the route (2 steps): transfer(b='B2') ; receive()
+  (not findings: 6 pairs where a parameter must match the state, e.g. bring(who='M1', b='main') vs bring(who='M2', b='main'): bring 6)
+FALLBACK ROUTE, status only (0): the same change of the status field (hold), other fields differ
+SAME-RESULT BRANCH (0; 16 ifs checked in reachable states, 17 in the file)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 45 1222/2444, line 49 614/3294, line 51 480/1464, line 53 120/520, line 63 216/6588, line 70 122/496, line 83 96/384, line 88 1647/3294, line 93 216/856, line 95 284/856, line 108 224/550, line 122 549/1098 ...)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  rent 2, return_tool 2, reserve 2, cancel 3, bring 1, receive 2, transfer 1, advance 4, open_item 1, leave_item 1
+  succeeds without changing anything: advance() in 121 states
+NEVER TAKEN (0)
+  (not findings: lines only another machine of this file runs: can_rent [55]; receive [111]; advance [125])
+DEAD GUARD (0)
+NEVER REACHED actions (machine.py's own check): none
+summary: fallback 1

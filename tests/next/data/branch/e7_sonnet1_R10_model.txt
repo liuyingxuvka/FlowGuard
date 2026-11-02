@@ -1,0 +1,17 @@
+branch check: workshop
+measured: 144 states, 26 action calls (action x arguments), 552 state changes, 504 distinct arrows (state -> state), 48 of them made by more than one call
+DUPLICATE ROUTE (1; 2 groups of action calls)
+  return_maintenance(t='T1') == return_damaged(t='T1')  (different actions; 2 such groups)
+    the same successor from each of the same 24 states, for example: cond[T1]: 'loan' -> 'repair'
+REDUNDANT ACTION (0)
+FALLBACK ROUTE (0; 0 pairs of action calls)
+FALLBACK ROUTE, status only (0): the same change of the status field (cond), other fields differ
+SAME-RESULT BRANCH (0; 1 ifs checked in reachable states, 1 in the file)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 12 72/288)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  rent 1, return_ok 1, return_inspect 1, return_maintenance 1, return_damaged 1, mark_lost 1, inspect_pass 1, inspect_fail 1, transfer 1, receive 1, repaired 1, restart 1
+NEVER TAKEN (1)
+  to_repair: line(s) [13] never run in any reachable state (13: s["branch", t] = "main")  (runs only with to_main_on_repair=1, to_main_on_repair=2)
+DEAD GUARD (0)
+NEVER REACHED actions (machine.py's own check): none
+summary: duplicate 1, never_taken 1

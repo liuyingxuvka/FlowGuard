@@ -1,0 +1,23 @@
+machine: workshop, proposal
+settings (shipped): none
+explored: 144 states, 480 steps, 0.0 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (0)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  always 'a tool in repair is at main': HOLDS (complete, 144 states)
+  always 'only a tool in transit has the repair flag': HOLDS (complete, 144 states)
+  only_when 'repaired only for a tool at main': HOLDS (complete, 144 states)
+  after 'repaired puts the tool in the shop at main': HOLDS (complete, 144 states)
+  progress 'a tool in repair gets repaired [T1]': HOLDS (complete)
+  progress 'a tool in repair gets repaired [T2]': HOLDS (complete)
+  progress 'a tool in transit is received [T1]': HOLDS (complete)
+  progress 'a tool in transit is received [T2]': HOLDS (complete)
+ENDS (values that end an object's life; its other fields may freeze there):
+  cond = 'lost'  (declared)
+  note: in some states every object has ended, so the model runs out of work there;
+  harm that needs more work (someone blocked from new work) cannot show. Let a finished
+  object's slot start a new one (see HOWTO.md) if your system keeps receiving work.
+verdict: CLEAN
+exit=0

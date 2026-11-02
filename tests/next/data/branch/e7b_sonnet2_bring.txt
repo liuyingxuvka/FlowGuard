@@ -1,0 +1,28 @@
+branch check: bring
+measured: 1,444 states, 27 action calls (action x arguments), 8,408 state changes, 7,904 distinct arrows (state -> state), 504 of them made by more than one call
+DUPLICATE ROUTE (0; 0 groups of action calls)
+REDUNDANT ACTION (0)
+  (not findings: 9 action calls share some of their state changes with another)
+    advance(): 352 of 960 also made by cancel(t='T1', mem='M2'), cancel(t='T2', mem='M1')
+    rent(t='T1', mem='M1'): 76 of 380 also made by rent(t='T1', mem='M2')
+    rent(t='T1', mem='M2'): 76 of 380 also made by rent(t='T1', mem='M1')
+    rent(t='T2', mem='M1'): 76 of 380 also made by rent(t='T2', mem='M2')
+    rent(t='T2', mem='M2'): 76 of 380 also made by rent(t='T2', mem='M1')
+FALLBACK ROUTE (1; 8 pairs of action calls)
+  transfer(t='T1') and bring(t='T1', mem='M1', b='library') are never possible in the same state, and make the same change (8 such pairs of calls)
+    for example: where[T1]: 'shop' -> 'transit', branch[T1]: 'main' -> 'library' (made from 38 and 76 states)
+    where bring(t='T1', mem='M1', b='library') does it, transfer(t='T1') refuses: 'not available' (76 of 76 states)
+    where transfer(t='T1') does it, bring(t='T1', mem='M1', b='library') refuses: 'not held for this member' (38 of 38 states)
+    decided by: holder[T1] [None] vs ['M1']
+    shortest path to a state where bring(t='T1', mem='M1', b='library') is the route (3 steps): rent(t='T1', mem='M1') ; reserve(t='T1', mem='M1') ; return_tool(t='T1')
+  (not findings: 4 pairs where a parameter must match the state, e.g. bring(t='T1', mem='M1', b='library') vs bring(t='T1', mem='M2', b='library'): bring 4)
+FALLBACK ROUTE, status only (0): the same change of the status field (where), other fields differ
+SAME-RESULT BRANCH (0; 5 ifs checked in reachable states, 5 in the file)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 46 152/304, line 59 912/2128, line 69 1216/3648, line 77 2148/2888, line 79 1088/1920)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  rent 1, return_tool 1, reserve 1, transfer 1, bring 1, receive 2, cancel 2, advance 3
+  succeeds without changing anything: advance() in 484 states
+NEVER TAKEN (0)
+DEAD GUARD (0)
+NEVER REACHED actions (machine.py's own check): none
+summary: fallback 1

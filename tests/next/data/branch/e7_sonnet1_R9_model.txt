@@ -1,0 +1,18 @@
+branch check: maintenance
+measured: 196 states, 16 action calls (action x arguments), 560 state changes, 560 distinct arrows (state -> state), 0 of them made by more than one call
+DUPLICATE ROUTE (0; 0 groups of action calls)
+REDUNDANT ACTION (0)
+FALLBACK ROUTE (0; 0 pairs of action calls)
+FALLBACK ROUTE, status only (0): the same change of the status field (where), other fields differ
+SAME-RESULT BRANCH (0; 2 ifs checked in reachable states, 2 in the file)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 31 112/224, line 33 56/112)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  rent 1, renew 1, return_tool 2, return_damaged 1, mark_lost 1, repaired 1, inspected_pass 0, inspected_fail 0
+  succeeds without changing anything: renew(t='T1') in 28 states, renew(t='T2') in 28 states
+NEVER TAKEN (3)
+  return_tool: line(s) [34] never run in any reachable state (34: s["where", t] = "inspection")  (no one-setting change runs it either)
+  inspected_pass: line(s) [56] never run in any reachable state (56: s["where", t] = "shop"; s["since_i", t] = 0   # since_m untouched)  (no one-setting change runs it either)
+  inspected_fail: line(s) [61] never run in any reachable state (61: s["where", t] = "repair"; s["since_i", t] = 0)  (no one-setting change runs it either)
+DEAD GUARD (0)
+NEVER REACHED actions (machine.py's own check): ['inspected_pass', 'inspected_fail']
+summary: never_taken 3

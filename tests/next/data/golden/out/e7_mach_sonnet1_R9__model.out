@@ -1,0 +1,29 @@
+machine: maintenance
+settings (shipped): maintain_every=2, inspect_every=3
+explored: 196 states, 612 steps, 0.0 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (6)
+  value where[T1] = 'inspection'  (no one-setting change reaches it either)
+  value where[T2] = 'inspection'  (no one-setting change reaches it either)
+  value since_i[T1] = 3  (no one-setting change reaches it either)
+  value since_i[T2] = 3  (no one-setting change reaches it either)
+  action inspected_pass  (no one-setting change reaches it either)
+  action inspected_fail  (no one-setting change reaches it either)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  always 'never more than maintain_every rentals without maintenance': HOLDS (complete, 196 states)
+  only_when 'rent only if maintenance not due': HOLDS (complete, 196 states)
+  after 'Mth normal return goes to repair uncharged': HOLDS (complete, 196 states)
+  after 'renew changes no count': HOLDS (complete, 196 states)
+  after 'repair resets count': HOLDS (complete, 196 states)
+  progress 'tool in repair/inspection gets back [T1]': HOLDS (complete)
+  progress 'tool in repair/inspection gets back [T2]': HOLDS (complete)
+  reach 'maintenance without charge': reached
+ENDS (values that end an object's life; its other fields may freeze there):
+  where = 'lost'  (never left by any state; if that is not the design, it is a dead end)
+  note: in some states every object has ended, so the model runs out of work there;
+  harm that needs more work (someone blocked from new work) cannot show. Let a finished
+  object's slot start a new one (see HOWTO.md) if your system keeps receiving work.
+verdict: FINDINGS (6 findings)
+exit=1

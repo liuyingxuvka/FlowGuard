@@ -1,0 +1,37 @@
+machine: tool maintenance (REQUEST 9)
+settings (shipped): maintain_every=4, inspect_every=5
+explored: 64 states, 191 steps, 0.0 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (6)
+  value cond[T1] = 'inspection'  (reached only with maintain_every=0, maintain_every=8, inspect_every=1, inspect_every=2)
+  value insp[T1] = 5  (reached only with maintain_every=0, maintain_every=5, maintain_every=8)
+  action inspect_pass  (reached only with maintain_every=0, maintain_every=8, inspect_every=1, inspect_every=2)
+  action inspect_fail  (reached only with maintain_every=0, maintain_every=8, inspect_every=1, inspect_every=2)
+  option inspection pass  (reached only with maintain_every=0, maintain_every=8, inspect_every=1, inspect_every=2)
+  option inspection fail  (reached only with maintain_every=0, maintain_every=8, inspect_every=1, inspect_every=2)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  always 'a tool on the shelf is never due for maintenance': HOLDS (complete, 64 states)
+  always 'a hold is only on a tool on the shelf': HOLDS (complete, 64 states)
+  always 'nobody waits for a tool they hold': HOLDS (complete, 64 states)
+  after 'each rental counts once (a renewal is not a rental)': HOLDS (complete, 64 states)
+  after 'the 4th rental comes back to repair, not to the shelf': HOLDS (complete, 64 states)
+  after 'a damaged return goes to repair': HOLDS (complete, 64 states)
+  after 'a repair restarts the count at 0': HOLDS (complete, 64 states)
+  after 'an inspection pass is not a repair: the count is not restarted': HOLDS (complete, 64 states)
+  after 'a lost tool is never left': HOLDS (complete, 64 states)
+  progress 'a tool in repair goes back to the shelf': HOLDS (complete)
+  progress 'a tool on loan comes back': HOLDS (complete)
+  progress 'an inspection ends': HOLDS (complete)
+  progress 'a waiting member is held the tool or leaves the queue [M1]': HOLDS (complete)
+  progress 'a waiting member is held the tool or leaves the queue [M2]': HOLDS (complete)
+  reach 'a 4th rental goes to repair': reached
+  reach 'a waiting member gets the tool after its repair': reached
+ENDS (values that end an object's life; its other fields may freeze there):
+  cond = 'lost'  (declared)
+  note: in some states every object has ended, so the model runs out of work there;
+  harm that needs more work (someone blocked from new work) cannot show. Let a finished
+  object's slot start a new one (see HOWTO.md) if your system keeps receiving work.
+verdict: FINDINGS (6 findings)
+exit=1

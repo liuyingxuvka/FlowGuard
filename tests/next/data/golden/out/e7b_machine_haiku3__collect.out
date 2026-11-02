@@ -1,0 +1,21 @@
+machine: collect at your own counter
+settings (shipped): hold_days=2
+explored: 46 states, 186 steps, 0.0 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (0)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  always 'a held tool is never on loan': HOLDS (complete, 46 states)
+  always 'a waiting member is not the holder': HOLDS (complete, 46 states)
+  always 'the window runs only for a held tool on the shelf': HOLDS (complete, 46 states)
+  after 'a tool in transit stays in transit until it is received': HOLDS (complete, 46 states)
+  after 'the pick-up window does not run in transit': HOLDS (complete, 46 states)
+  after 'bring keeps the hold for the same member': HOLDS (complete, 46 states)
+  after 'a held tool that arrives gets a fresh window': HOLDS (complete, 46 states)
+  progress 'a tool in transit is received': HOLDS (complete)
+  progress 'a held tool is picked up or released': HOLDS (complete)
+  reach 'a tool held for a member is brought, arrives and is picked up at the new branch': reached
+  reach 'a held tool can be in transit (and so can be brought again)': reached
+verdict: CLEAN
+exit=0

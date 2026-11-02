@@ -1,0 +1,25 @@
+machine: collect at your own counter
+settings (shipped): hold_days=2, pause_hold_in_transit=True, reserved_items_open=True, naive_back_in_shop=False
+explored: 1,233 states, 8,643 steps, 0.1 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (0)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  always 'a tool on loan is not held': HOLDS (complete, 1,233 states)
+  always 'on loan exactly when someone has it': HOLDS (complete, 1,233 states)
+  always 'a clock runs only for a hold': HOLDS (complete, 1,233 states)
+  after 'a tool in transit stays in transit until received': HOLDS (complete, 1,233 states)
+  after 'a held tool stays held for the same member, except when they cancel, rent or run out': HOLDS (complete, 1,233 states)
+  only_when 'bring only by the member it is held for, and only to another branch': HOLDS (complete, 1,233 states)
+  only_when 'staff send only tools that nobody holds': HOLDS (complete, 1,233 states)
+  only_when 'a held tool is rented only by its holder': HOLDS (complete, 1,233 states)
+  only_when 'M1 rents only where the tool is': HOLDS (complete, 1,233 states)
+  progress 'a tool in transit arrives': HOLDS (complete)
+  progress 'a hold ends or is picked up': HOLDS (complete)
+  reach 'M1 opens from their own branch a tool held for them at another branch': reached
+  after 'a held tool gets the usual pick-up days when it arrives': HOLDS (complete, 1,233 states)
+  reach 'M1 collects a tool brought to another branch': reached
+  reach 'M1 gets a tool brought to their branch and held for them': reached
+verdict: CLEAN
+exit=0

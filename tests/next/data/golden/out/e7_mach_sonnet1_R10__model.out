@@ -1,0 +1,66 @@
+machine: workshop
+settings (shipped): to_main_on_repair=0
+explored: 144 states, 504 steps, 0.0 s, complete (every order of every action)
+STUCK (6: 2 first, 4 that follow from them)
+  branch[T1] = 'east': other states leave this value, but here it can never change again (12 states, complete search)
+    state: cond[T1]='repair', branch[T1]='east'
+    path (4 steps):
+      1. transfer(t='T1', b='east')
+      2. receive(t='T1')
+      3. rent(t='T1')
+      4. return_maintenance(t='T1')
+    what each action does there:
+      rent(t='T1') -> refused 'not available'
+      return_ok(t='T1') -> refused 'not on loan'
+      return_inspect(t='T1') -> refused 'not on loan'
+      return_maintenance(t='T1') -> refused 'not on loan'
+      return_damaged(t='T1') -> refused 'not on loan'
+      mark_lost(t='T1') -> refused 'not on loan'
+      inspect_pass(t='T1') -> refused 'no'
+      inspect_fail(t='T1') -> refused 'no'
+      transfer(t='T1', b='main') -> refused 'only available'
+      transfer(t='T1', b='east') -> refused 'only available'
+      receive(t='T1') -> refused 'no'
+      repaired(t='T1') -> refused 'workshop is at main'
+      ... 1 more
+    stuck only in states that are already stuck as above (consequences):
+      cond[T1] = 'repair': other states leave this value, but here it can never change again (12 states, complete search)
+      progress 'a tool in repair can come back [T1]': from here it can never be satisfied again (12 states, complete search)
+  branch[T2] = 'east': other states leave this value, but here it can never change again (12 states, complete search)
+    state: cond[T2]='repair', branch[T2]='east'
+    path (4 steps):
+      1. transfer(t='T2', b='east')
+      2. receive(t='T2')
+      3. rent(t='T2')
+      4. return_maintenance(t='T2')
+    what each action does there:
+      rent(t='T2') -> refused 'not available'
+      return_ok(t='T2') -> refused 'not on loan'
+      return_inspect(t='T2') -> refused 'not on loan'
+      return_maintenance(t='T2') -> refused 'not on loan'
+      return_damaged(t='T2') -> refused 'not on loan'
+      mark_lost(t='T2') -> refused 'not on loan'
+      inspect_pass(t='T2') -> refused 'no'
+      inspect_fail(t='T2') -> refused 'no'
+      transfer(t='T2', b='main') -> refused 'only available'
+      transfer(t='T2', b='east') -> refused 'only available'
+      receive(t='T2') -> refused 'no'
+      repaired(t='T2') -> refused 'workshop is at main'
+      ... 1 more
+    stuck only in states that are already stuck as above (consequences):
+      cond[T2] = 'repair': other states leave this value, but here it can never change again (12 states, complete search)
+      progress 'a tool in repair can come back [T2]': from here it can never be satisfied again (12 states, complete search)
+NEVER REACHED (0)
+BROKEN (1)
+  always 'workshop sees every tool in repair'
+    state before: cond[T1]='repair', branch[T1]='east'
+    path (4 steps):
+      1. transfer(t='T1', b='east')
+      2. receive(t='T1')
+      3. rent(t='T1')
+      4. return_maintenance(t='T1')
+CONTRADICTION (0)
+RULES
+  after 'repaired lands at main shop': HOLDS (complete, 144 states)
+verdict: FINDINGS (7 findings)
+exit=1

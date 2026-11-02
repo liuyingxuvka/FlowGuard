@@ -1,0 +1,31 @@
+machine: held tool brought to another branch
+settings (shipped): hold_days=2
+explored: 46 states, 144 steps, 0.0 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (4)
+  value clock[T] = 2  (reached only with hold_days=3, hold_days=4)
+  value clock[T] = 3  (reached only with hold_days=4)
+  value clock[T] = 4  (no one-setting change reaches it either)
+  value clock[T] = 5  (no one-setting change reaches it either)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  after 'a brought tool is in transit, at the branch it goes to, held for the same member': HOLDS (complete, 46 states)
+  after 'a tool that arrives for its holder is still held for that member': HOLDS (complete, 46 states)
+  after 'a tool that arrives for its holder keeps the waiting member waiting': HOLDS (complete, 46 states)
+  after 'a tool that arrives for its holder gets a full hold from arrival': HOLDS (complete, 46 states)
+  after 'the hold clock does not run while the tool is in transit': HOLDS (complete, 46 states)
+  after 'a cancelled hold of a tool in transit does not put it on the shelf': HOLDS (complete, 46 states)
+  after 'a tool that comes back with a waiting member goes to that member': HOLDS (complete, 46 states)
+  only_when 'a tool in transit is not rented': HOLDS (complete, 46 states)
+  only_when 'a tool in transit is not reserved': HOLDS (complete, 46 states)
+  only_when 'a tool is brought only for the member it is held for': HOLDS (complete, 46 states)
+  always 'a waiting member is never the holder of the same tool': HOLDS (complete, 46 states)
+  always 'a tool in transit is never on loan or on the shelf': HOLDS (complete, 46 states)
+  progress 'a tool in transit always arrives [T]': HOLDS (complete)
+  progress 'a waiting member is eventually held the tool [M]': HOLDS (complete)
+  progress 'a waiting member is eventually held the tool [N]': HOLDS (complete)
+  reach 'a member picks up at the other branch a tool brought for them': reached
+  reach 'a brought tool is held for its member when it arrives': reached
+verdict: FINDINGS (4 findings)
+exit=1

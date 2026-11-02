@@ -1,0 +1,16 @@
+machine: workshop
+settings (shipped): none
+explored: 81 states, 270 steps, 0.0 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (0)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  always 'a tool in repair is at main': HOLDS (complete, 81 states)
+  after 'a repaired tool is in the shop at main': HOLDS (complete, 81 states)
+  only_when 'repair only at main': HOLDS (complete, 81 states)
+  progress 'a tool in repair gets back to the shop [T1]': HOLDS (complete)
+  progress 'a tool in repair gets back to the shop [T2]': HOLDS (complete)
+  reach 'repair of a tool that was away': reached
+verdict: CLEAN
+exit=0

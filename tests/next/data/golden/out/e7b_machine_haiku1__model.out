@@ -1,0 +1,44 @@
+machine: tool life with maintenance and one workshop
+settings (shipped): maintain_every=4, inspect_every=5
+explored: 38 states, 58 steps, 0.0 s, complete (every order of every action)
+STUCK (0)
+NEVER REACHED (13)
+  value where[T] = 'inspection'  (reached only with maintain_every=0, maintain_every=8, inspect_every=1, inspect_every=2)
+  value rentals[T] = 5  (reached only with maintain_every=5, maintain_every=8)
+  value rentals[T] = 6  (reached only with maintain_every=8)
+  value rentals[T] = 7  (reached only with maintain_every=8)
+  value rentals[T] = 8  (reached only with maintain_every=8)
+  value checked[T] = 5  (reached only with maintain_every=0, maintain_every=5, maintain_every=8)
+  value checked[T] = 6  (no one-setting change reaches it either)
+  value checked[T] = 7  (no one-setting change reaches it either)
+  value checked[T] = 8  (no one-setting change reaches it either)
+  value checked[T] = 9  (no one-setting change reaches it either)
+  value checked[T] = 10  (no one-setting change reaches it either)
+  action inspect_pass  (reached only with maintain_every=0, maintain_every=8, inspect_every=1, inspect_every=2)
+  action inspect_fail  (reached only with maintain_every=0, maintain_every=8, inspect_every=1, inspect_every=2)
+BROKEN (0)
+CONTRADICTION (0)
+RULES
+  always 'a tool due for maintenance is never on the shelf': HOLDS (complete, 38 states)
+  only_when 'a tool is rented only when no maintenance is due': HOLDS (complete, 38 states)
+  after 'a normal return due for maintenance goes to repair': HOLDS (complete, 38 states)
+  after 'a normal return due for inspection (and not maintenance) goes to inspection': HOLDS (complete, 38 states)
+  after 'a rental counts once': HOLDS (complete, 38 states)
+  after 'a repair starts the count again from 0': HOLDS (complete, 38 states)
+  after 'a passed inspection does not clear the rental count': HOLDS (complete, 38 states)
+  only_when 'a repair is recorded only at main': HOLDS (complete, 38 states)
+  only_when 'a tool in repair is only sent to main': HOLDS (complete, 38 states)
+  after 'a sent tool is at its new branch, in transit': HOLDS (complete, 38 states)
+  after 'a tool sent for repair arrives in repair, not in the shop': HOLDS (complete, 38 states)
+  after 'a repaired tool is back in the shop at main': HOLDS (complete, 38 states)
+  progress 'a tool that is not lost always gets back to the shelf [T]': HOLDS (complete)
+  progress 'a tool in repair is repaired at main [T]': HOLDS (complete)
+  reach 'a tool waits in repair for its maintenance': reached
+  reach 'a tool at another branch is sent to main for repair': reached
+ENDS (values that end an object's life; its other fields may freeze there):
+  where = 'lost'  (declared)
+  note: in some states every object has ended, so the model runs out of work there;
+  harm that needs more work (someone blocked from new work) cannot show. Let a finished
+  object's slot start a new one (see HOWTO.md) if your system keeps receiving work.
+verdict: FINDINGS (13 findings)
+exit=1

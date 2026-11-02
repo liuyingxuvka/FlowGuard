@@ -1,0 +1,29 @@
+branch check: collect at your own counter
+measured: 46 states, 17 action calls (action x arguments), 166 state changes, 156 distinct arrows (state -> state), 10 of them made by more than one call
+DUPLICATE ROUTE (1; 1 groups of action calls)
+  rent_free(who='M1') == rent_free(who='M2')  (one action, parameter values that change nothing)
+    the same successor from each of the same 2 states, for example: cond: 'shop' -> 'loan'
+REDUNDANT ACTION (0)
+  (not findings: 3 action calls share some of their state changes with another)
+    advance(): 8 of 16 also made by cancel(who='M2'), cancel(who='M1')
+    cancel(who='M1'): 4 of 28 also made by advance()
+    cancel(who='M2'): 4 of 28 also made by advance()
+FALLBACK ROUTE (1; 4 pairs of action calls)
+  bring(who='M1', to='main') and transfer(to='main') are never possible in the same state, and make the same change (4 such pairs of calls)
+    for example: at: 'A' -> 'main', cond: 'shop' -> 'transit' (made from 4 and 1 states)
+    where transfer(to='main') does it, bring(who='M1', to='main') refuses: 'tool is not held for this member' (1 of 1 states)
+    where bring(who='M1', to='main') does it, transfer(to='main') refuses: 'only an available tool can be sent' (4 of 4 states)
+    decided by: hold ['M1'] vs ['none']
+    shortest path to a state where transfer(to='main') is the route (2 steps): transfer(to='A') ; receive()
+  (not findings: 2 pairs where a parameter must match the state, e.g. bring(who='M1', to='main') vs bring(who='M2', to='main'): bring 2)
+FALLBACK ROUTE, status only (1): the same change of the status field (cond), other fields differ
+  pick_up(who='M1') and rent_free(who='M1'): cond: 'shop' -> 'loan'; they also change: clock, hold (4 such pairs of calls)
+SAME-RESULT BRANCH (0; 11 ifs checked in reachable states, 11 in the file)
+  (the other ifs: forcing changes the outcome in this many of the calls that check them: line 31 36/72, line 36 184/368, line 38 64/128, line 44 92/184, line 46 48/96, line 48 44/88, line 69 18/44, line 102 56/112, line 106 24/64, line 112 44/92, line 113 16/32)
+ROUTES per action (distinct sets of lines run by successful calls; measurement)
+  bring 1, transfer 1, receive 3, pick_up 1, rent_free 1, return_tool 2, reserve 1, cancel 4, advance 4
+  succeeds without changing anything: advance() in 30 states
+NEVER TAKEN (0)
+DEAD GUARD (0)
+NEVER REACHED actions (machine.py's own check): none
+summary: duplicate 1, fallback 1, fallback_status 1
