@@ -195,7 +195,7 @@ def check(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
     resume = f"{prog} {shlex.join(argv)}"
     if outcome.failure is not None:
         return _early(out, f"internal error: {outcome.failure}", EXIT_ERROR, args.json)
-    result = assemble(root, outcome, previous, max_states=args.max_states, whole=not args.models)
+    result = assemble(root, outcome, previous, max_states=args.max_states)
     if outcome.finished:
         write_conflicts(root, conflicts_data(root, result, previous))
     lines, data = render(root, result, resume)
@@ -269,12 +269,10 @@ class Assembled:
     closed: list = field(default_factory=list)     # (entry, why): a complete check no longer finds it
 
 
-def assemble(root, outcome, previous: dict | None, *, max_states: int | None = None,
-             whole: bool = True) -> Assembled:
-    """The findings of every part, plus the stored conflicts this check keeps open. whole:
-    the check covers every model of the project (no model named), so it also keeps the
-    conflicts of models whose file is gone. max_states: the check's bound (default: the
-    plan's)."""
+def assemble(root, outcome, previous: dict | None, *, max_states: int | None = None) -> Assembled:
+    """The findings of every part, plus the stored conflicts this check keeps open (also
+    those of the models it left out or whose file is gone). max_states: the check's bound
+    (default: the plan's)."""
     if max_states is None:
         max_states = dict(outcome.planned[0].spec.options)["max_states"] if outcome.planned else Bounds().max_states
     models = {}
@@ -296,7 +294,7 @@ def assemble(root, outcome, previous: dict | None, *, max_states: int | None = N
     findings += [f for f in overlap_views(views) if f.id not in seen]
     before = {c["id"] for c in (previous or {}).get("conflicts", [])}
     conflicts = [f for f in findings if f.cls == CONFLICT]
-    kept, closed = _kept(root, models, previous, {f.id for f in conflicts}, whole)
+    kept, closed = _kept(root, models, previous, {f.id for f in conflicts})
     conflicts += kept
     return Assembled(outcome, models, conflicts, [f for f in findings if f.cls == WARNING],
                      [f for f in findings if f.cls == ERROR_CLS], {f.id for f in conflicts if f.id not in before},
@@ -308,13 +306,15 @@ def _kept_finding(c: dict, reason: str) -> Finding:
                    tuple(c.get("path", [])), "", {"kept": reason, "entry": c}, None, c["id"])
 
 
-def _kept(root, models: dict, previous: dict | None, found: set, whole: bool) -> tuple[list, list]:
+def _kept(root, models: dict, previous: dict | None, found: set) -> tuple[list, list]:
     """The stored conflicts a check of their model did not find again: (kept, closed).
     Only a complete exploration of the model as it is (ModelView.explored) closes one
     (design M6 as the coordinator decided). Every other check keeps it open and blocking:
     a capped one (also when the replay of its stored shrunk path fails, say after a
     setting changed, or when it reaches a NEVER REACHED item), one a model error cut
-    short, a model that does not load, a model file that is gone. The reason says what
+    short, a model that does not load, a model file that is gone, and a check that left
+    the model out (`check lamp` keeps the other models' conflicts open, and they count
+    for its exit code as the status's "a commit is blocked" does). The reason says what
     this check saw and that a complete check will settle it."""
     kept, closed = [], []
     existing = {p.stem for p in model_files(root)}
@@ -323,9 +323,12 @@ def _kept(root, models: dict, previous: dict | None, found: set, whole: bool) ->
             continue
         view = models.get(c["model"])
         if view is None:
-            if whole and c["model"] not in existing:
+            if c["model"] not in existing:
                 kept.append(_kept_finding(c, f"its model file {FLOW_DIR.as_posix()}/{c['model']}.py is gone; it "
                                              f"closes only when a complete check of {c['model']} no longer finds it"))
+            else:
+                kept.append(_kept_finding(c, f"this check left {c['model']} out; a complete check of {c['model']} "
+                                             f"will settle it"))
             continue
         if not view.finished:
             continue

@@ -278,6 +278,11 @@ def test_the_same_fingerprints_and_file_under_every_hash_seed(project):
 
 # ---------------------------------------------------------------------- conflicts.json
 def test_checking_one_model_keeps_the_others_open_conflicts(project):
+    """Review round 2, item 4: `check lamp` printed "1 open conflict" (lamp's own) and
+    exited as if the project held nothing else, while 6 proven conflicts of workshop_naive
+    stayed open and blocking in conflicts.json (status said blocked). A check of some
+    models leaves the others' conflicts open: they are listed as open, with what keeps
+    them, and count for the exit code."""
     project.kit().flow_from(KIT / "workshop_naive.py")
     project.flow("lamp", LAMP)
     first = timed(project.root)
@@ -285,10 +290,16 @@ def test_checking_one_model_keeps_the_others_open_conflicts(project):
     path = project.root / ".flowguard/conflicts.json"
     before = path.read_bytes()
     run = timed(project.root, "lamp")
-    assert run.first == "1 open conflict; complete"
+    assert run.first == "7 open conflicts; complete" and run.code == 1
+    left = [line for line in run.lines if "kept: this check left workshop_naive out" in line]
+    assert len(left) == 6 and all(line.startswith("OPEN ") for line in left), run.out
+    data = timed(project.root, "lamp", "--json").data
+    assert data["exit"] == 1 and len(data["conflicts"]) == 7 and not any(c["new"] for c in data["conflicts"])
     assert path.read_bytes() == before                 # unchanged result: the file is unchanged
     (project.root / ".flowguard/flow/workshop_naive.py").unlink()
-    timed(project.root, "lamp")
+    run = timed(project.root, "lamp")
+    assert run.first == "7 open conflicts; complete" and run.code == 1
+    assert sum("its model file .flowguard/flow/workshop_naive.py is gone" in line for line in run.lines) == 6
     saved = json.loads(path.read_text())               # a deleted model's conflicts stay open (G1)
     assert {c["model"] for c in saved["conflicts"]} == {"lamp", "workshop_naive"}
     assert list(saved["models"]) == ["lamp"]
