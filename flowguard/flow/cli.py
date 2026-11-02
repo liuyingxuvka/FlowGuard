@@ -446,6 +446,21 @@ def running_line(o, resume: str) -> str:
     return line + _current_text(o.current, "; still ") + f"; resume with: {resume}"
 
 
+def _survivors_said(result: Assembled) -> str:
+    """check --full: the deliberate breakages no check caught, said on the first line (never a
+    bare "clean" over them); their warnings follow below."""
+    n = len([f for f in result.warnings if f.kind == "MUTANT SURVIVES"])
+    return f"; {_plural(n, 'deliberate breakage')} not caught \u2014 see below" if n else ""
+
+
+def _warnings_said(result: Assembled) -> str:
+    survived = _survivors_said(result)
+    others = len([f for f in result.warnings if f.kind != "MUTANT SURVIVES"])
+    if not others:
+        return survived
+    return survived + f"; {_plural(others, 'other model warning' if survived else 'model warning')}"
+
+
 def verdict(result: Assembled, resume: str) -> tuple[str, int]:
     o = result.outcome
     if not o.finished:
@@ -480,9 +495,9 @@ def verdict(result: Assembled, resume: str) -> tuple[str, int]:
             why.append(f"{', '.join(unexplored)} not explored (model error)")
         tail = "UNKNOWN: " + "; ".join(why)
     elif not head:
-        tail = "clean, complete" + (f"; {_plural(len(result.warnings), 'model warning')}" if result.warnings else "")
+        tail = "clean, complete" + _warnings_said(result)
     else:
-        tail = "complete"
+        tail = "complete" + _survivors_said(result)
     line = "; ".join(head + [tail])
     if result.errors:
         code = EXIT_ERROR

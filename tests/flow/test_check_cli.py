@@ -361,6 +361,20 @@ def test_overlapping_views_warn_from_recorded_facts(project):
             "counter/core.py (one owner per field)") in run.lines
 
 
+def test_full_says_on_its_first_line_that_deliberate_breakages_survive(project):
+    """A8: a --full check whose deliberate breakages some survive never says a bare "clean":
+    its first line counts them and points below, then the other model warnings."""
+    project.kit().flow_from(KIT / "workshop.py")
+    run = timed(project.root, "--full")
+    warnings = [line for line in run.lines if line.startswith("model warning workshop: ")]
+    survivors = [line for line in warnings if line.startswith("model warning workshop: mutant survives: ")]
+    assert len(survivors) == 4 and len(warnings) == 5, run.out
+    assert run.code == 0 and run.first == ("clean, complete; 4 deliberate breakages not caught \u2014 see below; "
+                                           "1 other model warning")
+    plain = timed(project.root)
+    assert plain.first == "clean, complete; 1 model warning"
+
+
 def test_full_verifies_the_renaming_without_reduction(project):
     project.kit().flow_from(KIT / "workshop.py")
     run = timed(project.root, "--full")

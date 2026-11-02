@@ -87,14 +87,16 @@ def test_release_runs_the_flow_models_full_check(tmp_path, capsys):
     shutil.copy(Path(__file__).parent / "flow/data/planted/rental_naive.py", flow / "rental.py")
     assert main(["release", "--root", str(tmp_path)]) == 1
     lines = capsys.readouterr().out.splitlines()
-    assert "flow: 1 new conflict; complete" in lines and lines[-1].startswith("verify: FAIL")
+    assert ("flow: 1 new conflict; complete; 3 deliberate breakages not caught \u2014 see below" in lines
+            and lines[-1].startswith("verify: FAIL"))
     assert any(line.startswith("flow: NEW STUCK rental: ") for line in lines)
     assert main(["release", "--json", "--root", str(tmp_path)]) == 1
     captured = capsys.readouterr()
     [line] = captured.out.splitlines()
     verdict = json.loads(line)
     assert verdict["verdict"] == "FAIL" and dict(level="error", code="flow_models", subject="flow") in verdict["codes"]
-    assert "flow: 1 open conflict; complete" in captured.err.splitlines()
+    assert ("flow: 1 open conflict; complete; 3 deliberate breakages not caught \u2014 see below"
+            in captured.err.splitlines())
     (flow / "rental.py").write_text(DIAL, encoding="utf-8")
     assert main(["release", "--root", str(tmp_path)]) == 0
     lines = capsys.readouterr().out.splitlines()
@@ -169,7 +171,8 @@ def test_release_without_a_legacy_map_runs_the_flow_gate_and_the_suite(tmp_path,
     assert "no map at" not in captured.out + captured.err and "map scan first" not in captured.out + captured.err
     assert lines[0] == ("legacy map: none (.flowguard/map.json does not exist), so there is no map check, lint or "
                         "legacy model to run; the flow models are checked, and the tests with --shards")
-    assert "flow: 1 new conflict; complete" in lines and any(line.startswith("flow: NEW STUCK rental: ") for line in lines)
+    assert "flow: 1 new conflict; complete; 3 deliberate breakages not caught \u2014 see below" in lines
+    assert any(line.startswith("flow: NEW STUCK rental: ") for line in lines)
     assert "suite: not run (fix the failures above first)" not in lines          # no --shards: not asked
     assert lines[-1].startswith("verify: FAIL")
     (flow / "rental.py").write_text(DIAL, encoding="utf-8")

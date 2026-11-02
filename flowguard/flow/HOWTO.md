@@ -117,7 +117,7 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
 - **Model warnings** (never conflicts): other field values never reached, usually a domain
   wider than the design needs; a `source=` with no stored request; settings not read from the code although the model covers code; a
   fallback on the status field only, an `if` whose two branches end the same, lines no call runs, a
-  guard that never refuses; with `--full`, each break of the model that no check catches.
+  guard that never refuses; with `--full`, each break of the model that no check catches (the first line counts them).
 - **Model errors**: the model itself failed (an exception, a value outside its domain, a write to an
   unknown field or to `m.settings`, a declaration mistake, an own value for a setting the code has). Fix these first.
 - **UNKNOWN**: the search hit its state bound ("capped"), a model error cut it short (no STUCK or
