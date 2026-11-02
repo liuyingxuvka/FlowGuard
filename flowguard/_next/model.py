@@ -1048,16 +1048,21 @@ def _hashable(v) -> bool:
     return True
 
 
-def _nan(v) -> bool:
+def _ties(v) -> bool:
+    """A value that may tie with another without being it: NaN (equal to nothing) or a set
+    (ordered only by inclusion, so {'a'} and {'b'} tie), also inside a tuple."""
     if isinstance(v, (float, complex)):
         return v != v
-    return isinstance(v, (tuple, frozenset)) and any(_nan(x) for x in v)
+    if isinstance(v, (set, frozenset)):
+        return True
+    return isinstance(v, tuple) and any(_ties(x) for x in v)
 
 
-def _same_when_equal(values) -> bool:
-    """Whether values that compare equal are the same value: no 0 and False, 1 and 1.0, 0.0
-    and -0.0, no NaN. A stable sort, min() and max() keep the first of equal values, so
-    equal values that differ come out in the order they went in. Unknown values (None): no."""
+def _sorted_alike(values) -> bool:
+    """Whether values that rank alike are the same value: no 0 and False, 1 and 1.0, 0.0 and
+    -0.0, no NaN, no sets. A stable sort, min() and max() keep the first of the values that
+    rank alike, so values that tie without being the same come out in the order they went
+    in. Unknown values (None): no."""
     if values is None:
         return False
     concrete = [v for _, _, v in values if not isinstance(v, _Any)]
@@ -1066,7 +1071,7 @@ def _same_when_equal(values) -> bool:
         return False                               # some int may equal True, 1.0, ...
     groups = {}
     for v in concrete:
-        if _nan(v):
+        if _ties(v):
             return False
         groups.setdefault(hash(v), []).append(v)          # kept values are hashable (_tag)
     for group in groups.values():
@@ -1145,6 +1150,7 @@ class _IdUses:
         self.enclosing = {}                        # id(function node) -> enclosing function node
         self.violations, self.doubts = [], []
         self.engine_nodes = set()                  # id() of every def or lambda the engine calls
+        self.declared_global = None                # names a global or nonlocal statement binds (assigned())
         for path, tree in trees:
             for node in ast.walk(tree):
                 for child in ast.iter_child_nodes(node):
@@ -1641,7 +1647,12 @@ class _IdUses:
         """What a name read holds, by its bindings: [("iter", collection)] for the target of
         the comprehension around it, else [("value", expression)] for each plain assignment
         of it in its own function or module. None when it is bound otherwise (a parameter,
-        a loop, an unpacking, +=, an outer scope)."""
+        a loop, an unpacking, +=, an outer scope, a global or nonlocal anywhere)."""
+        if self.declared_global is None:
+            self.declared_global = {x for _, tree in self.trees for n in ast.walk(tree)
+                                    if isinstance(n, (ast.Global, ast.Nonlocal)) for x in n.names}
+        if name.id in self.declared_global:
+            return None
         up = self.parents.get(id(name))
         while up is not None and not isinstance(up, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.Module)):
             if isinstance(up, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
@@ -2459,9 +2470,9 @@ class _IdUses:
                     if name != "sorted":               # sorted(..., key=): judged in the declared order (shape)
                         doubt(f"{name}(..., key=...) keeps the first of the per-id values its key ranks alike, "
                               f"in the declared order of the {kind} ids")
-                elif not _same_when_equal(self.each_value(e, env)):
-                    doubt(f"{name}() of per-id values that may be equal but differ (0 and False) keeps the "
-                          f"first of them in the declared order of the {kind} ids")
+                elif not _sorted_alike(self.each_value(e, env)):
+                    doubt(f"{name}() of per-id values that may tie without being the same (0 and False, two "
+                          f"sets) keeps the first of them in the declared order of the {kind} ids")
                 return
             if name == "sum" and form == "kindvals":
                 start = call.args[1:] + [k.value for k in call.keywords if k.arg == "start"]

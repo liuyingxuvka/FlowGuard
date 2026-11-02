@@ -1235,3 +1235,19 @@ def test_ids_returned_to_calls_the_rule_follows_keep_the_renaming(project, helpe
     loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
     assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
     assert check_model(loaded).graph.sym is not None
+
+
+@pytest.mark.parametrize("helpers, guard", [
+    ('m.field("held", [frozenset(), frozenset({"a"}), frozenset({"b"})], frozenset(), over=TOOLS)',
+     'need(str(sorted(s["held", u] for u in TOOLS)) != "", "never")'),
+    ("vals = [0, False]", 'global vals\n    need(str(max(vals)) != "", "never")\n    vals = [s["busy", u] for u in TOOLS]')])
+def test_per_id_values_the_rule_cannot_rank_alike_in_every_order_are_a_doubt(project, helpers, guard):
+    """Sets are only partly ordered: sorted() and max() keep the declared order among sets
+    neither of which holds the other ({'a'} and {'b'}), as among equal values that differ.
+    And a name the function declares global may hold what another function put there, so
+    its own assignments do not tell its values."""
+    project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert "keeps the first of them in the declared order" in (loaded.model.__dict__.get("_symmetry_doubt") or ""), \
+        loaded.model.__dict__.get("_symmetry_doubt")
+    assert check_model(loaded).graph.sym is None
