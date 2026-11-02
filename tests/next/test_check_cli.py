@@ -758,3 +758,74 @@ def test_a_capped_check_that_does_not_reach_a_never_reached_item_keeps_it(projec
     capped = timed(project.root, "--max-states", "500")
     assert capped.code == 1 and capped.first == "2 open conflicts; UNKNOWN: goal capped at 500 states", capped.out
     assert len(json.loads(saved.read_text())["conflicts"]) == 2
+
+
+WITHDRAW = '''
+from flowguard._next import Model, need
+m = Model("books")
+BOOKS = m.objects("book", "B1", "B2")
+m.field("where", ["shelf", "loan", "lost", "gone"], "shelf", over=BOOKS)
+m.field("day", range(0, 8), 0)
+
+@m.action()
+def tick(s):
+    need(s["day"] < 7, "the last day")
+    s["day"] += 1
+
+@m.action(b=BOOKS)
+def lend(s, b):
+    need(s["where", b] == "shelf", "not on the shelf")
+    s["where", b] = "loan"
+
+@m.action(b=BOOKS)
+def give_back(s, b):
+    need(s["where", b] == "loan", "not out")
+    s["where", b] = "shelf"
+
+@m.action(b=BOOKS)
+def withdraw(s, b):
+    need(s["where", b] == "lost", "not lost")
+    s["where", b] = "gone"
+m.terminal("where", ["gone"])
+MODEL = m
+'''
+
+
+@pytest.mark.parametrize("renames", [
+    [("def withdraw", "def retire")],
+    [('"gone"', '"retired"')],
+    [("def withdraw", "def retire"), ('"gone"', '"retired"')],
+    [('''@m.action(b=BOOKS)
+def withdraw(s, b):
+    need(s["where", b] == "lost", "not lost")
+    s["where", b] = "gone"
+''', ""), ('"lost", "gone"', '"lost"'), ('m.terminal("where", ["gone"])', "")],
+], ids=["action", "value", "both", "removed"])
+def test_a_capped_check_closes_no_never_reached_item_the_model_no_longer_has(project, renames):
+    """G1 round 3: a capped check closed a stored NEVER REACHED conflict whenever its subject
+    was missing from the list of items the search did not reach, and an action or value
+    the model renamed or removed is missing from that list too: 'closed ...: this check
+    reaches it' for an item nothing reached, exit 3 and conflicts.json emptied. Only an
+    item the model defines now and an explored state reaches closes it; a renamed or
+    removed one is kept like any other proven conflict of a capped check."""
+    from flowguard._next.cli import status_lines
+    saved = project.root / ".flowguard/conflicts.json"
+    path = project.flow("books", WITHDRAW)
+    first = timed(project.root)
+    assert first.code == 1 and first.first == "2 new conflicts; complete", first.out
+    ids = sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"])
+    assert len(ids) == 2
+    text = WITHDRAW
+    for old, new in renames:
+        assert old in text
+        text = text.replace(old, new)
+    path.write_text(text)
+    capped = timed(project.root, "--max-states", "10")
+    assert capped.code == 1, capped.out
+    assert capped.first == "2 open conflicts; UNKNOWN: books capped at 10 states", capped.out
+    assert not any(x.startswith("closed ") for x in capped.lines), capped.out
+    opened = [x for x in capped.lines if x.startswith("OPEN NEVER REACHED books: ")]
+    assert len(opened) == 2 and all(x.endswith("this check is capped)") for x in opened), capped.out
+    assert sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"]) == ids
+    [status] = status_lines(project.root)
+    assert "2 open conflicts" in status and "a commit is blocked until fixed" in status, status

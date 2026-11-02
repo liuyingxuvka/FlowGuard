@@ -142,7 +142,7 @@ def core_part(ctx: PartContext) -> PartResult:
             "seconds": round(report.graph.seconds, 3), "covers": list(model.covers),
             "families": sorted({f.family for f in model.fields}),
             "objects": {kind: list(ids) for kind, ids in model.kinds.items()},
-            "unreached": list(report.unreached)}
+            "reached": list(report.reached)}
     findings = list(report.findings)
     if spec.option("verify_symmetry", False):
         sym = verify_symmetry(loaded, Bounds(max_states), report)

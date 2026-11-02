@@ -312,8 +312,9 @@ def _kept(root, models: dict, previous: dict | None, found: set, whole: bool) ->
     """The stored conflicts a check of their model did not find again, when that check
     cannot close them (design M6): it was capped, or the model did not load, or the model's
     file is gone (nothing explored its scope). Each stays open unless the replay of its
-    stored shrunk path no longer reproduces it, or (NEVER REACHED) this check reaches every
-    instance of it (closed)."""
+    stored shrunk path no longer reproduces it, or (NEVER REACHED) the model still defines
+    the item and this check reaches every instance of it (closed); a renamed or removed
+    item is reached by nothing and stays open."""
     kept, closed = [], []
     existing = {p.stem for p in model_files(root)}
     for c in (previous or {}).get("conflicts", []):
@@ -329,7 +330,7 @@ def _kept(root, models: dict, previous: dict | None, found: set, whole: bool) ->
             continue
         core = view.result("core")
         if c["kind"] == "NEVER REACHED" and core is not None and core.info.get("loaded") \
-                and c["subject"] not in core.info.get("unreached", [c["subject"]]):
+                and c["subject"] in core.info.get("reached", []):
             closed.append((c, "this check reaches it"))       # a reaching path is a fact, capped or not
             continue
         replay = view.result("replay")

@@ -90,7 +90,7 @@ class Report:
     unknown: list             # the checks a capped search could not decide
     reach: dict               # facts of the reach line; see reach_line()
     explained: dict = field(default_factory=dict)
-    unreached: list = field(default_factory=list)   # subjects of every item no explored state reaches
+    reached: list = field(default_factory=list)     # subjects of the model's items every instance of which is reached
 
 
 # ---------------------------------------------------------------------- small helpers
@@ -348,7 +348,7 @@ class _Run:
         findings = merge(raw)
         findings.sort(key=lambda f: _CLASS_ORDER[f.cls])
         return Report(self.loaded, g, raw, findings, holds, unknown, self.reach_facts(unknown), explained,
-                      self.unreached(reach_missing))
+                      self.reached_subjects(reach_missing))
 
     # -------------------------------------------------------------- STUCK
     def orbits(self):
@@ -1000,18 +1000,21 @@ class _Run:
             out.append(self.never_finding(item, explained, capped, cut))
         return out, reach_missing, explained
 
-    def unreached(self, reach_missing) -> list:
-        """The subjects a NEVER REACHED finding of this model would have, for every item no
-        explored state reaches, capped or not. A capped search whose list lacks a subject
-        reached every instance of it (a reaching path is a fact), so it disproves a stored
-        NEVER REACHED conflict with that subject."""
+    def reached_subjects(self, reach_missing) -> list:
+        """The NEVER REACHED subjects of the items this model defines that the explored
+        states reach, every instance of them, capped or not: a reaching path is a fact, so
+        it disproves a stored NEVER REACHED conflict with that subject. An item the model
+        does not define (renamed or removed) is in neither list and decides nothing; a reach
+        rule that raised is not reached (it decided nothing)."""
         g, model = self.g, self.model
         values = g.reached_values()
-        items = [("value", (f.key, v)) for f in model.fields for v in f.domain if (f.key, v) not in values]
-        items += [("action", a.name) for a in model.actions if a.name not in g.done_actions]
-        items += [("option", o.name) for o in model.options if o.name not in g.offered]
-        items += [("reach", r) for r in self.model.rules if r in reach_missing or r.name in self.reach_raised]
-        return sorted({self.never_subject(item) for item in items})          # a rule that raised decided nothing
+        items = [(("value", (f.key, v)), (f.key, v) in values) for f in model.fields for v in f.domain]
+        items += [(("action", a.name), a.name in g.done_actions) for a in model.actions]
+        items += [(("option", o.name), o.name in g.offered) for o in model.options]
+        items += [(("reach", r), r not in reach_missing and r.name not in self.reach_raised)
+                  for r in model.rules if r.kind == "reach"]
+        missed = {self.never_subject(item) for item, hit in items if not hit}
+        return sorted({self.never_subject(item) for item, hit in items if hit} - missed)
 
     def never_subject(self, item) -> str:
         kind, what = item
