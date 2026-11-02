@@ -6,6 +6,7 @@ Everything here only records declarations; `explore.py` runs them.
 from __future__ import annotations
 
 import ast
+import builtins
 import contextlib
 import copy
 import importlib
@@ -730,6 +731,17 @@ _BY_KIND = {"kindlist", "kindrecs", "kindvals", "unordered", "table"}     # thei
 _TRANSPARENT = (ast.Tuple, ast.List, ast.Set, ast.IfExp, ast.Starred)
 _DYNAMIC = {"eval", "exec", "compile", "globals", "locals", "vars", "getattr", "setattr", "delattr", "__import__"}
 _STATE = ("state", None)                  # the model state an action or rule receives
+_BUILTIN_NAMES = frozenset(dir(builtins))
+_CACHES = {"cache", "lru_cache"}
+
+
+def _plain_decorator(dec) -> bool:
+    """A decorator that keeps the function it decorates: m.action(...) or a cache."""
+    func = dec.func if isinstance(dec, ast.Call) else dec
+    if isinstance(dec, ast.Call) and isinstance(func, ast.Attribute) and func.attr == "action":
+        return True
+    return (isinstance(func, ast.Name) and func.id in _CACHES) or (isinstance(func, ast.Attribute)
+                                                                   and func.attr in _CACHES)
 
 
 def _element(form):
@@ -835,6 +847,150 @@ class _IdUses:
             for node in ast.walk(tree):
                 for child in ast.iter_child_nodes(node):
                     self.parents[id(child)] = node
+        self.functions = self.helpers()
+        self.anchor(model)
+
+    def helpers(self):
+        """The defs a call can be followed into by name: a name bound once in every file the
+        rule reads (by that def, or imported from the helper that defines it) and decorated
+        only by declarations or a cache. A name also bound otherwise (a parameter, an
+        assignment, a second def, an import of something else) or a def a decorator may
+        replace calls code the rule cannot tell, so a call of it is judged as a call of a
+        function the model does not define."""
+        defs, other = {}, set()
+        stems = {path.stem: tree for path, tree in self.trees}
+        for path, tree in self.trees:
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    defs.setdefault(node.name, []).append(node)
+                elif isinstance(node, ast.arg):
+                    other.add(node.arg)
+                elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+                    other.add(node.id)
+                elif isinstance(node, ast.ClassDef):
+                    other.add(node.name)
+                elif isinstance(node, (ast.Global, ast.Nonlocal)):
+                    other.update(node.names)
+                elif isinstance(node, ast.ExceptHandler) and node.name:
+                    other.add(node.name)
+                elif isinstance(node, ast.Import):
+                    other.update((a.asname or a.name).split(".")[0] for a in node.names)
+                elif isinstance(node, ast.ImportFrom):
+                    helper = stems.get((node.module or "").split(".")[-1])
+                    for a in node.names:
+                        same = helper is not None and a.asname in (None, a.name) and any(
+                            isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == a.name
+                            for n in helper.body)
+                        if not same:
+                            other.add(a.asname or a.name)
+                elif hasattr(ast, "MatchAs") and isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name:
+                    other.add(node.name)
+        return {name: nodes[0] for name, nodes in defs.items()
+                if len(nodes) == 1 and name not in other and name not in _BUILTIN_NAMES
+                and all(_plain_decorator(d) for d in nodes[0].decorator_list)}
+
+    # -------------------------------------------------------------- what the engine calls
+    def anchor(self, model):
+        """Every function the engine calls (actions, options, rules), found by its code
+        object however it was registered (a decorator, a call, a lambda, the wrapper a
+        decorator returns): its parameters hold what the engine passes it. A function whose
+        code the rule does not read, or whose parameters get values it cannot follow, is a
+        doubt."""
+        by_path = {Path(path).resolve(): (path, tree) for path, tree in self.trees}
+        doings = {a.name: [self.value_shape(d) for d in a.domains] for a in model.actions}
+        any_ids = next((sh for shs in doings.values() for sh in shs if sh is not None), None)
+        calls = []
+        for a in model.actions:
+            calls.append((a.fn, f"action {a.name}", a.line, [_STATE] + doings[a.name]))
+        for o in model.options:
+            calls.append((o.offered, f"option {o.name!r}", o.line, [_STATE] + [self.value_shape(d) for d in o.domains]))
+        for r in model.rules:
+            obj = [] if r.obj is None else [self.value_shape([r.obj])]
+            what = f"{r.kind} {r.base!r}"
+            if r.kind in ("always", "reach"):
+                calls.append((r.pred, what, r.line, [_STATE] + obj))
+            elif r.kind == "progress":
+                calls += [(r.when, what, r.line, [_STATE] + obj), (r.goal, what, r.line, [_STATE] + obj)]
+            elif r.kind == "only_when":
+                calls.append((r.pred, what, r.line, [_STATE] + doings.get(r.action, [])))
+            elif r.kind == "after" and r.action == "*":
+                rec = ("record", any_ids[1]) if any_ids is not None else None
+                calls.append((r.pred, what, r.line, [_STATE, _STATE, None, rec]))
+            elif r.kind == "after":
+                calls.append((r.pred, what, r.line, [_STATE, _STATE] + doings.get(r.action, [])))
+        for fn, what, line, shapes in calls:
+            code = getattr(fn, "__code__", None)
+            found = by_path.get(Path(code.co_filename).resolve()) if code is not None else None
+            nodes = self.code_nodes(found[1], code) if found is not None else []
+            if not nodes:
+                where = (Path(code.co_filename), code.co_firstlineno) if code is not None else (model.path, line)
+                self.doubts.append((*where, f"{what} runs code the rule does not read"))
+                continue
+            for node in nodes:
+                for position, sh in enumerate(shapes):
+                    if sh is not None and sh[0] == "odd":
+                        self.doubts.append((found[0], node.lineno, f"{what} is called with values holding "
+                                                                   f"{sh[1]} ids the rule cannot follow"))
+                    elif not self.mark(node, position, sh):
+                        self.doubts.append((found[0], node.lineno, f"{what}: the rule cannot tell what one "
+                                                                   f"parameter of this function holds"))
+
+    @staticmethod
+    def code_nodes(tree, code):
+        """The defs or lambdas of a tree that compiled to this code object: the same name,
+        first line (a decorated def starts at its first decorator) and parameters."""
+        names = list(code.co_varnames[:code.co_argcount + code.co_kwonlyargcount])
+        out = []
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Lambda) and code.co_name == "<lambda>":
+                first = n.lineno
+            elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == code.co_name:
+                first = n.decorator_list[0].lineno if n.decorator_list else n.lineno
+            else:
+                continue
+            args = n.args
+            if first == code.co_firstlineno and [a.arg for a in args.posonlyargs + args.args + args.kwonlyargs] == names:
+                out.append(n)
+        return out
+
+    def value_shape(self, values):
+        """(form, kind) of what a parameter holds, from the values the engine passes it:
+        an id (scalar), a tuple of ids and other values (record), a set of ids (unordered);
+        ("odd", kind) for ids inside anything else; None when no value holds an id."""
+        forms, kinds = set(), set()
+        for v in values:
+            held = self.held(v)
+            if not held:
+                continue
+            kinds |= held
+            if isinstance(v, str):
+                forms.add("scalar")
+            elif isinstance(v, (tuple, list)) and all(isinstance(x, (str, tuple)) or not self.held(x) for x in v):
+                forms.add("record")
+            elif isinstance(v, (frozenset, set)) and all(isinstance(x, str) or not self.held(x) for x in v):
+                forms.add("unordered")
+            else:
+                forms.add("odd")
+        if not kinds:
+            return None
+        kind = sorted(kinds)[0]
+        if "odd" in forms or len(forms) > 1 and "unordered" in forms:
+            return ("odd", kind)
+        return (forms.pop() if len(forms) == 1 else "record", kind)
+
+    def held(self, v, depth=0):
+        """The kinds of the ids a value holds, inside containers and objects."""
+        if isinstance(v, str):
+            return {self.ids[v]} if v in self.ids else set()
+        if depth > 6 or isinstance(v, (int, float, complex, bytes, type(None))):
+            return set()
+        if isinstance(v, dict):
+            items = list(v.keys()) + list(v.values())
+        elif isinstance(v, (tuple, list, set, frozenset)):
+            items = list(v)
+        else:
+            items = list(getattr(v, "__dict__", {}).values()) + [getattr(v, "value", None)]
+        return set().union(*(self.held(x, depth + 1) for x in items)) if items else set()
 
     # -------------------------------------------------------------- which parameters hold ids
     def domain(self, node, env):
@@ -846,11 +1002,24 @@ class _IdUses:
         return (form, sh[1]) if form is not None else None
 
     def mark(self, fn, position, sh):
+        """The parameter a positional argument binds holds sh (extra arguments: *args, a
+        tuple of them). False when it binds nothing the rule can name."""
         if fn is None or sh is None:
-            return
-        args = [a.arg for a in fn.args.args]
-        if position < len(args):
-            self.params.setdefault(id(fn), {}).setdefault(args[position], sh)
+            return True
+        args = fn.args
+        names = [a.arg for a in args.posonlyargs + args.args]
+        if position < len(names):
+            return self.mark_name(fn, names[position], sh)
+        if args.vararg is not None and sh[0] != "state":
+            return self.mark_name(fn, args.vararg.arg, ("record", sh[1]))
+        return args.vararg is None
+
+    def mark_name(self, fn, name, sh):
+        """A parameter holds sh; False when it was already found to hold something else."""
+        if sh is None:
+            return True
+        have = self.params.setdefault(id(fn), {}).setdefault(name, sh)
+        return have == sh
 
     def callable_node(self, node):
         if isinstance(node, ast.Lambda):
@@ -882,8 +1051,6 @@ class _IdUses:
             env = self.module_env(path)
             for node in ast.walk(tree):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
-                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                        self.functions.setdefault(node.name, node)
                     up = self.parents.get(id(node))
                     while up is not None and not isinstance(up, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
                         up = self.parents.get(id(up))
@@ -1204,12 +1371,12 @@ class _IdUses:
             self.visit(path, stmt, env, propagate_only)
 
     def visit(self, path, node, env, propagate_only):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            for dec in node.decorator_list:        # the declaration is code of the enclosing scope
-                self.visit(path, dec, env, propagate_only)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            if not isinstance(node, ast.Lambda):
+                for dec in node.decorator_list:    # the declaration is code of the enclosing scope
+                    self.visit(path, dec, env, propagate_only)
+            self.defaults(path, node, env, propagate_only)
             return                                 # the body is its own scope
-        if isinstance(node, ast.Lambda):
-            return
         if isinstance(node, ast.ClassDef):
             for stmt in node.body:
                 self.visit(path, stmt, env, propagate_only)
@@ -1228,10 +1395,11 @@ class _IdUses:
         if isinstance(node, ast.Return) and node.value is not None:
             fn = self.function_of(node)
             sh = self.shape(node.value, env)
-            if fn is not None and sh is not None and isinstance(fn, ast.FunctionDef):
+            if fn is not None and sh is not None and isinstance(fn, ast.FunctionDef) \
+                    and self.functions.get(fn.name) is fn:
                 self.returns.setdefault(fn.name, sh)
         if isinstance(node, ast.Call):
-            self.propagate(node, env)
+            self.propagate(path, node, env, propagate_only)
         if not propagate_only and self.ids:
             self.judge_code(path, node, env)
         if propagate_only or not isinstance(node, ast.expr):
@@ -1319,17 +1487,48 @@ class _IdUses:
             up = self.parents.get(id(up))
         return up
 
-    def propagate(self, node, env):
-        """A helper of the model called with ids: its parameters hold ids too."""
+    def defaults(self, path, fn, env, propagate_only):
+        """A def's or lambda's defaults are code of the enclosing scope, and the parameter
+        holds what its default holds."""
+        args = fn.args
+        positional = args.posonlyargs + args.args
+        pairs = list(zip(positional[len(positional) - len(args.defaults):], args.defaults))
+        pairs += [(a, d) for a, d in zip(args.kwonlyargs, args.kw_defaults) if d is not None]
+        for a, d in pairs:
+            self.visit(path, d, env, propagate_only)
+            if not self.mark_name(fn, a.arg, self.shape(d, env)) and not propagate_only:
+                self.doubts.append((path, d.lineno, f"parameter {a.arg!r} holds what the rule cannot tell"))
+
+    def propagate(self, path, node, env, propagate_only):
+        """A helper of the model called with ids: the parameters each argument binds hold
+        ids too (by place, by keyword, a spread over the places left, *args); ids bound to
+        **kwargs, spread from **, or bound to two different things are a doubt."""
         func = node.func
-        if isinstance(func, ast.Name) and func.id in self.functions:
-            fn = self.functions[func.id]
-            for n, a in enumerate(node.args):
-                self.mark(fn, n, self.shape(a, env))
-            names = [a.arg for a in fn.args.args]
-            for k in node.keywords:
-                if k.arg in names:
-                    self.mark(fn, names.index(k.arg), self.shape(k.value, env))
+        if not (isinstance(func, ast.Name) and func.id in self.functions):
+            return
+        fn = self.functions[func.id]
+        lost = []
+        for n, a in enumerate(node.args):
+            if isinstance(a, ast.Starred):
+                sh = self.shape(a.value, env)
+                el = (_element(sh[0]), sh[1]) if sh is not None and sh[0] in _COLLECTIONS and _element(sh[0]) \
+                    else sh
+                count = len(fn.args.posonlyargs + fn.args.args)
+                lost += [not self.mark(fn, m, el) for m in range(n, max(count, n + 1))]
+                break                              # the places after a spread are unknown
+            lost.append(not self.mark(fn, n, self.shape(a, env)))
+        names = [a.arg for a in fn.args.args + fn.args.kwonlyargs]
+        for k in node.keywords:
+            sh = self.shape(k.value, env)
+            if sh is None:
+                continue
+            if k.arg in names:
+                lost.append(not self.mark_name(fn, k.arg, sh))
+            else:
+                lost.append(True)                  # **kw, or a spread of a mapping
+        if any(lost) and not propagate_only:
+            self.doubts.append((path, node.lineno, f"passes {func.id}() a value the rule cannot follow into "
+                                                   f"its parameters"))
 
     def judge(self, path, e, sh, env):
         """The use of an expression that holds ids, by its parent."""
@@ -1346,8 +1545,9 @@ class _IdUses:
             bad(f"*... spreads {kind} ids into parameters by their place in the declared order")
             return
         if p is None or isinstance(p, (ast.Expr, ast.Assign, ast.AnnAssign, ast.NamedExpr, ast.Return,
-                                       ast.BoolOp, ast.Assert, ast.If, ast.While, ast.Lambda, ast.Await)):
-            return
+                                       ast.BoolOp, ast.Assert, ast.If, ast.While, ast.Lambda, ast.Await,
+                                       ast.arguments)):
+            return                                 # a default: judged where the parameter is used
         if isinstance(p, ast.UnaryOp):
             if isinstance(p.op, ast.Not):
                 return

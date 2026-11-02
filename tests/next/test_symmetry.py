@@ -520,3 +520,111 @@ def test_ids_made_from_text_or_untracked_sources_are_never_reduced(project, impo
     assert report.graph.sym is None, "reduced although an id may be told apart"
     assert loaded.model.__dict__.get("_symmetry_doubt"), "no doubt recorded"
     assert any(f.kind == "STUCK" for f in report.findings), [f.kind for f in report.findings]
+
+
+BROKEN = '''
+from flowguard._next import Model, need
+m = Model("machines")
+MS = m.objects("machine", "M1", "M2")
+m.field("state", ["ok", "broken"], "ok", over=MS)
+
+@m.action(t=MS)
+def breaks(s, t):
+    need(s["state", t] == "ok", "broken")
+    s["state", t] = "broken"
+FIX
+MODEL = m
+'''
+
+FIX_BY_DEF = '''
+@m.action(t=MS)
+def fix(s, t):
+    need(s["state", t] == "broken", "ok")
+    need(GUARD, "only M1 can be fixed")
+    s["state", t] = "ok"
+'''
+
+REGISTERED = {
+    "called, not a decorator": '''
+def fix(s, t):
+    need(s["state", t] == "broken", "ok")
+    need(t.endswith("1"), "only M1 can be fixed")
+    s["state", t] = "ok"
+m.action(t=MS)(fix)
+''',
+    "a lambda": '''
+def _set(s, t):
+    s["state", t] = "ok"
+fix = m.action(t=MS)(lambda s, t: (need(s["state", t] == "broken", "ok"), need(t.endswith("1"), "only M1"),
+                                   _set(s, t)))
+''',
+    "a wrapping decorator": '''
+def deco(f):
+    def inner(s, t):
+        need(t.endswith("1"), "only M1 can be fixed")
+        return f(s, t)
+    return inner
+
+@m.action(t=MS)
+@deco
+def fix(s, t):
+    need(s["state", t] == "broken", "ok")
+    s["state", t] = "ok"
+''',
+    "a nested def's default": FIX_BY_DEF.replace("GUARD", "first()").replace(
+        'need(s["state", t] == "broken", "ok")',
+        'need(s["state", t] == "broken", "ok")\n    def first(x=t):\n        return x.endswith("1")'),
+    "a lambda's default": FIX_BY_DEF.replace("GUARD", "first()").replace(
+        'need(s["state", t] == "broken", "ok")',
+        'need(s["state", t] == "broken", "ok")\n    first = lambda x=t: x.endswith("1")'),
+    "a keyword-only helper parameter": "def first(*, x):\n    return x.endswith('1')\n" +
+                                       FIX_BY_DEF.replace("GUARD", "first(x=t)"),
+    "a positional-only helper parameter": "def first(x, /):\n    return x.endswith('1')\n" +
+                                          FIX_BY_DEF.replace("GUARD", "first(t)"),
+    "a helper's *args": "def first(*xs):\n    return xs[0].endswith('1')\n" + FIX_BY_DEF.replace("GUARD", "first(t)"),
+    "a helper's **kwargs": "def first(**kw):\n    return kw['x'].endswith('1')\n" +
+                           FIX_BY_DEF.replace("GUARD", "first(x=t)"),
+    "a spread into a helper": "def first(a, b):\n    return b.endswith('1')\n" +
+                              FIX_BY_DEF.replace("GUARD", "first(*(t, t))"),
+    "a parameter named like a helper": "def f(x):\n    return True\ndef apply(f, v):\n    return f(v)\n" +
+                                       FIX_BY_DEF.replace("GUARD", "apply(lambda x: x.endswith('1'), t)"),
+    "a decorated helper": "def swap(fn):\n    return lambda x: x.endswith('1')\n@swap\ndef first(x):\n"
+                          "    return True\n" + FIX_BY_DEF.replace("GUARD", "first(t)"),
+}
+
+
+@pytest.mark.parametrize("how", list(REGISTERED))
+def test_an_action_or_helper_reached_any_way_is_judged(project, how):
+    """G3 round 4: only M1 can be fixed, so M2 stays broken for good. An action registered
+    by a call or as a lambda, the wrapper a decorator registers, a nested def's or lambda's
+    default, and a helper parameter bound by keyword, position only, *args, **kwargs, a
+    spread, a name a parameter shadows or a decorator replaces once left the id untracked:
+    "clean, complete ... (machines explored up to renaming)". Each is now judged where the
+    id is used: in doubt the model is explored without renaming and M2 is found stuck."""
+    project.flow("machines", BROKEN.replace("FIX", REGISTERED[how]))
+    loaded = load_model(project.root / ".flowguard/flow/machines.py", project.root)
+    doubt = loaded.model.__dict__.get("_symmetry_doubt")
+    assert doubt, "no doubt recorded"
+    report = check_model(loaded)
+    assert report.graph.sym is None, "reduced although an id may be told apart"
+    assert any(f.kind == "STUCK" for f in report.findings), [f.kind for f in report.findings]
+
+
+SYMMETRIC = {
+    "called, not a decorator": REGISTERED["called, not a decorator"].replace('t.endswith("1")', "True"),
+    "a lambda": REGISTERED["a lambda"].replace('t.endswith("1")', "True"),
+    "a nested def's default": REGISTERED["a nested def's default"].replace('x.endswith("1")', "x == t"),
+    "a keyword-only helper parameter": REGISTERED["a keyword-only helper parameter"].replace(
+        "x.endswith('1')", "x is not None"),
+}
+
+
+@pytest.mark.parametrize("how", list(SYMMETRIC))
+def test_the_same_forms_used_alike_keep_the_renaming(project, how):
+    """The other side: the same registrations and bindings that treat every machine alike
+    raise no doubt, so the model is still explored up to renaming (and nothing is stuck)."""
+    project.flow("machines", BROKEN.replace("FIX", SYMMETRIC[how]))
+    loaded = load_model(project.root / ".flowguard/flow/machines.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
+    report = check_model(loaded)
+    assert report.graph.sym is not None and not report.findings, [f.text for f in report.findings]
