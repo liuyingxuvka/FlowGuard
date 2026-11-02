@@ -331,6 +331,60 @@ class SkillPackageTests(unittest.TestCase):
             self.assertIn(f"cannot read {agents}: [Errno 13] Permission denied", output)
             self.assertIn(f"replacing any earlier FlowGuard rules there:\n{rules}", output)
 
+    def test_first_map_says_what_adoption_does_with_an_existing_agents_md_and_claude_md(self) -> None:
+        """Every case step 8 lists is run: the output it quotes is printed, and the files it keeps stay as they are."""
+        from flowguard.__main__ import main
+        from flowguard.templates import adoption_template_files
+        rules = next(f.content for f in adoption_template_files() if f.path == "AGENTS.md")
+        step = (SKILL / "references/first_map.md").read_text(encoding="utf-8").split("\n8. ", 1)[1].split("\n9. ", 1)[0]
+        self.assertIn("never changes an existing one, also with `--force`", " ".join(step.split()))
+        cases = dict(item.partition(": ")[::2] for item in re.split(r"\n   - ", step.split("\n\n", 1)[0])[1:])
+        cases = {label: " ".join(text.split()) for label, text in cases.items()}
+        self.assertEqual(["AGENTS.md missing", "AGENTS.md exists and holds every current rule line",
+                          "AGENTS.md exists without them", "AGENTS.md is a directory or another non-file",
+                          "CLAUDE.md missing", "CLAUDE.md exists (as a file, a link or a directory)"], list(cases))
+        node_kinds = (SKILL / "references/node_kinds.md").read_text(encoding="utf-8")
+        self.assertIn("never changes either file when it exists", node_kinds)
+        self.assertIn("`first_map.md` step 8", node_kinds)
+
+        def adopt(root, case, *also):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(0, main(["template", "adoption", "--write", str(root), "--force"]))
+            for label in (case, *also):
+                for phrase in re.findall(r"`([^`]+)`", cases[label]):
+                    self.assertIn(phrase, output.getvalue(), (label, phrase))
+            return output.getvalue()
+
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            fresh, held, older, odd = (base / name for name in ("fresh", "held", "older", "odd"))
+            fresh.mkdir()
+            adopt(fresh, "AGENTS.md missing")
+            self.assertIn("the four project rules", cases["AGENTS.md missing"])
+            self.assertEqual((rules, "@AGENTS.md\n"), tuple((fresh / name).read_text(encoding="utf-8")
+                                                          for name in ("AGENTS.md", "CLAUDE.md")))
+
+            held.mkdir()
+            kept = {"AGENTS.md": "# Project\n\n- Own rule.\n\n" + rules, "CLAUDE.md": "Owner notes, no include.\n"}
+            for name, text in kept.items():
+                (held / name).write_text(text, encoding="utf-8")
+            output = adopt(held, "AGENTS.md exists and holds every current rule line",
+                           "CLAUDE.md exists (as a file, a link or a directory)")
+            self.assertNotIn(rules.splitlines()[2], output)
+            self.assertEqual(kept, {name: (held / name).read_text(encoding="utf-8") for name in kept})
+
+            older.mkdir()
+            (older / "AGENTS.md").write_text("# Project\n\n## FlowGuard rules\n\n1. Run `python -m flowguard read` first.\n"
+                                             "- CI runs `python -m flowguard map check`.\n", encoding="utf-8")
+            output = adopt(older, "AGENTS.md exists without them")
+            self.assertEqual(["3", "5"], re.findall(r"^  line (\d+): ", output, re.M))
+            self.assertTrue(output.endswith(rules), output)
+
+            (odd / "AGENTS.md").mkdir(parents=True)
+            adopt(odd, "AGENTS.md is a directory or another non-file", "CLAUDE.md missing")
+            self.assertFalse((odd / "CLAUDE.md").exists())
+
     def test_installer_copies_the_skill(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             run = lambda *extra: subprocess.run([sys.executable, "scripts/install_skill.py", "--target", directory, *extra],

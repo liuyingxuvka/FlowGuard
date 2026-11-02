@@ -56,9 +56,21 @@ project and read components in batches. `read` prints every component and model;
    Review warnings such as `entrypoint_unlisted` and `entrypoint_unmodeled` as findings about existing code.
    Keep structural errors at zero by fixing wrong declarations or explicitly accepting existing debt
    with its reason as in step 5 (`architecture_review.md`); do not silently bypass those errors.
-8. `python -m flowguard template adoption --write .` writes the four project rules into AGENTS.md, and a CLAUDE.md
-   holding `@AGENTS.md`, when they are missing. It never edits an existing AGENTS.md or CLAUDE.md: it prints the rules
-   and the file to add them to.
+8. `python -m flowguard template adoption --write .` writes AGENTS.md and CLAUDE.md only when they are missing and
+   never changes an existing one, also with `--force`. What it does with each:
+   - AGENTS.md missing: it writes the four project rules there.
+   - AGENTS.md exists and holds every current rule line: it prints `already holds the current FlowGuard rules` and
+     asks for nothing.
+   - AGENTS.md exists without them: it prints the rules after `replacing any earlier FlowGuard rules there`, first
+     naming by line number the lines that look like earlier FlowGuard rules (a heading that names FlowGuard, a
+     numbered rule that runs `python -m flowguard`, a line of the current rules). Put the rules in place of those
+     lines yourself; the project's own lines stay. If AGENTS.md cannot be read, it says so and prints the rules.
+   - AGENTS.md is a directory or another non-file: it prints `is not a file` and the rules for the file to put there.
+   - CLAUDE.md missing: it writes the one line `@AGENTS.md`, but only when AGENTS.md is a file (existing or just
+     written); otherwise it writes no CLAUDE.md and prints `did not write CLAUDE.md` with the reason.
+   - CLAUDE.md exists (as a file, a link or a directory): it keeps it as it is and prints
+     `make sure it holds the line @AGENTS.md`; it does not check that line.
+
    Routine changes run selected tests/models; final frozen-source release runs the full
    suite and all registered models once, locally or in CI for that exact source SHA.
    Commit the map and those project rules: `git add .flowguard/map.json` (plus `.flowguard/models/` if you wrote

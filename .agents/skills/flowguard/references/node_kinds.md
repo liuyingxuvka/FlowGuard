@@ -43,7 +43,7 @@ Finish target design before code and remove ERROR/TO-DO before promote; run the 
 `behaviour` starts an ordinary executable contract model.
 `validator` checks a finite input boundary; see `## Validator`.
 `ui-journey` explores interface states, controls and transitions; see `## UI journey`.
-Use `python -m flowguard template <kind> --write .`; `adoption` writes the four project rules into a missing AGENTS.md and prints them for an existing one, which it never edits.
+Use `python -m flowguard template <kind> --write .`; `adoption` writes the four project rules into a missing AGENTS.md and `@AGENTS.md` into a missing CLAUDE.md, never changes either file when it exists, and prints what to do instead (`first_map.md` step 8 lists each case).
 With a target, model files go into `.flowguard/target/models/`; otherwise they go into `.flowguard/models/`.
 Other template files keep their paths; the CLI prints the next target check or model command. `--force` keeps its overwrite meaning.
 
