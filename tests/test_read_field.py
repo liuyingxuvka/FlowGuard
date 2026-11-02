@@ -15,7 +15,13 @@ def test_read_field_status_names_writers_and_model():
     from flowguard.map.inventory import build_inventory
     root=Path(__file__).resolve().parents[1];data=load_map(root)
     text=render_field(root,data,build_inventory(root,ignore_patterns(data),write_cache=False),'status')
-    assert 'component_pointer' in text and 'confirm_components' in text and 'merge_target_map' in text
+    rows = dict(line.strip().split(': ', 1) for line in text.splitlines()[1:])
+    assert rows['models'].startswith('component_pointer State.status')
+    # Writers from several packages, the first five by path and the rest counted (the flow engine's
+    # worker writes its job status too, so the map's own writers are among the counted ones).
+    shown, _, more = rows['code writes'].rpartition(' (+')
+    assert 'flowguard/behave/rules.py:judge' in shown and 'flowguard/flow/worker.py:Worker.done' in shown
+    assert len(shown.split(', ')) == 5 and int(more.rstrip(')')) > 0
 
 
 def test_json_key_written_and_read_across_components(tmp_path):
