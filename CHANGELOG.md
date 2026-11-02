@@ -13,7 +13,7 @@
 - `req add --supersedes ID` marks an earlier message as replaced.
 - `req retire ID --not-owner` records once that a stored text is not the owner's words. That text stays out of the owner's words in every copy, and linking or quoting it is refused.
 - When a retire record cannot be checked, cannot be read, was edited or was deleted, `status` says so in one line and names the step that restores a damaged one. In a project with the legacy map, `map check` reports it too.
-- Owner text edited after it was stored is marked in `status` and `where` with the step that restores it, never shown as the owner's words.
+- Owner text, or the details stored beside it in `.flowguard/requests/<id>.json`, edited after it was stored is marked as edited in `status` and `where` with the step that restores it, never shown as the owner's words. Only a file that cannot be read is called unreadable.
 - Without `--root`, every command works on the nearest folder at or above the current one that holds `.flowguard/`. A command run from a subdirectory no longer creates a `.flowguard/` folder there.
 - In a Claude Code session, the first FlowGuard command shows `status` once, also through `python -m flowguard.map`.
 - `status` warns when the installed skill names another FlowGuard version or none.

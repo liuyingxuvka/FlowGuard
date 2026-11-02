@@ -500,7 +500,7 @@ def test_an_edited_retired_request_is_named_with_its_restore_step(tmp_path, caps
     body, sidecar = root / ".flowguard/requests/R1.md", root / ".flowguard/requests/R1.json"
     for path, raw, edit in (
             (sidecar, sidecar.read_bytes().replace(b'"bytes": ', b'"bytes":  '),
-             "unreadable (immutable file bytes changed: .flowguard/requests/R1.json"),
+             "edited after it was stored: immutable file bytes changed: .flowguard/requests/R1.json"),
             (body, b"A PASTED plan, not owner words.\n",
              "edited after it was stored: immutable file bytes changed: .flowguard/requests/R1.md")):
         path.write_bytes(raw)
@@ -517,6 +517,42 @@ def test_an_edited_retired_request_is_named_with_its_restore_step(tmp_path, caps
     output = _call(root, capsys, "status")[1]
     assert not [line for line in output.splitlines() if line.startswith("WARNING retired request")], output
     assert "request R1: retired: not the owner's words · 1. a planner list" in _call(root, capsys, "where", "R1")[1]
+
+
+def test_a_request_sidecar_that_can_be_read_but_changed_is_named_edited_and_only_a_missing_one_unreadable(
+        tmp_path, capsys):
+    """A sidecar whose bytes can be read but are not the stored ones, also as broken JSON, was edited; status and
+    where say "edited" with the restore step. "unreadable" stays for a sidecar that cannot be read at all."""
+    import shlex
+    import subprocess
+    root = _plain(tmp_path)
+    _words(root, capsys, "The owner's own words.\n")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "stored words")
+    sidecar = root / ".flowguard/requests/R1.json"
+    item = json.loads(sidecar.read_bytes())
+    named = ".flowguard/requests/R1.json"
+    for raw in (json.dumps(dict(item, received="2020-01-01T00:00:00+00:00")).encode() + b"\n", b"{not json\n"):
+        sidecar.write_bytes(raw)
+        output = _call(root, capsys, "status")[1]
+        _, rows = _owner_lines(output)
+        assert rows[0].startswith("R1 unknown time: edited after it was stored, so its text is not shown as the "
+                                  f"owner's words: immutable file bytes changed: {named}; "), rows
+        assert "unreadable" not in output and "The owner's own words." not in output, output
+        where = _call(root, capsys, "where", "R1")[1]
+        request = next(line for line in where.splitlines() if line.startswith("request R1: "))
+        assert request.startswith("request R1: edited after it was stored, so not the owner's words: "
+                                  f"immutable file bytes changed: {named}; "), where
+        assert "unreadable" not in where, where
+        subprocess.run(shlex.split(re.search(r"\((git -C .*?) when committed\)", rows[0])[1]), check=True,
+                       capture_output=True)
+        assert "The owner's own words." in _owner_lines(_call(root, capsys, "status")[1])[1][0]
+    sidecar.unlink()
+    _, rows = _owner_lines(_call(root, capsys, "status")[1])
+    assert rows[0].startswith(f"R1 unknown time: unreadable (immutable file is missing: {named}; "), rows
+    where = _call(root, capsys, "where", "R1")[1]
+    assert f"request R1: unreadable (immutable file is missing: {named}; " in where, where
 
 
 def test_an_edited_request_beyond_the_newest_three_is_named(tmp_path, capsys):

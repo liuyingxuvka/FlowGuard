@@ -306,6 +306,14 @@ def request_citations(root: Path, records) -> tuple[dict, bool]:
     return cited, True
 
 
+def _readable(path: Path) -> bool:
+    try:
+        path.read_bytes()
+    except OSError:
+        return False
+    return True
+
+
 def owner_words(root: Path, *, records=None) -> dict:
     """Stored owner words, newest first, with supersession, retirement and citations; never a to-do state.
 
@@ -325,10 +333,14 @@ def owner_words(root: Path, *, records=None) -> dict:
         intact = invalid is None and edited is None
         text = body.read_bytes().decode('utf-8-sig', errors='replace').splitlines() if intact else []
         if invalid is not None:
+            # A sidecar whose bytes can be read but are not the stored ones was edited; only a sidecar that
+            # cannot be read is unreadable. Either way none of its fields are trusted or shown.
             files = [(REQUEST_DIR / (identifier + suffix)).as_posix() for suffix in ('.md', '.json')]
+            problem = f'{invalid}; {restore_advice(root, files, common)}'
+            readable = item is not None or _readable(root / REQUEST_DIR / (identifier + '.json'))
             rows.append(dict(id=identifier, kind=None, received='', first_line='', extra_lines=0, supersedes=[],
-                             superseded_by=[], retired=identifier in retired, cited_by=[], edited=None,
-                             invalid=f'{invalid}; {restore_advice(root, files, common)}'))
+                             superseded_by=[], retired=identifier in retired, cited_by=[],
+                             edited=problem if readable else None, invalid=None if readable else problem))
             continue
         if edited is not None:
             edited = f"{edited}; {restore_advice(root, [(REQUEST_DIR / (identifier + '.md')).as_posix()], common)}"
