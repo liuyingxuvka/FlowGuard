@@ -75,7 +75,10 @@ def test_without_rules_graph_changing_guard_drops_survive_and_are_listed(project
                         "drop guard 'not worn out yet' (retire, line 33)"}
     caught = {o["what"]: o["by"] for o in report.outcomes if o["outcome"] == "caught" and o["op"] == "drop guard"}
     for what in ("drop guard 'not on the shelf' (rent, line 13)", "drop guard 'not on loan' (give_back, line 19)"):
-        assert "STUCK repairs[*] = 3" in caught[what], caught  # a retired tool rented again is never repaired
+        # a retired tool rented (or sent to repair) again leaves its declared end; its repair count
+        # running out at 3 is a bounded counter's end and no dead end by itself (acceptance A5)
+        assert any("cond = 'retired' is declared an end (m.terminal('cond', ...)), but" in b and "leaves it" in b
+                   for b in caught[what]), caught
     listed = {f.detail["what"] for f in report.findings}
     assert survived <= listed
 

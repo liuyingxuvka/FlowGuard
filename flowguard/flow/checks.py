@@ -321,6 +321,7 @@ class _Run:
         raw += self.broken()
         raw += self.contradictions()
         raw += self.settings_warning()
+        self.ends_left()
         raw += self.error_findings()
         for r in model.rules:
             label = f"{r.kind} {r.name!r}"
@@ -616,11 +617,17 @@ class _Run:
         field alone and counts it toward the value (_counts_toward) is left out too; it is the
         field's own step (a clock that runs out, a total that stops), and losing it at the
         last value ends nothing else. A step that takes the number away from the value (a
-        place coded 0 shelf, 1 loan, 2 repair: give_back 1 -> 0) is no count and is lost."""
+        place coded 0 shelf, 1 loan, 2 repair: give_back 1 -> 0) is no count and is lost.
+        A bounded clock or counter (a number every change of which, by any action, counts
+        toward the value) owns the step that counts it also when the step changes other
+        fields too (advance: day + 1, and an open loan becomes overdue): its last value is
+        where the clock runs out. A number some step takes away from the value (a status
+        coded as a number and assigned other values) is no clock, and keeps the rule above."""
         g, keys, states, sym = self.g, self.keys, self.g.states, self.g.sym
         n = len(o)
         held = set(nodes)
-        changes, after, entering, counts = set(), set(), {}, {}
+        changes, after, entering, counts, counts_with = set(), set(), {}, {}, {}
+        clock = own                                       # every change of the field counts toward the value
         for i, row in enumerate(g.out):
             si = states[i]
             prow = g.perm[i] if g.perm is not None else None
@@ -639,8 +646,13 @@ class _Run:
                         after.add(name)
                     enters = cls(p, si[p]) != c_ and cls(p, raw[p]) == c_
                     entering[name] = entering.get(name, True) and enters
-                    counts[name] = counts.get(name, True) and moved == [p] and _counts_toward(si[p], raw[p], c_[1])
-        return sorted(a for a in changes - after if not entering[a] and not (own and counts[a])), sorted(after)
+                    toward = p in moved and _counts_toward(si[p], raw[p], c_[1])
+                    counts[name] = counts.get(name, True) and moved == [p] and toward
+                    counts_with[name] = counts_with.get(name, True) and toward
+                    if p in moved and not toward:
+                        clock = False
+        return sorted(a for a in changes - after if not entering[a] and not (own and counts[a])
+                      and not (clock and counts_with[a])), sorted(after)
 
     def expand(self, c_, nodes, o):
         """The concrete (position, value, unreduced states) of a class seen at pair nodes."""
@@ -1286,6 +1298,36 @@ class _Run:
                              f"settings not read from the code: {own}; {why}; when the code has them, give the "
                              f"model config= to read them from the code", detail={"settings": literal},
                              line=model.line)]
+
+    def ends_left(self):
+        """A value m.terminal declares ends an object's life; a step that leaves it says that
+        life goes on, so the declaration is wrong and no end may exempt a dead end it does
+        not end (a bounded counter's last value, a halt there): one model error per declared
+        value, with the shortest path to a step that leaves it."""
+        g, model = self.g, self.model
+        keys, states, sym = self.keys, g.states, g.sym
+        family = [self.field_by_key[k].family for k in keys]
+        watch = [p for p, fam in enumerate(family) if fam in model.terminals]
+        seen = set()
+        for i, row in enumerate(g.out if watch else ()):      # states in search order: short paths first
+            si = states[i]
+            prow = g.perm[i] if g.perm is not None else None
+            for c, j in enumerate(row):
+                if j < 0:
+                    continue
+                p_ = prow[c] if prow is not None else 0
+                raw = states[j] if p_ == 0 else sym.apply(sym.inv[p_], states[j])
+                for p in watch:
+                    fam, v = family[p], si[p]
+                    if raw[p] == v or v not in model.terminals[fam] or (fam, _typed(v)) in seen:
+                        continue
+                    seen.add((fam, _typed(v)))
+                    action = g.calls[c].action
+                    where = Path(model.path).relative_to(model.root).as_posix() if model.path and model.root else None
+                    self.errors.append(ModelError(
+                        f"{fam} = {v!r} is declared an end (m.terminal({fam!r}, ...)), but {action.name} leaves it: "
+                        f"an end is never left; refuse the step there, or leave {v!r} out of m.terminal",
+                        where, action.line, at=(i, c)))
 
     def error_findings(self):
         g = self.g

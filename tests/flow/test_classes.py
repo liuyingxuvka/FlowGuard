@@ -666,6 +666,110 @@ def test_a_number_that_counts_to_its_last_value_while_the_model_goes_on_is_no_en
     assert not [f for f in report.findings if f.kind == "STUCK"], [f.text for f in report.findings]
 
 
+DAYS = '''
+"""Days and overdue loans (R1, R3): three days are enough to see every order."""
+from flowguard.flow import Model, need
+m = Model("days", note="days 1..3; a loan rented on a day is due after one day here")
+m.field("day", range(1, 4), 1, source="R1")
+m.field("loan", ["none", "open", "overdue"], "none", source="R3")
+
+@m.action(source="R1")
+def rent(s):
+    need(s["loan"] == "none", "on loan")
+    s["loan"] = "open"
+
+@m.action(source="R1")
+def return_tool(s):
+    need(s["loan"] != "none", "not on loan")
+    s["loan"] = "none"
+
+@m.action(source="R1")
+def advance(s):
+    need(s["day"] < 3, "the last day modelled")
+    s["day"] += 1
+    if s["loan"] == "open":
+        s["loan"] = "overdue"
+MODEL = m
+'''
+
+TOOL_DAYS = '''
+from flowguard.flow import Model, need
+m = Model("tools")
+TOOLS = OBJECTS
+m.field("age", range(0, 3), 0, over=TOOLS, note="each tool's own clock, 0..2")
+m.field("shiny", [False, True], False, over=TOOLS)
+
+@m.action(t=TOOLS)
+def tick(s, t):
+    need(s["age", t] < 2, "as old as modelled")
+    s["age", t] += 1
+    s["shiny", t] = False
+
+@m.action(t=TOOLS)
+def polish(s, t):
+    s["shiny", t] = not s["shiny", t]
+MODEL = m
+'''
+
+
+@pytest.mark.parametrize("name, text", [
+    ("the rental kit's days", DAYS),
+    ("days whose step changes nothing else", DAYS.replace('    if s["loan"] == "open":\n        s["loan"] = "overdue"\n', "")),
+    ("a clamped clock", DAYS.replace('    need(s["day"] < 3, "the last day modelled")\n    s["day"] += 1',
+                                     '    s["day"] = min(s["day"] + 1, 3)')),
+])
+def test_a_bounded_clock_whose_step_also_changes_other_fields_is_no_end(project, name, text):
+    """Acceptance A5 (review round 3, G8, the rental kit's days R1/R3): day 1..3, advance
+    guarded by day < 3 that also marks the open loan overdue, was a STUCK "day = 3 is never
+    left ... can never again advance", although a clock that runs out is no such step (the
+    HOWTO says so): the own-step exemption needed the step to change the day alone. A number
+    every change of which counts toward the value no state leaves is a bounded clock or
+    counter; its counting step is its own also when it changes other fields."""
+    project.flow("days", text)
+    report = check_model(load_model(project.root / ".flowguard/flow/days.py", project.root))
+    assert report.graph.complete
+    assert not [f for f in report.findings if f.kind == "STUCK"], [f.text for f in report.findings]
+
+
+@pytest.mark.parametrize("objects", ['["T1", "T2"]', 'm.objects("tool", "T1", "T2")'])
+def test_a_per_object_clock_whose_step_also_changes_another_field_is_no_end(project, objects):
+    project.flow("tools", TOOL_DAYS.replace("OBJECTS", objects))
+    report = check_model(load_model(project.root / ".flowguard/flow/tools.py", project.root))
+    assert not [f for f in report.findings if f.kind == "STUCK"], [f.text for f in report.findings]
+
+
+def test_an_int_coded_status_assigned_other_values_stays_judged_when_its_step_does_more(project):
+    """The other side of A5: a place coded as a number whose steps also change other fields
+    (lend records the member) is no clock: give_back takes it from 1 back to 0, so not every
+    change counts toward 2, and the lost give_back is still a dead end."""
+    text = INT_PHASE.replace('m.field("day", range(0, 3), 0, note="a day clock that keeps running")',
+                             'm.field("day", range(0, 3), 0, note="a day clock that keeps running")\n'
+                             'm.field("holder", ["nobody", "member"], "nobody")')
+    text = text.replace('    s["phase"] = 1\n', '    s["phase"], s["holder"] = 1, "member"\n')
+    text = text.replace('    s["phase"] = 0\n', '    s["phase"], s["holder"] = 0, "nobody"\n')
+    project.flow("book", text)
+    report = check_model(load_model(project.root / ".flowguard/flow/book.py", project.root))
+    stuck = [f for f in report.findings if f.kind == "STUCK"]
+    assert [f for f in stuck if f.cls == CONFLICT and "phase=2" in f.text], [f.text for f in report.findings]
+
+
+def test_a_declared_end_that_a_step_leaves_is_a_model_error(project):
+    """A5 keeps a bounded counter's last value from being a dead end; a declared end must then
+    really end: tool_life with rent allowed off the shelf rents a retired tool again, so
+    'retired' ends nothing, and the model says so with the path to the step that leaves it."""
+    from conftest import DATA
+    text = (DATA / "planted" / "tool_life.py").read_text().replace(
+        '    need(s["cond", t] == "shop", "not on the shelf")\n', "")
+    project.flow("tool_life", text)
+    report = check_model(load_model(project.root / ".flowguard/flow/tool_life.py", project.root))
+    [e] = [f for f in report.findings if f.kind == "MODEL ERROR" and "declared an end" in f.text]
+    assert e.text == ("cond = 'retired' is declared an end (m.terminal('cond', ...)), but rent leaves it: an end is "
+                      "never left; refuse the step there, or leave 'retired' out of m.terminal"), e.text
+    assert e.path[-1].startswith("rent(") and len(e.path) > 1, e.path
+    clean = check_model(load_model(project.flow_from(DATA / "planted" / "tool_life.py"), project.root))
+    assert not [f for f in clean.findings if "declared an end" in f.text]
+
+
 NEVER_FREED_ALIKE = '''
 from flowguard.flow import Model, need
 

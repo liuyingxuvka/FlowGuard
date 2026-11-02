@@ -26,7 +26,7 @@ with no conflict draws its latest change, one object's fields at a time).
 | `m.field(name, domain, init, over=IDS, source=, value_sources={"transit": "R10"}, note=)` | one field, or one per object (`s[name, t]`); small domains, counters clamped |
 | `@m.action(t=IDS, source="R4")` with `need(cond, "reason", source=)` | an action tried with every argument; `need` is the guard (it carries the action's source unless it names its own), assignments are the effect; `with s.source("R10"): ...` marks effects |
 | `m.option(name, offered, action=, source=, **params)` | a screen option: where it is offered, the action must work (same parameter names) |
-| `m.terminal(field, values, source=)` | the values that end an object's life on purpose |
+| `m.terminal(field, values, source=)` | the values that end an object's life on purpose (a step that leaves one is a model error) |
 | `m.always / only_when / after / progress / reach(...)` | the promises: hold in every state; hold before every success of an action; hold after it; from every such state the goal stays reachable; some state has it |
 | `m.second_route(a, b, source="R11", why=...)` | the only way to keep a second route to the same result; `source=` must be a stored request (`.flowguard/requests/R11.md`), and `check` prints the kept pair |
 
@@ -106,7 +106,7 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
 - **Conflicts** (fix them in the design, then in the code, or ask the owner when two requests
   really collide): STUCK (a value some state can never leave again; a value a step enters and no
   state leaves where its object (the whole model, for a field of no object) halts or can never again
-  take a step it took before (a number's own step that only counts toward that value, a clock that runs out, is no such step), unless `m.terminal` declares that end; a `progress` promise lost; each names the stuck object's fields, every call that refuses there with its request, and
+  take a step it took before (the step of a clock or counter that runs out there, a number every change of which counts toward that value, is no such step, also when it changes other fields), unless `m.terminal` declares that end; a `progress` promise lost; each names the stuck object's fields, every call that refuses there with its request, and
   the step that led in), BROKEN (a promise some order breaks), CONTRADICTION (an option
   offered where its action refuses), NEVER REACHED for an action, an option, a declared end,
   a `reach` promise, or a field value that has a source or that a sourced promise names (each
