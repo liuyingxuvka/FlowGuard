@@ -11,6 +11,7 @@ import contextlib
 import copy
 import importlib
 import itertools
+import operator
 import os
 import re
 import sys
@@ -1008,6 +1009,96 @@ def _spread(form):
     return {"kindrecs": "kindrecs", "kindvals": "kindvals"}.get(form, "kindlist")
 
 
+class _Any:
+    """Any value of one type: what len(), int() or str() give."""
+
+    def __init__(self, what):
+        self.what = what
+
+    def __repr__(self):
+        return f"<any {self.what.__name__}>"
+
+
+_ANY_INT, _ANY_STR = _Any(int), _Any(str)
+_VALUES_MAX = 4096                 # values tried for one expression before the rule gives up on it
+_ARITH = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv,
+          ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod, ast.BitOr: operator.or_,
+          ast.BitAnd: operator.and_, ast.BitXor: operator.xor, ast.RShift: operator.rshift}
+_UNARY = {ast.USub: operator.neg, ast.UAdd: operator.pos, ast.Invert: operator.invert}
+
+
+def _tag(v):
+    """A value as the value analysis keeps it: equal values that differ (0 and False) stay
+    apart in a set."""
+    return (type(v), repr(v), v)
+
+
+def _hashable(v) -> bool:
+    try:
+        hash(v)
+    except TypeError:
+        return False
+    return True
+
+
+def _nan(v) -> bool:
+    if isinstance(v, (float, complex)):
+        return v != v
+    return isinstance(v, (tuple, frozenset)) and any(_nan(x) for x in v)
+
+
+def _same_when_equal(values) -> bool:
+    """Whether values that compare equal are the same value: no 0 and False, 1 and 1.0, 0.0
+    and -0.0, no NaN. A stable sort, min() and max() keep the first of equal values, so
+    equal values that differ come out in the order they went in. Unknown values (None): no."""
+    if values is None:
+        return False
+    concrete = [v for _, _, v in values if not isinstance(v, _Any)]
+    if any(v is _ANY_INT for _, _, v in values) and any(isinstance(v, bool) or not isinstance(v, (int, str, type(None)))
+                                                        for v in concrete):
+        return False                               # some int may equal True, 1.0, ...
+    groups = {}
+    for v in concrete:
+        if _nan(v):
+            return False
+        groups.setdefault(hash(v), []).append(v)          # kept values are hashable (_tag)
+    for group in groups.values():
+        for i, a in enumerate(group):
+            for b in group[i + 1:]:
+                if a == b and (type(a), repr(a)) != (type(b), repr(b)):
+                    return False
+    return True
+
+
+def _whole_numbers(values) -> bool:
+    """Whether every value is a whole number (int or bool): their sum is the same in any
+    order. Lists and tuples are joined in order, floats rounded in order."""
+    return values is not None and all(v is _ANY_INT or type(v) in (int, bool) for _, _, v in values)
+
+
+def _product(fn, parts):
+    """fn over every combination of the parts' values; None (unknown) when a part is
+    unknown, holds a value of a type only, a combination fails (1 // 0) or gives a value
+    that cannot be kept, or the combinations are too many."""
+    if any(p is None or any(isinstance(v, _Any) for _, _, v in p) for p in parts):
+        return None
+    count = 1
+    for p in parts:
+        count *= len(p)
+    if count > _VALUES_MAX:
+        return None
+    out = set()
+    for combo in itertools.product(*[[v for _, _, v in p] for p in parts]):
+        try:
+            v = fn(*combo)
+        except (ArithmeticError, TypeError, ValueError):
+            return None
+        if not _hashable(v) or (isinstance(v, (str, bytes, tuple)) and len(v) > 1000):
+            return None
+        out.add(_tag(v))
+    return out
+
+
 class _IdUses:
     """Where interchangeable ids flow in a model file and its helpers, beyond the names
     bound to m.objects: action, option and rule parameters whose domain holds ids (a kind,
@@ -1035,6 +1126,9 @@ class _IdUses:
                                                          kind))
         self.families = {f: sorted(v)[0] for f, v in fam.items()}    # family -> (form, kind)
         self.over = {f.family: f.kind for f in model.fields if f.kind}  # family -> kind of the ids it is over
+        self.domains = {}                          # family -> every value its fields may hold
+        for f in model.fields:
+            self.domains.setdefault(f.family, set()).update(_tag(v) for v in f.domain if _hashable(v))
         self.actions = {}                          # action name -> {param: (form, kind)}
         self.params = {}                           # id(function node) -> {param: (form, kind)}
         self.returns = {}                          # helper name -> (form, kind) of what it returns
@@ -1454,6 +1548,114 @@ class _IdUses:
                     return owner if func.attr == "copy" else ("unordered", owner[1])
             return None
         return None
+
+    def values(self, node, env, depth=0):
+        """The values an expression may give, as a set that holds every one of them, or None
+        when the rule cannot tell: a constant, a state cell (its field's domain), a
+        comparison or `not` (False, True), bool(), len() and int() (any int), str() and
+        repr() (any text), a name bound in its own scope to such values, and tuples,
+        arithmetic, if-else and and/or of those."""
+        if depth > 8:
+            return None
+        if isinstance(node, ast.Constant):
+            return {_tag(node.value)} if _hashable(node.value) else None
+        if isinstance(node, ast.Subscript):
+            if isinstance(node.value, ast.Name) and env.get(node.value.id) == _STATE and self.state_access(node):
+                key = node.slice
+                return set(self.domains.get((key.elts[0] if isinstance(key, ast.Tuple) else key).value, ())) or None
+            return None
+        if isinstance(node, ast.Compare) or (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not)):
+            return {_tag(False), _tag(True)}
+        if isinstance(node, ast.Call):
+            made = {"bool": (False, True), "len": (_ANY_INT,), "int": (_ANY_INT,), "str": (_ANY_STR,),
+                    "repr": (_ANY_STR,)}
+            if isinstance(node.func, ast.Name) and node.func.id in made and node.func.id not in self.functions:
+                return {_tag(v) for v in made[node.func.id]}
+            return None
+        if isinstance(node, (ast.IfExp, ast.BoolOp)):
+            parts = [self.values(x, env, depth + 1) for x in ([node.body, node.orelse] if isinstance(node, ast.IfExp)
+                                                               else node.values)]
+            return None if any(p is None for p in parts) else set().union(*parts)
+        if isinstance(node, ast.Tuple) and not any(isinstance(x, ast.Starred) for x in node.elts):
+            return _product(lambda *xs: xs, [self.values(x, env, depth + 1) for x in node.elts])
+        if isinstance(node, ast.BinOp) and type(node.op) in _ARITH:
+            return _product(_ARITH[type(node.op)], [self.values(node.left, env, depth + 1),
+                                                    self.values(node.right, env, depth + 1)])
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY:
+            return _product(_UNARY[type(node.op)], [self.values(node.operand, env, depth + 1)])
+        if isinstance(node, ast.Name):
+            bound = self.assigned(node)
+            if bound is None:
+                return None
+            parts = [self.each_value(x, env, depth + 1) if how == "iter" else self.values(x, env, depth + 1)
+                     for how, x in bound]
+            return None if any(p is None for p in parts) else set().union(*parts)
+        return None
+
+    def each_value(self, node, env, depth=0):
+        """The values the items of a collection may be (values() of each), or None when the
+        rule cannot tell: a comprehension, a display, list(), tuple(), set(), sorted() and
+        the like of one, the .values() of a dict comprehension, and a name bound to one."""
+        if depth > 8:
+            return None
+        if isinstance(node, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+            item = node.key if isinstance(node, ast.DictComp) else node.elt      # a dict gives its keys
+            return self.values(item, self.comprehension_locals(node, env), depth + 1)
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name) and func.id in ("list", "tuple", "set", "frozenset", "reversed", "iter",
+                                                          "sorted") and len(node.args) == 1 \
+                    and func.id not in self.functions:
+                return self.each_value(node.args[0], env, depth + 1)
+            if isinstance(func, ast.Attribute) and func.attr == "values" and not node.args \
+                    and isinstance(func.value, ast.DictComp):
+                return self.values(func.value.value, self.comprehension_locals(func.value, env), depth + 1)
+            return None
+        if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+            parts = [self.each_value(x.value, env, depth + 1) if isinstance(x, ast.Starred)
+                     else self.values(x, env, depth + 1) for x in node.elts]
+            return None if any(p is None for p in parts) else set().union(*parts)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.BitOr, ast.Sub, ast.BitAnd)):
+            parts = [self.each_value(node.left, env, depth + 1), self.each_value(node.right, env, depth + 1)]
+            return None if any(p is None for p in parts) else set().union(*parts)
+        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Slice):
+            return self.each_value(node.value, env, depth + 1)
+        if isinstance(node, ast.Name):
+            bound = self.assigned(node)
+            if bound is None or any(how != "value" for how, _ in bound):
+                return None
+            parts = [self.each_value(x, env, depth + 1) for _, x in bound]
+            return None if any(p is None for p in parts) else set().union(*parts)
+        return None
+
+    def assigned(self, name):
+        """What a name read holds, by its bindings: [("iter", collection)] for the target of
+        the comprehension around it, else [("value", expression)] for each plain assignment
+        of it in its own function or module. None when it is bound otherwise (a parameter,
+        a loop, an unpacking, +=, an outer scope)."""
+        up = self.parents.get(id(name))
+        while up is not None and not isinstance(up, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.Module)):
+            if isinstance(up, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+                for gen in up.generators:
+                    if name.id in _target_names(gen.target):
+                        return [("iter", gen.iter)] if isinstance(gen.target, ast.Name) else None
+            up = self.parents.get(id(up))
+        if up is None:
+            return None
+        if not isinstance(up, ast.Module):
+            args = up.args
+            if name.id in {a.arg for a in args.posonlyargs + args.args + args.kwonlyargs + [args.vararg, args.kwarg]
+                           if a is not None}:
+                return None
+        body = up.body if isinstance(up.body, list) else [up.body]
+        out = []
+        for target, value, how in self.sites(body):
+            if name.id not in _target_names(target):
+                continue
+            if not isinstance(target, ast.Name) or how != "value" or value is None:
+                return None
+            out.append(("value", value))
+        return out or None
 
     def alternatives(self, node, env):
         """What each value an if-else or an and/or may give holds: `a if c else b` gives a
@@ -2210,6 +2412,22 @@ class _IdUses:
             if name in _ORDER_FUNCS:
                 if form != "kindvals":
                     bad(f"{name}(...) orders {kind} ids")
+                elif len(call.args) != 1 or call.args[0] is not e:
+                    doubt(f"{name}() compares a list in the declared order of the {kind} ids")
+                elif any(k.arg == "key" for k in call.keywords):
+                    if name != "sorted":               # sorted(..., key=): judged in the declared order (shape)
+                        doubt(f"{name}(..., key=...) keeps the first of the per-id values its key ranks alike, "
+                              f"in the declared order of the {kind} ids")
+                elif not _same_when_equal(self.each_value(e, env)):
+                    doubt(f"{name}() of per-id values that may be equal but differ (0 and False) keeps the "
+                          f"first of them in the declared order of the {kind} ids")
+                return
+            if name == "sum" and form == "kindvals":
+                start = call.args[1:] + [k.value for k in call.keywords if k.arg == "start"]
+                if call.args[:1] != [e] or not _whole_numbers(self.each_value(e, env)) \
+                        or not all(_whole_numbers(self.values(x, env)) for x in start):
+                    doubt(f"sum() of per-id values that are no whole numbers (lists, tuples, floats) adds them "
+                          f"in the declared order of the {kind} ids")
                 return
             if name == "next":
                 if form in _BY_KIND:

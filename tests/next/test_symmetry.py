@@ -1077,3 +1077,63 @@ def test_the_real_builtin_or_a_parameter_never_called_keeps_the_renaming(project
     loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
     assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
     assert check_model(loaded).graph.sym is not None
+
+
+EQUAL_BUT_DIFFERENT = "(0 if u == t else False for u in TOOLS)"
+PICKED_IN_ORDER = {
+    "sorted, shown as text": f'need(str(sorted({EQUAL_BUT_DIFFERENT})) != "[False, 0]", {SECOND_ONLY})',
+    "sorted in reverse": f'need(str(sorted({EQUAL_BUT_DIFFERENT}, reverse=True)) != "[False, 0]", {SECOND_ONLY})',
+    "max, shown as text": f'need(str(max({EQUAL_BUT_DIFFERENT})) != "False", {SECOND_ONLY})',
+    "min, tested with is": f'need(min({EQUAL_BUT_DIFFERENT}) is not False, {SECOND_ONLY})',
+    "max with a key": f'need(max((u == t for u in TOOLS), key=lambda v: 0), {SECOND_ONLY})',
+    "min with a key": f'need(min((u == t for u in TOOLS), key=lambda v: 0), {SECOND_ONLY})',
+    "max of two lists": f'need(max([u == t for u in TOOLS], [False, False]) != [False, True], {SECOND_ONLY})',
+    "sum of lists": f'need(sum(([u == t] for u in TOOLS), []) != [False, True], {SECOND_ONLY})',
+    "sum of tuples": f'need(sum(((u == t,) for u in TOOLS), ()) != (False, True), {SECOND_ONLY})',
+}
+
+
+@pytest.mark.parametrize("how", list(PICKED_IN_ORDER))
+def test_per_id_values_sorted_picked_or_added_where_the_order_shows_are_never_reduced(project, how):
+    """G3 round 6 (b): a stable sort, min() and max() keep the first of equal values, so
+    per-id values that compare equal but differ (0 and False) come out in the declared
+    order: str(sorted(...)) told T1 from T2 under renaming ("clean, complete" for a guard
+    only the second tool fails; 81aa362a: a doubt). The same holds for min()/max() with a
+    key (the first of the values the key ranks alike), max() of the list itself against
+    another list (compared in the declared order), and sum() of lists, tuples or floats
+    (joined and rounded in order). Each is now a doubt: no renaming, T2 found stuck."""
+    project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", PICKED_IN_ORDER[how]))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt"), "no doubt recorded"
+    report = check_model(loaded)
+    assert report.graph.sym is None, "reduced although a tool may be told apart"
+    plain = check_model(loaded, reduce=False)
+    assert sorted((f.kind, f.subject, tuple(f.objects)) for f in report.findings) == \
+        sorted((f.kind, f.subject, tuple(f.objects)) for f in plain.findings)
+    assert any(f.kind == "STUCK" for f in report.findings), [f.kind for f in report.findings]
+
+
+def test_a_sum_of_per_id_floats_is_a_doubt(project):
+    """Floats are rounded in the order they are added: on Python 3.11, sum([0.1, 1e16], 1.0)
+    and sum([1e16, 0.1], 1.0) differ (3.12 compensates, but no exactness is promised)."""
+    guard = f'need(sum((1e16 if u == t else 0.1 for u in TOOLS), 1.0) != 1e16, {SECOND_ONLY})'
+    project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert "sum() of per-id values that are no whole numbers" in (loaded.model.__dict__.get("_symmetry_doubt") or "")
+    assert check_model(loaded).graph.sym is None
+
+
+@pytest.mark.parametrize("guard", [
+    'need(max(s["count"] + (u == t) for u in TOOLS) >= 0, "never")',
+    'need(sum(1 for u in TOOLS if s["busy", u]) <= 2, "never")',
+    'need(sum(s["busy", u] for u in TOOLS) <= 2, "never")',
+    'need(min(str(s["busy", u]) for u in TOOLS) != "", "never")',
+    'need(str(sorted((s["busy", u], s["pick", u]) for u in TOOLS)) != "", "never")',
+    'vals = [s["busy", u] for u in TOOLS]\n    need(str(max(vals)) != "", "never")'])
+def test_per_id_values_that_are_equal_only_when_the_same_keep_the_renaming(project, guard):
+    """The other side: whole numbers, flags and texts sorted, picked or added give the same
+    result in every order of the ids (equal values are the same value, sums are exact)."""
+    project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
+    assert check_model(loaded).graph.sym is not None
