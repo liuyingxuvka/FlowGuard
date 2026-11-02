@@ -16,7 +16,11 @@ caller holds the pipe open, or while the lease in `lease.json` has not expired.
 - A worker that ends before every result is in is reported by the waiting call as it is
   (died, failed, stopped), with its run's log; the call never starts another worker, and
   when the worker died with its death notice (its whole group killed) the call writes that
-  it died. A run replaced on purpose (a newer check found the model files changed) says so
+  it died. A worker that died or failed while it lingered (no call waited) is reported the
+  same way by the next call of the command, which starts no worker either; once an end
+  has been told, the call after it starts afresh. A worker stopped by the liveness rule
+  (nobody resumed it within --keep, or its caller died) ended as designed and is simply
+  started again. A run replaced on purpose (a newer check found the model files changed) says so
   in its status and keeps its directory: a call still waiting on it reports "not finished:
   the model files changed" with the command that resumes, never an internal error.
 
@@ -250,7 +254,8 @@ class Lock:
 
 
 def pid_alive(pid: int) -> bool:
-    """Whether a process runs (an exited child of ours is reaped first, so it counts as gone)."""
+    """Whether a process runs (an exited child of ours is reaped first, and an exited
+    process nobody has reaped yet, a zombie, counts as gone)."""
     try:
         done, _ = os.waitpid(pid, os.WNOHANG)
         if done == pid:
@@ -263,7 +268,10 @@ def pid_alive(pid: int) -> bool:
         return False
     except PermissionError:
         return True
-    return True
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] != "Z"
+    except (OSError, IndexError):
+        return True                               # no /proc (not Linux): kill(0) decides
 
 
 def read_json(path: Path) -> dict | None:
@@ -285,7 +293,7 @@ class _Job:
         self.dir = directory
         self.proc = None              # spawned here
         self.pipe = None              # our end of the pipe (spawned here)
-        self.beat = None              # heartbeat thread (attached)
+        self.beat = None              # heartbeat thread (attached to a live worker)
         self.stop_beat = threading.Event()
 
     # -- what the worker says
@@ -338,6 +346,12 @@ class _Job:
             how = f" ({reason})"
         return "failed", f"the worker (pid {self.pid()}) died before it finished{how} ({log})"
 
+    def reported(self) -> None:
+        """The run's end has been told to a caller: the next check of the plan starts afresh."""
+        status = self.status() or {}
+        status["reported"] = True
+        write_json(self.dir / "status.json", status)
+
     # -- starting
     @staticmethod
     def spawn(root: Path, planned: list[Planned], plan_dir: Path) -> "_Job":
@@ -350,6 +364,7 @@ class _Job:
             pid = (read_json(old / "worker.json") or {}).get("pid")
             if pid is not None and pid_alive(pid):
                 continue
+            _say_died(old)
             if ((read_json(old / "status.json") or {}).get("state")) in ("failed", "died", "replaced", "running",
                                                                            None):
                 dead.append(old)                  # its log tells what happened: kept for a while
@@ -378,6 +393,12 @@ class _Job:
         return job
 
     @staticmethod
+    def ended_run(directory: Path) -> "_Job":
+        """A run whose worker ended badly while no call waited on it (it lingered after a
+        RUNNING return): this call reports that end instead of starting a worker."""
+        return _Job(directory)
+
+    @staticmethod
     def attach(directory: Path) -> "_Job":
         job = _Job(directory)
         job._renew(LEASE_SPAN)
@@ -395,6 +416,8 @@ class _Job:
     # -- ending this call
     def linger(self, keep: float) -> None:
         """A normal RUNNING return: leave the worker alive for keep seconds."""
+        if self.beat is None and not self.spawned:
+            return                                # an ended run: nothing waits on it
         if self.spawned:
             until = now_ms() + int(keep * 1000)
             os.write(self.pipe, f"L {until}\n".encode())
@@ -418,7 +441,7 @@ class _Job:
                 os.close(self.pipe)
                 self.pipe = None
             self.proc.poll()
-        else:
+        elif self.beat is not None:
             self.stop_beat.set()
             self.beat.join()
 
@@ -461,9 +484,43 @@ def _stop_stale(run: Path) -> None:
     write_json(run / "status.json", status)
 
 
+def _say_died(run: Path) -> None:
+    """A run whose worker is gone while its status still says running (its whole group,
+    death notice included, was killed): its status says it died. A death notice still on
+    its way (the status was written less than NOTICE_WAIT ago) is left to write it."""
+    path = run / "status.json"
+    status = read_json(path)
+    if status is None or status.get("state") != "running":
+        return
+    if time.time() - path.stat().st_mtime < NOTICE_WAIT:
+        return
+    status.update(state="died", current=None,
+                  reason="it ended without a word, its death notice with it: its whole process group was killed")
+    write_json(path, status)
+
+
+def _ended_unsaid(run: Path | None) -> bool:
+    """The run's worker is gone and ended in a way no call has been told: it died or failed
+    while it lingered after a RUNNING return. Not so: a run that finished, was replaced,
+    stopped because nobody resumed it in time (the liveness rule), or died together with
+    the caller that started it before that caller handed it a lease (the kernel's
+    PDEATHSIG, the same rule)."""
+    if run is None or not (run / "worker.json").is_file():
+        return False
+    status = read_json(run / "status.json") or {"state": "running"}
+    state = status.get("state")
+    if status.get("reported") or state in ("done", "replaced", "stopped"):
+        return False
+    if state == "died" and status.get("lease_ms") is None:
+        caller = (read_json(run / "plan.json") or {}).get("caller")
+        return caller is not None and pid_alive(caller)
+    return True
+
+
 def _ensure_job(root: Path, planned: list[Planned]) -> _Job:
-    """The live worker of this plan, attached to; or a new one when there is none or its
-    inputs changed since it was planned."""
+    """The live worker of this plan, attached to; the run whose worker ended badly while no
+    call waited, to report (never replaced without a word); or a new worker when there is
+    none, the last one's end was told, or its inputs changed since it was planned."""
     pdig = plan_digest(root, planned)
     plan_dir = jobs_dir(root) / pdig
     with Lock(jobs_dir(root) / f"{pdig}.lock"):
@@ -473,6 +530,8 @@ def _ensure_job(root: Path, planned: list[Planned]) -> _Job:
             if {rel: file_digest(root, rel) for rel in recorded} == recorded:
                 return _Job.attach(run)
             _stop_stale(run)
+        elif _ended_unsaid(run):
+            return _Job.ended_run(run)
         return _Job.spawn(root, planned, plan_dir)
 
 
@@ -538,6 +597,7 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
                     out.changed = why
                 else:
                     out.failure = why
+                    job.reported()
                 break
             left = deadline - time.monotonic()
             if left <= 0:

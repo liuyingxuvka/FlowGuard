@@ -10,6 +10,8 @@ import signal
 import time
 from pathlib import Path
 
+import pytest
+
 from checkrun import gone, group_gone, run_check, start_check, wait_until
 
 SLOW = '''
@@ -193,6 +195,45 @@ def test_a_worker_killed_with_its_whole_group_is_said_to_have_died(project):
     status = read(run / "status.json")
     assert status["state"] == "died" and "process group" in status["reason"] and status["current"] is None
     assert jobs_of(project.root) == [run]
+
+
+@pytest.mark.parametrize("whole_group", [True, False])
+def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_group):
+    """G6 round 3: a worker that dies while it lingers after a RUNNING return (no call waits
+    on it) is reported by the resume with the dead run's log; the resume starts no new
+    worker, and the dead run's status no longer says running, even when its whole group
+    (death notice included) was killed. The call after that one starts afresh."""
+    slow(project, "endless", steps=100000, delay=0.01)
+    assert run_check(project.root, "--wait", "1", "--keep", "120").code == 4
+    run, pid = worker_of(project.root)
+    assert wait_until(lambda: running(run) and read(run / "status.json")["lease_ms"] is not None, 5) is not None
+    (os.killpg if whole_group else os.kill)(pid, signal.SIGKILL)
+    assert wait_until(lambda: not Path(f"/proc/{pid}").exists(), 5) is not None   # reaped, not only a zombie
+    time.sleep(0.5)                                    # the death notice, if any, has written
+    again = run_check(project.root, "--wait", "2", "--keep", "0")
+    assert again.code == 2, again.out
+    assert again.first.startswith(f"internal error: the worker (pid {pid}) died before it finished"), again.out
+    assert len(again.lines) == 1 and "(log: .flowguard/cache/flow/jobs/" in again.first
+    assert jobs_of(project.root) == [run]                              # no second worker
+    status = read(run / "status.json")
+    assert status["state"] == "died" and status["current"] is None, status
+    if whole_group:
+        assert "process group" in status["reason"], status
+    third = run_check(project.root, "--wait", "1", "--keep", "0")      # said once: a new command starts afresh
+    assert third.code == 4, third.out
+    assert len(jobs_of(project.root)) == 2 and (run / "log").is_file()
+
+
+def test_a_worker_stopped_by_its_lease_is_started_again_without_a_word(project):
+    """The other side: a worker that stopped because nobody resumed it within --keep ended
+    as designed, so the next check simply starts a new one."""
+    slow(project, "endless", steps=100000, delay=0.01)
+    assert run_check(project.root, "--wait", "1", "--keep", "0").code == 4
+    run, pid = worker_of(project.root)
+    assert wait_until(lambda: gone(pid), 6) is not None
+    assert read(run / "status.json")["state"] == "stopped"
+    again = run_check(project.root, "--wait", "1", "--keep", "0")
+    assert again.code == 4 and again.first.startswith("RUNNING: "), again.out
 
 
 def test_a_waiting_check_whose_run_is_replaced_says_so_plainly(project):
