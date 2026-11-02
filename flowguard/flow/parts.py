@@ -162,8 +162,8 @@ register("core", core_part)
 def replay_part(ctx: PartContext) -> PartResult:
     """The conflicts conflicts.json keeps for this model, each replayed along its stored
     shrunk path on the model as it is now (option stored: the JSON of their entries). Only
-    a capped check uses the outcome: a conflict closes there only when its path no longer
-    reproduces it (design M6)."""
+    a capped check uses the outcome, to say why each kept conflict is still open; it closes
+    none: only a complete check of the model that no longer finds a conflict closes it."""
     root, spec = Path(ctx.root), ctx.spec
     entries = json.loads(spec.option("stored", "[]"))
     bounds = Bounds(spec.option("max_states", Bounds().max_states))
