@@ -90,6 +90,7 @@ class Report:
     unknown: list             # the checks a capped search could not decide
     reach: dict               # facts of the reach line; see reach_line()
     explained: dict = field(default_factory=dict)
+    unreached: list = field(default_factory=list)   # subjects of every item no explored state reaches
 
 
 # ---------------------------------------------------------------------- small helpers
@@ -258,6 +259,7 @@ class _Run:
         self.keys = self.g.keys
         self.pos = {k: p for p, k in enumerate(self.keys)}
         self.explanation_errors = []           # model errors seen in one-setting variants
+        self.reach_raised = set()              # reach rules whose predicate raised (undecided)
         self._closed_changers = {}
 
     # -------------------------------------------------------------- helpers
@@ -345,7 +347,8 @@ class _Run:
                     unknown.append(label)
         findings = merge(raw)
         findings.sort(key=lambda f: _CLASS_ORDER[f.cls])
-        return Report(self.loaded, g, raw, findings, holds, unknown, self.reach_facts(unknown), explained)
+        return Report(self.loaded, g, raw, findings, holds, unknown, self.reach_facts(unknown), explained,
+                      self.unreached(reach_missing))
 
     # -------------------------------------------------------------- STUCK
     def orbits(self):
@@ -949,6 +952,7 @@ class _Run:
                           for t in g.states for x in objs)
             except Exception as err:  # model code
                 self.model_error(f"reach {r.base!r} raised {type(err).__name__}: {err}", err, r.line)
+                self.reach_raised.add(r.name)
                 continue
             if not hit:
                 out.append(r)
@@ -996,6 +1000,29 @@ class _Run:
             out.append(self.never_finding(item, explained, capped, cut))
         return out, reach_missing, explained
 
+    def unreached(self, reach_missing) -> list:
+        """The subjects a NEVER REACHED finding of this model would have, for every item no
+        explored state reaches, capped or not. A capped search whose list lacks a subject
+        reached every instance of it (a reaching path is a fact), so it disproves a stored
+        NEVER REACHED conflict with that subject."""
+        g, model = self.g, self.model
+        values = g.reached_values()
+        items = [("value", (f.key, v)) for f in model.fields for v in f.domain if (f.key, v) not in values]
+        items += [("action", a.name) for a in model.actions if a.name not in g.done_actions]
+        items += [("option", o.name) for o in model.options if o.name not in g.offered]
+        items += [("reach", r) for r in self.model.rules if r in reach_missing or r.name in self.reach_raised]
+        return sorted({self.never_subject(item) for item in items})          # a rule that raised decided nothing
+
+    def never_subject(self, item) -> str:
+        kind, what = item
+        if kind == "value":
+            return f"value {_subject_key(what[0])} = {self.subject_value(what[1])}"
+        if kind == "action":
+            return f"action {what}"
+        if kind == "option":
+            return f"option {what!r}"
+        return f"reach {what.base!r}"
+
     def never_finding(self, item, explained, capped, cut=()):
         g, model = self.g, self.model
         kind, what = item
@@ -1015,7 +1042,7 @@ class _Run:
             key, v = what
             f = self.field_by_key[key]
             cls, why = self.value_class(f, v)
-            subject = f"value {_subject_key(key)} = {self.subject_value(v)}"
+            subject = self.never_subject(item)
             text = f"{_subject_key(key)} = {self.subject_value(v)} is never reached"
             sources = {f.value_sources.get(v, f.source), model.terminal_sources.get(f.family)
                        if why == "declared end" else None}
@@ -1033,7 +1060,7 @@ class _Run:
         elif kind == "action":
             a = model.action_named(what)
             cls = CONFLICT
-            subject = f"action {what}"
+            subject = self.never_subject(item)
             text = f"action {what} never happens"
             sources = {a.source}
             calls = [c.index for c in g.calls if c.action.name == what]
@@ -1048,7 +1075,7 @@ class _Run:
         elif kind == "option":
             o = next(o for o in model.options if o.name == what)
             cls = CONFLICT
-            subject = f"option {what!r}"
+            subject = self.never_subject(item)
             text = f"option {what!r} is never offered"
             a = model.action_named(o.action)
             sources = {o.source, a.source if a else None}
@@ -1058,7 +1085,7 @@ class _Run:
         else:
             r = what
             cls = CONFLICT
-            subject = f"reach {r.base!r}"
+            subject = self.never_subject(item)
             text = f"reach {r.base!r}: no reachable state has it"
             sources = {r.source}
             detail.update(label=f"reach {r.name!r}", rule=r.name)

@@ -698,3 +698,63 @@ def test_a_capped_one_setting_change_is_undecided_not_a_no(project):
             "undecided: top=60 (capped))") in run.lines, run.out
     assert "model warning grow: a = 3 is never reached (reached only with top=60, top=3)" in run.lines, run.out
     assert not any("UNKNOWN with" in line or "no one-setting change reaches it;" in line for line in run.lines)
+
+
+GOAL = '''
+from flowguard._next import Model, need
+m = Model("goal")
+m.field("a", range(0, 61), 0)
+m.field("b", range(0, 400), 0)
+m.field("done", [False, True], False)
+
+@m.action()
+def up(s):
+    need(s["a"] < TOP, "at the top")
+    s["a"] += 1
+
+@m.action()
+def side(s):
+    need(s["b"] < WIDTH, "at the end")
+    s["b"] += 1
+
+@m.action(source="R1")
+def finish(s):
+    need(s["a"] == 60, "not at the top")
+    s["done"] = True
+m.reach("finished", lambda s: s["done"], source="R1")
+MODEL = m
+'''
+
+
+def test_a_capped_check_that_reaches_a_never_reached_item_closes_it(project):
+    """G1 round 2: a NEVER REACHED conflict proven by a complete check is disproved by any
+    search that reaches the item: a reaching path is a fact. A capped check that reaches it
+    once kept it OPEN (exit 1) while its own reach line said the rule was reached. It is
+    now closed, saying so; one the capped search does not reach stays open."""
+    project.request("R1", "# Request 1: the goal can be reached\n")
+    saved = project.root / ".flowguard/conflicts.json"
+    path = project.flow("goal", GOAL.replace("TOP", "2").replace("WIDTH", "3"))
+    first = timed(project.root)
+    assert first.code == 1 and first.first == "2 new conflicts; complete", first.out
+    ids = {c["subject"]: c["id"] for c in json.loads(saved.read_text())["conflicts"]}
+    assert set(ids) == {"action finish", "reach 'finished'"}, ids
+    path.write_text(GOAL.replace("TOP", "60").replace("WIDTH", "399"))     # 48,800 states: capped below
+    capped = timed(project.root, "--max-states", "5000")
+    assert capped.code == 3, capped.out
+    assert capped.first.startswith("no conflict found; UNKNOWN: goal capped at 5,000 states"), capped.out
+    for subject, cid in ids.items():
+        assert any(x.startswith(f"closed {cid} NEVER REACHED goal: this check reaches it") for x in capped.lines), \
+            capped.out
+    assert not any(x.startswith("OPEN ") for x in capped.lines), capped.out
+    assert json.loads(saved.read_text())["conflicts"] == []
+
+
+def test_a_capped_check_that_does_not_reach_a_never_reached_item_keeps_it(project):
+    project.request("R1", "# Request 1: the goal can be reached\n")
+    saved = project.root / ".flowguard/conflicts.json"
+    path = project.flow("goal", GOAL.replace("TOP", "2").replace("WIDTH", "3"))
+    assert timed(project.root).code == 1
+    path.write_text(GOAL.replace("TOP", "2").replace("WIDTH", "399"))      # still unreachable; capped
+    capped = timed(project.root, "--max-states", "500")
+    assert capped.code == 1 and capped.first == "2 open conflicts; UNKNOWN: goal capped at 500 states", capped.out
+    assert len(json.loads(saved.read_text())["conflicts"]) == 2

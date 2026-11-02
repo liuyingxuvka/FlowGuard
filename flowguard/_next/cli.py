@@ -266,7 +266,7 @@ class Assembled:
     errors: list
     new: set
     max_states: int
-    closed: list = field(default_factory=list)     # (entry, why): a stored path that no longer reproduces
+    closed: list = field(default_factory=list)     # (entry, why): disproved by a capped check (path or reach)
 
 
 def assemble(root, outcome, previous: dict | None, *, max_states: int | None = None,
@@ -312,7 +312,8 @@ def _kept(root, models: dict, previous: dict | None, found: set, whole: bool) ->
     """The stored conflicts a check of their model did not find again, when that check
     cannot close them (design M6): it was capped, or the model did not load, or the model's
     file is gone (nothing explored its scope). Each stays open unless the replay of its
-    stored shrunk path no longer reproduces it (closed)."""
+    stored shrunk path no longer reproduces it, or (NEVER REACHED) this check reaches every
+    instance of it (closed)."""
     kept, closed = [], []
     existing = {p.stem for p in model_files(root)}
     for c in (previous or {}).get("conflicts", []):
@@ -326,13 +327,17 @@ def _kept(root, models: dict, previous: dict | None, found: set, whole: bool) ->
             continue
         if not view.finished or view.explored:
             continue
+        core = view.result("core")
+        if c["kind"] == "NEVER REACHED" and core is not None and core.info.get("loaded") \
+                and c["subject"] not in core.info.get("unreached", [c["subject"]]):
+            closed.append((c, "this check reaches it"))       # a reaching path is a fact, capped or not
+            continue
         replay = view.result("replay")
         outcome, why = (replay.info["replays"].get(c["id"]) if replay is not None else None) or (
             None, "no stored path to replay")
         if outcome == "gone":
-            closed.append((c, why))
+            closed.append((c, f"its stored path no longer reproduces it ({why})"))
             continue
-        core = view.result("core")
         scope = ("the model does not load" if core is None or not core.info["loaded"]
                  else "a model error cut this check short" if view.errors else "this check is capped")
         if outcome == "reproduces":
@@ -595,8 +600,7 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
     for f in open_:
         lines.append(_one_line(result, f, "OPEN") + (f" (kept: {f.detail['kept']})" if "kept" in f.detail else ""))
         lines += cause_lines(result, f)
-    lines += [f"closed {c['id']} {c['kind']} {c['model']}: its stored path no longer reproduces it ({why})"
-              for c, why in result.closed]
+    lines += [f"closed {c['id']} {c['kind']} {c['model']}: {why}" for c, why in result.closed]
     lines += [_warning_line(result, f) for f in result.warnings]
     for f in result.errors:
         lines += _error_lines(f)

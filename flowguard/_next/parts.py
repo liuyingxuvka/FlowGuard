@@ -141,7 +141,8 @@ def core_part(ctx: PartContext) -> PartResult:
             "holds": [list(h) for h in report.holds], "unknown": list(report.unknown),
             "seconds": round(report.graph.seconds, 3), "covers": list(model.covers),
             "families": sorted({f.family for f in model.fields}),
-            "objects": {kind: list(ids) for kind, ids in model.kinds.items()}}
+            "objects": {kind: list(ids) for kind, ids in model.kinds.items()},
+            "unreached": list(report.unreached)}
     findings = list(report.findings)
     if spec.option("verify_symmetry", False):
         sym = verify_symmetry(loaded, Bounds(max_states), report)
