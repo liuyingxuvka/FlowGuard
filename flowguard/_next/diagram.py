@@ -22,7 +22,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .checks import CONFLICT, Finding, Report, check_model
+from .checks import CONFLICT, Finding, Report, check_model, explanation_text
 from .explore import Bounds, explore, show_step
 from .jobs import ending_with_this_process
 from .model import ModelError, load_model, show_key
@@ -408,7 +408,7 @@ class Scene:
             if space is not None:
                 self.variant = (text, space)
                 self.extra_caption.append(f"dashed red: what the model also does only with {text}")
-                self.head = f"NEVER REACHED {f.subject}: reached only with {', '.join(how)} [{f.id}]"
+                self.head = f"NEVER REACHED {f.subject}: {explanation_text(d)} [{f.id}]"
                 return
         if key is not None:
             self.missing = (key, _value_from_repr(self.space.domains[key], d.get("value")))
@@ -416,7 +416,7 @@ class Scene:
             self.missing_item = f"{f.subject}: never happens"
         if how:
             self.extra_caption.append(f"the variant {how[0]} could not be rebuilt")
-        self.head = f"NEVER REACHED {f.subject}: no one-setting change reaches it [{f.id}]"
+        self.head = f"NEVER REACHED {f.subject}: {explanation_text(d) or 'no one-setting change tried'} [{f.id}]"
 
     def _variant_space(self, text):
         """Explore the model once more with one setting changed in place (the live dict, as

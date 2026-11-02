@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import diagram, jobs
-from .checks import CONFLICT, ERROR_CLS, WARNING, Finding
+from .checks import CONFLICT, ERROR_CLS, WARNING, Finding, explanation_text
 from .explore import Bounds
 from .model import natural_key
 from .parts import ENGINE_DIGEST
@@ -435,17 +435,9 @@ def _objects(result: Assembled, f: Finding) -> str:
 
 def _explanation(f: Finding) -> str:
     """The one-setting explanation of a NEVER REACHED item ("" when not explained)."""
-    how = f.detail.get("explained")
-    if f.kind != "NEVER REACHED" or how is None:
+    if f.kind != "NEVER REACHED":
         return ""
-    capped = f.detail.get("capped") or []
-    cut = f.detail.get("cut") or []
-    text = f"reached only with {', '.join(how)}" if how else "no one-setting change reaches it"
-    if capped:
-        text += f"; UNKNOWN with {', '.join(capped)} (capped)"
-    if cut:
-        text += f"; UNKNOWN with {', '.join(cut)} (cut short by a model error)"
-    return text
+    return explanation_text(f.detail) or ""
 
 
 def picture(result: Assembled, f: Finding) -> str | None:

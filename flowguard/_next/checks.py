@@ -1342,6 +1342,24 @@ def concurrency(model: Model) -> list[str]:
     return out
 
 
+def explanation_text(detail: dict) -> str | None:
+    """The one-setting explanation of a NEVER REACHED item as one phrase (None when none was
+    tried): the changes that reach it, and the changes whose search could not decide it
+    (capped, or cut short by a model error). With an undecided change nothing is "only"
+    and nothing is "no": "no complete one-setting change reaches it; undecided: n=60
+    (capped)", the same form as the never-taken line warning."""
+    how = detail.get("explained")
+    if how is None:
+        return None
+    undecided = [f"{c} (capped)" for c in detail.get("capped") or []] + \
+                [f"{c} (cut short by a model error)" for c in detail.get("cut") or []]
+    if how:
+        text = f"reached {'with' if undecided else 'only with'} {', '.join(how)}"
+    else:
+        text = "no complete one-setting change reaches it" if undecided else "no one-setting change reaches it"
+    return text + (f"; undecided: {', '.join(undecided)}" if undecided else "")
+
+
 def reach_line(reach: dict) -> str:
     """One line per model: completeness, renaming, settings and their origin, concurrency."""
     if reach["complete"]:

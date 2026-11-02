@@ -656,3 +656,45 @@ def test_release_runs_the_full_check_with_its_mutants(project):
     out = io.StringIO()
     assert cli.release(project.root, out=out, err=io.StringIO()) is False
     assert "  cause (check --full): without guard 'repairs only at main'" in out.getvalue()
+
+
+FAR_CORNER = '''
+from flowguard._next import Model, need
+m = Model("grow")
+m.setting("top", 2, vary=[60, 3])
+m.field("a", range(0, 61), 0)
+m.field("b", range(0, 400), 0)
+m.field("done", [False, True], False)
+
+@m.action()
+def up(s):
+    need(s["a"] < m.settings["top"], "at the top")
+    s["a"] += 1
+
+@m.action()
+def side(s):
+    need(s["b"] < 399, "at the end")
+    s["b"] += 1
+
+@m.action()
+def finish(s):
+    need(s["a"] == 60 and s["b"] == 399, "not at the far corner")
+    s["done"] = True
+MODEL = m
+'''
+
+
+def test_a_capped_one_setting_change_is_undecided_not_a_no(project):
+    """G7 round 2: only top=60 can reach the far corner, and that variant is capped (more
+    than 20,000 states), so no complete change reaches it and top=60 is undecided. The
+    text once said "no one-setting change reaches it; UNKNOWN with top=60 (capped)", which
+    contradicts itself; it now reads like the never-taken line warning, and a change that
+    did reach an item beside an undecided one is no longer "only"."""
+    project.flow("grow", FAR_CORNER)
+    run = timed(project.root)
+    assert run.code == 1, run.out
+    assert "  no complete one-setting change reaches it; undecided: top=60 (capped)" in run.lines, run.out
+    assert ("model warning grow: done = True is never reached (no complete one-setting change reaches it; "
+            "undecided: top=60 (capped))") in run.lines, run.out
+    assert "model warning grow: a = 3 is never reached (reached only with top=60, top=3)" in run.lines, run.out
+    assert not any("UNKNOWN with" in line or "no one-setting change reaches it;" in line for line in run.lines)
