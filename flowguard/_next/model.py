@@ -737,6 +737,16 @@ def _element(form):
     return {"kindrecs": "record", "kindvals": None}.get(form, "scalar")
 
 
+def _whole_step(step) -> bool:
+    """Whether a slice step keeps every item ([:], [::1], [::-1]); any other step, or one the
+    rule cannot read, picks items by their place."""
+    if step is None:
+        return True
+    if isinstance(step, ast.UnaryOp) and isinstance(step.op, ast.USub) and isinstance(step.operand, ast.Constant):
+        return step.operand.value == 1
+    return isinstance(step, ast.Constant) and step.value in (1, -1)
+
+
 def _target_names(target) -> list[str]:
     """The names an assignment target binds."""
     if isinstance(target, ast.Name):
@@ -1366,10 +1376,18 @@ class _IdUses:
                         doubt(f"looks for the text of a {kind} id in a text")
                     elif e is a and form in ("scalar", "record") and not self.followed(other, env):
                         doubt(f"looks a {kind} id up in a value the rule cannot follow")
+                    elif e is a and not self.followed(other, env):
+                        doubt(f"looks {kind} ids up in a value the rule cannot follow")
+                    elif e is b and form == "scalar":     # "1" in t: a search of the id's text
+                        doubt(f"looks for a value in the text of a {kind} id")
+                    elif e is b and not self.followed(other, env):
+                        doubt(f"looks a value the rule cannot follow up among {kind} ids")
                 elif form in _BY_KIND - {"unordered", "table"}:
                     doubt(f"compares a list in the declared order of the {kind} ids")
                 elif form in ("scalar", "record") and not self.followed(other, env):
                     doubt(f"compares a {kind} id with a value the rule cannot follow")
+                elif not self.followed(other, env):       # [t] == [...], {t} == {...}, {t: 1} == {...}
+                    doubt(f"compares {kind} ids with a value the rule cannot follow")
             return
         if isinstance(p, ast.Subscript):
             if p.value is e:
@@ -1379,7 +1397,8 @@ class _IdUses:
                     doubt(f"uses the text of a {kind} id ([...])")
                 elif form in _BY_KIND - {"table"} and not isinstance(p.slice, ast.Slice):
                     bad(f"[...] picks one {kind} id by its place in the declared order")
-                elif form in _BY_KIND - {"table"} and (p.slice.lower is not None or p.slice.upper is not None):
+                elif form in _BY_KIND - {"table"} and (p.slice.lower is not None or p.slice.upper is not None
+                                                        or not _whole_step(p.slice.step)):
                     bad(f"[...] picks {kind} ids by their place in the declared order")
                 return
             if self.state_access(p):
@@ -1391,6 +1410,9 @@ class _IdUses:
             return
         if isinstance(p, ast.BinOp):
             if isinstance(p.op, (ast.Add, ast.BitOr, ast.Sub, ast.BitAnd)) and form in _COLLECTIONS:
+                other = p.right if p.left is e else p.left
+                if not self.followed(other, env):          # set(IDS) - {"T" + "1"}: some ids, by their text
+                    doubt(f"combines {kind} ids with a value the rule cannot follow ({type(p.op).__name__})")
                 return
             doubt(f"computes with a {kind} id ({type(p.op).__name__})")
             return
@@ -1406,7 +1428,13 @@ class _IdUses:
                 doubt(f"uses the text of a {kind} id (.{p.attr})")
             elif p.attr == "index" and form in _BY_KIND:
                 bad(f"{kind} ids .index() depends on the order of the {kind} ids")
-            elif p.attr in ("count", "index", "copy", "keys", "values", "items", "get") or p.attr in _SET_METHODS:
+            elif p.attr in ("count", "index", "get") or p.attr in _SET_METHODS:
+                looked = list(call.args) + [k.value for k in call.keywords]
+                if not all(self.followed(x.value if isinstance(x, ast.Starred) else x, env) for x in looked[:1]):
+                    doubt(f"looks a value the rule cannot follow up among {kind} ids (.{p.attr})")
+                elif p.attr in _SET_METHODS and not all(self.followed(x, env) for x in looked):
+                    doubt(f"looks a value the rule cannot follow up among {kind} ids (.{p.attr})")
+            elif p.attr in ("copy", "keys", "values", "items"):
                 pass
             else:
                 doubt(f"passes {kind} ids to .{p.attr}()")

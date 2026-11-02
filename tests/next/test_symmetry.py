@@ -368,6 +368,60 @@ def test_a_pick_from_a_copy_of_the_ids_is_never_reduced(project, prelude, guard,
     assert any(f.kind == "STUCK" for f in report.findings)
 
 
+@pytest.mark.parametrize("prelude, guard, text", [
+    ("", '"1" in t', "looks for a value in the text of a machine id"),
+    ("", '"1" not in t', "looks for a value in the text of a machine id"),
+    ("", '("M" + "1") in [t]', "looks a value the rule cannot follow up among machine ids"),
+    ("", '("M" + "1") in {t: 1}', "looks a value the rule cannot follow up among machine ids"),
+    ("", '[t] == ["M" + "1"]', "compares machine ids with a value the rule cannot follow"),
+    ("", '{t} == {"M" + "1"}', "compares machine ids with a value the rule cannot follow"),
+    ("", '{t: 1} == {"M" + "1": 1}', "compares machine ids with a value the rule cannot follow"),
+    ("", '[t].count("M" + "1") == 1', "looks a value the rule cannot follow up among machine ids (.count)"),
+    ("", '{t: 1}.get("M" + "1")', "looks a value the rule cannot follow up among machine ids (.get)"),
+    ("", '{t}.issubset({"M" + "1"})', "looks a value the rule cannot follow up among machine ids (.issubset)"),
+    ("", 't in set(MACHINES) - {"M" + "2"}', "combines machine ids with a value the rule cannot follow (Sub)"),
+    ("", 't in (set(MACHINES) & {"M" + "1"})', "combines machine ids with a value the rule cannot follow (BitAnd)"),
+    ("OTHER = {'M' + '1'}", 't in set(MACHINES) & OTHER', "combines machine ids with a value the rule cannot follow"),
+    ("", '([t] + ["M" + "1"]).count(t) == 2', "combines machine ids with a value the rule cannot follow (Add)"),
+    ("ORDER = list(MACHINES)", "t in ORDER[::2]", "picks machine ids by their place in the declared order"),
+    ("ORDER = list(MACHINES)", "t not in ORDER[1::2]", "picks machine ids by their place in the declared order"),
+    ("ORDER = list(MACHINES)\nSTEP = 2", "t in ORDER[::STEP]", "picks machine ids by their place in the declared order"),
+])
+def test_an_id_in_a_container_or_text_against_what_the_rule_cannot_follow_is_never_reduced(project, prelude, guard,
+                                                                                          text):
+    """G3 round 3: only M1 may finish, so unreduced M2 stays busy; with the renaming on each
+    of these gave "clean, complete". The id used as the text searched ("1" in t), a container
+    holding ids searched or compared for a value the rule cannot follow (on either side of
+    in / == or as the argument of .count, .get or a set method), and a stepped slice of the
+    declared order now turn the renaming off (a doubt) or are a model error."""
+    project.flow("machines", FINISH.replace("PRELUDE", prelude).replace("GUARD", guard))
+    path = project.root / ".flowguard/flow/machines.py"
+    if "by their place" in text:
+        with pytest.raises(ModelError, match="treats machine ids asymmetrically") as err:
+            load_model(path, project.root)
+        assert text in err.value.text, err.value.text
+        return
+    loaded = load_model(path, project.root)
+    doubt = loaded.model.__dict__.get("_symmetry_doubt") or ""
+    assert text in doubt, doubt
+    report = check_model(loaded)
+    assert report.graph.sym is None, "reduced although an id may be told apart"
+    assert any(f.kind == "STUCK" for f in report.findings), [f.kind for f in report.findings]
+
+
+@pytest.mark.parametrize("guard", ['len([t]) == 1', '[t] == [t]', '{t}.issubset(set(MACHINES))',
+                                   '[t].count(t) == 1', 't in [t]', '"busy" in [s["state", t]]'])
+def test_a_container_of_ids_searched_for_what_the_rule_follows_keeps_the_renaming(project, guard):
+    """The other side of G3 round 3: searching or comparing ids against ids or constants the
+    rule follows treats them alike, so the model is still explored up to renaming (and,
+    with every machine free to finish, nothing is stuck)."""
+    project.flow("machines", FINISH.replace("PRELUDE", "").replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/machines.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
+    report = check_model(loaded)
+    assert report.graph.sym is not None and not report.findings, [f.text for f in report.findings]
+
+
 @pytest.mark.parametrize("extra, text", [
     ('@m.action()\ndef reset(s):\n    s["holder"] = "T" + "1"', "writes a value the rule cannot follow into 'holder'"),
     ('m.always("first field", lambda s: list(s.values())[0] == "shop")', "uses the model state"),
