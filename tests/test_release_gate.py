@@ -146,3 +146,53 @@ def test_an_internal_error_in_the_flow_gate_stops_the_release_with_exit_2(tmp_pa
     err = capsys.readouterr().err
     assert "error: flow models: internal error: KeyError: 'id' (tests/test_release_gate.py:" in err
     assert "Traceback" not in err
+
+
+def test_release_without_a_legacy_map_runs_the_flow_gate_and_the_suite(tmp_path, capsys):
+    """Acceptance A2: a project with only .flowguard/flow/ (no legacy map.json) gets the flow
+    gate (check --full) and, with --shards, its whole test suite; release says plainly that no
+    legacy map exists instead of stopping with "no map"."""
+    import shutil
+    from pathlib import Path
+    from flowguard.__main__ import main
+
+    flow = tmp_path / ".flowguard/flow"
+    flow.mkdir(parents=True)
+    shutil.copy(Path(__file__).parent / "flow/data/planted/rental_naive.py", flow / "rental.py")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_ok.py").write_text("def test_ok():\n    assert 1 + 1 == 2\n", encoding="utf-8")
+    capsys.readouterr()
+    assert main(["release", "--root", str(tmp_path)]) == 1
+    captured = capsys.readouterr()
+    lines = captured.out.splitlines()
+    assert "no map at" not in captured.out + captured.err and "map scan first" not in captured.out + captured.err
+    assert lines[0] == ("legacy map: none (.flowguard/map.json does not exist), so there is no map check, lint or "
+                        "legacy model to run; the flow models are checked, and the tests with --shards")
+    assert "flow: 1 new conflict; complete" in lines and any(line.startswith("flow: NEW STUCK rental: ") for line in lines)
+    assert "suite: not run (fix the failures above first)" not in lines          # no --shards: not asked
+    assert lines[-1].startswith("verify: FAIL")
+    (flow / "rental.py").write_text(DIAL, encoding="utf-8")
+    assert main(["release", "--root", str(tmp_path)]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert any(line.startswith("flow: clean, complete") for line in lines)
+    assert lines[-1] == ("verify: PASS (no test ran: without a legacy map no test is bound to a model; run the whole "
+                         "suite with python -m flowguard release --shards 4, or in CI)")
+    assert main(["release", "--shards", "1", "--root", str(tmp_path)]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert "suite: status: pass  executed 1 of 1" in "\n".join(lines) and lines[-1] == "verify: PASS"
+    (tests / "test_ok.py").write_text("def test_ok():\n    assert 1 + 1 == 3\n", encoding="utf-8")
+    assert main(["release", "--shards", "1", "--json", "--root", str(tmp_path)]) == 1
+    captured = capsys.readouterr()
+    [line] = captured.out.splitlines()
+    verdict = json.loads(line)
+    assert verdict["verdict"] == "FAIL" and dict(level="error", code="suite_failed", subject="suite") in verdict["codes"]
+    assert dict(level="info", code="no_legacy_map", subject="map") in verdict["codes"]
+
+
+def test_release_with_neither_map_nor_flow_models_still_names_the_first_step(tmp_path, capsys):
+    from flowguard.__main__ import main
+
+    (tmp_path / ".flowguard").mkdir()
+    assert main(["release", "--root", str(tmp_path)]) == 2
+    assert "no map at" in capsys.readouterr().err

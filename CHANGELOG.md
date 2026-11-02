@@ -10,7 +10,8 @@
 - Conflicts are recorded in `.flowguard/conflicts.json`; commit it. A conflict stays open until a complete check of its model no longer finds it.
 - `python -m flowguard show` draws the conflicts, or else the change against HEAD, as a flowchart: Mermaid text, plus SVG and PNG pictures where node with Playwright is installed.
 - `status` shows the flow models' open conflicts and whether they block a commit.
-- `release` runs the full check of the flow models after the legacy models, and fails on a conflict or a model error.
+- `release` runs the full check of the flow models after the legacy models, and fails on a conflict or a model error. A project with flow models and no legacy map gets the same flow check, and its whole test suite with `--shards`; the first line says that no legacy map exists.
+- When `.flowguard/conflicts.json` cannot be read (damaged, or left with git merge markers), `check`, `show` and `release` stop with one line that names the file and the step that restores it, exit 2. Any other unexpected error in these commands is one `internal error:` line, also exit 2: exit 1 always means a conflict.
 
 ## v0.72.0 - 2026-11-02 - A plain change flow, the owner's newest words and honest Git checks
 

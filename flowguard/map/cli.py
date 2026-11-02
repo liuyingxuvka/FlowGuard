@@ -477,6 +477,8 @@ def cmd_verify(root: Path, a) -> int:
     from .targetfile import target_seam
 
     _flow_record_readable(root)
+    if not map_path(root).is_file() and (root / ".flowguard" / "flow").is_dir():
+        return _release_without_map(root, a)
     data, inv = _context(root)
     as_json = getattr(a, "json", False)
     codes = []
@@ -525,6 +527,34 @@ def cmd_verify(root: Path, a) -> int:
             print(f"model execution mismatch: missing={sorted(expected - set(executed))}, unexpected={sorted(set(executed) - expected)}")
     failed = check["error"] + lint["error"] + sum(r.status != "pass" for r in results) + int(not complete)
     failed += _release_flow_models(root, as_json, codes)
+    return _release_suite_and_verdict(
+        root, a, codes, failed,
+        "only TESTED_BY tests ran; run the whole suite with python -m flowguard release --shards 4, or in CI")
+
+
+NO_MAP = (f"legacy map: none ({MAP_RELPATH} does not exist), so there is no map check, lint or legacy model to run; "
+          "the flow models are checked, and the tests with --shards")
+
+
+def _release_without_map(root: Path, a) -> int:
+    """release in a project with flow models and no legacy map: the flow gate (check --full)
+    and, with --shards, the whole test suite, saying first that no legacy map exists."""
+    as_json = getattr(a, "json", False)
+    codes = [dict(level="info", code="no_legacy_map", subject="map")]
+    if not as_json:
+        print(NO_MAP)
+    failed = _release_flow_models(root, as_json, codes)
+    return _release_suite_and_verdict(
+        root, a, codes, failed,
+        "no test ran: without a legacy map no test is bound to a model; run the whole suite with "
+        "python -m flowguard release --shards 4, or in CI")
+
+
+def _release_suite_and_verdict(root: Path, a, codes: list, failed: int, no_shards: str) -> int:
+    """The end every release takes: with --shards the whole suite (only when nothing failed
+    before), the release snapshot when all passed, then the verdict line (or --json verdict).
+    no_shards: what the verdict line adds when no --shards was given."""
+    as_json = getattr(a, "json", False)
     if a.shards is not None:
         if failed:
             if not as_json:
@@ -551,8 +581,7 @@ def cmd_verify(root: Path, a) -> int:
             print(f'error: {error}', file=sys.stderr)
     code = int(bool(failed))
     if not as_json:
-        suffix = (' (only TESTED_BY tests ran; run the whole suite with python -m flowguard release --shards 4, or in CI)'
-                  if a.shards is None else '')
+        suffix = f" ({no_shards})" if a.shards is None else ""
         print(f"verify: {'PASS' if not failed else 'FAIL'}" + suffix)
     if as_json:
         print_verdict("release", code, codes)
