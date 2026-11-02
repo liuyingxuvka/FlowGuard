@@ -382,8 +382,9 @@ def test_a_picture_written_for_a_conflict_is_printed(project):
 
 def test_status_lines_read_the_last_final_check(project):
     from flowguard.flow.cli import status_lines
-    assert status_lines(project.root) == ["flow models: no check recorded (run check)"]
+    assert status_lines(project.root) == []                  # no flow model and no check: nothing to say
     project.flow("dial", DIAL)
+    assert status_lines(project.root) == ["flow models: no check recorded (run python -m flowguard check)"]
     timed(project.root)
     assert status_lines(project.root) == ["flow models: clean"]
     project.kit().flow_from(KIT / "workshop_naive.py")

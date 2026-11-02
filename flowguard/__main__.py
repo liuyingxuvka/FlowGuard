@@ -18,7 +18,7 @@ from .map.common import advice, print_verdict, quiet_broken_pipe, render_advice,
 VERB_PURPOSE = {
     'read': 'Understand the components, models and their relationships.',
     'where': 'Locate source functions, calls, architecture and attributed original text without execution.',
-    'status': 'Resume from static project and target facts and the newest owner words; never explore.',
+    'status': 'Resume from static project and target facts, the newest owner words and the open flow-model conflicts; never explore.',
     'check': 'Explore the flow models in .flowguard/flow/ in every order and report conflicts, model warnings and what stays UNKNOWN.',
     'show': 'Draw the flowchart of a flow model: its conflicts, else its change against HEAD.',
     'change': 'Check an edit and run the affected tests and models.',

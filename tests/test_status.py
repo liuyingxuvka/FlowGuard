@@ -227,3 +227,30 @@ def test_status_lists_owner_words_newest_first_across_a_release(tmp_path, capsys
     text = capsys.readouterr().out
     assert ': 主人第一行 (+1 line)' in text and ': Old first line' in text
     assert 'release' in result['since_release']['known_from']
+
+
+def test_status_shows_the_flow_models_open_conflicts_from_the_last_check(tmp_path, capsys):
+    """One route: the line is the engine's own reading of .flowguard/conflicts.json, placed after
+    OPEN CHANGE; a project without flow models gets no line, a damaged record is named."""
+    from flowguard.__main__ import main
+    from flowguard.flow.cli import status_lines
+    root = _project(tmp_path)
+    capsys.readouterr()
+    assert _status(root, capsys)['flow_models'] == []
+    flow = root / '.flowguard/flow'
+    flow.mkdir(parents=True, exist_ok=True)
+    shutil.copy(Path(__file__).parent / 'flow/data/planted/rental_naive.py', flow / 'rental.py')
+    assert _status(root, capsys)['flow_models'] == ['flow models: no check recorded (run python -m flowguard check)']
+    assert main(['check', '--root', str(root)]) == 1
+    conflict = json.loads((root / '.flowguard/conflicts.json').read_text(encoding='utf-8'))['conflicts'][0]['id']
+    capsys.readouterr()
+    lines = _status(root, capsys)['flow_models']
+    assert lines == status_lines(root) == [f'flow models: 1 open conflict ({conflict}); a commit is blocked until fixed']
+    assert main(['status', '--root', str(root)]) == 0
+    text = capsys.readouterr().out.splitlines()
+    opened = next(number for number, line in enumerate(text) if line.startswith('OPEN CHANGE'))
+    assert text[opened + 1] == lines[0]
+    (root / '.flowguard/conflicts.json').write_text('<<<<<<< HEAD\n', encoding='utf-8')
+    [damaged] = _status(root, capsys)['flow_models']
+    assert damaged.startswith('flow models: .flowguard/conflicts.json cannot be read (')
+    assert damaged.endswith('until it is restored (git checkout -- .flowguard/conflicts.json)')

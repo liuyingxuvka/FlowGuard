@@ -27,7 +27,7 @@ from .checks import CONFLICT, ERROR_CLS, GONE, REPLAYED, WARNING, Finding, expla
 from .explore import Bounds
 from .model import natural_key
 from .parts import ENGINE_DIGEST
-from .project import (FLOW_DIR, PROG, ProjectError, conflict_entry, find_root, model_files,
+from .project import (CONFLICTS, FLOW_DIR, PROG, ProjectError, conflict_entry, find_root, model_files,
                       overlap_views, read_conflicts, request_lines, resolve_models, write_conflicts)
 
 EXIT_CLEAN, EXIT_CONFLICT, EXIT_ERROR, EXIT_UNKNOWN, EXIT_RUNNING = 0, 1, 2, 3, 4
@@ -694,7 +694,7 @@ RELEASE_WAIT = 3600                # the release check may run long (design 7.6)
 
 
 def release(root, *, out=None, err=None) -> bool:
-    """The flow-model part of the legacy `release` (design 7.6, wired by the move-in): check
+    """The flow-model part of `python -m flowguard release` (design 7.6): check
     every model with --full (the deliberate-breakage mutants and the unreduced symmetry
     check) and the release wait. True when the release may go on: a conflict or a model
     error stops it (UNKNOWN does not); work still RUNNING after the wait stops it too, since
@@ -704,11 +704,16 @@ def release(root, *, out=None, err=None) -> bool:
 
 
 def status_lines(root) -> list[str]:
-    """For the legacy `status` (move-in, design 7.6): open conflicts of the flow models
-    from the last final check, and what blocks a commit."""
-    data = read_conflicts(root)
+    """For `python -m flowguard status`: open conflicts of the flow models from the last
+    final check (.flowguard/conflicts.json, the only source), and what blocks a commit.
+    A project with no flow model and no recorded check gets no line."""
+    try:
+        data = read_conflicts(root)
+    except (OSError, ValueError) as e:
+        return [f"flow models: {CONFLICTS.as_posix()} cannot be read ({e}); its open conflicts are unknown "
+                f"until it is restored (git checkout -- {CONFLICTS.as_posix()})"]
     if data is None:
-        return ["flow models: no check recorded (run check)"]
+        return [f"flow models: no check recorded (run {PROG} check)"] if model_files(Path(root)) else []
     conflicts = data["conflicts"]
     unknown = data["unknown"]
     models = data.get("models", {})

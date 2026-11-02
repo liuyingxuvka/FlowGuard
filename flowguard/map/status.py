@@ -137,8 +137,10 @@ def collect_status(root, *, read_git_paths, version):
         elif unpublished:
             note = (f'change {unpublished[-1][0]} records no file list (promoted before FlowGuard 0.72.0 or outside Git): '
                     'stage its files, then commit them with your own message.')
-    return dict(root=str(root), scope='legacy static status; no exploration or stored verdicts', git=git,
-                change=change, plan=plan, verdicts=dict(stored=False), owner_words=words,
+    from ..flow.cli import status_lines  # the flow models' open conflicts: .flowguard/conflicts.json only
+    return dict(root=str(root), scope='static status, no exploration; flow-model conflicts as the last final check '
+                'recorded them', git=git,
+                change=change, plan=plan, verdicts=dict(stored=False), flow_models=status_lines(root), owner_words=words,
                 since_release=history, unreadable_records=[dict(id=identifier, error=error) for identifier, error in unreadable],
                 other_changes=others, jobs='none in the legacy runtime',
                 skill_warnings=installed_skill_warnings(version), next=next_step, next_note=note)
@@ -299,6 +301,7 @@ def render_status(result):
             lines.append('  added after code: unknown; static status stores no edit-order or completion verdict')
     else:
         lines.append('OPEN CHANGE none [current target directory, static, now]')
+    lines.extend(result['flow_models'])
     lines.extend(render_owner_words(result['owner_words']))
     lines.extend(f"WARNING change record {item['id']} unreadable: {item['error']}"
                  for item in result['unreadable_records'])
