@@ -1137,3 +1137,101 @@ def test_per_id_values_that_are_equal_only_when_the_same_keep_the_renaming(proje
     loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
     assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
     assert check_model(loaded).graph.sym is not None
+
+
+IN_A_COMPREHENSION = {
+    "a list comprehension": f'need([{ID_TEST} for _ in (0,)] != [(False, True)], {SECOND_ONLY})',
+    "a set comprehension": f'need({{{ID_TEST} for _ in (0,)}} != {{(False, True)}}, {SECOND_ONLY})',
+    "a generator in set()": f'need(set({ID_TEST} for _ in (0,)) != {{(False, True)}}, {SECOND_ONLY})',
+    "a generator searched with in": f'need((False, True) not in ({ID_TEST} for _ in range(1)), {SECOND_ONLY})',
+    "a dict comprehension's value": f'need({{1: {ID_TEST} for _ in (0,)}} != {{1: (False, True)}}, {SECOND_ONLY})',
+    "a dict comprehension's key": f'need({{{ID_TEST}: 1 for _ in (0,)}} != {{(False, True): 1}}, {SECOND_ONLY})',
+    "a comprehension over a generator": f'need({{x for x in ({ID_TEST} for _ in (0,))}} != {{(False, True)}}, '
+                                        f'{SECOND_ONLY})',
+    "rows of a comprehension over the ids": f'need(not any(r == (False, True) for r in [{ID_TEST} for _ in TOOLS]), '
+                                            f'{SECOND_ONLY})',
+    "an id among a dict's values": f'need(not {{0: t}}[0].endswith("2"), {SECOND_ONLY})',
+}
+
+
+@pytest.mark.parametrize("how", list(IN_A_COMPREHENSION))
+def test_a_list_in_the_declared_order_made_the_item_of_a_comprehension_is_never_reduced(project, how):
+    """G3 round 6 (c): a tuple of per-id values in the declared order put into a display
+    ([v], {v}, {1: v}) was a doubt, but the same tuple as the item of a list, set,
+    generator or dict comprehension (`[v for _ in (0,)]`, `{1: v for _ in (0,)}`) was not
+    judged, and the comprehension held "ids in data order": "clean, complete" for a guard
+    only the second tool fails. An id among a mapping's values was not followed at all
+    (`{0: t}[0]` is t). Both are now a doubt: no renaming, T2 found stuck."""
+    project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", IN_A_COMPREHENSION[how]))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt"), "no doubt recorded"
+    report = check_model(loaded)
+    assert report.graph.sym is None, "reduced although a tool may be told apart"
+    plain = check_model(loaded, reduce=False)
+    assert sorted((f.kind, f.subject, tuple(f.objects)) for f in report.findings) == \
+        sorted((f.kind, f.subject, tuple(f.objects)) for f in plain.findings)
+    assert any(f.kind == "STUCK" for f in report.findings), [f.kind for f in report.findings]
+
+
+def test_a_comprehension_item_in_a_progress_when_is_never_reduced(project):
+    """The reviewer's progress form: the reduced run reported T1 stuck, the plain run T2."""
+    when = f"[{ID_TEST} for _ in (0,)] == [(False, True)] and s['busy', t]"
+    text = CARRY.replace("HELPERS", "").replace("GUARD", "pass").replace(
+        "MODEL = m", f'm.progress("the second is freed at once", over=TOOLS, when=lambda s, t: {when}, '
+                     f'goal=lambda s, t: False)\nMODEL = m')
+    project.flow("tools", text)
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt"), "no doubt recorded"
+    assert check_model(loaded).graph.sym is None
+
+
+RETURNED = {
+    "a lambda called where it stands": ("", f"need((lambda: {ID_TEST})() != (False, True), {SECOND_ONLY})"),
+    "a lambda bound to a name": ("", f"get = lambda: {ID_TEST}\n    need(get() != (False, True), {SECOND_ONLY})"),
+    "a lambda in a list": ("", f"need([lambda: {ID_TEST}][0]() != (False, True), {SECOND_ONLY})"),
+    "a lambda's default": ("", f"need((lambda v={ID_TEST}: v)() != (False, True), {SECOND_ONLY})"),
+    "a lambda passed to a helper": ("def call(f):\n    return f()",
+                                    f"need(call(lambda: {ID_TEST}) != (False, True), {SECOND_ONLY})"),
+    "a def passed to a helper": ("def call(f):\n    return f()",
+                                 f"def get():\n        return {ID_TEST}\n    need(call(get) != (False, True), "
+                                 f"{SECOND_ONLY})"),
+    "a def bound to another name": ("", f"def get():\n        return {ID_TEST}\n    other = get\n"
+                                        f"    need(other() != (False, True), {SECOND_ONLY})"),
+    "a helper that returns a set of it": ("def vals(t):\n    return set(tuple(u == t for u in TOOLS) for _ in (0,))",
+                                          f"need(vals(t) != {{(False, True)}}, {SECOND_ONLY})"),
+}
+
+
+@pytest.mark.parametrize("how", list(RETURNED))
+def test_ids_a_function_returns_where_the_rule_does_not_follow_the_call_are_never_reduced(project, how):
+    """G3 round 6 (c): what a helper returns is followed to the calls of it by name. A
+    lambda's value goes to whoever calls the lambda (`(lambda: v)()`, a name bound to it, a
+    helper it is passed to), and so does a def's when it is passed or renamed: none of
+    those calls was judged, "clean, complete" for a guard only the second tool fails. Ids
+    returned by a function that the engine does not call, and that is not only called by
+    its name, are now a doubt: no renaming, T2 found stuck."""
+    helpers, guard = RETURNED[how]
+    project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt"), "no doubt recorded"
+    report = check_model(loaded)
+    assert report.graph.sym is None, "reduced although a tool may be told apart"
+    plain = check_model(loaded, reduce=False)
+    assert sorted((f.kind, f.subject, tuple(f.objects)) for f in report.findings) == \
+        sorted((f.kind, f.subject, tuple(f.objects)) for f in plain.findings)
+    assert any(f.kind == "STUCK" for f in report.findings), [f.kind for f in report.findings]
+
+
+@pytest.mark.parametrize("helpers, guard", [
+    ("def same(x):\n    return x", 'need(same(t) == t, "never")'),
+    ("", 'need(all(x == x for x in [t for _ in (0,)]), "never")'),
+    ("", 'need(any(v == t for v in {t: 1}), "never")'),
+    ("def offered(s, t):\n    return t if s['busy', t] else None\nm.option('free', offered, t=TOOLS)", "pass")])
+def test_ids_returned_to_calls_the_rule_follows_keep_the_renaming(project, helpers, guard):
+    """The other side: a helper called by its name, an id as the item of a comprehension or
+    as a mapping's key, and a function the engine calls (its value is only taken as true or
+    false) treat every id alike."""
+    project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
+    assert check_model(loaded).graph.sym is not None

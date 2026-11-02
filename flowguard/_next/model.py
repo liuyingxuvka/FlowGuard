@@ -934,6 +934,13 @@ def _plain_decorator(dec) -> bool:
         and func.value.id == "functools")
 
 
+def _declaration(call) -> bool:
+    """m.always(...), m.progress(...), m.action(...)(fn): a call that gives the engine the
+    functions passed to it."""
+    func = call.func.func if isinstance(call.func, ast.Call) else call.func
+    return isinstance(func, ast.Attribute) and func.attr in _DECLARATIONS
+
+
 def _element(form):
     """What iterating over a collection of this form yields."""
     return {"kindrecs": "record", "kindvals": None}.get(form, "scalar")
@@ -1137,6 +1144,7 @@ class _IdUses:
         self.modules = {}                          # path -> module-level names holding ids
         self.enclosing = {}                        # id(function node) -> enclosing function node
         self.violations, self.doubts = [], []
+        self.engine_nodes = set()                  # id() of every def or lambda the engine calls
         for path, tree in trees:
             for node in ast.walk(tree):
                 for child in ast.iter_child_nodes(node):
@@ -1266,6 +1274,7 @@ class _IdUses:
                 self.doubts.append((*where, f"{what} runs code the rule does not read"))
                 continue
             for node in nodes:
+                self.engine_nodes.add(id(node))
                 for position, sh in enumerate(shapes):
                     if sh is not None and sh[0] == "odd":
                         self.doubts.append((found[0], node.lineno, f"{what} is called with values holding "
@@ -2249,9 +2258,13 @@ class _IdUses:
                 and isinstance(p.func, ast.Name) and p.func.id in self.functions:
             bad(f"*... spreads {kind} ids into parameters by their place in the declared order")
             return
-        if p is None or isinstance(p, (ast.Expr, ast.Assign, ast.AnnAssign, ast.NamedExpr, ast.Return,
-                                       ast.BoolOp, ast.Assert, ast.If, ast.While, ast.Lambda, ast.Await,
-                                       ast.arguments)):
+        if isinstance(p, ast.Return) or (isinstance(p, ast.Lambda) and p.body is e):
+            fn = p if isinstance(p, ast.Lambda) else self.function_of(p)
+            if fn is not None and not self.result_followed(fn):
+                doubt(f"returns {kind} ids from a function whose calls the rule does not follow")
+            return
+        if p is None or isinstance(p, (ast.Expr, ast.Assign, ast.AnnAssign, ast.NamedExpr, ast.BoolOp, ast.Assert,
+                                       ast.If, ast.While, ast.Await, ast.arguments)):
             return                                 # a default: judged where the parameter is used
         if isinstance(p, ast.UnaryOp):
             if isinstance(p.op, ast.Not):
@@ -2260,9 +2273,13 @@ class _IdUses:
             return
         if isinstance(p, _TRANSPARENT) or isinstance(p, (ast.Dict, ast.comprehension, ast.GeneratorExp, ast.ListComp,
                                                          ast.SetComp, ast.DictComp)):
-            if form in _IN_ORDER and isinstance(p, (ast.Tuple, ast.List, ast.Set, ast.Dict)) \
-                    and not isinstance(e, ast.Starred):    # [*vals] spreads them: judged as one list
+            item = isinstance(p, (ast.Tuple, ast.List, ast.Set, ast.Dict, ast.GeneratorExp, ast.ListComp, ast.SetComp,
+                                  ast.DictComp))     # an item of a display or of a comprehension (its iter: comprehension)
+            if form in _IN_ORDER and item and not isinstance(e, ast.Starred):   # [*vals] spreads them: one list
                 doubt(f"puts a list in the declared order of the {kind} ids into a container")  # (x, 1) in {...}
+            elif (isinstance(p, ast.Dict) and any(v is e for v in p.values)) \
+                    or (isinstance(p, ast.DictComp) and p.value is e):
+                doubt(f"puts {kind} ids among a mapping's values, which the rule does not follow")
             return                                 # the container holds the ids: judged where it is used
         if isinstance(p, (ast.For, ast.AsyncFor)):
             if p.iter is e and form in _BY_KIND and _loop_exits(p.body):
@@ -2355,6 +2372,30 @@ class _IdUses:
             self.judge_call(call, e, form, kind, bad, doubt, env)
             return
         doubt(f"uses a {kind} id in a way the rule cannot judge ({type(p).__name__})")
+
+    def result_followed(self, fn) -> bool:
+        """Whether every call of a function that returns ids is judged: the engine's calls (it
+        takes the value as true or false), and the calls of a helper by its name (shape()
+        gives them what it returns). A lambda the engine does not call, a method, a def bound
+        twice or replaced by a decorator, and a def passed, renamed or reached as an attribute
+        give their value to calls the rule does not follow."""
+        if isinstance(fn, ast.Lambda) or self.functions.get(fn.name) is not fn \
+                or isinstance(self.parents.get(id(fn)), ast.ClassDef):
+            return id(fn) in self.engine_nodes
+        for _, tree in self.trees:
+            for n in ast.walk(tree):
+                if isinstance(n, ast.Attribute) and n.attr == fn.name:
+                    return False                   # module.helper(...): a call the rule does not follow
+                if not (isinstance(n, ast.Name) and n.id == fn.name and isinstance(n.ctx, ast.Load)):
+                    continue
+                up = self.parents.get(id(n))
+                if isinstance(up, ast.keyword):
+                    up = self.parents.get(id(up))
+                elif isinstance(up, ast.Call) and up.func is n:
+                    continue                       # called by its name
+                if not (isinstance(up, ast.Call) and _declaration(up)):
+                    return False
+        return True
 
     def judge_state(self, e, p, doubt, env):
         """The model state may be read and written by key, mark its effects (s.source) and go to
