@@ -52,6 +52,13 @@ jobs:
       - name: Install FlowGuard
         run: python -m pip install -e ".[dev]"
 
+      - name: Picture renderer of the flow models (node with Playwright and Chromium)
+        if: matrix.full
+        run: |
+          npm install --global playwright@1.56.1
+          npx --yes playwright@1.56.1 install --with-deps chromium
+          echo "NODE_PATH=$(npm root --global)" >> "$GITHUB_ENV"
+
       - name: Release gate and the whole suite in 4 shards on Ubuntu Python 3.11
         if: matrix.full
         run: python -m flowguard release --shards 4
