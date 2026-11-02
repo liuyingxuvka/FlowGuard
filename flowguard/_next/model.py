@@ -885,8 +885,14 @@ class _IdUses:
                             other.add(a.asname or a.name)
                 elif hasattr(ast, "MatchAs") and isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name:
                     other.add(node.name)
+        by_name = _BUILTIN_NAMES | _ALIKE_FUNCS | _ORDER_FUNCS | _TEXT_FUNCS | {"next"}
+        for name, nodes in defs.items():               # a def hiding a name the rule judges by name
+            if name in by_name:
+                path = next(p for p, tree in self.trees if any(n is nodes[0] for n in ast.walk(tree)))
+                self.doubts.append((path, nodes[0].lineno, f"defines {name}(), a name the rule judges as the "
+                                                           f"builtin or flowguard function it hides"))
         return {name: nodes[0] for name, nodes in defs.items()
-                if len(nodes) == 1 and name not in other and name not in _BUILTIN_NAMES
+                if len(nodes) == 1 and name not in other and name not in by_name
                 and all(_plain_decorator(d) for d in nodes[0].decorator_list)}
 
     # -------------------------------------------------------------- what the engine calls

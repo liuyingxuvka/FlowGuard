@@ -590,6 +590,11 @@ def fix(s, t):
                                        FIX_BY_DEF.replace("GUARD", "apply(lambda x: x.endswith('1'), t)"),
     "a decorated helper": "def swap(fn):\n    return lambda x: x.endswith('1')\n@swap\ndef first(x):\n"
                           "    return True\n" + FIX_BY_DEF.replace("GUARD", "first(t)"),
+    "a helper named like a builtin": "def all(x):\n    return x.endswith('1')\n" + FIX_BY_DEF.replace("GUARD", "all(t)"),
+    "a helper named like need": "from flowguard._next import need as _need\ndef need(c, why, x=None):\n"
+                                "    _need(c and (x is None or x.endswith('1')), why)\n" +
+                                FIX_BY_DEF.replace('need(GUARD, "only M1 can be fixed")',
+                                                   'need(True, "only M1 can be fixed", t)'),
 }
 
 
