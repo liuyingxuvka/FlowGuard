@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.72.0 - 2026-11-02 - A plain change flow, the owner's newest words and honest Git checks
 
 - A normal change no longer needs the legacy map, models or target commands. Run `status`, store the owner's words with `req add`, find code with `where`, run your tests, and commit in your own words with a `Request: R<n>` line.
 - The README's five-minute start, the skill and the adoption rules teach only this flow.
@@ -51,6 +51,7 @@
 - Improve the shared source index for constant and annotated assignments, complete references, command-handler bindings and field lifecycle facts without creating a second index.
 - Clean up owned child processes after an interrupted check while preserving the interrupt and leaving unrelated processes alone.
 - Keep Python 3.11 support, the existing model workflow, 64 public exports and the current map format.
+- This release added the `where` command, so by the project's own rule it should have been a minor version (v0.72.0). Its tag stays as published.
 
 ## v0.71.0 - 2026-10-31 - Model-linked plans, original requests and runnable next steps
 
