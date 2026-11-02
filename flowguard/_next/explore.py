@@ -325,7 +325,7 @@ class Graph:
         self.parent = []
         self.complete = True             # every reachable state expanded, with no model error on the way
         self.bounded = False             # the state bound was hit
-        self.cut = 0                     # model errors the search met (each one cuts the graph short)
+        self.cut = 0                     # model errors the search met, each counted once (they cut the graph short)
         self.stopped_early = False
         self.errors = []
         self.broken = {}
@@ -508,6 +508,7 @@ def explore(model: Model, bounds: Bounds = Bounds(), *, targets=None, check_doma
     g.states, g.parent = states, parent
     out, perms = g.out, g.perm
     errors = g.errors
+    error_seen = set()
     broken, contra = g.broken, g.contra
     done_actions, offered = g.done_actions, g.offered
     always = [r for r in model.rules if r.kind == "always"]
@@ -538,8 +539,13 @@ def explore(model: Model, bounds: Bounds = Bounds(), *, targets=None, check_doma
     max_states = bounds.max_states
 
     def model_error(text, i, c, err=None):
-        if len(errors) < _MAX_ERRORS:
-            file, line = _location(err, root) if err is not None else (None, None)
+        """One model error per place and text: the first state that meets it (the shortest
+        path; states are expanded in order) stands for every later one."""
+        if len(errors) >= _MAX_ERRORS:
+            return
+        file, line = _location(err, root) if err is not None else (None, None)
+        if (file, line, text) not in error_seen:
+            error_seen.add((file, line, text))
             errors.append(ModelError(text, file, line, at=(i, c)))
 
     def safe(rule, args, i, c):

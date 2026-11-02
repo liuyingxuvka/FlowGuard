@@ -684,6 +684,42 @@ def test_a_model_error_in_the_search_closes_nothing_and_proves_nothing(project):
     assert [c["id"] for c in json.loads(saved.read_text())["conflicts"]] == [cid]
 
 
+CLOCK_ERROR = '''
+from flowguard._next import Model, need
+
+m = Model("clock")
+m.field("day", range(0, 6), 0)
+m.field("lamp", [False, True], False)
+
+
+@m.action()
+def tick(s):
+    need(s["day"] < 5, "the last day")
+    s["day"] += 1
+
+
+@m.action()
+def flip(s):
+    s["lamp"] = not s["lamp"]
+
+
+m.always("the lamp is read", lambda s: {}["x"] if s["day"] > 1 else True)
+MODEL = m
+'''
+
+
+def test_one_model_error_met_in_many_states_is_counted_once(project):
+    """Review of round 5, item 4: a rule that raises the same error in every state from day 2
+    on gave "1 model error" in the first line and "CUT SHORT by 8 model errors" in the reach
+    line (one per state where it was met). Both now count the model errors to fix: one."""
+    project.flow("clock", CLOCK_ERROR)
+    run = timed(project.root)
+    assert run.code == 2, run.out
+    assert run.first.startswith("no conflict found; 1 model error; UNKNOWN: clock cut short by a model error"), run.out
+    assert len([x for x in run.lines if x.startswith("MODEL ERROR ")]) == 1, run.out
+    assert "clock: CUT SHORT by 1 model error: UNKNOWN for" in run.out, run.out
+
+
 def test_the_text_names_the_declared_second_routes(project):
     """G4: a kept second route is printed in the text, not only in --json."""
     text = (DATA / "toy_next" / "rental_planted.py").read_text(encoding="utf-8").replace(
