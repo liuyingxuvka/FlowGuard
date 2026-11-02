@@ -22,7 +22,7 @@ VERB_PURPOSE = {
     'check': 'Explore the flow models in .flowguard/flow/ in every order and report conflicts, model warnings and what stays UNKNOWN.',
     'show': 'Draw the flowchart of a flow model: its conflicts, else its change against HEAD.',
     'change': 'Check an edit and run the affected tests and models.',
-    'release': 'Run the release gate, optionally with whole-suite shards.',
+    'release': 'Run the release gate, the legacy models and the full check of the flow models, optionally with whole-suite shards.',
     'template': 'Write starter model and test files.',
     'target': 'Legacy route, kept until v1.0.0: plan, check and promote a change of the legacy models.',
     'req': "Store the owner's words byte for byte, with immutable metadata; retire a stored text the owner did not write.",

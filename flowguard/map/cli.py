@@ -434,6 +434,25 @@ def cmd_models(root: Path, a) -> int:
     return 1 if any(r.status != "pass" for r in results) else 0
 
 
+def _release_flow_models(root: Path, as_json: bool, codes: list) -> int:
+    """The flow models of .flowguard/flow/ through the engine's own release rule: a complete
+    check with their deliberate-breakage mutants (check --full). Its report lines are printed
+    with a "flow:" prefix; with --json only when they stop the release, and on stderr, so
+    stdout keeps its one verdict line. 1 when they stop the release, else 0."""
+    import io
+    from ..flow.cli import release
+
+    report = io.StringIO()
+    passed = release(root, out=report, err=sys.stderr)
+    if not as_json or not passed:
+        for line in report.getvalue().splitlines():
+            print(f"flow: {line}", file=sys.stderr if as_json else sys.stdout)
+    if passed:
+        return 0
+    codes.append(dict(level="error", code="flow_models", subject="flow"))
+    return 1
+
+
 def cmd_verify(root: Path, a) -> int:
     from .debts import evaluate_debts
     from .targetfile import target_seam
@@ -485,6 +504,7 @@ def cmd_verify(root: Path, a) -> int:
         if not as_json:
             print(f"model execution mismatch: missing={sorted(expected - set(executed))}, unexpected={sorted(set(executed) - expected)}")
     failed = check["error"] + lint["error"] + sum(r.status != "pass" for r in results) + int(not complete)
+    failed += _release_flow_models(root, as_json, codes)
     if a.shards is not None:
         if failed:
             if not as_json:
