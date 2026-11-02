@@ -829,3 +829,62 @@ def test_a_loop_name_read_after_a_later_loop_is_still_a_pick_by_place(project, g
     project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", guard))
     with pytest.raises(ModelError, match="keeps 'u' after it ends"):
         load_model(project.root / ".flowguard/flow/tools.py", project.root)
+
+
+IN_DECLARED_ORDER = {
+    "a rule, against a set": ('m.always("never the first alone", lambda s: tuple(s["busy", u] for u in TOOLS) '
+                              'not in {(True, False)})', "pass", "BROKEN"),
+    "a rule, against a list": ('m.always("never the first alone", lambda s: tuple(s["busy", u] for u in TOOLS) '
+                               'not in [(True, False)])', "pass", "BROKEN"),
+    "a rule, against a tuple": ('m.always("never the first alone", lambda s: [s["busy", u] for u in TOOLS] '
+                                'not in ([True, False],))', "pass", "BROKEN"),
+    "a rule, inside a list searched": ('m.always("never the first alone", lambda s: (True, False) '
+                                       'not in [tuple(s["busy", u] for u in TOOLS)])', "pass", "BROKEN"),
+    "a guard, against a set": ("", 'need(tuple(u == t for u in TOOLS) not in {(True, False)}, "the first stays busy")',
+                               "STUCK"),
+    "a guard, against a list": ("", 'need(tuple(u == t for u in TOOLS) not in [(True, False)], "the first stays busy")',
+                                "STUCK"),
+    "a guard, against a tuple": ("", 'need(tuple(u == t for u in TOOLS) not in ((True, False),), '
+                                     '"the first stays busy")', "STUCK"),
+    "a rule, a value of a list searched": ('m.always("never the first alone", lambda s: not any(v == (True, False) '
+                                           'for v in [tuple(s["busy", u] for u in TOOLS)]))', "pass", "BROKEN"),
+    "a guard, a loop over a list holding it": ("", 'for v in [tuple(u == t for u in TOOLS)]:\n'
+                                                   '        need(v != (True, False), "the first stays busy")', "STUCK"),
+    "progress when=": ('m.progress("the second is freed at once", over=TOOLS, when=lambda s, t: '
+                       'tuple(u == t for u in TOOLS) in {(False, True)} and s["busy", t], goal=lambda s, t: False)',
+                       "pass", "STUCK"),
+}
+
+
+@pytest.mark.parametrize("how", list(IN_DECLARED_ORDER))
+def test_a_list_in_the_declared_order_searched_for_in_a_container_is_never_reduced(project, how):
+    """G3 round 4: a tuple of per-id values in the declared order, looked up with in / not
+    in among literal tuples, tells T1 from T2 exactly as == against such a tuple does, and
+    == was already a doubt. In a rule, a guard or a progress when= it was explored up to
+    renaming: "clean, complete" for a rule only the first tool alone breaks, a stuck tool
+    reported for both tools or missed. It is now a doubt: no renaming, the conflict found."""
+    helpers, guard, kind = IN_DECLARED_ORDER[how]
+    project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    doubt = loaded.model.__dict__.get("_symmetry_doubt") or ""
+    assert "a list in the declared order of the tool ids" in doubt, doubt
+    report = check_model(loaded)
+    assert report.graph.sym is None, "reduced although a tool may be told apart"
+    plain = check_model(loaded, reduce=False)
+    assert sorted((f.kind, f.subject, tuple(f.objects)) for f in report.findings) == \
+        sorted((f.kind, f.subject, tuple(f.objects)) for f in plain.findings)
+    assert any(f.kind == kind for f in report.findings), [f.kind for f in report.findings]
+
+
+@pytest.mark.parametrize("helpers, guard", [
+    ("", 'need(True in tuple(u == t for u in TOOLS), "never")'),
+    ("", 'need(s["busy", t] in (True, False), "never")'),
+    ("", 'need(any(x for x in [s["busy", u] for u in TOOLS]), "none busy")'),
+    ("", 'need(len([*(s["busy", u] for u in TOOLS)]) == 2, "never")')])
+def test_a_search_among_values_in_the_declared_order_keeps_the_renaming(project, helpers, guard):
+    """The other side: looking a value up among per-id values (whatever their order), a
+    per-id value among constants, and the ids spread into a list treat every id alike."""
+    project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
+    assert check_model(loaded).graph.sym is not None

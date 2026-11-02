@@ -728,6 +728,7 @@ _DECLARATIONS = {"action", "option", "progress", "reach", "only_when", "after", 
 #   table      a mapping keyed by ids, built over all of them
 _COLLECTIONS = {"kindlist", "kindrecs", "kindvals", "unordered", "sequence", "record", "table"}
 _BY_KIND = {"kindlist", "kindrecs", "kindvals", "unordered", "table"}     # their order is no data
+_IN_ORDER = _BY_KIND - {"unordered", "table"}                              # ... but they keep it
 _TRANSPARENT = (ast.Tuple, ast.List, ast.Set, ast.IfExp, ast.Starred)
 _DYNAMIC = {"eval", "exec", "compile", "globals", "locals", "vars", "getattr", "setattr", "delattr", "__import__"}
 _STATE = ("state", None)                  # the model state an action or rule receives
@@ -1991,8 +1992,9 @@ class _IdUses:
             return
         if isinstance(p, _TRANSPARENT) or isinstance(p, (ast.Dict, ast.comprehension, ast.GeneratorExp, ast.ListComp,
                                                          ast.SetComp, ast.DictComp)):
-            if isinstance(p, ast.comprehension) and p.iter is not e:
-                return
+            if form in _IN_ORDER and isinstance(p, (ast.Tuple, ast.List, ast.Set, ast.Dict)) \
+                    and not isinstance(e, ast.Starred):    # [*vals] spreads them: judged as one list
+                doubt(f"puts a list in the declared order of the {kind} ids into a container")  # (x, 1) in {...}
             return                                 # the container holds the ids: judged where it is used
         if isinstance(p, (ast.For, ast.AsyncFor)):
             if p.iter is e and form in _BY_KIND and _loop_exits(p.body):
@@ -2007,7 +2009,9 @@ class _IdUses:
                 if isinstance(op, _ORDER_OPS):
                     bad(f"compares {kind} ids by order")
                 elif isinstance(op, (ast.In, ast.NotIn)):
-                    if e is a and form in ("scalar", "record") and isinstance(other, ast.Constant) \
+                    if e is a and form in _IN_ORDER:      # an equality test with each item, like ==
+                        doubt(f"looks for a list in the declared order of the {kind} ids in a container")
+                    elif e is a and form in ("scalar", "record") and isinstance(other, ast.Constant) \
                             and isinstance(other.value, str):
                         doubt(f"looks for the text of a {kind} id in a text")
                     elif e is a and form in ("scalar", "record") and not self.followed(other, env):
@@ -2018,7 +2022,7 @@ class _IdUses:
                         doubt(f"looks for a value in the text of a {kind} id")
                     elif e is b and not self.followed(other, env):
                         doubt(f"looks a value the rule cannot follow up among {kind} ids")
-                elif form in _BY_KIND - {"unordered", "table"}:
+                elif form in _IN_ORDER:
                     doubt(f"compares a list in the declared order of the {kind} ids")
                 elif form in ("scalar", "record") and not self.followed(other, env):
                     doubt(f"compares a {kind} id with a value the rule cannot follow")
