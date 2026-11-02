@@ -385,6 +385,11 @@ def test_a_pick_from_a_copy_of_the_ids_is_never_reduced(project, prelude, guard,
     ("", '{t} == {"M" + "1"}', "compares machine ids with a value the rule cannot follow"),
     ("", 'set([t]) == {"M" + "1"}', "compares machine ids with a value the rule cannot follow"),
     ("", '{t} == frozenset({"M" + "1"})', "compares machine ids with a value the rule cannot follow"),
+    ("", 't == (t and "M" + "1")', "picks between values the rule follows differently, or one it cannot follow"),
+    ("", 't == (t if s["state", t] == "idle" else "M" + "1")',
+     "picks between values the rule follows differently, or one it cannot follow"),
+    ("", 's["state", (t and "M" + "2")] == "idle"',
+     "picks between values the rule follows differently, or one it cannot follow"),
     ("", '{u for u in MACHINES if u == t} != {"M" + "2"}', "compares machine ids with a value the rule cannot follow"),
     ("", '{t: 1} == {"M" + "1": 1}', "compares machine ids with a value the rule cannot follow"),
     ("", '[t].count("M" + "1") == 1', "looks a value the rule cannot follow up among machine ids (.count)"),
@@ -922,12 +927,14 @@ def test_a_list_in_the_declared_order_inside_and_or_is_still_judged(project, how
 
 def test_and_or_over_values_the_rule_follows_differently_is_a_doubt(project):
     """The other side: an and/or (or an if-else) whose operands hold different things, one
-    id and a list of ids, is judged by neither alone; it turns the renaming off."""
+    id and a list of ids, is judged by neither alone; it turns the renaming off. So does one
+    that may give an id or a value the rule cannot follow (an id made from text): its use
+    is judged by the id alone (test_an_id_in_a_container_or_text_...)."""
     guard = 'need((t or [u for u in TOOLS]) != "", "never")'
     project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", guard))
     loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
     doubt = loaded.model.__dict__.get("_symmetry_doubt") or ""
-    assert "picks between values the rule follows differently" in doubt, doubt
+    assert "picks between values the rule follows differently, or one it cannot follow" in doubt, doubt
 
 
 @pytest.mark.parametrize("helpers, guard", [

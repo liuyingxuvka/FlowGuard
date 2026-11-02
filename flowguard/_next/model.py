@@ -1642,10 +1642,12 @@ class _IdUses:
             self.judge_loop_carries(path, node, env)
         if isinstance(node, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
             self.judge_comprehension_carries(path, node, env)
-        if isinstance(node, (ast.IfExp, ast.BoolOp)) \
-                and len({sh[0] for sh in self.alternatives(node, env) if sh is not None}) > 1:
-            self.doubts.append((path, node.lineno, "picks between values the rule follows differently "
-                                                   "(an id, ids in an order, values by id)"))
+        if isinstance(node, (ast.IfExp, ast.BoolOp)):     # shape() takes the first alternative that holds ids
+            shapes = [sh for sh in self.alternatives(node, env) if sh is not None]
+            parts = [node.body, node.orelse] if isinstance(node, ast.IfExp) else node.values
+            if shapes and (len({sh[0] for sh in shapes}) > 1 or not all(self.followed(x, env) for x in parts)):
+                self.doubts.append((path, node.lineno, "picks between values the rule follows differently, or one "
+                                                       "it cannot follow"))
         if isinstance(node, ast.NamedExpr) and self.in_comprehension(node):
             sh = self.shape(node.value, env)
             if sh is not None:
@@ -2146,6 +2148,8 @@ class _IdUses:
         constant equal to an id is refused anyway)."""
         if self.shape(node, env) is not None or isinstance(node, ast.Constant):
             return True
+        if isinstance(node, ast.Compare) or (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not)):
+            return True                                    # True or False
         if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
             return all(self.followed(x, env) for x in node.elts)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and not node.keywords \
