@@ -633,3 +633,171 @@ def test_the_same_forms_used_alike_keep_the_renaming(project, how):
     assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
     report = check_model(loaded)
     assert report.graph.sym is not None and not report.findings, [f.text for f in report.findings]
+
+
+CARRY = '''
+from flowguard._next import Model, need
+m = Model("tools")
+TOOLS = m.objects("tool", "T1", "T2")
+m.field("busy", [False, True], False, over=TOOLS)
+m.field("pick", [False, True], False, over=TOOLS)
+m.field("mark", [False, True], False)
+m.field("count", range(0, 3), 0)
+HELPERS
+
+@m.action(t=TOOLS)
+def take(s, t):
+    need(not s["busy", t], "busy")
+    s["busy", t] = True
+
+@m.action(t=TOOLS)
+def free(s, t):
+    need(s["busy", t], "not busy")
+    GUARD
+    s["busy", t] = False
+m.progress("a taken tool is freed", over=TOOLS, when=lambda s, t: s["busy", t], goal=lambda s, t: not s["busy", t])
+MODEL = m
+'''
+
+CARRIED = {
+    "a flag set by the one before": ("", '''ok, before = False, True
+    for u in TOOLS:
+        if u == t and before:
+            ok = True
+        before = False
+    need(not ok, "the first stays busy")'''),
+    "a position counter": ("", '''pos, seen = 0, False
+    for u in TOOLS:
+        if u == t:
+            seen = True
+        if not seen:
+            pos += 1
+    need(pos != 0, "the first stays busy")'''),
+    "a position counter in one expression": ("", '''pos, seen = 0, False
+    for u in TOOLS:
+        seen = seen or u == t
+        pos += 0 if seen else 1
+    need(pos != 0, "the first stays busy")'''),
+    "a rank counter": ("", '''k, mine = 0, 0
+    for u in TOOLS:
+        k += 1
+        if u == t:
+            mine = k
+    need(mine != 1, "the first stays busy")'''),
+    "a list filled in their order": ("", '''order = []
+    for u in TOOLS:
+        order.append(u == t)
+    need(not order[0], "the first stays busy")'''),
+    "a state cell the last one writes": ("", '''for u in TOOLS:
+        s["mark"] = u == t
+    need(not s["mark"], "the last stays busy")
+    s["mark"] = False'''),
+    "a state cell written through a helper": ('''def note(s, u, t):
+    s["mark"] = u == t''', '''for u in TOOLS:
+        note(s, u, t)
+    need(not s["mark"], "the last stays busy")
+    s["mark"] = False'''),
+    "a cell of each that the later ones read": ("", '''for u in TOOLS:
+        if not any(s["pick", v] for v in TOOLS):
+            s["pick", u] = True
+    need(not s["pick", t], "the first stays busy")
+    for w in TOOLS:
+        s["pick", w] = False'''),
+    "a counter cell the later ones read": ("", '''for u in TOOLS:
+        if u == t and s["count"] == 0:
+            s["mark"] = True
+        s["count"] = 1
+    need(not s["mark"], "the first stays busy")
+    s["count"] = 0'''),
+    "a table filled in their order": ("", '''seen = {}
+    for u in TOOLS:
+        seen[len(seen)] = u == t
+    need(not seen[0], "the first stays busy")'''),
+    "a list changed by code the rule does not read": ("import heapq", '''order = []
+    for u in TOOLS:
+        heapq.heappush(order, (len(order), u == t))
+    need(not order[0][1], "the first stays busy")'''),
+    "a lazy filter that reads what the loop writes": ("", '''for u in (x for x in TOOLS if not any(s["pick", y] for y in TOOLS)):
+        s["pick", u] = True
+    need(not s["pick", t], "the first stays busy")
+    for w in TOOLS:
+        s["pick", w] = False'''),
+    "any() over a helper that writes each one's cell": ('''def grab(s, u):
+    s["pick", u] = True
+    return True''', '''any(grab(s, u) for u in TOOLS)
+    need(not s["pick", t], "the first stays busy")
+    for w in TOOLS:
+        s["pick", w] = False'''),
+}
+
+
+@pytest.mark.parametrize("how", list(CARRIED))
+def test_a_loop_that_carries_a_value_from_one_id_to_the_next_is_never_reduced(project, how):
+    """G3 round 3: T1 can never be freed, so unreduced T1 is stuck. A loop over the ids
+    that carries a flag, a counter, a list or a state cell from one id to the next picks an
+    id by its place in the declared order without any index, break or ordering operator,
+    and each of these was explored up to renaming: "clean, complete", exit 0 (only check
+    --full saw it). Such a loop is now a doubt: the model is explored without renaming and
+    the stuck tool is found."""
+    helpers, guard = CARRIED[how]
+    project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    doubt = loaded.model.__dict__.get("_symmetry_doubt")
+    assert doubt, "no doubt recorded"
+    report = check_model(loaded)
+    assert report.graph.sym is None, "reduced although an id may be told apart"
+    assert any(f.kind == "STUCK" for f in report.findings), [f.kind for f in report.findings]
+
+
+ALIKE = {
+    "a count of the busy ones": ("", '''n = 0
+    for u in TOOLS:
+        if s["busy", u]:
+            n += 1
+    need(n >= 1, "none busy")'''),
+    "a flag any one sets": ("", '''found = False
+    for u in TOOLS:
+        if s["busy", u] and u == t:
+            found = True
+    need(found, "not busy")'''),
+    "a value read afresh for each": ("", '''for u in TOOLS:
+        b = s["busy", u]
+        if b and u == t:
+            c = not b
+            need(not c, "never")'''),
+    "a value set on both branches": ("", '''for u in TOOLS:
+        if s["busy", u]:
+            w = 1
+        else:
+            w = 0
+        need(w >= 0, "never")'''),
+    "each one's own cells, through a helper": ('''def unpick(s, u):
+    if s["pick", u]:
+        s["pick", u] = False''', '''for u in TOOLS:
+        unpick(s, u)
+        s["pick", u] = s["pick", u] and s["busy", u]'''),
+    "a shared flag every one sets alike": ("", '''for u in TOOLS:
+        if s["busy", u]:
+            s["mark"] = False'''),
+    "a shared counter every one bumps": ("", '''for u in TOOLS:
+        if s["busy", u] and s["pick", u]:
+            s["count"] -= 1
+    need(s["count"] >= 0, "below zero")'''),
+    "each pair's own cells in nested loops": ('''PAIRS = [(a, b) for a in TOOLS for b in TOOLS]
+m.field("link", [False, True], False, over=PAIRS)''', '''for u in TOOLS:
+        for v in TOOLS:
+            s["link", (u, v)] = False'''),
+}
+
+
+@pytest.mark.parametrize("how", list(ALIKE))
+def test_a_loop_that_treats_every_id_alike_keeps_the_renaming(project, how):
+    """The other side: a count, a flag any id can set, a value read afresh for each id,
+    each id's own state cells (also through a helper), and a shared state cell that every
+    id sets to the same constant or bumps by the same amount do not depend on the order of
+    the ids, so the model is still explored up to renaming."""
+    helpers, guard = ALIKE[how]
+    project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
+    assert check_model(loaded).graph.sym is not None

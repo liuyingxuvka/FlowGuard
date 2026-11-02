@@ -733,6 +733,189 @@ _DYNAMIC = {"eval", "exec", "compile", "globals", "locals", "vars", "getattr", "
 _STATE = ("state", None)                  # the model state an action or rule receives
 _BUILTIN_NAMES = frozenset(dir(builtins))
 _CACHES = {"cache", "lru_cache"}
+_READ_METHODS = {"get", "keys", "values", "items", "copy", "index", "count", "startswith", "endswith", "upper",
+                 "lower", "strip", "lstrip", "rstrip", "split", "rsplit", "join", "format", "replace", "find",
+                 "rfind", "issubset", "issuperset", "isdisjoint", "union", "intersection", "difference",
+                 "symmetric_difference"}     # methods that only read what they are called on
+_PURE_CALLS = (_BUILTIN_NAMES - {"eval", "exec", "compile", "globals", "locals", "vars", "setattr", "delattr",
+                                 "getattr", "__import__", "open", "input", "next", "breakpoint"}) | {"need"}
+_COUNT_OPS = ({ast.Add, ast.Sub}, {ast.BitOr}, {ast.BitAnd})     # bumps whose order does not matter
+_FRESH = (ast.List, ast.Dict, ast.Set, ast.ListComp, ast.SetComp, ast.DictComp)
+_OWN, _VAR = ("own",), ("var",)                                  # parts of a state key in a loop over ids
+
+
+def _loads(node, name) -> bool:
+    return any(isinstance(n, ast.Name) and n.id == name and isinstance(n.ctx, ast.Load) for n in ast.walk(node))
+
+
+def _walrus_binds(node, name) -> bool:
+    return any(isinstance(n, ast.NamedExpr) and isinstance(n.target, ast.Name) and n.target.id == name
+               for n in ast.walk(node))
+
+
+def _set_first(stmts, name, assigned=False) -> tuple[bool, bool]:
+    """(every read of name in these statements follows a binding of it made before in the
+    same pass, name is surely bound after them). A loop body whose reads all follow such a
+    binding sees nothing an earlier id left in name."""
+    for st in stmts:
+        ok, assigned = _set_first_one(st, name, assigned)
+        if not ok:
+            return False, assigned
+    return True, assigned
+
+
+def _set_first_one(st, name, assigned):
+    def expr(*nodes):
+        nonlocal assigned
+        for e in nodes:
+            if e is None:
+                continue
+            if _loads(e, name) and not assigned:
+                return False
+            assigned = assigned or _walrus_binds(e, name)
+        return True
+
+    if isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return not any(_loads(n, name) for n in ast.walk(st)), assigned or st.name == name
+    if isinstance(st, ast.Assign):
+        ok = expr(st.value, *st.targets)
+        return ok, assigned or any(name in _target_names(t) for t in st.targets)
+    if isinstance(st, ast.AnnAssign):
+        ok = expr(st.value, st.target)
+        return ok, assigned or (st.value is not None and name in _target_names(st.target))
+    if isinstance(st, ast.AugAssign):
+        if name in _target_names(st.target):
+            return assigned and expr(st.value), assigned
+        return expr(st.value, st.target), assigned
+    if isinstance(st, (ast.For, ast.AsyncFor)):
+        if not expr(st.iter):
+            return False, assigned
+        ok, _ = _set_first(st.body, name, assigned or name in _target_names(st.target))
+        ok2, _ = _set_first(st.orelse, name, assigned)
+        return ok and ok2, assigned                          # it may run no time
+    if isinstance(st, ast.While):
+        if not expr(st.test):
+            return False, assigned
+        ok, _ = _set_first(st.body, name, assigned)
+        ok2, _ = _set_first(st.orelse, name, assigned)
+        return ok and ok2, assigned
+    if isinstance(st, ast.If):
+        if not expr(st.test):
+            return False, assigned
+        ok, a = _set_first(st.body, name, assigned)
+        ok2, b = _set_first(st.orelse, name, assigned)
+        return ok and ok2, a and b
+    if isinstance(st, (ast.With, ast.AsyncWith)):
+        for item in st.items:
+            if not expr(item.context_expr):
+                return False, assigned
+            assigned = assigned or (item.optional_vars is not None and name in _target_names(item.optional_vars))
+        return _set_first(st.body, name, assigned)
+    if isinstance(st, ast.Try) or type(st).__name__ == "TryStar":
+        ok, a = _set_first(st.body, name, assigned)
+        oks = [ok, _set_first(st.orelse, name, a)[0], _set_first(st.finalbody, name, assigned)[0]]
+        oks += [_set_first(h.body, name, assigned or h.name == name)[0] for h in st.handlers]
+        return all(oks), assigned                            # an exception may skip any binding
+    if isinstance(st, ast.Delete):
+        return expr(*st.targets), assigned and not any(name in _target_names(t) for t in st.targets)
+    if isinstance(st, (ast.Global, ast.Nonlocal)):
+        return name not in st.names, assigned
+    if isinstance(st, (ast.Import, ast.ImportFrom)):
+        return True, assigned or any((a.asname or a.name).split(".")[0] == name for a in st.names)
+    if type(st).__name__ == "Match":
+        return not (_loads(st, name) and not assigned), assigned
+    return expr(st), assigned
+
+
+def _bindings(stmts):
+    """name -> what each binding of it in these statements (not in nested functions or
+    comprehensions) gives it: ("const", value), ("bump", op, value) for `x op= constant`,
+    ("fresh",) for a new empty container, or ("other",)."""
+    out = {}
+
+    def add(name, what):
+        out.setdefault(name, []).append(what)
+
+    def target(t, value):
+        if isinstance(t, ast.Name):
+            fresh = isinstance(value, _FRESH) or (isinstance(value, ast.Call) and isinstance(value.func, ast.Name)
+                                                  and value.func.id in ("list", "dict", "set") and not value.args)
+            add(t.id, ("const", repr(value.value)) if isinstance(value, ast.Constant) else
+                ("fresh",) if fresh else ("other",))
+        elif isinstance(t, (ast.Tuple, ast.List)):
+            paired = isinstance(value, (ast.Tuple, ast.List)) and len(value.elts) == len(t.elts) and not any(
+                isinstance(x, ast.Starred) for x in t.elts + value.elts)
+            for n, x in enumerate(t.elts):
+                target(x, value.elts[n] if paired else None)
+        elif isinstance(t, ast.Starred):
+            target(t.value, None)
+
+    stack = list(stmts)
+    while stack:
+        n = stack.pop()
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            add(n.name, ("other",))
+            continue
+        if isinstance(n, (ast.Lambda, ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+            continue
+        if isinstance(n, ast.Assign):
+            for t in n.targets:
+                target(t, n.value)
+        elif isinstance(n, ast.AnnAssign) and n.value is not None:
+            target(n.target, n.value)
+        elif isinstance(n, ast.AugAssign) and isinstance(n.target, ast.Name):
+            number = isinstance(n.value, ast.Constant) and isinstance(n.value.value, (int, float))
+            add(n.target.id, ("bump", type(n.op), repr(n.value.value)) if number else ("other",))
+        elif isinstance(n, (ast.For, ast.AsyncFor)):
+            for name in _target_names(n.target):
+                add(name, ("other",))
+        elif isinstance(n, (ast.With, ast.AsyncWith)):
+            for item in n.items:
+                for name in _target_names(item.optional_vars) if item.optional_vars is not None else []:
+                    add(name, ("other",))
+        elif isinstance(n, ast.ExceptHandler) and n.name:
+            add(n.name, ("other",))
+        elif isinstance(n, (ast.Import, ast.ImportFrom)):
+            for a in n.names:
+                add((a.asname or a.name).split(".")[0], ("other",))
+        elif isinstance(n, ast.NamedExpr):
+            add(n.target.id, ("other",))
+        elif isinstance(n, ast.Delete):
+            for t in n.targets:
+                for name in _target_names(t):
+                    add(name, ("other",))
+        stack.extend(ast.iter_child_nodes(n))
+    return out
+
+
+def _alike_in_any_order(whats) -> bool:
+    """Bindings that leave the same value whatever the order of the passes that make them:
+    one constant every time (a flag), or bumps by constants that commute (a count)."""
+    if all(w[0] == "const" for w in whats):
+        return len({w[1] for w in whats}) == 1
+    if all(w[0] == "bump" for w in whats):
+        return any({w[1] for w in whats} <= ops for ops in _COUNT_OPS)
+    return False
+
+
+def _inner_names(stmts) -> set:
+    """Names bound inside the comprehensions, lambdas and nested functions of these
+    statements: each run binds them anew."""
+    out = set()
+    for st in stmts:
+        for n in ast.walk(st):
+            if isinstance(n, ast.comprehension):
+                out.update(_target_names(n.target))
+            elif isinstance(n, (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)):
+                a = n.args
+                out.update(x.arg for x in a.posonlyargs + a.args + a.kwonlyargs + [a.vararg, a.kwarg] if x)
+    return out
+
+
+def _root_name(node):
+    while isinstance(node, (ast.Attribute, ast.Subscript)):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
 
 
 def _plain_decorator(dec) -> bool:
@@ -1432,6 +1615,9 @@ class _IdUses:
                 self.doubts.append((path, node.lineno, f"unpacks the text of a {sh[1]} id"))
         if isinstance(node, (ast.For, ast.AsyncFor)):
             self.judge_loop_keeps(path, node, env)
+            self.judge_loop_carries(path, node, env)
+        if isinstance(node, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+            self.judge_comprehension_carries(path, node, env)
         if isinstance(node, ast.NamedExpr) and self.in_comprehension(node):
             sh = self.shape(node.value, env)
             if sh is not None:
@@ -1478,6 +1664,246 @@ class _IdUses:
                 self.violations.append((path, loop.lineno, f"a loop over {sh[1]} ids keeps {name!r} after it ends: "
                                                            f"the id of one place in the declared order", sh[1]))
                 return
+
+    def judge_loop_carries(self, path, loop, env):
+        """A loop over ids in their declared order (or a set's) that carries something from
+        one id to the next picks ids by their place with no index, break or ordering
+        operator: a flag the one before sets, a position or rank counter, a list filled in
+        their order, a state cell an earlier id wrote. A name the body binds is fresh for
+        each id when every read of it follows a binding made before in the same pass and
+        nothing after the loop reads it; one it carries on is alike in every order only as a
+        flag (one constant) or a count (constant bumps that commute) the body never reads.
+        An object the body changes, and code the rule does not read, can carry anything
+        (carried_effects); state cells are judged by carried_state(). Anything else carried
+        is a doubt."""
+        sh = self.shape(loop.iter, env)
+        if sh is None or sh[0] not in _BY_KIND or _loop_exits(loop.body):
+            return                                 # a loop that stops early is judged as such (judge)
+        kind = sh[1]
+        doubt = lambda text: self.doubts.append((path, loop.lineno, f"a loop over {kind} ids {text}"))  # noqa: E731
+        targets = set(_target_names(loop.target))
+        scope = self.function_of(loop) or dict(self.trees)[path]
+        bound = _bindings(loop.body)
+        fresh = set()
+        for name in sorted(set(bound) - targets):
+            after = _reads_outside(scope, loop, name)
+            inside = any(_loads(st, name) for st in loop.body)
+            if not after and _set_first(loop.body, name)[0]:
+                fresh.add(name)                    # each id's own value
+            elif inside or (after and not _alike_in_any_order(bound[name])):
+                doubt(f"carries {name!r} from one id to the next, so it can depend on their declared order")
+                return
+        states = {n for n, v in env.items() if v == _STATE}
+        if self.carried_effects(loop.body, states, fresh, bound, doubt):
+            return
+        if self.under_try(loop):
+            doubt("runs inside a try, so an id that raises keeps what the ones before it changed")
+            return
+        lazy = [loop.iter] if any(isinstance(n, ast.GeneratorExp) for n in ast.walk(loop.iter)) else []
+        own = targets - set(bound)                 # a target the body binds again names something else
+        local = (set(bound) | _inner_names(loop.body + lazy)) - own
+
+        def part(node):
+            if isinstance(node, ast.Constant):
+                return ("const", repr(node.value))
+            if isinstance(node, ast.Name):
+                if node.id in own:
+                    return _OWN
+                return _VAR if node.id in local else ("fixed", node.id)
+            return _VAR
+
+        self.carried_state(lazy + loop.body, states, part, doubt, own=True)
+
+    def judge_comprehension_carries(self, path, node, env):
+        """A comprehension over ids that changes state (through a helper) or an object, or
+        runs code the rule does not read, carries it from one id to the next; any(), all()
+        and next() also stop it early, so even each id's own cells are a doubt there."""
+        shapes = []
+        for n, gen in enumerate(node.generators):
+            sh = self.shape(gen.iter, env if n == 0 else self.comprehension_locals(node, env))
+            if sh is not None and sh[0] in _BY_KIND:
+                shapes.append(sh)
+        if not shapes:
+            return
+        kind = shapes[0][1]
+        line = node.lineno
+        doubt = lambda text: self.doubts.append((path, line, f"a comprehension over {kind} ids {text}"))  # noqa: E731
+        parts = [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
+        parts += [cond for gen in node.generators for cond in gen.ifs]
+        states = {n for n, v in env.items() if v == _STATE}
+        if self.carried_effects(parts, states, set(), {}, doubt):
+            return
+        self.carried_state(parts, states, lambda x: _VAR, doubt, own=False)
+
+    def carried_effects(self, body, states, fresh, bound, doubt) -> bool:
+        """What the body can carry outside the state: a container or object it changes (an
+        item or attribute set or deleted, a method that is not known to only read), and a
+        call of code the rule does not read (it can keep anything between calls). An object
+        the body makes anew for each id (fresh, and bound only to new containers) is no
+        carrier; the state is judged by carried_state(). True after a doubt."""
+        def own_object(root):
+            return root in fresh and all(w == ("fresh",) for w in bound.get(root, [("other",)]))
+
+        for st in body:
+            for n in ast.walk(st):
+                if isinstance(n, (ast.Subscript, ast.Attribute)) and isinstance(n.ctx, (ast.Store, ast.Del)):
+                    root = _root_name(n.value)
+                    if root in states or (root is not None and own_object(root)):
+                        continue
+                    doubt(f"changes {root or 'an object'!r} from one id to the next, so it can depend on "
+                          f"their declared order")
+                    return True
+                if not isinstance(n, ast.Call):
+                    continue
+                func = n.func
+                if isinstance(func, ast.Name):
+                    if func.id in self.functions or func.id in _PURE_CALLS:
+                        continue
+                    doubt(f"calls {func.id}(), code the rule does not read, which can keep something from one "
+                          f"id to the next")
+                    return True
+                if isinstance(func, ast.Attribute):
+                    root = _root_name(func.value)
+                    if func.attr in _READ_METHODS | _DECLARATIONS | {"need"} or root in states \
+                            or (root is not None and own_object(root)):
+                        continue
+                    doubt(f"calls .{func.attr}() on {root or 'an object'!r}, which can change it from one id to "
+                          f"the next")
+                    return True
+                if isinstance(func, ast.Lambda):
+                    continue                       # its body is judged where it stands
+                doubt("calls a computed function, which can keep something from one id to the next")
+                return True
+        return False
+
+    def under_try(self, node):
+        up = self.parents.get(id(node))
+        while up is not None and not isinstance(up, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.Module)):
+            if (isinstance(up, ast.Try) or type(up).__name__ == "TryStar") and up.handlers:
+                return True
+            up = self.parents.get(id(up))
+        return False
+
+    def carried_state(self, body, states, part, doubt, own, depth=0, stack=()):
+        """State cells the body reads and writes, followed into the helpers it passes the
+        state to. A field the body writes is alike for every order of the ids when every
+        access of it has the loop's id at one place of its key (each id its own cells; own),
+        or when the body never reads it and sets one cell of it to one constant or bumps it
+        by commuting constants (a shared flag or count). Otherwise each id can see what the
+        ones before it wrote: a doubt."""
+        accesses = []
+        if not self.state_accesses(body, states, part, accesses, doubt, depth, stack):
+            return
+        fields = {}
+        for family, key, what in accesses:
+            fields.setdefault(family, []).append((key, what))
+        for family in sorted(fields):
+            seen = fields[family]
+            writes = [what for _, what in seen if what != ("read",)]
+            if not writes:
+                continue
+            keys = {key for key, _ in seen}
+            places = set.intersection(*({place for place, x in key if x == _OWN} for key in keys))
+            if own and places:
+                continue                           # each id its own cells
+            classes = {x for _, x in next(iter(keys))}
+            if len(keys) == 1 and _VAR not in classes and _OWN not in classes and len(writes) == len(seen) \
+                    and _alike_in_any_order(writes):
+                continue                           # a shared flag or count the body never reads
+            doubt(f"writes {family!r} where another id reads or writes it, so each id can see the ones "
+                  f"before it")
+            return
+
+    def state_accesses(self, body, states, part, out, doubt, depth, stack) -> bool:
+        """(field, key, ("read",) | ("const", v) | ("bump", op, v) | ("other",)) for each
+        access of the state in body and in the helpers it passes the state to. False after a
+        doubt (a helper the rule cannot follow, or one that can carry something itself)."""
+        for st in body:
+            for n in ast.walk(st):
+                if isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name) and n.value.id in states:
+                    if not self.state_access(n):
+                        continue                   # judged in judge_state (a doubt)
+                    key = n.slice
+                    parts = key.elts[1:] if isinstance(key, ast.Tuple) else []
+                    family = (key.elts[0] if isinstance(key, ast.Tuple) else key).value
+                    flat = []                      # (place, part); a record id's parts at (i, j)
+                    for i, x in enumerate(parts):
+                        if isinstance(x, (ast.Tuple, ast.List)) and not any(isinstance(e, ast.Starred) for e in x.elts):
+                            flat += [((i, j), part(e)) for j, e in enumerate(x.elts)]
+                        else:
+                            flat.append(((i,), part(x)))
+                    out.append((family, tuple(flat), self.access_kind(n)))
+                elif isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in self.functions:
+                    if not self.follow_helper(n, states, part, out, doubt, depth, stack):
+                        return False
+        return True
+
+    def access_kind(self, sub):
+        if isinstance(sub.ctx, ast.Load):
+            return ("read",)
+        up = self.parents.get(id(sub))
+        if isinstance(up, ast.AugAssign) and up.target is sub:
+            number = isinstance(up.value, ast.Constant) and isinstance(up.value.value, (int, float))
+            return ("bump", type(up.op), repr(up.value.value)) if number else ("other",)
+        value, node = None, sub
+        while isinstance(up, (ast.Tuple, ast.List)):
+            outer = self.parents.get(id(up))
+            if isinstance(outer, ast.Assign) and isinstance(outer.value, (ast.Tuple, ast.List)) \
+                    and len(outer.value.elts) == len(up.elts):
+                value = outer.value.elts[up.elts.index(node)]
+            node, up = up, outer
+        if isinstance(up, ast.Assign) and value is None and node in up.targets:
+            value = up.value
+        return ("const", repr(value.value)) if isinstance(value, ast.Constant) else ("other",)
+
+    def follow_helper(self, call, states, part, out, doubt, depth, stack) -> bool:
+        """A helper the body calls: its state parameters are the state; each other parameter
+        is what the call passes it (a default is the same for every id; one the helper binds
+        again is its own). A helper that binds a module name (global, nonlocal), changes an
+        object it does not make or runs code the rule does not read can carry it."""
+        fn = self.functions[call.func.id]
+        if fn.name in stack or depth > 8:
+            doubt(f"calls {fn.name}() again inside itself, which the rule does not follow")
+            return False
+        args = fn.args
+        names = [a.arg for a in args.posonlyargs + args.args]
+        given = {}
+        for n, a in enumerate(call.args):
+            if isinstance(a, ast.Starred) or n >= len(names):
+                if any(_loads(a, x) for x in states):
+                    doubt(f"passes the state to {fn.name}() in a way the rule cannot follow")
+                    return False
+                continue
+            given[names[n]] = a
+        for k in call.keywords:
+            if k.arg is None:
+                if any(_loads(k.value, x) for x in states):
+                    doubt(f"passes the state to {fn.name}() in a way the rule cannot follow")
+                    return False
+                continue
+            given[k.arg] = k.value
+        params = set(names) | {a.arg for a in args.kwonlyargs} | {a.arg for a in (args.vararg, args.kwarg) if a}
+        bound = _bindings(fn.body)
+        local = (set(bound) | _inner_names(fn.body)) - params
+        inner_states = {p for p, a in given.items() if isinstance(a, ast.Name) and a.id in states and p not in bound}
+        if any(isinstance(n, (ast.Global, ast.Nonlocal)) for st in fn.body for n in ast.walk(st)):
+            doubt(f"calls {fn.name}(), which binds a module name, so it can carry it from one id to the next")
+            return False
+        if self.carried_effects(fn.body, inner_states, local, bound, doubt):
+            return False
+
+        def inner_part(node):
+            if isinstance(node, ast.Name):
+                if node.id in bound or node.id in local:
+                    return _VAR                    # bound in the helper: its own value
+                if node.id in given:
+                    return part(given[node.id])
+                if node.id in params:
+                    return ("fixed", f"{fn.name}.{node.id}")
+                return ("fixed", node.id)
+            return part(node) if isinstance(node, ast.Constant) else _VAR
+
+        return self.state_accesses(fn.body, inner_states, inner_part, out, doubt, depth + 1, stack + (fn.name,))
 
     def in_comprehension(self, node):
         up = self.parents.get(id(node))
