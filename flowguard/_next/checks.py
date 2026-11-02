@@ -64,7 +64,8 @@ def make_finding(kind, cls, model, subject, text, *, objects=(), sources=(), pat
 
 
 def merge(raw: list[Finding]) -> list[Finding]:
-    """Findings with one fingerprint become one: the shortest witness, all objects."""
+    """Findings with one fingerprint become one: the shortest witness (of those as short, the
+    one of the objects first in order), all objects."""
     groups, order = {}, []
     for f in raw:
         if f.id not in groups:
@@ -74,7 +75,7 @@ def merge(raw: list[Finding]) -> list[Finding]:
     out = []
     for fid in order:
         members = groups[fid]
-        best = min(members, key=lambda f: len(f.path))
+        best = min(members, key=lambda f: (len(f.path), [natural_key(o) for o in f.objects]))
         objs = tuple(sorted({o for f in members for o in f.objects}, key=natural_key))
         out.append(replace(best, objects=objs))
     return out

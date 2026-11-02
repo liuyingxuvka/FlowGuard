@@ -666,6 +666,35 @@ def test_a_number_that_counts_to_its_last_value_while_the_model_goes_on_is_no_en
     assert not [f for f in report.findings if f.kind == "STUCK"], [f.text for f in report.findings]
 
 
+NEVER_FREED_ALIKE = '''
+from flowguard._next import Model, need
+
+m = Model("tools", note="two interchangeable tools; nothing frees a tool")
+TOOLS = m.objects("tool", "T1", "T2")
+m.field("busy", [False, True], False, over=TOOLS, source="R1")
+
+
+@m.action(t=TOOLS, source="R1")
+def take(s, t):
+    need(not s["busy", t], "busy")
+    s["busy", t] = True
+MODEL = m
+'''
+
+
+def test_a_finding_of_interchangeable_objects_names_the_first_one(project):
+    """Review of round 5, cosmetic: with m.objects the never-freed STUCK named T2 (the
+    renaming's representative of "one tool busy" holds T2 busy), while the plain-list model
+    named T1. Among witnesses of one finding as short as each other, the one of the object
+    first in order is shown."""
+    project.flow("tools", NEVER_FREED_ALIKE)
+    report = check_model(load_model(project.root / ".flowguard/flow/tools.py", project.root))
+    assert report.graph.sym is not None
+    [end] = [f for f in report.findings if f.kind == "STUCK"]
+    assert end.text.startswith("T1 stuck with busy=True"), end.text
+    assert end.path == ("take(t='T1')",), end.path
+
+
 CONSTANT = '''
 from flowguard._next import Model, need
 
