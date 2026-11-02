@@ -74,6 +74,13 @@ def _parse_documented_command_arguments(command: str) -> None:
     verb, rest = words[0], words[1:]
     if verb == "map":
         parser = build_parser()
+    elif verb in {"check", "show"}:
+        from flowguard.flow.cli import UsageError, parser as flow_parser
+        try:
+            flow_parser().parse_args([verb, *rest])
+        except UsageError as error:
+            raise ValueError(str(error)) from error
+        return
     elif verb in {"read", "change", "release", "template", "target", "req", "status"}:
         parser = _verb_parser(verb)
     else:
@@ -160,7 +167,8 @@ class SkillPackageTests(unittest.TestCase):
         subs = next(a for a in build_parser()._actions if isinstance(a, argparse._SubParsersAction))
         map_cmds, templates = set(subs.choices), set(template_factories())
         target_cmds = set(next(a for a in target_parser()._actions if isinstance(a, argparse._SubParsersAction)).choices)
-        verbs = {"read", "change", "release", "map", "template", "target", "req", "status", "where", "--help", "--version"}
+        verbs = {"read", "change", "release", "map", "template", "target", "req", "status", "where", "check", "show",
+                 "--help", "--version"}
         docs = [ROOT / "README.md", ROOT / "README.zh-CN.md", ROOT / "AGENTS.md",
                 *sorted((ROOT / "docs").glob("*.md")), *sorted(SKILL.rglob("*.md"))]
         problems = []
@@ -192,7 +200,8 @@ class SkillPackageTests(unittest.TestCase):
                     illustration = command.replace('<file|->', 'FILE')
                     if not command or any(mark in illustration for mark in ("|", "[", "...")):
                         continue                      # illustrative alternatives and optional parts
-                    if command.split()[0] not in {"map", "read", "change", "release", "template", "target", "req", "status"}:
+                    if command.split()[0] not in {"map", "read", "change", "release", "template", "target", "req", "status",
+                                                  "check", "show"}:
                         continue                      # top-level flags have no verb argument parser
                     try:
                         _parse_documented_command_arguments(command)

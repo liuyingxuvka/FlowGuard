@@ -51,7 +51,8 @@ def test_wheel_configuration_includes_every_console_example_package() -> None:
 
 
 def test_wheel_leaves_pilot_and_unpassed_slice_code_in_the_repository(tmp_path):
-    """The pilot engine and unpassed-slice code stay in the source tree only.
+    """The pilot engine and unpassed-slice code stay in the source tree only, while the
+    flow-model engine ships with the files it opens besides its code.
 
     An earlier editable install leaves flowguard.egg-info/SOURCES.txt behind and
     setuptools reads it back on every build, so the stand-in below lists every
@@ -77,6 +78,9 @@ def test_wheel_leaves_pilot_and_unpassed_slice_code_in_the_repository(tmp_path):
         names = package.namelist()
         package.extractall(tmp_path / "site")
     assert "flowguard/map/runner.py" in names
+    flow_data = ["HOWTO.md", "render.js", "vendor/mermaid.min.js", "vendor/MERMAID-LICENSE"]
+    assert [name for name in flow_data if "flowguard/flow/" + name not in names] == []
+    assert "flowguard/flow/cli.py" in names
     shipped = [name for name in names if name.startswith(("flowguard/behave/", "flowguard/_next/"))
                or name in {"flowguard/map/jobs.py", "flowguard/map/inputs.py"}]
     assert shipped == []

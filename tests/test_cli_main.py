@@ -935,7 +935,7 @@ def test_help_lists_every_option_of_every_verb(capsys):
 
     assert main(["--help"]) == 0
     text = capsys.readouterr().out
-    for verb in ("read", "where", "change", "release", "template", "target"):
+    for verb in ("read", "where", "change", "release", "template", "target", "check", "show"):
         for action in _verb_parser(verb)._actions:
             for option in action.option_strings:
                 assert option in text, (verb, option)

@@ -19,6 +19,8 @@ VERB_PURPOSE = {
     'read': 'Understand the components, models and their relationships.',
     'where': 'Locate source functions, calls, architecture and attributed original text without execution.',
     'status': 'Resume from static project and target facts and the newest owner words; never explore.',
+    'check': 'Explore the flow models in .flowguard/flow/ in every order and report conflicts, model warnings and what stays UNKNOWN.',
+    'show': 'Draw the flowchart of a flow model: its conflicts, else its change against HEAD.',
     'change': 'Check an edit and run the affected tests and models.',
     'release': 'Run the release gate, optionally with whole-suite shards.',
     'template': 'Write starter model and test files.',
@@ -28,7 +30,14 @@ VERB_PURPOSE = {
 }
 
 
+FLOW_VERBS = ("check", "show")   # answered by flowguard.flow.cli, which owns their arguments
+
+
 def _verb_parser(verb: str) -> argparse.ArgumentParser:
+    if verb in FLOW_VERBS:
+        from .flow.cli import verb_parser
+
+        return verb_parser(verb)
     if verb == "target":
         from .map.target import build_parser
 
@@ -370,7 +379,7 @@ def main(argv: list[str] | None = None) -> int:
         print(__version__)
         return 0
     verb, rest = args[0], args[1:]
-    if verb not in {"map", "read", "where", "change", "release", "template", "target", "req", "status"}:
+    if verb not in {"map", "read", "where", "change", "release", "template", "target", "req", "status", *FLOW_VERBS}:
         print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
         return 2
     if verb != "status":
@@ -379,6 +388,10 @@ def main(argv: list[str] | None = None) -> int:
         show_status_first(rest, __version__, read_git_paths=read_git_paths)
     if verb == "map":
         return map_main(rest)
+    if verb in FLOW_VERBS:
+        from .flow.cli import main as flow_main
+
+        return flow_main([verb, *rest])
     if verb == "target":
         from .map.target import main as target_main
 

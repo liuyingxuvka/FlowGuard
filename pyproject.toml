@@ -16,9 +16,15 @@ dev = ["pytest>=8.0", "setuptools>=61"]
 flowguard = "flowguard.__main__:main"
 
 [tool.setuptools.packages.find]
-# Teaching examples, the pilot engine and unpassed-slice code stay in the repository, not in site-packages.
+# Teaching examples, the pilot engine and unpassed-slice code (flowguard/_next/) stay in the repository,
+# not in site-packages.
 include = ["flowguard*"]
 exclude = ["flowguard.behave", "flowguard.behave.*", "flowguard._next", "flowguard._next.*"]
+
+# Files of the flow-model engine that are not Python: the picture renderer, the vendored Mermaid
+# with its licence, and the one-page guide to writing flow models.
+[tool.setuptools.package-data]
+"flowguard.flow" = ["HOWTO.md", "render.js", "vendor/mermaid.min.js", "vendor/MERMAID-LICENSE"]
 
 # A file list left by an earlier editable install would otherwise ship their sources as package data.
 [tool.setuptools.exclude-package-data]
