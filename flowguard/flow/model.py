@@ -709,6 +709,53 @@ def request_file(root, rid) -> Path | None:
     return Path(root) / REQUESTS / f"{rid}.md"
 
 
+def need_calls(path):
+    """(first line, last line, function, source= literal, code) of every need(...) call."""
+    tree = ast.parse(Path(path).read_text(encoding="utf-8"))
+    out = []
+
+    def visit(node, fname):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                visit(child, child.name)
+                continue
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name) and child.func.id == "need":
+                src = next((k.value.value for k in child.keywords if k.arg == "source"
+                            and isinstance(k.value, ast.Constant)), None)
+                out.append((child.lineno, child.end_lineno, fname, src, ast.unparse(child)))
+            visit(child, fname)
+    visit(tree, None)
+    return sorted(out, key=lambda x: (x[0], x[1]))
+
+
+def named_sources(model: Model) -> dict:
+    """request id -> what in the model names it with source= (its declarations and the
+    source= of its need() guards), each said once in declaration order."""
+    out = {}
+
+    def add(rid, what):
+        if rid is not None and what not in out.setdefault(rid, []):
+            out[rid].append(what)
+    for name, s in model.setting_info.items():
+        add(s.source, f"setting {name}")
+    for f in model.fields:
+        add(f.source, f"field {f.family!r}")
+        for v, rid in f.value_sources.items():
+            add(rid, f"value {v!r} of field {f.family!r}")
+    for a in model.actions:
+        add(a.source, f"action {a.name}")
+    if model.path is not None:
+        for line, _, fname, rid, _ in need_calls(model.path):
+            add(rid, f"a guard of {fname} (line {line})" if fname else f"a guard (line {line})")
+    for o in model.options:
+        add(o.source, f"option {o.name!r}")
+    for fam, rid in model.terminal_sources.items():
+        add(rid, f"the end of field {fam!r}")
+    for r in model.rules:
+        add(r.source, f"{r.kind} {r.base!r}")
+    return out
+
+
 def check_second_routes(model: Model, root: Path, reads: set) -> None:
     """m.second_route keeps a second route only for a request the owner stored: its
     source= must be the id of a file in .flowguard/requests/. The file is a read either

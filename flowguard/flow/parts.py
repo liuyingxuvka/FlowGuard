@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from .checks import ERROR_CLS, UNDECIDED, check_model, make_finding, reach_line, replay_conflict, verify_symmetry
+from .checks import (ERROR_CLS, UNDECIDED, check_model, make_finding, reach_line, replay_conflict, report_sources,
+                     verify_symmetry)
 from .explore import Bounds
 from .model import ModelError, load_model
 from .project import file_digest
@@ -142,7 +143,7 @@ def core_part(ctx: PartContext) -> PartResult:
             "seconds": round(report.graph.seconds, 3), "covers": list(model.covers),
             "families": sorted({f.family for f in model.fields}),
             "objects": {kind: list(ids) for kind, ids in model.kinds.items()},
-            "reached": list(report.reached)}
+            "reached": list(report.reached), "sources": report_sources(report)}
     findings = list(report.findings)
     if spec.option("verify_symmetry", False):
         ctx.progress({"model": spec.model, "kind": spec.kind, "states": len(report.graph.states),

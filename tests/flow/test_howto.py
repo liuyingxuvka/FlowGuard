@@ -67,3 +67,13 @@ def test_the_guide_uses_only_the_public_names():
         imports = re.findall(r"^from (\S+) import (.+)$", code, re.M)
         assert imports == [("flowguard.flow", "Model, need")]
     assert "machine" not in HOWTO.read_text(encoding="utf-8").lower().replace("a small machine", "")
+
+
+def test_the_guide_says_how_requests_are_stored_and_what_to_commit():
+    """A7: the one page an AI reads names `req add` (never a hand-written request file), says
+    to commit conflicts.json, and that release checks the flow models without a legacy map."""
+    text = HOWTO.read_text(encoding="utf-8")
+    assert "python -m flowguard req add <file> --id R10" in text
+    assert "never write a file in `.flowguard/requests/` by hand" in text
+    assert "`.flowguard/conflicts.json`: commit that file with the change" in text
+    assert "`python -m flowguard release` runs `check --full`" in text and "no legacy map" in text

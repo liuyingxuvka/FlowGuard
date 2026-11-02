@@ -31,7 +31,8 @@ from pathlib import Path
 
 from .checks import CONFLICT, ERROR_CLS, WARNING, check_model, make_finding, merge, setting_variations
 from .explore import BOUND, ERROR, Bounds, Graph, explore, show_step, show_tuple
-from .model import Loaded, Model, ModelError, Refused, State, load_model, natural_key, show_key, vary_setting
+from .model import (Loaded, Model, ModelError, Refused, State, load_model, natural_key, need_calls, show_key,
+                    vary_setting)
 from .parts import PartContext, PartResult, part_digest, register
 
 _PKG = __name__.rpartition(".")[0]
@@ -316,25 +317,6 @@ def _code_objects(path, action_names):
         own(node.body)
         funcs.append((node.name, node.name in action_names, node.lineno, body))
     return funcs
-
-
-def _need_calls(path):
-    """(first line, last line, function, source= literal, code) of every need(...) call."""
-    tree = ast.parse(Path(path).read_text(encoding="utf-8"))
-    out = []
-
-    def visit(node, fname):
-        for child in ast.iter_child_nodes(node):
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                visit(child, child.name)
-                continue
-            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name) and child.func.id == "need":
-                src = next((k.value.value for k in child.keywords if k.arg == "source"
-                            and isinstance(k.value, ast.Constant)), None)
-                out.append((child.lineno, child.end_lineno, fname, src, ast.unparse(child)))
-            visit(child, fname)
-    visit(tree, None)
-    return sorted(out, key=lambda x: (x[0], x[1]))
 
 
 def _statement_texts(path):
@@ -840,7 +822,7 @@ class _Judge:
                     elsewhere.append({"function": fname, "lines": sorted((body & anywhere) - here)})
             r_any = {ln for f, ln in refused_any if f == src}
             r_here = {ln for f, ln in refused_here if f == src}
-            for lo, hi, fname, nsrc, code in _need_calls(src):
+            for lo, hi, fname, nsrc, code in need_calls(src):
                 span = range(lo, hi + 1)
                 if any(ln in anywhere for ln in span) and not any(ln in r_any for ln in span):
                     dead.append((src, lo, fname, nsrc, code))

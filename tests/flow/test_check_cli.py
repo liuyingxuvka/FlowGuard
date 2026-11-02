@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
+import sys
 
 import pytest
 
@@ -196,6 +198,49 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
     assert third.lines[2:4] == ['  requests: R1 "(not a stored request)"', "  state: on=True"]
 
 
+UNSTORED = '''
+from flowguard.flow import Model, need
+m = Model("door")
+m.field("open", [False, True], False, source="R1")
+
+@m.action(source="R2")
+def open_door(s):
+    need(not s["open"], "already open", source="R3")
+    s["open"] = True
+
+@m.action(source="R1")
+def close(s):
+    need(s["open"], "already closed")
+    s["open"] = False
+MODEL = m
+'''
+
+
+def test_a_source_that_names_no_stored_request_is_a_model_warning(project):
+    """A7: an id no request is stored under is a visible warning, not only "(not a stored
+    request)" beside a conflict; storing the owner's words with `req add` ends it at the next
+    check, with no change to the model."""
+    project.request("R1", "Doors open and close.\n")
+    project.flow("door", UNSTORED)
+    run = timed(project.root)
+    assert run.code == 0 and run.first == "clean, complete; 2 model warnings"
+    assert ("model warning door: source 'R2' is not a stored request (action open_door): .flowguard/requests/R2.md "
+            "does not exist; store the owner's words with python -m flowguard req add <file> --id R2, or name "
+            "the request they are stored under") in run.lines
+    assert any(line.startswith("model warning door: source 'R3' is not a stored request (a guard of open_door "
+                               "(line 7)): ") for line in run.lines)
+    assert not any("'R1'" in line for line in run.lines)
+
+    words = project.root / "words.txt"
+    words.write_text("A closed door can be opened.\n", encoding="utf-8")
+    added = subprocess.run([sys.executable, "-m", "flowguard", "req", "add", str(words), "--id", "R2"],
+                           cwd=project.root, capture_output=True, text=True)
+    assert added.returncode == 0, added.stderr
+    again = timed(project.root)
+    assert again.first == "clean, complete; 1 model warning"
+    assert not any("'R2'" in line for line in again.lines)
+
+
 def test_a_model_error_has_its_location_and_exit_2(project):
     """A model that does not load was not explored: the first line never calls the check
     complete (it says UNKNOWN for that model), and --json and conflicts.json agree."""
@@ -347,6 +392,9 @@ def test_the_guide_states_what_check_prints(project):
     howto = (DATA.parents[2] / "flowguard" / "flow" / "HOWTO.md").read_text(encoding="utf-8")
     [model] = [code for kind, code in blocks(howto) if kind == "python" and "MODEL = m" in code]
     clean_text, broken_text = [code for kind, code in blocks(howto) if kind == "text"]
+    assert "With R1 and R2 stored, `check` prints:" in howto
+    project.request("R1", "Parcels wait in the one locker.\n")
+    project.request("R2", "A parcel goes back after keep_days nights.\n")
     project.flow("parcels", model)
     run = timed(project.root)
     assert run.out == clean_text
@@ -372,7 +420,7 @@ def test_a_picture_written_for_a_conflict_is_printed(project):
     item = jobs.Planned(PartSpec("core", "m", (("max_states", 10),)), ".flowguard/flow/m.py")
     result = PartResult("core", "m", "d", True, [f.to_json()],
                         {"loaded": True, "reach_line": "m: complete, 1 state", "reach": {"symmetry": [], "states": 1},
-                         "covers": [], "families": [], "objects": {}, "unknown": []}, [], [pic])
+                         "covers": [], "families": [], "objects": {}, "unknown": [], "sources": {}}, [], [pic])
     outcome = jobs.Outcome([item], [result], [True], [None], True)
     lines, data = cli.render(project.root, cli.assemble(project.root, outcome, None), "resume")
     assert lines[0] == "1 new conflict; complete"
@@ -502,6 +550,8 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
     replays; it closes only when a complete check of its model no longer finds it."""
     from flowguard.flow.cli import status_lines
     saved = project.root / ".flowguard/conflicts.json"
+    for rid in ("R4", "R6", "R8", "R10"):                # the requests the rental model names
+        project.request(rid, f"Request {rid[1:]} of the rental shop.\n")
     project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
     assert timed(project.root).first == "1 new conflict; complete"
     [cid] = [c["id"] for c in json.loads(saved.read_text())["conflicts"]]

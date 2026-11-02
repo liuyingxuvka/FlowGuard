@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from .explore import Bounds, Graph, explore, orbit, replay, show_step, show_tuple
-from .model import Loaded, Model, ModelError, Refused, State, natural_key, show_key, vary_setting
+from .model import Loaded, Model, ModelError, Refused, State, named_sources, natural_key, show_key, vary_setting
 
 CONFLICT, WARNING, ERROR_CLS = "conflict", "warning", "error"
 _CLASS_ORDER = {CONFLICT: 0, WARNING: 1, ERROR_CLS: 2}
@@ -1525,6 +1525,21 @@ def explanation_text(detail: dict) -> str | None:
     else:
         text = "no complete one-setting change reaches it" if undecided else "no one-setting change reaches it"
     return text + (f"; undecided: {', '.join(undecided)}" if undecided else "")
+
+
+def report_sources(report: Report) -> dict:
+    """request id -> what names it: the model's source= (model.named_sources), then a guard
+    that refused with a source of its own outside the model file, then an effect marked with
+    s.source that a conflict's path shows."""
+    out = named_sources(report.loaded.model)
+    for r in report.graph.refusals:
+        if r.source is not None and r.source not in out:
+            out[r.source] = [f"a guard in {r.file} (line {r.line})"]
+    for f in report.findings:
+        for rid in f.sources:
+            if rid not in out:
+                out[rid] = ["an effect marked with s.source"]
+    return out
 
 
 def reach_line(reach: dict) -> str:

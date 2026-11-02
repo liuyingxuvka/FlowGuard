@@ -29,7 +29,8 @@ from .explore import Bounds
 from .model import natural_key
 from .parts import ENGINE_DIGEST
 from .project import (FLOW_DIR, PROG, ProjectError, conflict_entry, find_root, model_files,
-                      overlap_views, read_conflicts, request_lines, resolve_models, write_conflicts)
+                      overlap_views, read_conflicts, request_lines, resolve_models, unstored_sources,
+                      write_conflicts)
 
 EXIT_CLEAN, EXIT_CONFLICT, EXIT_ERROR, EXIT_UNKNOWN, EXIT_RUNNING = 0, 1, 2, 3, 4
 DEFAULT_WAIT = 90.0              # inside the AI's 120 s tool timeout
@@ -346,12 +347,14 @@ def assemble(root, outcome, previous: dict | None, *, max_states: int | None = N
                 if f.id not in seen:
                     seen.add(f.id)
                     findings.append(f)
-    views = []
+    views, named = [], []
     for view in models.values():
         core = view.result("core")
         if core is not None and core.info["loaded"] and core.info["covers"]:
             views.append((view.id, core.info["families"], core.info["covers"]))
-    findings += [f for f in overlap_views(views) if f.id not in seen]
+        if core is not None and core.info["loaded"]:
+            named.append((view.id, core.info["sources"]))
+    findings += [f for f in overlap_views(views) + unstored_sources(root, named) if f.id not in seen]
     before = {c["id"] for c in (previous or {}).get("conflicts", [])}
     conflicts = [f for f in findings if f.cls == CONFLICT]
     kept, closed = _kept(root, models, previous, {f.id for f in conflicts})

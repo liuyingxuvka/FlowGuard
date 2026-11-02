@@ -10,10 +10,10 @@ does not change what can happen, and say what you left out in a `note=`.
 
 One model per file: `.flowguard/flow/<name>.py`, ending with `MODEL = m`. Check them all with
 `python -m flowguard check` (files starting with `_` are helpers, never models); `check
---full` also breaks each model on purpose to see that its checks catch it. `python -m
+--full` also breaks each model on purpose to see that its checks catch it; `python -m flowguard release` runs `check --full` (and, with `--shards`, the tests) also in a project with no legacy map. `python -m
 flowguard show` draws what is under discussion: the conflicts, else the change against
 HEAD (`show MODEL`, `show C-...` or `--before REV` name it yourself; `show MODEL` of a model
-with no conflict draws its latest change, one object's fields at a time).
+with no conflict draws its latest change, one object's fields at a time). Each `source=` names a request stored with `python -m flowguard req add <file> --id R10` (never write a file in `.flowguard/requests/` by hand); an id with no stored request is a model warning.
 
 ## Writing a model
 
@@ -86,7 +86,7 @@ m.progress("a parcel in the locker always leaves it", over=PARCELS, source="R2",
 MODEL = m
 ```
 
-`check` prints:
+With R1 and R2 stored, `check` prints:
 
 ```text
 clean, complete
@@ -115,7 +115,7 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
   another refuses and makes the same change, perhaps writing a field nothing reads besides).
   Keep one route, or declare the second with `m.second_route`.
 - **Model warnings** (never conflicts): other field values never reached, usually a domain
-  wider than the design needs; settings not read from the code although the model covers code; a
+  wider than the design needs; a `source=` with no stored request; settings not read from the code although the model covers code; a
   fallback on the status field only, an `if` whose two branches end the same, lines no call runs, a
   guard that never refuses; with `--full`, each break of the model that no check catches.
 - **Model errors**: the model itself failed (an exception, a value outside its domain, a write to an
@@ -125,6 +125,6 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
   path is certain; nothing is reported as holding or clean. Make the model smaller, not the bound.
 - **OPEN ... (kept: ...)**: a proven conflict stays open, and release fails, until a complete check of its
   model no longer finds it ("closed ..."); nothing else closes it (a capped check, also one whose replay
-  of the stored path fails, a model error, a rename, a deleted model file). `show` of it says so (exit 3).
+  of the stored path fails, a model error, a rename, a deleted model file). `show` of it says so (exit 3). `check` keeps the open conflicts in `.flowguard/conflicts.json`: commit that file with the change.
 - The last line per model says how complete the search was, which settings it used and from
   where, and `concurrency not checked` when the covered code runs threads or async code.

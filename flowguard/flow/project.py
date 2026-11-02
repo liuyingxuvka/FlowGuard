@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 from .checks import WARNING, Finding, make_finding, replay_spec
-from .model import Loaded, natural_key, request_file
+from .model import REQUESTS, Loaded, natural_key, request_file
 
 FLOW_DIR = Path(".flowguard") / "flow"
 PROG = "python -m flowguard"            # the command every printed next step uses
@@ -280,6 +280,28 @@ def overlaps(loaded: list[Loaded]) -> list[Finding]:
     they both cover are overlapping views; one warning on each."""
     return overlap_views([(ld.model.id or ld.model.name, [f.family for f in ld.model.fields], ld.model.covers)
                           for ld in loaded])
+
+
+def unstored_sources(root: Path, views) -> list[Finding]:
+    """A source= naming no stored request: a model warning per id of the model that names it,
+    from (model id, {id: what names it}) as a core part records them. It is read at each
+    check, so storing the owner's words with `req add` ends it at once."""
+    out = []
+    for mid, sources in sorted(views, key=lambda v: v[0]):
+        for rid in sorted(sources, key=natural_key):
+            if request_line(root, rid) is not None:
+                continue
+            uses = ", ".join(sources[rid])
+            if request_file(root, rid) is None:
+                why = (f"{rid!r} is no request id (the name of a file in {REQUESTS.as_posix()}/, such as R10); "
+                       f"name the stored request it comes from")
+            else:
+                why = (f"{REQUESTS.as_posix()}/{rid}.md does not exist; store the owner's words with "
+                       f"python -m flowguard req add <file> --id {rid}, or name the request they are stored under")
+            out.append(make_finding("SOURCE", WARNING, mid, f"source {rid!r} is not a stored request",
+                                    f"source {rid!r} is not a stored request ({uses}): {why}",
+                                    detail={"source": rid, "named_by": list(sources[rid])}))
+    return out
 
 
 def overlap_views(views) -> list[Finding]:
