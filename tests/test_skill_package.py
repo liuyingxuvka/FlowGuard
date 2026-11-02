@@ -205,8 +205,8 @@ class SkillPackageTests(unittest.TestCase):
             output = adopt(owned, "--force")
             self.assertEqual(original, (owned / "AGENTS.md").read_bytes())
             self.assertEqual(stamp, (owned / "AGENTS.md").stat().st_mtime_ns)
-            self.assertIn(f"kept AGENTS.md (it exists): FlowGuard does not edit it; add these lines to the end of "
-                          f"{owned / 'AGENTS.md'}:\n{rules}", output)
+            self.assertIn(f"kept AGENTS.md (it exists): FlowGuard does not edit it\nadd these lines to "
+                          f"{owned / 'AGENTS.md'}, replacing any earlier FlowGuard rules there:\n{rules}", output)
             self.assertEqual(b"@AGENTS.md\n", (owned / "CLAUDE.md").read_bytes())
             self.assertNotIn("wrote " + str(owned / "AGENTS.md"), output)
 
@@ -226,6 +226,110 @@ class SkillPackageTests(unittest.TestCase):
             self.assertEqual(0, main(["template", "adoption"]))
         self.assertIn("===== AGENTS.md =====\n" + rules, output.getvalue())
         self.assertIn("===== CLAUDE.md =====\n@AGENTS.md\n", output.getvalue())
+
+    def test_adoption_names_earlier_flowguard_rules_and_never_asks_to_add_rules_already_there(self) -> None:
+        """An existing AGENTS.md: earlier FlowGuard rules are named by line to be replaced, rules already there are
+        never asked for again, and a file that holds the current rules is reported as complete and left alone."""
+        from unittest import mock
+        from flowguard.__main__ import main
+        from flowguard.templates import adoption_template_files
+        rules = next(f.content for f in adoption_template_files() if f.path == "AGENTS.md")
+        project = ["## Core Repository Rules", "", "- Use SI internally; never convert silently.",
+                   "- CI runs `python -m flowguard map check` on every push.",  # the project's own rule: kept
+                   "- Real modules require an explicit request.", ""]
+        older = [  # the FlowGuard block of an older release, verbatim from a Guard repository's AGENTS.md
+            "<!-- BEGIN FLOWGUARD PROJECT RULES -->",
+            "",
+            "## FlowGuard map and model maintenance",
+            "",
+            "1. At the start of a session and after any loss of context, run `python -m flowguard status` before "
+                "anything else.",
+            "2. Before changing behaviour or structure: store only the owner's request once as received with "
+                "`python -m flowguard req add <file|-> --id <id>` (reuse its ID if already stored) and never edit the"
+                " stored copy, locate the owner model with `python -m flowguard read --find WORDS` (or a "
+                "path:function) and extend it (a separate aspect gets its own model), run `python -m flowguard target"
+                ' start "<goal>" --request <id>` and `python -m flowguard target add <model>`, edit the copy in '
+                ".flowguard/target/, in .flowguard/target/PLAN.txt, name changed rules that show NO GAP and functions"
+                ' the change must reach (`changes: <model>.<rule> by <id> "<quote>"` with a verbatim quote or '
+                '`changes: <model>.<rule> because "<reason>"`, and `touch: <path>:<qualified name>`), run `python -m '
+                "flowguard target check` until it shows no ERROR and each changed model shows EXPECTED GAP, `moved "
+                "rules only`, `no rule change` or NO GAP with a line for every changed rule that shows NO GAP, change"
+                " the code, then run `python -m flowguard target promote` and the map confirm it prints, and paste "
+                "its owner block, when printed, unchanged into your final message.",
+            "3. Open only the affected component's files (`python -m flowguard read --component ID`).",
+            "4. After editing, run `python -m flowguard change` and fix errors; for `port changed ... -> verify "
+                "X`, run `python -m flowguard target add X` and make X receive the value; open each place a "
+                "`consumes`, `produces`, `mentions` or `nothing produces` line names; restore what a `promises: -...`"
+                " line lists or give the reason in the commit message; then run the affected tests and models it "
+                "selects. Models, tests and code grow together: split a model or a test file that grows too big (map "
+                "check warns at the soft limit and refuses at the hard one), keep them in correspondence where it "
+                "makes functional sense, and give a reason where a model has no test or no code yet.",
+            "5. Re-read each REVIEW component, update its description if behavior changed, then `python -m "
+                "flowguard map confirm ID`.",
+            "6. At final release, freeze the source and run the full suite and `python -m flowguard release` once"
+                " on that revision (same-SHA CI may provide this); report failures and unrun checks honestly.",
+            "",
+            "Maintenance needs FlowGuard at or above the tag in the `test` extra of `pyproject.toml` (install "
+                'with `python -m pip install -e ".[test]"`; the PyPI package named `flowguard` is a different '
+                "project).",
+            "Raise that tag only when this repository starts using a newer FlowGuard feature; a FlowGuard release"
+                " alone is no reason to change it or to release this repository.",
+            "",
+            "<!-- END FLOWGUARD PROJECT RULES -->",
+            "", "- Keep adapters future work unless explicitly requested."]
+
+        def adopt(root):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(0, main(["template", "adoption", "--write", str(root)]))
+            return output.getvalue()
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            agents = root / "AGENTS.md"
+            original = "\r\n".join(project + older).encode() + b"\r\n"
+            agents.write_bytes(original)
+            output = adopt(root)
+            self.assertEqual(original, agents.read_bytes())
+            self.assertNotIn("to the end", output)
+            named = re.findall(r"^  line (\d+): (.*)$", output, re.M)
+            self.assertEqual([9, 11, 12, 13, 14, 15, 16], [int(number) for number, _ in named], output)
+            self.assertEqual("## FlowGuard map and model maintenance", named[0][1])
+            self.assertTrue(named[2][1].startswith("2. Before changing behaviour") and named[2][1].endswith("..."))
+            self.assertLessEqual(max(len(text) for _, text in named), 100)
+            self.assertIn("kept AGENTS.md (it exists): FlowGuard does not edit it; these lines of it look like "
+                          f"earlier FlowGuard rules:\n  line 9: ", output)
+            self.assertTrue(output.endswith(f"add these lines to {agents}, replacing any earlier FlowGuard rules "
+                                            f"there:\n{rules}"), output)
+
+            # The owner replaces the named lines with the printed rules: the next run changes and prints nothing.
+            lines = project + older
+            first = int(named[0][0]) - 1
+            kept = [line for number, line in enumerate(lines, 1) if number not in {int(n) for n, _ in named}]
+            replaced = "\n".join(kept[:first] + rules.splitlines() + kept[first:]) + "\n"
+            agents.write_text(replaced, encoding="utf-8")
+            stamp = agents.stat().st_mtime_ns
+            output = adopt(root)
+            self.assertEqual((replaced, stamp), (agents.read_text(encoding="utf-8"), agents.stat().st_mtime_ns))
+            self.assertIn(f"kept AGENTS.md: {agents} already holds the current FlowGuard rules; nothing to add", output)
+            self.assertNotIn(rules.splitlines()[2], output)
+            self.assertNotIn("add these lines", output)
+
+            # Only one current rule is there (rule 1 is unchanged since the older set): it is named, never added twice.
+            agents.write_text("\n".join(project + [older[4]]) + "\n", encoding="utf-8")
+            output = adopt(root)
+            self.assertEqual([("7", older[4][:97] + "...")], re.findall(r"^  line (\d+): (.*)$", output, re.M))
+            self.assertIn("replacing any earlier FlowGuard rules there", output)
+
+            real = Path.read_text  # an AGENTS.md that cannot be read: say so and print the rules
+            def refuse(path, *arguments, **keywords):
+                if path.name == "AGENTS.md":
+                    raise PermissionError(13, "Permission denied", str(path))
+                return real(path, *arguments, **keywords)
+            with mock.patch.object(Path, "read_text", autospec=True, side_effect=refuse):
+                output = adopt(root)
+            self.assertIn(f"cannot read {agents}: [Errno 13] Permission denied", output)
+            self.assertIn(f"replacing any earlier FlowGuard rules there:\n{rules}", output)
 
     def test_installer_copies_the_skill(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

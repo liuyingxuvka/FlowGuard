@@ -4,7 +4,7 @@
 
 - A normal change no longer needs the legacy map, models or target commands. Run `status`, store the owner's words with `req add`, find code with `where`, run your tests, and commit in your own words with a `Request: R<n>` line.
 - The README's five-minute start, the skill and the adoption rules teach only this flow.
-- `template adoption --write` writes the rules into a missing AGENTS.md, or prints them for you to add to an existing one, which it never edits. It no longer writes `docs/flowguard_agents_rules.md` or a CLAUDE.md whose `@AGENTS.md` names a missing file.
+- `template adoption --write` writes the rules into a missing AGENTS.md and never edits an existing one. When an existing AGENTS.md already holds the current rules, it says so and asks for nothing; otherwise it prints the rules to put there in place of any earlier FlowGuard rules, and names the lines of those earlier rules by number. It no longer writes `docs/flowguard_agents_rules.md` or a CLAUDE.md whose `@AGENTS.md` names a missing file.
 - The concept guide and the skill pages about the map, models and targets say at the top that they are legacy and optional.
 - `map check`, `release` and `change --run` no longer fail because the legacy map is behind the code. Unowned files, stale or draft descriptions, dependency mismatches, unmodeled entrypoints and models edited in place are shown as information.
 - Import cycles, layer violations, broken anchors and files with two owners are still errors.

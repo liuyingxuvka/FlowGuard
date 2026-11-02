@@ -169,7 +169,7 @@ def _template(ns: argparse.Namespace) -> int:
     if ns.write:
         from .map.mapfile import MapError
         from .map.targetfile import load_target
-        from .templates import OWNER_FILES, TemplateFile, write_template_files
+        from .templates import OWNER_FILES, TemplateFile, adoption_rules_in, write_template_files
 
         current_prefix = ".flowguard/models/"
         target_prefix = ".flowguard/target/models/"
@@ -193,7 +193,19 @@ def _template(ns: argparse.Namespace) -> int:
             if file.path not in OWNER_FILES or path in written:
                 continue
             if file.path == "AGENTS.md" and path.is_file():
-                print(f"kept AGENTS.md (it exists): FlowGuard does not edit it; add these lines to the end of {path.absolute()}:")
+                try:
+                    held, found = adoption_rules_in(path.read_text(encoding="utf-8-sig", errors="replace"))
+                except OSError as error:
+                    held, found = False, ()
+                    print(f"cannot read {path.absolute()}: {error}")
+                if held:
+                    print(f"kept AGENTS.md: {path.absolute()} already holds the current FlowGuard rules; nothing to add")
+                    continue
+                print("kept AGENTS.md (it exists): FlowGuard does not edit it"
+                      + ("; these lines of it look like earlier FlowGuard rules:" if found else ""))
+                for number, line in found:
+                    print(f"  line {number}: {line if len(line) <= 100 else line[:97] + '...'}")
+                print(f"add these lines to {path.absolute()}, replacing any earlier FlowGuard rules there:")
                 print(file.content, end="")
             elif file.path == "AGENTS.md":
                 print(f"{path.absolute()} is not a file: replace it with a file that holds these lines:")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 
 from .template_text.behaviour import BEHAVIOUR_MODEL_TEMPLATE
@@ -36,6 +37,22 @@ def adoption_template_files() -> tuple[TemplateFile, ...]:
 """),
         TemplateFile("CLAUDE.md", "@AGENTS.md\n"),
     )
+
+
+def adoption_rules_in(text: str) -> tuple[bool, tuple[tuple[int, str], ...]]:
+    """Whether an AGENTS.md text holds every current rule line, and its numbered lines that look like FlowGuard rules.
+
+    A line looks like one when it is a numbered rule that mentions ``-m flowguard`` (every FlowGuard rule set had
+    that form), names FlowGuard in a heading or repeats a line of the current rules; a current rule found there is
+    named too, so it is replaced, never added twice. The project's own lines, such as a bullet that runs a FlowGuard
+    command in CI, are not named."""
+    template = next(file.content for file in adoption_template_files() if file.path == "AGENTS.md").splitlines()
+    numbered = re.compile(r"\d+\. ")
+    lines = [line.strip() for line in text.split("\n")]
+    found = tuple((number, line) for number, line in enumerate(lines, 1) if line and (
+        numbered.match(line) and "-m flowguard" in line or line in template
+        or line.startswith("#") and "flowguard" in line.lower()))
+    return {line for line in template if numbered.match(line)} <= set(lines), found
 
 
 
