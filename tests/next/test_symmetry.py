@@ -864,14 +864,7 @@ IN_DECLARED_ORDER = {
 }
 
 
-@pytest.mark.parametrize("how", list(IN_DECLARED_ORDER))
-def test_a_list_in_the_declared_order_searched_for_in_a_container_is_never_reduced(project, how):
-    """G3 round 4: a tuple of per-id values in the declared order, looked up with in / not
-    in among literal tuples, tells T1 from T2 exactly as == against such a tuple does, and
-    == was already a doubt. In a rule, a guard or a progress when= it was explored up to
-    renaming: "clean, complete" for a rule only the first tool alone breaks, a stuck tool
-    reported for both tools or missed. It is now a doubt: no renaming, the conflict found."""
-    helpers, guard, kind = IN_DECLARED_ORDER[how]
+def _never_reduced(project, helpers, guard, kind):
     project.flow("tools", CARRY.replace("HELPERS", helpers).replace("GUARD", guard))
     loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
     doubt = loaded.model.__dict__.get("_symmetry_doubt") or ""
@@ -882,6 +875,56 @@ def test_a_list_in_the_declared_order_searched_for_in_a_container_is_never_reduc
     assert sorted((f.kind, f.subject, tuple(f.objects)) for f in report.findings) == \
         sorted((f.kind, f.subject, tuple(f.objects)) for f in plain.findings)
     assert any(f.kind == kind for f in report.findings), [f.kind for f in report.findings]
+
+
+@pytest.mark.parametrize("how", list(IN_DECLARED_ORDER))
+def test_a_list_in_the_declared_order_searched_for_in_a_container_is_never_reduced(project, how):
+    """G3 round 4: a tuple of per-id values in the declared order, looked up with in / not
+    in among literal tuples, tells T1 from T2 exactly as == against such a tuple does, and
+    == was already a doubt. In a rule, a guard or a progress when= it was explored up to
+    renaming: "clean, complete" for a rule only the first tool alone breaks, a stuck tool
+    reported for both tools or missed. It is now a doubt: no renaming, the conflict found."""
+    _never_reduced(project, *IN_DECLARED_ORDER[how])
+
+
+VALS = 'tuple(s["busy", u] for u in TOOLS)'
+ID_TEST = "tuple(u == t for u in TOOLS)"
+INSIDE_AND_OR = {
+    "or (), not in a set": (f'm.always("never the first alone", lambda s: ({VALS} or ()) not in {{(True, False)}})',
+                            "pass", "BROKEN"),
+    "True and, not in a set": (f'm.always("never the first alone", lambda s: (True and {VALS}) '
+                               f'not in {{(True, False)}})', "pass", "BROKEN"),
+    "or (), !=": (f'm.always("never the first alone", lambda s: ({VALS} or ()) != (True, False))', "pass", "BROKEN"),
+    "and inside or": (f'm.always("never the first alone", lambda s: (({VALS} and {VALS}) or ()) '
+                      f'not in {{(True, False)}})', "pass", "BROKEN"),
+    "a guard, or ()": ("", f'need(({ID_TEST} or ()) not in {{(True, False)}}, "the first stays busy")', "STUCK"),
+    "a guard, a name bound to or ()": ("", f'v = {ID_TEST} or ()\n    need(v not in {{(True, False)}}, '
+                                           f'"the first stays busy")', "STUCK"),
+    "progress when=, or ()": (f'm.progress("the second is freed at once", over=TOOLS, when=lambda s, t: '
+                              f'({ID_TEST} or ()) in {{(False, True)}} and s["busy", t], goal=lambda s, t: False)',
+                              "pass", "STUCK"),
+}
+
+
+@pytest.mark.parametrize("how", list(INSIDE_AND_OR))
+def test_a_list_in_the_declared_order_inside_and_or_is_still_judged(project, how):
+    """G3 round 5: the same per-id tuple wrapped in `or` / `and` (`(vals or ())`,
+    `(True and vals)`) was not judged at all: an operand of and/or counted as a default and
+    the and/or itself held nothing the rule followed. "clean, complete; tools explored up
+    to renaming", exit 0, for a rule only the first tool alone breaks (--full: the objects
+    are not interchangeable). The value of `a or b` is one of its operands, so it holds
+    what they hold and is judged where it is used, as `a if c else b` already was."""
+    _never_reduced(project, *INSIDE_AND_OR[how])
+
+
+def test_and_or_over_values_the_rule_follows_differently_is_a_doubt(project):
+    """The other side: an and/or (or an if-else) whose operands hold different things, one
+    id and a list of ids, is judged by neither alone; it turns the renaming off."""
+    guard = 'need((t or [u for u in TOOLS]) != "", "never")'
+    project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    doubt = loaded.model.__dict__.get("_symmetry_doubt") or ""
+    assert "picks between values the rule follows differently" in doubt, doubt
 
 
 @pytest.mark.parametrize("helpers, guard", [

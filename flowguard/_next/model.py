@@ -1364,8 +1364,8 @@ class _IdUses:
                     return ("kindvals", by_kind[1])
                 return ("kindrecs" if elt[0] in ("record", "sequence") else "kindlist", elt[1])
             return ("sequence", elt[1]) if elt is not None else None
-        if isinstance(node, ast.IfExp):
-            return self.shape(node.body, env) or self.shape(node.orelse, env)
+        if isinstance(node, (ast.IfExp, ast.BoolOp)):     # its value is one of these (judge_code: they differ)
+            return next((sh for sh in self.alternatives(node, env) if sh is not None), None)
         if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.BitOr, ast.Sub, ast.BitAnd)):
             sides = [x for x in (self.shape(node.left, env), self.shape(node.right, env)) if x is not None]
             if not sides:
@@ -1400,6 +1400,12 @@ class _IdUses:
                     return owner if func.attr == "copy" else ("unordered", owner[1])
             return None
         return None
+
+    def alternatives(self, node, env):
+        """What each value an if-else or an and/or may give holds: `a if c else b` gives a
+        or b, `a or b` and `a and b` give one of their operands."""
+        return [self.shape(x, env) for x in ([node.body, node.orelse] if isinstance(node, ast.IfExp)
+                                             else node.values)]
 
     def comprehension_locals(self, node, env):
         """The names a comprehension binds, over the enclosing ones (its targets shadow them;
@@ -1623,6 +1629,10 @@ class _IdUses:
             self.judge_loop_carries(path, node, env)
         if isinstance(node, (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
             self.judge_comprehension_carries(path, node, env)
+        if isinstance(node, (ast.IfExp, ast.BoolOp)) \
+                and len({sh[0] for sh in self.alternatives(node, env) if sh is not None}) > 1:
+            self.doubts.append((path, node.lineno, "picks between values the rule follows differently "
+                                                   "(an id, ids in an order, values by id)"))
         if isinstance(node, ast.NamedExpr) and self.in_comprehension(node):
             sh = self.shape(node.value, env)
             if sh is not None:
