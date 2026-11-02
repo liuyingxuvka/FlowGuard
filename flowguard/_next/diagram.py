@@ -490,7 +490,7 @@ class Scene:
         ch, drawn = self.change, self.change_drawn
         model = [f"{_plural(ch.added, 'step')} added" if "added" not in ch.unknown else
                  "added steps UNKNOWN (the old search is capped)",
-                 f"{ch.removed} removed" if "removed" not in ch.unknown else
+                 f"{ch.removed:,} removed" if "removed" not in ch.unknown else
                  "removed steps UNKNOWN (the new search is capped)"]
         head = f"the change against {ch.rev}: "
         if green is None or (green, grey) == (ch.added, ch.removed) and not ch.unknown:
@@ -500,7 +500,7 @@ class Scene:
                 return head + (f"{_plural(ch.added, 'step')} added (green), {_plural(ch.removed, 'step')} "
                                f"removed (grey){drawn}")
             return head + "; ".join(model) + drawn
-        return (head + f"{_plural(green, 'arrow')} added (green), {grey} removed (grey) in this view; "
+        return (head + f"{_plural(green, 'arrow')} added (green), {grey:,} removed (grey) in this view; "
                 f"in the whole model {', '.join(model)}{drawn}")
 
     # -------------------------------------------------------------- candidate views

@@ -535,6 +535,19 @@ def test_the_change_head_counts_what_the_view_draws(project, argv):
         assert re.search(r"in the whole model \d+ steps? added, \d+ removed", first), first
 
 
+def test_the_change_head_writes_every_count_the_same_way():
+    """A large change said "41,064 steps added, 41064 removed": every count of the first line
+    is written with thousands separators, in the view and in the whole model."""
+    from types import SimpleNamespace
+    scene = SimpleNamespace(change=SimpleNamespace(added=41_064, removed=41_064, unknown=(), rev="HEAD"),
+                            change_drawn=" (drawn for T1 of T1, T2)")
+    head = diagram.Scene.change_head(scene, 3, 12_345)
+    assert "3 arrows added (green), 12,345 removed (grey) in this view" in head, head
+    assert "in the whole model 41,064 steps added, 41,064 removed (drawn for T1 of T1, T2)" in head, head
+    whole = diagram.Scene.change_head(scene, None, None)
+    assert "41,064 steps added (green), 41,064 steps removed (grey)" in whole, whole
+
+
 def test_a_capped_change_claims_no_removed_step(project):
     """#10 (round 2): when the search of the new model is capped, a step of the old model it
     did not reach is no removed step; the change says removed steps are UNKNOWN and draws no
