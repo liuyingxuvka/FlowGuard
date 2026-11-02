@@ -82,11 +82,70 @@ def request_lines(root: Path, sources) -> list[tuple[str, str]]:
     return out
 
 
+class ConflictsUnreadable(ProjectError):
+    """.flowguard/conflicts.json exists but cannot be read as the record a final check writes:
+    its open conflicts are unknown, so nothing may be decided from it or written over it."""
+
+
+_MERGE_MARKERS = ("<<<<<<< ", "||||||| ", "=======", ">>>>>>> ")
+_ENTRY_TEXT = ("id", "kind", "model", "subject", "text")
+
+
+def _shape_problem(data) -> str | None:
+    """What makes parsed JSON not a conflicts record (None: it is one)."""
+    if not isinstance(data, dict):
+        return "it is not a JSON object"
+    conflicts = data.get("conflicts", [])
+    if not isinstance(conflicts, list):
+        return "'conflicts' is not a list"
+    for n, c in enumerate(conflicts):
+        if not isinstance(c, dict):
+            return f"conflicts[{n}] is not an object"
+        for key in _ENTRY_TEXT:
+            if not isinstance(c.get(key), str):
+                return f"conflicts[{n}] has no '{key}'" if key not in c else f"conflicts[{n}].{key} is not text"
+        if not isinstance(c.get("sources", []), list):
+            return f"conflicts[{n}].sources is not a list"
+    if not isinstance(data.get("unknown", []), list) or not all(isinstance(u, str) for u in data.get("unknown", [])):
+        return "'unknown' is not a list of model ids"
+    models = data.get("models", {})
+    if not isinstance(models, dict) or not all(isinstance(v, dict) for v in models.values()):
+        return "'models' is not an object of model records"
+    return None
+
+
+def unreadable_text(reason: str, merge: bool = False) -> str:
+    """The one line every command gives for an unreadable conflicts.json: the file, why, and
+    the step that restores it (`git checkout -- FILE` refuses a file a merge left unmerged)."""
+    name = CONFLICTS.as_posix()
+    step = (f"keep one side: git checkout --ours -- {name}; then run {PROG} check" if merge
+            else f"git checkout -- {name}")
+    return f"{name} cannot be read ({reason}); its open conflicts are unknown until it is restored ({step})"
+
+
 def read_conflicts(root) -> dict | None:
+    """The last final check's record (None when there is none yet). A file that is not that
+    record (unreadable, not JSON, git merge markers, a wrong shape) raises ConflictsUnreadable
+    with the one line that names it and its restore step."""
     path = Path(root) / CONFLICTS
     if not path.is_file():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        raise ConflictsUnreadable(unreadable_text(f"{type(e).__name__}: {e}")) from e
+    if any(line.startswith(_MERGE_MARKERS) for line in text.splitlines()):
+        raise ConflictsUnreadable(unreadable_text("it holds git merge markers", merge=True))
+    try:
+        data = json.loads(text)
+    except ValueError as e:
+        raise ConflictsUnreadable(unreadable_text(f"it is not valid JSON: {e}")) from e
+    problem = _shape_problem(data)
+    if problem is not None:
+        raise ConflictsUnreadable(unreadable_text(problem))
+    data.setdefault("conflicts", [])
+    data.setdefault("unknown", [])
+    return data
 
 
 def _atomic_write(path: Path, text: str):

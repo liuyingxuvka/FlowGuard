@@ -440,10 +440,18 @@ def _release_flow_models(root: Path, as_json: bool, codes: list) -> int:
     with a "flow:" prefix; with --json only when they stop the release, and on stderr, so
     stdout keeps its one verdict line. 1 when they stop the release, else 0."""
     import io
-    from ..flow.cli import release
+    from ..flow.cli import internal_text, release
+    from ..flow.project import ProjectError
 
     report = io.StringIO()
-    passed = release(root, out=report, err=sys.stderr)
+    try:
+        passed = release(root, out=report, err=sys.stderr)
+    except ProjectError as error:                  # an unreadable conflicts.json: its one line, exit 2
+        raise RuntimeError(f"flow models: {error}") from error
+    except BrokenPipeError:
+        raise
+    except Exception as error:                     # noqa: BLE001 - the engine failed: exit 2, not a failed gate
+        raise RuntimeError(f"flow models: {internal_text(error)}") from error
     if not as_json or not passed:
         for line in report.getvalue().splitlines():
             print(f"flow: {line}", file=sys.stderr if as_json else sys.stdout)
@@ -453,10 +461,22 @@ def _release_flow_models(root: Path, as_json: bool, codes: list) -> int:
     return 1
 
 
+def _flow_record_readable(root: Path) -> None:
+    """An unreadable .flowguard/conflicts.json stops the release before any check runs: its
+    open conflicts are unknown, so no gate can pass (RuntimeError: one line, exit 2)."""
+    from ..flow.project import ProjectError, read_conflicts
+
+    try:
+        read_conflicts(root)
+    except ProjectError as error:
+        raise RuntimeError(f"flow models: {error}") from error
+
+
 def cmd_verify(root: Path, a) -> int:
     from .debts import evaluate_debts
     from .targetfile import target_seam
 
+    _flow_record_readable(root)
     data, inv = _context(root)
     as_json = getattr(a, "json", False)
     codes = []

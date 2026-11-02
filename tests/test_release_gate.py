@@ -100,3 +100,49 @@ def test_release_runs_the_flow_models_full_check(tmp_path, capsys):
     lines = capsys.readouterr().out.splitlines()
     assert any(line.startswith("flow: clean, complete") for line in lines) and lines[-1].startswith("verify: PASS")
     assert json.loads((tmp_path / ".flowguard/conflicts.json").read_text(encoding="utf-8"))["conflicts"] == []
+
+
+MERGED = "<<<<<<< HEAD\n{\"conflicts\": []}\n=======\n{\"conflicts\": []}\n>>>>>>> other\n"
+
+
+def test_release_stops_in_one_line_on_an_unreadable_conflicts_file(tmp_path, capsys):
+    """Acceptance A1: a merge-marked .flowguard/conflicts.json stops the release before any check
+    with the file and its restore step on one line, exit 2 (never a traceback, never a failed gate)."""
+    from flowguard.__main__ import main
+
+    basic_project(tmp_path)
+    assert main(["map", "confirm", "all", "--root", str(tmp_path)]) == 0
+    (tmp_path / ".flowguard/flow").mkdir()
+    (tmp_path / ".flowguard/flow/dial.py").write_text(DIAL, encoding="utf-8")
+    (tmp_path / ".flowguard/conflicts.json").write_text(MERGED, encoding="utf-8")
+    capsys.readouterr()
+    assert main(["release", "--root", str(tmp_path)]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    [line] = captured.err.splitlines()
+    assert line.startswith("error: flow models: .flowguard/conflicts.json cannot be read (it holds git merge markers)")
+    assert "git checkout --ours -- .flowguard/conflicts.json" in line
+    assert main(["release", "--json", "--root", str(tmp_path)]) == 2
+    verdict = json.loads(capsys.readouterr().out)
+    assert verdict["verdict"] == "FAIL" and verdict["codes"][0]["code"] == "runtime_error"
+
+
+def test_an_internal_error_in_the_flow_gate_stops_the_release_with_exit_2(tmp_path, capsys, monkeypatch):
+    """Acceptance A1: the engine failing inside release is "internal error: ...", exit 2, not
+    exit 1 (a gate that found a conflict)."""
+    from flowguard.__main__ import main
+    from flowguard.flow import jobs
+
+    def boom(*args, **kwargs):
+        raise KeyError("id")
+
+    basic_project(tmp_path)
+    assert main(["map", "confirm", "all", "--root", str(tmp_path)]) == 0
+    (tmp_path / ".flowguard/flow").mkdir()
+    (tmp_path / ".flowguard/flow/dial.py").write_text(DIAL, encoding="utf-8")
+    monkeypatch.setattr(jobs, "plan", boom)
+    capsys.readouterr()
+    assert main(["release", "--root", str(tmp_path)]) == 2
+    err = capsys.readouterr().err
+    assert "error: flow models: internal error: KeyError: 'id' (tests/test_release_gate.py:" in err
+    assert "Traceback" not in err

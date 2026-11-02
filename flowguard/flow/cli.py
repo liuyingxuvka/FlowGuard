@@ -8,7 +8,8 @@ warning on one line, each model error with its location, one reach line per mode
 `--json` prints exactly one line instead. Progress goes to stderr only.
 
 Exit codes: 0 clean and complete; 1 a conflict (new or open); 2 a model error, a usage
-error, not a project, or an internal error; 3 UNKNOWN with no conflict; 4 RUNNING.
+error, not a project, an unreadable conflicts.json, or an internal error (each one line, never
+a traceback); 3 UNKNOWN with no conflict; 4 RUNNING.
 A model error decides 2 even when there are conflicts too: part of the check is missing.
 """
 from __future__ import annotations
@@ -27,7 +28,7 @@ from .checks import CONFLICT, ERROR_CLS, GONE, REPLAYED, WARNING, Finding, expla
 from .explore import Bounds
 from .model import natural_key
 from .parts import ENGINE_DIGEST
-from .project import (CONFLICTS, FLOW_DIR, PROG, ProjectError, conflict_entry, find_root, model_files,
+from .project import (FLOW_DIR, PROG, ProjectError, conflict_entry, find_root, model_files,
                       overlap_views, read_conflicts, request_lines, resolve_models, write_conflicts)
 
 EXIT_CLEAN, EXIT_CONFLICT, EXIT_ERROR, EXIT_UNKNOWN, EXIT_RUNNING = 0, 1, 2, 3, 4
@@ -110,18 +111,50 @@ def verb_parser(verb: str, prog: str = PROG) -> argparse.ArgumentParser:
     return one
 
 
+class InternalError(Exception):
+    """The engine itself failed (a worker that failed, a bug): exit 2, never 1."""
+
+
+def internal_text(e: BaseException) -> str:
+    """`internal error: <type>: <message> (<file>:<line>)`: one line with the place where it
+    was raised (relative to the directory holding `flowguard/` when it is inside it)."""
+    if isinstance(e, InternalError):
+        return f"internal error: {e}"
+    tb = e.__traceback__
+    while tb is not None and tb.tb_next is not None:
+        tb = tb.tb_next
+    where = ""
+    if tb is not None:
+        path = Path(tb.tb_frame.f_code.co_filename)
+        try:
+            path = path.resolve().relative_to(Path(__file__).resolve().parents[2])
+        except ValueError:
+            path = Path(path.name)
+        where = f" ({path.as_posix()}:{tb.tb_lineno})"
+    return f"internal error: {type(e).__name__}: {e}{where}"
+
+
 def main(argv=None, *, prog: str = PROG, out=None, err=None) -> int:
+    """Exit 2 for a project problem (not a project, an unreadable conflicts.json) and for any
+    internal error, each as one line: exit 1 means a conflict and nothing else."""
     argv = list(sys.argv[1:] if argv is None else argv)
     out = out or sys.stdout
     err = err or sys.stderr
+    early = _show_early if argv[:1] == ["show"] else _early
     try:
         args = parser(prog).parse_args(argv)
     except UsageError as e:
-        early = _show_early if argv[:1] == ["show"] else _early
         return early(out, f"usage error: {e} (see {prog} --help)", EXIT_ERROR, "--json" in argv)
-    if args.verb == "show":
-        return show(args, argv, prog=prog, out=out, err=err)
-    return check(args, argv, prog=prog, out=out, err=err)
+    try:
+        if args.verb == "show":
+            return show(args, argv, prog=prog, out=out, err=err)
+        return check(args, argv, prog=prog, out=out, err=err)
+    except ProjectError as e:
+        return early(out, str(e), EXIT_ERROR, args.json)
+    except BrokenPipeError:
+        raise                                    # a closed stdout ends the command quietly (quiet_broken_pipe)
+    except Exception as e:                       # noqa: BLE001 - one line and exit 2, never a traceback and 1
+        return early(out, internal_text(e), EXIT_ERROR, args.json)
 
 
 def _early(out, line: str, code: int, as_json: bool) -> int:
@@ -143,10 +176,8 @@ def show(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
     within --wait leave it RUNNING with the command that resumes."""
     out = out or sys.stdout
     err = err or sys.stderr
-    try:
-        root = find_root(Path(args.root) if args.root else Path.cwd())
-    except ProjectError as e:
-        return _show_early(out, str(e), EXIT_ERROR, args.json)
+    root = find_root(Path(args.root) if args.root else Path.cwd())     # ProjectError: main says it
+    read_conflicts(root)                         # an unreadable record stops show before any work
     runner = jobs.Runner(root, wait=args.wait, keep=args.keep, progress=_Progress(err, "show"))
     try:
         code, text = diagram.show_main(root, args, runner)
@@ -154,7 +185,7 @@ def show(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
         resume = f"{prog} {shlex.join(argv)}"
         return _show_early(out, running_line(running.outcome, resume), EXIT_RUNNING, args.json, resume=resume)
     except jobs.Failed as e:
-        return _show_early(out, f"internal error: {e}", EXIT_ERROR, args.json)
+        raise InternalError(str(e)) from e
     out.write(text)
     out.flush()
     return code
@@ -200,13 +231,12 @@ def _current_text(current: dict | None, lead: str) -> str:
 
 # ---------------------------------------------------------------------- check
 def check(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
+    """A project problem raises ProjectError and an engine failure InternalError (main turns
+    either into one line and exit 2; release stops on them)."""
     out = out or sys.stdout
     err = err or sys.stderr
-    try:
-        root = find_root(Path(args.root) if args.root else Path.cwd())
-        paths = resolve_models(root, args.models) if args.models else model_files(root)
-    except ProjectError as e:
-        return _early(out, str(e), EXIT_ERROR, args.json)
+    root = find_root(Path(args.root) if args.root else Path.cwd())
+    paths = resolve_models(root, args.models) if args.models else model_files(root)
     previous = read_conflicts(root)
     if not paths and not (previous or {}).get("conflicts"):     # a deleted model's conflicts stay (below)
         return _early(out, f"no flow models in {FLOW_DIR.as_posix()}/", EXIT_CLEAN, args.json)
@@ -214,7 +244,7 @@ def check(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
     outcome = jobs.run(root, planned, wait=args.wait, keep=args.keep, progress=_Progress(err))
     resume = f"{prog} {shlex.join(argv)}"
     if outcome.failure is not None:
-        return _early(out, f"internal error: {outcome.failure}", EXIT_ERROR, args.json)
+        raise InternalError(str(outcome.failure))
     result = assemble(root, outcome, previous, max_states=args.max_states)
     if outcome.finished:
         write_conflicts(root, conflicts_data(root, result, previous))
@@ -698,8 +728,11 @@ def release(root, *, out=None, err=None) -> bool:
     every model with --full (the deliberate-breakage mutants and the unreduced symmetry
     check) and the release wait. True when the release may go on: a conflict or a model
     error stops it (UNKNOWN does not); work still RUNNING after the wait stops it too, since
-    nothing was decided."""
-    code = main(["check", "--full", "--wait", str(RELEASE_WAIT), "--root", str(root)], out=out, err=err)
+    nothing was decided. An unreadable conflicts.json raises ProjectError and an engine failure
+    an exception (InternalError or another): the release stops on either with exit 2, never
+    as a failed gate."""
+    argv = ["check", "--full", "--wait", str(RELEASE_WAIT), "--root", str(root)]
+    code = check(parser().parse_args(argv), argv, out=out, err=err)
     return code in (EXIT_CLEAN, EXIT_UNKNOWN)
 
 
@@ -709,9 +742,8 @@ def status_lines(root) -> list[str]:
     A project with no flow model and no recorded check gets no line."""
     try:
         data = read_conflicts(root)
-    except (OSError, ValueError) as e:
-        return [f"flow models: {CONFLICTS.as_posix()} cannot be read ({e}); its open conflicts are unknown "
-                f"until it is restored (git checkout -- {CONFLICTS.as_posix()})"]
+    except ProjectError as e:                    # the same line check, show and release stop with
+        return [f"flow models: {e}"]
     if data is None:
         return [f"flow models: no check recorded (run {PROG} check)"] if model_files(Path(root)) else []
     conflicts = data["conflicts"]

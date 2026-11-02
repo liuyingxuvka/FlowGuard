@@ -743,6 +743,77 @@ def test_the_text_names_the_declared_second_routes(project):
             'workshop is busy."; keeps FALLBACK ROUTE): main is often busy') in run.lines
 
 
+MERGED = "<<<<<<< HEAD\n{\"conflicts\": []}\n=======\n{\"conflicts\": []}\n>>>>>>> other\n"
+
+
+@pytest.mark.parametrize("text, reason", [
+    (MERGED, "it holds git merge markers"),
+    ("{\"conflicts\": [\n", "it is not valid JSON"),
+    ("[1, 2]\n", "it is not a JSON object"),
+    ("{\"conflicts\": [{\"x\": 1}], \"unknown\": []}\n", "conflicts[0] has no 'id'"),
+    ("{\"conflicts\": [], \"unknown\": 3}\n", "'unknown' is not a list"),
+])
+def test_an_unreadable_conflicts_file_stops_check_and_show_in_one_line(project, text, reason):
+    """Acceptance A1: a corrupt or merge-marked conflicts.json (it is committed, so a merge can
+    leave markers in it) is named with the step that restores it, as status names it, and
+    check and show exit 2, never with a traceback and never with 1 (the conflict code). The
+    file is left as it was: nothing is decided about open conflicts it may hold."""
+    import subprocess
+    from checkrun import command, env
+    project.flow("dial", DIAL)
+    saved = project.root / ".flowguard/conflicts.json"
+    saved.write_text(text, encoding="utf-8")
+    for verb in ("check", "show"):
+        res = subprocess.run(command(verb), cwd=project.root, capture_output=True, text=True, env=env(), timeout=60)
+        assert res.returncode == 2, (verb, res.stdout, res.stderr)
+        [line] = res.stdout.splitlines()
+        assert line.startswith(f".flowguard/conflicts.json cannot be read ({reason}"), line
+        assert "until it is restored (" in line and "git checkout" in line, line
+        assert "Traceback" not in res.stderr, res.stderr
+        res = subprocess.run(command(verb, "--json"), cwd=project.root, capture_output=True, text=True, env=env(),
+                             timeout=60)
+        data = json.loads(res.stdout)
+        assert res.returncode == 2 and data["exit"] == 2
+        assert (data.get("verdict") or data.get("message")).startswith(".flowguard/conflicts.json cannot be read")
+    assert saved.read_text(encoding="utf-8") == text
+    from flowguard.flow.cli import status_lines
+    [status] = status_lines(project.root)
+    assert status.startswith(f"flow models: .flowguard/conflicts.json cannot be read ({reason}")
+
+
+def test_a_merge_marked_conflicts_file_names_the_merge_step(project):
+    """git checkout -- FILE refuses an unmerged file, so the merge case names taking one side."""
+    from flowguard.flow.project import ProjectError, read_conflicts
+    project.flow("dial", DIAL)
+    (project.root / ".flowguard/conflicts.json").write_text(MERGED, encoding="utf-8")
+    with pytest.raises(ProjectError) as caught:
+        read_conflicts(project.root)
+    assert "git checkout --ours -- .flowguard/conflicts.json" in str(caught.value)
+    assert str(caught.value).endswith("; then run python -m flowguard check)")
+
+
+@pytest.mark.parametrize("verb", ["check", "show"])
+def test_an_internal_error_exits_2_never_1(project, monkeypatch, verb):
+    """Acceptance A1: an unexpected error inside check or show prints one "internal error:"
+    line with its place and exits 2; exit 1 means a conflict and nothing else."""
+    import io
+    from flowguard.flow import cli, diagram, jobs
+
+    def boom(*a, **k):
+        raise KeyError("id")
+    monkeypatch.setattr(jobs, "plan", boom)
+    monkeypatch.setattr(diagram, "show_main", boom)
+    project.flow("dial", DIAL)
+    for extra in ([], ["--json"]):
+        out = io.StringIO()
+        assert cli.main([verb, "--root", str(project.root), *extra], out=out, err=io.StringIO()) == 2
+        text = out.getvalue()
+        if extra:
+            data = json.loads(text)
+            text = data.get("verdict") or data.get("message")
+        assert text.startswith("internal error: KeyError: 'id' (tests/flow/test_check_cli.py:"), text
+
+
 def test_release_runs_the_full_check_with_its_mutants(project):
     """G5 / design 7.6: the release entry runs check --full (mutation and the unreduced
     symmetry check); a conflict or a model error stops the release, UNKNOWN does not.

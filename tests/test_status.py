@@ -252,5 +252,10 @@ def test_status_shows_the_flow_models_open_conflicts_from_the_last_check(tmp_pat
     assert text[opened + 1] == lines[0]
     (root / '.flowguard/conflicts.json').write_text('<<<<<<< HEAD\n', encoding='utf-8')
     [damaged] = _status(root, capsys)['flow_models']
-    assert damaged.startswith('flow models: .flowguard/conflicts.json cannot be read (')
+    assert damaged.startswith('flow models: .flowguard/conflicts.json cannot be read (it holds git merge markers)')
+    assert damaged.endswith('until it is restored (keep one side: git checkout --ours -- .flowguard/conflicts.json; '
+                            'then run python -m flowguard check)')
+    (root / '.flowguard/conflicts.json').write_text('{"conflicts": [', encoding='utf-8')
+    [damaged] = _status(root, capsys)['flow_models']
+    assert damaged.startswith('flow models: .flowguard/conflicts.json cannot be read (it is not valid JSON: ')
     assert damaged.endswith('until it is restored (git checkout -- .flowguard/conflicts.json)')

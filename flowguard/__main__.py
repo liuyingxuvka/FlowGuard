@@ -460,6 +460,15 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(ns, "json", False):
             print_verdict("release", 2, [dict(level="error", code="runtime_error", subject="map")])
         return 2
+    except BrokenPipeError:
+        raise                     # a closed stdout: quiet_broken_pipe ends the command quietly
+    except Exception as exc:  # noqa: BLE001 - one line and exit 2: a crash is never a failed gate (exit 1)
+        from .flow.cli import internal_text
+
+        print(internal_text(exc), file=sys.stderr)
+        if getattr(ns, "json", False):
+            print_verdict("release", 2, [dict(level="error", code="internal_error", subject="release")])
+        return 2
 
 
 if __name__ == "__main__":
