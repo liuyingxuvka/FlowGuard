@@ -801,3 +801,31 @@ def test_a_loop_that_treats_every_id_alike_keeps_the_renaming(project, how):
     loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
     assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
     assert check_model(loaded).graph.sym is not None
+
+
+def test_two_loops_that_reuse_one_name_are_no_pick_by_place(project):
+    """A loop over the ids whose name a later loop binds again: the later loop reads its own
+    binding, not the id the first one kept. Reading it there was taken as a pick by place,
+    a model error for a model that treats every id alike."""
+    guard = '''for u in TOOLS:
+        s["pick", u] = False
+    for u in TOOLS:
+        need(not s["pick", u], "picked")'''
+    project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", guard))
+    loaded = load_model(project.root / ".flowguard/flow/tools.py", project.root)
+    assert loaded.model.__dict__.get("_symmetry_doubt") is None, loaded.model.__dict__.get("_symmetry_doubt")
+    assert check_model(loaded).graph.sym is not None
+
+
+@pytest.mark.parametrize("guard", ['''for u in TOOLS:
+        pass
+    for u in []:
+        pass
+    s["pick", u] = True''', '''for u in TOOLS:
+        for u in TOOLS:
+            pass
+        s["pick", u] = True'''])
+def test_a_loop_name_read_after_a_later_loop_is_still_a_pick_by_place(project, guard):
+    project.flow("tools", CARRY.replace("HELPERS", "").replace("GUARD", guard))
+    with pytest.raises(ModelError, match="keeps 'u' after it ends"):
+        load_model(project.root / ".flowguard/flow/tools.py", project.root)

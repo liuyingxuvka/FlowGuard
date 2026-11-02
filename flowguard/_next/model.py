@@ -970,7 +970,7 @@ def _binds(scope, name) -> bool:
 
 def _reads_outside(scope, loop, name) -> bool:
     """Whether name is read in scope outside the loop (nested scopes that bind name
-    themselves read their own)."""
+    themselves read their own, and so does the body of another loop that binds it)."""
     stack = list(ast.iter_child_nodes(scope))
     while stack:
         n = stack.pop()
@@ -978,6 +978,10 @@ def _reads_outside(scope, loop, name) -> bool:
             continue
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.GeneratorExp, ast.ListComp,
                           ast.SetComp, ast.DictComp)) and _binds(n, name):
+            continue
+        if isinstance(n, (ast.For, ast.AsyncFor)) and name in _target_names(n.target) \
+                and not any(x is loop for x in ast.walk(n)):
+            stack += [n.iter, *n.orelse]           # its body reads its own binding
             continue
         if isinstance(n, ast.Name) and n.id == name and isinstance(n.ctx, ast.Load):
             return True
