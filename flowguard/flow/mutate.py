@@ -274,9 +274,10 @@ def run_mutants(loaded: Loaded, bounds: Bounds, *, progress=None) -> MutationRep
     proven = {(f.kind, f.subject): f for f in original.findings if f.cls == CONFLICT}
     findings, outcomes, unknown, causes = [], [], [], {}
     mid = model.id or model.name
-    for n, mutant in enumerate(mutants(loaded, original.graph)):
+    every = list(mutants(loaded, original.graph))
+    for n, mutant in enumerate(every):
         if progress is not None:
-            progress({"mutant": n + 1})
+            progress({"mutant": n + 1, "mutants": len(every)})
         if mutant.transform is not None:
             try:
                 mloaded = load_model(model.path, model.root, transform=mutant.transform)

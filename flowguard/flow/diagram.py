@@ -64,6 +64,9 @@ def _esc(text: str) -> str:
     return (text.replace("#", "#35;").replace('"', "#quot;").replace("<", "#lt;").replace(">", "#gt;"))
 
 
+WHAT_A_STEP_IS = "a step is one action from one full state, so a new or wider field multiplies them"
+
+
 def _plural(n, word):
     if n == 1:
         return f"1 {word}"
@@ -483,25 +486,24 @@ class Scene:
 
     def change_head(self, green, grey, changed=0) -> str:
         """The first words of a change picture: what the drawn view shows in green and grey
-        (green, grey: its arrows; None before a view is drawn; changed: its arrows that only
-        lost some steps, drawn orange), then the whole model's counts when they differ, and
-        what a capped search leaves UNKNOWN."""
+        first (green, grey: its arrows; None when no view is drawn; changed: its arrows that
+        only lost some steps, drawn orange), then the whole model's step counts, said as such
+        with what a step is (one action from one full state: a new or wider field multiplies
+        them, so they can be large for a small change), and what a capped search leaves
+        UNKNOWN."""
         ch, drawn = self.change, self.change_drawn
         model = [f"{_plural(ch.added, 'step')} added" if "added" not in ch.unknown else
                  "added steps UNKNOWN (the old search is capped)",
                  f"{ch.removed:,} removed" if "removed" not in ch.unknown else
                  "removed steps UNKNOWN (the new search is capped)"]
         head = f"the change against {ch.rev}: "
-        if green is None or (green, grey) == (ch.added, ch.removed) and not ch.unknown and not changed:
-            if not ch.added and not ch.removed and not ch.unknown:
-                return head + f"no step is added or removed{drawn}"
-            if not ch.unknown:
-                return head + (f"{_plural(ch.added, 'step')} added (green), {_plural(ch.removed, 'step')} "
-                               f"removed (grey){drawn}")
-            return head + "; ".join(model) + drawn
+        if not ch.added and not ch.removed and not ch.unknown:
+            return head + f"no step is added or removed{drawn}"
+        whole = f"in the whole model {', '.join(model)} ({WHAT_A_STEP_IS}){drawn}"
+        if green is None:
+            return head + whole
         fewer = f", {changed:,} with fewer steps (orange)" if changed else ""
-        return (head + f"{_plural(green, 'arrow')} added (green), {grey:,} removed (grey){fewer} in this view; "
-                f"in the whole model {', '.join(model)}{drawn}")
+        return head + f"{_plural(green, 'arrow')} added (green), {grey:,} removed (grey){fewer} in this view; {whole}"
 
     # -------------------------------------------------------------- candidate views
     def status(self):
@@ -715,9 +717,19 @@ class Scene:
         for labels in arrows.values():
             if any(len(cs) > 1 for cs in labels.values()):
                 folded_args = True
+        # the counterexample's last way into a window that leaves the start out: from there its
+        # red path runs on, unbroken, to its last state (an earlier pass through the window,
+        # left again, is no part of it)
+        entry = 0
+        if self.story and shown is not None and 0 not in shown:
+            ins = [k for k, u in enumerate(self.story) if u in shown]
+            if ins:
+                entry = ins[-1]
+                while entry > 0 and self.story[entry - 1] in shown:
+                    entry -= 1
         red_pairs = set()
         if self.story and len(self.story) > 1:
-            for a_, b_ in zip(self.story, self.story[1:]):
+            for a_, b_ in list(zip(self.story, self.story[1:]))[entry:]:
                 if (shown is None or (a_ in shown and b_ in shown)) and proj(a_) != proj(b_):
                     red_pairs.add((proj(a_), proj(b_)))
         # before / after
@@ -838,9 +850,9 @@ class Scene:
         if shown is None or 0 in shown:
             start = (ids[proj(0)], None, False)
         elif ordered:
-            inside_story = next((u for u in self.story if u in shown), None)
+            inside_story = self.story[entry] if self.story and self.story[entry] in shown else None
             if inside_story is not None:
-                k = self.story.index(inside_story)
+                k = entry
                 steps = self.story_names[:k]
             else:
                 first = min(shown, key=lambda u: (len(sp.path_to(u)), u))
@@ -871,14 +883,15 @@ class Scene:
             caption.append(f"{self.report.graph.unfinished(loud=True)}: only the explored part")
         n_shown = len(order)
         folded = []
+        total = self.total_text()
         if view.kind == "focus":
             folded.append(f"only the {_plural(n_shown, 'state')} within {_plural(view.focus, 'step')} of "
-                          f"{self.target_text} (of {len(sp):,}); the way in is one dashed arrow")
-            caption.append(f"the {n_shown} of {len(sp)} states within {_plural(view.focus, 'step')}")
+                          f"{self.target_text} (of {total}); the way in is one dashed arrow")
+            caption.append(f"the {n_shown} of {total} within {_plural(view.focus, 'step')}")
         elif view.kind == "story":
-            folded.append(f"only the counterexample's own {_plural(n_shown, 'state')} and steps (of {len(sp):,})")
+            folded.append(f"only the counterexample's own {_plural(n_shown, 'state')} and steps (of {total})")
         elif view.kind == "new":
-            folded.append(f"only the {_plural(n_shown, 'new state')} (of {len(sp):,})")
+            folded.append(f"only the {_plural(n_shown, 'new state')} (of {total})")
         if n_shown > len(ordered):
             folded.append(f"{n_shown:,} states merged into {_plural(len(ordered), 'box')}")
         left = [k for k in sp.keys if k not in keys]
@@ -893,7 +906,16 @@ class Scene:
         unseen = (old_boxes is not None and not any(b.style in ("added", "removed") for b in boxes)
                   and not any(a.style in ("green", "grey", "changed") for a in out_arrows))
         return Drawing(self.mid, view, boxes, out_arrows, start, caption, n_shown, len(sp), folded,
-                       head, _plural(len(sp), "state"), capped, unseen)
+                       head, total, capped, unseen)
+
+    def total_text(self) -> str:
+        """The number of states a picture is drawn from, said so that it agrees with check's:
+        with interchangeable objects a picture draws every renaming, while check counts the
+        states up to renaming."""
+        n, g = len(self.space), self.report.graph
+        if g.sym is None:
+            return _plural(n, "state")
+        return f"{_plural(n, 'state')} with every renaming ({len(g.states):,} up to renaming, as check counts them)"
 
     def box_names(self, keys):
         objs = {obj_of(k) for k in keys if obj_of(k) is not None}
@@ -949,15 +971,31 @@ class Choice:
     request: Request
 
     def refusal_lines(self, what: str) -> list:
+        """Why nothing is drawn: the views above the readable size, each with its size and the
+        command that draws it, and apart from them the smaller views that leave out what is
+        under discussion (they fit, so they are never called too big)."""
         req = self.request
-        out = [f"{self.scene.mid}: no picture drawn: "
-               + (f"this view has {self.tried[0][1]} boxes and {self.tried[0][2]} arrows, above " if req.explicit()
-                  else "every view is above ")
-               + f"the readable size of {req.max_boxes} boxes and {req.max_arrows} arrows "
-               f"(ask for a bigger one with --max-boxes N --max-arrows N). Views of this model:"]
-        for view, nb, na in self.tried[(1 if req.explicit() else 0):]:
+        big = [t for t in self.tried if t[1] > req.max_boxes or t[2] > req.max_arrows]
+        small = [t for t in self.tried if t not in big]
+        limit = f"the readable size of {req.max_boxes} boxes and {req.max_arrows} arrows"
+        if req.explicit():
+            view, nb, na = self.tried[0]
+            head = f"this view has {nb} boxes and {na} arrows, above {limit}"
+            big, small = [], self.tried[1:]
+        else:
+            head = (f"the only view of what is under discussion is above {limit}" if len(big) == 1
+                    else f"all {len(big)} views of what is under discussion are above {limit}")
+        out = [f"{self.scene.mid}: no picture drawn: {head} (ask for a bigger one with --max-boxes N "
+               f"--max-arrows N)" + (":" if big else ".")]
+        for view, nb, na in big:
             opts = " ".join(view.options)
             out.append(f"  {PROG} show {what} {opts}".rstrip() + f": {view.name}, {nb} boxes, {na} arrows")
+        if small:
+            out.append("Views of this model that fit:" if req.explicit()
+                       else "Views that fit but leave out what is under discussion:")
+            for view, nb, na in small:
+                opts = " ".join(view.options)
+                out.append(f"  {PROG} show {what} {opts}".rstrip() + f": {view.name}, {nb} boxes, {na} arrows")
         return out
 
 
@@ -1417,10 +1455,12 @@ def _plan_show(root, a, view_opts, runner):
         info = res.info
         if info.get("error"):
             code = 2
-        pictures.append({"model": spec.model, "first_line": info.get("first_line", ""),
+        pictures.append({"model": spec.model, "drawn": bool(info.get("drawn")), "first_line": info.get("first_line", ""),
                          "mermaid": info.get("mermaid", ""), "files": info.get("files", []),
                          "rendered": info.get("rendered", False), "reason": info.get("reason"),
                          "subject": info.get("subject"), "boxes": info.get("boxes"), "arrows": info.get("arrows")})
+    if pictures and not any(p["drawn"] for p in pictures):
+        code = 2                                          # asked to draw and nothing is drawn
     return code, pictures, more, message
 
 

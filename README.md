@@ -69,7 +69,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 
 | when | command | what it does |
 | --- | --- | --- |
-| session start or resume | `python -m flowguard status` | the project's static facts and what blocks a commit |
+| session start or resume | `python -m flowguard status` | the project's static facts and what fails release and CI |
 | the owner asks for something | `python -m flowguard req add <file\|-> --id <id>` | store the owner's own words once, byte for byte |
 | legacy target route (until v1.0.0) | `python -m flowguard target` (`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`) | plan a change of the legacy models; a normal change needs no target |
 | legacy check (until v1.0.0) | `python -m flowguard change` | verify map vs code; list only the affected tests and models |

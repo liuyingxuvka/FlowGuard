@@ -145,11 +145,15 @@ def core_part(ctx: PartContext) -> PartResult:
             "reached": list(report.reached)}
     findings = list(report.findings)
     if spec.option("verify_symmetry", False):
+        ctx.progress({"model": spec.model, "kind": spec.kind, "states": len(report.graph.states),
+                      "phase": "verifying the renaming with a search that does not use it"})
         sym = verify_symmetry(loaded, Bounds(max_states), report)
         info["symmetry"] = {"verified": sym["verified"], "text": sym["text"]}
         if sym["finding"] is not None:
             findings.append(sym["finding"])
     from .diagram import conflict_pictures              # diagram imports this module
+    ctx.progress({"model": spec.model, "kind": spec.kind, "states": len(report.graph.states),
+                  "phase": "drawing the conflicts' pictures"})
     pictures = conflict_pictures(report, root)          # <model>-<fingerprint>.mmd/.svg/.png per conflict
     writes = sorted({w for _, _, files in pictures for w in files})
     return PartResult(spec.kind, spec.model, digest, report.graph.complete,

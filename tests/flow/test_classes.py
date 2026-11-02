@@ -822,3 +822,32 @@ def test_a_value_held_from_the_start_that_nothing_changes_is_no_end(project):
     project.flow("lamp", CONSTANT)
     report = check_model(load_model(project.root / ".flowguard/flow/lamp.py", project.root))
     assert not [f for f in report.findings if f.kind == "STUCK"], [f.text for f in report.findings]
+
+
+def test_a_stuck_headline_names_the_state_its_object_is_stuck_in(project):
+    """Acceptance A6 (#3): the R10 dead end was named after the field that froze ("branch[*] =
+    'library' can never change again") while the tool stuck in repair showed only under "then
+    also stuck"; the headline now names every value of the object frozen with it."""
+    project.kit()
+    path = project.flow_from(DATA / "kit" / "workshop_naive.py", "workshop")
+    [f] = [f for f in check_model(load_model(path, project.root)).findings if f.kind == "STUCK"]
+    assert f.text.startswith("T1 stuck in cond='repair', branch='library': cond[*] = 'repair' and branch[*] = "
+                             "'library' can never change again"), f.text
+
+
+def test_the_work_after_the_search_says_its_phase(project):
+    """Acceptance A6 (#8): the progress line stayed at the same states count while the work after
+    the search ran; that work now reports its phase."""
+    from flowguard.flow.cli import _current_text
+    seen = []
+    project.kit()
+    path = project.flow_from(DATA / "kit" / "workshop_naive.py", "workshop")
+    check_model(load_model(path, project.root), progress=seen.append)
+    phases = [d["phase"] for d in seen if "phase" in d]
+    assert phases[:2] == ["finding what gets stuck", "finding what is never reached"], phases
+    assert any(p.startswith("explaining what is never reached: one-setting change 1 of ") for p in phases), phases
+    assert "checking the promises" in phases
+    text = _current_text({"model": "workshop", "kind": "core", "states": 25651, "phase": "checking the promises"}, "; ")
+    assert text == "; checking the promises in workshop (25,651 states explored)"
+    text = _current_text({"model": "workshop", "kind": "mutate", "mutant": 3, "mutants": 12}, "; still ")
+    assert text == "; still running mutate of workshop (deliberate breakage 3 of 12)"

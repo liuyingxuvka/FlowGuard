@@ -123,7 +123,7 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
 - **UNKNOWN**: the search hit its state bound ("capped"), a model error cut it short (no STUCK or
   NEVER REACHED is decided there), or a model did not load ("not explored"). What it found with a
   path is certain; nothing is reported as holding or clean. Make the model smaller, not the bound.
-- **OPEN ... (kept: ...)**: a proven conflict stays open and blocks until a complete check of its
+- **OPEN ... (kept: ...)**: a proven conflict stays open, and release fails, until a complete check of its
   model no longer finds it ("closed ..."); nothing else closes it (a capped check, also one whose replay
   of the stored path fails, a model error, a rename, a deleted model file). `show` of it says so (exit 3).
 - The last line per model says how complete the search was, which settings it used and from

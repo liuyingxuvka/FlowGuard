@@ -48,7 +48,8 @@ def test_attribution_per_kind_on_the_naive_example(project):
     assert stuck.detail["consequences"] == ["cond[*] = 'repair'",
                                             "progress 'a tool in repair or on the way gets back to a shelf'",
                                             "rentals[*] = 4"]
-    assert stuck.detail["shown_consequences"] == stuck.detail["consequences"][:2]
+    # cond[*] = 'repair' freezes with the branch: the headline names it, the consequences line does not repeat it
+    assert stuck.detail["shown_consequences"] == stuck.detail["consequences"][1:2]
     assert stuck.detail["folded"] == {"count": 1, "fields": ["rentals[*]"]}
     assert "R10" in broken.sources and broken.subject == "always 'a tool in repair is at main'"
     assert contra.sources == ("R10",)                    # the option's and the refusing guard's
@@ -305,7 +306,8 @@ def test_a_stuck_report_names_the_object_its_refusals_and_its_way_in(project):
     consequence sets in), and the step that entered it."""
     report = kit_report(project, "workshop_naive")
     stuck = one(report, "STUCK")
-    assert stuck.text.startswith("T1 stuck with cond='loan', branch='library', rentals=4: branch[*] = 'library'")
+    assert stuck.text.startswith("T1 stuck in cond='repair', branch='library': cond[*] = 'repair' and "
+                                 "branch[*] = 'library' can never change again")
     refused = [(r["call"].partition("(")[0], r["reason"], r["source"]) for r in stuck.detail["refused"]]
     assert refused == [("rent", "not on the shelf", "R4"), ("arrive", "not on the way", "R10"),
                        ("repaired", "not in repair", "R9"), ("move", "only shelf tools move", "R6")]
@@ -315,7 +317,7 @@ def test_a_stuck_report_names_the_object_its_refusals_and_its_way_in(project):
 
     project.flow_from(DATA / "planted" / "rental_naive.py")
     rental = one(check_model(load_model(project.root / ".flowguard/flow/rental_naive.py", project.root)), "STUCK")
-    assert rental.text.startswith("T1 stuck with cond='repair', branch='library': ")
+    assert rental.text.startswith("T1 stuck in cond='repair', branch='library': ")
     assert ("repaired(t='T1')", "repairs only at main", "R10") in {
         (r["call"], r["reason"], r["source"]) for r in rental.detail["refused"]}
     assert rental.detail["entered"] == {"call": "return_damaged(t='T1')", "sources": ["R8"]}

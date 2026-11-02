@@ -61,7 +61,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 
 | 什么时候 | 命令 | 作用 |
 | --- | --- | --- |
-| 会话开始或恢复 | `python -m flowguard status` | 项目的静态事实，以及什么会挡住提交 |
+| 会话开始或恢复 | `python -m flowguard status` | 项目的静态事实，以及什么会让 release 和 CI 失败 |
 | 主人提出要求 | `python -m flowguard req add <file\|-> --id <id>` | 把主人自己的话原样存一次 |
 | 旧的目标路线（保留到 v1.0.0） | `python -m flowguard target`（`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`） | 计划旧模型的改动；正常改动不需要目标 |
 | 旧的检查（保留到 v1.0.0） | `python -m flowguard change` | 校验地图和代码；只列出受影响的测试和模型 |

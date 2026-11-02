@@ -113,7 +113,9 @@ def test_fixed_against_head_is_the_prototype_diff_picture(project):
     code, out = show(project.root)
     assert code == 0, out
     first = out.splitlines()[0]
-    assert first.startswith("rental: the change against HEAD: 2 steps added (green), 1 step removed (grey)")
+    assert first.startswith("rental: the change against HEAD: 2 arrows added (green), 1 removed (grey) in this view; "
+                            "in the whole model 2 steps added, 1 removed (a step is one action from one full state, "
+                            "so a new or wider field multiplies them)")
     got, want = parse(body(out)), parse((PICTURES / "fixed_diff.mmd").read_text())
     kept = {b: t for b, t in got["boxes"].items() if got["classes"].get(b) != "removed"}
     assert sorted(kept.values()) == sorted(want["boxes"].values())                   # the 6 non-grey boxes
@@ -271,16 +273,20 @@ def test_nothing_fits_lists_every_view_with_its_size_and_options(project):
     choice = diagram.choose_view(report)
     assert choice.drawing is None
     lines = choice.refusal_lines("dials")
-    assert lines[0].startswith("dials: no picture drawn: every view is above the readable size of 12 boxes "
-                               "and 20 arrows")
+    assert re.match(r"dials: no picture drawn: (the only view of what is under discussion is|all \d+ views of what is "
+                    r"under discussion are) above the readable size of 12 boxes and 20 arrows", lines[0]), lines[0]
     assert "  python -m flowguard show dials --fields *: the whole state space, 1000 boxes, 3000 arrows" in lines
-    assert "  python -m flowguard show dials --fields a: a alone, 10 boxes, 10 arrows" in lines
+    # acceptance A6: a view that fits is never listed as above the readable size, and nothing drawn is exit 2
+    fit = lines.index("Views that fit but leave out what is under discussion:")
+    assert lines.index("  python -m flowguard show dials --fields a: a alone, 10 boxes, 10 arrows") > fit
+    assert all(int(re.search(r"(\d+) boxes", x).group(1)) > 12 or int(re.search(r"(\d+) arrows", x).group(1)) > 20
+               for x in lines[1:fit]), lines
     code, out = show(project.root, "dials")
-    assert code == 0 and out.splitlines()[0] == lines[0]
+    assert code == 2 and out.splitlines()[0] == lines[0]
     code, out = show(project.root, "dials", "--fields", "a")
     assert code == 0 and ": fields a: 10 boxes, 10 arrows; folded: 1,000 states merged into 10 boxes" in out
     code, out = show(project.root, "dials", "--fields", "a,b")
-    assert code == 0 and "this view has 100 boxes and 200 arrows" in out.splitlines()[0]
+    assert code == 2 and "this view has 100 boxes and 200 arrows" in out.splitlines()[0]    # nothing drawn
     assert "  python -m flowguard show dials --fields a: a alone, 10 boxes, 10 arrows" in out.splitlines()
     code, out = show(project.root, "dials", "--fields", "a,b", "--max-boxes", "100", "--max-arrows", "200")
     assert code == 0 and ": fields a, b: 100 boxes, 200 arrows" in out.splitlines()[0]
@@ -543,9 +549,13 @@ def test_the_change_head_writes_every_count_the_same_way():
                             change_drawn=" (drawn for T1 of T1, T2)")
     head = diagram.Scene.change_head(scene, 3, 12_345)
     assert "3 arrows added (green), 12,345 removed (grey) in this view" in head, head
-    assert "in the whole model 41,064 steps added, 41,064 removed (drawn for T1 of T1, T2)" in head, head
-    whole = diagram.Scene.change_head(scene, None, None)
-    assert "41,064 steps added (green), 41,064 steps removed (grey)" in whole, whole
+    assert ("in the whole model 41,064 steps added, 41,064 removed (a step is one action from one full state, so a "
+            "new or wider field multiplies them) (drawn for T1 of T1, T2)") in head, head
+    whole = diagram.Scene.change_head(scene, None, None)       # no view drawn: the whole model alone, said so
+    assert whole == ("the change against HEAD: in the whole model 41,064 steps added, 41,064 removed (a step is one "
+                     "action from one full state, so a new or wider field multiplies them) (drawn for T1 of T1, T2)"), whole
+    assert diagram.Scene.change_head(scene, 41_064, 41_064).startswith(
+        "the change against HEAD: 41,064 arrows added (green), 41,064 removed (grey) in this view; in the whole model")
 
 
 def test_a_capped_change_claims_no_removed_step(project):
@@ -649,3 +659,54 @@ def test_an_arrow_that_only_lost_steps_is_no_added_arrow(project):
     grey = [a for a in got["arrows"] if a[3] == "#999"]
     assert "0 arrows added (green), " in first, first
     assert f"{len(grey)} removed (grey), {len(changed)} with fewer steps (orange) in this view" in first, first
+
+
+COME_BACK = '''
+from flowguard.flow import Model, need
+m = Model("ring")
+m.field("x", range(0, 5), 0)
+
+@m.action()
+def step(s):
+    need(s["x"] < 4, "at the end")
+    s["x"] += 1
+
+@m.action()
+def back(s):
+    need(s["x"] == 4, "not at the end")
+    s["x"] = 1
+m.always("never at the end", lambda s: s["x"] != 4)
+MODEL = m
+'''
+
+
+def test_a_broken_rule_picture_draws_its_red_path_unbroken_into_the_last_box(project):
+    """Acceptance A6 (#6): in a window around the breaking state that the counterexample enters,
+    leaves and enters again (x=1 is next to x=4 by back), the dashed way in went to where the
+    path first entered (x=1) and the red path ended without its way in; the way in now goes to
+    the last entry (x=3) and the red path runs from there into the final box."""
+    path = project.flow("ring", COME_BACK)
+    report = check_model(load_model(path, project.root))
+    [f] = [f for f in report.findings if f.kind == "BROKEN"]
+    assert f.path == ("step()",) * 4
+    d = diagram.choose_view(report, f, request=diagram.Request(focus=1)).drawing
+    pic = parse(diagram.mermaid(d))
+    assert pic["start"].startswith("x=3"), pic
+    red = [(a, b) for a, _, b, style, _ in pic["arrows"] if style == "#c00"]
+    assert [(plain(a), b) for a, b in red] == [("x=3", "x=4 (rule broken)")], pic["arrows"]
+    assert "3 steps: step, step, step" in diagram.mermaid(d)
+
+
+def test_show_counts_states_the_way_check_does(project):
+    """Acceptance A6 (#5): check counted 25,651 states (up to renaming) and show 51,076 for the
+    same model; a picture of interchangeable objects now says it draws every renaming and how
+    many states that is up to renaming, the number check gives."""
+    project.kit()
+    path = project.flow_from(DATA / "kit" / "workshop_naive.py", "workshop")
+    report = check_model(load_model(path, project.root))
+    assert report.graph.sym is not None
+    f = next(f for f in report.findings if f.kind == "STUCK")
+    d = diagram.choose_view(report, f, request=diagram.Request(focus=1)).drawing
+    n = len(report.graph.states)
+    assert f"with every renaming ({n:,} up to renaming, as check counts them)" in diagram.mermaid(d)
+    assert f"with every renaming ({n:,} up to renaming, as check counts them)" in diagram.first_line(d)

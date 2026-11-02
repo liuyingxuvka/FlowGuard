@@ -158,8 +158,8 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
     assert run.first == "6 new conflicts; complete"
     heads = [line for line in run.lines if line.startswith("NEW ")]
     assert len(heads) == 6
-    assert re.fullmatch(r"NEW STUCK workshop: T1 stuck with cond='loan', branch='library', rentals=4: "
-                        r"branch\[\*\] = 'library' can never change again "
+    assert re.fullmatch(r"NEW STUCK workshop: T1 stuck in cond='repair', branch='library': "
+                        r"cond\[\*\] = 'repair' and branch\[\*\] = 'library' can never change again "
                         r"\(tools T1, T2\)   \[C-[0-9a-f]{12}\]", heads[0])
     i = run.lines.index(heads[0])
     stuck = run.lines[i:i + 15]
@@ -175,7 +175,7 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
                         'R9 "# Request 9: regular maintenance" | R10 "Repairs are done only at the main branch."')
     assert stuck[9] == "  state: cond[T1]='loan', branch[T1]='library', rentals[T1]=4"
     assert stuck[10].startswith("  path (8 steps): rent(t='T1') ; give_back(t='T1') ;")
-    assert stuck[11] == ("  then also stuck: cond[*] = 'repair'; progress 'a tool in repair or on the way gets back "
+    assert stuck[11] == ("  then also stuck: progress 'a tool in repair or on the way gets back "
                          "to a shelf' (1 counter value folded: rentals[*])")
     assert stuck[12] == "  note: clamped at maintain_every: more rentals behave the same"
     assert "  no one-setting change reaches it" in run.lines
@@ -390,7 +390,8 @@ def test_status_lines_read_the_last_final_check(project):
     project.kit().flow_from(KIT / "workshop_naive.py")
     timed(project.root)
     [line] = status_lines(project.root)
-    assert line.startswith("flow models: 6 open conflicts (C-") and line.endswith("a commit is blocked until fixed")
+    assert line.startswith("flow models: 6 open conflicts (C-") and line.endswith("release and CI fail until fixed; without a hook a commit is not blocked")
+    assert "a commit is blocked" not in line        # acceptance A6: nothing stops a commit unless a hook runs it
 
 
 @pytest.mark.parametrize("args", [(), ("--json",)])
@@ -513,7 +514,7 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
     data = json.loads(saved.read_text())
     assert [c["id"] for c in data["conflicts"]] == [cid] and data["unknown"] == ["rental"]
     [status] = status_lines(project.root)
-    assert f"1 open conflict ({cid}); a commit is blocked until fixed" in status
+    assert f"1 open conflict ({cid}); release and CI fail until fixed; without a hook a commit is not blocked" in status
     assert "UNKNOWN for rental (does not block)" not in status
 
     path = project.root / ".flowguard/flow/rental.py"
@@ -572,7 +573,7 @@ def test_a_capped_check_after_a_settings_change_keeps_every_proven_conflict(proj
         assert line.endswith("this check is capped; a complete check will settle it)"), line
     assert sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"]) == ids
     [status] = status_lines(project.root)
-    assert "3 open conflicts" in status and "a commit is blocked until fixed" in status, status
+    assert "3 open conflicts" in status and "release and CI fail until fixed; without a hook a commit is not blocked" in status, status
     assert "does not block" not in status, status
     again = timed(project.root)
     assert again.code == 1 and again.first == "3 open conflicts; complete", again.out
@@ -627,7 +628,7 @@ def test_a_renamed_or_deleted_model_file_keeps_its_conflicts(project):
                          "check of rental no longer finds it)")
     assert cid in [c["id"] for c in json.loads(saved.read_text())["conflicts"]]
     [status] = status_lines(project.root)
-    assert f"1 open conflict ({cid}); a commit is blocked until fixed" in status
+    assert f"1 open conflict ({cid}); release and CI fail until fixed; without a hook a commit is not blocked" in status
     full = timed(project.root)                     # rental2's own conflict is new; rental's stays
     assert full.code == 1 and full.first == "1 new conflict, 1 open; complete"
     assert f"[{cid}] (kept: its model file .flowguard/flow/rental.py is gone" in full.out
@@ -689,7 +690,7 @@ def test_a_model_error_in_the_search_closes_nothing_and_proves_nothing(project):
     data = json.loads(saved.read_text())
     assert [c["id"] for c in data["conflicts"]] == [cid] and data["unknown"] == ["rental"]
     [status] = status_lines(project.root)
-    assert "a commit is blocked until fixed" in status and "rental (2 model errors" in status, status
+    assert "release and CI fail until fixed; without a hook a commit is not blocked" in status and "rental (2 model errors" in status, status
     path.write_text(text)                                        # restored: a capped check keeps only the real one
     capped = timed(project.root, "--max-states", "3")
     assert capped.code == 1 and capped.first == "1 open conflict; UNKNOWN: rental capped at 3 states", capped.out
@@ -1007,4 +1008,4 @@ def test_a_capped_check_closes_no_never_reached_item_the_model_no_longer_has(pro
     assert len(opened) == 2 and all(x.endswith("this check is capped)") for x in opened), capped.out
     assert sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"]) == ids
     [status] = status_lines(project.root)
-    assert "2 open conflicts" in status and "a commit is blocked until fixed" in status, status
+    assert "2 open conflicts" in status and "release and CI fail until fixed; without a hook a commit is not blocked" in status, status

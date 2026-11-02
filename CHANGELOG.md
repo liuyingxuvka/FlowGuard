@@ -12,7 +12,8 @@
 - `check --full` also breaks each model on purpose and lists the breaks no check catches, and explores a model with interchangeable ids once more without renaming them.
 - Conflicts are recorded in `.flowguard/conflicts.json`; commit it. A conflict stays open until a complete check of its model no longer finds it.
 - `python -m flowguard show` draws the conflicts, or else the change against HEAD, as a flowchart: Mermaid text, plus SVG and PNG pictures where node with Playwright is installed.
-- `status` shows the flow models' open conflicts and whether they block a commit.
+- `status` shows the flow models' open conflicts and says what they stop: release and CI fail until they are fixed; without a hook a commit is not blocked.
+- A STUCK conflict names every value its object is stuck in (`T1 stuck in cond='repair', branch='library'`). `show` counts states the way `check` does (every renaming, and how many up to renaming), lists as too big only the views that are, exits 2 when it draws nothing, draws a broken promise's red path unbroken into its last box, and gives the arrows of the drawn view before the whole model's step count. The progress line names the work after the search (finding what gets stuck, explaining with one-setting changes, verifying the renaming, deliberate breakage k of n).
 - `release` runs the full check of the flow models after the legacy models, and fails on a conflict or a model error. A project with flow models and no legacy map gets the same flow check, and its whole test suite with `--shards`; the first line says that no legacy map exists.
 - When `.flowguard/conflicts.json` cannot be read (damaged, or left with git merge markers), `check`, `show` and `release` stop with one line that names the file and the step that restores it, exit 2. Any other unexpected error in these commands is one `internal error:` line, also exit 2: exit 1 always means a conflict.
 

@@ -221,12 +221,22 @@ class _Progress:
 
 
 def _current_text(current: dict | None, lead: str) -> str:
+    """What the worker is on: the search with its states, then the phase of the work after it
+    (finding what gets stuck, explaining with one-setting changes, verifying the renaming,
+    drawing), so a line that repeats the same states still says it moves on."""
     if not current:
         return ""
+    states = current.get("states") or 0
+    phase = current.get("phase")
     if current["kind"] == "core":
-        states = current.get("states") or 0
+        if phase:
+            return f"{lead}{phase} in {current['model']}" + (f" ({states:,} states explored)" if states else "")
         return f"{lead}exploring {current['model']}" + (f" ({states:,} states)" if states else "")
-    return f"{lead}running {current['kind']} of {current['model']}"
+    text = f"{lead}running {current['kind']} of {current['model']}"
+    if current.get("mutant"):
+        total = current.get("mutants")
+        text += f" (deliberate breakage {current['mutant']}" + (f" of {total}" if total else "") + ")"
+    return text + (f": {phase}" if phase else "")
 
 
 # ---------------------------------------------------------------------- check
@@ -364,7 +374,7 @@ def _kept(root, models: dict, previous: dict | None, found: set) -> tuple[list, 
     setting changed, or when it reaches a NEVER REACHED item), one a model error cut
     short, a model that does not load, a model file that is gone, and a check that left
     the model out (`check lamp` keeps the other models' conflicts open, and they count
-    for its exit code as the status's "a commit is blocked" does). The reason says what
+    for its exit code as they do for the release the status names). The reason says what
     this check saw and that a complete check will settle it."""
     kept, closed = [], []
     existing = {p.stem for p in model_files(root)}
@@ -736,10 +746,15 @@ def release(root, *, out=None, err=None) -> bool:
     return code in (EXIT_CLEAN, EXIT_UNKNOWN)
 
 
+FAILS = "release and CI fail until fixed; without a hook a commit is not blocked"
+
+
 def status_lines(root) -> list[str]:
     """For `python -m flowguard status`: open conflicts of the flow models from the last
-    final check (.flowguard/conflicts.json, the only source), and what blocks a commit.
-    A project with no flow model and no recorded check gets no line."""
+    final check (.flowguard/conflicts.json, the only source), and what they stop: release
+    (and so CI, which runs it) fails on an open conflict, a model error or a model that does
+    not load; nothing stops a commit unless the project installs a hook that runs it. A
+    project with no flow model and no recorded check gets no line."""
     try:
         data = read_conflicts(root)
     except ProjectError as e:                    # the same line check, show and release stop with
@@ -754,7 +769,7 @@ def status_lines(root) -> list[str]:
     capped = [m for m in unknown if m not in unexplored and not models.get(m, {}).get("cut")]
     if conflicts:
         ids = ", ".join(c["id"] for c in conflicts)
-        line = f"flow models: {_plural(len(conflicts), 'open conflict')} ({ids}); a commit is blocked until fixed"
+        line = f"flow models: {_plural(len(conflicts), 'open conflict')} ({ids}); {FAILS}"
     elif unknown or erring:
         line = "flow models: no conflict found"
     else:
@@ -762,14 +777,16 @@ def status_lines(root) -> list[str]:
     held = {c["model"] for c in conflicts}                 # a capped check never closes a proven conflict
     if [m for m in capped if m not in held]:
         line += (f"; capped: {', '.join(m for m in capped if m not in held)} (what a capped search could not "
-                 f"decide is UNKNOWN; that alone does not block)")
+                 f"decide is UNKNOWN; that alone fails no release)")
     if [m for m in capped if m in held]:
-        line += (f"; capped with open conflicts: {', '.join(m for m in capped if m in held)} (they stay open and "
-                 f"block until a complete check settles them)")
+        line += (f"; capped with open conflicts: {', '.join(m for m in capped if m in held)} (they stay open "
+                 f"until a complete check settles them)")
     if erring:
         shown = [f"{m} ({_plural(n, 'model error')}" + ("; its search was cut short" if models[m].get("cut") else "")
                  + ")" for m, n in sorted(erring.items(), key=lambda x: natural_key(x[0]))]
-        line += f"; model errors: {', '.join(shown)}" + ("" if conflicts else "; a commit is blocked until fixed")
+        line += f"; model errors: {', '.join(shown)}"
     if unexplored:
-        line += f"; not explored: {', '.join(unexplored)} (the model does not load; a commit is blocked until fixed)"
+        line += f"; not explored: {', '.join(unexplored)} (the model does not load)"
+    if (erring or unexplored) and not conflicts:
+        line += f"; {FAILS}"
     return [line]

@@ -256,6 +256,7 @@ class _Run:
         self.bounds = bounds
         self.explain = explain
         self.reduce = reduce
+        self.progress = progress or (lambda info: None)
         self.g = explore(self.model, bounds, reduce=reduce, progress=progress)
         self.fr = _Frame(self.g)
         self.mid = self.model.id or self.model.name
@@ -302,6 +303,10 @@ class _Run:
         return out
 
     # -------------------------------------------------------------- run
+    def phase(self, text):
+        """What the check does after the search (said on the progress line, with the states)."""
+        self.progress({"states": len(self.g.states), "phase": text})
+
     def run(self) -> Report:
         g, model = self.g, self.model
         raw = []
@@ -310,14 +315,17 @@ class _Run:
         reach_missing = []
         explained = {}
         if g.complete:
+            self.phase("finding what gets stuck")
             stuck = self.stuck()
             raw += stuck
             stuck_names = {n for f in stuck for n in f.detail.get("progress_names", [])}
+            self.phase("finding what is never reached")
             never, reach_missing, explained = self.never()
             raw += never
         else:
             unknown += ["STUCK", "NEVER REACHED"]
             reach_missing = [r for r in self.reach_unreached()]
+        self.phase("checking the promises")
         raw += self.broken()
         raw += self.contradictions()
         raw += self.settings_warning()
@@ -850,15 +858,28 @@ class _Run:
             "where": sorted(line["where"]),        # unreduced ids i * P + renaming (pictures)
         }
         head = f"{who} stuck with {plain}" if who else f"stuck with {plain}"
+        # the object's other values frozen with it (a tool whose branch freezes at the library
+        # stays in repair there): the headline names the state it is stuck in, every frozen value
+        owner = _owner_of(line)
+        frozen = [line] + [c for c in shown if c["kind"] != "progress" and _owner_of(c) == owner]
+        if len(frozen) > 1:
+            order = {k: n for n, k in enumerate(self.keys)}
+            frozen.sort(key=lambda m_: order.get(m_["key"], len(order)))
+            state_text = ", ".join(f"{_field_name(m_['key'])}={m_['value']!r}" for m_ in frozen)
+            head = f"{who} stuck in {state_text}" if who else f"stuck in {state_text}"
+            subject_text = " and ".join(self.line_subject(m_) for m_ in frozen)
+            detail["shown_consequences"] = [self.line_subject(c) for c in shown if not any(c is f for f in frozen)]
+        else:
+            subject_text = subject
         if line["kind"] == "progress":
             text = f"{head}: progress {line['rule'].base!r} can never be satisfied again"
             objects = (str(line["rule"].obj),) if line["rule"].obj is not None else ()
             ln = line["rule"].line
         else:
             if line["kind"] == "value":
-                text = f"{head}: {subject} can never change again"
+                text = f"{head}: {subject_text} can never change again"
             elif line["kind"] == "dead end":
-                text = f"{head}: {subject} is never left, and it is not a declared end"
+                text = f"{head}: {subject_text} is never left, and it is not a declared end"
             else:
                 fam = self.field_by_key[line["key"]].family
                 if line.get("lost"):
@@ -1177,7 +1198,9 @@ class _Run:
                    "option": {w for k, w in missing if k == "option"},
                    "reach": list(reach_missing)}
         cap = min(self.bounds.max_states, max(20_000, len(self.g.states)))
-        for name, value in self.variations():
+        variations = self.variations()
+        for k, (name, value) in enumerate(variations, 1):
+            self.phase(f"explaining what is never reached: one-setting change {k} of {len(variations)} ({name}={value!r})")
             with vary_setting(model, name, value):
                 if model.valid is not None:
                     try:
@@ -1406,6 +1429,16 @@ def _components(nodes, succ) -> dict:
                     if w == v:
                         break
     return comp
+
+
+def _owner_of(line) -> tuple | None:
+    """The object a STUCK line is about (key[1:]), None for a field of no object or a rule."""
+    key = line.get("key")
+    return key[1:] if isinstance(key, tuple) and len(key) > 1 else None
+
+
+def _field_name(key) -> str:
+    return key[0] if isinstance(key, tuple) else key
 
 
 def _counts_toward(a, b, end) -> bool:
