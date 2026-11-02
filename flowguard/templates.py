@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -198,13 +200,14 @@ def write_template_files(
             raise FileExistsError(f"template target already exists: {target}")
         target.parent.mkdir(parents=True, exist_ok=True)
         if protected:
-            # An existing AGENTS.md or CLAUDE.md (or link) keeps the owner's instructions, even with --force:
-            # the exclusive create is the only check, and an existing file is skipped by contract.
-            try:
-                with target.open("xb") as stream:
-                    stream.write(file.content.encode("utf-8"))
-            except FileExistsError:
+            # An existing AGENTS.md or CLAUDE.md keeps the owner's instructions, even with --force. "Existing" is
+            # anything at the path: a file, a directory or a link, also a dangling one. Ask for that directly:
+            # opening a directory for an exclusive create raises FileExistsError on POSIX but PermissionError on
+            # Windows, so the error type cannot decide it.
+            if os.path.lexists(target):
                 continue
+            with target.open("xb") as stream:
+                stream.write(file.content.encode("utf-8"))
         else:
             target.write_text(file.content, encoding="utf-8")
         written.append(target)
