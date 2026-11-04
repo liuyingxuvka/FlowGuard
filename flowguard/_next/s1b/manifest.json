@@ -27,7 +27,12 @@
     "tests/flow/test_show.py",
     "tests/flow/test_wait.py",
     "tests/test_flow_platform.py",
+    "tests/test_release_gate.py",
     "tests/test_skill_package.py",
     "tests/test_status.py"
+  ],
+  "apply_arguments": [
+    "--index",
+    "--unidiff-zero"
   ]
 }

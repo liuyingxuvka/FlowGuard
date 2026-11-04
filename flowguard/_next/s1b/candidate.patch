@@ -2,18 +2,10 @@ diff --git a/.agents/skills/flowguard/SKILL.md b/.agents/skills/flowguard/SKILL.
 index 7c99762b..aba4ae2b 100644
 --- a/.agents/skills/flowguard/SKILL.md
 +++ b/.agents/skills/flowguard/SKILL.md
-@@ -1,6 +1,6 @@
- ---
- name: flowguard
+@@ -3 +3 @@ name: flowguard
 -description: "Start every code change with `python -m flowguard status`; keep the owner's own words with `req add`; find code with `where`; change code and tests together, run the project's tests and commit in your own words. Use it for any change to code, its behaviour or its structure. Not for: simulation or calculation results → physicsguard; causal claims → researchguard; story or plan consistency → worldguard; long texts → logicwriting."
 +description: "Start code work with `python -m flowguard status`; keep the owner's words with `req add`; find code with `where`. For flow changes, model the affected feature first, run `check` and discuss it with `show` pictures. Change code and tests together and commit in your own words. Not for: simulation or calculation results → physicsguard; causal claims → researchguard; story or plan consistency → worldguard; long texts → logicwriting."
- ---
- 
- # FlowGuard
-@@ -13,6 +13,14 @@ Run `python -m flowguard status` first in every session and after any loss of co
- 
- When the owner asks for something, store the owner's own words once, as received: `python -m flowguard req add <file|-> --id <id>`. It stores only words the owner wrote, byte for byte: never a plan, a list or text an AI wrote, and never edit `.flowguard/requests/`. When a new owner message replaces an earlier one, add `--supersedes <old id>`. `status` lists the newest owner words first.
- 
+@@ -15,0 +16,8 @@ When the owner asks for something, store the owner's own words once, as received
 +## Changes to a flow
 +
 +When a request adds or changes state values, actions, conditions, settings or endings, update the affected feature's model in `.flowguard/flow/` before changing the code, then run `python -m flowguard check`. Model the feature, even across modules; code/tests, exposed behavior and composition are conceptual levels, not three required files. Other edits use the ordinary code and test steps below. The installed package's `flowguard/flow/HOWTO.md` explains how to write a small model.
@@ -22,43 +14,25 @@ index 7c99762b..aba4ae2b 100644
 +
 +Whenever you analyze or discuss a flow with the owner, use `show` pictures and a few plain sentences. `show` defaults to conflicts, otherwise the change against HEAD; `show MODEL --before REV` chooses a model and a before revision.
 +
- ## Find code
- 
- `python -m flowguard where NAME` shows where NAME is defined, who calls it, which component owns it and which entry routes reach it; with no NAME it gives a compact module overview. `--flow`, `--arch`, `--text` and `--keyflows` show calls, architecture, original text and shared state. Each list shows its most relevant rows and says how many it left out; `--all` prints every row. Add `--root DIR` or `--json` when needed. It runs no application, model or test.
 diff --git a/.agents/skills/flowguard/references/first_map.md b/.agents/skills/flowguard/references/first_map.md
 index 301186ba..c47ab0e6 100644
 --- a/.agents/skills/flowguard/references/first_map.md
 +++ b/.agents/skills/flowguard/references/first_map.md
-@@ -58,7 +58,7 @@ project and read components in batches. `read` prints every component and model;
-    with its reason as in step 5 (`architecture_review.md`); do not silently bypass those errors.
- 8. `python -m flowguard template adoption --write .` writes AGENTS.md and CLAUDE.md only when they are missing and
-    never changes an existing one, also with `--force`. What it does with each:
+@@ -61 +61 @@ project and read components in batches. `read` prints every component and model;
 -   - AGENTS.md missing: it writes the four project rules there.
 +   - AGENTS.md missing: it writes the project rules there.
-    - AGENTS.md holds every current rule line and no earlier FlowGuard block: it prints
-      `already holds the current FlowGuard rules` and asks for nothing.
-    - AGENTS.md holds the current rules and an earlier FlowGuard block: it names the block by its line range (see the
 diff --git a/.agents/skills/flowguard/references/node_kinds.md b/.agents/skills/flowguard/references/node_kinds.md
 index 9f039e13..1ac44365 100644
 --- a/.agents/skills/flowguard/references/node_kinds.md
 +++ b/.agents/skills/flowguard/references/node_kinds.md
-@@ -43,7 +43,7 @@ Finish target design before code and remove ERROR/TO-DO before promote; run the
- `behaviour` starts an ordinary executable contract model.
- `validator` checks a finite input boundary; see `## Validator`.
- `ui-journey` explores interface states, controls and transitions; see `## UI journey`.
+@@ -46 +46 @@ Finish target design before code and remove ERROR/TO-DO before promote; run the
 -Use `python -m flowguard template <kind> --write .`; `adoption` writes the four project rules into a missing AGENTS.md and `@AGENTS.md` into a missing CLAUDE.md, never changes either file when it exists, and prints what to do instead (`first_map.md` step 8 lists each case).
 +Use `python -m flowguard template <kind> --write .`; `adoption` writes the project rules into a missing AGENTS.md and `@AGENTS.md` into a missing CLAUDE.md, never changes either file when it exists, and prints what to do instead (`first_map.md` step 8 lists each case).
- With a target, model files go into `.flowguard/target/models/`; otherwise they go into `.flowguard/models/`.
- Other template files keep their paths; the CLI prints the next target check or model command. `--force` keeps its overwrite meaning.
- 
 diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
 index 32ee0e26..a7931a69 100644
 --- a/.github/workflows/ci.yml
 +++ b/.github/workflows/ci.yml
-@@ -59,6 +59,18 @@ jobs:
-           npx --yes playwright@1.56.1 install --with-deps chromium
-           echo "NODE_PATH=$(npm root --global)" >> "$GITHUB_ENV"
- 
+@@ -61,0 +62,12 @@ jobs:
 +      - name: Picture renderer on Windows
 +        if: matrix.os == 'windows-latest' && matrix.group == 0
 +        shell: pwsh
@@ -71,87 +45,56 @@ index 32ee0e26..a7931a69 100644
 +        if: matrix.os == 'windows-latest' && matrix.group == 0
 +        run: python -m pytest -q tests/flow
 +
-       - name: Release gate and the whole suite in 4 shards on Ubuntu Python 3.11
-         if: matrix.full
-         run: python -m flowguard release --shards 4
 diff --git a/AGENTS.md b/AGENTS.md
 index cbf06b81..36dcd5d6 100644
 --- a/AGENTS.md
 +++ b/AGENTS.md
-@@ -9,7 +9,8 @@ executable models in its release gate. This repository uses FlowGuard on itself.
- 2. When the owner asks for something, store the owner's own words once, as received: `python -m flowguard req add <file|-> --id <id>`. It stores only words the owner wrote, byte for byte: never a plan, a list or text an AI wrote. When a new owner message replaces an earlier one, add `--supersedes <old id>`; never edit `.flowguard/requests/`.
- 3. Find code with `python -m flowguard where NAME`; change code and its tests together; run the affected tests (`python -m pytest -q <files>`) and report exactly what you ran and the result.
- 4. Commit code and tests together in one commit with a message in your own words; add a line `Request: R<n>` when the change answers a stored owner request. The legacy map, `.flowguard/models/` and the target commands need no upkeep; when a legacy self-model fails after a change, fix the code or edit that model file directly.
+@@ -12 +12,2 @@ executable models in its release gate. This repository uses FlowGuard on itself.
 -5. Before each push, run the affected checks selected above and report their results. For the final frozen source SHA, the complete `ci.yml` workflow must pass: Ubuntu Python 3.11 runs the complete legacy release and test suite through `python -m flowguard release --shards 4`; Ubuntu Python 3.13 and the two nonoverlapping Windows Python 3.12 smoke jobs run the listed core path, packaging and independent static-query files. The real skill copy/`--check` runs once in each smoke environment. All jobs must pass; smoke jobs do not claim complete cross-platform coverage. Publication waits for the entire workflow on the exact source SHA; do not repeat the full local suite solely to produce another checkpoint.
 +5. When a request changes state values, actions, conditions, settings or endings, update the affected feature's flow model before code and run `python -m flowguard check`; use `show` pictures when discussing a flow.
 +6. Before each push, run the affected checks selected above and report their results. For the final frozen source SHA, the complete `ci.yml` workflow must pass: Ubuntu Python 3.11 runs the complete legacy release and test suite through `python -m flowguard release --shards 4`; Ubuntu Python 3.13 and the two nonoverlapping Windows Python 3.12 smoke jobs run the listed core path, packaging and independent static-query files. The real skill copy/`--check` runs once in each smoke environment. All jobs must pass; smoke jobs do not claim complete cross-platform coverage. Publication waits for the entire workflow on the exact source SHA; do not repeat the full local suite solely to produce another checkpoint.
- 
- ## Layout
- 
 diff --git a/README.md b/README.md
 index 7bdc5450..c979d5ab 100644
 --- a/README.md
 +++ b/README.md
-@@ -96,9 +96,9 @@ same command resumes it. `--json` prints one line. Conflicts are kept in `.flowg
- `status` shows the open ones, and `release` runs `check --full`. Pictures need node with Playwright; without them
- `show` writes the Mermaid text.
- 
+@@ -99,3 +99,3 @@ same command resumes it. `--json` prints one line. Conflicts are kept in `.flowg
 -The v0.73 flow engine supports Linux only. Windows keeps the legacy commands; flow `check`,
 -`show` and the flow part of `release` exit 2 with an explanation. `status` still shows stored
 -conflicts and the limitation. Full Windows flow support is planned for the next stage.
 +Flow models run on Linux and Windows, including waiting, resuming and stopping background
 +work when its caller disappears. macOS flow execution is not supported. The legacy commands
 +and static source queries retain their existing platform support.
- 
- ## Find source and original text
- 
 diff --git a/README.zh-CN.md b/README.zh-CN.md
 index 33676baa..5bc5d383 100644
 --- a/README.zh-CN.md
 +++ b/README.zh-CN.md
-@@ -85,9 +85,8 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
- `--json` 只打印一行。冲突记在 `.flowguard/conflicts.json`（要提交）：`status` 显示未解决的冲突，`release` 运行
- `check --full`。画图需要装了 Playwright 的 node；没有时 `show` 写出 Mermaid 文本。
- 
+@@ -88,3 +88,2 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 -v0.73 的流程引擎只支持 Linux。Windows 上的旧命令继续可用；流程 `check`、`show` 和 `release`
 -中的流程检查会说明限制并退出 2。`status` 仍会显示已记录的冲突和这项限制。
 -完整的 Windows 流程支持安排在下一阶段。
 +流程模型支持 Linux 和 Windows，包括等待、续跑，以及调用者消失后停止后台工作。
 +macOS 暂不支持流程模型执行；旧命令和静态源码查询保持已有的平台支持。
- 
- ## 找源码和文字原文
- 
 diff --git a/flowguard/flow/HOWTO.md b/flowguard/flow/HOWTO.md
 index 8ec9fa11..6abd25c5 100644
 --- a/flowguard/flow/HOWTO.md
 +++ b/flowguard/flow/HOWTO.md
-@@ -8,11 +8,20 @@ and reports what gets stuck, what never happens and which promise some order bre
- with the shortest path and the requests behind it. Keep it small: leave out everything that
- does not change what can happen, and say what you left out in a `note=`.
- 
+@@ -10,0 +11,6 @@ does not change what can happen, and say what you left out in a `note=`.
 +Use a flow model when a request adds or changes state values, actions, conditions, settings
 +or endings: update the affected feature's model first, run `check`, then implement and test
 +the code. For other edits, use `status`, `where` and the project's tests. A feature may cross
 +modules. Code/tests, exposed behavior and composition are conceptual levels, not a required
 +three-file split; keep one feature model until a split helps explain it.
 +
- One model per file: `.flowguard/flow/<name>.py`, ending with `MODEL = m`. Check them all with
- `python -m flowguard check` (files starting with `_` are helpers, never models).
+@@ -13 +19,2 @@ One model per file: `.flowguard/flow/<name>.py`, ending with `MODEL = m`. Check
 -`check --full` also breaks each model on purpose to see that its checks catch it.
 +Only `check --full` also breaks each model on purpose to see that its checks catch it;
 +ordinary `check` does not run these deliberate breaks.
- `python -m flowguard release` runs `check --full` (and, with `--shards`, the tests),
+@@ -15 +22,3 @@ One model per file: `.flowguard/flow/<name>.py`, ending with `MODEL = m`. Check
 -also in a project with no legacy map. `python -m flowguard show` draws what is under
 +also in a project with no legacy map. Open conflicts fail release; CI blocks them only
 +if it runs release. Without a hook that runs the check, a commit is not blocked.
 +`python -m flowguard show` draws what is under
- discussion: the conflicts, else the change against
- HEAD (`show MODEL`, `show C-...` or `--before REV` name it yourself; `show MODEL` of a model
- with no conflict draws its latest change, one object's fields at a time).
-@@ -20,9 +29,16 @@ Each `source=` names a request stored with `python -m flowguard req add <file> -
- (never write a file in `.flowguard/requests/` by hand); an id with no stored request is a
- model warning.
- 
+@@ -23,3 +32,10 @@ model warning.
 -The flow engine in v0.73 supports Linux only. On Windows, the legacy commands still work;
 -flow `check`, `show` and the flow part of `release` exit 2 with an explanation. `status`
 -still shows stored conflicts and this limitation. Full Windows flow support follows later.
@@ -165,9 +108,6 @@ index 8ec9fa11..6abd25c5 100644
 +
 +The flow commands use the same models and checks on supported platforms. `status` reports
 +any platform limitation alongside the stored conflicts.
- 
- ## Writing a model
- 
 diff --git a/flowguard/flow/_process.py b/flowguard/flow/_process.py
 new file mode 100644
 index 00000000..1643519f
@@ -465,172 +405,80 @@ diff --git a/flowguard/flow/cli.py b/flowguard/flow/cli.py
 index 554736ab..228808f8 100644
 --- a/flowguard/flow/cli.py
 +++ b/flowguard/flow/cli.py
-@@ -799,13 +799,13 @@ def release(root, *, out=None, err=None, on_result=None) -> bool:
-     return code in (EXIT_CLEAN, EXIT_UNKNOWN) and not proposals
- 
- 
+@@ -802 +802 @@ def release(root, *, out=None, err=None, on_result=None) -> bool:
 -FAILS = "release and CI fail until fixed; without a hook a commit is not blocked"
 +FAILS = "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked"
- 
- 
- def status_lines(root) -> list[str]:
-     """For `python -m flowguard status`: open conflicts of the flow models from the last
-     final check (.flowguard/conflicts.json, the only source), and what they stop: release
+@@ -808 +808 @@ def status_lines(root) -> list[str]:
 -    (and so CI, which runs it) fails on an open conflict, a model error or a model that does
 +    (and CI only when it runs release) fails on an open conflict, a model error or a model that does
-     not load; nothing stops a commit unless the project installs a hook that runs it. A
-     project with no flow model and no recorded check gets no line."""
-     platform = [problem] if model_files(Path(root)) and (problem := jobs.platform_problem()) else []
 diff --git a/flowguard/flow/jobs.py b/flowguard/flow/jobs.py
 index b9afa32a..36c4a2c2 100644
 --- a/flowguard/flow/jobs.py
 +++ b/flowguard/flow/jobs.py
-@@ -32,7 +32,6 @@ per part), `jobs/<plan digest>/current.json` naming the latest run directory
- from __future__ import annotations
- 
- import ctypes
+@@ -35 +34,0 @@ import ctypes
 -import errno
- import hashlib
- import json
- import os
-@@ -46,6 +45,7 @@ from dataclasses import dataclass
- from pathlib import Path
- from typing import Callable
- 
+@@ -48,0 +48 @@ from typing import Callable
 +from ._process import lock_file, read_text, spawn_worker, terminate_group, unlock_file, windows_pid_alive
- from .explore import Bounds
- from .parts import ENGINE_DIGEST, PartResult, PartSpec, kinds, part_digest
- from .project import FLOW_DIR, ProjectError, _atomic_write, cache_dir, file_digest, read_manifest, write_manifest
-@@ -59,12 +59,12 @@ KEEP_DEAD = 3                    # the newest runs that failed or died keep thei
- PR_SET_PDEATHSIG = 1
- WORKER_MODULE = f"{__package__}.worker"
- PACKAGE_ROOT = Path(__file__).resolve().parents[2]      # the directory holding `flowguard/`
+@@ -62 +62 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[2]      # the directory holding
 -UNSUPPORTED_PLATFORM = "flow-model checks currently support Linux only"
 +UNSUPPORTED_PLATFORM = "flow-model checks currently support Linux and Windows"
- 
- 
- def platform_problem() -> str | None:
-     """The execution boundary; importing flow views remains portable."""
+@@ -67 +67 @@ def platform_problem() -> str | None:
 -    return None if sys.platform.startswith("linux") else UNSUPPORTED_PLATFORM
 +    return None if sys.platform.startswith("linux") or sys.platform == "win32" else UNSUPPORTED_PLATFORM
- 
- 
- def require_supported() -> None:
-@@ -228,7 +228,7 @@ def inputs_of(root, planned: list[Planned]) -> dict:
- 
- # ---------------------------------------------------------------------- locks and processes
- class Lock:
+@@ -231 +231 @@ class Lock:
 -    """An exclusive lock on a file (flock): held exactly while its holder lives, so a lock
 +    """An exclusive native file lock: held exactly while its holder lives, so a lock
-     of a killed process is free at once. The file records the holder's pid."""
- 
-     def __init__(self, path: Path):
-@@ -237,17 +237,16 @@ class Lock:
- 
-     def acquire(self, blocking: bool = True) -> bool:
-         require_supported()
+@@ -240,2 +239,0 @@ class Lock:
 -        import fcntl
 -
-         self.path.parent.mkdir(parents=True, exist_ok=True)
-         fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o644)
-         try:
+@@ -245,2 +243,2 @@ class Lock:
 -            fcntl.flock(fd, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
 -        except OSError as err:
 +            acquired = lock_file(fd, blocking)
 +        except BaseException:
-             os.close(fd)
+@@ -248,2 +245,0 @@ class Lock:
 -            if err.errno in (errno.EAGAIN, errno.EACCES):
 -                return False
-             raise
+@@ -250,0 +247,3 @@ class Lock:
 +        if not acquired:
 +            os.close(fd)
 +            return False
-         os.ftruncate(fd, 0)
-         os.write(fd, f"{os.getpid()}\n".encode())
-         self.fd = fd
-@@ -255,9 +254,7 @@ class Lock:
- 
-     def release(self) -> None:
-         if self.fd is not None:
+@@ -258,3 +257 @@ class Lock:
 -            import fcntl
 -
 -            fcntl.flock(self.fd, fcntl.LOCK_UN)
 +            unlock_file(self.fd)
-             os.close(self.fd)
-             self.fd = None
- 
-@@ -272,6 +269,8 @@ class Lock:
- def pid_alive(pid: int) -> bool:
-     """Whether a process runs (an exited child of ours is reaped first, and an exited
-     process nobody has reaped yet, a zombie, counts as gone)."""
+@@ -274,0 +272,2 @@ def pid_alive(pid: int) -> bool:
 +    if os.name == "nt":
 +        return windows_pid_alive(pid)
-     try:
-         done, _ = os.waitpid(pid, os.WNOHANG)
-         if done == pid:
-@@ -293,7 +292,7 @@ def pid_alive(pid: int) -> bool:
- def read_json(path: Path) -> dict | None:
-     if not path.is_file():
-         return None
+@@ -296 +295 @@ def read_json(path: Path) -> dict | None:
 -    return json.loads(path.read_text(encoding="utf-8"))
 +    return json.loads(read_text(path))
- 
- 
- def write_json(path: Path, data: dict) -> None:
-@@ -398,9 +397,9 @@ class _Job:
-         env = dict(os.environ)
-         env["PYTHONPATH"] = os.pathsep.join([str(PACKAGE_ROOT)] + [p for p in [env.get("PYTHONPATH")] if p])
-         with open(directory / "log", "ab") as log:
+@@ -401 +400 @@ class _Job:
 -            job.proc = subprocess.Popen(
 +            job.proc = spawn_worker(
-                 [sys.executable, "-m", WORKER_MODULE, str(directory), str(r), str(os.getpid())],
+@@ -403 +402 @@ class _Job:
 -                pass_fds=(r,), start_new_session=True, stdin=subprocess.DEVNULL, stdout=log,
 +                r, stdin=subprocess.DEVNULL, stdout=log,
-                 stderr=subprocess.STDOUT, env=env, cwd=str(root))
-         os.close(r)
-         job.pipe = w
-@@ -489,7 +488,7 @@ def _stop_stale(run: Path) -> None:
-     keeps its directory and log, so a check still waiting on it reads why it ended."""
-     pid = worker_pid(run)
-     try:
+@@ -492 +491 @@ def _stop_stale(run: Path) -> None:
 -        os.killpg(pid, signal.SIGKILL)
 +        terminate_group(pid)
-     except ProcessLookupError:
-         pass
-     deadline = time.monotonic() + 2.0
-@@ -597,6 +596,11 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
-                 for i, item in enumerate(planned):
-                     if results[i] is None:
-                         results[i] = lookup(root, item)
+@@ -599,0 +599,5 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
 +            # A replacement may publish its results before this waiting caller observes
 +            # the old worker's death. Those results do not complete this run.
 +            if all(r is not None for r in results) and (job.status() or {}).get("state") == "replaced":
 +                out.changed = job.ended(root)[1]
 +                break
-             if _name_workers(job, planned, results, cached, workers) and all(r is not None for r in results):
-                 out.finished = True
-                 break
 diff --git a/flowguard/flow/project.py b/flowguard/flow/project.py
 index 2ef548d2..954f107d 100644
 --- a/flowguard/flow/project.py
 +++ b/flowguard/flow/project.py
-@@ -6,6 +6,7 @@ from __future__ import annotations
- import hashlib
- import json
- import os
+@@ -8,0 +9 @@ import os
 +import re
- import subprocess
- import tempfile
- from pathlib import Path
-@@ -75,15 +76,13 @@ def _request_problem(root: Path, rid: str) -> str | None:
- 
- 
- def request_line(root: Path, rid: str) -> str | None:
+@@ -78 +79 @@ def request_line(root: Path, rid: str) -> str | None:
 -    """The first non-empty line of the stored request, cut at 100 characters."""
 +    """The first prose line, falling back to a heading-only request, cut at 100 characters."""
-     path = request_file(root, rid)
-     if path is None or _request_problem(root, rid) is not None:
-         return None
+@@ -82,5 +83,3 @@ def request_line(root: Path, rid: str) -> str | None:
 -    for line in path.read_text(encoding="utf-8").splitlines():
 -        if line.strip():
 -            text = line.strip()
@@ -639,129 +487,58 @@ index 2ef548d2..954f107d 100644
 +    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 +    text = next((line for line in lines if not re.match(r"#{1,6}(?:\s|$)", line)), lines[0] if lines else "")
 +    return text if len(text) <= 100 else text[:99] + "…"
- 
- 
- def request_lines(root: Path, sources) -> list[tuple[str, str]]:
 diff --git a/flowguard/flow/worker.py b/flowguard/flow/worker.py
 index 1398aed8..f364c6c8 100644
 --- a/flowguard/flow/worker.py
 +++ b/flowguard/flow/worker.py
-@@ -14,11 +14,15 @@ process that waits for the worker's end and turns a status still saying `running
- `died`. The caller never starts a second worker for the same call: it reports the death
- with the run's log (jobs.py). Children the worker starts (the picture renderer) run in
- their own session and get SIGTERM from the kernel when the worker dies.
+@@ -16,0 +17,4 @@ their own session and get SIGTERM from the kernel when the worker dies.
 +
 +Windows uses an independent native Job Object guardian for the same pipe/lease rule.
 +It owns the worker and its descendants even while model code holds the worker's GIL;
 +a RUNNING handoff is consumed before caller EOF is judged.
- """
- from __future__ import annotations
- 
- import os
+@@ -21 +25 @@ import os
 -import select
 +from contextlib import nullcontext
- import signal
- import sys
- import threading
-@@ -26,6 +30,7 @@ import time
- import traceback
- from pathlib import Path
- 
+@@ -28,0 +33 @@ from pathlib import Path
 +from ._process import pipe_ready, start_guardian, terminate_group, worker_pipe
- from .jobs import (Lock, Planned, locks_dir, lookup, now_ms, platform_problem, read_json, set_parent_death_signal, store,
-                    write_json)
- from .parts import ENGINE_DIGEST, PartContext, run_part
-@@ -35,12 +40,15 @@ WATCH = 0.5                      # the watchdog's period
- STATUS_EVERY = 1.0               # progress is written at most this often
- 
- 
+@@ -38 +43 @@ STATUS_EVERY = 1.0               # progress is written at most this often
 -def death_notice(jobdir: Path) -> None:
 +def death_notice(jobdir: Path, caller: int, pipe_fd: int | None = None) -> None:
-     """Fork the one process that outlives the worker by a moment: it waits until the
-     worker's end of a pipe closes (the kernel closes it however the worker dies, even by
-     SIGKILL), then, if the status still says running, writes that the worker died, ends
-     what is left of the worker's process group and exits. It runs no part and holds no
-     lock, so it is the only route by which a killed worker's status is corrected."""
+@@ -43,0 +49,3 @@ def death_notice(jobdir: Path) -> None:
 +    if os.name == "nt":
 +        start_guardian(jobdir, caller, pipe_fd)
 +        return
-     r, w = os.pipe()
-     pid = os.fork()
-     if pid:                                       # the worker keeps the write end until it ends
-@@ -56,7 +64,7 @@ def death_notice(jobdir: Path) -> None:
-                           reason="the worker ended without saying why: it was killed (a signal or the "
-                                  "kernel, when its caller died)")
-             write_json(jobdir / "status.json", status)
+@@ -59 +67 @@ def death_notice(jobdir: Path) -> None:
 -        os.killpg(os.getpgrp(), signal.SIGKILL)
 +        terminate_group(os.getpgrp())
-     finally:
-         os._exit(0)
- 
-@@ -64,7 +72,7 @@ def death_notice(jobdir: Path) -> None:
- class Worker:
-     def __init__(self, jobdir: Path, pipe_fd: int, caller: int):
-         self.dir = Path(jobdir)
+@@ -67 +75 @@ class Worker:
 -        self.pipe = pipe_fd
 +        self.pipe = worker_pipe(pipe_fd)
-         self.caller = caller
-         self.lock = threading.Lock()
-         self.status = {"pid": os.getpid(), "state": "running", "reason": None, "parts": {},
-@@ -75,15 +83,18 @@ class Worker:
- 
-     # -------------------------------------------------------------- status
-     def write_status(self, **changes) -> None:
+@@ -78 +86,2 @@ class Worker:
 -        with self.lock:
 +        guard_lock = Lock(self.dir / "status.lock") if os.name == "nt" else nullcontext()
 +        with self.lock, guard_lock:
-             self.status.update(changes)
+@@ -79,0 +89,2 @@ class Worker:
 +            if os.name == "nt" and (lease := read_json(self.dir / "lease.json")) is not None:
 +                self.status["lease_ms"] = lease["until_ms"]
-             write_json(self.dir / "status.json", self.status)
-             self.last_write = time.monotonic()
- 
-     def stop(self, reason: str) -> None:
-         """The liveness rule failed: say why, then end the whole process group."""
-         self.write_status(state="stopped", reason=reason, current=None)
+@@ -86 +97 @@ class Worker:
 -        os.killpg(os.getpgrp(), signal.SIGKILL)
 +        terminate_group(os.getpid())
- 
-     def fail(self, reason: str) -> None:
-         self.write_status(state="failed", reason=reason, current=None)
-@@ -112,8 +123,7 @@ class Worker:
-     def watch_once(self) -> None:
-         """Alive while the spawning caller holds the pipe open or the lease is fresh."""
-         if self.pipe is not None:
+@@ -115,2 +126 @@ class Worker:
 -            ready, _, _ = select.select([self.pipe], [], [], WATCH)
 -            if not ready or self.read_pipe():
 +            if not pipe_ready(self.pipe, WATCH) or self.read_pipe():
-                 return
-         else:
-             time.sleep(WATCH)
-@@ -128,13 +138,14 @@ class Worker:
-             # A caller that died before this is armed has closed its end of the pipe, so the
-             # pipe rule below stops the worker at its first look; a caller that wrote its
-             # lease and exited meanwhile has left "L" in the pipe, which keeps it.
+@@ -131 +141,2 @@ class Worker:
 -            set_parent_death_signal(signal.SIGKILL)
 +            if os.name != "nt":
 +                set_parent_death_signal(signal.SIGKILL)
-             self.armed.set()
-             while True:
-                 self.watch_once()
-         except BaseException:                      # the watchdog itself broke: stop rather than run unwatched
-             self.write_status(state="failed", reason="watchdog: " + traceback.format_exc(limit=3).strip())
+@@ -137 +148 @@ class Worker:
 -            os.killpg(os.getpgrp(), signal.SIGKILL)
 +            terminate_group(os.getpid())
- 
-     # -------------------------------------------------------------- work
-     def progress(self, info: dict) -> None:
-@@ -145,12 +156,16 @@ class Worker:
-             self.write_status()
- 
-     def run(self) -> None:
+@@ -148 +159 @@ class Worker:
 -        if os.getpgrp() != os.getpid():
 +        if os.name != "nt" and os.getpgrp() != os.getpid():
-             raise SystemExit("the worker must lead its own process group (start it through jobs.py)")
-         self.write_status()
+@@ -151,3 +162,7 @@ class Worker:
 -        death_notice(self.dir)                     # before any thread starts (fork)
 -        threading.Thread(target=self.watchdog, name="flowguard-watchdog", daemon=True).start()
 -        self.armed.wait()
@@ -772,56 +549,26 @@ index 1398aed8..f364c6c8 100644
 +        else:
 +            threading.Thread(target=self.watchdog, name="flowguard-watchdog", daemon=True).start()
 +            self.armed.wait()
-         plan = read_json(self.dir / "plan.json")
-         if plan["engine"] != ENGINE_DIGEST:
-             self.fail("the engine changed since the job was planned")
 diff --git a/flowguard/templates.py b/flowguard/templates.py
 index a009c899..c1e6e80a 100644
 --- a/flowguard/templates.py
 +++ b/flowguard/templates.py
-@@ -37,6 +37,7 @@ def adoption_template_files() -> tuple[TemplateFile, ...]:
- 2. When the owner asks for something, store the owner's own words once, as received: `python -m flowguard req add <file|-> --id <id>`. It stores only words the owner wrote, byte for byte: never a plan, a list or text an AI wrote. When a new owner message replaces an earlier one, add `--supersedes <old id>`; never edit `.flowguard/requests/`.
- 3. Find code with `python -m flowguard where NAME`; change code and its tests together; run the project's own test command (for example `python -m pytest -q`) and report exactly what you ran and the result.
- 4. Commit code and tests together in one commit with a message in your own words; add a line `Request: R<n>` when the change answers a stored owner request. The legacy map, `.flowguard/models/` and the target commands need no upkeep.
+@@ -39,0 +40 @@ def adoption_template_files() -> tuple[TemplateFile, ...]:
 +5. When a request adds or changes state values, actions, conditions, settings or endings, change the affected feature's flow model before the code and run `python -m flowguard check`; when discussing a flow, use `python -m flowguard show` pictures.
- """),
-         TemplateFile("CLAUDE.md", "@AGENTS.md\n"),
-     )
 diff --git a/tests/flow/checkrun.py b/tests/flow/checkrun.py
 index 94a1f4b9..a3addf02 100644
 --- a/tests/flow/checkrun.py
 +++ b/tests/flow/checkrun.py
-@@ -4,6 +4,7 @@ from __future__ import annotations
- 
- import json
- import os
+@@ -6,0 +7 @@ import os
 +import signal
- import subprocess
- import sys
- import time
-@@ -61,6 +62,9 @@ def start_check(root, *args) -> subprocess.Popen:
- 
- def gone(pid: int) -> bool:
-     """The process no longer runs (a zombie counts as gone)."""
+@@ -63,0 +65,3 @@ def gone(pid: int) -> bool:
 +    if os.name == "nt":
 +        from flowguard.flow._process import windows_pid_alive
 +        return not windows_pid_alive(pid)
-     try:
-         os.kill(pid, 0)
-     except ProcessLookupError:
-@@ -76,6 +80,8 @@ def gone(pid: int) -> bool:
- 
- def group_gone(pgid: int) -> bool:
-     """No process of the group runs (zombies count as gone)."""
+@@ -78,0 +83,2 @@ def group_gone(pgid: int) -> bool:
 +    if os.name == "nt":
 +        return gone(pgid) and not descendants(pgid)
-     proc = Path("/proc")
-     if proc.is_dir():
-         for d in proc.iterdir():
-@@ -94,6 +100,73 @@ def group_gone(pgid: int) -> bool:
-     return False
- 
- 
+@@ -96,0 +103,67 @@ def group_gone(pgid: int) -> bool:
 +def kill(pid: int, *, whole_group=False) -> None:
 +    """Deliberately kill a caller/worker; a whole-tree kill also takes its guardian."""
 +    if os.name == "nt":
@@ -889,112 +636,53 @@ index 94a1f4b9..a3addf02 100644
 +    return found
 +
 +
- def wait_until(predicate, timeout: float, step: float = 0.05) -> float | None:
-     """Seconds until predicate() held, or None if it did not within timeout."""
-     start = time.monotonic()
 diff --git a/tests/flow/conftest.py b/tests/flow/conftest.py
 index 9eb9a1fe..c4d2e8bb 100644
 --- a/tests/flow/conftest.py
 +++ b/tests/flow/conftest.py
-@@ -74,11 +74,11 @@ def project(tmp_path):
- def _end_workers(root: Path) -> None:
-     """No worker outlives its test (#7): a test that returned RUNNING last, or failed half
-     way, would leave one waiting for a resume for up to --keep seconds."""
+@@ -77 +77 @@ def _end_workers(root: Path) -> None:
 -    import signal
 +    from checkrun import kill
-     for info in (root / ".flowguard" / "cache" / "flow" / "jobs").glob("*/*/worker.json"):
-         try:
-             pid = json.loads(info.read_text())["pid"]
+@@ -81 +81 @@ def _end_workers(root: Path) -> None:
 -            os.killpg(pid, signal.SIGKILL)
 +            kill(pid, whole_group=True)
-         except (ValueError, KeyError, ProcessLookupError, PermissionError, OSError):
-             pass
- 
 diff --git a/tests/flow/test_check_cli.py b/tests/flow/test_check_cli.py
 index e6051316..b76b8620 100644
 --- a/tests/flow/test_check_cli.py
 +++ b/tests/flow/test_check_cli.py
-@@ -174,8 +174,10 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
-                           "  later, where cond[*] = 'repair': repaired(t='T1') refused: 'repairs only at main' "
-                           "(R10)",
-                           "  entered by rent(t='T1') (R4)"]
+@@ -177,2 +177,4 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
 -    assert stuck[8] == ('  requests: R4 "# Request 4: renting tools" | R6 "# Request 6: two branches" | '
 -                        'R9 "# Request 9: regular maintenance" | R10 "Repairs are done only at the main branch."')
 +    assert stuck[8] == ('  requests: R4 "Members rent tools from the shelf of a branch." | '
 +                        'R6 "Tools on the shelf can be moved between the main branch and the library corner." | '
 +                        'R9 "A tool goes to maintenance after every few rentals." | '
 +                        'R10 "Repairs are done only at the main branch."')
-     assert stuck[9] == "  state: cond[T1]='loan', branch[T1]='library', rentals[T1]=4"
-     assert stuck[10].startswith("  path (8 steps): rent(t='T1') ; give_back(t='T1') ;")
-     assert stuck[11] == ("  then also stuck: progress 'a tool in repair or on the way gets back "
-@@ -291,7 +293,7 @@ def test_json_is_one_line_with_the_contract_keys(project):
-     assert list(data) == JSON_KEYS
-     assert data["verdict"] == "6 new conflicts; complete" and data["exit"] == 1 and data["complete"]
-     assert len(data["conflicts"]) == 6 and all(c["new"] for c in data["conflicts"])
+@@ -294 +296 @@ def test_json_is_one_line_with_the_contract_keys(project):
 -    assert data["conflicts"][0]["requests"][0] == ["R4", "# Request 4: renting tools"]
 +    assert data["conflicts"][0]["requests"][0] == ["R4", "Members rent tools from the shelf of a branch."]
-     pictures = [c["picture"] for c in data["conflicts"]]
-     assert all(p == f".flowguard/cache/flow/pictures/workshop_naive-{c['id'][2:]}.{'svg' if RENDERER else 'mmd'}"
-                for p, c in zip(pictures, data["conflicts"]))
-@@ -453,7 +455,7 @@ def test_status_lines_read_the_last_final_check(project):
-     project.kit().flow_from(KIT / "workshop_naive.py")
-     timed(project.root)
-     [line] = status_lines(project.root)
+@@ -456 +458 @@ def test_status_lines_read_the_last_final_check(project):
 -    assert line.startswith("flow models: 6 open conflicts (C-") and line.endswith("release and CI fail until fixed; without a hook a commit is not blocked")
 +    assert line.startswith("flow models: 6 open conflicts (C-") and line.endswith("release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked")
-     assert "a commit is blocked" not in line        # acceptance A6: nothing stops a commit unless a hook runs it
- 
- 
-@@ -580,7 +582,7 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
-     data = json.loads(saved.read_text())
-     assert [c["id"] for c in data["conflicts"]] == [cid] and data["unknown"] == ["rental"]
-     [status] = status_lines(project.root)
+@@ -583 +585 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
 -    assert f"1 open conflict ({cid}); release and CI fail until fixed; without a hook a commit is not blocked" in status
 +    assert f"1 open conflict ({cid}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status
-     assert "UNKNOWN for rental (does not block)" not in status
- 
-     path = project.root / ".flowguard/flow/rental.py"
-@@ -639,7 +641,7 @@ def test_a_capped_check_after_a_settings_change_keeps_every_proven_conflict(proj
-         assert line.endswith("this check is capped; a complete check will settle it)"), line
-     assert sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"]) == ids
-     [status] = status_lines(project.root)
+@@ -642 +644 @@ def test_a_capped_check_after_a_settings_change_keeps_every_proven_conflict(proj
 -    assert "3 open conflicts" in status and "release and CI fail until fixed; without a hook a commit is not blocked" in status, status
 +    assert "3 open conflicts" in status and "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status, status
-     assert "does not block" not in status, status
-     again = timed(project.root)
-     assert again.code == 1 and again.first == "3 open conflicts; complete", again.out
-@@ -694,7 +696,7 @@ def test_a_renamed_or_deleted_model_file_keeps_its_conflicts(project):
-                          "check of rental no longer finds it)")
-     assert cid in [c["id"] for c in json.loads(saved.read_text())["conflicts"]]
-     [status] = status_lines(project.root)
+@@ -697 +699 @@ def test_a_renamed_or_deleted_model_file_keeps_its_conflicts(project):
 -    assert f"1 open conflict ({cid}); release and CI fail until fixed; without a hook a commit is not blocked" in status
 +    assert f"1 open conflict ({cid}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status
-     full = timed(project.root)                     # rental2's own conflict is new; rental's stays
-     assert full.code == 1 and full.first == "1 new conflict, 1 open; complete"
-     assert f"[{cid}] (kept: its model file .flowguard/flow/rental.py is gone" in full.out
-@@ -756,7 +758,7 @@ def test_a_model_error_in_the_search_closes_nothing_and_proves_nothing(project):
-     data = json.loads(saved.read_text())
-     assert [c["id"] for c in data["conflicts"]] == [cid] and data["unknown"] == ["rental"]
-     [status] = status_lines(project.root)
+@@ -759 +761 @@ def test_a_model_error_in_the_search_closes_nothing_and_proves_nothing(project):
 -    assert "release and CI fail until fixed; without a hook a commit is not blocked" in status and "rental (2 model errors" in status, status
 +    assert "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status and "rental (2 model errors" in status, status
-     path.write_text(text)                                        # restored: a capped check keeps only the real one
-     capped = timed(project.root, "--max-states", "3")
-     assert capped.code == 1 and capped.first == "1 open conflict; UNKNOWN: rental capped at 3 states", capped.out
-@@ -1076,4 +1078,4 @@ def test_a_capped_check_closes_no_never_reached_item_the_model_no_longer_has(pro
-     assert len(opened) == 2 and all(x.endswith("this check is capped)") for x in opened), capped.out
-     assert sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"]) == ids
-     [status] = status_lines(project.root)
+@@ -1079 +1081 @@ def test_a_capped_check_closes_no_never_reached_item_the_model_no_longer_has(pro
 -    assert "2 open conflicts" in status and "release and CI fail until fixed; without a hook a commit is not blocked" in status, status
 +    assert "2 open conflicts" in status and "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status, status
 diff --git a/tests/flow/test_howto.py b/tests/flow/test_howto.py
 index 48b20f9c..3b2d76a7 100644
 --- a/tests/flow/test_howto.py
 +++ b/tests/flow/test_howto.py
-@@ -73,3 +73,12 @@ def test_the_guide_says_how_requests_are_stored_and_what_to_commit():
-     assert "never write a file in `.flowguard/requests/` by hand" in text
-     assert "`.flowguard/conflicts.json`: commit that file with the change" in text
-     assert "`python -m flowguard release` runs `check --full`" in text and "no legacy map" in text
+@@ -75,0 +76,9 @@ def test_the_guide_says_how_requests_are_stored_and_what_to_commit():
 +
 +
 +def test_the_guide_explains_what_blocks_and_which_check_runs_deliberate_breaks():
@@ -1008,66 +696,27 @@ diff --git a/tests/flow/test_jobs.py b/tests/flow/test_jobs.py
 index 9872bff7..7a87a892 100644
 --- a/tests/flow/test_jobs.py
 +++ b/tests/flow/test_jobs.py
-@@ -17,7 +17,7 @@ from flowguard.flow.model import load_model
- from flowguard.flow.parts import PartContext, run_part
- from flowguard.flow.project import cache_dir, overlap_views, overlaps
- 
+@@ -20 +20 @@ from flowguard.flow.project import cache_dir, overlap_views, overlaps
 -from checkrun import REPO, gone, wait_until
 +from checkrun import REPO, descendants, gone, wait_until
- from conftest import DATA
- 
- KIT = DATA / "kit"
-@@ -113,7 +113,6 @@ MODEL = m
- '''
- 
- 
+@@ -116 +115,0 @@ MODEL = m
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="S1a flow worker uses Linux process ownership")
- def test_the_watchdog_stops_a_worker_whose_pipe_closes_without_a_lease(project):
-     """The pipe rule alone (the kernel's parent-death signal cannot fire: the test lives)."""
-     path = project.flow("endless", ENDLESS)
-@@ -126,7 +125,6 @@ def test_the_watchdog_stops_a_worker_whose_pipe_closes_without_a_lease(project):
-     assert jobs.read_json(job.dir / "status.json")["reason"] == "the caller is gone"
- 
- 
+@@ -129 +127,0 @@ def test_the_watchdog_stops_a_worker_whose_pipe_closes_without_a_lease(project):
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="S1a flow worker locks use Linux flock")
- def test_a_lock_is_free_as_soon_as_its_holder_dies(tmp_path):
-     from flowguard.flow.jobs import Lock
-     lock_path = tmp_path / "locks" / "x.lock"
-@@ -147,6 +145,11 @@ def test_a_lock_is_free_as_soon_as_its_holder_dies(tmp_path):
- CHILD = """
- import subprocess, sys, threading, time
- from flowguard.flow import jobs
+@@ -149,0 +148,5 @@ from flowguard.flow import jobs
 +if sys.platform == "win32":
 +    from flowguard.flow._process import start_guardian
 +    from pathlib import Path
 +    import tempfile, os
 +    start_guardian(Path(tempfile.mkdtemp()), os.getppid())
- threading.Thread(target=time.sleep, args=(60,), daemon=True).start()     # a worker runs a watchdog thread
- child = subprocess.Popen(jobs.ending_with_this_process([sys.executable, "-c", "import time; time.sleep(60)"]),
-                          start_new_session=True)
-@@ -155,7 +158,6 @@ time.sleep(60)
- """
- 
- 
+@@ -158 +160,0 @@ time.sleep(60)
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="requires Linux parent-death signal")
- def test_a_child_started_by_a_worker_ends_with_it():
-     """G6: a process a worker starts in its own session (the picture renderer) gets SIGTERM
-     from the kernel when the worker dies, however it dies."""
-@@ -194,6 +196,10 @@ RENDER = """
- import sys
- from pathlib import Path
- from flowguard.flow import diagram
+@@ -196,0 +199,4 @@ from flowguard.flow import diagram
 +if sys.platform == "win32":
 +    from flowguard.flow._process import start_guardian
 +    import tempfile, os
 +    start_guardian(Path(tempfile.mkdtemp()), os.getppid())
- text = "flowchart LR\\n" + "\\n".join(f'  n{i}["box {i}"] --> n{i + 1}' for i in range(60))
- out = Path(sys.argv[1])
- print("go", flush=True)
-@@ -202,25 +208,9 @@ diagram.render_files([(text, out / f"p{i}") for i in range(40)])
- 
- 
- def _descendants(pid):
+@@ -205,19 +211,3 @@ def _descendants(pid):
 -    parents = {}
 -    for d in os.listdir("/proc"):
 -        if d.isdigit():
@@ -1090,13 +739,7 @@ index 9872bff7..7a87a892 100644
 +    return descendants(pid)
 +
 +
- def test_the_picture_renderer_and_its_browser_end_with_the_worker(tmp_path):
-     """G6: the renderer (node) and headless Chromium go when the process drawing dies."""
-     parent = subprocess.Popen([sys.executable, "-c", RENDER, str(tmp_path)], stdout=subprocess.PIPE, text=True,
-@@ -258,7 +248,42 @@ class _FakeJob:
-         pass
- 
- 
+@@ -261 +251,36 @@ class _FakeJob:
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="executes the S1a Linux flow worker")
 +def test_a_replaced_run_cannot_accept_the_new_runs_complete_cache(project, monkeypatch):
 +    """The new worker can finish before an old waiting caller polls again."""
@@ -1134,37 +777,19 @@ index 9872bff7..7a87a892 100644
 +    assert result.changed == "a newer check took over" and result.failure is None
 +
 +
- def test_a_part_found_between_two_status_reads_is_named_by_its_worker(project, monkeypatch):
-     """The reporting race of the round-2 review: the caller read the status, the worker
-     stored a part and named it in its status, then the caller found the part in the cache.
-@@ -306,7 +331,6 @@ MODEL = m
- '''
- 
- 
+@@ -309 +333,0 @@ MODEL = m
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="executes the S1a Linux flow worker")
- def test_a_check_with_a_model_error_replays_the_stored_conflicts(project):
-     """A complete search whose check met a model error (a progress goal that raises) closes
-     nothing, so it must replay the stored conflicts like a capped one: the plan holds the
 diff --git a/tests/flow/test_project.py b/tests/flow/test_project.py
 index a1d95894..cc1a5bef 100644
 --- a/tests/flow/test_project.py
 +++ b/tests/flow/test_project.py
-@@ -46,16 +46,29 @@ def test_models_are_named_by_id_or_by_a_path_in_the_flow_directory(project, monk
- def test_request_lines(project):
-     project.kit()
-     assert request_line(project.root, "R10") == "Repairs are done only at the main branch."
+@@ -49 +49 @@ def test_request_lines(project):
 -    assert request_line(project.root, "R4") == "# Request 4: renting tools"
 +    assert request_line(project.root, "R4") == "Members rent tools from the shelf of a branch."
-     assert request_line(project.root, "R99") is None
-     project.request("R5", "\n\n" + "x" * 150 + "\n")
-     assert len(request_line(project.root, "R5")) == 100
-     assert request_lines(project.root, ("R10", "R4", "R99")) == [
+@@ -54 +54 @@ def test_request_lines(project):
 -        ("R4", "# Request 4: renting tools"), ("R10", "Repairs are done only at the main branch."),
 +        ("R4", "Members rent tools from the shelf of a branch."), ("R10", "Repairs are done only at the main branch."),
-         ("R99", "(not a stored request)")]
-     assert request_lines(project.root, ()) == [("", "the AI's own")]
- 
- 
+@@ -58,0 +59,13 @@ def test_request_lines(project):
 +@pytest.mark.parametrize("words,quote", [
 +    ("# Request\n\nKeep existing loans usable.\n", "Keep existing loans usable."),
 +    ("# Request\n\n## Rules\n\n- Members can return a loan.\n", "- Members can return a loan."),
@@ -1178,66 +803,38 @@ index a1d95894..cc1a5bef 100644
 +    assert stored.read_bytes() == before
 +
 +
- def test_conflicts_json_is_deterministic_and_tells_new_from_open(project):
-     from flowguard.flow.checks import check_model
-     project.kit().flow_from(KIT / "workshop_naive.py")
 diff --git a/tests/flow/test_release_result.py b/tests/flow/test_release_result.py
 index 6f8e79df..da69515b 100644
 --- a/tests/flow/test_release_result.py
 +++ b/tests/flow/test_release_result.py
-@@ -1,13 +1,7 @@
- """Release reports its actual scope and does not rewrite a clean check record."""
- import json
+@@ -3,4 +2,0 @@ import json
 -import sys
 -
 -import pytest
 -
- from flowguard.__main__ import main
- 
+@@ -9,2 +4,0 @@ from flowguard.__main__ import main
 -pytestmark = pytest.mark.skipif(not sys.platform.startswith("linux"), reason="S1a model execution supports Linux only")
 -
- MODEL = '''from flowguard.flow import Model, need
- m = Model("dial")
- m.field("pos", range(3), 0)
 diff --git a/tests/flow/test_show.py b/tests/flow/test_show.py
 index 81e8e4a2..4f273c40 100644
 --- a/tests/flow/test_show.py
 +++ b/tests/flow/test_show.py
-@@ -145,7 +145,6 @@ def test_fixed_against_head_is_the_prototype_diff_picture(project):
-     assert sorted(a[:3] for a in got["arrows"] if a[3] != "#999") == sorted(a[:3] for a in want["arrows"])
- 
- 
+@@ -148 +147,0 @@ def test_fixed_against_head_is_the_prototype_diff_picture(project):
 -@pytest.mark.skipif(sys.platform != "linux", reason="draws with node and Playwright, which the Linux release suite has")
- def test_picture_files_carry_the_same_texts_and_colours(project):
-     project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
-     code, out = show(project.root)
 diff --git a/tests/flow/test_wait.py b/tests/flow/test_wait.py
 index ab83af66..49024288 100644
 --- a/tests/flow/test_wait.py
 +++ b/tests/flow/test_wait.py
-@@ -6,17 +6,12 @@ from __future__ import annotations
- 
- import json
- import os
+@@ -9,2 +8,0 @@ import os
 -import signal
 -import sys
- import time
- from pathlib import Path
- 
- import pytest
- 
+@@ -16,4 +14 @@ import pytest
 -from checkrun import gone, group_gone, run_check, start_check, wait_until
 -
 -pytestmark = pytest.mark.skipif(not sys.platform.startswith("linux"),
 -                               reason="S1a flow command waits exercise the Linux-owned worker")
 +from checkrun import gone, group_gone, kill, run_check, start_check, wait_until
- 
- SLOW = '''
- """Each step takes a while (a test of the wait contract)."""
-@@ -129,6 +124,17 @@ def test_progress_goes_to_stderr_after_two_seconds(project):
-     assert run.seconds < 6
- 
- 
+@@ -131,0 +127,11 @@ def test_progress_goes_to_stderr_after_two_seconds(project):
 +def test_zero_wait_hands_off_the_buffered_lease_before_caller_eof(project):
 +    slow(project, "endless", steps=100000, delay=0.01)
 +    first = run_check(project.root, "--wait", "0", "--keep", "2")
@@ -1249,22 +846,10 @@ index ab83af66..49024288 100644
 +    assert read(run / "status.json")["reason"] == "lease expired: nobody waits for the result"
 +
 +
- def test_the_caller_never_runs_model_code(project, tmp_path):
-     project.flow("fast", FAST)
-     pids = tmp_path / "pids"
-@@ -155,7 +161,7 @@ def test_killing_the_spawning_caller_stops_the_worker(project):
-     caller = start_check(project.root, "--wait", "60")
-     assert wait_until(lambda: jobs_of(project.root) and running(jobs_of(project.root)[-1]), 10) is not None
-     run, pid = worker_of(project.root)
+@@ -158 +164 @@ def test_killing_the_spawning_caller_stops_the_worker(project):
 -    os.kill(caller.pid, signal.SIGKILL)
 +    kill(caller.pid)
-     caller.wait()
-     assert wait_until(lambda: gone(pid) and group_gone(pid), 5) is not None
-     assert not (project.root / ".flowguard/conflicts.json").exists()
-@@ -163,6 +169,30 @@ def test_killing_the_spawning_caller_stops_the_worker(project):
-     assert read(run / "status.json")["state"] in ("stopped", "died")
- 
- 
+@@ -165,0 +172,24 @@ def test_killing_the_spawning_caller_stops_the_worker(project):
 +def test_caller_death_stops_even_a_worker_blocking_the_python_watchdog(project, tmp_path):
 +    marker = tmp_path / "in_native_sleep"
 +    project.flow("blocked", '''
@@ -1289,99 +874,45 @@ index ab83af66..49024288 100644
 +    assert wait_until(lambda: not running(run), 5) is not None
 +
 +
- def test_a_worker_that_dies_is_reported_and_never_restarted(project):
-     """G6: no hidden restart. A resumed call whose worker is killed says so with the dead
-     run's log, starts no new worker, and the dead run's status no longer says running."""
-@@ -171,7 +201,7 @@ def test_a_worker_that_dies_is_reported_and_never_restarted(project):
-     run, pid = worker_of(project.root)
-     caller = start_check(project.root, "--wait", "60")
-     assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None
+@@ -174 +204 @@ def test_a_worker_that_dies_is_reported_and_never_restarted(project):
 -    os.kill(pid, signal.SIGKILL)
 +    kill(pid)
-     out, _ = caller.communicate(timeout=30)
-     assert caller.returncode == 2, out
-     assert out.startswith(f"internal error: the worker (pid {pid}) died before it finished"), out
-@@ -193,11 +223,13 @@ def test_a_worker_killed_with_its_whole_group_is_said_to_have_died(project):
-     run, pid = worker_of(project.root)
-     caller = start_check(project.root, "--wait", "60")
-     assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None
+@@ -196 +226 @@ def test_a_worker_killed_with_its_whole_group_is_said_to_have_died(project):
 -    os.killpg(pid, signal.SIGKILL)
 +    kill(pid, whole_group=True)
-     out, _ = caller.communicate(timeout=30)
-     assert caller.returncode == 2 and out.startswith(f"internal error: the worker (pid {pid}) died"), out
-     status = read(run / "status.json")
+@@ -200 +230,3 @@ def test_a_worker_killed_with_its_whole_group_is_said_to_have_died(project):
 -    assert status["state"] == "died" and "process group" in status["reason"] and status["current"] is None
 +    assert status["state"] == "died" and status["current"] is None
 +    if os.name != "nt":
 +        assert "process group" in status["reason"]
-     assert jobs_of(project.root) == [run]
- 
- 
-@@ -211,8 +243,8 @@ def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_g
-     assert run_check(project.root, "--wait", "1", "--keep", "120").code == 4
-     run, pid = worker_of(project.root)
-     assert wait_until(lambda: running(run) and read(run / "status.json")["lease_ms"] is not None, 5) is not None
+@@ -214,2 +246,2 @@ def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_g
 -    (os.killpg if whole_group else os.kill)(pid, signal.SIGKILL)
 -    assert wait_until(lambda: not Path(f"/proc/{pid}").exists(), 5) is not None   # reaped, not only a zombie
 +    kill(pid, whole_group=whole_group)
 +    assert wait_until(lambda: gone(pid), 5) is not None
-     time.sleep(0.5)                                    # the death notice, if any, has written
-     again = run_check(project.root, "--wait", "2", "--keep", "0")
-     assert again.code == 2, again.out
-@@ -221,7 +253,7 @@ def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_g
-     assert jobs_of(project.root) == [run]                              # no second worker
-     status = read(run / "status.json")
-     assert status["state"] == "died" and status["current"] is None, status
+@@ -224 +256 @@ def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_g
 -    if whole_group:
 +    if whole_group and os.name != "nt":
-         assert "process group" in status["reason"], status
-     third = run_check(project.root, "--wait", "1", "--keep", "0")      # said once: a new command starts afresh
-     assert third.code == 4, third.out
-@@ -269,7 +301,7 @@ def test_killing_an_attached_resume_caller_stops_the_worker(project):
-     assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None
-     time.sleep(1.5)                                    # it renews the lease while it waits
-     assert not gone(pid) and worker_of(project.root)[1] == pid
+@@ -272 +304 @@ def test_killing_an_attached_resume_caller_stops_the_worker(project):
 -    os.kill(caller.pid, signal.SIGKILL)
 +    kill(caller.pid)
-     caller.wait()
-     assert wait_until(lambda: gone(pid) and group_gone(pid), 5) is not None
-     assert read(run / "status.json")["reason"] == "lease expired: nobody waits for the result"
 diff --git a/tests/test_flow_platform.py b/tests/test_flow_platform.py
 index f064ae54..dba4efd5 100644
 --- a/tests/test_flow_platform.py
 +++ b/tests/test_flow_platform.py
-@@ -1,4 +1,4 @@
+@@ -1 +1 @@
 -"""The Linux flow engine must not break legacy commands on other platforms."""
 +"""Native flow support must not break legacy commands on other platforms."""
- import json
- import os
- from pathlib import Path
-@@ -9,7 +9,7 @@ from _fg_helpers import flowguard_map_contracts421_project as basic_project
- 
- 
- REPO = Path(__file__).resolve().parents[1]
+@@ -12 +12 @@ REPO = Path(__file__).resolve().parents[1]
 -UNSUPPORTED = "flow-model checks currently support Linux only"
 +UNSUPPORTED = "flow-model checks currently support Linux and Windows"
- SCRIPT = '''
- import contextlib, io, json, sys
- class NoFcntl:
-@@ -23,10 +23,10 @@ from flowguard.flow import jobs
- request = json.loads(sys.stdin.read())
- if request["unsupported"]:
-     actual_platform = sys.platform
+@@ -26 +26 @@ if request["unsupported"]:
 -    sys.platform = "win32"
 +    sys.platform = "darwin"
-     problem = jobs.platform_problem()
-     sys.platform = actual_platform
+@@ -29 +29 @@ if request["unsupported"]:
 -    assert problem == "flow-model checks currently support Linux only"
 +    assert problem == "flow-model checks currently support Linux and Windows"
-     jobs.platform_problem = lambda: problem
- out, err = io.StringIO(), io.StringIO()
- with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-@@ -59,7 +59,34 @@ def test_missing_fcntl_does_not_break_legacy_commands(tmp_path):
-         assert UNSUPPORTED not in result["out"] + result["err"]
- 
- 
+@@ -62 +62,28 @@ def test_missing_fcntl_does_not_break_legacy_commands(tmp_path):
 -def test_non_linux_flow_commands_refuse_without_loading_or_changing_conflicts(tmp_path):
 +def test_windows_uses_the_same_flow_engine(monkeypatch):
 +    from flowguard.flow import jobs
@@ -1411,35 +942,47 @@ index f064ae54..dba4efd5 100644
 +
 +
 +def test_unsupported_flow_commands_refuse_without_loading_or_changing_conflicts(tmp_path):
-     basic_project(tmp_path)
-     models = tmp_path / ".flowguard/flow"
-     models.mkdir()
+diff --git a/tests/test_release_gate.py b/tests/test_release_gate.py
+index e958aadd..3e660a7c 100644
+--- a/tests/test_release_gate.py
++++ b/tests/test_release_gate.py
+@@ -3,0 +4,2 @@ import json
++from flowguard.flow.jobs import UNSUPPORTED_PLATFORM
++
+@@ -89,3 +91,3 @@ def test_release_runs_the_flow_models_full_check(tmp_path, capsys):
+-    if not sys.platform.startswith("linux"):
+-        # This test still executes on Windows: the old-map release above works,
+-        # while S1a flow execution is explicitly Linux-only.
++    if not (sys.platform.startswith("linux") or sys.platform == "win32"):
++        # Unsupported platforms still retain the legacy release path;
++        # Linux and Windows execute the complete flow gate below.
+@@ -95 +97 @@ def test_release_runs_the_flow_models_full_check(tmp_path, capsys):
+-        assert "flow-model checks currently support Linux only" in line
++        assert UNSUPPORTED_PLATFORM in line
+@@ -161,2 +163,2 @@ def test_an_internal_error_in_the_flow_gate_stops_the_release_with_exit_2(tmp_pa
+-    if not sys.platform.startswith("linux"):
+-        assert "flow-model checks currently support Linux only" in err
++    if not (sys.platform.startswith("linux") or sys.platform == "win32"):
++        assert UNSUPPORTED_PLATFORM in err
+@@ -185 +187 @@ def test_release_without_a_legacy_map_runs_the_flow_gate_and_the_suite(tmp_path,
+-    if not sys.platform.startswith("linux"):
++    if not (sys.platform.startswith("linux") or sys.platform == "win32"):
+@@ -189 +191 @@ def test_release_without_a_legacy_map_runs_the_flow_gate_and_the_suite(tmp_path,
+-        assert "flow-model checks currently support Linux only" in line
++        assert UNSUPPORTED_PLATFORM in line
 diff --git a/tests/test_skill_package.py b/tests/test_skill_package.py
 index 80b0cad5..dbd24153 100644
 --- a/tests/test_skill_package.py
 +++ b/tests/test_skill_package.py
-@@ -94,7 +94,6 @@ class SkillPackageTests(unittest.TestCase):
-         from flowguard.templates import adoption_template_files
-         rules = next(file.content for file in adoption_template_files() if file.path == 'AGENTS.md')
-         numbered = re.findall(r'^\d\. .+$', rules, re.M)
+@@ -97 +96,0 @@ class SkillPackageTests(unittest.TestCase):
 -        self.assertEqual(4, len(numbered))
-         first = ('1. At the start of a session and after any loss of context, '
-                  'run `python -m flowguard status` before anything else.')
-         self.assertEqual(first, numbered[0])
-@@ -124,14 +123,34 @@ class SkillPackageTests(unittest.TestCase):
-     def test_skill_entry_teaches_only_the_plain_flow(self) -> None:
-         text=(SKILL/'SKILL.md').read_text(encoding='utf-8')
-         headings=re.findall(r'^## ([^\n]+)',text,re.M)
+@@ -127 +126 @@ class SkillPackageTests(unittest.TestCase):
 -        self.assertEqual(['Start',"The owner's words",'Find code','Change, test, commit','Honesty'],headings)
 +        self.assertEqual(['Start',"The owner's words",'Changes to a flow','Find code','Change, test, commit','Honesty'],headings)
-         for required in ('python -m flowguard status','python -m flowguard req add','python -m flowguard where','python -m pytest -q'):
-             self.assertIn(required,text)
-         taught = set(re.findall(r'python -m flowguard ([a-z]+)', text))
+@@ -131 +130 @@ class SkillPackageTests(unittest.TestCase):
 -        self.assertEqual({'status','req','where'}, taught)
 +        self.assertEqual({'status','req','where','check','show'}, taught)
-         for retired in ('target start','target add','target check','target promote','map confirm','change --run','read --find','PLAN.txt','owner block','commit -F','NEXT'):
-             self.assertNotIn(retired,text)
- 
+@@ -134,0 +134,20 @@ class SkillPackageTests(unittest.TestCase):
 +    def test_flow_instructions_trigger_on_behavior_and_keep_owner_questions_for_real_conflicts(self) -> None:
 +        from flowguard.templates import adoption_template_files
 +        rules = next(file.content for file in adoption_template_files() if file.path == 'AGENTS.md')
@@ -1460,79 +1003,39 @@ index 80b0cad5..dbd24153 100644
 +        for future in ('flowguard decide', 'flowguard draft'):
 +            self.assertNotIn(future, rules + skill)
 +
-     def test_route_sections_are_listed(self) -> None:
-         text=(SKILL/'references/routes.md').read_text(encoding='utf-8')
-         sections=re.split(r'(?m)(?=^## )',text)[1:]
-@@ -227,8 +246,7 @@ class SkillPackageTests(unittest.TestCase):
-         from flowguard.templates import adoption_template_files
-         self.assertEqual(["AGENTS.md", "CLAUDE.md"], [f.path for f in adoption_template_files()])
-         rules = next(f.content for f in adoption_template_files() if f.path == "AGENTS.md")
+@@ -230,2 +249 @@ class SkillPackageTests(unittest.TestCase):
 -        self.assertEqual(4, len(re.findall(r"^\d\. ", rules, re.M)))
 -        self.assertEqual({"status", "req", "where"}, set(re.findall(r"python -m flowguard ([a-z]+)", rules)))
 +        self.assertEqual({"status", "req", "where", "check", "show"}, set(re.findall(r"python -m flowguard ([a-z]+)", rules)))
-         self.assertNotIn("Copy these", rules)
-         commit_rule = next(line for line in rules.splitlines() if line.startswith("4. "))
-         for required in ("one commit", "your own words", "Request: R<n>"):
-@@ -386,19 +404,22 @@ class SkillPackageTests(unittest.TestCase):
- 
-             # The current rules were added but the earlier block was left: name it to remove, print no rules.
-             both = rules.splitlines() + [""] + project + EARLIER_FLOWGUARD_BLOCK + after
+@@ -388,0 +407 @@ class SkillPackageTests(unittest.TestCase):
 +            first, last = both.index(begin) + 1, both.index(end) + 1
-             agents.write_text("\n".join(both) + "\n", encoding="utf-8")
-             output = adopt(root)
-             self.assertNotIn("nothing to add", output)
-             self.assertNotIn(rules.splitlines()[2], output)
-             self.assertIn(
-                 "kept AGENTS.md (it exists): FlowGuard does not edit it; it holds the current FlowGuard rules, and these "
+@@ -395 +414 @@ class SkillPackageTests(unittest.TestCase):
 -                f"lines of it hold an earlier FlowGuard block:\n  lines 12-26: {block}\nremove those lines from "
 +                f"lines of it hold an earlier FlowGuard block:\n  lines {first}-{last}: {block}\nremove those lines from "
-                 f"{agents}; keep the current rules there\n", output)
- 
-             # The current rules only inside the markers are still the earlier block: replacing it removes the markers.
+@@ -399 +418,2 @@ class SkillPackageTests(unittest.TestCase):
 -            agents.write_text("\n".join(project + [begin, *rules.splitlines(), end]) + "\n", encoding="utf-8")
 +            marked = project + [begin, *rules.splitlines(), end]
 +            agents.write_text("\n".join(marked) + "\n", encoding="utf-8")
-             output = adopt(root)
+@@ -401 +421,2 @@ class SkillPackageTests(unittest.TestCase):
 -            self.assertIn(f"  lines 5-12: {block}\nput these lines in {agents} in place of the lines named above:\n",
 +            self.assertIn(f"  lines {marked.index(begin) + 1}-{marked.index(end) + 1}: {block}\n"
 +                          f"put these lines in {agents} in place of the lines named above:\n",
-                           output)
- 
-             # A begin marker without its end delimits nothing: it and the rule-like lines after it are named one by one.
-@@ -444,7 +465,7 @@ class SkillPackageTests(unittest.TestCase):
-                 base / name for name in ("fresh", "held", "both", "marked", "older", "plain", "odd"))
-             fresh.mkdir()
-             adopt(fresh, "AGENTS.md missing")
+@@ -447 +468 @@ class SkillPackageTests(unittest.TestCase):
 -            self.assertIn("the four project rules", cases["AGENTS.md missing"])
 +            self.assertIn("the project rules", cases["AGENTS.md missing"])
-             self.assertEqual((rules, "@AGENTS.md\n"), tuple((fresh / name).read_text(encoding="utf-8")
-                                                           for name in ("AGENTS.md", "CLAUDE.md")))
- 
-@@ -459,9 +480,12 @@ class SkillPackageTests(unittest.TestCase):
-             block = "<!-- BEGIN FLOWGUARD PROJECT RULES -->\n## FlowGuard rules\n\nKeep the map.\n" \
-                     "1. Run `python -m flowguard read` first.\n<!-- END FLOWGUARD PROJECT RULES -->\n"
-             both.mkdir()
+@@ -462 +483,2 @@ class SkillPackageTests(unittest.TestCase):
 -            (both / "AGENTS.md").write_text(rules + "\n" + block, encoding="utf-8")
 +            combined = rules + "\n" + block
 +            (both / "AGENTS.md").write_text(combined, encoding="utf-8")
-             output = adopt(both, both_case)
+@@ -464 +486,3 @@ class SkillPackageTests(unittest.TestCase):
 -            self.assertIn("  lines 8-13: ", output)
 +            combined_lines = combined.splitlines()
 +            self.assertIn(f"  lines {combined_lines.index(EARLIER_FLOWGUARD_BLOCK[0]) + 1}-"
 +                          f"{combined_lines.index(EARLIER_FLOWGUARD_BLOCK[-1]) + 1}: ", output)
-             self.assertNotIn(rules.splitlines()[2], output)
-             self.assertNotIn("nothing to add", output)
- 
 diff --git a/tests/test_status.py b/tests/test_status.py
 index 19ddb70d..7aeee8ff 100644
 --- a/tests/test_status.py
 +++ b/tests/test_status.py
-@@ -245,7 +245,7 @@ def test_status_shows_the_flow_models_open_conflicts_from_the_last_check(tmp_pat
-     conflict = json.loads((root / '.flowguard/conflicts.json').read_text(encoding='utf-8'))['conflicts'][0]['id']
-     capsys.readouterr()
-     lines = _status(root, capsys)['flow_models']
+@@ -248 +248 @@ def test_status_shows_the_flow_models_open_conflicts_from_the_last_check(tmp_pat
 -    assert lines == status_lines(root) == [f'flow models: 1 open conflict ({conflict}); release and CI fail until fixed; without a hook a commit is not blocked']
 +    assert lines == status_lines(root) == [f'flow models: 1 open conflict ({conflict}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked']
-     assert main(['status', '--root', str(root)]) == 0
-     text = capsys.readouterr().out.splitlines()
-     opened = next(number for number, line in enumerate(text) if line.startswith('OPEN CHANGE'))

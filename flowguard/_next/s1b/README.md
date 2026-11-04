@@ -5,7 +5,7 @@ It adds model-first guidance, useful request quotations and one portable flow
 worker lifecycle for Linux and Windows.
 
 `candidate.patch` applies the slice to the v0.73.0 source in a separate gate
-copy. `manifest.json` lists its destinations. The patch preserves the base
+copy with `git apply --index --unidiff-zero`. `manifest.json` lists its destinations. The patch preserves the base
 version metadata; the gate copy prepares the future v0.74.0 metadata separately.
 
 The gate runs the complete workflow, including native Windows `tests/flow`,
