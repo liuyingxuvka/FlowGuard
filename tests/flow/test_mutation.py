@@ -75,19 +75,19 @@ def test_parcel_locker_guards_are_caught_except_the_reviewed_survivors(project):
     # delivered again, picked up from the depot, or replaced while in use; only the full
     # locker is a promise ("one parcel at a time in the locker").
     assert guards == {
-        "drop guard 'not at the depot' (deliver, line 16)": "survived",
-        "drop guard 'the locker is full' (deliver, line 17)": "caught",
-        "drop guard 'not in the locker' (pick_up, line 23)": "survived",
-        "drop guard 'slot in use' (new_parcel, line 38)": "survived",
+        "drop guard 'not at the depot' (deliver, line 18)": "survived",
+        "drop guard 'the locker is full' (deliver, line 19)": "caught",
+        "drop guard 'not in the locker' (pick_up, line 25)": "survived",
+        "drop guard 'slot in use' (new_parcel, line 40)": "survived",
     }
-    assert outcome(report, "drop guard 'the locker is full' (deliver, line 17)")["by"] == [
+    assert outcome(report, "drop guard 'the locker is full' (deliver, line 19)")["by"] == [
         "BROKEN always 'one parcel at a time in the locker'"]
     survivors = {f.subject for f in report.findings}
     assert {"drop guard 'not at the depot' in deliver", "drop guard 'not in the locker' in pick_up",
             "drop guard 'slot in use' in new_parcel"} <= survivors
     assert all(f.kind == "MUTANT SURVIVES" and f.cls == WARNING for f in report.findings)
     [f] = [f for f in report.findings if f.subject == "drop guard 'not at the depot' in deliver"]
-    assert f.text == ("mutant survives: drop guard 'not at the depot' (deliver, line 16): "
+    assert f.text == ("mutant survives: drop guard 'not at the depot' (deliver, line 18): "
                       "no rule or generic check fails without it")
     assert f.sources == ("R1",)
 
