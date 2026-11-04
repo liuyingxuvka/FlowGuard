@@ -477,9 +477,9 @@ def _flow_record_readable(root: Path) -> None:
     from ..flow.jobs import require_supported
 
     try:
+        read_conflicts(root)
         if model_files(root):
             require_supported()
-        read_conflicts(root)
     except ProjectError as error:
         raise FlowRuntimeError(f"flow models: {error}") from error
 

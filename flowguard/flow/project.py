@@ -131,12 +131,18 @@ def _shape_problem(data) -> str | None:
     return None
 
 
-def unreadable_text(reason: str, merge: bool = False) -> str:
+def unreadable_text(root, reason: str, merge: bool = False) -> str:
     """The one line every command gives for an unreadable conflicts.json: the file, why, and
     the step that restores it (`git checkout -- FILE` refuses a file a merge left unmerged)."""
     name = CONFLICTS.as_posix()
-    step = (f"keep one side: git checkout --ours -- {name}; then run {PROG} check" if merge
-            else f"git checkout -- {name}")
+    from ..map.common import git_common_directory, git_run
+    tracked = (git_common_directory(root) is not None
+               and git_run(root, "ls-files", "--error-unmatch", "--", name, allowed=(0, 1)).returncode == 0)
+    if tracked:
+        step = (f"keep one side: git checkout --ours -- {name}; then run {PROG} check" if merge
+                else f"git checkout -- {name}")
+    else:
+        step = f"restore {name} from your project backup; then run {PROG} check"
     return f"{name} cannot be read ({reason}); its open conflicts are unknown until it is restored ({step})"
 
 
@@ -148,20 +154,20 @@ def read_conflicts(root) -> dict | None:
     if not path.exists():
         return None
     if not path.is_file():
-        raise ConflictsUnreadable(unreadable_text("it is not a regular file"))
+        raise ConflictsUnreadable(unreadable_text(root, "it is not a regular file"))
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as e:
-        raise ConflictsUnreadable(unreadable_text(f"{type(e).__name__}: {e}")) from e
+        raise ConflictsUnreadable(unreadable_text(root, f"{type(e).__name__}: {e}")) from e
     if any(line.startswith(_MERGE_MARKERS) for line in text.splitlines()):
-        raise ConflictsUnreadable(unreadable_text("it holds git merge markers", merge=True))
+        raise ConflictsUnreadable(unreadable_text(root, "it holds git merge markers", merge=True))
     try:
         data = json.loads(text)
     except ValueError as e:
-        raise ConflictsUnreadable(unreadable_text(f"it is not valid JSON: {e}")) from e
+        raise ConflictsUnreadable(unreadable_text(root, f"it is not valid JSON: {e}")) from e
     problem = _shape_problem(data)
     if problem is not None:
-        raise ConflictsUnreadable(unreadable_text(problem))
+        raise ConflictsUnreadable(unreadable_text(root, problem))
     data.setdefault("unknown", [])
     return data
 

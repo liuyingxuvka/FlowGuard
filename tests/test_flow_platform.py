@@ -80,3 +80,17 @@ def test_non_linux_flow_commands_refuse_without_loading_or_changing_conflicts(tm
     assert status["code"] == 0 and "F-saved" in status["out"], status
     assert UNSUPPORTED in status["out"], status
     assert record.read_bytes() == original
+
+
+def test_non_linux_release_names_a_damaged_record_before_execution_limit(tmp_path):
+    basic_project(tmp_path)
+    models = tmp_path / ".flowguard/flow"
+    models.mkdir()
+    (models / "saved.py").write_text('raise AssertionError("must not execute")\n')
+    record = tmp_path / ".flowguard/conflicts.json"
+    record.write_text("{}")
+    result = run(tmp_path, "release", "--json", unsupported=True)
+    assert result["code"] == 2
+    assert "conflicts.json cannot be read" in result["err"]
+    assert json.loads(result["out"])["codes"][0]["subject"] == "flow"
+    assert record.read_text() == "{}"

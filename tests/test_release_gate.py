@@ -133,7 +133,7 @@ def test_release_stops_in_one_line_on_an_unreadable_conflicts_file(tmp_path, cap
     assert captured.out == ""
     [line] = captured.err.splitlines()
     assert line.startswith("error: flow models: .flowguard/conflicts.json cannot be read (it holds git merge markers)")
-    assert "git checkout --ours -- .flowguard/conflicts.json" in line
+    assert "restore .flowguard/conflicts.json from your project backup" in line
     assert main(["release", "--json", "--root", str(tmp_path)]) == 2
     verdict = json.loads(capsys.readouterr().out)
     assert verdict["verdict"] == "FAIL" and verdict["codes"][0]["code"] == "runtime_error"

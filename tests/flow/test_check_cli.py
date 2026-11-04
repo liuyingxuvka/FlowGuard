@@ -835,7 +835,7 @@ def test_an_unreadable_conflicts_file_stops_check_and_show_in_one_line(project, 
         assert res.returncode == 2, (verb, res.stdout, res.stderr)
         [line] = res.stdout.splitlines()
         assert line.startswith(f".flowguard/conflicts.json cannot be read ({reason}"), line
-        assert "until it is restored (" in line and "git checkout" in line, line
+        assert "until it is restored (" in line and "from your project backup" in line, line
         assert "Traceback" not in res.stderr, res.stderr
         res = subprocess.run(command(verb, "--json"), cwd=project.root, capture_output=True, text=True, env=env(),
                              timeout=60)
@@ -852,6 +852,8 @@ def test_a_merge_marked_conflicts_file_names_the_merge_step(project):
     """git checkout -- FILE refuses an unmerged file, so the merge case names taking one side."""
     from flowguard.flow.project import ProjectError, read_conflicts
     project.flow("dial", DIAL)
+    project.file(".flowguard/conflicts.json", '{"conflicts": []}\n')
+    project.commit()
     (project.root / ".flowguard/conflicts.json").write_text(MERGED, encoding="utf-8")
     with pytest.raises(ProjectError) as caught:
         read_conflicts(project.root)
