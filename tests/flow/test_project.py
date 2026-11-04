@@ -224,3 +224,39 @@ def test_conflicts_directory_is_unreadable_not_an_absent_record(project):
     (project.root / ".flowguard/conflicts.json").mkdir()
     with pytest.raises(ConflictsUnreadable, match="not a regular file"):
         read_conflicts(project.root)
+
+
+def test_atomic_record_replacement_and_concurrent_readers(tmp_path):
+    """A record stays readable while another thread publishes complete replacements."""
+    import threading
+    from flowguard.flow._process import read_text
+    from flowguard.flow.project import _atomic_write
+    path = tmp_path / "record.json"
+    _atomic_write(path, '{"generation": 0}\n')
+    ready, stop = threading.Event(), threading.Event()
+    errors, observed = [], []
+
+    def read_records():
+        try:
+            observed.append(json.loads(read_text(path))["generation"])
+            ready.set()
+            while not stop.is_set():
+                observed.append(json.loads(read_text(path))["generation"])
+        except BaseException as error:
+            errors.append(error)
+            ready.set()
+
+    reader = threading.Thread(target=read_records, daemon=True)
+    reader.start()
+    try:
+        assert ready.wait(10), "the reader never started"
+        for generation in range(1, 501):
+            _atomic_write(path, json.dumps({"generation": generation}) + "\n")
+    finally:
+        stop.set()
+        reader.join(10)
+    assert not reader.is_alive(), "the record reader did not finish"
+    if errors:
+        raise errors[0]
+    assert observed and all(0 <= value <= 500 for value in observed)
+    assert json.loads(read_text(path))["generation"] == 500
