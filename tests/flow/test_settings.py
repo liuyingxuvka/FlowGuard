@@ -215,3 +215,126 @@ def test_a_setting_the_covered_code_lacks_is_still_named(project):
     assert w.cls == WARNING and w.subject == "settings not read from the code"
     assert w.text.startswith("settings not read from the code: limit=3 is the model's own value; "
                              "counter/config.py: Config, which the covered code uses, has no such setting")
+
+
+@pytest.mark.parametrize("layout, imported", [
+    ("", "from .config import Config"),
+    ("", "import shop.config"),
+    ("", "from . import config"),
+    ("src/", "from .config import Config"),
+])
+def test_covered_config_import_forms_have_the_same_real_origin(project, layout, imported):
+    project.file(layout + "shop/__init__.py", "")
+    project.file(layout + "shop/config.py", "class Config:\n    maintain_every = 4\n")
+    project.file(layout + "shop/core.py", imported + "\nclass Counter: pass\n")
+    model = COVERED.replace("counter/core.py:Counter", layout + "shop/core.py:Counter")
+    project.flow("m", model)
+    with pytest.raises(ModelError, match=r"maintain_every=3 \(code default 4\)"):
+        load(project, "m")
+    project.flow("m", model.replace('covers=["' + layout + 'shop/core.py:Counter"]',
+                                   'covers=["' + layout + 'shop/core.py:Counter"], config="shop.config:Config"')
+                 .replace('m.setting("maintain_every", 3)', 'm.setting("maintain_every")'))
+    assert load(project, "m").model.settings["maintain_every"] == 4
+
+
+def test_plain_dict_cannot_replace_declared_covered_settings(project):
+    project.kit()
+    project.flow("m", COVERED.replace('S = m.settings\nm.setting("maintain_every", 3)',
+                                     'S = {"maintain_every": 3}'))
+    with pytest.raises(ModelError, match="plain dict.*maintain_every"):
+        load(project, "m")
+
+
+@pytest.mark.parametrize("fake_value", [3, 4])
+def test_explicit_config_must_belong_to_the_covered_code(project, fake_value):
+    project.kit()
+    project.file("counter/fakecfg.py", f"class Config:\n    maintain_every = {fake_value}\n")
+    model = COVERED.replace('covers=["counter/core.py:Counter"]',
+                            'covers=["counter/core.py:Counter"], config="counter.fakecfg:Config"')
+    project.flow("m", model.replace('m.setting("maintain_every", 3)', 'm.setting("maintain_every")'))
+    with pytest.raises(ModelError, match="covered code.*counter.config:Config"):
+        load(project, "m")
+
+
+def test_explicit_setting_proposal_keeps_code_and_intent_distinct(project):
+    project.kit()
+    model = COVERED.replace('covers=["counter/core.py:Counter"]',
+                            'covers=["counter/core.py:Counter"], config="counter.config:Config"')
+    project.flow("m", model.replace('m.setting("maintain_every", 3)',
+                                    'm.setting("maintain_every", 3, propose=True, source="R12")'))
+    loaded = load(project, "m")
+    assert loaded.model.settings["maintain_every"] == 3
+    proposal, = loaded.model.setting_proposals()
+    assert proposal == {"name": "maintain_every", "value": 3, "code_value": 4,
+                        "source": "R12", "where": "counter/config.py: Config.maintain_every"}
+    cfg = project.root / "counter/config.py"
+    cfg.write_text(cfg.read_text().replace("maintain_every: int = 4", "maintain_every: int = 3"))
+    applied = load(project, "m").model
+    assert applied.setting_proposals() == []
+    assert applied.setting_info["maintain_every"].origin == "code"
+
+
+def test_setting_proposal_needs_a_source_and_a_real_code_setting(project):
+    project.kit()
+    model = COVERED.replace('covers=["counter/core.py:Counter"]',
+                            'covers=["counter/core.py:Counter"], config="counter.config:Config"')
+    project.flow("m", model.replace('m.setting("maintain_every", 3)',
+                                    'm.setting("maintain_every", 3, propose=True)'))
+    with pytest.raises(ModelError, match="proposal.*source"):
+        load(project, "m")
+    project.flow("m", model.replace('m.setting("maintain_every", 3)',
+                                    'm.setting("new_limit", 3, propose=True, source="R12")'))
+    with pytest.raises(ModelError, match="proposal.*code setting"):
+        load(project, "m")
+
+
+def test_unreadable_covered_python_is_a_model_error(project):
+    project.kit()
+    project.file("counter/core.py", "class Counter(:\n    pass\n")
+    project.flow("m", COVERED)
+    with pytest.raises(ModelError, match="syntax error") as error:
+        load(project, "m")
+    assert error.value.file == "counter/core.py" and error.value.line == 1
+
+
+@pytest.mark.parametrize("config_body, config_ref", [
+    ('maintain_every = 4\n', 'shop.config:'),
+    ('SETTINGS = {"maintain_every": 4}\n', 'shop.config:SETTINGS'),
+])
+def test_config_module_constants_and_mapping_values_are_real_settings(project, config_body, config_ref):
+    project.file("shop/__init__.py", "")
+    project.file("shop/config.py", config_body)
+    project.file("shop/core.py", "from . import config\nclass Counter: pass\n")
+    model = COVERED.replace('counter/core.py:Counter', 'shop/core.py:Counter')
+    model = model.replace('covers=["shop/core.py:Counter"]',
+                          f'covers=["shop/core.py:Counter"], config="{config_ref}"')
+    project.flow("m", model.replace('m.setting("maintain_every", 3)', 'm.setting("maintain_every")'))
+    loaded = load(project, "m")
+    assert loaded.model.settings["maintain_every"] == 4
+    assert loaded.model.setting_info["maintain_every"].where.startswith("shop/config.py: ")
+
+
+def test_proposal_for_an_explicit_config_without_covers_still_clears(project):
+    write(project, 'm.setting("maintain_every", 3, propose=True, source="R12")',
+          extra=', config="counter.config:Config"')
+    pending = load(project, "m").model
+    assert pending.setting_proposals()[0]["code_value"] == 4
+    cfg = project.root / "counter/config.py"
+    cfg.write_text(cfg.read_text().replace("maintain_every: int = 4", "maintain_every: int = 3"))
+    assert load(project, "m").model.setting_proposals() == []
+
+
+def test_unread_keys_of_an_ordinary_mapping_are_not_treated_as_settings(project):
+    project.kit()
+    model = COVERED.replace('S = m.settings\nm.setting("maintain_every", 3)',
+                            'S = {"maintain_every": 3, "other": 5}')
+    project.flow("m", model.replace('S["maintain_every"]', 'S["other"]'))
+    assert load(project, "m").model.settings == {}
+
+
+def test_function_local_dict_cannot_hide_a_covered_setting(project):
+    project.kit()
+    model = COVERED.replace('S = m.settings\nm.setting("maintain_every", 3)', '')
+    project.flow("m", model.replace('def up(s):', 'def up(s):\n    S = {"maintain_every": 3}'))
+    with pytest.raises(ModelError, match="plain dict.*maintain_every"):
+        load(project, "m")

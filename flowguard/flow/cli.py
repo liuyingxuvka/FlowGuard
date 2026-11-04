@@ -119,20 +119,22 @@ class InternalError(Exception):
 def internal_text(e: BaseException) -> str:
     """`internal error: <type>: <message> (<file>:<line>)`: one line with the place where it
     was raised (relative to the directory holding `flowguard/` when it is inside it)."""
-    if isinstance(e, InternalError):
-        return f"internal error: {e}"
     tb = e.__traceback__
-    while tb is not None and tb.tb_next is not None:
+    package = Path(__file__).resolve().parents[1]
+    owned = None
+    while tb is not None:
+        if Path(tb.tb_frame.f_code.co_filename).resolve().is_relative_to(package):
+            owned = tb
         tb = tb.tb_next
-    where = ""
-    if tb is not None:
-        path = Path(tb.tb_frame.f_code.co_filename)
-        try:
-            path = path.resolve().relative_to(Path(__file__).resolve().parents[2])
-        except ValueError:
-            path = Path(path.name)
-        where = f" ({path.as_posix()}:{tb.tb_lineno})"
-    return f"internal error: {type(e).__name__}: {e}{where}"
+    # A traceback-less external error has no engine location: say so explicitly
+    # instead of silently presenting a standard-library filename as our code.
+    where = " (FlowGuard location unavailable)"
+    if owned is not None:
+        path = Path(owned.tb_frame.f_code.co_filename).resolve().relative_to(package.parent)
+        where = f" ({path.as_posix()}:{owned.tb_lineno})"
+    message = " ".join(str(e).splitlines())
+    label = message if isinstance(e, InternalError) else f"{type(e).__name__}: {message}"
+    return f"internal error: {label}{where}"
 
 
 def main(argv=None, *, prog: str = PROG, out=None, err=None) -> int:
@@ -162,7 +164,8 @@ def _early(out, line: str, code: int, as_json: bool) -> int:
     """A verdict before any model was looked at (usage, project, empty flow directory)."""
     if as_json:
         out.write(json.dumps({"verdict": line, "exit": code, "complete": code == EXIT_CLEAN, "conflicts": [],
-                              "warnings": [], "errors": [], "unknown": [], "models": {}, "parts": [],
+                              "warnings": [], "surviving_breakages": 0, "setting_proposals": [],
+                              "errors": [], "unknown": [], "models": {}, "parts": [],
                               "declared_routes": [], "closed": [], "resume": None, "running": None},
                              ensure_ascii=False, separators=(",", ":")) + "\n")
     else:
@@ -237,11 +240,11 @@ def _current_text(current: dict | None, lead: str) -> str:
     if current.get("mutant"):
         total = current.get("mutants")
         text += f" (deliberate breakage {current['mutant']}" + (f" of {total}" if total else "") + ")"
-    return text + (f": {phase}" if phase else "")
+    return text + (f": {phase}" if phase else "") + (f" ({states:,} states explored)" if states else "")
 
 
 # ---------------------------------------------------------------------- check
-def check(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
+def check(args, argv, *, prog: str = PROG, out=None, err=None, on_result=None) -> int:
     """A project problem raises ProjectError and an engine failure InternalError (main turns
     either into one line and exit 2; release stops on them)."""
     out = out or sys.stdout
@@ -260,6 +263,8 @@ def check(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
     if outcome.finished:
         write_conflicts(root, conflicts_data(root, result, previous))
     lines, data = render(root, result, resume)
+    if on_result is not None:
+        on_result(data)
     if args.json:
         out.write(json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n")
     else:
@@ -450,7 +455,7 @@ def _survivors_said(result: Assembled) -> str:
     """check --full: the deliberate breakages no check caught, said on the first line (never a
     bare "clean" over them); their warnings follow below."""
     n = len([f for f in result.warnings if f.kind == "MUTANT SURVIVES"])
-    return f"; {_plural(n, 'deliberate breakage')} not caught \u2014 see below" if n else ""
+    return f"; {_plural(n, 'deliberate breakage')} not caught - see below" if n else ""
 
 
 def _warnings_said(result: Assembled) -> str:
@@ -678,7 +683,11 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
     line, code = verdict(result, resume)
     new = [f for f in result.conflicts if f.id in result.new]
     open_ = [f for f in result.conflicts if f.id not in result.new]
-    lines = [line]
+    from .proposals import proposal_text
+    proposals = [dict(p, model=mid) for mid, view in result.models.items()
+                 if (core := view.result("core")) is not None
+                 for p in core.info.get("setting_proposals", [])]
+    lines = [line, *(proposal_text(p) for p in proposals)]
     for f in new:
         lines += full_block(root, result, f)
     for f in open_:
@@ -706,6 +715,8 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
         "conflicts": [dict(f.to_json(), new=f.id in result.new, requests=request_lines(root, f.sources),
                            picture=picture(result, f), causes=causes_of(result, f)) for f in result.conflicts],
         "warnings": [f.to_json() for f in result.warnings],
+        "surviving_breakages": sum(f.kind == "MUTANT SURVIVES" for f in result.warnings),
+        "setting_proposals": proposals,
         "errors": [f.to_json() for f in result.errors],
         "unknown": [m for m, v in result.models.items() if v.finished and not v.complete],
         "models": models,
@@ -736,8 +747,24 @@ def conflicts_data(root, result: Assembled, previous: dict | None) -> dict:
     for mid, view in result.models.items():
         models[mid] = {"complete": view.complete, "loaded": view.loaded, "cut": view.cut,
                        "errors": len([f for f in result.errors if f.model == mid]),
-                       "parts": sorted(r.digest for _, r, _, _ in view.parts),
-                       "warnings": len([f for f in result.warnings if f.model == mid])}
+                       # Full-only checks are diagnostics, not changes to this model's
+                       # persistent check identity. Their real conflicts/errors remain above.
+                       "parts": sorted(r.digest for p, r, _, _ in view.parts if p.spec.kind != "mutate"
+                                       and p.spec.kind != "core"),
+                       "warnings": len([f for f in result.warnings if f.model == mid
+                                        and f.kind != "MUTANT SURVIVES"]),
+                       "setting_proposals": (view.result("core").info.get("setting_proposals", [])
+                                             if view.result("core") is not None else [])}
+        core = view.result("core")
+        if core is not None:
+            # The core's --full symmetry option changes its cache key, but not
+            # the source files that identify the checked model.
+            from .parts import PartSpec, part_digest
+            spec = next(p.spec for p, r, _, _ in view.parts if r is core)
+            canonical = PartSpec(spec.kind, spec.model, tuple(
+                (k, v) for k, v in spec.options if k != "verify_symmetry"))
+            models[mid]["parts"].append(part_digest(root, canonical, core.reads))
+            models[mid]["parts"].sort()
     digests = sorted(d for v in models.values() for d in v["parts"])
     return {"engine": ENGINE_DIGEST,
             "tree": hashlib.sha256(json.dumps(digests).encode("utf-8")).hexdigest(),
@@ -751,7 +778,7 @@ def conflicts_data(root, result: Assembled, previous: dict | None) -> dict:
 RELEASE_WAIT = 3600                # the release check may run long (design 7.6); the in-loop default never does
 
 
-def release(root, *, out=None, err=None) -> bool:
+def release(root, *, out=None, err=None, on_result=None) -> bool:
     """The flow-model part of `python -m flowguard release` (design 7.6): check
     every model with --full (the deliberate-breakage mutants and the unreduced symmetry
     check) and the release wait. True when the release may go on: a conflict or a model
@@ -760,8 +787,16 @@ def release(root, *, out=None, err=None) -> bool:
     an exception (InternalError or another): the release stops on either with exit 2, never
     as a failed gate."""
     argv = ["check", "--full", "--wait", str(RELEASE_WAIT), "--root", str(root)]
-    code = check(parser().parse_args(argv), argv, out=out, err=err)
-    return code in (EXIT_CLEAN, EXIT_UNKNOWN)
+    results = []
+    def completed(data):
+        results.append(data)
+        if on_result is not None:
+            on_result(data)
+    code = check(parser().parse_args(argv), argv, out=out, err=err, on_result=completed)
+    proposals = [p for data in results for p in data["setting_proposals"]]
+    if proposals:
+        print("release blocked: proposed settings differ from the covered code", file=out or sys.stdout)
+    return code in (EXIT_CLEAN, EXIT_UNKNOWN) and not proposals
 
 
 FAILS = "release and CI fail until fixed; without a hook a commit is not blocked"
@@ -773,12 +808,13 @@ def status_lines(root) -> list[str]:
     (and so CI, which runs it) fails on an open conflict, a model error or a model that does
     not load; nothing stops a commit unless the project installs a hook that runs it. A
     project with no flow model and no recorded check gets no line."""
+    platform = [problem] if model_files(Path(root)) and (problem := jobs.platform_problem()) else []
     try:
         data = read_conflicts(root)
     except ProjectError as e:                    # the same line check, show and release stop with
-        return [f"flow models: {e}"]
+        return [f"flow models: {e}", *platform]
     if data is None:
-        return [f"flow models: no check recorded (run {PROG} check)"] if model_files(Path(root)) else []
+        return [f"flow models: no check recorded (run {PROG} check)", *platform] if model_files(Path(root)) else []
     conflicts = data["conflicts"]
     unknown = data["unknown"]
     models = data.get("models", {})
@@ -807,4 +843,7 @@ def status_lines(root) -> list[str]:
         line += f"; not explored: {', '.join(unexplored)} (the model does not load)"
     if (erring or unexplored) and not conflicts:
         line += f"; {FAILS}"
-    return [line]
+    from .proposals import proposal_text
+    proposals = [proposal_text(dict(p, model=mid)) for mid, record in models.items()
+                 for p in record.get("setting_proposals", [])]
+    return [line, *proposals, *platform]

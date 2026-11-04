@@ -59,10 +59,25 @@ def resolve_models(root: Path, names: list[str]) -> list[Path]:
     return out
 
 
+def _request_problem(root: Path, rid: str) -> str | None:
+    """Use the request owner's storage and integrity check for a model source."""
+    from ..map.mapfile import MapError
+    from ..map.requests import validate_request_links
+
+    if request_file(root, rid) is None:
+        return (f"{rid!r} is no request id (the name of a file in {REQUESTS.as_posix()}/, such as R10); "
+                "name the stored request it comes from")
+    try:
+        validate_request_links(root, [dict(id=rid, part=False)])
+    except MapError as error:
+        return str(error)
+    return None
+
+
 def request_line(root: Path, rid: str) -> str | None:
     """The first non-empty line of the stored request, cut at 100 characters."""
     path = request_file(root, rid)
-    if path is None or not path.is_file():
+    if path is None or _request_problem(root, rid) is not None:
         return None
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.strip():
@@ -95,7 +110,9 @@ def _shape_problem(data) -> str | None:
     """What makes parsed JSON not a conflicts record (None: it is one)."""
     if not isinstance(data, dict):
         return "it is not a JSON object"
-    conflicts = data.get("conflicts", [])
+    if "conflicts" not in data:
+        return "it has no 'conflicts' list"
+    conflicts = data["conflicts"]
     if not isinstance(conflicts, list):
         return "'conflicts' is not a list"
     for n, c in enumerate(conflicts):
@@ -128,8 +145,10 @@ def read_conflicts(root) -> dict | None:
     record (unreadable, not JSON, git merge markers, a wrong shape) raises ConflictsUnreadable
     with the one line that names it and its restore step."""
     path = Path(root) / CONFLICTS
-    if not path.is_file():
+    if not path.exists():
         return None
+    if not path.is_file():
+        raise ConflictsUnreadable(unreadable_text("it is not a regular file"))
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as e:
@@ -143,7 +162,6 @@ def read_conflicts(root) -> dict | None:
     problem = _shape_problem(data)
     if problem is not None:
         raise ConflictsUnreadable(unreadable_text(problem))
-    data.setdefault("conflicts", [])
     data.setdefault("unknown", [])
     return data
 
@@ -289,17 +307,12 @@ def unstored_sources(root: Path, views) -> list[Finding]:
     out = []
     for mid, sources in sorted(views, key=lambda v: v[0]):
         for rid in sorted(sources, key=natural_key):
-            if request_line(root, rid) is not None:
+            problem = _request_problem(root, rid)
+            if problem is None:
                 continue
             uses = ", ".join(sources[rid])
-            if request_file(root, rid) is None:
-                why = (f"{rid!r} is no request id (the name of a file in {REQUESTS.as_posix()}/, such as R10); "
-                       f"name the stored request it comes from")
-            else:
-                why = (f"{REQUESTS.as_posix()}/{rid}.md does not exist; store the owner's words with "
-                       f"python -m flowguard req add <file> --id {rid}, or name the request they are stored under")
             out.append(make_finding("SOURCE", WARNING, mid, f"source {rid!r} is not a stored request",
-                                    f"source {rid!r} is not a stored request ({uses}): {why}",
+                                    f"source {rid!r} is not a stored request ({uses}): {problem}",
                                     detail={"source": rid, "named_by": list(sources[rid])}))
     return out
 

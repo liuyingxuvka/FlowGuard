@@ -105,6 +105,8 @@ jobs:
           tests/test_flowguard_map.py
           tests/test_flowguard_map_proof.py
           tests/test_flowguard_target.py
+          tests/test_flow_platform.py
+          tests/test_flow_frontend_errors.py
           tests/test_flowguard_testtree.py
           tests/test_function_selection.py
           tests/test_gap_lines.py

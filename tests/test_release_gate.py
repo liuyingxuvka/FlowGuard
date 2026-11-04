@@ -74,6 +74,7 @@ def test_release_runs_the_flow_models_full_check(tmp_path, capsys):
     """Release checks the flow models of .flowguard/flow/ completely, mutants included, besides the
     legacy models: a conflict stops it (in --json too, whose stdout keeps its one verdict line)."""
     import shutil
+    import sys
     from pathlib import Path
     from flowguard.__main__ import main
 
@@ -85,23 +86,32 @@ def test_release_runs_the_flow_models_full_check(tmp_path, capsys):
     flow = tmp_path / ".flowguard/flow"
     flow.mkdir()
     shutil.copy(Path(__file__).parent / "flow/data/planted/rental_naive.py", flow / "rental.py")
-    assert main(["release", "--root", str(tmp_path)]) == 1
-    lines = capsys.readouterr().out.splitlines()
-    assert ("flow: 1 new conflict; complete; 3 deliberate breakages not caught \u2014 see below" in lines
-            and lines[-1].startswith("verify: FAIL"))
-    assert any(line.startswith("flow: NEW STUCK rental: ") for line in lines)
-    assert main(["release", "--json", "--root", str(tmp_path)]) == 1
-    captured = capsys.readouterr()
-    [line] = captured.out.splitlines()
-    verdict = json.loads(line)
-    assert verdict["verdict"] == "FAIL" and dict(level="error", code="flow_models", subject="flow") in verdict["codes"]
-    assert ("flow: 1 open conflict; complete; 3 deliberate breakages not caught \u2014 see below"
-            in captured.err.splitlines())
-    (flow / "rental.py").write_text(DIAL, encoding="utf-8")
-    assert main(["release", "--root", str(tmp_path)]) == 0
-    lines = capsys.readouterr().out.splitlines()
-    assert any(line.startswith("flow: clean, complete") for line in lines) and lines[-1].startswith("verify: PASS")
-    assert json.loads((tmp_path / ".flowguard/conflicts.json").read_text(encoding="utf-8"))["conflicts"] == []
+    if not sys.platform.startswith("linux"):
+        # This test still executes on Windows: the old-map release above works,
+        # while S1a flow execution is explicitly Linux-only.
+        assert main(["release", "--root", str(tmp_path)]) == 2
+        captured = capsys.readouterr()
+        [line] = (captured.out + captured.err).splitlines()
+        assert "flow-model checks currently support Linux only" in line
+        assert not (tmp_path / ".flowguard/conflicts.json").exists()
+    else:
+        assert main(["release", "--root", str(tmp_path)]) == 1
+        lines = capsys.readouterr().out.splitlines()
+        assert ("flow: 1 new conflict; complete; 3 deliberate breakages not caught - see below" in lines
+                and lines[-1].startswith("verify: FAIL"))
+        assert any(line.startswith("flow: NEW STUCK rental: ") for line in lines)
+        assert main(["release", "--json", "--root", str(tmp_path)]) == 1
+        captured = capsys.readouterr()
+        [line] = captured.out.splitlines()
+        verdict = json.loads(line)
+        assert verdict["verdict"] == "FAIL" and dict(level="error", code="flow_models", subject="flow") in verdict["codes"]
+        assert ("flow: 1 open conflict; complete; 3 deliberate breakages not caught - see below"
+                in captured.err.splitlines())
+        (flow / "rental.py").write_text(DIAL, encoding="utf-8")
+        assert main(["release", "--root", str(tmp_path)]) == 0
+        lines = capsys.readouterr().out.splitlines()
+        assert any(line.startswith("flow: clean, complete") for line in lines) and lines[-1].startswith("verify: MODELS PASS")
+        assert json.loads((tmp_path / ".flowguard/conflicts.json").read_text(encoding="utf-8"))["conflicts"] == []
 
 
 MERGED = "<<<<<<< HEAD\n{\"conflicts\": []}\n=======\n{\"conflicts\": []}\n>>>>>>> other\n"
@@ -127,6 +137,7 @@ def test_release_stops_in_one_line_on_an_unreadable_conflicts_file(tmp_path, cap
     assert main(["release", "--json", "--root", str(tmp_path)]) == 2
     verdict = json.loads(capsys.readouterr().out)
     assert verdict["verdict"] == "FAIL" and verdict["codes"][0]["code"] == "runtime_error"
+    assert verdict["codes"][0]["subject"] == "flow"
 
 
 def test_an_internal_error_in_the_flow_gate_stops_the_release_with_exit_2(tmp_path, capsys, monkeypatch):
@@ -146,7 +157,12 @@ def test_an_internal_error_in_the_flow_gate_stops_the_release_with_exit_2(tmp_pa
     capsys.readouterr()
     assert main(["release", "--root", str(tmp_path)]) == 2
     err = capsys.readouterr().err
-    assert "error: flow models: internal error: KeyError: 'id' (tests/test_release_gate.py:" in err
+    import sys
+    if not sys.platform.startswith("linux"):
+        assert "flow-model checks currently support Linux only" in err
+        assert "Traceback" not in err
+        return
+    assert "error: flow models: internal error: KeyError: 'id' (flowguard/flow/cli.py:" in err
     assert "Traceback" not in err
 
 
@@ -165,13 +181,20 @@ def test_release_without_a_legacy_map_runs_the_flow_gate_and_the_suite(tmp_path,
     tests.mkdir()
     (tests / "test_ok.py").write_text("def test_ok():\n    assert 1 + 1 == 2\n", encoding="utf-8")
     capsys.readouterr()
+    import sys
+    if not sys.platform.startswith("linux"):
+        assert main(["release", "--root", str(tmp_path)]) == 2
+        captured = capsys.readouterr()
+        [line] = (captured.out + captured.err).splitlines()
+        assert "flow-model checks currently support Linux only" in line
+        return
     assert main(["release", "--root", str(tmp_path)]) == 1
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
     assert "no map at" not in captured.out + captured.err and "map scan first" not in captured.out + captured.err
     assert lines[0] == ("legacy map: none (.flowguard/map.json does not exist), so there is no map check, lint or "
                         "legacy model to run; the flow models are checked, and the tests with --shards")
-    assert "flow: 1 new conflict; complete; 3 deliberate breakages not caught \u2014 see below" in lines
+    assert "flow: 1 new conflict; complete; 3 deliberate breakages not caught - see below" in lines
     assert any(line.startswith("flow: NEW STUCK rental: ") for line in lines)
     assert "suite: not run (fix the failures above first)" not in lines          # no --shards: not asked
     assert lines[-1].startswith("verify: FAIL")
@@ -179,8 +202,8 @@ def test_release_without_a_legacy_map_runs_the_flow_gate_and_the_suite(tmp_path,
     assert main(["release", "--root", str(tmp_path)]) == 0
     lines = capsys.readouterr().out.splitlines()
     assert any(line.startswith("flow: clean, complete") for line in lines)
-    assert lines[-1] == ("verify: PASS (no test ran: without a legacy map no test is bound to a model; run the whole "
-                         "suite with python -m flowguard release --shards 4, or in CI)")
+    assert lines[-1] == ("verify: MODELS PASS; tests not run: without a legacy map no test is bound to a model; run the whole "
+                         "suite with python -m flowguard release --shards 4, or in CI")
     assert main(["release", "--shards", "1", "--root", str(tmp_path)]) == 0
     lines = capsys.readouterr().out.splitlines()
     assert "suite: status: pass  executed 1 of 1" in "\n".join(lines) and lines[-1] == "verify: PASS"

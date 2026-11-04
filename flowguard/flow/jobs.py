@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import ctypes
 import errno
-import fcntl
 import hashlib
 import json
 import os
@@ -49,7 +48,7 @@ from typing import Callable
 
 from .explore import Bounds
 from .parts import ENGINE_DIGEST, PartResult, PartSpec, kinds, part_digest
-from .project import FLOW_DIR, _atomic_write, cache_dir, file_digest, read_manifest, write_manifest
+from .project import FLOW_DIR, ProjectError, _atomic_write, cache_dir, file_digest, read_manifest, write_manifest
 
 LEASE_BEAT = 1.0                 # a waiting resume caller renews the lease this often
 LEASE_SPAN = 3.0                 # ... for this long
@@ -60,6 +59,18 @@ KEEP_DEAD = 3                    # the newest runs that failed or died keep thei
 PR_SET_PDEATHSIG = 1
 WORKER_MODULE = f"{__package__}.worker"
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]      # the directory holding `flowguard/`
+UNSUPPORTED_PLATFORM = "flow-model checks currently support Linux only"
+
+
+def platform_problem() -> str | None:
+    """The execution boundary; importing flow views remains portable."""
+    return None if sys.platform.startswith("linux") else UNSUPPORTED_PLATFORM
+
+
+def require_supported() -> None:
+    problem = platform_problem()
+    if problem is not None:
+        raise ProjectError(problem)
 
 
 # ---------------------------------------------------------------------- places
@@ -225,6 +236,9 @@ class Lock:
         self.fd = None
 
     def acquire(self, blocking: bool = True) -> bool:
+        require_supported()
+        import fcntl
+
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o644)
         try:
@@ -241,6 +255,8 @@ class Lock:
 
     def release(self) -> None:
         if self.fd is not None:
+            import fcntl
+
             fcntl.flock(self.fd, fcntl.LOCK_UN)
             os.close(self.fd)
             self.fd = None
@@ -555,6 +571,7 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
         progress: Callable[[int, int, dict | None], None] | None = None) -> Outcome:
     """Results for every planned part: hits from the cache, the rest from the plan's
     worker, waiting at most `wait` seconds. The caller never runs model code."""
+    require_supported()
     root = Path(root).resolve()
     start = time.monotonic()
     deadline = start + wait

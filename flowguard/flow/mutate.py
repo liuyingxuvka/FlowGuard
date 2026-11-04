@@ -267,7 +267,11 @@ def _blocking(report):
 def run_mutants(loaded: Loaded, bounds: Bounds, *, progress=None) -> MutationReport:
     """Check the original and every mutant (explain=False) and sort the mutants."""
     model = loaded.model
-    original = check_model(loaded, bounds, explain=False)
+    if progress is not None:
+        progress({"phase": "exploring original", "states": 0})
+    original = check_model(loaded, bounds, explain=False,
+                           progress=(lambda d: progress({"phase": "exploring original", **d}))
+                           if progress is not None else None)
     if not original.graph.complete:
         return MutationReport(False, [], [], ["mutation"])
     known = _blocking(original)
@@ -277,7 +281,7 @@ def run_mutants(loaded: Loaded, bounds: Bounds, *, progress=None) -> MutationRep
     every = list(mutants(loaded, original.graph))
     for n, mutant in enumerate(every):
         if progress is not None:
-            progress({"mutant": n + 1, "mutants": len(every)})
+            progress({"mutant": n + 1, "mutants": len(every), "phase": "exploring", "states": 0})
         if mutant.transform is not None:
             try:
                 mloaded = load_model(model.path, model.root, transform=mutant.transform)
@@ -287,7 +291,10 @@ def run_mutants(loaded: Loaded, bounds: Bounds, *, progress=None) -> MutationRep
                 continue
         else:
             mloaded = Loaded(mutant.wrap(model), loaded.reads)
-        report = check_model(mloaded, bounds, explain=False)
+        report = check_model(mloaded, bounds, explain=False,
+                             progress=(lambda d: progress({"mutant": n + 1, "mutants": len(every),
+                                                           "phase": "exploring", **d}))
+                             if progress is not None else None)
         if report.graph.cut:                       # the break makes the model raise: its model error catches it
             outcomes.append({"op": mutant.op, "what": mutant.what, "outcome": "caught",
                              "by": [f"{f.kind} {f.subject}" for fid, f in _blocking(report).items() if fid not in known

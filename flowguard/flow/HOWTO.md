@@ -9,30 +9,60 @@ with the shortest path and the requests behind it. Keep it small: leave out ever
 does not change what can happen, and say what you left out in a `note=`.
 
 One model per file: `.flowguard/flow/<name>.py`, ending with `MODEL = m`. Check them all with
-`python -m flowguard check` (files starting with `_` are helpers, never models); `check
---full` also breaks each model on purpose to see that its checks catch it; `python -m flowguard release` runs `check --full` (and, with `--shards`, the tests) also in a project with no legacy map. `python -m
-flowguard show` draws what is under discussion: the conflicts, else the change against
+`python -m flowguard check` (files starting with `_` are helpers, never models).
+`check --full` also breaks each model on purpose to see that its checks catch it.
+`python -m flowguard release` runs `check --full` (and, with `--shards`, the tests),
+also in a project with no legacy map. `python -m flowguard show` draws what is under
+discussion: the conflicts, else the change against
 HEAD (`show MODEL`, `show C-...` or `--before REV` name it yourself; `show MODEL` of a model
-with no conflict draws its latest change, one object's fields at a time). Each `source=` names a request stored with `python -m flowguard req add <file> --id R10` (never write a file in `.flowguard/requests/` by hand); an id with no stored request is a model warning.
+with no conflict draws its latest change, one object's fields at a time).
+Each `source=` names a request stored with `python -m flowguard req add <file> --id R10`
+(never write a file in `.flowguard/requests/` by hand); an id with no stored request is a
+model warning.
+
+The flow engine in v0.73 supports Linux only. On Windows, the legacy commands still work;
+flow `check`, `show` and the flow part of `release` exit 2 with an explanation. `status`
+still shows stored conflicts and this limitation. Full Windows flow support follows later.
 
 ## Writing a model
 
-| Call | Meaning |
-|---|---|
-| `m = Model(name, covers=["pkg/mod.py:Class"], config="pkg.config:Config", note=...)` | the model; `covers` names the code it describes, `config` the code's settings object |
-| `m.setting("limit", source="R9")` | a setting read from the code (`getattr(Config, "limit")`); read it in actions as `S["limit"]` with `S = m.settings` |
-| `m.setting("limit", 2, source="R12")` | a setting the code does not have yet (only then give a value: a value for a setting the covered code's settings object has is a model error that names both values, `settings not read from the code: limit=2 (code default 4)`); `m.settings` is read-only |
-| `IDS = m.objects("tool", "T1", "T2")` | interchangeable ids (at most 4); a plain list when they are not interchangeable. Never order them (`<`, `sorted`, `min`), name one, or read their text: ordering or naming one is a model error, and a use the check cannot judge turns the renaming off (said on the last line) |
-| `m.field(name, domain, init, over=IDS, source=, value_sources={"transit": "R10"}, note=)` | one field, or one per object (`s[name, t]`); small domains, counters clamped |
-| `@m.action(t=IDS, source="R4")` with `need(cond, "reason", source=)` | an action tried with every argument; `need` is the guard (it carries the action's source unless it names its own), assignments are the effect; `with s.source("R10"): ...` marks effects |
-| `m.option(name, offered, action=, source=, **params)` | a screen option: where it is offered, the action must work (same parameter names) |
-| `m.terminal(field, values, source=)` | the values that end an object's life on purpose (a step that leaves one is a model error) |
-| `m.always / only_when / after / progress / reach(...)` | the promises: hold in every state; hold before every success of an action; hold after it; from every such state the goal stays reachable; some state has it |
-| `m.second_route(a, b, source="R11", why=...)` | the only way to keep a second route to the same result; `source=` must be a stored request (`.flowguard/requests/R11.md`), and `check` prints the kept pair |
+- `m = Model(name, covers=["pkg/mod.py:Class"], config="pkg.config:Config", note=...)`:
+  `covers` names the code it describes; `config` names the code's settings object.
+- `m.setting("limit", source="R9")`: read a setting from the code
+  (`getattr(Config, "limit")`). Use `S = m.settings`, then `S["limit"]` in actions.
+- `m.setting("limit", 2, source="R12")`: give a value for a setting the code does not
+  have yet. Giving an existing code setting a value is a model error naming both values:
+  `settings not read from the code: limit=2 (code default 4)`. `m.settings` is read-only.
+- `m.setting("limit", 2, propose=True, source="R12")`: explicitly try a change to a code
+  setting before changing the code. `check` reports the proposed and current values as an
+  advisory; `release` fails while they differ. `status` keeps showing the proposal until
+  the code and model agree. Then remove `propose=True` and read the setting from the code.
+- `IDS = m.objects("tool", "T1", "T2")`: interchangeable ids (at most 4); use a plain
+  list when they are not interchangeable. Never order them (`<`, `sorted`, `min`), name
+  one or read their text: ordering or naming one is a model error. A use the check cannot
+  judge turns the renaming off (said on the last line).
+- `m.field(name, domain, init, over=IDS, source=, value_sources={"transit": "R10"}, note=)`:
+  one field, or one per object (`s[name, t]`); small domains, counters clamped.
+- `@m.action(t=IDS, source="R4")` with `need(cond, "reason", source=)`: an action tried
+  with every argument. `need` is the guard (it carries the action's source unless it names
+  its own); assignments are the effect. `with s.source("R10"): ...` marks effects.
+- `m.option(name, offered, action=, source=, **params)`: a screen option; where it is
+  offered, the action must work (same parameter names).
+- `m.terminal(field, values, source=)`: values that end an object's life on purpose.
+  A step that leaves one is a model error.
+- `m.always / only_when / after / progress / reach(...)`: promises that hold in every
+  state; hold before every success of an action; hold after it; keep a goal reachable from
+  every matching state; or have some state that reaches the goal, respectively.
+- `m.second_route(a, b, source="R11", why=...)`: the only way to keep a second route
+  to the same result. `source=` is the stored request's ID (`R11`), and `check` prints
+  the kept pair.
 
-Ids are used only symmetrically: in `over=`, action parameters, `[None] + IDS`, loops and comprehensions
-over them. Picking one by its place (`IDS[0]`, unpacking, a loop that breaks) or `"T1"` is a model error; an id
-made from text or taken from elsewhere (`m.kinds`, project code), a loop that carries more than a count, a flag or each id's own cells on to the next id, or per-id values in the declared order compared as a whole (`==`, `in`, put in a container) or written into the state, turns the renaming off (said on the last line).
+Ids are used only symmetrically: in `over=`, action parameters, `[None] + IDS`, loops and
+comprehensions over them. Picking one by its place (`IDS[0]`, unpacking, a loop that breaks)
+or `"T1"` is a model error. These uses turn the renaming off (said on the last line): an id
+made from text or taken from elsewhere (`m.kinds`, project code); a loop that carries more
+than a count, a flag or each id's own cells on to the next id; per-id values in the declared
+order compared as a whole (`==`, `in`, put in a container) or written into the state.
 
 ## A small example (not your application): `.flowguard/flow/parcels.py`
 
@@ -103,28 +133,38 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
 
 ## Reading the report
 
-- **Conflicts** (fix them in the design, then in the code, or ask the owner when two requests
-  really collide): STUCK (a value some state can never leave again; a value a step enters and no
-  state leaves where its object (the whole model, for a field of no object) halts or can never again
-  take a step it took before (the step of a clock or counter that runs out there, a number every change of which counts toward that value, is no such step, also when it changes other fields), unless `m.terminal` declares that end; a `progress` promise lost; each names the stuck object's fields, every call that refuses there with its request, and
-  the step that led in), BROKEN (a promise some order breaks), CONTRADICTION (an option
-  offered where its action refuses), NEVER REACHED for an action, an option, a declared end,
-  a `reach` promise, or a field value that has a source or that a sourced promise names (each
-  says which one-setting change would reach it, or that none does); a second route to the same
-  result: DUPLICATE ROUTE, SUBSUMED ACTION, FALLBACK ROUTE (one action works exactly where
-  another refuses and makes the same change, perhaps writing a field nothing reads besides).
-  Keep one route, or declare the second with `m.second_route`.
+- **Conflicts**: fix them in the design, then in the code, or ask the owner when two requests
+  really collide. STUCK means a value that can never change again; an undeclared end where
+  its object halts or loses an action it could take before; or a lost `progress` promise.
+  Each names the stuck object's fields, refused calls with their requests and the step in.
+  A bounded clock or counter's counting step is exempt only if it works in every reachable
+  non-end counter context. A day that always advances until its limit is such a clock;
+  a use count whose `rent` step needs a rentable object is not, even if another `inspect`
+  action can still cycle. Declaring an intentional end uses `m.terminal`.
+  BROKEN means a promise some order breaks; CONTRADICTION means an option is offered where
+  its action refuses. NEVER REACHED covers an action, option, declared end, `reach` promise,
+  or a field value with a source or named by a sourced promise; it says which one-setting
+  change would reach it, or that none does. DUPLICATE ROUTE, SUBSUMED ACTION and FALLBACK
+  ROUTE identify second routes to the same result. A fallback works exactly where another
+  refuses, perhaps writing an otherwise unread field. Keep one route, or declare the second
+  with `m.second_route`.
 - **Model warnings** (never conflicts): other field values never reached, usually a domain
-  wider than the design needs; a `source=` with no stored request; settings not read from the code although the model covers code; a
+  wider than the design needs; a `source=` with no stored request; settings not read from
+  the code although the model covers code; a proposed setting that differs from the code; a
   fallback on the status field only, an `if` whose two branches end the same, lines no call runs, a
-  guard that never refuses; with `--full`, each break of the model that no check catches (the first line counts them).
+  guard that never refuses. With `--full`, each deliberate break no check catches is advisory,
+  and the first line counts them.
 - **Model errors**: the model itself failed (an exception, a value outside its domain, a write to an
-  unknown field or to `m.settings`, a declaration mistake, an own value for a setting the code has). Fix these first.
+  unknown field or to `m.settings`, a declaration mistake, or an own value for an existing
+  code setting without `propose=True`). Fix these first. Leaving a declared terminal value
+  is a model error too.
 - **UNKNOWN**: the search hit its state bound ("capped"), a model error cut it short (no STUCK or
   NEVER REACHED is decided there), or a model did not load ("not explored"). What it found with a
   path is certain; nothing is reported as holding or clean. Make the model smaller, not the bound.
 - **OPEN ... (kept: ...)**: a proven conflict stays open, and release fails, until a complete check of its
   model no longer finds it ("closed ..."); nothing else closes it (a capped check, also one whose replay
-  of the stored path fails, a model error, a rename, a deleted model file). `show` of it says so (exit 3). `check` keeps the open conflicts in `.flowguard/conflicts.json`: commit that file with the change.
+  of the stored path fails, a model error, a rename, a deleted model file).
+  `show` of it says so (exit 3). `check` keeps the open conflicts in
+  `.flowguard/conflicts.json`: commit that file with the change.
 - The last line per model says how complete the search was, which settings it used and from
   where, and `concurrency not checked` when the covered code runs threads or async code.

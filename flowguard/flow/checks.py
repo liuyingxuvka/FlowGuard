@@ -635,6 +635,7 @@ class _Run:
         n = len(o)
         held = set(nodes)
         changes, after, entering, counts, counts_with = set(), set(), {}, {}, {}
+        counting_calls = {}
         clock = own                                       # every change of the field counts toward the value
         for i, row in enumerate(g.out):
             si = states[i]
@@ -657,10 +658,20 @@ class _Run:
                     toward = p in moved and _counts_toward(si[p], raw[p], c_[1])
                     counts[name] = counts.get(name, True) and moved == [p] and toward
                     counts_with[name] = counts_with.get(name, True) and toward
+                    if toward:
+                        counting_calls.setdefault(name, set()).add((p, c))
                     if p in moved and not toward:
                         clock = False
+        clock_steps = {a for a in changes - after if clock and counts_with[a]}
+        for name in tuple(clock_steps):
+            # A clock advances independently of the object's other changing state.
+            # A counting business action (rent only while available) can instead
+            # be lost for good: another action toggling inspection does not repair it.
+            if any(states[i][p] != c_[1] and g.out[i][c] < 0
+                   for p, c in counting_calls[name] for i in range(len(states))):
+                clock_steps.remove(name)
         return sorted(a for a in changes - after if not entering[a] and not (own and counts[a])
-                      and not (clock and counts_with[a])), sorted(after)
+                      and a not in clock_steps), sorted(after)
 
     def expand(self, c_, nodes, o):
         """The concrete (position, value, unreduced states) of a class seen at pair nodes."""
@@ -895,6 +906,7 @@ class _Run:
             detail["key"] = show_key(line["key"])
             detail["value"] = repr(line["value"])
             ln = self.field_by_key[line["key"]].line
+        detail["headline"] = head
         return make_finding("STUCK", CONFLICT, self.mid, subject, text, objects=objects, sources=sources,
                             path=self.steps(calls), state=state, detail=detail, line=ln)
 

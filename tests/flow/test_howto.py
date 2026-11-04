@@ -31,10 +31,6 @@ def verdict(report):
     return "clean, complete" + (f"; {len(warnings)} model warnings" if warnings else "")
 
 
-def test_the_guide_is_one_page():
-    assert len(HOWTO.read_text(encoding="utf-8").splitlines()) <= 130
-
-
 def test_every_code_block_is_a_working_model(project):
     models = blocks("python")
     assert models

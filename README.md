@@ -82,7 +82,7 @@ A flow model is the part of the design a change touches, written as a small mach
 `.flowguard/flow/<name>.py`: a few fields, the actions that change them and the promises the owner's
 requests make (`from flowguard.flow import Model, need`, one model per file, ending with `MODEL = m`).
 `check` tries every action in every reachable state and reports what gets stuck, what never happens and
-which promise some order breaks, each with its shortest path and the requests behind it. The one-page
+which promise some order breaks, each with its shortest path and the requests behind it. The short
 guide to writing them is [flowguard/flow/HOWTO.md](./flowguard/flow/HOWTO.md), also in the installed package.
 
 | command | what it does |
@@ -95,6 +95,10 @@ guide to writing them is [flowguard/flow/HOWTO.md](./flowguard/flow/HOWTO.md), a
 same command resumes it. `--json` prints one line. Conflicts are kept in `.flowguard/conflicts.json` (commit it):
 `status` shows the open ones, and `release` runs `check --full`. Pictures need node with Playwright; without them
 `show` writes the Mermaid text.
+
+The v0.73 flow engine supports Linux only. Windows keeps the legacy commands; flow `check`,
+`show` and the flow part of `release` exit 2 with an explanation. `status` still shows stored
+conflicts and the limitation. Full Windows flow support is planned for the next stage.
 
 ## Find source and original text
 

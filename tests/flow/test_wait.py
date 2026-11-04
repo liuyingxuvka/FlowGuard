@@ -7,12 +7,16 @@ from __future__ import annotations
 import json
 import os
 import signal
+import sys
 import time
 from pathlib import Path
 
 import pytest
 
 from checkrun import gone, group_gone, run_check, start_check, wait_until
+
+pytestmark = pytest.mark.skipif(not sys.platform.startswith("linux"),
+                               reason="S1a flow command waits exercise the Linux-owned worker")
 
 SLOW = '''
 """Each step takes a while (a test of the wait contract)."""

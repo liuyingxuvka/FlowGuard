@@ -113,6 +113,7 @@ MODEL = m
 '''
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="S1a flow worker uses Linux process ownership")
 def test_the_watchdog_stops_a_worker_whose_pipe_closes_without_a_lease(project):
     """The pipe rule alone (the kernel's parent-death signal cannot fire: the test lives)."""
     path = project.flow("endless", ENDLESS)
@@ -125,6 +126,7 @@ def test_the_watchdog_stops_a_worker_whose_pipe_closes_without_a_lease(project):
     assert jobs.read_json(job.dir / "status.json")["reason"] == "the caller is gone"
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="S1a flow worker locks use Linux flock")
 def test_a_lock_is_free_as_soon_as_its_holder_dies(tmp_path):
     from flowguard.flow.jobs import Lock
     lock_path = tmp_path / "locks" / "x.lock"
@@ -153,6 +155,7 @@ time.sleep(60)
 """
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="requires Linux parent-death signal")
 def test_a_child_started_by_a_worker_ends_with_it():
     """G6: a process a worker starts in its own session (the picture renderer) gets SIGTERM
     from the kernel when the worker dies, however it dies."""
@@ -255,6 +258,7 @@ class _FakeJob:
         pass
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="executes the S1a Linux flow worker")
 def test_a_part_found_between_two_status_reads_is_named_by_its_worker(project, monkeypatch):
     """The reporting race of the round-2 review: the caller read the status, the worker
     stored a part and named it in its status, then the caller found the part in the cache.
@@ -302,6 +306,7 @@ MODEL = m
 '''
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="executes the S1a Linux flow worker")
 def test_a_check_with_a_model_error_replays_the_stored_conflicts(project):
     """A complete search whose check met a model error (a progress goal that raises) closes
     nothing, so it must replay the stored conflicts like a capped one: the plan holds the

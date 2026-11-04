@@ -39,13 +39,17 @@ class Project:
         return dest
 
     def request(self, rid, text):
-        return self.file(f".flowguard/requests/{rid}.md", text)
+        from flowguard.map.requests import store_request
+        raw = textwrap.dedent(text).lstrip("\n").encode("utf-8")
+        store_request(self.root, raw, identifier=rid)
+        return self.root / ".flowguard" / "requests" / f"{rid}.md"
 
     def kit(self):
         """The small kit's settings and covered class, and its stored requests."""
         shutil.copytree(DATA / "kit" / "counter", self.root / "counter")
+        from flowguard.map.requests import store_request
         for p in (DATA / "kit" / "requests").glob("*.md"):
-            shutil.copy(p, self.root / ".flowguard" / "requests" / p.name)
+            store_request(self.root, p.read_bytes(), identifier=p.stem)
         return self
 
     def git(self, *args):

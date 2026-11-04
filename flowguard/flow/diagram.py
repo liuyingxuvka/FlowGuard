@@ -373,7 +373,7 @@ class Scene:
                 self.mark_key = self._key_named(d.get("key", ""))
             self.targets = [self.story[-1]]
             self.target_text = "the dead end"
-            self.head = f"STUCK {f.subject} at {f.state} with {steps} [{f.id}]"
+            self.head = f"STUCK {_subject_text(f)} with {steps} [{f.id}]"
         elif f.kind == "BROKEN":
             end = self.story[-1]
             self.targets = sorted(set(self.story[-2:])) if d.get("rule") != "always" else [end]
@@ -1249,6 +1249,11 @@ def before_change(root: Path, path: Path, rev: str, commit: str, reads, bounds: 
     return ch
 
 
+def _subject_text(f: Finding) -> str:
+    """Use the check's concrete stuck object/state without changing its fingerprint."""
+    return f.detail.get("headline", f.text) if f.kind == "STUCK" else f.subject
+
+
 def picture_part(ctx: PartContext) -> PartResult:
     """One picture of one model: options what (a conflict id, or empty for the model's
     first conflict), before (REV and its commit), the view request and max_states."""
@@ -1299,7 +1304,8 @@ def picture_part(ctx: PartContext) -> PartResult:
     text, line = _choice_text(choice, shown_what)
     auto = not req.explicit() and change is None
     name = picture_name(choice.scene.mid, subject, text, auto)
-    info = {"first_line": line, "mermaid": text, "subject": subject.id if subject else None,
+    info = {"first_line": line, "mermaid": text, "subject": _subject_text(subject) if subject else None,
+            "subject_id": subject.id if subject else None,
             "drawn": choice.drawing is not None, "states": len(choice.scene.space)}
     writes = []
     if choice.drawing is not None:
@@ -1458,7 +1464,8 @@ def _plan_show(root, a, view_opts, runner):
         pictures.append({"model": spec.model, "drawn": bool(info.get("drawn")), "first_line": info.get("first_line", ""),
                          "mermaid": info.get("mermaid", ""), "files": info.get("files", []),
                          "rendered": info.get("rendered", False), "reason": info.get("reason"),
-                         "subject": info.get("subject"), "boxes": info.get("boxes"), "arrows": info.get("arrows")})
+                         "subject": info.get("subject"), "subject_id": info.get("subject_id"),
+                         "boxes": info.get("boxes"), "arrows": info.get("arrows")})
     if pictures and not any(p["drawn"] for p in pictures):
         code = 2                                          # asked to draw and nothing is drawn
     return code, pictures, more, message

@@ -361,8 +361,27 @@ def _where(ns):
 
 @quiet_broken_pipe
 def main(argv: list[str] | None = None) -> int:
-    safe_stdio()
+    """Flow commands have one error boundary, including their status preamble."""
     args = list(sys.argv[1:] if argv is None else argv)
+    try:
+        return _dispatch(args)
+    except KeyboardInterrupt:
+        print("interrupted", file=sys.stderr)
+        return 2
+    except Exception as error:
+        if not args or args[0] not in {*FLOW_VERBS, "release"}:
+            raise
+        from .flow.cli import _early, internal_text
+        text = internal_text(error)
+        if args[0] == "release" and "--json" in args:
+            print(text, file=sys.stderr)
+            print_verdict("release", 2, [dict(level="error", code="runtime_error", subject="flow")])
+            return 2
+        return _early(sys.stdout, text, 2, "--json" in args)
+
+
+def _dispatch(args: list[str]) -> int:
+    safe_stdio()
     if not args or args[0] in {"-h", "--help", "help"}:
         print(__doc__.strip())
         for verb, purpose in VERB_PURPOSE.items():
@@ -449,7 +468,7 @@ def main(argv: list[str] | None = None) -> int:
         except (MapError, RuntimeError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
-    from .map.cli import cmd_verify
+    from .map.cli import FlowRuntimeError, cmd_verify
     from .map.mapfile import MapError
 
     ns.limit = 80
@@ -458,7 +477,8 @@ def main(argv: list[str] | None = None) -> int:
     except (MapError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         if getattr(ns, "json", False):
-            print_verdict("release", 2, [dict(level="error", code="runtime_error", subject="map")])
+            subject = "flow" if isinstance(exc, FlowRuntimeError) else "map"
+            print_verdict("release", 2, [dict(level="error", code="runtime_error", subject=subject)])
         return 2
     except BrokenPipeError:
         raise                     # a closed stdout: quiet_broken_pipe ends the command quietly

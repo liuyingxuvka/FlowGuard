@@ -10,6 +10,7 @@ import builtins
 import contextlib
 import copy
 import importlib
+import importlib.machinery
 import importlib.util
 import itertools
 import operator
@@ -18,6 +19,8 @@ import re
 import sys
 import types
 from dataclasses import dataclass
+from dataclasses import replace
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Callable
 
@@ -177,6 +180,8 @@ class Setting:
     vary: tuple | None
     note: str | None
     line: int | None = None           # the m.setting(...) line in the model file
+    code_value: object = _MISSING
+    proposed: bool = False
 
 
 _READ_ONLY = ("m.settings is read-only: declare a setting with m.setting(name) to read it from the code "
@@ -354,7 +359,7 @@ class Model:
         _fail(_READ_ONLY)
 
     # ------------------------------------------------------------------ declaring
-    def setting(self, name, value=_MISSING, *, source=None, vary=None, note=None):
+    def setting(self, name, value=_MISSING, *, source=None, vary=None, note=None, propose=False):
         """A setting. Without a value it is read from the code's configuration object
         (config=); with a value it is a setting the code does not have yet."""
         what = f"setting {name!r}"
@@ -364,23 +369,39 @@ class Model:
             _fail(f"{what} is declared twice")
         _check_source(source, what)
         _check_note(note, what)
+        if not isinstance(propose, bool):
+            _fail(f"{what}: propose= must be True or False")
+        if propose and (source is None or value is _MISSING):
+            _fail(f"{what}: a proposal needs an explicit value and source= request")
         if vary is not None:
             vary = tuple(vary)
         if value is _MISSING:
             if self._config_obj is _MISSING:
                 _fail(f"{what} has no value: give the model config='module:Object' or a value")
-            if not hasattr(self._config_obj, name):
+            actual = _config_value(self._config_obj, name)
+            if actual is _MISSING:
                 _fail(f"{what}: {self.config} has no attribute {name!r}")
-            value = getattr(self._config_obj, name)
-            where = f"{_rel(self._config_file)}: {self.config.split(':')[1]}.{name}"
-            info = Setting(name, value, "code", where, source, vary, note, _here()[1])
+            value = actual
+            where = _setting_where(self._config_file, self.config, name)
+            info = Setting(name, value, "code", where, source, vary, note, _here()[1], actual)
         else:
-            if self._config_obj is not _MISSING and hasattr(self._config_obj, name):
+            actual = _config_value(self._config_obj, name)
+            if actual is not _MISSING and not propose:
                 _fail(f"{what}: {self.config} has it; read it from the code: drop the value")
-            info = Setting(name, value, "model only", None, source, vary, note, _here()[1])
+            where = (_setting_where(self._config_file, self.config, name)
+                     if actual is not _MISSING else None)
+            pending = propose and (actual is _MISSING or value != actual)
+            info = Setting(name, value, "proposal" if pending else "code" if propose else "model only",
+                           where, source, vary, note, _here()[1], actual, pending)
         dict.__setitem__(self._settings, name, value)
         self.setting_info[name] = info
         return value
+
+    def setting_proposals(self):
+        """The explicit model changes that still differ from the covered code."""
+        return [{"name": s.name, "value": s.value, "code_value": s.code_value,
+                 "source": s.source, "where": s.where}
+                for s in self.setting_info.values() if s.proposed]
 
     def objects(self, kind, *ids):
         """Interchangeable object ids of one kind; explored up to renaming."""
@@ -550,6 +571,20 @@ class Model:
         return tuple(f.init for f in self.fields)
 
 
+def _config_value(obj, name):
+    if isinstance(obj, Mapping):
+        return obj[name] if name in obj else _MISSING
+    return getattr(obj, name, _MISSING)
+
+
+def _setting_where(file, spec, name):
+    owner = spec.partition(":")[2]
+    if file is None:
+        _fail(f"config {spec!r}: its source file is unavailable")
+    relative = _rel(file) if Path(file).is_absolute() else Path(file).as_posix()
+    return f"{relative}: {owner + '.' if owner else ''}{name}"
+
+
 def _import_config(spec):
     modname, _, objpath = spec.partition(":")
     try:
@@ -557,30 +592,41 @@ def _import_config(spec):
     except ImportError as err:
         _fail(f"config {spec!r}: cannot import {modname!r} from the project ({err})")
     obj = module
-    for part in objpath.split("."):
+    for part in objpath.split(".") if objpath else ():
+        if isinstance(obj, types.ModuleType) and not hasattr(obj, part):
+            try:
+                importlib.import_module(obj.__name__ + "." + part)
+            except ModuleNotFoundError as err:
+                # Only a missing requested child means "no attribute". A missing
+                # dependency inside that child remains a real import failure.
+                if err.name != obj.__name__ + "." + part:
+                    _fail(f"config {spec!r}: cannot import its project module ({err})")
         if not hasattr(obj, part):
             _fail(f"config {spec!r}: {modname} has no {objpath!r}")
         obj = getattr(obj, part)
-    return obj, getattr(module, "__file__", None)
+    owner = obj if isinstance(obj, types.ModuleType) else module
+    return obj, getattr(owner, "__file__", None)
 
 
 # ---------------------------------------------------------------------- settings the covered code has
 _CONFIG_WORD = re.compile(r"(?i)config|settings")
 
 
-def _module_parts(rel: str) -> tuple[list[str], list[str]]:
+def _module_parts(rel: str, root: Path) -> tuple[list[str], list[str]]:
     """(module parts, package parts) of a project file given relative to the root."""
     parts = list(Path(rel).with_suffix("").parts)
+    if parts[:1] == ["src"] and not (root / "src/__init__.py").is_file():
+        parts = parts[1:]                         # Python's conventional src layout
     if parts and parts[-1] == "__init__":
         return parts[:-1], parts[:-1]
     return parts, parts[:-1]
 
 
-def _config_candidates(rel: str, tree: ast.Module) -> list[tuple[str, str]]:
+def _config_candidates(rel: str, tree: ast.Module, root: Path) -> list[tuple[str, str]]:
     """(module, name) of each settings object a covered file names: a name it imports that
     says config or settings, any name it imports from a module so named, a class it defines
     so named. Relative imports are resolved against the file's package."""
-    modparts, package = _module_parts(rel)
+    modparts, package = _module_parts(rel, root)
     out = []
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
@@ -595,8 +641,16 @@ def _config_candidates(rel: str, tree: ast.Module) -> list[tuple[str, str]]:
                 if alias.name != "*" and module and (
                         _CONFIG_WORD.search(alias.name) or _CONFIG_WORD.search(module.rpartition(".")[2])):
                     out.append((module, alias.name))
+        elif isinstance(node, ast.Import):
+            out.extend((alias.name, "") for alias in node.names
+                       if _CONFIG_WORD.search(alias.name.rpartition(".")[2]) or
+                       alias.asname and _CONFIG_WORD.search(alias.asname))
         elif isinstance(node, ast.ClassDef) and _CONFIG_WORD.search(node.name) and modparts:
             out.append((".".join(modparts), node.name))
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)) and modparts:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            out.extend((".".join(modparts), target.id) for target in targets
+                       if isinstance(target, ast.Name) and _CONFIG_WORD.search(target.id))
     return out
 
 
@@ -609,13 +663,19 @@ def covered_configs(model: Model, root: Path) -> list[dict]:
     for entry in model.covers:
         rel = entry.partition(":")[0]
         path = root / rel
-        if path.suffix != ".py" or not path.is_file():
-            continue                                   # check_covers names a missing file
+        if path.suffix != ".py":
+            continue                                   # non-Python coverage has no Python config
+        if not path.is_file():
+            raise ModelError(f"covers {entry!r}: no file {rel!r} in the project",
+                             _rel(model.path), model.line)
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        except (SyntaxError, UnicodeDecodeError, OSError):
-            continue
-        for module, name in _config_candidates(rel, tree):
+        except SyntaxError as err:
+            raise ModelError(f"syntax error: {err.msg}", rel, err.lineno) from None
+        except (UnicodeDecodeError, OSError) as err:
+            raise ModelError(f"covered file cannot be read ({type(err).__name__}: {err})",
+                             rel, None) from err
+        for module, name in _config_candidates(rel, tree, root):
             spec = f"{module}:{name}"
             if spec in seen:
                 continue
@@ -625,33 +685,137 @@ def covered_configs(model: Model, root: Path) -> list[dict]:
                 origin = getattr(found, "origin", None)
                 if origin is None or not Path(origin).resolve().is_relative_to(root):
                     continue                               # not the project's own module
-                obj = getattr(importlib.import_module(module), name)
+                obj, origin = _import_config(spec)
             except Exception as err:  # project code: named in the result, never silent
-                out.append({"spec": spec, "file": module.replace(".", "/") + ".py",
-                            "error": f"{type(err).__name__}: {err}"})
-                continue
+                raise ModelError(f"covered config {spec!r} cannot be read ({type(err).__name__}: {err})",
+                                 rel, None) from err
             out.append({"spec": spec, "file": _rel(origin), "obj": obj})
+            if isinstance(obj, types.ModuleType):
+                # A module import can expose a Config class or a settings mapping,
+                # as well as constants on the module itself.
+                for child, value in vars(obj).items():
+                    child_spec = f"{obj.__name__}:{child}"
+                    if _CONFIG_WORD.search(child) and child_spec not in seen and (
+                            isinstance(value, (Mapping, type))):
+                        seen.add(child_spec)
+                        out.append({"spec": child_spec, "file": _rel(obj.__file__), "obj": value})
     return out
 
 
-def check_settings_from_code(model: Model, root: Path) -> None:
+def _plain_dict_reads(fn, tree, values):
+    """The keys actually read from plain mappings by this callback, including local
+    literal mappings. Other entries in an unrelated dictionary are not settings."""
+    candidates = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.Lambda))
+                  and (n.name if isinstance(n, ast.FunctionDef) else "<lambda>") == fn.__code__.co_name
+                  and min([n.lineno] + [d.lineno for d in getattr(n, "decorator_list", ())])
+                  == fn.__code__.co_firstlineno]
+    if not candidates:
+        return {}
+    node = candidates[0]
+    nodes, stack = [], list(node.body if isinstance(node, ast.FunctionDef) else [node.body])
+    while stack:
+        item = stack.pop()
+        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            continue                            # another callback has its own local bindings
+        nodes.append(item)
+        stack.extend(ast.iter_child_nodes(item))
+    nodes.sort(key=lambda item: (getattr(item, "lineno", node.lineno), getattr(item, "col_offset", 0)))
+    mappings = {name: set(value) for name, value in values.items()
+                if isinstance(value, dict) and not isinstance(value, SettingValues)}
+    for item in nodes:
+        if isinstance(item, (ast.Assign, ast.AnnAssign)):
+            value = item.value
+            keys = ({k.value for k in value.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)}
+                    if isinstance(value, ast.Dict) else
+                    {k.arg for k in value.keywords if k.arg is not None}
+                    if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "dict"
+                    else mappings[value.id] if isinstance(value, ast.Name) and value.id in mappings else None)
+            if keys is not None:
+                for target in item.targets if isinstance(item, ast.Assign) else [item.target]:
+                    if isinstance(target, ast.Name):
+                        mappings[target.id] = keys
+    reads = {}
+    for item in nodes:
+        owner = item.value if isinstance(item, ast.Subscript) else item.func.value if (
+            isinstance(item, ast.Call) and isinstance(item.func, ast.Attribute) and
+            item.func.attr in {"get", "setdefault"} and item.args) else None
+        if not isinstance(owner, ast.Name) or owner.id not in mappings:
+            continue
+        key = item.slice if isinstance(item, ast.Subscript) else item.args[0]
+        keys = {key.value} if isinstance(key, ast.Constant) and isinstance(key.value, str) else mappings[owner.id]
+        reads.setdefault(owner.id, set()).update(keys)
+    return reads
+
+
+def check_settings_from_code(model: Model, root: Path, tree=None) -> None:
     """A model that covers code and gives a setting its own value where the covered code's
     settings object has that setting checks another system than the one the code ships: a
     model error that names each own value and the code's, as a value beside config= is. The
     objects found are kept (model.code_configs) for the warning about the other own values."""
     model.code_configs = []
-    literal = [(n, s) for n, s in model.setting_info.items() if s.origin == "model only"]
-    if model.config is not None or not model.covers or not literal:
+    if not model.covers:
+        for info in model.setting_info.values():
+            if info.proposed and info.code_value is _MISSING:
+                raise ModelError(f"setting {info.name!r}: a proposal needs a real covered code setting",
+                                 _rel(model.path), info.line)
         return
     model.code_configs = covered_configs(model, root)
+    functions = [a.fn for a in model.actions]
+    functions += [o.offered for o in model.options]
+    functions += [fn for r in model.rules for fn in (r.pred, r.when, r.goal) if fn is not None]
+    trees = {str(model.path): tree} if tree is not None else {}
+    seen = set()
+    while functions:
+        fn = functions.pop()
+        if not hasattr(fn, "__code__") or id(fn) in seen:
+            continue
+        seen.add(id(fn))
+        values = {name: fn.__globals__[name] for name in fn.__code__.co_names if name in fn.__globals__}
+        if fn.__closure__:
+            values.update((name, cell.cell_contents) for name, cell in zip(fn.__code__.co_freevars, fn.__closure__))
+        defaults = fn.__defaults__ or ()
+        values.update(zip(fn.__code__.co_varnames[fn.__code__.co_argcount - len(defaults):
+                                                 fn.__code__.co_argcount], defaults))
+        values.update(fn.__kwdefaults__ or {})
+        file = fn.__code__.co_filename
+        if file not in trees:
+            trees[file] = ast.parse(Path(file).read_text(encoding="utf-8"), filename=file)
+        for name, keys in _plain_dict_reads(fn, trees[file], values).items():
+            shared = sorted(key for key in keys if isinstance(key, str) and any(
+                _config_value(c["obj"], key) is not _MISSING for c in model.code_configs))
+            if shared:
+                raise ModelError(f"plain dict {name!r} reads covered setting {', '.join(shared)}; "
+                                 "declare it with m.setting so its code origin is checked",
+                                 _rel(model.path), fn.__code__.co_firstlineno)
+        for value in values.values():
+            if isinstance(value, types.FunctionType) and value.__globals__ is fn.__globals__:
+                functions.append(value)
+    for name, info in list(model.setting_info.items()):
+        hits = [c for c in model.code_configs if _config_value(c["obj"], name) is not _MISSING]
+        if (model.config is not None and hits and
+                all(c["obj"] is not model._config_obj for c in hits)):
+            hit = hits[0]
+            raise ModelError(f"setting {name!r}: config={model.config!r} is not the setting object used by the "
+                             f"covered code; read {hit['spec']!r} (code default {_config_value(hit['obj'], name)!r})",
+                             _rel(model.path), info.line)
+        if info.proposed:
+            hit = next((c for c in hits if c["obj"] is model._config_obj), hits[0] if hits else None)
+            if hit is None:
+                raise ModelError(f"setting {name!r}: a proposal needs a real covered code setting",
+                                 _rel(model.path), info.line)
+            actual = _config_value(hit["obj"], name)
+            where = _setting_where(hit["file"], hit["spec"], name)
+            model.setting_info[name] = replace(info, origin="code" if info.value == actual else "proposal",
+                                               where=where, code_value=actual, proposed=info.value != actual)
+    literal = [(n, s) for n, s in model.setting_info.items() if s.origin == "model only"]
     clashes = []
     for name, info in literal:
-        hit = next((c for c in model.code_configs if "obj" in c and hasattr(c["obj"], name)), None)
+        hit = next((c for c in model.code_configs if _config_value(c["obj"], name) is not _MISSING), None)
         if hit is not None:
             clashes.append((name, info, hit))
     if not clashes:
         return
-    shown = ", ".join(f"{n}={model.settings[n]!r} (code default {getattr(c['obj'], n)!r})" for n, _, c in clashes)
+    shown = ", ".join(f"{n}={model.settings[n]!r} (code default {_config_value(c['obj'], n)!r})" for n, _, c in clashes)
     first = clashes[0][2]
     declare = ", ".join(f"m.setting({n!r})" for n, _, _ in clashes)
     raise ModelError(f"settings not read from the code: {shown}; the covered code has them in {first['file']}: "
@@ -2793,6 +2957,31 @@ def _project_modules(root):
     return out
 
 
+class _ProjectSourceLoader(importlib.machinery.SourceFileLoader):
+    """Read the source that the model's digest names, never a timestamp-based pyc."""
+
+    def get_code(self, fullname):
+        path = self.get_filename(fullname)
+        return self.source_to_code(self.get_data(path), path)
+
+
+class _ProjectImports:
+    def __init__(self, root):
+        self.root = root
+
+    def find_spec(self, fullname, path=None, target=None):
+        if _engine_module(fullname):
+            return None
+        spec = importlib.machinery.PathFinder.find_spec(fullname, path)
+        if spec is not None and isinstance(spec.loader, importlib.machinery.SourceFileLoader):
+            source = Path(spec.loader.path).resolve()
+            if source.is_relative_to(self.root) and not (
+                    {"site-packages", "dist-packages"} & set(source.relative_to(self.root).parts)):
+                spec.loader = _ProjectSourceLoader(fullname, spec.loader.path)
+                return spec
+        return None
+
+
 def _error_location(err, root):
     tb = err.__traceback__
     best = None
@@ -2817,6 +3006,8 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
     for name in _project_modules(root):            # project modules are imported fresh
         del sys.modules[name]
     added = [str(root), str(path.parent)]
+    if (root / "src").is_dir() and not (root / "src/__init__.py").is_file():
+        added.insert(1, str(root / "src"))
     sys.path[:0] = added
     modname = f"_flowguard_model_{path.stem}_{next(_COUNTER)}"
     module = types.ModuleType(modname)
@@ -2825,6 +3016,8 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
     _LOAD["root"] = root
     rel_model = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
     reads = {rel_model}
+    project_imports = _ProjectImports(root)
+    sys.meta_path.insert(0, project_imports)
     try:
         try:
             source = path.read_text(encoding="utf-8")
@@ -2852,7 +3045,7 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
         model.id = path.stem
         model.path = path
         model.root = root
-        check_settings_from_code(model, root)      # may import the covered code's settings: a read
+        check_settings_from_code(model, root, tree)  # may import the covered code's settings: a read
         project = _project_modules(root)
         reads.update(project.values())
         validate(model)
@@ -2868,6 +3061,7 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
         err.reads = tuple(sorted(reads | set(_project_modules(root).values())))
         raise
     finally:
+        sys.meta_path.remove(project_imports)
         _LOAD["root"] = old_root
         for p in added:
             if p in sys.path:

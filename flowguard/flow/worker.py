@@ -26,7 +26,7 @@ import time
 import traceback
 from pathlib import Path
 
-from .jobs import (Lock, Planned, locks_dir, lookup, now_ms, read_json, set_parent_death_signal, store,
+from .jobs import (Lock, Planned, locks_dir, lookup, now_ms, platform_problem, read_json, set_parent_death_signal, store,
                    write_json)
 from .parts import ENGINE_DIGEST, PartContext, run_part
 from .project import cache_dir
@@ -176,6 +176,10 @@ class Worker:
 
 
 def main(argv: list[str]) -> int:
+    problem = platform_problem()
+    if problem is not None:
+        print(problem)
+        return 2
     jobdir, pipe_fd, caller = argv
     worker = Worker(Path(jobdir), int(pipe_fd), int(caller))
     try:

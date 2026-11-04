@@ -73,7 +73,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 流程模型是一次改动涉及的那部分设计，写成 `.flowguard/flow/<name>.py` 里的一台小机器：几个字段、改变它们的动作，
 以及主人的要求所作的承诺（`from flowguard.flow import Model, need`，每个文件一个模型，以 `MODEL = m` 结尾）。
 `check` 在每个能到达的状态里尝试每个动作，报告哪里会卡住、什么永远不会发生、哪种顺序会打破哪条承诺，每条都附最短路径
-和背后的要求。写模型的一页说明是 [flowguard/flow/HOWTO.md](./flowguard/flow/HOWTO.md)，安装的包里也有。
+和背后的要求。写模型的简明说明是 [flowguard/flow/HOWTO.md](./flowguard/flow/HOWTO.md)，安装的包里也有。
 
 | 命令 | 作用 |
 | --- | --- |
@@ -84,6 +84,10 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 `check` 最多等 `--wait` 秒（默认 90）就返回。还在运行（RUNNING）的工作会再保留 `--keep` 秒，用同一条命令接着做。
 `--json` 只打印一行。冲突记在 `.flowguard/conflicts.json`（要提交）：`status` 显示未解决的冲突，`release` 运行
 `check --full`。画图需要装了 Playwright 的 node；没有时 `show` 写出 Mermaid 文本。
+
+v0.73 的流程引擎只支持 Linux。Windows 上的旧命令继续可用；流程 `check`、`show` 和 `release`
+中的流程检查会说明限制并退出 2。`status` 仍会显示已记录的冲突和这项限制。
+完整的 Windows 流程支持安排在下一阶段。
 
 ## 找源码和文字原文
 

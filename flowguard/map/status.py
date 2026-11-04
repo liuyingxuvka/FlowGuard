@@ -11,10 +11,10 @@ import shlex
 from .common import (CACHE_RELDIR, advice, atomic_write_text, cache_dir, git_common_directory, git_head,
                      git_run, matches_any, project_command, project_root, read_source, render_advice)
 from .inventory import list_files
-from .mapfile import ignore_patterns, load_map
+from .mapfile import MapError, ignore_patterns, load_map
 from .plan import PLAN_RELPATH, function_identities, static_plan_rows
-from .records import CHANGE_DIR, change_records, commit_advice, since_release
-from .requests import other_worktrees, owner_words
+from .records import CHANGE_DIR, change_records, commit_advice, protected_paths, since_release
+from .requests import REQUEST_DIR, other_worktrees, owner_words, validate_request_links
 from .targetfile import build_target_view, load_target, target_base
 
 
@@ -99,6 +99,17 @@ def collect_status(root, *, read_git_paths, version):
     records = change_records(root, unreadable=unreadable)
     history = since_release(root, records, read_git_paths)
     words = owner_words(root, records=records)
+    protected = None
+    for row in words['rows']:
+        meta = REQUEST_DIR / (row['id'] + '.json')
+        if row['invalid'] and not (root / meta).is_file():
+            if protected is None:
+                protected = protected_paths(root, REQUEST_DIR)
+            if meta.as_posix() not in protected:
+                try:
+                    validate_request_links(root, [dict(id=row['id'], part=False)])
+                except MapError as error:
+                    row.update(not_stored=str(error), invalid=None, edited=None)
     released = history.pop('released_retired')
     words['retired_since_release'] = [row['id'] for row in words['rows']
                                       if row['retired'] and (released is None or row['id'] not in released)]
@@ -223,6 +234,8 @@ SHOWN_OWNER_WORDS = 3
 
 def _damage(row):
     """How a stored request's own files changed, with the restore step; None when they hold."""
+    if row.get('not_stored'):
+        return f"not a stored request: {row['not_stored']}"
     if row['invalid']:
         return f"unreadable ({row['invalid']})"
     if row['edited']:

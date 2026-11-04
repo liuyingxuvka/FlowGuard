@@ -15,7 +15,8 @@ from conftest import DATA
 
 KIT = DATA / "kit"
 RENDERER = shutil.which("node") is not None       # pictures are drawn by Mermaid in headless Chromium
-JSON_KEYS = ["verdict", "exit", "complete", "conflicts", "warnings", "errors", "unknown", "models", "parts",
+JSON_KEYS = ["verdict", "exit", "complete", "conflicts", "warnings", "surviving_breakages", "setting_proposals",
+             "errors", "unknown", "models", "parts",
              "declared_routes", "closed", "resume", "running"]
 
 DIAL = '''
@@ -224,9 +225,9 @@ def test_a_source_that_names_no_stored_request_is_a_model_warning(project):
     project.flow("door", UNSTORED)
     run = timed(project.root)
     assert run.code == 0 and run.first == "clean, complete; 2 model warnings"
-    assert ("model warning door: source 'R2' is not a stored request (action open_door): .flowguard/requests/R2.md "
-            "does not exist; store the owner's words with python -m flowguard req add <file> --id R2, or name "
-            "the request they are stored under") in run.lines
+    assert any(line.startswith("model warning door: source 'R2' is not a stored request (action open_door): "
+                               "request_unknown: R2 is not stored; store it first: ")
+               and "req add" in line and "--id R2" in line for line in run.lines)
     assert any(line.startswith("model warning door: source 'R3' is not a stored request (a guard of open_door "
                                "(line 7)): ") for line in run.lines)
     assert not any("'R1'" in line for line in run.lines)
@@ -369,7 +370,7 @@ def test_full_says_on_its_first_line_that_deliberate_breakages_survive(project):
     warnings = [line for line in run.lines if line.startswith("model warning workshop: ")]
     survivors = [line for line in warnings if line.startswith("model warning workshop: mutant survives: ")]
     assert len(survivors) == 4 and len(warnings) == 5, run.out
-    assert run.code == 0 and run.first == ("clean, complete; 4 deliberate breakages not caught \u2014 see below; "
+    assert run.code == 0 and run.first == ("clean, complete; 4 deliberate breakages not caught - see below; "
                                            "1 other model warning")
     plain = timed(project.root)
     assert plain.first == "clean, complete; 1 model warning"
@@ -488,7 +489,7 @@ def test_show_runs_its_parts_in_the_worker_under_the_wait_contract(project):
     res, _ = show()
     assert res.returncode == 0, res.stdout + res.stderr
     first = res.stdout.splitlines()[0]
-    assert first.startswith("rental: STUCK branch[*] = 'library'") and "6 boxes, 9 arrows" in first
+    assert first.startswith("rental: STUCK T1 stuck in cond='repair', branch='library'") and "6 boxes, 9 arrows" in first
     assert "flowchart LR" in res.stdout
     assert all(line.startswith("show: ") for line in res.stderr.splitlines())     # progress only, after 2 s
 
@@ -546,8 +547,9 @@ def test_a_change_that_sends_books_to_repair_with_no_way_back_is_not_clean(proje
     exit 0 "clean": the repair value nothing leaves was taken as the end of a book's life."""
     desk = DATA / "desk"
     shutil.copytree(desk / "app", project.root / "app")
+    from flowguard.map.requests import store_request
     for p in (desk / "requests").glob("*.md"):
-        shutil.copy(p, project.root / ".flowguard" / "requests" / p.name)
+        store_request(project.root, p.read_bytes(), identifier=p.stem)
     project.flow_from(desk / "desk.py")
     assert timed(project.root).code == 0
     project.flow_from(desk / "desk_naive.py", "desk")
@@ -876,7 +878,7 @@ def test_an_internal_error_exits_2_never_1(project, monkeypatch, verb):
         if extra:
             data = json.loads(text)
             text = data.get("verdict") or data.get("message")
-        assert text.startswith("internal error: KeyError: 'id' (tests/flow/test_check_cli.py:"), text
+        assert text.startswith("internal error: KeyError: 'id' (flowguard/flow/cli.py:"), text
 
 
 def test_release_runs_the_full_check_with_its_mutants(project):

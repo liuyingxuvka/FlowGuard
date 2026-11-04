@@ -92,7 +92,8 @@ def test_naive_picture_is_the_prototype_picture(project):
     code, out = show(project.root)
     assert code == 0, out
     first = out.splitlines()[0]
-    assert first.startswith("rental: STUCK branch[*] = 'library'") and "with its 3-step path" in first
+    assert first.startswith("rental: STUCK T1 stuck in cond='repair', branch='library'")
+    assert "with its 3-step path" in first
     assert "the fields the counterexample changes (cond[T1], branch[T1]), whole space: 6 boxes, 9 arrows" in first
     assert "folded: nothing" in first
     got, want = parse(body(out)), parse((PICTURES / "naive.mmd").read_text())
@@ -103,6 +104,18 @@ def test_naive_picture_is_the_prototype_picture(project):
     red = sorted(a[1] for a in got["arrows"] if a[3] == "#c00")
     assert red == ["rent", "return_damaged", "transfer"] == sorted(a[1] for a in want["arrows"] if a[3] == "#c00")
     assert got["start"] == "cond=shop<br/>branch=main"
+
+
+def test_stuck_json_subject_names_the_same_object_and_fields_as_check(project):
+    path = project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
+    [finding] = [f for f in check_model(load_model(path, project.root)).findings if f.kind == "STUCK"]
+    code, out = show(project.root, "--json")
+    assert code == 0
+    [picture] = json.loads(out)["pictures"]
+    assert picture["subject"] == finding.text.partition(": ")[0]
+    assert picture["subject_id"] == finding.id
+    assert f"STUCK {picture['subject']} with its" in picture["first_line"]
+    assert finding.subject == "branch[*] = 'library'"  # the fingerprint's subject does not change
 
 
 def test_fixed_against_head_is_the_prototype_diff_picture(project):
@@ -413,7 +426,8 @@ def test_conflict_pictures_and_the_picture_part(project):
         assert ("picture: " in line) == RENDERER
     spec = PartSpec("picture", "workshop", (("what", conflicts[0].id),))
     res = run_part(PartContext(project.root, spec, path, cache_dir(project.root)))
-    assert res.kind == "picture" and res.findings == [] and res.info["subject"] == conflicts[0].id
+    assert res.kind == "picture" and res.findings == [] and res.info["subject_id"] == conflicts[0].id
+    assert res.info["subject"] == conflicts[0].text.partition(": ")[0]
     assert res.info["files"][0] == pics[0][2][0] and set(res.writes) <= set(res.info["files"])
     assert all((project.root / x).is_file() for x in res.writes)
     again = run_part(PartContext(project.root, spec, path, cache_dir(project.root)))
@@ -463,7 +477,7 @@ def test_before_with_a_conflict_keeps_the_red_path_and_greys_what_went(project):
     project.commit("fixed")
     project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
     code, out = show(project.root, "rental", "--before", "HEAD")
-    assert code == 0 and out.startswith("rental: STUCK branch[*] = 'library'")
+    assert code == 0 and out.startswith("rental: STUCK T1 stuck in cond='repair', branch='library'")
     pic = parse(body(out))
     assert sorted(a[1] for a in pic["arrows"] if a[3] == "#c00") == ["rent", "return_damaged", "transfer"]
     removed = [t for b, t in pic["boxes"].items() if pic["classes"].get(b) == "removed"]
@@ -639,7 +653,8 @@ def test_an_arrow_that_only_lost_steps_is_no_added_arrow(project):
     desk = DATA / "desk"
     shutil.copytree(desk / "app", project.root / "app")
     for p in (desk / "requests").glob("*.md"):
-        shutil.copy(p, project.root / ".flowguard" / "requests" / p.name)
+        from flowguard.map.requests import store_request
+        store_request(project.root, p.read_bytes(), identifier=p.stem)
     project.file(".gitignore", ".flowguard/cache/\n__pycache__/\n")
     text = (desk / "desk.py").read_text()
     anchor = '''    s["where", b], s["nights", b] = "held", 0

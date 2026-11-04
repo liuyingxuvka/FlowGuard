@@ -375,22 +375,60 @@ def goal_rules_line(root: Path, current_data: dict, target, view) -> tuple[str, 
 
 def _moved_names(before, after, targets, kinds=(0, 1)):
     """One relocation decision for goal rules and removed-promise reporting."""
+    def names(records, mid, kind):
+        record = records.get(mid)
+        if record is None:
+            return {}
+        return dict.fromkeys(record[3] or ()) if kind == 3 else record[kind]
+
     moved={}
     for kind in kinds:
-        names={name for mid in targets for name in after[mid][kind] if name not in before.get(mid, ({}, {}, {}))[kind]}
-        for name in sorted(names):
-            donors=sorted(mid for mid in before if name in before[mid][kind] and name not in after.get(mid, ({}, {}, {}))[kind])
-            recipients=sorted(mid for mid in targets if name in after[mid][kind] and name not in before.get(mid, ({}, {}, {}))[kind])
+        added={name for mid in targets for name in names(after,mid,kind) if name not in names(before,mid,kind)}
+        for name in sorted(added):
+            donors=sorted(mid for mid in before if name in names(before,mid,kind) and name not in names(after,mid,kind))
+            recipients=sorted(mid for mid in targets if name in names(after,mid,kind) and name not in names(before,mid,kind))
             if not donors: continue
             chosen=None
             if len(recipients)==1:
                 recipient=recipients[0]
-                donor=next((mid for mid in donors if before[mid][kind][name] is not None and before[mid][kind][name]==after[recipient][kind][name]),donors[0])
-                chosen=(recipient,donor)
+                exact=[mid for mid in donors if names(before,mid,kind)[name] is not None
+                       and names(before,mid,kind)[name]==names(after,recipient,kind)[name]]
+                # A binding is preserved only with the same guarded rules.
+                if kind != 2 or len(exact) == 1:
+                    chosen=(recipient,exact[0] if exact else donors[0])
             else:
-                exact=[(recipient,donor) for recipient in recipients for donor in donors if before[donor][kind][name] is not None and before[donor][kind][name]==after[recipient][kind][name]]
+                exact=[(recipient,donor) for recipient in recipients for donor in donors if names(before,donor,kind)[name] is not None and names(before,donor,kind)[name]==names(after,recipient,kind)[name]]
                 if len(exact)==1: chosen=exact[0]
             if chosen: moved[(chosen[0],kind,name)]=chosen[1]
+    if 2 in kinds:
+        def identity(anchor, bindings):
+            try:
+                _, symbol, parameter = parse_test_anchor(anchor)
+            except ValueError:
+                return None
+            return (symbol, parameter, bindings) if symbol else None
+
+        # Splitting a model may also split its test file. Retain the binding's
+        # symbol, parameter item and complete rule set; a new filename alone
+        # changes none of those. Ambiguous destinations remain removals.
+        donors, recipients = {}, {}
+        for mid, record in before.items():
+            for anchor in set(record[2]) - set(names(after,mid,2)):
+                if any(kind==2 and old==anchor and donor==mid for (_,kind,old),donor in moved.items()):
+                    continue
+                key=identity(anchor,record[2][anchor])
+                if key is not None:donors.setdefault(key,[]).append((mid,anchor))
+        for mid in targets:
+            for anchor in set(after[mid][2]) - set(names(before,mid,2)):
+                if (mid,2,anchor) in moved:continue
+                key=identity(anchor,after[mid][2][anchor])
+                if key is not None:recipients.setdefault(key,[]).append((mid,anchor))
+        for key, origins in donors.items():
+            destinations=recipients.get(key,())
+            if len(origins)==len(destinations)==1:
+                donor,anchor=origins[0]
+                recipient,_=destinations[0]
+                moved[(recipient,2,anchor)]=donor
     return moved
 
 
@@ -415,7 +453,7 @@ def model_promises(root, logical, syntax, view=None):
 
 def promise_changes(before, after, changed):
     """Report intentional removals as warnings; distinguish a single receiving owner."""
-    moved=_moved_names(before,after,sorted(set(changed)&set(after)),(0,1,2))
+    moved=_moved_names(before,after,sorted(set(changed)&set(after)),(0,1,2,3))
     labels=('rule','known-bad','test')
     warnings=[]; lines=[]
     for mid in sorted(set(changed)&set(before)):
@@ -442,13 +480,20 @@ def promise_changes(before, after, changed):
                         retained.update(record[3] or ());break
                     seen.add(parent);parent=after[parent][4]
             for field in sorted(set(old[3])-retained):
+                if any(kind==3 and name==field and donor==mid for (_,kind,name),donor in moved.items()):
+                    continue
                 item='-field '+field;entries.append(item)
                 warnings.append(dict(level='warn',code='promise_removed',component=mid,message=item))
         if entries: lines.append('promises: '+mid+': '+'; '.join(entries))
-    pairs={}
+    pairs={}; fields={}
     for (recipient,kind,name),donor in moved.items():
-        counts=pairs.setdefault((donor,recipient),[0,0,0]);counts[kind]+=1
-    lines.extend(f'moved: {count[0]} rule(s), {count[1]} known-bad, {count[2]} test(s) from {donor} to {recipient}' for (donor,recipient),count in sorted(pairs.items()))
+        pair=(donor,recipient)
+        counts=pairs.setdefault(pair,[0,0,0,0]);counts[kind]+=1
+        if kind==3:fields.setdefault(pair,[]).append(name)
+    for (donor,recipient),count in sorted(pairs.items()):
+        line=f'moved: {count[0]} rule(s), {count[1]} known-bad, {count[2]} test(s) from {donor} to {recipient}'
+        if count[3]:line+=f'; {count[3]} field(s): '+', '.join(sorted(fields[(donor,recipient)]))
+        lines.append(line)
     return lines,warnings
 
 def promise_records(root, data, view=None):

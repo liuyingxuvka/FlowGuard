@@ -43,6 +43,30 @@ def outcome(report, what):
     return o
 
 
+def test_progress_changes_during_one_mutant_not_only_between_mutants(project):
+    path = project.flow("counter", '''
+        from flowguard.flow import Model, need
+        m = Model("counter")
+        m.field("n", range(1101), 0)
+        @m.action()
+        def advance(s):
+            need(s["n"] < 1100, "at the limit")
+            s["n"] += 1
+        MODEL = m
+        ''')
+    events = []
+    result = run_part(PartContext(project.root, PartSpec("mutate", "counter"), path,
+                                  project.root / "cache", progress=events.append))
+    assert result.complete
+    assert events and all(e["model"] == "counter" and e["kind"] == "mutate" for e in events)
+    long_mutants = [e for e in events if e.get("mutant") and e.get("states", 0) >= 1000]
+    assert long_mutants, events
+    first = long_mutants[0]["mutant"]
+    during = [e for e in events if e.get("mutant") == first]
+    assert during[0]["states"] == 0
+    assert any(e.get("states", 0) >= 1000 and "phase" in e for e in during[1:])
+
+
 def test_parcel_locker_guards_are_caught_except_the_reviewed_survivors(project):
     report, _ = mutate(project, parcels(), "parcels")
     assert report.complete

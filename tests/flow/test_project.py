@@ -196,3 +196,18 @@ def test_registry_and_engine_digest():
     env = {**os.environ, "PYTHONPATH": str(REPO), "PYTHONHASHSEED": "1"}
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, check=True)
     assert out.stdout.strip() == ENGINE_DIGEST
+
+
+@pytest.mark.parametrize("body", [{}, {"models": {}, "unknown": []}])
+def test_conflicts_record_cannot_omit_its_conflicts(project, body):
+    from flowguard.flow.project import ConflictsUnreadable
+    project.file(".flowguard/conflicts.json", json.dumps(body))
+    with pytest.raises(ConflictsUnreadable, match="conflicts"):
+        read_conflicts(project.root)
+
+
+def test_conflicts_directory_is_unreadable_not_an_absent_record(project):
+    from flowguard.flow.project import ConflictsUnreadable
+    (project.root / ".flowguard/conflicts.json").mkdir()
+    with pytest.raises(ConflictsUnreadable, match="not a regular file"):
+        read_conflicts(project.root)

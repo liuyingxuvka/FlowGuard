@@ -434,6 +434,10 @@ def cmd_models(root: Path, a) -> int:
     return 1 if any(r.status != "pass" for r in results) else 0
 
 
+class FlowRuntimeError(RuntimeError):
+    """The flow-model part failed before a release verdict could be formed."""
+
+
 def _release_flow_models(root: Path, as_json: bool, codes: list) -> int:
     """The flow models of .flowguard/flow/ through the engine's own release rule: a complete
     check with their deliberate-breakage mutants (check --full). Its report lines are printed
@@ -444,14 +448,19 @@ def _release_flow_models(root: Path, as_json: bool, codes: list) -> int:
     from ..flow.project import ProjectError
 
     report = io.StringIO()
+    def checked(data):
+        codes.extend(dict(level="warn", code="mutant_survives", subject=f["id"])
+                     for f in data["warnings"] if f["kind"] == "MUTANT SURVIVES")
+        codes.extend(dict(level="error", code="setting_proposal", subject=p["model"])
+                     for p in data["setting_proposals"])
     try:
-        passed = release(root, out=report, err=sys.stderr)
+        passed = release(root, out=report, err=sys.stderr, on_result=checked)
     except ProjectError as error:                  # an unreadable conflicts.json: its one line, exit 2
-        raise RuntimeError(f"flow models: {error}") from error
+        raise FlowRuntimeError(f"flow models: {error}") from error
     except BrokenPipeError:
         raise
     except Exception as error:                     # noqa: BLE001 - the engine failed: exit 2, not a failed gate
-        raise RuntimeError(f"flow models: {internal_text(error)}") from error
+        raise FlowRuntimeError(f"flow models: {internal_text(error)}") from error
     if not as_json or not passed:
         for line in report.getvalue().splitlines():
             print(f"flow: {line}", file=sys.stderr if as_json else sys.stdout)
@@ -464,12 +473,15 @@ def _release_flow_models(root: Path, as_json: bool, codes: list) -> int:
 def _flow_record_readable(root: Path) -> None:
     """An unreadable .flowguard/conflicts.json stops the release before any check runs: its
     open conflicts are unknown, so no gate can pass (RuntimeError: one line, exit 2)."""
-    from ..flow.project import ProjectError, read_conflicts
+    from ..flow.project import ProjectError, model_files, read_conflicts
+    from ..flow.jobs import require_supported
 
     try:
+        if model_files(root):
+            require_supported()
         read_conflicts(root)
     except ProjectError as error:
-        raise RuntimeError(f"flow models: {error}") from error
+        raise FlowRuntimeError(f"flow models: {error}") from error
 
 
 def cmd_verify(root: Path, a) -> int:
@@ -529,7 +541,9 @@ def cmd_verify(root: Path, a) -> int:
     failed += _release_flow_models(root, as_json, codes)
     return _release_suite_and_verdict(
         root, a, codes, failed,
-        "only TESTED_BY tests ran; run the whole suite with python -m flowguard release --shards 4, or in CI")
+        "only TESTED_BY tests ran; run the whole suite with python -m flowguard release --shards 4, or in CI"
+        if any(r.test_seconds is not None for r in results) else
+        "tests not run; run the whole suite with python -m flowguard release --shards 4, or in CI")
 
 
 NO_MAP = (f"legacy map: none ({MAP_RELPATH} does not exist), so there is no map check, lint or legacy model to run; "
@@ -546,7 +560,7 @@ def _release_without_map(root: Path, a) -> int:
     failed = _release_flow_models(root, as_json, codes)
     return _release_suite_and_verdict(
         root, a, codes, failed,
-        "no test ran: without a legacy map no test is bound to a model; run the whole suite with "
+        "tests not run: without a legacy map no test is bound to a model; run the whole suite with "
         "python -m flowguard release --shards 4, or in CI")
 
 
@@ -581,8 +595,12 @@ def _release_suite_and_verdict(root: Path, a, codes: list, failed: int, no_shard
             print(f'error: {error}', file=sys.stderr)
     code = int(bool(failed))
     if not as_json:
-        suffix = f" ({no_shards})" if a.shards is None else ""
-        print(f"verify: {'PASS' if not failed else 'FAIL'}" + suffix)
+        no_tests = a.shards is None and no_shards.startswith("tests not run")
+        verdict = "FAIL" if failed else "MODELS PASS" if no_tests else "PASS"
+        survivors = sum(c["code"] == "mutant_survives" for c in codes)
+        suffix = f"; {survivors} deliberate breakage{'s' if survivors != 1 else ''} not caught" if survivors else ""
+        scope = f"; {no_shards}" if a.shards is None else ""
+        print(f"verify: {verdict}" + suffix + scope)
     if as_json:
         print_verdict("release", code, codes)
     return code
@@ -693,5 +711,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         command = {"check": "map check", "lint": "map lint", "verify": "release"}.get(args.cmd)
         if command and getattr(args, "json", False):
-            print_verdict(command, 2, [dict(level="error", code="runtime_error", subject="map")])
+            subject = "flow" if isinstance(exc, FlowRuntimeError) else "map"
+            print_verdict(command, 2, [dict(level="error", code="runtime_error", subject=subject)])
         return 2

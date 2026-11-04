@@ -143,7 +143,8 @@ def core_part(ctx: PartContext) -> PartResult:
             "seconds": round(report.graph.seconds, 3), "covers": list(model.covers),
             "families": sorted({f.family for f in model.fields}),
             "objects": {kind: list(ids) for kind, ids in model.kinds.items()},
-            "reached": list(report.reached), "sources": report_sources(report)}
+            "reached": list(report.reached), "sources": report_sources(report),
+            "setting_proposals": model.setting_proposals()}
     findings = list(report.findings)
     if spec.option("verify_symmetry", False):
         ctx.progress({"model": spec.model, "kind": spec.kind, "states": len(report.graph.states),
