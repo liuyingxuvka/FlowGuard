@@ -10,6 +10,8 @@ import sys
 import time
 from pathlib import Path
 
+_LOCK_OFFSET = 64              # mandatory Windows lock stays beyond the readable PID text
+
 
 def lock_file(fd: int, blocking: bool) -> bool:
     if os.name != "nt":
@@ -23,7 +25,7 @@ def lock_file(fd: int, blocking: bool) -> bool:
         return True
     import msvcrt
     while True:
-        os.lseek(fd, 0, os.SEEK_SET)
+        os.lseek(fd, _LOCK_OFFSET, os.SEEK_SET)
         try:
             msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
             return True
@@ -38,7 +40,7 @@ def lock_file(fd: int, blocking: bool) -> bool:
 def unlock_file(fd: int) -> None:
     if os.name == "nt":
         import msvcrt
-        os.lseek(fd, 0, os.SEEK_SET)
+        os.lseek(fd, _LOCK_OFFSET, os.SEEK_SET)
         msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
     else:
         import fcntl
@@ -238,6 +240,12 @@ def _guard(jobdir: Path, worker: int, caller: int, pipe: int | None) -> None:
     reason = None
     buffer = b""
     descriptor = worker_pipe(pipe) if pipe is not None else None
+
+    def close_job():
+        nonlocal job
+        if job is not None:
+            api.CloseHandle(job)
+            job = None
     try:
         write_json(jobdir / "guardian.json", {"pid": os.getpid(), "worker": worker})
         while windows_pid_alive(worker):
@@ -272,7 +280,20 @@ def _guard(jobdir: Path, worker: int, caller: int, pipe: int | None) -> None:
     finally:
         if descriptor is not None:
             os.close(descriptor)
-        api.CloseHandle(job)                        # kernel ends the complete worker tree
+        try:
+            if reason is not None:
+                # Publish the cause before termination is observable. Hold the lock
+                # through kernel termination so the worker cannot restore "running".
+                with Lock(jobdir / "status.lock"):
+                    status = read_json(jobdir / "status.json") or {}
+                    if status.get("state", "running") == "running":
+                        status.update(state="stopped", current=None, reason=reason)
+                        write_json(jobdir / "status.json", status)
+                    close_job()
+                    while windows_pid_alive(worker):
+                        time.sleep(0.01)
+        finally:
+            close_job()                            # every error still ends the owned tree
     while windows_pid_alive(worker):
         time.sleep(0.01)
     status = read_json(jobdir / "status.json") or {}

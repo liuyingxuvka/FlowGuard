@@ -11,6 +11,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from ..map.common import normalize_newlines
+from ._process import read_text
 from .checks import WARNING, Finding, make_finding, replay_spec
 from .model import REQUESTS, Loaded, natural_key, request_file
 
@@ -155,7 +157,7 @@ def read_conflicts(root) -> dict | None:
     if not path.is_file():
         raise ConflictsUnreadable(unreadable_text(root, "it is not a regular file"))
     try:
-        text = path.read_text(encoding="utf-8")
+        text = read_text(path)
     except (OSError, UnicodeDecodeError) as e:
         raise ConflictsUnreadable(unreadable_text(root, f"{type(e).__name__}: {e}")) from e
     if any(line.startswith(_MERGE_MARKERS) for line in text.splitlines()):
@@ -191,7 +193,7 @@ def write_conflicts(root, data: dict) -> None:
     """Rewrite .flowguard/conflicts.json (only after a final verdict, never on RUNNING)."""
     path = Path(root) / CONFLICTS
     text = conflicts_text(data)
-    if path.is_file() and path.read_text(encoding="utf-8") == text:
+    if path.is_file() and read_text(path) == text:
         return
     _atomic_write(path, text)
 
@@ -228,7 +230,7 @@ def read_manifest(root, model_id: str) -> list[str] | None:
     path = manifest_path(root, model_id)
     if not path.is_file():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))["reads"]
+    return json.loads(read_text(path))["reads"]
 
 
 def write_manifest(root, model_id: str, reads) -> None:
@@ -239,7 +241,10 @@ def file_digest(root, rel: str) -> str | None:
     path = Path(root) / rel
     if not path.is_file():
         return None
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    data = path.read_bytes()
+    if path.suffix.lower() in (".py", ".pyi", ".js"):
+        data = normalize_newlines(data)
+    return hashlib.sha256(data).hexdigest()
 
 
 def _git(root, *args, check=True) -> subprocess.CompletedProcess:

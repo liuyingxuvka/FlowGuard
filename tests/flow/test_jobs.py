@@ -88,6 +88,39 @@ def test_a_hit_needs_the_same_file_contents_and_every_written_file(project):
     assert jobs.lookup(project.root, item) is None          # a picture it wrote is missing
 
 
+def test_python_source_newlines_do_not_change_a_cached_part(project):
+    project.kit().flow_from(KIT / "workshop.py")
+    path = project.root / ".flowguard/flow/workshop.py"
+    item, _ = jobs.plan(project.root, [path])
+    result, _ = core(project, "workshop")
+    jobs.store(project.root, result)
+    config = project.root / "counter/config.py"
+    original = config.read_bytes().replace(b"\r\n", b"\n")
+    config.write_bytes(original.replace(b"\n", b"\r\n"))
+    assert jobs.lookup(project.root, item) == result
+
+
+def test_guardian_publishes_lease_expiry_before_native_termination(tmp_path, monkeypatch):
+    from flowguard.flow import _process
+    job = tmp_path / "job"
+    job.mkdir()
+    jobs.write_json(job / "status.json", {"state": "running", "reason": None, "current": {"kind": "core"}})
+    jobs.write_json(job / "lease.json", {"until_ms": 0, "pid": 42})
+    observed = {}
+    alive = [True]
+
+    class NativeJob:
+        def CloseHandle(self, handle):
+            observed.update(jobs.read_json(job / "status.json"))
+            alive[0] = False
+
+    monkeypatch.setattr(_process, "_job_for", lambda worker: (NativeJob(), 123))
+    monkeypatch.setattr(_process, "windows_pid_alive", lambda pid: alive[0])
+    _process._guard(job, 41, 42, None)
+    assert observed["state"] == "stopped" and observed["current"] is None
+    assert observed["reason"] == "lease expired: nobody waits for the result"
+
+
 def test_the_plan_digest_names_the_command_not_the_contents(project):
     project.kit().flow_from(KIT / "workshop.py")
     path = project.root / ".flowguard/flow/workshop.py"

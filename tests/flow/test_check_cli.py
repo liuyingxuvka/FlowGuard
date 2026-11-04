@@ -313,14 +313,23 @@ def test_json_is_one_line_with_the_contract_keys(project):
 
 
 def test_the_same_fingerprints_and_file_under_every_hash_seed(project):
+    from checkrun import gone, wait_until
+    from flowguard.flow.jobs import read_json
     project.kit().flow_from(KIT / "workshop_naive.py")
     seen = []
     for seed in (0, 1, 2):
-        shutil.rmtree(project.root / ".flowguard" / "cache", ignore_errors=True)
+        cache = project.root / ".flowguard" / "cache"
+        if cache.exists():
+            shutil.rmtree(cache)
         (project.root / ".flowguard" / "conflicts.json").unlink(missing_ok=True)
-        data = timed(project.root, "--json", seed=seed).data
+        run = timed(project.root, "--json", seed=seed)
+        assert run.code == 1, run.out + run.err
+        data = run.data
         seen.append(([c["id"] for c in data["conflicts"]],
                      (project.root / ".flowguard/conflicts.json").read_bytes()))
+        pids = {p["worker"] for p in data["parts"] if p["worker"] is not None}
+        pids.update(read_json(path)["pid"] for path in cache.glob("flow/jobs/*/*/guardian.json"))
+        assert wait_until(lambda: all(gone(pid) for pid in pids), 5) is not None
     assert seen[0] == seen[1] == seen[2]
 
 

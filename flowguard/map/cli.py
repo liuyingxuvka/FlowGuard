@@ -546,7 +546,7 @@ def cmd_verify(root: Path, a) -> int:
         "tests not run; run the whole suite with python -m flowguard release --shards 4, or in CI")
 
 
-NO_MAP = (f"legacy map: none ({MAP_RELPATH} does not exist), so there is no map check, lint or legacy model to run; "
+NO_MAP = (f"legacy map: none ({MAP_RELPATH.as_posix()} does not exist), so there is no map check, lint or legacy model to run; "
           "the flow models are checked, and the tests with --shards")
 
 

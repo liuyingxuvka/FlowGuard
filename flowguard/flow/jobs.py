@@ -202,7 +202,7 @@ def lookup(root, item: Planned) -> PartResult | None:
     path = parts_dir(root) / f"{digest}.json"
     if not path.is_file():
         return None
-    result = PartResult.from_json(json.loads(path.read_text(encoding="utf-8")))
+    result = PartResult.from_json(json.loads(read_text(path)))
     if result.kind != item.spec.kind or result.model != item.spec.model:
         return None
     if any(not (Path(root) / w).exists() for w in result.writes):
@@ -247,6 +247,7 @@ class Lock:
         if not acquired:
             os.close(fd)
             return False
+        os.lseek(fd, 0, os.SEEK_SET)
         os.ftruncate(fd, 0)
         os.write(fd, f"{os.getpid()}\n".encode())
         self.fd = fd

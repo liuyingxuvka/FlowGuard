@@ -66,7 +66,8 @@ def jobs_of(root) -> list[Path]:
 
 
 def read(path: Path) -> dict | None:
-    return json.loads(path.read_text()) if path.is_file() else None
+    from flowguard.flow.jobs import read_json
+    return read_json(path)
 
 
 def worker_of(root) -> tuple[Path, int]:
@@ -77,6 +78,12 @@ def worker_of(root) -> tuple[Path, int]:
 def running(run: Path) -> bool:
     st = read(run / "status.json")
     return st is not None and st["state"] == "running"
+
+
+def resume_diagnostic(caller, run: Path) -> str:
+    code = caller.poll()
+    output = caller.communicate(timeout=1) if code is not None else ("still running", "")
+    return f"caller exit={code}, output={output!r}, lease={read(run / 'lease.json')}, status={read(run / 'status.json')}"
 
 
 # ---------------------------------------------------------------------- RUNNING and resume
@@ -298,7 +305,7 @@ def test_killing_an_attached_resume_caller_stops_the_worker(project):
     assert first.code == 4
     run, pid = worker_of(project.root)
     caller = start_check(project.root, "--wait", "60")
-    assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None
+    assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None, resume_diagnostic(caller, run)
     time.sleep(1.5)                                    # it renews the lease while it waits
     assert not gone(pid) and worker_of(project.root)[1] == pid
     kill(caller.pid)
