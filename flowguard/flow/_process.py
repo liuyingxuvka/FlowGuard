@@ -77,7 +77,9 @@ def read_text(path: Path) -> str:
     api = _kernel()
     handle = api.CreateFileW(str(path), 0x80000000, 1 | 2 | 4, None, 3, 0x80, None)
     if handle == ctypes.c_void_p(-1).value:
-        raise ctypes.WinError(ctypes.get_last_error())
+        error = ctypes.WinError(ctypes.get_last_error())
+        error.filename = str(path)
+        raise error
     try:
         fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
     except BaseException:
