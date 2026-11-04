@@ -55,7 +55,7 @@ def test_strict_check_and_verify_gate(shop, capsys):
     assert cli.main(["--root", str(shop), "check", "--strict"]) == 0
     assert "INFO  stale" in capsys.readouterr().out
     assert cli.main(["--root", str(shop), "verify"]) == 0
-    assert "verify: PASS" in capsys.readouterr().out
+    assert "verify: MODELS PASS; tests not run" in capsys.readouterr().out
 
 
 def test_accepted_debt_downgrades_a_lint_error(shop, capsys):

@@ -261,7 +261,7 @@ def test_release_warns_first_but_runs_the_same_current_models(tmp_path, capsys):
                 [line for line in text.splitlines() if line.startswith("check --strict:")])
     assert proof_facts(output) == proof_facts(before)
     assert "no_idle_copy_while_held" not in output
-    assert "verify: PASS" in output
+    assert "verify: PASS; only TESTED_BY tests ran" in output
 
 
 def test_json_verdict_only_with_flag(tmp_path, capsys):

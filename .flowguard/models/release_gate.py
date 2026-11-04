@@ -216,7 +216,9 @@ def conformance():
                                                  'cohesion_candidate', 'high_fan_out'}]
             text = output.getvalue()
             failing = case in ('failed', 'suite_blocked', 'expired', 'target_already_promoted', 'target_deleted_not_staged', 'json_failed', 'snapshot_failed')
-            valid = code == int(failing) and ('verify: FAIL' if failing else 'verify: PASS') in text
+            verdict = ('verify: FAIL' if failing else 'verify: PASS' if case == 'advice'
+                       else 'verify: MODELS PASS; tests not run')
+            valid = code == int(failing) and verdict in text
             if case in ('json', 'json_failed', 'snapshot_failed'):
                 try:
                     payload = json.loads(text)
