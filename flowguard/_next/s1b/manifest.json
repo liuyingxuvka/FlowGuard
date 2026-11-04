@@ -16,6 +16,7 @@
     "flowguard/flow/jobs.py",
     "flowguard/flow/project.py",
     "flowguard/flow/worker.py",
+    "flowguard/map/cli.py",
     "flowguard/templates.py",
     "tests/flow/checkrun.py",
     "tests/flow/conftest.py",

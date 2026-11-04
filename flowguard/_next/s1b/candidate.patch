@@ -110,10 +110,10 @@ index 8ec9fa11..6abd25c5 100644
 +any platform limitation alongside the stored conflicts.
 diff --git a/flowguard/flow/_process.py b/flowguard/flow/_process.py
 new file mode 100644
-index 00000000..1643519f
+index 00000000..95567d58
 --- /dev/null
 +++ b/flowguard/flow/_process.py
-@@ -0,0 +1,287 @@
+@@ -0,0 +1,308 @@
 +"""OS process ownership for the shared flow worker, not a second job runner."""
 +from __future__ import annotations
 +
@@ -125,6 +125,8 @@ index 00000000..1643519f
 +import sys
 +import time
 +from pathlib import Path
++
++_LOCK_OFFSET = 64              # mandatory Windows lock stays beyond the readable PID text
 +
 +
 +def lock_file(fd: int, blocking: bool) -> bool:
@@ -139,7 +141,7 @@ index 00000000..1643519f
 +        return True
 +    import msvcrt
 +    while True:
-+        os.lseek(fd, 0, os.SEEK_SET)
++        os.lseek(fd, _LOCK_OFFSET, os.SEEK_SET)
 +        try:
 +            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
 +            return True
@@ -154,7 +156,7 @@ index 00000000..1643519f
 +def unlock_file(fd: int) -> None:
 +    if os.name == "nt":
 +        import msvcrt
-+        os.lseek(fd, 0, os.SEEK_SET)
++        os.lseek(fd, _LOCK_OFFSET, os.SEEK_SET)
 +        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
 +    else:
 +        import fcntl
@@ -354,6 +356,12 @@ index 00000000..1643519f
 +    reason = None
 +    buffer = b""
 +    descriptor = worker_pipe(pipe) if pipe is not None else None
++
++    def close_job():
++        nonlocal job
++        if job is not None:
++            api.CloseHandle(job)
++            job = None
 +    try:
 +        write_json(jobdir / "guardian.json", {"pid": os.getpid(), "worker": worker})
 +        while windows_pid_alive(worker):
@@ -388,7 +396,20 @@ index 00000000..1643519f
 +    finally:
 +        if descriptor is not None:
 +            os.close(descriptor)
-+        api.CloseHandle(job)                        # kernel ends the complete worker tree
++        try:
++            if reason is not None:
++                # Publish the cause before termination is observable. Hold the lock
++                # through kernel termination so the worker cannot restore "running".
++                with Lock(jobdir / "status.lock"):
++                    status = read_json(jobdir / "status.json") or {}
++                    if status.get("state", "running") == "running":
++                        status.update(state="stopped", current=None, reason=reason)
++                        write_json(jobdir / "status.json", status)
++                    close_job()
++                    while windows_pid_alive(worker):
++                        time.sleep(0.01)
++        finally:
++            close_job()                            # every error still ends the owned tree
 +    while windows_pid_alive(worker):
 +        time.sleep(0.01)
 +    status = read_json(jobdir / "status.json") or {}
@@ -412,7 +433,7 @@ index 554736ab..228808f8 100644
 -    (and so CI, which runs it) fails on an open conflict, a model error or a model that does
 +    (and CI only when it runs release) fails on an open conflict, a model error or a model that does
 diff --git a/flowguard/flow/jobs.py b/flowguard/flow/jobs.py
-index b9afa32a..36c4a2c2 100644
+index b9afa32a..469953f4 100644
 --- a/flowguard/flow/jobs.py
 +++ b/flowguard/flow/jobs.py
 @@ -35 +34,0 @@ import ctypes
@@ -425,6 +446,9 @@ index b9afa32a..36c4a2c2 100644
 @@ -67 +67 @@ def platform_problem() -> str | None:
 -    return None if sys.platform.startswith("linux") else UNSUPPORTED_PLATFORM
 +    return None if sys.platform.startswith("linux") or sys.platform == "win32" else UNSUPPORTED_PLATFORM
+@@ -205 +205 @@ def lookup(root, item: Planned) -> PartResult | None:
+-    result = PartResult.from_json(json.loads(path.read_text(encoding="utf-8")))
++    result = PartResult.from_json(json.loads(read_text(path)))
 @@ -231 +231 @@ class Lock:
 -    """An exclusive lock on a file (flock): held exactly while its holder lives, so a lock
 +    """An exclusive native file lock: held exactly while its holder lives, so a lock
@@ -439,46 +463,50 @@ index b9afa32a..36c4a2c2 100644
 @@ -248,2 +245,0 @@ class Lock:
 -            if err.errno in (errno.EAGAIN, errno.EACCES):
 -                return False
-@@ -250,0 +247,3 @@ class Lock:
+@@ -250,0 +247,4 @@ class Lock:
 +        if not acquired:
 +            os.close(fd)
 +            return False
-@@ -258,3 +257 @@ class Lock:
++        os.lseek(fd, 0, os.SEEK_SET)
+@@ -258,3 +258 @@ class Lock:
 -            import fcntl
 -
 -            fcntl.flock(self.fd, fcntl.LOCK_UN)
 +            unlock_file(self.fd)
-@@ -274,0 +272,2 @@ def pid_alive(pid: int) -> bool:
+@@ -274,0 +273,2 @@ def pid_alive(pid: int) -> bool:
 +    if os.name == "nt":
 +        return windows_pid_alive(pid)
-@@ -296 +295 @@ def read_json(path: Path) -> dict | None:
+@@ -296 +296 @@ def read_json(path: Path) -> dict | None:
 -    return json.loads(path.read_text(encoding="utf-8"))
 +    return json.loads(read_text(path))
-@@ -401 +400 @@ class _Job:
+@@ -401 +401 @@ class _Job:
 -            job.proc = subprocess.Popen(
 +            job.proc = spawn_worker(
-@@ -403 +402 @@ class _Job:
+@@ -403 +403 @@ class _Job:
 -                pass_fds=(r,), start_new_session=True, stdin=subprocess.DEVNULL, stdout=log,
 +                r, stdin=subprocess.DEVNULL, stdout=log,
-@@ -492 +491 @@ def _stop_stale(run: Path) -> None:
+@@ -492 +492 @@ def _stop_stale(run: Path) -> None:
 -        os.killpg(pid, signal.SIGKILL)
 +        terminate_group(pid)
-@@ -599,0 +599,5 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
+@@ -599,0 +600,5 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
 +            # A replacement may publish its results before this waiting caller observes
 +            # the old worker's death. Those results do not complete this run.
 +            if all(r is not None for r in results) and (job.status() or {}).get("state") == "replaced":
 +                out.changed = job.ended(root)[1]
 +                break
 diff --git a/flowguard/flow/project.py b/flowguard/flow/project.py
-index 2ef548d2..954f107d 100644
+index 2ef548d2..84414ca8 100644
 --- a/flowguard/flow/project.py
 +++ b/flowguard/flow/project.py
 @@ -8,0 +9 @@ import os
 +import re
-@@ -78 +79 @@ def request_line(root: Path, rid: str) -> str | None:
+@@ -12,0 +14,2 @@ from pathlib import Path
++from ..map.common import normalize_newlines
++from ._process import read_text
+@@ -78 +81 @@ def request_line(root: Path, rid: str) -> str | None:
 -    """The first non-empty line of the stored request, cut at 100 characters."""
 +    """The first prose line, falling back to a heading-only request, cut at 100 characters."""
-@@ -82,5 +83,3 @@ def request_line(root: Path, rid: str) -> str | None:
+@@ -82,5 +85,3 @@ def request_line(root: Path, rid: str) -> str | None:
 -    for line in path.read_text(encoding="utf-8").splitlines():
 -        if line.strip():
 -            text = line.strip()
@@ -487,6 +515,21 @@ index 2ef548d2..954f107d 100644
 +    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 +    text = next((line for line in lines if not re.match(r"#{1,6}(?:\s|$)", line)), lines[0] if lines else "")
 +    return text if len(text) <= 100 else text[:99] + "…"
+@@ -159 +160 @@ def read_conflicts(root) -> dict | None:
+-        text = path.read_text(encoding="utf-8")
++        text = read_text(path)
+@@ -195 +196 @@ def write_conflicts(root, data: dict) -> None:
+-    if path.is_file() and path.read_text(encoding="utf-8") == text:
++    if path.is_file() and read_text(path) == text:
+@@ -232 +233 @@ def read_manifest(root, model_id: str) -> list[str] | None:
+-    return json.loads(path.read_text(encoding="utf-8"))["reads"]
++    return json.loads(read_text(path))["reads"]
+@@ -243 +244,4 @@ def file_digest(root, rel: str) -> str | None:
+-    return hashlib.sha256(path.read_bytes()).hexdigest()
++    data = path.read_bytes()
++    if path.suffix.lower() in (".py", ".pyi", ".js"):
++        data = normalize_newlines(data)
++    return hashlib.sha256(data).hexdigest()
 diff --git a/flowguard/flow/worker.py b/flowguard/flow/worker.py
 index 1398aed8..f364c6c8 100644
 --- a/flowguard/flow/worker.py
@@ -549,6 +592,13 @@ index 1398aed8..f364c6c8 100644
 +        else:
 +            threading.Thread(target=self.watchdog, name="flowguard-watchdog", daemon=True).start()
 +            self.armed.wait()
+diff --git a/flowguard/map/cli.py b/flowguard/map/cli.py
+index 4f5e7d33..48412163 100644
+--- a/flowguard/map/cli.py
++++ b/flowguard/map/cli.py
+@@ -549 +549 @@ def cmd_verify(root: Path, a) -> int:
+-NO_MAP = (f"legacy map: none ({MAP_RELPATH} does not exist), so there is no map check, lint or legacy model to run; "
++NO_MAP = (f"legacy map: none ({MAP_RELPATH.as_posix()} does not exist), so there is no map check, lint or legacy model to run; "
 diff --git a/flowguard/templates.py b/flowguard/templates.py
 index a009c899..c1e6e80a 100644
 --- a/flowguard/templates.py
@@ -647,7 +697,7 @@ index 9eb9a1fe..c4d2e8bb 100644
 -            os.killpg(pid, signal.SIGKILL)
 +            kill(pid, whole_group=True)
 diff --git a/tests/flow/test_check_cli.py b/tests/flow/test_check_cli.py
-index e6051316..b76b8620 100644
+index e6051316..339dfbb1 100644
 --- a/tests/flow/test_check_cli.py
 +++ b/tests/flow/test_check_cli.py
 @@ -177,2 +177,4 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
@@ -660,22 +710,39 @@ index e6051316..b76b8620 100644
 @@ -294 +296 @@ def test_json_is_one_line_with_the_contract_keys(project):
 -    assert data["conflicts"][0]["requests"][0] == ["R4", "# Request 4: renting tools"]
 +    assert data["conflicts"][0]["requests"][0] == ["R4", "Members rent tools from the shelf of a branch."]
-@@ -456 +458 @@ def test_status_lines_read_the_last_final_check(project):
+@@ -313,0 +316,2 @@ def test_the_same_fingerprints_and_file_under_every_hash_seed(project):
++    from checkrun import gone, wait_until
++    from flowguard.flow.jobs import read_json
+@@ -317 +321,3 @@ def test_the_same_fingerprints_and_file_under_every_hash_seed(project):
+-        shutil.rmtree(project.root / ".flowguard" / "cache", ignore_errors=True)
++        cache = project.root / ".flowguard" / "cache"
++        if cache.exists():
++            shutil.rmtree(cache)
+@@ -319 +325,3 @@ def test_the_same_fingerprints_and_file_under_every_hash_seed(project):
+-        data = timed(project.root, "--json", seed=seed).data
++        run = timed(project.root, "--json", seed=seed)
++        assert run.code == 1, run.out + run.err
++        data = run.data
+@@ -321,0 +330,3 @@ def test_the_same_fingerprints_and_file_under_every_hash_seed(project):
++        pids = {p["worker"] for p in data["parts"] if p["worker"] is not None}
++        pids.update(read_json(path)["pid"] for path in cache.glob("flow/jobs/*/*/guardian.json"))
++        assert wait_until(lambda: all(gone(pid) for pid in pids), 5) is not None
+@@ -456 +467 @@ def test_status_lines_read_the_last_final_check(project):
 -    assert line.startswith("flow models: 6 open conflicts (C-") and line.endswith("release and CI fail until fixed; without a hook a commit is not blocked")
 +    assert line.startswith("flow models: 6 open conflicts (C-") and line.endswith("release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked")
-@@ -583 +585 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
+@@ -583 +594 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
 -    assert f"1 open conflict ({cid}); release and CI fail until fixed; without a hook a commit is not blocked" in status
 +    assert f"1 open conflict ({cid}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status
-@@ -642 +644 @@ def test_a_capped_check_after_a_settings_change_keeps_every_proven_conflict(proj
+@@ -642 +653 @@ def test_a_capped_check_after_a_settings_change_keeps_every_proven_conflict(proj
 -    assert "3 open conflicts" in status and "release and CI fail until fixed; without a hook a commit is not blocked" in status, status
 +    assert "3 open conflicts" in status and "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status, status
-@@ -697 +699 @@ def test_a_renamed_or_deleted_model_file_keeps_its_conflicts(project):
+@@ -697 +708 @@ def test_a_renamed_or_deleted_model_file_keeps_its_conflicts(project):
 -    assert f"1 open conflict ({cid}); release and CI fail until fixed; without a hook a commit is not blocked" in status
 +    assert f"1 open conflict ({cid}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status
-@@ -759 +761 @@ def test_a_model_error_in_the_search_closes_nothing_and_proves_nothing(project):
+@@ -759 +770 @@ def test_a_model_error_in_the_search_closes_nothing_and_proves_nothing(project):
 -    assert "release and CI fail until fixed; without a hook a commit is not blocked" in status and "rental (2 model errors" in status, status
 +    assert "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status and "rental (2 model errors" in status, status
-@@ -1079 +1081 @@ def test_a_capped_check_closes_no_never_reached_item_the_model_no_longer_has(pro
+@@ -1079 +1090 @@ def test_a_capped_check_closes_no_never_reached_item_the_model_no_longer_has(pro
 -    assert "2 open conflicts" in status and "release and CI fail until fixed; without a hook a commit is not blocked" in status, status
 +    assert "2 open conflicts" in status and "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status, status
 diff --git a/tests/flow/test_howto.py b/tests/flow/test_howto.py
@@ -693,30 +760,64 @@ index 48b20f9c..3b2d76a7 100644
 +    assert "not a required three-file split" in text
 +    assert "Dead ends and never-happens behavior must be fixed in code" in text
 diff --git a/tests/flow/test_jobs.py b/tests/flow/test_jobs.py
-index 9872bff7..7a87a892 100644
+index 9872bff7..8ead6a22 100644
 --- a/tests/flow/test_jobs.py
 +++ b/tests/flow/test_jobs.py
 @@ -20 +20 @@ from flowguard.flow.project import cache_dir, overlap_views, overlaps
 -from checkrun import REPO, gone, wait_until
 +from checkrun import REPO, descendants, gone, wait_until
-@@ -116 +115,0 @@ MODEL = m
+@@ -90,0 +91,33 @@ def test_a_hit_needs_the_same_file_contents_and_every_written_file(project):
++def test_python_source_newlines_do_not_change_a_cached_part(project):
++    project.kit().flow_from(KIT / "workshop.py")
++    path = project.root / ".flowguard/flow/workshop.py"
++    item, _ = jobs.plan(project.root, [path])
++    result, _ = core(project, "workshop")
++    jobs.store(project.root, result)
++    config = project.root / "counter/config.py"
++    original = config.read_bytes().replace(b"\r\n", b"\n")
++    config.write_bytes(original.replace(b"\n", b"\r\n"))
++    assert jobs.lookup(project.root, item) == result
++
++
++def test_guardian_publishes_lease_expiry_before_native_termination(tmp_path, monkeypatch):
++    from flowguard.flow import _process
++    job = tmp_path / "job"
++    job.mkdir()
++    jobs.write_json(job / "status.json", {"state": "running", "reason": None, "current": {"kind": "core"}})
++    jobs.write_json(job / "lease.json", {"until_ms": 0, "pid": 42})
++    observed = {}
++    alive = [True]
++
++    class NativeJob:
++        def CloseHandle(self, handle):
++            observed.update(jobs.read_json(job / "status.json"))
++            alive[0] = False
++
++    monkeypatch.setattr(_process, "_job_for", lambda worker: (NativeJob(), 123))
++    monkeypatch.setattr(_process, "windows_pid_alive", lambda pid: alive[0])
++    _process._guard(job, 41, 42, None)
++    assert observed["state"] == "stopped" and observed["current"] is None
++    assert observed["reason"] == "lease expired: nobody waits for the result"
++
++
+@@ -116 +148,0 @@ MODEL = m
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="S1a flow worker uses Linux process ownership")
-@@ -129 +127,0 @@ def test_the_watchdog_stops_a_worker_whose_pipe_closes_without_a_lease(project):
+@@ -129 +160,0 @@ def test_the_watchdog_stops_a_worker_whose_pipe_closes_without_a_lease(project):
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="S1a flow worker locks use Linux flock")
-@@ -149,0 +148,5 @@ from flowguard.flow import jobs
+@@ -149,0 +181,5 @@ from flowguard.flow import jobs
 +if sys.platform == "win32":
 +    from flowguard.flow._process import start_guardian
 +    from pathlib import Path
 +    import tempfile, os
 +    start_guardian(Path(tempfile.mkdtemp()), os.getppid())
-@@ -158 +160,0 @@ time.sleep(60)
+@@ -158 +193,0 @@ time.sleep(60)
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="requires Linux parent-death signal")
-@@ -196,0 +199,4 @@ from flowguard.flow import diagram
+@@ -196,0 +232,4 @@ from flowguard.flow import diagram
 +if sys.platform == "win32":
 +    from flowguard.flow._process import start_guardian
 +    import tempfile, os
 +    start_guardian(Path(tempfile.mkdtemp()), os.getppid())
-@@ -205,19 +211,3 @@ def _descendants(pid):
+@@ -205,19 +244,3 @@ def _descendants(pid):
 -    parents = {}
 -    for d in os.listdir("/proc"):
 -        if d.isdigit():
@@ -739,7 +840,7 @@ index 9872bff7..7a87a892 100644
 +    return descendants(pid)
 +
 +
-@@ -261 +251,36 @@ class _FakeJob:
+@@ -261 +284,36 @@ class _FakeJob:
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="executes the S1a Linux flow worker")
 +def test_a_replaced_run_cannot_accept_the_new_runs_complete_cache(project, monkeypatch):
 +    """The new worker can finish before an old waiting caller polls again."""
@@ -777,7 +878,7 @@ index 9872bff7..7a87a892 100644
 +    assert result.changed == "a newer check took over" and result.failure is None
 +
 +
-@@ -309 +333,0 @@ MODEL = m
+@@ -309 +366,0 @@ MODEL = m
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="executes the S1a Linux flow worker")
 diff --git a/tests/flow/test_project.py b/tests/flow/test_project.py
 index a1d95894..cc1a5bef 100644
@@ -822,7 +923,7 @@ index 81e8e4a2..4f273c40 100644
 @@ -148 +147,0 @@ def test_fixed_against_head_is_the_prototype_diff_picture(project):
 -@pytest.mark.skipif(sys.platform != "linux", reason="draws with node and Playwright, which the Linux release suite has")
 diff --git a/tests/flow/test_wait.py b/tests/flow/test_wait.py
-index ab83af66..49024288 100644
+index ab83af66..e48fd61d 100644
 --- a/tests/flow/test_wait.py
 +++ b/tests/flow/test_wait.py
 @@ -9,2 +8,0 @@ import os
@@ -834,7 +935,18 @@ index ab83af66..49024288 100644
 -pytestmark = pytest.mark.skipif(not sys.platform.startswith("linux"),
 -                               reason="S1a flow command waits exercise the Linux-owned worker")
 +from checkrun import gone, group_gone, kill, run_check, start_check, wait_until
-@@ -131,0 +127,11 @@ def test_progress_goes_to_stderr_after_two_seconds(project):
+@@ -74 +69,2 @@ def read(path: Path) -> dict | None:
+-    return json.loads(path.read_text()) if path.is_file() else None
++    from flowguard.flow.jobs import read_json
++    return read_json(path)
+@@ -86,0 +83,6 @@ def running(run: Path) -> bool:
++def resume_diagnostic(caller, run: Path) -> str:
++    code = caller.poll()
++    output = caller.communicate(timeout=1) if code is not None else ("still running", "")
++    return f"caller exit={code}, output={output!r}, lease={read(run / 'lease.json')}, status={read(run / 'status.json')}"
++
++
+@@ -131,0 +134,11 @@ def test_progress_goes_to_stderr_after_two_seconds(project):
 +def test_zero_wait_hands_off_the_buffered_lease_before_caller_eof(project):
 +    slow(project, "endless", steps=100000, delay=0.01)
 +    first = run_check(project.root, "--wait", "0", "--keep", "2")
@@ -846,10 +958,10 @@ index ab83af66..49024288 100644
 +    assert read(run / "status.json")["reason"] == "lease expired: nobody waits for the result"
 +
 +
-@@ -158 +164 @@ def test_killing_the_spawning_caller_stops_the_worker(project):
+@@ -158 +171 @@ def test_killing_the_spawning_caller_stops_the_worker(project):
 -    os.kill(caller.pid, signal.SIGKILL)
 +    kill(caller.pid)
-@@ -165,0 +172,24 @@ def test_killing_the_spawning_caller_stops_the_worker(project):
+@@ -165,0 +179,24 @@ def test_killing_the_spawning_caller_stops_the_worker(project):
 +def test_caller_death_stops_even_a_worker_blocking_the_python_watchdog(project, tmp_path):
 +    marker = tmp_path / "in_native_sleep"
 +    project.flow("blocked", '''
@@ -874,26 +986,29 @@ index ab83af66..49024288 100644
 +    assert wait_until(lambda: not running(run), 5) is not None
 +
 +
-@@ -174 +204 @@ def test_a_worker_that_dies_is_reported_and_never_restarted(project):
+@@ -174 +211 @@ def test_a_worker_that_dies_is_reported_and_never_restarted(project):
 -    os.kill(pid, signal.SIGKILL)
 +    kill(pid)
-@@ -196 +226 @@ def test_a_worker_killed_with_its_whole_group_is_said_to_have_died(project):
+@@ -196 +233 @@ def test_a_worker_killed_with_its_whole_group_is_said_to_have_died(project):
 -    os.killpg(pid, signal.SIGKILL)
 +    kill(pid, whole_group=True)
-@@ -200 +230,3 @@ def test_a_worker_killed_with_its_whole_group_is_said_to_have_died(project):
+@@ -200 +237,3 @@ def test_a_worker_killed_with_its_whole_group_is_said_to_have_died(project):
 -    assert status["state"] == "died" and "process group" in status["reason"] and status["current"] is None
 +    assert status["state"] == "died" and status["current"] is None
 +    if os.name != "nt":
 +        assert "process group" in status["reason"]
-@@ -214,2 +246,2 @@ def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_g
+@@ -214,2 +253,2 @@ def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_g
 -    (os.killpg if whole_group else os.kill)(pid, signal.SIGKILL)
 -    assert wait_until(lambda: not Path(f"/proc/{pid}").exists(), 5) is not None   # reaped, not only a zombie
 +    kill(pid, whole_group=whole_group)
 +    assert wait_until(lambda: gone(pid), 5) is not None
-@@ -224 +256 @@ def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_g
+@@ -224 +263 @@ def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_g
 -    if whole_group:
 +    if whole_group and os.name != "nt":
-@@ -272 +304 @@ def test_killing_an_attached_resume_caller_stops_the_worker(project):
+@@ -269 +308 @@ def test_killing_an_attached_resume_caller_stops_the_worker(project):
+-    assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None
++    assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None, resume_diagnostic(caller, run)
+@@ -272 +311 @@ def test_killing_an_attached_resume_caller_stops_the_worker(project):
 -    os.kill(caller.pid, signal.SIGKILL)
 +    kill(caller.pid)
 diff --git a/tests/test_flow_platform.py b/tests/test_flow_platform.py
