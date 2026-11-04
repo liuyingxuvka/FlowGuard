@@ -85,7 +85,9 @@ def record_access(path: Path):
         yield
         return
     api = _kernel()
-    key = os.path.normcase(str(path.resolve())).encode("utf-8")
+    # Project roots are resolved before building record paths. Resolving the
+    # target here would open it outside the very mutex protecting replacement.
+    key = os.path.normcase(os.path.abspath(path)).encode("utf-8")
     handle = api.CreateMutexW(None, False, "Local\\FlowGuard.record." + hashlib.sha256(key).hexdigest())
     if not handle:
         raise ctypes.WinError(ctypes.get_last_error())
