@@ -11,8 +11,10 @@ does not change what can happen, and say what you left out in a `note=`.
 Use a flow model when a request adds or changes state values, actions, conditions, settings
 or endings: update the affected feature's model first, run `check`, then implement and test
 the code. For other edits, use `status`, `where` and the project's tests. A feature may cross
-modules and unchanged code. Keep old goals affected by shared writes, resets or new routes,
-with `reach`/`progress` promises and bounds that preserve their conditions. An omitted required
+modules and unchanged code. Turn affected old and new requested outcomes into explicit
+`reach`/`progress` promises, even in the first model. Include shared writes, resets and new
+routes, with bounds that preserve their conditions under the code's default settings.
+Keep counts in separate fields when different actions reset them. An omitted required
 outcome stays unresolved, even with a `note=` or passing isolated tests.
 Code/tests, exposed behavior and composition are conceptual levels, not a required
 three-file split; keep one feature model until a split helps explain it.
@@ -85,6 +87,10 @@ order compared as a whole (`==`, `in`, put in a container) or written into the s
 
 ## A small example (not your application): `.flowguard/flow/parcels.py`
 
+R1 already allows customers to collect parcels; R2 adds nightly expiry. The old outcome
+becomes the explicit `reach` below. Merely leaving the locker is a different promise:
+returning every parcel would satisfy it while making collection impossible.
+
 ```python
 """Parcel locker: parcels wait at most keep_days nights in the one locker.
 Left out: the courier's route and the customers' codes (no rule reads them)."""
@@ -97,6 +103,8 @@ PARCELS = m.objects("parcel", "P1", "P2")            # interchangeable: explored
 m.field("where", ["depot", "locker", "collected", "returned"], "depot", over=PARCELS, source="R1")
 m.field("days", range(0, S["keep_days"]), 0, over=PARCELS, source="R2",
         note="nights in the locker, 0..keep_days-1")
+m.reach("customers can still collect parcels",
+        lambda s: any(s["where", p] == "collected" for p in PARCELS), source="R1")
 
 
 @m.action(p=PARCELS, source="R1")
@@ -151,6 +159,9 @@ NEW BROKEN parcels: always 'one parcel at a time in the locker'
 ```
 
 ## Reading the report
+
+`clean, complete` describes the declared model and its bounds. It does not establish an
+omitted outcome or that the application code follows the model.
 
 - **Conflicts**: fix them in the design, then in the code, or ask the owner when two requests
   really collide. STUCK means a value that can never change again; an undeclared end where

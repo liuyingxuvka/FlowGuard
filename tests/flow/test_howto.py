@@ -65,6 +65,19 @@ def test_the_guide_uses_only_the_public_names():
     assert "machine" not in HOWTO.read_text(encoding="utf-8").lower().replace("a small machine", "")
 
 
+def test_old_collection_goal_remains_required_when_the_new_return_route_still_works(project):
+    [code] = [b for b in blocks("python") if "MODEL = m" in b]
+    # Returning every parcel still satisfies leaving the locker, but loses the
+    # older requested outcome that a customer can collect one.
+    code = code.replace('s["where", p] = "collected"', 's["where", p] = "returned"')
+    report = check_model(load_model(project.flow("parcels", code), project.root))
+    assert report.graph.complete
+    assert any(f.cls == CONFLICT and f.kind == "NEVER REACHED"
+               and "customers can still collect parcels" in f.subject for f in report.findings)
+    assert not any(f.cls == CONFLICT and f.kind == "STUCK"
+                   and "a parcel in the locker always leaves it" in f.subject for f in report.findings)
+
+
 def test_the_guide_says_how_requests_are_stored_and_what_to_commit():
     """A7: the one page an AI reads names `req add` (never a hand-written request file), says
     to commit conflicts.json, and that release checks the flow models without a legacy map."""
