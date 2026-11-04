@@ -1367,6 +1367,10 @@ def show_main(root: Path, a, runner) -> tuple[int, str]:
         out.append(pic["first_line"])
         if pic.get("mermaid"):
             out.append(pic["mermaid"].rstrip("\n"))
+        images = [path for suffix in (".png", ".svg")
+                  for path in pic.get("files", ()) if path.endswith(suffix)]
+        if images:
+            out.append(f"![Flow diagram](<{images[0]}>)")
     if more:
         out.append(f"{len(more)} more not drawn:")
         out += [f"  {m}" for m in more]

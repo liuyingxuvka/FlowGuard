@@ -46,14 +46,30 @@ def test_models_are_named_by_id_or_by_a_path_in_the_flow_directory(project, monk
 def test_request_lines(project):
     project.kit()
     assert request_line(project.root, "R10") == "Repairs are done only at the main branch."
-    assert request_line(project.root, "R4") == "# Request 4: renting tools"
+    assert request_line(project.root, "R4") == "Members rent tools from the shelf of a branch."
     assert request_line(project.root, "R99") is None
     project.request("R5", "\n\n" + "x" * 150 + "\n")
     assert len(request_line(project.root, "R5")) == 100
     assert request_lines(project.root, ("R10", "R4", "R99")) == [
-        ("R4", "# Request 4: renting tools"), ("R10", "Repairs are done only at the main branch."),
+        ("R4", "Members rent tools from the shelf of a branch."), ("R10", "Repairs are done only at the main branch."),
         ("R99", "(not a stored request)")]
     assert request_lines(project.root, ()) == [("", "the AI's own")]
+
+
+@pytest.mark.parametrize("words,quote", [
+    ("# Request\n\nKeep existing loans usable.\n", "Keep existing loans usable."),
+    ("# Request\n\n## Rules\n\n- Members can return a loan.\n", "- Members can return a loan."),
+    ("# Keep existing loans usable\n", "# Keep existing loans usable"),
+    ("\n\n", ""),
+])
+def test_request_quote_prefers_words_over_headings_without_editing_the_request(project, words, quote):
+    from flowguard.map.requests import store_request
+    store_request(project.root, words.encode("utf-8"), identifier="RQuote")
+    stored = project.root / ".flowguard/requests/RQuote.md"
+    before = stored.read_bytes()
+    assert before == words.encode("utf-8")
+    assert request_line(project.root, "RQuote") == quote
+    assert stored.read_bytes() == before
 
 
 def test_conflicts_json_is_deterministic_and_tells_new_from_open(project):
@@ -211,3 +227,39 @@ def test_conflicts_directory_is_unreadable_not_an_absent_record(project):
     (project.root / ".flowguard/conflicts.json").mkdir()
     with pytest.raises(ConflictsUnreadable, match="not a regular file"):
         read_conflicts(project.root)
+
+
+def test_atomic_record_replacement_and_concurrent_readers(tmp_path):
+    """A record stays readable while another thread publishes complete replacements."""
+    import threading
+    from flowguard.flow._process import read_text
+    from flowguard.flow.project import _atomic_write
+    path = tmp_path / "record.json"
+    _atomic_write(path, '{"generation": 0}\n')
+    ready, stop = threading.Event(), threading.Event()
+    errors, observed = [], []
+
+    def read_records():
+        try:
+            observed.append(json.loads(read_text(path))["generation"])
+            ready.set()
+            while not stop.is_set():
+                observed.append(json.loads(read_text(path))["generation"])
+        except BaseException as error:
+            errors.append(error)
+            ready.set()
+
+    reader = threading.Thread(target=read_records, daemon=True)
+    reader.start()
+    try:
+        assert ready.wait(10), "the reader never started"
+        for generation in range(1, 501):
+            _atomic_write(path, json.dumps({"generation": generation}) + "\n")
+    finally:
+        stop.set()
+        reader.join(10)
+    assert not reader.is_alive(), "the record reader did not finish"
+    if errors:
+        raise errors[0]
+    assert observed and all(0 <= value <= 500 for value in observed)
+    assert json.loads(read_text(path))["generation"] == 500

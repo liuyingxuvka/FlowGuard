@@ -239,7 +239,8 @@ def test_release_runs_the_whole_suite_in_shards(tmp_path):
         "def record():\n"
         "    phase = 'suite' if os.environ.get('FLOWGUARD_PYTEST_SHARD_NODEIDS') else 'binding'\n"
         "    node = os.environ['PYTEST_CURRENT_TEST'].rsplit(' (', 1)[0]\n"
-        "    with Path(os.environ['FLOWGUARD_RELEASE_TEST_LOG']).open('a', encoding='utf-8') as stream:\n"
+        "    log = Path(os.environ['FLOWGUARD_RELEASE_TEST_LOG'])\n"
+        "    with log.with_name(f'{log.stem}-{os.getpid()}{log.suffix}').open('a', encoding='utf-8') as stream:\n"
         "        stream.write(json.dumps({'phase': phase, 'node': node}) + '\\n')\n\n"
         "def test_place_rejects_bad_input():\n"
         "    record()\n"
@@ -281,7 +282,12 @@ def test_release_runs_the_whole_suite_in_shards(tmp_path):
     bound = "shop/test_orders.py::test_place_rejects_bad_input"
 
     def records():
-        return [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+        return [json.loads(line) for path in sorted(log.parent.glob(f'{log.stem}-*{log.suffix}'))
+                for line in path.read_text(encoding="utf-8").splitlines()]
+
+    def clear_records():
+        for path in log.parent.glob(f'{log.stem}-*{log.suffix}'):
+            path.unlink()
 
     def assert_phases():
         observed = records()
@@ -303,7 +309,7 @@ def test_release_runs_the_whole_suite_in_shards(tmp_path):
 
     tests.write_text(tests.read_text(encoding="utf-8").replace(
         "assert place('o4', 8) == 'placed'", "assert place('o4', 8) == 'wrong'"), encoding="utf-8")
-    log.write_text("", encoding="utf-8")
+    clear_records()
     env["FLOWGUARD_PYTEST_SHARDS_DIR"] = str(tmp_path / "suite-fail")
     failed = invoke("release", "--shards", "2", "--json")
     output = failed.stdout + failed.stderr
@@ -318,7 +324,7 @@ def test_release_runs_the_whole_suite_in_shards(tmp_path):
     assert aggregate["pytest_execution"]["failed"] == 1 and aggregate["executed_count"] == 4
 
     (root / "shop/broken.py").write_text("def broken(:\n    return 1\n", encoding="utf-8")  # a real check error
-    log.write_text("", encoding="utf-8")
+    clear_records()
     env["FLOWGUARD_PYTEST_SHARDS_DIR"] = str(tmp_path / "suite-not-run")
     blocked = invoke("release", "--shards", "2")
     output = blocked.stdout + blocked.stderr
@@ -333,7 +339,7 @@ def test_release_runs_the_whole_suite_in_shards(tmp_path):
     from flowguard.__main__ import main
     direct_dir=tmp_path/'suite-direct-blocked'
     direct=StringIO()
-    log.write_text('',encoding='utf-8')
+    clear_records()
     with patch.dict(os.environ,{'FLOWGUARD_RELEASE_TEST_LOG':str(log),'FLOWGUARD_PYTEST_SHARDS_DIR':str(direct_dir)}):
         with redirect_stdout(direct),redirect_stderr(direct):code=main(['release','--root',str(root),'--shards','2'])
     assert code==1 and 'suite: not run (fix the failures above first)' in direct.getvalue(),direct.getvalue()

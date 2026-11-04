@@ -1,6 +1,8 @@
 """Focused release checks for the target promotion/commit seam."""
 import json
 
+from flowguard.flow.jobs import UNSUPPORTED_PLATFORM
+
 from _fg_helpers import (
     map_git as git,
     flowguard_map_contracts421_project as basic_project,
@@ -86,13 +88,13 @@ def test_release_runs_the_flow_models_full_check(tmp_path, capsys):
     flow = tmp_path / ".flowguard/flow"
     flow.mkdir()
     shutil.copy(Path(__file__).parent / "flow/data/planted/rental_naive.py", flow / "rental.py")
-    if not sys.platform.startswith("linux"):
-        # This test still executes on Windows: the old-map release above works,
-        # while S1a flow execution is explicitly Linux-only.
+    if not (sys.platform.startswith("linux") or sys.platform == "win32"):
+        # Unsupported platforms still retain the legacy release path;
+        # Linux and Windows execute the complete flow gate below.
         assert main(["release", "--root", str(tmp_path)]) == 2
         captured = capsys.readouterr()
         [line] = (captured.out + captured.err).splitlines()
-        assert "flow-model checks currently support Linux only" in line
+        assert UNSUPPORTED_PLATFORM in line
         assert not (tmp_path / ".flowguard/conflicts.json").exists()
     else:
         assert main(["release", "--root", str(tmp_path)]) == 1
@@ -158,8 +160,8 @@ def test_an_internal_error_in_the_flow_gate_stops_the_release_with_exit_2(tmp_pa
     assert main(["release", "--root", str(tmp_path)]) == 2
     err = capsys.readouterr().err
     import sys
-    if not sys.platform.startswith("linux"):
-        assert "flow-model checks currently support Linux only" in err
+    if not (sys.platform.startswith("linux") or sys.platform == "win32"):
+        assert UNSUPPORTED_PLATFORM in err
         assert "Traceback" not in err
         return
     assert "error: flow models: internal error: KeyError: 'id' (flowguard/flow/cli.py:" in err
@@ -182,11 +184,11 @@ def test_release_without_a_legacy_map_runs_the_flow_gate_and_the_suite(tmp_path,
     (tests / "test_ok.py").write_text("def test_ok():\n    assert 1 + 1 == 2\n", encoding="utf-8")
     capsys.readouterr()
     import sys
-    if not sys.platform.startswith("linux"):
+    if not (sys.platform.startswith("linux") or sys.platform == "win32"):
         assert main(["release", "--root", str(tmp_path)]) == 2
         captured = capsys.readouterr()
         [line] = (captured.out + captured.err).splitlines()
-        assert "flow-model checks currently support Linux only" in line
+        assert UNSUPPORTED_PLATFORM in line
         return
     assert main(["release", "--root", str(tmp_path)]) == 1
     captured = capsys.readouterr()

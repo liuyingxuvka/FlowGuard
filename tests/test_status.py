@@ -245,7 +245,7 @@ def test_status_shows_the_flow_models_open_conflicts_from_the_last_check(tmp_pat
     conflict = json.loads((root / '.flowguard/conflicts.json').read_text(encoding='utf-8'))['conflicts'][0]['id']
     capsys.readouterr()
     lines = _status(root, capsys)['flow_models']
-    assert lines == status_lines(root) == [f'flow models: 1 open conflict ({conflict}); release and CI fail until fixed; without a hook a commit is not blocked']
+    assert lines == status_lines(root) == [f'flow models: 1 open conflict ({conflict}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked']
     assert main(['status', '--root', str(root)]) == 0
     text = capsys.readouterr().out.splitlines()
     opened = next(number for number, line in enumerate(text) if line.startswith('OPEN CHANGE'))

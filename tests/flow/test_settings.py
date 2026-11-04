@@ -1,6 +1,9 @@
 """FG-811 settings: read from the code's configuration, never silently other values."""
 from __future__ import annotations
 
+import os
+import py_compile
+
 import pytest
 
 from flowguard.flow.checks import WARNING, check_model, reach_line
@@ -33,6 +36,60 @@ def test_changing_the_code_changes_the_model(project):
     cfg = project.root / "counter" / "config.py"
     cfg.write_text(cfg.read_text().replace("maintain_every: int = 4", "maintain_every: int = 3"))
     assert load(project, "workshop").model.settings["maintain_every"] == 3
+
+
+def test_config_file_reads_fresh_source_and_records_its_origin(project):
+    config = project.file("app.py", "class Config:\n    limit = 4\n")
+    project.flow("m", MODEL.format(setting='m.setting("limit")', extra=', config="app.py:Config"'))
+    py_compile.compile(str(config), doraise=True)
+    stamp = config.stat()
+    first = load(project, "m")
+    assert first.model.settings["limit"] == 4
+    assert first.model.setting_info["limit"].where == "app.py: Config.limit"
+    assert "app.py" in first.reads
+    config.write_text("class Config:\n    limit = 5\n")
+    os.utime(config, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+    assert config.stat().st_size == stamp.st_size
+    assert load(project, "m").model.settings["limit"] == 5
+
+
+@pytest.mark.parametrize("flat_file", [False, True])
+def test_existing_module_name_ending_in_py_still_resolves(project, flat_file):
+    project.file("app/__init__.py", "")
+    project.file("app/py.py", "class Config:\n    limit = 4\n")
+    if flat_file:
+        project.file("app.py", 'raise AssertionError("the existing qualified module owns this reference")\n')
+    project.flow("m", MODEL.format(setting='m.setting("limit")', extra=', config="app.py:Config"'))
+    loaded = load(project, "m")
+    assert loaded.model.settings["limit"] == 4
+    assert loaded.model.setting_info["limit"].where == "app/py.py: Config.limit"
+    assert "app/py.py" in loaded.reads
+
+
+@pytest.mark.parametrize("broken", [False, True])
+def test_file_config_import_runs_once_including_a_real_dependency_error(project, broken):
+    config = project.file("app.py", 'from pathlib import Path\n'
+                          'with Path(__file__).with_suffix(".runs").open("a") as out:\n    out.write("x")\n'
+                          + ('import missing_s1b_config_dependency\n' if broken else '')
+                          + 'class Config:\n    limit = 4\n')
+    project.flow("m", MODEL.format(setting='m.setting("limit")', extra=', config="app.py:Config"'))
+    if broken:
+        with pytest.raises(ModelError, match="missing_s1b_config_dependency"):
+            load(project, "m")
+    else:
+        assert load(project, "m").model.settings["limit"] == 4
+    assert config.with_suffix(".runs").read_text() == "x"
+
+
+def test_config_file_cannot_import_source_outside_the_project(project):
+    outside = project.root.parent / "outside.py"
+    marker = outside.with_suffix(".ran")
+    outside.write_text('from pathlib import Path\nPath(__file__).with_suffix(".ran").write_text("ran")\n'
+                       'class Config:\n    limit = 4\n')
+    project.flow("m", MODEL.format(setting='m.setting("limit")', extra=', config="../outside.py:Config"'))
+    with pytest.raises(ModelError, match="outside the project"):
+        load(project, "m")
+    assert not marker.exists()
 
 
 MODEL = '''
@@ -223,7 +280,8 @@ def test_a_setting_the_covered_code_lacks_is_still_named(project):
     ("", "from . import config"),
     ("src/", "from .config import Config"),
 ])
-def test_covered_config_import_forms_have_the_same_real_origin(project, layout, imported):
+@pytest.mark.parametrize("file_reference", [False, True])
+def test_covered_config_import_forms_have_the_same_real_origin(project, layout, imported, file_reference):
     project.file(layout + "shop/__init__.py", "")
     project.file(layout + "shop/config.py", "class Config:\n    maintain_every = 4\n")
     project.file(layout + "shop/core.py", imported + "\nclass Counter: pass\n")
@@ -231,8 +289,9 @@ def test_covered_config_import_forms_have_the_same_real_origin(project, layout, 
     project.flow("m", model)
     with pytest.raises(ModelError, match=r"maintain_every=3 \(code default 4\)"):
         load(project, "m")
+    reference = layout + "shop/config.py" if file_reference else "shop.config"
     project.flow("m", model.replace('covers=["' + layout + 'shop/core.py:Counter"]',
-                                   'covers=["' + layout + 'shop/core.py:Counter"], config="shop.config:Config"')
+                                   'covers=["' + layout + 'shop/core.py:Counter"], config="' + reference + ':Config"')
                  .replace('m.setting("maintain_every", 3)', 'm.setting("maintain_every")'))
     assert load(project, "m").model.settings["maintain_every"] == 4
 

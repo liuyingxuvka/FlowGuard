@@ -498,6 +498,38 @@ def test_final_request_ids_stdin_kinds_and_open_target_time(tmp_path, capsys, mo
     assert item["stored_during"] == {"goal": "an open owner request", "started": started}
 
 
+@pytest.mark.parametrize("kind", ["request", "adoption", "glossary"])
+def test_empty_request_bytes_do_not_create_records_or_reserve_the_id(tmp_path, kind):
+    from flowguard.map.mapfile import MapError
+    from flowguard.map.requests import store_request
+
+    with pytest.raises(MapError, match="request_empty"):
+        store_request(tmp_path, b"", identifier="REmpty", kind=kind)
+    assert not (tmp_path / ".flowguard").exists()
+    raw = b"limit = loan_limit\r\n" if kind == "glossary" else b" \t\r\n"
+    item = store_request(tmp_path, raw, identifier="REmpty", kind=kind)
+    assert item["bytes"] == len(raw)
+    assert (tmp_path / ".flowguard/requests/REmpty.md").read_bytes() == raw
+
+
+@pytest.mark.parametrize("input_source", ["file", "stdin"])
+def test_req_add_reports_empty_input_before_writing(tmp_path, capsys, monkeypatch, input_source):
+    import io
+    import sys
+
+    empty = tmp_path / "empty.md"
+    empty.write_bytes(b"")
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(b""), encoding="utf-8"))
+    source = "-" if input_source == "stdin" else str(empty)
+    code, output, errors = _call(tmp_path, capsys, "req", "add", source, "--id", "REmpty")
+    assert code == 2 and not output and "request_empty" in errors
+    assert "stdin" in errors
+    assert not (tmp_path / ".flowguard/requests").exists()
+    empty.write_bytes(b"Keep the owner's words.\r\n")
+    code, _, errors = _call(tmp_path, capsys, "req", "add", str(empty), "--id", "REmpty")
+    assert code == 0 and not errors
+
+
 def test_written_protection_distinguishes_linked_worktrees(tmp_path, capsys):
     root = _project(tmp_path / "main", capsys)
     _git(root, "init", "-q")

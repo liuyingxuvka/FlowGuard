@@ -145,7 +145,6 @@ def test_fixed_against_head_is_the_prototype_diff_picture(project):
     assert sorted(a[:3] for a in got["arrows"] if a[3] != "#999") == sorted(a[:3] for a in want["arrows"])
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="draws with node and Playwright, which the Linux release suite has")
 def test_picture_files_carry_the_same_texts_and_colours(project):
     project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
     code, out = show(project.root)
@@ -155,6 +154,9 @@ def test_picture_files_carry_the_same_texts_and_colours(project):
     assert m, first
     png, svg, mmd = (project.root / x for x in m.groups())
     assert png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n" and png.stat().st_size > 5000
+    embedded = re.search(r"^!\[Flow diagram\]\(<([^>\n]+)>\)$", out, re.M)
+    assert embedded, out
+    assert (project.root / embedded.group(1)).samefile(png)
     assert mmd.read_text() == body(out) + "\n"
     root = ET.parse(svg).getroot()                                   # well-formed XML
     text = " ".join(t.strip() for t in root.itertext() if t.strip())

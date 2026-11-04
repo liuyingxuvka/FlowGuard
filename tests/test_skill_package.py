@@ -94,7 +94,6 @@ class SkillPackageTests(unittest.TestCase):
         from flowguard.templates import adoption_template_files
         rules = next(file.content for file in adoption_template_files() if file.path == 'AGENTS.md')
         numbered = re.findall(r'^\d\. .+$', rules, re.M)
-        self.assertEqual(4, len(numbered))
         first = ('1. At the start of a session and after any loss of context, '
                  'run `python -m flowguard status` before anything else.')
         self.assertEqual(first, numbered[0])
@@ -124,13 +123,35 @@ class SkillPackageTests(unittest.TestCase):
     def test_skill_entry_teaches_only_the_plain_flow(self) -> None:
         text=(SKILL/'SKILL.md').read_text(encoding='utf-8')
         headings=re.findall(r'^## ([^\n]+)',text,re.M)
-        self.assertEqual(['Start',"The owner's words",'Find code','Change, test, commit','Honesty'],headings)
+        self.assertEqual(['Start',"The owner's words",'Changes to a flow','Find code','Change, test, commit','Honesty'],headings)
         for required in ('python -m flowguard status','python -m flowguard req add','python -m flowguard where','python -m pytest -q'):
             self.assertIn(required,text)
         taught = set(re.findall(r'python -m flowguard ([a-z]+)', text))
-        self.assertEqual({'status','req','where'}, taught)
+        self.assertEqual({'status','req','where','check','show'}, taught)
         for retired in ('target start','target add','target check','target promote','map confirm','change --run','read --find','PLAN.txt','owner block','commit -F','NEXT'):
             self.assertNotIn(retired,text)
+
+    def test_flow_instructions_trigger_on_behavior_and_keep_owner_questions_for_real_conflicts(self) -> None:
+        from flowguard.templates import adoption_template_files
+        rules = next(file.content for file in adoption_template_files() if file.path == 'AGENTS.md')
+        skill = (SKILL / 'SKILL.md').read_text()
+        for text in (rules, skill):
+            for instruction in ('state values, actions, conditions, settings or endings',
+                                'feature', 'python -m flowguard check', 'python -m flowguard show'):
+                self.assertIn(instruction, text)
+        self.assertIn("flow model before the code", rules)
+        self.assertIn("When explaining a flow", rules)
+        self.assertIn("![Flow](PATH)", rules)
+        for instruction in ('before changing the code', 'not three required files',
+                            'If a design can satisfy all requests, fix it yourself',
+                            'When requirements genuinely collide', 'stored source words',
+                            'safest reversible action', 'label it temporary',
+                            'Dead ends and never-happens behavior must be fixed in code',
+                            'a temporary decision does not settle them',
+                            'instead of adding a fallback', 'show MODEL --before REV'):
+            self.assertIn(instruction, skill)
+        for future in ('flowguard decide', 'flowguard draft'):
+            self.assertNotIn(future, rules + skill)
 
     def test_route_sections_are_listed(self) -> None:
         text=(SKILL/'references/routes.md').read_text(encoding='utf-8')
@@ -227,8 +248,7 @@ class SkillPackageTests(unittest.TestCase):
         from flowguard.templates import adoption_template_files
         self.assertEqual(["AGENTS.md", "CLAUDE.md"], [f.path for f in adoption_template_files()])
         rules = next(f.content for f in adoption_template_files() if f.path == "AGENTS.md")
-        self.assertEqual(4, len(re.findall(r"^\d\. ", rules, re.M)))
-        self.assertEqual({"status", "req", "where"}, set(re.findall(r"python -m flowguard ([a-z]+)", rules)))
+        self.assertEqual({"status", "req", "where", "check", "show"}, set(re.findall(r"python -m flowguard ([a-z]+)", rules)))
         self.assertNotIn("Copy these", rules)
         commit_rule = next(line for line in rules.splitlines() if line.startswith("4. "))
         for required in ("one commit", "your own words", "Request: R<n>"):
@@ -386,19 +406,22 @@ class SkillPackageTests(unittest.TestCase):
 
             # The current rules were added but the earlier block was left: name it to remove, print no rules.
             both = rules.splitlines() + [""] + project + EARLIER_FLOWGUARD_BLOCK + after
+            first, last = both.index(begin) + 1, both.index(end) + 1
             agents.write_text("\n".join(both) + "\n", encoding="utf-8")
             output = adopt(root)
             self.assertNotIn("nothing to add", output)
             self.assertNotIn(rules.splitlines()[2], output)
             self.assertIn(
                 "kept AGENTS.md (it exists): FlowGuard does not edit it; it holds the current FlowGuard rules, and these "
-                f"lines of it hold an earlier FlowGuard block:\n  lines 12-26: {block}\nremove those lines from "
+                f"lines of it hold an earlier FlowGuard block:\n  lines {first}-{last}: {block}\nremove those lines from "
                 f"{agents}; keep the current rules there\n", output)
 
             # The current rules only inside the markers are still the earlier block: replacing it removes the markers.
-            agents.write_text("\n".join(project + [begin, *rules.splitlines(), end]) + "\n", encoding="utf-8")
+            marked = project + [begin, *rules.splitlines(), end]
+            agents.write_text("\n".join(marked) + "\n", encoding="utf-8")
             output = adopt(root)
-            self.assertIn(f"  lines 5-12: {block}\nput these lines in {agents} in place of the lines named above:\n",
+            self.assertIn(f"  lines {marked.index(begin) + 1}-{marked.index(end) + 1}: {block}\n"
+                          f"put these lines in {agents} in place of the lines named above:\n",
                           output)
 
             # A begin marker without its end delimits nothing: it and the rule-like lines after it are named one by one.
@@ -444,7 +467,7 @@ class SkillPackageTests(unittest.TestCase):
                 base / name for name in ("fresh", "held", "both", "marked", "older", "plain", "odd"))
             fresh.mkdir()
             adopt(fresh, "AGENTS.md missing")
-            self.assertIn("the four project rules", cases["AGENTS.md missing"])
+            self.assertIn("the project rules", cases["AGENTS.md missing"])
             self.assertEqual((rules, "@AGENTS.md\n"), tuple((fresh / name).read_text(encoding="utf-8")
                                                           for name in ("AGENTS.md", "CLAUDE.md")))
 
@@ -459,9 +482,12 @@ class SkillPackageTests(unittest.TestCase):
             block = "<!-- BEGIN FLOWGUARD PROJECT RULES -->\n## FlowGuard rules\n\nKeep the map.\n" \
                     "1. Run `python -m flowguard read` first.\n<!-- END FLOWGUARD PROJECT RULES -->\n"
             both.mkdir()
-            (both / "AGENTS.md").write_text(rules + "\n" + block, encoding="utf-8")
+            combined = rules + "\n" + block
+            (both / "AGENTS.md").write_text(combined, encoding="utf-8")
             output = adopt(both, both_case)
-            self.assertIn("  lines 8-13: ", output)
+            combined_lines = combined.splitlines()
+            self.assertIn(f"  lines {combined_lines.index(EARLIER_FLOWGUARD_BLOCK[0]) + 1}-"
+                          f"{combined_lines.index(EARLIER_FLOWGUARD_BLOCK[-1]) + 1}: ", output)
             self.assertNotIn(rules.splitlines()[2], output)
             self.assertNotIn("nothing to add", output)
 

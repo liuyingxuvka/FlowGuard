@@ -317,7 +317,7 @@ class Model:
         if isinstance(covers, str) or not all(isinstance(c, str) for c in covers):
             _fail("covers= must be a list of 'file', 'file:Class' or 'file:Class.method'")
         if config is not None and (not isinstance(config, str) or config.count(":") != 1):
-            _fail(f"config= must be 'package.module:Object', not {config!r}")
+            _fail(f"config= must be 'package.module:Object' or 'file.py:Object', not {config!r}")
         if valid is not None and not callable(valid):
             _fail("valid= must be a function of the settings")
         self.id = None                    # the file stem, set by the loader
@@ -587,10 +587,34 @@ def _setting_where(file, spec, name):
 
 def _import_config(spec):
     modname, _, objpath = spec.partition(":")
+    source = None
+    if modname.endswith(".py"):
+        root = Path(_LOAD["root"] or Path.cwd()).resolve()
+        path = (root / modname).resolve()
+        if not path.is_relative_to(root):
+            _fail(f"config {spec!r}: its source file is outside the project")
+        if path.is_file():
+            qualified = False
+            if all(part.isidentifier() for part in modname.split(".")):
+                try:
+                    qualified = (sys.modules.get(modname) is not None or
+                                 importlib.util.find_spec(modname) is not None)
+                except ModuleNotFoundError as err:
+                    if err.name != modname or not isinstance(err.__cause__, AttributeError):
+                        _fail(f"config {spec!r}: cannot import {modname!r} from the project ({err})")
+                except ImportError as err:
+                    _fail(f"config {spec!r}: cannot import {modname!r} from the project ({err})")
+            if not qualified:
+                source = path
+                parts, _ = _module_parts(source.relative_to(root).as_posix(), root)
+                modname = ".".join(parts)
     try:
         module = importlib.import_module(modname)
     except ImportError as err:
         _fail(f"config {spec!r}: cannot import {modname!r} from the project ({err})")
+    origin = getattr(module, "__file__", None)
+    if source is not None and (not origin or Path(origin).resolve() != source):
+        _fail(f"config {spec!r}: imported {modname!r} does not name its project source file")
     obj = module
     for part in objpath.split(".") if objpath else ():
         if isinstance(obj, types.ModuleType) and not hasattr(obj, part):

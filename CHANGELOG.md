@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.74.0 - 2026-11-04 - Model-first work and Windows flow checks
+
+Flow explanations include the rendered diagram in the reply.
+
+- Flow changes update the affected feature model before code; flow discussions use its pictures. The short skill describes how to resolve compatible requests and distinguish a temporary requirement choice from a dead end that still needs a code fix.
+- Flow checks, pictures and release checks run on Linux and Windows through the same model engine. Waiting, resuming, caller death and expired background work retain their existing meanings. macOS flow execution remains unsupported.
+- Request quotations prefer substantive words over Markdown headings. Status explains that CI blocks a release only when it runs the release check; a commit is blocked only by an installed hook.
+- A caller waiting on work replaced by a newer model reports that replacement, even when the new worker finishes quickly.
+
 ## v0.73.0 - 2026-11-04 - Flow models, concrete conflicts and bounded checks
 
 - Flow models: write the part of the design a change touches as a small model in `.flowguard/flow/<name>.py`, one model per file, importing `from flowguard.flow import Model, need`. The short guide is `flowguard/flow/HOWTO.md`, which the installed package carries too.

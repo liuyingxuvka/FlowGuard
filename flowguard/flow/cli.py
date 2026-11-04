@@ -799,13 +799,13 @@ def release(root, *, out=None, err=None, on_result=None) -> bool:
     return code in (EXIT_CLEAN, EXIT_UNKNOWN) and not proposals
 
 
-FAILS = "release and CI fail until fixed; without a hook a commit is not blocked"
+FAILS = "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked"
 
 
 def status_lines(root) -> list[str]:
     """For `python -m flowguard status`: open conflicts of the flow models from the last
     final check (.flowguard/conflicts.json, the only source), and what they stop: release
-    (and so CI, which runs it) fails on an open conflict, a model error or a model that does
+    (and CI only when it runs release) fails on an open conflict, a model error or a model that does
     not load; nothing stops a commit unless the project installs a hook that runs it. A
     project with no flow model and no recorded check gets no line."""
     platform = [problem] if model_files(Path(root)) and (problem := jobs.platform_problem()) else []

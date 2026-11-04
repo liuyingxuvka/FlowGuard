@@ -174,8 +174,10 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
                           "  later, where cond[*] = 'repair': repaired(t='T1') refused: 'repairs only at main' "
                           "(R10)",
                           "  entered by rent(t='T1') (R4)"]
-    assert stuck[8] == ('  requests: R4 "# Request 4: renting tools" | R6 "# Request 6: two branches" | '
-                        'R9 "# Request 9: regular maintenance" | R10 "Repairs are done only at the main branch."')
+    assert stuck[8] == ('  requests: R4 "Members rent tools from the shelf of a branch." | '
+                        'R6 "Tools on the shelf can be moved between the main branch and the library corner." | '
+                        'R9 "A tool goes to maintenance after every few rentals." | '
+                        'R10 "Repairs are done only at the main branch."')
     assert stuck[9] == "  state: cond[T1]='loan', branch[T1]='library', rentals[T1]=4"
     assert stuck[10].startswith("  path (8 steps): rent(t='T1') ; give_back(t='T1') ;")
     assert stuck[11] == ("  then also stuck: progress 'a tool in repair or on the way gets back "
@@ -291,7 +293,7 @@ def test_json_is_one_line_with_the_contract_keys(project):
     assert list(data) == JSON_KEYS
     assert data["verdict"] == "6 new conflicts; complete" and data["exit"] == 1 and data["complete"]
     assert len(data["conflicts"]) == 6 and all(c["new"] for c in data["conflicts"])
-    assert data["conflicts"][0]["requests"][0] == ["R4", "# Request 4: renting tools"]
+    assert data["conflicts"][0]["requests"][0] == ["R4", "Members rent tools from the shelf of a branch."]
     pictures = [c["picture"] for c in data["conflicts"]]
     assert all(p == f".flowguard/cache/flow/pictures/workshop_naive-{c['id'][2:]}.{'svg' if RENDERER else 'mmd'}"
                for p, c in zip(pictures, data["conflicts"]))
@@ -311,14 +313,23 @@ def test_json_is_one_line_with_the_contract_keys(project):
 
 
 def test_the_same_fingerprints_and_file_under_every_hash_seed(project):
+    from checkrun import gone, wait_until
+    from flowguard.flow.jobs import read_json
     project.kit().flow_from(KIT / "workshop_naive.py")
     seen = []
     for seed in (0, 1, 2):
-        shutil.rmtree(project.root / ".flowguard" / "cache", ignore_errors=True)
+        cache = project.root / ".flowguard" / "cache"
+        if cache.exists():
+            shutil.rmtree(cache)
         (project.root / ".flowguard" / "conflicts.json").unlink(missing_ok=True)
-        data = timed(project.root, "--json", seed=seed).data
+        run = timed(project.root, "--json", seed=seed)
+        assert run.code == 1, run.out + run.err
+        data = run.data
         seen.append(([c["id"] for c in data["conflicts"]],
                      (project.root / ".flowguard/conflicts.json").read_bytes()))
+        pids = {p["worker"] for p in data["parts"] if p["worker"] is not None}
+        pids.update(read_json(path)["pid"] for path in cache.glob("flow/jobs/*/*/guardian.json"))
+        assert wait_until(lambda: all(gone(pid) for pid in pids), 5) is not None
     assert seen[0] == seen[1] == seen[2]
 
 
@@ -453,7 +464,7 @@ def test_status_lines_read_the_last_final_check(project):
     project.kit().flow_from(KIT / "workshop_naive.py")
     timed(project.root)
     [line] = status_lines(project.root)
-    assert line.startswith("flow models: 6 open conflicts (C-") and line.endswith("release and CI fail until fixed; without a hook a commit is not blocked")
+    assert line.startswith("flow models: 6 open conflicts (C-") and line.endswith("release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked")
     assert "a commit is blocked" not in line        # acceptance A6: nothing stops a commit unless a hook runs it
 
 
@@ -551,7 +562,19 @@ def test_a_change_that_sends_books_to_repair_with_no_way_back_is_not_clean(proje
     for p in (desk / "requests").glob("*.md"):
         store_request(project.root, p.read_bytes(), identifier=p.stem)
     project.flow_from(desk / "desk.py")
-    assert timed(project.root).code == 0
+    initial = timed(project.root)
+    if initial.code != 0:
+        from flowguard.flow._process import read_text
+        print(f"Initial desk check stdout:\n{initial.out}\nInitial desk check stderr:\n{initial.err}", file=sys.stderr)
+        jobs = project.root / ".flowguard/cache/flow/jobs"
+        for path in sorted([*jobs.glob("*/*/status.json"), *jobs.glob("*/*/log")]):
+            try:
+                text = read_text(path)
+            except (OSError, UnicodeError) as error:
+                print(f"Diagnostic read failed for {path}: {type(error).__name__}: {error}", file=sys.stderr)
+            else:
+                print(f"Initial desk check {path.relative_to(project.root)}:\n{text}", file=sys.stderr)
+    assert initial.code == 0
     project.flow_from(desk / "desk_naive.py", "desk")
     run = timed(project.root)
     assert run.code == 1 and "clean" not in run.first
@@ -580,7 +603,7 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
     data = json.loads(saved.read_text())
     assert [c["id"] for c in data["conflicts"]] == [cid] and data["unknown"] == ["rental"]
     [status] = status_lines(project.root)
-    assert f"1 open conflict ({cid}); release and CI fail until fixed; without a hook a commit is not blocked" in status
+    assert f"1 open conflict ({cid}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status
     assert "UNKNOWN for rental (does not block)" not in status
 
     path = project.root / ".flowguard/flow/rental.py"
@@ -639,7 +662,7 @@ def test_a_capped_check_after_a_settings_change_keeps_every_proven_conflict(proj
         assert line.endswith("this check is capped; a complete check will settle it)"), line
     assert sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"]) == ids
     [status] = status_lines(project.root)
-    assert "3 open conflicts" in status and "release and CI fail until fixed; without a hook a commit is not blocked" in status, status
+    assert "3 open conflicts" in status and "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status, status
     assert "does not block" not in status, status
     again = timed(project.root)
     assert again.code == 1 and again.first == "3 open conflicts; complete", again.out
@@ -694,7 +717,7 @@ def test_a_renamed_or_deleted_model_file_keeps_its_conflicts(project):
                          "check of rental no longer finds it)")
     assert cid in [c["id"] for c in json.loads(saved.read_text())["conflicts"]]
     [status] = status_lines(project.root)
-    assert f"1 open conflict ({cid}); release and CI fail until fixed; without a hook a commit is not blocked" in status
+    assert f"1 open conflict ({cid}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status
     full = timed(project.root)                     # rental2's own conflict is new; rental's stays
     assert full.code == 1 and full.first == "1 new conflict, 1 open; complete"
     assert f"[{cid}] (kept: its model file .flowguard/flow/rental.py is gone" in full.out
@@ -756,7 +779,7 @@ def test_a_model_error_in_the_search_closes_nothing_and_proves_nothing(project):
     data = json.loads(saved.read_text())
     assert [c["id"] for c in data["conflicts"]] == [cid] and data["unknown"] == ["rental"]
     [status] = status_lines(project.root)
-    assert "release and CI fail until fixed; without a hook a commit is not blocked" in status and "rental (2 model errors" in status, status
+    assert "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status and "rental (2 model errors" in status, status
     path.write_text(text)                                        # restored: a capped check keeps only the real one
     capped = timed(project.root, "--max-states", "3")
     assert capped.code == 1 and capped.first == "1 open conflict; UNKNOWN: rental capped at 3 states", capped.out
@@ -1076,4 +1099,4 @@ def test_a_capped_check_closes_no_never_reached_item_the_model_no_longer_has(pro
     assert len(opened) == 2 and all(x.endswith("this check is capped)") for x in opened), capped.out
     assert sorted(c["id"] for c in json.loads(saved.read_text())["conflicts"]) == ids
     [status] = status_lines(project.root)
-    assert "2 open conflicts" in status and "release and CI fail until fixed; without a hook a commit is not blocked" in status, status
+    assert "2 open conflicts" in status and "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status, status

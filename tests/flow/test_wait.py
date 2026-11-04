@@ -6,17 +6,12 @@ from __future__ import annotations
 
 import json
 import os
-import signal
-import sys
 import time
 from pathlib import Path
 
 import pytest
 
-from checkrun import gone, group_gone, run_check, start_check, wait_until
-
-pytestmark = pytest.mark.skipif(not sys.platform.startswith("linux"),
-                               reason="S1a flow command waits exercise the Linux-owned worker")
+from checkrun import gone, group_gone, kill, run_check, start_check, wait_until
 
 SLOW = '''
 """Each step takes a while (a test of the wait contract)."""
@@ -71,7 +66,8 @@ def jobs_of(root) -> list[Path]:
 
 
 def read(path: Path) -> dict | None:
-    return json.loads(path.read_text()) if path.is_file() else None
+    from flowguard.flow.jobs import read_json
+    return read_json(path)
 
 
 def worker_of(root) -> tuple[Path, int]:
@@ -82,6 +78,12 @@ def worker_of(root) -> tuple[Path, int]:
 def running(run: Path) -> bool:
     st = read(run / "status.json")
     return st is not None and st["state"] == "running"
+
+
+def resume_diagnostic(caller, run: Path) -> str:
+    code = caller.poll()
+    output = caller.communicate(timeout=1) if code is not None else ("still running", "")
+    return f"caller exit={code}, output={output!r}, lease={read(run / 'lease.json')}, status={read(run / 'status.json')}"
 
 
 # ---------------------------------------------------------------------- RUNNING and resume
@@ -129,6 +131,17 @@ def test_progress_goes_to_stderr_after_two_seconds(project):
     assert run.seconds < 6
 
 
+def test_zero_wait_hands_off_the_buffered_lease_before_caller_eof(project):
+    slow(project, "endless", steps=100000, delay=0.01)
+    first = run_check(project.root, "--wait", "0", "--keep", "2")
+    assert first.code == 4, first.out + first.err
+    run, pid = worker_of(project.root)
+    assert wait_until(lambda: (read(run / "status.json") or {}).get("lease_ms") is not None, 5) is not None
+    assert not gone(pid)
+    assert wait_until(lambda: gone(pid), 6) is not None
+    assert read(run / "status.json")["reason"] == "lease expired: nobody waits for the result"
+
+
 def test_the_caller_never_runs_model_code(project, tmp_path):
     project.flow("fast", FAST)
     pids = tmp_path / "pids"
@@ -155,12 +168,36 @@ def test_killing_the_spawning_caller_stops_the_worker(project):
     caller = start_check(project.root, "--wait", "60")
     assert wait_until(lambda: jobs_of(project.root) and running(jobs_of(project.root)[-1]), 10) is not None
     run, pid = worker_of(project.root)
-    os.kill(caller.pid, signal.SIGKILL)
+    kill(caller.pid)
     caller.wait()
     assert wait_until(lambda: gone(pid) and group_gone(pid), 5) is not None
     assert not (project.root / ".flowguard/conflicts.json").exists()
     assert wait_until(lambda: not running(run), 5) is not None       # its status says it ended (G6)
     assert read(run / "status.json")["state"] in ("stopped", "died")
+
+
+def test_caller_death_stops_even_a_worker_blocking_the_python_watchdog(project, tmp_path):
+    marker = tmp_path / "in_native_sleep"
+    project.flow("blocked", '''
+        import ctypes, os
+        from pathlib import Path
+        from flowguard.flow import Model
+        Path(MARKER).write_text("entered")
+        if os.name == "nt":
+            ctypes.PyDLL("kernel32").Sleep(60000)
+        else:
+            ctypes.PyDLL(None).sleep(60)
+        m = Model("blocked")
+        m.field("on", [False, True], False)
+        MODEL = m
+        '''.replace("MARKER", repr(str(marker))))
+    caller = start_check(project.root, "--wait", "60")
+    assert wait_until(marker.is_file, 10) is not None
+    run, pid = worker_of(project.root)
+    kill(caller.pid)
+    caller.wait()
+    assert wait_until(lambda: gone(pid) and group_gone(pid), 5) is not None
+    assert wait_until(lambda: not running(run), 5) is not None
 
 
 def test_a_worker_that_dies_is_reported_and_never_restarted(project):
@@ -171,7 +208,7 @@ def test_a_worker_that_dies_is_reported_and_never_restarted(project):
     run, pid = worker_of(project.root)
     caller = start_check(project.root, "--wait", "60")
     assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None
-    os.kill(pid, signal.SIGKILL)
+    kill(pid)
     out, _ = caller.communicate(timeout=30)
     assert caller.returncode == 2, out
     assert out.startswith(f"internal error: the worker (pid {pid}) died before it finished"), out
@@ -193,11 +230,13 @@ def test_a_worker_killed_with_its_whole_group_is_said_to_have_died(project):
     run, pid = worker_of(project.root)
     caller = start_check(project.root, "--wait", "60")
     assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None
-    os.killpg(pid, signal.SIGKILL)
+    kill(pid, whole_group=True)
     out, _ = caller.communicate(timeout=30)
     assert caller.returncode == 2 and out.startswith(f"internal error: the worker (pid {pid}) died"), out
     status = read(run / "status.json")
-    assert status["state"] == "died" and "process group" in status["reason"] and status["current"] is None
+    assert status["state"] == "died" and status["current"] is None
+    if os.name != "nt":
+        assert "process group" in status["reason"]
     assert jobs_of(project.root) == [run]
 
 
@@ -211,8 +250,8 @@ def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_g
     assert run_check(project.root, "--wait", "1", "--keep", "120").code == 4
     run, pid = worker_of(project.root)
     assert wait_until(lambda: running(run) and read(run / "status.json")["lease_ms"] is not None, 5) is not None
-    (os.killpg if whole_group else os.kill)(pid, signal.SIGKILL)
-    assert wait_until(lambda: not Path(f"/proc/{pid}").exists(), 5) is not None   # reaped, not only a zombie
+    kill(pid, whole_group=whole_group)
+    assert wait_until(lambda: gone(pid), 5) is not None
     time.sleep(0.5)                                    # the death notice, if any, has written
     again = run_check(project.root, "--wait", "2", "--keep", "0")
     assert again.code == 2, again.out
@@ -221,7 +260,7 @@ def test_a_lingering_worker_that_dies_is_reported_by_the_resume(project, whole_g
     assert jobs_of(project.root) == [run]                              # no second worker
     status = read(run / "status.json")
     assert status["state"] == "died" and status["current"] is None, status
-    if whole_group:
+    if whole_group and os.name != "nt":
         assert "process group" in status["reason"], status
     third = run_check(project.root, "--wait", "1", "--keep", "0")      # said once: a new command starts afresh
     assert third.code == 4, third.out
@@ -266,10 +305,10 @@ def test_killing_an_attached_resume_caller_stops_the_worker(project):
     assert first.code == 4
     run, pid = worker_of(project.root)
     caller = start_check(project.root, "--wait", "60")
-    assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None
+    assert wait_until(lambda: (read(run / "lease.json") or {}).get("pid") == caller.pid, 10) is not None, resume_diagnostic(caller, run)
     time.sleep(1.5)                                    # it renews the lease while it waits
     assert not gone(pid) and worker_of(project.root)[1] == pid
-    os.kill(caller.pid, signal.SIGKILL)
+    kill(caller.pid)
     caller.wait()
     assert wait_until(lambda: gone(pid) and group_gone(pid), 5) is not None
     assert read(run / "status.json")["reason"] == "lease expired: nobody waits for the result"

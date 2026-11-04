@@ -32,7 +32,6 @@ per part), `jobs/<plan digest>/current.json` naming the latest run directory
 from __future__ import annotations
 
 import ctypes
-import errno
 import hashlib
 import json
 import os
@@ -46,6 +45,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from ._process import lock_file, read_text, spawn_worker, terminate_group, unlock_file, windows_pid_alive
 from .explore import Bounds
 from .parts import ENGINE_DIGEST, PartResult, PartSpec, kinds, part_digest
 from .project import FLOW_DIR, ProjectError, _atomic_write, cache_dir, file_digest, read_manifest, write_manifest
@@ -59,12 +59,12 @@ KEEP_DEAD = 3                    # the newest runs that failed or died keep thei
 PR_SET_PDEATHSIG = 1
 WORKER_MODULE = f"{__package__}.worker"
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]      # the directory holding `flowguard/`
-UNSUPPORTED_PLATFORM = "flow-model checks currently support Linux only"
+UNSUPPORTED_PLATFORM = "flow-model checks currently support Linux and Windows"
 
 
 def platform_problem() -> str | None:
     """The execution boundary; importing flow views remains portable."""
-    return None if sys.platform.startswith("linux") else UNSUPPORTED_PLATFORM
+    return None if sys.platform.startswith("linux") or sys.platform == "win32" else UNSUPPORTED_PLATFORM
 
 
 def require_supported() -> None:
@@ -202,7 +202,7 @@ def lookup(root, item: Planned) -> PartResult | None:
     path = parts_dir(root) / f"{digest}.json"
     if not path.is_file():
         return None
-    result = PartResult.from_json(json.loads(path.read_text(encoding="utf-8")))
+    result = PartResult.from_json(json.loads(read_text(path)))
     if result.kind != item.spec.kind or result.model != item.spec.model:
         return None
     if any(not (Path(root) / w).exists() for w in result.writes):
@@ -228,7 +228,7 @@ def inputs_of(root, planned: list[Planned]) -> dict:
 
 # ---------------------------------------------------------------------- locks and processes
 class Lock:
-    """An exclusive lock on a file (flock): held exactly while its holder lives, so a lock
+    """An exclusive native file lock: held exactly while its holder lives, so a lock
     of a killed process is free at once. The file records the holder's pid."""
 
     def __init__(self, path: Path):
@@ -237,17 +237,17 @@ class Lock:
 
     def acquire(self, blocking: bool = True) -> bool:
         require_supported()
-        import fcntl
-
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o644)
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
-        except OSError as err:
+            acquired = lock_file(fd, blocking)
+        except BaseException:
             os.close(fd)
-            if err.errno in (errno.EAGAIN, errno.EACCES):
-                return False
             raise
+        if not acquired:
+            os.close(fd)
+            return False
+        os.lseek(fd, 0, os.SEEK_SET)
         os.ftruncate(fd, 0)
         os.write(fd, f"{os.getpid()}\n".encode())
         self.fd = fd
@@ -255,9 +255,7 @@ class Lock:
 
     def release(self) -> None:
         if self.fd is not None:
-            import fcntl
-
-            fcntl.flock(self.fd, fcntl.LOCK_UN)
+            unlock_file(self.fd)
             os.close(self.fd)
             self.fd = None
 
@@ -272,6 +270,8 @@ class Lock:
 def pid_alive(pid: int) -> bool:
     """Whether a process runs (an exited child of ours is reaped first, and an exited
     process nobody has reaped yet, a zombie, counts as gone)."""
+    if os.name == "nt":
+        return windows_pid_alive(pid)
     try:
         done, _ = os.waitpid(pid, os.WNOHANG)
         if done == pid:
@@ -293,7 +293,7 @@ def pid_alive(pid: int) -> bool:
 def read_json(path: Path) -> dict | None:
     if not path.is_file():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(read_text(path))
 
 
 def write_json(path: Path, data: dict) -> None:
@@ -398,9 +398,9 @@ class _Job:
         env = dict(os.environ)
         env["PYTHONPATH"] = os.pathsep.join([str(PACKAGE_ROOT)] + [p for p in [env.get("PYTHONPATH")] if p])
         with open(directory / "log", "ab") as log:
-            job.proc = subprocess.Popen(
+            job.proc = spawn_worker(
                 [sys.executable, "-m", WORKER_MODULE, str(directory), str(r), str(os.getpid())],
-                pass_fds=(r,), start_new_session=True, stdin=subprocess.DEVNULL, stdout=log,
+                r, stdin=subprocess.DEVNULL, stdout=log,
                 stderr=subprocess.STDOUT, env=env, cwd=str(root))
         os.close(r)
         job.pipe = w
@@ -489,7 +489,7 @@ def _stop_stale(run: Path) -> None:
     keeps its directory and log, so a check still waiting on it reads why it ended."""
     pid = worker_pid(run)
     try:
-        os.killpg(pid, signal.SIGKILL)
+        terminate_group(pid)
     except ProcessLookupError:
         pass
     deadline = time.monotonic() + 2.0
@@ -597,6 +597,11 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
                 for i, item in enumerate(planned):
                     if results[i] is None:
                         results[i] = lookup(root, item)
+            # A replacement may publish its results before this waiting caller observes
+            # the old worker's death. Those results do not complete this run.
+            if all(r is not None for r in results) and (job.status() or {}).get("state") == "replaced":
+                out.changed = job.ended(root)[1]
+                break
             if _name_workers(job, planned, results, cached, workers) and all(r is not None for r in results):
                 out.finished = True
                 break

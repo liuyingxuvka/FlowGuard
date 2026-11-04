@@ -58,6 +58,8 @@ def _stored_during(root: Path):
 def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind: str = 'request',
                   supersedes=()) -> dict:
     root = Path(root).resolve()
+    if not raw:
+        raise MapError('request_empty: no owner words received; pass a nonempty file or pipe the request text to stdin')
     if kind not in KINDS:
         raise MapError('request_kind_invalid: expected request, glossary or adoption')
     supersedes = list(dict.fromkeys(supersedes))

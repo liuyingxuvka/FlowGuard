@@ -58,7 +58,7 @@ project and read components in batches. `read` prints every component and model;
    with its reason as in step 5 (`architecture_review.md`); do not silently bypass those errors.
 8. `python -m flowguard template adoption --write .` writes AGENTS.md and CLAUDE.md only when they are missing and
    never changes an existing one, also with `--force`. What it does with each:
-   - AGENTS.md missing: it writes the four project rules there.
+   - AGENTS.md missing: it writes the project rules there.
    - AGENTS.md holds every current rule line and no earlier FlowGuard block: it prints
      `already holds the current FlowGuard rules` and asks for nothing.
    - AGENTS.md holds the current rules and an earlier FlowGuard block: it names the block by its line range (see the

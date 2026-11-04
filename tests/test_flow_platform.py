@@ -1,4 +1,4 @@
-"""The Linux flow engine must not break legacy commands on other platforms."""
+"""Native flow support must not break legacy commands on other platforms."""
 import json
 import os
 from pathlib import Path
@@ -9,7 +9,7 @@ from _fg_helpers import flowguard_map_contracts421_project as basic_project
 
 
 REPO = Path(__file__).resolve().parents[1]
-UNSUPPORTED = "flow-model checks currently support Linux only"
+UNSUPPORTED = "flow-model checks currently support Linux and Windows"
 SCRIPT = '''
 import contextlib, io, json, sys
 class NoFcntl:
@@ -23,10 +23,10 @@ from flowguard.flow import jobs
 request = json.loads(sys.stdin.read())
 if request["unsupported"]:
     actual_platform = sys.platform
-    sys.platform = "win32"
+    sys.platform = "darwin"
     problem = jobs.platform_problem()
     sys.platform = actual_platform
-    assert problem == "flow-model checks currently support Linux only"
+    assert problem == "flow-model checks currently support Linux and Windows"
     jobs.platform_problem = lambda: problem
 out, err = io.StringIO(), io.StringIO()
 with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -59,7 +59,34 @@ def test_missing_fcntl_does_not_break_legacy_commands(tmp_path):
         assert UNSUPPORTED not in result["out"] + result["err"]
 
 
-def test_non_linux_flow_commands_refuse_without_loading_or_changing_conflicts(tmp_path):
+def test_windows_uses_the_same_flow_engine(monkeypatch):
+    from flowguard.flow import jobs
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert jobs.platform_problem() is None
+
+
+def test_native_flow_check_runs_the_complete_shared_model(tmp_path):
+    basic_project(tmp_path)
+    models = tmp_path / ".flowguard/flow"
+    models.mkdir()
+    (models / "toggle.py").write_text('''from flowguard.flow import Model
+m = Model("toggle")
+m.field("on", [False, True], False)
+@m.action()
+def toggle(s):
+    s["on"] = not s["on"]
+MODEL = m
+''')
+    result = subprocess.run([sys.executable, "-m", "flowguard", "check", "--json", "--root", str(tmp_path)],
+                            cwd=tmp_path, env={**os.environ, "PYTHONPATH": str(REPO)},
+                            text=True, capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = json.loads(result.stdout)
+    assert data["complete"] and data["models"]["toggle"]["states"] == 2
+    assert {part["kind"] for part in data["parts"]} == {"core", "routes"}
+
+
+def test_unsupported_flow_commands_refuse_without_loading_or_changing_conflicts(tmp_path):
     basic_project(tmp_path)
     models = tmp_path / ".flowguard/flow"
     models.mkdir()
