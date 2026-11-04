@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 
 from ..map.common import normalize_newlines
-from ._process import read_text
+from ._process import read_text, record_access
 from .checks import WARNING, Finding, make_finding, replay_spec
 from .model import REQUESTS, Loaded, natural_key, request_file
 
@@ -178,7 +178,8 @@ def _atomic_write(path: Path, text: str):
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
     with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(text)
-    os.replace(tmp, path)
+    with record_access(path):
+        os.replace(tmp, path)
 
 
 def conflicts_text(data: dict) -> str:

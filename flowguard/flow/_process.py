@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import ctypes
 import errno
+import hashlib
 import os
 import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
+from contextlib import contextmanager
 
 _LOCK_OFFSET = 64              # mandatory Windows lock stays beyond the readable PID text
 
@@ -57,6 +59,8 @@ def _kernel():
         ("CloseHandle", [w.HANDLE], w.BOOL),
         ("TerminateProcess", [w.HANDLE, w.UINT], w.BOOL),
         ("CreateJobObjectW", [ctypes.c_void_p, w.LPCWSTR], w.HANDLE),
+        ("CreateMutexW", [ctypes.c_void_p, w.BOOL, w.LPCWSTR], w.HANDLE),
+        ("ReleaseMutex", [w.HANDLE], w.BOOL),
         ("SetInformationJobObject", [w.HANDLE, ctypes.c_int, ctypes.c_void_p, w.DWORD], w.BOOL),
         ("AssignProcessToJobObject", [w.HANDLE, w.HANDLE], w.BOOL),
         ("PeekNamedPipe", [w.HANDLE, ctypes.c_void_p, w.DWORD, ctypes.c_void_p,
@@ -69,24 +73,58 @@ def _kernel():
     return api
 
 
+@contextmanager
+def record_access(path: Path):
+    """Windows serializes readers with the short atomic publication of this record.
+
+    The kernel releases ownership if a process exits. This uses no on-disk lock
+    and never retries a failed read or write; unrelated records have distinct locks.
+    POSIX readers can keep their old inode while a replacement is published.
+    """
+    if os.name != "nt":
+        yield
+        return
+    api = _kernel()
+    key = os.path.normcase(str(path.resolve())).encode("utf-8")
+    handle = api.CreateMutexW(None, False, "Local\\FlowGuard.record." + hashlib.sha256(key).hexdigest())
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    acquired = False
+    try:
+        result = api.WaitForSingleObject(handle, 0xFFFFFFFF)
+        if result not in (0, 0x80):             # acquired, or abandoned by an exited owner
+            if result == 0xFFFFFFFF:
+                raise ctypes.WinError(ctypes.get_last_error())
+            raise RuntimeError(f"unexpected record-mutex result: {result}")
+        acquired = True
+        yield
+    finally:
+        try:
+            if acquired and not api.ReleaseMutex(handle):
+                raise ctypes.WinError(ctypes.get_last_error())
+        finally:
+            api.CloseHandle(handle)
+
+
 def read_text(path: Path) -> str:
     """Concurrent Windows readers allow the writer's atomic os.replace."""
     if os.name != "nt":
         return path.read_text(encoding="utf-8")
-    import msvcrt
-    api = _kernel()
-    handle = api.CreateFileW(str(path), 0x80000000, 1 | 2 | 4, None, 3, 0x80, None)
-    if handle == ctypes.c_void_p(-1).value:
-        error = ctypes.WinError(ctypes.get_last_error())
-        error.filename = str(path)
-        raise error
-    try:
-        fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
-    except BaseException:
-        api.CloseHandle(handle)
-        raise
-    with os.fdopen(fd, "r", encoding="utf-8") as stream:
-        return stream.read()
+    with record_access(path):
+        import msvcrt
+        api = _kernel()
+        handle = api.CreateFileW(str(path), 0x80000000, 1 | 2 | 4, None, 3, 0x80, None)
+        if handle == ctypes.c_void_p(-1).value:
+            error = ctypes.WinError(ctypes.get_last_error())
+            error.filename = str(path)
+            raise error
+        try:
+            fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
+        except BaseException:
+            api.CloseHandle(handle)
+            raise
+        with os.fdopen(fd, "r", encoding="utf-8") as stream:
+            return stream.read()
 
 
 def windows_pid_alive(pid: int) -> bool:

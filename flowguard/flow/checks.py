@@ -872,7 +872,8 @@ class _Run:
         # the object's other values frozen with it (a tool whose branch freezes at the library
         # stays in repair there): the headline names the state it is stuck in, every frozen value
         owner = _owner_of(line)
-        frozen = [line] + [c for c in shown if c["kind"] != "progress" and _owner_of(c) == owner]
+        frozen = ([line] if line["kind"] != "progress" else []) + [
+            c for c in shown if c["kind"] != "progress" and _owner_of(c) == owner]
         if len(frozen) > 1:
             order = {k: n for n, k in enumerate(self.keys)}
             frozen.sort(key=lambda m_: order.get(m_["key"], len(order)))
