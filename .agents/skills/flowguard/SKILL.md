@@ -15,7 +15,7 @@ When the owner asks for something, store the owner's own words once, as received
 
 ## Changes to a flow
 
-When a request adds or changes state values, actions, conditions, settings or endings, update the affected feature's model in `.flowguard/flow/` before changing the code, then run `python -m flowguard check`. Model the feature, even across modules; code/tests, exposed behavior and composition are conceptual levels, not three required files. Other edits use the ordinary code and test steps below. The installed package's `flowguard/flow/HOWTO.md` explains how to write a small model.
+When a request adds or changes state values, actions, conditions, settings or endings, update the affected feature's model in `.flowguard/flow/` before changing the code, then run `python -m flowguard check`. Model the feature across modules, including old goals affected by shared state or new routes; retain their `reach`/`progress` promises. Code/tests, exposed behavior and composition are conceptual levels, not three required files. Other edits use the ordinary code and test steps below. The installed package's `flowguard/flow/HOWTO.md` explains how to write a small model.
 
 If a design can satisfy all requests, fix it yourself, implement it and show the before/after with `python -m flowguard show`. When requirements genuinely collide, bring the picture and the stored source words to the owner. While an answer is unavailable, take the safest reversible action that keeps things working, and label it temporary in the reply. Dead ends and never-happens behavior must be fixed in code; a temporary decision does not settle them. Repair a broken main route instead of adding a fallback.
 

@@ -11,7 +11,10 @@ does not change what can happen, and say what you left out in a `note=`.
 Use a flow model when a request adds or changes state values, actions, conditions, settings
 or endings: update the affected feature's model first, run `check`, then implement and test
 the code. For other edits, use `status`, `where` and the project's tests. A feature may cross
-modules. Code/tests, exposed behavior and composition are conceptual levels, not a required
+modules and unchanged code. Keep old goals affected by shared writes, resets or new routes,
+with `reach`/`progress` promises and bounds that preserve their conditions. An omitted required
+outcome stays unresolved, even with a `note=` or passing isolated tests.
+Code/tests, exposed behavior and composition are conceptual levels, not a required
 three-file split; keep one feature model until a split helps explain it.
 
 One model per file: `.flowguard/flow/<name>.py`, ending with `MODEL = m`. Check them all with

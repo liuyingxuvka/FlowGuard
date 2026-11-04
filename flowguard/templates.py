@@ -37,7 +37,7 @@ def adoption_template_files() -> tuple[TemplateFile, ...]:
 2. When the owner asks for something, store the owner's own words once, as received: `python -m flowguard req add <file|-> --id <id>`. It stores only words the owner wrote, byte for byte: never a plan, a list or text an AI wrote. When a new owner message replaces an earlier one, add `--supersedes <old id>`; never edit `.flowguard/requests/`.
 3. Find code with `python -m flowguard where NAME`; change code and its tests together; run the project's own test command (for example `python -m pytest -q`) and report exactly what you ran and the result.
 4. Commit code and tests together in one commit with a message in your own words; add a line `Request: R<n>` when the change answers a stored owner request. The legacy map, `.flowguard/models/` and the target commands need no upkeep.
-5. When a request adds or changes state values, actions, conditions, settings or endings, change the affected feature's flow model before the code and run `python -m flowguard check`; when discussing a flow, use `python -m flowguard show` pictures.
+5. When a request adds or changes state values, actions, conditions, settings or endings, change the affected feature's flow model before the code, including old goals affected by shared state or new routes, and run `python -m flowguard check`; when discussing a flow, use `python -m flowguard show` pictures.
 """),
         TemplateFile("CLAUDE.md", "@AGENTS.md\n"),
     )
