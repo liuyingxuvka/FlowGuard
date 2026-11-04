@@ -562,7 +562,19 @@ def test_a_change_that_sends_books_to_repair_with_no_way_back_is_not_clean(proje
     for p in (desk / "requests").glob("*.md"):
         store_request(project.root, p.read_bytes(), identifier=p.stem)
     project.flow_from(desk / "desk.py")
-    assert timed(project.root).code == 0
+    initial = timed(project.root)
+    if initial.code != 0:
+        from flowguard.flow._process import read_text
+        print(f"Initial desk check stdout:\n{initial.out}\nInitial desk check stderr:\n{initial.err}", file=sys.stderr)
+        jobs = project.root / ".flowguard/cache/flow/jobs"
+        for path in sorted([*jobs.glob("*/*/status.json"), *jobs.glob("*/*/log")]):
+            try:
+                text = read_text(path)
+            except (OSError, UnicodeError) as error:
+                print(f"Diagnostic read failed for {path}: {type(error).__name__}: {error}", file=sys.stderr)
+            else:
+                print(f"Initial desk check {path.relative_to(project.root)}:\n{text}", file=sys.stderr)
+    assert initial.code == 0
     project.flow_from(desk / "desk_naive.py", "desk")
     run = timed(project.root)
     assert run.code == 1 and "clean" not in run.first
