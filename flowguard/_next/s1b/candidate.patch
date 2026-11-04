@@ -697,7 +697,7 @@ index 9eb9a1fe..c4d2e8bb 100644
 -            os.killpg(pid, signal.SIGKILL)
 +            kill(pid, whole_group=True)
 diff --git a/tests/flow/test_check_cli.py b/tests/flow/test_check_cli.py
-index e6051316..339dfbb1 100644
+index e6051316..07ba4270 100644
 --- a/tests/flow/test_check_cli.py
 +++ b/tests/flow/test_check_cli.py
 @@ -177,2 +177,4 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
@@ -730,19 +730,34 @@ index e6051316..339dfbb1 100644
 @@ -456 +467 @@ def test_status_lines_read_the_last_final_check(project):
 -    assert line.startswith("flow models: 6 open conflicts (C-") and line.endswith("release and CI fail until fixed; without a hook a commit is not blocked")
 +    assert line.startswith("flow models: 6 open conflicts (C-") and line.endswith("release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked")
-@@ -583 +594 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
+@@ -554 +565,13 @@ def test_a_change_that_sends_books_to_repair_with_no_way_back_is_not_clean(proje
+-    assert timed(project.root).code == 0
++    initial = timed(project.root)
++    if initial.code != 0:
++        from flowguard.flow._process import read_text
++        print(f"Initial desk check stdout:\n{initial.out}\nInitial desk check stderr:\n{initial.err}", file=sys.stderr)
++        jobs = project.root / ".flowguard/cache/flow/jobs"
++        for path in sorted([*jobs.glob("*/*/status.json"), *jobs.glob("*/*/log")]):
++            try:
++                text = read_text(path)
++            except (OSError, UnicodeError) as error:
++                print(f"Diagnostic read failed for {path}: {type(error).__name__}: {error}", file=sys.stderr)
++            else:
++                print(f"Initial desk check {path.relative_to(project.root)}:\n{text}", file=sys.stderr)
++    assert initial.code == 0
+@@ -583 +606 @@ def test_a_capped_check_never_closes_a_proven_conflict(project):
 -    assert f"1 open conflict ({cid}); release and CI fail until fixed; without a hook a commit is not blocked" in status
 +    assert f"1 open conflict ({cid}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status
-@@ -642 +653 @@ def test_a_capped_check_after_a_settings_change_keeps_every_proven_conflict(proj
+@@ -642 +665 @@ def test_a_capped_check_after_a_settings_change_keeps_every_proven_conflict(proj
 -    assert "3 open conflicts" in status and "release and CI fail until fixed; without a hook a commit is not blocked" in status, status
 +    assert "3 open conflicts" in status and "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status, status
-@@ -697 +708 @@ def test_a_renamed_or_deleted_model_file_keeps_its_conflicts(project):
+@@ -697 +720 @@ def test_a_renamed_or_deleted_model_file_keeps_its_conflicts(project):
 -    assert f"1 open conflict ({cid}); release and CI fail until fixed; without a hook a commit is not blocked" in status
 +    assert f"1 open conflict ({cid}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status
-@@ -759 +770 @@ def test_a_model_error_in_the_search_closes_nothing_and_proves_nothing(project):
+@@ -759 +782 @@ def test_a_model_error_in_the_search_closes_nothing_and_proves_nothing(project):
 -    assert "release and CI fail until fixed; without a hook a commit is not blocked" in status and "rental (2 model errors" in status, status
 +    assert "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status and "rental (2 model errors" in status, status
-@@ -1079 +1090 @@ def test_a_capped_check_closes_no_never_reached_item_the_model_no_longer_has(pro
+@@ -1079 +1102 @@ def test_a_capped_check_closes_no_never_reached_item_the_model_no_longer_has(pro
 -    assert "2 open conflicts" in status and "release and CI fail until fixed; without a hook a commit is not blocked" in status, status
 +    assert "2 open conflicts" in status and "release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked" in status, status
 diff --git a/tests/flow/test_howto.py b/tests/flow/test_howto.py
