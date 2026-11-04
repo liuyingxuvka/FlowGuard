@@ -74,11 +74,11 @@ def project(tmp_path):
 def _end_workers(root: Path) -> None:
     """No worker outlives its test (#7): a test that returned RUNNING last, or failed half
     way, would leave one waiting for a resume for up to --keep seconds."""
-    import signal
+    from checkrun import kill
     for info in (root / ".flowguard" / "cache" / "flow" / "jobs").glob("*/*/worker.json"):
         try:
             pid = json.loads(info.read_text())["pid"]
-            os.killpg(pid, signal.SIGKILL)
+            kill(pid, whole_group=True)
         except (ValueError, KeyError, ProcessLookupError, PermissionError, OSError):
             pass
 

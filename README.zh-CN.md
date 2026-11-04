@@ -37,7 +37,7 @@ FlowGuard 在项目里保存三样东西：
 
 ```bash
 pip install -e .                                          # 引擎，只依赖 Python 标准库
-# 或从 GitHub：python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.73.0"；PyPI 上名为 flowguard 的包是另一个项目
+# 或从 GitHub：python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.74.0"；PyPI 上名为 flowguard 的包是另一个项目
 python scripts/install_skill.py --target ~/.claude/skills # 给 AI 安装技能（或 $CODEX_HOME/skills）
 
 cd your-project
@@ -85,9 +85,8 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 `--json` 只打印一行。冲突记在 `.flowguard/conflicts.json`（要提交）：`status` 显示未解决的冲突，`release` 运行
 `check --full`。画图需要装了 Playwright 的 node；没有时 `show` 写出 Mermaid 文本。
 
-v0.73 的流程引擎只支持 Linux。Windows 上的旧命令继续可用；流程 `check`、`show` 和 `release`
-中的流程检查会说明限制并退出 2。`status` 仍会显示已记录的冲突和这项限制。
-完整的 Windows 流程支持安排在下一阶段。
+流程模型支持 Linux 和 Windows，包括等待、续跑，以及调用者消失后停止后台工作。
+macOS 暂不支持流程模型执行；旧命令和静态源码查询保持已有的平台支持。
 
 ## 找源码和文字原文
 

@@ -46,14 +46,27 @@ def test_models_are_named_by_id_or_by_a_path_in_the_flow_directory(project, monk
 def test_request_lines(project):
     project.kit()
     assert request_line(project.root, "R10") == "Repairs are done only at the main branch."
-    assert request_line(project.root, "R4") == "# Request 4: renting tools"
+    assert request_line(project.root, "R4") == "Members rent tools from the shelf of a branch."
     assert request_line(project.root, "R99") is None
     project.request("R5", "\n\n" + "x" * 150 + "\n")
     assert len(request_line(project.root, "R5")) == 100
     assert request_lines(project.root, ("R10", "R4", "R99")) == [
-        ("R4", "# Request 4: renting tools"), ("R10", "Repairs are done only at the main branch."),
+        ("R4", "Members rent tools from the shelf of a branch."), ("R10", "Repairs are done only at the main branch."),
         ("R99", "(not a stored request)")]
     assert request_lines(project.root, ()) == [("", "the AI's own")]
+
+
+@pytest.mark.parametrize("words,quote", [
+    ("# Request\n\nKeep existing loans usable.\n", "Keep existing loans usable."),
+    ("# Request\n\n## Rules\n\n- Members can return a loan.\n", "- Members can return a loan."),
+    ("# Keep existing loans usable\n", "# Keep existing loans usable"),
+    ("\n\n", ""),
+])
+def test_request_quote_prefers_words_over_headings_without_editing_the_request(project, words, quote):
+    stored = project.request("RQuote", words)
+    before = stored.read_bytes()
+    assert request_line(project.root, "RQuote") == quote
+    assert stored.read_bytes() == before
 
 
 def test_conflicts_json_is_deterministic_and_tells_new_from_open(project):

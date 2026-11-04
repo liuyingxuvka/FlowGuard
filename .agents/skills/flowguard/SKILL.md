@@ -1,17 +1,25 @@
 ---
 name: flowguard
-description: "Start every code change with `python -m flowguard status`; keep the owner's own words with `req add`; find code with `where`; change code and tests together, run the project's tests and commit in your own words. Use it for any change to code, its behaviour or its structure. Not for: simulation or calculation results → physicsguard; causal claims → researchguard; story or plan consistency → worldguard; long texts → logicwriting."
+description: "Start code work with `python -m flowguard status`; keep the owner's words with `req add`; find code with `where`. For flow changes, model the affected feature first, run `check` and discuss it with `show` pictures. Change code and tests together and commit in your own words. Not for: simulation or calculation results → physicsguard; causal claims → researchguard; story or plan consistency → worldguard; long texts → logicwriting."
 ---
 
 # FlowGuard
 
 ## Start
 
-Run `python -m flowguard status` first in every session and after any loss of context. Install FlowGuard only from `git+https://github.com/liuyingxuvka/FlowGuard.git@v0.73.0`.
+Run `python -m flowguard status` first in every session and after any loss of context. Install FlowGuard only from `git+https://github.com/liuyingxuvka/FlowGuard.git@v0.74.0`.
 
 ## The owner's words
 
 When the owner asks for something, store the owner's own words once, as received: `python -m flowguard req add <file|-> --id <id>`. It stores only words the owner wrote, byte for byte: never a plan, a list or text an AI wrote, and never edit `.flowguard/requests/`. When a new owner message replaces an earlier one, add `--supersedes <old id>`. `status` lists the newest owner words first.
+
+## Changes to a flow
+
+When a request adds or changes state values, actions, conditions, settings or endings, update the affected feature's model in `.flowguard/flow/` before changing the code, then run `python -m flowguard check`. Model the feature, even across modules; code/tests, exposed behavior and composition are conceptual levels, not three required files. Other edits use the ordinary code and test steps below. The installed package's `flowguard/flow/HOWTO.md` explains how to write a small model.
+
+If a design can satisfy all requests, fix it yourself, implement it and show the before/after with `python -m flowguard show`. When requirements genuinely collide, bring the picture and the stored source words to the owner. While an answer is unavailable, take the safest reversible action that keeps things working, and label it temporary in the reply. Dead ends and never-happens behavior must be fixed in code; a temporary decision does not settle them. Repair a broken main route instead of adding a fallback.
+
+Whenever you analyze or discuss a flow with the owner, use `show` pictures and a few plain sentences. `show` defaults to conflicts, otherwise the change against HEAD; `show MODEL --before REV` chooses a model and a before revision.
 
 ## Find code
 

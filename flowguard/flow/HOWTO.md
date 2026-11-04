@@ -8,11 +8,20 @@ and reports what gets stuck, what never happens and which promise some order bre
 with the shortest path and the requests behind it. Keep it small: leave out everything that
 does not change what can happen, and say what you left out in a `note=`.
 
+Use a flow model when a request adds or changes state values, actions, conditions, settings
+or endings: update the affected feature's model first, run `check`, then implement and test
+the code. For other edits, use `status`, `where` and the project's tests. A feature may cross
+modules. Code/tests, exposed behavior and composition are conceptual levels, not a required
+three-file split; keep one feature model until a split helps explain it.
+
 One model per file: `.flowguard/flow/<name>.py`, ending with `MODEL = m`. Check them all with
 `python -m flowguard check` (files starting with `_` are helpers, never models).
-`check --full` also breaks each model on purpose to see that its checks catch it.
+Only `check --full` also breaks each model on purpose to see that its checks catch it;
+ordinary `check` does not run these deliberate breaks.
 `python -m flowguard release` runs `check --full` (and, with `--shards`, the tests),
-also in a project with no legacy map. `python -m flowguard show` draws what is under
+also in a project with no legacy map. Open conflicts fail release; CI blocks them only
+if it runs release. Without a hook that runs the check, a commit is not blocked.
+`python -m flowguard show` draws what is under
 discussion: the conflicts, else the change against
 HEAD (`show MODEL`, `show C-...` or `--before REV` name it yourself; `show MODEL` of a model
 with no conflict draws its latest change, one object's fields at a time).
@@ -20,9 +29,16 @@ Each `source=` names a request stored with `python -m flowguard req add <file> -
 (never write a file in `.flowguard/requests/` by hand); an id with no stored request is a
 model warning.
 
-The flow engine in v0.73 supports Linux only. On Windows, the legacy commands still work;
-flow `check`, `show` and the flow part of `release` exit 2 with an explanation. `status`
-still shows stored conflicts and this limitation. Full Windows flow support follows later.
+When a compatible design satisfies the requests, fix it yourself and show its before/after
+with `show MODEL --before REV`. In a flow discussion, always use the picture with a few
+plain sentences. If requirements genuinely collide, ask the owner with that picture and
+the stored source words. While an answer is unavailable, take a safe reversible action
+that keeps things working and label it temporary. Dead ends and never-happens behavior
+must be fixed in code; a temporary decision does not settle them. Fix a broken main route
+instead of adding a fallback.
+
+The flow commands use the same models and checks on supported platforms. `status` reports
+any platform limitation alongside the stored conflicts.
 
 ## Writing a model
 

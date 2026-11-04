@@ -44,7 +44,7 @@ fail a check. History lives in git.
 
 ```bash
 pip install -e .                                          # engine, standard library only
-# or from GitHub: python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.73.0"; the PyPI package named flowguard is a different project
+# or from GitHub: python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.74.0"; the PyPI package named flowguard is a different project
 python scripts/install_skill.py --target ~/.claude/skills # skill for your agent (or $CODEX_HOME/skills)
 
 cd your-project
@@ -96,9 +96,9 @@ same command resumes it. `--json` prints one line. Conflicts are kept in `.flowg
 `status` shows the open ones, and `release` runs `check --full`. Pictures need node with Playwright; without them
 `show` writes the Mermaid text.
 
-The v0.73 flow engine supports Linux only. Windows keeps the legacy commands; flow `check`,
-`show` and the flow part of `release` exit 2 with an explanation. `status` still shows stored
-conflicts and the limitation. Full Windows flow support is planned for the next stage.
+Flow models run on Linux and Windows, including waiting, resuming and stopping background
+work when its caller disappears. macOS flow execution is not supported. The legacy commands
+and static source queries retain their existing platform support.
 
 ## Find source and original text
 

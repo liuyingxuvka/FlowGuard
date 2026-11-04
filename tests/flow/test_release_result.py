@@ -1,12 +1,6 @@
 """Release reports its actual scope and does not rewrite a clean check record."""
 import json
-import sys
-
-import pytest
-
 from flowguard.__main__ import main
-
-pytestmark = pytest.mark.skipif(not sys.platform.startswith("linux"), reason="S1a model execution supports Linux only")
 
 MODEL = '''from flowguard.flow import Model, need
 m = Model("dial")

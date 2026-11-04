@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -75,15 +76,13 @@ def _request_problem(root: Path, rid: str) -> str | None:
 
 
 def request_line(root: Path, rid: str) -> str | None:
-    """The first non-empty line of the stored request, cut at 100 characters."""
+    """The first prose line, falling back to a heading-only request, cut at 100 characters."""
     path = request_file(root, rid)
     if path is None or _request_problem(root, rid) is not None:
         return None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            text = line.strip()
-            return text if len(text) <= 100 else text[:99] + "…"
-    return ""
+    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    text = next((line for line in lines if not re.match(r"#{1,6}(?:\s|$)", line)), lines[0] if lines else "")
+    return text if len(text) <= 100 else text[:99] + "…"
 
 
 def request_lines(root: Path, sources) -> list[tuple[str, str]]:

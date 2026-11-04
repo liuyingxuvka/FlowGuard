@@ -59,6 +59,18 @@ jobs:
           npx --yes playwright@1.56.1 install --with-deps chromium
           echo "NODE_PATH=$(npm root --global)" >> "$GITHUB_ENV"
 
+      - name: Picture renderer on Windows
+        if: matrix.os == 'windows-latest' && matrix.group == 0
+        shell: pwsh
+        run: |
+          npm install --global playwright@1.56.1
+          npx --yes playwright@1.56.1 install chromium
+          "NODE_PATH=$(npm root --global)" >> $env:GITHUB_ENV
+
+      - name: Complete flow engine suite on Windows
+        if: matrix.os == 'windows-latest' && matrix.group == 0
+        run: python -m pytest -q tests/flow
+
       - name: Release gate and the whole suite in 4 shards on Ubuntu Python 3.11
         if: matrix.full
         run: python -m flowguard release --shards 4

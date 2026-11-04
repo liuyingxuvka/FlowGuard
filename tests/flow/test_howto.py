@@ -73,3 +73,12 @@ def test_the_guide_says_how_requests_are_stored_and_what_to_commit():
     assert "never write a file in `.flowguard/requests/` by hand" in text
     assert "`.flowguard/conflicts.json`: commit that file with the change" in text
     assert "`python -m flowguard release` runs `check --full`" in text and "no legacy map" in text
+
+
+def test_the_guide_explains_what_blocks_and_which_check_runs_deliberate_breaks():
+    text = " ".join(HOWTO.read_text(encoding="utf-8").split())
+    assert "Only `check --full`" in text and "ordinary `check` does not run these deliberate breaks" in text
+    assert "CI blocks them only if it runs release" in text
+    assert "Without a hook that runs the check, a commit is not blocked" in text
+    assert "not a required three-file split" in text
+    assert "Dead ends and never-happens behavior must be fixed in code" in text

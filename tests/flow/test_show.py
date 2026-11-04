@@ -145,7 +145,6 @@ def test_fixed_against_head_is_the_prototype_diff_picture(project):
     assert sorted(a[:3] for a in got["arrows"] if a[3] != "#999") == sorted(a[:3] for a in want["arrows"])
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="draws with node and Playwright, which the Linux release suite has")
 def test_picture_files_carry_the_same_texts_and_colours(project):
     project.flow_from(DATA / "planted" / "rental_naive.py", "rental")
     code, out = show(project.root)
