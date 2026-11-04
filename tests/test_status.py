@@ -258,4 +258,5 @@ def test_status_shows_the_flow_models_open_conflicts_from_the_last_check(tmp_pat
     (root / '.flowguard/conflicts.json').write_text('{"conflicts": [', encoding='utf-8')
     [damaged] = _status(root, capsys)['flow_models']
     assert damaged.startswith('flow models: .flowguard/conflicts.json cannot be read (it is not valid JSON: ')
-    assert damaged.endswith('until it is restored (git checkout -- .flowguard/conflicts.json)')
+    assert damaged.endswith('until it is restored (restore .flowguard/conflicts.json from your project backup; '
+                            'then run python -m flowguard check)')
