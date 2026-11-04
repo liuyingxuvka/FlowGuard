@@ -37,7 +37,7 @@ FlowGuard 在项目里保存三样东西：
 
 ```bash
 pip install -e .                                          # 引擎，只依赖 Python 标准库
-# 或从 GitHub：python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.72.0"；PyPI 上名为 flowguard 的包是另一个项目
+# 或从 GitHub：python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.73.0"；PyPI 上名为 flowguard 的包是另一个项目
 python scripts/install_skill.py --target ~/.claude/skills # 给 AI 安装技能（或 $CODEX_HOME/skills）
 
 cd your-project

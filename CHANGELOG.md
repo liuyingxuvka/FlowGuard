@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.73.0 - 2026-11-04 - Flow models, concrete conflicts and bounded checks
 
 - Flow models: write the part of the design a change touches as a small model in `.flowguard/flow/<name>.py`, one model per file, importing `from flowguard.flow import Model, need`. The short guide is `flowguard/flow/HOWTO.md`, which the installed package carries too.
 - `python -m flowguard check` tries every action of every flow model in every reachable state. It reports conflicts (something that gets stuck, an action, option, end or promise that is never reached, a promise some order breaks, an option offered where its action refuses, a second route to the same result) with the shortest path and the requests behind each, then model warnings, and what a capped search left UNKNOWN.

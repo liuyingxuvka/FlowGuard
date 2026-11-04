@@ -44,7 +44,7 @@ fail a check. History lives in git.
 
 ```bash
 pip install -e .                                          # engine, standard library only
-# or from GitHub: python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.72.0"; the PyPI package named flowguard is a different project
+# or from GitHub: python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.73.0"; the PyPI package named flowguard is a different project
 python scripts/install_skill.py --target ~/.claude/skills # skill for your agent (or $CODEX_HOME/skills)
 
 cd your-project
