@@ -10,7 +10,7 @@ import builtins
 import contextlib
 import copy
 import importlib
-import importlib.machinery
+import importlib.machinery as _importers
 import importlib.util
 import itertools
 import operator
@@ -2957,7 +2957,7 @@ def _project_modules(root):
     return out
 
 
-class _ProjectSourceLoader(importlib.machinery.SourceFileLoader):
+class _ProjectSourceLoader(_importers.SourceFileLoader):
     """Read the source that the model's digest names, never a timestamp-based pyc."""
 
     def get_code(self, fullname):
@@ -2972,8 +2972,8 @@ class _ProjectImports:
     def find_spec(self, fullname, path=None, target=None):
         if _engine_module(fullname):
             return None
-        spec = importlib.machinery.PathFinder.find_spec(fullname, path)
-        if spec is not None and isinstance(spec.loader, importlib.machinery.SourceFileLoader):
+        spec = _importers.PathFinder.find_spec(fullname, path)
+        if spec is not None and isinstance(spec.loader, _importers.SourceFileLoader):
             source = Path(spec.loader.path).resolve()
             if source.is_relative_to(self.root) and not (
                     {"site-packages", "dist-packages"} & set(source.relative_to(self.root).parts)):

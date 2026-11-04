@@ -311,6 +311,6 @@ def test_a_worker_that_fails_is_an_internal_error(project):
     assert run.code == 2
     assert run.first.startswith("internal error: the worker failed: part core of fast raised FileExistsError")
     assert len(run.lines) == 1 and "(log: .flowguard/cache/flow/jobs/" in run.first
-    log = project.root / run.first.rsplit("(log: ", 1)[1][:-1]
+    log = project.root / run.first.rsplit("(log: ", 1)[1].split(")", 1)[0]
     assert "Traceback (most recent call last)" in log.read_text()
     assert not (project.root / ".flowguard/conflicts.json").exists()
