@@ -110,10 +110,10 @@ index 8ec9fa11..6abd25c5 100644
 +any platform limitation alongside the stored conflicts.
 diff --git a/flowguard/flow/_process.py b/flowguard/flow/_process.py
 new file mode 100644
-index 00000000..95567d58
+index 00000000..251821d2
 --- /dev/null
 +++ b/flowguard/flow/_process.py
-@@ -0,0 +1,308 @@
+@@ -0,0 +1,310 @@
 +"""OS process ownership for the shared flow worker, not a second job runner."""
 +from __future__ import annotations
 +
@@ -193,7 +193,9 @@ index 00000000..95567d58
 +    api = _kernel()
 +    handle = api.CreateFileW(str(path), 0x80000000, 1 | 2 | 4, None, 3, 0x80, None)
 +    if handle == ctypes.c_void_p(-1).value:
-+        raise ctypes.WinError(ctypes.get_last_error())
++        error = ctypes.WinError(ctypes.get_last_error())
++        error.filename = str(path)
++        raise error
 +    try:
 +        fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
 +    except BaseException:
@@ -687,13 +689,36 @@ index 94a1f4b9..a3addf02 100644
 +
 +
 diff --git a/tests/flow/conftest.py b/tests/flow/conftest.py
-index 9eb9a1fe..c4d2e8bb 100644
+index 9eb9a1fe..bb631804 100644
 --- a/tests/flow/conftest.py
 +++ b/tests/flow/conftest.py
-@@ -77 +77 @@ def _end_workers(root: Path) -> None:
+@@ -73,0 +74,22 @@ def project(tmp_path):
++@pytest.hookimpl(hookwrapper=True)
++def pytest_runtest_makereport(item, call):
++    outcome = yield
++    report = outcome.get_result()
++    proj = item.funcargs.get("project")
++    if not report.failed or proj is None:
++        return
++    from flowguard.flow._process import read_text
++    rows = []
++    for run in sorted((proj.root / ".flowguard/cache/flow/jobs").glob("*/*")):
++        for name in ("status.json", "log"):
++            path = run / name
++            if not path.is_file():
++                continue
++            try:
++                rows.append(f"{path.relative_to(proj.root).as_posix()}:\n{read_text(path)}")
++            except (OSError, UnicodeError) as error:
++                rows.append(f"diagnostic read failed for {path}: {type(error).__name__}: {error}")
++    if rows:
++        report.sections.append(("Flow worker diagnostics", "\n".join(rows)))
++
++
+@@ -77 +99 @@ def _end_workers(root: Path) -> None:
 -    import signal
 +    from checkrun import kill
-@@ -81 +81 @@ def _end_workers(root: Path) -> None:
+@@ -81 +103 @@ def _end_workers(root: Path) -> None:
 -            os.killpg(pid, signal.SIGKILL)
 +            kill(pid, whole_group=True)
 diff --git a/tests/flow/test_check_cli.py b/tests/flow/test_check_cli.py
