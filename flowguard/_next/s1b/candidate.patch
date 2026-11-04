@@ -28,6 +28,44 @@ index 9f039e13..1ac44365 100644
 @@ -46 +46 @@ Finish target design before code and remove ERROR/TO-DO before promote; run the
 -Use `python -m flowguard template <kind> --write .`; `adoption` writes the four project rules into a missing AGENTS.md and `@AGENTS.md` into a missing CLAUDE.md, never changes either file when it exists, and prints what to do instead (`first_map.md` step 8 lists each case).
 +Use `python -m flowguard template <kind> --write .`; `adoption` writes the project rules into a missing AGENTS.md and `@AGENTS.md` into a missing CLAUDE.md, never changes either file when it exists, and prints what to do instead (`first_map.md` step 8 lists each case).
+diff --git a/.flowguard/flow/record_publication.py b/.flowguard/flow/record_publication.py
+new file mode 100644
+index 00000000..d937b7e0
+--- /dev/null
++++ b/.flowguard/flow/record_publication.py
+@@ -0,0 +1,32 @@
++"""Windows coordinates each mutable record; unrelated records are independent."""
++from flowguard.flow import Model, need
++
++m = Model("record publication", covers=["flowguard/flow/_process.py", "flowguard/flow/project.py"])
++m.field("owner", ("none", "reader", "writer"), "none")
++m.field("generation", (0, 1), 0)
++
++
++@m.action(actor=("reader", "writer"))
++def acquire(s, actor):
++    need(s["owner"] == "none")
++    s["owner"] = actor
++
++
++@m.action()
++def publish(s):
++    need(s["owner"] == "writer")
++    s["generation"] = 1 - s["generation"]
++
++
++@m.action()
++def release_or_process_exit(s):
++    need(s["owner"] != "none")
++    s["owner"] = "none"
++
++
++m.progress("a held record can be released", lambda s:s["owner"] != "none", lambda s:s["owner"] == "none")
++m.only_when("publication requires the writer's ownership", "publish", lambda s:s["owner"] == "writer")
++m.only_when("acquiring never steals a live owner", "acquire", lambda s,actor:s["owner"] == "none")
++m.only_when("release requires an owner", "release_or_process_exit", lambda s:s["owner"] != "none")
++m.reach("a complete replacement is possible", lambda s:s["generation"] == 1)
++MODEL = m
 diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
 index 32ee0e26..a7931a69 100644
 --- a/.github/workflows/ci.yml
@@ -110,21 +148,23 @@ index 8ec9fa11..6abd25c5 100644
 +any platform limitation alongside the stored conflicts.
 diff --git a/flowguard/flow/_process.py b/flowguard/flow/_process.py
 new file mode 100644
-index 00000000..251821d2
+index 00000000..3a5b1c70
 --- /dev/null
 +++ b/flowguard/flow/_process.py
-@@ -0,0 +1,310 @@
+@@ -0,0 +1,350 @@
 +"""OS process ownership for the shared flow worker, not a second job runner."""
 +from __future__ import annotations
 +
 +import ctypes
 +import errno
++import hashlib
 +import os
 +import signal
 +import subprocess
 +import sys
 +import time
 +from pathlib import Path
++from contextlib import contextmanager
 +
 +_LOCK_OFFSET = 64              # mandatory Windows lock stays beyond the readable PID text
 +
@@ -173,6 +213,8 @@ index 00000000..251821d2
 +        ("CloseHandle", [w.HANDLE], w.BOOL),
 +        ("TerminateProcess", [w.HANDLE, w.UINT], w.BOOL),
 +        ("CreateJobObjectW", [ctypes.c_void_p, w.LPCWSTR], w.HANDLE),
++        ("CreateMutexW", [ctypes.c_void_p, w.BOOL, w.LPCWSTR], w.HANDLE),
++        ("ReleaseMutex", [w.HANDLE], w.BOOL),
 +        ("SetInformationJobObject", [w.HANDLE, ctypes.c_int, ctypes.c_void_p, w.DWORD], w.BOOL),
 +        ("AssignProcessToJobObject", [w.HANDLE, w.HANDLE], w.BOOL),
 +        ("PeekNamedPipe", [w.HANDLE, ctypes.c_void_p, w.DWORD, ctypes.c_void_p,
@@ -185,24 +227,60 @@ index 00000000..251821d2
 +    return api
 +
 +
++@contextmanager
++def record_access(path: Path):
++    """Windows serializes readers with the short atomic publication of this record.
++
++    The kernel releases ownership if a process exits. This uses no on-disk lock
++    and never retries a failed read or write; unrelated records have distinct locks.
++    POSIX readers can keep their old inode while a replacement is published.
++    """
++    if os.name != "nt":
++        yield
++        return
++    api = _kernel()
++    # Project roots are resolved before building record paths. Resolving the
++    # target here would open it outside the very mutex protecting replacement.
++    key = os.path.normcase(os.path.abspath(path)).encode("utf-8")
++    handle = api.CreateMutexW(None, False, "Local\\FlowGuard.record." + hashlib.sha256(key).hexdigest())
++    if not handle:
++        raise ctypes.WinError(ctypes.get_last_error())
++    acquired = False
++    try:
++        result = api.WaitForSingleObject(handle, 0xFFFFFFFF)
++        if result not in (0, 0x80):             # acquired, or abandoned by an exited owner
++            if result == 0xFFFFFFFF:
++                raise ctypes.WinError(ctypes.get_last_error())
++            raise RuntimeError(f"unexpected record-mutex result: {result}")
++        acquired = True
++        yield
++    finally:
++        try:
++            if acquired and not api.ReleaseMutex(handle):
++                raise ctypes.WinError(ctypes.get_last_error())
++        finally:
++            api.CloseHandle(handle)
++
++
 +def read_text(path: Path) -> str:
 +    """Concurrent Windows readers allow the writer's atomic os.replace."""
 +    if os.name != "nt":
 +        return path.read_text(encoding="utf-8")
-+    import msvcrt
-+    api = _kernel()
-+    handle = api.CreateFileW(str(path), 0x80000000, 1 | 2 | 4, None, 3, 0x80, None)
-+    if handle == ctypes.c_void_p(-1).value:
-+        error = ctypes.WinError(ctypes.get_last_error())
-+        error.filename = str(path)
-+        raise error
-+    try:
-+        fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
-+    except BaseException:
-+        api.CloseHandle(handle)
-+        raise
-+    with os.fdopen(fd, "r", encoding="utf-8") as stream:
-+        return stream.read()
++    with record_access(path):
++        import msvcrt
++        api = _kernel()
++        handle = api.CreateFileW(str(path), 0x80000000, 1 | 2 | 4, None, 3, 0x80, None)
++        if handle == ctypes.c_void_p(-1).value:
++            error = ctypes.WinError(ctypes.get_last_error())
++            error.filename = str(path)
++            raise error
++        try:
++            fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
++        except BaseException:
++            api.CloseHandle(handle)
++            raise
++        with os.fdopen(fd, "r", encoding="utf-8") as stream:
++            return stream.read()
 +
 +
 +def windows_pid_alive(pid: int) -> bool:
@@ -424,6 +502,14 @@ index 00000000..251821d2
 +if __name__ == "__main__":
 +    _, directory, worker, pipe, caller = sys.argv[1:]
 +    _guard(Path(directory), int(worker), int(caller), int(pipe) if int(pipe) >= 0 else None)
+diff --git a/flowguard/flow/checks.py b/flowguard/flow/checks.py
+index 2e03e78e..90b505d0 100644
+--- a/flowguard/flow/checks.py
++++ b/flowguard/flow/checks.py
+@@ -875 +875,2 @@ class _Run:
+-        frozen = [line] + [c for c in shown if c["kind"] != "progress" and _owner_of(c) == owner]
++        frozen = ([line] if line["kind"] != "progress" else []) + [
++            c for c in shown if c["kind"] != "progress" and _owner_of(c) == owner]
 diff --git a/flowguard/flow/cli.py b/flowguard/flow/cli.py
 index 554736ab..228808f8 100644
 --- a/flowguard/flow/cli.py
@@ -497,14 +583,14 @@ index b9afa32a..469953f4 100644
 +                out.changed = job.ended(root)[1]
 +                break
 diff --git a/flowguard/flow/project.py b/flowguard/flow/project.py
-index 2ef548d2..84414ca8 100644
+index 2ef548d2..f161bfc4 100644
 --- a/flowguard/flow/project.py
 +++ b/flowguard/flow/project.py
 @@ -8,0 +9 @@ import os
 +import re
 @@ -12,0 +14,2 @@ from pathlib import Path
 +from ..map.common import normalize_newlines
-+from ._process import read_text
++from ._process import read_text, record_access
 @@ -78 +81 @@ def request_line(root: Path, rid: str) -> str | None:
 -    """The first non-empty line of the stored request, cut at 100 characters."""
 +    """The first prose line, falling back to a heading-only request, cut at 100 characters."""
@@ -520,13 +606,17 @@ index 2ef548d2..84414ca8 100644
 @@ -159 +160 @@ def read_conflicts(root) -> dict | None:
 -        text = path.read_text(encoding="utf-8")
 +        text = read_text(path)
-@@ -195 +196 @@ def write_conflicts(root, data: dict) -> None:
+@@ -180 +181,2 @@ def _atomic_write(path: Path, text: str):
+-    os.replace(tmp, path)
++    with record_access(path):
++        os.replace(tmp, path)
+@@ -195 +197 @@ def write_conflicts(root, data: dict) -> None:
 -    if path.is_file() and path.read_text(encoding="utf-8") == text:
 +    if path.is_file() and read_text(path) == text:
-@@ -232 +233 @@ def read_manifest(root, model_id: str) -> list[str] | None:
+@@ -232 +234 @@ def read_manifest(root, model_id: str) -> list[str] | None:
 -    return json.loads(path.read_text(encoding="utf-8"))["reads"]
 +    return json.loads(read_text(path))["reads"]
-@@ -243 +244,4 @@ def file_digest(root, rel: str) -> str | None:
+@@ -243 +245,4 @@ def file_digest(root, rel: str) -> str | None:
 -    return hashlib.sha256(path.read_bytes()).hexdigest()
 +    data = path.read_bytes()
 +    if path.suffix.lower() in (".py", ".pyi", ".js"):
@@ -921,7 +1011,7 @@ index 9872bff7..8ead6a22 100644
 @@ -309 +366,0 @@ MODEL = m
 -@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="executes the S1a Linux flow worker")
 diff --git a/tests/flow/test_project.py b/tests/flow/test_project.py
-index a1d95894..cc1a5bef 100644
+index a1d95894..0a986b8e 100644
 --- a/tests/flow/test_project.py
 +++ b/tests/flow/test_project.py
 @@ -49 +49 @@ def test_request_lines(project):
@@ -944,6 +1034,43 @@ index a1d95894..cc1a5bef 100644
 +    assert stored.read_bytes() == before
 +
 +
+@@ -213,0 +227,36 @@ def test_conflicts_directory_is_unreadable_not_an_absent_record(project):
++
++
++def test_atomic_record_replacement_and_concurrent_readers(tmp_path):
++    """A record stays readable while another thread publishes complete replacements."""
++    import threading
++    from flowguard.flow._process import read_text
++    from flowguard.flow.project import _atomic_write
++    path = tmp_path / "record.json"
++    _atomic_write(path, '{"generation": 0}\n')
++    ready, stop = threading.Event(), threading.Event()
++    errors, observed = [], []
++
++    def read_records():
++        try:
++            observed.append(json.loads(read_text(path))["generation"])
++            ready.set()
++            while not stop.is_set():
++                observed.append(json.loads(read_text(path))["generation"])
++        except BaseException as error:
++            errors.append(error)
++            ready.set()
++
++    reader = threading.Thread(target=read_records, daemon=True)
++    reader.start()
++    try:
++        assert ready.wait(10), "the reader never started"
++        for generation in range(1, 501):
++            _atomic_write(path, json.dumps({"generation": generation}) + "\n")
++    finally:
++        stop.set()
++        reader.join(10)
++    assert not reader.is_alive(), "the record reader did not finish"
++    if errors:
++        raise errors[0]
++    assert observed and all(0 <= value <= 500 for value in observed)
++    assert json.loads(read_text(path))["generation"] == 500
 diff --git a/tests/flow/test_release_result.py b/tests/flow/test_release_result.py
 index 6f8e79df..da69515b 100644
 --- a/tests/flow/test_release_result.py
