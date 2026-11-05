@@ -288,15 +288,20 @@ def manifest_path(root, model_id: str, kind: str = "core") -> Path:
     return cache_dir(root) / "manifests" / model_id.encode("utf-8").hex() / f"{kind.encode('utf-8').hex()}.json"
 
 
-def read_manifest(root, model_id: str, kind: str = "core") -> list[str] | None:
+def read_manifest(root, model_id: str, kind: str = "core", *, with_receipt=False):
+    """Last observed reads; optionally include the actual worker recipe and digest."""
     path = manifest_path(root, model_id, kind)
     if not path.is_file():
         return None
-    return json.loads(read_text(path))["reads"]
+    data = history.unpack_wire(json.loads(read_text(path)))
+    return data if with_receipt else data["reads"]
 
 
-def write_manifest(root, model_id: str, reads, kind: str = "core") -> None:
-    _atomic_write(manifest_path(root, model_id, kind), json.dumps({"reads": sorted(reads)}, indent=1) + "\n")
+def write_manifest(root, model_id: str, reads, kind: str = "core", *, planned=None, digest=None) -> None:
+    data = {"reads": sorted(reads)}
+    if planned is not None and digest is not None:
+        data.update(planned=planned, digest=digest)
+    _atomic_write(manifest_path(root, model_id, kind), json.dumps(history.pack_wire(data, indent=1), indent=1) + "\n")
 
 
 def file_digest(root, rel: str) -> str | None:
@@ -325,13 +330,13 @@ def changed_files(root) -> set[str]:
     _require_git(root)
     out = set()
     if _git(root, "rev-parse", "--verify", "-q", "HEAD", check=False).returncode == 0:
-        diff = _git(root, "diff", "--name-only", "--relative", "HEAD", "--").stdout.decode()
-        out.update(line for line in diff.splitlines() if line)
-        others = ["ls-files", "--others", "--exclude-standard"]
+        diff = os.fsdecode(_git(root, "diff", "--name-only", "-z", "--no-renames", "--relative", "HEAD", "--").stdout)
+        out.update(line for line in diff.split("\0") if line)
+        others = ["ls-files", "-z", "--others", "--exclude-standard"]
     else:                                            # no commit yet: everything is new
-        others = ["ls-files", "--others", "--cached", "--exclude-standard"]
-    listed = _git(root, *others).stdout.decode()
-    out.update(line for line in listed.splitlines() if line)
+        others = ["ls-files", "-z", "--others", "--cached", "--exclude-standard"]
+    listed = os.fsdecode(_git(root, *others).stdout)
+    out.update(line for line in listed.split("\0") if line)
     return out
 
 

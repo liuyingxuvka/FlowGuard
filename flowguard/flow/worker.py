@@ -180,7 +180,7 @@ class Worker:
                     continue
                 result = run_part(PartContext(root, item.spec, root / item.path, cache_dir(root),
                                               self.progress))
-                store(root, result)
+                store(root, result, planned=item)
                 self.done(item, result.digest, cached=False)
         self.write_status(state="done", current=None)
 

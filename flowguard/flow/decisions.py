@@ -119,11 +119,11 @@ def current_core(root, entry):
     from .project import read_conflicts
     from . import jobs
     data = read_conflicts(root) or {}
-    recorded = data.get('models', {}).get(entry['model'], {}).get('core')
+    recorded = jobs.saved_core(root, entry['model'], data)
     if not isinstance(recorded, dict):
         raise MapError('provisional_evidence_missing: run check for a current finished computation')
     planned = jobs.Planned.from_json(recorded['planned'])
-    part = jobs.lookup(root, planned)
+    part = jobs.lookup(root, planned, recorded_digest=recorded['digest'])
     if part is None or part.digest != recorded['digest'] or not part.complete or not part.info.get('loaded'):
         raise MapError('provisional_evidence_stale: finish check on the current inputs')
     return part

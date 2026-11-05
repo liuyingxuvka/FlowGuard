@@ -293,3 +293,16 @@ def load(which):
     assert after.code == 1 and [row['id'] for row in after.data['conflicts']] == [identifiers['second primary']]
     assert after.data['closed'][0]['id'] == identifiers['first primary']
 
+
+
+def test_current_selected_failure_is_rechecked_after_an_actual_source_edit(project):
+    project.file('app.py', 'def load(): return 8\n')
+    project.file('tests/test_app.py', 'from app import load\ndef test_load(): assert load()==7\n')
+    project.commit()
+    failed = run_check(project.root, '--tests', CASE, '--json')
+    assert failed.code == 2 and failed.data['code_audit']['test_failures'] == [CASE]
+    project.file('app.py', 'def load(): return 7\n')
+    current = run_check(project.root, '--json')
+    assert current.code == 0, current.out + current.err
+    assert current.data['errors'] == [] and current.data['code_audit']['test_failures'] == []
+    assert any(part['kind'] == 'code-audit' and not part['cached'] for part in current.data['parts'])

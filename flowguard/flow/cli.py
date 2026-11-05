@@ -71,9 +71,12 @@ def _check_arguments(check: argparse.ArgumentParser) -> None:
                        help=f"return after at most this many seconds (default {DEFAULT_WAIT:g})")
     check.add_argument("--commit-ready", action="store_true", help="read existing results for actual staged bytes; never start work")
     check.add_argument("--tests", nargs='+', metavar='NODEID',
-                       help='record these selected pytest cases once and audit their observed code routes; no automatic whole suite')
+                       help='record these explicit pytest cases and audit their routes; otherwise ordinary whole-project checks select statically related tests')
     check.add_argument("--full", action="store_true",
                        help="also mutate the models and verify renaming without reduction")
+    check.add_argument('--walk-steps', type=int, default=64, metavar='N',
+                       help='ordinary affected-module native walk budget in steps (default 64)')
+    check.add_argument('--seed', type=int, default=0, help='native walk seed (default 0)')
     check.add_argument("--json", action="store_true", help="print one JSON line")
     check.add_argument("--max-states", type=_states, default=Bounds().max_states)
     check.add_argument("--keep", type=_seconds, default=DEFAULT_KEEP,
@@ -279,9 +282,24 @@ def check(args, argv, *, prog: str = PROG, out=None, err=None, on_result=None) -
     if getattr(args, 'commit_ready', False):
         return commit_ready_command(root, args, out)
     tests = getattr(args, 'tests', None)
+    if getattr(args, 'walk_steps', 64) < 0:
+        raise ProjectError('--walk-steps must be nonnegative')
+    if tests is None and not args.full and not args.models:
+        from .affected import selected_tests
+        tests = selected_tests(root)
+        # The dirty Git diff can be identical to the source already checked by
+        # an explicit failing case. Keep that actual failure; do not expand its
+        # scope and execute it again until its real inputs change.
+        audit = (previous or {}).get('code_audit')
+        if tests and audit and audit.get('test_failures'):
+            from .codeaudit import saved_result
+            if saved_result(root, audit) is not None:
+                tests = []
     if not paths and not (previous or {}).get("conflicts") and not (previous or {}).get('code_audit') and not tests:
         return _early(out, f"no flow models in {FLOW_DIR.as_posix()}/", EXIT_CLEAN, args.json)
-    planned = jobs.plan(root, paths, full=args.full, max_states=args.max_states, stored=previous, tests=tests)
+    planned = jobs.plan(root, paths, full=args.full, max_states=args.max_states, stored=previous, tests=tests,
+                        incremental=not args.full, walk_steps=getattr(args, 'walk_steps', 64),
+                        walk_seed=getattr(args, 'seed', 0))
     outcome = jobs.run(root, planned, wait=args.wait, keep=args.keep, progress=_Progress(err))
     resume = f"{prog} {shlex.join(argv)}"
     if outcome.failure is not None:
@@ -373,6 +391,7 @@ class Assembled:
     code: list = field(default_factory=list)       # project-level native part; never a ModelView
     code_record: dict | None = None
     declarations: list = field(default_factory=list)
+    previous: dict | None = None
 
 
 def assemble(root, outcome, previous: dict | None, *, max_states: int | None = None) -> Assembled:
@@ -387,6 +406,22 @@ def assemble(root, outcome, previous: dict | None, *, max_states: int | None = N
             code_parts.append((item, r, c, w))
         else:
             models.setdefault(item.spec.model, ModelView(item.spec.model)).parts.append((item, r, c, w))
+    # A current cached recipe can carry the original retained history even when
+    # the published ledger was removed. Use it before comparison and persistence,
+    # so both owners see the same baseline and validated decision references.
+    recovered = []
+    recorded = (previous or {}).get('models', {})
+    known = {entry['model'] for entry in (previous or {}).get('conflicts', [])}
+    for view in models.values():
+        if view.id in recorded or view.id in known:
+            continue
+        for item, part, _, _ in view.parts:
+            if item.spec.kind == 'core' and part is not None:
+                entries = jobs.retained_entries(root, item, part.digest)
+                if entries:
+                    recovered.extend(entries)
+    if recovered:
+        previous = {**(previous or {}), 'conflicts':[*((previous or {}).get('conflicts', [])), *recovered]}
     findings, seen = [], set()
     for view in models.values():
         for _, r, _, _ in view.parts:
@@ -424,7 +459,7 @@ def assemble(root, outcome, previous: dict | None, *, max_states: int | None = N
     conflicts += kept
     assembled = Assembled(outcome, models, conflicts, [f for f in findings if f.cls == WARNING],
                      [f for f in findings if f.cls == ERROR_CLS], {f.id for f in conflicts if f.id not in before},
-                     max_states, closed, code_parts)
+                     max_states, closed, code_parts, previous=previous)
     from .codeaudit import record
     assembled.code_record = record(root, assembled, previous)
     from .codeaudit import test_failure
@@ -903,6 +938,9 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
                        "reach": reach(view),
                        "undecided": _undecided(result, [mid]) if view.finished and not view.complete else [],
                        "symmetry": info.get("symmetry"),
+                       "native_operations": info.get('native', {}).get('operation_coverage', {}).get('selected_operations'),
+                       "walk": {key:info['native']['walk'][key] for key in ('seed', 'step_budget', 'status')}
+                               if 'walk' in info.get('native', {}) else None,
                        "composition": info.get('composition'), 'foreign': info.get('foreign', []),
                        'saved_samples':coverage_summary(info['saved_samples']) if 'saved_samples' in info else None}
     sampled=[model['saved_samples'] for model in models.values() if model['saved_samples'] is not None]
@@ -948,6 +986,7 @@ def conflicts_data(root, result: Assembled, previous: dict | None) -> dict:
     conflicts of a model whose file is gone stay too: no check explored it (design M6)."""
     from . import codeaudit
     existing = {p.stem for p in model_files(root)}
+    previous = result.previous if result.previous is not None else previous
     previous = previous or {}
     kept = {m: v for m, v in previous.get("models", {}).items() if m in existing and m not in result.models}
     entries = {c["id"]: c for c in previous.get("conflicts", []) if c["model"] not in result.models}
@@ -989,12 +1028,14 @@ def conflicts_data(root, result: Assembled, previous: dict | None) -> dict:
                                              if view.result("core") is not None else [])}
         core = view.result("core")
         if core is not None:
-            # The core's --full symmetry option changes its cache key, but not
-            # the source files that identify the checked model.
+            # Execution and diagnostic options name actual cache recipes, not
+            # the source/scope identity of the checked model. Keep planned below
+            # actual, including a newly requested ordinary walk recipe.
             from .parts import PartSpec, part_digest
             spec = next(p.spec for p, r, _, _ in view.parts if r is core)
             canonical = PartSpec(spec.kind, spec.model, tuple(
-                (k, v) for k, v in spec.options if k != "verify_symmetry"))
+                (k, v) for k, v in spec.options if k not in
+                {"verify_symmetry", "incremental", "native_baseline", "known_never", "walk_steps", "walk_seed"}))
             models[mid]["parts"].append(part_digest(root, canonical, core.reads))
             models[mid]["parts"].sort()
             # Preserve an actual still-current receipt when full-only diagnostics
@@ -1005,7 +1046,10 @@ def conflicts_data(root, result: Assembled, previous: dict | None) -> dict:
             same_observation = ({k:v for k,v in old_observation.items() if k != 'receipt'} ==
                                 {k:v for k,v in current_observation.items() if k != 'receipt'})
             saved = before.get('core')
-            if saved and same_observation and before.get('parts') == models[mid]['parts']:
+            same_recipe = saved and saved['planned'] == next(p.to_json() for p, r, _, _ in view.parts if r is core)
+            if (saved and same_observation and before.get('parts') == models[mid]['parts']
+                    and before.get('native_unknown', False) == models[mid]['native_unknown']
+                    and (spec.option('verify_symmetry', False) or same_recipe)):
                 planned = jobs.Planned.from_json(saved['planned'])
                 if jobs.lookup(root, planned, recorded_digest=saved['digest']) is not None:
                     models[mid]['core'] = saved
@@ -1283,7 +1327,10 @@ def refresh_status(root, *, wait=DEFAULT_WAIT, err=None):
         previous = reopened
     paths = []
     for path in model_files(root):
-        planned = jobs.plan(root, [path], stored=previous)
+        saved = jobs.saved_core(root, path.stem, previous)
+        bound = (jobs.Planned.from_json(saved['planned']).spec.option('max_states', Bounds().max_states)
+                 if saved is not None else Bounds().max_states)
+        planned = jobs.plan(root, [path], stored=previous, max_states=bound)
         if any(jobs.lookup(root, item) is None for item in planned):
             paths.append(path)
     if not paths:

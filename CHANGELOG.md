@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.4.0 - 2026-11-05 - Affected checks and reusable current evidence
+
+Restoring missing check records keeps their valid recorded decisions.
+
+Native path walks start only after construction and inventory checks conform.
+
+Recorded test evidence is stored compactly and shared losslessly between its conflicts.
+
+- Ordinary checks compare changed native operations and record a bounded seeded walk of the affected main model. Existing saved-start checks retain their own scope.
+- Mixed code and physical-input changes retain every affected operation; later data changes still invalidate a partial code-only result.
+- Current completed parts and full-check recipes are reused across repeats and resumes. Retained conflicts still need complete original-scope proof and an executed regression to close.
+- Changed code selects statically related tests; removed or renamed imports and property getter/setter helpers remain in scope. Unicode source and test paths keep their actual Git filenames.
+- Known unreached findings retain their earlier setting-explanation attribution; new findings still get a fresh setting search.
+
 ## v1.3.0 - 2026-11-05 - Check actual old saved inputs
 
 - Declare saved files on an existing code-bound model. The real program loads unchanged JSON, SQLite or migration fixtures through the same native recorder; model loading does not execute the sample loader.

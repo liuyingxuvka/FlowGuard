@@ -72,6 +72,7 @@ def _initial_inventory_drift(project, *, broken, model=MODEL):
     assert {row["rule_name"] for row in check["conformance"]["violations"]} == {"operation_inventory"}
     assert native["operation_coverage"]["witnesses"] == []
     assert "skipped" in native["operation_coverage"]
+    assert "walk" not in native
     assert check["native"]["steps"] == []
     after, = [row for row in entry["history"]["baseline"]["obligations"] if row["kind"] == "after"]
     assert after["cases"] is None
@@ -131,6 +132,10 @@ def test_model_calibration_keeps_real_bug_open_until_code_and_regression_are_fix
     assert not stored["closed"]
     native = _core(project, stored).info["native"]
     assert native["status"] == "drift" and native["operation_coverage"]["witnesses"]
+    construction = native["checks"][native["operation_coverage"]["construction_check"]]
+    assert construction["status"] == "conformant"
+    assert native["walk"]["status"] == "drift"
+    assert native["walk"]["replay_inputs_literal"] != "[]"
     assert any(row["rule_name"] == "projected_state_matches"
                for check in native["checks"].values()
                for row in check.get("conformance", {}).get("violations", []))

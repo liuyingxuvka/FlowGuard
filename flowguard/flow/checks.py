@@ -250,12 +250,13 @@ def _first_line(text):
 
 # ---------------------------------------------------------------------- the check
 class _Run:
-    def __init__(self, loaded: Loaded, bounds: Bounds, explain: bool, reduce: bool, progress, start=None):
+    def __init__(self, loaded: Loaded, bounds: Bounds, explain: bool, reduce: bool, progress, start=None, known_never=()):
         self.loaded = loaded
         self.model = loaded.model
         self.bounds = bounds
         self.explain = explain
         self.start = start
+        self.known_never = list(known_never)
         self.reduce = reduce and start is None
         self.progress = progress or (lambda info: None)
         self.g = explore(self.model, bounds, reduce=self.reduce, progress=progress, start=start)
@@ -1086,7 +1087,12 @@ class _Run:
         reach_missing = self.reach_unreached()
         explained, capped, cut = ({}, [], [])
         if self.explain and (missing or reach_missing):
-            explained, capped, cut = self.explanations(missing, reach_missing)
+            def fresh(item):
+                return 'explanation_status' not in self.never_finding(item, {}, [], []).detail
+            fresh_items = [item for item in missing if fresh(item)]
+            fresh_reach = [r for r in reach_missing if fresh(('reach', r))]
+            if fresh_items or fresh_reach:
+                explained, capped, cut = self.explanations(fresh_items, fresh_reach)
         self.explanations_capped, self.explanations_cut = capped, cut
         out = []
         for item in missing + [("reach", r) for r in reach_missing]:
@@ -1190,6 +1196,14 @@ class _Run:
             detail.update(label=f"reach {r.name!r}", rule=r.name)
             notes = self.notes(r) + setting_notes
             objects, line = ((str(r.obj),) if r.obj is not None else ()), r.line
+        detail['base_sources'] = sorted(s for s in sources if s)
+        known = next((entry for entry in self.known_never if entry['subject'] == subject and
+                      entry.get('detail', {}).get('base_sources', entry['sources']) == detail['base_sources']), None)
+        if known is not None:
+            # Keep the real prior explanation's attribution in the stable conflict
+            # identity without presenting its setting search as current evidence.
+            sources.update(known['sources'])
+            detail['explanation_status'] = 'known item; one-setting explanation not repeated'
         sources |= setting_srcs
         detail["notes"] = notes
         return make_finding("NEVER REACHED", cls, self.mid, subject, text, objects=objects, sources=sources,
@@ -1585,9 +1599,9 @@ def reach_line(reach: dict) -> str:
 
 
 def check_model(loaded: Loaded, bounds: Bounds = Bounds(), *, explain: bool = True, reduce: bool = True,
-                progress=None, start=None) -> Report:
+                progress=None, start=None, known_never=()) -> Report:
     """Explore one loaded model and run every prepared check on it."""
-    return _Run(loaded, bounds, explain, reduce, progress, start).run()
+    return _Run(loaded, bounds, explain, reduce, progress, start, known_never=known_never).run()
 
 
 def _on(f: Finding) -> str:

@@ -23,6 +23,15 @@ One model per file: `.flowguard/flow/<name>.py`, ending with `MODEL = m`. Check 
 `python -m flowguard check` (files starting with `_` are helpers, never models).
 Only `check --full` also breaks each model on purpose to see that its checks catch it;
 ordinary `check` does not run these deliberate breaks.
+Ordinary `check` reuses the current parts of unchanged models. Changed models and
+compositions that read them run again; native comparisons select changed operations,
+and affected native modules get a reproducible adapter walk (`--walk-steps 64 --seed 0`
+by default). Only new NEVER REACHED items repeat the one-setting explanation.
+Tests are selected as files through the changed files' static import callers; use
+`--tests NODEID ...` for explicit cases or dynamic coverage. `--full` and CI keep the
+complete checks. Repairing a retained native conflict still requires the original
+complete-scope proof and executable regression. RUNNING returns its resume command;
+resuming keeps already finished parts.
 `python -m flowguard release` runs `check --full` (and, with `--shards`, the tests),
 also in a project with no legacy map. Open conflicts fail release; CI blocks them only
 if it runs release. Without a hook that runs the check, a commit is not blocked.
@@ -119,8 +128,9 @@ Declare every non-`object` class in each captured object's actual MRO, including
 The projection reads captured real fields. Map every model action to its real operation;
 an optional dispatch receives only actual call inputs, never the model's expected answer.
 The same binding owns replay, snapshots, restoration and bounded walks. Ordinary checks
-compare construction and one enabled witness per operation; a full check adds a seeded
-walk. A model conflict is confirmed only with sufficient native evidence. An unsupported
+compare construction and affected operation witnesses; their main-model check also records
+a bounded seeded walk (`--walk-steps 64 --seed 0` by default). Existing supplied saved
+starts retain their own ordinary operation witnesses and full-check walk scope. A model conflict is confirmed only with sufficient native evidence. An unsupported
 observation stays UNKNOWN. A mismatch reports MODEL DRIFT and the actual input path;
 inspect code and model before choosing which to fix. `show C-...` uses the cached witness.
 
@@ -132,7 +142,8 @@ with `decide ID --owner "quote"`. The record distinguishes a requirement change 
 code fix. An AI provisional decision is only for genuinely contradictory requested rules.
 
 `check --tests tests/test_app.py::test_case` explicitly audits selected native pytest
-calls for fallback routes; ordinary `check` and `status` do not launch the project suite.
+calls for fallback routes. Without a model list or explicit test override, ordinary `check`
+selects related tests through static imports; changed pytest configuration affects the suite.
 MASKING requires a witnessed failed primary and a passing test that fails when its
 fallback is disabled. BOTH needs a real owner declaration for two intended routes;
 VISIBLE failures reach the caller. Unreached handlers and defaults appear as counts.

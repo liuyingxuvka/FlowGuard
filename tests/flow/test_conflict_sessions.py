@@ -153,6 +153,19 @@ MODEL=m
     assert conflict['picture'], checked.out
     picture = command(project,'show',conflict['id'],'--json')
     assert picture.returncode == 0, picture.stdout + picture.stderr
+    assert run_check(project.root, '--json').code == 1
+    stable = run_check(project.root, '--json')
+    assert all(part['cached'] for part in stable.data['parts'])
+    prior = next(row for row in read_conflicts(project.root)['conflicts'] if row['id']==conflict['id'])
+    ledger = project.root/'.flowguard/conflicts.json'
+    ledger.unlink()
+    unrecorded = command(project, 'status', '--json')
+    assert json.loads(unrecorded.stdout)['flow_refresh']['refreshed'] == [] and not ledger.exists()
+    restored = run_check(project.root, 'rules', '--json')
+    assert restored.code == 1 and all(part['cached'] for part in restored.data['parts'])
+    recovered = next(row for row in read_conflicts(project.root)['conflicts'] if row['id']==conflict['id'])
+    assert recovered['history']['baseline'] == prior['history']['baseline']
+    assert recovered['history']['decision_refs'] == prior['history']['decision_refs']
     project.file('unrelated.py','X = 1\n')
     status = command(project,'status','--json')
     assert 'AI temporary decision, owner to confirm' in status.stdout
@@ -161,7 +174,8 @@ MODEL=m
     assert 'request_retired' in invalid.stdout
 
 
-def test_status_refreshes_only_changed_model_owner(project):
+@pytest.mark.parametrize('walk_steps,seed', [(64,0), (0,11)])
+def test_status_refreshes_only_changed_model_owner(project, walk_steps, seed):
     project.flow('a', """from flowguard.flow import Model
 m=Model('a')
 m.field('value',(0,1),0)
@@ -178,7 +192,7 @@ def flip(s):
     s['value']=1-s['value']
 MODEL=m
 """)
-    assert run_check(project.root,'--json').code == 0
+    assert run_check(project.root,'--json','--walk-steps',str(walk_steps),'--seed',str(seed)).code == 0
     old = read_conflicts(project.root)['models']['b']['core']['digest']
     path = project.root/'.flowguard/flow/a.py'
     path.write_text(path.read_text()+'\n# change only a\n')
@@ -285,6 +299,12 @@ def test_pure_model_correction_closes_with_executed_model_regression_and_no_code
     path=project.root/proof['regression']['path']
     executed=subprocess.run([sys.executable,str(path)],cwd=project.root,env=env(),capture_output=True,text=True)
     assert executed.returncode==0, executed.stderr
+    (project.root/'.flowguard/conflicts.json').unlink()
+    restored = run_check(project.root, 'repair', '--json')
+    assert restored.code == after.code and all(part['cached'] for part in restored.data['parts'])
+    recovered = next(row for row in read_conflicts(project.root)['closed'] if row['id']==original['id'])
+    assert recovered['history']['baseline'] == closed['history']['baseline']
+    assert recovered['closure']['kind'] == 'model_corrected' and recovered['closure']['regression']['passed']
     project.flow('repair',BROKEN.replace('ADDED',''))
     broken_again=subprocess.run([sys.executable,str(path)],cwd=project.root,env=env(),capture_output=True,text=True)
     assert broken_again.returncode!=0 and 'original model conflict reproduces' in broken_again.stderr
@@ -336,3 +356,70 @@ MODEL=m
     assert 'native conformance unavailable: lamp' in data['verdict']
     assert 'capped at' not in data['verdict']
     assert cli.conflicts_data(project.root,assembled,None)['models']['lamp']['unknown']
+
+
+@pytest.mark.parametrize('change', ['unchanged', 'new_reference', 'retired_owner', 'edited_decision', 'changed_scope', 'partial_ledger'])
+def test_missing_ledger_recipe_revalidates_actual_decisions_and_live_changes(project, change):
+    from flowguard.flow import jobs
+    from flowguard.flow.project import read_manifest
+    from flowguard.map.requests import retire_request
+    lamp = None
+    if change == 'partial_ledger':
+        lamp = project.flow('lamp', "from flowguard.flow import Model\nm=Model('lamp')\nm.field('on',(False,True),False)\n@m.action()\ndef flip(s): s['on']=not s['on']\nMODEL=m\n")
+    prepare(project)
+    first = run_check(project.root, '--json')
+    stuck = next(c for c in first.data['conflicts'] if c['kind'] == 'STUCK')
+    decided = command(project, 'decide', stuck['id'], '--owner',
+                      'Broken tools must become ready after repair.', '--request', 'R1', '--json')
+    assert decided.returncode == 0, decided.stdout + decided.stderr
+    identifier = json.loads(decided.stdout)['decision']['id']
+    assert run_check(project.root, '--json').code == 1
+    stable = run_check(project.root, '--json')
+    assert stable.code == 1 and all(part['cached'] for part in stable.data['parts'])
+    if change == 'new_reference':
+        another = command(project, 'decide', stuck['id'], '--owner',
+                          'Repair is allowed only at main.', '--request', 'R2', '--json')
+        assert another.returncode == 0, another.stdout + another.stderr
+        changed = run_check(project.root, '--json')
+        assert changed.code == 1 and any(not part['cached'] for part in changed.data['parts'] if part['kind']=='core')
+        assert len(next(row for row in read_conflicts(project.root)['conflicts'] if row['id']==stuck['id'])['history']['decision_refs']) == 2
+    actual = read_manifest(project.root, 'repair', with_receipt=True)
+    original_entry = next(row for row in read_conflicts(project.root)['conflicts'] if row['id']==stuck['id'])
+    ledger = project.root / '.flowguard/conflicts.json'
+    ledger.unlink()
+    if change == 'retired_owner':
+        retire_request(project.root, 'R1')
+    elif change == 'edited_decision':
+        event = project.root / '.flowguard/decisions' / (identifier + '.json')
+        event.write_text(event.read_text().replace('Broken tools', 'Altered tools'))
+    elif change == 'partial_ledger':
+        lamp.write_text(lamp.read_text()+'\n# only lamp changed\n')
+    elif change == 'changed_scope':
+        model = project.root/'.flowguard/flow/repair.py'
+        model.write_text(model.read_text().replace("['broken','ready']", "['broken','ready','retired']"))
+    # These changes are outside the original model-only input stamp. The real
+    # decision owner must still check their integrity and active authority.
+    item = jobs.Planned.from_json(actual['planned'])
+    assert (jobs.lookup(project.root, item, recorded_digest=actual['digest']) is not None) == (change != 'changed_scope')
+    before = set((project.root/'.flowguard/cache/flow/jobs').glob('*/*/plan.json'))
+    status = command(project, 'status', '--json')
+    assert status.returncode == 0, status.stdout + status.stderr
+    data = json.loads(status.stdout)
+    if change in ('retired_owner', 'edited_decision', 'changed_scope'):
+        assert data['flow_refresh']['refreshed'] == ['repair'] and ledger.exists()
+        current_entry = next(row for row in read_conflicts(project.root)['conflicts'] if row['id']==stuck['id'])
+        assert current_entry['history']['decision_refs'] == []
+    else:
+        if change == 'partial_ledger':
+            assert data['flow_refresh']['refreshed'] == ['lamp']
+            assert set(read_conflicts(project.root)['models']) == {'lamp'}
+        else:
+            assert data['flow_refresh']['refreshed'] == [] and not ledger.exists()
+            assert set((project.root/'.flowguard/cache/flow/jobs').glob('*/*/plan.json')) == before
+        before_restore = set((project.root/'.flowguard/cache/flow/jobs').glob('*/*/plan.json'))
+        restored = run_check(project.root, 'repair', '--json')
+        assert restored.code == 1 and all(part['cached'] for part in restored.data['parts'])
+        assert set((project.root/'.flowguard/cache/flow/jobs').glob('*/*/plan.json')) == before_restore
+        current_entry = next(row for row in read_conflicts(project.root)['conflicts'] if row['id']==stuck['id'])
+        assert current_entry['history']['baseline'] == original_entry['history']['baseline']
+        assert current_entry['history']['decision_refs'] == original_entry['history']['decision_refs']

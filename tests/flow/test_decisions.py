@@ -380,3 +380,22 @@ def test_non_source_inputs_keep_their_actual_binary_bytes(project):
     result=commit_ready(project.root,['rules'],checked,[])
     assert not result['ready']
     assert result['reasons'][0]['code']=='stale_index'
+
+
+def test_missing_ledger_provisional_uses_actual_cached_proof_and_rechecks_live_sources(project):
+    from flowguard.flow import jobs
+    from flowguard.flow.project import read_conflicts
+    owner_requests(project)
+    evidence = proof_part(project)
+    event = record_decision(project.root, entry(), provisional='Keep the reversible current choice for now.', evidence=evidence)
+    recorded = read_conflicts(project.root)['models']['rules']['core']
+    # Preserve the exact recipe of the actual producer above, as Worker.store does.
+    jobs.store(project.root, evidence, planned=jobs.Planned.from_json(recorded['planned']))
+    (project.root/'.flowguard/conflicts.json').unlink()
+    before = set((project.root/'.flowguard/cache/flow/jobs').glob('*/*/plan.json'))
+    assert evaluate_decision(project.root, entry(), event['id'])['outcome'] == 'provisional'
+    assert not (project.root/'.flowguard/conflicts.json').exists()
+    assert set((project.root/'.flowguard/cache/flow/jobs').glob('*/*/plan.json')) == before
+    retire_request(project.root, 'R2')
+    with pytest.raises(MapError, match='request_retired'):
+        evaluate_decision(project.root, entry(), event['id'])

@@ -403,8 +403,8 @@ def test_full_verifies_the_renaming_without_reduction(project):
     assert reach_line(run, "workshop").endswith("; symmetry verified (324 states unreduced)")
     assert run.lines[-1] == OLD_SAVES_UNCHECKED
     plain = timed(project.root, "--json").data
-    assert not plain["parts"][0]["cached"]           # --full is another part: its own digest
-    assert not plain["models"]["workshop"]["symmetry"]
+    assert plain["parts"][0]["cached"]               # ordinary check reuses the actual current full receipt
+    assert plain["models"]["workshop"]["symmetry"]["verified"]
 
 
 def test_a_hidden_asymmetry_is_never_reduced(project):

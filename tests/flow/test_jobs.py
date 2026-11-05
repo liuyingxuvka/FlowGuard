@@ -487,7 +487,11 @@ def test_wire_cache_and_plan_restore_exact_semantic_identity(project):
     reads = ['.flowguard/flow/repair.py']
     result = PartResult('core', 'repair', part_digest(project.root,spec,reads), True, [],
                         {'descriptor':{'obligations':entries[0]['history']['baseline']['obligations']}}, reads)
-    jobs.store(project.root, result)
+    jobs.store(project.root, result, planned=item)
+    from flowguard.flow.project import read_manifest, manifest_path
+    manifest = read_manifest(project.root, "repair", with_receipt=True)
+    assert manifest["planned"] == item.to_json() and manifest["digest"] == result.digest
+    assert "$flowguard_option" in manifest_path(project.root, "repair").read_text()
     cached = jobs.parts_dir(project.root)/(result.digest+'.json')
     assert '$flowguard_cases' in cached.read_text()
     assert jobs.lookup(project.root,item) == result

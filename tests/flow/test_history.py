@@ -474,3 +474,91 @@ def test_native_business_values_are_not_internal_wire_tags(place):
     value = {'info':{'native':{'checks':{'check-1':run}}}}
     before = deepcopy(value)
     assert history.unpack_wire(history.pack_wire(value)) == value == before
+
+
+def _recorded_entry(identifier, recordings):
+    return {'id': identifier, 'kind': 'RULE CONTRADICTION', 'model': '@recorded-code',
+            'subject': 'recorded route', 'sources': [], 'text': 'recorded condition',
+            'code_evidence': {'route': {'id': identifier}, 'recordings': recordings,
+                              'footprint': {'reusable': False}}}
+
+
+def test_owned_recordings_are_compact_shared_and_lossless(tmp_path):
+    business = {'$flowguard_recordings': 'zlib-base64-v1', 'data': 'business, not a codec',
+                'same_as': 999, '$flowguard_cases': {'opaque': ['kept', None]}}
+    recordings = [{'test': 'recorded-test', 'observer_events': [
+        {'kind': 'statement', 'path': 'app.py', 'line': i % 4, 'payload': business,
+         'result': {'status': 'unknown', 'reason': 'retained unsupported value'}}
+        for i in range(300)]}]
+    rows = [_recorded_entry('a', recordings), _recorded_entry('b', deepcopy(recordings)),
+            _recorded_entry('c', recordings)]
+    different = deepcopy(rows[0])
+    different['id'] = 'd'
+    different['code_evidence']['recordings'][0]['observer_events'][0]['line'] = 99
+    rows.append(different)
+    original = deepcopy(rows)
+    wire = history.pack_wire({'conflicts': rows})
+    packed = wire['conflicts']
+    assert packed[0]['code_evidence']['recordings']['$flowguard_recordings'] == 'zlib-base64-v1'
+    assert packed[1]['code_evidence']['recordings'] == {'same_as': 0}
+    assert packed[2]['code_evidence']['recordings'] == {'same_as': 0}
+    assert packed[3]['code_evidence']['recordings'] != {'same_as': 0}
+    restored = history.unpack_wire(wire)
+    assert restored == {'conflicts': original} and rows == original
+    assert restored['conflicts'][0]['code_evidence']['recordings'] is restored['conflicts'][1]['code_evidence']['recordings']
+    assert restored['conflicts'][0]['code_evidence']['route'] != restored['conflicts'][1]['code_evidence']['route']
+    assert history.unpack_wire({'conflicts': original}) == {'conflicts': original}
+    assert len(json.dumps(wire)) < len(json.dumps(original)) // 10
+    data = {'conflicts': rows, 'closed': [], 'models': {}, 'unknown': []}
+    write_conflicts(tmp_path, data)
+    first = (tmp_path / '.flowguard/conflicts.json').read_bytes()
+    loaded = read_conflicts(tmp_path)
+    write_conflicts(tmp_path, loaded)
+    assert (tmp_path / '.flowguard/conflicts.json').read_bytes() == first
+
+
+def test_code_audit_part_recordings_use_the_same_owned_codec():
+    recordings = [{'observer_events': [{'payload': {'same_as': 0, '$flowguard_recordings':
+                  'zlib-base64-v1', 'data': 'literal business value'}}] * 200}]
+    part = {'kind': 'code-audit', 'model': '@recorded-code',
+            'info': {'analysis': {'recording': {'recordings': recordings, 'status': 'unknown'}}}}
+    before = deepcopy(part)
+    wire = history.pack_wire(part)
+    assert wire['info']['analysis']['recording']['recordings']['$flowguard_recordings'] == 'zlib-base64-v1'
+    assert history.unpack_wire(wire) == before == part
+    assert history.unpack_wire(before) == before
+    # Matching field names elsewhere remain opaque native/business data.
+    other = {'kind': 'core', 'model': 'business', 'info': deepcopy(part['info'])}
+    assert history.pack_wire(other) == other
+    assert history.unpack_wire(other) == other
+    business = _recorded_entry('business', {'$flowguard_recordings': 'zlib-base64-v1',
+                                          'data': 'opaque business value'})
+    business['model'] = 'business'
+    assert history.unpack_wire(history.pack_wire({'conflicts': [business]})) == {'conflicts': [business]}
+
+
+@pytest.mark.parametrize('payload', [
+    {'$flowguard_recordings': 'zlib-base64-v1', 'data': 'not-base64!'},
+    {'$flowguard_recordings': 'wrong-version', 'data': 'eA=='},
+    {'$flowguard_recordings': 'zlib-base64-v1', 'data': 'eA=='},
+    {'$flowguard_recordings': 'zlib-base64-v1', 'data': 'eJyrrgUAAXUA+Q=='},
+])
+def test_corrupt_owned_recordings_never_become_empty_evidence(tmp_path, payload):
+    row = _recorded_entry('a', payload)
+    with pytest.raises(history.HistoryError, match='recording'):
+        history.unpack_wire({'conflicts': [row]})
+    path = tmp_path / '.flowguard/conflicts.json'
+    path.parent.mkdir()
+    path.write_text(json.dumps({'conflicts': [row], 'closed': [], 'models': {}}))
+    with pytest.raises(ConflictsUnreadable):
+        read_conflicts(tmp_path)
+
+
+@pytest.mark.parametrize('reference', [True, -1, 1, 99, '0'])
+def test_owned_recording_reference_must_name_a_prior_actual_table(reference):
+    rows = [_recorded_entry('a', []), _recorded_entry('b', {'same_as': reference})]
+    with pytest.raises(history.HistoryError, match='recording.*reference'):
+        history.unpack_wire({'conflicts': rows})
+    with pytest.raises(history.HistoryError, match='recording.*reference'):
+        history.unpack_wire({'conflicts': [{'id': 'not-a-recording'},
+                                         _recorded_entry('b', {'same_as': 0})]})

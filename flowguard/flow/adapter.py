@@ -176,6 +176,7 @@ class AdapterRun:
     reason: str = ""
     seed: int | None = None
     step_budget: int | None = None
+    witness: dict | None = None
 
     def to_dict(self):
         return {"schema": "flowguard.native-conformance.v1", "status": self.status,
@@ -183,7 +184,8 @@ class AdapterRun:
                 "inputs": [{"function": s.function_name, "arguments": to_jsonable(s.function_input),
                             "external_input": to_jsonable(s.external_input)} for s in self.inputs],
                 "conformance": self.conformance.to_dict() if self.conformance is not None else None,
-                "native": self.native, "seed": self.seed, "step_budget": self.step_budget}
+                "native": self.native, "seed": self.seed, "step_budget": self.step_budget,
+                "witness": self.witness}
 
 
 class _RecordedAdapter:
@@ -365,5 +367,22 @@ def walk(graph, *, steps: int, seed: int, binding=None, timeout=30) -> AdapterRu
     rng = random.Random(seed)
     calls = [rng.randrange(len(graph.calls)) for _ in range(steps)] if graph.calls else []
     result = check_trace(graph, trace_calls(graph, calls), binding=binding, timeout=timeout)
+    if result.status == 'drift':
+        # replay_trace stops at its first mismatch. Remove the unobserved tail,
+        # then reproduce that exact condition through the same native driver.
+        failure = result.conformance.violations[0]
+        prefix = calls[:max(0, failure.step_index - 1)]  # construction is step 1
+        replayed = check_trace(graph, trace_calls(graph, prefix), binding=binding, timeout=timeout)
+        same = (replayed.status == 'drift' and replayed.conformance.violations and
+                replayed.conformance.violations[0].rule_name == failure.rule_name and
+                replayed.conformance.violations[0].message == failure.message)
+        if same:
+            result = replayed
+            result.witness = {'reproduced':True, 'strategy':'first failing prefix; exact condition replay',
+                              'sampled_steps':len(calls), 'steps':len(prefix)}
+        else:
+            result.status = 'unknown'
+            result.reason = 'the sampled native mismatch did not reproduce its original condition'
+            result.witness = {'reproduced':False, 'sampled_steps':len(calls), 'steps':len(prefix)}
     result.seed, result.step_budget = seed, steps
     return result

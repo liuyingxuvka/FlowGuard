@@ -64,6 +64,35 @@ def _compact(value, kind, indent, depth):
     return marker if _wire_size(marker, indent, depth) < _wire_size(value, indent, depth) else value
 
 
+def _packed_recordings(value, indent, depth):
+    """Encode one owned table without retaining its full canonical JSON string."""
+    compressor, digest = zlib.compressobj(), hashlib.sha256()
+    compressed, pending, length, raw_size = bytearray(), [], 0, 0
+    encoder = json.JSONEncoder(sort_keys=True, separators=(',', ':'))
+    for text in encoder.iterencode(value):
+        offset = 0
+        while offset < len(text):
+            end = min(len(text), offset + 65536 - length)
+            pending.append(text[offset:end])
+            length += end - offset
+            offset = end
+            if length == 65536:
+                raw = ''.join(pending).encode('ascii')
+                digest.update(raw)
+                compressed.extend(compressor.compress(raw))
+                raw_size += length
+                pending, length = [], 0
+    if pending:
+        raw = ''.join(pending).encode('ascii')
+        digest.update(raw)
+        compressed.extend(compressor.compress(raw))
+        raw_size += length
+    compressed.extend(compressor.flush())
+    marker = {'$flowguard_recordings': 'zlib-base64-v1',
+              'data': base64.b64encode(compressed).decode('ascii')}
+    return (marker if _wire_size(marker, indent, depth) < raw_size else value), digest.hexdigest()
+
+
 def _expand(value, kind):
     tag = '$flowguard_' + kind
     if not isinstance(value, dict) or tag not in value:
@@ -76,10 +105,11 @@ def _expand(value, kind):
              isinstance(value['data'], str), 'invalid compact ' + kind + ' encoding')
     try:
         raw = zlib.decompress(base64.b64decode(value['data'], validate=True))
-        result = json.loads(raw) if kind == 'cases' else raw.decode('utf-8', 'surrogatepass')
+        result = json.loads(raw) if kind in {'cases', 'recordings'} else raw.decode('utf-8', 'surrogatepass')
     except (ValueError, UnicodeError, zlib.error) as error:
         raise HistoryError('cannot read compact ' + kind + ' evidence: ' + str(error)) from error
-    _require(isinstance(result, dict) if kind == 'cases' else isinstance(result, str),
+    expected = {'cases': dict, 'recordings': list}.get(kind, str)
+    _require(isinstance(result, expected),
              'compact ' + kind + ' evidence has the wrong type')
     return result
 
@@ -105,12 +135,39 @@ def _wire(value, encode, indent=None, depth=0):
     def entries(rows, level):
         if not isinstance(rows, list):
             return rows
-        out = []
-        for row in rows:
+        out, tables, identities = [], {}, {}
+        for index, row in enumerate(rows):
             if isinstance(row, dict) and isinstance(row.get('history'), dict):
                 old = row['history']
                 if 'baseline' in old:
                     row = {**row, 'history':{**old, 'baseline':facts(old['baseline'], level + 3)}}
+            if isinstance(row, dict) and row.get('model') == '@recorded-code':
+                evidence = row.get('code_evidence')
+                if isinstance(evidence, dict) and 'recordings' in evidence:
+                    recordings = evidence['recordings']
+                    if encode and isinstance(recordings, list):
+                        prior = identities.get(id(recordings))
+                        if prior is None:
+                            packed, digest = _packed_recordings(recordings, indent, level + 3)
+                            candidates = tables.setdefault(digest, [])
+                            prior = next((n for table, n in candidates if table == recordings), None)
+                            if prior is None:
+                                candidates.append((recordings, index))
+                            identities[id(recordings)] = index if prior is None else prior
+                        recordings = {'same_as': prior} if prior is not None else packed
+                    elif not encode:
+                        if isinstance(recordings, dict) and 'same_as' in recordings:
+                            reference = recordings['same_as']
+                            _require(set(recordings) == {'same_as'} and type(reference) is int and
+                                     0 <= reference < index, 'invalid recording-table reference')
+                            owner = out[reference]
+                            prior_evidence = owner.get('code_evidence') if isinstance(owner, dict) and owner.get('model') == '@recorded-code' else None
+                            recordings = prior_evidence.get('recordings') if isinstance(prior_evidence, dict) else None
+                            _require(isinstance(recordings, list), 'recording-table reference has no actual table')
+                        else:
+                            recordings = _expand(recordings, 'recordings')
+                            _require(isinstance(recordings, list), 'invalid recording table')
+                    row = {**row, 'code_evidence': {**evidence, 'recordings': recordings}}
             out.append(row)
         return out
 
@@ -139,6 +196,19 @@ def _wire(value, encode, indent=None, depth=0):
             result[key] = entries(value[key], depth + 1)
     if isinstance(value.get('info'), dict) and 'descriptor' in value['info']:
         result['info'] = {**value['info'], 'descriptor':facts(value['info']['descriptor'], depth + 2)}
+    if value.get('kind') == 'code-audit' and value.get('model') == '@recorded-code':
+        info = value.get('info')
+        analysis = info.get('analysis') if isinstance(info, dict) else None
+        recording = analysis.get('recording') if isinstance(analysis, dict) else None
+        if isinstance(recording, dict) and 'recordings' in recording:
+            recordings = recording['recordings']
+            if encode and isinstance(recordings, list):
+                recordings, _ = _packed_recordings(recordings, indent, depth + 4)
+            elif not encode:
+                recordings = _expand(recordings, 'recordings')
+                _require(isinstance(recordings, list), 'invalid recording table')
+            result['info'] = {**result['info'], 'analysis': {**analysis, 'recording': {
+                **recording, 'recordings': recordings}}}
     if isinstance(value.get('parts'), list):
         result['parts'] = [planned(row, depth + 2) for row in value['parts']]
     if 'planned' in value:                        # actual-recipe manifest

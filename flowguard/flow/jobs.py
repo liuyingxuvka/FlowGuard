@@ -25,7 +25,7 @@ caller holds the pipe open, or while the lease in `lease.json` has not expired.
   the model files changed" with the command that resumes, never an internal error.
 
 Cache layout under `.flowguard/cache/flow/`: `parts/<digest>.json` (results),
-`manifests/<model UTF-8 hex>/<kind UTF-8 hex>.json` (each part's last reads), `locks/<part id>.lock` (one worker
+`manifests/<model UTF-8 hex>/<kind UTF-8 hex>.json` (each part's last reads and actual recipe), `locks/<part id>.lock` (one worker
 per part), `jobs/<plan digest>/current.json` naming the latest run directory
 `jobs/<plan digest>/<run>/` (plan.json, worker.json, status.json, lease.json, log).
 """
@@ -125,6 +125,46 @@ def ending_with_this_process(argv: list[str], sig: int = signal.SIGTERM) -> list
 
 
 # ---------------------------------------------------------------------- plan
+def saved_core(root, model, stored):
+    """An actual last core recipe; the existing manifest also survives a lost ledger."""
+    saved = (stored or {}).get('models', {}).get(model, {}).get('core')
+    if saved is not None:
+        return saved
+    manifest = read_manifest(root, model, with_receipt=True) or {}
+    if manifest.get('planned') is not None and manifest.get('digest') is not None:
+        return {key:manifest[key] for key in ('planned', 'digest')}
+    return None
+
+
+def retained_entries(root, item, digest):
+    """Recover only history carried by a real current receipt, never a decision index."""
+    entries = unpack_entries(item.spec.option('native_stored', '[]'))
+    if not entries:
+        return []
+    result = lookup(root, item, recorded_digest=digest)
+    if result is None:
+        return None
+    from .decisions import evaluate_decision
+    from .checks import Finding
+    from .project import conflict_entry
+    from .history import HistoryError
+    from ..map.common import MapError
+    current = {finding['id']:finding for finding in result.findings}
+    try:
+        for entry in entries:
+            # Reproduced findings keep their first baseline, but decisions must
+            # also match today's actual subject/source terms.
+            finding = current.get(entry['id'])
+            checked = conflict_entry(Finding.from_json(finding), previous=entry) if finding is not None else entry
+            for identifier in entry.get('history', {}).get('decision_refs', []):
+                evaluate_decision(root, checked, identifier)
+    except (MapError, HistoryError):
+        return None
+    # Legacy recipes omitted display text; their literal subject still names
+    # the original condition. Future recipes keep the original wording too.
+    return [dict(entry, text=entry.get('text', entry['subject'])) for entry in entries]
+
+
 @dataclass(frozen=True)
 class Planned:
     spec: PartSpec
@@ -149,7 +189,7 @@ class Planned:
 
 
 def plan(root, paths, *, full: bool = False, max_states: int = Bounds().max_states,
-         stored: dict | None = None, tests=None) -> list[Planned]:
+         stored: dict | None = None, tests=None, incremental=False, walk_steps=64, walk_seed=0) -> list[Planned]:
     """Every registered part kind for every model (full-only kinds with full); with full
     the core part also verifies the renaming against an unreduced search. stored (the
     previous conflicts.json): a model with kept conflicts that have a path gets a replay
@@ -177,27 +217,45 @@ def plan(root, paths, *, full: bool = False, max_states: int = Bounds().max_stat
             if kind == 'core' and model in comparisons:
                 options.append(('finite_comparison', True))
             retained = False
-            if kind == 'core' and model in prior:
-                saved = (stored or {}).get('models', {}).get(model, {}).get('core')
+            if kind == 'core':
+                saved = saved_core(root, model, stored)
                 if saved:
                     previous_item = Planned.from_json(saved['planned'])
                     same_bound = previous_item.spec.option('max_states', Bounds().max_states) == max_states
                     enough = not full or previous_item.spec.option('verify_symmetry', False)
+                    old_entries = unpack_entries(previous_item.spec.option('native_stored','[]'))
                     old_decisions = {entry['id']:entry['history']['decision_refs']
-                        for entry in unpack_entries(previous_item.spec.option('native_stored','[]'))
+                        for entry in old_entries
                         if entry.get('history', {}).get('decision_refs')}
                     live_decisions = {entry['id']:entry['history']['decision_refs']
-                        for entry in prior[model] if entry.get('history', {}).get('decision_refs')}
-                    if same_bound and enough and old_decisions == live_decisions and lookup(root, previous_item, recorded_digest=saved['digest']) is not None:
+                        for entry in prior.get(model, ()) if entry.get('history', {}).get('decision_refs')}
+                    if (old_decisions and model not in (stored or {}).get('models', {}) and model not in prior):
+                        # Query and explicit restoration consume the same actual,
+                        # source-current, decision-validated retained history.
+                        recovered = retained_entries(root, previous_item, saved['digest'])
+                        if recovered is not None:
+                            live_decisions = old_decisions
+                    same_walk = (not incremental or (previous_item.spec.option('walk_steps', 64) == walk_steps and
+                                                     previous_item.spec.option('walk_seed', 0) == walk_seed))
+                    if same_bound and enough and same_walk and old_decisions == live_decisions and lookup(root, previous_item, recorded_digest=saved['digest']) is not None:
                         # Adding the newly found conflict to its history is not a
                         # source edit. Reuse this actual current recipe; after an
                         # input edit, run with the retained original conditions.
                         options = list(previous_item.spec.options)
                         retained = True
+            if kind == 'core' and incremental and not retained:
+                saved = (stored or {}).get('models', {}).get(model, {}).get('core')
+                options += [('incremental', True), ('walk_steps', walk_steps), ('walk_seed', walk_seed)]
+                if saved:
+                    options.append(('native_baseline', saved['digest']))
+                known = [{key:c[key] for key in ('subject', 'sources', 'detail')} for c in prior.get(model, ())
+                         if c['kind'] == 'NEVER REACHED']
+                if known:
+                    options.append(('known_never', json.dumps(known, sort_keys=True)))
             if kind == "core" and model in prior and not retained:
                 entries = []
                 for entry in prior[model]:
-                    saved = {key: entry[key] for key in ("id", "kind", "model", "subject", "sources", "subject_terms", "model_name", "path", "replay", "detail", "native_confirmation")
+                    saved = {key: entry[key] for key in ("id", "kind", "model", "subject", "sources", "subject_terms", "model_name", "text", "path", "replay", "detail", "native_confirmation")
                              if key in entry}
                     if "history" in entry:
                         saved["history"] = {**entry["history"], "latest": None,
@@ -270,11 +328,13 @@ def lookup(root, item: Planned, *, named_digest=None, recorded_digest=None) -> P
     return result
 
 
-def store(root, result: PartResult) -> None:
-    """Keep a finished result under its digest, then point that model/part manifest at its reads."""
+def store(root, result: PartResult, *, planned: Planned | None = None) -> None:
+    """Keep a finished result and its actual recipe in the existing part manifest."""
     _atomic_write(parts_dir(root) / f"{result.digest}.json",
                   json.dumps(pack_wire(result.to_json()), sort_keys=True, ensure_ascii=False) + "\n")
-    write_manifest(root, result.model, result.reads, kind=result.kind)
+    write_manifest(root, result.model, result.reads, kind=result.kind,
+                   planned=planned.to_json() if planned is not None else None,
+                   digest=result.digest if planned is not None else None)
 
 
 def inputs_of(root, planned: list[Planned]) -> dict:

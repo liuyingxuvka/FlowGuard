@@ -396,7 +396,7 @@ def _scope(graph):
             "boundary": "declared model fields, operations, starts and native projection"}
 
 
-def evaluate_report(root, report, previous=(), *, full=False, observation=None):
+def evaluate_report(root, report, previous=(), *, full=False, observation=None, incremental=None):
     """Confirm current witnesses and prepare complete-scope, executable repair evidence.
 
     The caller still compares retained scope and sourced obligations before applying
@@ -445,8 +445,14 @@ def evaluate_report(root, report, previous=(), *, full=False, observation=None):
                 "witness_budget": len(graph.model.actions), "seed": None, "witnesses": [],
                 "construction_check": construction_id}
     evidence["operation_coverage"] = coverage
+    operations = None if incremental is None else incremental['operations']
+    if incremental is not None:
+        coverage['selected_operations'] = operations
+        coverage['strategy'] = 'changed declared operation witnesses; finite incremental correspondence'
     if construction_run.status == "conformant":
         for operation, selection, trace in _operation_witnesses(graph):
+            if operations is not None and operation not in operations:
+                continue
             if trace is None:
                 evidence["limits"].append(operation + ": no known finite operation witness in the explored scope")
                 coverage["witnesses"].append({"operation": operation, "selection": selection, "check": None})
@@ -486,8 +492,12 @@ def evaluate_report(root, report, previous=(), *, full=False, observation=None):
 
     full_results = None
 
-    def full_correspondence():
+    def full_correspondence(*, closing=False):
         nonlocal full_results
+        if incremental is not None and not closing:
+            # A bounded/selected comparison never proves an absence or settles
+            # a retained native conflict. --full supplies the complete proof.
+            return False
         if construction_run.status != "conformant":
             return False
         if full_results is None:
@@ -539,7 +549,7 @@ def evaluate_report(root, report, previous=(), *, full=False, observation=None):
                     raise ModelError("the original failure condition is still present or unknown")
                 trace = repair_trace(graph, entry)
             witness_id, witness_run = compare(trace)
-            if not full_correspondence() or witness_run.status != "conformant":
+            if not full_correspondence(closing=True) or witness_run.status != "conformant":
                 continue
             if changed_requirement and any(compare(item)[1].status != 'conformant' for item in targets):
                 continue
@@ -567,10 +577,12 @@ def evaluate_report(root, report, previous=(), *, full=False, observation=None):
                 reads.update(resolution['paths'])
         except ModelError as error:
             evidence["limits"].append(entry["id"] + ": " + str(error))
-    if full:
+    walk_steps = (max(1, len(graph.calls)) if full else
+                  None if incremental is None else incremental['walk_steps'])
+    if walk_steps is not None and construction_run.status == "conformant":
         # The declared budget follows the number of public calls; it is recorded, not a success threshold.
         from .adapter import walk
-        sampled = walk(graph, steps=max(1, len(graph.calls)), seed=0)
+        sampled = walk(graph, steps=walk_steps, seed=0 if full else incremental['walk_seed'])
         evidence["walk"] = sampled.to_dict()
         evidence["walk"]["native"] = sampled.native
         evidence["walk"]["replay_inputs_literal"] = _literal_inputs(sampled.inputs)
@@ -585,6 +597,15 @@ def evaluate_report(root, report, previous=(), *, full=False, observation=None):
         else:
             evidence["limits"].append("The walk's native input footprint is unavailable.")
     evidence["checks"] = checks
+    if incremental is not None and incremental.get('retained_footprints'):
+        # Unselected operations were not rerun. Keep their still-current physical
+        # dependencies so a later data/environment edit cannot reuse this result.
+        evidence['retained_inputs'] = {'receipt':incremental['retained_from'],
+            'scope':'prior physical inputs; source content covered by current operation digests'}
+        for footprint in incremental['retained_footprints']:
+            footprints[json.dumps(footprint, sort_keys=True)] = footprint
+            reads.update(Path(path).relative_to(root).as_posix() for path in footprint.get('files', {})
+                         if Path(path).is_relative_to(root) and Path(path).is_file())
     evidence["footprints"] = list(footprints.values())
     evidence["reads"] = sorted(reads)
     statuses = {result.status for _, result in traces.values()} | extra_statuses

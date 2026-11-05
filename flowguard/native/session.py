@@ -47,6 +47,7 @@ class _Inputs:
         self.source_root = str(Path(source_root).resolve()) + os.sep
         self.empty_bytecode = Path(empty_bytecode)
         self.files, self.directories = {}, {}
+        self.source_data_reads = {}
         self.directory_uses = {}
         self.world_reads = []
         self.busy = False
@@ -212,6 +213,10 @@ class _Inputs:
                 except ValueError:
                     pass
                 key = str(path)
+                if rows is self.files and caller is not None:
+                    context = self.environment_context(caller)
+                    if context is not None:
+                        self.source_data_reads.setdefault(key, context)
                 if key not in rows:
                     rows[key] = stamp(path)
                 if rows is self.directories:
@@ -251,7 +256,8 @@ class _Inputs:
                 "caller": [caller.f_code.co_filename, caller.f_code.co_qualname] if caller is not None else None}
 
     def receipt(self):
-        return {"files": self.files, "directories": self.directories, "reusable": self.reusable,
+        return {"files": self.files, "source_data_reads": self.source_data_reads,
+                "directories": self.directories, "reusable": self.reusable,
                 "directory_uses": self.directory_uses, "untracked": sorted(self.untracked),
                 "environment": self.environment, "environment_reads": self.environment_reads,
                 "environment_events": self.environment_events, "world_reads":self.world_reads}

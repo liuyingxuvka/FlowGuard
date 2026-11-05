@@ -163,9 +163,15 @@ def core_part(ctx: PartContext) -> PartResult:
         report.findings.extend(finding for finding in composition.report.findings
                                if finding.cls == ERROR_CLS and finding.id not in known)
     else:
-        report = check_model(loaded, Bounds(max_states), progress=progress)
+        report = check_model(loaded, Bounds(max_states), progress=progress,
+                             known_never=json.loads(spec.option('known_never', '[]')))
         if '_composition' in model.__dict__:
             report = annotate(report)
+    incremental = None
+    if spec.option('incremental', False):
+        from .affected import baseline, native_scope
+        incremental = native_scope(loaded, baseline(root, spec.option('native_baseline', None)), report,
+                                   steps=spec.option('walk_steps', 64), seed=spec.option('walk_seed', 0))
     info = {"loaded": True, "reach": report.reach, "reach_line": reach_line(report.reach),
             "holds": [list(h) for h in report.holds], "unknown": list(report.unknown),
             "seconds": round(report.graph.seconds, 3), "covers": list(model.covers),
@@ -173,6 +179,8 @@ def core_part(ctx: PartContext) -> PartResult:
             "objects": {kind: list(ids) for kind, ids in model.kinds.items()},
             "reached": list(report.reached), "sources": report_sources(report),
             "setting_proposals": model.setting_proposals()}
+    if incremental is not None:
+        info['incremental'] = incremental['snapshot']
     info['foreign'] = boundary(model)
     if '_composition' in model.__dict__:
         info['composition'] = composition.summary() if composition is not None else scope_summary(model, report)
@@ -214,7 +222,8 @@ def core_part(ctx: PartContext) -> PartResult:
         "obligations": descriptor["obligations"], "replay": "not_run",
         "conflicts": [{"id":f.id,"kind":f.kind,"subject":f.subject} for f in findings if f.cls == 'conflict']}
     native = evaluate_report(root, report, [entry for entry in previous_entries if not saved_origin(entry)],
-                             full=spec.option("verify_symmetry", False), observation=observation)
+                             full=spec.option("verify_symmetry", False), observation=observation,
+                             incremental=incremental)
     def saved_observation():
         current = model_descriptor(loaded,report,digest,checked_inputs, finite_comparison=bool(previous_entries))
         return {**observation,'scope':current['scope'],'obligations':current['obligations']}

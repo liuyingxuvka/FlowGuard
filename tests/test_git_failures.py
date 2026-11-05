@@ -62,10 +62,10 @@ def test_the_path_probe_reads_names_literally_whatever_the_pathspec_setting(tmp_
     (root / 'axb.py').write_bytes(b'x\n')
     _git(root, 'add', '-A')
     # Git can store this literal path on Windows, whose filesystem cannot.
-    _git(root, 'config', 'core.protectNTFS', 'false')
     source = tmp_path / 'star-blob'
     source.write_bytes(b'star\n')
     blob = _git(root, 'hash-object', '-w', str(source)).decode().strip()
+    _git(root, 'config', 'core.protectNTFS', 'false')
     _git(root, 'update-index', '--add', '--cacheinfo', '100644', blob, 'a*b.py')
     _git(root, 'commit', '-qm', 'base')
     monkeypatch.setenv('GIT_LITERAL_PATHSPECS', literal)
