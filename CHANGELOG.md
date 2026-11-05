@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.2.0 - 2026-11-05 - Start models from existing Python code
+
+New adapter drafts include statically known source base classes.
+
+- Read a Python file, class or method for static names, signatures, candidate values and settings references without executing the project.
+- Create model and adapter TODO files once. Complete expected behavior from the requests, connect real calls through the existing adapter and inspect actual model/code differences; completed author files are never overwritten.
+
 ## v1.1.0 - 2026-11-05 - Compose feature models
 
 - Compose existing feature models with shared object identities. Calls between features share one step, preserve ordinary action updates and original guards and requests, and commit effects only when every participant accepts.

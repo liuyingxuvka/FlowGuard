@@ -11,7 +11,7 @@ FlowGuard gives an AI a small executable model of a feature, connected to real c
 Install from this repository; the PyPI package called flowguard is a different project.
 
 ```bash
-python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v1.1.0"
+python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v1.2.0"
 python scripts/install_skill.py --target ~/.codex/skills
 cd your-project
 python -m flowguard status
@@ -30,6 +30,8 @@ The skill installer is in a source checkout. Point its target at your agent's sk
 
 Write one small feature machine in `.flowguard/flow/`, using `Model`, fields, actions and explicit promises. Keep the model's expected behavior independent of the implementation. Bind it through `Model.bind_adapter` to compare actual calls and outcomes with those expectations. The same native recorder captures actual reads, calls and selected pytest execution; missing observations remain unknown.
 
+For existing Python code, `python -m flowguard draft pkg/orders.py:Order` reads static vocabulary without executing the project. Add `--write` once to create model/adapter TODOs. Let the AI complete independent behavior from the requests and connect the real calls, then run `check`. The draft is a starting point, not a verdict; completed author files are never replaced.
+
 `check` explores the declared finite state space. It reports violated promises, dead ends and unreachable goals with the shortest available path and their source requests. `check --full` also tries deliberate breakages. A clean result covers the declared model and observed code boundary; omitted behavior still needs a model or a relevant test.
 
 Owner words live unchanged in `.flowguard/requests/`. Open conflicts and their retained scope live in `.flowguard/conflicts.json` and remain visible after a restart. A smaller model cannot silently erase an earlier obligation. Real code repairs need current native correspondence and an executed regression; a genuine replacement requirement uses the original owner words. `show` draws the stored witness without rerunning the application.
@@ -40,6 +42,7 @@ Owner words live unchanged in `.flowguard/requests/`. Open conflicts and their r
 | --- | --- |
 | `python -m flowguard status` | Refresh changed models; show open work, source words and questions. |
 | `python -m flowguard where NAME` | Find source, callers, model coverage and request links without importing project code. |
+| `python -m flowguard draft pkg/orders.py:Order` | Read static starting vocabulary; `--write` creates model/adapter TODOs once. |
 | `python -m flowguard req add FILE --id R1` | Preserve one actual owner message byte for byte; use `--supersedes R0` when it replaces an earlier request. |
 | `python -m flowguard check` | Check affected work through the shared background jobs and reuse current results. |
 | `python -m flowguard check --full` | Run the complete model checks, including deliberate breakages. |

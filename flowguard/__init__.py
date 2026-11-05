@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 # owner module -> public names
 _PUBLIC_API: dict[str, tuple[str, ...]] = {'flowguard.conformance': ('ConformanceReport',

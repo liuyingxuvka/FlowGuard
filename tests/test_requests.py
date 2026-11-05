@@ -290,8 +290,6 @@ def test_empty_request_bytes_do_not_create_records_or_reserve_the_id(tmp_path, k
     assert item["bytes"] == len(raw)
     assert (tmp_path / ".flowguard/requests/REmpty.md").read_bytes() == raw
 
-
-
 @pytest.mark.parametrize("input_source", ["file", "stdin"])
 def test_req_add_reports_empty_input_before_writing(tmp_path, capsys, monkeypatch, input_source):
     import io

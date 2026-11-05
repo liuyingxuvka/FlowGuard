@@ -115,7 +115,7 @@ class SkillPackageTests(unittest.TestCase):
         for required in ('python -m flowguard status','python -m flowguard req add','python -m flowguard where','python -m pytest -q'):
             self.assertIn(required,text)
         taught = set(re.findall(r'python -m flowguard ([a-z]+)', text))
-        self.assertEqual({'status','req','where','check','show'}, taught)
+        self.assertEqual({'status','req','where','draft','check','show'}, taught)
         for retired in ('target start','target add','target check','target promote','map confirm','change --run','read --find','PLAN.txt','owner block','commit -F','NEXT'):
             self.assertNotIn(retired,text)
 

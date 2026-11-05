@@ -9,6 +9,7 @@ from . import __version__
 from .map.common import advice, print_verdict, quiet_broken_pipe, render_advice, safe_stdio, project_command
 
 VERB_PURPOSE = {
+    'draft': 'Draft static vocabulary and one-time model and adapter TODO files.',
     'where': 'Locate source functions, calls, architecture and original text without execution.',
     'status': 'Refresh changed models and show open conflicts, owner words and current source facts.',
     'check': 'Check executable flow models and report sourced conflicts.',
@@ -31,6 +32,14 @@ def _verb_parser(verb):
         parser.add_argument('--list', action='store_true')
         parser.add_argument('--write', metavar='DIR')
         parser.add_argument('--force', action='store_true', help='overwrite generated files; existing owner instruction files stay intact')
+        return parser
+    if verb == 'draft':
+        parser.add_argument('target', metavar='PATH[:CLASS[.METHOD]]')
+        parser.add_argument('--root', help='project root (default: current project)')
+        parser.add_argument('--json', action='store_true')
+        parser.add_argument('--write', action='store_true', help='create model and adapter TODO files once')
+        parser.add_argument('--model', metavar='PATH', help='new model file, relative to the project')
+        parser.add_argument('--adapter', metavar='PATH', help='new adapter file, relative to the project')
         return parser
     parser.add_argument('--root', help='project root (default: the project holding the current directory)')
     if verb == 'where':
@@ -203,6 +212,38 @@ def _status(ns):
         return 2
 
 
+def _draft(ns):
+    import json
+    from .flow.draft import DraftError, draft, write_once
+    from .map.common import MapError
+    try:
+        result = draft(Path(ns.root), ns.target)
+        payload = result.to_dict()
+        if ns.write:
+            target = Path(ns.target.split(':', 1)[0]).stem
+            selector = ns.target.partition(':')[2].replace('.', '_')
+            name = target + ('_' + selector if selector else '')
+            paths = write_once(result,
+                Path(ns.root) / (ns.model or f'.flowguard/flow/{name}.py'),
+                Path(ns.root) / (ns.adapter or f'.flowguard/adapters/{name}.py'))
+            payload['written'] = [str(path) for path in paths]
+        if ns.json:
+            print(json.dumps(payload, ensure_ascii=False))
+        else:
+            print(result.vocabulary['boundary'])
+            print('===== model TODO =====\n' + result.model, end='')
+            print('===== adapter TODO =====\n' + result.adapter, end='')
+            for path in payload.get('written', []):
+                print('wrote ' + path)
+        return 0
+    except (DraftError, OSError, MapError) as error:
+        if ns.json:
+            print(json.dumps({'error': str(error)}, ensure_ascii=False))
+        else:
+            print('error: ' + str(error), file=sys.stderr)
+        return 1 if isinstance(error, FileExistsError) else 2
+
+
 def _where(ns):
     from .map import derived, textrules
     from .map.common import MapError
@@ -299,6 +340,10 @@ def _dispatch(args):
     if hasattr(ns, 'root'):
         from .map.common import project_root
         ns.root = str(project_root(ns.root))
+    if verb == 'draft':
+        if (ns.model or ns.adapter) and not ns.write:
+            parser.error('--model and --adapter require --write')
+        return _draft(ns)
     if verb == 'where':
         if ns.at is not None and ns.view != 'text':
             parser.error('--at requires --text')

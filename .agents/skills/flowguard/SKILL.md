@@ -7,7 +7,7 @@ description: "Start code work with `python -m flowguard status`; keep the owner'
 
 ## Start
 
-Run `python -m flowguard status` first in every session and after any loss of context. Install FlowGuard only from `git+https://github.com/liuyingxuvka/FlowGuard.git@v1.1.0`.
+Run `python -m flowguard status` first in every session and after any loss of context. Install FlowGuard only from `git+https://github.com/liuyingxuvka/FlowGuard.git@v1.2.0`.
 
 ## The owner's words
 
@@ -30,6 +30,8 @@ Add a few plain sentences.
 With no name, `show` draws conflicts or the change against HEAD.
 
 A bound model compares real calls through one adapter; see the installed HOWTO's code example. MODEL DRIFT needs a model/code repair, not an owner waiver. Use `check --tests NODEID...` only when auditing selected tests for fallback routes; ordinary checks do not run the project suite. A conflict remains until its retained scope is checked or an implemented replacement requirement is supported by stored owner words. `decide ID --provisional "reason"` applies only to genuinely contradictory requested rules.
+
+For existing Python code, `python -m flowguard draft path.py:Class` reads static vocabulary without executing the project. Add `--write` once for model/adapter TODO files. Complete independent behavior from the requests, connect actual calls with the existing adapter, then run `check` for real correspondence. A draft supplies no guards or verdict and never replaces author-owned files.
 
 ## Find code
 

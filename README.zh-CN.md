@@ -11,7 +11,7 @@ FlowGuard 给 AI 一份小而可执行的功能模型，连接实际代码和保
 从本仓库安装；PyPI 上名为 flowguard 的包是另一个项目。
 
 ```bash
-python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v1.1.0"
+python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v1.2.0"
 python scripts/install_skill.py --target ~/.codex/skills
 cd your-project
 python -m flowguard status
@@ -30,6 +30,8 @@ git commit -m "Charge each order once" -m "Request: R1"
 
 在 `.flowguard/flow/` 中，用 `Model`、字段、动作和明确的承诺描述一个小功能。模型的预期行为应独立于实现。用 `Model.bind_adapter` 对照实际调用和结果；同一个原生记录器记录真实读取、调用和选定的 pytest 执行，没观察到的部分仍标为未知。
 
+从已有 Python 代码起步，可用 `python -m flowguard draft pkg/orders.py:Order` 只读提取静态词汇，不执行项目。加 `--write` 仅首次创建模型和适配器 TODO；让 AI 按需求补完独立的预期行为、连接实际调用，再运行 `check`。草稿只是起点，不是检查结论；完成的作者文件不会被替换。
+
 `check` 探索声明的有限状态空间，报告承诺冲突、死路和无法到达的目标，附上可得的最短路径及来源需求。`check --full` 还会故意改坏模型。通过只覆盖声明的模型及已观察的代码边界；省略的行为仍需要相关模型或测试。
 
 主人原话原样保存在 `.flowguard/requests/`。未解决的冲突及其保留范围写入 `.flowguard/conflicts.json`，重启后仍可见。缩小模型不能悄悄抹去已有义务。实际代码修复需要当前原生对照和执行过的回归；真正替换需求时使用主人原话。`show` 直接绘制已保存的证据，不重跑应用。
@@ -40,6 +42,7 @@ git commit -m "Charge each order once" -m "Request: R1"
 | --- | --- |
 | `python -m flowguard status` | 刷新已改模型，显示未完成工作、来源原话和待决问题。 |
 | `python -m flowguard where NAME` | 不导入项目代码，查定义、调用者、模型覆盖和需求链接。 |
+| `python -m flowguard draft pkg/orders.py:Order` | 读取静态起始词汇；加 `--write` 首次创建模型和适配器 TODO。 |
 | `python -m flowguard req add FILE --id R1` | 按字节保留一条实际主人消息；替代旧需求时加 `--supersedes R0`。 |
 | `python -m flowguard check` | 通过共用后台任务检查受影响工作，复用仍有效的结果。 |
 | `python -m flowguard check --full` | 执行完整模型检查，包括故意改坏。 |

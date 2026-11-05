@@ -45,6 +45,29 @@ instead of adding a fallback.
 The flow commands use the same models and checks on supported platforms. `status` reports
 any platform limitation alongside the stored conflicts.
 
+## Starting from existing Python code
+
+`draft` reads a file, class or direct method without importing the project. It offers
+candidate names, signatures, labels, queries and settings references, plus TODO text:
+
+```bash
+python -m flowguard draft pkg/orders.py:Order --json
+python -m flowguard draft pkg/orders.py:Order --write
+```
+
+Only `--write` creates files: by default `.flowguard/flow/orders_Order.py` and
+`.flowguard/adapters/orders_Order.py`. Existing files are refused, including completed
+author work. The generated model deliberately stops at a TODO; vocabulary is not a
+domain, guard, transition or check result.
+
+Complete the model's behavior and promises from the requests. Complete the adapter's
+construction, operation inputs, captured-state projection and legitimate refusal classes,
+then call its `bind(m)` from the model. If dispatch is needed, it receives `ReplayInput`
+with actual `function_name`, `function_input` and `external_input`, never expected model
+state or output. Use the existing [code-comparison example](#compare-the-model-with-code)
+for that one binding, then run `check orders_Order`. MODEL DRIFT compares actual calls;
+copying implementation guards into the model would not provide an independent expectation.
+
 ## Writing a model
 
 - `m = Model(name, covers=["pkg/mod.py:Class"], config="pkg.config:Config", note=...)`:
@@ -92,6 +115,7 @@ m.bind_adapter(
 ```
 
 `system` constructs the real object; `classes` names the project types in its state.
+Declare every non-`object` class in each captured object's actual MRO, including source bases; a new draft pre-fills known same-module source bases, and unresolved bases need author review.
 The projection reads captured real fields. Map every model action to its real operation;
 an optional dispatch receives only actual call inputs, never the model's expected answer.
 The same binding owns replay, snapshots, restoration and bounded walks. Ordinary checks
