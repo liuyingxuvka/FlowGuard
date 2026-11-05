@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .common import (Finding, advice, atomic_write_text, git_blob, git_common_directory, git_head, git_run,
                      normalize_newlines, project_command, sha256_bytes)
-from .mapfile import MapError
+from .common import MapError
 
 
 NO_ORIGINAL_FACT = ("this checkout holds no first commit, first-write receipt or release snapshot of the original "
@@ -282,121 +282,6 @@ _RECORD_LISTS = ("requests", "plan", "rules", "acceptances", "existing_cleared",
                  "implemented_by", "new_actions", "corrections")
 
 
-def _diff_provenance(root, base, inputs, changed_paths):
-    """Read actual base-to-worktree source changes, without an authored claim."""
-    from difflib import SequenceMatcher
-    from .inventory import function_digests
-
-    commit = base.get("git")
-    if not isinstance(commit, str):
-        from .plan import function_identities
-        previous = base.get('files')
-        if not isinstance(previous, dict):
-            return [], [], 'Implementation identities and correction before-images are unknown: no source baseline.'
-        implemented, unknown = [], []
-        for relative in sorted(previous.keys() | inputs.keys()):
-            if not relative.endswith('.py') or relative.startswith('.flowguard/'):
-                continue
-            entry = previous.get(relative)
-            left = entry.get('functions') if isinstance(entry, dict) else {} if entry is None else None
-            try:
-                right = function_identities((root / relative).read_text(encoding='utf-8-sig')) if (root / relative).is_file() else {}
-            except (OSError, UnicodeError):
-                right = None  # Named below as an unknown function identity, like a source that does not parse.
-            if not isinstance(left, dict) or right is None:
-                unknown.append(relative)
-                continue
-            for name in sorted(left.keys() | right.keys()):
-                if name in left and left[name] is None or name in right and right[name] is None:
-                    unknown.append(relative + ':' + name)
-                elif left.get(name) != right.get(name):
-                    implemented.append(relative + ':' + name)
-        note = 'Implementation provenance compares target-start normalized function identities. Correction before-images are unknown without Git.'
-        return implemented, [], note + (' Unknown function identities: ' + ', '.join(unknown) if unknown else '')
-    if changed_paths is None:
-        return [], [], "The Git base diff is unavailable; implementation and correction provenance are unknown."
-    paths = set(changed_paths)
-    implemented, corrections, unknown = [], [], []
-    for relative in sorted(paths):
-        correction = relative == ".flowguard/skeleton.py" or Path(relative).name in {"world.py", "machine.py"}
-        if not relative.endswith(".py") or relative.startswith(".flowguard/") and not correction:
-            continue
-        before = git_blob(root, commit, relative) or b""  # None: a file the change added
-        path = root / relative
-        after = path.read_bytes() if path.is_file() else b""
-        try:
-            old = normalize_newlines(before).decode("utf-8")
-            new = normalize_newlines(after).decode("utf-8")
-            left = function_digests(old)["functions"]
-            right = function_digests(new)["functions"]
-        except (UnicodeError, SyntaxError, ValueError):
-            unknown.append(relative)
-            continue
-        if not relative.startswith(".flowguard/"):
-            implemented.extend(relative + ":" + name for name in sorted(left.keys() | right.keys())
-                               if left.get(name) != right.get(name))
-        if correction:
-            old_lines, new_lines = old.splitlines(), new.splitlines()
-            for operation, first, last, start, end in SequenceMatcher(None, old_lines, new_lines).get_opcodes():
-                if operation != "equal":
-                    corrections.append(dict(path=relative, old="\n".join(old_lines[first:last]),
-                                            new="\n".join(new_lines[start:end])))
-    note = "Implementation provenance lists changed Python function definitions from the Git diff."
-    return implemented, corrections, note + (" Unknown function identities: " + ", ".join(unknown) if unknown else "")
-
-
-def prepare_change(root, *, goal, links, base, inputs, merged, model_bytes, deleted, checked,
-                   changed_paths=None, plan=(), rules=(), stage=None):
-    """Prepare a final immutable record and the exact checked post-promotion view; the commit message is the AI's own."""
-    root = Path(root).resolve()
-    prepare_directory(root, CHANGE_DIR, (".json",))
-    guard = (CHANGE_DIR / ".gitattributes").as_posix()
-    guard_hash = sha256_bytes((root / guard).read_bytes())
-    view = {path: digest for path, digest in inputs.items()
-            if not path.startswith((".flowguard/target/", ".flowguard/cache/", ".git/"))}
-    map_bytes = (json.dumps(merged, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    view[".flowguard/map.json"] = sha256_bytes(map_bytes)
-    view[guard] = guard_hash
-    for name, raw in model_bytes.items():
-        view[".flowguard/models/" + name] = sha256_bytes(raw)
-    for path in deleted:
-        view.pop(path, None)
-    tree = sha256_bytes(json.dumps(sorted(view.items()), ensure_ascii=False,
-                                  separators=(",", ":")).encode("utf-8"))
-    now = datetime.now(timezone.utc)
-    identifier = now.strftime("%Y%m%d-%H%M-") + tree[:6]
-    implemented, corrections, provenance = _diff_provenance(root, base, inputs, changed_paths)
-    record = dict(kind="change", goal=goal, requests=links, base=base.get("git"), tree=tree,
-                  promoted=now.isoformat(), plan=list(plan), rules=list(rules), acceptances=[], existing_cleared=[],
-                  implemented_by=implemented, new_actions=[], corrections=corrections, stage=stage,
-                  checked=checked + " " + provenance +
-                  " Available static rule identities and checked PLAN lines are recorded. PLAN edit ordering, per-item clearance, acceptances, existing-item clearance and new-action judgments are not assessed; unknown order is null and unsupported lists are empty.")
-    raw = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    validate_new_files(root, (CHANGE_DIR / (identifier + ".json"),))
-    return dict(id=identifier, record=record, json=raw, map_bytes=map_bytes,
-                guard_path=guard, guard_sha256=guard_hash)
-
-
-COMMIT_FILES = ("the code, .flowguard/models/, .flowguard/map.json, .flowguard/requests/, .flowguard/changes/ "
-                "and the deletion of .flowguard/target/")
-
-
-def commit_advice(root, record):
-    """The one next step after a promotion, from its stored file list; the commit message is the AI's own."""
-    if record["stage"] is None:
-        return advice("check", project_command(root, "map", "check", "--strict"),
-                      note="no Git worktree; preserve " + COMMIT_FILES)
-    requests = ", ".join(link["id"] for link in record["requests"])
-    command = shlex.join(["git", "-C", str(Path(root).resolve()), "--literal-pathspecs", "add", "-A", "--", *record["stage"]])
-    return advice("commit", command, note="stage " + COMMIT_FILES + " together",
-                  then="then commit with your own message" + (f"; add the line 'Request: {requests}'" if requests else ""))
-
-
-def publish_change(root, prepared):
-    """Write the record once; a failed write never becomes a successful record."""
-    write_once(root, CHANGE_DIR / (prepared["id"] + ".json"), prepared["json"])
-
-
 def _record_files(root):
     """Record files on disk or protected; a legacy .msg written by FlowGuard 0.71.x stays protected."""
     paths = {path.relative_to(root).as_posix() for pattern in ("*.json", "*.msg")
@@ -487,7 +372,7 @@ def save_release_snapshot(root):
     if unreadable:
         identifier, error = unreadable[0]
         raise MapError(f"change record {identifier} unreadable: {error}; the release boundary would leave it out "
-                       f"({len(unreadable)} unreadable; python -m flowguard map check)")
+                       f"({len(unreadable)} unreadable; python -m flowguard status)")
     captured = datetime.now(timezone.utc).isoformat()
     records = {'captured': captured, 'files': files}
     covered = {'captured': captured, 'changes': changes}

@@ -21,7 +21,7 @@ from flowguard.flow.model import Loaded, load_model
 from flowguard.flow.parts import PartContext, PartSpec, run_part
 from flowguard.flow.project import cache_dir
 
-from conftest import DATA, REPO
+from _flow_project import DATA, REPO
 from golden_machine import load_machines
 
 PICTURES = DATA / "pictures"

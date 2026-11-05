@@ -23,7 +23,7 @@ from flowguard.flow.model import ModelError, load_model
 from flowguard.flow.parts import PartContext, PartSpec, run_part
 from flowguard.flow.routes import ForceIfs, check_routes, judge, observe
 
-from conftest import DATA, REPO
+from _flow_project import DATA, REPO
 from route_machines import load_forced_machines
 
 TOY = DATA / "toy_flow"
@@ -264,7 +264,7 @@ def test_every_golden_file_has_a_prototype_report():
 # ---------------------------------------------------------------------- symmetry
 @pytest.fixture(scope="module")
 def bring(tmp_path_factory):
-    from conftest import Project
+    from _flow_project import Project
     project = Project(tmp_path_factory.mktemp("bring") / "p")
     reduced, _ = routes(project, DATA / "scale" / "bring_3_2.py")
     plain, _ = routes(project, DATA / "scale" / "bring_3_2.py", reduce=False)

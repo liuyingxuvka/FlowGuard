@@ -9,7 +9,7 @@ from flowguard.flow.descriptors import finding_terms, input_evidence, model_desc
 from flowguard.flow.model import load_model
 from flowguard.flow.project import conflict_entry
 from flowguard.flow.regression import prepare_model_closures
-from flowguard.map.mapfile import MapError
+from flowguard.map.common import MapError
 from flowguard.map.requests import retire_request, store_request
 
 TEMPLATE = '''

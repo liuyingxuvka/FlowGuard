@@ -145,20 +145,6 @@ native._ObservedState.capture = broken_capture
     assert failure.value.phase == "observer"
 
 
-def test_judgment_fault_reaches_caller_after_actual_call(spec, monkeypatch):
-    from flowguard.behave import project as pilot
-
-    inject_child(monkeypatch, '''from flowguard.behave import rules
-def broken_judge(plan, captures):
-    from flowguard.native.capture import iter_steps
-    assert any(row["call"]["name"] == "normal" for row in iter_steps(captures))
-    raise RuntimeError("injected judgment fault after actual call")
-rules.judge = broken_judge
-''', owner=pilot)
-    with pytest.raises(RuntimeError, match="injected judgment fault after actual call") as failure:
-        pilot.replay(spec, [{"name": "normal"}], operation="rule-proof", options={"rule_plan": {}})
-    assert type(failure.value).__name__ == "NativeEngineError"
-    assert failure.value.phase == "judgment"
 
 
 def test_sut_catch_all_cannot_hide_an_observer_fault(spec, monkeypatch):

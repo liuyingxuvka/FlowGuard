@@ -9,7 +9,7 @@ import pytest
 from flowguard.flow.checks import WARNING, check_model, reach_line
 from flowguard.flow.model import ModelError, load_model
 
-from conftest import DATA, Project
+from _flow_project import DATA, Project
 
 KIT = DATA / "kit"
 

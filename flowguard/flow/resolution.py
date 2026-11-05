@@ -4,7 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from pathlib import Path
 
-from ..map.mapfile import MapError
+from ..map.common import MapError
 from ..map.requests import REQUEST_DIR, _metadata, owner_quote, validate_request_links
 from .decisions import decision_paths, evaluate_decision, read_decision
 

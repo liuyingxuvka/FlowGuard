@@ -7,7 +7,7 @@ description: "Start code work with `python -m flowguard status`; keep the owner'
 
 ## Start
 
-Run `python -m flowguard status` first in every session and after any loss of context. Install FlowGuard only from `git+https://github.com/liuyingxuvka/FlowGuard.git@v0.75.0`.
+Run `python -m flowguard status` first in every session and after any loss of context. Install FlowGuard only from `git+https://github.com/liuyingxuvka/FlowGuard.git@v1.0.0`.
 
 ## The owner's words
 
@@ -39,8 +39,6 @@ A bound model compares real calls through one adapter; see the installed HOWTO's
 2. Run the project's own test command (for example `python -m pytest -q`) and report the exact command and its result.
 3. Run `python -m flowguard check --commit-ready` for the actual staged bytes. It reads existing results; finish or resume missing work with `check`. Finished UNKNOWN stays visible and permits the commit; a hook is installed only by the owner.
 4. Make one commit with a message in your own words. When the change answers a stored owner request, add a line `Request: R<n>` (for example `Request: R7`).
-
-The legacy files `.flowguard/map.json` and `.flowguard/models/` and the target commands stay usable until v1.0.0, but a change needs none of them; findings about file ownership, stale descriptions or declared dependencies are information. If a legacy model fails in CI after your change, fix the code or edit that model file directly.
 
 ## Honesty
 

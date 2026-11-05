@@ -5,7 +5,7 @@ condition reads sys.platform, sys.version_info or os.name. Every other way to sk
 inside a test (pytest.skip, pytest.xfail, pytest.importorskip, pytest.mark.skip, unittest skips, skipTest,
 raising SkipTest) is refused, so no helper that swallowed an error can choose a skip.
 Runtime half: tests/conftest.py fails any skipped or xfailed outcome that no skipif or xfail marker produced.
-flowguard/behave/ is left out until the behavior engine is reworked or removed.
+The same rule covers every shipped engine and test helper.
 """
 import ast
 import subprocess
@@ -14,7 +14,6 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXCLUDED = ("flowguard/behave/",)
 STATIC = {"platform", "version_info", "name"}
 CALLS = {"pytest.skip": "skip call", "skip": "skip call", "pytest.xfail": "xfail call", "xfail": "xfail call",
          "pytest.importorskip": "importorskip call", "importorskip": "importorskip call",
@@ -58,7 +57,7 @@ def test_no_skip_comes_from_a_swallowed_error():
     for base in ("flowguard", "tests"):
         for path in sorted((ROOT / base).rglob("*.py")):
             relative = path.relative_to(ROOT).as_posix()
-            if relative.startswith(EXCLUDED) or "/fixtures/" in relative:
+            if "/fixtures/" in relative:
                 continue
             found += violations(path.read_text(encoding="utf-8"), relative)
     assert not found, "\n".join(found)

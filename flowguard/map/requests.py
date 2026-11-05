@@ -7,8 +7,7 @@ import os
 from pathlib import Path
 import re
 
-from .common import Finding, git_common_directory, git_head, git_run, sha256_bytes
-from .mapfile import MapError
+from .common import MapError, Finding, git_common_directory, git_head, git_run, sha256_bytes
 from .records import (NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, restore_advice,
                       validate_new_files, write_once)
 
@@ -40,21 +39,6 @@ def glossary_entries(raw: bytes) -> list[tuple[str, tuple[str, ...]]]:
     return entries
 
 
-def _stored_during(root: Path):
-    directory = root / '.flowguard/target'
-    if not directory.is_dir():
-        return None
-    try:
-        target = json.loads((directory / 'map.json').read_text(encoding='utf-8'))
-        base = json.loads((directory / 'base.json').read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        raise MapError('request_target_invalid: repair the open target before storing its context')
-    if not isinstance(target, dict) or not isinstance(base, dict):
-        raise MapError('request_target_invalid: repair the open target before storing its context')
-    # Older targets have no historical timestamp. Preserve that unknown fact.
-    return {'goal': target.get('goal', ''), 'started': base.get('started')}
-
-
 def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind: str = 'request',
                   supersedes=()) -> dict:
     root = Path(root).resolve()
@@ -83,9 +67,6 @@ def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind
     item = dict(id=identifier, kind=kind, sha256=digest, received=received, bytes=len(raw))
     if supersedes:
         item['supersedes'] = supersedes
-    context = _stored_during(root)
-    if context is not None:
-        item['stored_during'] = context
     prepare_directory(root, REQUEST_DIR, ('.md', '.json'))
     body = REQUEST_DIR / (identifier + '.md')
     sidecar = body.with_suffix('.json')
@@ -311,17 +292,9 @@ def request_commits(root: Path) -> dict:
     return dict(commits=commits, known=True, unknown=unknown)
 
 
-def request_citations(root: Path, records) -> tuple[dict, bool]:
-    """Where owner words are cited: change records, their rules, and parsed Request trailers."""
+def request_citations(root: Path) -> tuple[dict, bool]:
+    """Live citation facts come from the one Request trailer parser."""
     cited = {}
-    for change, record in records:
-        for link in record['requests']:
-            cited.setdefault(link['id'], []).append('change ' + change)
-        for rule in record['rules']:
-            provenance = rule.get('provenance') if isinstance(rule, dict) else None
-            for part in provenance.split('; ') if isinstance(provenance, str) else ():
-                if part.startswith('owner '):
-                    cited.setdefault(part[len('owner '):], []).append(f"rule {rule.get('id')} (change {change})")
     history = request_commits(root)
     for entry in history['commits']:
         for identifier in entry['requests']:
@@ -337,20 +310,18 @@ def _readable(path: Path) -> bool:
     return True
 
 
-def owner_words(root: Path, *, records=None) -> dict:
+def owner_words(root: Path) -> dict:
     """Stored owner words, newest first, with supersession, retirement and citations; never a to-do state.
 
-    Each integrity problem carries its restore step, which runs in any project (map check needs the legacy map)."""
-    from .records import change_records
-
+    Each integrity problem carries its restore step, in any source project."""
     root = Path(root).resolve()
     retired = retired_requests(root)
     common = git_common_directory(root)
-    cited, commits_known = request_citations(root, change_records(root) if records is None else records)
+    cited, commits_known = request_citations(root)
     rows = []
     for identifier in _identifiers(root):
         # A retire record applies as written, whatever the state of the request files it hides. Every
-        # request's files, retired or not, are checked as map check checks them, and edited text is never shown.
+        # request's files, retired or not, are checked against their original bytes; edited text is never shown.
         body = root / REQUEST_DIR / (identifier + '.md')
         edited, invalid, item = _request_problems(root, identifier, [])
         intact = invalid is None and edited is None

@@ -10,7 +10,7 @@ from flowguard.flow.checks import CONFLICT, ERROR_CLS, Finding, check_model, fin
 from flowguard.flow.explore import explore
 from flowguard.flow.model import ModelError, load_model
 
-from conftest import DATA
+from _flow_project import DATA
 
 KIT = DATA / "kit"
 

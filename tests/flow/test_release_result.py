@@ -21,8 +21,8 @@ def test_release_without_tests_names_the_scope(project, capsys):
     project.flow("dial", MODEL)
     assert main(["release", "--root", str(project.root)]) == 0
     last = capsys.readouterr().out.splitlines()[-1]
-    assert last.startswith("verify: MODELS PASS; tests not run")
-    assert "verify: PASS" not in last
+    assert last.startswith("release: MODELS PASS; tests not run")
+    assert "release: PASS" not in last
 
 
 def test_release_keeps_normal_checks_committed_record_clean(project, capsys):
@@ -37,7 +37,7 @@ def test_release_keeps_normal_checks_committed_record_clean(project, capsys):
 
 
 def test_release_final_line_names_surviving_breakages(project, capsys):
-    from conftest import DATA
+    from _flow_project import DATA
     project.flow_from(DATA / "planted/rental_naive.py", "rental")
     assert main(["release", "--root", str(project.root)]) == 1
     lines = capsys.readouterr().out.splitlines()
@@ -54,3 +54,17 @@ def test_covered_code_syntax_error_names_file_and_line(project, capsys):
     output = capsys.readouterr().out
     assert "app.py:1" in output and "syntax error" in output
     assert "worker failed" not in output
+
+
+def test_warning_only_release_passes_and_names_unchecked_breakages(project, capsys):
+    """A useful warning stays visible without becoming a new release gate."""
+    project.flow('delivery', "from flowguard.flow import Model, need\nm=Model('delivery')\nm.field('done', (False, True), False)\n@m.action()\ndef finish(s):\n    need(not s['done'], 'already finished')\n    s['done']=True\nm.terminal('done', (True,))\nMODEL=m\n")
+    assert main(['release', '--root', str(project.root)]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert 'deliberate breakages not caught' in lines[-1]
+    assert lines[-1].startswith('release: MODELS PASS;') and 'tests not run' in lines[-1]
+    assert main(['release', '--json', '--root', str(project.root)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report['verdict'] == 'PASS'
+    assert report['scope']['suite'] == 'not requested'
+    assert any(row['code'] == 'mutant_survives' for row in report['codes'])

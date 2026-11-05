@@ -11,7 +11,7 @@ import re
 from .common import git_blob, git_run, normalize_newlines, read_source
 from .discover import function_spans
 from .inventory import syntax_tree
-from .mapfile import MapError
+from .common import MapError
 from .requests import request_commits, validate_request_links
 
 

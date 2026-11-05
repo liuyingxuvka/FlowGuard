@@ -118,30 +118,20 @@ def test_recorder_writes_node_outcomes_and_resets_each_run(tmp_path, monkeypatch
     assert rec._NODEIDS == [] and rec._STATUSES == {} and rec._SECONDS=={}
 
 
-def test_partition_is_exact_and_a_union_of_subtrees(tmp_path):
-    import runpy
-    from flowguard.map.inventory import build_inventory
-    from flowguard.map.common import DEFAULT_IGNORE
-    from flowguard.map.tree import build_tree
-    from flowguard.map.testtree import test_units,test_positions
-    base=Path(__file__).parents[1]/'.flowguard'
-    helper=base/'target/models/_testtree_fixture.py'
-    if not helper.exists():helper=base/'models/_testtree_fixture.py'
-    data,nodeids=runpy.run_path(str(helper))['fixture'](tmp_path)
-    inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False);tree=build_tree(tmp_path,data,inv)
+def test_partition_is_exact_and_a_union_of_subtrees():
+    from flowguard.map.testtree import test_units
+    nodeids=('tests/core/test_one.py::test_value[one]',
+             'tests/core/test_one.py::test_value[two]',
+             'tests/core/test_two.py::test_value',
+             'tests/other/test_three.py::test_value')
     weights=dict.fromkeys(nodeids,1)
-    units=test_units(tmp_path,data,inv,tree,nodeids,weights,2)
-    assert 'core' in units and len(units['core'])==2
-    assert test_positions(tmp_path,data,inv,tree,nodeids)[nodeids[-1]]=='other'
+    units=test_units(nodeids,weights,2)
     shards=partition_nodeids(nodeids,2,units=units,weights=weights)
     assert len(shards)<=2 and validate_partition(nodeids,shards)['exact_union']
     assert all(any(set(unit)<=set(shard) for shard in shards) for unit in units.values())
-    assert any(set(units['other'])<=set(shard) for shard in shards)
+    assert any(nodeids[0] in unit and nodeids[1] in unit for unit in units.values())
     expanded=nodeids+tuple('tests/test_big.py::test_big_'+str(index) for index in range(41))
-    heavy=test_units(tmp_path,data,inv,tree,expanded,dict.fromkeys(expanded,1),4)
+    heavy=test_units(expanded,dict.fromkeys(expanded,1),4)
     assert all(len(items)<=len(expanded)/4 for items in heavy.values())
     assert any('test_big.py::test_big_' in name for name in heavy)
     assert validate_partition(expanded,partition_nodeids(expanded,4,units=heavy))['exact_union']
-    cases=(nodeids[0]+'[one]',nodeids[0]+'[two]',*nodeids[1:])
-    case_units=test_units(tmp_path,data,inv,tree,cases,dict.fromkeys(cases,1),2)
-    assert any(cases[0] in unit and cases[1] in unit for unit in case_units.values())

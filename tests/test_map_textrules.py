@@ -8,7 +8,6 @@ import pytest
 from flowguard.map.derived import DISPLAY_ROWS, source_names, where
 from flowguard.map.discover import discover_inventory
 from flowguard.map.inventory import build_inventory
-from flowguard.map.mapfile import SCHEMA
 from flowguard.map.textrules import _literal_groups, render, report, select
 
 
@@ -87,14 +86,13 @@ def test_global_spelling_matches_do_not_establish_same_owner(tmp_path):
         assert not row["placement"]["owners"]
 
 
-def test_code_ignore_does_not_hide_normative_docs_or_declared_model_sources(tmp_path):
-    write(tmp_path, ".flowguard/map.json", json.dumps({
-        "schema": SCHEMA, "components": [], "flows": [], "ignore": ["docs/**"],
-    }))
+def test_obsolete_map_cannot_hide_normative_docs_or_declared_flow_sources(tmp_path):
+    write(tmp_path, ".flowguard/map.json", "{broken obsolete map")
     write(tmp_path, "docs/architecture.md", "The `former_model` checks the selected request.\n")
-    write(tmp_path, ".flowguard/models/current_model.py", '''MODEL_ID = "current_model"
+    write(tmp_path, ".flowguard/flow/current_model.py", '''from flowguard.flow import Model
 raise RuntimeError("static text reporting must not import a model")
-def build_explorer(): return None
+m = Model("current_model", covers=["core.py:current_name"])
+MODEL = m
 ''')
     write(tmp_path, "core.py", "def current_name(): return 1\n")
     before = snapshot(tmp_path)
@@ -105,7 +103,7 @@ def build_explorer(): return None
     reference, = [row for row in result["references"] if row["name"] == "former_model"]
     assert "not found" in reference["state"] and "unknown" in reference["placement"]["state"]
     assert not reference["locations"] and not reference["placement"]["functions"]
-    assert any(row["path"] == ".flowguard/models/current_model.py" and row["name"] == "current_model"
+    assert any(row["path"] == ".flowguard/flow/current_model.py" and row["name"] == "current_model"
                for row in result["code_literals"])
     assert snapshot(tmp_path) == before
 

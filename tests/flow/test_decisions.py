@@ -12,7 +12,7 @@ from flowguard.flow.commit_ready import commit_ready, index_inputs
 from flowguard.flow.parts import ENGINE_DIGEST
 from flowguard.map.common import content_digest
 from flowguard.flow.explore import Bounds, explore
-from flowguard.map.mapfile import MapError
+from flowguard.map.common import MapError
 from flowguard.map.requests import retire_request, store_request
 
 

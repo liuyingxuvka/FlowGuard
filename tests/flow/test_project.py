@@ -18,7 +18,7 @@ from flowguard.flow.project import (ProjectError, cache_dir, changed_models, con
                                      read_manifest, request_line, request_lines, resolve_models,
                                      write_conflicts, write_manifest)
 
-from conftest import DATA, REPO
+from _flow_project import DATA, REPO
 
 KIT = DATA / "kit"
 

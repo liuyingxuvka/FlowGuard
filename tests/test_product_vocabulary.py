@@ -74,19 +74,21 @@ def test_public_names_use_one_vocabulary():
     offenders = [name for name in flowguard.__all__ if forbidden.search(name)]
     assert not offenders, offenders
     allowed_modules = {
-        'flowguard.core',
-        'flowguard.workflow',
-        'flowguard.explorer',
-        'flowguard.report',
         'flowguard.trace',
         'flowguard.replay',
         'flowguard.conformance',
-        'flowguard.checks',
-        'flowguard.scenario',
-        'flowguard.loop',
         'flowguard.export',
-        'flowguard.kit',
         'flowguard.templates',
     }
     unexpected = set(flowguard._PUBLIC_API) - allowed_modules
     assert not unexpected, sorted(unexpected)
+
+
+def test_retired_model_engines_are_absent():
+    import importlib.util
+    from flowguard.flow import Model
+    from flowguard.native.session import replay
+
+    assert callable(Model) and callable(replay)
+    for module in ('core','workflow','explorer','scenario','loop','kit','validator','ui_flow','behave','_next'):
+        assert importlib.util.find_spec('flowguard.'+module) is None,module

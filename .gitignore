@@ -19,8 +19,7 @@ dist/
 venv/
 env/
 
-# FlowGuard: commit .flowguard/map.json and .flowguard/models/.
-# Commit .flowguard/target/ for planned changes; never the cache.
+# FlowGuard: commit feature models and immutable owner records; never the cache.
 .flowguard/cache/
 .flowguard/**/__pycache__/
 kb/

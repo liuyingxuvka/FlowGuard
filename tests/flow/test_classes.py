@@ -11,7 +11,7 @@ import pytest
 from flowguard.flow.checks import CONFLICT, WARNING, check_model
 from flowguard.flow.model import Loaded, load_model
 
-from conftest import DATA
+from _flow_project import DATA
 from golden_machine import load_machines
 
 MODELS = DATA / "golden" / "models"
@@ -757,7 +757,7 @@ def test_a_declared_end_that_a_step_leaves_is_a_model_error(project):
     """A5 keeps a bounded counter's last value from being a dead end; a declared end must then
     really end: tool_life with rent allowed off the shelf rents a retired tool again, so
     'retired' ends nothing, and the model says so with the path to the step that leaves it."""
-    from conftest import DATA
+    from _flow_project import DATA
     text = (DATA / "planted" / "tool_life.py").read_text().replace(
         '    need(s["cond", t] == "shop", "not on the shelf")\n', "")
     project.flow("tool_life", text)

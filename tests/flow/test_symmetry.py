@@ -8,7 +8,7 @@ from flowguard.flow.checks import check_model, verify_symmetry
 from flowguard.flow.explore import Bounds, Symmetry, explore, replay
 from flowguard.flow.model import ModelError, State, load_model
 
-from conftest import DATA
+from _flow_project import DATA
 
 SCALE = DATA / "scale" / "bring_3_2.py"
 SYM = DATA / "sym" / "workshop_r10.py"
@@ -21,7 +21,7 @@ def load(project, src, name=None):
 
 @pytest.fixture(scope="module")
 def bring(tmp_path_factory):
-    from conftest import Project
+    from _flow_project import Project
     project = Project(tmp_path_factory.mktemp("bring") / "p")
     loaded = load(project, SCALE)
     reduced = check_model(loaded)
@@ -245,7 +245,7 @@ def test_explore_without_reduction_is_the_plain_search(project):
 
 
 def test_symmetric_findings_are_the_same_under_every_hash_seed(project):
-    from conftest import findings_under_seeds
+    from _flow_project import findings_under_seeds
     project.kit()
     path = project.flow_from(DATA / "kit" / "workshop_naive.py")
     runs = findings_under_seeds(project.root, path)

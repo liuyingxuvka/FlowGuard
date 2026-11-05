@@ -1,4 +1,4 @@
-"""Compute the legacy static recovery view; never explore or store a verdict."""
+"""Current Git, owner-word and executable-check facts, without a target/map lifecycle."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -6,23 +6,11 @@ import json
 import os
 from pathlib import Path
 import re
-import shlex
 
-from .common import (CACHE_RELDIR, advice, atomic_write_text, cache_dir, git_common_directory, git_head,
-                     git_run, matches_any, project_command, project_root, read_source, render_advice)
-from .inventory import list_files
-from .mapfile import MapError, ignore_patterns, load_map
-from .plan import PLAN_RELPATH, function_identities, static_plan_rows
-from .records import CHANGE_DIR, change_records, commit_advice, protected_paths, since_release
+from .common import (CACHE_RELDIR, MapError, atomic_write_text, cache_dir, git_common_directory,
+                     git_head, git_run, project_command, project_root)
+from .records import protected_paths, since_release
 from .requests import REQUEST_DIR, other_worktrees, owner_words, validate_request_links
-from .targetfile import build_target_view, load_target, target_base
-
-
-def _age(moment):
-    if not moment:
-        return 'unknown'
-    seconds = max(0, int((datetime.now(timezone.utc) - datetime.fromisoformat(moment)).total_seconds()))
-    return f'{seconds // 86400} days' if seconds >= 86400 else f'{seconds // 60} min'
 
 
 def _git_header(root, reader, peers):
@@ -46,59 +34,11 @@ def _git_header(root, reader, peers):
                 **place, known_from='Git, static, now')
 
 
-def _edited_functions(root, base, data, reader):
-    """Use target-start function identities; missing older facts stay unknown."""
-    files = [path for path in list_files(root)
-             if path.endswith('.py') and not matches_any(path, ignore_patterns(data))]
-    git_base = base.get('git')
-    if isinstance(git_base, str):
-        if (git_common_directory(root) is None
-                or git_run(root, 'rev-parse', '-q', '--verify', git_base + '^{commit}', allowed=(0, 1)).returncode):
-            return [], 'unknown: target Git base commit is not in this clone'
-        changed = reader(root, 'diff', '--relative', '--name-only', '-z', git_base, '--', '.')
-        untracked = reader(root, 'ls-files', '--others', '--exclude-standard', '-z')
-        at_base = set(reader(root, 'ls-tree', '-r', '--name-only', '-z', git_base, '--', '.'))
-        files = sorted((set(changed) | set(untracked)) & set(files)
-                       | {path for path in changed if path.endswith('.py') and not (root / path).exists()})
-    elif isinstance(base.get('files'), dict):
-        files = sorted(set(files) | {path for path in base['files'] if path.endswith('.py')})
-    else:
-        return [], 'unknown: target has no function baseline'
-    edited, unknown = [], []
-    for path in files:
-        if path.startswith('.flowguard/'):
-            continue
-        try:
-            current = function_identities(read_source(root / path)) if (root / path).exists() else {}
-            if isinstance(git_base, str):
-                previous = (function_identities('\0'.join(reader(root, 'show', f'{git_base}:./{path}')))
-                            if path in at_base else {})
-            else:
-                entry = base['files'].get(path)
-                previous = entry.get('functions') if entry is not None else {}
-            if current is None or previous is None:
-                unknown.append(path)
-                continue
-            for name in sorted(previous.keys() | current.keys()):
-                if previous.get(name) is None and name in previous or current.get(name) is None and name in current:
-                    unknown.append(path + ':' + name)
-                elif previous.get(name) != current.get(name):
-                    edited.append(path + ':' + name)
-        except (OSError, UnicodeError, SyntaxError, ValueError):
-            unknown.append(path)
-    return edited, 'static, now; unknown function identities: ' + ', '.join(unknown) if unknown else 'target-start AST identities, static, now'
-
-
 def collect_status(root, *, read_git_paths, version):
-    """Read only; CLI supplies the existing disposable-index Git reader."""
+    """Read current facts; the command's existing flow owner performs any refresh."""
     root = Path(root).resolve()
-    target = load_target(root)
-    peers = other_worktrees(root)
-    git = _git_header(root, read_git_paths, peers)
-    unreadable = []
-    records = change_records(root, unreadable=unreadable)
-    history = since_release(root, records, read_git_paths)
-    words = owner_words(root, records=records)
+    git = _git_header(root, read_git_paths, other_worktrees(root))
+    words = owner_words(root)
     protected = None
     for row in words['rows']:
         meta = REQUEST_DIR / (row['id'] + '.json')
@@ -110,51 +50,15 @@ def collect_status(root, *, read_git_paths, version):
                     validate_request_links(root, [dict(id=row['id'], part=False)])
                 except MapError as error:
                     row.update(not_stored=str(error), invalid=None, edited=None)
-    released = history.pop('released_retired')
+    # This is an immutable original-word boundary reader, not an old change gate.
+    history = since_release(root, [], read_git_paths)
+    retired = history['released_retired']
     words['retired_since_release'] = [row['id'] for row in words['rows']
-                                      if row['retired'] and (released is None or row['id'] not in released)]
-    change, plan = None, []
-    if target is not None:
-        data = load_map(root)
-        base = target_base(root)  # a damaged base.json is named, never read as no base
-        edited, known = _edited_functions(root, base, data, read_git_paths)
-        change = dict(goal=target.goal, requests=target.data.get('requests', []), base=base.get('git'),
-                      started=base.get('started'), age=_age(base.get('started')), edited_functions=edited,
-                      edited_known_from=known)
-        plan = static_plan_rows(root, target, build_target_view(root, data, target))
-    others = []
-    for peer in peers:
-        opened = load_target(peer)
-        if opened is None:
-            continue
-        directory = peer / '.flowguard/target'
-        edited = max(path.stat().st_mtime for path in directory.rglob('*') if path.is_file())
-        peer_plan = directory / 'PLAN.txt'
-        size = sum(bool(line.strip()) and not line.lstrip().startswith('#')
-                   for line in peer_plan.read_text(encoding='utf-8-sig').splitlines()) if peer_plan.exists() else 0
-        others.append(dict(root=str(peer), goal=opened.goal, requests=opened.data.get('requests', []),
-                           last_edit=datetime.fromtimestamp(edited, timezone.utc).isoformat(), plan_size=size,
-                           known_from='current target files and their mtimes, static, now'))
-    # NEXT names a pending step only: an open target, or a promoted change still to commit.
-    next_step, note = None, None
-    if target is not None:
-        next_step = advice('check', shlex.join(['python', '-m', 'flowguard', 'target', 'check', '--root', str(root)]))
-    else:
-        pending = set(git['uncommitted_paths'] or ())
-        unpublished = [(identifier, record) for identifier, record in records
-                       if (CHANGE_DIR / (identifier + '.json')).as_posix() in pending]
-        if unpublished and isinstance(unpublished[-1][1].get('stage'), list):
-            next_step = commit_advice(root, unpublished[-1][1])
-        elif unpublished:
-            note = (f'change {unpublished[-1][0]} records no file list (promoted before FlowGuard 0.72.0 or outside Git): '
-                    'stage its files, then commit them with your own message.')
-    from ..flow.cli import status_lines  # the flow models' open conflicts: .flowguard/conflicts.json only
-    return dict(root=str(root), scope='static status, no exploration; flow-model conflicts as the last final check '
-                'recorded them', git=git,
-                change=change, plan=plan, verdicts=dict(stored=False), flow_models=status_lines(root), owner_words=words,
-                since_release=history, unreadable_records=[dict(id=identifier, error=error) for identifier, error in unreadable],
-                other_changes=others, jobs='none in the legacy runtime',
-                skill_warnings=installed_skill_warnings(version), next=next_step, next_note=note)
+                                     if row['retired'] and (retired is None or row['id'] not in retired)]
+    from ..flow.cli import status_lines
+    return dict(root=str(root), scope='current source facts and the last recorded executable checks',
+                git=git, flow_models=status_lines(root), owner_words=words,
+                skill_warnings=installed_skill_warnings(version))
 
 
 def agent_session():
@@ -172,7 +76,7 @@ def mark_status_shown(root, session):
 def show_status_first(arguments, version, *, read_git_paths):
     """Show status once per agent session, before the session's first other FlowGuard command.
 
-    Every entry point calls this (python -m flowguard and python -m flowguard.map). The project is the one the
+    The public entry point calls this. The project is the one the
     command works on (common.project_root); outside a project nothing is shown."""
     import argparse
     import sys
@@ -300,35 +204,13 @@ def render_status(result):
     lines = [f"FLOWGUARD STATUS {result['root']}  branch {git['branch'] or '(detached or no Git)'} "
              f"at {git['head'] or '(unborn or no Git)'}  (worktree {git['worktree']} of {git['worktree_count']})",
              f"  uncommitted: {', '.join(pending) if pending else 'none' if pending == [] else 'unknown (no Git)'} [{git['known_from']}]"]
-    opened = result['change']
-    if opened:
-        links = ', '.join(link['id'] + (':part' if link['part'] else '') for link in opened['requests']) or 'none'
-        lines.append(f"OPEN CHANGE {opened['goal']!r} for {links}; base {opened['base'] or '(file baseline)'}; "
-                     f"started {opened['started'] or 'unknown'} ({opened['age']}) [target, static, now]")
-        lines.append(f"  edited since base: {', '.join(opened['edited_functions']) or 'none known'} [{opened['edited_known_from']}]")
-        if result['plan']:
-            lines.append(f"PLAN {Path(result['root']) / PLAN_RELPATH}")
-            for row in result['plan']:
-                lines.append(f"  {row['number']} {row['line']} | {row['state']} | {row['known_from']}")
-                lines.extend('    ' + problem for problem in row['problems'])
-            lines.append('  added after code: unknown; static status stores no edit-order or completion verdict')
-    else:
-        lines.append('OPEN CHANGE none [current target directory, static, now]')
     lines.extend(result['flow_models'])
+    refresh = result.get('flow_refresh') or {}
+    if refresh.get('upgrade'):
+        lines.insert(0, 'UPGRADE REQUIRED: ' + ', '.join(refresh['upgrade']) +
+                     '; migrate their behavior to flow models and native tests, then remove these old artifacts')
+    if refresh.get('running') is not None:
+        lines.insert(0, 'RUNNING: changed model checks; resume with: ' + refresh['resume'])
     lines.extend(render_owner_words(result['owner_words']))
-    lines.extend(f"WARNING change record {item['id']} unreadable: {item['error']}"
-                 for item in result['unreadable_records'])
     lines.extend(result['skill_warnings'])
-    history = result['since_release']
-    counts = f"{len(history['changes'])} changes" if history['changes'] is not None else 'change count unknown'
-    lines.append(f"SINCE RELEASE {history['release'] or 'unknown'}: {counts} [{history['known_from']}]")
-    if history['changes'] is not None:
-        lines.append('  details: ' + shlex.join(['python', '-m', 'flowguard', 'status', '--json', '--root', result['root']]))
-    for item in result['other_changes']:
-        lines.append(f"OTHER OPEN CHANGE {item['goal']!r} in {item['root']}; last edit {item['last_edit']}; "
-                     f"{item['plan_size']} plan lines [{item['known_from']}]")
-    if result['next_note']:
-        lines.append(result['next_note'])
-    if result['next']:
-        lines.append(render_advice(result['next'], prefix='NEXT '))
     return '\n'.join(lines)

@@ -1,1 +1,0 @@
-"""Tiny library lending package."""

@@ -24,54 +24,29 @@ def facts(root):
     return inventory, discover_inventory(root, inventory, write_cache=False)
 
 
-def test_cohesion_advice_shares_real_graph_and_keeps_owner_scope(tmp_path, monkeypatch):
+def test_cohesion_advice_uses_source_modules_and_real_calls(tmp_path):
     from copy import deepcopy
-    import pytest
-    from flowguard.map import derived, lint
+    from flowguard.map import derived
 
     (tmp_path / "app.py").write_text("from helper import answer\ndef run():\n    return answer()\n")
     (tmp_path / "helper.py").write_text("def answer():\n    return True\n")
     (tmp_path / "import_only.py").write_text("from helper import answer\n")
     inv, raw = facts(tmp_path)
-    data = {"components": [
-        {"id": "app", "files": ["app.py", "import_only.py"], "entrypoints": ["app.py:run"],
-         "responsibilities": ["serve an answer"], "tests": ["tests/test_app.py"], "depends_on": ["helper"]},
-        {"id": "helper", "files": ["helper.py"], "entrypoints": [],
-         "responsibilities": ["supply a value"], "tests": ["tests/test_app.py"], "depends_on": []}],
-        "flows": []}
-    rows = derived.cohesion_facts(inv, raw, data)
-    assert len(rows) == 1 and rows[0]["external_owner"] == "app"
+    rows = derived.cohesion_facts(inv, raw)
+    assert len(rows) == 1 and rows[0]["external_owner"] == "app.py"
     assert rows[0]["call_edges"] == [{"caller": "app.py#run", "caller_line": 2,
-        "callee": "helper.py#answer", "callee_line": 1, "caller_owner": "app",
-        "caller_owner_basis": "declared component", "callee_owner": "helper",
-        "callee_owner_basis": "declared component"}]
+        "callee": "helper.py#answer", "callee_line": 1, "caller_owner": "app.py",
+        "caller_owner_basis": "source module", "callee_owner": "helper.py",
+        "callee_owner_basis": "source module"}]
     assert rows[0]["callers"] == ["app.py"]  # An import alone supplies no call evidence.
-    assert derived._architecture(tmp_path, inv, raw, data, {}, []) == rows
-    calls = []
-    def discovered(*args, **kwargs):
-        calls.append(1)
-        return raw
-    monkeypatch.setattr(lint, "discover_inventory", discovered)
-    monkeypatch.setattr(derived, "_predicate_sites", lambda *args: pytest.fail("lint reparsed architecture"))
-    findings = lint.run_lint(tmp_path, data, inv, write_cache=False)
-    assert len(calls) == 1
-    candidates = [finding for finding in findings if finding.code == "cohesion_candidate"]
-    assert len(candidates) == 1 and candidates[0].level == "info"
-    debt = [{"code": "cohesion_candidate", "component": "helper", "reason": "no required debt",
-             "expires": "9999-12-31"}]
-    _, used = lint.apply_accepted_debts(candidates, debt)
-    assert not used and "accepted debt:" not in candidates[0].message
-    assert len([finding for finding in findings if finding.code == "cohesion_scope"]) == 1
-    assert "TESTED_BY do not license" in next(f.message for f in findings if f.code == "cohesion_scope")
-    declared_entry = deepcopy(data)
-    declared_entry["components"][1]["entrypoints"] = ["helper.py:answer"]
-    assert derived.cohesion_facts(inv, raw, declared_entry) == []
-    ambiguous = deepcopy(data)
-    ambiguous["components"].append({"id": "other", "files": ["app.py"]})
-    assert derived.cohesion_facts(inv, raw, ambiguous) == []
-    same_owner = deepcopy(data)
-    same_owner["components"] = [{"id": "app", "files": ["app.py", "helper.py"]}]
-    assert derived.cohesion_facts(inv, raw, same_owner) == []
+    assert derived._architecture(tmp_path, inv, raw, {}, []) == rows
+    independent = deepcopy(raw)
+    independent["files"]["helper.py"]["entrypoints"] = [{"name": "answer"}]
+    assert derived.cohesion_facts(inv, independent) == []
+    shared = deepcopy(raw)
+    shared["edges"]["import_only.py#run"] = ["helper.py#answer"]
+    shared["files"]["import_only.py"]["functions"]["run"] = {"line": 1}
+    assert derived.cohesion_facts(inv, shared) == []
 
 
 PROGRAM = '''import argparse
@@ -227,31 +202,21 @@ def test_supplied_test_reach_stays_separate_from_shipped_hits(tmp_path):
     assert tests_only["functions"][0]["execution"]["shipped_observed"] is None
 
 
-def test_request_and_change_lookup_uses_real_immutable_records(tmp_path):
-    from flowguard.map.common import sha256_bytes
-    from flowguard.map.records import prepare_change, publish_change
+def test_obsolete_change_record_cannot_authorize_a_source_request_link(tmp_path):
     from flowguard.map.requests import store_request
-    repository(tmp_path)
-    source = tmp_path / "core.py"
-    source.write_text("def changed(): return 1\n")
-    git(tmp_path, "add", ".")
-    git(tmp_path, "commit", "-qm", "source baseline")
-    baseline = git(tmp_path, "rev-parse", "HEAD")
+    (tmp_path / "core.py").write_text("def changed(): return 1\n")
     store_request(tmp_path, b"Keep the changed function visible.\n", identifier="R8")
-    source.write_text("def changed(): return 2\n")
-    prepared = prepare_change(tmp_path, goal="R8: static lookup fixture", links=[{"id": "R8", "part": True}],
-        base={"git": baseline}, inputs={"core.py": sha256_bytes(source.read_bytes())},
-        merged={"schema": "flowguard.map.v1", "components": [], "flows": []}, model_bytes={}, deleted=[],
-        checked="Fixture record for static lookup, not a product promotion", changed_paths=["core.py"])
-    publish_change(tmp_path, prepared)
+    old = tmp_path / ".flowguard/changes/old.json"
+    old.parent.mkdir(parents=True)
+    old.write_text(json.dumps({"implemented_by": ["core.py:changed"],
+                               "requests": [{"id": "R8"}], "rules": []}))
     request = where(tmp_path, "R8")
     assert request["requests"][0]["id"] == "R8"
-    assert request["changes"][0]["implemented_by"] == ["core.py:changed"]
-    change = where(tmp_path, prepared["id"])
-    assert change["changes"][0]["id"] == prepared["id"]
+    assert request["requests"][0]["cited_by"] == []
     function = where(tmp_path, "changed")["functions"][0]
-    assert function["last_requests"] == ["R8"] and function["last_change"] == prepared["id"]
-    assert function["changed_since"]["state"] == "unknown"
+    assert function["request_commits"] == []
+    assert "last_requests" not in function and "last_change" not in function
+    assert "changes" not in request
 
 
 def test_static_queries_do_not_embed_acceptance_material():

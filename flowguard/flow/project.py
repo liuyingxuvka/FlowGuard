@@ -35,6 +35,22 @@ def find_root(start: Path) -> Path:
     raise ProjectError(f"not a FlowGuard project: no .flowguard/ at or above {here}")
 
 
+def legacy_artifacts(root: Path) -> list[Path]:
+    """Old executable formats to migrate; reading this list executes neither format."""
+    directory = Path(root) / ".flowguard"
+    legacy = [path for path in (directory / "map.json", directory / "target") if path.exists()]
+    legacy.extend((directory / "models").glob("*.py"))
+    return sorted(legacy)
+
+
+def require_current_format(root: Path) -> None:
+    legacy = legacy_artifacts(root)
+    if legacy:
+        names = ", ".join(path.relative_to(root).as_posix() for path in sorted(legacy))
+        raise ProjectError("upgrade old model artifacts before checking: " + names
+                           + "; move each useful rule, bad case and binding to a flow model or test, then remove the old artifacts")
+
+
 def model_files(root: Path) -> list[Path]:
     """The models: `*.py` directly in .flowguard/flow/ whose name does not start with `_`."""
     flow = Path(root) / FLOW_DIR
@@ -65,7 +81,7 @@ def resolve_models(root: Path, names: list[str]) -> list[Path]:
 
 def _request_problem(root: Path, rid: str) -> str | None:
     """Use the request owner's storage and integrity check for a model source."""
-    from ..map.mapfile import MapError
+    from ..map.common import MapError
     from ..map.requests import validate_request_links
 
     if request_file(root, rid) is None:

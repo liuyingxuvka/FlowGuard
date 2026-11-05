@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.0 - 2026-11-05 - One executable model engine
+
+- Use one executable feature-model engine connected to real code, owner words and tests. Retire the old map/model/target and experimental pilot APIs, with an explicit migration guide.
+- Preserve request bytes and conflict scope across sessions. Require actual current evidence for repairs and original owner words for replacement requirements.
+- Keep static source, caller, architecture and original-text queries available during migration. Shard ordinary tests by their actual source tree without a hand-maintained map.
+- Report the release's actual test scope, unfinished observations and surviving deliberate breakages. Existing adoption files keep their original bytes and receive actionable upgrade notices.
+
 ## v0.75.0 - 2026-11-05 - Real-code checks and lasting conflict records
 
 Model-only findings are checked against the owner's words and actual code before recommending a repair.

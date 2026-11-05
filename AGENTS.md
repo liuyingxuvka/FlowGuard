@@ -1,39 +1,31 @@
 # FlowGuard repository rules
 
-FlowGuard keeps the owner's words, finds code statically and runs the project's legacy
-executable models in its release gate. This repository uses FlowGuard on itself.
+This repository uses its own small executable feature models and native recorder.
 
-## Every task in this repository
+## Every task
 
 1. At the start of a session and after any loss of context, run `python -m flowguard status` before anything else.
-2. When the owner asks for something, store the owner's own words once, as received: `python -m flowguard req add <file|-> --id <id>`. It stores only words the owner wrote, byte for byte: never a plan, a list or text an AI wrote. When a new owner message replaces an earlier one, add `--supersedes <old id>`; never edit `.flowguard/requests/`.
-3. Find code with `python -m flowguard where NAME`; change code and its tests together; run the affected tests (`python -m pytest -q <files>`) and report exactly what you ran and the result, plus any inherited technical work still open.
-4. Commit code and tests together in one commit with a message in your own words; add a line `Request: R<n>` when the change answers a stored owner request. The legacy map, `.flowguard/models/` and the target commands need no upkeep; when a legacy self-model fails after a change, fix the code or edit that model file directly.
-5. When a request changes state values, actions, conditions, settings or endings, update the affected feature's flow model before code: turn affected old and new requested outcomes into explicit `reach`/`progress` promises, even in the first model, and run `python -m flowguard check`. For code claims, follow the installed `flowguard/flow/HOWTO.md` and bind only the affected actions to real public calls. When explaining a flow, embed the `python -m flowguard show` picture as `![Flow](PATH)` using its returned path.
-6. Before each push, run the affected checks selected above and report their results. For the final frozen source SHA, the complete `ci.yml` workflow must pass: Ubuntu Python 3.11 runs the complete legacy release and test suite through `python -m flowguard release --shards 4`; Ubuntu Python 3.13 and the two nonoverlapping Windows Python 3.12 smoke jobs run the listed core path, packaging and independent static-query files. The real skill copy/`--check` runs once in each smoke environment. All jobs must pass; smoke jobs do not claim complete cross-platform coverage. Publication waits for the entire workflow on the exact source SHA; do not repeat the full local suite solely to produce another checkpoint.
+2. Store actual owner words once with `python -m flowguard req add <file|-> --id <id>`, byte for byte: never a plan, a list or text an AI wrote. Use `--supersedes` for a replacement; never edit `.flowguard/requests/`.
+3. Find the owner with `python -m flowguard where NAME`. For changed state, actions, conditions, settings or endings, update the affected feature model before code: turn affected old and new requested outcomes into explicit `reach`/`progress` promises, even in the first model. Run `check`. For code claims, follow the installed `flowguard/flow/HOWTO.md` and bind only the affected actions to real public calls. When explaining a flow, embed the `python -m flowguard show` picture as `![Flow](PATH)` using its returned path.
+4. Change code and tests together. Run the affected real tests and report their exact result, plus any inherited technical work still open. Use `check --commit-ready` against the staged bytes; finished UNKNOWN remains visible and permits a commit. No automatic hook is required.
+5. Commit in your own words, adding `Request: R<n>` for a change answering stored owner words. Do not invent attribution for experimental plans or AI prose.
+6. Before publishing, freeze the source and require the complete real `ci.yml` workflow on that exact SHA. Ubuntu Python 3.11 runs the full model and test release in four shards; Python 3.13 runs native recorder/adapter controls and static/package smoke; Windows Python 3.12 runs the complete flow suite and two disjoint static/package smoke groups. All jobs must pass. Do not repeat the full local suite just to create another checkpoint.
 
-## Layout
+## Owners and layout
 
-- `flowguard/` engine, node kinds (`validator.py`, `ui_flow.py`), the test-tree shard tool; `flowguard/map/` map, target, discovery and proof layer.
-- `.agents/skills/flowguard/` the single public skill (SKILL.md, references).
-- `.flowguard/map.json`, `.flowguard/models/`:
-  FlowGuard's own map and models. `.flowguard/cache/` is never committed.
-- `tests/` unit tests; `examples/` runnable teaching models; `docs/` long-form notes.
+- `flowguard/flow/`: the single executable model engine, native recorder, jobs, history, decisions, pictures and release.
+- `flowguard/map/`: shared inventory, static source queries, original owner words and test-tree utilities; no map file or target interpreter.
+- `.flowguard/flow/`: independent self-models; useful code bindings use the same native adapter/recorder as projects.
+- `.agents/skills/flowguard/`: the single public skill; the installed HOWTO owns detailed model-writing guidance.
+- `tests/`, `examples/`, `docs/`: actual controls, small examples and upgrade guidance.
 
-## Rules
+## Working rules
 
-- No generated check outputs, execution records or standalone hashes in git except the `fingerprint` fields written by `confirm`.
-- Do not add a second way to do something that already has an owner; extend the owner.
-- A test may never become skipped because a handler swallowed an error: a test skips only through `@pytest.mark.skipif(<condition on sys.platform, sys.version_info or os.name>, reason=...)`; `pytest.skip`, `pytest.xfail`, `pytest.importorskip` and unittest skips are refused, and any skipped or xfailed outcome that no skipif or xfail marker produced fails (`tests/test_no_swallowed_skips.py` and the `tests/conftest.py` hooks enforce this).
-- When `map lint` reports a real architecture problem you are not fixing now, record it in
-  `accepted_debts` with a reason instead of hiding it.
-- Report exactly which commands you ran and their results; never mark unrun checks as passed.
-- Installing the skill (`python scripts/install_skill.py --target <skills dir>`), tagging and
-  publishing are separate steps that need the maintainer's explicit request.
-
-- Source-equivalence and fingerprint byte comparisons must use `flowguard/map/common.py:normalize_newlines`, with LF and CRLF coverage.
-- CHANGELOG entries must describe user-visible changes in plain language, use the actual release date, and omit internal action IDs and branch names.
-
-## Unreleased behavior engine
-
-The resumed engine is entered only with `python -m flowguard.behave` on Python 3.12 or newer, from a source checkout: the wheel leaves out `flowguard/behave/` (including its job and input-stamp modules) and `flowguard/_next/`. Keep the released static `where` queries independent from it. The Python 3.11 legacy lane collects bootstrap guards and ignores native engine tests; Ubuntu Python 3.13 runs the complete engine tests once in the existing workflow. Do not replace full-state or fresh-evidence checks with sampled success claims.
+- Extend the existing owner rather than adding another executor, record format, cache or workflow for the same job.
+- Keep required old behavior when changing shared state. A clean reduced abstraction does not prove omitted behavior. Preserve scope and actual regression evidence; do not silence a conflict by deleting its model.
+- Keep source and request boundaries honest. Unknown native observations, unfinished work and capped exploration stay visible.
+- No generated execution records or standalone hash manifests in git. Preserve immutable owner records; keep disposable caches out of commits.
+- Tests never skip through swallowed errors. Only explicit platform/version/os `pytest.mark.skipif` conditions may skip; the test hooks enforce this. Never weaken a test to hide an actual failure.
+- Source equivalence uses `flowguard/map/common.py:normalize_newlines` for source text, with LF/CRLF controls; binary resources keep exact bytes.
+- Changelogs describe user-visible changes with the actual date; omit internal action IDs and branch names.
+- Installing the skill, tagging and publication require the maintainer's explicit request. The current R15 authorizes the handoff's releases and installation.

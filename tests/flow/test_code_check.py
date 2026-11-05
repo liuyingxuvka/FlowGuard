@@ -292,3 +292,4 @@ def load(which):
     after = run_check(project.root, '--tests', *cases, '--json')
     assert after.code == 1 and [row['id'] for row in after.data['conflicts']] == [identifiers['second primary']]
     assert after.data['closed'][0]['id'] == identifiers['first primary']
+

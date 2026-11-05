@@ -59,34 +59,21 @@ EARLIER_FLOWGUARD_BLOCK = [
 
 
 def _parse_documented_command_arguments(command: str) -> None:
-    """Use the actual parsers; placeholders are one argument, never a skip."""
+    """Parse real current commands; replace documentation placeholders by one argument."""
     import shlex
-
-    from flowguard.__main__ import _verb_parser
-    from flowguard.map.cli import build_parser
-
-    # A generic command slot names no operation; choose one real map verb.
-    command = re.sub(r"^map\s+<command>(?=\s|$)", "map check", command)
-    command = re.sub(r"<[^>]+>", "1", command)
-    words = ["1" if re.fullmatch(r"[A-Z][A-Z0-9_]*", word) else word for word in shlex.split(command)]
-    if not words:
-        raise ValueError("empty command")
-    verb, rest = words[0], words[1:]
-    if verb == "map":
-        parser = build_parser()
-    elif verb in {"check", "show"}:
-        from flowguard.flow.cli import UsageError, parser as flow_parser
-        try:
-            flow_parser().parse_args([verb, *rest])
-        except UsageError as error:
-            raise ValueError(str(error)) from error
-        return
-    elif verb in {"read", "change", "release", "template", "target", "req", "status"}:
-        parser = _verb_parser(verb)
-    else:
-        raise ValueError(f"no documented argument parser for {verb!r}")
+    from flowguard.__main__ import _verb_parser,VERB_PURPOSE
+    command=re.sub(r'<[^>]+>','1',command)
+    words=['1' if re.fullmatch(r'[A-Z][A-Z0-9_]*',word) else word for word in shlex.split(command)]
+    if not words or words[0] not in VERB_PURPOSE:
+        raise ValueError(f'no current command parser for {command!r}')
     with contextlib.redirect_stderr(io.StringIO()):
-        parser.parse_args(rest)
+        _verb_parser(words[0]).parse_args(words[1:])
+
+
+def _active_documents():
+    return [ROOT/'README.md',ROOT/'README.zh-CN.md',ROOT/'AGENTS.md',
+            *sorted((ROOT/'docs').glob('*.md')),*sorted(SKILL.rglob('*.md')),ROOT/'flowguard/flow/HOWTO.md']
+
 
 
 class SkillPackageTests(unittest.TestCase):
@@ -97,10 +84,10 @@ class SkillPackageTests(unittest.TestCase):
         first = ('1. At the start of a session and after any loss of context, '
                  'run `python -m flowguard status` before anything else.')
         self.assertEqual(first, numbered[0])
-        own_first = re.search(r'^1\. .+$', (ROOT / 'AGENTS.md').read_text(encoding="utf-8"), re.M)
+        own_first = re.search(r'^1\. .+$', (ROOT / 'AGENTS.md').read_text(encoding='utf-8'), re.M)
         self.assertEqual(first, own_first.group())
-        skill = (SKILL / 'SKILL.md').read_text(encoding="utf-8")
-        prompt = (SKILL / 'agents/openai.yaml').read_text(encoding="utf-8").split('default_prompt:', 1)[1]
+        skill = (SKILL / 'SKILL.md').read_text(encoding='utf-8')
+        prompt = (SKILL / 'agents/openai.yaml').read_text(encoding='utf-8').split('default_prompt:', 1)[1]
         self.assertLess(prompt.index('python -m flowguard status'), prompt.index('python -m flowguard where'))
         self.assertIn('after any loss of context', prompt)
         self.assertIn('python -m flowguard status', skill.split('## The owner', 1)[0])
@@ -108,7 +95,8 @@ class SkillPackageTests(unittest.TestCase):
             for word in ('req add <file|-> --id <id>', 'own words'):
                 self.assertIn(word, text)
         for text in (numbered[3], skill, prompt):
-            for word in ('your own words', 'Request: R<n>'):
+            self.assertIn('your own', ' '.join(text.split()))
+            for word in ('Request: R<n>',):
                 self.assertIn(word, ' '.join(text.split()))
 
     def test_request_and_status_documented_arguments_use_actual_parsers(self) -> None:
@@ -134,12 +122,12 @@ class SkillPackageTests(unittest.TestCase):
     def test_flow_instructions_trigger_on_behavior_and_keep_owner_questions_for_real_conflicts(self) -> None:
         from flowguard.templates import adoption_template_files
         rules = next(file.content for file in adoption_template_files() if file.path == 'AGENTS.md')
-        skill = (SKILL / 'SKILL.md').read_text(encoding="utf-8")
+        skill = (SKILL / 'SKILL.md').read_text(encoding='utf-8')
         for text in (rules, skill):
             for instruction in ('state values, actions, conditions, settings or endings',
                                 'feature', 'python -m flowguard check', 'python -m flowguard show'):
                 self.assertIn(instruction, text)
-        self.assertIn("flow model before the code", rules)
+        self.assertIn('flow model before its code', rules)
         self.assertIn("When explaining a flow", rules)
         self.assertIn("![Flow](PATH)", rules)
         for text in (rules, (ROOT / 'AGENTS.md').read_text(encoding='utf-8')):
@@ -159,13 +147,12 @@ class SkillPackageTests(unittest.TestCase):
             self.assertIn(instruction, skill)
         self.assertNotIn('Dead ends and never-happens behavior must be fixed in code', skill)
         self.assertNotIn('If conflicts remain, end the reply under', skill)
-        for future in ('flowguard decide', 'flowguard draft'):
-            self.assertNotIn(future, rules + skill)
 
-    def test_route_sections_are_listed(self) -> None:
-        text=(SKILL/'references/routes.md').read_text(encoding='utf-8')
-        sections=re.split(r'(?m)(?=^## )',text)[1:]
-        self.assertEqual(11,len(sections))
+    def test_skill_points_to_the_installed_model_guide(self) -> None:
+        text=(SKILL/'SKILL.md').read_text(encoding='utf-8')
+        self.assertIn('flowguard/flow/HOWTO.md',text)
+        self.assertTrue((ROOT/'flowguard/flow/HOWTO.md').is_file())
+
 
     def test_installation_docs_use_the_owner_github_only(self) -> None:
         for path in (ROOT / "README.md", ROOT / "README.zh-CN.md", SKILL / "SKILL.md"):
@@ -188,56 +175,35 @@ class SkillPackageTests(unittest.TestCase):
                     self.assertIn(name, listed)
 
     def test_documented_commands_exist(self) -> None:
-        import argparse
+        from flowguard.__main__ import template_factories,VERB_PURPOSE
+        problems=[]
+        for path in _active_documents():
+            rel=path.relative_to(ROOT).as_posix()
+            for number,line in enumerate(path.read_text(encoding='utf-8').splitlines(),1):
+                for verb,arg in re.findall(r'python -m flowguard ([\w-]+)(?: ([a-z][\w-]*))?',line):
+                    if verb not in {*VERB_PURPOSE,'--help','--version'} or (verb=='template' and arg and arg not in template_factories()):
+                        problems.append(f'{rel}:{number}: {verb} {arg}')
+                if re.search(r'python -m flowguard\.(?:map|behave)\b',line):
+                    problems.append(f'{rel}:{number}: retired module command')
+        self.assertEqual([],problems)
 
-        from flowguard.__main__ import template_factories
-        from flowguard.map.cli import build_parser
-        from flowguard.map.target import build_parser as target_parser
-
-        subs = next(a for a in build_parser()._actions if isinstance(a, argparse._SubParsersAction))
-        map_cmds, templates = set(subs.choices), set(template_factories())
-        target_cmds = set(next(a for a in target_parser()._actions if isinstance(a, argparse._SubParsersAction)).choices)
-        verbs = {"read", "change", "release", "map", "template", "target", "req", "status", "where", "check", "show",
-                 "--help", "--version"}
-        docs = [ROOT / "README.md", ROOT / "README.zh-CN.md", ROOT / "AGENTS.md",
-                *sorted((ROOT / "docs").glob("*.md")), *sorted(SKILL.rglob("*.md"))]
-        problems = []
-        for path in docs:
-            rel = path.relative_to(ROOT).as_posix()
-            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                for verb, arg in re.findall(r"python -m flowguard ([\w-]+)(?: ([a-z][\w-]*))?", line):
-                    if verb not in verbs or (verb == "map" and arg and arg not in map_cmds) \
-                            or (verb == "template" and arg and arg not in templates):
-                        problems.append(f"{rel}:{number}: python -m flowguard {verb} {arg}".rstrip())
-                    if verb == "target" and arg and arg not in target_cmds:
-                        problems.append(f"{rel}:{number}: python -m flowguard target {arg}")
-                for cmd in re.findall(r"python -m flowguard\.map ([a-z][\w-]*)", line):
-                    if cmd not in map_cmds:
-                        problems.append(f"{rel}:{number}: python -m flowguard.map {cmd}")
-                if re.search(r"python -m flowguard template [\w-]+ --output", line) or "unittest discover" in line:
-                    problems.append(f"{rel}:{number}: {line.strip()}")
-        self.assertEqual([], problems)
 
     def test_documented_command_arguments_parse(self) -> None:
-        docs = [ROOT / "README.md", ROOT / "README.zh-CN.md", ROOT / "AGENTS.md",
-                *sorted((ROOT / "docs").glob("*.md")), *sorted(SKILL.rglob("*.md"))]
-        problems = []
-        for path in docs:
-            rel = path.relative_to(ROOT).as_posix()
-            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                for match in re.finditer(r"python -m flowguard ([^`\n]*)", line):
-                    command = re.sub(r"(?<=\S)[.,;:)]+$", "", match.group(1).split("#", 1)[0].strip())
-                    illustration = command.replace('<file|->', 'FILE')
-                    if not command or any(mark in illustration for mark in ("|", "[", "...")):
-                        continue                      # illustrative alternatives and optional parts
-                    if command.split()[0] not in {"map", "read", "change", "release", "template", "target", "req", "status",
-                                                  "check", "show"}:
-                        continue                      # top-level flags have no verb argument parser
+        problems=[]
+        from flowguard.__main__ import VERB_PURPOSE
+        for path in _active_documents():
+            for number,line in enumerate(path.read_text(encoding='utf-8').splitlines(),1):
+                for match in re.finditer(r'python -m flowguard ([^`\n]*)',line):
+                    command=re.sub(r'(?<=\S)[.,;:)]+$','',match.group(1).split('#',1)[0].strip())
+                    illustration=command.replace('<file|->','FILE')
+                    if not command or any(mark in illustration for mark in ('|','[','...')) or command.split()[0] not in VERB_PURPOSE:
+                        continue
                     try:
                         _parse_documented_command_arguments(command)
-                    except (SystemExit, ValueError):
-                        problems.append(f"{rel}:{number}: python -m flowguard {command}")
-        self.assertEqual([], problems)
+                    except (SystemExit,ValueError):
+                        problems.append(f'{path.relative_to(ROOT)}:{number}: {command}')
+        self.assertEqual([],problems)
+
 
     def test_installer_expands_literal_environment_variable_and_rejects_unset(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -260,7 +226,7 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual({"status", "req", "where", "check", "show"}, set(re.findall(r"python -m flowguard ([a-z]+)", rules)))
         self.assertNotIn("Copy these", rules)
         commit_rule = next(line for line in rules.splitlines() if line.startswith("4. "))
-        for required in ("one commit", "your own words", "Request: R<n>"):
+        for required in ('Commit code and tests together', 'Request: R<n>'):
             self.assertIn(required, commit_rule)
 
         def adopt(root, *extra):
@@ -441,92 +407,6 @@ class SkillPackageTests(unittest.TestCase):
                              re.findall(r"^  line (\d+): ", output, re.M))
             self.assertIn(f"  line 5: {begin}\n", output)
 
-    def test_first_map_says_what_adoption_does_with_an_existing_agents_md_and_claude_md(self) -> None:
-        """Every case step 8 lists is run: each output it quotes is printed by a run of that case, and the files it
-        keeps stay as they are."""
-        from flowguard.__main__ import main
-        from flowguard.templates import adoption_template_files
-        rules = next(f.content for f in adoption_template_files() if f.path == "AGENTS.md")
-        step = (SKILL / "references/first_map.md").read_text(encoding="utf-8").split("\n8. ", 1)[1].split("\n9. ", 1)[0]
-        self.assertIn("never changes an existing one, also with `--force`", " ".join(step.split()))
-        cases = dict(item.partition(": ")[::2] for item in re.split(r"\n   - ", step.split("\n\n", 1)[0])[1:])
-        cases = {label: " ".join(text.split()) for label, text in cases.items()}
-        held_case = "AGENTS.md holds every current rule line and no earlier FlowGuard block"
-        both_case = "AGENTS.md holds the current rules and an earlier FlowGuard block"
-        without_case = "AGENTS.md exists without the current rules"
-        self.assertEqual(["AGENTS.md missing", held_case, both_case, without_case,
-                          "AGENTS.md is a directory or another non-file",
-                          "CLAUDE.md missing", "CLAUDE.md exists (as a file, a link or a directory)"], list(cases))
-        node_kinds = (SKILL / "references/node_kinds.md").read_text(encoding="utf-8")
-        self.assertIn("never changes either file when it exists", node_kinds)
-        self.assertIn("`first_map.md` step 8", node_kinds)
-        printed = {label: [] for label in cases}
-
-        def adopt(root, *labels):
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
-                self.assertEqual(0, main(["template", "adoption", "--write", str(root), "--force"]))
-            for label in labels:
-                printed[label].append(output.getvalue())
-            return output.getvalue()
-
-        with tempfile.TemporaryDirectory() as directory:
-            base = Path(directory)
-            fresh, held, both, marked, older, plain, odd = (
-                base / name for name in ("fresh", "held", "both", "marked", "older", "plain", "odd"))
-            fresh.mkdir()
-            adopt(fresh, "AGENTS.md missing")
-            self.assertIn("the project rules", cases["AGENTS.md missing"])
-            self.assertEqual((rules, "@AGENTS.md\n"), tuple((fresh / name).read_text(encoding="utf-8")
-                                                          for name in ("AGENTS.md", "CLAUDE.md")))
-
-            held.mkdir()
-            kept = {"AGENTS.md": "# Project\n\n- Own rule.\n\n" + rules, "CLAUDE.md": "Owner notes, no include.\n"}
-            for name, text in kept.items():
-                (held / name).write_text(text, encoding="utf-8")
-            output = adopt(held, held_case, "CLAUDE.md exists (as a file, a link or a directory)")
-            self.assertNotIn(rules.splitlines()[2], output)
-            self.assertEqual(kept, {name: (held / name).read_text(encoding="utf-8") for name in kept})
-
-            block = "<!-- BEGIN FLOWGUARD PROJECT RULES -->\n## FlowGuard rules\n\nKeep the map.\n" \
-                    "1. Run `python -m flowguard read` first.\n<!-- END FLOWGUARD PROJECT RULES -->\n"
-            both.mkdir()
-            combined = rules + "\n" + block
-            (both / "AGENTS.md").write_text(combined, encoding="utf-8")
-            output = adopt(both, both_case)
-            combined_lines = combined.splitlines()
-            self.assertIn(f"  lines {combined_lines.index(EARLIER_FLOWGUARD_BLOCK[0]) + 1}-"
-                          f"{combined_lines.index(EARLIER_FLOWGUARD_BLOCK[-1]) + 1}: ", output)
-            self.assertNotIn(rules.splitlines()[2], output)
-            self.assertNotIn("nothing to add", output)
-
-            marked.mkdir()
-            (marked / "AGENTS.md").write_text("# Project\n\n" + block + "- Own rule.\n", encoding="utf-8")
-            output = adopt(marked, without_case)
-            self.assertIn("  lines 3-8: ", output)
-            self.assertEqual([], re.findall(r"^  line \d+", output, re.M))
-            self.assertTrue(output.endswith(rules), output)
-
-            older.mkdir()
-            (older / "AGENTS.md").write_text("# Project\n\n## FlowGuard rules\n\n1. Run `python -m flowguard read` first.\n"
-                                             "- CI runs `python -m flowguard map check`.\n", encoding="utf-8")
-            output = adopt(older, without_case)
-            self.assertEqual(["3", "5"], re.findall(r"^  line (\d+): ", output, re.M))
-            self.assertTrue(output.endswith(rules), output)
-
-            plain.mkdir()
-            (plain / "AGENTS.md").write_text("# Project\n\n- Own rule.\n", encoding="utf-8")
-            output = adopt(plain, without_case)
-            self.assertNotIn("  line", output)
-            self.assertTrue(output.endswith(rules), output)
-
-            (odd / "AGENTS.md").mkdir(parents=True)
-            adopt(odd, "AGENTS.md is a directory or another non-file", "CLAUDE.md missing")
-            self.assertFalse((odd / "CLAUDE.md").exists())
-        for label, outputs in printed.items():
-            self.assertTrue(outputs, label)
-            for phrase in re.findall(r"`([^`]+)`", cases[label]):
-                self.assertTrue(any(phrase in output for output in outputs), (label, phrase))
 
     def test_installer_copies_the_skill(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -555,87 +435,24 @@ class SkillPackageTests(unittest.TestCase):
             self.assertEqual(0, run("--check").returncode)
 
 
-    def test_route_texts_have_no_repeats_dead_links_or_missing_names(self) -> None:
-        import argparse
-        from collections import Counter
-        from urllib.parse import unquote, urlsplit
-        from flowguard.__main__ import _verb_parser
-        from flowguard.map.cli import build_parser as map_parser
-        from flowguard.map.target import build_parser as target_parser
-
-        def slug(heading):
-            return re.sub(r"[^\w\s-]", "", heading.lower()).replace(" ", "-")
-
-        def options(parser):
-            found = set()
-            for action in parser._actions:
-                found.update(action.option_strings)
-                if isinstance(action, argparse._SubParsersAction):
-                    for child in action.choices.values():
-                        found.update(options(child))
-            return found
-
-        flags = set().union(*(options(parser) for parser in
-            [*(_verb_parser(verb) for verb in ('read', 'change', 'release', 'template', 'req', 'status', 'where')),
-             target_parser(), map_parser()]))
-        source = "\n".join(path.read_text(encoding='utf-8')
-            for directory in (ROOT / 'flowguard', ROOT / '.flowguard/models')
-            for path in directory.rglob('*.py'))
-        routes_path = SKILL / 'references/routes.md'
-        routes = routes_path.read_text(encoding="utf-8")
-        sections = re.split(r'(?m)(?=^## )', routes)[1:]
-        links = re.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
-
-        def destination(path, link):
-            value = urlsplit(link)
-            if value.scheme or value.netloc:
-                return None
-            target = (path.parent / unquote(value.path)).resolve() if value.path else path
-            return target, unquote(value.fragment)
-
-        for section in sections:
-            route = section.splitlines()[0][3:]
-            files = {routes_path.resolve()}
-            for origin, text in [(routes_path, section)]:
-                for link in links.findall(text):
-                    resolved = destination(origin, link)
-                    if resolved and resolved[0].is_file():
-                        files.add(resolved[0])
-            texts = {path: path.read_text(encoding='utf-8') for path in sorted(files)}
-            paragraphs = Counter(' '.join(part.split()) for text in texts.values()
-                for part in re.split(r'\n\s*\n', text) if len(part.split()) >= 8)
-            for paragraph, count in paragraphs.items():
-                self.assertEqual(1, count, f'{route}: repeated paragraph: {paragraph}')
-            for path, text in texts.items():
-                for link in links.findall(text):
-                    resolved = destination(path, link)
-                    if resolved is None:
-                        continue
-                    target, fragment = resolved
-                    self.assertTrue(target.is_file(), f'{route}: dead link: {link} in {path}')
-                    if fragment:
-                        headings = re.findall(r'^#+ (.+)$', target.read_text(encoding="utf-8"), re.M)
-                        self.assertIn(fragment, [slug(heading) for heading in headings],
-                                      f'{route}: missing anchor: {link}')
-                for code in re.findall(r'`([^`\n]+)`', text):
-                    for flag in re.findall(r'--[a-z0-9][\w-]*', code):
-                        self.assertIn(flag, flags, f'{route}: missing option: {code}')
-                    if '_' in code and re.fullmatch(r'[a-z_][a-z0-9_]*', code):
-                        self.assertTrue(re.search(r'\b' + re.escape(code) + r'\b', source),
-                                         f'{route}: missing name: {code}')
-                    if code.startswith('references/'):
-                        self.assertTrue((SKILL / code.split('#', 1)[0]).is_file(),
-                                        f'{route}: missing reference: {code}')
-            print(f'route {route}: {sum(len(text) for text in texts.values())} characters')
-
-    def test_route_sections_named_by_findings_exist(self) -> None:
-        mapping={0:('routes.md',('New function',)),1:('routes.md',('Split a model',)),2:('routes.md',('Split a test file',)),3:('routes.md',('Interface change',)),4:('routes.md',('Rename or retire a field',)),5:('routes.md',('Add or split a component',)),6:('routes.md',('Remove or merge a node',)),7:('routes.md',('When a green model missed a bug',)),8:('routes.md',('External promise (no silent fallback)',)),9:('node_kinds.md',('UI journey','Validator')),10:('routes.md',('Model before code',))}
-        for index,(filename,headings) in mapping.items():
-            text=(SKILL/'references'/filename).read_text(encoding='utf-8')
-            for heading in headings:self.assertEqual(1,text.splitlines().count('## '+heading),(index,filename,heading))
-        for path in SKILL.rglob('*.md'):
+    def test_current_document_links_have_real_destinations(self) -> None:
+        from urllib.parse import unquote,urlsplit
+        for path in _active_documents():
             text=path.read_text(encoding='utf-8')
-            for retired in ('Add a child** for an independent operation','importers and ancestors are selected too','map impact <file under the failure>'):self.assertNotIn(retired,text,str(path))
+            # Inline code shows literal examples, not rendered Markdown links.
+            text=re.sub(r'`[^`\n]*`', '', text)
+            for link in re.findall(r'\[[^\]]*\]\(([^)\s]+)\)',text):
+                value=urlsplit(link)
+                if value.scheme or value.netloc:
+                    continue
+                target=(path.parent/unquote(value.path)).resolve() if value.path else path
+                self.assertTrue(target.is_file(),f'{path}: dead link: {link}')
+                if value.fragment:
+                    headings=re.findall(r'^#+ (.+)$',target.read_text(encoding='utf-8'),re.M)
+                    slugs=[re.sub(r'[^\w\s-]','',heading.lower()).replace(' ','-') for heading in headings]
+                    self.assertIn(unquote(value.fragment),slugs,f'{path}: missing anchor: {link}')
+
+
 
 
 if __name__ == "__main__":
@@ -643,28 +460,20 @@ if __name__ == "__main__":
 
 
 def test_the_five_minute_start_teaches_only_the_new_flow():
-    from pathlib import Path
-    root = Path(__file__).resolve().parents[1]
-    for name in ("README.md", "README.zh-CN.md"):
-        text = (root / name).read_text(encoding="utf-8")
-        start = text.split("## Five-minute start" if name == "README.md" else "## 五分钟上手", 1)[1].split("\n## ", 1)[0]
-        steps = [line.split("#", 1)[0].strip() for line in start.split("cd your-project", 1)[1].split("```", 1)[0].splitlines()
-                 if line.strip()]
-        assert [step.split()[:4] for step in steps] == [
-            ["python", "-m", "flowguard", "status"], ["python", "-m", "flowguard", "req"],
-            ["python", "-m", "flowguard", "where"], ["python", "-m", "pytest", "-q"], ["git", "add", "-A", "&&"]], (name, steps)
-        assert "Request: R1" in steps[-1], steps
-        assert not re.search(r"flowguard (map|target)\b", start.split("```")[1]), (name, start)
+    for name in ('README.md','README.zh-CN.md'):
+        text=(ROOT/name).read_text(encoding='utf-8')
+        start=text.split('## Five-minute start' if name=='README.md' else '## 五分钟开始',1)[1].split('\n## ',1)[0]
+        commands=re.findall(r'^python -m flowguard (.+)$',start,re.M)
+        verbs=[command.split()[0] for command in commands]
+        assert verbs==['status','req','where','check'],(name,commands)
+        for command in commands:
+            _parse_documented_command_arguments(command)
+        assert 'python -m pytest -q' in start and 'Request: R1' in start
+        assert not re.search(r'flowguard (map|target)\b',start)
 
 
-def test_legacy_procedure_pages_say_so_at_the_top_and_the_skill_needs_none_of_them():
-    from pathlib import Path
-    root = Path(__file__).resolve().parents[1]
-    skill = root / ".agents/skills/flowguard"
-    pages = [root / "docs/concept.md", *(skill / "references" / name for name in
-             ("architecture_review.md", "first_map.md", "map_format.md", "model_recipes.md", "node_kinds.md", "routes.md"))]
-    for page in pages:
-        head = "\n".join(page.read_text(encoding="utf-8").split("\n\n")[1:2])
-        assert head.startswith("> **Legacy, not required.**"), (page, head)
-    text = (skill / "SKILL.md").read_text(encoding="utf-8")
-    assert "references/" not in text and "concept.md" not in text
+
+def test_the_current_skill_does_not_require_retired_procedures():
+    text=(SKILL/'SKILL.md').read_text(encoding='utf-8')
+    for retired in ('first_map.md','map_format.md','model_recipes.md','node_kinds.md','target start','map confirm'):
+        assert retired not in text

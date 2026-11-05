@@ -353,3 +353,30 @@ def test_a_worker_that_fails_is_an_internal_error(project):
     log = project.root / run.first.rsplit("(log: ", 1)[1].split(")", 1)[0]
     assert "Traceback (most recent call last)" in log.read_text()
     assert not (project.root / ".flowguard/conflicts.json").exists()
+
+
+def test_two_concurrent_callers_execute_each_shared_part_once(project, tmp_path, monkeypatch):
+    """Both real callers attach to one worker; a model-load counter catches duplicate work."""
+    source = FAST.replace('m = Model("fast")', 'import time\ntime.sleep(0.3)\nm = Model("fast")')
+    project.flow('fast', source)
+    counter = tmp_path / 'actual-loads'
+    monkeypatch.setenv('FG_TEST_PIDS', str(counter))
+    callers = [start_check(project.root, '--wait', '30', '--json') for _ in range(2)]
+    results = []
+    try:
+        for caller in callers:
+            out, err = caller.communicate(timeout=60)
+            assert caller.returncode == 0, out + err
+            results.append(json.loads(out))
+    finally:
+        for caller in callers:
+            if caller.poll() is None:
+                caller.kill()
+                caller.communicate(timeout=10)
+    assert all(result['complete'] for result in results)
+    loads = [int(value) for value in counter.read_text().splitlines()]
+    assert len(loads) == 2, loads  # one core load and one routes load
+    assert len(set(loads)) == 1 and set(loads).isdisjoint(caller.pid for caller in callers)
+    assert len(jobs_of(project.root)) == 1
+    assert all([(part['model'], part['kind']) for part in result['parts']] ==
+               [('fast', 'core'), ('fast', 'routes')] for result in results)

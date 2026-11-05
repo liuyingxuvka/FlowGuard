@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Sequence
 
-from .core import FrozenMetadata, InvariantResult, evaluate_invariant, freeze_metadata
+from .metadata import FrozenMetadata, freeze_metadata
 from .export import to_jsonable, trace_step_to_dict, trace_to_dict
 from .replay import ReplayInput, ReplayObservation, coerce_observation
 from .trace import Trace, TraceStep
@@ -181,15 +181,10 @@ def default_conformance_rules() -> tuple[ConformanceRule, ...]:
     )
 
 
-def _invariant_name(invariant: Any) -> str:
-    return str(getattr(invariant, "name", getattr(invariant, "__name__", type(invariant).__name__)))
-
-
 def replay_trace(
     trace: Trace,
     adapter: Any,
     rules: Sequence[ConformanceRule] | None = None,
-    invariants: Sequence[Any] = (),
 ) -> ConformanceReport:
     """Replay one abstract trace against a production adapter."""
 
@@ -232,24 +227,6 @@ def replay_trace(
             break
 
         replayed_steps.append(observation)
-
-        for invariant in invariants:
-            result = evaluate_invariant(invariant, observation.observed_state, trace)
-            if not result.ok:
-                violations.append(
-                    ConformanceViolation(
-                        message=result.message,
-                        step_index=index,
-                        expected_step=expected_step,
-                        observed_step=observation,
-                        rule_name=f"invariant:{_invariant_name(invariant)}",
-                        trace=trace,
-                        metadata=result.metadata,
-                    )
-                )
-                break
-        if violations:
-            break
 
         for rule in active_rules:
             message = rule.evaluate(expected_step, observation)

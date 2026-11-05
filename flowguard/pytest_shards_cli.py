@@ -448,19 +448,12 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     runnable_nodeids = collected_nodeids
 
     from flowguard.map.testtree import duration_weights, test_units
-    from flowguard.map.inventory import build_inventory
-    from flowguard.map.mapfile import load_map, MapError, ignore_patterns
-    from flowguard.map.tree import build_tree
     known=duration_weights(root,runnable_nodeids)
     units=None;weights=None;balance='hash';balance_notes=[]
     if known and (len(runnable_nodeids)-len(known))/len(runnable_nodeids)<=0.05:
         mean=sum(known.values())/len(known)
         weights={node:known.get(node,mean) for node in runnable_nodeids}
-        try:data=load_map(root)
-        except MapError:data={'components':[]}
-        inv=build_inventory(root,ignore_patterns(data),write_cache=False,import_roots=tuple(data.get('import_roots',())))
-        tree=build_tree(root,data,inv)
-        units=test_units(root,data,inv,tree,runnable_nodeids,weights,int(args.shards))
+        units=test_units(runnable_nodeids,weights,int(args.shards))
         balance='seconds'
         balance_notes.append(f'recorded seconds ({len(known)} of {len(runnable_nodeids)} tests, .flowguard/cache/test-durations.json); {int(args.shards)} shards of whole subtrees')
         share=sum(weights.values())/int(args.shards)
@@ -626,13 +619,7 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             try:files[path]=content_digest(root/path)
             except OSError:pass
         _write_json(root/'.flowguard/cache/test-durations.json',{'schema':DURATION_SCHEMA,'files':files,'seconds':seconds})
-        from flowguard.map.testtree import test_file_findings
-        if units is None:
-            try:data=load_map(root)
-            except MapError:data={'components':[]}
-            inv=build_inventory(root,ignore_patterns(data),write_cache=False,import_roots=tuple(data.get('import_roots',())))
-            tree=build_tree(root,data,inv)
-        payload['test_file_advice']=[finding.message for finding in test_file_findings(root,data,inv,tree) if finding.level=='info' and finding.code=='large_test_file']
+
     _write_json(output_root / "aggregate.json", payload)
     return (0 if status == "pass" else 1 if status in {"fail", "partial"} else 70), payload
 

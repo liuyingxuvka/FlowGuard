@@ -210,7 +210,7 @@ def apply_declared(root, data):
     if not data:
         return data
     from .decisions import evaluate_decision
-    from ..map.mapfile import MapError
+    from ..map.common import MapError
     conflicts, closed = [], list(data.get('closed', []))
     for entry in data['conflicts']:
         decision = None
@@ -236,7 +236,7 @@ def reopen_declared(root, data):
     if not data:
         return data
     from .decisions import evaluate_decision
-    from ..map.mapfile import MapError
+    from ..map.common import MapError
     conflicts, closed = list(data['conflicts']), []
     for entry in data.get('closed', []):
         kind = entry.get('closure', {}).get('kind')

@@ -1,146 +1,74 @@
 # FlowGuard
 
-<p align="center">
-  <img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard icon" width="104" />
-</p>
-
-<p align="center"><strong>AI 辅助开发的“软件 DNA”：一棵随代码演进的模型树，包含代码归属、关键流程的可执行模型、测试和计划改动的目标。</strong></p>
+<p align="center"><img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard icon" width="104" /></p>
 
 [English](./README.md)
 
-FlowGuard 用自己的地图和模型维护本仓库（`.flowguard/map.json`、`.flowguard/models/`）。模型和适用边界见[概念说明](docs/concept.md)。
+FlowGuard 给 AI 一份小而可执行的功能模型，连接实际代码和保存的主人原话。它检查普通例子容易漏掉的组合，跨会话保留未解决的冲突，让下一次修改能从已有认识出发。
 
+## 五分钟开始
 
-## 它做什么
-
-AI 擅长局部修改，但每开一个新会话都要重新弄清：软件由哪些部分组成、这件事归谁管、改这里会影响哪里？
-FlowGuard 在项目里保存三样东西：
-
-1. **地图** `.flowguard/map.json`：各个组件、它们的职责、拥有的状态、副作用、文件、入口、依赖、
-   测试和模型。会话开始或恢复时先运行 `python -m flowguard status`，用
-   `python -m flowguard where NAME` 查找代码、负责者和调用者。
-2. **模型**：关键流程（重试、幂等、缓存、顺序、金额、权限、多步骤流程）的小型可执行模型，形式是
-   `输入 x 状态 -> 一组(输出 x 状态)`。FlowGuard 在边界内穷举所有输入序列，给出反例，检查已知的坏版本
-   一定会失败，并把模型轨迹放到真实代码上回放比对（一致性检查）。
-3. **目标**（旧路线，保留到 v1.0.0）：一次旧模型改动计划中的地图和模型；正常改动不需要目标。
-
-地图和模型是一棵树。根节点和组件节点从代码推出，始终生效；任务需要时才在组件下添加行为模型，测试挂在同样的节点上。
-`python -m flowguard read --mermaid` 画出这棵树。
-
-当前树保存在 `.flowguard/map.json` 和 `.flowguard/models/`。正常改动就是一起改代码和测试、跑项目的测试，
-再用自己的话写一次提交；改动来自主人存下的需求时，加一行 `Request: R<n>`。
-
-每次检查都会对照地图和代码。真正的问题（循环 import、层级违规、缺少模型锚点）是错误；只说明手写地图落后于代码的情况（文件没有负责者、描述过期、依赖没声明或没有证据）只是信息，永远不会让检查失败。
-历史保存在 git 里。
-
-## 五分钟上手
+从本仓库安装；PyPI 上名为 flowguard 的包是另一个项目。
 
 ```bash
-pip install -e .                                          # 引擎，只依赖 Python 标准库
-# 或从 GitHub：python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.75.0"；PyPI 上名为 flowguard 的包是另一个项目
-python scripts/install_skill.py --target ~/.claude/skills # 给 AI 安装技能（或 $CODEX_HOME/skills）
-
+python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v1.0.0"
+python scripts/install_skill.py --target ~/.codex/skills
 cd your-project
-python -m flowguard status                              # 1. 开始或接着做：主人最近的话和未完成的工作
-python -m flowguard req add owner-message.txt --id R1   # 2. 把主人的原话按字节原样存一次
-python -m flowguard where place_order                   # 3. 找到代码、它的负责者和调用者
-python -m pytest -q tests/test_orders.py                # 4. 代码和测试一起改；跑项目自己的测试
-git add -A && git commit -m "Charge each order once" -m "Request: R1"   # 5. 用自己的话提交一次
+python -m flowguard status
+python -m flowguard req add owner-message.txt --id R1
+python -m flowguard where place_order
+# 修改行为时，先更新受影响的功能模型，再改实现。
+python -m flowguard check
+python -m pytest -q tests/test_orders.py
+git add -A
+git commit -m "Charge each order once" -m "Request: R1"
 ```
 
-这就是完整的流程，项目不需要地图、模型或目标。旧地图（`map scan`、`map check`、`map confirm`）、旧模型和
-target 命令都是可选的，保留到 v1.0.0；[概念说明](docs/concept.md)介绍它们。
+技能安装脚本在源码仓库里，目标目录填写所用 AI 的技能目录。没有模型也可以查源码、存原话。状态、动作、条件、设置或结局发生变化时，再为相关功能建模；安装包中的[模型指南](./flowguard/flow/HOWTO.md)包含可运行的例子和代码适配器。
 
-```powershell
-python scripts/install_skill.py --target "$env:USERPROFILE\.claude\skills"
-# Codex：先设置 CODEX_HOME；不要使用未设置的变量。
-python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
-```
+## 一个模型，连接实际代码
+
+在 `.flowguard/flow/` 中，用 `Model`、字段、动作和明确的承诺描述一个小功能。模型的预期行为应独立于实现。用 `Model.bind_adapter` 对照实际调用和结果；同一个原生记录器记录真实读取、调用和选定的 pytest 执行，没观察到的部分仍标为未知。
+
+`check` 探索声明的有限状态空间，报告承诺冲突、死路和无法到达的目标，附上可得的最短路径及来源需求。`check --full` 还会故意改坏模型。通过只覆盖声明的模型及已观察的代码边界；省略的行为仍需要相关模型或测试。
+
+主人原话原样保存在 `.flowguard/requests/`。未解决的冲突及其保留范围写入 `.flowguard/conflicts.json`，重启后仍可见。缩小模型不能悄悄抹去已有义务。实际代码修复需要当前原生对照和执行过的回归；真正替换需求时使用主人原话。`show` 直接绘制已保存的证据，不重跑应用。
 
 ## 日常命令
 
-| 什么时候 | 命令 | 作用 |
-| --- | --- | --- |
-| 会话开始或恢复 | `python -m flowguard status` | 项目的静态事实，以及什么会让 release 和 CI 失败 |
-| 主人提出要求 | `python -m flowguard req add <file\|-> --id <id>` | 把主人自己的话原样存一次 |
-| 旧的目标路线（保留到 v1.0.0） | `python -m flowguard target`（`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`） | 计划旧模型的改动；正常改动不需要目标 |
-| 旧的检查（保留到 v1.0.0） | `python -m flowguard change` | 校验地图和代码；只列出受影响的测试和模型 |
-| 发布之前 | `python -m flowguard release` | 严格检查、架构错误、重跑全部模型、流程模型的完整检查 |
-| 新模型或采用流程 | `python -m flowguard template --list` | 选择 `behaviour`、`validator`、`ui-journey`，或用 `adoption` 生成仓库规则 |
-
-## 流程模型
-
-流程模型是一次改动涉及的那部分设计，写成 `.flowguard/flow/<name>.py` 里的一台小机器：几个字段、改变它们的动作，
-以及主人的要求所作的承诺（`from flowguard.flow import Model, need`，每个文件一个模型，以 `MODEL = m` 结尾）。
-`check` 在每个能到达的状态里尝试每个动作，报告哪里会卡住、什么永远不会发生、哪种顺序会打破哪条承诺，每条都附最短路径
-和背后的要求。写模型的简明说明是 [flowguard/flow/HOWTO.md](./flowguard/flow/HOWTO.md)，安装的包里也有。
-
-| 命令 | 作用 |
+| 命令 | 用途 |
 | --- | --- |
-| `python -m flowguard check` | 探索每个流程模型；第一行是结论；退出码 0 无问题，1 有冲突，2 模型错误，3 未知（搜索到上限），4 仍在运行 |
-| `python -m flowguard check --full` | 另外故意把每个模型改坏，看它的检查能否抓到；有可互换对象的模型再不做改名约简地探索一遍 |
-| `python -m flowguard show` | 把冲突画成流程图，没有冲突时画出相对 HEAD 的改动（`show MODEL`、`show C-...`、`--before REV`） |
+| `python -m flowguard status` | 刷新已改模型，显示未完成工作、来源原话和待决问题。 |
+| `python -m flowguard where NAME` | 不导入项目代码，查定义、调用者、模型覆盖和需求链接。 |
+| `python -m flowguard req add FILE --id R1` | 按字节保留一条实际主人消息；替代旧需求时加 `--supersedes R0`。 |
+| `python -m flowguard check` | 通过共用后台任务检查受影响工作，复用仍有效的结果。 |
+| `python -m flowguard check --full` | 执行完整模型检查，包括故意改坏。 |
+| `python -m flowguard check --tests tests/test_orders.py` | 明确选择实际测试，审查备用路线；普通检查不运行 pytest。 |
+| `python -m flowguard show` | 绘制冲突，否则绘制相对 HEAD 的改动；加 `MODEL --before REV` 指定版本。 |
+| `python -m flowguard decide ID --owner "QUOTE" --request R1` | 为需求冲突记录有实际来源的主人选择。 |
+| `python -m flowguard check --commit-ready` | 对照暂存字节读取当前结果；不会自动安装提交钩子。 |
+| `python -m flowguard release --shards 4` | 检查全部模型，每项收集到的项目测试恰好运行一次，然后保留原始字节快照。 |
 
-`check` 最多等 `--wait` 秒（默认 90）就返回。还在运行（RUNNING）的工作会再保留 `--keep` 秒，用同一条命令接着做。
-`--json` 只打印一行。冲突记在 `.flowguard/conflicts.json`（要提交）：`status` 显示未解决的冲突，`release` 运行
-`check --full`。画图需要装了 Playwright 的 node；没有时 `show` 写出 Mermaid 文本。
+`check` 区分通过、冲突、模型错误、UNKNOWN 和 RUNNING。默认等待 90 秒；相同命令续接已有任务。已结束的 UNKNOWN 保持可见，并允许提交。不加 `--shards` 的 `release` 会说明没有运行测试。绘图使用 node、Playwright 和 Chromium；没有它们仍可得到 Mermaid 文本。
 
-流程模型支持 Linux 和 Windows，包括等待、续跑，以及调用者消失后停止后台工作。
-macOS 暂不支持流程模型执行；旧命令和静态源码查询保持已有的平台支持。
+## 低成本使用已有认识
 
-## 找源码和文字原文
+每个模型聚焦改动涉及的功能，也考虑共用状态的旧行为。先读简短的 `status` 或 `where`，只展开需要的部分。`where --flow`、`--arch`、`--text`、`--keyflows` 分别查调用、架构、原文和共享存储。按需使用 `--all`、`--json`、`--root DIR` 或 `--at REF`（`--at` 选择历史原文）。静态匹配只是候选，不是语义证明。
 
-寻找源码或负责者需要多跳 grep 时，可按需使用静态查询（FlowGuard 0.71.1+）：
+模型是 AI 主动用来规划修改、检查假设和对照实际行为的外部记录。它能减少重新理解的工作或发现实际错误才有价值；增加字段、记录或必经检查，本身不会让它更好。
 
-| 命令 | 查看内容 |
-| --- | --- |
-| `python -m flowguard where NAME` | 源码、负责者和调用方 |
-| `python -m flowguard where` | 精简的模块概览 |
-| `python -m flowguard where --flow` | 静态调用关系；加 NAME 可缩小范围 |
-| `python -m flowguard where --arch` | 架构和有源码依据的建议 |
-| `python -m flowguard where --text` | 文字与引用摘要 |
-| `python -m flowguard where --keyflows` | 共享状态和文件写入位置 |
+## 升级和平台边界
 
-按需加 `--root DIR` 或 `--json`。文字查询可在 `--text` 后选 FILE、`source:<id>`、`group:<id>` 或 `"text:<literal phrase>"`，读取原文及可获得的 Git 来源。默认只给每个列表最相关的几行，写明省略了多少，并给出下一查的命令；`--all` 给出全部。字面搜索按不区分大小写的子串匹配。`--at REF` 同时读取该 Git 版本的文字和代码。
+1.0 只保留一个流程引擎，删除旧地图、旧 `.flowguard/models/`、target 命令和实验性 `behave` 引擎。按[升级指南](./docs/upgrade-1.0.md)把有用的规则和绑定迁到当前模型及测试；执行旧格式时会说明需要升级。迁移期间仍可静态查源码。
 
-这些查询不运行应用、模型或测试；缺少执行记录时明确未知。字面匹配只是候选，不自动作语义判决，也不阻断改动；模型和独立规则测试仍负责验证行为。既有命令、64 个公开导出和地图格式保持兼容。
-
-## 能做的事
-
-下面这些用的是旧地图、旧模型和 target 命令：可选，保留到 v1.0.0，正常改动不需要。
-
-| 原来的专项名 | 现在怎么做 |
-| --- | --- |
-| behavior-commitment | 给对外承诺唯一负责者、真实代码锚点和测试；建模备用路径。 |
-| architecture-reduction | 在目标中删除或合并节点；保住公开承诺，检查无引用的代码。 |
-| code-structure | 在目标中新增或拆分负责者；文件、状态、副作用和入口各有唯一归属。 |
-| contract-exhaustion | 用 `validator` 节点检查有限的接受和拒绝用例。 |
-| field-lifecycle | 在目标中描述改名或退役字段，检查新旧读取方。 |
-| model-mesh | 用 `PARENT` 嵌套模型；子模型交接时按需用状态投影、有限的 `OUTPUTS` 和 `HANDOFF`。 |
-| model-test | 用 `IMPLEMENTED_BY` 和 `TESTED_BY` 绑定规则，运行 `map models --tests`。 |
-| test-mesh | 用 `release --shards N`；每个分片跑若干棵完整测试子树，每个收集到的测试恰好运行一次。 |
-| ui-flow | 用 `ui-journey` 节点检查状态和旅程，再配合人工界面清单。 |
-
-见[树的操作](.agents/skills/flowguard/references/routes.md)和
-[模型配方](.agents/skills/flowguard/references/model_recipes.md)。
-
-## 模型能抓住什么（真实例子）
-
-`tests/fixtures/flowguard_map/order_placement.py`：客户端用同一个订单号重试，导致重复扣款。单元测试是绿的；
-模型的一致性回放失败，给出两步反例 `Place(o1), Place(o1) -> charges=('o1','o1')`。为了让它通过而删掉不变量
-也不行：“已知坏版本通过了：不变量抓不住它”。
-
-## 它证明不了什么
-
-模型只证明它声明的有限边界；地图描述的是当前这次提交；自动发现是启发式的。FlowGuard 不能代替测试、
-代码评审和线上监控，也不会找出全局最优的架构。它维护一棵和代码、测试绑定的模型树。
+流程执行支持 Linux、Windows 和 Python 3.11 以上。macOS 可查静态源码、保存原话；执行流程会明确报告平台限制。模型只证明声明的有限边界和已有观察，仍需普通测试、复查及实际运行监测。
 
 ## 仓库结构
 
-- `flowguard/` 引擎、节点种类和计算出的面；`flowguard/map/` 地图、目标、自动发现和证明层；
-  `flowguard/flow/` `check` 和 `show` 背后的流程模型引擎
-- `.agents/skills/flowguard/` 给 AI 用的技能
-- `.flowguard/` FlowGuard 自己的地图和模型（它用自己维护自己）
-- `examples/` 可运行的教学模型；`docs/` 长篇说明
+- `flowguard/flow/`：模型、原生记录器、任务、冲突历史、绘图及发布入口。
+- `flowguard/map/`：共用源码索引、静态查询、原话记录和普通测试树分片，不需要手写地图文件。
+- `.flowguard/flow/`：FlowGuard 自用功能模型。
+- `.agents/skills/flowguard/`：唯一公开技能。
+- `tests/`、`examples/`、`docs/`：测试、例子和详细指南。
 
 许可证：MIT

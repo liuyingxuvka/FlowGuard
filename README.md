@@ -1,165 +1,74 @@
 # FlowGuard
 
-<p align="center">
-  <img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard icon" width="104" />
-</p>
-
-<p align="center"><strong>A "software DNA" for AI-assisted development: one living model tree with code owners, executable models of risky flows, tests and a target for planned changes.</strong></p>
+<p align="center"><img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard icon" width="104" /></p>
 
 [中文说明](./README.zh-CN.md)
 
-FlowGuard maps and checks its own repository (`.flowguard/map.json`, `.flowguard/models/`). Its model and boundaries are described in [the concept guide](docs/concept.md).
-
-
-## What it does
-
-AI agents are good at local edits, but every new session has to rediscover: what parts does the
-software have, who owns this behavior, what else does a change affect? FlowGuard keeps three
-things in the project:
-
-1. **The map** `.flowguard/map.json` - components, their responsibilities, owned state, side
-   effects, files, entrypoints, dependencies, tests and models. Start or resume with
-   `python -m flowguard status`, and find code, owners and callers with `python -m flowguard where NAME`.
-2. **Models** - small executable `Input x State -> Set(Output x State)` models of risky flows
-   (retries, idempotency, caching, ordering, money, permissions, multi-step workflows). FlowGuard
-   explores every input sequence within a bound, reports counterexamples, checks that known-bad
-   variants fail, and replays model traces against the real code (conformance).
-3. **The target** (legacy route, kept until v1.0.0) - the intended map and models for one planned
-   change of the legacy models; a normal change needs no target.
-
-The map and models form one tree. Root and component nodes come from the code and stay active;
-behavior models are added beneath components when a task needs them, with tests on the same nodes.
-`python -m flowguard read --mermaid` draws this tree.
-
-The current tree lives in `.flowguard/map.json` and `.flowguard/models/`. A normal change is code and tests
-changed together, the project's tests run, and one commit with a message in your own words; add a line
-`Request: R<n>` when the change answers a stored owner request.
-
-Map and code are compared on every check. Real problems such as import cycles, layer violations and
-missing model anchors are errors. Gaps that only mean the hand-written map is behind the code (a file
-without an owner, a stale description, an undeclared or unproven dependency) are information and never
-fail a check. History lives in git.
+FlowGuard gives an AI a small executable model of a feature, connected to real code and stored owner words. It checks combinations that examples miss, keeps unresolved conflicts across sessions, and helps the next change start from existing knowledge.
 
 ## Five-minute start
 
+Install from this repository; the PyPI package called flowguard is a different project.
+
 ```bash
-pip install -e .                                          # engine, standard library only
-# or from GitHub: python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.75.0"; the PyPI package named flowguard is a different project
-python scripts/install_skill.py --target ~/.claude/skills # skill for your agent (or $CODEX_HOME/skills)
-
+python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v1.0.0"
+python scripts/install_skill.py --target ~/.codex/skills
 cd your-project
-python -m flowguard status                              # 1. start or resume: the owner's newest words and open work
-python -m flowguard req add owner-message.txt --id R1   # 2. store the owner's own words once, byte for byte
-python -m flowguard where place_order                   # 3. find the code, its owner and its callers
-python -m pytest -q tests/test_orders.py                # 4. change code and tests together; run the project's tests
-git add -A && git commit -m "Charge each order once" -m "Request: R1"   # 5. one commit in your own words
+python -m flowguard status
+python -m flowguard req add owner-message.txt --id R1
+python -m flowguard where place_order
+# For a behavior change, update the affected feature model before implementation.
+python -m flowguard check
+python -m pytest -q tests/test_orders.py
+git add -A
+git commit -m "Charge each order once" -m "Request: R1"
 ```
 
-That is the whole loop; the project needs no map, model or target for it. The legacy map (`map scan`, `map check`,
-`map confirm`), the legacy models and the target commands are optional and kept until v1.0.0; the
-[concept guide](docs/concept.md) describes them.
+The skill installer is in a source checkout. Point its target at your agent's skills directory. Static queries and owner records work without a model. Start a model when state, actions, conditions, settings or endings change; the installed [model guide](./flowguard/flow/HOWTO.md) includes a runnable example and a code adapter.
 
-```powershell
-python scripts/install_skill.py --target "$env:USERPROFILE\.claude\skills"
-# Codex: set CODEX_HOME first; do not substitute an unset variable.
-python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
-```
+## One model, connected to code
 
-## Daily verbs
+Write one small feature machine in `.flowguard/flow/`, using `Model`, fields, actions and explicit promises. Keep the model's expected behavior independent of the implementation. Bind it through `Model.bind_adapter` to compare actual calls and outcomes with those expectations. The same native recorder captures actual reads, calls and selected pytest execution; missing observations remain unknown.
 
-| when | command | what it does |
-| --- | --- | --- |
-| session start or resume | `python -m flowguard status` | the project's static facts and what fails release and CI |
-| the owner asks for something | `python -m flowguard req add <file\|-> --id <id>` | store the owner's own words once, byte for byte |
-| legacy target route (until v1.0.0) | `python -m flowguard target` (`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`) | plan a change of the legacy models; a normal change needs no target |
-| legacy check (until v1.0.0) | `python -m flowguard change` | verify map vs code; list only the affected tests and models |
-| before release | `python -m flowguard release` | strict check, lint errors, every model re-run, the flow models' full check |
-| start a model or adopt the workflow | `python -m flowguard template --list` | choose `behaviour`, `validator`, `ui-journey` or repository rules with `adoption` |
+`check` explores the declared finite state space. It reports violated promises, dead ends and unreachable goals with the shortest available path and their source requests. `check --full` also tries deliberate breakages. A clean result covers the declared model and observed code boundary; omitted behavior still needs a model or a relevant test.
 
-## Flow models
+Owner words live unchanged in `.flowguard/requests/`. Open conflicts and their retained scope live in `.flowguard/conflicts.json` and remain visible after a restart. A smaller model cannot silently erase an earlier obligation. Real code repairs need current native correspondence and an executed regression; a genuine replacement requirement uses the original owner words. `show` draws the stored witness without rerunning the application.
 
-A flow model is the part of the design a change touches, written as a small machine in
-`.flowguard/flow/<name>.py`: a few fields, the actions that change them and the promises the owner's
-requests make (`from flowguard.flow import Model, need`, one model per file, ending with `MODEL = m`).
-`check` tries every action in every reachable state and reports what gets stuck, what never happens and
-which promise some order breaks, each with its shortest path and the requests behind it. The short
-guide to writing them is [flowguard/flow/HOWTO.md](./flowguard/flow/HOWTO.md), also in the installed package.
+## Daily commands
 
-| command | what it does |
+| command | purpose |
 | --- | --- |
-| `python -m flowguard check` | explore every flow model; line 1 is the verdict; exit 0 clean, 1 conflict, 2 model error, 3 UNKNOWN (search capped), 4 RUNNING |
-| `python -m flowguard check --full` | also break each model on purpose to see that its checks catch it, and explore a model with interchangeable ids once more without renaming them |
-| `python -m flowguard show` | draw the conflicts, else the change against HEAD, as a flowchart (`show MODEL`, `show C-...`, `--before REV`) |
+| `python -m flowguard status` | Refresh changed models; show open work, source words and questions. |
+| `python -m flowguard where NAME` | Find source, callers, model coverage and request links without importing project code. |
+| `python -m flowguard req add FILE --id R1` | Preserve one actual owner message byte for byte; use `--supersedes R0` when it replaces an earlier request. |
+| `python -m flowguard check` | Check affected work through the shared background jobs and reuse current results. |
+| `python -m flowguard check --full` | Run the complete model checks, including deliberate breakages. |
+| `python -m flowguard check --tests tests/test_orders.py` | Explicitly audit selected real tests for fallback behavior; ordinary checks do not run pytest. |
+| `python -m flowguard show` | Draw open conflicts, otherwise the change against HEAD; add `MODEL --before REV` to choose. |
+| `python -m flowguard decide ID --owner "QUOTE" --request R1` | Record an actual sourced owner choice for a requirement conflict. |
+| `python -m flowguard check --commit-ready` | Read current results against the staged bytes; no hook is installed automatically. |
+| `python -m flowguard release --shards 4` | Check all models, run every collected project test once, then retain the original-byte snapshot. |
 
-`check` returns within `--wait` seconds (default 90). Work left RUNNING continues for `--keep` seconds, and the
-same command resumes it. `--json` prints one line. Conflicts are kept in `.flowguard/conflicts.json` (commit it):
-`status` shows the open ones, and `release` runs `check --full`. Pictures need node with Playwright; without them
-`show` writes the Mermaid text.
+`check` returns clean, conflict, model error, UNKNOWN or RUNNING. Its default wait is 90 seconds; repeat the same command to resume existing work. Finished UNKNOWN stays visible and permits a commit. `release` without `--shards` reports that tests were not run. Pictures use node, Playwright and Chromium; Mermaid text remains available without them.
 
-Flow models run on Linux and Windows, including waiting, resuming and stopping background
-work when its caller disappears. macOS flow execution is not supported. The legacy commands
-and static source queries retain their existing platform support.
+## Use existing knowledge cheaply
 
-## Find source and original text
+Keep each model focused on the changed feature, including the old behaviors that share its state. Read the compact `status` or `where` result first; expand only what you need. `where --flow`, `--arch`, `--text` and `--keyflows` inspect calls, architecture, original passages and shared stores. Add `--all`, `--json`, `--root DIR` or `--at REF` as needed (`--at` selects historical text). Static matches are candidates, not semantic proof.
 
-When finding source or its owner needs more than one grep hop, use these static queries (FlowGuard 0.71.1+):
+The model is an external record the AI actively uses to plan a change, question an assumption and compare actual behavior. It is useful when it prevents rediscovery or catches a real mistake; more fields, records or mandatory checks do not make it better by themselves.
 
-| Command | Shows |
-| --- | --- |
-| `python -m flowguard where NAME` | source, owners and callers |
-| `python -m flowguard where` | compact module overview |
-| `python -m flowguard where --flow` | static calls; add NAME to focus |
-| `python -m flowguard where --arch` | architecture and source-backed suggestions |
-| `python -m flowguard where --text` | text and reference summary |
-| `python -m flowguard where --keyflows` | shared state and file destinations |
+## Upgrade and platform boundary
 
-`where NAME` also shows literal flow-model coverage, sourced rules and the last stored open conflicts. It links stored owner words from `Request: R<n>` commit lines only when that commit changed the queried function; changes to another function in the same file do not attach its request. Shallow history, retired or invalid requests and computed model declarations remain explicit limits. The query imports no project or model code.
+Version 1.0 uses one flow engine. The old map, old `.flowguard/models/`, target commands and experimental `behave` engine are removed. Follow the [upgrade guide](./docs/upgrade-1.0.md) to carry useful rules and bindings into the current models and tests; old-format execution explains what needs upgrading. Static source queries remain usable during migration.
 
-Add `--root DIR` or `--json` as needed. With `--text`, select FILE, `source:<id>`, `group:<id>` or `"text:<literal phrase>"` to read original passages and available Git provenance. The default shows the most relevant rows of each list, says how many it left out and prints commands for the next query; `--all` prints every row. Literal searches use case-insensitive substrings. `--at REF` reads both text and code at that Git revision.
+Flow execution works on Linux and Windows with Python 3.11 or newer. macOS retains static queries and request storage; flow execution reports the platform limit. Models prove only their declared finite boundary and recorded observations. Keep normal tests, review and production monitoring.
 
-These queries run no application, model or test. Missing execution records stay unknown. Literal matches are candidates, without an automatic semantic verdict or change gate; models and independent rule tests still validate behavior. Existing commands, 64 public exports and the map format remain compatible.
+## Repository
 
-## What you can do
-
-These use the legacy map, models and target commands: optional, kept until v1.0.0 and not needed for a normal change.
-
-| former capability | how to do it now |
-| --- | --- |
-| behavior-commitment | Give each external promise one owner, a real code anchor and tests; model alternate paths. |
-| architecture-reduction | Remove or merge a node through the target; preserve every public promise and check unreferenced code. |
-| code-structure | Add or split an owner through the target; keep files, state, effects and entrypoints single owned. |
-| contract-exhaustion | Use a `validator` node for finite accepted and rejected cases. |
-| field-lifecycle | Describe renamed or retired fields in the target and check the old and new readers. |
-| model-mesh | Nest models with `PARENT`; use state projection, finite `OUTPUTS` and `HANDOFF` where children exchange results. |
-| model-test | Bind rules through `IMPLEMENTED_BY` and `TESTED_BY`; run `map models --tests`. |
-| test-mesh | Use `release --shards N`; each shard runs whole test subtrees and every collected test runs exactly once. |
-| ui-flow | Use a `ui-journey` node for states and journeys, plus the manual UI checklist. |
-
-See [routes](.agents/skills/flowguard/references/routes.md) and
-[model recipes](.agents/skills/flowguard/references/model_recipes.md).
-
-## What a model catches (real example)
-
-`tests/fixtures/flowguard_map/order_placement.py`: a client retry with the same order id charges
-the card twice. The unit test is green; the model's conformance replay fails with the two-step
-counterexample `Place(o1), Place(o1) -> charges=('o1','o1')`. Deleting the invariant to get a pass
-fails too: "known-bad variant passed: the invariants do not catch it".
-
-`examples/shelf/` is a whole model tree to copy: a current map and model, a target that adds a
-rule, and the code after the change (its README lists the commands).
-
-## What it does not prove
-
-A model proves only its declared finite boundary; the map describes the current commit; discovery
-is a heuristic. FlowGuard does not replace tests, review or production monitoring, and does not
-find the globally best architecture. It keeps one model tree bound to the code and tests.
-
-## Repository layout
-
-- `flowguard/` engine, node kinds and computed facets; `flowguard/map/` map, target, discovery and proof layer;
-  `flowguard/flow/` the flow-model engine behind `check` and `show`
-- `.agents/skills/flowguard/` the agent skill
-- `.flowguard/` FlowGuard's own map and models (it maintains itself with itself)
-- `examples/` runnable teaching models; `docs/` long-form notes
+- `flowguard/flow/`: the model, native recorder, jobs, conflict history, pictures and release owner.
+- `flowguard/map/`: shared source inventory, static queries, requests and ordinary test-tree sharding; no hand-maintained map file.
+- `.flowguard/flow/`: FlowGuard's own feature models.
+- `.agents/skills/flowguard/`: the single public skill.
+- `tests/`, `examples/`, `docs/`: controls, examples and longer guidance.
 
 License: MIT

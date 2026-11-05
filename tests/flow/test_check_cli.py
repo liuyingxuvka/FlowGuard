@@ -11,7 +11,7 @@ import sys
 import pytest
 
 from checkrun import Run, run_check
-from conftest import DATA
+from _flow_project import DATA
 
 KIT = DATA / "kit"
 RENDERER = shutil.which("node") is not None       # pictures are drawn by Mermaid in headless Chromium

@@ -9,10 +9,10 @@ import re
 import shlex
 
 from .common import DEFAULT_IGNORE, git_common_directory, git_head, git_path_object, git_run, matches_any, normalize_newlines, read_source
-from .derived import _map, _source, _writes_cache, bound as bound_rows, omitted_line, source_names, text_reference_hint, text_references
+from .derived import _source, _writes_cache, bound as bound_rows, omitted_line, source_names, text_reference_hint, text_references
 from .discover import NORMATIVE as _NORMATIVE, discover_inventory, python_text
 from .inventory import build_inventory, list_files, syntax_tree
-from .mapfile import ignore_patterns, model_registry, owner_index
+from .flow_sources import declarations
 
 _WORDS = re.compile(r"[A-Za-z_][A-Za-z_0-9]*|[\u3400-\u9fff]+")
 _ORDINARY = re.compile(r"\b[A-Za-z_][\w]*(?:_[\w]+|[.:/#-][\w./:#-]+)\b")
@@ -232,19 +232,19 @@ def report(root, *, inv=None, raw=None, at=None):
     original = Path(root).resolve()
     cache = _writes_cache(original, at)
     with _source(original, at) as (source, revision):
-        data, unknown = _map(source), []
+        unknown = []
         if at is not None or inv is not None and Path(inv.root).resolve() != source:
             inv = raw = None
-        inv = inv or build_inventory(source, ignore_patterns(data), with_bodies=False, write_cache=cache, import_roots=data.get('import_roots', ()))
-        raw = raw or discover_inventory(source, inv, write_cache=cache, data=data)
+        inv = inv or build_inventory(source, DEFAULT_IGNORE, with_bodies=False, write_cache=cache)
+        raw = raw or discover_inventory(source, inv, write_cache=cache)
         unknown.extend({'path': path, 'reason': 'source not parsed: ' + file['parse_error']}
                        for path, file in raw['files'].items() if file.get('parse_error'))
         raw = {**raw, 'files': {path: file for path, file in raw['files'].items() if not file.get('parse_error') and 'module' in file}}
-        _, owners = owner_index(data, inv)
-        models = model_registry(source, data)
-        unknown.extend({'path': issue.path, 'reason': getattr(issue, 'message', str(issue))} for issue in models.issues)
-        model_paths = {entry.path for entry in models.entries}
-        model_names = {name for entry in models.entries for name in (entry.id, entry.path, Path(entry.path).stem)}
+        owners = {path: [path] for path in raw['files']}
+        models, model_unknown = declarations(source)
+        unknown.extend({'path': '.flowguard/flow', 'reason': reason} for reason in model_unknown)
+        model_paths = {model['path'] for model in models}
+        model_names = {value for model in models for value in (model['model'], model['path'])}
         names = source_names(inv, raw, model_names)
         basenames = defaultdict(list)
         for path in inv.files:

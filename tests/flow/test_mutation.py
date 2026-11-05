@@ -23,7 +23,7 @@ from flowguard.flow.mutate import guard_mutants, run_mutants
 from flowguard.flow.parts import PartContext, PartSpec, run_part
 from flowguard.flow.routes import ForceIfs, check_routes
 
-from conftest import DATA, REPO
+from _flow_project import DATA, REPO
 
 HOWTO = Path(__file__).parents[2] / "flowguard" / "flow" / "HOWTO.md"
 

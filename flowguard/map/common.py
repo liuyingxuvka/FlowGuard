@@ -1,4 +1,4 @@
-"""Shared constants, glob matching, hashing and finding output for FlowGuard Map."""
+"""Shared source paths, text normalization, hashing and finding output."""
 
 from __future__ import annotations
 
@@ -18,11 +18,24 @@ from dataclasses import asdict, dataclass
 from functools import lru_cache, wraps
 from pathlib import Path
 
-SCHEMA = "flowguard.map.v1"
-MAP_RELPATH = Path(".flowguard") / "map.json"
-MODELS_RELDIR = Path(".flowguard") / "models"
 CACHE_RELDIR = Path(".flowguard") / "cache"
 DEFAULT_TEST_COMMAND = "python -m pytest -q"
+
+
+def read_git_paths(root, *arguments):
+    """Read Git with a disposable index so a source query cannot refresh the real index."""
+    root = Path(root)
+    where = git_run(root, 'rev-parse', '--git-path', 'index')
+    source = Path(os.fsdecode(where.stdout).strip())
+    if not source.is_absolute():
+        source = root / source
+    with tempfile.TemporaryDirectory(prefix='flowguard-read-index-') as folder:
+        index = Path(folder) / 'index'
+        if source.exists():
+            shutil.copy2(source, index)
+        env = dict(os.environ, GIT_OPTIONAL_LOCKS='0', GIT_INDEX_FILE=str(index))
+        result = git_run(root, *arguments, env=env)
+        return [os.fsdecode(item) for item in result.stdout.split(b'\0') if item]
 SOURCE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".go", ".rs",
                ".java", ".kt", ".cs", ".rb", ".php", ".swift", ".c", ".h", ".cpp", ".hpp"}
 JS_EXTS = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
@@ -444,7 +457,7 @@ def finding_codes(findings: list[Finding], *, include_info: bool = False) -> lis
 
 
 def print_verdict(command: str, exit_code: int, codes=(), next_advice=None, **extra) -> None:
-    verdict = "PASS" if exit_code == 0 else "OPEN" if command == "target check" and exit_code == 3 else "FAIL"
+    verdict = "PASS" if exit_code == 0 else "FAIL"
     print(json.dumps({"command": command, "verdict": verdict, "codes": list(codes),
                       "next": next_advice, **extra}, ensure_ascii=False))
 

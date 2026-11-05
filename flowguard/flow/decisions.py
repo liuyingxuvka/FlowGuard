@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 
 from ..map.common import sha256_bytes
-from ..map.mapfile import MapError
+from ..map.common import MapError
 from ..map.records import integrity_problem, prepare_directory, write_once
 from ..map.requests import REQUEST_DIR, _metadata, owner_quote, validate_request_links
 from .model import State

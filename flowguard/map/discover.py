@@ -538,7 +538,7 @@ def component_summary(raw: dict, files: list[str]) -> dict:
     }
 
 
-def discover_inventory(root: Path, inv, *, write_cache: bool = True, data: dict | None = None, extra_sources=()) -> dict:
+def discover_inventory(root: Path, inv, *, write_cache: bool = True, extra_sources=()) -> dict:
     """Discover non-test Python, plus supplied source paths already in this inventory.
 
     Extra sources let one target view retain both real source classifications;
@@ -548,20 +548,9 @@ def discover_inventory(root: Path, inv, *, write_cache: bool = True, data: dict 
     from .inventory import module_name, python_roots
 
     roots = python_roots(list(inv.py))
-    dependency_files: dict[str, set[str]] = {}
-    if data is not None:
-        from .mapfile import component_files, owner_index
-
-        owners, _ = owner_index(data, inv)
-        components = {component["id"]: component for component in data.get("components", [])}
-        files = {cid: set(component_files(component, inv)) for cid, component in components.items()}
-        for path, cid in owners.items():
-            dependency_files[path] = {target for dep in components[cid].get("depends_on", ())
-                                      for target in files.get(dep, ())}
     extra = set(extra_sources)
     modules = {f: module_name(f, roots) for f in inv.py if not inv.is_test(f) or f in extra}
-    raw = discover(root, modules, write_cache=write_cache, dependency_files=dependency_files,
-                   import_roots=tuple(data.get("import_roots", ())) if data is not None else inv.import_roots)
+    raw = discover(root, modules, write_cache=write_cache, import_roots=inv.import_roots)
     mod_to_path = {module: path for path, module in modules.items()}
     for name, target, via in console_scripts(root):
         module, sep, symbol = target.partition(":")
@@ -621,47 +610,6 @@ def console_scripts(root: Path) -> list[tuple[str, str, str]]:
     return sorted(found)
 
 
-def relied_models(raw: dict, data: dict, inv, anchors: dict[str, list[str]], *, component: str | None = None,
-                  files=None, source_files=None) -> dict[str, set[tuple[str, str]]]:
-    """Models whose ``IMPLEMENTED_BY`` anchors the given code calls directly: {model id: {(owner, symbol)}}.
-
-    The callers are the files of ``component``'s subtree, or the given changed ``files``. Anchors in the
-    caller's own component, its subtree or its ancestors do not count. Only direct calls (one step in the
-    discovered call graph) are followed, never a transitive closure. A class anchor matches its
-    constructor and every method.
-    """
-    from .mapfile import component_ancestors, component_files, component_subtree, owner_index
-
-    owner, _ = owner_index(data, inv)
-    by_id = {c["id"]: c for c in data.get("components", [])}
-
-    def related_files(cid):
-        members = [c["id"] for c in component_subtree(data, cid)] + list(component_ancestors(data, cid))
-        return {path for member in members if member in by_id for path in component_files(by_id[member], inv)}
-
-    if component is not None:
-        sources = {path: related_files(component) for path in
-                   {p for c in component_subtree(data, component) for p in component_files(c, inv)}}
-    else:
-        sources = {path: related_files(owner[path]) for path in files or () if path in owner}
-    found: dict[str, set[tuple[str, str]]] = defaultdict(set)
-    targets = [(mid, anchor.partition(":")[0], anchor.partition(":")[2]) for mid, values in anchors.items()
-               for anchor in values if ":" in anchor]
-    for source, excluded in sources.items():
-        prefix = source + "#"
-        for caller, callees in raw.get("edges", {}).items():
-            if not caller.startswith(prefix):
-                continue
-            for callee in callees:
-                path, _, symbol = callee.partition("#")
-                if path in excluded or path not in owner:
-                    continue
-                for mid, anchor_path, anchor_symbol in targets:
-                    if path == anchor_path and (symbol == anchor_symbol or symbol.startswith(anchor_symbol + ".")):
-                        found[mid].add((owner[path], anchor_symbol))
-                        if source_files is not None:
-                            source_files.setdefault(mid, set()).add(source)
-    return dict(found)
 
 def literal_sites(text) -> list[tuple[str, int, str]]:
     """Token-shaped strings classified by their actual syntax role, with no stored index."""
@@ -716,11 +664,6 @@ def anchor_matches(anchor, function):
     return shared(anchor, function)
 
 
-def select_model_functions(data, inv, tree, raw, functions, *, matches=None):
-    """The shared body-edit selection used by change and relation views."""
-    from .selection import select_model_functions as shared
-
-    return shared(data, inv, tree, raw, functions, matches=matches)
 
 
 def function_spans(syntax):

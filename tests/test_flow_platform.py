@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from _fg_helpers import flowguard_map_contracts421_project as basic_project
+from _flow_project import basic_project
 
 
 REPO = Path(__file__).resolve().parents[1]

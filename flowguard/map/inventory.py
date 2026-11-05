@@ -480,3 +480,17 @@ def coverage_kind(root: Path, anchors) -> str:
     inventory = Inventory(root, sorted(files), [], [], {}, {}, {})
     inventory.set_explicit_sources([])
     return 'code' if inventory.source else 'data-only'
+
+
+def inventory_memo(inv: Inventory, name: str, depends_on=()) -> dict:
+    """Content-dependent working data for this inventory only; never persisted."""
+    memos = inv.__dict__.setdefault('_flowguard_memo', {})
+    dependencies = inv.__dict__.setdefault('_flowguard_memo_dependencies', {})
+    current = tuple(depends_on)
+    previous = dependencies.get(name)
+    if previous is None or not (len(previous) == len(current) and
+            all(left is right for left, right in zip(previous, current))):
+        if previous is None or previous != current:
+            memos[name] = {}
+        dependencies[name] = current
+    return memos.setdefault(name, {})

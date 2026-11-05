@@ -1,7 +1,9 @@
 """Request commit links follow actual symbol changes, without importing models."""
 import json
 import subprocess
+import pytest
 
+from flowguard.map.common import normalize_newlines
 from flowguard.map.derived import render, where
 from flowguard.map.requests import retire_request, store_request
 
@@ -141,7 +143,7 @@ MODEL = m
 
 def test_missing_commit_objects_are_not_a_successful_empty_history(tmp_path, monkeypatch):
     from flowguard.map import requests
-    from flowguard.map.mapfile import MapError
+    from flowguard.map.common import MapError
     project(tmp_path)
     real = requests.git_run
     def broken(root, *args, **kwargs):
@@ -154,10 +156,17 @@ def test_missing_commit_objects_are_not_a_successful_empty_history(tmp_path, mon
         where(tmp_path, "first")
 
 
-def test_physical_newline_change_does_not_create_a_semantic_request_link(tmp_path):
+@pytest.mark.parametrize("original_newline", [b"\n", b"\r\n"])
+def test_physical_newline_change_does_not_create_a_semantic_request_link(tmp_path, original_newline):
     project(tmp_path)
+    git(tmp_path, "config", "core.autocrlf", "false")
     path = tmp_path / "app.py"
-    path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    canonical = normalize_newlines(path.read_bytes())
+    path.write_bytes(canonical.replace(b"\n", original_newline))
+    git(tmp_path, "add", "app.py")
+    git(tmp_path, "commit", "--allow-empty", "-qm", "baseline physical newlines")
+    changed_newline = b"\r\n" if original_newline == b"\n" else b"\n"
+    path.write_bytes(canonical.replace(b"\n", changed_newline))
     commit(tmp_path, "checkout newline normalization\n\nRequest: R1")
     result = where(tmp_path, "first")
     assert result["requests"] == []

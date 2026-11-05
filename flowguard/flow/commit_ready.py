@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 
 from ..map.common import git_blob, git_run, content_digest, sha256_bytes
-from ..map.mapfile import MapError
+from ..map.common import MapError
 from .decisions import decision_paths, evaluate_decision, read_decision
 
 

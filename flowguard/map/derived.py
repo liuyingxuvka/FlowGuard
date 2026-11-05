@@ -11,11 +11,9 @@ from pathlib import Path
 import re
 import tempfile
 
-from .common import git_blob, git_common_directory, git_head, git_run, normalize_newlines, read_source
+from .common import DEFAULT_IGNORE, git_common_directory, git_head, git_run, read_source
 from .discover import discover_inventory, function_spans, literal_sites, reachable_functions
-from .inventory import build_inventory, function_digests, syntax_tree
-from .mapfile import ignore_patterns, load_map, map_path, model_registry, owner_index, read_model_contract
-from .records import change_records
+from .inventory import build_inventory, syntax_tree
 from .requests import owner_words
 from .flow_sources import binding_matches, declarations, live_request_ids, symbol_request_commits
 
@@ -77,35 +75,9 @@ def omitted_line(omitted, order=None):
     return "omitted: " + ", ".join(f"{count} {label}" for label, count in omitted.items()) + (" · shown first: " + order if order else "")
 
 
-def _map(root):
-    """No map.json is a normal project state; a map that exists but cannot be read raises MapError."""
-    if not map_path(root).is_file():
-        return {"components": [], "flows": []}
-    return load_map(root)
-
-
 def _writes_cache(root, at):
     """Parse caches go only into an adopted project's own .flowguard/cache, never for a Git reference."""
     return at is None and (Path(root) / ".flowguard").is_dir()
-
-
-def _legacy(root, data):
-    bindings, names, unknown = defaultdict(list), set(), []
-    for entry in model_registry(root, data).entries:
-        names.update((entry.id, entry.path, Path(entry.path).stem))
-        if entry.kind != "contract":
-            continue
-        try:
-            contract = read_model_contract(root / entry.path)
-        except (OSError, ValueError, SyntaxError, TypeError) as exc:
-            unknown.append(entry.path + ": " + str(exc))
-            continue
-        for anchor, target in contract.get("IMPLEMENTED_BY", {}).items():
-            path, separator, symbol = target.partition(":")
-            if separator:
-                bindings[path + "#" + symbol].append({"model": entry.id, "anchor": anchor, "path": entry.path,
-                    "kind": "declared legacy model binding", "tests": contract.get("TESTED_BY", {}).get(anchor, [])})
-    return bindings, names, unknown
 
 
 def _entries(raw):
@@ -141,33 +113,6 @@ def _runtime(execution, identifier):
     return {"state": "recorded", "shipped_observed": identifier in hit if isinstance(hit, list) else None,
             "tests": tests if tests is not None else "not recorded for this function",
             "scope": execution.get("test_reach_scope", "supplied validated execution facts")}
-
-
-def _changed_since(root, receipt, function, memo):
-    key = (receipt, function["path"])
-    if key not in memo:
-        revision, blob = None, None
-        if git_common_directory(root) is not None and git_head(root) is not None:  # A failing Git raises.
-            commits = git_run(root, "log", "--diff-filter=A", "--format=%H", "--",
-                              ".flowguard/changes/" + receipt + ".json").stdout.split()
-            revision = commits[-1].decode() if commits else None
-            blob = git_blob(root, revision, function["path"]) if revision else None
-        previous = "receipt has no committed source before-image in this clone"
-        if blob is not None:
-            try:
-                previous = function_digests(normalize_newlines(blob).decode("utf-8"))["functions"]
-            except (UnicodeError, SyntaxError, ValueError) as error:
-                previous = f"the before-image at {revision[:12]} does not parse: {error}"
-        memo[key] = revision, previous
-    revision, previous = memo[key]
-    if isinstance(previous, str):
-        return {"state": "unknown", "reason": previous}
-    if function["path"] not in memo:
-        memo[function["path"]] = function_digests(read_source(root / function["path"]))["functions"]
-    current = memo[function["path"]]
-    return {"state": "recorded", "commit": revision,
-            "changed": previous.get(function["function"]) != current.get(function["function"]),
-            "scope": "compared with the commit that introduced this receipt in this clone"}
 
 
 def source_names(inv, raw, extra_names=()):
@@ -253,25 +198,19 @@ COHESION_UNKNOWN = (
 )
 
 
-def cohesion_facts(inv, raw, data):
+def cohesion_facts(inv, raw):
     """Candidate helper boundaries from the existing static graph, without reparsing.
 
     The graph includes conservative may-call edges (including passed functions).
     Locations identify the actual caller/callee definitions, not inferred call sites.
     """
-    _, declared = owner_index(data, inv)
     files = raw.get("files", {})
     entries = {path for path, file in files.items() if file.get("entrypoints")}
-    entries.update(anchor.partition(":")[0] for component in data["components"]
-                   for anchor in component.get("entrypoints", []))
 
     def owner(path):
-        ids = set(declared.get(path, ()))
-        return (next(iter(ids)), "declared component") if len(ids) == 1 else (
-            (path, "module") if not ids else (None, "ambiguous declared owners"))
+        return path, "source module"
 
     incoming = defaultdict(list)
-    ambiguous = set()
     for caller, targets in sorted(raw.get("edges", {}).items()):
         source, _, symbol = caller.partition("#")
         function = files.get(source, {}).get("functions", {}).get(symbol)
@@ -284,9 +223,6 @@ def cohesion_facts(inv, raw, data):
             if source == path or callee is None or inv.is_test(path):
                 continue
             target_owner, target_basis = owner(path)
-            if source_owner is None or target_owner is None:
-                ambiguous.add(path)
-                continue
             if source_owner != target_owner:
                 incoming[path].append({"caller": caller, "caller_line": function["line"],
                                        "callee": target, "callee_line": callee["line"],
@@ -295,7 +231,7 @@ def cohesion_facts(inv, raw, data):
     out = []
     for path, edges in sorted(incoming.items()):
         external = {edge["caller_owner"] for edge in edges}
-        if (len(external) != 1 or path in ambiguous or path in entries
+        if (len(external) != 1 or path in entries
                 or Path(path).name == "__init__.py" or "examples" in Path(path).parts):
             continue
         target_owner, basis = owner(path)
@@ -305,14 +241,13 @@ def cohesion_facts(inv, raw, data):
                     "external_owner": next(iter(external)),
                     "callers": sorted({edge["caller"].partition("#")[0] for edge in edges}),
                     "call_edges": edges,
-                    "fact": "resolved external may-call edges have one owner; no declared or indexed independent entry",
+                    "fact": "resolved external may-call edges have one owner; no indexed independent entry",
                     "scope": "static helper-boundary candidate, not a semantic cohesion verdict; dynamic uses remain unknown"})
     return out
 
 
-def _architecture(root, inv, raw, data, functions, entries):
+def _architecture(root, inv, raw, functions, entries):
     drift = []
-    owners, _ = owner_index(data, inv)
     helpers, sites = _predicate_sites(raw)
     for site in sites:
         for helper in helpers:
@@ -330,8 +265,8 @@ def _architecture(root, inv, raw, data, functions, entries):
     for row in raw.get("foreign_writes", []):
         drift.append({"class": 4, "kind": "foreign_write", "source": row["source"], "line": row["line"],
                       "target": row["class_path"] + "#" + row["class"] + "." + row["attr"],
-                      "owner": owners.get(row["class_path"], row["class_path"]), "owner_basis": "declared component or writing module"})
-    drift.extend(cohesion_facts(inv, raw, data))
+                      "owner": row["class_path"], "owner_basis": "source module"})
+    drift.extend(cohesion_facts(inv, raw))
     return sorted(drift, key=lambda row: (row["class"], "/" not in row.get("helper", ""), row["source"], row["line"], row.get("helper", "")))
 
 
@@ -351,21 +286,25 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
     original = Path(root).resolve()
     cache = _writes_cache(original, at)
     with _source(original, at) as (source, revision):
-        data, unknown = _map(source), []
+        unknown = []
         if at is not None:
             inv = raw = execution = None
-        inv = inv or build_inventory(source, ignore_patterns(data), with_bodies=False, write_cache=cache, import_roots=data.get("import_roots", ()))
-        raw = raw or discover_inventory(source, inv, write_cache=cache, data=data)
+        inv = inv or build_inventory(source, DEFAULT_IGNORE, with_bodies=False, write_cache=cache)
+        raw = raw or discover_inventory(source, inv, write_cache=cache)
         parse_errors = [path + ": " + file["parse_error"] for path, file in raw["files"].items() if file.get("parse_error")]
         unknown.extend("source not parsed: " + error for error in parse_errors)
         raw = {**raw, "files": {path: file for path, file in raw["files"].items() if not file.get("parse_error") and "module" in file}}
-        bindings, model_names, model_unknown = _legacy(source, data)
-        unknown.extend(model_unknown)
-        owners, _ = owner_index(data, inv)
+        flow_models, flow_unknown = declarations(source)
+        unknown.extend(flow_unknown)
+        model_names = {value for model in flow_models for value in (model["model"], model["path"])}
+        owners = {path: path for path in raw["files"]}
         functions = {path + "#" + symbol: {"id": path + "#" + symbol, "path": path, "function": symbol,
                      "line": fn["line"], "owner": owners.get(path, path), "calls": raw["edges"].get(path + "#" + symbol, []),
                      "reads": fn.get("reads", []), "writes": fn.get("all_writes", fn["writes"]),
-                     "model_bindings": bindings.get(path + "#" + symbol, []), "execution": _runtime(execution, path + "#" + symbol)}
+                     "model_bindings": [dict(model=model["model"], anchor=symbol, path=model["path"],
+                         kind="declared flow coverage", tests=[]) for model in flow_models if any(
+                         binding_matches(cover, path + "#" + symbol) for cover in model["covers"])],
+                     "execution": _runtime(execution, path + "#" + symbol)}
                      for path, facts in raw["files"].items() for symbol, fn in facts.get("functions", {}).items()}
         entries = _entries(raw)
         reached = {entry["id"]: set().union(*(reachable_functions(raw["edges"], start) for start in entry["roots"])) if entry["roots"] else set() for entry in entries}
@@ -393,7 +332,7 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
         if view == "arch":
             result.update(modules=_by_size({"path": path, "owner": owners.get(path, path), "functions": len(file.get("functions", {})),
                                             "imports": sorted(inv.file_deps.get(path, [])), "entrypoints": [entry["name"] for entry in entries if entry["path"] == path]} for path, file in raw["files"].items()),
-                          drift=_architecture(source, inv, raw, data, functions, entries))
+                          drift=_architecture(source, inv, raw, functions, entries))
             if name:
                 paths = {row["path"] for row in result["modules"] if name in {row["path"], row["owner"], raw["files"][row["path"]]["module"]}
                          or row["path"].startswith(name.rstrip("/") + "/")}
@@ -415,14 +354,6 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
             result["stores"] = [{"path": path, **row} for path, file in raw["files"].items() for row in file.get("file_targets", [])
                                 if not name or name in {path, row.get("last_component"), row.get("symbol")} or name in row.get("constants", [])]
             return result
-        unreadable = []
-        records = change_records(source, unreadable=unreadable) if at is None else []
-        result["unknown"].extend(f"change record {identifier} unreadable ({error}); its change and request facts "
-                                 "are left out here" for identifier, error in unreadable)
-        for identifier, fn in functions.items():
-            changes = [(key, record) for key, record in records if identifier.replace("#", ":", 1) in record.get("implemented_by", [])]
-            fn["last_change"] = changes[-1][0] if changes else None
-            fn["last_requests"] = [item["id"] for item in changes[-1][1].get("requests", [])] if changes else []
         selected = [identifier for identifier in functions if name is None or _match(_anchor(name), identifier)
                     or name in {functions[identifier]["path"], functions[identifier]["owner"], raw["files"][functions[identifier]["path"]]["module"]}
                     or functions[identifier]["path"].startswith(str(name).rstrip("/") + "/")]
@@ -478,11 +409,8 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
             result["unexpanded_functions"] = len(functions)
             return result
         result["functions"] = []
-        history = {}
         for identifier in selected:
             row = dict(functions[identifier])
-            if row["last_change"]:
-                row["changed_since"] = _changed_since(source, row["last_change"], row, history)
             row["callers"] = sorted(caller for caller, targets in raw["edges"].items() if identifier in targets)
             row["reaching_entries"] = [entry["id"] for entry in entries if identifier in reached[entry["id"]]]
             row["no_resolved_route"] = [entry["id"] for entry in entries if entry["roots"] and identifier not in reached[entry["id"]]]
@@ -501,10 +429,6 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
                                       for value, line, role in literal_sites(text) if value == name)
         result["state"] = [row for row in state if _match(name, row["term"])]
         result["entries"] = [entry for entry in entries if _match(name, entry["name"])]
-        result["changes"] = [{"id": identifier, "goal": record["goal"], "requests": record["requests"], "implemented_by": record["implemented_by"]}
-                             for identifier, record in records if name == identifier or any(item["id"] == name for item in record["requests"])]
-        flow_models, flow_unknown = declarations(source)
-        result["unknown"].extend(flow_unknown)
         bound_models = [model for model in flow_models if any(
             binding_matches(cover, identifier) for cover in model["covers"] for identifier in selected)
             or name in {model["model"], model["path"]} or any(cover == name for cover in model["covers"])
@@ -512,10 +436,6 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
         result["flow_models"] = [{key: value for key, value in model.items() if key != "rules"} for model in bound_models]
         result["flow_rules"] = [rule for model in bound_models for rule in model["rules"]]
         bound_ids = {model["model"] for model in bound_models}
-        for row in result["functions"]:
-            row["model_bindings"].extend(dict(model=model["model"], anchor=row["function"], path=model["path"],
-                                              kind="declared flow coverage", tests=[])
-                                         for model in bound_models if any(binding_matches(cover, row["id"]) for cover in model["covers"]))
         from ..flow.project import ConflictsUnreadable, read_conflicts
         try:
             conflicts = read_conflicts(source)
@@ -537,19 +457,16 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
                     if live:
                         row["request_commits"].append(dict(commit=link["commit"], requests=live))
                         request_ids.extend(live)
-            request_ids.extend(item["id"] for identifier in selected for _, record in records
-                               if identifier.replace("#", ":", 1) in record.get("implemented_by", [])
-                               for item in record.get("requests", []))
             live, invalid = live_request_ids(source, request_ids)
             result["unknown"].extend(invalid)
-            result["requests"] = [row for row in owner_words(source, records=records)["rows"] if row["id"] in live or row["id"] == name]
+            result["requests"] = [row for row in owner_words(source)["rows"] if row["id"] in live or row["id"] == name]
         else:
             result["requests"] = []
             if selected:
                 result["unknown"].append("request commit history links are unavailable in a detached static --at snapshot")
         result["unknown"] = list(dict.fromkeys(result["unknown"]))
         result["constants"] = [{"path": path, "name": key, **value} for path, file in raw["files"].items() for key, value in file.get("source_constants", {}).items() if _match(name, key)]
-        if not any(result.get(key) for key in ("functions", "references", "literals", "state", "entries", "changes", "requests", "constants", "flow_models", "flow_rules", "open_conflicts")):
+        if not any(result.get(key) for key in ("functions", "references", "literals", "state", "entries", "requests", "constants", "flow_models", "flow_rules", "open_conflicts")):
             result["unknown"].append("name not resolved in the static source index: " + name)
         return result
 
@@ -583,7 +500,7 @@ def project(result, *, all_rows=False):
                                 ("modules", "modules", DISPLAY_ROWS), ("module_edges", "module edges", DISPLAY_ROWS),
                                 ("drift", "drift findings", DISPLAY_ROWS), ("references", "references", DISPLAY_ROWS),
                                 ("literals", "literals", DISPLAY_ROWS), ("constants", "constants", DISPLAY_ROWS),
-                                ("entries", "entries", DISPLAY_ROWS), ("changes", "changes", DISPLAY_ROWS),
+                                ("entries", "entries", DISPLAY_ROWS),
                                 ("requests", "requests", DISPLAY_ROWS), ("flow_models", "flow models", DISPLAY_ROWS),
                                 ("flow_rules", "flow rules", DISPLAY_ROWS), ("open_conflicts", "open conflicts", DISPLAY_ROWS), ("stores", "stores", DISPLAY_ROWS),
                                 ("unresolved", "unresolved calls", DISPLAY_ROWS), ("text_groups", "text groups", DISPLAY_ROWS)):
@@ -613,8 +530,6 @@ def render(result, *, as_json=False, all_rows=False):
         function_rows = result.get("functions", [])
         for row in function_rows:
             text = row["id"] + ":" + str(row["line"]) + " · owner " + row["owner"]
-            if row["last_change"]:
-                text += " · change " + row["last_change"] + (" · requests " + ",".join(row["last_requests"]) if row["last_requests"] else "")
             lines.append(text)
             if row.get("callers"):
                 lines.append("  callers: " + ", ".join(row["callers"]))
@@ -647,8 +562,6 @@ def render(result, *, as_json=False, all_rows=False):
                 lines.append("  entries: " + ", ".join(row["entries"]))
         for row in result.get("entries", []):
             lines.append(row["path"] + ":" + str(row.get("line", 0)) + " command " + row["name"] + " -> " + (", ".join(row["roots"]) or "handler binding unknown"))
-        for row in result.get("changes", []):
-            lines.append("change " + row["id"] + ": " + row["goal"] + " · " + ", ".join(row["implemented_by"]))
         for row in result.get("requests", []):
             damage = ("unreadable (" + row["invalid"] + ")" if row["invalid"] else
                       "edited after it was stored" + ("" if row["retired"] else ", so not the owner's words") + ": " + row["edited"]

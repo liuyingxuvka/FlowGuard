@@ -2,7 +2,8 @@
 from flowguard.flow import Model, need
 
 m = Model("static where", covers=["flowguard/map/requests.py", "flowguard/map/derived.py"])
-CASES = ("same_symbol", "other_symbol", "retired_request", "malformed_request", "missing_history")
+CASES = ("same_symbol", "other_symbol", "retired_request", "malformed_request", "missing_history",
+         "old_map", "old_target", "old_receipt")
 m.field("phase", ("start", "shown"), "start")
 m.field("case", ("unset", *CASES), "unset")
 m.field("linked", (False, True), False)
@@ -28,6 +29,10 @@ def next_query(s):
 m.always("source query never executes project code", lambda s: not s["executed"])
 m.always("unrelated or invalid history does not authorize a link",
          lambda s: not s["linked"] or s["case"] == "same_symbol")
+m.always("removed map and target artifacts cannot authorize or stop a source query",
+         lambda s: s["case"] not in ("old_map", "old_target", "old_receipt") or
+         not s["linked"] and not s["unknown"])
 m.reach("real symbol commit is linked", lambda s: s["case"] == "same_symbol" and s["linked"])
 m.reach("missing history stays visible", lambda s: s["case"] == "missing_history" and s["unknown"])
+m.reach("obsolete map is irrelevant", lambda s: s["case"] == "old_map" and not s["unknown"])
 MODEL = m

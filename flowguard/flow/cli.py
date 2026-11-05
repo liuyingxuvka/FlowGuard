@@ -199,6 +199,8 @@ def show(args, argv, *, prog: str = PROG, out=None, err=None) -> int:
     out = out or sys.stdout
     err = err or sys.stderr
     root = find_root(Path(args.root) if args.root else Path.cwd())     # ProjectError: main says it
+    from .project import require_current_format
+    require_current_format(root)
     read_conflicts(root)                         # an unreadable record stops show before any work
     runner = jobs.Runner(root, wait=args.wait, keep=args.keep, progress=_Progress(err, "show"))
     try:
@@ -268,6 +270,8 @@ def check(args, argv, *, prog: str = PROG, out=None, err=None, on_result=None) -
     out = out or sys.stdout
     err = err or sys.stderr
     root = find_root(Path(args.root) if args.root else Path.cwd())
+    from .project import require_current_format
+    require_current_format(root)
     paths = resolve_models(root, args.models) if args.models else model_files(root)
     previous = read_conflicts(root)
     from .codeaudit import reopen_declared, apply_declared
@@ -1139,7 +1143,7 @@ def requirement_lines(root, entries):
 def decision_results(root, entry):
     """Immutable event references remain evidence in the one conflict record."""
     from .decisions import evaluate_decision
-    from ..map.mapfile import MapError
+    from ..map.common import MapError
     out = []
     for identifier in entry.get('history', {}).get('decision_refs', []):
         try:
@@ -1170,7 +1174,7 @@ def conflict_question(root, entry):
     if 'DRIFT' in entry['kind'].upper() or entry.get('code_status') == 'drift':
         return f"{entry['id']} {entry['subject']}: reconcile the model and real code; decide cannot settle drift"
     from ..map.requests import owner_quote
-    from ..map.mapfile import MapError
+    from ..map.common import MapError
     for rid, text in words:
         if not rid:
             continue
@@ -1186,8 +1190,10 @@ def conflict_question(root, entry):
 
 def decide(args, *, out):
     from .decisions import record_decision, current_core
-    from ..map.mapfile import MapError
+    from ..map.common import MapError
     root = find_root(Path(args.root) if args.root else Path.cwd())
+    from .project import require_current_format
+    require_current_format(root)
     data = read_conflicts(root)
     entry = next((c for c in (data or {}).get('conflicts', []) if c['id'] == args.conflict), None)
     if entry is None:
@@ -1252,6 +1258,10 @@ def refresh_status(root, *, wait=DEFAULT_WAIT, err=None):
     problem = jobs.platform_problem()
     if problem is not None:
         return dict(refreshed=[], exit=EXIT_ERROR, unsupported=problem)
+    from .project import legacy_artifacts
+    legacy = legacy_artifacts(root)
+    if legacy:
+        return dict(refreshed=[], exit=EXIT_UNKNOWN, upgrade=[path.relative_to(root).as_posix() for path in legacy])
     previous = read_conflicts(root)
     from .codeaudit import reopen_declared
     reopened = reopen_declared(root, previous)

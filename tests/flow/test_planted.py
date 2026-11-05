@@ -15,7 +15,7 @@ import pytest
 from flowguard.flow.checks import CONFLICT, check_model
 from flowguard.flow.model import load_model
 
-from conftest import DATA, findings_under_seeds
+from _flow_project import DATA, findings_under_seeds
 
 PLANTED = DATA / "planted"
 HOWTO = Path(__file__).parents[2] / "flowguard" / "flow" / "HOWTO.md"

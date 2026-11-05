@@ -18,7 +18,7 @@ from flowguard.flow.parts import PartContext, run_part
 from flowguard.flow.project import cache_dir, overlap_views, overlaps
 
 from checkrun import REPO, descendants, gone, wait_until
-from conftest import DATA
+from _flow_project import DATA
 
 KIT = DATA / "kit"
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any, Iterator
 
-from .core import FrozenMetadata, freeze_metadata
+from .metadata import FrozenMetadata, freeze_metadata
 from .export import trace_step_to_dict, trace_to_dict, to_json_text, trace_to_json_text
 
 

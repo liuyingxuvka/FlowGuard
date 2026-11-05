@@ -100,62 +100,40 @@ jobs:
           import subprocess
           import sys
           files = """
-          tests/test_anchor_watch.py
-          tests/test_change_selection.py
-          tests/test_cli.py
-          tests/test_cli_change.py
-          tests/test_cli_main.py
-          tests/test_cli_map.py
-          tests/test_cli_map_check.py
-          tests/test_cli_map_lint.py
-          tests/test_cli_map_scan.py
-          tests/test_cli_read.py
-          tests/test_cli_template.py
-          tests/test_component_pointer.py
+          tests/test_advice.py
+          tests/test_current_static_cli.py
           tests/test_discovery.py
-          tests/test_edge_coverage.py
-          tests/test_flowguard_map.py
-          tests/test_flowguard_map_proof.py
-          tests/test_flowguard_target.py
-          tests/test_flow_platform.py
           tests/test_flow_frontend_errors.py
-          tests/test_flowguard_testtree.py
-          tests/test_function_selection.py
-          tests/test_gap_lines.py
-          tests/test_map_binding.py
-          tests/test_map_check.py
+          tests/test_flow_platform.py
+          tests/test_git_failures.py
           tests/test_map_derived.py
-          tests/test_map_textrules.py
-          tests/test_map_discover.py
-          tests/test_map_file.py
-          tests/test_map_impact.py
           tests/test_map_inventory__fg_helpers.py
-          tests/test_map_inventory_check.py
-          tests/test_map_inventory_cli.py
           tests/test_map_inventory_common.py
           tests/test_map_inventory_discover.py
-          tests/test_map_inventory_impact.py
           tests/test_map_inventory_inventory.py
-          tests/test_map_inventory_mapfile.py
-          tests/test_map_target.py
-          tests/test_model_edits.py
-          tests/test_model_proof.py
-          tests/test_model_runs.py
-          tests/test_model_scope.py
+          tests/test_map_textrules.py
+          tests/test_no_swallowed_skips.py
+          tests/test_owner_words.py
           tests/test_packaged_cli_surface.py
-          tests/test_private_use.py
+          tests/test_product_vocabulary.py
+          tests/test_project_integration.py
           tests/test_public_api.py
-          tests/test_read_command.py
-          tests/test_release_gate.py
-          tests/test_release_neutral_fingerprint.py
+          tests/test_pytest_shard_runner.py
+          tests/test_pytest_shards.py
+          tests/test_readme_mirror.py
+          tests/test_replay_comparator.py
+          tests/test_records.py
+          tests/test_reported_failures.py
           tests/test_requests.py
-          tests/test_scan_coverage.py
+          tests/test_shared_normalization.py
           tests/test_skill_package.py
-          tests/test_target_add.py
-          tests/test_target_life_cycle.py
-          tests/test_test_binding.py
-          tests/test_test_selection.py
-          tests/test_tree_resolution.py
+          tests/test_testtree_source.py
+          tests/test_u_commands.py
+          tests/test_u_single_engine.py
+          tests/test_u_static.py
+          tests/test_u_test_units.py
+          tests/test_where_fg806.py
+          tests/test_where_requests.py
           """.split()
           group = int("${{ matrix.group }}")
           groups = int("${{ matrix.groups }}")
@@ -181,6 +159,6 @@ jobs:
           subprocess.run([sys.executable, "scripts/install_skill.py", "--target", target, "--check"], check=True)
           PY
 
-      - name: Complete pilot tests on Ubuntu Python 3.13
+      - name: Native recorder and adapter controls on Ubuntu Python 3.13
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
-        run: python -m pytest -q tests/behave
+        run: python -m pytest -q tests/native tests/flow/test_adapter.py tests/flow/test_adapter_scope.py tests/flow/test_native_evidence.py tests/flow/test_native_operation_closure.py tests/flow/test_native_source_reads.py tests/flow/test_native_requirement_resolution.py
