@@ -26,7 +26,7 @@ from .checks import CONFLICT, Finding, Report, check_model, explanation_text
 from .explore import Bounds, explore, show_step
 from .jobs import ending_with_this_process
 from .model import ModelError, load_model, show_key, vary_setting
-from .native_picture import cached_drift, draw_drift
+from .native_picture import cached_drift, draw_drift, cached_saved, draw_saved
 from .parts import PartContext, PartResult, PartSpec, kinds, part_digest, register, run_part
 from .project import (PROG, ProjectError, cache_dir, changed_files, changed_models, export_at, model_files,
                       new_and_open, read_conflicts, read_manifest, write_manifest)
@@ -1265,6 +1265,9 @@ def picture_part(ctx: PartContext) -> PartResult:
         native = cached_drift(root, what)
         if native is not None:
             return draw_drift(ctx, native)
+        saved = cached_saved(root, what)
+        if saved is not None:
+            return draw_saved(ctx, saved)
     bounds = Bounds(opt.get("max_states", Bounds().max_states))
     try:
         loaded = load_model(ctx.path, root)
@@ -1403,11 +1406,11 @@ def _plan_show(root, a, view_opts, runner):
     if a.what:
         what = a.what
         if what.startswith("C-"):
-            native = cached_drift(root, what)
+            native = cached_drift(root, what) or cached_saved(root, what)
             if native is not None:
                 if before is not None or any(value for key, value in view_opts
                                               if key in {"fields", "object", "focus", "story", "group"}):
-                    raise _Usage("a native drift picture shows its checked concrete observations; "
+                    raise _Usage("a checked concrete picture shows its recorded observations; "
                                  "select a model for a different view or a before comparison")
                 subjects.append((native[0].model, what, None, None))
                 native_cores[what] = native[0].digest

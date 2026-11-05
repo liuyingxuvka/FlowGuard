@@ -199,6 +199,7 @@ def core_part(ctx: PartContext) -> PartResult:
     elif composition is not None:
         info['symmetry'] = dict(composition.symmetry, scope='shared-object projection; original scope explored unreduced')
     from .native_evidence import evaluate_report
+    from .samples import analyze as saved_samples, merge_native, saved_origin
     from .history import unpack_entries
     previous_entries = unpack_entries(spec.option("native_stored", "[]"))
     # Clean declarations need their scope and source identities, not a Cartesian
@@ -212,8 +213,16 @@ def core_part(ctx: PartContext) -> PartResult:
         "errors": len(report.graph.errors), "scope": descriptor["scope"],
         "obligations": descriptor["obligations"], "replay": "not_run",
         "conflicts": [{"id":f.id,"kind":f.kind,"subject":f.subject} for f in findings if f.cls == 'conflict']}
-    native = evaluate_report(root, report, previous_entries,
+    native = evaluate_report(root, report, [entry for entry in previous_entries if not saved_origin(entry)],
                              full=spec.option("verify_symmetry", False), observation=observation)
+    def saved_observation():
+        current = model_descriptor(loaded,report,digest,checked_inputs, finite_comparison=bool(previous_entries))
+        return {**observation,'scope':current['scope'],'obligations':current['obligations']}
+    saved = saved_samples(root, loaded, Bounds(max_states), full=spec.option('verify_symmetry',False),
+                          previous=previous_entries, observation=saved_observation,
+                          progress=lambda data: ctx.progress({'model':spec.model,'kind':spec.kind,**data}))
+    info['saved_samples'] = saved['coverage']
+    merge_native(native,saved)
     info["native"] = native
     reads = sorted(set(reads) | set(native["reads"]))
     digest = part_digest(root, spec, reads, snapshots=source_hashes if '_composition' in model.__dict__ else None)
@@ -223,7 +232,7 @@ def core_part(ctx: PartContext) -> PartResult:
         if '_composition' in model.__dict__:
             final_inputs.update(checked_inputs)
         info["descriptor"] = model_descriptor(loaded, report, digest, final_inputs,
-                                               finite_comparison=finite_comparison or native['status'] == 'drift')
+                                               finite_comparison=finite_comparison or native['status'] == 'drift' or bool(saved['findings']))
         from .history import assess
         final_observation = {**observation, 'receipt':digest,
                              'scope':info['descriptor']['scope'], 'obligations':info['descriptor']['obligations']}
@@ -234,15 +243,26 @@ def core_part(ctx: PartContext) -> PartResult:
     if native["status"] == "unknown":
         info["unknown"].append("native correspondence")
     from .regression import prepare_model_closures
-    info['model_closures'], info['model_closure_limits'] = prepare_model_closures(root, loaded, report, info['descriptor'], previous_entries)
+    info['model_closures'], info['model_closure_limits'] = prepare_model_closures(root, loaded, report, info['descriptor'],
+        [entry for entry in previous_entries if not saved_origin(entry)])
     from .diagram import conflict_pictures              # diagram imports this module
     ctx.progress({"model": spec.model, "kind": spec.kind, "states": len(report.graph.states),
                   "phase": "drawing the conflicts' pictures"})
     pictures = conflict_pictures(report, root)          # <model>-<fingerprint>.mmd/.svg/.png per conflict
+    for finding in saved['findings']:
+        finding.detail['model_name'] = model.name
+        finding.detail.setdefault('subject_terms',finding_terms(finding,model))
+        finding.detail['attribution'] = {'kind':finding.kind,'sources':list(finding.sources)}
+        if type(finding.detail.get('native_load')) is int:
+            finding.detail['native_load'] = {'record':f'.flowguard/cache/flow/parts/{digest}.json',
+                                            'load':finding.detail['native_load']}
+    findings.extend(saved['findings'])
+    from .checks import merge
+    findings = merge(findings)
     writes = sorted({w for _, _, files in pictures for w in files} |
                     set(native["writes"]) |
                     {proof['regression']['path'] for proof in info['model_closures'].values()})
-    complete = report.graph.complete and not (composition is not None and info['unknown'])
+    complete = report.graph.complete and saved['complete'] and not (composition is not None and info['unknown'])
     return PartResult(spec.kind, spec.model, digest, complete,
                       [f.to_json() for f in findings], info, reads, writes)
 

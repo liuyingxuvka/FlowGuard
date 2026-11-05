@@ -18,6 +18,7 @@ RENDERER = shutil.which("node") is not None       # pictures are drawn by Mermai
 JSON_KEYS = ["verdict", "exit", "complete", "conflicts", "warnings", "surviving_breakages", "setting_proposals",
              "errors", "unknown", "models", "parts",
              "declared_routes", "closed", "resume", "running"]
+OLD_SAVES_UNCHECKED = "old saves not checked: no saved-sample files supplied"
 
 DIAL = '''
 from flowguard.flow import Model, need
@@ -108,6 +109,11 @@ def blocks(text):
     return re.findall(r"```(\w+)\n(.*?)```", text, re.S)
 
 
+def reach_line(run, model):
+    [line] = [line for line in run.lines if line.startswith(f"{model}: ")]
+    return line
+
+
 # ---------------------------------------------------------------------- verdict forms and exit codes
 def test_not_a_project_and_usage_errors(tmp_path):
     run = timed(tmp_path, wait=0)
@@ -139,7 +145,8 @@ def test_clean_complete_with_the_reach_line(project):
                          'model warning workshop: line 45: need(s["branch", t] == "main", "repairs only at main", '
                          'source="R10")  (checked, never refuses)',
                          "workshop: complete, 171 states (tools explored up to renaming); settings "
-                         "maintain_every=4 (counter/config.py: Config.maintain_every)"]
+                         "maintain_every=4 (counter/config.py: Config.maintain_every)",
+                         OLD_SAVES_UNCHECKED]
     saved = json.loads((project.root / ".flowguard/conflicts.json").read_text())
     assert saved["conflicts"] == [] and saved["complete"] and saved["unknown"] == []
 
@@ -185,7 +192,8 @@ def test_new_conflicts_in_full_then_open_on_one_line(project):
                          "to a shelf' (1 counter value folded: rentals[*])")
     assert stuck[16] == "  note: clamped at maintain_every: more rentals behave the same"
     assert "  no one-setting change reaches it" in run.lines
-    assert run.lines[-1].startswith("workshop: complete, 171 states")
+    assert reach_line(run, "workshop").startswith("workshop: complete, 171 states")
+    assert run.lines[-1] == OLD_SAVES_UNCHECKED
     ids = [h.rsplit("[", 1)[1][:-1] for h in heads]
 
     again = timed(project.root)
@@ -392,7 +400,8 @@ def test_full_verifies_the_renaming_without_reduction(project):
     project.kit().flow_from(KIT / "workshop.py")
     run = timed(project.root, "--full")
     assert run.code == 0
-    assert run.lines[-1].endswith("; symmetry verified (324 states unreduced)")
+    assert reach_line(run, "workshop").endswith("; symmetry verified (324 states unreduced)")
+    assert run.lines[-1] == OLD_SAVES_UNCHECKED
     plain = timed(project.root, "--json").data
     assert not plain["parts"][0]["cached"]           # --full is another part: its own digest
     assert not plain["models"]["workshop"]["symmetry"]
@@ -409,7 +418,8 @@ def test_a_hidden_asymmetry_is_never_reduced(project):
     assert plain.code == 1 and not any(line.startswith("MODEL ERROR") for line in plain.lines)
     assert "T1 stuck with cond='loan'" in plain.out and "(tools T1)" in plain.out
     assert ("tools not explored up to renaming (in doubt: .flowguard/flow/tools.py:15 compares a tool id with a "
-            "value the rule cannot follow); every renaming explored") in plain.lines[-1]
+            "value the rule cannot follow); every renaming explored") in reach_line(plain, "tools")
+    assert plain.lines[-1] == OLD_SAVES_UNCHECKED
     full = run_check(project.root, "--full")
     assert full.code == 1 and not any(line.startswith("MODEL ERROR") for line in full.lines)
 
@@ -424,11 +434,12 @@ def test_the_guide_states_what_check_prints(project):
     project.request("R2", "A parcel goes back after keep_days nights.\n")
     project.flow("parcels", model)
     run = timed(project.root)
-    assert run.out == clean_text
+    assert run.out == clean_text + OLD_SAVES_UNCHECKED + "\n"
     project.flow("parcels", "\n".join(l for l in model.splitlines() if '"the locker is full"' not in l) + "\n")
     run = timed(project.root)
     stated = broken_text.splitlines()
     assert run.first == stated[0]
+    assert run.lines[-1] == OLD_SAVES_UNCHECKED
     rest = iter(run.lines[1:])
     for line in stated[1:]:                         # the guide shortens: each line starts one printed
         assert any(printed.startswith(line) for printed in rest), line

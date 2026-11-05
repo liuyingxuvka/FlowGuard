@@ -59,5 +59,7 @@ def native_drift(model, core):
               "code_inputs": native.get("code_inputs"),
               "model_oracle_digest": oracle_identity(data.get("trace")),
               "witness": {"record": summary["record"], "check": key}}
+    if data.get('saved_sample') is not None:
+        origin['saved_sample'] = data['saved_sample']
     finding = _NativeFinding(**finding.__dict__, native_origin=origin)
     return finding, data

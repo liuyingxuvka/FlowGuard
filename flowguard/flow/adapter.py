@@ -75,8 +75,10 @@ def trace_calls(graph, call_indices) -> Trace:
             label, reason = "success", ""
         steps.append(TraceStep(None, call.action.name, dict(zip(call.action.params, call.args)),
                                output, old, dict(zip(graph.keys, state)), label, reason))
-    return Trace(tuple(steps), dict(zip(graph.keys, graph.init)),
-                 metadata={"model": graph.model.id or graph.model.name})
+    metadata = {"model": graph.model.id or graph.model.name}
+    if graph.model.__dict__.get('_saved_sample_context') is not None:
+        metadata['saved_sample'] = graph.model.__dict__['_saved_sample_context']
+    return Trace(tuple(steps), dict(zip(graph.keys, graph.init)), metadata=metadata)
 
 
 def witness_trace(graph, state: int, last=None, to=None) -> Trace:
@@ -217,7 +219,10 @@ class _RecordedAdapter:
         if self.position == -1:
             self.position = 0
             snapshot = (self.actual["steps"][self.offset - 1]["after"] if self.offset else self.actual["initial"])
-            self.last = ReplayObservation(_CONSTRUCT, None, self.project(snapshot), "construct")
+            failed = next((step for step in self.actual['steps'][:self.offset] if step['outcome'] != 'success'), None)
+            self.last = ReplayObservation(_CONSTRUCT, None, self.project(snapshot),
+                failed['outcome'] if failed else 'construct',
+                failed.get('exception',{}).get('message','') if failed and failed.get('exception') else '')
             return self.last
         if value != self.inputs[self.position]:
             raise ValueError("conformance input differs from its native captured input")

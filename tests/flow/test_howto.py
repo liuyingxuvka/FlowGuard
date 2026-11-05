@@ -36,7 +36,15 @@ def test_every_code_block_is_a_working_model(project):
     assert models
     for n, code in enumerate(models):
         binding = "MODEL = m" not in code
-        if binding:
+        samples = 'm.saved_samples(' in code
+        if samples:
+            import json
+            from test_saved_samples import PROGRAM,MODEL
+            project.file('program.py',PROGRAM.replace("        if not self.items[tool]['new']: raise Refusal('old stuck item was missed')\n",''))
+            project.file('fixtures/old-v0.json',json.dumps({'old-ready':dict(cond='ready',new=False),
+                                                        'old-repair':dict(cond='repair',new=False)}))
+            code=MODEL.replace('SAMPLES',code)
+        elif binding:
             # The guide labels this as a binding for an existing model/object.
             # Supply those declared prerequisites and exercise the real bridge.
             project.file("app.py", '''class Refusal(Exception): pass
@@ -58,7 +66,12 @@ m.terminal("n", [1])
         path = project.flow(f"block{n}", code)
         report = check_model(load_model(path, project.root))
         assert report.graph.complete
-        if binding:
+        if samples:
+            from flowguard.flow.samples import analyze
+            observed=analyze(project.root,report.loaded)
+            assert observed['coverage']['status']=='checked' and len(observed['coverage']['starts'])==2
+            assert all(item['status']=='conformant' for item in observed['native'])
+        elif binding:
             from flowguard.flow.native_evidence import evaluate_report
             assert evaluate_report(project.root, report)["status"] == "conformant"
 

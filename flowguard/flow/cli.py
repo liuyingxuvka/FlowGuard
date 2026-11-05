@@ -894,6 +894,7 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
     lines += code_declared_lines({'closed': result.declarations})
     o = result.outcome
     models = {}
+    from .samples import coverage_summary
     for mid, view in result.models.items():
         core = view.result("core")
         info = core.info if core is not None else {}
@@ -902,7 +903,18 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
                        "reach": reach(view),
                        "undecided": _undecided(result, [mid]) if view.finished and not view.complete else [],
                        "symmetry": info.get("symmetry"),
-                       "composition": info.get('composition'), 'foreign': info.get('foreign', [])}
+                       "composition": info.get('composition'), 'foreign': info.get('foreign', []),
+                       'saved_samples':coverage_summary(info['saved_samples']) if 'saved_samples' in info else None}
+    sampled=[model['saved_samples'] for model in models.values() if model['saved_samples'] is not None]
+    if sampled:
+        files=sum(item['files'] for item in sampled);starts=sum(item['starts'] for item in sampled)
+        if not files and all(item['status']=='unchecked' for item in sampled):
+            lines.append('old saves not checked: no saved-sample files supplied')
+        else:
+            status='UNKNOWN' if any(item['status']=='unknown' for item in sampled) else 'finite supplied scope'
+            lines.append(f'saved inputs: {files} file entries; {starts} abstract starts; {status}')
+            if any(item['status']=='unchecked' for item in sampled):
+                lines.append('old saves not checked for other models')
     data = {
         "verdict": line, "exit": code, "complete": o.finished and not scope_unknown(result.code_record) and all(v.complete and not v.native_unknown for v in result.models.values()),
         "conflicts": [dict(public_finding(f), new=f.id in result.new, requests=request_lines(root, f.sources),

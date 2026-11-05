@@ -249,6 +249,9 @@ def conflict_entry(f: Finding, *, observation=None, previous=None) -> dict:
         out['subject_terms'] = list(f.detail['subject_terms'])
     if f.detail.get('attribution'):
         out['attribution'] = dict(f.detail['attribution'])
+    for key in ('saved_sample','exception','native_load'):
+        if key in f.detail:
+            out.setdefault('detail',{})[key] = f.detail[key]
     origin = getattr(f, 'native_origin', None)
     if previous is not None:
         origin = previous.get('detail', {}).get('native_origin')

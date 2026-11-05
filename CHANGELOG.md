@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.3.0 - 2026-11-05 - Check actual old saved inputs
+
+- Declare saved files on an existing code-bound model. The real program loads unchanged JSON, SQLite or migration fixtures through the same native recorder; model loading does not execute the sample loader.
+- Compare distinct object states and supported pairs, retaining file versions, exact bytes and original object identities. Missing samples remain explicitly unchecked; unsupported relations and unavailable evidence remain UNKNOWN.
+- Report actual file-load crashes and model/code drift. A repair checks the original saved input and executes its regression before closing the retained conflict.
+- Show compact saved-input coverage while keeping full records private. Preserve current draft, composition, source-loading and owner-history behavior.
+
 ## v1.2.0 - 2026-11-05 - Start models from existing Python code
 
 New adapter drafts include statically known source base classes.

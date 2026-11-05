@@ -48,6 +48,7 @@ class _Inputs:
         self.empty_bytecode = Path(empty_bytecode)
         self.files, self.directories = {}, {}
         self.directory_uses = {}
+        self.world_reads = []
         self.busy = False
         self.reusable = True
         self.recording_tests = False
@@ -144,7 +145,7 @@ class _Inputs:
             self.phase = previous
 
     def record(self, event, args, *, caller=None):
-        if self.busy or event not in {"open", "os.listdir", "os.scandir", "metadata", "import"}:
+        if self.busy or event not in {"open", "os.listdir", "os.scandir", "metadata", "import", "sqlite3.connect"}:
             return
         self.busy = True
         try:
@@ -167,6 +168,8 @@ class _Inputs:
                 values.append((args[0] or os.curdir, self.directories, directory_stamp))
             elif event == "metadata":
                 values.append((args[0], self.files, file_stamp))
+            elif event == "sqlite3.connect" and args[0] != ':memory:':
+                values.append((args[0], self.files, file_stamp))
             elif event == "import":
                 if args[1]:
                     values.append((args[1], self.files, file_stamp))
@@ -187,6 +190,14 @@ class _Inputs:
                         path = self.engine_package / path.relative_to(self.engine_import_root / "flowguard")
                 try:
                     path.relative_to(self.arena)
+                    if event in {'open','sqlite3.connect'}:
+                        frame = caller
+                        while frame is not None and not frame.f_code.co_filename.startswith(self.source_root):
+                            frame = frame.f_back
+                        if frame is not None:
+                            self.world_reads.append({'path':path.relative_to(self.arena).as_posix(),'event':event,
+                                'source':{'path':frame.f_code.co_filename[len(self.source_root):].replace(os.sep,'/'),
+                                          'function':frame.f_code.co_qualname,'line':frame.f_lineno}})
                     if event in {"os.listdir", "os.scandir"}:
                         frame = caller
                         while frame is not None:
@@ -243,7 +254,7 @@ class _Inputs:
         return {"files": self.files, "directories": self.directories, "reusable": self.reusable,
                 "directory_uses": self.directory_uses, "untracked": sorted(self.untracked),
                 "environment": self.environment, "environment_reads": self.environment_reads,
-                "environment_events": self.environment_events}
+                "environment_events": self.environment_events, "world_reads":self.world_reads}
 
 
 class _ObservedState:
@@ -1185,10 +1196,17 @@ def _arena_guard(arena, inputs=None):
             "os.mkdir", "os.remove", "os.rmdir", "os.chdir", "os.chmod", "os.chown", "os.utime", "os.truncate",
             "os.rename", "os.link", "os.symlink", "socket.connect", "subprocess.Popen", "os.fork", "os.system",
             "os.exec", "os.posix_spawn", "os.putenv", "os.unsetenv",
+            "sqlite3.connect",
         }:
             return
-        if inputs is not None and event in {"open", "os.listdir", "os.scandir", "metadata", "import"}:
-            inputs.record(event, args, caller=sys._getframe(1) if event in {"os.listdir", "os.scandir"} else None)
+        if inputs is not None and event in {"open", "os.listdir", "os.scandir", "metadata", "import", "sqlite3.connect"}:
+            inputs.record(event, args, caller=sys._getframe(1) if event in {"open", "os.listdir", "os.scandir", "sqlite3.connect"} else None)
+        if event == 'sqlite3.connect':
+            database = os.fsdecode(args[0])
+            if database.startswith('file:'):
+                raise UnsupportedWorld('SQLite URI inputs need an explicit world')
+            if database != ':memory:':
+                inside(database)
         if event == "open":
             _path, mode, flags = args
             if (mode and any(char in mode for char in "wax+")) or flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC):
@@ -1611,10 +1629,10 @@ def _worker(request_path, response_path):
                         frame = frame.f_back
                     if frame is not None:
                         observed.recorded_gaps.add("subject subprocess code is outside this process observer")
-                if recording_active and event in {"open", "os.listdir", "os.scandir", "metadata", "import"}:
-                    inputs.record(event, args, caller=caller if event in {"os.listdir", "os.scandir"} else None)
+                if recording_active and event in {"open", "os.listdir", "os.scandir", "metadata", "import", "sqlite3.connect"}:
+                    inputs.record(event, args, caller=caller if event in {"open", "os.listdir", "os.scandir", "sqlite3.connect"} else None)
             def record_inputs(event, args):
-                if not recording_active or event not in {"subprocess.Popen", "open", "os.listdir", "os.scandir", "metadata", "import"}:
+                if not recording_active or event not in {"subprocess.Popen", "open", "os.listdir", "os.scandir", "metadata", "import", "sqlite3.connect"}:
                     return
                 return observed._observe(record_input_event, event, args, sys._getframe(1))
             sys.addaudithook(record_inputs)

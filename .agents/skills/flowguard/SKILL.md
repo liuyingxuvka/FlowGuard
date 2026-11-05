@@ -7,7 +7,7 @@ description: "Start code work with `python -m flowguard status`; keep the owner'
 
 ## Start
 
-Run `python -m flowguard status` first in every session and after any loss of context. Install FlowGuard only from `git+https://github.com/liuyingxuvka/FlowGuard.git@v1.2.0`.
+Run `python -m flowguard status` first in every session and after any loss of context. Install FlowGuard only from `git+https://github.com/liuyingxuvka/FlowGuard.git@v1.3.0`.
 
 ## The owner's words
 

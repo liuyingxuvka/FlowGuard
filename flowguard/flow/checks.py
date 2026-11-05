@@ -250,14 +250,15 @@ def _first_line(text):
 
 # ---------------------------------------------------------------------- the check
 class _Run:
-    def __init__(self, loaded: Loaded, bounds: Bounds, explain: bool, reduce: bool, progress):
+    def __init__(self, loaded: Loaded, bounds: Bounds, explain: bool, reduce: bool, progress, start=None):
         self.loaded = loaded
         self.model = loaded.model
         self.bounds = bounds
         self.explain = explain
-        self.reduce = reduce
+        self.start = start
+        self.reduce = reduce and start is None
         self.progress = progress or (lambda info: None)
-        self.g = explore(self.model, bounds, reduce=reduce, progress=progress)
+        self.g = explore(self.model, bounds, reduce=self.reduce, progress=progress, start=start)
         self.fr = _Frame(self.g)
         self.mid = self.model.id or self.model.name
         self.ids = {i: k for k, idl in self.model.kinds.items() for i in idl}
@@ -1226,7 +1227,7 @@ class _Run:
                         continue
                     if not ok:
                         continue
-                vg = explore(model, Bounds(cap), check_domains=False, targets=targets, reduce=self.reduce)
+                vg = explore(model, Bounds(cap), check_domains=False, targets=targets, reduce=self.reduce,start=self.start)
             if vg.cut:                                  # a model error cut the variant's search short
                 cut.append(f"{name}={value}")
             elif not vg.complete and not vg.stopped_early:
@@ -1584,9 +1585,9 @@ def reach_line(reach: dict) -> str:
 
 
 def check_model(loaded: Loaded, bounds: Bounds = Bounds(), *, explain: bool = True, reduce: bool = True,
-                progress=None) -> Report:
+                progress=None, start=None) -> Report:
     """Explore one loaded model and run every prepared check on it."""
-    return _Run(loaded, bounds, explain, reduce, progress).run()
+    return _Run(loaded, bounds, explain, reduce, progress, start).run()
 
 
 def _on(f: Finding) -> str:

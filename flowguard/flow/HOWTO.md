@@ -148,6 +148,47 @@ made from text or taken from elsewhere (`m.kinds`, project code); a loop that ca
 than a count, a flag or each id's own cells on to the next id; per-id values in the declared
 order compared as a whole (`==`, `in`, put in a container) or written into the state.
 
+## Check actual old saved files
+
+Fresh constructor states do not cover existing saved data. For a bound collection
+model with `tool` slots and a `cond` field, declare real old files as inputs. This
+example's real object has `load(path)`, `tools()` and an `items` dictionary:
+
+```python
+from flowguard.flow.adapter import fields
+def saved_load(file):
+    return [{"name":"load","args":[file]}, {"name":"tools"}]
+def saved_state(snapshot,ids):
+    actual=fields(snapshot,names=("items",))["items"]
+    return {("cond",slot):actual[identifier]["cond"]
+            for slot,identifier in zip(m.kinds["tool"],ids)}
+def saved_call(value,ids):
+    actual=dict(zip(m.kinds["tool"],ids))[value.function_input["tool"]]
+    return {"name":value.function_name,"kwargs":{"tool":actual}}
+m.saved_samples("fixtures/old-*",version="v0",load=saved_load,
+                state=saved_state,dispatch=saved_call)
+```
+
+`saved_load` produces the existing native call recipes; its last actual return
+must be the distinct object-ID list. It does not parse files in the model loader.
+The existing worker copies the exact file bytes into its disposable world, then
+the real code parses and loads them. JSON, SQLite and migration logic belong to
+that code. Projection reads the captured state and maps actual old IDs to the
+independently declared slots; dispatch receives actual call inputs and those IDs,
+never an expected state or result.
+
+Checks replay distinct abstract object starts, using pairs for supported declared
+relations. File/version/hash and actual IDs remain in private evidence. Opaque,
+cyclic, higher-arity or unsupported relations remain UNKNOWN; this is finite
+representative coverage, not proof that every concrete object behaves alike.
+Absent files say `old saves not checked` and add no pass claim or separate gate.
+Actual parse/load exceptions report FILE CRASH. Fixing one requires checking the
+same original bytes and executing its retained regression; missing bytes or IDs
+keep its conflict open. Keep archive fixtures unchanged and repair the loader or
+behavior in code. `show C-...` draws the checked saved-input witness from its
+current cached receipt, without loading the file or running the application again;
+it labels that finite recorded path rather than a fresh-start state graph.
+
 ## Composing features that share state
 
 Prefer one coarse model of a public interface when it covers the same promises with less code.

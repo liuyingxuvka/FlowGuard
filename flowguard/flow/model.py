@@ -348,6 +348,7 @@ class Model:
         self._config_file = None
         self.code_configs = []            # the covered code's settings objects (set by the loader)
         self.adapter_binding = None
+        self.sample_sources = []
         if config is not None:
             self._config_obj, self._config_file = _import_config(config)
 
@@ -363,6 +364,19 @@ class Model:
         self.adapter_binding = AdapterBinding(self, spec, state, operations, output, outcome,
                                               dispatch, start or {}, tuple(prefix))
         return self.adapter_binding
+
+    def saved_samples(self, paths, *, version, load, state, dispatch=None, source=None):
+        """Declare opaque old files and pure adapter projections; execution is worker-only.
+
+        ``load(file_token)`` returns existing native prefix recipes, ending with
+        the actual object-ID list. ``state(snapshot, ids)`` projects those objects;
+        optional ``dispatch(input, ids)`` maps calls through the same adapter.
+        """
+        from .samples import SampleSource
+        _check_source(source, "saved samples")
+        item = SampleSource(paths, version, load, state, dispatch, source, _here()[1])
+        self.sample_sources.append(item)
+        return item
 
     @property
     def settings(self):
@@ -434,6 +448,11 @@ class Model:
         for other, oids in self.kinds.items():
             if set(oids) & set(ids):
                 _fail(f"objects {kind!r}: ids {sorted(set(oids) & set(ids))} are already {other} ids")
+        count = (_LOAD.get("object_counts") or {}).get(kind)
+        if count is not None:
+            if type(count) is not int or not 1 <= count <= len(ids):
+                _fail(f"saved samples: invalid declared object bound for {kind!r}")
+            ids = ids[:count]
         out = Ids(kind, ids)
         self.kinds[kind] = out
         return out
@@ -3134,7 +3153,7 @@ def _error_location(err, root):
         return best[0], best[1]
 
 
-def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Module] | None = None) -> Loaded:
+def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Module] | None = None, *, object_counts=None) -> Loaded:
     """Run a model file as a fresh module and return its MODEL with every project file
     the load read. transform (routes, mutation) rewrites the model file's AST only."""
     path = Path(path).resolve()
@@ -3143,10 +3162,12 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
     module = types.ModuleType(modname)
     module.__file__ = str(path)
     old_root = _LOAD["root"]
+    old_counts = _LOAD.get("object_counts")
     rel_model = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
     reads = {rel_model}
     with _project_source_scope(root, path, transform) as project_imports:
         _LOAD["root"] = root
+        _LOAD["object_counts"] = object_counts
         try:
             try:
                 source = path.read_text(encoding="utf-8")
@@ -3198,4 +3219,5 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
             raise
         finally:
             _LOAD["root"] = old_root
+            _LOAD["object_counts"] = old_counts
             sys.modules.pop(modname, None)

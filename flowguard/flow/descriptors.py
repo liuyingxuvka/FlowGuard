@@ -236,6 +236,9 @@ def construction_starts(model):
         restored += ':' + definition_digest(repr(symbolic(restoration, model)))
         starts.append(restored)
         evidence[restored] = restoration
+    for saved in model.__dict__.get('_saved_sample_starts', ()):
+        starts.append(saved)
+        evidence[saved] = {'kind':'actual saved-file start'}
     return starts, evidence
 
 

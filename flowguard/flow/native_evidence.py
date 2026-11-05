@@ -289,6 +289,8 @@ def _literal_trace(trace):
     data = {"initial_state": trace.initial_state,
             "steps": [{k: getattr(step, k) for k in ("external_input", "function_name", "function_input",
                        "function_output", "old_state", "new_state", "label", "reason")} for step in trace.steps]}
+    if dict(trace.metadata).get('saved_sample') is not None:
+        data['saved_sample'] = dict(trace.metadata)['saved_sample']
     # Emit data, never a project object's repr as executable Python.
     text = pprint.pformat(data, sort_dicts=False, width=100)
     try:
@@ -303,9 +305,13 @@ def _literal_trace(trace):
 def assert_regression(root, model_path, data, *, max_states=Bounds().max_states):
     """The generated regression uses the current binding and the frozen repaired oracle."""
     root = Path(root).resolve()
-    loaded = load_model(root / model_path, root)
-    from .explore import explore
-    graph = explore(loaded.model, Bounds(max_states))
+    if data.get('saved_sample') is not None:
+        from .samples import restore_start
+        graph = restore_start(root,root/model_path,data['saved_sample'],Bounds(max_states)).graph
+    else:
+        loaded = load_model(root / model_path, root)
+        from .explore import explore
+        graph = explore(loaded.model, Bounds(max_states))
     trace = Trace(tuple(TraceStep(**row) for row in data["steps"]), data["initial_state"])
     if not graph.complete or graph.errors:
         raise AssertionError("the repaired native regression needs a complete current model oracle")
@@ -521,6 +527,8 @@ def evaluate_report(root, report, previous=(), *, full=False, observation=None):
                 origin = _retained_origin(root, entry)
                 retained_origins[entry["id"]] = origin
                 trace = _trace_from_inputs(graph, _read_inputs(origin))
+            elif entry['kind'] == 'FILE CRASH' and graph.model.__dict__.get('_saved_sample_context'):
+                trace = trace_calls(graph, ())
             elif entry["kind"] == "NEVER REACHED":
                 target = entry.get("detail", {}).get("target")
                 if target is None:
