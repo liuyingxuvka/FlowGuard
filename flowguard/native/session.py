@@ -11,6 +11,7 @@ import marshal
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import fields, is_dataclass
 from enum import Enum
+from functools import cache, partial
 import importlib
 from importlib.util import resolve_name
 import hashlib
@@ -36,6 +37,31 @@ _ACTIVE_CLASSES = set()
 _ACTIVE_SOURCE_ROOT = None
 
 
+def _project_code(filename, root):
+    """Only project-owned source, excluding interpreter and dependency environments.
+
+    Callers cache this per native session: the source tree is fixed for that session,
+    and trace/profile callbacks must not repeat filesystem probes on every line.
+    Keep the lexical root boundary used by source-relative frame locations.
+    """
+    if not filename or not os.path.normcase(filename).startswith(os.path.normcase(str(root).rstrip(os.sep) + os.sep)):
+        return False
+    path = Path(filename).resolve()
+    project = Path(root).resolve()
+    if not path.is_relative_to(project) or path.is_relative_to(Path(sys.prefix).resolve()):
+        return False
+    if any(os.path.normcase(part) == os.path.normcase('site-packages') for part in path.parts):
+        return False
+    parent = path.parent
+    while parent.is_relative_to(project):
+        if (parent / 'pyvenv.cfg').is_file():
+            return False
+        if parent == project:
+            break
+        parent = parent.parent
+    return True
+
+
 def state_key(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
@@ -45,6 +71,7 @@ class _Inputs:
     def __init__(self, arena, source_root, empty_bytecode):
         self.arena = Path(arena)
         self.source_root = str(Path(source_root).resolve()) + os.sep
+        self.project_code = cache(partial(_project_code, root=self.source_root))
         self.empty_bytecode = Path(empty_bytecode)
         self.files, self.directories = {}, {}
         self.source_data_reads = {}
@@ -81,7 +108,7 @@ class _Inputs:
             module = caller.f_globals.get("__name__", "")
             importing = (self.phase == "import" and caller.f_code.co_name == "<module>"
                          and getattr(caller.f_globals.get("__spec__"), "_initializing", False))
-            subject = filename.startswith(self.source_root)
+            subject = self.project_code(filename)
             if dependency and subject:
                 return None  # A dependency import does not authorize callbacks into the subject.
             if importing and (not dependency or not subject and not module.startswith("flowguard.")):
@@ -193,7 +220,7 @@ class _Inputs:
                     path.relative_to(self.arena)
                     if event in {'open','sqlite3.connect'}:
                         frame = caller
-                        while frame is not None and not frame.f_code.co_filename.startswith(self.source_root):
+                        while frame is not None and not self.project_code(frame.f_code.co_filename):
                             frame = frame.f_back
                         if frame is not None:
                             self.world_reads.append({'path':path.relative_to(self.arena).as_posix(),'event':event,
@@ -204,7 +231,7 @@ class _Inputs:
                         while frame is not None:
                             if frame.f_code is snapshot.__code__ or frame.f_code.co_filename.startswith("<frozen importlib"):
                                 break
-                            if frame.f_code.co_filename.startswith(self.source_root):
+                            if self.project_code(frame.f_code.co_filename):
                                 self.reusable = False  # Snapshot files preserve content, not directory enumeration order.
                                 self.untracked.add("application-consumed arena directory enumeration order")
                                 break
@@ -267,6 +294,7 @@ class _ObservedState:
     """Bounded observation of package data referenced by executed function frames."""
     def __init__(self, spec, arena, inputs=None):
         self.root = str(Path(spec["root"]).resolve()) + os.sep
+        self.project_code = inputs.project_code if inputs is not None else cache(partial(_project_code, root=self.root))
         self.arena = arena
         self.enabled = False
         self.pending = {}
@@ -305,7 +333,7 @@ class _ObservedState:
         self.inputs = inputs
 
     def line(self, code, line, *, call_token=None, frame=None):
-        if not self.enabled or not code.co_filename.startswith(self.root) or code.co_name == "<module>":
+        if not self.enabled or not self.project_code(code.co_filename) or code.co_name == "<module>":
             return
         path = code.co_filename[len(self.root):].replace(os.sep, "/")
         self.lines.add((path, line))
@@ -532,7 +560,7 @@ class _ObservedState:
             if issubclass(type(value), types.ModuleType):
                 filename = getattr(value, "__file__", "") or ""
                 label = "module:" + value.__name__
-                if not filename.startswith(self.root):
+                if not self.project_code(filename):
                     selected = {key: item for key, item in vars(value).items() if key in names and not issubclass(type(item), (types.ModuleType, type, types.FunctionType, types.BuiltinFunctionType))}
                     namespaces[label] = (selected, [(key, id(item)) for key, item in vars(value).items() if key in names])
                     continue
@@ -543,7 +571,7 @@ class _ObservedState:
                 label = "class:" + value.__module__ + ":" + value.__qualname__
                 namespaces[label] = self.namespace(value, requested=names)
             elif issubclass(type(value), (types.FunctionType, types.BuiltinFunctionType)):
-                if isinstance(value, types.FunctionType) and value.__code__.co_filename.startswith(self.root):
+                if isinstance(value, types.FunctionType) and self.project_code(value.__code__.co_filename):
                     values["function:" + name] = {"attributes": vars(value), "defaults": value.__defaults__, "kwdefaults": value.__kwdefaults__}
                 continue
             else:
@@ -588,7 +616,7 @@ class _ObservedState:
         caller = frame.f_back if event == "call" else frame
         if caller is None:
             return
-        direct = caller.f_code.co_filename.startswith(self.root)
+        direct = self.project_code(caller.f_code.co_filename)
         if not direct:
             possible = frame.f_code.co_name if event == "call" else getattr(arg, "__name__", "")
             if possible not in {"exists", "is_file", "is_dir", "is_symlink", "isfile", "isdir", "islink", "stat", "lstat", "fstat", "getmtime", "getatime", "getctime", "getsize"}:
@@ -603,7 +631,7 @@ class _ObservedState:
             if not metadata:
                 return
             ancestor = caller
-            while ancestor is not None and not ancestor.f_code.co_filename.startswith(self.root):
+            while ancestor is not None and not self.project_code(ancestor.f_code.co_filename):
                 if ancestor.f_code is snapshot.__code__:
                     return  # Recording checkpoints read their own arena, not application metadata.
                 ancestor = ancestor.f_back
@@ -636,7 +664,7 @@ class _ObservedState:
                 while ancestor is not None:
                     if ancestor.f_globals.get("__name__", "").split(".")[0] in {"pathlib", "genericpath", "ntpath", "posixpath"} and ancestor.f_code.co_name in {"exists", "is_file", "is_dir", "is_symlink", "isfile", "isdir", "islink"}:
                         break  # Only the already-recorded boolean result escapes this helper.
-                    if ancestor.f_code.co_filename.startswith(self.root):
+                    if self.project_code(ancestor.f_code.co_filename):
                         ancestor = None
                         break
                     ancestor = ancestor.f_back
@@ -673,7 +701,7 @@ class _ObservedState:
         return self._observe(self._trace, frame, event, arg)
 
     def _trace(self, frame, event, arg):
-        tracked = frame.f_code.co_filename.startswith(self.root) and frame.f_code.co_name != "<module>"
+        tracked = self.project_code(frame.f_code.co_filename) and frame.f_code.co_name != "<module>"
         recording = self.inputs is not None and self.inputs.recording_tests
         if tracked and event == "line" and (self.enabled or recording) and not self.busy:
             key = frame.f_code.co_filename[len(self.root):].replace(os.sep, "/"), frame.f_code.co_qualname, frame.f_lineno
@@ -688,7 +716,7 @@ class _ObservedState:
                 ancestor = ancestor.f_back
             self.call_parents[self.next_frame] = self.frames.get(id(ancestor)) if ancestor is not None else None
         call_token = self.frames.get(id(frame))
-        if not self.enabled and recording and not self.busy and frame.f_code.co_filename.startswith(self.root) and frame.f_code.co_name != "<module>":
+        if not self.enabled and recording and not self.busy and self.project_code(frame.f_code.co_filename) and frame.f_code.co_name != "<module>":
             ancestor = frame.f_back
             while ancestor is not None:
                 if ancestor.f_code is snapshot.__code__:
@@ -709,7 +737,7 @@ class _ObservedState:
                 self.frames.pop(id(frame), None)
                 self.call_parents.pop(call_token, None)
             return self.trace
-        if not self.enabled or self.busy or not frame.f_code.co_filename.startswith(self.root) or frame.f_code.co_name == "<module>":
+        if not self.enabled or self.busy or not self.project_code(frame.f_code.co_filename) or frame.f_code.co_name == "<module>":
             return None
         self.busy = True
         try:
@@ -842,7 +870,7 @@ class _Graph:
         module_name, qualname, code = value.__module__, value.__qualname__, value.__code__
         problem = "opaque state: builtins:function; a source-bound function without captured business state is required"
         if (type(module_name) is not str or type(qualname) is not str or "<" in qualname
-                or _ACTIVE_SOURCE_ROOT is None):
+                or _ACTIVE_SOURCE_ROOT is None or not _project_code(code.co_filename, _ACTIVE_SOURCE_ROOT)):
             raise UnsupportedWorld(problem)
         try:
             source = Path(code.co_filename).resolve().relative_to(_ACTIVE_SOURCE_ROOT)
@@ -1075,15 +1103,15 @@ def _exception_record(exc, arena):
         filename = Path(frame.f_code.co_filename)
         if _ACTIVE_SOURCE_ROOT is not None and filename.is_absolute():
             try:
-                relative = filename.resolve().relative_to(_ACTIVE_SOURCE_ROOT)
+                if _project_code(str(filename), _ACTIVE_SOURCE_ROOT):
+                    relative = filename.resolve().relative_to(_ACTIVE_SOURCE_ROOT)
+                    stack.append({"path": relative.as_posix(), "line": traceback.tb_lineno,
+                                  "function": frame.f_code.co_qualname})
             except ValueError:
                 pass  # An engine or dependency frame is outside this source root.
             except (OSError, RuntimeError) as error:
                 location_status = "unreadable"
                 result["location_error"] = str(error)
-            else:
-                stack.append({"path": relative.as_posix(), "line": traceback.tb_lineno,
-                              "function": frame.f_code.co_qualname})
         traceback = traceback.tb_next
     result.update(source=stack[-1] if stack else None, stack=stack,
                   location_status="current" if stack and location_status != "unreadable" else location_status)
@@ -1402,7 +1430,7 @@ class _Session:
         sys.path[:] = self.import_path
         for name, module in list(sys.modules.items()):
             filename = getattr(module, "__file__", "") or ""
-            if filename.startswith(self.observed.root):
+            if self.observed.project_code(filename):
                 del sys.modules[name]
         importlib.invalidate_caches()
         random.seed(self.start.get("seed", 0))
@@ -1631,7 +1659,7 @@ def _worker(request_path, response_path):
             def record_input_event(event, args, caller):
                 if recording_active and event == "subprocess.Popen":
                     frame = caller
-                    while frame is not None and not frame.f_code.co_filename.startswith(observed.root):
+                    while frame is not None and not observed.project_code(frame.f_code.co_filename):
                         frame = frame.f_back
                     if frame is not None:
                         observed.recorded_gaps.add("subject subprocess code is outside this process observer")

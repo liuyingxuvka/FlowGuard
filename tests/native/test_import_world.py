@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -205,6 +206,90 @@ def test_foreign_import_cannot_license_an_intervening_subject_callback(tmp_path)
     path.write_text("import os\ndef change():\n    os.putenv('FLOWGUARD_SUBJECT_CALLBACK', 'value')\n    os.unsetenv('FLOWGUARD_SUBJECT_CALLBACK')\n" + path.read_text())
     with pytest.raises(session.UnsupportedWorld, match='os.putenv.*phase=import'):
         session.replay(spec, [])
+
+
+def located_dependency(tmp_path, placement):
+    root = tmp_path / 'subject'
+    root.mkdir(parents=True)
+    if placement == 'outside':
+        library = tmp_path / 'dependency'
+    elif placement == 'venv':
+        environment = root / '.venv'
+        environment.mkdir()
+        (environment / 'pyvenv.cfg').write_text('home = fixture\n')
+        library = environment / 'lib' / 'python3.x' / 'site-packages'
+    elif placement == 'marked-environment':
+        environment = root / 'tools' / 'runtime'
+        environment.mkdir(parents=True)
+        (environment / 'pyvenv.cfg').write_text('home = fixture\n')
+        library = environment / 'lib'
+    elif placement == 'site-packages':
+        library = root / 'vendor' / 'site-packages'
+    else:
+        library = root / 'library'
+    library.mkdir(parents=True)
+    (library / 'guard_dependency.py').write_text(f'''import os
+previous = os.environ.get({KEY!r})
+os.putenv({KEY!r}, 'temporary')
+if previous is None: os.unsetenv({KEY!r})
+else: os.putenv({KEY!r}, previous)
+''')
+    (root / 'program.py').write_text(f'''import sys
+sys.path.insert(0, {str(library)!r})
+import guard_dependency
+class Program:
+    def __init__(self): self.value = 0
+    def run(self):
+        self.value += 3
+        return self.value
+''')
+    return {'root': str(root), 'system': 'program:Program', 'classes': ['program:Program']}
+
+
+@pytest.mark.parametrize('placement', ['venv', 'marked-environment', 'site-packages'])
+def test_dependency_import_inside_project_matches_external_library(tmp_path, placement):
+    outside = session.replay(located_dependency(tmp_path / 'external', 'outside'), [{'name': 'run'}])
+    inside = session.replay(located_dependency(tmp_path / 'internal', placement), [{'name': 'run'}])
+    # Physical source paths remain distinct provenance; all actual call observations agree.
+    assert inside['steps'] == outside['steps']
+    assert inside['footprint']['reusable'] == outside['footprint']['reusable']
+    assert inside['footprint']['environment'] == outside['footprint']['environment']
+    def events(result):
+        return [{key: value for key, value in event.items() if key != 'path'}
+                for event in result['footprint']['environment_events']]
+    assert events(inside) == events(outside)
+
+
+def test_project_dependency_environment_write_is_still_unknown(tmp_path):
+    with pytest.raises(session.UnsupportedWorld, match='os.putenv.*phase=import.*source='):
+        session.replay(located_dependency(tmp_path, 'project'), [])
+
+
+def test_project_code_uses_real_directory_boundaries_and_interpreter_prefix(tmp_path, monkeypatch):
+    root = tmp_path / 'project'
+    root.mkdir()
+    interpreter = root / 'runtime'
+    interpreter.mkdir()
+    monkeypatch.setattr(sys, 'prefix', str(interpreter))
+    assert not session._project_code(str(interpreter / 'library.py'), root)
+    assert session._project_code(str(root / 'runtime-extra' / 'own.py'), root)
+    assert not session._project_code(str(tmp_path / 'project-extra' / 'own.py'), root)
+    assert session._project_code(str(root / 'site-packages-extra' / 'own.py'), root)
+    assert session._project_code(str(root / '.venv' / 'own.py'), root)  # Name alone is not a venv.
+
+
+def test_project_code_cache_is_shared_only_within_one_session(tmp_path):
+    root = tmp_path / 'project'
+    library = root / 'runtime'
+    library.mkdir(parents=True)
+    filename = str(library / 'library.py')
+    inputs = session._Inputs(tmp_path / 'arena', root, tmp_path / 'bytecode')
+    observed = session._ObservedState({'root': str(root)}, tmp_path / 'arena', inputs)
+    assert observed.project_code is inputs.project_code
+    assert inputs.project_code(filename)
+    (library / 'pyvenv.cfg').write_text('home = fixture\n')
+    fresh = session._Inputs(tmp_path / 'arena', root, tmp_path / 'bytecode')
+    assert not fresh.project_code(filename)
 
 
 def test_invalid_environment_key_remains_an_actual_sut_exception(tmp_path):
