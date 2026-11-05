@@ -1,6 +1,7 @@
 """The flow-model engine behind `python -m flowguard check` and `show`.
 
-Model files import only these two names: `from flowguard.flow import Model, need`.
+Simple model files start with `from flowguard.flow import Model, need`.
+Composition uses the existing `flowguard.flow.compose` owner.
 """
 from .model import Model, need
 

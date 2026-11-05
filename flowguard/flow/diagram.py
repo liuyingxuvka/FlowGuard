@@ -1274,6 +1274,9 @@ def picture_part(ctx: PartContext) -> PartResult:
         return PartResult(spec.kind, spec.model, part_digest(root, spec, reads), True, [],
                           {"first_line": line, "mermaid": "", "error": str(err)}, reads, [])
     report = check_model(loaded, bounds)
+    from .compose import annotate, boundary, scope_summary
+    if '_composition' in loaded.model.__dict__:
+        report = annotate(report)
     from .descriptors import requested_rule_conflicts
     report.findings, _ = requested_rule_conflicts(report)
     reads = list(loaded.reads)
@@ -1315,6 +1318,7 @@ def picture_part(ctx: PartContext) -> PartResult:
     info = {"first_line": line, "mermaid": text, "subject": _subject_text(subject) if subject else None,
             "subject_id": subject.id if subject else None,
             "drawn": choice.drawing is not None, "states": len(choice.scene.space)}
+    info.update(composition=scope_summary(loaded.model, report), foreign=boundary(loaded.model))
     writes = []
     if choice.drawing is not None:
         (files, reason), = write_pictures(root, [(name, text)])
@@ -1489,7 +1493,8 @@ def _plan_show(root, a, view_opts, runner):
                          "mermaid": info.get("mermaid", ""), "files": info.get("files", []),
                          "rendered": info.get("rendered", False), "reason": info.get("reason"),
                          "subject": info.get("subject"), "subject_id": info.get("subject_id"),
-                         "boxes": info.get("boxes"), "arrows": info.get("arrows")})
+                         "boxes": info.get("boxes"), "arrows": info.get("arrows"),
+                         'composition': info.get('composition'), 'foreign': info.get('foreign', [])})
     if pictures and not any(p["drawn"] for p in pictures):
         code = 2                                          # asked to draw and nothing is drawn
     return code, pictures, more, message

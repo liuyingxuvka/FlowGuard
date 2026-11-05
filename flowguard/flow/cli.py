@@ -901,7 +901,8 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
                        "states": info["reach"]["states"] if info.get("loaded") else None,
                        "reach": reach(view),
                        "undecided": _undecided(result, [mid]) if view.finished and not view.complete else [],
-                       "symmetry": info.get("symmetry")}
+                       "symmetry": info.get("symmetry"),
+                       "composition": info.get('composition'), 'foreign': info.get('foreign', [])}
     data = {
         "verdict": line, "exit": code, "complete": o.finished and not scope_unknown(result.code_record) and all(v.complete and not v.native_unknown for v in result.models.values()),
         "conflicts": [dict(public_finding(f), new=f.id in result.new, requests=request_lines(root, f.sources),

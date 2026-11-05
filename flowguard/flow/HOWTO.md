@@ -124,6 +124,36 @@ made from text or taken from elsewhere (`m.kinds`, project code); a loop that ca
 than a count, a flag or each id's own cells on to the next id; per-id values in the declared
 order compared as a whole (`==`, `in`, put in a container) or written into the state.
 
+## Composing features that share state
+
+Prefer one coarse model of a public interface when it covers the same promises with less code.
+Split models by independent state ownership only when joint behavior needs the split.
+Import `compose` from `flowguard.flow.compose` and end the joint model with
+`MODEL = compose("workshop", inventory, loans, kind="tool")`. The components must
+declare the shared object kind. Module mode keeps action names qualified, such as
+`inventory.reserve`, and rejects duplicate field declarations.
+
+Read another feature's field through `reader.foreign(owner, "cond")`; the returned
+getter takes `(state, object_id)`. Alone it reads the owner's declared start;
+inside the joint model it reads the actual joint prestate. An action can call
+`owner.call(state, "reserve", object_id)`. The step commits only when all its
+participants accept, so a refusal leaves no partial writes. Within one action,
+later reads see its own earlier writes; foreign getters still read the joint
+prestate. With `features=True`,
+same-named actions synchronize; explicitly shared field views require one
+`owners={"cond": inventory}` declaration, and other views' effects must agree with
+that owner.
+
+Ordinary `check` explores the declared joint model. `check --full` also observes
+its complete finite dependency scope before qualifying shared-object projection
+and renaming. A cap leaves that qualification UNKNOWN; invalid renaming reports
+a model error.
+An optional `one_more=lambda: build(n + 1)` builder actually constructs the next
+bound during the full check; agreement at two sizes is not a proof for arbitrary
+populations. Inspect `show MODEL --json` for the recorded composition boundary.
+Bind the joint model explicitly through the same native adapter when comparing
+real code; component adapters do not automatically become a joint adapter.
+
 ## A small example (not your application): `.flowguard/flow/parcels.py`
 
 R1 already allows customers to collect parcels; R2 adds nightly expiry. The old outcome

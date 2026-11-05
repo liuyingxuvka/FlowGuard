@@ -21,6 +21,7 @@ and is one model warning. A capped original decides nothing: UNKNOWN.
 from __future__ import annotations
 
 import ast
+import copy
 import functools
 from collections import Counter
 from dataclasses import dataclass, field, replace
@@ -45,6 +46,25 @@ class Mutant:
     wrap: Callable | None            # Model -> Model (transitions, ends)
     cause: str = ""                  # "without guard 'x' (fn, line 3; R10)": what a removed conflict rests on
     requested: bool = False          # a guard with its own source= (a request asks for exactly this guard)
+
+
+class _SourceTransform:
+    """One existing guard edit, routed through the existing fresh source loader."""
+    def __init__(self, main, target, transform):
+        self.main, self.target, self.transform = Path(main).resolve(), Path(target).resolve(), transform
+        self.applied = False
+
+    def for_source(self, path):
+        if Path(path).resolve() != self.target:
+            return None
+        def apply(tree):
+            self.applied = True
+            return self.transform(tree)
+        return apply
+
+    def __call__(self, tree):
+        transform = self.for_source(self.main)
+        return tree if transform is None else transform(tree)
 
 
 @dataclass
@@ -121,6 +141,22 @@ def _drop_statement(node):
 
 
 def guard_mutants(model: Model) -> list[Mutant]:
+    if '_composition' in model.__dict__:
+        from .compose import source_actions
+        by_file = {}
+        for _, action in source_actions(model):
+            by_file.setdefault(Path(action.fn.__code__.co_filename).resolve(), []).append(action)
+        out = []
+        for path, actions in sorted(by_file.items()):
+            component = copy.copy(model)
+            component.__dict__.pop('_composition')
+            component.path, component.actions = path, actions
+            component.__dict__['_original_action_sites'] = actions
+            label = path.relative_to(model.root).as_posix() if path.is_relative_to(model.root) else str(path)
+            for mutant in guard_mutants(component):
+                out.append(replace(mutant, what=f'{label}: {mutant.what}', subject=f'{label}: {mutant.subject}',
+                                   transform=_SourceTransform(model.path, path, mutant.transform)))
+        return out
     tree = ast.parse(Path(model.path).read_text(encoding="utf-8"))
     sources = {a.name: a.source for a in model.actions}
     out = []
@@ -130,13 +166,22 @@ def guard_mutants(model: Model) -> list[Mutant]:
         own = next((k.value.value for k in call.keywords if k.arg == "source" and isinstance(k.value, ast.Constant)),
                    None)
         src = own or sources.get(fname)
+        declared_sources = (src,)
+        if own is None and '_original_action_sites' in model.__dict__:
+            nodes = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+                     and node.name == fname and node.lineno <= call.lineno <= node.end_lineno]
+            node = max(nodes, key=lambda node: node.lineno) if nodes else None
+            first = (node.decorator_list[0].lineno if node.decorator_list else node.lineno) if node else None
+            declared_sources = tuple(dict.fromkeys(action.source for action in model.__dict__['_original_action_sites']
+                                     if action.fn.__code__.co_firstlineno == first)) or (None,)
+            src = declared_sources[0]
         where = f"{fname}, line {call.lineno}"
         base = f"{reason!r} in {fname}"
         seen[base] += 1
         tag = "" if seen[base] == 1 else f" #{seen[base]}"
         by = own or (f"the action's {src}" if src else "the AI's own")
         out.append(Mutant("drop guard", f"drop guard {reason!r} ({where})", f"drop guard {base}{tag}", call.lineno,
-                          (src,), _transform(ast.Expr, _pos(stmt), _drop_statement), None,
+                          declared_sources, _transform(ast.Expr, _pos(stmt), _drop_statement), None,
                           f"without guard {reason!r} ({where}; {by})", own is not None))
         if not call.args:
             continue
@@ -145,7 +190,7 @@ def guard_mutants(model: Model) -> list[Mutant]:
             for k, part in enumerate(cond.values):
                 text = ast.unparse(part)
                 out.append(Mutant("widen guard", f"widen guard {reason!r} ({where}): drop `{text}`",
-                                  f"widen guard {base}{tag}: drop {text}", call.lineno, (src,),
+                                  f"widen guard {base}{tag}: drop {text}", call.lineno, declared_sources,
                                   _transform(ast.BoolOp, _pos(cond), functools.partial(_without, k)), None,
                                   f"without `{text}` in guard {reason!r} ({where}; {by})", own is not None))
         for node in ast.walk(cond):
@@ -156,7 +201,7 @@ def guard_mutants(model: Model) -> list[Mutant]:
                     sym, wide = ("<", "<=") if isinstance(op, ast.Lt) else (">", ">=")
                     text = ast.unparse(node)
                     out.append(Mutant("widen guard", f"widen guard {reason!r} ({where}): `{sym}` -> `{wide}` in `{text}`",
-                                      f"widen guard {base}{tag}: {sym} -> {wide} in {text}", call.lineno, (src,),
+                                      f"widen guard {base}{tag}: {sym} -> {wide} in {text}", call.lineno, declared_sources,
                                       _transform(ast.Compare, _pos(node), functools.partial(_widen, j)), None,
                                       f"with `{wide}` for `{sym}` in guard {reason!r} ({where}; {by})",
                                       own is not None))
@@ -288,6 +333,11 @@ def run_mutants(loaded: Loaded, bounds: Bounds, *, progress=None) -> MutationRep
             except ModelError as err:     # the mutant itself is a model error the original does not have
                 outcomes.append({"op": mutant.op, "what": mutant.what, "outcome": "caught",
                                  "by": [f"MODEL ERROR {err}"]})
+                continue
+            if isinstance(mutant.transform, _SourceTransform) and not mutant.transform.applied:
+                unknown.append(mutant.what)
+                outcomes.append({'op': mutant.op, 'what': mutant.what, 'outcome': 'unknown',
+                                 'by': [], 'reason': 'original component source was not transformed'})
                 continue
         else:
             mloaded = Loaded(mutant.wrap(model), loaded.reads)

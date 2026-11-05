@@ -11,7 +11,7 @@ FlowGuard gives an AI a small executable model of a feature, connected to real c
 Install from this repository; the PyPI package called flowguard is a different project.
 
 ```bash
-python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v1.0.0"
+python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v1.1.0"
 python scripts/install_skill.py --target ~/.codex/skills
 cd your-project
 python -m flowguard status

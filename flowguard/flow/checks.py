@@ -1593,7 +1593,7 @@ def _on(f: Finding) -> str:
     return f.subject + (f" on {', '.join(f.objects)}" if f.objects else "")
 
 
-def verify_symmetry(loaded: Loaded, bounds: Bounds, reduced: Report, *, explain: bool = True) -> dict:
+def verify_symmetry(loaded: Loaded, bounds: Bounds, reduced: Report, *, explain: bool = True, plain=None) -> dict:
     """`check --full`: explore a symmetric model again without reduction and compare the
     fingerprints (explain= as in the reduced run). A difference is a model error; a capped
     unreduced run verifies nothing."""
@@ -1601,7 +1601,7 @@ def verify_symmetry(loaded: Loaded, bounds: Bounds, reduced: Report, *, explain:
         doubt = loaded.model.__dict__.get("_symmetry_doubt")
         text = f"not reduced, so nothing to verify (in doubt: {doubt})" if doubt else "no interchangeable objects declared"
         return {"verified": None, "text": text, "finding": None}
-    plain = check_model(loaded, bounds, explain=explain, reduce=False)
+    plain = plain if plain is not None else check_model(loaded, bounds, explain=explain, reduce=False)
     if not plain.graph.complete:
         return {"verified": None, "text": "symmetry not verified (unreduced search capped)", "finding": None}
     a = {f.id: f for f in reduced.findings}

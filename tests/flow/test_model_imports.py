@@ -51,3 +51,72 @@ def test_loading_source_reads_fresh_bytes_and_restores_the_callers_package(proje
     finally:
         for name in ('same_name.config', 'same_name'):
             sys.modules.pop(name, None)
+
+
+def test_composed_late_builder_reads_fresh_source_and_restores_caller_graph(project, monkeypatch):
+    from flowguard.flow.compose import analyze
+    caller = project.root.parent / 'caller'
+    folder = caller / 'same_name'
+    folder.mkdir(parents=True)
+    (folder / '__init__.py').write_text('')
+    (folder / 'config.py').write_text('limit = 1\n')
+    monkeypatch.syspath_prepend(str(caller))
+    config = importlib.import_module('same_name.config')
+    package = importlib.import_module('same_name')
+    try:
+        project.file('same_name/__init__.py', '')
+        project.file('same_name/config.py', 'limit = 2\n')
+        path = project.flow('late', '''
+            from flowguard.flow import Model
+            from flowguard.flow.compose import compose
+            def build(n):
+                a=Model('a')
+                tools=a.objects('tool',*('T'+str(i+1) for i in range(n)))
+                a.field('ready',(False,True),False,over=tools)
+                @a.action(t=tools)
+                def flip(s,t):
+                    s['ready',t]=not s['ready',t]
+                return compose('late',a,kind='tool',one_more=next_bound)
+            def next_bound():
+                from same_name.config import limit
+                assert limit==2, 'builder reused caller source instead of the model project'
+                return build(3)
+            MODEL=build(2)
+        ''')
+        loaded=load_model(path,project.root)
+        assert sys.modules['same_name.config'] is config and package.config is config
+        result=analyze(loaded.model)
+        assert result.one_more['complete'] and result.one_more['changed'] is False
+        assert 'same_name/config.py' in result.reads
+        assert importlib.import_module('same_name.config') is config
+        assert importlib.import_module('same_name') is package
+        assert package.config is config and config.limit==1
+    finally:
+        for name in ('same_name.config','same_name'):
+            sys.modules.pop(name,None)
+
+
+def test_late_builder_namespace_package_does_not_escape_the_project_scope(project):
+    from flowguard.flow.compose import analyze
+    project.file('scope_ns/config.py','limit = 2\n')
+    path=project.flow('late_ns','''
+        from flowguard.flow import Model
+        from flowguard.flow.compose import compose
+        def build(n):
+            a=Model('a')
+            tools=a.objects('tool',*('T'+str(i+1) for i in range(n)))
+            a.field('ready',(False,True),False,over=tools)
+            @a.action(t=tools)
+            def flip(s,t):
+                s['ready',t]=not s['ready',t]
+            return compose('late_ns',a,kind='tool',one_more=next_bound)
+        def next_bound():
+            from scope_ns.config import limit
+            assert limit==2
+            return build(3)
+        MODEL=build(2)
+    ''')
+    assert 'scope_ns' not in sys.modules
+    result=analyze(load_model(path,project.root).model)
+    assert result.one_more['complete']
+    assert 'scope_ns' not in sys.modules and 'scope_ns.config' not in sys.modules

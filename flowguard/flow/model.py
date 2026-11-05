@@ -207,7 +207,11 @@ def vary_setting(model, name, value):
     old = model.settings[name]
     dict.__setitem__(model.settings, name, value)
     try:
-        yield
+        target = model.__dict__.get('_setting_targets', {}).get(name)
+        with contextlib.ExitStack() as stack:
+            if target is not None:
+                stack.enter_context(vary_setting(*target, value))
+            yield
     finally:
         dict.__setitem__(model.settings, name, old)
 
@@ -564,6 +568,16 @@ class Model:
                     out.append(Call(len(out), a, args))
             self._calls = out
         return self._calls
+
+    def foreign(self, owner: "Model", family: str):
+        """A read-only owner field: fixed at its start alone, live when composed."""
+        from .compose import foreign
+        return foreign(self, owner, family)
+
+    def call(self, state, action: str, *args, **kwargs):
+        """Invoke this owner's operation in the current synchronous composed step."""
+        from .compose import call
+        return call(self, state, action, args, kwargs)
 
     def replace_actions(self, actions: list[Action]) -> "Model":
         """A copy of this model with other (for example wrapped) actions."""
@@ -961,6 +975,22 @@ def named_sources(model: Model) -> dict:
         add(rid, f"the end of field {fam!r}")
     for r in model.rules:
         add(r.source, f"{r.kind} {r.base!r}")
+    composition = model.__dict__.get('_composition')
+    if composition is not None:
+        for actor in composition.leaves:
+            for rid, labels in named_sources(actor).items():
+                for label in labels:
+                    add(rid, f'{actor.name}: {label}')
+        files = {Path(action.fn.__code__.co_filename) for actor in composition.leaves for action in actor.actions}
+        for path in sorted(files):
+            if path.is_file():
+                for line, _, fname, rid, _ in need_calls(path):
+                    add(rid, f'a guard of {fname} ({path.name}, line {line})')
+    for ref in model.__dict__.get('_foreign_fields', ()):
+        for item in ref.fields:
+            add(item.source, f'foreign {ref.owner.name}.{ref.family} (owner start when uncomposed)')
+            for value, rid in item.value_sources.items():
+                add(rid, f'value {value!r} of foreign {ref.owner.name}.{ref.family}')
     return out
 
 
@@ -3004,14 +3034,24 @@ def _project_modules(root):
 class _ProjectSourceLoader(_importers.SourceFileLoader):
     """Read the source that the model's digest names, never a timestamp-based pyc."""
 
+    def __init__(self, name, path, transform=None):
+        super().__init__(name, path)
+        self.transform = transform
+
     def get_code(self, fullname):
         path = self.get_filename(fullname)
+        if self.transform is not None:
+            tree = ast.parse(self.get_data(path), filename=path)
+            return compile(ast.fix_missing_locations(self.transform(tree)), path, 'exec')
         return self.source_to_code(self.get_data(path), path)
 
 
+
 class _ProjectImports:
-    def __init__(self, root):
+    def __init__(self, root, transform=None):
         self.root = root
+        self.transform = transform
+        self.reads = set()
 
     def find_spec(self, fullname, path=None, target=None):
         if _engine_module(fullname):
@@ -3021,9 +3061,61 @@ class _ProjectImports:
             source = Path(spec.loader.path).resolve()
             if source.is_relative_to(self.root) and not (
                     {"site-packages", "dist-packages"} & set(source.relative_to(self.root).parts)):
-                spec.loader = _ProjectSourceLoader(fullname, spec.loader.path)
+                self.reads.add(source.relative_to(self.root).as_posix())
+                select = getattr(self.transform, 'for_source', None)
+                transform = select(source) if select is not None else None
+                spec.loader = _ProjectSourceLoader(fullname, spec.loader.path, transform)
                 return spec
         return None
+
+
+@contextlib.contextmanager
+def _project_source_scope(root, path, transform=None):
+    """Fresh project imports, restoring the caller graph on every exit."""
+    root = Path(root).resolve()
+    path = Path(path).resolve() if path is not None else root / "__model__.py"
+    added = [str(root), str(path.parent)]
+    if (root / "src").is_dir() and not (root / "src/__init__.py").is_file():
+        added.insert(1, str(root / "src"))
+    # The current source must win over a caller's cached same-named package,
+    # including one from another project. Restore that caller graph after loading.
+    local_names = {entry.stem if entry.suffix == '.py' else entry.name
+                   for directory in added for entry in Path(directory).iterdir()
+                   if entry.suffix == '.py' or entry.is_dir()}
+    project_modules = _project_modules(root)
+    previous = {name: module for name, module in list(sys.modules.items())
+                if name in project_modules or
+                name.split('.')[0] in local_names and not _engine_module(name)}
+    parents = {name.rpartition('.')[0] for name in previous if '.' in name}
+    parents.update(name for name, module in list(sys.modules.items())
+                   if _engine_module(name) and module is not None and '__path__' in vars(module))
+    parent_attributes = {name: (sys.modules[name], dict(vars(sys.modules[name])))
+                         for name in parents if sys.modules.get(name) is not None}
+    for name in previous:
+        del sys.modules[name]
+    import_path = list(sys.path)
+    sys.path[:0] = added
+    project_imports = _ProjectImports(root, transform)
+    sys.meta_path.insert(0, project_imports)
+    try:
+        yield project_imports
+    finally:
+        sys.meta_path.remove(project_imports)
+        sys.path[:] = import_path
+        loaded = set(_project_modules(root)) | {
+            name for name in sys.modules
+            if name.split('.')[0] in local_names and not _engine_module(name)}
+        for name in loaded:
+            sys.modules.pop(name, None)
+        sys.modules.update(previous)
+        for name in loaded | previous.keys():
+            parent, _, child = name.rpartition('.')
+            if parent in parent_attributes:
+                module, attributes = parent_attributes[parent]
+                if child in attributes:
+                    setattr(module, child, attributes[child])
+                else:
+                    vars(module).pop(child, None)
 
 
 def _error_location(err, root):
@@ -3047,92 +3139,63 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
     the load read. transform (routes, mutation) rewrites the model file's AST only."""
     path = Path(path).resolve()
     root = Path(root).resolve()
-    added = [str(root), str(path.parent)]
-    if (root / "src").is_dir() and not (root / "src/__init__.py").is_file():
-        added.insert(1, str(root / "src"))
-    # The current source must win over a caller's cached same-named package,
-    # including one from another project. Restore that caller graph after loading.
-    local_names = {entry.stem if entry.suffix == '.py' else entry.name
-                   for directory in added for entry in Path(directory).iterdir()
-                   if entry.suffix == '.py' or entry.is_dir()}
-    project_modules = _project_modules(root)
-    previous = {name: module for name, module in list(sys.modules.items())
-                if name in project_modules or
-                name.split('.')[0] in local_names and not _engine_module(name)}
-    parents = {name.rpartition('.')[0] for name in previous if '.' in name}
-    parents.update(name for name, module in list(sys.modules.items())
-                   if _engine_module(name) and module is not None and '__path__' in vars(module))
-    parent_attributes = {name: (sys.modules[name], dict(vars(sys.modules[name])))
-                         for name in parents if sys.modules.get(name) is not None}
-    for name in previous:
-        del sys.modules[name]
-    import_path = list(sys.path)
-    sys.path[:0] = added
     modname = f"_flowguard_model_{path.stem}_{next(_COUNTER)}"
     module = types.ModuleType(modname)
     module.__file__ = str(path)
     old_root = _LOAD["root"]
-    _LOAD["root"] = root
     rel_model = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
     reads = {rel_model}
-    project_imports = _ProjectImports(root)
-    sys.meta_path.insert(0, project_imports)
-    try:
+    with _project_source_scope(root, path, transform) as project_imports:
+        _LOAD["root"] = root
         try:
-            source = path.read_text(encoding="utf-8")
-            tree = ast.parse(source, filename=str(path))
-        except SyntaxError as err:
-            raise ModelError(f"syntax error: {err.msg}", rel_model, err.lineno) from None
-        if transform is not None:
-            tree = ast.fix_missing_locations(transform(tree))
-        code = compile(tree, str(path), "exec")
-        sys.modules[modname] = module
-        try:
-            exec(code, module.__dict__)
-        except ModelError:
+            try:
+                source = path.read_text(encoding="utf-8")
+                tree = ast.parse(source, filename=str(path))
+            except SyntaxError as err:
+                raise ModelError(f"syntax error: {err.msg}", rel_model, err.lineno) from None
+            if transform is not None:
+                tree = ast.fix_missing_locations(transform(tree))
+            code = compile(tree, str(path), "exec")
+            sys.modules[modname] = module
+            try:
+                exec(code, module.__dict__)
+            except ModelError:
+                raise
+            except Exception as err:  # model code: reported with its location, never swallowed
+                file, line = _error_location(err, root)
+                raise ModelError(f"loading raised {type(err).__name__}: {err}", file, line) from err
+            if "MODEL" not in module.__dict__:
+                old = [n for n in ("MACHINE", "MACHINES") if n in module.__dict__]
+                hint = f" ({old[0]} is not read: write MODEL = m)" if old else ""
+                raise ModelError(f"the file defines no MODEL{hint}", rel_model, None)
+            model = module.__dict__["MODEL"]
+            if not isinstance(model, Model):
+                raise ModelError(f"MODEL is a {type(model).__name__}, not a Model", rel_model, None)
+            model.id = path.stem
+            model.path = path
+            model.root = root
+            composition = model.__dict__.get('_composition')
+            if composition is None:
+                check_settings_from_code(model, root, tree)  # may import the covered code's settings: a read
+            else:
+                composition.prepare_load(root, tree)
+            project = _project_modules(root)
+            reads.update(project.values())
+            reads.update(project_imports.reads)
+            if '_composition' in model.__dict__:
+                model.__dict__['_flow_sources'] = tuple(str(root / rel) for rel in reads if Path(rel).suffix == '.py')
+            validate(model)
+            check_covers(model, root, reads)
+            check_second_routes(model, root, reads)
+            helpers = [root / r for r in project.values()
+                       if (root / r).parent == path.parent and Path(r).name.startswith("_")]
+            check_symmetry_rule(model, [path] + sorted(helpers), root)
+            from .explore import Symmetry               # start state and domains under renaming
+            Symmetry.of(model)
+            return Loaded(model, tuple(sorted(reads)))
+        except ModelError as err:
+            err.reads = tuple(sorted(reads | set(_project_modules(root).values()) | project_imports.reads))
             raise
-        except Exception as err:  # model code: reported with its location, never swallowed
-            file, line = _error_location(err, root)
-            raise ModelError(f"loading raised {type(err).__name__}: {err}", file, line) from err
-        if "MODEL" not in module.__dict__:
-            old = [n for n in ("MACHINE", "MACHINES") if n in module.__dict__]
-            hint = f" ({old[0]} is not read: write MODEL = m)" if old else ""
-            raise ModelError(f"the file defines no MODEL{hint}", rel_model, None)
-        model = module.__dict__["MODEL"]
-        if not isinstance(model, Model):
-            raise ModelError(f"MODEL is a {type(model).__name__}, not a Model", rel_model, None)
-        model.id = path.stem
-        model.path = path
-        model.root = root
-        check_settings_from_code(model, root, tree)  # may import the covered code's settings: a read
-        project = _project_modules(root)
-        reads.update(project.values())
-        validate(model)
-        check_covers(model, root, reads)
-        check_second_routes(model, root, reads)
-        helpers = [root / r for r in project.values()
-                   if (root / r).parent == path.parent and Path(r).name.startswith("_")]
-        check_symmetry_rule(model, [path] + sorted(helpers), root)
-        from .explore import Symmetry               # start state and domains under renaming
-        Symmetry.of(model)
-        return Loaded(model, tuple(sorted(reads)))
-    except ModelError as err:
-        err.reads = tuple(sorted(reads | set(_project_modules(root).values())))
-        raise
-    finally:
-        sys.meta_path.remove(project_imports)
-        _LOAD["root"] = old_root
-        sys.path[:] = import_path
-        sys.modules.pop(modname, None)
-        loaded = set(_project_modules(root))
-        for name in loaded:
-            sys.modules.pop(name, None)
-        sys.modules.update(previous)
-        for name in loaded | previous.keys():
-            parent, _, child = name.rpartition('.')
-            if parent in parent_attributes:
-                module, attributes = parent_attributes[parent]
-                if child in attributes:
-                    setattr(module, child, attributes[child])
-                else:
-                    vars(module).pop(child, None)
+        finally:
+            _LOAD["root"] = old_root
+            sys.modules.pop(modname, None)

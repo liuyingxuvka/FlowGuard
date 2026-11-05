@@ -7,7 +7,7 @@ description: "Start code work with `python -m flowguard status`; keep the owner'
 
 ## Start
 
-Run `python -m flowguard status` first in every session and after any loss of context. Install FlowGuard only from `git+https://github.com/liuyingxuvka/FlowGuard.git@v1.0.0`.
+Run `python -m flowguard status` first in every session and after any loss of context. Install FlowGuard only from `git+https://github.com/liuyingxuvka/FlowGuard.git@v1.1.0`.
 
 ## The owner's words
 
@@ -16,6 +16,8 @@ When the owner asks for something, store the owner's own words once, as received
 ## Changes to a flow
 
 When a request adds or changes state values, actions, conditions, settings or endings, update the affected feature's model in `.flowguard/flow/` before changing the code, then run `python -m flowguard check`. Turn affected old and new requested outcomes into explicit `reach`/`progress` promises, even in the first model; shared state and new routes can affect unchanged code across modules. Code/tests, exposed behavior and composition are conceptual levels, not three required files. Other edits use the ordinary code and test steps below. The installed package's `flowguard/flow/HOWTO.md` shows an old collection goal kept alongside a new expiry route.
+
+Prefer one model of the public interface when it covers the same promises with less code; split by independent state ownership only when joint behavior needs it.
 
 If a design can satisfy all requests, fix it yourself, implement it and show the before/after with `python -m flowguard show`. When requirements genuinely collide, bring the picture and the stored source words to the owner. While an answer is unavailable, take the safest reversible action that keeps things working, and label it temporary in the reply. A model-only finding is not proof of a code bug; compare the affected model with the owner's words and actual source or one small real execution, correcting the model when it is wrong and repairing code when the fault is real. Repair a broken main route instead of adding a fallback.
 

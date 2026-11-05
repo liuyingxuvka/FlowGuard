@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.1.0 - 2026-11-05 - Compose feature models
+
+- Compose existing feature models with shared object identities. Calls between features share one step, preserve ordinary action updates and original guards and requests, and commit effects only when every participant accepts.
+- Keep one declared owner for a shared field. Read other features through explicit views; reject conflicting effects instead of choosing one silently.
+- Show the declared composition boundary in check and picture results. Full checks qualify projection and renaming against the complete finite model; an optional next-size builder compares one additional object without claiming arbitrary-size correctness.
+- Load current project helpers through the same source loader for ordinary models and next-size builders. Preserve actual source dependencies, failed imports and the caller's module identities.
+
 ## v1.0.0 - 2026-11-05 - One executable model engine
 
 - Use one executable feature-model engine connected to real code, owner words and tests. Retire the old map/model/target and experimental pilot APIs, with an explicit migration guide.

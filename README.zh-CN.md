@@ -11,7 +11,7 @@ FlowGuard 给 AI 一份小而可执行的功能模型，连接实际代码和保
 从本仓库安装；PyPI 上名为 flowguard 的包是另一个项目。
 
 ```bash
-python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v1.0.0"
+python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v1.1.0"
 python scripts/install_skill.py --target ~/.codex/skills
 cd your-project
 python -m flowguard status

@@ -112,10 +112,11 @@ def run_part(ctx: PartContext) -> PartResult:
     return fn(ctx)
 
 
-def part_digest(root: Path, spec: PartSpec, reads: list[str]) -> str:
+def part_digest(root: Path, spec: PartSpec, reads: list[str], *, snapshots=None) -> str:
     """sha256 of the engine, the part kind, its options and the content of every read file."""
     data = [ENGINE_DIGEST, spec.kind, spec.model, sorted([list(o) for o in spec.options], key=repr),
-            [[rel, file_digest(root, rel)] for rel in sorted(set(reads))]]
+            [[rel, snapshots[rel] if snapshots is not None and rel in snapshots else file_digest(root, rel)]
+             for rel in sorted(set(reads))]]
     return hashlib.sha256(json.dumps(data, sort_keys=True, default=repr).encode("utf-8")).hexdigest()
 
 
@@ -139,9 +140,32 @@ def core_part(ctx: PartContext) -> PartResult:
     digest = part_digest(root, spec, reads)
     from .descriptors import input_evidence, model_descriptor, finding_terms
     checked_inputs = input_evidence(root, reads)
-    report = check_model(loaded, Bounds(max_states),
-                         progress=lambda d: ctx.progress({"model": spec.model, "kind": spec.kind, **d}))
     model = loaded.model
+    source_hashes = {rel: file_digest(root, rel) for rel in reads} if '_composition' in model.__dict__ else {}
+    from .compose import analyze, annotate, boundary, scope_summary
+    composition = None
+    progress = lambda d: ctx.progress({"model": spec.model, "kind": spec.kind, **d})
+    if '_composition' in model.__dict__ and spec.option('verify_symmetry', False):
+        try:
+            composition = analyze(model, Bounds(max_states), progress=progress)
+        except ModelError as error:
+            from .routes import model_error_result
+            return model_error_result(spec, root, error, sorted(set(reads) | set(error.reads)))
+        reads = sorted(set(reads) | set(composition.reads))
+        for rel, stamp in composition.inputs.items():
+            checked_inputs.setdefault(rel, stamp)
+        for rel, stamp in composition.hashes.items():
+            source_hashes.setdefault(rel, stamp)
+        digest = part_digest(root, spec, reads, snapshots=source_hashes)
+        report = composition.source_report
+        report.loaded = loaded
+        known = {finding.id for finding in report.findings}
+        report.findings.extend(finding for finding in composition.report.findings
+                               if finding.cls == ERROR_CLS and finding.id not in known)
+    else:
+        report = check_model(loaded, Bounds(max_states), progress=progress)
+        if '_composition' in model.__dict__:
+            report = annotate(report)
     info = {"loaded": True, "reach": report.reach, "reach_line": reach_line(report.reach),
             "holds": [list(h) for h in report.holds], "unknown": list(report.unknown),
             "seconds": round(report.graph.seconds, 3), "covers": list(model.covers),
@@ -149,6 +173,15 @@ def core_part(ctx: PartContext) -> PartResult:
             "objects": {kind: list(ids) for kind, ids in model.kinds.items()},
             "reached": list(report.reached), "sources": report_sources(report),
             "setting_proposals": model.setting_proposals()}
+    info['foreign'] = boundary(model)
+    if '_composition' in model.__dict__:
+        info['composition'] = composition.summary() if composition is not None else scope_summary(model, report)
+        if composition is not None:
+            if not composition.projection['verified']:
+                info['unknown'].append('shared-object projection')
+            probe = composition.one_more
+            if probe is not None and (not probe['complete'] or probe['changed']):
+                info['unknown'].append('one-extra-object conclusions; inspect composition.one_more')
     from .descriptors import requested_rule_conflicts
     findings, info['decision_evidence'] = requested_rule_conflicts(report)
     report.findings = findings
@@ -156,13 +189,15 @@ def core_part(ctx: PartContext) -> PartResult:
         finding.detail['model_name'] = model.name
         finding.detail.setdefault('subject_terms', finding_terms(finding, model))
         finding.detail['attribution'] = {'kind': finding.kind, 'sources': list(finding.sources)}
-    if spec.option("verify_symmetry", False):
+    if spec.option("verify_symmetry", False) and composition is None:
         ctx.progress({"model": spec.model, "kind": spec.kind, "states": len(report.graph.states),
                       "phase": "verifying the renaming with a search that does not use it"})
         sym = verify_symmetry(loaded, Bounds(max_states), report)
         info["symmetry"] = {"verified": sym["verified"], "text": sym["text"]}
         if sym["finding"] is not None:
             findings.append(sym["finding"])
+    elif composition is not None:
+        info['symmetry'] = dict(composition.symmetry, scope='shared-object projection; original scope explored unreduced')
     from .native_evidence import evaluate_report
     from .history import unpack_entries
     previous_entries = unpack_entries(spec.option("native_stored", "[]"))
@@ -181,10 +216,13 @@ def core_part(ctx: PartContext) -> PartResult:
                              full=spec.option("verify_symmetry", False), observation=observation)
     info["native"] = native
     reads = sorted(set(reads) | set(native["reads"]))
-    digest = part_digest(root, spec, reads)
+    digest = part_digest(root, spec, reads, snapshots=source_hashes if '_composition' in model.__dict__ else None)
     if descriptor is not None:
         from .descriptors import input_evidence, model_descriptor
-        info["descriptor"] = model_descriptor(loaded, report, digest, input_evidence(root, reads),
+        final_inputs = input_evidence(root, reads)
+        if '_composition' in model.__dict__:
+            final_inputs.update(checked_inputs)
+        info["descriptor"] = model_descriptor(loaded, report, digest, final_inputs,
                                                finite_comparison=finite_comparison or native['status'] == 'drift')
         from .history import assess
         final_observation = {**observation, 'receipt':digest,
@@ -204,7 +242,8 @@ def core_part(ctx: PartContext) -> PartResult:
     writes = sorted({w for _, _, files in pictures for w in files} |
                     set(native["writes"]) |
                     {proof['regression']['path'] for proof in info['model_closures'].values()})
-    return PartResult(spec.kind, spec.model, digest, report.graph.complete,
+    complete = report.graph.complete and not (composition is not None and info['unknown'])
+    return PartResult(spec.kind, spec.model, digest, complete,
                       [f.to_json() for f in findings], info, reads, writes)
 
 

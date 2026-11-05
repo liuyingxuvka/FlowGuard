@@ -57,6 +57,11 @@ class ForceIfs:
         self.file = str(Path(path).resolve())
         self.ifs = {}
 
+    def for_source(self, path):
+        child = ForceIfs(path)
+        child.ifs = self.ifs
+        return child
+
     def __call__(self, tree: ast.Module) -> ast.Module:
         _Wrap(self).visit(tree)
         body = tree.body
@@ -168,7 +173,10 @@ def _run_calls(states, keys, calls, files):
 
 
 def _action_files(model):
-    return tuple(sorted({os.path.abspath(a.fn.__code__.co_filename) for a in model.actions}))
+    from .compose import source_actions
+    files = {os.path.abspath(action.fn.__code__.co_filename) for _, action in source_actions(model)}
+    files.update(model.__dict__.get('_flow_sources', ()))
+    return tuple(sorted(files))
 
 
 def _rel(model, file):
@@ -425,6 +433,10 @@ class _Judge:
                       key=natural_key)
 
     def sources(self, calls):
+        composition = self.model.__dict__.get('_composition')
+        if composition is not None:
+            return {member.action.source for c in calls
+                    for member in composition.operations[self.calls[c].action.name].members}
         return {self.calls[c].action.source for c in calls}
 
     def is_declared(self, pairs, kind):
@@ -787,7 +799,7 @@ class _Judge:
                 switches.append({"line": ln, "calls": k, "text": text})
                 continue
             what = f"line {ln} ({', '.join(acts)}; the condition reads the {info['reads']}): {text}"
-            srcs = {a.source for a in self.model.actions if a.name in acts}
+            srcs = self.sources(c for c, call in enumerate(self.calls) if call.action.name in acts)
             self.add("SAME-RESULT BRANCH", WARNING, f"{info['function']}: if {info['test']}",
                      f"{what}  (forced True and forced False: the same outcome in all {k} calls that check it)",
                      sources=srcs, detail={"file": _rel(self.model, f), "line": ln, "function": info["function"],
@@ -807,8 +819,10 @@ class _Judge:
             r, f = _lines(o)
             ran_any |= r
             refused_any |= f
-        action_names = {a.name for a in self.model.actions}
-        sources = {a.name: a.source for a in self.model.actions}
+        from .compose import source_actions
+        originals = source_actions(self.model)
+        action_names = {action.name for _, action in originals}
+        sources = {action.name: action.source for _, action in originals}
         never, elsewhere, dead, dead_elsewhere = [], [], [], []
         for src in obs.files:
             anywhere = {ln for f, ln in ran_any if f == src}
@@ -919,7 +933,12 @@ def route_checks(path: Path, root: Path, bounds: Bounds, progress=None) -> tuple
     loaded = load_model(path, root, transform=force)
     graph = explore(loaded.model, bounds, progress=progress)
     try:
-        return loaded, graph, check_routes(loaded.model, graph, force.ifs)
+        report = check_routes(loaded.model, graph, force.ifs)
+        if '_composition' in loaded.model.__dict__:
+            from .compose import attribute
+            report.findings = attribute(loaded.model, report.findings)
+            report.raw = attribute(loaded.model, report.raw, merged=False)
+        return loaded, graph, report
     except ModelError as err:
         err.reads = tuple(loaded.reads)
         raise

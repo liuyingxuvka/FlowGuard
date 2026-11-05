@@ -161,7 +161,10 @@ def _guard_rows(model, dependencies, max_cases, *, finite_comparison=True):
     size = 1
     for field in fields:
         size *= len(field.domain)
-    for action in model.actions:
+    from .compose import source_actions, _View
+    composition = model.__dict__.get('_composition')
+    for actor, action in source_actions(model):
+        action_name = actor.name + '.' + action.name if composition else action.name
         try:
             tree = ast.parse(textwrap.dedent(inspect.getsource(action.fn)))
         except (OSError, TypeError, SyntaxError):
@@ -181,23 +184,28 @@ def _guard_rows(model, dependencies, max_cases, *, finite_comparison=True):
                 combinations *= len(domain)
             if finite_comparison and combinations <= max_cases:
                 expression = compile(ast.Expression(node.args[0]), action.fn.__code__.co_filename, 'eval')
+                globals_ = action.fn.__globals__
+                if composition:
+                    globals_ = dict(globals_)
+                    globals_.update(inspect.getclosurevars(action.fn).nonlocals)
                 candidate = {}
                 try:
                     for values in itertools.product(*(field.domain for field in fields)):
                         state = State((field.key, value) for field, value in zip(fields, values))
+                        view = _View(composition, actor, state, set()) if composition else state
                         for args in itertools.product(*action.domains):
-                            value = eval(expression, action.fn.__globals__,
-                                         {next(iter(inspect.signature(action.fn).parameters)): state, **dict(zip(action.params, args))})
+                            value = eval(expression, globals_,
+                                         {next(iter(inspect.signature(action.fn).parameters)): view, **dict(zip(action.params, args))})
                             if type(value) is not bool:
                                 raise TypeError('guard predicate did not return bool')
                             candidate[_key((symbolic(state, model), symbolic(args, model)))] = value
                 except (NameError, TypeError, KeyError, IndexError, AttributeError, ValueError) as error:
-                    limits.append(f'guard:{action.name}:{number}: finite comparison unknown: {type(error).__name__}: {error}')
+                    limits.append(f'guard:{action_name}:{number}: finite comparison unknown: {type(error).__name__}: {error}')
                     candidate = None
                 cases = candidate or None
             elif finite_comparison:
-                limits.append(f'guard:{action.name}:{number}: declared combinations exceed exploration budget {max_cases}')
-            rows.append(dict(id=f'guard:{action.name}:{number}', kind='guard', sources=[source],
+                limits.append(f'guard:{action_name}:{number}: declared combinations exceed exploration budget {max_cases}')
+            rows.append(dict(id=f'guard:{action_name}:{number}', kind='guard', sources=[source],
                              definition=definition_digest(ast.dump(node.args[0], include_attributes=False)),
                              cases=cases, dependencies=dependencies, terms=_predicate_terms(node.args[0], model)))
     return rows, limits
@@ -234,6 +242,8 @@ def construction_starts(model):
 def model_descriptor(loaded, report, digest, inputs, *, finite_comparison=True):
     """Keep declarations; evaluate finite relations when a conflict needs comparison."""
     model, graph = loaded.model, report.graph
+    from .compose import field_views
+    composition = model.__dict__.get('_composition')
     dependencies = {path: data['sha256'] for path, data in inputs.items() if data is not None and path in loaded.reads}
     coverage = {'anchors': list(model.covers) or [f'model:{model.id}']}
     for field in model.fields:
@@ -257,28 +267,39 @@ def model_descriptor(loaded, report, digest, inputs, *, finite_comparison=True):
     if not finite_comparison:
         limits.append('finite comparison not evaluated for clean declaration')
     for field in model.fields:
-        sources = sorted({s for s in [field.source, *field.value_sources.values()] if s})
+        views = field_views(model, field.key)
+        sources = sorted({s for _, item in views for s in [item.source, *item.value_sources.values()] if s})
         if sources:
-            text = repr(symbolic((field.family, field.domain, field.init), model))
+            shape = (field.family, field.domain, field.init)
+            if composition:
+                shape += (composition.owners[field.key].name, tuple(actor.name for actor, _ in views))
+            text = repr(symbolic(shape, model))
             obligations.append(dict(id='field:' + _key(symbolic(field.key, model)), kind='field', sources=sources,
                                     definition=definition_digest(text), dependencies=dependencies,
                                     terms=sorted({field.family, *(v for v in field.domain if isinstance(v, str))}),
                                     cases={repr(symbolic(value, model)):True for value in field.domain}
                                           if finite_comparison else None))
     for action in model.actions:
-        if action.source:
-            text = repr(symbolic((action.name, action.params, action.domains), model))
+        members = composition.operations[action.name].members if composition else ()
+        sources = sorted({member.action.source for member in members if member.action.source}) if composition else [action.source] if action.source else []
+        if sources:
+            shape = (action.name, action.params, action.domains)
+            if composition:
+                shape += (tuple((member.model.name, member.action.name) for member in members),)
+            text = repr(symbolic(shape, model))
             identity = definition_digest(text)
-            obligations.append(dict(id='operation:' + action.name, kind='operation', sources=[action.source],
+            obligations.append(dict(id='operation:' + action.name, kind='operation', sources=sources,
                                     definition=identity, dependencies={'declaration':identity},
                                     terms=[action.name],
                                     cases={_key(symbolic(args, model)):True for args in itertools.product(*action.domains)}
                                           if finite_comparison else None))
     for family, values in model.terminals.items():
         source = model.terminal_sources.get(family)
-        if source:
+        sources = sorted({actor.terminal_sources[family] for actor in composition.leaves
+                          if actor.terminal_sources.get(family)}) if composition else [source] if source else []
+        if sources:
             identity = definition_digest(repr(symbolic((family, values), model)))
-            obligations.append(dict(id='ending:' + family, kind='ending', sources=[source],
+            obligations.append(dict(id='ending:' + family, kind='ending', sources=sources,
                 definition=identity, dependencies={'declaration':identity},
                 terms=sorted({family, *(v for v in values if isinstance(v, str))}),
                 cases={repr(symbolic(v, model)):True for v in values} if finite_comparison else None))
