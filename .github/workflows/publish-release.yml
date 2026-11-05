@@ -7,10 +7,6 @@ on:
         description: Full 40-character source commit SHA on main
         required: true
         type: string
-      source_ci_run:
-        description: Completed ci.yml run ID for this exact source (optional)
-        required: false
-        type: string
   push:
     branches: [main]
     paths:
@@ -34,7 +30,6 @@ jobs:
     timeout-minutes: 30
     env:
       SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
-      SOURCE_CI_RUN: ${{ inputs.source_ci_run }}
       EVENT_NAME: ${{ github.event_name }}
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -124,6 +119,7 @@ jobs:
 
           def successful_ci(current):
               assert current["head_sha"].lower() == source_sha, "CI source differs from the selected source"
+              assert current["head_branch"] == "main", "CI must check the main source"
               assert current["event"] in {"push", "workflow_dispatch"}, "CI event is not a source check"
               assert current["path"].split("@")[0] == ".github/workflows/ci.yml", "CI workflow differs"
               assert current["status"] == "completed" and current["conclusion"] == "success", "CI did not complete successfully"
@@ -133,26 +129,21 @@ jobs:
               ), "Complete four-job ci.yml success required for this exact source"
               return current["html_url"]
 
-          selected_ci = os.environ.get("SOURCE_CI_RUN", "").strip()
-          if selected_ci:
-              assert re.fullmatch(r"[1-9]\d*", selected_ci), "source_ci_run must be a run ID"
-              ci_url = successful_ci(api(f"actions/runs/{selected_ci}"))
+          deadline = time.monotonic() + 1200
+          while time.monotonic() < deadline:
+              runs = api(f"actions/workflows/ci.yml/runs?head_sha={source_sha}&per_page=30")["workflow_runs"]
+              candidates = [run for run in runs if run["head_sha"].lower() == source_sha and run["head_branch"] == "main"
+                            and run["event"] in {"push", "workflow_dispatch"} and run["path"].split("@")[0] == ".github/workflows/ci.yml"]
+              if candidates:
+                  current = max(candidates, key=lambda run: (run["run_number"], run.get("run_attempt", 1)))
+                  if current["status"] == "completed":
+                      assert current["conclusion"] == "success", f"exact-source CI did not succeed: {current['html_url']}"
+                      ci_url = successful_ci(current)
+                      break
+              print(f"Waiting for complete ci.yml success at {source_sha}", flush=True)
+              time.sleep(15)
           else:
-              deadline = time.monotonic() + 1200
-              while time.monotonic() < deadline:
-                  runs = api(f"actions/workflows/ci.yml/runs?head_sha={source_sha}&per_page=30")["workflow_runs"]
-                  candidates = [run for run in runs if run["head_sha"].lower() == source_sha and run["head_branch"] == "main"
-                                and run["event"] in {"push", "workflow_dispatch"} and run["path"].split("@")[0] == ".github/workflows/ci.yml"]
-                  if candidates:
-                      current = max(candidates, key=lambda run: (run["run_number"], run.get("run_attempt", 1)))
-                      if current["status"] == "completed":
-                          assert current["conclusion"] == "success", f"exact-source CI did not succeed: {current['html_url']}"
-                          ci_url = successful_ci(current)
-                          break
-                  print(f"Waiting for complete ci.yml success at {source_sha}", flush=True)
-                  time.sleep(15)
-              else:
-                  raise RuntimeError("exact-source ci.yml did not complete successfully within 20 minutes")
+              raise RuntimeError("exact-source ci.yml did not complete successfully within 20 minutes")
 
           # Recheck main and dereference annotated tags; target_commitish alone is insufficient.
           assert api("git/ref/heads/main")["object"]["sha"].lower() == source_sha, "main advanced; publish its final frozen source instead"

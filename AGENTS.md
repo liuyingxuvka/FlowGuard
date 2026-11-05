@@ -28,4 +28,4 @@ This repository uses its own small executable feature models and native recorder
 - Tests never skip through swallowed errors. Only explicit platform/version/os `pytest.mark.skipif` conditions may skip; the test hooks enforce this. Never weaken a test to hide an actual failure.
 - Source equivalence uses `flowguard/map/common.py:normalize_newlines` for source text, with LF/CRLF controls; binary resources keep exact bytes.
 - Changelogs describe user-visible changes with the actual date; omit internal action IDs and branch names.
-- Installing the skill, tagging and publication require the maintainer's explicit request. The current R15 authorizes the handoff's releases and installation.
+- Installing the skill, tagging and publication require the maintainer's explicit request.

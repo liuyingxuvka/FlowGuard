@@ -94,7 +94,8 @@ Flow explanations include the rendered diagram in the reply.
 - `release` runs the full check of the flow models after the legacy models, and fails on a conflict or a model error. A project with flow models and no legacy map gets the same flow check, and its whole test suite with `--shards`; the first line says that no legacy map exists.
 - When `.flowguard/conflicts.json` cannot be read (damaged, or left with git merge markers), `check`, `show` and `release` stop with one line that names the file and the step that restores it, exit 2. Recovery advice uses Git only for a tracked record; otherwise it asks for the project backup and preserves the damaged file. Any other unexpected error in these commands is one `internal error:` line, also exit 2: exit 1 always means a conflict.
 - The v0.73 flow engine supports Linux only. Windows keeps the legacy commands; flow `check`, `show` and the flow part of `release` exit 2 with an explanation. `status` still shows stored conflicts and the limitation. Full Windows flow support follows in the next stage.
-- A flow model or a file it reads through a symbolic link outside the project stops with `must be inside the project`; external symlink targets are not supported.
+- A flow-model symlink that resolves outside the project currently exits 2 with `internal error: ValueError ... is not in the subpath` in `flow/jobs.py`. An otherwise in-project model can read a data file through an external symlink; the direct-read probe completes.
+- Immutable request/change-record path handling rejects an external symlink with `immutable file must be inside the project` in `map/records.py`. An already-present request ID may instead be rejected earlier as `request_exists`.
 
 ## v0.72.0 - 2026-11-02 - A plain change flow, the owner's newest words and honest Git checks
 
