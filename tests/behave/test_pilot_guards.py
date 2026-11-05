@@ -23,7 +23,7 @@ def test_pilot_not_in_verbs():
 
     assert set(VERB_PURPOSE) == {
         "read", "status", "change", "release", "template", "target", "req", "map", "where",
-        "check", "show",            # the flow-model engine (flowguard.flow), not the pilot
+        "check", "show", "decide",  # the flow-model engine (flowguard.flow), not the pilot
     }
 
 

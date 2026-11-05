@@ -944,6 +944,10 @@ def routes_part(ctx: PartContext) -> PartResult:
     if conflicts:
         from .diagram import conflict_pictures          # diagram imports the part registry, as this module does
         core = check_model(loaded, bounds, explain=False)
+        from .descriptors import input_evidence, model_descriptor
+        # The core can be clean while this part finds a route conflict. Capture
+        # its original finite obligations here, on this actual computation.
+        info['descriptor'] = model_descriptor(loaded, core, digest, input_evidence(root, reads))
         pictures = conflict_pictures(replace(core, findings=conflicts), root)
         writes = sorted({w for _, _, files in pictures for w in files})
     return PartResult(spec.kind, spec.model, digest, report.complete,

@@ -288,6 +288,30 @@ def test_the_child_package_shim_is_one_route_and_a_refused_link_is_an_error(monk
         common._child_package_import_root()
 
 
+def test_child_package_root_and_child_import_path_share_a_canonical_temporary_alias(tmp_path, monkeypatch):
+    from flowguard.map import common
+    physical = tmp_path / 'physical-temp'
+    physical.mkdir()
+    alias = tmp_path / 'temp-alias'
+    alias.symlink_to(physical, target_is_directory=True)
+    original = common.tempfile.TemporaryDirectory
+
+    def temporary(*args, **kwargs):
+        return original(*args, **{**kwargs, 'dir': alias})
+
+    monkeypatch.setenv('PYTHONPATH', '')
+    monkeypatch.setattr(common, '_CHILD_PACKAGE_DIRECTORY', None)
+    monkeypatch.setattr(common.tempfile, 'TemporaryDirectory', temporary)
+    try:
+        root = common._child_package_import_root()
+        assert root == str(Path(root).resolve())
+        assert root == common.child_import_path(tmp_path, {})[-1]
+        assert (Path(root) / 'flowguard').is_symlink()
+    finally:
+        if common._CHILD_PACKAGE_DIRECTORY is not None:
+            common._CHILD_PACKAGE_DIRECTORY.cleanup()
+
+
 # Git failing inside a Git repository stops the integrity check with Git's own message
 
 RECORD = "20261101-0000-abcdef"

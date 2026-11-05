@@ -10,33 +10,14 @@ import re
 from .common import Finding, git_blob, normalize_newlines, read_source, sha256_bytes
 from .mapfile import MapError, model_registry, resolve_model_path
 from .modelstatic import StaticModel
-from .requests import REQUEST_DIR, RETIRED_DIR, _metadata, _stems, glossary_entries, validate_request_links
+from .requests import (REQUEST_DIR, _metadata, validate_request_links, quote_matches, subject_terms as _terms,
+                       confirmed_glossaries as _glossaries, shared_terms as _shared_terms)
 
 PLAN_RELPATH = Path('.flowguard/target/PLAN.txt')
 # The one line FlowGuard writes into PLAN.txt; every other '#' line is the AI's own note and is kept.
 PLAN_HEADER = '# changes: model.rule by ID "quote" | changes: model.rule because "reason" | touch: path:qualified_name [because "reason"]'
 _CHANGE = re.compile(r'changes:\s+(\S+)\s+(?:by\s+(\S+)|because)\s+"(.+)"\s*\Z')
 _TOUCH = re.compile(r'touch:\s+(.+?)(?:\s+because\s+"(.+)")?\s*\Z')
-
-
-def quote_matches(text: str, quote: str) -> bool:
-    """Compare owner words exactly, permitting only whitespace runs and ... elision."""
-    source = ' '.join(text.split())
-    position = 0
-    for fragment in quote.split('...'):
-        fragment = ' '.join(fragment.split())
-        found = source.find(fragment, position)
-        if found < 0:
-            return False
-        position = found + len(fragment)
-    return bool(quote.strip())
-
-
-def _terms(value):
-    value = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', value)
-    value = re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', value)
-    return {word[:-1] if word.endswith('s') and len(word) > 1 else word
-            for word in re.findall(r'[a-z]+|[\u4e00-\u9fff]+', value.lower())}
 
 
 def rule_info(root, target, view, *, current_data=None, only_target=True):
@@ -160,42 +141,6 @@ def _touch_problem(root, path, symbol):
     if symbol in old and old[symbol] is None:
         return 'the target-start function has ambiguous same-name definitions'
     return 'the function is unchanged since target start' if old.get(symbol) == current[symbol] else None
-
-
-def _glossaries(root):
-    """The owner's confirmed glossaries; a stored file that cannot be read stops the lookup with its error.
-
-    A retired text is not the owner's words and is never used as a glossary."""
-    found = []
-    retired = set(_stems(root, RETIRED_DIR))
-    for path in sorted((root / REQUEST_DIR).glob('*.json')):
-        if path.stem in retired:
-            continue
-        try:
-            item = _metadata(path, path.stem)
-        except ValueError as error:
-            raise MapError(f'request_meta_edited: {path.stem}: {error}; glossaries cannot be read') from error
-        if item['kind'] != 'glossary':
-            continue
-        validate_request_links(root, [dict(id=path.stem, part=True)])
-        for word, terms in glossary_entries(path.with_suffix('.md').read_bytes()):
-            found.append(dict(id=path.stem, word=word, terms=list(terms)))
-    return found
-
-
-def _shared_terms(quote, terms, glossaries):
-    chinese = re.search(r'[\u4e00-\u9fff]', quote) is not None
-    direct = any(term.lower() in quote.lower() for term in terms) if chinese else bool(_terms(quote) & terms)
-    if direct:
-        return True, []
-    used = []
-    for item in glossaries:
-        words = set().union(*(_terms(term) for term in item['terms']))
-        word = item['word']
-        present = word.lower() in quote.lower() if chinese else bool(re.search(r'\b' + re.escape(word) + r'\b', quote, re.I))
-        if present and words & terms:
-            used.append(item)
-    return direct or bool(used), used
 
 
 def check_plan(root, target, view):

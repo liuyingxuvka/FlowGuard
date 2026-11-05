@@ -25,7 +25,7 @@ caller holds the pipe open, or while the lease in `lease.json` has not expired.
   the model files changed" with the command that resumes, never an internal error.
 
 Cache layout under `.flowguard/cache/flow/`: `parts/<digest>.json` (results),
-`manifests/<model>.json` (reads of the last load), `locks/<part id>.lock` (one worker
+`manifests/<model UTF-8 hex>/<kind UTF-8 hex>.json` (each part's last reads), `locks/<part id>.lock` (one worker
 per part), `jobs/<plan digest>/current.json` naming the latest run directory
 `jobs/<plan digest>/<run>/` (plan.json, worker.json, status.json, lease.json, log).
 """
@@ -48,6 +48,7 @@ from typing import Callable
 from ._process import lock_file, read_text, spawn_worker, terminate_group, unlock_file, windows_pid_alive
 from .explore import Bounds
 from .parts import ENGINE_DIGEST, PartResult, PartSpec, kinds, part_digest
+from .history import pack_entries, unpack_entries, pack_wire, unpack_wire
 from .project import FLOW_DIR, ProjectError, _atomic_write, cache_dir, file_digest, read_manifest, write_manifest
 
 LEASE_BEAT = 1.0                 # a waiting resume caller renews the lease this often
@@ -148,14 +149,20 @@ class Planned:
 
 
 def plan(root, paths, *, full: bool = False, max_states: int = Bounds().max_states,
-         stored: dict | None = None) -> list[Planned]:
+         stored: dict | None = None, tests=None) -> list[Planned]:
     """Every registered part kind for every model (full-only kinds with full); with full
     the core part also verifies the renaming against an unreduced search. stored (the
     previous conflicts.json): a model with kept conflicts that have a path gets a replay
     part too, so a capped check can tell which of them still reproduce."""
     root = Path(root).resolve()
     kept = {}
+    prior = {}
+    # Closed source-bound replacements still revalidate their finite relation
+    # against the current canonical core, after open native_stored is dropped.
+    comparisons = {entry['model'] for entry in (stored or {}).get('closed', [])
+                   if entry.get('closure', {}).get('kind') == 'requirement_changed'}
     for c in (stored or {}).get("conflicts", []):
+        prior.setdefault(c["model"], []).append(c)
         if "replay" in c:
             kept.setdefault(c["model"], []).append(c)
     out = []
@@ -167,6 +174,36 @@ def plan(root, paths, *, full: bool = False, max_states: int = Bounds().max_stat
             options = [("max_states", max_states)]
             if kind == "core" and full:
                 options.append(("verify_symmetry", True))
+            if kind == 'core' and model in comparisons:
+                options.append(('finite_comparison', True))
+            retained = False
+            if kind == 'core' and model in prior:
+                saved = (stored or {}).get('models', {}).get(model, {}).get('core')
+                if saved:
+                    previous_item = Planned.from_json(saved['planned'])
+                    same_bound = previous_item.spec.option('max_states', Bounds().max_states) == max_states
+                    enough = not full or previous_item.spec.option('verify_symmetry', False)
+                    old_decisions = {entry['id']:entry['history']['decision_refs']
+                        for entry in unpack_entries(previous_item.spec.option('native_stored','[]'))
+                        if entry.get('history', {}).get('decision_refs')}
+                    live_decisions = {entry['id']:entry['history']['decision_refs']
+                        for entry in prior[model] if entry.get('history', {}).get('decision_refs')}
+                    if same_bound and enough and old_decisions == live_decisions and lookup(root, previous_item, recorded_digest=saved['digest']) is not None:
+                        # Adding the newly found conflict to its history is not a
+                        # source edit. Reuse this actual current recipe; after an
+                        # input edit, run with the retained original conditions.
+                        options = list(previous_item.spec.options)
+                        retained = True
+            if kind == "core" and model in prior and not retained:
+                entries = []
+                for entry in prior[model]:
+                    saved = {key: entry[key] for key in ("id", "kind", "model", "subject", "sources", "subject_terms", "model_name", "path", "replay", "detail", "native_confirmation")
+                             if key in entry}
+                    if "history" in entry:
+                        saved["history"] = {**entry["history"], "latest": None,
+                                            "native_refs": []}
+                    entries.append(saved)
+                options.append(("native_stored", pack_entries(sorted(entries, key=lambda e: e["id"]))))
             out.append(Planned(PartSpec(kind, model, tuple(sorted(options))), rel))
             core = out[-1] if kind == "core" else core
         hit = lookup(root, core) if core is not None else None
@@ -174,8 +211,12 @@ def plan(root, paths, *, full: bool = False, max_states: int = Bounds().max_stat
                 d["kind"] == "MODEL ERROR" for d in hit.findings):
             continue                              # a complete exploration decides: nothing to replay
         if model in kept:
-            entries = json.dumps(sorted(kept[model], key=lambda c: c["id"]), sort_keys=True)
+            entries = json.dumps([{key:c[key] for key in ('id', 'path', 'replay') if key in c}
+                                 for c in sorted(kept[model], key=lambda c: c['id'])], sort_keys=True)
             out.append(Planned(PartSpec("replay", model, (("max_states", max_states), ("stored", entries))), rel))
+    if tests:
+        from .codeaudit import spec
+        out.append(Planned(spec(root, tests), '.'))
     return out
 
 
@@ -188,33 +229,52 @@ def plan_digest(root, planned: list[Planned]) -> str:
 # ---------------------------------------------------------------------- cache
 def expected_digest(root, item: Planned) -> str | None:
     """The digest the part has for the files as they are now (None: never loaded)."""
-    reads = read_manifest(root, item.spec.model)
+    reads = read_manifest(root, item.spec.model, kind=item.spec.kind)
     if reads is None:
         return None
     return part_digest(root, item.spec, reads)
 
 
-def lookup(root, item: Planned) -> PartResult | None:
+def lookup(root, item: Planned, *, named_digest=None, recorded_digest=None) -> PartResult | None:
     """The finished result for the current file contents, or None (a miss)."""
-    digest = expected_digest(root, item)
+    digest = recorded_digest if recorded_digest is not None else expected_digest(root, item)
     if digest is None:
         return None
     path = parts_dir(root) / f"{digest}.json"
     if not path.is_file():
         return None
-    result = PartResult.from_json(json.loads(read_text(path)))
+    result = PartResult.from_json(read_json(path))
     if result.kind != item.spec.kind or result.model != item.spec.model:
         return None
+    if recorded_digest is not None and part_digest(root, item.spec, result.reads) != recorded_digest:
+        return None
+    native = result.info.get("native", {})
+    just_finished_unknown = (named_digest == digest and
+                             (not result.complete or native.get('status') == 'unknown' or result.info.get('reusable') is False))
+    if item.spec.kind == 'code-audit':
+        from .codeaudit import current, source_files
+        # A worker may finish an honest UNKNOWN with non-reusable native inputs.
+        # Consume its named result for this run; it is never a reusable clean hit.
+        just_finished_unknown &= result.info.get('inventory') == source_files(root)
+        if not current(root, result) and not just_finished_unknown:
+            return None
     if any(not (Path(root) / w).exists() for w in result.writes):
         return None
+    if native.get("bound"):
+        from ..native.inputs import footprint_evidence
+        if not native.get("footprints") or any(footprint_evidence(row).status != "current"
+                                               for row in native["footprints"]):
+            if just_finished_unknown:
+                return result
+            return None
     return result
 
 
 def store(root, result: PartResult) -> None:
-    """Keep a finished result under its digest, then point the model's manifest at its reads."""
+    """Keep a finished result under its digest, then point that model/part manifest at its reads."""
     _atomic_write(parts_dir(root) / f"{result.digest}.json",
-                  json.dumps(result.to_json(), sort_keys=True, ensure_ascii=False) + "\n")
-    write_manifest(root, result.model, result.reads)
+                  json.dumps(pack_wire(result.to_json()), sort_keys=True, ensure_ascii=False) + "\n")
+    write_manifest(root, result.model, result.reads, kind=result.kind)
 
 
 def inputs_of(root, planned: list[Planned]) -> dict:
@@ -222,7 +282,9 @@ def inputs_of(root, planned: list[Planned]) -> dict:
     files = set()
     for item in planned:
         files.add(item.path)
-        files.update(read_manifest(root, item.spec.model) or [])
+        if item.spec.kind == 'code-audit':
+            files.update(item.spec.option('inventory', ()))
+        files.update(read_manifest(root, item.spec.model, kind=item.spec.kind) or [])
     return {rel: file_digest(root, rel) for rel in sorted(files)}
 
 
@@ -293,11 +355,11 @@ def pid_alive(pid: int) -> bool:
 def read_json(path: Path) -> dict | None:
     if not path.is_file():
         return None
-    return json.loads(read_text(path))
+    return unpack_wire(json.loads(read_text(path)))
 
 
 def write_json(path: Path, data: dict) -> None:
-    _atomic_write(path, json.dumps(data, sort_keys=True) + "\n")
+    _atomic_write(path, json.dumps(pack_wire(data), sort_keys=True) + "\n")
 
 
 # ---------------------------------------------------------------------- one job, seen from a caller
@@ -548,6 +610,12 @@ def _ensure_job(root: Path, planned: list[Planned]) -> _Job:
             _stop_stale(run)
         elif _ended_unsaid(run):
             return _Job.ended_run(run)
+        elif run is not None:
+            status = read_json(run / 'status.json') or {}
+            if status.get('state') == 'done' and not (run / 'results_read.json').exists():
+                recorded = (read_json(run / 'plan.json') or {}).get('inputs', {})
+                if recorded and all(file_digest(root, rel) == value for rel, value in recorded.items()):
+                    return _Job.ended_run(run)
         return _Job.spawn(root, planned, plan_dir)
 
 
@@ -596,7 +664,10 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
                 looked = marker
                 for i, item in enumerate(planned):
                     if results[i] is None:
+                        named = status.get('parts', {}).get(item.id, {}).get('digest')
                         results[i] = lookup(root, item)
+                        if results[i] is None and named is not None:
+                            results[i] = lookup(root, item, named_digest=named)
             # A replacement may publish its results before this waiting caller observes
             # the old worker's death. Those results do not complete this run.
             if all(r is not None for r in results) and (job.status() or {}).get("state") == "replaced":
@@ -636,6 +707,8 @@ def run(root, planned: list[Planned], *, wait: float, keep: float,
             job.linger(keep)
         else:
             job.release()
+            if out.finished or out.changed is not None:
+                write_json(job.dir / 'results_read.json', {'finished': True})
     out.seconds = time.monotonic() - start
     return out
 

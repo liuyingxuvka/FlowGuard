@@ -71,28 +71,6 @@ def project(tmp_path):
     _end_workers(proj.root)
 
 
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    outcome = yield
-    report = outcome.get_result()
-    proj = item.funcargs.get("project")
-    if not report.failed or proj is None:
-        return
-    from flowguard.flow._process import read_text
-    rows = []
-    for run in sorted((proj.root / ".flowguard/cache/flow/jobs").glob("*/*")):
-        for name in ("status.json", "log"):
-            path = run / name
-            if not path.is_file():
-                continue
-            try:
-                rows.append(f"{path.relative_to(proj.root).as_posix()}:\n{read_text(path)}")
-            except (OSError, UnicodeError) as error:
-                rows.append(f"diagnostic read failed for {path}: {type(error).__name__}: {error}")
-    if rows:
-        report.sections.append(("Flow worker diagnostics", "\n".join(rows)))
-
-
 def _end_workers(root: Path) -> None:
     """No worker outlives its test (#7): a test that returned RUNNING last, or failed half
     way, would leave one waiting for a resume for up to --keep seconds."""

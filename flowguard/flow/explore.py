@@ -2,6 +2,8 @@
 reduction over declared object ids, the state bound, and path replay."""
 from __future__ import annotations
 
+import copy
+
 import itertools
 import os
 import time
@@ -319,6 +321,7 @@ class Graph:
         self.sym = sym
         self.states = []
         self.out = []
+        self.outputs = {}               # only bound models retain non-None abstract return values
         self.perm = [] if sym is not None else None
         self.refusals = [Refusal("dropped by the state bound", None, None, None),
                          Refusal("model error", None, None, None)]
@@ -618,7 +621,9 @@ def explore(model: Model, bounds: Bounds = Bounds(), *, targets=None, check_doma
             fn, args, aname, asrc, ow_rules, af_rules = specs[c]
             w = State(s)
             try:
-                fn(w, *args)
+                value = fn(w, *args)
+                if model.adapter_binding is not None and value is not None:
+                    g.outputs[i, c] = copy.deepcopy(value)
             except Refused as why:
                 row[c] = -1 - refusal(why, asrc)
                 continue

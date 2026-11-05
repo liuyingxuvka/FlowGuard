@@ -78,6 +78,45 @@ any platform limitation alongside the stored conflicts.
   to the same result. `source=` is the stored request's ID (`R11`), and `check` prints
   the kept pair.
 
+## Compare the model with code
+
+For a model whose field is `n` and action is `step`, connect the real object once:
+
+```python
+from flowguard.flow.adapter import fields
+m.bind_adapter(
+    {"system": "app:Program", "classes": ["app:Program"], "refusal": ["app:Refusal"]},
+    state=lambda snapshot: fields(snapshot, names=("n",)),
+    operations={"step": "step"},
+)
+```
+
+`system` constructs the real object; `classes` names the project types in its state.
+The projection reads captured real fields. Map every model action to its real operation;
+an optional dispatch receives only actual call inputs, never the model's expected answer.
+The same binding owns replay, snapshots, restoration and bounded walks. Ordinary checks
+compare construction and one enabled witness per operation; a full check adds a seeded
+walk. A model conflict is confirmed only with sufficient native evidence. An unsupported
+observation stays UNKNOWN. A mismatch reports MODEL DRIFT and the actual input path;
+inspect code and model before choosing which to fix. `show C-...` uses the cached witness.
+
+Conflicts survive smaller models, removed starts and weakened sourced promises. Repair
+the behavior and run a complete check of the retained scope; a code repair leaves an
+executed regression. For a real replacement requirement, store the new owner's words
+with `req add --supersedes`, update the affected contract and code, then cite those words
+with `decide ID --owner "quote"`. The record distinguishes a requirement change from a
+code fix. An AI provisional decision is only for genuinely contradictory requested rules.
+
+`check --tests tests/test_app.py::test_case` explicitly audits selected native pytest
+calls for fallback routes; ordinary `check` and `status` do not launch the project suite.
+MASKING requires a witnessed failed primary and a passing test that fails when its
+fallback is disabled. BOTH needs a real owner declaration for two intended routes;
+VISIBLE failures reach the caller. Unreached handlers and defaults appear as counts.
+For two already implemented and witnessed intended routes, use `decide ID --owner "quote"
+--request Rn --existing-routes`; changing or retiring that authority reopens the finding.
+Use `check --commit-ready` after staging to read the evidence for the actual staged bytes;
+it runs no tests. A finished UNKNOWN permits a commit and remains visible in `status`.
+
 Ids are used only symmetrically: in `over=`, action parameters, `[None] + IDS`, loops and
 comprehensions over them. Picking one by its place (`IDS[0]`, unpacking, a loop that breaks)
 or `"T1"` is a model error. These uses turn the renaming off (said on the last line): an id

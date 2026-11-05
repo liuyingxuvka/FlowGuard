@@ -23,8 +23,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import diagram, jobs
-from .checks import CONFLICT, ERROR_CLS, GONE, REPLAYED, WARNING, Finding, explanation_text
+from . import diagram, jobs, history
+from .checks import CONFLICT, ERROR_CLS, GONE, REPLAYED, WARNING, Finding, explanation_text, make_finding
 from .explore import Bounds
 from .model import natural_key
 from .parts import ENGINE_DIGEST
@@ -61,13 +61,17 @@ def _states(text):
 
 
 VERBS = {"check": "explore the flow models and run the prepared checks",
-         "show": "draw the flowchart of the current change or conflict"}
+         "show": "draw the flowchart of the current change or conflict",
+         "decide": "record stored owner words or a narrowly eligible temporary decision"}
 
 
 def _check_arguments(check: argparse.ArgumentParser) -> None:
     check.add_argument("models", nargs="*", metavar="MODEL", help="model ids or files in .flowguard/flow/")
     check.add_argument("--wait", type=_seconds, default=DEFAULT_WAIT,
                        help=f"return after at most this many seconds (default {DEFAULT_WAIT:g})")
+    check.add_argument("--commit-ready", action="store_true", help="read existing results for actual staged bytes; never start work")
+    check.add_argument("--tests", nargs='+', metavar='NODEID',
+                       help='record these selected pytest cases once and audit their observed code routes; no automatic whole suite')
     check.add_argument("--full", action="store_true",
                        help="also mutate the models and verify renaming without reduction")
     check.add_argument("--json", action="store_true", help="print one JSON line")
@@ -94,7 +98,19 @@ def _show_arguments(show: argparse.ArgumentParser) -> None:
     show.add_argument("--root")
 
 
-_ARGUMENTS = {"check": _check_arguments, "show": _show_arguments}
+def _decide_arguments(command):
+    command.add_argument('conflict', metavar='ID')
+    modes = command.add_mutually_exclusive_group(required=True)
+    modes.add_argument('--owner', metavar='QUOTE')
+    modes.add_argument('--provisional', metavar='REASON')
+    command.add_argument('--request', metavar='ID')
+    command.add_argument('--existing-routes', action='store_true',
+                         help='BOTH only: owner words authorize both already implemented and witnessed routes')
+    command.add_argument('--root')
+    command.add_argument('--json', action='store_true')
+
+
+_ARGUMENTS = {"check": _check_arguments, "show": _show_arguments, "decide": _decide_arguments}
 
 
 def parser(prog: str = PROG) -> argparse.ArgumentParser:
@@ -151,6 +167,8 @@ def main(argv=None, *, prog: str = PROG, out=None, err=None) -> int:
     try:
         if args.verb == "show":
             return show(args, argv, prog=prog, out=out, err=err)
+        if args.verb == 'decide':
+            return decide(args, out=out)
         return check(args, argv, prog=prog, out=out, err=err)
     except ProjectError as e:
         return early(out, str(e), EXIT_ERROR, args.json)
@@ -252,16 +270,23 @@ def check(args, argv, *, prog: str = PROG, out=None, err=None, on_result=None) -
     root = find_root(Path(args.root) if args.root else Path.cwd())
     paths = resolve_models(root, args.models) if args.models else model_files(root)
     previous = read_conflicts(root)
-    if not paths and not (previous or {}).get("conflicts"):     # a deleted model's conflicts stay (below)
+    from .codeaudit import reopen_declared, apply_declared
+    previous = apply_declared(root, reopen_declared(root, previous))
+    if getattr(args, 'commit_ready', False):
+        return commit_ready_command(root, args, out)
+    tests = getattr(args, 'tests', None)
+    if not paths and not (previous or {}).get("conflicts") and not (previous or {}).get('code_audit') and not tests:
         return _early(out, f"no flow models in {FLOW_DIR.as_posix()}/", EXIT_CLEAN, args.json)
-    planned = jobs.plan(root, paths, full=args.full, max_states=args.max_states, stored=previous)
+    planned = jobs.plan(root, paths, full=args.full, max_states=args.max_states, stored=previous, tests=tests)
     outcome = jobs.run(root, planned, wait=args.wait, keep=args.keep, progress=_Progress(err))
     resume = f"{prog} {shlex.join(argv)}"
     if outcome.failure is not None:
         raise InternalError(str(outcome.failure))
     result = assemble(root, outcome, previous, max_states=args.max_states)
     if outcome.finished:
-        write_conflicts(root, conflicts_data(root, result, previous))
+        from .codeaudit import apply_declared
+        final_record = apply_declared(root, conflicts_data(root, result, previous))
+        write_conflicts(root, final_record)
     lines, data = render(root, result, resume)
     if on_result is not None:
         on_result(data)
@@ -307,6 +332,14 @@ class ModelView:
         return sum(1 for _, r, _, _ in self.parts if r is not None for d in r.findings if d["cls"] == ERROR_CLS)
 
     @property
+    def native_unknown(self):
+        core = self.result('core')
+        if core is None or not core.info.get('loaded'):
+            return False
+        native = core.info.get('native', {})
+        return native.get('status') == 'unknown'
+
+    @property
     def explored(self) -> bool:
         """A complete exploration of the model as it is, every check of it run without a
         model error: the only run that closes a conflict it no longer finds (a capped run, a
@@ -333,6 +366,9 @@ class Assembled:
     new: set
     max_states: int
     closed: list = field(default_factory=list)     # (entry, why): a complete check no longer finds it
+    code: list = field(default_factory=list)       # project-level native part; never a ModelView
+    code_record: dict | None = None
+    declarations: list = field(default_factory=list)
 
 
 def assemble(root, outcome, previous: dict | None, *, max_states: int | None = None) -> Assembled:
@@ -341,9 +377,12 @@ def assemble(root, outcome, previous: dict | None, *, max_states: int | None = N
     (default: the plan's)."""
     if max_states is None:
         max_states = dict(outcome.planned[0].spec.options)["max_states"] if outcome.planned else Bounds().max_states
-    models = {}
+    models, code_parts = {}, []
     for item, r, c, w in zip(outcome.planned, outcome.results, outcome.cached, outcome.workers):
-        models.setdefault(item.spec.model, ModelView(item.spec.model)).parts.append((item, r, c, w))
+        if item.spec.kind == 'code-audit':
+            code_parts.append((item, r, c, w))
+        else:
+            models.setdefault(item.spec.model, ModelView(item.spec.model)).parts.append((item, r, c, w))
     findings, seen = [], set()
     for view in models.values():
         for _, r, _, _ in view.parts:
@@ -352,6 +391,12 @@ def assemble(root, outcome, previous: dict | None, *, max_states: int | None = N
                 if f.id not in seen:
                     seen.add(f.id)
                     findings.append(f)
+    for _, result, _, _ in code_parts:
+        for raw in result.findings if result is not None else []:
+            finding = Finding.from_json(raw)
+            if finding.id not in seen:
+                seen.add(finding.id)
+                findings.append(finding)
     views, named = [], []
     for view in models.values():
         core = view.result("core")
@@ -360,13 +405,102 @@ def assemble(root, outcome, previous: dict | None, *, max_states: int | None = N
         if core is not None and core.info["loaded"]:
             named.append((view.id, core.info["sources"]))
     findings += [f for f in overlap_views(views) + unstored_sources(root, named) if f.id not in seen]
+    from .native_finding import native_drift
+    for view in models.values():
+        core = view.result('core')
+        drift = native_drift(view.id, core)
+        if drift is not None:
+            findings.append(drift[0])
     before = {c["id"] for c in (previous or {}).get("conflicts", [])}
-    conflicts = [f for f in findings if f.cls == CONFLICT]
-    kept, closed = _kept(root, models, previous, {f.id for f in conflicts})
+    from .codeaudit import declared_entries
+    declarations = declared_entries(previous)
+    permitted = {entry['id'] for entry in declarations}
+    conflicts = [f for f in findings if f.cls == CONFLICT and f.id not in permitted]
+    kept, closed = _kept(root, models, previous, {f.id for f in conflicts}, code_parts=code_parts)
     conflicts += kept
-    return Assembled(outcome, models, conflicts, [f for f in findings if f.cls == WARNING],
+    assembled = Assembled(outcome, models, conflicts, [f for f in findings if f.cls == WARNING],
                      [f for f in findings if f.cls == ERROR_CLS], {f.id for f in conflicts if f.id not in before},
-                     max_states, closed)
+                     max_states, closed, code_parts)
+    from .codeaudit import record
+    assembled.code_record = record(root, assembled, previous)
+    from .codeaudit import test_failure
+    for nodeid in (assembled.code_record or {}).get('test_failures', []):
+        failure = test_failure(nodeid)
+        if failure.id not in {finding.id for finding in assembled.errors}:
+            assembled.errors.append(failure)
+    assembled.declarations = declarations
+    return assembled
+
+
+def model_observation(view):
+    core = view.result('core')
+    descriptor = core.info.get('descriptor', {}) if core is not None else {}
+    receipt = core.digest if core is not None else 'unfinished:' + view.id
+    observed = core
+    routes = view.result('routes')
+    route_descriptor = routes.info.get('descriptor') if routes is not None else None
+    if (route_descriptor and 'finite comparison not evaluated for clean declaration' in descriptor.get('comparison_limits', [])
+            and route_descriptor.get('receipt') == routes.digest
+            and route_descriptor.get('scope') == descriptor.get('scope')
+            and route_descriptor.get('inputs')
+            and all(path in descriptor.get('inputs', {}) and descriptor['inputs'][path] == data
+                    for path, data in route_descriptor['inputs'].items())):
+        # A new route-only conflict owns these actual full relations. Never
+        # attribute them to the clean core, or mix differently loaded inputs.
+        descriptor, receipt, observed = route_descriptor, routes.digest, routes
+    return dict(receipt=receipt, finished=view.finished, loaded=view.loaded,
+                complete=view.explored, errors=view.errors, scope=descriptor.get('scope'),
+                obligations=descriptor.get('obligations'), replay='not_run',
+                conflicts=[{key:f[key] for key in ('id','kind','subject')} for f in (observed.findings if observed else []) if f['cls'] == CONFLICT])
+
+
+def closure_proof(root, entry, view):
+    """Consume real worker receipts; no caller flag or bare reference closes."""
+    from ..map.common import content_digest
+    core = view.result('core')
+    if core is None or not view.explored:
+        return None
+    native = core.info.get('native', {})
+    proof = native.get('closures', {}).get(entry['id'])
+    if proof is not None:
+        if native.get('schema') != 'flowguard.native-evidence.v1' or native.get('bound') is not True or native.get('status') != 'conformant':
+            return None
+        keys = proof.get('checks', [])
+        checks = native.get('checks', {})
+        if not keys or not native.get('footprints') or any(key not in checks or checks[key].get('status') != 'conformant' for key in keys):
+            return None
+        from ..native.inputs import footprint_evidence
+        if any(footprint_evidence(footprint).status != 'current' for footprint in native['footprints']):
+            return None
+    else:
+        proof = core.info.get('model_closures', {}).get(entry['id'])
+        if proof is None or proof.get('boundary') != 'model-only' or entry.get('native_confirmation') or native.get('bound'):
+            return None
+        old = entry.get('history', {}).get('baseline', {}).get('scope') or {}
+        anchors = old.get('coverage', {}).get('anchors', [])
+        current = core.info.get('descriptor', {}).get('scope') or {}
+        from ..map.inventory import coverage_kind
+        correction = proof.get('model_correction', {})
+        derived = (correction.get('kind') == 'model_corrected' and correction.get('closed_rules') and
+                   correction.get('original_receipt') == entry.get('history', {}).get('baseline', {}).get('receipt'))
+        if not anchors or not derived and any(coverage_kind(root, values) not in {'model-only', 'data-only'}
+                                             for values in (anchors, current.get('coverage', {}).get('anchors', []))):
+            return None
+        if proof.get('model_receipt') != core.digest or proof.get('kind') not in {'model_corrected', 'requirement_changed'}:
+            return None
+    if proof.get('kind') == 'requirement_changed':
+        compared = history.assess(entry, model_observation(view), root=root)
+        if compared.get('resolution') != proof.get('resolution') or compared['outcome'] != 'requirement_changed':
+            return None
+    regression = proof.get('regression')
+    if proof.get('complete_scope') is not True or proof.get('original_condition_gone') is not True or not isinstance(regression, dict):
+        return None
+    path = Path(regression.get('path', ''))
+    if path.is_absolute() or '..' in path.parts or not path.parts or not (Path(root) / path).is_file() or (Path(root) / path).is_symlink():
+        return None
+    if regression.get('passed') is not True or content_digest(Path(root) / path) != regression.get('digest'):
+        return None
+    return proof
 
 
 def _kept_finding(c: dict, reason: str) -> Finding:
@@ -374,7 +508,7 @@ def _kept_finding(c: dict, reason: str) -> Finding:
                    tuple(c.get("path", [])), "", {"kept": reason, "entry": c}, None, c["id"])
 
 
-def _kept(root, models: dict, previous: dict | None, found: set) -> tuple[list, list]:
+def _kept(root, models: dict, previous: dict | None, found: set, *, code_parts=()) -> tuple[list, list]:
     """The stored conflicts a check of their model did not find again: (kept, closed).
     Only a complete exploration of the model as it is (ModelView.explored) closes one
     (design M6 as the coordinator decided). Every other check keeps it open and blocking:
@@ -389,6 +523,15 @@ def _kept(root, models: dict, previous: dict | None, found: set) -> tuple[list, 
     for c in (previous or {}).get("conflicts", []):
         if c["id"] in found:
             continue
+        from . import codeaudit
+        if codeaudit.is_entry(c):
+            result = next((r for _, r, _, _ in code_parts if r is not None), None)
+            proof = codeaudit.closure(root, c, result)
+            if proof is not None:
+                closed.append((dict(c, closure=proof), 'code_fixed: original recorded scope and executed unchanged regression'))
+            else:
+                kept.append(codeaudit.kept(root, c, result))
+            continue
         view = models.get(c["model"])
         if view is None:
             if c["model"] not in existing:
@@ -399,10 +542,31 @@ def _kept(root, models: dict, previous: dict | None, found: set) -> tuple[list, 
                                              f"will settle it"))
             continue
         if not view.finished:
+            kept.append(_kept_finding(c, 'changed work is RUNNING; its prior conflict stays open'))
             continue
+        compared = history.compared(c, model_observation(view), root=root)
+        comparison = compared['history']['latest']
         if view.explored:
-            closed.append((c, f"a complete check of {c['model']} no longer finds it"))
+            core = view.result('core')
+            recorded = (core.info.get('native', {}).get('closures', {}) if c['kind'] == 'MODEL DRIFT' else
+                        core.info.get('model_closures', {})) if core is not None else {}
+            correction = recorded.get(c['id'], {}).get('model_correction', {})
+            proof = closure_proof(root, c, view) if (comparison['outcome'] in {'model_absent', 'requirement_changed'} or
+                    correction.get('kind') == 'model_corrected' and correction.get('original_receipt') ==
+                    c.get('history', {}).get('baseline', {}).get('receipt')) else None
+            if proof is not None:
+                scope = 'implemented replacement requirement' if proof['kind'] == 'requirement_changed' else 'complete retained scope'
+                closed.append((dict(compared, closure=proof), proof['kind'] + ': ' + scope + ' and executed regression'))
+                continue
+            reasons = ', '.join(row['code'] + (': ' + row['subject'] if row['subject'] else '')
+                                for row in comparison['reasons'])
+            reason = ('replacement requirement is sourced; current behavior evidence and executable regression are still required'
+                      if comparison['outcome'] == 'requirement_changed' else
+                      'complete retained model scope is clear; native original-condition evidence and executable regression are still required'
+                      if comparison['outcome'] == 'model_absent' else 'retained: ' + reasons)
+            kept.append(_kept_finding(compared, reason))
             continue
+        c = compared
         core = view.result("core")
         scope = ("the model does not load" if core is None or not core.info["loaded"]
                  else "a model error cut this check short" if view.errors else "this check is capped")
@@ -474,6 +638,9 @@ def verdict(result: Assembled, resume: str) -> tuple[str, int]:
     n_open = len(result.conflicts) - n_new
     cut = [m for m, v in result.models.items() if v.loaded and v.cut]
     capped = [m for m, v in result.models.items() if v.loaded and not v.complete and not v.cut]
+    native_unknown = [m for m, v in result.models.items() if v.native_unknown]
+    from .codeaudit import scope_unknown
+    code_unknown = scope_unknown(result.code_record)
     unexplored = [m for m, v in result.models.items() if not v.loaded]
     head = []
     if n_new and n_open:
@@ -482,11 +649,16 @@ def verdict(result: Assembled, resume: str) -> tuple[str, int]:
         head.append(_plural(n_new, "new conflict"))
     elif n_open:
         head.append(_plural(n_open, "open conflict"))
-    elif capped or cut:
+    elif capped or cut or native_unknown or code_unknown:
         head.append("no conflict found")
     if result.errors:
-        head.append(_plural(len(result.errors), "model error"))
-    if capped or cut or unexplored:
+        native_errors = [finding for finding in result.errors if finding.model == '@recorded-code']
+        model_errors = len(result.errors) - len(native_errors)
+        if model_errors:
+            head.append(_plural(model_errors, 'model error'))
+        if native_errors:
+            head.append(_plural(len(native_errors), 'selected native test failure'))
+    if capped or cut or unexplored or native_unknown or code_unknown:
         why = []
         if capped:
             why.append(f"{', '.join(capped)} capped at {result.max_states:,} states")
@@ -498,17 +670,23 @@ def verdict(result: Assembled, resume: str) -> tuple[str, int]:
                 why[-1] += f" ({', '.join(_undecided(result, cut))} undecided)"
         if unexplored:
             why.append(f"{', '.join(unexplored)} not explored (model error)")
+        if native_unknown:
+            why.append('native conformance unavailable: ' + ', '.join(native_unknown))
+        if code_unknown:
+            why.append('recorded code input freshness or observation scope UNKNOWN; explicit --tests retest required')
         tail = "UNKNOWN: " + "; ".join(why)
     elif not head:
         tail = "clean, complete" + _warnings_said(result)
     else:
         tail = "complete" + _survivors_said(result)
+    if result.code_record is not None and not result.models and not code_unknown:
+        tail = 'complete recorded tests/invocations' if head else 'no code conflict found; complete recorded tests/invocations'
     line = "; ".join(head + [tail])
     if result.errors:
         code = EXIT_ERROR
     elif result.conflicts:
         code = EXIT_CONFLICT
-    elif capped:
+    elif capped or native_unknown or code_unknown:
         code = EXIT_UNKNOWN
     else:
         code = EXIT_CLEAN
@@ -578,10 +756,15 @@ def _consequences(detail: dict) -> str | None:
 
 def full_block(root, result: Assembled, f: Finding) -> list[str]:
     lines = [f"NEW {f.kind} {f.model}: {f.text}{_objects(result, f)}   [{f.id}]"]
+    if f.detail.get('code_audit'):
+        from .codeaudit import fact_lines, question
+        if f.detail.get('route'):
+            lines += fact_lines(f.detail['route'])
+        lines.append('  ' + question({'kind': f.kind}))
     if f.kind == "STUCK":
         lines += _stuck_lines(f.detail)
-    lines.append("  requests: " + " | ".join(f'{rid} "{words}"' if rid else words
-                                             for rid, words in request_lines(root, f.sources)))
+    lines.append('  requests:')
+    lines.extend(f'    {rid} "{words}"' if rid else '    ' + words for rid, words in request_lines(root, f.sources))
     if f.state:
         lines.append(f"  state: {f.state}")
     if f.path:
@@ -694,12 +877,17 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
         lines.append(_one_line(result, f, "OPEN") + (f" (kept: {f.detail['kept']})" if "kept" in f.detail else ""))
         lines += cause_lines(result, f)
     lines += [f"closed {c['id']} {c['kind']} {c['model']}: {why}" for c, why in result.closed]
+    lines += requirement_lines(root,[entry for entry,_ in result.closed])
     lines += [_warning_line(result, f) for f in result.warnings]
     for f in result.errors:
         lines += _error_lines(f)
     lines += declared_lines(root, result)
     reaches = [reach(v) for v in result.models.values()]
     lines += [r for r in reaches if r is not None]
+    from .codeaudit import summary, scope_unknown
+    lines += summary(root, result.code_record)
+    from .codeaudit import declared_lines as code_declared_lines
+    lines += code_declared_lines({'closed': result.declarations})
     o = result.outcome
     models = {}
     for mid, view in result.models.items():
@@ -711,24 +899,28 @@ def render(root, result: Assembled, resume: str) -> tuple[list[str], dict]:
                        "undecided": _undecided(result, [mid]) if view.finished and not view.complete else [],
                        "symmetry": info.get("symmetry")}
     data = {
-        "verdict": line, "exit": code, "complete": o.finished and all(v.complete for v in result.models.values()),
-        "conflicts": [dict(f.to_json(), new=f.id in result.new, requests=request_lines(root, f.sources),
+        "verdict": line, "exit": code, "complete": o.finished and not scope_unknown(result.code_record) and all(v.complete and not v.native_unknown for v in result.models.values()),
+        "conflicts": [dict(public_finding(f), new=f.id in result.new, requests=request_lines(root, f.sources),
                            picture=picture(result, f), causes=causes_of(result, f)) for f in result.conflicts],
         "warnings": [f.to_json() for f in result.warnings],
         "surviving_breakages": sum(f.kind == "MUTANT SURVIVES" for f in result.warnings),
         "setting_proposals": proposals,
         "errors": [f.to_json() for f in result.errors],
-        "unknown": [m for m, v in result.models.items() if v.finished and not v.complete],
+        "unknown": [m for m, v in result.models.items() if v.finished and (not v.complete or v.native_unknown)],
         "models": models,
         "parts": [{"kind": p.spec.kind, "model": p.spec.model, "digest": r.digest if r is not None else None,
                    "cached": c, "worker": w} for p, r, c, w in zip(o.planned, o.results, o.cached, o.workers)],
         "declared_routes": [d for v in result.models.values() for _, r, _, _ in v.parts if r is not None
                             for d in r.info.get("declared_routes", [])],
-        "closed": [{"id": c["id"], "kind": c["kind"], "model": c["model"], "why": why} for c, why in result.closed],
+        "closed": [{"id": c["id"], "kind": c["kind"], "model": c["model"], "why": why,
+                    **({'requirement_change':requirement_summary(root,c)} if c.get('closure',{}).get('kind')=='requirement_changed' else {})}
+                   for c, why in result.closed],
         "resume": None if o.finished else resume,
         "running": None if o.finished else {"done": sum(r is not None for r in o.results), "total": len(o.planned),
                                             "current": o.current, "worker": o.worker, "job": o.job},
     }
+    if result.code_record is not None:
+        data['code_audit'] = result.code_record
     return lines, data
 
 
@@ -737,15 +929,38 @@ def conflicts_data(root, result: Assembled, previous: dict | None) -> dict:
     """This computation's models replace their entries; the other models that still have
     a file keep theirs, so checking one model does not drop the others' open conflicts. The
     conflicts of a model whose file is gone stay too: no check explored it (design M6)."""
+    from . import codeaudit
     existing = {p.stem for p in model_files(root)}
     previous = previous or {}
     kept = {m: v for m, v in previous.get("models", {}).items() if m in existing and m not in result.models}
     entries = {c["id"]: c for c in previous.get("conflicts", []) if c["model"] not in result.models}
-    entries.update((f.id, conflict_entry(f)) for f in result.conflicts)
+    for closed, _ in result.closed:
+        entries.pop(closed['id'], None)
+    before = {entry['id']:entry for entry in previous.get('conflicts', [])}
+    entries.update((f.id, conflict_entry(f, observation=model_observation(result.models[f.model])
+                   if f.model in result.models else None, previous=None if 'entry' in f.detail else before.get(f.id))) for f in result.conflicts)
+    for identifier, entry in entries.items():
+        from . import codeaudit
+        finding = next((f for f in result.conflicts if f.id == identifier and f.detail.get('route')), None)
+        code_result = codeaudit.result_of(result)
+        if finding is not None and code_result is not None:
+            entry['code_evidence'] = before.get(identifier, {}).get('code_evidence') or codeaudit.evidence(root, finding, code_result)
+            entry['subject_terms'] = [finding.detail['route']['site']['function'].split('.')[-1]]
+        view = result.models.get(entry['model'])
+        core = view.result('core') if view is not None else None
+        confirmed = core.info.get('native', {}).get('confirmed', {}).get(identifier) if core is not None else None
+        if entry.get('native_confirmation') is None and confirmed is not None:
+            entry['native_confirmation'] = confirmed
     entries = list(entries.values())
     models = dict(kept)
     for mid, view in result.models.items():
+        core = view.result('core')
+        descriptor = core.info.get('descriptor', {}) if core is not None else {}
         models[mid] = {"complete": view.complete, "loaded": view.loaded, "cut": view.cut,
+                       "finished": view.finished and view.loaded and not view.errors,
+                       "unknown": not view.explored or view.native_unknown, "native_unknown": view.native_unknown, "inputs": descriptor.get('inputs', {}),
+                       "observation": model_observation(view),
+                       "core": {'digest':core.digest, 'planned':next(p.to_json() for p, r, _, _ in view.parts if r is core)} if core is not None else None,
                        "errors": len([f for f in result.errors if f.model == mid]),
                        # Full-only checks are diagnostics, not changes to this model's
                        # persistent check identity. Their real conflicts/errors remain above.
@@ -765,14 +980,32 @@ def conflicts_data(root, result: Assembled, previous: dict | None) -> dict:
                 (k, v) for k, v in spec.options if k != "verify_symmetry"))
             models[mid]["parts"].append(part_digest(root, canonical, core.reads))
             models[mid]["parts"].sort()
+            # Preserve an actual still-current receipt when full-only diagnostics
+            # leave the checked source, scope and observation unchanged.
+            before = previous.get('models', {}).get(mid, {})
+            old_observation = before.get('observation') or {}
+            current_observation = models[mid]['observation']
+            same_observation = ({k:v for k,v in old_observation.items() if k != 'receipt'} ==
+                                {k:v for k,v in current_observation.items() if k != 'receipt'})
+            saved = before.get('core')
+            if saved and same_observation and before.get('parts') == models[mid]['parts']:
+                planned = jobs.Planned.from_json(saved['planned'])
+                if jobs.lookup(root, planned, recorded_digest=saved['digest']) is not None:
+                    models[mid]['core'] = saved
+                    models[mid]['observation'] = old_observation
     digests = sorted(d for v in models.values() for d in v["parts"])
-    return {"engine": ENGINE_DIGEST,
+    data = {"engine": ENGINE_DIGEST,
             "tree": hashlib.sha256(json.dumps(digests).encode("utf-8")).hexdigest(),
-            "complete": all(v["complete"] for v in models.values()),
+            "complete": all(v["complete"] and not v.get('native_unknown') for v in models.values()),
             "conflicts": entries,
-            "unknown": sorted((m for m, v in models.items() if not v["complete"]), key=natural_key),
+            "unknown": sorted((m for m, v in models.items() if not v["complete"] or v.get('native_unknown')), key=natural_key),
             "warnings": sum(v["warnings"] for v in models.values()),
-            "models": dict(sorted(models.items()))}
+            "models": dict(sorted(models.items())),
+            "closed": list(previous.get('closed', [])) + [dict(entry, closure={**entry.get('closure', {}), 'why':why}) for entry, why in result.closed]}
+    if result.code_record is not None:
+        data['code_audit'] = result.code_record
+        data['complete'] &= not codeaudit.scope_unknown(result.code_record)
+    return data
 
 
 RELEASE_WAIT = 3600                # the release check may run long (design 7.6); the in-loop default never does
@@ -815,12 +1048,16 @@ def status_lines(root) -> list[str]:
         return [f"flow models: {e}", *platform]
     if data is None:
         return [f"flow models: no check recorded (run {PROG} check)", *platform] if model_files(Path(root)) else []
+    from .codeaudit import reopen_declared
+    data = reopen_declared(root, data)
     conflicts = data["conflicts"]
     unknown = data["unknown"]
     models = data.get("models", {})
+    unrecorded = sorted((path.stem for path in model_files(Path(root)) if path.stem not in models), key=natural_key)
     unexplored = [m for m in unknown if not models.get(m, {}).get("loaded", True)]
     erring = {m: v["errors"] for m, v in models.items() if v.get("errors") and m not in unexplored}
-    capped = [m for m in unknown if m not in unexplored and not models.get(m, {}).get("cut")]
+    capped = [m for m in unknown if m not in unexplored and not models.get(m, {}).get("cut") and not models.get(m, {}).get('complete')]
+    native_unknown = [m for m in unknown if models.get(m, {}).get('native_unknown')]
     if conflicts:
         ids = ", ".join(c["id"] for c in conflicts)
         line = f"flow models: {_plural(len(conflicts), 'open conflict')} ({ids}); {FAILS}"
@@ -828,6 +1065,14 @@ def status_lines(root) -> list[str]:
         line = "flow models: no conflict found"
     else:
         line = "flow models: clean"
+    if not models and data.get('code_audit'):
+        line = (f"recorded code: {_plural(len(conflicts), 'open conflict')}; {FAILS}" if conflicts
+                else 'recorded code: no witnessed conflict')
+    if unrecorded:
+        missing = f"no check recorded for {', '.join(unrecorded)} (run {PROG} check)"
+        line = f"flow models: {missing}" if line == "flow models: clean" else f"{line}; {missing}"
+    if (data.get('code_audit') or {}).get('test_failures'):
+        line += '; selected native tests failed; ' + FAILS
     held = {c["model"] for c in conflicts}                 # a capped check never closes a proven conflict
     if [m for m in capped if m not in held]:
         line += (f"; capped: {', '.join(m for m in capped if m not in held)} (what a capped search could not "
@@ -835,6 +1080,8 @@ def status_lines(root) -> list[str]:
     if [m for m in capped if m in held]:
         line += (f"; capped with open conflicts: {', '.join(m for m in capped if m in held)} (they stay open "
                  f"until a complete check settles them)")
+    if native_unknown:
+        line += '; native conformance UNKNOWN: ' + ', '.join(native_unknown)
     if erring:
         shown = [f"{m} ({_plural(n, 'model error')}" + ("; its search was cut short" if models[m].get("cut") else "")
                  + ")" for m, n in sorted(erring.items(), key=lambda x: natural_key(x[0]))]
@@ -846,4 +1093,186 @@ def status_lines(root) -> list[str]:
     from .proposals import proposal_text
     proposals = [proposal_text(dict(p, model=mid)) for mid, record in models.items()
                  for p in record.get("setting_proposals", [])]
-    return [line, *proposals, *platform]
+    details = []
+    for entry in conflicts:
+        details.append(f"OPEN {entry['kind']} {entry['model']}: {entry['text']} [{entry['id']}]")
+        if 'code_evidence' in entry:
+            from .codeaudit import fact_lines
+            details += fact_lines(entry['code_evidence']['route'])
+        details += [f'  {rid}: {text}' if rid else '  ' + text for rid, text in request_lines(root, entry.get('sources', []))]
+        for state in decision_results(root, entry):
+            details.append('  ' + state.get('label', state.get('why', state['outcome'])))
+        details.append('  ' + conflict_question(root, entry))
+    from .codeaudit import summary
+    from .codeaudit import declared_lines
+    return [line, *details, *requirement_lines(root,data.get('closed',[])), *declared_lines(data), *summary(root, data.get('code_audit')), *proposals, *platform]
+
+
+def requirement_summary(root, entry):
+    resolution=entry['closure']['resolution']
+    changes=resolution['changes']
+    old=sorted({source for change in changes for source in change['old']['sources']})
+    new={change['authority']['id']:change['authority']['quote'] for change in changes}
+    return dict(old=request_lines(root,old),new=sorted(new.items()),code_fixed=False,
+                scope_changed=resolution['scope']['before']!=resolution['scope']['after'],
+                scope_changes=[row for row in resolution['scope']['changes'] if row['code']=='coverage_removed'])
+
+
+def requirement_lines(root, entries):
+    """Small public projection; finite proof matrices stay in their stored receipt."""
+    lines,seen=[],set()
+    for entry in entries:
+        if entry.get('closure',{}).get('kind')!='requirement_changed':
+            continue
+        summary=requirement_summary(root,entry)
+        key=(entry['model'],repr(summary))
+        if key in seen:
+            continue
+        seen.add(key)
+        scope='scope changed' if summary['scope_changed'] else 'scope retained'
+        lines.append(f"REQUIREMENT CHANGED {entry['model']}: {scope}; no code-fix claim")
+        lines += [f'  old {rid}: {words}' for rid,words in summary['old']]
+        lines += [f'  new {rid}: {words}' for rid,words in summary['new']]
+    return lines
+
+
+def decision_results(root, entry):
+    """Immutable event references remain evidence in the one conflict record."""
+    from .decisions import evaluate_decision
+    from ..map.mapfile import MapError
+    out = []
+    for identifier in entry.get('history', {}).get('decision_refs', []):
+        try:
+            out.append(evaluate_decision(root, entry, identifier))
+        except MapError as error:
+            out.append(dict(id=identifier, outcome='invalid', open=True, commit_allowed=False, why=str(error)))
+    return out
+
+
+def conflict_question(root, entry):
+    words = request_lines(root, entry.get('sources', []))
+    cited = ' | '.join(f'{rid} "{text}"' if rid else text for rid, text in words)
+    from .codeaudit import is_entry, question
+    if is_entry(entry):
+        return entry['id'] + ': ' + question(entry)
+    latest=entry.get('history',{}).get('latest') or {}
+    if latest.get('outcome')=='requirement_changed':
+        choices={change['authority']['id']:change['authority']['quote'] for change in latest['resolution']['changes']}
+        replacement=' | '.join(f'{rid} "{quote}"' for rid,quote in sorted(choices.items()))
+        return (f"{entry['id']} {entry['subject']}: implement and verify the replacement requirement {replacement}; "
+                f"current behavior and executed regression remain required; run {PROG} check {entry['model']}")
+    if entry['kind'] in {'STUCK', 'NEVER REACHED'}:
+        if (entry.get('native_confirmation') or {}).get('status') == 'confirmed':
+            action = ('repair the dead end in code' if entry['kind'] == 'STUCK' else 'make the promised behavior reachable in code')
+        else:
+            action = 'model-only: check the owner words and actual code; repair the model or code as warranted'
+        return f"{entry['id']} {entry['subject']}: {action}; preserve {cited}; then run {PROG} check {entry['model']}"
+    if 'DRIFT' in entry['kind'].upper() or entry.get('code_status') == 'drift':
+        return f"{entry['id']} {entry['subject']}: reconcile the model and real code; decide cannot settle drift"
+    from ..map.requests import owner_quote
+    from ..map.mapfile import MapError
+    for rid, text in words:
+        if not rid:
+            continue
+        try:
+            owner_quote(root, text, entry.get('subject_terms', []), request=rid)
+        except MapError:
+            continue
+        command = shlex.join(['python', '-m', 'flowguard', 'decide', entry['id'], '--owner', text, '--request', rid])
+        return f"{entry['id']} {entry['subject']}: which requirement applies? {cited}; record the choice: {command}"
+    return (f"{entry['id']} {entry['subject']}: which requirement applies? {cited}; quote stored words naming "
+            f"{', '.join(entry.get('subject_terms', [])) or 'this subject'} with {PROG} decide {entry['id']} --owner QUOTE --request ID")
+
+
+def decide(args, *, out):
+    from .decisions import record_decision, current_core
+    from ..map.mapfile import MapError
+    root = find_root(Path(args.root) if args.root else Path.cwd())
+    data = read_conflicts(root)
+    entry = next((c for c in (data or {}).get('conflicts', []) if c['id'] == args.conflict), None)
+    if entry is None:
+        return _early(out, f'no open conflict {args.conflict}; run {PROG} status', EXIT_ERROR, args.json)
+    evidence = None
+    if args.provisional is not None:
+        if entry['kind'] not in {'RULE CONTRADICTION', 'CONTRADICTION'}:
+            return _early(out, 'provisional_not_allowed: repair this conflict; only a computed incompatible requested-rule pair qualifies', EXIT_ERROR, args.json)
+        try:
+            evidence = current_core(root, entry)
+        except MapError as error:
+            return _early(out, str(error), EXIT_ERROR, args.json)
+    try:
+        event = record_decision(root, entry, owner=args.owner, request=args.request,
+                                provisional=args.provisional, evidence=evidence,
+                                purpose='existing_routes' if args.existing_routes else None)
+    except MapError as error:
+        return _early(out, str(error), EXIT_ERROR, args.json)
+    entry.setdefault('history', history.bind(entry, previous=entry)['history'])
+    entry['history']['decision_refs'] = sorted(set(entry['history']['decision_refs']) | {event['id']})
+    states = decision_results(root, entry)
+    result = next((state for state in states if state['id'] == event['id']), {})
+    from .codeaudit import apply_declared
+    write_conflicts(root, apply_declared(root, data))
+    message = f"{event['id']}: {result.get('label', event['mode'])}; conflict remains visible"
+    if args.json:
+        out.write(json.dumps(dict(exit=0, decision=event, result=result, question=conflict_question(root, entry)), ensure_ascii=False) + '\n')
+    else:
+        out.write(message + '\n' + conflict_question(root, entry) + '\n')
+    return EXIT_CLEAN
+
+
+def commit_ready_command(root, args, out):
+    from .commit_ready import commit_ready
+    from .project import staged_models, running_models
+    data = read_conflicts(root)
+    from .codeaudit import reopen_declared, declared_entries
+    data = reopen_declared(root, data)
+    affected = staged_models(root, data)
+    entries = [*(data or {}).get('conflicts', []), *declared_entries(data)]
+    decisions = {c['id']:c.get('history', {}).get('decision_refs', []) for c in entries}
+    policy = commit_ready(root, affected, data, entries,
+                          running=running_models(root), decisions=decisions, closed=(data or {}).get('closed', []))
+    policy['affected'] = affected
+    policy['exit'] = EXIT_CLEAN if policy['ready'] else EXIT_CONFLICT
+    if args.json:
+        out.write(json.dumps(policy, ensure_ascii=False, sort_keys=True) + '\n')
+    else:
+        out.write('commit ready\n' if policy['ready'] else 'commit not ready\n')
+        for reason in policy['reasons']:
+            out.write('  ' + reason['code'] + ': ' + reason.get('model', '') +
+                      (' ' + reason.get('conflict', '') if reason.get('conflict') else '') +
+                      (' ' + ', '.join(reason['paths']) if reason.get('paths') else '') + '\n')
+        if policy['unknown']:
+            out.write('  finished UNKNOWN: ' + ', '.join(policy['unknown']) + '\n')
+    return policy['exit']
+
+
+def refresh_status(root, *, wait=DEFAULT_WAIT, err=None):
+    """Use the existing cache/plan/wait route for changed or never-checked models."""
+    import io
+    problem = jobs.platform_problem()
+    if problem is not None:
+        return dict(refreshed=[], exit=EXIT_ERROR, unsupported=problem)
+    previous = read_conflicts(root)
+    from .codeaudit import reopen_declared
+    reopened = reopen_declared(root, previous)
+    if reopened != previous:
+        write_conflicts(root, reopened)
+        previous = reopened
+    paths = []
+    for path in model_files(root):
+        planned = jobs.plan(root, [path], stored=previous)
+        if any(jobs.lookup(root, item) is None for item in planned):
+            paths.append(path)
+    if not paths:
+        return dict(refreshed=[], exit=EXIT_CLEAN)
+    argv = ['check', *(p.stem for p in paths), '--root', str(root), '--wait', str(wait), '--json']
+    output = io.StringIO()
+    code = check(parser().parse_args(argv), argv, out=output, err=err)
+    result = json.loads(output.getvalue())
+    return dict(refreshed=[p.stem for p in paths], exit=code, running=result.get('running'), resume=result.get('resume'))
+
+
+def public_finding(finding):
+    data = finding.to_json()
+    data['detail'].pop('entry', None)
+    return data

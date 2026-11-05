@@ -62,7 +62,11 @@ def test_refusals_share_views_and_preserve_the_exact_later_public_prefix(tmp_pat
     from flowguard.behave.capture import failure_context, iter_steps
     from flowguard.behave.explore import plain
     captured = result["rule_captures"]
-    row, = list(iter_steps(captured))
+    rows = list(iter_steps(captured))
+    assert len(rows) == len(calls)
+    assert [row["outcome"] for row in rows] == ["refusal"] * 8 + ["success"]
+    assert all(row["unchanged"] for row in rows[:-1])
+    row = rows[-1]
     assert failure_context(row) == {"start": {"world": "small"}, "prefix": calls,
                                     "outcomes": ["refusal"] * 8 + ["success"]}
     assert len(captured["states"]) == len(captured["observations"]) == 2
@@ -75,8 +79,10 @@ def test_refusals_share_views_and_preserve_the_exact_later_public_prefix(tmp_pat
         "action": {"name": "blocked", "args": ["U1"]}}})
     assert "unsupported" not in branch, branch
     assert branch["candidates"][0]["comparison"]["observed"] == "refusal"
-    assert len(branch["rule_captures"]["prefixes"]) == 1  # Abandoned refusal branch has no rule witness.
-    assert not branch["rule_captures"]["steps"]
+    branch_rows = list(iter_steps(branch["rule_captures"]))
+    assert len(branch_rows) == 1
+    assert branch_rows[0]["outcome"] == "refusal"
+    assert branch_rows[0]["unchanged"]
 
 
 SETTINGS_PROGRAM = '''import json

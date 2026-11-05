@@ -44,7 +44,7 @@ fail a check. History lives in git.
 
 ```bash
 pip install -e .                                          # engine, standard library only
-# or from GitHub: python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.74.0"; the PyPI package named flowguard is a different project
+# or from GitHub: python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.75.0"; the PyPI package named flowguard is a different project
 python scripts/install_skill.py --target ~/.claude/skills # skill for your agent (or $CODEX_HOME/skills)
 
 cd your-project
@@ -112,6 +112,8 @@ When finding source or its owner needs more than one grep hop, use these static 
 | `python -m flowguard where --arch` | architecture and source-backed suggestions |
 | `python -m flowguard where --text` | text and reference summary |
 | `python -m flowguard where --keyflows` | shared state and file destinations |
+
+`where NAME` also shows literal flow-model coverage, sourced rules and the last stored open conflicts. It links stored owner words from `Request: R<n>` commit lines only when that commit changed the queried function; changes to another function in the same file do not attach its request. Shallow history, retired or invalid requests and computed model declarations remain explicit limits. The query imports no project or model code.
 
 Add `--root DIR` or `--json` as needed. With `--text`, select FILE, `source:<id>`, `group:<id>` or `"text:<literal phrase>"` to read original passages and available Git provenance. The default shows the most relevant rows of each list, says how many it left out and prints commands for the next query; `--all` prints every row. Literal searches use case-insensitive substrings. `--at REF` reads both text and code at that Git revision.
 

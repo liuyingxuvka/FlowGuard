@@ -21,8 +21,10 @@ _PKG = Path(__file__).resolve().parent
 
 def _engine_digest() -> str:
     h = hashlib.sha256()
-    for path in sorted(x for x in _PKG.rglob("*") if x.suffix in (".py", ".js")):   # .js: the picture renderer
-        h.update(path.relative_to(_PKG).as_posix().encode() + b"\0")
+    package = _PKG.parent
+    for path in sorted(x for x in package.rglob("*") if x.suffix in (".py", ".js")
+                       and x.relative_to(package).parts[0] not in {"behave", "_next"}):
+        h.update(path.relative_to(package).as_posix().encode() + b"\0")
         h.update(path.read_bytes() + b"\0")
     h.update(f"python {sys.version_info.major}.{sys.version_info.minor}".encode())
     return h.hexdigest()
@@ -72,7 +74,7 @@ class PartContext:
 
 
 _REGISTRY: dict[str, tuple[Callable[[PartContext], PartResult], str]] = {}
-PART_MODULES = ("routes", "mutate", "diagram")   # register their part kinds when imported (after core)
+PART_MODULES = ("routes", "mutate", "diagram", "codeaudit")   # register after core
 _PLANNED, _FULL_ONLY, _ON_REQUEST = "check", "full", "request"
 
 
@@ -135,6 +137,8 @@ def core_part(ctx: PartContext) -> PartResult:
                           {"loaded": False}, sorted(reads), [])
     reads = list(loaded.reads)
     digest = part_digest(root, spec, reads)
+    from .descriptors import input_evidence, model_descriptor, finding_terms
+    checked_inputs = input_evidence(root, reads)
     report = check_model(loaded, Bounds(max_states),
                          progress=lambda d: ctx.progress({"model": spec.model, "kind": spec.kind, **d}))
     model = loaded.model
@@ -145,7 +149,13 @@ def core_part(ctx: PartContext) -> PartResult:
             "objects": {kind: list(ids) for kind, ids in model.kinds.items()},
             "reached": list(report.reached), "sources": report_sources(report),
             "setting_proposals": model.setting_proposals()}
-    findings = list(report.findings)
+    from .descriptors import requested_rule_conflicts
+    findings, info['decision_evidence'] = requested_rule_conflicts(report)
+    report.findings = findings
+    for finding in findings:
+        finding.detail['model_name'] = model.name
+        finding.detail.setdefault('subject_terms', finding_terms(finding, model))
+        finding.detail['attribution'] = {'kind': finding.kind, 'sources': list(finding.sources)}
     if spec.option("verify_symmetry", False):
         ctx.progress({"model": spec.model, "kind": spec.kind, "states": len(report.graph.states),
                       "phase": "verifying the renaming with a search that does not use it"})
@@ -153,11 +163,47 @@ def core_part(ctx: PartContext) -> PartResult:
         info["symmetry"] = {"verified": sym["verified"], "text": sym["text"]}
         if sym["finding"] is not None:
             findings.append(sym["finding"])
+    from .native_evidence import evaluate_report
+    from .history import unpack_entries
+    previous_entries = unpack_entries(spec.option("native_stored", "[]"))
+    # Clean declarations need their scope and source identities, not a Cartesian
+    # truth table. New/retained conflicts still need the full weakening relation.
+    finite_comparison = (bool(previous_entries) or spec.option('finite_comparison', False)
+                         or any(f.cls == 'conflict' for f in findings))
+    descriptor = info['descriptor'] = model_descriptor(loaded, report, digest, checked_inputs,
+                                                      finite_comparison=finite_comparison)
+    observation = None if descriptor is None else {
+        "receipt": digest, "finished": True, "loaded": True, "complete": report.graph.complete,
+        "errors": len(report.graph.errors), "scope": descriptor["scope"],
+        "obligations": descriptor["obligations"], "replay": "not_run",
+        "conflicts": [{"id":f.id,"kind":f.kind,"subject":f.subject} for f in findings if f.cls == 'conflict']}
+    native = evaluate_report(root, report, previous_entries,
+                             full=spec.option("verify_symmetry", False), observation=observation)
+    info["native"] = native
+    reads = sorted(set(reads) | set(native["reads"]))
+    digest = part_digest(root, spec, reads)
+    if descriptor is not None:
+        from .descriptors import input_evidence, model_descriptor
+        info["descriptor"] = model_descriptor(loaded, report, digest, input_evidence(root, reads),
+                                               finite_comparison=finite_comparison or native['status'] == 'drift')
+        from .history import assess
+        final_observation = {**observation, 'receipt':digest,
+                             'scope':info['descriptor']['scope'], 'obligations':info['descriptor']['obligations']}
+        for entry in previous_entries:
+            closure = native['closures'].get(entry['id'])
+            if closure is not None and closure.get('kind') == 'requirement_changed':
+                closure['resolution'] = assess(entry,final_observation,root=root)['resolution']
+    if native["status"] == "unknown":
+        info["unknown"].append("native correspondence")
+    from .regression import prepare_model_closures
+    info['model_closures'], info['model_closure_limits'] = prepare_model_closures(root, loaded, report, info['descriptor'], previous_entries)
     from .diagram import conflict_pictures              # diagram imports this module
     ctx.progress({"model": spec.model, "kind": spec.kind, "states": len(report.graph.states),
                   "phase": "drawing the conflicts' pictures"})
     pictures = conflict_pictures(report, root)          # <model>-<fingerprint>.mmd/.svg/.png per conflict
-    writes = sorted({w for _, _, files in pictures for w in files})
+    writes = sorted({w for _, _, files in pictures for w in files} |
+                    set(native["writes"]) |
+                    {proof['regression']['path'] for proof in info['model_closures'].values()})
     return PartResult(spec.kind, spec.model, digest, report.graph.complete,
                       [f.to_json() for f in findings], info, reads, writes)
 

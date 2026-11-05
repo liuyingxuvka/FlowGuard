@@ -17,6 +17,7 @@ from .inventory import build_inventory, function_digests, syntax_tree
 from .mapfile import ignore_patterns, load_map, map_path, model_registry, owner_index, read_model_contract
 from .records import change_records
 from .requests import owner_words
+from .flow_sources import binding_matches, declarations, live_request_ids, symbol_request_commits
 
 
 @contextmanager
@@ -502,9 +503,53 @@ def where(root, name=None, *, view="tree", at=None, execution=None, inv=None, ra
         result["entries"] = [entry for entry in entries if _match(name, entry["name"])]
         result["changes"] = [{"id": identifier, "goal": record["goal"], "requests": record["requests"], "implemented_by": record["implemented_by"]}
                              for identifier, record in records if name == identifier or any(item["id"] == name for item in record["requests"])]
-        result["requests"] = [row for row in owner_words(source, records=records)["rows"] if row["id"] == name] if at is None else []
+        flow_models, flow_unknown = declarations(source)
+        result["unknown"].extend(flow_unknown)
+        bound_models = [model for model in flow_models if any(
+            binding_matches(cover, identifier) for cover in model["covers"] for identifier in selected)
+            or name in {model["model"], model["path"]} or any(cover == name for cover in model["covers"])
+            or any(rule["name"] == name for rule in model["rules"])]
+        result["flow_models"] = [{key: value for key, value in model.items() if key != "rules"} for model in bound_models]
+        result["flow_rules"] = [rule for model in bound_models for rule in model["rules"]]
+        bound_ids = {model["model"] for model in bound_models}
+        for row in result["functions"]:
+            row["model_bindings"].extend(dict(model=model["model"], anchor=row["function"], path=model["path"],
+                                              kind="declared flow coverage", tests=[])
+                                         for model in bound_models if any(binding_matches(cover, row["id"]) for cover in model["covers"]))
+        from ..flow.project import ConflictsUnreadable, read_conflicts
+        try:
+            conflicts = read_conflicts(source)
+        except ConflictsUnreadable as error:
+            result["unknown"].append(str(error))
+            conflicts = None
+        result["open_conflicts"] = [{key: row[key] for key in ("id", "kind", "model", "subject", "text", "sources") if key in row}
+                                    for row in (conflicts or {}).get("conflicts", []) if row["model"] in bound_ids]
+        request_ids = [rule["source"] for rule in result["flow_rules"]]
+        request_ids.extend(rid for row in result["open_conflicts"] for rid in row.get("sources", []))
+        if at is None:
+            commit_links, history_unknown = symbol_request_commits(source, selected)
+            result["unknown"].extend(history_unknown)
+            for row in result["functions"]:
+                row["request_commits"] = []
+                for link in commit_links[row["id"]]:
+                    live, invalid = live_request_ids(source, link["requests"])
+                    result["unknown"].extend(invalid)
+                    if live:
+                        row["request_commits"].append(dict(commit=link["commit"], requests=live))
+                        request_ids.extend(live)
+            request_ids.extend(item["id"] for identifier in selected for _, record in records
+                               if identifier.replace("#", ":", 1) in record.get("implemented_by", [])
+                               for item in record.get("requests", []))
+            live, invalid = live_request_ids(source, request_ids)
+            result["unknown"].extend(invalid)
+            result["requests"] = [row for row in owner_words(source, records=records)["rows"] if row["id"] in live or row["id"] == name]
+        else:
+            result["requests"] = []
+            if selected:
+                result["unknown"].append("request commit history links are unavailable in a detached static --at snapshot")
+        result["unknown"] = list(dict.fromkeys(result["unknown"]))
         result["constants"] = [{"path": path, "name": key, **value} for path, file in raw["files"].items() for key, value in file.get("source_constants", {}).items() if _match(name, key)]
-        if not any(result.get(key) for key in ("functions", "references", "literals", "state", "entries", "changes", "requests", "constants")):
+        if not any(result.get(key) for key in ("functions", "references", "literals", "state", "entries", "changes", "requests", "constants", "flow_models", "flow_rules", "open_conflicts")):
             result["unknown"].append("name not resolved in the static source index: " + name)
         return result
 
@@ -531,14 +576,16 @@ def project(result, *, all_rows=False):
             shown["functions"].append({**row, **{field: bound(row[field], label, omitted, **keep, limit=limit)
                                                  for field, label, limit in (("callers", "callers", DISPLAY_ROWS),
                                                                              ("reaching_entries", "entry routes", DISPLAY_ROWS),
-                                                                             ("no_resolved_route", "entries without a route here", 0))
+                                                                             ("no_resolved_route", "entries without a route here", 0),
+                                                                             ("request_commits", "request commits", DISPLAY_ROWS))
                                                  if field in row}})
     for field, label, limit in (("unresolved_entries", "unknown entry bindings", 0), ("edges", "function edges", DISPLAY_ROWS),
                                 ("modules", "modules", DISPLAY_ROWS), ("module_edges", "module edges", DISPLAY_ROWS),
                                 ("drift", "drift findings", DISPLAY_ROWS), ("references", "references", DISPLAY_ROWS),
                                 ("literals", "literals", DISPLAY_ROWS), ("constants", "constants", DISPLAY_ROWS),
                                 ("entries", "entries", DISPLAY_ROWS), ("changes", "changes", DISPLAY_ROWS),
-                                ("requests", "requests", DISPLAY_ROWS), ("stores", "stores", DISPLAY_ROWS),
+                                ("requests", "requests", DISPLAY_ROWS), ("flow_models", "flow models", DISPLAY_ROWS),
+                                ("flow_rules", "flow rules", DISPLAY_ROWS), ("open_conflicts", "open conflicts", DISPLAY_ROWS), ("stores", "stores", DISPLAY_ROWS),
                                 ("unresolved", "unresolved calls", DISPLAY_ROWS), ("text_groups", "text groups", DISPLAY_ROWS)):
         if field in result:
             shown[field] = bound(result[field], label, omitted, **keep, limit=limit)
@@ -577,6 +624,8 @@ def render(result, *, as_json=False, all_rows=False):
                 lines.append("  no resolved route: " + ", ".join(row["no_resolved_route"]))
             if row["execution"]["state"] == "recorded":
                 lines.append("  tests: " + (", ".join(row["execution"]["tests"]) if isinstance(row["execution"]["tests"], list) else row["execution"]["tests"]))
+            for link in row.get("request_commits", []):
+                lines.append("  commit " + link["commit"][:12] + " · requests " + ", ".join(link["requests"]))
             if row["model_bindings"]:
                 lines.append("  declared model anchors: " + ", ".join(item["model"] + "." + item["anchor"] for item in row["model_bindings"]))
         if result.get("unresolved_entries"):
@@ -609,6 +658,12 @@ def render(result, *, as_json=False, all_rows=False):
             facts = ("request " + row["id"] + ": " + state, row["first_line"],
                      "cited by " + ", ".join(row["cited_by"]) if row["cited_by"] else "")
             lines.append(" · ".join(fact for fact in facts if fact))
+        for row in result.get("flow_models", []):
+            lines.append("flow model " + row["model"] + " · " + row["path"] + " · covers " + ", ".join(row["covers"]))
+        for row in result.get("flow_rules", []):
+            lines.append("flow rule " + row["model"] + "." + row["name"] + " · " + row["source"] + " · " + row["path"] + ":" + str(row["line"]))
+        for row in result.get("open_conflicts", []):
+            lines.append("open conflict " + row["id"] + " · " + row["kind"] + " · " + row["subject"])
         for row in result.get("drift", []):
             lines.append("drift class " + str(row["class"]) + " " + row["kind"] + " " + row["source"] + ":" + str(row["line"]) + " · " + row.get("fact", row.get("target", "")))
         for row in result.get("modules", []):

@@ -13,7 +13,7 @@ pytestmark = pytest.mark.skipif(sys.version_info < (3, 12), reason="pilot behavi
 
 
 def test_current_key_reuses_complete_snapshot_but_tracks_default_aliases(tmp_path, monkeypatch):
-    from flowguard.behave import project
+    from flowguard.native import session as project
 
     session = project._Session({}, {}, tmp_path, None)
     shared = [1]
@@ -51,7 +51,7 @@ def test_current_key_reuses_complete_snapshot_but_tracks_default_aliases(tmp_pat
 
 
 def test_current_key_retains_old_hash_path_for_custom_defaults_and_cycles(tmp_path, monkeypatch):
-    from flowguard.behave import project
+    from flowguard.native import session as project
 
     class Custom(dict):
         pass
@@ -238,8 +238,9 @@ def test_descriptor_relative_writes_are_unsupported_but_mkstemp_save_works(examp
 def test_pure_queries_keep_validated_observation_and_full_purity_checks(example, monkeypatch):
     from flowguard.behave import project
     original = project.run_isolated_process
-    control = '''from flowguard.behave import project as native, explore as walk
-run_session = native._run_session
+    control = '''from flowguard.behave import project as pilot, explore as walk
+from flowguard.native import session as native
+run_session = pilot._run_session
 def controlled(request, arena, observed):
     if not request.get("options", {}).get("control_queries"):
         return run_session(request, arena, observed)
@@ -259,7 +260,7 @@ def controlled(request, arena, observed):
               for name, args in (("status", ["E1"]), ("entries", []))]
     return {"values": values, "same_observation": session.current is initial,
             "query_calls": session.executed_calls - calls, **counts, "execution": session.receipt()}
-native._run_session = controlled
+pilot._run_session = controlled
 '''
     def observed(command, **kwargs):
         command = list(command)

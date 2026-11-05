@@ -26,6 +26,7 @@ from .checks import CONFLICT, Finding, Report, check_model, explanation_text
 from .explore import Bounds, explore, show_step
 from .jobs import ending_with_this_process
 from .model import ModelError, load_model, show_key, vary_setting
+from .native_picture import cached_drift, draw_drift
 from .parts import PartContext, PartResult, PartSpec, kinds, part_digest, register, run_part
 from .project import (PROG, ProjectError, cache_dir, changed_files, changed_models, export_at, model_files,
                       new_and_open, read_conflicts, read_manifest, write_manifest)
@@ -1202,7 +1203,7 @@ def conflict_pictures(report: Report, root: Path) -> list:
     return out
 
 
-_KIND_ORDER = ("STUCK", "BROKEN", "CONTRADICTION") + ROUTE_KINDS + ("NEVER REACHED",)
+_KIND_ORDER = ("STUCK", "RULE CONTRADICTION", "BROKEN", "CONTRADICTION") + ROUTE_KINDS + ("NEVER REACHED",)
 
 
 def order_conflicts(findings) -> list:
@@ -1259,6 +1260,11 @@ def picture_part(ctx: PartContext) -> PartResult:
     first conflict), before (REV and its commit), the view request and max_states."""
     root, spec = Path(ctx.root), ctx.spec
     opt = dict(spec.options)
+    what = opt.get("what") or ""
+    if what.startswith("C-"):
+        native = cached_drift(root, what)
+        if native is not None:
+            return draw_drift(ctx, native)
     bounds = Bounds(opt.get("max_states", Bounds().max_states))
     try:
         loaded = load_model(ctx.path, root)
@@ -1268,6 +1274,8 @@ def picture_part(ctx: PartContext) -> PartResult:
         return PartResult(spec.kind, spec.model, part_digest(root, spec, reads), True, [],
                           {"first_line": line, "mermaid": "", "error": str(err)}, reads, [])
     report = check_model(loaded, bounds)
+    from .descriptors import requested_rule_conflicts
+    report.findings, _ = requested_rule_conflicts(report)
     reads = list(loaded.reads)
     subject = None
     conflicts = order_conflicts(f for f in report.findings if f.cls == CONFLICT)
@@ -1385,20 +1393,30 @@ def _plan_show(root, a, view_opts, runner):
     if a.before:
         before = (a.before, _git_commit(root, a.before))
     subjects = []                                         # (model, what, before)
+    native_cores = {}
     message = ""
     more = []
     if a.what:
         what = a.what
         if what.startswith("C-"):
-            found, unfinished = _conflicts(root, runner, list(models), a.max_states)
-            hit = [(m, f) for m, fs in found.items() for f in fs if f.id == what]
-            if not hit:
-                kept = _kept_open(root, models, found, unfinished, only=what)
-                if kept:                                  # proven, but this search does not reach it
-                    return 3, [], [], "\n".join(kept)
-                raise _Usage(f"no conflict {what} now (conflicts: "
-                             + (", ".join(f.id for fs in found.values() for f in fs) or "none") + ")")
-            subjects.append((hit[0][0], what, before, None))
+            native = cached_drift(root, what)
+            if native is not None:
+                if before is not None or any(value for key, value in view_opts
+                                              if key in {"fields", "object", "focus", "story", "group"}):
+                    raise _Usage("a native drift picture shows its checked concrete observations; "
+                                 "select a model for a different view or a before comparison")
+                subjects.append((native[0].model, what, None, None))
+                native_cores[what] = native[0].digest
+            else:
+                found, unfinished = _conflicts(root, runner, list(models), a.max_states)
+                hit = [(m, f) for m, fs in found.items() for f in fs if f.id == what]
+                if not hit:
+                    kept = _kept_open(root, models, found, unfinished, only=what)
+                    if kept:                                  # proven, but this search does not reach it
+                        return 3, [], [], "\n".join(kept)
+                    raise _Usage(f"no conflict {what} now (conflicts: "
+                                 + (", ".join(f.id for fs in found.values() for f in fs) or "none") + ")")
+                subjects.append((hit[0][0], what, before, None))
         else:
             model, _, obj = what.partition(":")
             if model not in models:
@@ -1455,6 +1473,8 @@ def _plan_show(root, a, view_opts, runner):
     for model, what, bef, obj in subjects:
         opts = dict(view_opts)
         opts.update(what=what, obj=obj)
+        if what in native_cores:
+            opts["native_core"] = native_cores[what]
         if bef is not None:
             opts.update(before=bef[0], commit=bef[1], subject=bool(a.what) or bool(what))
         specs.append(PartSpec("picture", model, tuple(sorted(opts.items()))))

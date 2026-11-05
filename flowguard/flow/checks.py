@@ -1133,6 +1133,9 @@ class _Run:
         detail = {"item": kind, "explained": how, "capped": [c for c in capped if c not in (how or [])],
                   "cut": [c for c in cut if c not in (how or [])],
                   "explanation_errors": list(self.explanation_errors)}
+        detail["target"] = ({"kind": "value", "field": show_key(what[0]), "value": repr(what[1])}
+                            if kind == "value" else
+                            {"kind": kind, "name": what.name if kind == "reach" else what})
         if kind == "value":
             key, v = what
             f = self.field_by_key[key]

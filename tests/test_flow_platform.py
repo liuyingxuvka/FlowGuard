@@ -106,6 +106,10 @@ def test_unsupported_flow_commands_refuse_without_loading_or_changing_conflicts(
     status = run(tmp_path, "status", unsupported=True)
     assert status["code"] == 0 and "F-saved" in status["out"], status
     assert UNSUPPORTED in status["out"], status
+    refreshed = run(tmp_path, "status", "--json", unsupported=True)
+    assert refreshed["code"] == 0, refreshed
+    facts = json.loads(refreshed["out"])
+    assert facts["flow_refresh"] == {"refreshed": [], "exit": 2, "unsupported": UNSUPPORTED}
     assert record.read_bytes() == original
 
 

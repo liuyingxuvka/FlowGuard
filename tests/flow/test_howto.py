@@ -35,9 +35,32 @@ def test_every_code_block_is_a_working_model(project):
     models = blocks("python")
     assert models
     for n, code in enumerate(models):
+        binding = "MODEL = m" not in code
+        if binding:
+            # The guide labels this as a binding for an existing model/object.
+            # Supply those declared prerequisites and exercise the real bridge.
+            project.file("app.py", '''class Refusal(Exception): pass
+class Program:
+    def __init__(self): self.n = 0
+    def step(self):
+        if self.n: raise Refusal("finished")
+        self.n = 1
+''')
+            code = '''from flowguard.flow import Model, need
+m = Model("guide binding")
+m.field("n", [0, 1], 0)
+@m.action()
+def step(s):
+    need(s["n"] == 0)
+    s["n"] = 1
+m.terminal("n", [1])
+''' + code + "\nMODEL = m\n"
         path = project.flow(f"block{n}", code)
         report = check_model(load_model(path, project.root))
         assert report.graph.complete
+        if binding:
+            from flowguard.flow.native_evidence import evaluate_report
+            assert evaluate_report(project.root, report)["status"] == "conformant"
 
 
 def test_the_stated_outputs_are_what_the_check_finds(project):
@@ -61,7 +84,7 @@ def test_the_stated_outputs_are_what_the_check_finds(project):
 def test_the_guide_uses_only_the_public_names():
     for code in blocks("python"):
         imports = re.findall(r"^from (\S+) import (.+)$", code, re.M)
-        assert imports == [("flowguard.flow", "Model, need")]
+        assert imports in [[("flowguard.flow", "Model, need")], [("flowguard.flow.adapter", "fields")]]
     assert "machine" not in HOWTO.read_text(encoding="utf-8").lower().replace("a small machine", "")
 
 

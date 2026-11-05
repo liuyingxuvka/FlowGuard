@@ -11,24 +11,7 @@ import random
 from .project import UnsupportedWorld, state_key
 
 
-def plain(pack):
-    nodes = pack["nodes"]
-    def read(value):
-        if not isinstance(value, dict):
-            return value
-        if "float" in value:
-            return float.fromhex(value["float"])
-        if "enum" in value:
-            return value["value"]
-        if "ref" not in value:
-            raise UnsupportedWorld("this query value has no finite scalar view")
-        node = nodes[value["ref"]]
-        if node["type"] in {"builtins:list", "builtins:tuple", "builtins:set", "builtins:frozenset"}:
-            return [read(item) for item in node["items"]]
-        if node["type"] == "builtins:dict":
-            return {read(key): read(item) for key, item in node["items"]}
-        raise UnsupportedWorld("object-valued query needs an explicit world")
-    return read(pack["root"])
+from flowguard.native.capture import plain
 
 
 def evaluate(session, goal):

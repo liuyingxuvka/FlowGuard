@@ -343,11 +343,22 @@ class Model:
         self._config_obj = _MISSING
         self._config_file = None
         self.code_configs = []            # the covered code's settings objects (set by the loader)
+        self.adapter_binding = None
         if config is not None:
             self._config_obj, self._config_file = _import_config(config)
 
     def __repr__(self):
         return f"Model({self.name!r})"
+
+    def bind_adapter(self, spec, *, state, operations, output=None, outcome=None,
+                     dispatch=None, start=None, prefix=()):
+        """Bind this model once to the shared native driver, never to its expected state."""
+        if self.adapter_binding is not None:
+            _fail("the model already has an adapter binding")
+        from .adapter import AdapterBinding
+        self.adapter_binding = AdapterBinding(self, spec, state, operations, output, outcome,
+                                              dispatch, start or {}, tuple(prefix))
+        return self.adapter_binding
 
     @property
     def settings(self):
@@ -651,6 +662,15 @@ def _config_candidates(rel: str, tree: ast.Module, root: Path) -> list[tuple[str
     says config or settings, any name it imports from a module so named, a class it defines
     so named. Relative imports are resolved against the file's package."""
     modparts, package = _module_parts(rel, root)
+    # Definitions and assignments in a function/class belong to that local
+    # namespace, not to the covered module. Imports still name real source
+    # objects even when a function performs them only when called.
+    module_scope, pending = set(), [tree]
+    while pending:
+        node = pending.pop()
+        module_scope.add(node)
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            pending.extend(ast.iter_child_nodes(node))
     out = []
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
@@ -669,9 +689,9 @@ def _config_candidates(rel: str, tree: ast.Module, root: Path) -> list[tuple[str
             out.extend((alias.name, "") for alias in node.names
                        if _CONFIG_WORD.search(alias.name.rpartition(".")[2]) or
                        alias.asname and _CONFIG_WORD.search(alias.asname))
-        elif isinstance(node, ast.ClassDef) and _CONFIG_WORD.search(node.name) and modparts:
+        elif node in module_scope and isinstance(node, ast.ClassDef) and _CONFIG_WORD.search(node.name) and modparts:
             out.append((".".join(modparts), node.name))
-        elif isinstance(node, (ast.Assign, ast.AnnAssign)) and modparts:
+        elif node in module_scope and isinstance(node, (ast.Assign, ast.AnnAssign)) and modparts:
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             out.extend((".".join(modparts), target.id) for target in targets
                        if isinstance(target, ast.Name) and _CONFIG_WORD.search(target.id))
@@ -3027,11 +3047,26 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
     the load read. transform (routes, mutation) rewrites the model file's AST only."""
     path = Path(path).resolve()
     root = Path(root).resolve()
-    for name in _project_modules(root):            # project modules are imported fresh
-        del sys.modules[name]
     added = [str(root), str(path.parent)]
     if (root / "src").is_dir() and not (root / "src/__init__.py").is_file():
         added.insert(1, str(root / "src"))
+    # The current source must win over a caller's cached same-named package,
+    # including one from another project. Restore that caller graph after loading.
+    local_names = {entry.stem if entry.suffix == '.py' else entry.name
+                   for directory in added for entry in Path(directory).iterdir()
+                   if entry.suffix == '.py' or entry.is_dir()}
+    project_modules = _project_modules(root)
+    previous = {name: module for name, module in list(sys.modules.items())
+                if name in project_modules or
+                name.split('.')[0] in local_names and not _engine_module(name)}
+    parents = {name.rpartition('.')[0] for name in previous if '.' in name}
+    parents.update(name for name, module in list(sys.modules.items())
+                   if _engine_module(name) and module is not None and '__path__' in vars(module))
+    parent_attributes = {name: (sys.modules[name], dict(vars(sys.modules[name])))
+                         for name in parents if sys.modules.get(name) is not None}
+    for name in previous:
+        del sys.modules[name]
+    import_path = list(sys.path)
     sys.path[:0] = added
     modname = f"_flowguard_model_{path.stem}_{next(_COUNTER)}"
     module = types.ModuleType(modname)
@@ -3087,9 +3122,17 @@ def load_model(path: Path, root: Path, transform: Callable[[ast.Module], ast.Mod
     finally:
         sys.meta_path.remove(project_imports)
         _LOAD["root"] = old_root
-        for p in added:
-            if p in sys.path:
-                sys.path.remove(p)
+        sys.path[:] = import_path
         sys.modules.pop(modname, None)
-        for name in _project_modules(root):
-            del sys.modules[name]
+        loaded = set(_project_modules(root))
+        for name in loaded:
+            sys.modules.pop(name, None)
+        sys.modules.update(previous)
+        for name in loaded | previous.keys():
+            parent, _, child = name.rpartition('.')
+            if parent in parent_attributes:
+                module, attributes = parent_attributes[parent]
+                if child in attributes:
+                    setattr(module, child, attributes[child])
+                else:
+                    vars(module).pop(child, None)

@@ -230,8 +230,8 @@ def test_status_lists_owner_words_newest_first_across_a_release(tmp_path, capsys
 
 
 def test_status_shows_the_flow_models_open_conflicts_from_the_last_check(tmp_path, capsys):
-    """One route: the line is the engine's own reading of .flowguard/conflicts.json, placed after
-    OPEN CHANGE; a project without flow models gets no line, a damaged record is named."""
+    """Status refreshes changed models and puts their actionable conflicts before static facts;
+    a project without flow models gets no line, and a damaged record is named."""
     from flowguard.__main__ import main
     from flowguard.flow.cli import status_lines
     root = _project(tmp_path)
@@ -240,23 +240,31 @@ def test_status_shows_the_flow_models_open_conflicts_from_the_last_check(tmp_pat
     flow = root / '.flowguard/flow'
     flow.mkdir(parents=True, exist_ok=True)
     shutil.copy(Path(__file__).parent / 'flow/data/planted/rental_naive.py', flow / 'rental.py')
-    assert _status(root, capsys)['flow_models'] == ['flow models: no check recorded (run python -m flowguard check)']
+    refreshed = _status(root, capsys)['flow_models']
+    assert refreshed[0].startswith('flow models: 1 open conflict')
+    assert any(line.startswith('OPEN STUCK rental:') for line in refreshed)
     assert main(['check', '--root', str(root)]) == 1
     conflict = json.loads((root / '.flowguard/conflicts.json').read_text(encoding='utf-8'))['conflicts'][0]['id']
     capsys.readouterr()
     lines = _status(root, capsys)['flow_models']
-    assert lines == status_lines(root) == [f'flow models: 1 open conflict ({conflict}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked']
+    assert lines == status_lines(root)
+    assert lines[0] == f'flow models: 1 open conflict ({conflict}); release fails until fixed; CI fails only when it runs release; without a hook a commit is not blocked'
+    assert any('model-only: check the owner words and actual code' in line for line in lines)
     assert main(['status', '--root', str(root)]) == 0
     text = capsys.readouterr().out.splitlines()
     opened = next(number for number, line in enumerate(text) if line.startswith('OPEN CHANGE'))
-    assert text[opened + 1] == lines[0]
+    assert text.index(lines[0]) < opened
     (root / '.flowguard/conflicts.json').write_text('<<<<<<< HEAD\n', encoding='utf-8')
-    [damaged] = _status(root, capsys)['flow_models']
-    assert damaged.startswith('flow models: .flowguard/conflicts.json cannot be read (it holds git merge markers)')
+    assert main(['status', '--root', str(root), '--json']) == 2
+    damaged = capsys.readouterr().err.strip().removeprefix('error: ')
+    assert damaged.startswith('.flowguard/conflicts.json cannot be read (it holds git merge markers)')
     assert damaged.endswith('until it is restored (restore .flowguard/conflicts.json from your project backup; '
                             'then run python -m flowguard check)')
+    assert (root / '.flowguard/conflicts.json').read_text() == '<<<<<<< HEAD\n'
     (root / '.flowguard/conflicts.json').write_text('{"conflicts": [', encoding='utf-8')
-    [damaged] = _status(root, capsys)['flow_models']
-    assert damaged.startswith('flow models: .flowguard/conflicts.json cannot be read (it is not valid JSON: ')
+    assert main(['status', '--root', str(root), '--json']) == 2
+    damaged = capsys.readouterr().err.strip().removeprefix('error: ')
+    assert damaged.startswith('.flowguard/conflicts.json cannot be read (it is not valid JSON: ')
     assert damaged.endswith('until it is restored (restore .flowguard/conflicts.json from your project backup; '
                             'then run python -m flowguard check)')
+    assert (root / '.flowguard/conflicts.json').read_text() == '{"conflicts": ['

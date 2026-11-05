@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.75.0 - 2026-11-05 - Real-code checks and lasting conflict records
+
+Model-only findings are checked against the owner's words and actual code before recommending a repair.
+
+Complete finite evidence uses compact storage without dropping cases or scope.
+
+Local variables are not mistaken for module configuration.
+
+Native capture preserves source-bound function dispatch.
+
+Corrected model coverage can resolve its original conflict after complete native checks and an executed regression; real code differences remain open.
+
+Unchanged source-bound predicates remain recognizable after a model route repair, without claiming that the real code was checked.
+
+Repeated retained model facts share plan storage without dropping the original cases.
+
+Missing model results stay visible after a partial check. Native comparisons keep actual global reads and writes separate from unrelated same-named attributes.
+
+- Bind a flow model to real code once. Ordinary checks compare construction and a small operation witness set; full checks add a recorded seeded walk. Mismatches show their actual inputs and can be drawn from existing evidence.
+- Conflicts keep their first scope and promises. Removing a start or weakening a sourced promise does not silently close one. A verified repair writes and executes a regression; implemented replacement requirements retain their original owner authority and are named separately from code fixes.
+- Status refreshes changed models and puts unresolved questions first. Owner decisions require relevant live original words; provisional decisions apply only to genuinely conflicting requested rules. Read-only staged checks permit finished UNKNOWN and keep it visible.
+- Explicitly selected pytest tests can audit fallback routes using their real execution and private disable probes. Reports distinguish a masked primary failure, two active routes, visible failure and finite unreached counts; ordinary checks never start the project suite.
+- Static source queries join model declarations, sourced rules, open conflicts and actual Request commit lines without executing project code.
+
 ## v0.74.0 - 2026-11-04 - Model-first work and Windows flow checks
 
 Flow explanations include the rendered diagram in the reply.

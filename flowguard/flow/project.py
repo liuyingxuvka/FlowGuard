@@ -14,6 +14,7 @@ from pathlib import Path
 from ..map.common import normalize_newlines
 from ._process import read_text, record_access
 from .checks import WARNING, Finding, make_finding, replay_spec
+from . import history
 from .model import REQUESTS, Loaded, natural_key, request_file
 
 FLOW_DIR = Path(".flowguard") / "flow"
@@ -124,6 +125,13 @@ def _shape_problem(data) -> str | None:
                 return f"conflicts[{n}] has no '{key}'" if key not in c else f"conflicts[{n}].{key} is not text"
         if not isinstance(c.get("sources", []), list):
             return f"conflicts[{n}].sources is not a list"
+        if "history" in c:
+            problem = history.shape_problem(c["history"])
+            if problem is not None:
+                return f"conflicts[{n}].history: {problem}"
+            scope = c["history"]["baseline"]["scope"]
+            if scope is not None and scope["model"] != c["model"]:
+                return f"conflicts[{n}].history: baseline model mismatch"
     if not isinstance(data.get("unknown", []), list) or not all(isinstance(u, str) for u in data.get("unknown", [])):
         return "'unknown' is not a list of model ids"
     models = data.get("models", {})
@@ -163,7 +171,11 @@ def read_conflicts(root) -> dict | None:
     if any(line.startswith(_MERGE_MARKERS) for line in text.splitlines()):
         raise ConflictsUnreadable(unreadable_text(root, "it holds git merge markers", merge=True))
     try:
-        data = json.loads(text)
+        data = history.unpack_wire(json.loads(text))
+        if isinstance(data, dict):
+            for key in ('conflicts', 'closed'):
+                if isinstance(data.get(key), list):
+                    data[key] = history.unpack_entries(data[key])
     except ValueError as e:
         raise ConflictsUnreadable(unreadable_text(root, f"it is not valid JSON: {e}")) from e
     problem = _shape_problem(data)
@@ -187,7 +199,10 @@ def conflicts_text(data: dict) -> str:
     data = dict(data)
     data["conflicts"] = sorted(data.get("conflicts", []), key=lambda c: (c["model"], c["kind"], c["id"]))
     data["unknown"] = sorted(data.get("unknown", []))
-    return json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    for key in ('conflicts', 'closed'):
+        if isinstance(data.get(key), list):
+            data[key] = history._shared_entries(data[key])
+    return json.dumps(history.pack_wire(data, indent=2), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
 def write_conflicts(root, data: dict) -> None:
@@ -199,17 +214,43 @@ def write_conflicts(root, data: dict) -> None:
     _atomic_write(path, text)
 
 
-def conflict_entry(f: Finding) -> dict:
+def conflict_entry(f: Finding, *, observation=None, previous=None) -> dict:
     """A conflict as conflicts.json keeps it: enough to show it, and its shrunk path with
     the condition to test where the path ends (a capped check replays it, design M6)."""
     if "entry" in f.detail:                     # a conflict kept from the file: as it was
-        return dict(f.detail["entry"])
-    out = {"id": f.id, "kind": f.kind, "model": f.model, "subject": f.subject,
-           "sources": list(f.sources), "text": f.text}
-    spec = replay_spec(f)
-    if spec is not None:
-        out.update(path=list(f.path), replay=spec)
-    return out
+        out = dict(f.detail["entry"])
+    else:
+        out = {"id": f.id, "kind": f.kind, "model": f.model, "subject": f.subject,
+               "sources": list(f.sources), "text": f.text}
+        spec = replay_spec(f)
+        if spec is not None:
+            out.update(path=list(f.path), replay=spec)
+    if f.detail.get('target'):
+        out.setdefault('detail', {})['target'] = dict(f.detail['target'])
+    if f.detail.get('model_name'):
+        out['model_name'] = f.detail['model_name']
+    if f.detail.get('subject_terms'):
+        out['subject_terms'] = list(f.detail['subject_terms'])
+    if f.detail.get('attribution'):
+        out['attribution'] = dict(f.detail['attribution'])
+    origin = getattr(f, 'native_origin', None)
+    if previous is not None:
+        origin = previous.get('detail', {}).get('native_origin')
+        if 'original_model_source' in previous.get('detail', {}):
+            out.setdefault('detail', {})['original_model_source'] = previous['detail']['original_model_source']
+    if origin:
+        out.setdefault('detail', {})['native_origin'] = dict(origin)
+    return history.bind(out, observation, previous)
+
+
+def compare_conflict(entry: dict, observation: dict) -> dict:
+    """An explicit future CLI hook: persist model absence/retention, never close.
+
+    The caller must establish absence from the new findings. Native confirmation,
+    regression creation and immutable decisions remain their respective owners.
+    Existing check/status/release routes do not invoke this private foundation yet.
+    """
+    return history.compared(entry, observation)
 
 
 def new_and_open(previous: dict | None, ids) -> tuple[list[str], list[str]]:
@@ -223,19 +264,20 @@ def cache_dir(root) -> Path:
     return Path(root) / ".flowguard" / "cache" / "flow"
 
 
-def manifest_path(root, model_id: str) -> Path:
-    return cache_dir(root) / "manifests" / f"{model_id}.json"
+def manifest_path(root, model_id: str, kind: str = "core") -> Path:
+    """An injective, platform-safe key: UTF-8 hex model directory and part filename."""
+    return cache_dir(root) / "manifests" / model_id.encode("utf-8").hex() / f"{kind.encode('utf-8').hex()}.json"
 
 
-def read_manifest(root, model_id: str) -> list[str] | None:
-    path = manifest_path(root, model_id)
+def read_manifest(root, model_id: str, kind: str = "core") -> list[str] | None:
+    path = manifest_path(root, model_id, kind)
     if not path.is_file():
         return None
     return json.loads(read_text(path))["reads"]
 
 
-def write_manifest(root, model_id: str, reads) -> None:
-    _atomic_write(manifest_path(root, model_id), json.dumps({"reads": sorted(reads)}, indent=1) + "\n")
+def write_manifest(root, model_id: str, reads, kind: str = "core") -> None:
+    _atomic_write(manifest_path(root, model_id, kind), json.dumps({"reads": sorted(reads)}, indent=1) + "\n")
 
 
 def file_digest(root, rel: str) -> str | None:
@@ -348,4 +390,52 @@ def overlap_views(views) -> list[Finding]:
                     f"field '{fam}' is also declared by {other}; overlapping views of "
                     f"{', '.join(sorted(shared_files))} (one owner per field)",
                     detail={"field": fam, "other": other, "files": sorted(shared_files)}))
+    return out
+
+
+def staged_models(root, previous):
+    """Index-affected models using the same manifests/bindings as changed work."""
+    root = Path(root).resolve()
+    _require_git(root)
+    changed = set(_git(root, 'diff', '--cached', '--name-only', '--relative', '-z', '--').stdout.decode().split('\0')) - {''}
+    current = {path.stem:path.relative_to(root).as_posix() for path in model_files(root)}
+    for mid in (previous or {}).get('models', {}):
+        current.setdefault(mid, (FLOW_DIR / (mid + '.py')).as_posix())
+    out = []
+    for mid, rel in sorted(current.items()):
+        row = (previous or {}).get('models', {}).get(mid, {})
+        inputs = set(read_manifest(root, mid) or ()) | set(row.get('inputs', {})) | {rel}
+        scope = row.get('observation', {}).get('scope') or {}
+        inputs.update(anchor.partition(':')[0] for anchor in scope.get('coverage', {}).get('anchors', []))
+        if inputs & changed:
+            out.append(mid)
+    audit = (previous or {}).get('code_audit')
+    authority_paths = set()
+    if audit:
+        from .codeaudit import declared_entries
+        from .decisions import read_decision, decision_paths
+        for entry in [*(previous or {}).get('conflicts', []), *declared_entries(previous)]:
+            for identifier in entry.get('history', {}).get('decision_refs', []):
+                authority_paths.update(decision_paths(read_decision(root, identifier)))
+    if audit and ((set(audit.get('inputs', {})) | authority_paths) & changed or any(path.endswith('.py') for path in changed)):
+        from .codeaudit import PROJECT
+        out.append(PROJECT)
+    return out
+
+
+def running_models(root):
+    """Read existing job status/plan records; never start, resume or replace a job."""
+    from . import jobs
+    out = set()
+    for path in (cache_dir(root) / 'jobs').glob('*/*/status.json'):
+        status = jobs.read_json(path) or {}
+        if status.get('state') != 'running':
+            continue
+        pid = jobs.worker_pid(path.parent)
+        if pid is not None and not jobs.pid_alive(pid):
+            continue
+        plan = jobs.read_json(path.parent / 'plan.json') or {}
+        for item in plan.get('planned', plan.get('parts', [])):
+            if isinstance(item, dict) and isinstance(item.get('model'), str):
+                out.add(item['model'])
     return out

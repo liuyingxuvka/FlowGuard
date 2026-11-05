@@ -442,3 +442,41 @@ def function_digests(text):
             if not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
                 result['statements'].append(ast.dump(node))
     return result
+
+
+def coverage_kind(root: Path, anchors) -> str:
+    """Classify explicit cover paths with this inventory's source policy.
+
+    No whole-project parse is needed to classify a small cover set. Directories
+    resolve to their actual inventory members; a missing/unresolvable scope is
+    unknown, never inferred to be a pure data artifact.
+    """
+    root = Path(root).resolve()
+    files, listed = set(), None
+    for anchor in anchors:
+        if anchor.startswith('model:'):
+            continue
+        relative, separator, symbol = anchor.partition(':')
+        path = (root / relative).resolve()
+        try:
+            relative = path.relative_to(root).as_posix()
+        except ValueError:
+            return 'unknown'
+        if path.is_file():
+            if separator and symbol:
+                return 'code'
+            files.add(relative)
+        elif path.is_dir():
+            if listed is None:
+                listed = list_files(root)
+            members = [name for name in listed if (root / name).resolve().is_relative_to(path)]
+            if not members:
+                return 'unknown'
+            files.update(members)
+        else:
+            return 'unknown'
+    if not files:
+        return 'model-only'
+    inventory = Inventory(root, sorted(files), [], [], {}, {}, {})
+    inventory.set_explicit_sources([])
+    return 'code' if inventory.source else 'data-only'

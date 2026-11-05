@@ -384,3 +384,124 @@ def test_a_check_with_a_model_error_replays_the_stored_conflicts(project):
                                                                                      "key": "pos", "value": "1"}}]}
     kinds = [p.spec.kind for p in jobs.plan(project.root, [path], stored=stored)]
     assert "replay" in kinds, kinds
+
+
+def test_each_part_keeps_its_own_application_inputs_and_cache_hits(project, monkeypatch):
+    """A real core load plus a registered part reading another app file share no manifest."""
+    from flowguard.flow import parts
+    from flowguard.flow.parts import PartResult, part_digest
+    project.file("app_core.py", 'class Settings:\n    MODE = "one"\n')
+    project.file("app_routes.py", 'ROUTE = "independent"\n')
+    path = project.flow("separate_inputs", '''
+from flowguard.flow import Model, need
+m = Model("separate inputs", config="app_core:Settings")
+m.setting("MODE", vary=("one", "two"))
+m.field("phase", ("start", "done"), "start")
+@m.action()
+def finish(s):
+    need(s["phase"] == "start")
+    s["phase"] = "done"
+m.terminal("phase", ("done",))
+MODEL = m
+''')
+    core_item, routes_item = jobs.plan(project.root, [path])
+
+    def independent_routes(context):
+        observed = (context.root / "app_routes.py").read_text()
+        reads = [context.path.relative_to(context.root).as_posix(), "app_routes.py"]
+        return PartResult(context.spec.kind, context.spec.model, part_digest(context.root, context.spec, reads),
+                          True, [], {"observed": observed}, reads)
+
+    monkeypatch.setitem(parts._REGISTRY, "routes", (independent_routes, "check"))
+    first = run_part(PartContext(project.root, core_item.spec, path, cache_dir(project.root)))
+    assert first.info["loaded"] and "app_core.py" in first.reads and "app_routes.py" not in first.reads
+    second = run_part(PartContext(project.root, routes_item.spec, path, cache_dir(project.root)))
+    jobs.store(project.root, first)
+    jobs.store(project.root, second)
+    assert jobs.lookup(project.root, core_item) == first
+    assert jobs.lookup(project.root, routes_item) == second
+    assert "app_core.py" in jobs.inputs_of(project.root, [core_item])
+    assert "app_routes.py" not in jobs.inputs_of(project.root, [core_item])
+    assert "app_core.py" not in jobs.inputs_of(project.root, [routes_item])
+    assert "app_routes.py" in jobs.inputs_of(project.root, [routes_item])
+
+    project.file("app_core.py", 'class Settings:\n    MODE = "two"\n')
+    assert jobs.lookup(project.root, core_item) is None
+    assert jobs.lookup(project.root, routes_item) == second
+    refreshed = run_part(PartContext(project.root, core_item.spec, path, cache_dir(project.root)))
+    jobs.store(project.root, refreshed)
+    assert jobs.lookup(project.root, core_item) == refreshed
+    assert jobs.lookup(project.root, routes_item) == second
+    stable_inputs = jobs.inputs_of(project.root, [core_item, routes_item])
+    again = jobs.run(project.root, [core_item, routes_item], wait=0, keep=0)
+    assert again.finished and again.cached == [True, True]
+    assert again.results == [refreshed, second] and again.workers == [None, None]
+    assert jobs.inputs_of(project.root, [core_item, routes_item]) == stable_inputs
+
+
+def test_retained_plan_shares_tables_and_replay_keeps_only_its_actual_inputs(project):
+    from checkrun import run_check
+    from test_conflict_sessions import prepare, CLEAN_LAMP
+    from flowguard.flow.history import unpack_entries
+    from flowguard.flow.project import read_conflicts
+    path = prepare(project)
+    project.flow('lamp', CLEAN_LAMP)
+    first = run_check(project.root, '--json')
+    assert first.code == 1
+    original = read_conflicts(project.root)
+    path.write_text(path.read_text()+'\n# same behavior, new source input\n')
+    current = run_check(project.root, '--json')
+    assert current.code == 1 and {row['id'] for row in current.data['conflicts']} == {row['id'] for row in first.data['conflicts']}
+    assert all(part['cached'] for part in current.data['parts'] if part['model']=='lamp')
+    saved = read_conflicts(project.root)
+    raw = dict(saved['models']['repair']['core']['planned']['options'])['native_stored']
+    encoded = json.loads(raw)
+    assert any(isinstance(row['history']['baseline']['obligations'], dict) for row in encoded)
+    expanded = unpack_entries(raw)
+    assert len(raw) < len(json.dumps(expanded, sort_keys=True))
+    for row in expanded:
+        before = next(old for old in original['conflicts'] if old['id']==row['id'])
+        assert row['history']['baseline'] == before['history']['baseline']
+        assert row['history']['decision_refs'] == before['history']['decision_refs']
+    planned = jobs.plan(project.root, [path], stored=saved, max_states=1)
+    replay = next(item for item in planned if item.spec.kind=='replay')
+    rows = json.loads(replay.spec.option('stored', '[]'))
+    expected = [{key:row[key] for key in ('id','path','replay') if key in row}
+                for row in sorted(saved['conflicts'], key=lambda row:row['id']) if 'replay' in row]
+    assert rows == expected and all(set(row) <= {'id','path','replay'} for row in rows)
+
+
+def test_wire_cache_and_plan_restore_exact_semantic_identity(project):
+    from flowguard.flow.parts import PartResult, PartSpec, part_digest
+    from flowguard.flow.project import write_conflicts, read_conflicts
+    from test_history import entry
+    cases = {('source state ' * 10)+str(i):bool(i % 2) for i in range(300)}
+    entries = [entry(), entry()]
+    for row in entries:
+        row['history']['baseline']['obligations'][0]['cases'] = cases
+    path = project.flow('repair', 'from flowguard.flow import Model\nm=Model("repair")\nMODEL=m\n')
+    # Deliberate whitespace checks that disk encoding never changes a recipe key.
+    original = ' \n ' + json.dumps(entries) + ' \t '
+    spec = PartSpec('core', 'repair', (('max_states', 200000), ('native_stored', original)))
+    item = jobs.Planned(spec, '.flowguard/flow/repair.py')
+    reads = ['.flowguard/flow/repair.py']
+    result = PartResult('core', 'repair', part_digest(project.root,spec,reads), True, [],
+                        {'descriptor':{'obligations':entries[0]['history']['baseline']['obligations']}}, reads)
+    jobs.store(project.root, result)
+    cached = jobs.parts_dir(project.root)/(result.digest+'.json')
+    assert '$flowguard_cases' in cached.read_text()
+    assert jobs.lookup(project.root,item) == result
+    assert jobs.read_json(cached) == result.to_json()  # Original-native receipt bypass.
+    plan = {'parts':[item.to_json()]}
+    target = project.root/'plan.json'
+    jobs.write_json(target,plan)
+    assert jobs.read_json(target) == plan
+    restored = jobs.Planned.from_json(jobs.read_json(target)['parts'][0])
+    assert restored.id == item.id and restored.spec.options == item.spec.options
+    assert jobs.expected_digest(project.root,restored) == result.digest
+    ledger = {'engine':'test', 'conflicts':entries, 'closed':[], 'models':{}, 'unknown':[]}
+    write_conflicts(project.root,ledger)
+    assert read_conflicts(project.root) == ledger
+    raw = json.loads((project.root/'.flowguard/conflicts.json').read_text())
+    assert raw['conflicts'][1]['history']['baseline']['obligations'] == {'same_as':0}
+    assert raw['conflicts'][0]['sources'] == entries[0]['sources']

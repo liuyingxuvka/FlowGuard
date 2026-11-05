@@ -14,7 +14,7 @@ from flowguard.flow.checks import WARNING
 from flowguard.flow.model import load_model
 from flowguard.flow.parts import ENGINE_DIGEST, PartContext, PartResult, PartSpec, part_digest, run_part
 from flowguard.flow.project import (ProjectError, cache_dir, changed_models, conflict_entry, export_at,
-                                     find_root, model_files, new_and_open, overlaps, read_conflicts,
+                                     find_root, manifest_path, model_files, new_and_open, overlaps, read_conflicts,
                                      read_manifest, request_line, request_lines, resolve_models,
                                      write_conflicts, write_manifest)
 
@@ -95,7 +95,7 @@ def test_conflicts_json_is_deterministic_and_tells_new_from_open(project):
 def test_manifests_live_in_the_cache(project):
     write_manifest(project.root, "m", ["b.py", "a.py"])
     assert read_manifest(project.root, "m") == ["a.py", "b.py"]
-    assert (cache_dir(project.root) / "manifests" / "m.json").is_file()
+    assert manifest_path(project.root, "m").is_file()
     assert read_manifest(project.root, "other") is None
 
 
@@ -227,6 +227,27 @@ def test_conflicts_directory_is_unreadable_not_an_absent_record(project):
     (project.root / ".flowguard/conflicts.json").mkdir()
     with pytest.raises(ConflictsUnreadable, match="not a regular file"):
         read_conflicts(project.root)
+
+
+def test_part_manifests_do_not_fall_back_to_an_old_shared_record(project):
+    legacy = cache_dir(project.root) / "manifests" / "shared.json"
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text(json.dumps({"reads": ["old.py"]}))
+    assert read_manifest(project.root, "shared") is None
+    assert read_manifest(project.root, "shared", kind="routes") is None
+    write_manifest(project.root, "shared", ["core.py"])
+    write_manifest(project.root, "shared", ["routes.py"], kind="routes")
+    assert read_manifest(project.root, "shared") == ["core.py"]
+    assert read_manifest(project.root, "shared", kind="routes") == ["routes.py"]
+    manifest_path(project.root, "shared", kind="routes").write_text("{bad")
+    with pytest.raises(json.JSONDecodeError):
+        read_manifest(project.root, "shared", kind="routes")
+    assert read_manifest(project.root, "shared") == ["core.py"]
+
+
+def test_manifest_key_keeps_model_kind_boundaries_and_windows_case_distinct(project):
+    assert manifest_path(project.root, "a/b", "c") != manifest_path(project.root, "a", "b/c")
+    assert manifest_path(project.root, "m", "core").as_posix().casefold() != manifest_path(project.root, "m", "CORE").as_posix().casefold()
 
 
 def test_atomic_record_replacement_and_concurrent_readers(tmp_path):

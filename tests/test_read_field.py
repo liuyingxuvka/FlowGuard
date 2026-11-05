@@ -20,7 +20,7 @@ def test_read_field_status_names_writers_and_model():
     # Writers from several packages, the first five by path and the rest counted (the flow engine's
     # worker writes its job status too, so the map's own writers are among the counted ones).
     shown, _, more = rows['code writes'].rpartition(' (+')
-    assert 'flowguard/behave/rules.py:judge' in shown and 'flowguard/flow/worker.py:Worker.done' in shown
+    assert 'flowguard/behave/rules.py:judge' in shown and 'flowguard/flow/worker.py:Worker.__init__' in shown
     assert len(shown.split(', ')) == 5 and int(more.rstrip(')')) > 0
 
 

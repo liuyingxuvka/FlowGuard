@@ -179,7 +179,10 @@ def _child_package_import_root() -> str:
                                "checkout needs symbolic links (on Windows: Developer Mode), or install FlowGuard "
                                "as a package") from error
             _CHILD_PACKAGE_DIRECTORY = temporary
-        return _CHILD_PACKAGE_DIRECTORY.name
+        # The bootstrap and PYTHONPATH must name this owned shim identically,
+        # including when TEMP uses an alias such as a Windows short path.
+        # Otherwise native capture can retain its disposable spelling as an input.
+        return str(Path(_CHILD_PACKAGE_DIRECTORY.name).resolve())
 
 
 def child_import_path(root: Path, data: dict) -> list[str]:
@@ -239,9 +242,16 @@ def parse_test_anchor(anchor: str) -> tuple[str, str, str]:
     return path, base, opening + item
 
 
-def content_digest(path: Path) -> str:
-    """sha256 with physical newlines normalized, so platform checkouts agree."""
-    return sha256_bytes(normalize_newlines(path.read_bytes()))
+def content_digest(path: Path, *, data: bytes | None = None, source_only: bool = False) -> str:
+    """Normalize source newlines; a checked non-source input keeps its real bytes.
+
+    The default preserves the existing general content identity. Input receipts
+    select source_only so binary/resources cannot alias different staged bytes.
+    """
+    raw = path.read_bytes() if data is None else data
+    if not source_only or path.suffix in SOURCE_EXTS:
+        raw = normalize_newlines(raw)
+    return sha256_bytes(raw)
 
 
 def read_source(path: Path, *, data: bytes | None = None) -> str:

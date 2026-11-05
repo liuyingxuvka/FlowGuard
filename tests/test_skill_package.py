@@ -97,10 +97,10 @@ class SkillPackageTests(unittest.TestCase):
         first = ('1. At the start of a session and after any loss of context, '
                  'run `python -m flowguard status` before anything else.')
         self.assertEqual(first, numbered[0])
-        own_first = re.search(r'^1\. .+$', (ROOT / 'AGENTS.md').read_text(), re.M)
+        own_first = re.search(r'^1\. .+$', (ROOT / 'AGENTS.md').read_text(encoding="utf-8"), re.M)
         self.assertEqual(first, own_first.group())
-        skill = (SKILL / 'SKILL.md').read_text()
-        prompt = (SKILL / 'agents/openai.yaml').read_text().split('default_prompt:', 1)[1]
+        skill = (SKILL / 'SKILL.md').read_text(encoding="utf-8")
+        prompt = (SKILL / 'agents/openai.yaml').read_text(encoding="utf-8").split('default_prompt:', 1)[1]
         self.assertLess(prompt.index('python -m flowguard status'), prompt.index('python -m flowguard where'))
         self.assertIn('after any loss of context', prompt)
         self.assertIn('python -m flowguard status', skill.split('## The owner', 1)[0])
@@ -134,7 +134,7 @@ class SkillPackageTests(unittest.TestCase):
     def test_flow_instructions_trigger_on_behavior_and_keep_owner_questions_for_real_conflicts(self) -> None:
         from flowguard.templates import adoption_template_files
         rules = next(file.content for file in adoption_template_files() if file.path == 'AGENTS.md')
-        skill = (SKILL / 'SKILL.md').read_text()
+        skill = (SKILL / 'SKILL.md').read_text(encoding="utf-8")
         for text in (rules, skill):
             for instruction in ('state values, actions, conditions, settings or endings',
                                 'feature', 'python -m flowguard check', 'python -m flowguard show'):
@@ -142,14 +142,23 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("flow model before the code", rules)
         self.assertIn("When explaining a flow", rules)
         self.assertIn("![Flow](PATH)", rules)
+        for text in (rules, (ROOT / 'AGENTS.md').read_text(encoding='utf-8')):
+            self.assertIn('For code claims, follow the installed `flowguard/flow/HOWTO.md`', text)
+            self.assertIn('bind only the affected actions to real public calls', text)
         for instruction in ('before changing the code', 'not three required files',
                             'If a design can satisfy all requests, fix it yourself',
                             'When requirements genuinely collide', 'stored source words',
                             'safest reversible action', 'label it temporary',
-                            'Dead ends and never-happens behavior must be fixed in code',
-                            'a temporary decision does not settle them',
+                            'A model-only finding is not proof of a code bug',
+                            "compare the affected model with the owner's words and actual source or one small real execution",
+                            'correcting the model when it is wrong and repairing code when the fault is real',
+                            'Resolve technical and model/code problems yourself',
+                            'ask the owner only about a genuine business choice between incompatible sourced requirements',
+                            'briefly report any unfinished technical work',
                             'instead of adding a fallback', 'show MODEL --before REV'):
             self.assertIn(instruction, skill)
+        self.assertNotIn('Dead ends and never-happens behavior must be fixed in code', skill)
+        self.assertNotIn('If conflicts remain, end the reply under', skill)
         for future in ('flowguard decide', 'flowguard draft'):
             self.assertNotIn(future, rules + skill)
 
@@ -573,7 +582,7 @@ class SkillPackageTests(unittest.TestCase):
             for directory in (ROOT / 'flowguard', ROOT / '.flowguard/models')
             for path in directory.rglob('*.py'))
         routes_path = SKILL / 'references/routes.md'
-        routes = routes_path.read_text()
+        routes = routes_path.read_text(encoding="utf-8")
         sections = re.split(r'(?m)(?=^## )', routes)[1:]
         links = re.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
 
@@ -605,7 +614,7 @@ class SkillPackageTests(unittest.TestCase):
                     target, fragment = resolved
                     self.assertTrue(target.is_file(), f'{route}: dead link: {link} in {path}')
                     if fragment:
-                        headings = re.findall(r'^#+ (.+)$', target.read_text(), re.M)
+                        headings = re.findall(r'^#+ (.+)$', target.read_text(encoding="utf-8"), re.M)
                         self.assertIn(fragment, [slug(heading) for heading in headings],
                                       f'{route}: missing anchor: {link}')
                 for code in re.findall(r'`([^`\n]+)`', text):

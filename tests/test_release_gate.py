@@ -54,6 +54,14 @@ def test_open_target_is_release_warning(tmp_path, capsys):
                                                     'promote or drop the target before releasing')
 
 
+def repaired_rental():
+    """Repair the primary transport route while retaining every old field, action and promise."""
+    from pathlib import Path
+    original = (Path(__file__).parent / "flow/data/planted/rental_naive.py").read_text(encoding="utf-8")
+    return original.replace('need(s["cond", t] == "shop", "only shelf tools move")',
+                            'need(s["cond", t] != "loan", "loaned tools cannot move")')
+
+
 DIAL = '''
 from flowguard.flow import Model, need
 m = Model("dial")
@@ -110,6 +118,9 @@ def test_release_runs_the_flow_models_full_check(tmp_path, capsys):
         assert ("flow: 1 open conflict; complete; 3 deliberate breakages not caught - see below"
                 in captured.err.splitlines())
         (flow / "rental.py").write_text(DIAL, encoding="utf-8")
+        assert main(["release", "--root", str(tmp_path)]) == 1
+        assert "coverage_removed" in capsys.readouterr().out
+        (flow / "rental.py").write_text(repaired_rental(), encoding="utf-8")
         assert main(["release", "--root", str(tmp_path)]) == 0
         lines = capsys.readouterr().out.splitlines()
         assert any(line.startswith("flow: clean, complete") for line in lines) and lines[-1].startswith("verify: MODELS PASS")
@@ -200,15 +211,17 @@ def test_release_without_a_legacy_map_runs_the_flow_gate_and_the_suite(tmp_path,
     assert any(line.startswith("flow: NEW STUCK rental: ") for line in lines)
     assert "suite: not run (fix the failures above first)" not in lines          # no --shards: not asked
     assert lines[-1].startswith("verify: FAIL")
-    (flow / "rental.py").write_text(DIAL, encoding="utf-8")
+    (flow / "rental.py").write_text(repaired_rental(), encoding="utf-8")
     assert main(["release", "--root", str(tmp_path)]) == 0
     lines = capsys.readouterr().out.splitlines()
     assert any(line.startswith("flow: clean, complete") for line in lines)
-    assert lines[-1] == ("verify: MODELS PASS; tests not run: without a legacy map no test is bound to a model; run the whole "
-                         "suite with python -m flowguard release --shards 4, or in CI")
+    assert lines[-1].startswith("verify: MODELS PASS;")
+    assert "deliberate breakages not caught" in lines[-1]
+    assert lines[-1].endswith("tests not run: without a legacy map no test is bound to a model; run the whole "
+                             "suite with python -m flowguard release --shards 4, or in CI")
     assert main(["release", "--shards", "1", "--root", str(tmp_path)]) == 0
     lines = capsys.readouterr().out.splitlines()
-    assert "suite: status: pass  executed 1 of 1" in "\n".join(lines) and lines[-1] == "verify: PASS"
+    assert "suite: status: pass  executed 2 of 2" in "\n".join(lines) and lines[-1].startswith("verify: PASS;")
     (tests / "test_ok.py").write_text("def test_ok():\n    assert 1 + 1 == 3\n", encoding="utf-8")
     assert main(["release", "--shards", "1", "--json", "--root", str(tmp_path)]) == 1
     captured = capsys.readouterr()

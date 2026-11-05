@@ -18,8 +18,9 @@ from .map.common import advice, print_verdict, quiet_broken_pipe, render_advice,
 VERB_PURPOSE = {
     'read': 'Understand the components, models and their relationships.',
     'where': 'Locate source functions, calls, architecture and attributed original text without execution.',
-    'status': 'Resume from static project and target facts, the newest owner words and the open flow-model conflicts; never explore.',
+    'status': 'Refresh changed flow models and resume with open conflicts, owner words and current project facts.',
     'check': 'Explore the flow models in .flowguard/flow/ in every order and report conflicts, model warnings and what stays UNKNOWN.',
+    'decide': 'Record stored owner words or a narrowly eligible temporary decision for an open conflict.',
     'show': 'Draw the flowchart of a flow model: its conflicts, else its change against HEAD.',
     'change': 'Check an edit and run the affected tests and models.',
     'release': 'Run the release gate, the legacy models and the full check of the flow models, optionally with whole-suite shards.',
@@ -30,7 +31,7 @@ VERB_PURPOSE = {
 }
 
 
-FLOW_VERBS = ("check", "show")   # answered by flowguard.flow.cli, which owns their arguments
+FLOW_VERBS = ("check", "show", "decide")   # answered by flowguard.flow.cli, which owns their arguments
 
 
 def _verb_parser(verb: str) -> argparse.ArgumentParser:
@@ -66,7 +67,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
     if verb == "status":
         p.add_argument('--json', action='store_true', help='print one structured static view')
         p.add_argument('--hook', action='store_true', help='silent outside a project; internal errors never fail the hook')
-        p.add_argument('--wait', type=float, metavar='S', help='legacy static runtime has no jobs to wait for')
+        p.add_argument('--wait', type=float, default=90.0, metavar='S', help='wait for changed flow models, using the existing check jobs')
         return p
     if verb == "req":
         commands = p.add_subparsers(dest="request_command", required=True)
@@ -296,10 +297,21 @@ def _status(ns):
         root = Path(ns.root).resolve()
         if ns.hook and not (root / '.flowguard').is_dir():
             return 0
+        from .flow.cli import refresh_status
+        refreshed = refresh_status(root, wait=ns.wait) if not ns.hook else dict(refreshed=[], exit=0)
         result = status.collect_status(root, read_git_paths=read_git_paths, version=__version__)
+        result['flow_refresh'] = refreshed
+        result['scope'] = 'current static facts after refreshing changed flow models through existing check jobs'
         session = status.agent_session()
         result['session'] = session or None
-        print(json.dumps(result, ensure_ascii=False) if ns.json else status.render_status(result))
+        if ns.json:
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            flow = result['flow_models']
+            has_conflicts = any(line.startswith('OPEN ') for line in flow)
+            if has_conflicts:
+                print('\n'.join(flow))
+            print(status.render_status(dict(result, flow_models=[])) if has_conflicts else status.render_status(result))
         if session:
             status.mark_status_shown(root, session)
         return 0

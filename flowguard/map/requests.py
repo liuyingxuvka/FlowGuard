@@ -282,8 +282,37 @@ def request_findings(root: Path) -> list[Finding]:
     return findings
 
 
+def request_commits(root: Path) -> dict:
+    """The one parser for Request trailers, with explicit history and syntax limits."""
+    root = Path(root).resolve()
+    if git_common_directory(root) is None:
+        return dict(commits=[], known=False, unknown=["request commit history unavailable: no Git repository"])
+    if git_head(root) is None:
+        return dict(commits=[], known=True, unknown=[])
+    unknown = []
+    if git_run(root, 'rev-parse', '--is-shallow-repository').stdout.strip() == b'true':
+        unknown.append('request commit history is shallow; earlier symbol/request links are unknown')
+    log = git_run(root, 'log', '--format=%H%x00%P%x00%B%x1e', '-E', '--grep=^Request:')
+    commits = []
+    for entry in log.stdout.decode('utf-8', errors='replace').split('\x1e'):
+        if not entry.strip():
+            continue
+        commit, parents, body = entry.strip('\n').split('\0', 2)
+        requests = []
+        for line in body.splitlines():
+            if not line.startswith('Request:'):
+                continue
+            identifiers = re.split(r'[,\s]+', line[len('Request:'):].strip())
+            if not identifiers or any(not REQUEST_ID.fullmatch(value) for value in identifiers):
+                unknown.append(f'commit {commit[:12]} has malformed Request: line: {line}')
+                continue
+            requests.extend(identifiers)
+        commits.append(dict(commit=commit, parents=parents.split(), requests=list(dict.fromkeys(requests))))
+    return dict(commits=commits, known=True, unknown=unknown)
+
+
 def request_citations(root: Path, records) -> tuple[dict, bool]:
-    """Where owner words are cited: change records, their rules, and `Request: R<n>` commit lines."""
+    """Where owner words are cited: change records, their rules, and parsed Request trailers."""
     cited = {}
     for change, record in records:
         for link in record['requests']:
@@ -293,19 +322,11 @@ def request_citations(root: Path, records) -> tuple[dict, bool]:
             for part in provenance.split('; ') if isinstance(provenance, str) else ():
                 if part.startswith('owner '):
                     cited.setdefault(part[len('owner '):], []).append(f"rule {rule.get('id')} (change {change})")
-    if git_common_directory(root) is None:
-        return cited, False
-    if git_head(root) is None:
-        return cited, True  # No commit yet, so no commit cites anything.
-    log = git_run(root, 'log', '--format=%h%x00%B%x1e', '-E', '--grep=^Request: ')
-    for entry in log.stdout.decode('utf-8', errors='replace').split('\x1e'):
-        commit, _, body = entry.strip('\n').partition('\0')
-        for line in body.splitlines():
-            if line.startswith('Request: '):
-                for identifier in re.split(r'[,\s]+', line[len('Request: '):].strip()):
-                    if REQUEST_ID.fullmatch(identifier):
-                        cited.setdefault(identifier, []).append('commit ' + commit)
-    return cited, True
+    history = request_commits(root)
+    for entry in history['commits']:
+        for identifier in entry['requests']:
+            cited.setdefault(identifier, []).append('commit ' + entry['commit'][:7])
+    return cited, history['known']
 
 
 def _readable(path: Path) -> bool:
@@ -424,3 +445,117 @@ def _other_worktrees(root: Path):
 
 
 other_worktrees = _other_worktrees
+
+
+def quote_matches(text: str, quote: str) -> bool:
+    """Compare owner words exactly, permitting only whitespace runs and ... elision."""
+    source = ' '.join(text.split())
+    position = 0
+    fragments = [fragment for fragment in quote.split('...') if fragment.strip()]
+    if not fragments:
+        return False
+    for fragment in fragments:
+        fragment = ' '.join(fragment.split())
+        found = source.find(fragment, position)
+        if found < 0:
+            return False
+        position = found + len(fragment)
+    return bool(quote.strip())
+
+
+def subject_terms(value):
+    value = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', value)
+    value = re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', value)
+    return {word[:-1] if word.endswith('s') and len(word) > 1 else word
+            for word in re.findall(r'[a-z]+|[\u4e00-\u9fff]+', value.lower())}
+
+
+def confirmed_glossaries(root):
+    """The owner's confirmed glossaries; a stored file that cannot be read stops the lookup with its error.
+
+    A retired text is not the owner's words and is never used as a glossary."""
+    found = []
+    retired = set(_stems(root, RETIRED_DIR))
+    for path in sorted((root / REQUEST_DIR).glob('*.json')):
+        if path.stem in retired:
+            continue
+        try:
+            item = _metadata(path, path.stem)
+        except ValueError as error:
+            raise MapError(f'request_meta_edited: {path.stem}: {error}; glossaries cannot be read') from error
+        if item['kind'] != 'glossary':
+            continue
+        validate_request_links(root, [dict(id=path.stem, part=True)])
+        for word, terms in glossary_entries(path.with_suffix('.md').read_bytes()):
+            found.append(dict(id=path.stem, word=word, terms=list(terms)))
+    return found
+
+
+def shared_terms(quote, terms, glossaries):
+    chinese = re.search(r'[\u4e00-\u9fff]', quote) is not None
+    direct = any(term.lower() in quote.lower() for term in terms) if chinese else bool(subject_terms(quote) & terms)
+    if direct:
+        return True, []
+    used = []
+    for item in glossaries:
+        words = set().union(*(subject_terms(term) for term in item['terms']))
+        word = item['word']
+        present = word.lower() in quote.lower() if chinese else bool(re.search(r'\b' + re.escape(word) + r'\b', quote, re.I))
+        if present and words & terms:
+            used.append(item)
+    return direct or bool(used), used
+
+
+
+def literal_subject_match(quote: str, terms, glossaries=()):
+    """Match actual field/value/action/rule names, never a similar-looking topic."""
+    def contains(text, term):
+        if re.search(r'[\u4e00-\u9fff]', term):
+            return term.casefold() in text.casefold()
+        return re.search(r'(?<!\w)' + re.escape(term) + r'(?!\w)', text, re.I) is not None
+
+    if any(contains(quote, term) for term in terms):
+        return True, []
+    used = [item for item in glossaries if contains(quote, item['word'])
+            and any(term.casefold() == target.casefold() for term in terms for target in item['terms'])]
+    return bool(used), used
+
+
+def owner_quote(root: Path, quote: str, terms, *, request: str | None = None) -> dict:
+    """Validate one unambiguous live owner quotation and its literal subject."""
+    root = Path(root).resolve()
+    if not isinstance(quote, str) or not quote.strip() or not terms or any(not isinstance(t, str) or not t.strip() for t in terms):
+        raise MapError('owner_quote_invalid: quote and actual subject terms are required')
+    if request is not None and not REQUEST_ID.fullmatch(request):
+        raise MapError('request_id_invalid: name a stored request')
+    identifiers = [request] if request is not None else _identifiers(root)
+    matches = []
+    for identifier in identifiers:
+        if request is None and identifier in _stems(root, RETIRED_DIR):
+            continue
+        validate_request_links(root, [dict(id=identifier, part=False)])
+        meta = _metadata(root / REQUEST_DIR / (identifier + '.json'), identifier)
+        if meta['kind'] != 'request':
+            if request is not None:
+                raise MapError('owner_quote_kind: quote a request, not a glossary or adoption record')
+            continue
+        raw = (root / REQUEST_DIR / (identifier + '.md')).read_bytes()
+        try:
+            text = raw.decode('utf-8-sig')
+        except UnicodeError as error:
+            raise MapError(f'owner_quote_invalid: {identifier} is not UTF-8') from error
+        if quote_matches(text, quote):
+            matches.append(dict(id=identifier, sha256=meta['sha256'], quote=quote))
+    if not matches:
+        raise MapError('quote_not_in_request: quote the stored owner words verbatim (... elides)')
+    direct, used = literal_subject_match(quote, terms)
+    if not direct:
+        direct, used = literal_subject_match(quote, terms, confirmed_glossaries(root))
+    if not direct:
+        raise MapError('quote_subject_mismatch: quote must name the actual conflict subject or a confirmed glossary term')
+    if len(matches) != 1:
+        raise MapError('owner_quote_ambiguous: give --request for the intended stored request')
+    out = matches[0]
+    out['glossaries'] = [{**item, 'sha256': _metadata(root / REQUEST_DIR / (item['id'] + '.json'), item['id'])['sha256']}
+                         for item in used]
+    return out

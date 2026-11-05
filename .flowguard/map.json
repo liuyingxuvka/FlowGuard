@@ -955,7 +955,7 @@
     {
       "id": "behave",
       "layer": "capabilities",
-      "summary": "Unreleased source-derived behavior engine resumed to meet the original complete goal; preserve full concrete state, independent evidence and bounded-search truth while removing redundant replay and exploration.",
+      "summary": "Own shared shipped native capture/session/input/test-recording primitives and the source-only pilot consumers; preserve actual outcomes, explicit engine failures and bounded-search truth through one process-isolation route.",
       "responsibilities": [
         "provide standalone pilot help that lists only implemented verbs and reject unsupported Python interpreters before loading pilot behavior",
         "keep the unreleased engine separate from the stable public surface while preserving the released public static where command",
@@ -1016,11 +1016,14 @@
         "hold one OS-managed owner lock per input key and attach concurrent callers to that owner",
         "return bounded running progress and resume unfinished slices after owner death without recomputing validated completed facts",
         "store validated execution slices and completion references atomically without persisting final rule or plan verdicts",
-        "launch detached execution supervisors through the existing process owner so a bounded frontend wait does not kill the owned job, while retaining native descendant cleanup"
+        "launch detached execution supervisors through the existing process owner so a bounded frontend wait does not kill the owned job, while retaining native descendant cleanup",
+        "ship one trace observer across supported Python versions, retain actual success/refusal/crash calls including unchanged refusals with detached snapshots, arguments, outputs and exceptions, and preserve ordered events and per-nodeid pytest reports without swallowing engine defects",
+        "correlate observed source invocations with parent tokens, preserve finite scalar return facts separately from exceptional/yield/complex unknowns, and derive public callable/property inventory from actual constructed type descriptors without invoking them"
       ],
       "files": [
         "flowguard/behave/*.py",
-        "tests/behave/conftest.py"
+        "tests/behave/conftest.py",
+        "flowguard/native/*.py"
       ],
       "entrypoints": [],
       "state": [
@@ -1065,13 +1068,14 @@
         "tests/behave/test_capture.py",
         "tests/behave/test_rule_scope.py",
         "tests/behave/test_jobs.py",
-        "tests/behave/test_input_facts.py"
+        "tests/behave/test_input_facts.py",
+        "tests/native/test_capture.py"
       ],
       "models": [
         ".flowguard/models/runtime_jobs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:ae34e85c819986b99224c56e244f2e4baf68b54be2d4c371bc20860bc529ca9f"
+      "fingerprint": "sha256:aceeb814d796466cdbc14ff3cb7f5a835effbb2b375e37bcf4fcc4b1fb54fcaf"
     }
   ],
   "flows": [

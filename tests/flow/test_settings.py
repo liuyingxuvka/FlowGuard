@@ -397,3 +397,29 @@ def test_function_local_dict_cannot_hide_a_covered_setting(project):
     project.flow("m", model.replace('def up(s):', 'def up(s):\n    S = {"maintain_every": 3}'))
     with pytest.raises(ModelError, match="plain dict.*maintain_every"):
         load(project, "m")
+
+
+@pytest.mark.parametrize('local', [
+    'def construct():\n    settings_type = object\n    return settings_type()\n',
+    'class Factory:\n    class Settings: pass\n',
+])
+def test_covered_local_bindings_are_not_module_config_objects(project, local):
+    project.file('app.py', local + '\nclass Graph: pass\n')
+    project.flow('m', '''from flowguard.flow import Model
+m = Model('m', covers=['app.py:Graph'])
+m.field('done', (True,), True)
+m.terminal('done', (True,))
+MODEL = m
+''')
+    assert load(project, 'm').model.code_configs == []
+
+
+@pytest.mark.parametrize('imported', ['from .config import Config', 'from . import config'])
+def test_function_local_config_import_still_names_the_real_source(project, imported):
+    project.file('shop/__init__.py', '')
+    project.file('shop/config.py', 'class Config:\n    maintain_every = 4\n')
+    project.file('shop/core.py', 'def construct():\n    ' + imported + '\nclass Counter: pass\n')
+    model = COVERED.replace('counter/core.py:Counter', 'shop/core.py:Counter')
+    project.flow('m', model)
+    with pytest.raises(ModelError, match=r'maintain_every=3 \(code default 4\)'):
+        load(project, 'm')
