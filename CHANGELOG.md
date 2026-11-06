@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.1.1 - 2026-11-06 - Correct dependency and C++ source boundaries
+
+- Rerun tests whose external imports or calls have unverified inputs, including helpers on pytest's outside pythonpath. Locate import origins without executing them and distinguish actual project code from in-project virtual environments. A package version or a familiar function name alone does not prove purity; supported modeled operations retain their provenance and input checks.
+- Keep parent-package initialization, defaults, decorators, classes and real callbacks in scope. Do not invoke every ancestor's lazy attribute hook for a child-module lookup, or treat storing a function object as executing its body. Open external and dynamic inputs remain explicit and may require no-op reruns.
+- Build read-only AST scope views instead of deep-copying function bodies that will be discarded. Preserve dependency values, fingerprints and unknown reasons; do not introduce a persistent cache protocol or remove missing import candidates.
+- Recover the confirmed C++ reference direct-initialization grammar gap from independently parsed ranges of the same normalized source. Retain true calls, reads, writes, source locations and visible recovery metadata; uncovered syntax errors and unresolved compilation context remain incomplete. Correct reference-return declaration indexing without treating function-pointer variables as functions. Keep unresolved declaration bindings visibly incomplete and retain their locations through the existing Map store.
+- Patch classification: these changes correct existing dependency, parsing and analysis-cost contracts. No new public command, language, required input field, runtime compiler or workflow was added. Historical tags and releases are unchanged.
+
 ## v2.1.0 - 2026-11-06 - Read common languages and check connected decisions
 
 - Generate Python, JavaScript/TypeScript/TSX, C/C++ and C# source facts in the same Map, SQLite store and fixed queries. Ship the first grammar readers with the engine and load them only for their language. Preserve Python symbol identities; show foreign parse coverage and unresolved bindings explicitly.
