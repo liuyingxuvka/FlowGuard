@@ -57,8 +57,16 @@ class Session:
             self.bootstrap = Path(self.folder.name) / 'bootstrap'
             self.bootstrap.mkdir()
             # All Python children read current source; only recorded tests trace.
-            (self.bootstrap / 'sitecustomize.py').write_text('from flowguard.intent.child import start\nstart()\n', encoding='utf-8')
-        paths = [str(self.bootstrap), str(Path(__file__).resolve().parents[2]), str(self.cfg.root),
+            sdk = Path(__file__).resolve().parents[1]
+            (self.bootstrap / 'sitecustomize.py').write_text(
+                'import importlib.util, sys\n'
+                f'_spec = importlib.util.spec_from_file_location("flowguard", {str(sdk / "__init__.py")!r}, '
+                f'submodule_search_locations=[{str(sdk)!r}])\n'
+                '_package = importlib.util.module_from_spec(_spec)\n'
+                'sys.modules["flowguard"] = _package\n'
+                '_spec.loader.exec_module(_package)\n'
+                'from flowguard.intent.child import start\nstart()\n', encoding='utf-8')
+        paths = [str(self.bootstrap), str(self.cfg.root),
                  *(str(p) for p in self.cfg.roots), *os.environ.get('PYTHONPATH', '').split(os.pathsep)]
         values = dict(FLOWGUARD_IMPORT_ROOT=str(self.cfg.root), PYTHONPATH=os.pathsep.join(dict.fromkeys(paths)))
         inherited = ('FLOWGUARD_TRACE_ROOT', 'FLOWGUARD_TRACE_CHILDREN', 'FLOWGUARD_TRACE_TEST')

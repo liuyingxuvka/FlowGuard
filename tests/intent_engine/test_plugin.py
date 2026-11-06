@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -57,6 +58,49 @@ def test_plain():
     result = run(tmp_path)
     assert result.returncode == 0 and '1 passed' in result.stdout, result.stdout + result.stderr
     assert not (tmp_path / '.flowguard/cache/map.sqlite').exists()
+
+
+def test_installed_sdk_child_bootstrap_does_not_expose_neighbor_packages_to_no_site_python(tmp_path):
+    site = tmp_path / 'installed-site'
+    site.mkdir()
+    shutil.copytree(Path(__file__).resolve().parents[2] / 'flowguard', site / 'flowguard',
+                    ignore=shutil.ignore_patterns('__pycache__'))
+    (site / 'flowguard_test_optional_provider.py').write_text('AVAILABLE = True\n')
+    project = tmp_path / 'project'
+    project.mkdir()
+    program = r'''
+import json, os, subprocess, sys, types
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from flowguard.intent.plugin import Session
+state = Session(types.SimpleNamespace(rootpath=Path(sys.argv[2])))
+state.previous_session = None
+query = """import importlib.util,json,sys
+print(json.dumps(dict(optional=importlib.util.find_spec('flowguard_test_optional_provider') is not None,
+                     pytest=importlib.util.find_spec('pytest') is not None,
+                     sdk=getattr(sys.modules.get('flowguard'), '__file__', None))))"""
+def child(*flags):
+    result = subprocess.run([sys.executable, *flags, '-c', query], check=True, capture_output=True, text=True)
+    return json.loads(result.stdout)
+before = child('-S')
+state.import_children()
+try:
+    during = child('-S')
+    normal = child()
+finally:
+    state.close()
+after = child('-S')
+print(json.dumps(dict(before=before, during=during, normal=normal, after=after)))
+'''
+    result = subprocess.run([sys.executable, '-I', '-c', program, str(site), str(project)],
+                            cwd=project, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = json.loads(result.stdout)
+    assert data['before']['optional'] is False and data['after']['optional'] is False
+    assert data['during']['optional'] is False
+    assert data['during']['sdk'] is None and data['during']['pytest'] is False
+    assert data['normal']['optional'] is False and data['normal']['pytest'] is True
+    assert Path(data['normal']['sdk']) == site / 'flowguard/__init__.py'
 
 
 def test_unmarked_ordinary_test_keeps_its_result_but_has_no_function_ledger(sample):
