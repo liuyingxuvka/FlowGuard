@@ -96,21 +96,3 @@ def archive_folder(exists, *, request_api):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b'first record')
         yield root, path
-
-
-@contextmanager
-def sentinel_config(loaded, complete):
-    with tempfile.TemporaryDirectory(prefix='flowguard-intent-sentinel-') as directory:
-        root = Path(directory)
-        config = SimpleNamespace(rootpath=root)
-        if loaded:
-            declared = {'tests/intent/example.py::EXAMPLE[rules]'}
-            received = declared if complete else set()
-            model = SimpleNamespace(declared_items=lambda: sorted(declared))
-            config._flowguard_intent = SimpleNamespace(get_model=lambda: model, collected=received,
-                selected=received, deferred=set(), cfg=SimpleNamespace(cache=root / '.flowguard/cache'), sentinel=None)
-        previous = list(sys.path)
-        try:
-            yield config
-        finally:
-            sys.path[:] = previous

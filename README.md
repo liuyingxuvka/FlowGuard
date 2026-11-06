@@ -22,7 +22,7 @@ python -m flowguard req add owner-message.txt --id R1
 
 ## One rule, every necessary copy
 
-A rule states an expectation independently of the implementation. A home adapter calls the real function. A literal row preserves a known regression. The [local rule guide](./.agents/skills/flowguard/references/rules.md) contains a complete two-home example and is copied with the skill.
+A rule states an expectation independently of the implementation. A source anchor connects the real function. A literal row preserves a known regression. The [local rule guide](./.agents/skills/flowguard/references/rules.md) contains a complete two-anchor example and is copied with the skill.
 
 
 After either copy changes, `check` executes ordinary pytest against the current source. A disagreement is red. An unverified boundary is grey. A newly written authority document may be green*; it is not independent confirmation.
@@ -31,7 +31,7 @@ After either copy changes, `check` executes ordinary pytest against the current 
 
 The same generated map and fixed queries read the first languages below. Normal installation includes their grammar packages; a parser loads only when its language is present. Mapping source does not execute or compile it.
 
-| source | map facts | executable behavior homes |
+| source | map facts | executable behavior anchors |
 | --- | --- | --- |
 | Python | Declarations, calls, dependencies, reads/writes and fixed queries | Python functions |
 | JS/JSX, TS/TSX | Declarations, call sites, imports/reexports, assignments and definite keys | Unavailable |
@@ -46,8 +46,8 @@ The same generated map and fixed queries read the first languages below. Normal 
 | --- | --- |
 | `python -m flowguard` | Read a short cached screen when the project has rules; run no tests. |
 | `python -m flowguard show "what it decides"` | Find a decision owner and static candidates before adding another copy. |
-| `python -m flowguard show WINDOW` | Read the rule, sources, homes and complete findings. |
-| `python -m flowguard show --draft orders:accept` | Locate an existing test for an adapter; do not invent its expected answer. |
+| `python -m flowguard show WINDOW` | Read the rule, sources, anchors and complete findings. |
+| `python -m flowguard show --draft orders:accept` | Locate an existing calibration test; do not invent its expected answer. |
 | `python -m flowguard check` | Recheck affected rules and tests with ordinary pytest. |
 | `python -m flowguard check --all` | Run all intent and ordinary project tests in CI. |
 | `python -m flowguard req list` | List preserved owner messages; `show R1` reads the original. |
@@ -58,22 +58,24 @@ Without rules, a check is quiet:
 FlowGuard check: no intent rules.
 ```
 
-Cases remain literal and do not silently shrink. Sources, helpers, data and implementation changes invalidate dependent results. Necessary copies are bound explicitly; candidate similarity alone never proves equivalence. `check --all` records test-to-code links for the complete suite; local `check` refreshes selected tests. These links support affected-test selection and point adapters to existing tests. With plain pytest, unmarked ordinary tests avoid general tracing; marked guards still record their code links. When links are missing, source dependencies select conservatively. Complete collection does more work to preserve those real links. Ordinary checks reuse results within their supported closed input boundary. Unverified external imports or calls rerun; an installed package version alone does not establish purity. Module initialization remains a dependency, while retaining a function object does not by itself execute its body. Open inputs can require a rerun even when source files have not changed.
+Cases remain literal and do not silently shrink. Sources, helpers, data and implementation changes invalidate dependent results. Necessary copies are bound explicitly; candidate similarity alone never proves equivalence. `check --all` records test-to-code links for the complete suite; local `check` refreshes selected tests. These links support affected-test selection and point anchors to existing calibration tests. With plain pytest, unmarked ordinary tests avoid general tracing; marked guards still record their code links. When links are missing, source dependencies select conservatively. Complete collection does more work to preserve those real links. Ordinary checks reuse results within their supported closed input boundary. Unverified external imports or calls rerun; an installed package version alone does not establish purity. Module initialization remains a dependency, while retaining a function object does not by itself execute its body. Open inputs can require a rerun even when source files have not changed.
 
 ## Boundaries and migration
 
 Rules check declared inputs and real bindings, not factual truth or every behavior of the application. Grey findings explain what was not verified. Keep ordinary tests and review. Use `distinct` for similar decisions that must differ, `supersedes` for a replacement, and `uses` only where a lower decision genuinely simplifies the upper rule.
 
-For real decomposition, the upper adapter takes `c.witness(LOWER)` and reaches the actual upper home. Checks combine all verified lower inputs jointly, including nested uses. Closed boolean/enum domains can be finite and complete; open domains use supported partition representatives, not every value. Put dependency or ownership constraints in a sourced `structure_rule` at their existing owner. There is no requirement to model the whole application or add another hierarchy layer.
+For real decomposition, a scenario relation connects actual lower and upper readings; the engine derives the binding and supplies verified lower inputs. Checks combine all verified lower inputs jointly, including nested uses. Closed boolean/enum domains can be finite and complete; open domains use supported partition representatives, not every value. Put dependency or ownership constraints in a sourced `structure_rule` at their existing owner. There is no requirement to model the whole application or add another hierarchy layer.
 
-The old flow machines, background jobs, pictures and release test runner are retired. `status`, `where`, `draft`, `decide` and `release` have no compatibility aliases. Keep the original request archive; migrate useful old contracts to rules and rows, then remove the old models. See the [intent guide](./docs/intent-guide.md) and [migration guide](./docs/upgrade-2.0.md).
+The old flow machines, background jobs, pictures and release test runner are retired. `status`, `where`, `draft`, `decide` and `release` have no compatibility aliases. Keep the original request archive; retain useful contracts as rules and rows; this release leaves `.flowguard/models/` unchanged. See the [intent guide](./docs/intent-guide.md) and [migration guide](./docs/upgrade-3.0.md).
 
 ## Repository
 
 - `flowguard/structure/`: generated code map and fixed source queries.
-- `flowguard/intent/`: rules, homes and the pytest integration.
+- `flowguard/intent/`: rules, anchors, small flows and the pytest integration.
 - `flowguard/map/`: shared source and immutable original-word readers.
 - `.agents/skills/flowguard/`: the single public skill.
 - `tests/`: ordinary controls and the project's own intent rules.
 
 License: MIT
+
+Source anchors replace `.home` and custom adapters in 3.0. Pure judgments execute directly; effects use an ordinary calibration test and actual readings. Small layered flow models check supported source paths and observed order. Missing or unsupported paths remain grey. See the [3.0 migration](./docs/upgrade-3.0.md).

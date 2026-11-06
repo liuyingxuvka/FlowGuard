@@ -216,8 +216,18 @@ def site_homes(con, fid: str, sites=None, words: str = "", exclude=(), groups=No
         crow = con.execute("SELECT line, field, op, const, sigs FROM site WHERE node = ? ORDER BY line", (cid,)).fetchall()
         rsigs = [set(json.loads(r[4] or "[]")) for r in crow]
         is_strong = any(group_strong(groups[gi]["sigs"], ts, rsigs, strong) for gi, ts in matched.items())
+        # A sole duration comparison loses its field token during unit
+        # normalization. Preserve its exact source field as a weak clue, only
+        # when the normalized boundary set also agrees. Do not relax a
+        # multi-site decision to one shared time value.
+        time_field = False
+        if len(groups) == 1 and groups[0].get('field'):
+            boundary = {token for token in groups[0]['sigs'] if token.startswith('sg:t:')}
+            time_field = bool(boundary) and any(
+                row[1] == groups[0]['field'] and boundary == {token for token in sigs if token.startswith('sg:t:')}
+                for row, sigs in zip(crow, rsigs))
         shared_predicate = any(t.startswith('sg:p:') for said in matched.values() for t in said)
-        if not is_strong and len(matched) < need and not field_only and not shared_predicate:
+        if not is_strong and len(matched) < need and not field_only and not shared_predicate and not time_field:
             continue
         got = sum(max(weight(t) for t in ts) for ts in matched.values())
         score = got / sum(best_of)
@@ -237,7 +247,8 @@ def site_homes(con, fid: str, sites=None, words: str = "", exclude=(), groups=No
         relation = "calls the home" if cid in up else "called by the home" if cid in down else ""
         out.append({"id": cid, "score": round(min(score, 1.0), 2), "relation": relation, "how": "sites",
                     "strength": "strong" if is_strong else "weak", "matched": len(matched), "of": len(groups),
-                    "reason": ("shared decision field" if field_only and not is_strong else "same decision sites") + f" ({len(matched)} of {len(groups)} {mode}): " + "; ".join(shown[:3])
+                    "reason": ("shared temporal field (candidate only)" if time_field and not is_strong else
+                               "shared decision field" if field_only and not is_strong else "same decision sites") + f" ({len(matched)} of {len(groups)} {mode}): " + "; ".join(shown[:3])
                               + (f"; +{len(shown) - 3} more" if len(shown) > 3 else ""),
                     "sites": shown, "_rank": (-len(matched), -(got * (1 + 0.2 * min(bonus, 3))), cid)})
     out.sort(key=lambda x: x["_rank"])

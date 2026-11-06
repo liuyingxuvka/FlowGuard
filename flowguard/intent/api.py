@@ -2,9 +2,8 @@
 
 A rule is a partial predicate over typed fields: it returns a value, Refused(type, contains=...)
 or None (no opinion). Rows hold literals only (checked from the file's AST at load time), and
-every row says why it matters. A home binds the rule to a real function through an adapter
-`(c, fn) -> value` of at most 15 lines. `distinct` names two decisions that look alike but must
-stay different. Declarations are checked by the loader and executed only as ordinary pytest items.
+every row says why it matters. Source anchors and Flow relations bind real code readings.
+`distinct` names two rules or two source anchors that must stay different. Declarations are checked by the loader and executed only as ordinary pytest items.
 """
 from __future__ import annotations
 
@@ -14,7 +13,7 @@ from itertools import islice
 from datetime import date, datetime, timedelta
 from decimal import Decimal as D
 
-__all__ = ["rule", "row", "distinct", "states", "structure_rule", "allow", "Refused", "IntentError", "D", "date", "datetime", "timedelta"]
+__all__ = ["rule", "row", "distinct", "states", "structure_rule", "allow", "flow", "Node", "Transition", "Read", "Relation", "Refused", "IntentError", "D", "date", "datetime", "timedelta"]
 
 ID = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")
 TARGET = re.compile(r"[A-Za-z_][\w.]*:[A-Za-z_][\w.]*\Z")
@@ -97,17 +96,18 @@ def equivalents(value, line: int) -> tuple:
     return tuple(out)
 
 
-class Home:
-    """A binding of a rule to real code: target 'module:Qual.name' and the adapter (c, fn) -> value."""
-
-    def __init__(self, rule: "Rule", target: str, adapter, equivalent=()):
-        self.rule, self.target, self.adapter = rule, target, adapter
-        self.line = adapter.__code__.co_firstlineno
-        self.equivalent = equivalents(equivalent, self.line)
+class _AnchorBinding:
+    """A resolved code comment, without a project-owned call adapter."""
+    def __init__(self, rule, anchor, name='', equivalent=()):
+        self.rule, self.anchor = rule, anchor
+        self.name = name or anchor.name
+        self.target = anchor.target if anchor else 'anchor:' + self.name
+        self.line = anchor.line if anchor else rule.line
+        self.equivalent = equivalent
 
     @property
-    def short(self) -> str:
-        return self.target.replace(":", ".")
+    def short(self):
+        return self.target.replace(':', '.')
 
 
 def _ids(value) -> tuple:
@@ -117,7 +117,7 @@ def _ids(value) -> tuple:
 
 class Rule:
     def __init__(self, id, decides, source, fields, pred, overrides=(), supersedes=(), total=False, uses=(),
-                 confirmed=None, equivalent=(), quote=None):
+                 confirmed=None, equivalent=(), quote=None, anchor=()):
         line = pred.__code__.co_firstlineno
         if not isinstance(id, str) or not ID.match(id):
             raise IntentError(f"line {line}: rule id must be a word such as STANDING, got {id!r}")
@@ -140,7 +140,10 @@ class Rule:
         self.file = pred.__code__.co_filename
         self.doc = (pred.__doc__ or "").strip()
         self._rows: list[Row] = []
-        self.homes: list[Home] = []
+        self.homes: list[_AnchorBinding] = []
+        self.anchors = (anchor,) if isinstance(anchor, str) else tuple(anchor)
+        if any(not isinstance(name, str) or not name.strip() for name in self.anchors):
+            raise IntentError(f'line {line}: anchor= names code observation points')
 
     def rows(self, *rows) -> "Rule":
         for r in rows:
@@ -158,19 +161,6 @@ class Rule:
     def live_rows(self) -> list[Row]:
         return [r for r in self._rows if r.retired is None]
 
-    def home(self, target: str, equivalent=()):
-        """Bind an adapter (c, fn) to the real function; equivalent=("file.py:line", "reason") names a
-        site of this home whose surviving mutant changes no answer of the rule."""
-        if not isinstance(target, str) or not TARGET.match(target):
-            raise IntentError(f"line {self.line}: {self.id}.home() takes 'module:function', got {target!r}")
-
-        def bind(adapter):
-            if any(h.target == target for h in self.homes):
-                raise IntentError(f"line {adapter.__code__.co_firstlineno}: {self.id} is already homed at {target}")
-            self.homes.append(Home(self, target, adapter, equivalent))
-            return adapter
-        return bind
-
     def eval(self, cell: dict):
         return self.pred(**{name: cell[name] for name in self.fields})
 
@@ -182,51 +172,48 @@ class Rule:
 
 
 def rule(id, decides, source, fields, overrides=(), supersedes=(), total=False, uses=(), confirmed=None,
-         equivalent=(), quote=None):
+         equivalent=(), quote=None, anchor=()):
     """Declare a rule on a partial predicate; the predicate's parameters are the fields."""
     def wrap(pred):
-        r = Rule(id, decides, source, fields, pred, overrides, supersedes, total, uses, confirmed, equivalent, quote)
+        r = Rule(id, decides, source, fields, pred, overrides, supersedes, total, uses, confirmed, equivalent, quote, anchor)
         DECLARED.append(r)
         return r
     return wrap
 
 
+def flow(identifier, *, source, nodes, edges, transitions=(), relations=()):
+    """A small observation model: anchors, paths, state transitions and relations."""
+    from .flow import Flow
+    caller = sys._getframe(1)
+    if not isinstance(identifier, str) or not ID.fullmatch(identifier):
+        raise IntentError(f'line {caller.f_lineno}: flow id must be a word, got {identifier!r}')
+    item = Flow(identifier, source, nodes, edges, transitions, relations)
+    item.file, item.line = caller.f_code.co_filename, caller.f_lineno
+    DECLARED.append(item)
+    return item
+
+
+from .flow import Node, Transition, Read, Relation
+
+
 class Distinct:
-    """Two decisions that look alike but must stay different. Between a rule and a node the tool
-    runs the node on the rule's cells and reads red when the node decides exactly like the rule.
-    Used as a decorator it binds the adapter (c, fn) that calls the node with a case of the rule."""
+    """Two rules or two source anchors that must retain different decisions."""
 
     def __init__(self, a, b, why, source, line):
+        self.rule_sides = (isinstance(a, Rule), isinstance(b, Rule))
         self.a = a.id if isinstance(a, Rule) else a
         self.b = b.id if isinstance(b, Rule) else b
         self.why, self.source, self.line = why, source, line
-        self.adapter = None
         self.file = None
+        self.binding_kind = 'rules'
 
-    def __call__(self, adapter):
-        if self.adapter is not None:
-            raise IntentError(f"line {self.line}: this distinct already has an adapter")
-        self.adapter = adapter
-        return adapter
-
-    @property
-    def node(self) -> str | None:
-        """The node side ('module:func') when one side is a node."""
-        return next((s for s in (self.a, self.b) if ":" in s), None)
-
-    @property
-    def rule(self) -> str | None:
-        """The rule side when the other side is a node."""
-        return next((s for s in (self.a, self.b) if ":" not in s), None) if self.node else None
-
-    @property
-    def short(self) -> str:
-        return (self.node or "").replace(":", ".")
+    def __call__(self, function):
+        raise IntentError(f"line {self.line}: distinct call adapters were removed; rebuild the original "
+                          "test using source anchors and Flow relations; declare distinct between two rules or two anchors")
 
 
 def distinct(a, b, why, source) -> Distinct:
-    """Two decisions that look alike but must stay different (a rule and a rule, or a rule and a node).
-    `@distinct(RULE, "module:func", why=, source=)` on an adapter (c, fn) says how to call the node."""
+    """Declare two rules or two source anchors as separate decisions, with their source and reason."""
     line = sys._getframe(1).f_lineno
     if not isinstance(why, str) or not why.strip():
         raise IntentError(f"line {line}: distinct() needs why=")

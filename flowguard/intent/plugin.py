@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import fnmatch
 from functools import cache
-from contextlib import closing
+from contextlib import closing, ExitStack, contextmanager
 import json
 import os
 from pathlib import Path
@@ -36,8 +36,11 @@ def _json(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, default=repr)
 
 
+# flowguard: states Session.sentinel = None | 'failed' | 'ok'
 class Session:
     def __init__(self, config):
+        self.config = config
+        self.owns_host = False
         self.cfg = load_config(config.rootpath)
         self.is_project = project_code(self.cfg)
         self.model = self.engine = self.map = None
@@ -51,6 +54,15 @@ class Session:
         self.main_process = os.getpid()
         self.started = time.time()
         self.folder = self.bootstrap = None
+        self.events, self.anchor_issues = [], []
+        self.calibration_facts = {}
+
+    @contextmanager
+    def verification(self):
+        from .anchors import _execution_session
+        from .calibration import _execution_session as calibrated_session
+        with calibrated_session(self.cfg.root, facts=self.calibration_facts), _execution_session(self.cfg.root):
+            yield
 
     def import_children(self):
         if self.folder is None:
@@ -87,7 +99,8 @@ class Session:
             if getattr(module, name) is refused:
                 setattr(module, name, real)
         from .imports import release_host
-        release_host(self.cfg.root)
+        if self.owns_host:
+            release_host(self.cfg.root)
         for name, value in self.import_environment.items():
             if value is None:
                 os.environ.pop(name, None)
@@ -127,9 +140,42 @@ class Session:
 
     def get_model(self):
         if self.model is None:
-            self.model = load(self.cfg)
-            self.engine = Engine(self.model)
+            from .calibration import probe_context
+            probe = probe_context(self.config)
+            previous = self.previous_session
+            index = (previous.model.anchor_index if probe and previous is not None
+                     and previous.cfg.root == self.cfg.root and previous.model is not None else None)
+            with self.verification():
+                self.model = load(self.cfg, anchor_index=index,
+                                  map_path=Path(self.folder.name) / 'anchor-map.sqlite' if probe else None)
+                self.engine = Engine(self.model)
         return self.model
+
+    def prepare_declaration(self, declaration):
+        """Calibrate only a selected contract, before its probe installs code."""
+        from .calibration import _prepare, _prepare_scenario, probe_context
+        model = self.get_model()
+        if model.errors or probe_context(self.config):
+            return
+        pending = [getattr(declaration, 'id', '')]
+        pending.extend(getattr(relation.rule, 'id', relation.rule)
+                       for relation in getattr(declaration, 'relations', ()))
+        pending.extend(getattr(node.model, 'id', node.model)
+                       for node in getattr(declaration, 'nodes', ()) if node.model is not None)
+        seen = set()
+        while pending:
+            identifier = pending.pop()
+            if identifier in seen or identifier not in model.rules:
+                continue
+            seen.add(identifier)
+            rule = model.rules[identifier]
+            pending.extend(rule.uses)
+            pending.extend(other.id for other in model.key(rule.decides) if other.id not in seen)
+            for binding in rule.homes:
+                if hasattr(binding, 'scenario'):
+                    _prepare_scenario(self.cfg.root, binding)
+                elif getattr(binding, 'anchor', None) and binding.anchor.calibrated_by:
+                    _prepare(self.cfg.root, binding.anchor)
 
     def get_map(self):
         if self.map is None:
@@ -156,11 +202,12 @@ def _session(config):
     global _CURRENT
     from .imports import prepare
     try:
-        prepare(config.rootpath, host=True)
+        claimed = prepare(config.rootpath, host=True)
     except ValueError as error:
         raise pytest.UsageError(str(error)) from error
     if not hasattr(config, '_flowguard_intent'):
         state = config._flowguard_intent = Session(config)
+        state.owns_host = claimed
         state.previous_session, _CURRENT = _CURRENT, state
         state.import_children()
         config.add_cleanup(state.close)
@@ -223,21 +270,28 @@ class IntentItem(pytest.Item):
         self.kind, self.rule_id, self.target = kind, rule_id, target
 
     def runtest(self):
+        with self.config._flowguard_intent.verification():
+            return self.run_verified()
+
+    def run_verified(self):
         state = self.config._flowguard_intent
         model, engine = state.model, state.engine
+        declaration = (model.rules.get(self.rule_id) or model.states.get(self.rule_id)
+                       or model.structures.get(self.rule_id) or model.flows.get(self.rule_id)
+                       or model.anchor_distincts.get(self.rule_id))
+        if declaration is not None:
+            state.prepare_declaration(declaration)
         if self.kind == 'load':
             red = [f"{e['file']}:{e['line']}: {e['msg']}" for e in model.errors if e['file'] == model.cfg.rel(self.path)]
             result = dict(kind='load', verdict='red', red=red, grey=[], info=[])
-        elif self.kind in ('states', 'structure'):
-            declaration = (model.states if self.kind == 'states' else model.structures)[self.rule_id]
+        elif self.kind in ('states', 'structure', 'flow', 'anchor_distinct'):
+            declaration = (model.states if self.kind == 'states' else model.flows if self.kind == 'flow'
+                           else model.anchor_distincts if self.kind == 'anchor_distinct' else model.structures)[self.rule_id]
             result = getattr(engine, 'run_' + self.kind)(declaration)
         else:
             rule = model.rules[self.rule_id]
             if self.kind == 'rules':
                 result = engine.run_rules(rule)
-            elif self.kind == 'distinct':
-                distinct = next(d for d in model.node_distincts(rule.id) if d.short == self.target.replace(':', '.'))
-                result = engine.run_distinct(rule, distinct)
             else:
                 home = next(h for h in rule.homes if h.target == self.target)
                 result = engine.run_live(rule, home) if self.kind == 'live' else engine.run_home(rule, home, self.kind)
@@ -251,7 +305,8 @@ class IntentItem(pytest.Item):
     def reportinfo(self):
         state = self.config._flowguard_intent
         model = state.model
-        declaration = model.rules.get(self.rule_id) or model.states.get(self.rule_id) or model.structures.get(self.rule_id)
+        declaration = (model.rules.get(self.rule_id) or model.states.get(self.rule_id) or model.structures.get(self.rule_id)
+                       or model.flows.get(self.rule_id) or model.anchor_distincts.get(self.rule_id))
         return self.path, max(0, declaration.line - 1) if declaration else 0, self.name
 
 
@@ -303,18 +358,17 @@ def _missing(state, declared):
     return sorted(missing)
 
 
-def sentinel(config):
+# flowguard: event SENTINEL_CHECK(config: pytest.Config)
+def sentinel(config: pytest.Config):
     state = getattr(config, '_flowguard_intent', None)
     if state is None:
-        from .cache import scan
-        from .loader import item_names
-        summary = scan(load_config(config.rootpath))
-        declared = []
-        for rid, rule in summary['rules'].items():
-            nodes = [other for d in summary['distincts'] for side, other in ((d['a'], d['b']), (d['b'], d['a']))
-                     if side == rid and ':' in other]
-            declared.extend(item_names(rid, rule['homes'], nodes, kind=rule['kind']))
+        from .cache import scan, declaration_names
+        cfg = load_config(config.rootpath)
+        summary = scan(cfg)
+        declared, unresolved = declaration_names(cfg, summary)
         incomplete = '; static declaration errors also need correction' if summary['errors'] else ''
+        if unresolved:
+            incomplete += '; additional scenario bindings are not counted without the plugin: ' + ', '.join(unresolved)
         raise AssertionError(f'FlowGuard plugin not loaded: 0 of {len(declared)} intent items; missing '
                              + ', '.join(declared[:3]) + incomplete + ' -> load -p flowguard.intent.plugin')
     declared = set(state.get_model().declared_items())
@@ -365,24 +419,37 @@ def _skip_reason(report):
 def pytest_runtest_protocol(item):
     state = item.config._flowguard_intent
     state.last_test = item.nodeid
-    if (isinstance(item, IntentItem) or item.name == SENTINEL
-            or not item.config.getoption('--flowguard-record-tests') and not any(item.iter_markers('rule'))):
-        yield
-        return
-    folder = state.child_folder(item)
-    values = dict(FLOWGUARD_TRACE_ROOT=str(state.cfg.root), FLOWGUARD_TRACE_CHILDREN=str(folder), FLOWGUARD_TRACE_TEST=item.nodeid)
-    previous = {name: os.environ.get(name) for name in values}
-    os.environ.update(values)
-    with Footprint(state.is_project) as footprint:
-        state.footprints[item.nodeid] = footprint
+    capture = None
+    with ExitStack() as scopes:
+        from .calibration import probe_context
+        if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
+                and state.model.flows and not probe_context(item.config)):
+            from .flow import Capture
+            capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid))
         try:
-            yield
+            if (isinstance(item, IntentItem) or item.name == SENTINEL
+                    or not item.config.getoption('--flowguard-record-tests') and not any(item.iter_markers('rule'))):
+                yield
+                return
+            folder = state.child_folder(item)
+            values = dict(FLOWGUARD_TRACE_ROOT=str(state.cfg.root), FLOWGUARD_TRACE_CHILDREN=str(folder), FLOWGUARD_TRACE_TEST=item.nodeid)
+            previous = {name: os.environ.get(name) for name in values}
+            os.environ.update(values)
+            with Footprint(state.is_project) as footprint:
+                state.footprints[item.nodeid] = footprint
+                try:
+                    yield
+                finally:
+                    for name, value in previous.items():
+                        if value is None:
+                            os.environ.pop(name, None)
+                        else:
+                            os.environ[name] = value
         finally:
-            for name, value in previous.items():
-                if value is None:
-                    os.environ.pop(name, None)
-                else:
-                    os.environ[name] = value
+            if capture:
+                scopes.close()
+                state.events.extend(capture.events)
+                state.anchor_issues.extend(capture.issues)
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -517,10 +584,42 @@ def _completion_policy(session, state, declared):
 
 
 def pytest_sessionfinish(session, exitstatus):
+    with session.config._flowguard_intent.verification():
+        return finish_verified(session, exitstatus)
+
+
+def finish_verified(session, exitstatus):
     state = session.config._flowguard_intent
+    from .calibration import probe_context
+    if probe_context(session.config):
+        declared = set(state.model.declared_items()) if state.model is not None else set()
+        _completion_policy(session, state, declared)
+        return  # Unselected intent is not part of this ordinary-test probe.
     model = state.get_model()
     declared = set(model.declared_items())
     _completion_policy(session, state, declared)
+    for identifier, rule in model.rules.items():
+        required = {model.file_of[identifier] + '::' + name for name in model.items_of(rule)}
+        if required <= state.results.keys():
+            parts = [state.results[item] for item in required]
+            owner = model.file_of[identifier] + '::' + identifier + '[rules]'
+            state.results[owner]['own_contract'] = state.engine.contract_summary(rule, parts=parts)
+    for identifier, flow in model.flows.items():
+        item = f'{model.file_of[identifier]}::{identifier}[flow]'
+        if item not in state.results:
+            continue
+        result = state.engine.run_flow(flow, state.events, state.anchor_issues)
+        state.results[item] = dict(result, rule=identifier, target=None)
+        if result['verdict'] == 'red':
+            print('\nFlowGuard flow ' + identifier + ': ' + '; '.join(result['red']), file=sys.stderr)
+            session.exitstatus = pytest.ExitCode.TESTS_FAILED
+    from .cli import anchor_checks, behavior_changes
+    index, observation_lines, observation_red = anchor_checks(state.cfg, index=model.anchor_index, automatic=True)
+    if observation_red:
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+    observation_lines.extend(behavior_changes(state.cfg, automatic=True, index=index))
+    if observation_lines:
+        print('\n'.join(observation_lines))
     exitstatus = session.exitstatus
     missing = _missing(state, declared)
     attempt = dict(declared=len(declared), collected=len(state.collected), selected=len(state.selected),
@@ -561,7 +660,8 @@ def pytest_sessionfinish(session, exitstatus):
             fresh = {result['rule'] for result in state.results.values() if result['rule'] is not None}
             records = {}
             for rid in fresh:
-                declaration = model.rules.get(rid) or model.states.get(rid) or model.structures.get(rid)
+                declaration = (model.rules.get(rid) or model.states.get(rid) or model.structures.get(rid)
+                               or model.flows.get(rid) or model.anchor_distincts.get(rid))
                 records[rid] = record(state.cfg, model, declaration,
                                       [r for r in state.results.values() if r['rule'] == rid], mapping)
             save_dependencies(con, records)

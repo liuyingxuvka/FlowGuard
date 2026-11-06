@@ -12,6 +12,7 @@ from flowguard.intent.engine import Engine
 from flowguard.intent.loader import load
 from flowguard.intent import cache, deps
 from flowguard.structure import build
+from tests.intent_engine._source_fixture import annotate, source_engine, source_sessions
 
 
 CODE = '''
@@ -43,18 +44,17 @@ STANDING.rows(
     row(ended=4, suspended=False, owed=0, expect=False, why='expired'),
     row(ended=0, suspended=True, owed=0, expect=False, why='suspended'),
     row(ended=0, suspended=False, owed=0, expect=True, why='standing'))
-@STANDING.home('PKG:refusal')
-def standing_home(c, fn):
-    return fn(c.ended, c.suspended, c.owed) is None
 
 @rule('CHECKOUT', decides='may_buy', fields={'standing': bool, 'stock': bool}, uses=[STANDING],
       source='doc policy.txt "May buy when standing and stock remains"')
 def CHECKOUT(standing, stock):
     return standing and stock
-@CHECKOUT.home('PKG:HOME')
-def checkout_home(c, fn):
-    w = c.witness(STANDING)
-    return fn(w.ended, w.suspended, w.owed, c.stock)
+from flowguard.intent import flow,Node,Read,Relation
+flow('STANDING_CHECKOUT',source='doc policy.txt "May buy when standing and stock remains"',
+ nodes=[Node('case','CASE',start=True),Node('standing','REFUSAL',phase='return',model='STANDING',caller='case'),Node('checkout','CHECKOUT_RESULT',phase='return',caller='case',end=True)],
+ edges=[('case','standing'),('standing','checkout')],
+ relations=[Relation('STANDING',{'ended':Read('case','arg.ended'),'suspended':Read('case','arg.suspended'),'owed':Read('case','arg.owed')},Read('standing',equals=None),on='standing'),
+            Relation('CHECKOUT',{'standing':Read('standing',equals=None),'stock':Read('case','arg.stock')},Read('checkout'),on='checkout')])
 '''
 
 
@@ -63,23 +63,36 @@ def git(root, *args):
                            '-C', str(root), *args], check=True, capture_output=True).stdout
 
 
-def project(tmp_path, *, home='checkout', code=CODE, intent=INTENT):
+def project(tmp_path, *, home='checkout', code=CODE, intent=INTENT, lower_types=None):
     root = tmp_path / ('project_' + uuid.uuid4().hex)
     root.mkdir()
     module = 'policy_' + uuid.uuid4().hex
     (root / 'policy.txt').write_text('May buy when standing and stock remains\n')
     (root / 'pyproject.toml').write_text('[tool.flowguard]\nauthority_docs=["policy.txt"]\n')
-    (root / (module + '.py')).write_text(textwrap.dedent(code))
+    lower_types=lower_types or {'ended':'int','suspended':'bool','owed':'int'}
+    testnode='tests/test_case.py::test_case'
+    code=annotate(code,'refusal','REFUSAL',lower_types,output='str | None',calibrated_by=testnode)
+    code=annotate(code,home,'CHECKOUT_RESULT',{**lower_types,'stock':'bool'},calibrated_by=testnode)
+    (root / (module + '.py')).write_text(code)
     git(root, 'init', '-q')
     git(root, 'add', 'policy.txt', 'pyproject.toml', module + '.py')
     git(root, 'commit', '-qm', 'Existing policy')
     (root / 'tests/intent').mkdir(parents=True)
     (root / 'tests/intent/policy.py').write_text(textwrap.dedent(intent).replace('PKG', module).replace('HOME', home))
+    case='import pytest\nimport '+module+' as app\n'
+    if lower_types['ended']=='End':case+='from '+module+' import End,Flag,Money\n'
+    values={'ended':'End.ZERO' if lower_types['ended']=='End'else'0','suspended':'Flag.NO' if lower_types['suspended']=='Flag'else'False','owed':'Money.ZERO' if lower_types['owed']=='Money'else'0','stock':'False'}
+    params={**lower_types,'stock':'bool'}
+    for key,value in values.items():case+='@pytest.fixture\ndef '+key+'():return '+value+'\n'
+    signature=', '.join(key+': '+kind for key,kind in params.items())
+    case+='# flowguard: event CASE('+signature+')\n'
+    case+='def test_case('+signature+'):\n    app.refusal(ended,suspended,owed)\n    result=app.'+home+'(ended,suspended,owed,stock)\n    assert type(result) is bool\n'
+    (root/'tests/test_case.py').write_text(case)
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'Implement the existing policy')
     model = load(load_config(root))
     assert not model.errors, model.errors
-    return model, Engine(model), module
+    return model, source_engine(model), module
 
 
 def test_parent_uses_only_outcomes_but_its_home_runs_lower_code(tmp_path):
@@ -108,11 +121,11 @@ def test_two_equal_outcomes_expose_an_upper_dependency_on_the_refusal_words(tmp_
 
 def test_only_one_verified_input_cannot_claim_adequacy(tmp_path):
     enums = 'from enum import IntEnum\nclass End(IntEnum):\n    ZERO = 0\nclass Flag(IntEnum):\n    NO = 0\nclass Money(IntEnum):\n    ZERO = 0\n'
-    intent = enums + INTENT.replace("fields={'ended': int, 'suspended': bool, 'owed': int}", "fields={'ended': End, 'suspended': Flag, 'owed': Money}")
+    intent = 'from PKG import End,Flag,Money\n' + INTENT.replace("fields={'ended': int, 'suspended': bool, 'owed': int}", "fields={'ended': End, 'suspended': Flag, 'owed': Money}")
     intent = intent.replace("row(ended=4, suspended=False, owed=0, expect=False, why='expired'),", '')
     intent = intent.replace("row(ended=0, suspended=True, owed=0, expect=False, why='suspended'),", '')
     intent = intent.replace('row(ended=0, suspended=False, owed=0, expect=True', 'row(ended=End.ZERO, suspended=Flag.NO, owed=Money.ZERO, expect=True')
-    model, engine, _ = project(tmp_path, intent=intent)
+    model, engine, _ = project(tmp_path, intent=intent, code=enums+CODE,lower_types={'ended':'End','suspended':'Flag','owed':'Money'})
     parent = model.rules['CHECKOUT']
     result = engine.run_home(parent, parent.homes[0], 'cells')
     assert result['verdict'] == 'grey', result
@@ -154,11 +167,14 @@ def _saved(model, engine, graph):
 
 def _changed(model, module, source):
     path = model.cfg.root / (module + '.py')
-    path.write_text(textwrap.dedent(source) + '\n# a distinct source version\n')
+    home='checkout_reads_reason' if model.rules['CHECKOUT'].homes[0].target.endswith(':checkout_reads_reason') else 'checkout'
+    source=annotate(source,'refusal','REFUSAL',{'ended':'int','suspended':'bool','owed':'int'},output='str | None',calibrated_by='tests/test_case.py::test_case')
+    source=annotate(source,home,'CHECKOUT_RESULT',{'ended':'int','suspended':'bool','owed':'int','stock':'bool'},calibrated_by='tests/test_case.py::test_case')
+    path.write_text(source + '\n# a distinct source version\n')
     sys.modules.pop(module, None)
     importlib.invalidate_caches()
     current = load(model.cfg)
-    return current, Engine(current)
+    return current, source_engine(current)
 
 
 def test_same_lower_contract_cuts_the_upper_recheck(tmp_path):

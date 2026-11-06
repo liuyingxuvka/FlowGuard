@@ -8,29 +8,51 @@ import pytest
 from flowguard.intent.config import load_config
 from flowguard.intent.engine import Engine
 from flowguard.intent.loader import load
+from tests.intent_engine._source_fixture import annotate, native, scenario, source_engine, source_sessions
 
 
 def project(tmp_path, code, declarations):
     root = tmp_path / uuid.uuid4().hex
     root.mkdir()
     module = 'sample_' + root.name
-    (root / (module + '.py')).write_text(textwrap.dedent(code))
+    code=textwrap.dedent(code)
+    scenarios=[]
+    if code.strip():
+        import ast
+        tree=ast.parse(code)
+        bindings=[(n.name,n.name) for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in {'accept','second','always','later'}]
+        for cls in (n for n in tree.body if isinstance(n,ast.ClassDef)):
+            bindings += [(cls.name+'.'+n.name,n.name)for n in cls.body if isinstance(n,ast.FunctionDef)and n.name=='accept']
+        (root/'tests').mkdir()
+        for target,short in bindings:
+            name='LIMIT' if short in {'accept','second'} else short.upper()
+            call='app.'+target+'(days)'
+            instance='.'in target and not any(isinstance(d,ast.Name)and d.id in {'classmethod','staticmethod'}for d in next(n for n in next(c for c in tree.body if isinstance(c,ast.ClassDef)and c.name==target.split('.')[0]).body if isinstance(n,ast.FunctionDef)and n.name==short).decorator_list)
+            if instance:
+                call='app.'+target.replace('.', '().',1)+'(days)'
+                scenarios.append((target,call))
+            else:
+                testnode=native(root,module,target,name+'_'+short.upper(),{'days':'int'},call=call) if '.'in target else ''
+                code=annotate(code,target,name,{'days':'int'},calibrated_by=testnode)
+    for target,call in scenarios:
+        declarations=declarations.replace(", anchor='LIMIT'",'')
+        code,declarations=scenario(root,module,code,declarations,rule='LIMIT',target=target,
+            parameters={'days':'int'},source_parameters={'days':'int'},
+            body='answer='+call+'\nassert type(answer) is bool')
+    (root / (module + '.py')).write_text(code)
     folder = root / 'tests/intent'
     folder.mkdir(parents=True)
     header = 'from flowguard.intent import rule, row, Refused, distinct, D\n'
     (folder / 'policy.py').write_text(header + textwrap.dedent(declarations).replace('PKG', module))
     model = load(load_config(root))
-    return model, Engine(model), module
+    return model, source_engine(model), module
 
 
 SINGLE = '''
-@rule('LIMIT', decides='limit', source='assumed: a known boundary', fields={'days': int})
+@rule('LIMIT', decides='limit', source='assumed: a known boundary', fields={'days': int}, anchor='LIMIT')
 def LIMIT(days):
     return days <= 3
 LIMIT.rows(row(days=4, expect=False, why='a previously fixed fourth-day error'))
-@LIMIT.home('PKG:accept')
-def check(c, fn):
-    return fn(c.days)
 '''
 
 
@@ -44,7 +66,7 @@ def test_a_later_session_regression_is_found_in_the_real_home(tmp_path):
 
 
 def test_every_bound_copy_is_checked(tmp_path):
-    extra = "\n@LIMIT.home('PKG:second')\ndef second(c, fn): return fn(c.days)\n"
+    extra = ""  # Both source sensors deliberately share LIMIT.
     model, engine, _ = project(tmp_path, 'def accept(days): return days <= 3\ndef second(days): return days <= 4', SINGLE + extra)
     rule = model.rules['LIMIT']
     assert engine.run_home(rule, rule.homes[0], 'cells')['verdict'] == 'ok'
@@ -134,10 +156,9 @@ def test_predicate_borrowing_project_constant_is_not_independent(tmp_path):
 
 
 def test_binding_never_entered_is_a_failure(tmp_path):
-    text = SINGLE.replace('return fn(c.days)', 'return c.days <= 3')
-    model, engine, _ = project(tmp_path, 'def accept(days): return days <= 3', text)
-    result = engine.run_home(model.rules['LIMIT'], model.rules['LIMIT'].homes[0], 'cells')
-    assert result['verdict'] == 'red' and 'binding never enters' in result['red'][0]
+    old = SINGLE + "\n@LIMIT.home('PKG:accept')\ndef mirror(c,fn): return c.days <= 3\n"
+    model, _, _ = project(tmp_path, 'def accept(days): return days <= 3', old)
+    assert any('Rule.home() call adapters were removed' in e['msg'] and 'rebuild' in e['msg'] for e in model.errors)
 
 
 def test_zero_realized_sites_are_not_vacuously_live(tmp_path):
@@ -185,17 +206,18 @@ def test_unreached_second_site_is_not_a_false_green(tmp_path):
 
 
 def test_a_borrowed_distinct_adapter_cannot_prove_a_constant_answer(tmp_path):
-    extra = "\ndistinct('LIMIT', 'PKG:always', why='another decision', source='assumed: test')\n"
-    model, engine, _ = project(tmp_path, 'def accept(days): return days <= 3\ndef always(days): return True', SINGLE + extra)
-    result = engine.run_distinct(model.rules['LIMIT'], model.distincts[0])
-    assert result['verdict'] == 'grey' and any('sees one answer' in line for line in result['grey'])
+    # The retired route is rejected; no adapter is borrowed to fabricate evidence.
+    extra = "\n@distinct('LIMIT','PKG:always',why='another decision',source='assumed: test')\ndef mirror(c,fn): return fn(c.days)\n"
+    model, _, _ = project(tmp_path, 'def accept(days): return days <= 3\ndef always(days): return True', SINGLE + extra)
+    assert any('call adapters were removed' in e['msg'] and 'rebuild' in e['msg'] for e in model.errors)
 
 
 def test_a_distinct_checks_the_other_nodes_own_threshold(tmp_path):
-    extra = "\ndistinct('LIMIT', 'PKG:later', why='another decision', source='assumed: test')\n"
+    extra = "\ndistinct('PKG:accept','LATER',why='another decision',source='assumed: test')\n"
     model, engine, _ = project(tmp_path, 'def accept(days): return days <= 3\ndef later(days): return days <= 30', SINGLE + extra)
-    result = engine.run_distinct(model.rules['LIMIT'], model.distincts[0])
-    assert result['verdict'] == 'ok' and result['agree'] < result['n']
+    from flowguard.intent.differences import anchor_distinct
+    result=anchor_distinct(model.cfg.root,model.distincts[0],index=model.anchor_index)
+    assert result['status']=='ok' and result['changed']>0 and result['complete']
 
 
 def test_a_zero_argument_super_closure_is_mutable(tmp_path):

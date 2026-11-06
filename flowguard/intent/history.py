@@ -184,11 +184,21 @@ def current_row_signature(rule, row):
         definition = tree.body[0]
         definition.decorator_list = []
         return fingerprint(definition, definition.name)
+    def binding_facts(binding):
+        from dataclasses import asdict
+        if hasattr(binding, 'scenario'):
+            from .calibration import _binding_data
+            facts = _binding_data(binding)
+            facts.pop('entries', None)  # Unrelated source anchors do not reinterpret this row.
+            return facts
+        return dict(target=binding.target, name=binding.name,
+                    anchor=asdict(binding.anchor) if binding.anchor else None,
+                    equivalent=binding.equivalent)
     facts = dict(rule=rule.id, decides=rule.decides, source=rule.source,
                  quote=getattr(rule, 'quote', None), fields={name: repr(kind) for name, kind in rule.fields.items()},
                  inputs={name: (type(value).__module__, type(value).__qualname__, repr(value)) for name, value in row.inputs.items()},
                  expect=repr(row.expect), predicate=function_body(rule.pred),
-                 homes=[(home.target, function_body(home.adapter)) for home in rule.homes])
+                 homes=[binding_facts(home) for home in rule.homes])
     return content_digest(Path('row-proof'), data=json.dumps(facts, sort_keys=True).encode())
 
 
@@ -220,11 +230,16 @@ def confirmation(cfg, rule, engine=None):
 _PROBE = '''
 import json,sys
 from pathlib import Path
-source, root, rid, line = sys.argv[1:]
+source, root, rid, line, targets = sys.argv[1:]
+targets=json.loads(targets)
 sys.path.insert(0,source)
 from flowguard.intent.loader import load
-from flowguard.intent.engine import Engine
+from flowguard.intent.engine import Engine,WitnessUnavailable
 from flowguard.intent import sites
+from flowguard.intent.anchors import _execution_session
+from flowguard.intent.calibration import _prepare,_prepare_scenario
+from contextlib import ExitStack
+scopes=ExitStack();scopes.enter_context(_execution_session(root))
 model=load(root=root)
 rule=model.rules.get(rid)
 if model.errors or rule is None:
@@ -240,6 +255,22 @@ from flowguard.intent.readings import project_module
 if not rule.homes:
  print(json.dumps({'status':'unknown','reason':'no real homes bound'})); raise SystemExit()
 for home in rule.homes:
+ if home.anchor is None:
+  # A missing historical observation comment is not evidence that the
+  # production function did not exist. Inspect the existing Map, never call
+  # an unbound old function through an anonymous fallback.
+  from contextlib import closing
+  from flowguard.structure import build
+  candidates=targets.get(home.name,[])
+  with closing(build(model.cfg.root,roots=model.cfg.roots)) as graph:
+   present=any(graph.node(graph.canonical(target) or target) for target in candidates)
+  answers.append({'status':'unknown' if present or not candidates else 'new code',
+                  'home':home.name,'reason':'old source has no corresponding observation anchor' if present or not candidates else 'old production function is absent'})
+  continue
+ if hasattr(home,'scenario'):
+  _prepare_scenario(model.cfg.root,home)
+ elif home.anchor and home.anchor.calibrated_by:
+  _prepare(model.cfg.root,home.anchor)
  fn,_,gone=engine.home_sites(home.target)
  if gone:
   module=home.target.partition(':')[0].replace('.', '/')
@@ -248,6 +279,8 @@ for home in rule.homes:
   answers.append({'status':'unknown' if exists and failed_import else 'new code','home':home.target,'reason':gone}); continue
  with Footprint(engine.is_project) as footprint:
   got=engine.call(home,row.inputs,fn)
+ if isinstance(got,Raised) and isinstance(got.error,WitnessUnavailable):
+  answers.append({'status':'unknown','home':home.target,'reason':'source observation unavailable: '+str(got.error)}); continue
  code=getattr(sites.unwrap(fn),'__code__',None)
  if code is None or sites.code_key(code) not in footprint.keys():
   answers.append({'status':'unknown','reason':'binding never enters old home'}); continue
@@ -264,7 +297,7 @@ print(json.dumps({'status':'unknown' if any(a['status']=='unknown' for a in answ
 
 def _probe(root, rule, row):
     result = subprocess.run([sys.executable, '-c', _PROBE, str(Path(__file__).resolve().parents[2]),
-                             str(root), rule.id, str(row.line)], cwd=root, capture_output=True, text=True)
+                             str(root), rule.id, str(row.line), json.dumps({name: [home.target for home in rule.homes if home.name == name and home.anchor is not None] for name in {home.name for home in rule.homes}})], cwd=root, capture_output=True, text=True)
     if result.returncode:
         return dict(status='unknown', reason=result.stderr.strip() or f'exit {result.returncode}')
     try:

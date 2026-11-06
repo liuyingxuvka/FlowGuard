@@ -14,6 +14,7 @@ from flowguard.intent.config import load_config
 from flowguard.intent.loader import load
 from flowguard.intent.engine import Engine
 from flowguard.structure import build
+from tests.intent_engine._source_fixture import annotate, scenario, source_engine, source_sessions
 
 
 def git(root, *arguments):
@@ -27,21 +28,23 @@ def fixture(tmp_path, body='return x <= LIMIT', helper=False):
     name = root.name
     (root / 'pyproject.toml').write_text('[tool.flowguard]\nauthority_docs=["policy.txt"]\n')
     (root / 'policy.txt').write_text('The limit is three.\n')
-    (root / (name + '.py')).write_text('LIMIT=3\ndef accept(x):\n    ' + body + '\ndef unrelated(x):\n    return x + 1\n')
+    code='LIMIT=3\ndef accept(x):\n    '+body+'\ndef unrelated(x):\n    return x + 1\n'
+    (root / (name + '.py')).write_text(annotate(code,'accept','LIMIT',{'x':'int'}))
     folder = root / 'tests/intent'
     folder.mkdir(parents=True)
     intent = f'''from flowguard.intent import rule,row
-@rule('LIMIT',decides='allowed',fields={{'x':int}},source='doc policy.txt "The limit is three."')
+@rule('LIMIT',decides='allowed',fields={{'x':int}},anchor='LIMIT',source='doc policy.txt "The limit is three."')
 def LIMIT(x): return x <= 3
 LIMIT.rows(row(x=4,expect=False,why='fixed fourth value'))
-@LIMIT.home('{name}:accept')
-def home(c,fn): return fn(c.x)
 '''
     if helper:
         (root / 'tests/__init__.py').write_text('')
         (root / 'tests/support.py').write_text('from tests.deep import OFFSET\ndef value(x): return x + OFFSET\n')
         (root / 'tests/deep.py').write_text('OFFSET=0\n')
-        intent = 'from tests.support import value\n' + intent.replace('fn(c.x)', 'fn(value(c.x))')
+        code, intent = scenario(root, name, code, intent.replace(",anchor='LIMIT'", ''),
+            rule='LIMIT', target='accept', parameters={'x': 'int'}, source_parameters={'x': 'int'},
+            body='from tests.support import value\nanswer=app.accept(value(x))\nassert type(answer) is bool')
+        (root / (name + '.py')).write_text(code)
     (folder / 'limit.py').write_text(intent)
     cfg = load_config(root)
     return root, cfg, name
@@ -51,7 +54,7 @@ def execute(cfg):
     model = load(cfg)
     assert not model.errors, model.errors
     rule = model.rules['LIMIT']
-    engine = Engine(model)
+    engine = source_engine(model)
     result = engine.run_home(rule, rule.homes[0], 'cells')
     graph = build(cfg.root, roots=cfg.roots)
     saved = deps.record(cfg, model, rule, [result], graph)
@@ -264,7 +267,7 @@ def test_old_failure_and_new_success_proves_only_a_real_previous_home(tmp_path):
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'old boundary bug')
     base = git(root, 'rev-parse', 'HEAD')
-    (root / (module + '.py')).write_text('LIMIT=3\ndef accept(x): return x <= LIMIT\n')
+    (root / (module + '.py')).write_text(annotate('LIMIT=3\ndef accept(x): return x <= LIMIT\n','accept','LIMIT',{'x':'int'}))
     model = load(cfg)
     result = history.proven(cfg, model.rules['LIMIT'], model.rules['LIMIT'].live_rows[0], base)
     assert result['status'] == 'proven', result
@@ -287,7 +290,7 @@ def test_old_missing_external_dependency_is_unknown_not_proven(tmp_path):
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'old environment-dependent code')
     base = git(root, 'rev-parse', 'HEAD')
-    (root / (module + '.py')).write_text('def accept(x): return x <= 3\n')
+    (root / (module + '.py')).write_text(annotate('def accept(x): return x <= 3\n','accept','LIMIT',{'x':'int'}))
     model = load(cfg)
     result = history.proven(cfg, model.rules['LIMIT'], model.rules['LIMIT'].live_rows[0], base)
     assert result['status'] == 'unknown', result
@@ -301,7 +304,7 @@ def test_a_home_absent_previously_is_new_code_not_proven(tmp_path):
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'before the home existed')
     base = git(root, 'rev-parse', 'HEAD')
-    path.write_text('def accept(x): return x <= 3\n')
+    path.write_text(annotate('def accept(x): return x <= 3\n','accept','LIMIT',{'x':'int'}))
     model = load(cfg)
     result = history.proven(cfg, model.rules['LIMIT'], model.rules['LIMIT'].live_rows[0], base)
     assert result['status'] == 'new code', result
@@ -379,7 +382,7 @@ def test_proven_evidence_survives_reason_edits_but_not_a_changed_expected_answer
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'previous boundary bug')
     base = git(root, 'rev-parse', 'HEAD')
-    (root / (module + '.py')).write_text('def accept(x): return x <= 3\n')
+    (root / (module + '.py')).write_text(annotate('def accept(x): return x <= 3\n','accept','LIMIT',{'x':'int'}))
     model = load(cfg)
     rule = model.rules['LIMIT']
     proof = history.proven(cfg, rule, rule.live_rows[0], base)
@@ -428,7 +431,7 @@ def test_saving_proof_does_not_create_a_fake_pass_or_erase_an_older_valid_proof(
 
 
 def test_pytest_pythonpath_helper_dependencies_use_the_maps_detected_roots(tmp_path):
-    root, cfg, _ = fixture(tmp_path)
+    root, cfg, module = fixture(tmp_path)
     tag = root.name
     helpers = root / 'builder_path'
     helpers.mkdir()
@@ -438,7 +441,14 @@ def test_pytest_pythonpath_helper_dependencies_use_the_maps_detected_roots(tmp_p
     project = root / 'pyproject.toml'
     project.write_text(project.read_text() + '\n[tool.pytest.ini_options]\npythonpath=["builder_path"]\n')
     intent = cfg.intent / 'limit.py'
-    intent.write_text(f'from support_{tag} import value\n' + intent.read_text().replace('fn(c.x)', 'fn(value(c.x))'))
+    source = root / (module + '.py')
+    original_code = ''.join(line for line in source.read_text().splitlines(True)
+                            if not line.lstrip().startswith('# flowguard:'))
+    code, declarations = scenario(root, module, original_code, intent.read_text().replace(",anchor='LIMIT'", ''),
+        rule='LIMIT', target='accept', parameters={'x': 'int'}, source_parameters={'x': 'int'},
+        body=f'from support_{tag} import value\nanswer=app.accept(value(x))\nassert type(answer) is bool')
+    source.write_text(code)
+    intent.write_text(declarations)
     model, graph, saved, result = execute(cfg)
     assert not saved['reasons']
     assert any(key.endswith('builder_path/' + deep.name) for key in saved['dependencies'])
@@ -447,6 +457,11 @@ def test_pytest_pythonpath_helper_dependencies_use_the_maps_detected_roots(tmp_p
     graph = build(root)
     assert deps.stale(saved, deps.Now(cfg, graph))
     graph.close()
+    # The logical case reaches the test-side helper before the real decision.
+    # Replacing the production argument directly would erase this regression.
+    _, changed_graph, _, changed = execute(load_config(root))
+    assert changed['verdict'] == 'red', changed
+    changed_graph.close()
 
 
 def test_rewriting_an_sdk_alias_does_not_look_like_deleting_a_marked_test(tmp_path):

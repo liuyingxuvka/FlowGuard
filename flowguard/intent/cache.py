@@ -7,7 +7,7 @@ from pathlib import Path
 import sqlite3
 
 from .config import intent_files
-from .loader import api_aliases, api_call_name, literal_problems
+from .loader import api_aliases, api_call_name, distinct_identifier, literal_problems
 from flowguard.map.common import content_digest
 
 
@@ -22,7 +22,22 @@ def scan(cfg, texts=None):
     """Static screen/history facts, using the loader's literal-row validation."""
     texts = texts if texts is not None else {cfg.rel(p): p.read_text(encoding='utf-8-sig') for p in intent_files(cfg)}
     rules, errors, distincts, lines = {}, [], [], 0
-    references, identifiers, distinct_calls = [], {}, []
+    references, identifiers, distinct_calls, flow_calls = [], {}, [], []
+    def expanded(node, bindings, seen=()):
+        if isinstance(node, ast.Name) and node.id in bindings and node.id not in seen:
+            return expanded(bindings[node.id], bindings, (*seen, node.id))
+        return node
+    def items(node, bindings, seen=()):
+        if isinstance(node, ast.Name) and node.id in bindings:
+            return [node] if node.id in seen else items(bindings[node.id], bindings, (*seen, node.id))
+        node = expanded(node, bindings)
+        if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+            return [child for value in node.elts for child in
+                    (items(value.value, bindings, seen) if isinstance(value, ast.Starred) else [expanded(value, bindings)])]
+        return [node] if node is not None else []
+    def anchor_names(node, bindings):
+        return [_literal(value) if isinstance(_literal(value), str) else 'unresolved:' + ast.unparse(value)
+                for value in items(node, bindings)]
     for relative, text in sorted(texts.items()):
         lines += len(text.splitlines())
         try:
@@ -58,13 +73,27 @@ def scan(cfg, texts=None):
                 rules[identifier] = dict(id=identifier, decides=values.get('decides', 'structure'), source=values.get('source', ''),
                     kind='structure' if api_call_name(decorator, aliases) == 'structure_rule' else 'rule', file=relative, line=function.lineno,
                     doc=ast.get_docstring(function) or '', rows=0, retired=0, homes=[], row_records=[],
-                    uses=[], supersedes=[], overrides=[], total=values.get('total', False))
+                    uses=[], supersedes=[], overrides=[], total=values.get('total', False),
+                    anchors=anchor_names(next((k.value for k in decorator.keywords if k.arg == 'anchor'), None), bindings))
                 field_node = next((k.value for k in decorator.keywords if k.arg == 'fields'), None)
                 rules[identifier]['fields'] = {_literal(key): ast.unparse(value) for key, value in zip(field_node.keys, field_node.values)} if isinstance(field_node, ast.Dict) else {}
+                rules[identifier]['direct_anchors'] = list(rules[identifier]['anchors'])
                 references.append((identifier, names, imported, {k.arg: k.value for k in decorator.keywords}))
         for call in (n for n in ast.walk(tree) if isinstance(n, ast.Call)):
+            if api_call_name(call, aliases) == 'flow':
+                keywords = {key.arg: key.value for key in call.keywords}
+                identifier = _literal(call.args[0] if call.args else keywords.get('identifier'))
+                if not isinstance(identifier, str):
+                    errors.append(dict(file=relative, line=call.lineno, msg='flow id must be a literal'))
+                    continue
+                if identifier in rules:
+                    errors.append(dict(file=relative, line=call.lineno, msg=f'duplicate declaration {identifier}'))
+                rules[identifier] = dict(id=identifier, decides='flow', source=_literal(keywords.get('source'), ''),
+                    kind='flow', file=relative, line=call.lineno, doc='', rows=0, retired=0,
+                    homes=[], anchors=[], fields={}, row_records=[], uses=[], supersedes=[], overrides=[], total=False)
+                flow_calls.append((identifier, names, imported, keywords, bindings, aliases))
             if api_call_name(call, aliases) == 'distinct':
-                distinct_calls.append((call, names, imported))
+                distinct_calls.append((call, names, imported, relative))
             if api_call_name(call, aliases) == 'states':
                 target = _literal(call.args[0] if call.args else next((k.value for k in call.keywords if k.arg == 'target'), None))
                 if isinstance(target, str):
@@ -76,9 +105,6 @@ def scan(cfg, texts=None):
             item = rules.get(names.get(call.func.value.id))
             if item is None:
                 continue
-            if call.func.attr == 'home':
-                target = call.args[0] if call.args else next((k.value for k in call.keywords if k.arg == 'target'), None)
-                item['homes'].append(_literal(target, 'unresolved:' + ast.unparse(target) if target else 'unresolved:home'))
             if call.func.attr != 'rows':
                 continue
             def rows(node, seen=()):
@@ -110,17 +136,111 @@ def scan(cfg, texts=None):
     for identifier, names, imported, keywords in references:
         for field in ('uses', 'supersedes', 'overrides'):
             rules[identifier][field] = refs(keywords.get(field), names, imported)
-    for call, names, imported in distinct_calls:
+    for identifier, names, imported, keywords, bindings, aliases in flow_calls:
+        item = rules[identifier]
+        nodes = {}
+        unknown = []
+        for value in items(keywords.get('nodes'), bindings):
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                nodes[value.value] = value.value
+            elif isinstance(value, ast.Call) and api_call_name(value, aliases) == 'Node':
+                arguments = {k.arg: expanded(k.value, bindings) for k in value.keywords}
+                local = _literal(expanded(value.args[0] if value.args else arguments.get('name'), bindings))
+                target = _literal(expanded(arguments.get('anchor') or (value.args[1] if len(value.args) > 1 else None), bindings)) or local
+                if isinstance(local, str) and isinstance(target, str):
+                    nodes[local] = target
+                else:
+                    unknown.append('node reference: ' + ast.unparse(value))
+            else:
+                unknown.append('node reference: ' + ast.unparse(value))
+        item['nodes'] = nodes
+        item['anchors'] = list(dict.fromkeys(nodes.values()))
+        for value in items(keywords.get('transitions'), bindings):
+            if isinstance(value, ast.Call) and api_call_name(value, aliases) == 'Transition':
+                state = _literal(expanded(value.args[0] if value.args else next((k.value for k in value.keywords if k.arg == 'state'), None), bindings))
+                if isinstance(state, str):item['anchors'].append(state)
+        for value in items(keywords.get('relations'), bindings):
+            if not isinstance(value, ast.Call) or api_call_name(value, aliases) != 'Relation':
+                unknown.append('relation reference: ' + ast.unparse(value));continue
+            arguments = {key.arg: expanded(key.value, bindings) for key in value.keywords}
+            target = value.args[0] if value.args else arguments.get('rule')
+            identifiers_ = refs(expanded(target, bindings), names, imported)
+            inputs = expanded(value.args[1] if len(value.args) > 1 else arguments.get('inputs'), bindings)
+            actual = expanded(value.args[2] if len(value.args) > 2 else arguments.get('actual'), bindings)
+            trigger = _literal(expanded(value.args[3] if len(value.args) > 3 else arguments.get('on'), bindings))
+            readings = list(inputs.values) if isinstance(inputs, ast.Dict) else []
+            if inputs is not None and not isinstance(inputs, ast.Dict):
+                unknown.append('input mapping: ' + ast.unparse(inputs))
+            readings += [actual] if actual is not None and not (isinstance(actual, ast.Constant) and actual.value is None) else []
+            node_names = [trigger] if isinstance(trigger, str) and trigger else []
+            state_refs = []
+            for read in readings:
+                read = expanded(read, bindings)
+                if isinstance(read, ast.Call) and api_call_name(read, aliases) == 'Read':
+                    args = {k.arg:k.value for k in read.keywords}
+                    name = _literal(expanded(read.args[0] if read.args else args.get('node'), bindings))
+                    field = _literal(expanded(read.args[1] if len(read.args)>1 else args.get('field'), bindings))
+                    if name == '$state':
+                        if isinstance(field, str):state_refs.append(field)
+                    elif isinstance(name, str):node_names.append(name)
+                    if isinstance(field, str) and field.startswith('state.'):
+                        state_refs.append(field.removeprefix('state.'))
+                else:unknown.append('reading reference: ' + ast.unparse(read))
+            anchors = list(dict.fromkeys([nodes[name] for name in node_names if name in nodes] + state_refs))
+            item['anchors'] = list(dict.fromkeys(item['anchors'] + state_refs))
+            unknown.extend('reading node: ' + name for name in node_names if name not in nodes)
+            for rule_id in identifiers_:
+                if rule_id not in rules:
+                    unknown.append('relation rule: ' + rule_id);continue
+                rule = rules[rule_id]
+                rule['anchors'] = list(dict.fromkeys(rule.get('anchors', []) + anchors))
+                rule.setdefault('flows', []).append(identifier)
+        item['navigation_unknown'] = list(dict.fromkeys(unknown))
+    for call, names, imported, relative in distinct_calls:
         keywords = {k.arg: k.value for k in call.keywords}
         arguments = {name: call.args[index] if len(call.args) > index else keywords.get(name)
                      for index, name in enumerate(('a', 'b', 'why', 'source'))}
         a, b = refs(arguments['a'], names, imported), refs(arguments['b'], names, imported)
         distincts.append(dict(a=a[0] if a else '', b=b[0] if b else '', why=_literal(arguments['why'], ''), source=_literal(arguments['source'], '')))
+        if a and b and a[0] not in rules and b[0] not in rules:
+            identifier = distinct_identifier(relative, a[0], b[0])
+            rules[identifier] = dict(id=identifier, decides='distinct', kind='anchor_distinct', file=relative,
+                line=call.lineno, source=_literal(arguments['source'], ''), doc=_literal(arguments['why'], ''),
+                rows=0, retired=0, homes=[], anchors=[a[0], b[0]], fields={}, row_records=[], uses=[], supersedes=[], overrides=[], total=False)
     for item in rules.values():
         for old in item.get('supersedes', []):
             if old in rules:
                 rules[old]['superseded_by'] = item['id']
     return dict(rules=rules, errors=errors, files=sorted(texts), intent_lines=lines, distincts=distincts)
+
+
+def declaration_names(cfg, summary):
+    """Known failure-diagnostic items, without executing intent or application code.
+
+    Scenario bindings require the loader's argument plan. Report that boundary
+    instead of implementing a second binding resolver for a missing plugin.
+    """
+    from contextlib import closing
+    from .anchors import collect
+    from .loader import item_names
+    from ..structure import build
+    rules = summary['rules']
+    index = None
+    if any(rule.get('direct_anchors') for rule in rules.values()):
+        with closing(build(cfg.root, roots=cfg.roots)) as graph:
+            index = collect(graph)
+    declared, unresolved = [], []
+    for identifier, rule in rules.items():
+        targets = list(rule.get('homes', ()))
+        for name in rule.get('direct_anchors', ()):
+            found = index.named(name, 'sensor') if index is not None else ()
+            targets.extend(anchor.target for anchor in found)
+            if not found:
+                targets.append(name)
+        declared.extend(item_names(identifier, dict.fromkeys(targets), kind=rule['kind']))
+        if rule.get('flows'):
+            unresolved.append(identifier)
+    return declared, unresolved
 
 
 def read(cfg):

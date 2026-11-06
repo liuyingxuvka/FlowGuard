@@ -11,7 +11,7 @@ import itertools
 import os
 import textwrap
 import time
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -22,8 +22,7 @@ from . import sites as S
 from .cells import (Kind, Raised, base_value, build_space, coerce, read_predicate, same, show, show_cell,
                     smallest)
 from .config import project_code
-from .guards import adapter_decides, adapter_lines   # re-exported: the guards live in flowguard.guards
-from .api import Refused
+from .api import Refused, _AnchorBinding
 from .sources import parse as parse_source
 from .tracer import Footprint
 
@@ -31,7 +30,7 @@ CONFLICT = object()
 
 
 class Case:
-    """A cell or row as the adapter sees it: c.total, c["total"] or c.get("total", default)."""
+    """Internal lower-witness context used by the declared scenario argument plan."""
 
     __slots__ = ('_engine', '_rule', '_witness_index', '__dict__')
 
@@ -42,7 +41,7 @@ class Case:
     def witness(self, child):
         """An actual lower input, verified against its homes, with this cell's outcome."""
         if self._engine is None or self._rule is None:
-            raise WitnessUnavailable('witness needs an engine-bound adapter case')
+            raise WitnessUnavailable('witness needs an engine-bound scenario case')
         child = self._engine.used_rule(self._rule, child)
         self._engine._used_witnesses.setdefault(self._rule.id, set()).add(child.id)
         name = self._engine.child_field(self._rule, child)
@@ -72,6 +71,12 @@ class PredicateError(Exception):
 
 class WitnessUnavailable(Exception):
     """Insufficient lower evidence, never an apparent code disagreement."""
+
+
+class ObservationUnavailable(WitnessUnavailable):
+    def __init__(self, status, reasons):
+        super().__init__('; '.join(reasons))
+        self.status = status
 
 
 def outcome_eq(a, b) -> bool:
@@ -267,8 +272,8 @@ class Engine:
         homes = []
         for home in child.homes:
             fn, _, gone = self.home_sites(home.target)
-            if gone or adapter_decides(home.adapter, self.is_project) or self.forced(child, home):
-                raise WitnessUnavailable(f'{child.id} needs independent adapters reaching each real home')
+            if gone or not isinstance(home, _AnchorBinding):
+                raise WitnessUnavailable(f'{child.id} needs source bindings reaching each real function')
             code = getattr(S.unwrap(fn), '__code__', None)
             if code is None:
                 raise WitnessUnavailable(f'{child.id} home has no traceable Python function')
@@ -282,9 +287,10 @@ class Engine:
             agrees = True
             for home, fn, code in homes:
                 for indices in self._witness_variants(child, inputs):
-                    with Footprint(self.is_project) as footprint:
+                    with self._binding_footprint(home) as footprint:
                         actual = self.call(home, inputs, fn, indices)
-                    if code is None or S.code_key(code) not in footprint.keys() or not same(outcome, actual):
+                    unavailable = isinstance(actual, Raised) and isinstance(actual.error, WitnessUnavailable)
+                    if unavailable or code is None or S.code_key(code) not in footprint.keys() or not same(outcome, actual):
                         agrees = False
                         break
                 if not agrees:
@@ -347,7 +353,6 @@ class Engine:
             reasons = []
             if checked:
                 required = {('rules', None)} | {(part, h.target) for h in child.homes for part in ('rows', 'cells', 'live')}
-                required |= {('distinct', d.short) for d in self.m.node_distincts(child.id)}
                 if not required <= {(p['kind'], p.get('target')) for p in parts}:
                     reasons.append('not all declared contract items ran')
             else:
@@ -513,6 +518,7 @@ class Engine:
             for r in self.m.key(key):
                 for h in r.homes:
                     pr = self.probe(r, h) or {}
+                    reasons.extend(reason for reason in pr.get('unmeasured', []) if reason not in reasons)
                     child_nodes = self.child_nodes(r)
                     for u in pr.get("uses", []):
                         if not u.own and u.target in child_nodes:
@@ -851,11 +857,14 @@ class Engine:
         if g and rule.total and rule.id in g["total"]:
             red.append(f"gap in {rule.decides} (total=True): no rule decides {g['n']} cells, smallest {g['cell']}")
         grey += self.independence(rule)
+        grey += getattr(self.m, 'scenario_issues', {}).get(rule.id, [])
         from .sources import authority
         valid, source_reason = authority(parse_source(rule.source), rule.confirmed, self.m.cfg, self.archive, rule.quote)
         if not valid:
             (red if 'quote gone' in source_reason else grey).append(source_reason)
-        if not rule.homes:
+        in_model = any(getattr(relation.rule, 'id', relation.rule) == rule.id
+                       for model in self.m.flows.values() for relation in model.relations)
+        if not rule.homes and not in_model:
             grey.append('model only -> bind the actual code home')
         info = [f"{o['winner']} overrides {o['loser']} on {o['n']} cells" for o in k["overrides"]
                 if rule.id in (o["winner"], o["loser"])]
@@ -873,6 +882,51 @@ class Engine:
                     cells=k["cells"], label=k["label"], seconds=k["seconds"],
                     sampled_by=[x for x in rr["space_reasons"] if x.startswith(rule.id + ": ")], provisional=pending,
                     proven_rows=self._proven_rows.get(rule.id, []))
+
+    def run_flow(self, model, events=(), issues=()):
+        from contextlib import closing
+        from ..structure import build
+        from .flow import check_flow
+        from .flow_paths import analyze_paths
+        from .sources import authority
+        contracts = {}
+        for node in model.nodes:
+            lower = getattr(node.model, 'id', node.model)
+            if lower in self.m.rules:
+                contracts[lower] = self.contract_summary(lower)
+        index = self.m.anchor_index
+        with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
+            static = analyze_paths(graph, index,
+                [node.reference for node in model.nodes if node.name in model.starts and node.model is None],
+                [node.reference for node in model.nodes if node.model is None])
+        result = check_flow(model, index, events, rules=self.m.rules, static=static, contracts=contracts, engine=self)
+        valid, reason = authority(parse_source(model.source), None, self.m.cfg, self.archive, None)
+        if not valid:
+            result['red' if 'quote gone' in reason else 'grey'].append(reason)
+        result['grey'].extend(issues)
+        result['verdict'] = 'red' if result['red'] else 'grey' if result['grey'] else 'ok'
+        result['files'] = list(static.files)
+        result['footprint'] = sorted({anchor.target for anchor in index.entries
+                                      if anchor.name in {node.reference for node in model.nodes}})
+        result['drivers'] = sorted({event.case for event in events
+                                    if event.anchor in {node.reference for node in model.nodes}})
+        return result
+
+    def run_anchor_distinct(self, declaration):
+        from .differences import anchor_distinct
+        result = anchor_distinct(self.m.cfg.root, declaration, index=self.m.anchor_index,
+                                 cfg=self.m.cfg, archive=self.archive)
+        result.update(kind='anchor_distinct', verdict='red' if result['status'] == 'red'
+                      else 'grey' if result['status'] == 'grey' else 'ok')
+        source_gap = result.get('source_reason') if not (result.get('source_verified') or result.get('provisional')) else None
+        result['red'] = [reason for reason in result['reasons'] if reason != source_gap] if result['status'] == 'red' else []
+        result['grey'] = ([source_gap] if source_gap else []) + (result['reasons'] if result['status'] == 'grey' else [])
+        result['info'] = [declaration.why, f'scope: {result["scope"]}; behavior checked: {result["behavior_checked"]}']
+        entries = [anchor for anchor in self.m.anchor_index.entries
+                   if any(value in (anchor.name, anchor.target) for value in (declaration.a, declaration.b))]
+        result['footprint'] = sorted({anchor.target for anchor in entries})
+        result['files'] = sorted({anchor.file for anchor in entries})
+        return result
 
     # ------------------------------------------------------------ rule against code
 
@@ -900,18 +954,111 @@ class Engine:
                 out.append((c, eff, "cell"))
         return out
 
-    @staticmethod
-    def call_adapter(adapter, cell, fn, *, engine=None, rule=None, witness_index=0):
-        try:
-            return adapter(Case(cell, engine, rule, witness_index), fn)
-        except Exception as e:   # an exception is an outcome, compared with Refused(type, contains=...)
-            return Raised(e)
-
     def call(self, home, cell, fn, witness_index=0):
-        return self.call_adapter(home.adapter, cell, fn, engine=self, rule=home.rule, witness_index=witness_index)
+        if hasattr(home, 'scenario'):
+            try:
+                from .calibration import _observe_scenario_current
+                import copy
+                def arguments(plan, case):
+                    values = {}
+                    def supply(parameter, value):
+                        if parameter in values and not outcome_eq(values[parameter], value):
+                            raise WitnessUnavailable(f'{home.name}: several rule fields disagree on scenario argument {parameter}')
+                        values[parameter] = value
+                    for name, parameter in plan['fields'].items():
+                        supply(parameter, case[name])
+                    for identifier, lower in plan['children'].items():
+                        child = self.used_rule(case._rule, identifier)
+                        if self.child_field(case._rule, child) != lower['field']:
+                            raise WitnessUnavailable(f'{home.name}: lower outcome field does not match the existing contract')
+                        for parameter, value in arguments(lower['plan'], case.witness(identifier)).items():
+                            supply(parameter, value)
+                    return values
+                values = arguments(home.argument_plan, Case(cell, self, home.rule, witness_index))
+                requested = copy.copy(home)
+                requested.requested_inputs = {name: cell[name] for name in home.observed_fields}
+                observed = _observe_scenario_current(self.m.cfg.root, requested, values)
+                if observed.status != 'ok':
+                    raise ObservationUnavailable(observed.status, observed.reasons)
+                return observed.value
+            except WitnessUnavailable as error:
+                return Raised(error)
+            except Exception as error:
+                return Raised(WitnessUnavailable(f'scenario backend did not provide an observation: {type(error).__name__}: {error}'))
+        if isinstance(home, _AnchorBinding):
+            from .anchors import observe
+            try:
+                if home.anchor is None:
+                    raise WitnessUnavailable(f'anchor gone: {home.name}')
+                names = {parameter.name for parameter in home.anchor.parameters}
+                values = {name: value for name, value in cell.items() if name in names}
+                for identifier in home.rule.uses:
+                    child = self.used_rule(home.rule, identifier)
+                    field = self.child_field(home.rule, child)
+                    choices = self._verified_witnesses(child, cell[field])
+                    choice = witness_index.get(child.id, 0) if isinstance(witness_index, dict) else witness_index
+                    index = choice[0] if isinstance(choice, tuple) else choice
+                    supplied = {name: value for name, value in choices[index].items() if name in names}
+                    for name in values.keys() & supplied.keys():
+                        if not outcome_eq(values[name], supplied[name]):
+                            raise WitnessUnavailable(f'{home.name}: ambiguous lower input {name}')
+                    if supplied:
+                        self._used_witnesses.setdefault(home.rule.id, set()).add(child.id)
+                        values.update(supplied)
+                if values.keys() != names:
+                    raise WitnessUnavailable(f'{home.name}: no source-bound input for {sorted(names - values.keys())}')
+                observed = observe(self.m.cfg.root, home.anchor, values)
+                if observed.status != 'ok':
+                    raise ObservationUnavailable(observed.status, observed.reasons)
+                return observed.value
+            except WitnessUnavailable as error:
+                return Raised(error)
+            except Exception as error:
+                return Raised(WitnessUnavailable(f'anchor backend did not provide an observation: {type(error).__name__}: {error}'))
+        raise TypeError('a source anchor or Flow scenario binding is required; rebuild the original test')
+
+    @contextmanager
+    def _binding_footprint(self, home, *, probe=False):
+        """Keep every declared business root, without recording its test driver."""
+        if not hasattr(home, 'scenario'):
+            fn = self.home_sites(home.target)[0]
+            code = getattr(S.unwrap(fn), '__code__', None) if fn is not None else None
+            with Footprint(self.is_project, inside=S.code_key(code) if probe and code else None) as footprint:
+                yield footprint
+            return
+        keys = set()
+        for target in home.targets:
+            fn = self.home_sites(target)[0]
+            code = getattr(S.unwrap(fn), '__code__', None) if fn is not None else None
+            if code:
+                keys.add(S.code_key(code))
+        with ExitStack() as scopes:
+            footprints = [scopes.enter_context(Footprint(self.is_project, inside=key))
+                          for key in sorted(keys or {('<unavailable source anchor>', 0)} )]
+            try:
+                yield footprints[0]
+            finally:
+                for other in footprints[1:]:
+                    footprints[0].entered.update(other.entered)
+                    footprints[0].edges.update(other.edges)
+                    footprints[0].call_lines.update(other.call_lines)
+
+    def anchor_errors(self, home):
+        if not isinstance(home, _AnchorBinding):
+            return []
+        if home.anchor is None:
+            return [f'anchor gone: {home.name}']
+        issues = [*home.anchor.issues, *self.m.anchor_index.issues]
+        if hasattr(home, 'scenario'):
+            issues += list(home.scenario.issues)
+        names = {home.name, home.scenario.name} if hasattr(home, 'scenario') else {home.name}
+        return list(dict.fromkeys(issue.message for issue in issues
+                                  if issue.level == 'red' and issue.name in names))
 
     def run_home(self, rule, home, part: str) -> dict:
         t0 = time.perf_counter()
+        if errors := self.anchor_errors(home):
+            return dict(kind=part, verdict='red', red=errors, grey=[], info=[])
         fn, sites, gone = self.home_sites(home.target)
         if gone:
             return dict(kind=part, verdict="red", red=[f"home gone: {home.target} ({gone})"], grey=[], info=[])
@@ -920,8 +1067,9 @@ class Engine:
         except PredicateError as e:
             return dict(kind=part, verdict="red", red=[str(e)], grey=[], info=[])
         bad, runs, witness_errors, inadequate = [], [], set(), []
+        observation_errors = set()
         parent_calls = 0
-        with Footprint(self.is_project) as fp:
+        with self._binding_footprint(home) as fp:
             for cell, exp, label in cases:
                 first, failure = [], None
                 try:
@@ -930,7 +1078,7 @@ class Engine:
                         parent_calls += 1
                         runs.append((cell, exp, indices, same(exp, got)))
                         if isinstance(got, Raised) and isinstance(got.error, WitnessUnavailable):
-                            witness_errors.add(str(got.error))
+                            (observation_errors if getattr(got.error, 'status', '') == 'red' else witness_errors).add(str(got.error))
                             continue
                         if not same(exp, got) and failure is None:
                             failure = (cell, exp, got, label)
@@ -947,6 +1095,7 @@ class Engine:
         code = getattr(base, "__code__", None)   # a C function or slot wrapper has no code to enter
         entered = code is not None and S.code_key(code) in fp.keys()
         red, grey, info = [], [], []
+        red.extend(sorted(observation_errors))
         grey.extend(f'{reason} -> strengthen or split the lower contract' for reason in sorted(witness_errors))
         if inadequate:
             cell, first, second = inadequate[0]
@@ -961,26 +1110,13 @@ class Engine:
         if not entered and cases and not witness_errors:
             errors = [got.error for _, _, got, _ in bad if isinstance(got, Raised)]
             first_error = f'; {len(errors)} raised, first {type(errors[0]).__name__}: {errors[0]}' if errors else ''
-            red.append(f"binding never enters {home.target}{first_error} -> repair the adapter")
-        decides = adapter_decides(home.adapter, self.is_project)
-        if decides.startswith('returns ') and 'whatever fn does' in decides and any(isinstance(expected, Refused) for _, expected, _ in cases):
-            decides = ''  # fn's raised exception is the observed refusal outcome.
-        if decides:
-            grey.append(f"adapter decides: {home.short} adapter {decides}")
-        forced = self.forced(rule, home) if part == "cells" and entered else None
-        if forced:
-            grey.append(forced)
-        n = adapter_lines(home)
-        most = 15
-        if n > most:
-            info.append(f"warning: {home.short} adapter has {n} lines (more than {most}): a long adapter may be "
-                        "deciding itself; it should only build the inputs and read the result")
+            red.append(f"binding never enters {home.target}{first_error} -> repair the source anchor or Flow scenario")
         label = self.code_space(rule.decides)[1] if part == "cells" else f"{len(cases)} rows"
         if part == "cells" and label != "complete" and cases:
             grey.append(f"not exhaustively checked ({label}): "
                         f"{self.exhaustive_reason(rule, self._code_reasons.get(rule.decides, []))}")
         res = dict(kind=part, verdict="red" if red else "grey" if grey else "ok", red=red, grey=grey, info=info,
-                   n=len(cases), bad=len(bad), entered=entered, label=label, adapter_lines=n,
+                   n=len(cases), bad=len(bad), entered=entered, label=label,
                    footprint=sorted({self.qual(e) for e in fp.entered}),
                    files=sorted({self.m.cfg.rel(e[0]) for e in fp.entered}), seconds=round(time.perf_counter() - t0, 4))
         if rule.uses:
@@ -994,7 +1130,7 @@ class Engine:
             res['contracts'] = {identifier: self.contract_summary(identifier) for identifier in rule.uses}
             for identifier, contract in res['contracts'].items():
                 if identifier not in self._used_witnesses.get(rule.id, set()):
-                    res['grey'].append(f'{identifier} declared but no verified witness was used -> call c.witness({identifier})')
+                    res['grey'].append(f'{identifier} declared but no verified witness was used -> connect the lower Rule outcome through uses and a Flow relation')
                 if contract['verdict'] != 'ok':
                     res['grey'].append(f'{identifier} lower contract is {contract["verdict"]} -> fix its source, homes or liveness before reusing it')
             if res['grey'] and res['verdict'] == 'ok':
@@ -1002,71 +1138,6 @@ class Engine:
             res['provisional'] = any(contract.get('provisional') for contract in res['contracts'].values())
         self.results[(rule.id, home.target, part)] = res
         return res
-
-    # ------------------------------------------------------------ distinct (design 2.3, 4: red when broken)
-
-    def run_distinct(self, rule, d) -> dict:
-        """Run the node of `distinct(rule, node)` on the rule's cells: red when it decides exactly
-        like the rule, which the distinct says it must not."""
-        t0 = time.perf_counter()
-        node = d.node
-        fn, node_sites, gone = self.home_sites(node)
-        if gone:
-            return dict(kind="distinct", verdict="red", red=[f"distinct {rule.id} / {node}: node gone ({gone})"],
-                        grey=[], info=[])
-        try:
-            # The other decision's own threshold is necessary evidence too; a
-            # borrowed adapter must not miss it merely because the rule uses 3.
-            self.rr_space(rule.decides)
-            kinds, info = self.kinds(rule.decides), self._rr_info[rule.decides]
-            constants = {name: list(values) for name, values in self._rr_space[rule.decides][3].items()}
-            for site in node_sites:
-                fields, _ = S.assign(site, kinds)
-                for name in fields:
-                    constants[name].extend(coerce(value, kinds[name]) for value in S.site_constants(site))
-            space = build_space(kinds, constants, info['planes'], info['links'], info['reasons'], info['hints'])
-            cells = [(c, v) for c in space.cells if (v := eval_rule(rule, c)) is not None]
-        except PredicateError as e:
-            return dict(kind="distinct", verdict="red", red=[str(e)], grey=[], info=[])
-        answers = len({(type(v).__name__, repr(v)) for _, v in cells})
-        code = getattr(S.unwrap(fn), "__code__", None)
-        candidates = ([("its own adapter", d.adapter, {})] if d.adapter else []) + \
-            [(f"the adapter of {h.short}", h.adapter, {}) for h in rule.homes]
-        for q in self.m.rules.values():   # a rule homed at the node knows how to call it
-            for h in q.homes:
-                if q is not rule and h.target == node:
-                    pts = self.rr_space(q.decides)[2]
-                    candidates.append((f"the adapter of {q.id} at {d.short}", h.adapter,
-                                       {f: base_value(pts[f]) for f in pts if f not in rule.fields}))
-        for label, adapter, fill in candidates:
-            with Footprint(self.is_project) as fp:
-                got = [self.call_adapter(adapter, {**fill, **c}, fn) for c, _ in cells]
-            if code is None or S.code_key(code) not in fp.keys() or all(isinstance(g, Raised) for g in got):
-                continue
-            agree = sum(1 for (c, v), g in zip(cells, got) if same(v, g))
-            red, grey, info = [], [], []
-            outputs = {(type(value).__name__, repr(value)) for value in got}
-            if d.adapter is not None and adapter is d.adapter:
-                why = adapter_decides(d.adapter, self.is_project)
-                if why:
-                    grey.append(f"adapter decides: distinct {d.short} adapter {why}")
-            if len(outputs) < 2:
-                grey.append(f'not checked: the borrowed adapter sees one answer at {d.short} -> give it an adapter that reads the decision')
-            elif answers < 2:
-                grey.append(f"distinct {rule.id} / {d.short} not decisive: {rule.id} gives one answer on its cells")
-            elif agree == len(cells):
-                red.append(f"distinct broken: {node} decides like {rule.id} on all {len(cells)} cells "
-                           f"({label}); the distinct says: {d.why}")
-            else:
-                info.append(f"distinct {rule.id} / {d.short} holds: the node differs on {len(cells) - agree} of "
-                            f"{len(cells)} cells ({label})")
-            return dict(kind="distinct", verdict="red" if red else "grey" if grey else "ok", red=red, grey=grey,
-                        info=info, n=len(cells), agree=agree, files=sorted({self.m.cfg.rel(e[0]) for e in fp.entered}),
-                        seconds=round(time.perf_counter() - t0, 4))
-        return dict(kind="distinct", verdict="grey", red=[], info=[], n=len(cells),
-                    grey=[f"distinct {rule.id} / {d.short} not checked: no adapter reaches {node}; give it one with "
-                          f"@distinct({rule.id!r}, {node!r}, why=..., source=...) on an adapter (c, fn)"],
-                    seconds=round(time.perf_counter() - t0, 4))
 
     # ------------------------------------------------------------ probes (design 3.1 constants, 3.6 realized sites)
 
@@ -1144,14 +1215,24 @@ class Engine:
             except PredicateError:
                 e = None
             answers.append(None if e is CONFLICT else e)
-        hkey = S.code_key(base.__code__)
         actuals = []
-        with Footprint(self.is_project, inside=hkey) as fp:
+        with self._binding_footprint(home, probe=True) as fp:
             for cell, indices in samples:
                 actuals.append(self.call(home, cell, fn, indices))
-        funcs = [(home.target, base, sites, True)]
+        funcs, roots, unmeasured = [], set(), []
+        for target in getattr(home, 'targets', (home.target,)):
+            obj, own_sites, missing = self.home_sites(target)
+            obj = S.unwrap(obj) if obj is not None else None
+            if missing or getattr(obj, '__code__', None) is None:
+                unmeasured.append(f'{target}: a declared measurement root could not be probed')
+                continue
+            key = S.code_key(obj.__code__)
+            if key in roots:
+                continue
+            roots.add(key)
+            funcs.append((target, obj, own_sites, True))
         for f, line, q in sorted(fp.entered):
-            if (f, line) == hkey or "<" in q :
+            if (f, line) in roots or "<" in q :
                 continue
             target = self.qual((f, line, q))
             try:
@@ -1198,12 +1279,8 @@ class Engine:
                 uses.append(u)
         self._probes[k] = dict(uses=uses, entered={self.qual(e) for e in fp.entered} | {home.target},
                                mutable={t: c is not None for (t, _, _, _), c in zip(funcs, codes)}, n=len(cells),
-                               answers=answers)
+                               answers=answers, unmeasured=unmeasured)
         return self._probes[k]
-
-    def forced(self, rule, home):
-        from .guards import builder_decides
-        return builder_decides(home.adapter, self.is_project)
 
     def realized(self, rule, home) -> list[SiteUse]:
         """Sites reached by rule fields, or following a rule/output boundary.
@@ -1224,6 +1301,8 @@ class Engine:
 
     def run_live(self, rule, home) -> dict:
         t0 = time.perf_counter()
+        if errors := self.anchor_errors(home):
+            return dict(kind='live', verdict='red', red=errors, grey=[], info=[], k=0, n=0)
         fn, sites, gone = self.home_sites(home.target)
         if gone:
             return dict(kind="live", verdict="red", red=[f"home gone: {home.target}"], grey=[], info=[], k=0, n=0)
@@ -1270,17 +1349,36 @@ class Engine:
             runs = suite(target)   # the unmutated outcomes, before any mutant is installed
             for mu in S.mutants_of([u.site for u in group], {u.site.key for u in group}):
                 muts += 1
-                entry = dict(label=mu.label, killed=None, why="")
+                entry = dict(label=mu.label, killed=None, why="", mutable=False)
                 try:
                     code = S.mutant_code(obj, mu)
                 except (S.NotMutable, SyntaxError, OSError, TypeError, NameError) as e:
                     entry["why"] = f"not mutable: {e}"
                 else:
+                    entry['mutable'] = True
                     with S.installed(obj, code):
-                        entry["killed"] = any(ok and not same(e, self.call(h, c, hfn, indices))
-                                              for h, hfn, checked in runs for c, e, indices, ok in checked)
+                        unavailable, checked_any = [], False
+                        for h, hfn, checked in runs:
+                            for c, expected, indices, ok in checked:
+                                if not ok:
+                                    continue
+                                got = self.call(h, c, hfn, indices)
+                                if isinstance(got, Raised) and isinstance(got.error, WitnessUnavailable):
+                                    unavailable.append(str(got.error))
+                                    continue
+                                checked_any = True
+                                if not same(expected, got):
+                                    entry['killed'] = True
+                                    break
+                            if entry['killed']:
+                                break
+                        if entry['killed'] is not True:
+                            entry['killed'] = None if unavailable or not checked_any else False
+                            if entry['killed'] is None:
+                                entry['why'] = ('observation unavailable: ' + '; '.join(dict.fromkeys(unavailable))
+                                                if unavailable else 'no passing baseline input was measured')
                 per_site.setdefault((target, mu.site.key), []).append(entry)
-        rows, k, n, grey, info = [], 0, 0, [], []
+        rows, k, n, grey, info = [], 0, 0, list(pr.get('unmeasured', [])), []
         realized_keys = {u.key for u in real}
         listed = [u for u in pr["uses"] if u.own or u.named or u.key in realized_keys] or \
             [SiteUse(home.target, base, s, True) for s in sites]
@@ -1290,7 +1388,7 @@ class Engine:
             ms = per_site.get(u.key)
             is_real = u.key in realized_keys
             live = None if not ms else any(m["killed"] for m in ms)
-            mutable = bool(ms) and any(m["killed"] is not None for m in ms)
+            mutable = bool(ms) and any(m.get('mutable', m['killed'] is not None) for m in ms)
             where = "" if u.own else u.target
             file = self.m.cfg.rel(u.fn.__code__.co_filename)
             eq = next(((w, why) for w, why, _ in declared if _at(file, u.site.line, w)), None)
@@ -1313,8 +1411,12 @@ class Engine:
                 grey.append(f"not mutable: {u.target.replace(':', '.')} L{u.site.line} {u.site.text} "
                             f"({ms[0]['why'][13:]})")
             elif ms:
-                first = next(m for m in ms if m["killed"] is False)
-                grey.append(f"not live: no item fails when {first['label']} ({file}:{u.site.line})")
+                survivors = [m for m in ms if m['killed'] is False]
+                unknown = [m for m in ms if m['killed'] is None and m.get('mutable')]
+                if survivors:
+                    grey.append(f"not live: no item fails when {survivors[0]['label']} ({file}:{u.site.line})")
+                if unknown:
+                    grey.append(f"not measured: {unknown[0]['label']} ({file}:{u.site.line}): {unknown[0]['why']}")
             elif not pr["mutable"].get(u.target, True):
                 grey.append(f"not mutable: {u.target.replace(':', '.')} L{u.site.line} {u.site.text}")
             else:

@@ -398,6 +398,22 @@ class Now:
             if kind == 'node':
                 node = self.graph.node(value)
                 digest = node['fp'] if node else 'gone'
+            elif kind == 'anchor':
+                from dataclasses import asdict
+                from .anchors import collect
+                if not hasattr(self, 'anchor_index'):
+                    self.anchor_index = collect(self.graph)
+                anchors = []
+                for anchor in self.anchor_index.entries:
+                    if anchor.target != value:
+                        continue
+                    data = asdict(anchor)
+                    for field in ('line', 'target_line', 'source_digest'):
+                        data.pop(field, None)
+                    data['issues'] = [dict(level=issue.level,code=issue.code,message=issue.message,name=issue.name)
+                                      for issue in anchor.issues]
+                    anchors.append(data)
+                digest = _digest(json.dumps(anchors,sort_keys=True,default=repr))
             elif kind == 'module':
                 digest = module_digest(self.cfg.root / value)
             elif kind == 'authority':
@@ -464,7 +480,30 @@ def record(cfg, model, rule, results, graph):
             keys.update('file:' + p for p in module_paths(cfg, home.target.partition(':')[0], roots))
             keys.add('listing:')
         files.update(p for p in module_paths(cfg, home.target.partition(':')[0], roots) if (cfg.root / p).is_file())
-        files.add(cfg.rel(home.adapter.__code__.co_filename))
+        if hasattr(home, 'anchor'):
+            if home.anchor:
+                files.add(home.anchor.file)
+                keys.add('anchor:' + home.anchor.target)  # Source role/type/unit/calibration contract, without unrelated bodies.
+            keys.add('listing:')
+        if hasattr(home, 'scenario'):
+            files.update((home.scenario.file, home.flow.file))
+        for anchor in getattr(home, 'measurement_anchors', (home.anchor,) if home.anchor else ()):
+            files.add(anchor.file)
+            keys.add('anchor:' + anchor.target)
+            if anchor.calibrated_by:
+                files.add(anchor.calibrated_by.partition('::')[0])
+    for node in getattr(rule, 'nodes', ()):
+        for anchor in model.anchor_index.named(node.reference):
+            nodes.add(graph.canonical(anchor.target) or anchor.target)
+            files.add(anchor.file)
+            keys.add('anchor:' + anchor.target)
+        keys.add('listing:')
+    if getattr(rule, 'binding_kind', '') == 'anchor':
+        keys.add('listing:')
+        for anchor in model.anchor_index.entries:
+            if any(value in (anchor.name, anchor.target) for value in (rule.a, rule.b)):
+                nodes.add(graph.canonical(anchor.target) or anchor.target)
+                keys.add('anchor:' + anchor.target)
     entries = list(results.values()) if isinstance(results, dict) else list(results)
     for result in entries:
         nodes.update(result.get('footprint', []))

@@ -1,4 +1,5 @@
 """The ordinary AI path stays short, honest and executable on a fresh project."""
+import ast
 from pathlib import Path
 import uuid
 import tomllib
@@ -7,6 +8,7 @@ import pytest
 
 from flowguard.intent import cache, cli
 from flowguard.intent.config import load_config
+from tests.intent_engine._source_fixture import annotate
 
 
 def project(tmp_path, wrong=False):
@@ -15,17 +17,15 @@ def project(tmp_path, wrong=False):
     name = root.name
     (root / 'pyproject.toml').write_text('[tool.flowguard]\nauthority_docs=["policy.txt"]\n')
     (root / 'policy.txt').write_text('At most three days.\n')
-    (root / (name + '.py')).write_text('def accept(days):\n    return days <= ' + ('4' if wrong else '3') + '\n')
+    (root / (name + '.py')).write_text(annotate('def accept(days):\n    return days <= ' + ('4' if wrong else '3') + '\n','accept','LIMIT',{'days':'int'}))
     folder = root / 'tests/intent'
     folder.mkdir(parents=True)
     (folder / 'policy.py').write_text(f'''from flowguard.intent import rule,row
-@rule('LIMIT',decides='acceptance',fields={{'days':int}},source='doc policy.txt "At most three days."')
+@rule('LIMIT',decides='acceptance',fields={{'days':int}},anchor='LIMIT',source='doc policy.txt "At most three days."')
 def LIMIT(days):
     """The fourth day must stay refused across later sessions."""
     return days <= 3
 LIMIT.rows(row(days=4,expect=False,why='a corrected fourth-day regression'))
-@LIMIT.home('{name}:accept')
-def home(c,fn): return fn(c.days)
 ''')
     return root, load_config(root)
 
@@ -154,7 +154,10 @@ def test_show_import_alias_points_to_the_actual_source_owner(tmp_path, capsys):
     assert cli.show(cfg, 'permit') == 0
     text = capsys.readouterr().out
     assert f'entry:permit (entry.py) -> {root.name}:accept' in text
-    assert f'{root.name}.py:1' in text
+    source = root / (root.name + '.py')
+    declaration = next(node for node in ast.parse(source.read_text()).body
+                       if isinstance(node, ast.FunctionDef) and node.name == 'accept')
+    assert f'{root.name}.py:{declaration.lineno}' in text
 
 
 def test_short_show_retains_each_red_and_grey_reading(tmp_path, capsys):
@@ -172,7 +175,7 @@ def test_short_show_retains_each_red_and_grey_reading(tmp_path, capsys):
     assert all(message in short and message in full for message in messages)
     assert len(short.encode()) < len(full.encode())
     assert 'source: doc policy.txt' in short
-    assert f'home {root.name}:accept' in short
+    assert f'anchor LIMIT -> {root.name}:accept' in short
 
 
 def test_foreign_source_navigation_displays_static_coverage_and_execution_boundary(tmp_path, capsys):

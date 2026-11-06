@@ -1,10 +1,10 @@
 # Intent guide
 
-The canonical API guide and executable two-home example are in [the skill's local reference](../.agents/skills/flowguard/references/rules.md). The skill installer copies that reference with SKILL.md, so the first rule does not depend on retrieving a web page or guessing the API.
+The canonical API guide and executable two-anchor example are in [the skill's local reference](../.agents/skills/flowguard/references/rules.md). The skill installer copies that reference with SKILL.md, so the first rule does not depend on retrieving a web page or guessing the API.
 
 ## Generated source queries
 
-The same Map reads Python, JS/JSX, TS/TSX, C, C++ and C#. Normal installation supplies their grammar packages, loaded only when the source language is present. Python remains the only language with executable behavior homes. Foreign grammar facts support navigation and explicit source checks; they do not execute the application or replace a compiler. Dynamic calls, macros, overloads and external/build-dependent bindings remain unknown with reasons.
+The same Map reads Python, JS/JSX, TS/TSX, C, C++ and C#. Normal installation supplies their grammar packages, loaded only when the source language is present. Python remains the only language with executable behavior anchors. Foreign grammar facts support navigation and explicit source checks; they do not execute the application or replace a compiler. Dynamic calls, macros, overloads and external/build-dependent bindings remain unknown with reasons.
 
 For example, if an agreed `architecture.md` says `Literal assignments to retry_limit use only 0, 1 or 2.` and the file is listed in `[tool.flowguard].authority_docs`, a small Python-only source constraint can live with the component that owns this field:
 
@@ -27,6 +27,8 @@ Fingerprints help find changed code and possible moves. They do not establish cr
 
 ## Use hierarchy only when it removes repetition
 
-An upper behavior rule can declare `uses=[LOWER]`; its real adapter obtains `c.witness(LOWER)` and passes the verified lower input to the actual upper home. Lower sources, homes and liveness must pass too. Joint checks combine all verified lower inputs, through nested uses, instead of changing one lower input at a time. Closed boolean/enum domains can have complete finite coverage. Open domains use supported partition representatives and report that boundary; they are not enumerated value by value.
+An upper behavior rule can declare `uses=[LOWER]`. A scenario relation connects actual lower and upper readings; the engine derives the logical-input binding and supplies verified joint witnesses. Lower sources, anchors and liveness must pass too. Joint checks combine all verified lower inputs, through nested uses, instead of changing one lower input at a time. Closed boolean/enum domains can have complete finite coverage. Open domains use supported partition representatives and report that boundary; they are not enumerated value by value.
 
 Keep behavior decomposition in those actual uses relations and source constraints in `structure_rule` at their owner. Neither requires a whole-application model, a separate hierarchy format, or modeling the current development task.
+
+Source anchors replace the old `.home` decorator. See [the 3.0 migration](upgrade-3.0.md) for direct sensors, ordinary calibration tests and scenario relations. Complex flows have nodes, edges, existing state transitions and existing-rule reading relations; they do not repeat the implementation.

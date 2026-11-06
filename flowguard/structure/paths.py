@@ -4,7 +4,8 @@ import os
 import sys
 from pathlib import Path
 
-def project_code(filename, root):
+# flowguard: sensor PROJECT_SOURCE(filename: path, root: path) -> accepted: bool calibrated_by=tests/test_anchor_self_rules.py::test_project_anchor_case[source]
+def project_code(filename: str, root: Path) -> bool:
     """Only project-owned source, excluding interpreter and dependency environments.
 
     Callers cache this per native session: the source tree is fixed for that session,

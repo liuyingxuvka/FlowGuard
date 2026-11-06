@@ -94,7 +94,7 @@ def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
     guide = (target / 'flowguard/references/rules.md').read_text(encoding='utf-8')
     (tmp_path / 'policy.txt').write_text(re.search(r'```text\n(.*?)\n```', guide, re.S)[1] + '\n', encoding='utf-8')
     (tmp_path / 'pyproject.toml').write_text(re.search(r'```toml\n(.*?)\n```', guide, re.S)[1] + '\n', encoding='utf-8')
-    implementation, rule = re.findall(r'```python\n(.*?)\n```', guide, re.S)
+    implementation, rule = re.findall(r'```python\n(.*?)\n```', guide, re.S)[:2]
     (tmp_path / 'orders.py').write_text(implementation + '\n', encoding='utf-8')
     folder = tmp_path / 'tests/intent'
     folder.mkdir(parents=True)
@@ -106,8 +106,8 @@ def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
     checked = capsys.readouterr().out
     assert 'WINDOW' in checked or '1 green' in checked
     assert '0 red' in checked and '0 grey' in checked
-    wrong = implementation.replace('def preview_accept(days):\n    return days <= 3',
-                                   'def preview_accept(days):\n    return days <= 4')
+    wrong = implementation.replace('def preview_accept(days: int) -> bool:\n    return days <= 3',
+                                   'def preview_accept(days: int) -> bool:\n    return days <= 4')
     assert wrong != implementation
     (tmp_path / 'orders.py').write_text(wrong + '\n', encoding='utf-8')
     assert cli.check(cfg) == 1
@@ -115,7 +115,7 @@ def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
 
 
 def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch):
-    for name in ('show', 'check', 'init', 'requests', 'screen'):
+    for name in ('show', 'check', 'init', 'requests', 'screen', 'draft_anchor'):
         monkeypatch.setattr(cli, name, lambda *args, **kwargs: 0)
     docs = [ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'AGENTS.md', SKILL / 'SKILL.md',
             ROOT / 'docs/intent-guide.md', ROOT / 'docs/upgrade-2.0.md', SKILL / 'references/rules.md']

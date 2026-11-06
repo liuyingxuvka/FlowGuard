@@ -12,23 +12,21 @@ import types
 import pytest
 
 from flowguard.intent.tracer import Footprint
+from tests.intent_engine._source_fixture import annotate
 
 
 @pytest.fixture
 def sample(tmp_path):
     (tmp_path / 'src/sample').mkdir(parents=True)
     (tmp_path / 'src/sample/__init__.py').write_text('')
-    (tmp_path / 'src/sample/policy.py').write_text('def accept(days):\n    return days <= 3\n')
+    (tmp_path / 'src/sample/policy.py').write_text(annotate('def accept(days):\n    return days <= 3\n','accept','LIMIT',{'days':'int'}))
     (tmp_path / 'tests/intent').mkdir(parents=True)
     (tmp_path / 'tests/intent/decisions.py').write_text(textwrap.dedent('''
         from flowguard.intent import rule, row
-        @rule('LIMIT', decides='limit', fields={'days': int}, source='assumed: the known boundary')
+        @rule('LIMIT', decides='limit', fields={'days': int}, anchor='LIMIT', source='assumed: the known boundary')
         def LIMIT(days):
             return days <= 3
         LIMIT.rows(row(days=4, expect=False, why='fourth-day regression'))
-        @LIMIT.home('sample.policy:accept')
-        def check(c, fn):
-            return fn(c.days)
     '''))
     (tmp_path / 'tests/test_flowguard_intent.py').write_text('def test_flowguard_intent(request):\n    from flowguard.intent.plugin import sentinel\n    sentinel(request.config)\n')
     (tmp_path / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["src"]\n')

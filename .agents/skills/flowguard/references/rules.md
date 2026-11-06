@@ -1,83 +1,91 @@
-# One rule and its real homes
+# Rules and anchors
 
-Read this when writing the first rule. Ordinary edits do not need a model. Start with `show "what it decides"` and reuse an existing owner where possible.
+Use `show "what it decides"` to find an existing owner. Model repeated judgments or complex paths worth checking across sessions.
 
-## A complete small example
+## Example
 
-Use a throwaway project to try the example. Here `policy.txt` is the project's agreed policy; writing it with the rule produces green*, not independent confirmation.
-
-`policy.txt`:
+In this throwaway example, put this in `policy.txt`:
 
 ```text
 At most three days.
 ```
-
-`pyproject.toml`:
 
 ```toml
 [tool.flowguard]
 authority_docs = ["policy.txt"]
 ```
 
-`orders.py`:
+In `orders.py`:
 
 ```python
-def accept(days):
+# flowguard: sensor ACCEPT(days: day) -> allowed: bool
+def accept(days: int) -> bool:
     return days <= 3
 
-
-def preview_accept(days):
+# flowguard: sensor ACCEPT(days: day) -> allowed: bool
+def preview_accept(days: int) -> bool:
     return days <= 3
 ```
 
-`tests/intent/window.py`:
+In `tests/intent/window.py`:
 
 ```python
 from flowguard.intent import rule, row
 
 @rule("WINDOW", decides="acceptance window", fields={"days": int},
-      source='doc policy.txt "At most three days."')
+      source='doc policy.txt "At most three days."', anchor="ACCEPT")
 def WINDOW(days):
-    """Accept at most three days, including the third day."""
     return days <= 3
 
 WINDOW.rows(row(days=4, expect=False, why="the fourth day was incorrectly accepted"))
-
-@WINDOW.home("orders:accept")
-def api(c, fn):
-    return fn(c.days)
-
-@WINDOW.home("orders:preview_accept")
-def preview(c, fn):
-    return fn(c.days)
 ```
 
-Run `python -m flowguard init`, then `python -m flowguard check`. Change only `preview_accept` to accept four days: the same check must turn red. The adapter builds inputs and calls real code; it does not calculate the expected answer. Keep each necessary copy bound to the same rule.
+Run `python -m flowguard init`, then `python -m flowguard check`. Change only the preview to allow four days: the real copy disagrees with the rule and its same-name peer. A newly written document is provisional green*, not independent confirmation.
 
-## Inputs and results
+`anchor draft orders:accept` proposes the comment and input bounds. Confirm meaning and units. Comments do not make product code depend on FlowGuard. Matching names assert the same judgment. Missing points, mismatched source signatures or units are red. Different policies can use different names and `distinct("A", "B", why="...", source="...")`; when a rule and anchor share a name, use the real `module:qual` to identify the anchor. `compare A B` lists differing classes.
 
-`rule` needs an ID, a `decides` key, typed `fields`, a `source` and an independent predicate. A row has literal inputs, `expect` and `why`; do not generate it from the implementation. Use `retired` to explain a case that no longer applies. A rule returning `None` has no opinion; `total=True` makes a decision gap an error. `Refused(ValueError, contains="...")` expects a real exception.
+## Checked scope
 
-Booleans, closed enums, optionals, numbers, dates and durations have explicit cell handling. Supported linear expressions are exhausted; unsupported calls or nonlinear continuous boundaries remain grey. Green covers the declared domain and actual bindings. It does not prove factual truth, omitted requirements or every behavior of the program. `distinct` explains similar decisions that must differ; `supersedes` replaces a rule without silently losing applicable rows. Use `uses=[LOWER]` and `c.witness(LOWER)` only for a real lower decision.
+Rules have an ID, decision key, typed fields, source and independent predicate. Literal rows have inputs, `expect` and `why`; `retired` explains an inapplicable old case. Returning `None` means no opinion. `total=True` makes an uncovered decision an error. `Refused(ValueError, contains="...")` expects a real program exception; a tool error is not that exception.
 
-## Real lower decisions and structural relations
+Boolean and closed-enum domains can be fully enumerated. Numeric/date/duration inputs use all supported partition representatives. Joint old/new partitions retain both boundaries. Unsupported nonlinear operations or unknown domains stay grey. A safe result type can be a union or collection without making that type an enumerable input domain.
 
-A lower contract needs a source, real Python homes and a complete supported partition before it can supply verified inputs. The upper adapter must use those inputs and call the real upper function; listing `uses` alone is not a check. FlowGuard combines all verified lower inputs jointly, including nested uses, so two details that matter only together are not checked merely one at a time. A supported closed boolean/enum domain can be exhausted. An open numeric/date domain uses all verified partition representatives, not every value in the domain; the result identifies this scope. If an upper result still depends on hidden lower detail, strengthen or split the lower contract rather than declaring it equivalent.
+Pure observations call real, verified code. Unknown imports, initialization, mutable inputs or calls may require a test. Add `calibrated_by=tests/test_store.py::test_available` to that sensor's comment, naming exactly one ordinary test, including its parameter ID. The original full test must pass; an independent zero-replacement observation must agree before changed inputs count. Controlled probes can exit pytest with a stop and are never reported as ordinary test passes.
 
-These relations describe actual decisions, not a model tree to maintain for every task. Put source dependency, ownership or write-location constraints in a sourced `structure_rule` at the module that owns them. Its predicate returns violating source rows or nodes from the shared Map; it does not duplicate a behavior oracle. Keep ordinary tests for behavior outside these declared relations. Constrain intentional architecture, not incidental inline syntax: when a valid refactor preserves the real behavior but breaks a shape-based rule, retire or correct that rule instead of restoring duplicated code.
+For a stateful outcome that occurs after the function returns, use a test scenario plus a small flow. The ordinary test prepares real inputs and calls real code; it accepts no function callback and does not calculate the expected policy answer. A test event can expose logical case inputs, production anchors expose actual outputs, and a `Relation` connects those readings to the existing rule. The engine derives the binding; there is no user adapter. Unsupported or ambiguous connections remain grey. Context supplied by that test is a boundary, not every possible filesystem or database state.
 
-## Source map coverage
+## Small paths and reading relations
 
-Python, JS/JSX, TS/TSX, C, C++ and C# feed the same Map, fingerprints and fixed queries. Foreign readers provide declarations, call sites, dependency declarations, assignments and definite keys; grammar packages install normally and load only for files in that language. Behavior homes and real input execution remain Python only. Unknown external dependencies, dynamic/macro dispatch, overloads and build-dependent bindings retain reasons. A parse is not a compiler, runtime execution or a proof that no behavior was missed.
+A model in `tests/intent/` has only nodes, edges, transitions and relations. For example, with actual production `ENTRY`, `SAVED` and `PUBLISHED` anchors:
 
-Inspect `graph.capabilities()` for actual files, parser errors and supported queries. `graph.query_coverage()` reports only the queries actually used, including `symbol_reads` when `calls(include_reads=True)` is requested. `functions()` tracks node coverage; assignments and keys are tracked too. Optional scopes such as `graph.handlers(language="python")` are appropriate only for requirements about Python. Unsupported language filters fail explicitly. Foreign handler, literal-set, test-discovery and complete symbol-read coverage are unavailable in this first batch. An unsupported/failed query or a predicate that queried no source cannot produce a successful structure check; it stays grey. Source contents, reader/grammar versions and project parsing configuration invalidate the same cached facts. Direct library callers can use `reset_query_coverage()` to start another predicate's scope; normal structure checks do this independently.
+```python
+from flowguard.intent import flow, Node, Read, Relation, rule
 
-## Sources and execution
+@rule("CURRENT", decides="published identity",
+      fields={"saved": str, "published": str}, source="assumed: publish this artifact")
+def CURRENT(saved, published):
+    return saved == published
 
-`owner R1` cites actual archived words stored once with `req add`. Never store this tutorial or an AI plan as owner words. Document sources require actual quoted words and an `authority_docs` entry; new jointly written sources stay visible as green*. `assumed:` and `lesson:` do not create owner authority. A valid archive proves bytes, not the correctness of an interpretation.
+flow("PUBLISH", source="assumed: save before publishing this artifact",
+     nodes=[Node("entry", "ENTRY"), Node("saved", "SAVED", phase="return"),
+            Node("published", "PUBLISHED")],
+     edges=[("entry", "saved"), ("saved", "published")],
+     relations=[Relation(CURRENT, {"saved": Read("saved", "result.id"),
+                         "published": Read("published", "arg.artifact_id")})])
+```
 
-`check --all` runs ordinary pytest and records complete test-to-code links; local `check` refreshes selected tests. Direct pytest avoids general tracing of unmarked ordinary tests; marked guards still record their real homes. Missing dependencies select conservatively. External execution with unverified inputs remains open and reruns; package identity alone is not a purity model. Keep module initialization effects, and distinguish a referenced function identity from actually running its body. A no-change check can still rerun an open test. Links contain functions and call locations, not boundary values. Necessary collection work has a cost; current source and real execution are correctness requirements.
+The identifiers must be real string readings from those functions. A call named save proves only an attempt; completion and the current artifact need actual readings. Match real types: a Path is not a string. Fixed read projections select named parameters, result keys/indices, explicit state fields or errors. The UTF-8 view is lossless, including BOM and line endings; empty/equals relations are explicit. Arbitrary conversion callbacks are not supported.
 
-The CLI and initialized pytest prepare project imports automatically. For direct library use, load before project imports and treat a Model/Engine as a fixed source snapshot. Unknown preloaded project modules require a fresh verification process; live SDK objects and external dependencies are not hot-reloaded.
+State comments identify existing fields, for example `# flowguard: states Job.status = new | saved | published`; `Transition` references that field and a real node. Finite states are explored; an oversized model reports its boundary. Keep about ten nodes per layer. A node can reuse an existing lower Rule through `model=LOWER`; verified lower inputs and nested `uses` retain the original joint-witness algorithm. Arbitrary recursive Flow objects are not another combination language.
 
-A project can retain its skip contract with `[tool.flowguard] skip_policy`: `platform` (default) permits effective platform skipif/xfail markers; `no_skip` refuses skipped/xfail outcomes; `forbid` also refuses XPASS and early success exits in plain pytest. An acceptance check never treats collection or an early process exit as completed testing. This is a project setting, not a step to repeat for every change.
+Tests record only anchors, with case, invocation, actual caller, order and source identity. Repeated readings are not collapsed to one value. Scenario models use their explicit test entry; production models do not ignore bypasses merely because their entry was absent. Missing exercised edges are grey. Definite source bypasses and observed invalid paths are red; unsupported dispatch/control stays unknown. Models and code can share a wrong initial interpretation, so retain original words and independent native tests.
+
+## Sources and maintenance
+
+`check` prints changed outcome classes, at most ten plus totals; this information alone does not fail tests. Ordinary pytest uses the same plugin. Expensive, coupled or unclosed automatic comparisons are check-only; explicit checks retain full supported partitions. Red means a demonstrated mismatch. Grey is not success.
+
+The Map reads Python, JS/TS, C/C++ and C#. Foreign syntax is navigation, not execution. Query `capabilities()` and `query_coverage()`; unsupported scope stays grey. A `structure_rule` returns violating ownership/dependency rows. Fingerprints and proposed moves are clues, not equivalence.
+
+`owner R1` cites archived actual words; `req add` stores their exact bytes. Never archive this guide or an AI plan as owner words. Document sources require quoted text and an `authority_docs` entry. `assumed:` and `lesson:` do not create owner authority. An archive proves bytes, not an interpretation.
+
+The CLI prepares imports. Treat direct Model/Engine instances as fixed snapshots. Native tests cover effects outside modeled relations. Incremental reuse needs closed, unchanged dependencies; external inputs can require reruns. CI uses `check --all` and an environment outside the project. Observations retain the project's assertions, teardown and skip/collection policy.

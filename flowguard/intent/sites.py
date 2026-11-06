@@ -14,13 +14,18 @@ import ast
 import enum
 import importlib
 import inspect
+import sys
+import types
 import textwrap
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from .cells import coerce, const_value, epsilon
+
+_INSTALLED = ContextVar('flowguard_installed_code', default={})
 
 FLIP = {ast.Lt: ast.LtE, ast.LtE: ast.Lt, ast.Gt: ast.GtE, ast.GtE: ast.Gt}
 NEGATE = {ast.Eq: ast.NotEq, ast.NotEq: ast.Eq, ast.Is: ast.IsNot, ast.IsNot: ast.Is, ast.In: ast.NotIn,
@@ -49,7 +54,10 @@ class Site:
 
 def resolve(target: str):
     module, _, qual = target.partition(":")
-    obj = importlib.import_module(module)
+    return _member(importlib.import_module(module), qual)
+
+
+def _member(obj, qual):
     for part in qual.split("."):
         owner = obj
         obj = vars(owner).get(part, getattr(owner, part)) if isinstance(owner, type) else getattr(owner, part)
@@ -60,6 +68,14 @@ def resolve(target: str):
         elif isinstance(obj, property):
             obj = obj.fget
     return obj
+
+
+def resolve_loaded(target: str):
+    """Resolve a calibration target without importing it ahead of its test fixtures."""
+    module, _, qual = target.partition(':')
+    if module not in sys.modules:
+        raise NotMutable('calibration target was not imported by test collection/setup')
+    return _member(sys.modules[module], qual)
 
 
 def unwrap(fn):
@@ -364,18 +380,29 @@ def _recompile(fn, transformer, found, post=None):
     new = ns['__flowguard_factory'](fn.__closure__[0].cell_contents) if free else ns[fdef.name]
     if new.__code__.co_freevars != fn.__code__.co_freevars:
         raise NotMutable("free variables differ")
-    return new.__code__
+    # Compiling a method outside its class (or inside the __class__ factory)
+    # changes co_qualname. It is still the same source function: preserve that
+    # identity for real-frame anchor capture, imported aliases and footprints.
+    return new.__code__.replace(co_qualname=fn.__code__.co_qualname)
 
 
 @contextmanager
 def installed(fn, code):
     fn = unwrap(fn)
     old = fn.__code__
+    active = dict(_INSTALLED.get())
+    active.setdefault(fn, old)
+    token = _INSTALLED.set(active)
     fn.__code__ = code
     try:
         yield
     finally:
         fn.__code__ = old
+        _INSTALLED.reset(token)
+
+
+def installed_origin(fn):
+    return _INSTALLED.get().get(unwrap(fn))
 
 
 def covered_constant(v) -> bool:
@@ -386,3 +413,44 @@ def covered_constant(v) -> bool:
 def orderable(v) -> bool:
     """A constant that bounds an interval: its c-e, c, c+e must be points for the cells to be complete."""
     return isinstance(v, (int, float, Decimal, date, timedelta)) and not isinstance(v, bool)
+
+
+@contextmanager
+def intercepted(fn, callback):
+    """One mechanical call hook on the same function object, including imported aliases.
+
+    The original code runs in a clone with the same globals/defaults.  The hook
+    sees its final return/exception after all of its finally blocks, not a
+    rewritten early return.  No frame-local writes or business projection.
+    """
+    fn = unwrap(fn)
+    if not isinstance(fn, types.FunctionType):
+        raise NotMutable('calibration target is not a Python function')
+    if fn.__code__.co_freevars:
+        raise NotMutable('calibration closure is unsupported')
+    if inspect.iscoroutinefunction(fn) or inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
+        raise NotMutable('calibration async/generator is unsupported')
+    signature = inspect.signature(fn, follow_wrapped=False)
+    if any(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in signature.parameters.values()):
+        raise NotMutable('calibration variadic signature is unsupported')
+    original = types.FunctionType(fn.__code__, fn.__globals__, fn.__name__, fn.__defaults__)
+    original.__kwdefaults__ = fn.__kwdefaults__
+    original.__annotations__ = fn.__annotations__
+    key = '__flowguard_calibration_' + str(id(callback))
+    while key in fn.__globals__ or key in signature.parameters:
+        key += '_'
+    def invoke(*args, **kwargs):
+        return callback(original, signature.bind(*args, **kwargs))
+    def body(fdef):
+        args = [ast.Name(p.name, ast.Load()) for p in signature.parameters.values()
+                if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
+        keywords = [ast.keyword(p.name, ast.Name(p.name, ast.Load()))
+                    for p in signature.parameters.values() if p.kind == p.KEYWORD_ONLY]
+        fdef.body = [ast.Return(ast.Call(ast.Name(key, ast.Load()), args, keywords))]
+    code = _recompile(fn, ast.NodeTransformer(), lambda: True, body)
+    fn.__globals__[key] = invoke
+    try:
+        with installed(fn, code):
+            yield original
+    finally:
+        fn.__globals__.pop(key, None)

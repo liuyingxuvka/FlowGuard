@@ -132,6 +132,7 @@ def reader_digest():
     package = Path(__file__).resolve().parents[1]
     paths = sorted((package / 'structure').rglob('*.py'))
     paths += [package / 'map' / name for name in ('common.py', 'inventory.py', 'discover.py', 'discovery_syntax.py')]
+    paths.append(package / 'intent' / 'anchors.py')
     text = sys.version + '\n' + '\n'.join(path.name + ':' + content_digest(path) for path in paths)
     return content_digest(Path(__file__), data=text.encode())
 
@@ -602,7 +603,7 @@ def _store_file(con, f, facts, sha, names, is_test, build_no) -> None:
                                   "star", "getattr", "submodules", "doc", "typing", "dirrel",
                                   "handlers", "literal_sets", "assignments", "syntax_calls", "symbol_reads",
                                   "language", "parser", "locations", "dependencies", "exports", "bindings",
-                                  "binding_unknowns", "syntax_recoveries") if k in facts}
+                                  "binding_unknowns", "syntax_recoveries", "anchors", "anchor_issues") if k in facts}
     con.execute("INSERT OR REPLACE INTO file VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (f, sha, module, json.dumps(names), int(is_test), facts["parse_error"], facts["loc"], build_no,
                  json.dumps(facts["syspath"]), pack(keep), facts.get('source_lines',0)))

@@ -4,7 +4,7 @@ interface:
   default_prompt: >-
     Use $flowguard before adding a decision: run `python -m flowguard show "what it decides"`
     and reuse its existing owner where possible. Only write a rule when the decision has copies,
-    the owner says everywhere, or a bug was fixed; bind the real homes and add a literal regression
+    the owner says everywhere, or a bug was fixed; connect source anchors and add a literal regression
     row. With existing rules, read `python -m flowguard` at session start and run
     `python -m flowguard check` after a bound decision changes. Otherwise stay quiet and use
     ordinary tests. Save actual owner words once with `python -m flowguard req add <file|-> --id <id>`;

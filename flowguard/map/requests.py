@@ -9,7 +9,7 @@ import re
 
 from .common import MapError, Finding, git_common_directory, git_head, git_run, sha256_bytes
 from .records import (NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, restore_advice,
-                      validate_new_files, write_once)
+                      validate_new_files, write_once, read_original_bytes)
 
 REQUEST_DIR = Path('.flowguard/requests')
 RETIRED_DIR = REQUEST_DIR / 'retired'
@@ -39,8 +39,9 @@ def glossary_entries(raw: bytes) -> list[tuple[str, tuple[str, ...]]]:
     return entries
 
 
+# flowguard: event REQUEST_STORE(root: Path, raw: bytes, identifier: str | None, kind: str, supersedes: tuple | list)
 def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind: str = 'request',
-                  supersedes=()) -> dict:
+                  supersedes: tuple | list = ()) -> dict:
     root = Path(root).resolve()
     if not raw:
         raise MapError('request_empty: no owner words received; pass a nonempty file or pipe the request text to stdin')
@@ -77,6 +78,13 @@ def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind
     return item
 
 
+# flowguard: sensor REQUEST_BODY(root: Path, identifier: str) -> body: bytes
+def read_request_bytes(root: Path, identifier: str) -> bytes:
+    """Read the actual request body, keeping its identity separate from the sidecar."""
+    return read_original_bytes(root, REQUEST_DIR / (identifier + '.md'))
+
+
+# flowguard: sensor REQUEST_METADATA(path: Path, identifier: str) -> metadata: dict
 def _metadata(path: Path, identifier: str) -> dict:
     """The one sidecar validator: any malformed sidecar is a ValueError."""
     item = json.loads(path.read_bytes())
@@ -225,7 +233,7 @@ def _request_problems(root: Path, identifier: str, unverified: list):
         item = None
         meta_problem = meta_problem or str(error)
     if item is not None and meta_problem is None and (root / body).is_file():
-        raw = (root / body).read_bytes()
+        raw = read_request_bytes(root, identifier)
         if sha256_bytes(raw) != item['sha256'] or len(raw) != item['bytes']:
             body_problem = body_problem or 'bytes differ from the immutable sidecar'
     return body_problem, meta_problem, item
@@ -325,7 +333,7 @@ def owner_words(root: Path) -> dict:
         body = root / REQUEST_DIR / (identifier + '.md')
         edited, invalid, item = _request_problems(root, identifier, [])
         intact = invalid is None and edited is None
-        text = body.read_bytes().decode('utf-8-sig', errors='replace').splitlines() if intact else []
+        text = read_request_bytes(root, identifier).decode('utf-8-sig', errors='replace').splitlines() if intact else []
         if invalid is not None:
             # A sidecar whose bytes can be read but are not the stored ones was edited; only a sidecar that
             # cannot be read is unreadable. Either way none of its fields are trusted or shown.
@@ -397,7 +405,7 @@ def validate_request_links(root: Path, links) -> None:
                 raise MapError(f'{code}: {problem}')
         try:
             item = _metadata(root / meta, identifier)
-            raw = (root / body).read_bytes()
+            raw = read_request_bytes(root, identifier)
             if sha256_bytes(raw) != item['sha256'] or len(raw) != item['bytes']:
                 raise ValueError('owner bytes differ from the sidecar')
         except ValueError as error:
@@ -418,6 +426,7 @@ def _other_worktrees(root: Path):
 other_worktrees = _other_worktrees
 
 
+# flowguard: sensor QUOTE_MATCH(text: words, quote: words) -> matched: bool calibrated_by=tests/test_anchor_self_rules.py::test_quote_anchor_case[EXACT]
 def quote_matches(text: str, quote: str) -> bool:
     """Compare owner words exactly, permitting only whitespace runs and ... elision."""
     source = ' '.join(text.split())
@@ -510,7 +519,7 @@ def owner_quote(root: Path, quote: str, terms, *, request: str | None = None) ->
             if request is not None:
                 raise MapError('owner_quote_kind: quote a request, not a glossary or adoption record')
             continue
-        raw = (root / REQUEST_DIR / (identifier + '.md')).read_bytes()
+        raw = read_request_bytes(root, identifier)
         try:
             text = raw.decode('utf-8-sig')
         except UnicodeError as error:

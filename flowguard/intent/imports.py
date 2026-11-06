@@ -115,6 +115,7 @@ def prepare(root, *, host=False):
     application are not hot-reloaded; use the CLI for an independent process.
     """
     root = Path(root).resolve()
+    claimed = host and _finder.host is None
     if host:
         if _finder.host is not None and _finder.host != root:
             raise ValueError('another pytest verification is active; start a fresh verification process')
@@ -164,6 +165,7 @@ def prepare(root, *, host=False):
             raise ValueError('project source changed during pytest verification; start a fresh verification process')
         _finder.forget(root)
     importlib.invalidate_caches()
+    return claimed
 
 
 def source_spec(name, path):

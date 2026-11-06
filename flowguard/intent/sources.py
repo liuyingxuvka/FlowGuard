@@ -62,7 +62,8 @@ class Archive:
         return True, f'owner {rid}'
 
 
-def authority(src, rule_confirmed, cfg, archive, quote=None):
+# flowguard: sensor SOURCE_AUTHORITY(src: source, rule_confirmed: request, cfg: config, archive: archive, quote: words) -> answer: tuple[bool, str] calibrated_by=tests/test_anchor_self_rules.py::test_authority_anchor_case[EXACT]
+def authority(src: Source, rule_confirmed: str | None, cfg: object, archive: object, quote: str | None = None) -> tuple[bool, str]:
     if src.kind == 'owner':
         return archive.status(src.rids[0], quote)
     if src.kind == 'doc':

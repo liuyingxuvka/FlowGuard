@@ -1,33 +1,27 @@
 ---
 name: flowguard
-description: Find an existing decision before adding code; bind necessary copies to one executable rule so later changes cannot silently make them disagree. Source maps cover Python, JS/TS, C/C++ and C#; executable homes are Python only. Use for code maintenance, not for every edit.
+description: Navigate code and connect source anchors to rules or small flow models. Use for complex maintenance, repeated decisions and cross-session commitments. Maps cover Python, JS/TS, C/C++ and C#; execution is Python only.
 ---
 
 # FlowGuard
 
-Keep a decision in one place. Where copies must exist, check them together.
+Code is the target. Anchors are observation points. A small model relates their readings; it does not repeat the implementation.
 
-## Two moments
+When rules already exist, `python -m flowguard` reads their cached status. `python -m flowguard show "what it decides"` finds existing owners and possible copies. Reuse the owner where possible. Candidates are navigation clues, not semantic proof. `show --full` expands metadata.
 
-- Before writing or changing a decision, run `python -m flowguard show "what it decides"`. Reuse the owner; candidates are leads, not semantic proof.
-- Only when a decision has copies, the owner says "everywhere", or a bug was fixed: write one rule in `tests/intent/`, bind every real copy as a home, and add a literal row explaining the regression. Otherwise use ordinary code and tests. Do not model the development task.
+Use ordinary code and tests for ordinary edits. Do not model the development task. When a decision has copies, the owner says "everywhere", or a bug was fixed, one rule and literal regression rows in `tests/intent/` can help. Write expectations from the requirement, independently of the code. Rows contain literal inputs, `expect` and `why`.
 
-When the project already has rules, read `python -m flowguard` at session start. It shows cached facts without running project code or tests. Use `show RULE` for details. With no rules, stay quiet.
+## Available observations
 
-## Small, real checks
+- `python -m flowguard anchor draft module:function` proposes a source comment and input bounds. Confirm its meaning and units. Unknown types or bounds remain grey.
+- Sensor anchors observe real judgments; event anchors observe calls and completion; states anchors identify existing state fields. Pure functions run directly. Other functions need an ordinary project test selected by `calibrated_by`; calibration must agree before replacement cases count.
+- `python -m flowguard check` checks commitments and shows changed outcome classes using ordinary pytest. CI uses `check --all`. `compare A B` compares two anchors on their joint input classes. Same-name sensors must agree; different policies can use sourced `distinct` declarations.
+- For a complex cross-module path, a small `flow` in `tests/intent/` has only anchor nodes, edges, state transitions and reading relations. Keep roughly ten nodes per layer. Reuse verified lower rules. Observe actual identity and successful completion: a save call alone does not prove a current file was saved.
 
-Before writing the first rule, read the local [rule guide](references/rules.md): complete inputs, source, literal row and real-home example.
+Red is a demonstrated mismatch. Grey is an unverified boundary, not success. Finite checks cover the declared inputs and model; runtime edges need real tests. Syntax maps do not prove foreign-language execution. Dynamic calls, external inputs and concurrent traces can remain unknown.
 
-Write the rule from the requirement, not from the implementation. A home adapter builds inputs and calls real code; it never computes the expected answer. Rows have literal inputs, `expect` and `why`. Cite `source="owner R1"` or agreed document words. An assumption is not authority.
-
-After a bound decision changes, run `python -m flowguard check`. It uses ordinary pytest; selected tests refresh their code links. CI uses `check --all` for complete links. Red needs repair; grey names an unverified boundary, not success. Green covers the declared inputs and homes. Change code and its real tests together; report actual commands and results.
-
-The generated map reads Python, JS/TS/TSX, C/C++ and C#. Only Python has executable behavior homes. Check query coverage; a grammar parse does not verify runtime semantics. Unavailable or failed source queries stay grey. Keep a language scope faithful to the requirement.
-
-Use `uses` and verified lower witnesses only for real decomposition; joint finite checks and open-domain representatives have different limits. Put structural relations at their existing owner. Do not add a whole-application model or another maintenance layer. Details are in the rule guide.
-
-Use `python -m flowguard init` once to add the pytest sentinel, CI fragment and four project rules. Install the engine from `git+https://github.com/liuyingxuvka/FlowGuard.git`; the similarly named PyPI project is different.
+The local [rule guide](references/rules.md) owns examples and migration. Connect through source anchors; do not write an adapter that supplies an answer or another model of the same code.
 
 ## Original words
 
-Store a new owner message once with `python -m flowguard req add <file|-> --id <id>`, byte for byte. Never store an AI plan as owner words or edit `.flowguard/requests/`. Use `--supersedes` for a replacement; `req list` and `show R1` retrieve it. Commits answering it include `Request: R1`.
+Save an actual new owner message once, byte for byte: `python -m flowguard req add <file|-> --id R1`. Never archive an AI plan as owner words or edit `.flowguard/requests/`. `req list` and `show R1` retrieve originals; `--supersedes` records replacements. Commits answering a saved message include `Request: R1`.

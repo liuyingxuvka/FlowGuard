@@ -176,7 +176,8 @@ def validate_new_files(root, relative_paths):
         _new_file(root, path)
 
 
-def write_once(root, relative_path, raw, *, _created=None):
+# flowguard: event RECORD_WRITE(root: str | Path, relative_path: str | Path, raw: bytes, _created: list | None)
+def write_once(root: str | Path, relative_path: str | Path, raw: bytes, *, _created: list | None = None):
     """Save exact bytes once and protect them outside editable sidecar metadata."""
     path, written = _new_file(root, relative_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -189,6 +190,13 @@ def write_once(root, relative_path, raw, *, _created=None):
         if _created is not None:
             _created.append(written)
         stream.write(json.dumps({"path": path.as_posix(), "sha256": sha256_bytes(raw)}) + "\n")
+
+
+# flowguard: sensor ORIGINAL_BYTES(root: str | Path, relative_path: str | Path) -> body: bytes
+def read_original_bytes(root: str | Path, relative_path: str | Path) -> bytes:
+    """Read a contained original without decoding or changing its byte representation."""
+    _, path, _ = _paths(root, relative_path)
+    return path.read_bytes()
 
 
 def _first_blob(root: Path, relative: str, common):
@@ -217,7 +225,7 @@ def integrity_problem(root, relative_path):
     problem = _attribute_problem(root, relative, common)
     if problem:
         return problem
-    raw = path.read_bytes()
+    raw = read_original_bytes(root, relative)
     expected = _stored_digest(root, path, relative, common)
     if sha256_bytes(raw) != expected:
         return f"immutable file bytes changed: {relative}"

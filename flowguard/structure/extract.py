@@ -804,6 +804,11 @@ def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: boo
         return out
     text = read_source(root / rel, data=data)
     tree = syntax_tree(text)
+    if 'flowguard:' in text:
+        from flowguard.intent.anchors import source_facts
+        from flowguard.map.common import content_digest
+        out.update(source_facts(tree, text, module, rel,
+                                source_digest=content_digest(root / rel, data=data), is_test=is_test))
     out.update(syntax_records(tree, module, rel))
     out["syspath"] = syspath_entries(tree, rel) if "sys.path" in text or "addsitedir" in text else []
     out["optional"] = sorted(_optional_import_lines(tree))

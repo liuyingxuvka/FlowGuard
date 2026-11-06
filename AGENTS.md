@@ -8,14 +8,14 @@ Ordinary edits do not need an intent model or a separate task record.
 
 1. At session start, look at `python -m flowguard` when the project has intent rules.
 2. Before writing a decision, use `python -m flowguard show "what it decides"` to find its existing owner.
-3. Write one rule, bind each real home, and add a literal regression row only when a decision has copies, the owner says everywhere, or a bug was fixed. Otherwise stay quiet.
+3. Write one rule, connect its source anchors, and add a literal regression row only when a decision has copies, the owner says everywhere, or a bug was fixed. Otherwise stay quiet.
 4. After changing a bound decision run `python -m flowguard check`; CI runs `check --all`. Store actual owner words once with `req add`.
 <!-- flowguard:end -->
 
 ## Owners and layout
 
 - `flowguard/structure/`: generated Python map, fingerprints and fixed source queries.
-- `flowguard/intent/`: rules, literal rows, real homes, pytest integration and incremental checks.
+- `flowguard/intent/`: rules, literal rows, source anchors, small flows, pytest integration and incremental checks.
 - `flowguard/map/`: shared source readers, Git boundaries and immutable owner records.
 - `tests/intent/`: FlowGuard's own product rules; ordinary tests remain in `tests/`.
 - `.agents/skills/flowguard/`: the single public skill. `docs/intent-guide.md` explains the API.

@@ -32,7 +32,7 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 
 1. At session start, look at `python -m flowguard` when the project has intent rules.
 2. Before writing a decision, use `python -m flowguard show "what it decides"` to find its existing owner.
-3. Write one rule, bind each real home, and add a literal regression row only when a decision has copies, the owner says everywhere, or a bug was fixed. Otherwise stay quiet.
+3. Write one rule, connect its source anchors, and add a literal regression row only when a decision has copies, the owner says everywhere, or a bug was fixed. Otherwise stay quiet.
 4. After changing a bound decision run `python -m flowguard check`; CI runs `check --all`. Store actual owner words once with `req add`.
 <!-- flowguard:end -->
 '''
@@ -183,6 +183,83 @@ def _candidate(candidate, full):
     return f'{candidate["id"]} {candidate.get("file", "")}:{candidate.get("line", "?")}: {candidate.get("reason", "source similarity only")}'
 
 
+def _candidate_lines(found, full, prefix):
+    candidates = found['candidates']
+    visible = candidates if full else candidates[:5]
+    result = [prefix + _candidate(candidate, full) for candidate in visible]
+    if len(visible) < len(candidates):
+        result.append(f'{len(candidates) - len(visible)} more source candidates; show --full for all pointers')
+    return result
+
+
+def _anchor_targets(index, references, graph=None):
+    found = {}
+    for reference in references:
+        canonical = graph.canonical(reference) if graph is not None and ':' in reference else reference
+        for anchor in index.entries:
+            if reference == anchor.name or anchor.target in (reference, canonical):
+                found[anchor.name, anchor.target, anchor.kind] = anchor
+    return sorted(found.values(), key=lambda a: (a.name, a.file, a.target_line, a.kind))
+
+
+def _source_pointers(index, references, graph, *, full=False):
+    anchors = _anchor_targets(index, references, graph)
+    lines = []
+    for anchor in anchors:
+        lines.append(f'anchor {anchor.name} -> {anchor.target} {anchor.file}:{anchor.target_line or anchor.line}'
+                     + (f'; calibrated_by={anchor.calibrated_by}' if anchor.calibrated_by else ''))
+        if full:
+            lines.append(f'  {anchor.kind}; source comment L{anchor.line}; '
+                         + ', '.join(f'{p.name}: {p.source_type} [{p.unit}]' for p in anchor.parameters))
+    for reference in references:
+        if reference.startswith('unresolved:'):
+            lines.append('navigation unknown: ' + reference)
+        elif not _anchor_targets(index, [reference], graph):
+            lines.append(f'anchor {reference}: not found in the current source index')
+    names = {a.name for a in anchors}
+    issues = [i for i in index.issues if i.name in names] + [i for a in anchors for i in a.issues]
+    lines.extend(dict.fromkeys(f'{issue.level} anchor {issue.name}: {issue.message}' for issue in issues))
+    return anchors, lines
+
+
+def _copy_pointers(graph, index, anchors, homes, summary, results, words, full, *, identifiers=()):
+    excluded = set(homes) | {a.target for a in anchors}
+    references = {a.name for a in anchors} | {a.target for a in anchors} | set(homes) | set(identifiers)
+    for distinct in summary.get('distincts', []):
+        if references & {distinct['a'], distinct['b']}:
+            excluded.update(a.target for a in _anchor_targets(index, [distinct['a'], distinct['b']], graph))
+            excluded.update(value for value in (distinct['a'], distinct['b']) if ':' in value)
+            for value in (distinct['a'], distinct['b']):
+                rule = summary['rules'].get(value, {})
+                excluded.update(rule.get('homes', []))
+                excluded.update(a.target for a in _anchor_targets(index, rule.get('anchors', []), graph))
+    targets = list(dict.fromkeys([*homes, *(a.target for a in anchors
+                 if a.source_role == 'production' and a.kind in {'sensor', 'event'})]))
+    candidates, lines = {}, []
+    for target in targets:
+        live = next((result for result in results if result.get('target') == target and result.get('kind') == 'live'), None)
+        scope = [(site.get('where') or target, site['line'], site['text']) for site in live.get('sites', []) if site.get('realized')] if live else None
+        found = graph.search_homes(target, sites=scope, not_same=excluded, words=words, k=None, weak=True)
+        if not found['searched']:
+            lines.append('copy search unavailable: ' + found.get('reason', 'no readable decision sites'))
+        for candidate in found['candidates']:
+            node = graph.node(candidate['id'])
+            if node:
+                candidate = dict(candidate, file=node['file'], line=node['line'])
+            old = candidates.get(candidate['id'])
+            if old is None or candidate.get('score', 0) > old.get('score', 0):
+                candidates[candidate['id']] = candidate
+    found = dict(candidates=sorted(candidates.values(), key=lambda row: (-row.get('score', 0), row['id'])))
+    return list(dict.fromkeys(lines)) + _candidate_lines(found, full, 'unbound candidate ')
+
+
+def _unmodelled(index, summary):
+    references = {ref for item in summary['rules'].values() for ref in item.get('anchors', [])}
+    references.update(value for relation in summary.get('distincts', []) for value in (relation['a'], relation['b']))
+    used = {a.name for a in _anchor_targets(index, references)}
+    return sorted({a.name for a in index.entries if a.source_role == 'production' and a.name not in used})
+
+
 def show(cfg, query=None, *, draft=None, gaps=None, full=False):
     data = cache.read(cfg)
     rules = data['summary']['rules']
@@ -216,6 +293,8 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
             print(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
         return 1
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        from .anchors import collect
+        index = collect(graph)
         notice = _map_notice(graph)
         if query in rules:
             item = rules[query]
@@ -229,19 +308,13 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                     lines.extend(f'  site L{s["line"]}: {s["field"]} {s["op"]} {s["const"]}' for s in graph.sites(home))
             for result in data['results'].get(query, {}).get('items', {}).values():
                 lines.extend(result.get('red', []) + result.get('grey', []) + (result.get('info', []) if full else []))
-            excluded = set(item.get('homes', []))
-            excluded.update(side for d in data['summary'].get('distincts', []) if query in (d.get('a'), d.get('b'))
-                            for side in (d.get('a', ''), d.get('b', '')) if ':' in side)
-            for home in item.get('homes', []):
-                results = list(data['results'].get(query, {}).get('items', {}).values())
-                live = next((r for r in results if r.get('target') == home and r.get('kind') == 'live'), None)
-                scope = [(site.get('where') or home, site['line'], site['text']) for site in live.get('sites', []) if site.get('realized')] if live else None
-                found = graph.search_homes(home, sites=scope, not_same=excluded,
-                                           words=item.get('doc', '') + ' ' + item['decides'], k=None, weak=True)
-                if not found['searched']:
-                    lines.append('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
-                for candidate in found['candidates']:
-                    lines.append('unbound candidate ' + _candidate(candidate, full))
+            anchors, pointers = _source_pointers(index, item.get('anchors', []), graph, full=full)
+            lines.extend(pointers)
+            if item.get('flows'):lines.append('via flow ' + ', '.join(dict.fromkeys(item['flows'])))
+            lines.extend('navigation unknown: ' + value for value in item.get('navigation_unknown', []))
+            lines.extend(_copy_pointers(graph, index, anchors, item.get('homes', []), data['summary'],
+                         list(data['results'].get(query, {}).get('items', {}).values()),
+                         item.get('doc', '') + ' ' + item['decides'], full, identifiers=(query,)))
             from .deps import Now, stale
             if data['results'].get(query) and (not data['deps'].get(query) or stale(data['deps'][query], Now(cfg, graph))):
                 lines.insert(1, 'cached results are stale or unverified -> run check')
@@ -251,6 +324,14 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
             for error in data['summary']['errors']:
                 print(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
             return 1
+        anchors, pointers = _source_pointers(index, [query], graph, full=full)
+        if anchors:
+            print('ANCHOR ' + query)
+            print('\n'.join(pointers))
+            unused = set(_unmodelled(index, data['summary'])) & {a.name for a in anchors}
+            if unused:print('info: not referenced by a current model: ' + ', '.join(sorted(unused)))
+            print('\n'.join(_copy_pointers(graph, index, anchors, [], data['summary'], [], query, full)))
+            return 0
         node = graph.node(graph.canonical(query) or query)
         if node:
             print(f'{query} {node["file"]}:{node["line"]}\n{node["sig"]}\n{node["doc"]}')
@@ -260,7 +341,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                 print('Static source only: this language has no verified native-home execution adapter.')
                 return 0
             if draft:
-                print('needs its own adapter; build inputs and read the real result')
+                print('use anchor draft for a source comment; impure code needs an ordinary calibration test')
                 tables = {r[0] for r in graph.con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 if 'footprint' in tables:
                     from .deps import Now, trace_changes
@@ -284,8 +365,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                 found = graph.search_homes(query, k=None, weak=True)
                 if not found['searched']:
                     print('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
-                for candidate in found['candidates']:
-                    print('candidate ' + _candidate(candidate, full))
+                print('\n'.join(_candidate_lines(found, full, 'candidate ')))
             return 0
         words = tokens(query)
         ranked = []
@@ -312,7 +392,65 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
     return 0
 
 
+def draft_anchor(cfg, target):
+    from .anchors import draft
+    with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        result = draft(graph, graph.canonical(target) or target)
+    if result.text:
+        print(result.text)
+    for name, points in result.ranges.get('points', {}).items():
+        print(f'range {name}: {points!r}')
+    if result.ranges:
+        print(f'{result.ranges["total"]} representative cells; complete={result.ranges["complete"]}')
+    for issue in result.issues:
+        print(f'{issue.level} {issue.file}:{issue.line}: {issue.message}')
+    return int(result.status == 'red')
+
+
+def anchor_checks(cfg, *, index=None, automatic=False):
+    from . import differences
+    index = differences._source_index(cfg.root) if index is None else index
+    issues = list(index.issues) + [issue for anchor in index.entries for issue in anchor.issues]
+    red = list(dict.fromkeys(issue.message for issue in issues if issue.level == 'red'))
+    grey = list(dict.fromkeys(issue.message for issue in issues if issue.level == 'grey'))
+    agreement = differences.agreements(cfg.root, index=index, automatic=automatic)
+    lines = ['red anchor: ' + message for message in red] + ['grey anchor: ' + message for message in grey]
+    if agreement.get('active'):
+        lines.extend(('red ' if agreement['status'] == 'red' else 'grey ' if agreement['status'] == 'grey' else '') + line
+                     for line in differences.render(agreement).splitlines())
+    unused = _unmodelled(index, cache.scan(cfg))
+    if unused:
+        lines.append('info: anchors not referenced by a current model: ' + ', '.join(unused[:5])
+                     + (f'; {len(unused)-5} more' if len(unused)>5 else ''))
+    return index, lines, bool(red) or agreement['status'] == 'red'
+
+
+def behavior_changes(cfg, *, automatic=False, index=None):
+    from . import differences
+    index = differences._source_index(cfg.root) if index is None else index
+    if not any(anchor.kind == 'sensor' for anchor in index.entries):
+        return []
+    try:
+        report = differences.changed(cfg.root, automatic=automatic)
+    except (OSError, ValueError, SyntaxError, MapError) as error:
+        return [f'grey behavior comparison unavailable: {error}']
+    if not report.get('selected') and not report.get('reasons'):
+        return []
+    if automatic and not report.get('automatic_eligible'):
+        return ['Behavior comparison is check-only: ' + '; '.join(report.get('reasons') or ['measured cost exceeded the automatic budget'])]
+    return ['Behavior changes:', *differences.render(report).splitlines()]
+
+
 def check(cfg, *, everything=False, since=None):
+    status = _check(cfg, everything=everything, since=since)
+    index, lines, red = anchor_checks(cfg)
+    lines.extend(behavior_changes(cfg, index=index))
+    if lines:
+        print('\n'.join(lines))
+    return status or int(red)
+
+
+def _check(cfg, *, everything=False, since=None):
     import ast
     from . import deps, history
     from .loader import load
@@ -338,6 +476,9 @@ def check(cfg, *, everything=False, since=None):
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         now = deps.Now(cfg, graph)
         selected = set(model.rules) if everything else set(deps.affected(data, model, now))
+        flows = {identifier for identifier in model.flows
+                 if everything or identifier not in data['results'] or identifier not in data['deps']
+                 or deps.stale(data['deps'][identifier], now)}
         impact = graph.impact(since=since) if since or graph.stats.get('changed') else dict(files=[], dirty=[], tests=[])
         if since:
             dirty, files = set(impact['dirty']), set(impact['files'])
@@ -352,6 +493,9 @@ def check(cfg, *, everything=False, since=None):
         seeded = dict(data, results={rid: value for rid, value in data['results'].items() if rid not in selected})
         selected = set(deps.affected(seeded, model, now))
         ordinary = set()
+        for identifier in flows:
+            for result in data['results'].get(identifier, {}).get('items', {}).values():
+                ordinary.update(test.partition('::')[0] for test in result.get('drivers', ()))
         current_test_scope = deps.test_scope(cfg)
         def ordinary_file(file):
             path = (cfg.root / file).resolve()
@@ -388,7 +532,7 @@ def check(cfg, *, everything=False, since=None):
                             if nodeid.partition('::')[0] == file and _test_name(nodeid) == name]
                 if not readings or any(value['outcome'] != 'passed' for value in readings):
                     ordinary.add(file)
-    extras = set(model.states) | set(model.structures)
+    extras = set(model.states) | set(model.structures) | set(model.anchor_distincts) | flows
     attempt = data.get('attempt') or {}
     failed_collection = (attempt.get('sentinel') is not None or attempt.get('collected')) and (
         attempt.get('missing') or attempt.get('sentinel') != 'ok')
@@ -635,6 +779,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog='flowguard')
     parser.add_argument('--version', action='version', version=__version__)
     commands = parser.add_subparsers(dest='command')
+    anchor_parser = commands.add_parser('anchor')
+    anchor_operations = anchor_parser.add_subparsers(dest='operation', required=True)
+    anchor_draft = anchor_operations.add_parser('draft')
+    anchor_draft.add_argument('target')
     show_parser = commands.add_parser('show')
     show_parser.add_argument('query', nargs='?')
     show_parser.add_argument('--draft')
@@ -643,6 +791,9 @@ def main(argv=None):
     check_parser = commands.add_parser('check')
     check_parser.add_argument('--all', action='store_true')
     check_parser.add_argument('--since')
+    compare_parser = commands.add_parser('compare')
+    compare_parser.add_argument('left')
+    compare_parser.add_argument('right')
     commands.add_parser('init')
     req_parser = commands.add_parser('req')
     operations = req_parser.add_subparsers(dest='operation', required=True)
@@ -659,6 +810,13 @@ def main(argv=None):
     options = parser.parse_args(argv)
     try:
         cfg = load_config(root or find_root())
+        if options.command == 'anchor':
+            return draft_anchor(cfg, options.target)
+        if options.command == 'compare':
+            from .differences import compare, render as render_comparison
+            result = compare(cfg.root, options.left, options.right)
+            print(render_comparison(result))
+            return int(result['status'] == 'red')
         if options.command == 'show':
             return show(cfg, options.query, draft=options.draft, gaps=options.gaps, full=options.full)
         if options.command == 'check':
