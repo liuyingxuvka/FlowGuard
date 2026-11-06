@@ -65,8 +65,8 @@ def project_paths():
 def quoted_document(quote):
     from flowguard.intent.sources import Source
     with tempfile.TemporaryDirectory(prefix='flowguard-intent-quote-') as directory:
-        root = Path(directory)
-        (root / 'contract.txt').write_text('alpha beta gamma')
+        root = Path(directory).resolve()
+        (root / 'contract.txt').write_text('alpha beta gamma', encoding='utf-8')
         source = Source('doc', '', path='contract.txt', quote=quote)
         yield source, SimpleNamespace(root=root, authority_docs=['contract.txt'])
 

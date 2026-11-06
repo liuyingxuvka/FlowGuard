@@ -63,7 +63,7 @@ class InstallerTests(unittest.TestCase):
 
 
 def test_skill_limits_modeling_and_points_to_one_local_guide():
-    text = (SKILL / 'SKILL.md').read_text()
+    text = (SKILL / 'SKILL.md').read_text(encoding='utf-8')
     for condition in ('has copies', '\"everywhere\"', 'a bug was fixed'):
         assert condition in text
     assert 'Do not model the development task' in text
@@ -72,16 +72,16 @@ def test_skill_limits_modeling_and_points_to_one_local_guide():
     assert 'ordinary pytest' in text and 'not success' in text
     guide = SKILL / 'references/rules.md'
     assert '[rule guide](references/rules.md)' in text and guide.is_file()
-    assert 'def WINDOW(days):' in guide.read_text()
+    assert 'def WINDOW(days):' in guide.read_text(encoding='utf-8')
     # The executable API example has one owner instead of copied manuals.
     for path in (ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'docs/intent-guide.md', SKILL / 'SKILL.md'):
-        assert 'def WINDOW(days):' not in path.read_text()
-    prompt = (SKILL / 'agents/openai.yaml').read_text()
+        assert 'def WINDOW(days):' not in path.read_text(encoding='utf-8')
+    prompt = (SKILL / 'agents/openai.yaml').read_text(encoding='utf-8')
     assert 'Otherwise stay quiet' in prompt and 'python -m flowguard show' in prompt
 
 
 def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
-    text = (ROOT / 'README.md').read_text()
+    text = (ROOT / 'README.md').read_text(encoding='utf-8')
     shown = re.search(r'```text\n(.*?)\n```', text, re.S)[1]
     cfg = load_config(tmp_path)
     assert cli.check(cfg) == 0
@@ -91,14 +91,14 @@ def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
     installed = subprocess.run([sys.executable, 'scripts/install_skill.py', '--target', str(target)],
                                cwd=ROOT, capture_output=True, text=True)
     assert installed.returncode == 0, installed.stdout + installed.stderr
-    guide = (target / 'flowguard/references/rules.md').read_text()
-    (tmp_path / 'policy.txt').write_text(re.search(r'```text\n(.*?)\n```', guide, re.S)[1] + '\n')
-    (tmp_path / 'pyproject.toml').write_text(re.search(r'```toml\n(.*?)\n```', guide, re.S)[1] + '\n')
+    guide = (target / 'flowguard/references/rules.md').read_text(encoding='utf-8')
+    (tmp_path / 'policy.txt').write_text(re.search(r'```text\n(.*?)\n```', guide, re.S)[1] + '\n', encoding='utf-8')
+    (tmp_path / 'pyproject.toml').write_text(re.search(r'```toml\n(.*?)\n```', guide, re.S)[1] + '\n', encoding='utf-8')
     implementation, rule = re.findall(r'```python\n(.*?)\n```', guide, re.S)
-    (tmp_path / 'orders.py').write_text(implementation + '\n')
+    (tmp_path / 'orders.py').write_text(implementation + '\n', encoding='utf-8')
     folder = tmp_path / 'tests/intent'
     folder.mkdir(parents=True)
-    (folder / 'window.py').write_text(rule + '\n')
+    (folder / 'window.py').write_text(rule + '\n', encoding='utf-8')
     cfg = load_config(tmp_path)
     cli.init(cfg)
     capsys.readouterr()
@@ -109,7 +109,7 @@ def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
     wrong = implementation.replace('def preview_accept(days):\n    return days <= 3',
                                    'def preview_accept(days):\n    return days <= 4')
     assert wrong != implementation
-    (tmp_path / 'orders.py').write_text(wrong + '\n')
+    (tmp_path / 'orders.py').write_text(wrong + '\n', encoding='utf-8')
     assert cli.check(cfg) == 1
     assert 'WINDOW' in capsys.readouterr().out
 
@@ -120,7 +120,7 @@ def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch):
     docs = [ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'AGENTS.md', SKILL / 'SKILL.md',
             ROOT / 'docs/intent-guide.md', ROOT / 'docs/upgrade-2.0.md', SKILL / 'references/rules.md']
     for path in docs:
-        text = path.read_text()
+        text = path.read_text(encoding='utf-8')
         commands = re.findall(r'`python -m flowguard([^`\n]*)`', text)
         commands += [line.removeprefix('python -m flowguard') for line in text.splitlines() if line.startswith('python -m flowguard')]
         for command in commands:
@@ -130,7 +130,7 @@ def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch):
 
 
 def _publish_gate():
-    workflow = (ROOT / '.github/workflows/publish-release.yml').read_text()
+    workflow = (ROOT / '.github/workflows/publish-release.yml').read_text(encoding='utf-8')
     script = workflow.split("python - <<'PY'\n", 1)[1].rsplit('\n          PY', 1)[0]
     script = '\n'.join(line[10:] if line.startswith('          ') else line for line in script.splitlines())
     tree = ast.parse(script)
@@ -174,7 +174,7 @@ def test_publication_requires_all_current_jobs_on_the_exact_source(defect):
 
 
 def test_each_supported_ci_platform_runs_the_full_pytest_route():
-    text = (ROOT / '.github/workflows/ci.yml').read_text()
+    text = (ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
     assert 'fetch-depth: 0' in text and 'ref: ${{ github.sha }}' in text
     assert re.findall(r'python: "([^"]+)"', text) == ['3.11', '3.13', '3.12']
     assert 'run: python -m flowguard check --all' in text

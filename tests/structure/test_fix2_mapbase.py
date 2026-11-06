@@ -134,7 +134,7 @@ def test_import_bindings_no_root_reaches_get_an_edge_of_their_kind(repo):
     assert [n["id"] for n in m.nodes(kind="missing")] == ["missing:app.never_written"]
 
 
-def test_extraction_in_worker_processes_gives_the_same_map(repo, tmp_path, monkeypatch):
+def test_extraction_in_worker_processes_gives_the_same_map(repo, tmp_path):
     files = {"many/__init__.py": ""}
     for i in range(30):
         files[f"many/mod{i:02d}.py"] = (f"LIMIT_{i} = {i * 100 + 7}\n\n"
@@ -145,9 +145,8 @@ def test_extraction_in_worker_processes_gives_the_same_map(repo, tmp_path, monke
     repo.write(files)
     rows = {}
     for workers in ("1", "3"):
-        monkeypatch.setenv("FG2_MAP_WORKERS", workers)
         db = tmp_path / f"w{workers}.sqlite"
-        stats = store.build(repo.path, db)
+        stats = store.build(repo.path, db, workers=int(workers))
         assert stats["workers"] == int(workers) and stats["parsed"] == 31
         con = sqlite3.connect(db)
         rows[workers] = {q: sorted(con.execute(q).fetchall(), key=repr) for q in (
