@@ -48,9 +48,10 @@ class Case:
         name = self._engine.child_field(self._rule, child)
         if name not in self.__dict__:
             raise WitnessUnavailable(f'{self._rule.id} has no outcome field for {child.id}')
-        inputs = self._engine.witnesses(child, self.__dict__[name])
-        index = self._witness_index.get(child.id, 0) if isinstance(self._witness_index, dict) else self._witness_index
-        return Case(inputs[index], self._engine, child)
+        inputs = self._engine._verified_witnesses(child, self.__dict__[name])
+        choice = self._witness_index.get(child.id, 0) if isinstance(self._witness_index, dict) else self._witness_index
+        index, nested = choice if isinstance(choice, tuple) else (choice, 0)
+        return Case(inputs[index], self._engine, child, witness_index=nested)
 
     def __getitem__(self, name):
         return self.__dict__[name]
@@ -189,7 +190,7 @@ class Engine:
         self._code_space: dict = {}
         self._sites: dict = {}
         self._cases: dict = {}
-        self._oks: dict = {}
+        self._home_runs: dict = {}
         self._pcells: dict = {}
         self._probes: dict = {}
         self.results: dict = {}
@@ -250,13 +251,19 @@ class Engine:
         return candidates[0]
 
     def witnesses(self, child, outcome):
+        """The original two useful examples; execution checks use the full verified pool."""
+        return self._verified_witnesses(child, outcome)[:2]
+
+    def _verified_witnesses(self, child, outcome):
         key = (child.id, type(outcome).__name__, repr(outcome))
         if key in self._witnesses:
             return self._witnesses[key]
         if not child.homes or not self.rr_space(child.decides)[4]:
             raise WitnessUnavailable(f'{child.id} needs complete rules and a real home before providing witnesses')
-        candidates = [dict(row.inputs) for row in child.live_rows]
-        candidates += self.code_space(child.decides)[0]
+        space = self.code_space(child.decides)
+        if space[1] != 'complete':
+            raise WitnessUnavailable(f'{child.id} needs a complete lower code partition before providing witnesses')
+        candidates = [dict(row.inputs) for row in child.live_rows] + space[0]
         homes = []
         for home in child.homes:
             fn, _, gone = self.home_sites(home.target)
@@ -274,10 +281,13 @@ class Engine:
             seen.add(signature)
             agrees = True
             for home, fn, code in homes:
-                with Footprint(self.is_project) as footprint:
-                    actual = self.call(home, inputs, fn)
-                if code is None or S.code_key(code) not in footprint.keys() or not same(outcome, actual):
-                    agrees = False
+                for indices in self._witness_variants(child, inputs):
+                    with Footprint(self.is_project) as footprint:
+                        actual = self.call(home, inputs, fn, indices)
+                    if code is None or S.code_key(code) not in footprint.keys() or not same(outcome, actual):
+                        agrees = False
+                        break
+                if not agrees:
                     break
             if agrees:
                 verified.append(dict(inputs))
@@ -285,9 +295,36 @@ class Engine:
             raise WitnessUnavailable(f'{child.id} has only {len(verified)} different verified inputs for {show(outcome)}; two are required')
         # Keep a literal row first, then maximize differences among actual inputs.
         first = verified[0]
-        second = max(verified[1:], key=lambda c: sum(not outcome_eq(c[n], first[n]) for n in first))
-        self._witnesses[key] = (first, second)
+        second = max(range(1, len(verified)), key=lambda i: sum(not outcome_eq(verified[i][n], first[n]) for n in first))
+        self._witnesses[key] = (first, verified[second], *(value for i, value in enumerate(verified[1:], 1) if i != second))
         return self._witnesses[key]
+
+    def _witness_variants(self, rule, cell):
+        """Every joint choice of verified lower inputs, including nested uses paths."""
+        children = [self.used_rule(rule, identifier) for identifier in rule.uses]
+
+        def choose(position, selected):
+            if position == len(children):
+                yield dict(selected)
+                return
+            child = children[position]
+            outcome = cell[self.child_field(rule, child)]
+            for index, inputs in enumerate(self._verified_witnesses(child, outcome)):
+                for nested in self._witness_variants(child, inputs):
+                    selected[child.id] = (index, nested)
+                    yield from choose(position + 1, selected)
+            selected.pop(child.id, None)
+
+        yield from choose(0, {})
+
+    def _composition_scope(self, rule):
+        """Distinguish a closed type domain from supported open-domain partitions."""
+        for identifier in rule.uses:
+            child = self.used_rule(rule, identifier)
+            if any(kind.name != 'bool' and not (kind.name == 'enum' and kind.enum_type)
+                   for kind in self.kinds(child.decides).values()) or self._composition_scope(child) != 'finite':
+                return 'partition'
+        return 'finite'
 
     def contract_summary(self, child, *, parts=None):
         """Summarize checked items, or verify a lower contract needed by a parent.
@@ -363,6 +400,7 @@ class Engine:
         valid, why = authority(parse_source(declaration.source), None, self.m.cfg, self.archive)
         red, grey = [], [] if valid else [why]
         files = set()
+        coverage = None
         with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
             violations = declaration.pred(graph)
             if not isinstance(violations, (list, tuple, set, dict)):
@@ -376,8 +414,21 @@ class Engine:
                     identity = name = str(node)
                 if identity not in declaration.allowed and name not in declaration.allowed:
                     red.append(f'{declaration.id}: {identity} {name} -> fix it or allow this node with a reason')
+            coverage = graph.query_coverage()
+            if not coverage['queried']:
+                coverage['complete'] = False
+            if not coverage['queried'] and not red:
+                grey.append('structure rule queried no source facts -> bind the check to the code it constrains')
+            for issue in coverage['issues']:
+                affected = issue['files']
+                location = affected[0] if affected else 'mapped sources'
+                if len(affected) > 1:
+                    location += f' and {len(affected) - 1} more files'
+                grey.append(f'{issue["query"]} query incomplete for {issue["language"]}: '
+                            f'{issue["reason"]} ({location}) -> use a supported explicit scope or reader')
         return dict(kind='structure', verdict='red' if red else 'grey' if grey else 'ok', red=red, grey=grey,
-                    info=[], n=len(violations), files=sorted(files), listing=True, provisional=valid and self.provisional(declaration))
+                    info=[], n=len(violations), files=sorted(files), listing=True, query_coverage=coverage,
+                    provisional=valid and self.provisional(declaration))
 
     # ------------------------------------------------------------ cells
 
@@ -868,25 +919,30 @@ class Engine:
             cases = self.cases(rule, home, part)
         except PredicateError as e:
             return dict(kind=part, verdict="red", red=[str(e)], grey=[], info=[])
-        bad, oks, witness_errors, inadequate = [], [], set(), []
+        bad, runs, witness_errors, inadequate = [], [], set(), []
+        parent_calls = 0
         with Footprint(self.is_project) as fp:
             for cell, exp, label in cases:
-                got = self.call(home, cell, fn)
-                if isinstance(got, Raised) and isinstance(got.error, WitnessUnavailable):
-                    witness_errors.add(str(got.error))
-                    oks.append(False)
-                    continue
-                oks.append(same(exp, got))
-                if not oks[-1]:
-                    bad.append((cell, exp, got, label))
-                if rule.uses:
-                    for identifier in rule.uses:
-                        other = self.call(home, cell, fn, witness_index={identifier: 1})
-                        if isinstance(other, Raised) and isinstance(other.error, WitnessUnavailable):
-                            witness_errors.add(str(other.error))
-                        elif not outcome_eq(got, other):
-                            inadequate.append((cell, got, other))
-        self._oks[(rule.id, home.target, part)] = oks
+                first, failure = [], None
+                try:
+                    for indices in self._witness_variants(rule, cell):
+                        got = self.call(home, cell, fn, indices)
+                        parent_calls += 1
+                        runs.append((cell, exp, indices, same(exp, got)))
+                        if isinstance(got, Raised) and isinstance(got.error, WitnessUnavailable):
+                            witness_errors.add(str(got.error))
+                            continue
+                        if not same(exp, got) and failure is None:
+                            failure = (cell, exp, got, label)
+                        if first and not outcome_eq(first[0], got):
+                            inadequate.append((cell, first[0], got))
+                        elif not first:
+                            first.append(got)
+                except WitnessUnavailable as error:
+                    witness_errors.add(str(error))
+                if failure:
+                    bad.append(failure)
+        self._home_runs[(rule.id, home.target, part)] = runs
         base = S.unwrap(fn)
         code = getattr(base, "__code__", None)   # a C function or slot wrapper has no code to enter
         entered = code is not None and S.code_key(code) in fp.keys()
@@ -928,6 +984,13 @@ class Engine:
                    footprint=sorted({self.qual(e) for e in fp.entered}),
                    files=sorted({self.m.cfg.rel(e[0]) for e in fp.entered}), seconds=round(time.perf_counter() - t0, 4))
         if rule.uses:
+            scope = self._composition_scope(rule)
+            res['composition'] = dict(scope=scope, parent_calls=parent_calls,
+                                      checked_all_witnesses=not witness_errors, finite_domain=scope == 'finite')
+            if part == 'cells':
+                info.append(f'joint lower inputs: {parent_calls} real home calls over ' +
+                            ('closed finite domains' if scope == 'finite' else
+                             'all verified partition representatives; open domains are not enumerated value by value'))
             res['contracts'] = {identifier: self.contract_summary(identifier) for identifier in rule.uses}
             for identifier, contract in res['contracts'].items():
                 if identifier not in self._used_witnesses.get(rule.id, set()):
@@ -1059,7 +1122,21 @@ class Engine:
         if gone or getattr(base, "__code__", None) is None:
             self._probes[k] = None
             return None
-        cells, lines, first = self.probe_cells(rule)
+        base_cells, base_lines, _ = self.probe_cells(rule)
+        samples, witness_lines = [], []
+        for cell in base_cells:
+            group = []
+            try:
+                for indices in self._witness_variants(rule, cell):
+                    group.append(len(samples))
+                    samples.append((cell, indices))
+            except WitnessUnavailable:
+                # Let the ordinary home call preserve the unavailable-witness reason.
+                group.append(len(samples))
+                samples.append((cell, {}))
+            witness_lines.append(group)
+        cells = [cell for cell, _ in samples]
+        lines = [[witness_lines[i][0] for i in line] for line in base_lines]
         answers = []
         for c in cells:
             try:
@@ -1068,9 +1145,10 @@ class Engine:
                 e = None
             answers.append(None if e is CONFLICT else e)
         hkey = S.code_key(base.__code__)
+        actuals = []
         with Footprint(self.is_project, inside=hkey) as fp:
-            for i in range(len(cells)):
-                self.call(home, cells[i], fn)
+            for cell, indices in samples:
+                actuals.append(self.call(home, cell, fn, indices))
         funcs = [(home.target, base, sites, True)]
         for f, line, q in sorted(fp.entered):
             if (f, line) == hkey or "<" in q :
@@ -1097,9 +1175,9 @@ class Engine:
                 for (_, obj, _, _), code in zip(funcs, codes):
                     if code is not None:
                         stack.enter_context(S.installed(obj, code))
-                for i, c in enumerate(cells):
+                for i, (c, indices) in enumerate(samples):
                     P.CASE = i
-                    self.call(home, c, fn)
+                    self.call(home, c, fn, indices)
         finally:
             rec = P.take()
         kinds = self.kinds(rule.decides)
@@ -1108,7 +1186,8 @@ class Engine:
             for si, s in enumerate(fs):
                 per = rec.get((fi, si), {})
                 u = SiteUse(target, obj, s, own, reached=bool(per), touched=P.touched(per),
-                            boundary=P.boundary(per, lines, answers, outcome_eq),
+                            boundary=(P.boundary(per, lines, answers, outcome_eq) or
+                                      bool(rule.uses) and P.boundary(per, witness_lines, actuals, outcome_eq)),
                             named=_named(s, kinds))
                 if s.kind in ("cmp", "in") and per:
                     left, right = P.tracks(per, 1, cells, kinds), P.tracks(per, 2, cells, kinds)
@@ -1127,9 +1206,11 @@ class Engine:
         return builder_decides(home.adapter, self.is_project)
 
     def realized(self, rule, home) -> list[SiteUse]:
-        """Design 3.6: a home's site whose field or constant produced cells for the rule (named or
-        carrying a rule field) and that the rule's cells reach; and any site, in the home or a callee,
-        that flips exactly where the rule's decision flips. Unit kind alone realizes nothing."""
+        """Sites reached by rule fields, or following a rule/output boundary.
+
+        Joint lower witnesses can expose an output boundary hidden by the upper
+        fields; those actual changes belong to this contract too.
+        """
         pr = self.probe(rule, home)
         if pr is None:
             return []
@@ -1168,10 +1249,18 @@ class Engine:
                             cs = self.cases(rule, h, part)
                         except PredicateError:
                             continue
-                        oks = self._oks.get((rule.id, h.target, part))
-                        if oks is None or len(oks) != len(cs):
-                            oks = [same(e, self.call(h, c, hfn)) for c, e, _ in cs]
-                        suites[target].append((h, hfn, cs, oks))
+                        runs = self._home_runs.get((rule.id, h.target, part))
+                        if runs is None:
+                            runs = []
+                            for cell, expected, _ in cs:
+                                try:
+                                    for indices in self._witness_variants(rule, cell):
+                                        runs.append((cell, expected, indices,
+                                                     same(expected, self.call(h, cell, hfn, indices))))
+                                except WitnessUnavailable:
+                                    pass  # The home/contract item reports incomplete lower inputs.
+                            self._home_runs[(rule.id, h.target, part)] = runs
+                        suites[target].append((h, hfn, runs))
             return suites[target]
         per_site: dict = {}
         muts = 0
@@ -1188,8 +1277,8 @@ class Engine:
                     entry["why"] = f"not mutable: {e}"
                 else:
                     with S.installed(obj, code):
-                        entry["killed"] = any(ok and not same(e, self.call(h, c, hfn))
-                                              for h, hfn, cs, oks in runs for (c, e, _), ok in zip(cs, oks))
+                        entry["killed"] = any(ok and not same(e, self.call(h, c, hfn, indices))
+                                              for h, hfn, checked in runs for c, e, indices, ok in checked)
                 per_site.setdefault((target, mu.site.key), []).append(entry)
         rows, k, n, grey, info = [], 0, 0, [], []
         realized_keys = {u.key for u in real}

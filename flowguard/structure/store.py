@@ -27,6 +27,7 @@ from . import decide, roots as rootmod
 from .extract import extract, syntax_tree
 from .roots import syspath_entries
 from .paths import project_code
+from .readers.registry import language_for, module_name, OTHER_SOURCE
 
 FORMAT = "flowguard-map-1"
 SCHEMA = """
@@ -129,7 +130,7 @@ def project_config(root: Path) -> dict:
 def reader_digest():
     """A map also depends on the reader that produced it, not only project bytes."""
     package = Path(__file__).resolve().parents[1]
-    paths = sorted((package / 'structure').glob('*.py'))
+    paths = sorted((package / 'structure').rglob('*.py'))
     paths += [package / 'map' / name for name in ('common.py', 'inventory.py', 'discover.py', 'discovery_syntax.py')]
     text = sys.version + '\n' + '\n'.join(path.name + ':' + content_digest(path) for path in paths)
     return content_digest(Path(__file__), data=text.encode())
@@ -156,6 +157,8 @@ class Linker:
         self.short = {}
         for file, qual, kind, cls in con.execute(
                 "SELECT file, qual, kind, cls FROM node WHERE kind IN ('function','method','class')"):
+            if language_for(file) != 'python':
+                continue
             if kind != "class":
                 self.index.setdefault(file, {})[qual] = {"class": cls}
                 last = qual.rsplit(".", 1)[-1]
@@ -388,12 +391,14 @@ def _build(con, root, roots, force, workers, t0):
     # is decided by project_code, including pyvenv.cfg, rather than that name.
     ignore = [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [str(p) for p in cfg.get("exclude", [])]
     files = [f for f in list_files(root) if not matches_any(f, ignore)]
-    py = [f for f in files if f.endswith(".py") and project_code(str(root / f), root)]
+    py = [f for f in files if language_for(f) and project_code(str(root / f), root)]
+    python_files = [f for f in py if language_for(f) == 'python']
     blobs = {f: (root / f).read_bytes() for f in py}
     shas = {f: content_digest(root / f, data=b) for f, b in blobs.items()}
     old = {p: (s, n, sp) for p, s, n, sp in con.execute("SELECT path, sha, names, syspath FROM file")}
     changed = {f for f in py if f not in old or old[f][0] != shas[f]}
-    tool_digest = reader_digest()
+    from .readers.context import context_digest
+    tool_digest = content_digest(Path(__file__), data=(reader_digest() + context_digest(root, files)).encode())
     previous_tool = con.execute("SELECT v FROM meta WHERE k='reader_digest'").fetchone()
     if force or previous_tool is None or previous_tool[0] != tool_digest:
         changed = set(py)
@@ -401,14 +406,14 @@ def _build(con, root, roots, force, workers, t0):
     syspath = {}
     for f in py:
         if f in changed:
-            if b"sys.path" in blobs[f] or b"addsitedir" in blobs[f]:
+            if f in python_files and (b"sys.path" in blobs[f] or b"addsitedir" in blobs[f]):
                 try:
                     syspath[f] = syspath_entries(syntax_tree(read_source(root / f, data=blobs[f])), f)
                 except SyntaxError:
                     syspath[f] = []
         elif old[f][2]:
             syspath[f] = json.loads(old[f][2])
-    found_roots = rootmod.detect(root, files, py, {f: v for f, v in syspath.items() if v})
+    found_roots = rootmod.detect(root, files, python_files, {f: v for f, v in syspath.items() if v})
     if roots is not None:
         explicit = []
         for value in roots:
@@ -423,9 +428,14 @@ def _build(con, root, roots, force, workers, t0):
                 raise ValueError(f'import root must be inside the project: {value}')
             explicit.append((normalized, "[tool.flowguard] roots"))
         found_roots = sorted(dict(found_roots + explicit).items(), key=lambda item: (-len(item[0]), item[0]))
-    tops = rootmod.implicit_tops(py, found_roots)
+    tops = rootmod.implicit_tops(python_files, found_roots)
     shadowed = rootmod.installed_tops(tops, root) if tops else set()
-    file_names, every, multi = rootmod.names(py, found_roots, shadowed)
+    file_names, every, multi = rootmod.names(python_files, found_roots, shadowed)
+    for f in py:
+        if f not in file_names:
+            name = module_name(f)
+            file_names[f] = [(name, '')]
+            every[name] = f
     old_roots = con.execute("SELECT path, how FROM root ORDER BY rank").fetchall()
     roots_changed = [tuple(r) for r in old_roots] != [tuple(r) for r in found_roots]
     renamed = {f for f in py if f not in changed and old[f][1] != json.dumps(file_names[f])}
@@ -436,6 +446,7 @@ def _build(con, root, roots, force, workers, t0):
                      seconds=round(time.perf_counter() - t0, 3), changed=False,
                      source_lines=con.execute('SELECT COALESCE(SUM(physical_lines),0) FROM file WHERE is_test=0').fetchone()[0],
                      test_lines=con.execute('SELECT COALESCE(SUM(physical_lines),0) FROM file WHERE is_test=1').fetchone()[0])
+        stats.update(capabilities=_capabilities(con, files))
         return stats
     build_no = int((con.execute("SELECT v FROM meta WHERE k='build'").fetchone() or [0])[0]) + 1
     redo = changed | renamed
@@ -475,6 +486,10 @@ def _build(con, root, roots, force, workers, t0):
         con.execute("DELETE FROM file WHERE path=?", (f,))
     new_modules = {ns[0][0] for f in redo for ns in [file_names[f]]}
     added_names = new_modules - old_modules
+    if added_names or removed:
+        # Previously missing literal foreign imports may now bind a new file.
+        # Re-link cached facts; do not reparse unchanged source or guess a target.
+        relink |= {path for path in py if language_for(path) != 'python'}
     if added_names:
         marks = ",".join("?" * len(added_names))
         relink |= {f for (f,) in con.execute(f"SELECT DISTINCT file FROM edge WHERE dst IN ({marks})",
@@ -514,7 +529,8 @@ def _build(con, root, roots, force, workers, t0):
     stats["phases"] = {"read": round(t_read - t0, 2), "extract": round(t_extract - t_read, 2),
                        "link": round(t_link - t_extract, 2), "store": round(t_end - t_link, 2)}
     stats.update(build=build_no, seconds=round(time.perf_counter() - t0, 3), changed=True,
-                 resolve_errors=linker.resolve_errors[:20], resolve_error_count=len(linker.resolve_errors))
+                 resolve_errors=linker.resolve_errors[:20], resolve_error_count=len(linker.resolve_errors),
+                 capabilities=_capabilities(con, files))
     return stats
 
 
@@ -579,10 +595,13 @@ def extract_all(root: Path, tasks: list[tuple], *, workers=None) -> tuple[list[d
 
 def _store_file(con, f, facts, sha, names, is_test, build_no) -> None:
     module = names[0][0]
+    facts['locations'] = {n['qual']: dict(column=n.get('column',1), end_column=n.get('end_column'))
+                          for n in facts.get('nodes', [])}
     keep ={k: facts[k] for k in ("imports", "import_lines", "lines_all", "import_reads", "literal_dynamic_imports",
                                   "unknown_dynamic_imports", "lazy", "bound", "keys", "facts", "optional",
                                   "star", "getattr", "submodules", "doc", "typing", "dirrel",
-                                  "handlers", "literal_sets", "assignments", "syntax_calls", "symbol_reads") if k in facts}
+                                  "handlers", "literal_sets", "assignments", "syntax_calls", "symbol_reads",
+                                  "language", "parser", "locations", "dependencies", "exports", "bindings") if k in facts}
     con.execute("INSERT OR REPLACE INTO file VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (f, sha, module, json.dumps(names), int(is_test), facts["parse_error"], facts["loc"], build_no,
                  json.dumps(facts["syspath"]), pack(keep), facts.get('source_lines',0)))
@@ -672,6 +691,9 @@ def _tid(con, cache: dict, tok: str) -> int:
 def _link_file(con, lk: Linker, facts, f: str) -> None:
     data = lk.data(f)
     module = lk.primary[f]
+    if data.get('language', 'python') != 'python':
+        from .readers.link import link
+        return link(con, lk, f, data)
     edges, sites, keys, posts, unres = [], [], [], [], []
     edges += [(alias, module, "alias", "resolved", f, 0) for alias, _ in lk.names[f][1:]]
     edges += [(module, f'unknown-import:{f}:{item["line"]}', 'imports-dynamic', 'unknown', f, item['line'])
@@ -875,3 +897,22 @@ def _record_delta(con, snapshot: dict, readers: dict, build_no: int, redo=()) ->
     con.executemany("INSERT INTO gone VALUES(?,?,?,?,?,?,?,?)", gone)
     con.execute("DELETE FROM gone WHERE id IN (SELECT id FROM node)")
     con.execute("DELETE FROM delta WHERE build < ?", (build_no - 20,))
+
+
+def _capabilities(con, files):
+    """Inventory semantics are explicit: parsing never promises foreign execution."""
+    languages = {}
+    for path, error, blob in con.execute('SELECT path,parse_error,data FROM file'):
+        facts = unpack(blob)
+        language = facts.get('language', 'python')
+        from .readers.registry import query_support
+        record = languages.setdefault(language, dict(files=0, parsed=0, errors=0, native_home=language == 'python',
+                    queries=query_support(language),
+                    parser=facts.get('parser', {'engine':'stdlib ast'})))
+        record['files'] += 1
+        record['errors' if error else 'parsed'] += 1
+    unsupported = [path for path in files if Path(path).suffix.lower() in OTHER_SOURCE]
+    from .readers.registry import available
+    from .readers.context import config_files
+    return dict(languages=languages, available=available(), parser_inputs=config_files(files), unsupported_files=unsupported,
+                meaning='static source facts; grammar parse is not execution or complete semantic resolution')

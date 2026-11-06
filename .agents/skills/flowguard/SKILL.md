@@ -1,6 +1,6 @@
 ---
 name: flowguard
-description: Find an existing decision before adding code; bind necessary copies to one executable rule so later changes cannot silently make them disagree. Use for Python code maintenance, not for every edit.
+description: Find an existing decision before adding code; bind necessary copies to one executable rule so later changes cannot silently make them disagree. Source maps cover Python, JS/TS, C/C++ and C#; executable homes are Python only. Use for code maintenance, not for every edit.
 ---
 
 # FlowGuard
@@ -21,6 +21,10 @@ Before writing the first rule, read the local [rule guide](references/rules.md):
 Write the rule from the requirement, not from the implementation. A home adapter builds inputs and calls real code; it never computes the expected answer. Rows have literal inputs, `expect` and `why`. Cite `source="owner R1"` or agreed document words. An assumption is not authority.
 
 After a bound decision changes, run `python -m flowguard check`. It uses ordinary pytest; selected tests refresh their code links. CI uses `check --all` for complete links. Red needs repair; grey names an unverified boundary, not success. Green covers the declared inputs and homes. Change code and its real tests together; report actual commands and results.
+
+The generated map reads Python, JS/TS/TSX, C/C++ and C#. Only Python has executable behavior homes. Check query coverage; a grammar parse does not verify runtime semantics. Unavailable or failed source queries stay grey. Keep a language scope faithful to the requirement.
+
+Use `uses` and verified lower witnesses only for real decomposition; joint finite checks and open-domain representatives have different limits. Put structural relations at their existing owner. Do not add a whole-application model or another maintenance layer. Details are in the rule guide.
 
 Use `python -m flowguard init` once to add the pytest sentinel, CI fragment and four project rules. Install the engine from `git+https://github.com/liuyingxuvka/FlowGuard.git`; the similarly named PyPI project is different.
 

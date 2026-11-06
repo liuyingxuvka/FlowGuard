@@ -7,6 +7,8 @@ import subprocess
 import textwrap
 import uuid
 
+import pytest
+
 from flowguard.intent import cache, deps, history
 from flowguard.intent.config import load_config
 from flowguard.intent.loader import load
@@ -477,18 +479,38 @@ def test_an_inactive_platform_skipif_does_not_erase_a_marked_guard(tmp_path):
         assert any('guard lost' in message for message in history.check(cfg, 'HEAD'))
 
 
-def test_a_known_module_with_an_unresolved_import_has_a_conservative_test_dependency(tmp_path):
+def test_an_unused_unresolved_import_does_not_poison_ordinary_dependencies(tmp_path):
     root, cfg, name = fixture(tmp_path)
     source = root / (name + '.py')
     source.write_text(source.read_text() + f'\ndef optional():\n    from {name} import no_such_export\n    return no_such_export\n')
     (root / 'tests/test_actual.py').write_text(f'from {name} import accept\ndef test_actual(): assert accept(2)\n')
     with closing(build(root)) as graph:
         records = deps.test_dependencies(cfg, graph)
-        assert '<unresolved>' in records['tests/test_actual.py']
+        # FG-02: an imported module defines optional(), but this test only calls
+        # accept(). Ordinary dependencies now separate initialization and bodies.
+        assert '<unresolved>' not in records['tests/test_actual.py']
         assert None not in records['tests/test_actual.py']
         model = load(cfg)
         result = deps.record(cfg, model, model.rules['LIMIT'], [], graph)
         assert any('unresolved import' in reason for reason in result['reasons'])
+
+
+@pytest.mark.parametrize('where', ['reachable', 'module'])
+def test_an_unresolved_import_remains_unknown_when_it_can_execute(tmp_path, where):
+    from test_plugin import run
+    root, cfg, name = fixture(tmp_path)
+    source = root / (name + '.py')
+    if where == 'reachable':
+        source.write_text(source.read_text() + f'\ndef optional():\n    from {name} import no_such_export\n    return no_such_export\n')
+        test = f'from {name} import optional\ndef test_actual(): optional()\n'
+    else:
+        source.write_text(source.read_text() + f'\nfrom {name} import no_such_export\n')
+        test = f'from {name} import accept\ndef test_actual(): assert accept(2)\n'
+    (root / 'tests/test_actual.py').write_text(test)
+    with closing(build(root)) as graph:
+        assert '<unresolved>' in deps.test_dependencies(cfg, graph)['tests/test_actual.py']
+    result = run(root, 'tests/test_actual.py')
+    assert result.returncode != 0 and 'no_such_export' in result.stdout + result.stderr
 
 
 def test_trace_storage_shares_large_static_sets_and_keeps_old_refs_stale(tmp_path):

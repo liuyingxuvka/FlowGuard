@@ -45,6 +45,7 @@ class Session:
         self.results, self.readings, self.footprints, self.children, self.durations = {}, {}, {}, {}, {}
         self.sentinel = None
         self.ordinary_selected, self.early_exit, self.session_errors = set(), [], []
+        self.ordinary_files, self.ordinary_deselected = set(), False
         self.last_test = None
         self.process_calls, self.closed = [], False
         self.main_process = os.getpid()
@@ -279,6 +280,11 @@ def pytest_collection_finish(session):
     state.ordinary_selected = {i.nodeid for i in session.items if not isinstance(i, IntentItem) and i.name != SENTINEL}
 
 
+def pytest_deselected(items):
+    if _CURRENT is not None and any(not isinstance(item, IntentItem) for item in items):
+        _CURRENT.ordinary_deselected = True
+
+
 def pytest_keyboard_interrupt(excinfo):
     if _CURRENT is not None and isinstance(excinfo.value, pytest.exit.Exception):
         _CURRENT.early_exit.append(f'the run was ended early by pytest.exit({excinfo.value.msg!r})')
@@ -418,6 +424,8 @@ def pytest_runtest_makereport(item, call):
 def pytest_make_collect_report(collector):
     outcome = yield
     report = outcome.get_result()
+    if report.passed and isinstance(collector, pytest.Module) and collector.path.name != SENTINEL + '.py':
+        collector.config._flowguard_intent.ordinary_files.add(collector.config._flowguard_intent.cfg.rel(collector.path))
     violation = report.skipped
     if violation:
         call = getattr(report, 'call', None)
@@ -453,6 +461,24 @@ def _save_readings(con, state):
     con.executemany('INSERT OR REPLACE INTO reading VALUES(?,?,?,?,?,?,?)',
                     [(test, r['outcome'], r['kind'], r['reason'], r['phase'], r['seconds'], state.started)
                      for test, r in state.readings.items()])
+
+
+def _save_ordinary_collection(con, session, state):
+    options = session.config.option
+    if (session.exitstatus not in {pytest.ExitCode.OK, pytest.ExitCode.TESTS_FAILED} or state.session_errors or state.early_exit or state.ordinary_deselected
+            or options.collectonly or getattr(options, 'setuponly', False) or getattr(options, 'setupplan', False)
+            or options.keyword or options.markexpr or getattr(options, 'deselect', ())
+            or any('::' in arg for arg in session.config.args)):
+        return
+    from .cache import save_test_collection
+    files = {file: set() for file in state.ordinary_files}
+    for test in state.ordinary_selected:
+        if test.partition('::')[0] in files:
+            files[test.partition('::')[0]].add(test)
+    files = {file: tests for file, tests in files.items() if tests <= state.readings.keys()
+             and not any(test.partition('::')[0] == file and reading['phase'] == 'collect'
+                         for test, reading in state.readings.items())}
+    save_test_collection(con, files, state.started)
 
 
 def _completion_policy(session, state, declared):
@@ -511,6 +537,7 @@ def pytest_sessionfinish(session, exitstatus):
                     con.execute('BEGIN IMMEDIATE')
                     _meta(con, 'intent_attempt', attempt)
                     _save_readings(con, state)
+                    _save_ordinary_collection(con, session, state)
         return
     with closing(state.get_map()) as mapping:
         con = mapping.con
@@ -539,6 +566,7 @@ def pytest_sessionfinish(session, exitstatus):
                                       [r for r in state.results.values() if r['rule'] == rid], mapping)
             save_dependencies(con, records)
         _save_readings(con, state)
+        _save_ordinary_collection(con, session, state)
         # Maps provide the sole fingerprint owner. Missing dynamic functions stay explicitly unmapped.
         nodes = {(row['file'], row['qual']): row for row in mapping.nodes()}
         @cache

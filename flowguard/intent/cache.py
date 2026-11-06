@@ -126,16 +126,16 @@ def scan(cfg, texts=None):
 def read(cfg):
     """One SQLite source; a latest failed attempt stays separate from the last full collection."""
     summary = scan(cfg)
-    output = dict(summary=summary, results={}, deps={}, attempt=None, collection=None, tests={}, test_deps={}, traces={})
+    output = dict(summary=summary, results={}, deps={}, attempt=None, collection=None, tests={}, test_deps={}, traces={}, test_collection={})
     path = cfg.cache / 'map.sqlite'
     if not path.is_file():
         return output
     with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as con:
         con.execute('BEGIN')
         tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        names = ('intent_attempt', 'intent_collection', 'intent_dependencies')
-        metadata = dict(con.execute('SELECT k,v FROM meta WHERE k IN (?,?,?)', names)) if 'meta' in tables else {}
-        for key, name in [('attempt', 'intent_attempt'), ('collection', 'intent_collection'), ('deps', 'intent_dependencies')]:
+        names = ('intent_attempt', 'intent_collection', 'intent_dependencies', 'ordinary_collection')
+        metadata = dict(con.execute('SELECT k,v FROM meta WHERE k IN (?,?,?,?)', names)) if 'meta' in tables else {}
+        for key, name in [('attempt', 'intent_attempt'), ('collection', 'intent_collection'), ('deps', 'intent_dependencies'), ('test_collection', 'ordinary_collection')]:
             if name in metadata:
                 output[key] = json.loads(metadata[name])
         if 'trace_test' in tables:
@@ -150,12 +150,33 @@ def read(cfg):
         if 'reading' in tables:
             output['tests'] = {r[0]: dict(zip(('outcome', 'kind', 'reason', 'phase', 'seconds', 'stamp'), r[1:]))
                                for r in con.execute('SELECT * FROM reading')}
+        # Keep raw readings for audit, but an obsolete function/parameter from a
+        # completed file collection is not a current failure. A newer partial
+        # run remains visible even when its node was not in that older snapshot.
+        readings = output['tests']
+        def current(test):
+            saved = output['test_collection'].get(test.partition('::')[0])
+            return (not saved or test in saved['tests']
+                    or readings.get(test, {}).get('stamp', 0) >= saved['stamp'])
+        output['tests'] = {test: value for test, value in readings.items() if current(test)}
+        output['traces'] = {test: value for test, value in output['traces'].items() if current(test)}
     return output
 
 
 def _write_transaction(con):
     if not con.in_transaction:
         con.execute('BEGIN IMMEDIATE')
+
+
+def save_test_collection(con, files, stamp):
+    """Merge only actually completed ordinary file collections into this SQLite."""
+    if not files:
+        return
+    _write_transaction(con)
+    row = con.execute("SELECT v FROM meta WHERE k='ordinary_collection'").fetchone()
+    current = json.loads(row[0]) if row else {}
+    current.update({file: dict(tests=sorted(tests), stamp=stamp) for file, tests in files.items()})
+    con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', ('ordinary_collection', json.dumps(current, sort_keys=True)))
 
 
 def save_dependencies(con, records):

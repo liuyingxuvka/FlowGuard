@@ -146,3 +146,16 @@ def test_show_short_function_name_is_an_exact_owner_candidate(tmp_path, capsys):
     (root / 'short.py').write_text('def f(x): return x > 2\n')
     assert cli.show(cfg, 'f') == 0
     assert 'short:f' in capsys.readouterr().out
+
+
+def test_foreign_source_navigation_displays_static_coverage_and_execution_boundary(tmp_path, capsys):
+    (tmp_path / 'service.ts').write_text('export function accept(days: number) { return days <= 3; }\n')
+    cfg = load_config(tmp_path)
+    assert cli.show(cfg, 'accept') == 0
+    text = capsys.readouterr().out
+    assert 'typescript 1/1 parsed' in text
+    assert 'static facts' in text and 'execution not verified' in text
+    assert cli.show(cfg, draft='typescript/service.ts:accept') == 0
+    text = capsys.readouterr().out
+    assert 'no verified native-home execution adapter' in text
+    assert 'build inputs and read the real result' not in text

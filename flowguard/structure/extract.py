@@ -790,7 +790,7 @@ def syntax_records(tree, module, rel):
     return found
 
 
-def extract(root: Path, rel: str, data: bytes, module: str, is_test: bool) -> dict:
+def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: bool) -> dict:
     """Everything the store keeps for one file; nothing here depends on another file."""
     info = parse_python(root, rel, module, data=data)
     out = {"module": module, "loc": info.loc, "source_lines": len(data.splitlines()), "parse_error": info.parse_error, "imports": sorted(info.imports),
@@ -861,7 +861,10 @@ def extract(root: Path, rel: str, data: bytes, module: str, is_test: bool) -> di
                 else:
                     sig = "(" + ast.unparse(node.args) + ")" + (" -> " + ast.unparse(node.returns) if node.returns else "")
                 row = {"qual": qual, "kind": kind, "line": min([d.lineno for d in node.decorator_list] + [node.lineno]),
-                       "end": node.end_lineno, "sig": sig[:160], "cls": cls or "",
+                       "end": node.end_lineno,
+                       "column": len(text.splitlines()[node.lineno-1].encode('utf-8')[:node.col_offset].decode('utf-8')) + 1,
+                       "end_column": len(text.splitlines()[node.end_lineno-1].encode('utf-8')[:node.end_col_offset].decode('utf-8')) + 1,
+                       "sig": sig[:160], "cls": cls or "",
                        "doc": (ast.get_docstring(node) or "").strip().split("\n")[0][:100],
                        "fp": fingerprint(node, node.name), "shape": shape(own), "size": len(own)}
                 if not is_test and not is_class:
@@ -895,3 +898,16 @@ def extract(root: Path, rel: str, data: bytes, module: str, is_test: bool) -> di
                       + [s for h in getattr(node, "handlers", []) for s in h.body], prefix, cls, False)
     visit(tree.body, "", None, False)
     return out
+
+
+def extract(root: Path, rel: str, data: bytes, module: str, is_test: bool) -> dict:
+    """One file-fact interface; Python remains native and grammars load on demand."""
+    from .readers.registry import language_for, extract as foreign
+    language = language_for(rel)
+    if language != 'python':
+        return foreign(root, rel, data, module, is_test)
+    facts = _extract_python(root, rel, data, module, is_test)
+    facts['language'] = 'python'
+    import sys
+    facts['parser'] = dict(engine='stdlib ast', version=sys.version.split()[0])
+    return facts

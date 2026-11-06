@@ -27,6 +27,19 @@ A rule states an expectation independently of the implementation. A home adapter
 
 After either copy changes, `check` executes ordinary pytest against the current source. A disagreement is red. An unverified boundary is grey. A newly written authority document may be green*; it is not independent confirmation.
 
+## Source map and language boundaries
+
+The same generated map and fixed queries read the first languages below. Normal installation includes their grammar packages; a parser loads only when its language is present. Mapping source does not execute or compile it.
+
+| source | map facts | executable behavior homes |
+| --- | --- | --- |
+| Python | Declarations, calls, dependencies, reads/writes and fixed queries | Python functions |
+| JS/JSX, TS/TSX | Declarations, call sites, imports/reexports, assignments and definite keys | Unavailable |
+| C, C++ | Declarations, calls, includes, assignments and definite keys | Unavailable |
+| C# | Declarations, calls, using declarations, assignments and definite keys | Unavailable |
+
+`capabilities()` reports actual files, parser errors and query support. External dependencies, dynamic dispatch, macros and ambiguous bindings stay explicit; a parsed grammar is not full semantic coverage. Foreign handler, literal-set, test-discovery and full symbol-read queries are not yet supported. A structure rule using an unavailable query, a failed source, or no source query is grey. Use an explicit language scope only when it matches the requirement; do not exclude inconvenient files to obtain green. Source, reader/grammar versions and project parser configuration invalidate cached facts. See the [intent guide](./docs/intent-guide.md) for a small source query.
+
 ## Daily commands
 
 | command | purpose |
@@ -50,6 +63,8 @@ Cases remain literal and do not silently shrink. Sources, helpers, data and impl
 ## Boundaries and migration
 
 Rules check declared inputs and real bindings, not factual truth or every behavior of the application. Grey findings explain what was not verified. Keep ordinary tests and review. Use `distinct` for similar decisions that must differ, `supersedes` for a replacement, and `uses` only where a lower decision genuinely simplifies the upper rule.
+
+For real decomposition, the upper adapter takes `c.witness(LOWER)` and reaches the actual upper home. Checks combine all verified lower inputs jointly, including nested uses. Closed boolean/enum domains can be finite and complete; open domains use supported partition representatives, not every value. Put dependency or ownership constraints in a sourced `structure_rule` at their existing owner. There is no requirement to model the whole application or add another hierarchy layer.
 
 The old flow machines, background jobs, pictures and release test runner are retired. `status`, `where`, `draft`, `decide` and `release` have no compatibility aliases. Keep the original request archive; migrate useful old contracts to rules and rows, then remove the old models. See the [intent guide](./docs/intent-guide.md) and [migration guide](./docs/upgrade-2.0.md).
 

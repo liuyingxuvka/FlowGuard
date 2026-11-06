@@ -77,6 +77,18 @@ def _test_name(nodeid):
     return nodeid.partition('::')[2].partition('[')[0].rsplit('::', 1)[-1]
 
 
+def _map_notice(graph):
+    coverage = graph.capabilities()
+    foreign = {name: row for name, row in coverage.get('languages', {}).items() if name != 'python'}
+    unsupported = coverage.get('unsupported_files', [])
+    if not foreign and not unsupported:
+        return ''
+    parts = [f'{name} {row["parsed"]}/{row["files"]} parsed' for name, row in sorted(foreign.items())]
+    if unsupported:
+        parts.append(f'{len(unsupported)} unsupported source files (first: {unsupported[0]})')
+    return 'Map: ' + '; '.join(parts) + '; static facts, foreign native-home execution not verified.'
+
+
 def render(cfg, data, *, check=False, graph=None):
     summary = data['summary']
     rules = summary['rules']
@@ -92,6 +104,8 @@ def render(cfg, data, *, check=False, graph=None):
         source_lines = graph.stats.get('source_lines', 0)
         ratio = 100 * summary['intent_lines'] / source_lines if source_lines else 0
         lines[0] += f'; {source_lines} source lines, intent {ratio:.1f}%'
+        if notice := _map_notice(graph):
+            lines.append(notice)
     red, grey, information, tool_causes = [], [], [], {}
     for error in errors:
         red.append(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
@@ -125,7 +139,11 @@ def render(cfg, data, *, check=False, graph=None):
                     grey.append(f'grey {rid}: {_action(message)}')
         if not check:
             information.append(f'{rid} {colour}: {item["decides"]}; {len(item.get("homes", []))} homes, {item.get("rows", 0)} rows')
+    from .deps import test_scope
+    current_test_scope = test_scope(cfg)
     for test, value in data.get('tests', {}).items():
+        if not current_test_scope(test.partition('::')[0]):
+            continue
         if value.get('outcome') == 'failed':
             line = f'{test}: {value.get("reason") or value.get("phase")} -> rerun this test after correcting the cause'
             (grey if value.get('kind') == 'env' else red).append(('grey env ' if value.get('kind') == 'env' else 'red test ') + line)
@@ -192,10 +210,13 @@ def show(cfg, query=None, *, draft=None, gaps=None):
             print(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
         return 1
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        notice = _map_notice(graph)
         if query in rules:
             item = rules[query]
             lines = [f'RULE {query}: {item["decides"]}', item.get('doc', ''), f'source: {item["source"]}',
                      f'{item["file"]}:{item["line"]}; {item.get("rows", 0)} literal rows']
+            if notice:
+                lines.insert(1, notice)
             for home in item.get('homes', []) if item.get('kind') == 'rule' else []:
                 lines.append('home ' + home)
                 lines.extend(f'  site L{s["line"]}: {s["field"]} {s["op"]} {s["const"]}' for s in graph.sites(home))
@@ -226,6 +247,11 @@ def show(cfg, query=None, *, draft=None, gaps=None):
         node = graph.node(query)
         if node:
             print(f'{query} {node["file"]}:{node["line"]}\n{node["sig"]}\n{node["doc"]}')
+            if notice:
+                print(notice)
+            if draft and node.get('language', 'python') != 'python':
+                print('Static source only: this language has no verified native-home execution adapter.')
+                return 0
             if draft:
                 print('needs its own adapter; build inputs and read the real result')
                 tables = {r[0] for r in graph.con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -271,7 +297,8 @@ def show(cfg, query=None, *, draft=None, gaps=None):
             if score:
                 ranked.append((score, f'{ident} {item["file"]}:{item["line"]}'))
         ranked.sort(key=lambda row: (-row[0], row[1]))
-        print('\n'.join(_limit([f'show {query}'] + [line for _, line in ranked], cfg.screen_lines)))
+        print('\n'.join(_limit([f'show {query}'] + ([notice] if notice else [])
+                               + [line for _, line in ranked], cfg.screen_lines)))
     return 0
 
 
@@ -315,9 +342,10 @@ def check(cfg, *, everything=False, since=None):
         seeded = dict(data, results={rid: value for rid, value in data['results'].items() if rid not in selected})
         selected = set(deps.affected(seeded, model, now))
         ordinary = set()
+        current_test_scope = deps.test_scope(cfg)
         def ordinary_file(file):
             path = (cfg.root / file).resolve()
-            return path.is_file() and not path.is_relative_to(cfg.intent) and path != sentinel
+            return current_test_scope(file) and not path.is_relative_to(cfg.intent) and path != sentinel
         by_file, unrecorded = {}, set()
         for nodeid, reading in data['tests'].items():
             file = nodeid.partition('::')[0]
@@ -330,7 +358,7 @@ def check(cfg, *, everything=False, since=None):
         tables = {row[0] for row in graph.con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if 'footprint' in tables:
             for (test,) in graph.con.execute('SELECT DISTINCT test FROM footprint'):
-                if ordinary_file(test.partition('::')[0]) and deps.trace_changes(data['traces'].get(test), now):
+                if test in data['tests'] and ordinary_file(test.partition('::')[0]) and deps.trace_changes(data['traces'].get(test), now):
                     ordinary.add(test.partition('::')[0])
         ordinary.update(file for file in impact['tests'] if ordinary_file(file))
         for file, readings in by_file.items():
@@ -470,7 +498,9 @@ def check(cfg, *, everything=False, since=None):
         value.get('verdict') == 'red' for rid, group in data['results'].items()
         if rid in data['summary']['rules'] and not data['summary']['rules'][rid].get('superseded_by') or rid is None
         for value in group.get('items', {}).values())
-    red = red or any(reading['outcome'] == 'failed' for reading in data['tests'].values())
+    current_test_scope = deps.test_scope(cfg)
+    red = red or any(reading['outcome'] == 'failed' and current_test_scope(nodeid.partition('::')[0])
+                    for nodeid, reading in data['tests'].items())
     return process_code or int(bool(red))
 
 

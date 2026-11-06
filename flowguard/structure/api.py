@@ -42,12 +42,16 @@ class MapHandle:
         self.options = dict(options or {}, force=False)
         self.con = sqlite3.connect(path, timeout=30)
         self._syntax_cache = None
+        self._file_cache = {}
+        self._queried = set()
 
     def refresh(self) -> dict:
         self.con.close()
         self.stats = store.build(self.root, self.path, **self.options)
         self.con = sqlite3.connect(self.path, timeout=30)
         self._syntax_cache = None
+        self._file_cache = {}
+        self._queried = set()
         return self.stats
 
     def close(self) -> None:
@@ -57,9 +61,66 @@ class MapHandle:
     def roots(self) -> list[dict]:
         return [{"path": p, "how": h} for p, h in self.con.execute("SELECT path, how FROM root ORDER BY rank")]
 
+    def capabilities(self):
+        """Actual file coverage, parser status and the explicit native-execution boundary."""
+        return self.stats.get('capabilities', {})
+
+    def _mark_query(self, name, language=None, files=None):
+        from .readers.registry import SUFFIXES
+        if language is not None and language not in SUFFIXES.values():
+            raise MapError('no source reader for language '+str(language))
+        self._queried.add((name, language, tuple(files) if files is not None else None))
+
+    def reset_query_coverage(self):
+        """Start a separate predicate's coverage scope without rebuilding the map."""
+        self._queried.clear()
+
+    def _language_rows(self, rows, language):
+        from .readers.registry import language_for
+        return Rows(row for row in rows if language is None or language_for(row.get('file','')) == language)
+
+    def query_coverage(self):
+        """Coverage of queries this handle actually served; no cache or new record store."""
+        from .readers.registry import query_support
+        grouped = {}
+        rows = [(file, error, store.unpack(blob).get('language','python'))
+                for file,error,blob in self.con.execute('SELECT path,parse_error,data FROM file')]
+        for query, language, files in self._queried:
+            for file,error,actual in rows:
+                if language is not None and actual != language or files is not None and file not in files:
+                    continue
+                reason = ('source parse failed: '+error) if error else ''
+                if not reason and not query_support(actual).get(query,False):
+                    reason = query+' coverage is not implemented for '+actual
+                if reason:
+                    grouped.setdefault((query,actual,reason),set()).add(file)
+            if language is None:
+                for file in self.capabilities().get('unsupported_files',[]):
+                    if files is not None and file not in files:
+                        continue
+                    grouped.setdefault((query,'unsupported','no source reader for these files'),set()).add(file)
+        issues = [dict(query=q,language=lang,reason=reason,files=sorted(files))
+                  for (q,lang,reason),files in sorted(grouped.items())]
+        return dict(queried=sorted({item[0] for item in self._queried}),complete=not issues,issues=issues)
+
+    def _details(self, row):
+        if row is None:
+            return None
+        if row['file'] not in self._file_cache:
+            data = self.con.execute('SELECT data FROM file WHERE path=?',(row['file'],)).fetchone()
+            self._file_cache[row['file']] = store.unpack(data[0]) if data else {}
+        facts = self._file_cache[row['file']]
+        return dict(row, language=facts.get('language','python'),
+                    **facts.get('locations',{}).get(row['qual'],{}))
+
     def node(self, ident: str) -> dict | None:
         row = self.con.execute(f"SELECT {', '.join(NODE_COLS)} FROM node WHERE id = ?", (ident,)).fetchone()
-        return dict(zip(NODE_COLS, row)) if row else None
+        if row:
+            self._mark_query('nodes', files=[row[1]])
+        else:
+            files = [item[0] for item in self.con.execute('SELECT path FROM file WHERE module=?',(ident.partition(':')[0],))]
+            self._mark_query('nodes', files=files)
+        return self._details(dict(zip(NODE_COLS, row))) if row else None
 
     def canonical(self, ident: str) -> str | None:
         """The map's id for `module:Qual.name` written with any importable name of its file (a rule's home
@@ -76,30 +137,34 @@ class MapHandle:
                     return other if self.node(other) else None
         return None
 
-    def nodes(self, kind: str | None = None, module: str | None = None, file: str | None = None) -> list[dict]:
+    def nodes(self, kind: str | None = None, module: str | None = None, file: str | None = None, *, language=None) -> list[dict]:
+        scoped = [file] if file else [row[0] for row in self.con.execute("SELECT path FROM file WHERE module=?",(module,))] if module else None
+        self._mark_query("nodes",language,scoped)
         where, args = [], []
         for col, value in (("kind", kind), ("module", module), ("file", file)):
             if value is not None:
                 where.append(f"{col} = ?")
                 args.append(value)
         sql = f"SELECT {', '.join(NODE_COLS)} FROM node" + (" WHERE " + " AND ".join(where) if where else "") + " ORDER BY id"
-        return [dict(zip(NODE_COLS, r)) for r in self.con.execute(sql, args)]
+        return self._language_rows([self._details(dict(zip(NODE_COLS, r))) for r in self.con.execute(sql, args)],language)
 
-    def functions(self) -> dict[str, dict]:
+    def functions(self, *, language=None) -> dict[str, dict]:
         """Functions and methods by id (what fg2.mapiface.MapView.functions returns from fgmap)."""
-        return {n["id"]: n for n in self.nodes() if n["kind"] in ("function", "method")}
+        return {n["id"]: n for n in self.nodes(language=language) if n["kind"] in ("function", "method")}
 
     def _syntax(self, kind):
         if self._syntax_cache is None:
             self._syntax_cache = [store.unpack(data) for (data,) in self.con.execute("SELECT data FROM file ORDER BY path")]
         return [fact for data in self._syntax_cache for fact in data.get(kind, [])]
 
-    def handlers(self):
-        return Rows(self._syntax("handlers"))
+    def handlers(self, *, language=None):
+        self._mark_query("handlers",language)
+        return self._language_rows(self._syntax("handlers"),language)
 
-    def literal_sets(self, *, numeric=False, min_size=0, shares_with=None, min_shared=3):
+    def literal_sets(self, *, numeric=False, min_size=0, shares_with=None, min_shared=3, language=None):
         """Literal tables; shared-value counts ignore ubiquitous 0 and ±1."""
-        rows = self._syntax("literal_sets")
+        self._mark_query("literal_sets",language)
+        rows = self._language_rows(self._syntax("literal_sets"),language)
         shared = set()
         if shares_with:
             module, _, name = shares_with.partition(':')
@@ -119,41 +184,49 @@ class MapHandle:
             result.append(row)
         return Rows(result)
 
-    def assignments(self, *, include_unknown=False):
+    def assignments(self, *, include_unknown=False, language=None):
         """Assignments to literal values; opt in to targets whose value is unknown."""
-        return [row for row in self._syntax("assignments")
-                if include_unknown or row.get('literal', True)]
+        self._mark_query('assignments',language)
+        return self._language_rows([row for row in self._syntax('assignments')
+                if include_unknown or row.get('literal',True)],language)
 
-    def calls(self, *, include_reads=False):
+    def calls(self, *, include_reads=False, language=None):
         """Syntactic calls; optionally include symbol reads, never execution evidence."""
-        rows = self._syntax("syntax_calls")
+        self._mark_query('calls',language)
+        rows = self._syntax('syntax_calls')
         if include_reads:
-            rows += self._syntax("symbol_reads")
-        return Rows(rows)
+            self._mark_query('symbol_reads',language)
+            rows += self._syntax('symbol_reads')
+        return self._language_rows(rows,language)
 
-    def imports(self, *, declarations=False):
+    def imports(self, *, declarations=False, language=None):
         """Dependency links, or literal source declarations including external imports.
 
         A declaration proves syntax, not that the import ran. Aliases keep the
         imported module/name identity; TYPE_CHECKING declarations stay labelled.
         """
+        self._mark_query('imports',language)
         if declarations:
             rows = []
             for file, module, blob in self.con.execute("SELECT path, module, data FROM file ORDER BY path"):
                 data = store.unpack(blob)
+                for declaration in data.get('dependencies', []):
+                    rows.append(dict(declaration, src=module, dst=declaration.get('resolved') or declaration['module'],
+                        node=module, file=file, prov='source', language=data.get('language')))
                 for typing, group in ((False, data.get('lines_all', {})), (True, data.get('typing', {}))):
                     for identity, lines in group.items():
                         imported, _, name = identity.partition(':')
                         rows.extend(dict(src=module, dst=identity, node=module, file=file, line=line,
                                          kind='import-declaration', prov='source', module=imported,
                                          name=name, typing=typing) for line in lines)
-            return Rows(sorted(rows, key=lambda row: (row['file'], row['line'], row['dst'])))
+            return self._language_rows(sorted(rows, key=lambda row: (row['file'], row['line'], row['dst'])),language)
         cols = ("src", "dst", "kind", "prov", "file", "line")
-        return Rows(dict(zip(cols, row), node=row[0]) for row in self.con.execute(
-            "SELECT src, dst, kind, prov, file, line FROM edge WHERE kind LIKE 'imports%' ORDER BY file, line, dst"))
+        return self._language_rows([dict(zip(cols,row),node=row[0]) for row in self.con.execute(
+            "SELECT src, dst, kind, prov, file, line FROM edge WHERE kind LIKE 'imports%' ORDER BY file,line,dst")],language)
 
-    def tests(self):
-        return self.nodes(kind="test")
+    def tests(self, *, language=None):
+        self._mark_query("tests",language)
+        return self.nodes(kind="test",language=language)
 
     def blocks(self) -> list[tuple[str, list[str]]]:
         """Default blocks: one per package (a top-level module is its own). Declared blocks are C-12's."""
@@ -167,14 +240,16 @@ class MapHandle:
         return [dict(zip(cols, r)) for r in self.con.execute(
             f"SELECT {', '.join(cols)} FROM site WHERE node = ? ORDER BY line", (ident,))]
 
-    def keys(self, ident: str | None = None, kind: str | None = None, value: str | None = None) -> list[dict]:
+    def keys(self, ident: str | None = None, kind: str | None = None, value: str | None = None, *, language=None) -> list[dict]:
+        files = [row[0] for row in self.con.execute("SELECT file FROM node WHERE id=?",(ident,))] if ident else None
+        self._mark_query("keys",language,files)
         where, args = [], []
         for col, v in (("node", ident), ("kind", kind), ("value", value)):
             if v is not None:
                 where.append(f"{col} = ?")
                 args.append(v)
         sql = "SELECT node, kind, value, line, file FROM key" + (" WHERE " + " AND ".join(where) if where else "")
-        return [dict(zip(("node", "kind", "value", "line", "file"), r)) for r in self.con.execute(sql, args)]
+        return self._language_rows([dict(zip(("node","kind","value","line","file"),r)) for r in self.con.execute(sql,args)],language)
 
     def edges(self, ident: str, direction: str = "out", kind: str | None = None) -> list[dict]:
         me, other = ("src", "dst") if direction == "out" else ("dst", "src")
@@ -396,15 +471,21 @@ class MapHandle:
             shallow = git_run(self.root, "rev-parse", "--is-shallow-repository").stdout.strip() == b"true"
             raise MapError("no history: use fetch-depth 0" if shallow else f"revision {rev} not found")
         module, _, qual = ident.partition(":")
-        rel = module.replace(".", "/")
-        for r in [x["path"] for x in self.roots()]:
-            for cand in (posixpath.join(r, rel + ".py"), posixpath.join(r, rel, "__init__.py")):
-                data = git_blob(self.root, rev, cand)
-                if data is None:
-                    continue
-                for n in extract(self.root, cand, data, module, False)["nodes"]:
-                    if n["qual"] == qual:
-                        return n["fp"], n["kind"], n["shape"]
+        from .readers.registry import language_for, module_name
+        prefix, slash, foreign_file = module.partition('/')
+        if slash and language_for(foreign_file) and module_name(foreign_file) == module:
+            candidates = [foreign_file]
+        else:
+            rel = module.replace('.', '/')
+            candidates = [candidate for r in [x['path'] for x in self.roots()]
+                          for candidate in (posixpath.join(r, rel+'.py'),posixpath.join(r,rel,'__init__.py'))]
+        for cand in candidates:
+            data = git_blob(self.root, rev, cand)
+            if data is None:
+                continue
+            for n in extract(self.root, cand, data, module, False)["nodes"]:
+                if n["qual"] == qual:
+                    return n["fp"], n["kind"], n["shape"]
         raise MapError(f"{ident} not in the code at {rev}")
 
     # ---- impact ----------------------------------------------------------------------
@@ -507,11 +588,12 @@ class MapHandle:
     def _delta_against(self, since: str, files: list[str]) -> list[tuple]:
         rows = []
         names = {f: m for f, m in self.con.execute("SELECT path, module FROM file")}
+        from .readers.registry import language_for, module_name
         for f in files:
-            if not f.endswith(".py"):
+            if not language_for(f):
                 continue
             data = git_blob(self.root, since, f)
-            module = names.get(f) or f[:-3].replace("/", ".")
+            module = names.get(f) or (f[:-3].replace("/", ".") if language_for(f) == "python" else module_name(f))
             old = {f"{module}:{n['qual']}": (n["fp"], n["sig"]) for n in
                    (extract(self.root, f, data, module, False)["nodes"] if data is not None else [])}
             new = {i: (fp, sig) for i, fp, sig in self.con.execute("SELECT id, fp, sig FROM node WHERE file = ? AND "
