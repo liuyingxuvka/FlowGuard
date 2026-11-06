@@ -33,6 +33,15 @@ Ordinary edits do not need an intent model or a separate task record.
 - Before publication freeze the source, run the full suite with a virtual environment outside this project,
   and require the complete `ci.yml` on that exact main commit. All Linux Python 3.11/3.13 and Windows
   Python 3.12 jobs must succeed. Do not replace failed or incomplete results with an older success.
-- Changelogs use the actual date and describe user-visible changes. Feature releases raise the middle
-  version number; small fixes raise the last. Installing the skill, tagging and publishing require
-  the maintainer's explicit request.
+
+Version numbers are independent for each project; use the same MAJOR.MINOR.PATCH rules:
+
+- At 1.0 and later, incompatible changes to a supported public CLI, skill id, SDK or saved input format raise MAJOR; backward-compatible features raise MINOR; corrections within the existing contract raise PATCH. Internal code volume or a dependency's version is not a version criterion. Never skip a number.
+- Before 1.0, keep the unstable status explicit: incompatible public changes raise MINOR and describe migration. Publish 1.0 when declaring a stable contract, not merely because the implementation changed.
+- A format consumed by a documented command remains a contract even when generated. Distinguish it from disposable caches. A new required field or changed supported meaning needs a compatibility decision; do not silently reinterpret old material.
+- For a changed public surface, retain a small existing valid example and a real counterexample. Explain a corrected old bug separately from a new requirement. Give rejected old material a rebuild path from original inputs; never invent verified results, source digests or evidence fields to make it load.
+- Record the release classification and migration in the existing CHANGELOG. Preserve historical commits, tags and releases; append corrections instead of renumbering them. Changes limited to repository policy or maintenance tooling do not by themselves require a product release. Raise a maintenance dependency only for a capability actually used or an evidenced correctness fix required by that workflow, not merely because a new tag exists.
+
+Public saved inputs include the documented intent rules, literal rows, original data and immutable owner-word archives. Generated maps, traces and test caches may be rebuilt; they do not replace those inputs or independently verify their meaning.
+
+Changelogs use the actual date and describe user-visible changes. Installing the skill, tagging and publishing require the maintainer's explicit request.

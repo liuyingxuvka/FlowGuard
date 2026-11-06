@@ -207,7 +207,13 @@ def test_successful_complete_file_collection_retires_only_obsolete_failed_nodeid
     with sqlite3.connect(cfg.cache / 'map.sqlite') as con:
         assert con.execute('SELECT outcome FROM reading WHERE test=?', (obsolete,)).fetchone()[0] == 'failed'
     observed = calls(monkeypatch)
-    assert cli.check(cfg) == 0 and observed == []
+    assert cli.check(cfg) == 0
+    if kind == 'parameter':
+        # The original pytest.param input is unchanged. Its third-party import
+        # and execution are opaque under N1; collection retirement still works.
+        assert '<unresolved>' in record(cfg) and observed
+    else:
+        assert observed == []
 
 
 def test_partial_success_does_not_hide_a_newer_partial_failure(tmp_path):

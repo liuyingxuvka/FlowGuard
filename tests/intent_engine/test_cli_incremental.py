@@ -149,9 +149,17 @@ def test_static_transitive_helper_and_conftest_content_are_test_dependencies(tmp
     (root / 'tests/test_ordinary.py').write_text('def test_actual(supplied): assert supplied == 3\n')
     assert cli.check(cfg) == 0
     observed = calls(monkeypatch)
+    assert cli.check(cfg) == 0
+    # N1 keeps the original third-party pytest fixture initialization opaque.
+    # Compare against its real no-op selection rather than silently calling it
+    # closed; adding unrelated code must not expand the selected set or rules.
+    assert len(observed) == 1
+    baseline = list(observed[0])
+    assert '--flowguard-rules=' in baseline
+    observed.clear()
     (root / 'unrelated.py').write_text('UNRELATED = 123\n')
     assert cli.check(cfg) == 0
-    assert observed == [], 'an unrelated module must not turn into a universal rerun'
+    assert observed == [baseline], 'an unrelated module must not expand current selection'
     helper.write_text('def value(): return 42\n')
     build(root).close()
     assert cli.check(cfg) == 1

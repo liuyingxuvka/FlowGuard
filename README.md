@@ -58,7 +58,7 @@ Without rules, a check is quiet:
 FlowGuard check: no intent rules.
 ```
 
-Cases remain literal and do not silently shrink. Sources, helpers, data and implementation changes invalidate dependent results. Necessary copies are bound explicitly; candidate similarity alone never proves equivalence. `check --all` records test-to-code links for the complete suite; local `check` refreshes selected tests. These links support affected-test selection and point adapters to existing tests. With plain pytest, unmarked ordinary tests avoid general tracing; marked guards still record their code links. When links are missing, source dependencies select conservatively. Complete collection does more work to preserve those real links.
+Cases remain literal and do not silently shrink. Sources, helpers, data and implementation changes invalidate dependent results. Necessary copies are bound explicitly; candidate similarity alone never proves equivalence. `check --all` records test-to-code links for the complete suite; local `check` refreshes selected tests. These links support affected-test selection and point adapters to existing tests. With plain pytest, unmarked ordinary tests avoid general tracing; marked guards still record their code links. When links are missing, source dependencies select conservatively. Complete collection does more work to preserve those real links. Ordinary checks reuse results within their supported closed input boundary. Unverified external imports or calls rerun; an installed package version alone does not establish purity. Module initialization remains a dependency, while retaining a function object does not by itself execute its body. Open inputs can require a rerun even when source files have not changed.
 
 ## Boundaries and migration
 

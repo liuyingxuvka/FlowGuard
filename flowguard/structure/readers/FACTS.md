@@ -31,3 +31,21 @@ claim a complete symbol-read set. The matrix is public in `capabilities()['langu
 `['available']`. The structure engine consumes coverage issues as grey for that declaration;
 an empty unavailable result is not evidence of no violations. This is static syntax
 coverage, not a promise of full compiler semantics or runtime execution.
+
+
+## C++ reference initialization
+
+The C++ reader decodes a known grammar ambiguity in reference direct-initializers
+only when the original parenthesized expression and semicolon are independently
+parsed completely from the same parser-input ranges after the existing BOM/newline
+normalization. It does not rewrite the initialization syntax.
+`parser.syntax_recovery` describes this support and `syntax_recoveries` records
+the actual declaration locations. Calls, writes and owners retain the existing normalized-input location convention;
+no nested function is invented for the variable. Uncovered errors, including
+expression forms outside the grammar's support, remain parse errors and make the
+queried source scope incomplete. For a valid but ambiguous reference declarator, known
+lexical value/type bindings distinguish an initializer from a function declaration.
+An unresolved binding remains in `binding_unknowns`; the existing query coverage
+reports it as a declaration-binding issue, separately from syntax errors. Both
+`binding_unknowns` and `syntax_recoveries` survive the existing file-fact store.
+This is finite source coverage, not full type or execution proof.

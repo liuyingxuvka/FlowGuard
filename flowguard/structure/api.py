@@ -83,13 +83,18 @@ class MapHandle:
         """Coverage of queries this handle actually served; no cache or new record store."""
         from .readers.registry import query_support
         grouped = {}
-        rows = [(file, error, store.unpack(blob).get('language','python'))
+        rows = [(file, error, store.unpack(blob))
                 for file,error,blob in self.con.execute('SELECT path,parse_error,data FROM file')]
         for query, language, files in self._queried:
-            for file,error,actual in rows:
+            for file,error,facts in rows:
+                actual = facts.get('language','python')
                 if language is not None and actual != language or files is not None and file not in files:
                     continue
                 reason = ('source parse failed: '+error) if error else ''
+                bindings = facts.get('binding_unknowns', [])
+                if not reason and bindings and query in {'nodes','calls','assignments','keys'}:
+                    first = bindings[0]
+                    reason = f'source declaration binding unknown: {first["name"]} at line {first["line"]} requires type/value context'
                 if not reason and not query_support(actual).get(query,False):
                     reason = query+' coverage is not implemented for '+actual
                 if reason:

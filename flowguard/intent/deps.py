@@ -6,6 +6,9 @@ import copy
 from collections import Counter
 import json
 from importlib.metadata import distributions
+from importlib.machinery import BuiltinImporter, FrozenImporter, PathFinder
+import sysconfig
+import locale
 from pathlib import Path
 import site
 import sys
@@ -13,8 +16,14 @@ import fnmatch
 import tomllib
 
 from flowguard.map.common import content_digest, read_source
+from flowguard.structure.paths import project_code
 from .config import is_test_rel
 from .sources import parse
+
+
+# These modules were initialized by this engine before project loading. This is
+# import provenance, not permission to treat their functions as pure.
+_ENGINE_MODULES = frozenset(sys.modules)
 
 
 def _digest(data):
@@ -26,14 +35,67 @@ def file_digest(path):
 
 
 class _Module(ast.NodeTransformer):
-    def __init__(self, retained):
-        self.retained = retained
+    def __init__(self, retained, *, calls_only=False):
+        self.retained, self.calls_only, self.stack = retained, calls_only, []
+
+    def visit(self, node):
+        self.stack.append(node)
+        try:
+            return super().visit(node)
+        finally:
+            self.stack.pop()
+
+    def generic_visit(self, node):
+        # A read-only AST view: share unchanged children and copy only the
+        # containers whose definition bodies are pruned. No shared source AST
+        # is ever edited, and a discarded function body is never deep-copied.
+        changes = {}
+        for field, value in ast.iter_fields(node):
+            if isinstance(value, list):
+                result = [self.visit(child) if isinstance(child, ast.AST) else child for child in value]
+                if any(a is not b for a, b in zip(value, result)):
+                    changes[field] = result
+            elif isinstance(value, ast.AST):
+                result = self.visit(value)
+                if result is not value:
+                    changes[field] = result
+        if not changes:
+            return node
+        result = copy.copy(node)
+        for field, value in changes.items():
+            setattr(result, field, value)
+        return result
 
     def visit_FunctionDef(self, node):
         if node.name not in self.retained:
-            node.body = [ast.Pass()]
+            result = copy.copy(node)
+            result.body = [ast.Pass()]
+            return self.generic_visit(result) if self.calls_only else result
         return node
     visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_Lambda(self, node):
+        if not self.calls_only:
+            return node
+        executes = False
+        for parent in reversed(self.stack[:-1]):
+            if isinstance(parent, ast.Call):
+                executes = True
+                break
+            if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                executes = node in parent.decorator_list
+                break
+            if isinstance(parent, (ast.Assign, ast.AnnAssign)):
+                targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
+                executes = any(isinstance(target, ast.Attribute) for target in targets)
+                break
+            if isinstance(parent, (ast.Lambda, ast.Return)):
+                break
+        if not executes:
+            result = copy.copy(node)
+            result.body = ast.Constant(None)
+            return self.generic_visit(result)
+        return self.generic_visit(node)
 
     def visit_ClassDef(self, node):
         return node if node.name in self.retained else self.generic_visit(node)
@@ -354,7 +416,9 @@ class Now:
                 # They do not change the interpreter's installed package identities.
                 packages = sorted({(d.metadata.get('Name', ''), d.version)
                                    for d in distributions(path=list(dict.fromkeys(locations)))})
-                digest = _digest('\n'.join(str(p.relative_to(base)) + ':' + file_digest(p) for p in files) + sys.version + repr(packages))
+                context = (str(self.cfg.root), sys.version, repr(sys.flags), locale.getencoding(),
+                           sys.get_int_max_str_digits() if hasattr(sys, 'get_int_max_str_digits') else None)
+                digest = _digest('\n'.join(str(p.relative_to(base)) + ':' + file_digest(p) for p in files) + repr(context) + repr(packages))
             elif kind == 'listing':
                 digest = _digest('\n'.join(r[0] for r in self.graph.con.execute('SELECT path FROM file ORDER BY path')))
             else:
@@ -527,6 +591,13 @@ class _TestDependencies:
         self.files = {p: (m, data) for p, m, data in graph.con.execute('SELECT path,module,data FROM file')}
         self.unpack = unpack
         self.parsed, self.summaries, self.path_cache, self.exists_cache, self.symbols = {}, {}, {}, {}, {}
+        self.initials = {}
+        self.origins = {}
+        stdlib = Path(sysconfig.get_path("stdlib")).resolve()
+        self.stdlib = stdlib
+        extras = _patterns(_pytest_options(cfg), "pythonpath", [])
+        self.search_paths = list(dict.fromkeys(str(p) for p in [cfg.root, *cfg.roots,
+                                 *(cfg.root / value for value in extras), *map(Path, sys.path)]))
         self.imports = {}
         for edge in graph.imports():
             self.imports.setdefault((edge['file'], edge['line']), []).append(edge)
@@ -541,6 +612,71 @@ class _TestDependencies:
             self.path_cache[module] = tuple(module_paths(self.cfg, module, self.roots))
         return self.path_cache[module]
 
+    def origin(self, module):
+        """Locate an import without executing a project or third-party initializer."""
+        if not module:
+            return 'unknown', None
+        if module not in self.origins:
+            spec = None
+            cached = sys.modules.get(module)
+            if cached is not None and module in _ENGINE_MODULES:
+                spec = getattr(cached, '__spec__', None)
+            if spec is None:
+                search = self.search_paths
+                for index, part in enumerate(module.split('.')):
+                    name = '.'.join(module.split('.')[:index + 1])
+                    spec = (BuiltinImporter.find_spec(name) or FrozenImporter.find_spec(name)
+                            or PathFinder.find_spec(name, search))
+                    if spec is None:
+                        break
+                    search = spec.submodule_search_locations
+                    if index < len(module.split('.')) - 1 and search is None:
+                        spec = None
+                        break
+            location = getattr(spec, 'origin', None)
+            if location in {'built-in', 'frozen'}:
+                kind = 'interpreter'
+            elif location and location not in {'namespace'}:
+                path = Path(location).resolve()
+                if project_code(str(path), self.cfg.root):
+                    kind = 'project'
+                elif path.is_relative_to(Path(__file__).resolve().parents[1]):
+                    kind = 'engine'
+                elif path.is_relative_to(self.stdlib) and not {'site-packages', 'dist-packages'} & set(path.parts):
+                    kind = 'stdlib'
+                else:
+                    kind = 'external'
+            else:
+                kind = 'unknown'
+            self.origins[module] = kind, location
+        return self.origins[module]
+
+    def import_reason(self, module):
+        kind, location = self.origin(module)
+        if kind in {'project', 'engine'}:
+            return ''
+        if kind in {'stdlib', 'interpreter'} and module in _ENGINE_MODULES:
+            return ''
+        return 'unverified external import ' + module
+
+    def modeled_path_call(self, node, file, bindings, aliases):
+        """The existing Path/read model, bound to the actual stdlib implementation."""
+        name = _name(node.func, aliases)
+        if self.origin('pathlib')[0] != 'stdlib':
+            return False
+        if name in {'pathlib.Path', 'pathlib.PosixPath', 'pathlib.WindowsPath'}:
+            return len(node.args) == 1 and _path(node, file, bindings, aliases) is not None
+        if isinstance(node.func, ast.Attribute):
+            if node.func.attr in {'resolve', 'absolute'}:
+                return not node.args and _path(node, file, bindings, aliases) is not None
+            reading, path = _read_path(node, file, bindings, aliases)
+            if reading and path is not None:
+                return True  # Input tracking (including outside-project refusal) follows below.
+            if node.func.attr == 'read' and isinstance(node.func.value, ast.Call):
+                reading, path = _read_path(node.func.value, file, bindings, aliases)
+                return reading and path is not None
+        return False
+
     def file(self, relative):
         if relative not in self.parsed:
             tree = ast.parse(read_source(self.cfg.root / relative))
@@ -553,7 +689,8 @@ class _TestDependencies:
                         definitions[qual] = node
                         collect(node.body, qual + '.')
             collect(tree.body)
-            initial = _Module(set()).visit(copy.deepcopy(tree))
+            initial = _Module(set(), calls_only=True).visit(tree)
+            self.initials[relative] = initial
             self.parsed[relative] = tree, data, definitions, _bindings(initial)
         return self.parsed[relative]
 
@@ -616,19 +753,19 @@ class _TestDependencies:
         for name in globals_:
             aliases[name] = '?'
         if qual == '*':
-            active = _Module(set()).visit(copy.deepcopy(tree))
+            active = self.initials[relative]
             patterns = _patterns(_pytest_options(self.cfg), 'python_functions', ['test'])
             for name, node in definitions.items():
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(node.name.startswith(p) or fnmatch.fnmatchcase(node.name, p) for p in patterns):
                     references.add((relative, name))
         elif not qual:
-            active = _Module(set()).visit(copy.deepcopy(tree))
+            active = self.initials[relative]
         elif qual in definitions:
             node = definitions[qual]
             if isinstance(node, ast.ClassDef):
-                active = ast.Module(body=[_Module(set()).visit(copy.deepcopy(node))], type_ignores=[])
+                active = ast.Module(body=[_Module(set(), calls_only=True).visit(node)], type_ignores=[])
             else:
-                active = _Module(set()).visit(ast.Module(body=copy.deepcopy(node.body), type_ignores=[]))
+                active = _Module(set(), calls_only=True).visit(ast.Module(body=node.body, type_ignores=[]))
             function = data.get('facts', {}).get('functions', {}).get(qual, {})
             aliases.update(function.get('local_imports', function.get('imports', {})))
         else:
@@ -675,7 +812,10 @@ class _TestDependencies:
             if edge['kind'] in {'calls', 'reads'} and edge['prov'] != 'guessed' and edge['dst'] in self.nodes:
                 target = self.nodes[edge['dst']]
                 if target['file']:
-                    references.add((target['file'], target['qual']))
+                    # A read keeps the definition's identity, not an assertion
+                    # that its body ran. Actual/escaping calls are added below.
+                    dependencies.add(target['file'])
+                    references.add((target['file'], target['qual'] if edge['kind'] == 'calls' else ''))
                     if edge['kind'] == 'calls' and edge['prov'] == 'resolved':
                         project_calls.add((edge['line'], target['qual'].rsplit('.',1)[-1]))
         modules, resources = _imports(self.cfg.root / relative, self.cfg, active)
@@ -703,37 +843,106 @@ class _TestDependencies:
             local = next((q for q in [qual + '.' + name, qual.rpartition('.')[0] + '.' + name, name] if q.strip('.') in definitions), None)
             if local:
                 found = relative, local.strip('.')
-                references.add(found)
+                dependencies.add(found[0])
                 if called:
+                    references.add(found)
                     construct(found)
             bound = aliases.get(first)
             if bound and bound != '?':
                 mod, _, attr = bound.partition(':')
                 wanted = '.'.join(p for p in (attr, rest) if p)
+                stem = mod.replace('.', '/')
                 for file in self.paths(mod):
-                    if self.exists(file) and file.endswith('.py'):
+                    if (self.exists(file) and
+                            (file.endswith(stem + '.py') or file.endswith(stem + '/__init__.py'))):
                         _, metadata, defs, _ = self.file(file)
                         if '__getattr__' in defs and wanted.partition('.')[0] not in metadata.get('bound', []):
                             references.add((file, '__getattr__'))
                 found = self.symbol(mod, wanted)
                 if found:
-                    references.add(found)
+                    dependencies.add(found[0])
+                    references.add((found[0], found[1] if called else ''))
                     if called:
                         construct(found)
+
+        def executes(node):
+            parent = parents.get(node)
+            if isinstance(parent, ast.Call) and parent.func is node:
+                return True
+            if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if node in parent.decorator_list or isinstance(parent, ast.ClassDef) and node in parent.bases:
+                    return True
+            # A callable escaping to a call may be invoked. Merely putting it in
+            # an assigned literal mapping/list does not execute it.
+            while parent is not None and not isinstance(parent, (ast.Assign, ast.AnnAssign, ast.Return, ast.Expr)):
+                if isinstance(parent, ast.Call):
+                    return True
+                parent = parents.get(parent)
+            if isinstance(parent, (ast.Assign, ast.AnnAssign)):
+                targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
+                return any(isinstance(target, ast.Attribute) for target in targets)
+            return False
+
+        def imported_receiver(value, seen=()):
+            if isinstance(value, ast.Name):
+                bound = aliases.get(value.id)
+                if bound and bound != '?':
+                    return bound.partition(':')[0]
+                if value.id in bindings and value.id not in seen:
+                    return imported_receiver(bindings[value.id], (*seen, value.id))
+            if isinstance(value, (ast.Attribute, ast.Call)):
+                return imported_receiver(value.value if isinstance(value, ast.Attribute) else value.func, seen)
+            if isinstance(value, ast.BinOp) and _path(value, self.cfg.root / relative, bindings, aliases) is not None:
+                return 'pathlib'
+            return None
+
+        def known_value(value, seen=()):
+            if isinstance(value, (ast.Constant, ast.List, ast.Tuple, ast.Dict, ast.Set)):
+                return True
+            if isinstance(value, ast.Name) and value.id in bindings and value.id not in seen:
+                return known_value(bindings[value.id], (*seen, value.id))
+            if isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute):
+                reading, path = _read_path(value, self.cfg.root / relative, bindings, aliases)
+                if reading and path is not None:
+                    return True
+                if value.func.attr == 'read' and isinstance(value.func.value, ast.Call):
+                    reading, path = _read_path(value.func.value, self.cfg.root / relative, bindings, aliases)
+                    return reading and path is not None
+            return False
 
         call_counts = Counter((n.lineno, n.func.attr if isinstance(n.func, ast.Attribute) else _name(n.func, aliases).rsplit('.',1)[-1]) for n in ast.walk(active) if isinstance(n, ast.Call))
         for node in ast.walk(active):
             parent = parents.get(node)
             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and not (isinstance(parent, ast.Attribute) and parent.value is node):
-                reference(node.id, isinstance(parent, ast.Call) and parent.func is node)
+                reference(node.id, executes(node))
             elif isinstance(node, ast.Attribute) and not (isinstance(parent, ast.Attribute) and parent.value is node):
-                reference(ast.unparse(node), isinstance(parent, ast.Call) and parent.func is node)
+                reference(ast.unparse(node), executes(node))
+            if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Delete)):
+                targets = node.targets if isinstance(node, (ast.Assign, ast.Delete)) else [node.target]
+                for target in targets:
+                    if isinstance(target, (ast.Attribute, ast.Subscript)):
+                        imported = imported_receiver(target.value)
+                        if imported and self.origin(imported)[0] != 'project':
+                            reasons.add(f'{relative}:{node.lineno}: external binding mutation')
+                        value = getattr(node, 'value', None)
+                        supplied = imported_receiver(value)
+                        if isinstance(target, ast.Attribute) and supplied and self.origin(supplied)[0] != 'project':
+                            reasons.add(f'{relative}:{node.lineno}: unverified callable/value binding')
             full = _name(node, aliases)
             if full == 'os.environ' or full in {'sys.argv', 'sys.stdin'}:
                 reasons.add(f'{relative}:{node.lineno}: external environment/input')
             if not isinstance(node, (ast.Import, ast.ImportFrom, ast.Call)):
                 continue
             edges = self.imports.get((relative, node.lineno), ())
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                imported, _ = _imports(self.cfg.root / relative, self.cfg, ast.Module(body=[node], type_ignores=[]))
+                # ImportFrom adds symbol-as-module candidates for invalidation;
+                # only the source module is initialized by that statement.
+                imported = imported[:1] if isinstance(node, ast.ImportFrom) else imported
+                for imported_module in imported:
+                    reason = self.import_reason(imported_module)
+                    if reason:
+                        reasons.add(f'{relative}:{node.lineno}: {reason}')
             if isinstance(node, ast.ImportFrom) and any(alias.name == '*' for alias in node.names):
                 reasons.add(f'{relative}:{node.lineno}: wildcard binding')
             if isinstance(node, ast.ImportFrom):
@@ -772,6 +981,23 @@ class _TestDependencies:
                     if isinstance(defs.get(found[1]), (ast.FunctionDef, ast.AsyncFunctionDef)):
                         project_call = call_counts[node.lineno, short] == 1
                         references.add(found)
+            imported_module = imported_receiver(node.func)
+            modeled_path = self.modeled_path_call(node, self.cfg.root / relative, bindings, aliases)
+            local_import = (name == 'importlib.import_module' and self.origin('importlib')[0] == 'stdlib'
+                            and len(node.args) >= 1 and isinstance(node.args[0], ast.Constant)
+                            and isinstance(node.args[0].value, str) and not node.args[0].value.startswith('.')
+                            and self.origin(node.args[0].value)[0] == 'project')
+            if name in {'setattr', 'delattr'} and node.args:
+                imported = imported_receiver(node.args[0])
+                if imported and self.origin(imported)[0] != 'project':
+                    reasons.add(f'{relative}:{node.lineno}: external binding mutation')
+            if imported_module and not project_call:
+                kind, _ = self.origin(imported_module)
+                if kind != 'project' and not modeled_path and not local_import:
+                    reasons.add(f'{relative}:{node.lineno}: unverified external call {name or raw}')
+            if (isinstance(node.func, ast.Attribute) and not project_call and not modeled_path and not local_import
+                    and not known_value(node.func.value)):
+                reasons.add(f'{relative}:{node.lineno}: unresolved receiver call')
             if name in {'os.getenv', 'getenv', 'input'} or name in {'eval', 'exec', 'builtins.eval', 'builtins.exec'}:
                 reasons.add(f'{relative}:{node.lineno}: dynamic input/execution')
             if name == 'getattr' and len(node.args) >= 2 and not isinstance(node.args[1], ast.Constant):
