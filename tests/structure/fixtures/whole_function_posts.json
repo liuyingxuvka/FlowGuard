@@ -1,6 +1,7 @@
 {
   "plat.runtime:is_supported_python": {
     "fp": "ba3135220187dc292076",
+    "source_sha256": "696d34c274aa36383266694c9b0725a1ee273a1918b6c028ac00ee33db830655",
     "tokens": [
       "cmp:major",
       "cmp:minor",
@@ -23,6 +24,7 @@
   },
   "tools.numpy_check:numpy_ok": {
     "fp": "4654a537f3e903528b8b",
+    "source_sha256": "f8acd2317d4fe09347a39bcd7e556df6cc8021ef9dc0bfa7352138f410bf1045",
     "tokens": [
       "bnd:get@101",
       "bnd:get@114",
@@ -97,6 +99,7 @@
   },
   "tools.run_a:run": {
     "fp": "4f5ccbb5f8aa004518ef",
+    "source_sha256": "914c335a7d460001bd5c21b46efabc356b90fd0f6e7ee34f06ef917c87d894bc",
     "tokens": [
       "bnd:get@103",
       "bnd:get@116",
@@ -171,6 +174,7 @@
   },
   "tools.run_b:run": {
     "fp": "8c0a423044116932f1b9",
+    "source_sha256": "28c0b0b033caa48cbb2f505fb50c399e82e31debe474ac30d77303fd69851a1d",
     "tokens": [
       "bnd:get@110",
       "bnd:get@123",
@@ -248,6 +252,7 @@
   },
   "tools.run_c:run": {
     "fp": "fc4238c4efc0ca2543b8",
+    "source_sha256": "70e13fc8a18d748d72f1597d88584f49bfedbf15b7a1fd064acdd8e1a4819e1f",
     "tokens": [
       "bnd:get@104",
       "bnd:get@117",
@@ -321,6 +326,7 @@
   },
   "tools.run_d:run": {
     "fp": "2390ddcd61ca9c3f2d5b",
+    "source_sha256": "40907255f2b231a8c0cab608407da5c14f83684ae08694c96356e9cc662e5ad8",
     "tokens": [
       "bnd:get@111",
       "bnd:get@124",
@@ -397,6 +403,7 @@
   },
   "tools.schema:schema_ok": {
     "fp": "c155c2de051da61cf927",
+    "source_sha256": "14030f5b858c7f73828c951fb83430c6abe53c8675acaea5be7333bba3710e6f",
     "tokens": [
       "cmp:schema",
       "d:schema",

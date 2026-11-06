@@ -258,14 +258,16 @@ def similar_homes(con, fid: str, k: int = 5, words: str = "", decides=None, thre
 def _reference_postings(con):
     """Use the original whole-function inputs of the one frozen busy-function example.
 
-    Product builds no longer calculate these unused tokens. Fingerprints prevent
-    a changed example from silently consuming an unrelated frozen observation.
+    Product builds no longer calculate these unused tokens. Canonical source
+    file hashes keep this example frozen across Python AST representation changes;
+    the fixture retains the original AST fp only as part of the old observation.
     """
     frozen = json.loads((Path(__file__).parent / 'fixtures/whole_function_posts.json').read_text())
-    actual = {ident:(nid,fp) for nid,ident,fp in con.execute(
-        "SELECT nid,id,fp FROM node WHERE kind IN ('function','method')")}
+    actual = {ident:(nid,sha) for nid,ident,sha in con.execute(
+        "SELECT n.nid,n.id,f.sha FROM node n JOIN file f ON n.file=f.path WHERE n.kind IN ('function','method')")}
     assert set(actual) == set(frozen), 'the frozen whole-function example changed'
-    assert all(actual[ident][1] == row['fp'] for ident,row in frozen.items())
+    assert all(actual[ident][1] == row['source_sha256'] for ident,row in frozen.items()), \
+        'the frozen whole-function example source changed'
     con.execute('CREATE TEMP TABLE IF NOT EXISTS legacy_tok(tid INTEGER PRIMARY KEY,tok TEXT,kind TEXT)')
     con.execute('CREATE TEMP TABLE IF NOT EXISTS legacy_post(tid INTEGER,nid INTEGER)')
     con.execute('DELETE FROM legacy_post')
