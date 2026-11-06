@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.1.0 - 2026-11-06 - Read common languages and check connected decisions
+
+- Generate Python, JavaScript/TypeScript/TSX, C/C++ and C# source facts in the same Map, SQLite store and fixed queries. Ship the first grammar readers with the engine and load them only for their language. Preserve Python symbol identities; show foreign parse coverage and unresolved bindings explicitly.
+- Track parser versions and relevant project configuration when invalidating maps. Keep overloads, macros, dynamic dispatch and incomplete compilation context distinct from uniquely resolved static targets. Foreign maps support navigation and structure constraints; native home execution remains Python-only.
+- Make unsupported or failed source queries grey in structure checks instead of treating their empty result as proof of absence. A structure predicate that queries no source facts does not verify the code structure.
+- Check the actual joint combinations of verified lower-rule partitions, including three lower decisions, rather than accepting only separate pair witnesses. Report the finite declared domain or partition representatives actually checked.
+- Follow reachable test dependencies and real pytest collection settings for affected checks. Retain unknown dynamic, environment and external inputs conservatively; production functions with test-like names are not collected as tests merely because their names match.
+- Retire obsolete failed node IDs only after a successful complete collection and execution of that test file. Preserve raw history, newer partial failures, incomplete collection and unresolved input boundaries.
+
 ## v2.0.0 - 2026-11-06 - Keep one owner for a decision
 
 - Find existing decision sites, constants, callers and similar implementations from a generated Python map before adding another copy. Candidates are leads to inspect, not claims of semantic equivalence.
