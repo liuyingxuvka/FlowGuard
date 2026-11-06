@@ -107,3 +107,40 @@ def test_a_dependency_environment_inside_the_project_is_still_external(tmp_path,
     assert cli.check(cfg, everything=True) == 0
     monkeypatch.setenv('FG_N1_VALUE', 'beta')
     assert cli.check(cfg) == cli.check(cfg, everything=True) == 1
+
+
+@pytest.mark.parametrize('external', [False, True], ids=['project', 'external'])
+@pytest.mark.parametrize('namespace', [False, True], ids=['regular-child', 'namespace-child'])
+def test_origin_lookup_never_imports_an_uninitialized_parent(tmp_path, external, namespace):
+    """Nested namespace specs require a loaded parent; discovery must stay read-only."""
+    import sys
+
+    root, cfg = project(tmp_path)
+    search = tmp_path / 'outside' if external else root
+    name = 'provider_' + uuid.uuid4().hex
+    parent = search / name
+    child = parent / 'nested'
+    child.mkdir(parents=True)
+    (parent / '__init__.py').write_text('raise AssertionError("origin discovery executed parent")\n')
+    if not namespace:
+        (child / '__init__.py').write_text('raise AssertionError("origin discovery executed child")\n')
+    leaf = child / 'provider.py'
+    leaf.write_text('import os\ndef read(): return os.getenv("FG_N1_VALUE", "alpha")\n')
+    if external:
+        config = root / 'pyproject.toml'
+        config.write_text(config.read_text() + '\n[tool.pytest.ini_options]\npythonpath=[' + json.dumps(str(search)) + ']\n')
+        from flowguard.intent.config import load_config
+        cfg = load_config(root)
+    module = name + '.nested.provider'
+    parents = [name, name + '.nested', module]
+    assert not any(part in sys.modules for part in parents)
+    with closing(build(root)) as graph:
+        context = deps._TestDependencies(cfg, graph, deps.Now(cfg, graph))
+        kind, location = context.origin(module)
+        if namespace:
+            assert (kind, location) == ('unknown', None)
+            assert context.import_reason(module) == 'unverified external import ' + module
+        else:
+            assert kind == ('external' if external else 'project')
+            assert Path(location) == leaf
+    assert not any(part in sys.modules for part in parents)

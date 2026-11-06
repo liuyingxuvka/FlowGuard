@@ -625,8 +625,18 @@ class _TestDependencies:
                 search = self.search_paths
                 for index, part in enumerate(module.split('.')):
                     name = '.'.join(module.split('.')[:index + 1])
-                    spec = (BuiltinImporter.find_spec(name) or FrozenImporter.find_spec(name)
-                            or PathFinder.find_spec(name, search))
+                    try:
+                        spec = (BuiltinImporter.find_spec(name) or FrozenImporter.find_spec(name)
+                                or PathFinder.find_spec(name, search))
+                    except KeyError as error:
+                        # PathFinder's namespace path expects its parent in
+                        # sys.modules. Discovery must not initialize that parent
+                        # just to establish provenance; leave this import opaque.
+                        parent = name.rpartition('.')[0]
+                        if error.args != (parent,) or parent in sys.modules:
+                            raise
+                        spec = None
+                        break
                     if spec is None:
                         break
                     search = spec.submodule_search_locations
