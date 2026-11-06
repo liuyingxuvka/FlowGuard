@@ -404,13 +404,21 @@ class MapHandle:
         sites = {}
         for ident, field, constant, identity in self.con.execute('SELECT node, field, const, identity FROM site'):
             sites.setdefault(ident, set()).update(tokens(' '.join(value or '' for value in (field,constant,identity))))
+        aliases = {}
+        for file, module, data in self.con.execute('SELECT path,module,data FROM file'):
+            for name, target in store.unpack(data).get('facts', {}).get('imports', {}).items():
+                if wanted & tokens(name):
+                    canonical = self.canonical(target)
+                    if canonical:
+                        aliases.setdefault(canonical, []).append(f'{module}:{name} ({file})')
         result = []
         for node in self.nodes():
             hits = {'sites': sorted(wanted & sites.get(node['id'],set())),
                     'doc': sorted(wanted & tokens(node['doc'])),
-                    'name': sorted(wanted & tokens(node['id']))}
+                    'name': sorted(wanted & tokens(node['id'])),
+                    'aliases': sorted(aliases.get(node['id'], []))}
             if any(hits.values()):
-                result.append(dict(node, matches=hits, score=3*len(hits['sites'])+2*len(hits['doc'])+len(hits['name'])))
+                result.append(dict(node, matches=hits, score=3*len(hits['sites'])+2*len(hits['doc'])+len(hits['name'])+len(hits['aliases'])))
         return sorted(result, key=lambda row: (-row['score'], row['id']))
 
 

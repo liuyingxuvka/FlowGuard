@@ -11,7 +11,7 @@ import linecache
 from pathlib import Path
 import sys
 
-from flowguard.structure.paths import project_code
+from ..structure.paths import project_code
 
 _SDK = Path(__file__).resolve().parent.parent
 

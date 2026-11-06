@@ -148,6 +148,33 @@ def test_show_short_function_name_is_an_exact_owner_candidate(tmp_path, capsys):
     assert 'short:f' in capsys.readouterr().out
 
 
+def test_show_import_alias_points_to_the_actual_source_owner(tmp_path, capsys):
+    root, cfg = project(tmp_path)
+    (root / 'entry.py').write_text(f'from {root.name} import accept as permit\n')
+    assert cli.show(cfg, 'permit') == 0
+    text = capsys.readouterr().out
+    assert f'entry:permit (entry.py) -> {root.name}:accept' in text
+    assert f'{root.name}.py:1' in text
+
+
+def test_short_show_retains_each_red_and_grey_reading(tmp_path, capsys):
+    root, cfg = project(tmp_path, wrong=True)
+    cli.init(cfg)
+    assert cli.check(cfg, everything=True) == 1
+    capsys.readouterr()
+    saved = cache.read(cfg)['results']['LIMIT']['items']
+    messages = [text for result in saved.values() for kind in ('red', 'grey') for text in result.get(kind, [])]
+    assert messages
+    assert cli.show(cfg, 'LIMIT') == 0
+    short = capsys.readouterr().out
+    assert cli.show(cfg, 'LIMIT', full=True) == 0
+    full = capsys.readouterr().out
+    assert all(message in short and message in full for message in messages)
+    assert len(short.encode()) < len(full.encode())
+    assert 'source: doc policy.txt' in short
+    assert f'home {root.name}:accept' in short
+
+
 def test_foreign_source_navigation_displays_static_coverage_and_execution_boundary(tmp_path, capsys):
     (tmp_path / 'service.ts').write_text('export function accept(days: number) { return days <= 3; }\n')
     cfg = load_config(tmp_path)

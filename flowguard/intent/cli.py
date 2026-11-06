@@ -177,7 +177,13 @@ def screen(cfg):
     return int(bool(data['summary']['errors']))
 
 
-def show(cfg, query=None, *, draft=None, gaps=None):
+def _candidate(candidate, full):
+    if full:
+        return json.dumps(candidate, ensure_ascii=False)
+    return f'{candidate["id"]} {candidate.get("file", "")}:{candidate.get("line", "?")}: {candidate.get("reason", "source similarity only")}'
+
+
+def show(cfg, query=None, *, draft=None, gaps=None, full=False):
     data = cache.read(cfg)
     rules = data['summary']['rules']
     if gaps:
@@ -213,15 +219,16 @@ def show(cfg, query=None, *, draft=None, gaps=None):
         notice = _map_notice(graph)
         if query in rules:
             item = rules[query]
-            lines = [f'RULE {query}: {item["decides"]}', item.get('doc', ''), f'source: {item["source"]}',
+            lines = [f'RULE {query}: {item["decides"]}', item.get('doc', '') if full else '', f'source: {item["source"]}',
                      f'{item["file"]}:{item["line"]}; {item.get("rows", 0)} literal rows']
             if notice:
                 lines.insert(1, notice)
             for home in item.get('homes', []) if item.get('kind') == 'rule' else []:
                 lines.append('home ' + home)
-                lines.extend(f'  site L{s["line"]}: {s["field"]} {s["op"]} {s["const"]}' for s in graph.sites(home))
+                if full:
+                    lines.extend(f'  site L{s["line"]}: {s["field"]} {s["op"]} {s["const"]}' for s in graph.sites(home))
             for result in data['results'].get(query, {}).get('items', {}).values():
-                lines.extend(result.get('red', []) + result.get('grey', []) + result.get('info', []))
+                lines.extend(result.get('red', []) + result.get('grey', []) + (result.get('info', []) if full else []))
             excluded = set(item.get('homes', []))
             excluded.update(side for d in data['summary'].get('distincts', []) if query in (d.get('a'), d.get('b'))
                             for side in (d.get('a', ''), d.get('b', '')) if ':' in side)
@@ -234,7 +241,7 @@ def show(cfg, query=None, *, draft=None, gaps=None):
                 if not found['searched']:
                     lines.append('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
                 for candidate in found['candidates']:
-                    lines.append('unbound candidate ' + json.dumps(candidate, ensure_ascii=False))
+                    lines.append('unbound candidate ' + _candidate(candidate, full))
             from .deps import Now, stale
             if data['results'].get(query) and (not data['deps'].get(query) or stale(data['deps'][query], Now(cfg, graph))):
                 lines.insert(1, 'cached results are stale or unverified -> run check')
@@ -244,7 +251,7 @@ def show(cfg, query=None, *, draft=None, gaps=None):
             for error in data['summary']['errors']:
                 print(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
             return 1
-        node = graph.node(query)
+        node = graph.node(graph.canonical(query) or query)
         if node:
             print(f'{query} {node["file"]}:{node["line"]}\n{node["sig"]}\n{node["doc"]}')
             if notice:
@@ -278,7 +285,7 @@ def show(cfg, query=None, *, draft=None, gaps=None):
                 if not found['searched']:
                     print('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
                 for candidate in found['candidates']:
-                    print('candidate ' + json.dumps(candidate, ensure_ascii=False))
+                    print('candidate ' + _candidate(candidate, full))
             return 0
         words = tokens(query)
         ranked = []
@@ -296,6 +303,9 @@ def show(cfg, query=None, *, draft=None, gaps=None):
             score += len(words & tokens(ident + ' ' + item['doc']))
             if score:
                 ranked.append((score, f'{ident} {item["file"]}:{item["line"]}'))
+        for item in graph.search(query):
+            for alias in item['matches'].get('aliases', []):
+                ranked.append((1000, f'{alias} -> {item["id"]} {item["file"]}:{item["line"]}'))
         ranked.sort(key=lambda row: (-row[0], row[1]))
         print('\n'.join(_limit([f'show {query}'] + ([notice] if notice else [])
                                + [line for _, line in ranked], cfg.screen_lines)))
@@ -629,6 +639,7 @@ def main(argv=None):
     show_parser.add_argument('query', nargs='?')
     show_parser.add_argument('--draft')
     show_parser.add_argument('--gaps')
+    show_parser.add_argument('--full', action='store_true', help='Include decision sites and full candidate metadata')
     check_parser = commands.add_parser('check')
     check_parser.add_argument('--all', action='store_true')
     check_parser.add_argument('--since')
@@ -649,7 +660,7 @@ def main(argv=None):
     try:
         cfg = load_config(root or find_root())
         if options.command == 'show':
-            return show(cfg, options.query, draft=options.draft, gaps=options.gaps)
+            return show(cfg, options.query, draft=options.draft, gaps=options.gaps, full=options.full)
         if options.command == 'check':
             return check(cfg, everything=options.all, since=options.since)
         if options.command == 'init':

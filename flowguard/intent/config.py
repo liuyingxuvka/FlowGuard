@@ -97,7 +97,7 @@ def is_test_rel(rel):
 
 
 def project_code(cfg):
-    from flowguard.structure.paths import project_code as owned
+    from ..structure.paths import project_code as owned
 
     @cache
     def check(filename):
