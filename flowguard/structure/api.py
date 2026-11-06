@@ -77,7 +77,11 @@ class MapHandle:
 
     def _language_rows(self, rows, language):
         from .readers.registry import language_for
-        return Rows(row for row in rows if language is None or language_for(row.get('file','')) == language)
+        # Synthetic missing-import nodes have no physical source language.
+        # Keep them in unfiltered nodes/import links, rather than passing None
+        # to the suffix reader during a query about actual source files.
+        return Rows(row for row in rows if language is None or
+                    row.get('file') is not None and language_for(row['file']) == language)
 
     def query_coverage(self):
         """Coverage of queries this handle actually served; no cache or new record store."""

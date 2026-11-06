@@ -65,3 +65,19 @@ def test_unknown_language_filter_cannot_certify_an_empty_result(tmp_path):
     with closing(setup(tmp_path,{'Outside.java':'class Outside {}\n'})) as graph:
         with pytest.raises(MapError,match='no source reader for language java'):
             graph.functions(language='java')
+
+
+def test_python_function_filter_keeps_missing_imports_visible_elsewhere(tmp_path):
+    (tmp_path / 'pkg').mkdir()
+    (tmp_path / 'pkg/__init__.py').write_text('')
+    with closing(setup(tmp_path, {
+        'main.py': 'from pkg import absent\ndef decide(value): return value > 0\n',
+        'other.ts': 'export function foreign(value:number){return value > 0;}\n',
+    })) as graph:
+        missing = graph.nodes(kind='missing')
+        assert len(missing) == 1 and missing[0]['file'] is None
+        actual = graph.functions(language='python')
+        assert {row['qual'] for row in actual.values()} == {'decide'}
+        assert all(row['file'] == 'main.py' for row in actual.values())
+        assert graph.nodes(kind='missing') == missing
+        assert any(edge['dst'] == missing[0]['id'] for edge in graph.imports(language='python'))
