@@ -1,13 +1,11 @@
 interface:
   display_name: "FlowGuard"
-  short_description: "Owner words, code lookup and plain commits for AI code changes"
+  short_description: "Find decision owners and keep necessary copies consistent"
   default_prompt: >-
-    Use $flowguard at the start of every coding session. At session start and
-    after any loss of context, run `python -m flowguard status` first. When the
-    owner asks for something, store the owner's own words once with
-    `python -m flowguard req add <file|-> --id <id>`; it stores only words the
-    owner wrote, never a plan, a list or text an AI wrote. Find code with `python -m flowguard where NAME`. Change code and
-    tests together, run the project's own test command, and make one commit
-    with a message in your own words, adding a line `Request: R<n>` when the
-    change answers a stored owner request. Never claim a check passed unless
-    you ran it.
+    Use $flowguard before adding a decision: run `python -m flowguard show "what it decides"`
+    and reuse its existing owner where possible. Only write a rule when the decision has copies,
+    the owner says everywhere, or a bug was fixed; bind the real homes and add a literal regression
+    row. With existing rules, read `python -m flowguard` at session start and run
+    `python -m flowguard check` after a bound decision changes. Otherwise stay quiet and use
+    ordinary tests. Save actual owner words once with `python -m flowguard req add <file|-> --id <id>`;
+    never an AI plan. Report actual results and cite the stored request in commits.

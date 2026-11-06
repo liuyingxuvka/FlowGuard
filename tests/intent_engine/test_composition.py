@@ -1,0 +1,198 @@
+"""Lower outcome contracts still execute real lower inputs, including a second witness."""
+from contextlib import closing
+import importlib
+from pathlib import Path
+import subprocess
+import sys
+import textwrap
+import uuid
+
+from flowguard.intent.config import load_config
+from flowguard.intent.engine import Engine
+from flowguard.intent.loader import load
+from flowguard.intent import cache, deps
+from flowguard.structure import build
+
+
+CODE = '''
+def refusal(ended, suspended, owed):
+    if suspended:
+        return 'blocked'
+    if ended > 3:
+        return 'blocked'
+    if owed > 50:
+        return 'blocked'
+    return None
+
+def checkout(ended, suspended, owed, stock):
+    reason = refusal(ended, suspended, owed)
+    return stock and reason is None
+
+def checkout_reads_reason(ended, suspended, owed, stock):
+    reason = refusal(ended, suspended, owed)
+    return stock and (reason is None or reason == 'allowed')
+'''
+
+INTENT = '''
+from flowguard.intent import rule, row
+@rule('STANDING', decides='good_standing', fields={'ended': int, 'suspended': bool, 'owed': int},
+      source='doc policy.txt "May buy when standing and stock remains"')
+def STANDING(ended, suspended, owed):
+    return ended <= 3 and not suspended and owed <= 50
+STANDING.rows(
+    row(ended=4, suspended=False, owed=0, expect=False, why='expired'),
+    row(ended=0, suspended=True, owed=0, expect=False, why='suspended'),
+    row(ended=0, suspended=False, owed=0, expect=True, why='standing'))
+@STANDING.home('PKG:refusal')
+def standing_home(c, fn):
+    return fn(c.ended, c.suspended, c.owed) is None
+
+@rule('CHECKOUT', decides='may_buy', fields={'standing': bool, 'stock': bool}, uses=[STANDING],
+      source='doc policy.txt "May buy when standing and stock remains"')
+def CHECKOUT(standing, stock):
+    return standing and stock
+@CHECKOUT.home('PKG:HOME')
+def checkout_home(c, fn):
+    w = c.witness(STANDING)
+    return fn(w.ended, w.suspended, w.owed, c.stock)
+'''
+
+
+def git(root, *args):
+    return subprocess.run(['git', '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid',
+                           '-C', str(root), *args], check=True, capture_output=True).stdout
+
+
+def project(tmp_path, *, home='checkout', code=CODE, intent=INTENT):
+    root = tmp_path / ('project_' + uuid.uuid4().hex)
+    root.mkdir()
+    module = 'policy_' + uuid.uuid4().hex
+    (root / 'policy.txt').write_text('May buy when standing and stock remains\n')
+    (root / 'pyproject.toml').write_text('[tool.flowguard]\nauthority_docs=["policy.txt"]\n')
+    (root / (module + '.py')).write_text(textwrap.dedent(code))
+    git(root, 'init', '-q')
+    git(root, 'add', 'policy.txt', 'pyproject.toml', module + '.py')
+    git(root, 'commit', '-qm', 'Existing policy')
+    (root / 'tests/intent').mkdir(parents=True)
+    (root / 'tests/intent/policy.py').write_text(textwrap.dedent(intent).replace('PKG', module).replace('HOME', home))
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'Implement the existing policy')
+    model = load(load_config(root))
+    assert not model.errors, model.errors
+    return model, Engine(model), module
+
+
+def test_parent_uses_only_outcomes_but_its_home_runs_lower_code(tmp_path):
+    model, engine, module = project(tmp_path)
+    rule = model.rules['CHECKOUT']
+    result = engine.run_home(rule, rule.homes[0], 'cells')
+    assert result['verdict'] == 'ok', result
+    assert result['n'] == 4
+    assert module + ':refusal' in result['footprint']
+    assert result['contracts']['STANDING']['verdict'] == 'ok'
+    assert result['contracts']['STANDING']['outcomes'] == [['bool', 'False'], ['bool', 'True']]
+    first, second = engine.witnesses(model.rules['STANDING'], False)
+    assert first != second
+    assert not model.rules['STANDING'].eval(first) and not model.rules['STANDING'].eval(second)
+
+
+def test_two_equal_outcomes_expose_an_upper_dependency_on_the_refusal_words(tmp_path):
+    code = CODE.replace("if suspended:\n        return 'blocked'", "if suspended:\n        return 'allowed'")
+    model, engine, _ = project(tmp_path, home='checkout_reads_reason', code=code)
+    parent = model.rules['CHECKOUT']
+    result = engine.run_home(parent, parent.homes[0], 'cells')
+    assert result['verdict'] == 'red', result
+    assert any('depends on more of STANDING than its outcome' in line for line in result['red'])
+    assert result['contracts']['STANDING']['verdict'] == 'ok'
+
+
+def test_only_one_verified_input_cannot_claim_adequacy(tmp_path):
+    enums = 'from enum import IntEnum\nclass End(IntEnum):\n    ZERO = 0\nclass Flag(IntEnum):\n    NO = 0\nclass Money(IntEnum):\n    ZERO = 0\n'
+    intent = enums + INTENT.replace("fields={'ended': int, 'suspended': bool, 'owed': int}", "fields={'ended': End, 'suspended': Flag, 'owed': Money}")
+    intent = intent.replace("row(ended=4, suspended=False, owed=0, expect=False, why='expired'),", '')
+    intent = intent.replace("row(ended=0, suspended=True, owed=0, expect=False, why='suspended'),", '')
+    intent = intent.replace('row(ended=0, suspended=False, owed=0, expect=True', 'row(ended=End.ZERO, suspended=Flag.NO, owed=Money.ZERO, expect=True')
+    model, engine, _ = project(tmp_path, intent=intent)
+    parent = model.rules['CHECKOUT']
+    result = engine.run_home(parent, parent.homes[0], 'cells')
+    assert result['verdict'] == 'grey', result
+    assert any('only 1 different verified inputs' in line for line in result['grey'])
+    assert not result['red']
+
+
+def test_uses_and_witness_follow_a_two_step_supersede(tmp_path):
+    intent = INTENT + '''
+@rule('MIDDLE', decides='good_standing', fields={'ended': int, 'suspended': bool, 'owed': int},
+      source='doc policy.txt "May buy when standing and stock remains"', supersedes=[STANDING])
+def MIDDLE(ended,suspended,owed):
+    return ended <= 3 and not suspended and owed <= 50
+@rule('LATEST', decides='good_standing', fields={'ended': int, 'suspended': bool, 'owed': int},
+      source='doc policy.txt "May buy when standing and stock remains"', supersedes=[MIDDLE])
+def LATEST(ended,suspended,owed):
+    return ended <= 3 and not suspended and owed <= 50
+'''
+    model, engine, _ = project(tmp_path, intent=intent)
+    parent = model.rules['CHECKOUT']
+    assert parent.uses == ('LATEST',)
+    assert len(model.rules['LATEST'].homes) == 1
+    result = engine.run_home(parent, parent.homes[0], 'cells')
+    assert result['verdict'] == 'ok', result
+    assert result['contracts']['LATEST']['verdict'] == 'ok'
+
+
+def _saved(model, engine, graph):
+    results, records = {}, {}
+    for rule in model.rules.values():
+        parts = [engine.run_rules(rule)]
+        for home in rule.homes:
+            parts += [engine.run_home(rule, home, 'rows'), engine.run_home(rule, home, 'cells'), engine.run_live(rule, home)]
+        assert all(part['verdict'] == 'ok' for part in parts), parts
+        results[rule.id] = {'items': {str(index): part for index, part in enumerate(parts)}}
+        records[rule.id] = deps.record(model.cfg, model, rule, parts, graph)
+    return dict(results=results, deps=records, summary=cache.scan(model.cfg))
+
+
+def _changed(model, module, source):
+    path = model.cfg.root / (module + '.py')
+    path.write_text(textwrap.dedent(source) + '\n# a distinct source version\n')
+    sys.modules.pop(module, None)
+    importlib.invalidate_caches()
+    current = load(model.cfg)
+    return current, Engine(current)
+
+
+def test_same_lower_contract_cuts_the_upper_recheck(tmp_path):
+    model, engine, module = project(tmp_path)
+    with closing(build(model.cfg.root)) as graph:
+        saved = _saved(model, engine, graph)
+        new_code = CODE.replace("if ended > 3:", "if not ended <= 3:")
+        current, changed = _changed(model, module, new_code)
+        graph.refresh()
+        now = deps.Now(current.cfg, graph)
+        picked = deps.affected(saved, current, now)
+        assert set(picked) == {'STANDING', 'CHECKOUT'}
+        lower = changed.contract_summary('STANDING')
+        assert lower['verdict'] == 'ok', lower
+        chosen = deps.contract_cut(saved, current, now, {'STANDING': lower}, picked)
+        assert 'CHECKOUT' not in chosen
+        assert 'STANDING' in chosen
+        parent = current.rules['CHECKOUT']
+        assert changed.run_home(parent, parent.homes[0], 'cells')['verdict'] == 'ok'
+
+
+def test_an_undeclared_detail_can_miss_locally_but_all_recheck_catches_it(tmp_path):
+    model, engine, module = project(tmp_path, home='checkout_reads_reason')
+    with closing(build(model.cfg.root)) as graph:
+        saved = _saved(model, engine, graph)
+        new_code = CODE.replace("if suspended:\n        return 'blocked'", "if suspended:\n        return 'allowed'")
+        current, changed = _changed(model, module, new_code)
+        graph.refresh()
+        now = deps.Now(current.cfg, graph)
+        lower = changed.contract_summary('STANDING')
+        assert lower['verdict'] == 'ok', lower
+        picked = deps.contract_cut(saved, current, now, {'STANDING': lower}, deps.affected(saved, current, now))
+        assert 'CHECKOUT' not in picked
+        parent = current.rules['CHECKOUT']
+        full_result = changed.run_home(parent, parent.homes[0], 'cells')
+        assert full_result['verdict'] == 'red'
+        assert any('depends on more' in line for line in full_result['red'])

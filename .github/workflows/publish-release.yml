@@ -111,10 +111,9 @@ jobs:
           notes = changes[headings[index].start():headings[index + 1].start() if index + 1 < len(headings) else None].strip()
           ci_url = None
           required_jobs = {
-              "Checks (ubuntu-latest, py3.11, group 0/1)",
-              "Checks (ubuntu-latest, py3.13, group 0/1)",
-              "Checks (windows-latest, py3.12, group 0/2)",
-              "Checks (windows-latest, py3.12, group 1/2)",
+              "Complete tests (ubuntu-latest, py3.11)",
+              "Complete tests (ubuntu-latest, py3.13)",
+              "Complete tests (windows-latest, py3.12)",
           }
 
           def successful_ci(current):
@@ -124,9 +123,9 @@ jobs:
               assert current["path"].split("@")[0] == ".github/workflows/ci.yml", "CI workflow differs"
               assert current["status"] == "completed" and current["conclusion"] == "success", "CI did not complete successfully"
               jobs = api(f"actions/runs/{current['id']}/jobs?per_page=100")["jobs"]
-              assert len(jobs) == 4 and {job["name"] for job in jobs} == required_jobs and all(
+              assert len(jobs) == len(required_jobs) and {job["name"] for job in jobs} == required_jobs and all(
                   job["status"] == "completed" and job["conclusion"] == "success" for job in jobs
-              ), "Complete four-job ci.yml success required for this exact source"
+              ), "Complete three-platform ci.yml success required for this exact source"
               return current["html_url"]
 
           deadline = time.monotonic() + 1200

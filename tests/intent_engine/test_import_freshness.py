@@ -1,0 +1,305 @@
+"""Real imports must execute changed bytes even when timestamp and size collide."""
+import importlib.util
+import os
+from pathlib import Path
+import py_compile
+import subprocess
+import sys
+
+import pytest
+
+
+SDK = str(Path(__file__).resolve().parents[2])
+
+
+def collision(path, before, after):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(before)
+    py_compile.compile(str(path), doraise=True)
+    stamp = path.stat()
+    assert len(before.encode()) == len(after.encode())
+    path.write_text(after)
+    os.utime(path, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+    cached = Path(importlib.util.cache_from_source(str(path)))
+    assert cached.read_bytes()[4:8] == b'\0\0\0\0'
+    return cached
+
+
+def python(root, body, *args):
+    setup = 'import sys;sys.path.insert(0,sys.argv.pop(1));'
+    return subprocess.run([sys.executable, '-c', setup + body, SDK, *map(str, args)],
+                          cwd=root, capture_output=True, text=True)
+
+
+def test_content_cache_replaces_old_timestamp_once_and_reuses_unchanged_code(tmp_path):
+    cached = collision(tmp_path / 'owned.py', 'VALUE = 3\n', 'VALUE = 4\n')
+    result = python(tmp_path, '''
+from flowguard.intent.imports import prepare, _Source
+prepare('.')
+compiled = []
+previous = _Source.source_to_code
+def compile_source(self, *args, **kwargs):
+    compiled.append(self.path)
+    return previous(self, *args, **kwargs)
+_Source.source_to_code = compile_source
+import owned
+assert owned.VALUE == 4
+first = owned
+prepare('.')
+assert __import__('owned') is first
+sys.modules.pop('owned')
+import owned
+assert owned.VALUE == 4
+assert len(compiled) == 1, compiled
+''')
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert cached.read_bytes()[4:8] == b'\x03\0\0\0'
+
+
+@pytest.mark.parametrize('placement', ['outside', 'environment'])
+def test_dependency_caches_keep_their_own_loader(tmp_path, placement):
+    project = tmp_path / 'project'
+    project.mkdir()
+    library = tmp_path / 'library' if placement == 'outside' else project / '.venv/lib/site-packages'
+    if placement == 'environment':
+        library.mkdir(parents=True)
+        (project / '.venv/pyvenv.cfg').write_text('home = external\n')
+    cached = collision(library / 'dependency.py', 'VALUE = 3\n', 'VALUE = 4\n')
+    original = cached.read_bytes()
+    result = python(project, '''
+from flowguard.intent.imports import prepare
+prepare('.')
+sys.path.insert(0, sys.argv[1])
+import dependency
+# This is deliberately the external interpreter's timestamp cache: FlowGuard
+# must not silently change the dependency installation or its loader.
+assert dependency.VALUE == 3
+''', library)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert cached.read_bytes() == original
+
+
+def test_prepare_refreshes_imported_aliases_after_changed_bytes(tmp_path):
+    (tmp_path / 'owned.py').write_text('def value(): return 3\n')
+    (tmp_path / 'consumer.py').write_text('from owned import value\ndef answer(): return value()\n')
+    result = python(tmp_path, '''
+import errno, os
+from pathlib import Path
+from flowguard.intent.imports import prepare
+prepare('.')
+import consumer
+assert consumer.answer() == 3
+original = consumer
+source = Path('owned.py')
+stamp = source.stat()
+source.write_text('def value(): return 4\\n')
+os.utime(source, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+prepare('.')
+import consumer
+assert consumer is not original
+assert consumer.answer() == 4
+assert __import__('errno') is errno
+again = consumer
+prepare('.')
+assert __import__('consumer') is again
+''')
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_plain_pytest_rewrites_changed_assertions_instead_of_reusing_timestamp_cache(tmp_path):
+    (tmp_path / 'test_actual.py').write_text('def test_actual(): assert 3 == 3\n')
+    command = "import pytest;raise SystemExit(pytest.main(['-q','-p','flowguard.intent.plugin']))"
+    first = python(tmp_path, command)
+    assert first.returncode == 0, first.stdout + first.stderr
+    source = tmp_path / 'test_actual.py'
+    stamp = source.stat()
+    source.write_text('def test_actual(): assert 4 == 3\n')
+    os.utime(source, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+    second = python(tmp_path, command)
+    assert second.returncode == 1, second.stdout + second.stderr
+    assert 'assert 4 == 3' in second.stdout
+
+
+def test_unmarked_pytest_child_imports_fresh_child_only_code(tmp_path):
+    collision(tmp_path / 'child_only.py', 'VALUE = 3\n', 'VALUE = 4\n')
+    (tmp_path / 'test_actual.py').write_text('''import subprocess, sys
+def test_actual():
+    subprocess.run([sys.executable, '-c', 'import child_only; assert child_only.VALUE == 4'], check=True)
+''')
+    result = python(tmp_path, "import pytest;raise SystemExit(pytest.main(['-q','-p','flowguard.intent.plugin']))")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_library_load_refuses_unknown_preloaded_project_objects_without_reloading_them(tmp_path):
+    (tmp_path / 'owned.py').write_text('VALUE = 3\n')
+    result = python(tmp_path, '''
+import os
+from pathlib import Path
+import owned
+old = owned
+source = Path('owned.py')
+stamp = source.stat()
+source.write_text('VALUE = 4\\n')
+os.utime(source, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+assert owned.VALUE == 3 and '4' in source.read_text()
+from flowguard.intent.loader import load
+from flowguard.intent.config import load_config
+try:
+    load(load_config('.'))
+except ValueError as error:
+    assert 'imported before source verification' in str(error)
+    assert 'fresh verification process' in str(error)
+else:
+    raise AssertionError('an unverified preloaded object must not become a successful check')
+assert sys.modules['owned'] is old and old.VALUE == 3
+''')
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_switching_projects_does_not_reuse_a_same_named_helper(tmp_path):
+    for name, value in [('first', 3), ('second', 4)]:
+        root = tmp_path / name
+        root.mkdir()
+        (root / 'shared.py').write_text(f'VALUE = {value}\n')
+    result = python(tmp_path, '''
+from flowguard.intent.imports import prepare
+from flowguard.intent.config import load_config, setup_path
+first, second = load_config('first'), load_config('second')
+setup_path(first); prepare(first.root)
+import shared
+assert shared.VALUE == 3
+old = shared
+setup_path(second)
+assert __import__('shared') is old  # Python's name cache alone ignores the new path.
+prepare(second.root)
+import shared
+assert shared.VALUE == 4 and shared is not old
+setup_path(first); prepare(first.root)
+import shared
+assert shared.VALUE == 3 and shared is not old
+''')
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_setup_path_preserves_explicit_pytest_path_precedence_when_reentered(tmp_path):
+    for folder, value in [('src', 3), ('preferred', 4)]:
+        path = tmp_path / folder
+        path.mkdir()
+        (path / 'shared.py').write_text(f'VALUE = {value}\n')
+    (tmp_path / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["preferred", "src"]\n')
+    result = python(tmp_path, '''
+from flowguard.intent.imports import prepare
+from flowguard.intent.config import load_config, setup_path
+cfg = load_config('.')
+setup_path(cfg); prepare(cfg.root)
+import shared
+assert shared.VALUE == 4
+position = list(sys.path)
+setup_path(cfg)
+assert sys.path == position
+''')
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize('preinstalled', [False, True])
+def test_init_plain_pytest_guards_imports_before_project_conftest(tmp_path, preinstalled):
+    from flowguard.intent.cli import init
+    from flowguard.intent.config import load_config
+    (tmp_path / 'owned.py').write_text('VALUE = 3\n')
+    (tmp_path / 'tests').mkdir()
+    (tmp_path / 'tests/conftest.py').write_text('''import pytest
+from owned import VALUE
+@pytest.fixture
+def supplied(): return VALUE
+''')
+    (tmp_path / 'tests/test_actual.py').write_text('def test_actual(supplied): assert supplied == 3\n')
+    init(load_config(tmp_path))
+    ordinary = "import pytest;raise SystemExit(pytest.main(['-q']))"
+    if preinstalled:
+        ordinary = "from flowguard.intent.imports import prepare;prepare('.');" + ordinary
+    first = python(tmp_path, ordinary)
+    assert first.returncode == 0, first.stdout + first.stderr
+    source = tmp_path / 'owned.py'
+    stamp = source.stat()
+    source.write_text('VALUE = 4\n')
+    os.utime(source, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+    second = python(tmp_path, ordinary)
+    assert second.returncode == 1, second.stdout + second.stderr
+    assert 'assert 4 == 3' in second.stdout
+    assert 'imported before source verification' not in second.stdout + second.stderr
+
+
+def test_pytest_host_source_identity_survives_temporary_project_models(tmp_path):
+    for name in ('host', 'temporary'):
+        root = tmp_path / name
+        (root / 'tests/intent').mkdir(parents=True)
+        (root / 'tests/intent/policy.py').write_text('''from flowguard.intent import rule
+@rule('LIMIT', decides='flag', fields={'flag': bool}, source='assumed: fixture boundary')
+def LIMIT(flag): return flag
+''')
+    result = python(tmp_path, '''
+from flowguard.intent.imports import prepare, release_host
+from flowguard.intent.config import load_config
+from flowguard.intent.loader import load
+host, temporary = load_config('host'), load_config('temporary')
+prepare(host.root, host=True)
+first = load(host)
+name = first.rules['LIMIT'].pred.__module__
+module = sys.modules[name]
+second = load(temporary)
+assert second.rules['LIMIT'].pred.__module__ != name
+assert sys.modules[name] is module
+prepare(host.root, host=True)
+assert sys.modules[name] is module
+assert first.rules['LIMIT'].eval({'flag': True}) is True
+release_host(host.root)
+''')
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_temporary_project_cannot_shadow_a_live_pytest_host_module(tmp_path):
+    for name, value in [('host', 3), ('temporary', 4)]:
+        root = tmp_path / name
+        root.mkdir()
+        (root / 'shared.py').write_text(f'VALUE = {value}\n')
+    result = python(tmp_path, '''
+from flowguard.intent.imports import prepare
+from flowguard.intent.config import load_config, setup_path
+host, temporary = load_config('host'), load_config('temporary')
+setup_path(host); prepare(host.root, host=True)
+import shared
+original = shared
+setup_path(temporary)
+try:
+    prepare(temporary.root)
+except ValueError as error:
+    assert 'conflicts with the active pytest verifier' in str(error)
+    assert 'fresh verification process' in str(error)
+else:
+    raise AssertionError('a temporary target cannot borrow a same-named host module')
+assert sys.modules['shared'] is original and original.VALUE == 3
+''')
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_changed_project_inspection_is_fresh_without_clearing_external_linecache(tmp_path):
+    (tmp_path / 'app.py').write_text('def f(): return 3\n')
+    result = python(tmp_path, '''
+import os, inspect, linecache
+from pathlib import Path
+from flowguard.intent.imports import prepare
+prepare('.')
+import app
+assert 'return 3' in inspect.getsource(app.f)
+external = ('external', None, ['keep this external cache\\n'], 'external')
+linecache.cache['external-dependency.py'] = external
+source = Path('app.py'); stamp = source.stat()
+source.write_text('def f(): return 4\\n')
+os.utime(source, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+prepare('.')
+import app
+assert app.f() == 4
+assert 'return 4' in inspect.getsource(app.f)
+assert linecache.cache['external-dependency.py'] is external
+''')
+    assert result.returncode == 0, result.stdout + result.stderr

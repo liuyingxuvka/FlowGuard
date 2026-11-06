@@ -1,0 +1,5 @@
+# Merge these steps into the project CI after installing FlowGuard.
+- uses: actions/checkout@v5
+  with:
+    fetch-depth: 0
+- run: python -m flowguard check --all

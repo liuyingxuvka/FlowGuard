@@ -4,7 +4,7 @@ Static half: a test skips only through a `@pytest.mark.skipif(<condition>, reaso
 condition reads sys.platform, sys.version_info or os.name. Every other way to skip or expect failure from
 inside a test (pytest.skip, pytest.xfail, pytest.importorskip, pytest.mark.skip, unittest skips, skipTest,
 raising SkipTest) is refused, so no helper that swallowed an error can choose a skip.
-Runtime half: tests/conftest.py fails any skipped or xfailed outcome that no skipif or xfail marker produced.
+Runtime half: the shared intent plugin fails any skipped or xfailed outcome that no skipif or xfail marker produced.
 The same rule covers every shipped engine and test helper.
 """
 import ast
@@ -85,14 +85,15 @@ def test_the_static_rule_sees_each_refused_shape():
         "skipif on a runtime condition", "skip call", "skip call"], found
 
 
+def _run_probe(tmp_path, name, reports):
+    """Load the actual source plugin before conftest, with the platform policy."""
+    (tmp_path / "pyproject.toml").write_text('[tool.flowguard]\nskip_policy="platform"\n', encoding="utf-8")
+    bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
+    return subprocess.run([sys.executable, "-c", bootstrap, str(ROOT), "-q", "-p", "flowguard.intent.plugin",
+                           "-p", "no:cacheprovider", reports, name], cwd=tmp_path, capture_output=True, text=True)
+
+
 def test_a_skip_raised_while_handling_an_error_fails(tmp_path):
-    (tmp_path / "conftest.py").write_text(textwrap.dedent(f'''
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("flowguard_tests_conftest", {str(ROOT / "tests/conftest.py")!r})
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        globals().update({{name: value for name, value in vars(module).items() if name.startswith("pytest_")}})
-    '''), encoding="utf-8")
     (tmp_path / "test_judge.py").write_text(textwrap.dedent('''
         import sys
         import pytest
@@ -105,8 +106,7 @@ def test_a_skip_raised_while_handling_an_error_fails(tmp_path):
         def test_declared_skip():
             pass
     '''), encoding="utf-8")
-    result = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-rfs", str(tmp_path)],
-                            cwd=tmp_path, capture_output=True, text=True)
+    result = _run_probe(tmp_path, str(tmp_path), "-rfs")
     assert result.returncode == 1, result.stdout + result.stderr
     assert "1 failed, 1 skipped" in result.stdout, result.stdout
     assert "skip raised while handling KeyError" in result.stdout, result.stdout
@@ -145,13 +145,6 @@ def test_the_static_rule_refuses_every_skip_that_is_not_a_skipif_marker():
 
 
 def test_a_skip_or_xfail_that_did_not_come_from_a_marker_fails(tmp_path):
-    (tmp_path / "conftest.py").write_text(textwrap.dedent(f'''
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("flowguard_tests_conftest", {str(ROOT / "tests/conftest.py")!r})
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        globals().update({{name: value for name, value in vars(module).items() if name.startswith("pytest_")}})
-    '''), encoding="utf-8")
     (tmp_path / "test_outcomes.py").write_text(textwrap.dedent('''
         import sys
         import pytest
@@ -180,8 +173,7 @@ def test_a_skip_or_xfail_that_did_not_come_from_a_marker_fails(tmp_path):
     (tmp_path / "test_optional_import.py").write_text("import pytest\nmodule = pytest.importorskip('no_such_module_xyz')\n",
                                                       encoding="utf-8")
     def run(name):
-        return subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-rfEsx", name],
-                              cwd=tmp_path, capture_output=True, text=True)
+        return _run_probe(tmp_path, name, "-rfEsx")
     result = run("test_outcomes.py")
     summary = result.stdout.strip().splitlines()[-1]
     assert result.returncode == 1, result.stdout + result.stderr

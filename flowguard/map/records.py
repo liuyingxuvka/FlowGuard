@@ -9,8 +9,8 @@ import shlex
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .common import (Finding, advice, atomic_write_text, git_blob, git_common_directory, git_head, git_run,
-                     normalize_newlines, project_command, sha256_bytes)
+from .common import (Finding, atomic_write_text, git_blob, git_common_directory, git_head, git_run,
+                     normalize_newlines, sha256_bytes)
 from .common import MapError
 
 

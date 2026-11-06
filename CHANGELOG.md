@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.0.0 - 2026-11-06 - Keep one owner for a decision
+
+- Find existing decision sites, constants, callers and similar implementations from a generated Python map before adding another copy. Candidates are leads to inspect, not claims of semantic equivalence.
+- Write an executable rule only for necessary copies, an explicit everywhere requirement or a fixed bug. Bind each real implementation through a small adapter, retain literal regression rows and cite original owner words or an agreed document.
+- Compare rules and real code over complete supported cells, including supported linear expressions. Check that the declared inputs constrain the actual decision sites; show unverified boundaries as grey.
+- Reuse results only while their source, helpers, data and authority remain current. Preserve applicable rows across replacements and detect missing marked guards. Content-checked project imports prevent same-size edits within one timestamp from executing stale bytecode.
+- Use ordinary pytest for both intent and project tests. `check --all` establishes complete test-to-code links; affected checks refresh selected tests. Direct ordinary pytest traces explicit guards. Retain the observations required for reliable selection and report their cost.
+- Include pytest in the normal engine installation, and ship one local rule guide with the skill: a complete executable example and its input/source boundaries. The first rule does not depend on retrieving a web page.
+- Read a short screen without running the application or tests. Inspect a rule, function, request or candidate through `show`; use `init` for the sentinel, project rules and CI fragment.
+- Retire the 1.x flow machines, native recorder, background jobs, pictures and separate release test runner. The old `status`, `where`, top-level `draft`, `decide` and `release` commands have no aliases. Keep the original request archive and migrate useful contracts into rules, rows and ordinary tests; see `docs/upgrade-2.0.md`.
+- Publish only the main commit whose complete CI passed on Linux Python 3.11/3.13 and Windows Python 3.12. Package the current engine and the single small skill without retired runtime resources.
+
 ## v1.4.0 - 2026-11-05 - Affected checks and reusable current evidence
 
 Restoring missing check records keeps their valid recorded decisions.

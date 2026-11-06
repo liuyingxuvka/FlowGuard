@@ -12,153 +12,56 @@ permissions:
 
 jobs:
   checks:
-    name: Checks (${{ matrix.os }}, py${{ matrix.python }}, group ${{ matrix.group }}/${{ matrix.groups }})
+    name: Complete tests (${{ matrix.os }}, py${{ matrix.python }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             python: "3.11"
-            full: true
-            group: 0
-            groups: 1
           - os: ubuntu-latest
             python: "3.13"
-            full: false
-            group: 0
-            groups: 1
           - os: windows-latest
             python: "3.12"
-            full: false
-            group: 0
-            groups: 2
-          - os: windows-latest
-            python: "3.12"
-            full: false
-            group: 1
-            groups: 2
     steps:
-      - name: Checkout the triggering source
+      - name: Checkout the triggering source and its history
         uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
 
-      - name: Set up Python
+      - name: Set up Python outside the project
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
 
-      - name: Install FlowGuard
+      - name: Install FlowGuard and its test dependencies
         run: python -m pip install -e ".[dev]"
 
-      - name: Picture renderer of the flow models (node with Playwright and Chromium)
-        if: matrix.full
-        run: |
-          npm install --global playwright@1.56.1
-          npx --yes playwright@1.56.1 install --with-deps chromium
-          echo "NODE_PATH=$(npm root --global)" >> "$GITHUB_ENV"
+      - name: Complete intent and project tests through ordinary pytest
+        run: python -m flowguard check --all
 
-      - name: Picture renderer on Windows
-        if: matrix.os == 'windows-latest' && matrix.group == 0
-        shell: pwsh
-        run: |
-          npm install --global playwright@1.56.1
-          npx --yes playwright@1.56.1 install chromium
-          "NODE_PATH=$(npm root --global)" >> $env:GITHUB_ENV
-
-      - name: Complete flow engine suite on Windows
-        if: matrix.os == 'windows-latest' && matrix.group == 0
-        run: python -m pytest -q tests/flow
-
-      - name: Release gate and the whole suite in 4 shards on Ubuntu Python 3.11
-        if: matrix.full
-        run: python -m flowguard release --shards 4
-
-      - name: Print failed test shard diagnostics
-        if: ${{ failure() && matrix.full }}
+      - name: Print the original pytest output on failure
+        if: failure()
         shell: python
         run: |
-          import json
           from pathlib import Path
-          for path in sorted(Path(".flowguard/cache/pytest-shards").glob("run-*/aggregate.json")):
-              report = json.loads(path.read_text(encoding="utf-8"))
-              for shard in report.get("shards", []):
-                  if shard.get("status") == "pass":
-                      continue
-                  print(f"Shard diagnostics: {shard.get('shard_id', shard.get('name', 'unknown'))}")
-                  for key in ("stdout_path", "stderr_path"):
-                      output = Path(shard[key])
-                      if output.is_file():
-                          print(f"--- {output.name} ---")
-                          print(output.read_text(encoding="utf-8", errors="replace"))
+          output = Path(".flowguard/cache/check-output.txt")
+          if output.is_file():
+              print(output.read_text(encoding="utf-8", errors="replace"))
 
-      - name: Core path and packaging smoke on the other platforms
-        if: ${{ !matrix.full }}
+      - name: Verify the distributable skill in a temporary directory
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
         shell: python
         run: |
-          import subprocess
-          import sys
-          files = """
-          tests/test_advice.py
-          tests/test_current_static_cli.py
-          tests/test_discovery.py
-          tests/test_flow_frontend_errors.py
-          tests/test_flow_platform.py
-          tests/test_git_failures.py
-          tests/test_map_derived.py
-          tests/test_map_inventory__fg_helpers.py
-          tests/test_map_inventory_common.py
-          tests/test_map_inventory_discover.py
-          tests/test_map_inventory_inventory.py
-          tests/test_map_textrules.py
-          tests/test_no_swallowed_skips.py
-          tests/test_owner_words.py
-          tests/test_packaged_cli_surface.py
-          tests/test_product_vocabulary.py
-          tests/test_project_integration.py
-          tests/test_public_api.py
-          tests/test_pytest_shard_runner.py
-          tests/test_pytest_shards.py
-          tests/test_readme_mirror.py
-          tests/test_replay_comparator.py
-          tests/test_records.py
-          tests/test_reported_failures.py
-          tests/test_requests.py
-          tests/test_shared_normalization.py
-          tests/test_skill_package.py
-          tests/test_testtree_source.py
-          tests/test_u_commands.py
-          tests/test_u_single_engine.py
-          tests/test_u_static.py
-          tests/test_u_test_units.py
-          tests/test_where_fg806.py
-          tests/test_where_requests.py
-          """.split()
-          group = int("${{ matrix.group }}")
-          groups = int("${{ matrix.groups }}")
-          first = len(files) * group // groups
-          last = len(files) * (group + 1) // groups
-          selected = files[first:last]
-          print(f"Core group {group + 1}/{groups}: {len(selected)} of {len(files)} files", flush=True)
-          raise SystemExit(subprocess.run(
-              [sys.executable, "-m", "pytest", "-q", "--durations=15", *selected]
-          ).returncode)
-
-      - name: Copy the skill and check installed files
-        if: matrix.group == 0
-        shell: bash
-        run: |
-          python - <<'PY'
           import os
           from pathlib import Path
           import subprocess
           import sys
-          target = str(Path(os.environ["RUNNER_TEMP"]) / "flowguard-skills")
-          subprocess.run([sys.executable, "scripts/install_skill.py", "--target", target], check=True)
-          subprocess.run([sys.executable, "scripts/install_skill.py", "--target", target, "--check"], check=True)
-          PY
-
-      - name: Native recorder and adapter controls on Ubuntu Python 3.13
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
-        run: python -m pytest -q tests/native tests/flow/test_adapter.py tests/flow/test_adapter_scope.py tests/flow/test_native_evidence.py tests/flow/test_native_operation_closure.py tests/flow/test_native_source_reads.py tests/flow/test_native_requirement_resolution.py
+          import tempfile
+          with tempfile.TemporaryDirectory(dir=os.environ["RUNNER_TEMP"]) as temporary:
+              target = str(Path(temporary) / "skills")
+              subprocess.run([sys.executable, "scripts/install_skill.py", "--target", target], check=True)
+              subprocess.run([sys.executable, "scripts/install_skill.py", "--target", target, "--check"], check=True)

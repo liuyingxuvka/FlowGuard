@@ -1,0 +1,569 @@
+"""Ordinary pytest owns execution; this plugin adds intent items and source footprints."""
+from __future__ import annotations
+
+import fnmatch
+from functools import cache
+from contextlib import closing
+import json
+import os
+from pathlib import Path
+import sqlite3
+import sys
+import tempfile
+import time
+
+import pytest
+
+from .config import load_config, project_code
+from .engine import Engine
+from .loader import load
+from .readings import classify, classify_collection
+from .tracer import Footprint
+
+SENTINEL = 'test_flowguard_intent'
+NO_SKIP = 'this suite allows no skip, expected failure or early exit: a check that did not run is never reported as fine'
+_CURRENT = None
+SCHEMA = '''
+CREATE TABLE IF NOT EXISTS reading(test TEXT PRIMARY KEY, outcome TEXT, kind TEXT, reason TEXT,
+  phase TEXT, seconds REAL, stamp REAL);
+CREATE TABLE IF NOT EXISTS footprint(test TEXT, node TEXT, fp TEXT, file TEXT, line INTEGER,
+  qual TEXT, origin TEXT, call_lines TEXT, PRIMARY KEY(test,node,origin));
+CREATE TABLE IF NOT EXISTS result(item TEXT PRIMARY KEY, rule TEXT, verdict TEXT, payload TEXT, stamp REAL);
+'''
+
+
+def _json(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, default=repr)
+
+
+class Session:
+    def __init__(self, config):
+        self.cfg = load_config(config.rootpath)
+        self.is_project = project_code(self.cfg)
+        self.model = self.engine = self.map = None
+        self.collected, self.selected, self.deferred = set(), set(), set()
+        self.results, self.readings, self.footprints, self.children, self.durations = {}, {}, {}, {}, {}
+        self.sentinel = None
+        self.ordinary_selected, self.early_exit, self.session_errors = set(), [], []
+        self.last_test = None
+        self.process_calls, self.closed = [], False
+        self.main_process = os.getpid()
+        self.started = time.time()
+        self.folder = self.bootstrap = None
+
+    def import_children(self):
+        if self.folder is None:
+            self.folder = tempfile.TemporaryDirectory(prefix='flowguard-child-')
+            self.bootstrap = Path(self.folder.name) / 'bootstrap'
+            self.bootstrap.mkdir()
+            # All Python children read current source; only recorded tests trace.
+            (self.bootstrap / 'sitecustomize.py').write_text('from flowguard.intent.child import start\nstart()\n', encoding='utf-8')
+        paths = [str(self.bootstrap), str(Path(__file__).resolve().parents[2]), str(self.cfg.root),
+                 *(str(p) for p in self.cfg.roots), *os.environ.get('PYTHONPATH', '').split(os.pathsep)]
+        values = dict(FLOWGUARD_IMPORT_ROOT=str(self.cfg.root), PYTHONPATH=os.pathsep.join(dict.fromkeys(paths)))
+        inherited = ('FLOWGUARD_TRACE_ROOT', 'FLOWGUARD_TRACE_CHILDREN', 'FLOWGUARD_TRACE_TEST')
+        self.import_environment = {name: os.environ.get(name) for name in (*values, *inherited)}
+        # A nested pytest session owns propagation to its children. The caller's
+        # active footprint remains real, but its child context is not this
+        # session's ordinary-test recording policy. Restore it when we close.
+        for name in inherited:
+            os.environ.pop(name, None)
+        os.environ.update(values)
+
+    def close(self):
+        global _CURRENT
+        _CURRENT = self.previous_session
+        self.closed = True
+        for module, name, real, refused in reversed(self.process_calls):
+            if getattr(module, name) is refused:
+                setattr(module, name, real)
+        from .imports import release_host
+        release_host(self.cfg.root)
+        for name, value in self.import_environment.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+        self.folder.cleanup()
+
+    def guard_process_exit(self, config):
+        recording = (config.getoption('--flowguard-record-tests', default=False)
+                     or getattr(getattr(config, 'known_args_namespace', None), 'flowguard_record_tests', False))
+        if self.process_calls or not (self.cfg.skip_policy == 'forbid' or recording):
+            return
+        modules = {id(module): module for module in (os, sys.modules.get(os.name)) if module is not None}
+        for module in modules.values():
+            for name in ('_exit', 'execv', 'execve', 'execl', 'execle', 'execlp', 'execlpe', 'execvp', 'execvpe'):
+                real = getattr(module, name, None)
+                if real is not None:
+                    refused = self.refuse_process_call(real, module.__name__ + '.' + name)
+                    self.process_calls.append((module, name, real, refused))
+                    setattr(module, name, refused)
+
+    def refuse_process_call(self, real, label):
+        def refused(*args, **kwargs):
+            if self.closed or os.getpid() != self.main_process:
+                return real(*args, **kwargs)
+            reason = f'{label}() would end or replace the test process'
+            self.early_exit.append(reason)
+            guidance = NO_SKIP if self.cfg.skip_policy == 'forbid' else 'selected tests did not finish; do not report this check as passed'
+            pytest.fail(reason + '; ' + guidance, pytrace=False)
+        return refused
+
+    def child_folder(self, item):
+        folder = Path(self.folder.name) / str(len(self.children))
+        folder.mkdir()
+        self.children[item.nodeid] = folder
+        return folder
+
+    def get_model(self):
+        if self.model is None:
+            self.model = load(self.cfg)
+            self.engine = Engine(self.model)
+        return self.model
+
+    def get_map(self):
+        if self.map is None:
+            from flowguard.structure import build
+            self.map = build(self.cfg.root, roots=self.cfg.roots)
+        return self.map
+
+    def child_records(self, item):
+        folder = self.children.get(item if isinstance(item, str) else item.nodeid)
+        return [json.loads(p.read_text(encoding='utf-8')) for p in sorted(folder.glob('*.json'))] if folder else []
+
+
+def pytest_addoption(parser):
+    group = parser.getgroup('flowguard')
+    group.addoption('--flowguard-rules', default=None, help='Run these changed rules; other fully collected rules are deferred to the cache')
+    group.addoption('--flowguard-record-tests', action='store_true', help='Record the ordinary tests actually selected by check')
+
+
+def pytest_load_initial_conftests(early_config):
+    _session(early_config)
+
+
+def _session(config):
+    global _CURRENT
+    from .imports import prepare
+    try:
+        prepare(config.rootpath, host=True)
+    except ValueError as error:
+        raise pytest.UsageError(str(error)) from error
+    if not hasattr(config, '_flowguard_intent'):
+        state = config._flowguard_intent = Session(config)
+        state.previous_session, _CURRENT = _CURRENT, state
+        state.import_children()
+        config.add_cleanup(state.close)
+    config._flowguard_intent.guard_process_exit(config)
+    return config._flowguard_intent
+
+
+def pytest_configure(config):
+    config.addinivalue_line('markers', 'rule(ID): this test must actually enter a home of the declared rule')
+    _session(config)
+
+
+def _intent_path(path, config):
+    folder = config._flowguard_intent.cfg.intent
+    return path.suffix == '.py' and not path.name.startswith('_') and path.is_relative_to(folder)
+
+
+def pytest_collect_file(file_path, parent):
+    if _intent_path(file_path, parent.config):
+        # The ordinary Python collector calls our makemodule hook for matching files.
+        patterns = parent.config.getini('python_files')
+        if not parent.session.isinitpath(file_path) and not any(fnmatch.fnmatch(file_path.name, p) for p in patterns):
+            return IntentFile.from_parent(parent, path=file_path)
+
+
+def pytest_pycollect_makemodule(module_path, parent):
+    if _intent_path(module_path, parent.config):
+        return IntentFile.from_parent(parent, path=module_path)
+
+
+class IntentFailure(Exception):
+    pass
+
+
+class IntentFile(pytest.File):
+    def collect(self):
+        state = self.config._flowguard_intent
+        model = state.get_model()
+        rel = model.cfg.rel(self.path)
+        for nodeid in model.declared_items():
+            file, _, name = nodeid.partition('::')
+            if file != rel:
+                continue
+            if name == 'load':
+                kind, rid, target = 'load', None, None
+            else:
+                rid, detail = name.split('[', 1)
+                detail = detail[:-1]
+                target, _, kind = detail.rpartition(':')
+                if not target:
+                    kind, target = detail, None
+                else:
+                    target = next((h.target for h in model.rules[rid].homes if h.short == target), target)
+            yield IntentItem.from_parent(self, name=name, kind=kind, rule_id=rid, target=target)
+
+
+class IntentItem(pytest.Item):
+    def __init__(self, *, kind, rule_id, target, **kwargs):
+        super().__init__(**kwargs)
+        self.kind, self.rule_id, self.target = kind, rule_id, target
+
+    def runtest(self):
+        state = self.config._flowguard_intent
+        model, engine = state.model, state.engine
+        if self.kind == 'load':
+            red = [f"{e['file']}:{e['line']}: {e['msg']}" for e in model.errors if e['file'] == model.cfg.rel(self.path)]
+            result = dict(kind='load', verdict='red', red=red, grey=[], info=[])
+        elif self.kind in ('states', 'structure'):
+            declaration = (model.states if self.kind == 'states' else model.structures)[self.rule_id]
+            result = getattr(engine, 'run_' + self.kind)(declaration)
+        else:
+            rule = model.rules[self.rule_id]
+            if self.kind == 'rules':
+                result = engine.run_rules(rule)
+            elif self.kind == 'distinct':
+                distinct = next(d for d in model.node_distincts(rule.id) if d.short == self.target.replace(':', '.'))
+                result = engine.run_distinct(rule, distinct)
+            else:
+                home = next(h for h in rule.homes if h.target == self.target)
+                result = engine.run_live(rule, home) if self.kind == 'live' else engine.run_home(rule, home, self.kind)
+        state.results[self.nodeid] = dict(result, rule=self.rule_id, target=self.target)
+        if result['verdict'] == 'red':
+            raise IntentFailure('\n'.join(result['red']))
+
+    def repr_failure(self, excinfo):
+        return str(excinfo.value) if isinstance(excinfo.value, IntentFailure) else super().repr_failure(excinfo)
+
+    def reportinfo(self):
+        state = self.config._flowguard_intent
+        model = state.model
+        declaration = model.rules.get(self.rule_id) or model.states.get(self.rule_id) or model.structures.get(self.rule_id)
+        return self.path, max(0, declaration.line - 1) if declaration else 0, self.name
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(config, items):
+    state = config._flowguard_intent
+    state.collected = {i.nodeid for i in items if isinstance(i, IntentItem)}
+    only = config.getoption('--flowguard-rules')
+    if only is None or state.model is None:
+        return
+    requested = {name for name in only.split(',') if name}
+    keys = {r.decides for name, r in state.model.rules.items() if name in requested}
+    requested |= {r.id for r in state.model.rules.values() if r.decides in keys}
+    keep, drop = [], []
+    for item in items:
+        (drop if isinstance(item, IntentItem) and item.rule_id is not None and item.rule_id not in requested else keep).append(item)
+    state.deferred = {item.nodeid for item in drop}
+    if drop:
+        config.hook.pytest_deselected(items=drop)
+        items[:] = keep
+
+
+def pytest_collection_finish(session):
+    state = session.config._flowguard_intent
+    state.selected = {i.nodeid for i in session.items if isinstance(i, IntentItem)}
+    state.ordinary_selected = {i.nodeid for i in session.items if not isinstance(i, IntentItem) and i.name != SENTINEL}
+
+
+def pytest_keyboard_interrupt(excinfo):
+    if _CURRENT is not None and isinstance(excinfo.value, pytest.exit.Exception):
+        _CURRENT.early_exit.append(f'the run was ended early by pytest.exit({excinfo.value.msg!r})')
+
+
+def _missing(state, declared):
+    missing = (declared - state.collected) | (declared - state.selected - state.deferred)
+    if state.deferred:
+        path = state.cfg.cache / 'map.sqlite'
+        cached = set()
+        if path.is_file():
+            with sqlite3.connect(path) as connection:
+                if connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='result'").fetchone():
+                    cached = {row[0] for row in connection.execute('SELECT item FROM result')}
+        missing |= state.deferred - cached
+    return sorted(missing)
+
+
+def sentinel(config):
+    state = getattr(config, '_flowguard_intent', None)
+    if state is None:
+        from .cache import scan
+        from .loader import item_names
+        summary = scan(load_config(config.rootpath))
+        declared = []
+        for rid, rule in summary['rules'].items():
+            nodes = [other for d in summary['distincts'] for side, other in ((d['a'], d['b']), (d['b'], d['a']))
+                     if side == rid and ':' in other]
+            declared.extend(item_names(rid, rule['homes'], nodes, kind=rule['kind']))
+        incomplete = '; static declaration errors also need correction' if summary['errors'] else ''
+        raise AssertionError(f'FlowGuard plugin not loaded: 0 of {len(declared)} intent items; missing '
+                             + ', '.join(declared[:3]) + incomplete + ' -> load -p flowguard.intent.plugin')
+    declared = set(state.get_model().declared_items())
+    missing = _missing(state, declared)
+    state.sentinel = 'failed' if missing else 'ok'
+    if missing:
+        raise AssertionError(f'only {len(declared) - len(missing)} of {len(declared)} intent items collected or reusable; missing ' + ', '.join(missing[:3]) + ' -> run the complete declared collection')
+
+
+def _skip_violation(item, call, report):
+    policy = item.config._flowguard_intent.cfg.skip_policy
+    if (policy == 'forbid' and hasattr(report, 'wasxfail')) or (policy != 'platform' and report.skipped):
+        what = ('is marked as expected to fail' if hasattr(report, 'wasxfail') else 'was skipped') if policy == 'forbid' else 'ended skipped'
+        reason = report.wasxfail if hasattr(report, 'wasxfail') else _skip_reason(report)
+        report.outcome = 'failed'
+        guidance = NO_SKIP if policy == 'forbid' else 'this suite allows no skips: a skip hides why the test could not run'
+        report.longrepr = f'{item.nodeid} {what} ({reason or "no reason given"}); {guidance}'
+        report._flowguard_skip_violation = True
+        if hasattr(report, 'wasxfail'):
+            del report.wasxfail
+        return
+    if not report.skipped:
+        return
+    from _pytest.skipping import evaluate_condition, evaluate_xfail_marks
+    if hasattr(report, 'wasxfail') and evaluate_xfail_marks(item) is not None:
+        return
+    if not hasattr(report, 'wasxfail') and call.when == 'setup':
+        for mark in item.iter_markers('skipif'):
+            conditions = mark.args or ((mark.kwargs['condition'],) if 'condition' in mark.kwargs else ())
+            if not conditions or any(evaluate_condition(item, mark, condition)[0] for condition in conditions):
+                return
+    error = call.excinfo.value if call.excinfo is not None else None
+    hidden = (error.__cause__ or error.__context__) if error is not None else None
+    prefix = f'skip raised while handling {type(hidden).__name__}: {hidden}; ' if hidden is not None else 'skip '
+    report.outcome = 'failed'
+    report.longrepr = prefix + 'not from a skipif or xfail marker; no effective skipif/xfail marker -> fail the test and report the original error'
+    report._flowguard_skip_violation = True
+    if hasattr(report, 'wasxfail'):
+        del report.wasxfail
+
+
+def _skip_reason(report):
+    text = str(report.longrepr[2]) if isinstance(report.longrepr, tuple) else str(report.longrepr)
+    return text.removeprefix('Skipped: ')
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item):
+    state = item.config._flowguard_intent
+    state.last_test = item.nodeid
+    if (isinstance(item, IntentItem) or item.name == SENTINEL
+            or not item.config.getoption('--flowguard-record-tests') and not any(item.iter_markers('rule'))):
+        yield
+        return
+    folder = state.child_folder(item)
+    values = dict(FLOWGUARD_TRACE_ROOT=str(state.cfg.root), FLOWGUARD_TRACE_CHILDREN=str(folder), FLOWGUARD_TRACE_TEST=item.nodeid)
+    previous = {name: os.environ.get(name) for name in values}
+    os.environ.update(values)
+    with Footprint(state.is_project) as footprint:
+        state.footprints[item.nodeid] = footprint
+        try:
+            yield
+        finally:
+            for name, value in previous.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
+    state = item.config._flowguard_intent
+    _skip_violation(item, call, report)
+    state.durations[item.nodeid] = state.durations.get(item.nodeid, 0.0) + report.duration
+    if item.name == SENTINEL and report.when == 'call':
+        state.sentinel = 'ok' if report.passed else 'failed'
+    if isinstance(item, IntentItem) or item.name == SENTINEL:
+        return
+    if report.when == 'call' and report.passed:
+        for marker in item.iter_markers('rule'):
+            entered = set(state.footprints[item.nodeid].keys())
+            entered.update((entry[0], entry[1]) for child in state.child_records(item) for entry in child['entered'])
+            model = state.get_model()
+            rid = marker.args[0] if marker.args else ''
+            rule = model.rules.get(rid)
+            homes = [state.engine.home_sites(h.target)[0] for h in rule.homes] if rule else []
+            from .sites import unwrap
+            if not any((code.co_filename, code.co_firstlineno) in entered for fn in homes if fn is not None and (code := getattr(unwrap(fn), '__code__', None))):
+                report.outcome = 'failed'
+                report.longrepr = f'marked but never enters {rid}: no declared home ran -> call the real home or correct the marker'
+    if report.failed or report.skipped or report.when == 'call':
+        captured = '\n'.join(str(text) for _, text in getattr(report, 'sections', []))
+        if getattr(report, '_flowguard_skip_violation', False):
+            kind, reason = 'code', ('unguarded skip' if state.cfg.skip_policy == 'platform' else 'forbidden test outcome')
+        else:
+            kind, reason = classify(call.when, call.excinfo, state.cfg, text=str(report.longrepr or '') + captured,
+                                    children=state.child_records(item)) if report.failed else ('', '')
+        state.readings[item.nodeid] = dict(outcome=report.outcome, kind=kind, reason=reason, phase=call.when, seconds=state.durations[item.nodeid])
+    elif item.nodeid in state.readings:
+        state.readings[item.nodeid]['seconds'] = state.durations[item.nodeid]
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_make_collect_report(collector):
+    outcome = yield
+    report = outcome.get_result()
+    violation = report.skipped
+    if violation:
+        call = getattr(report, 'call', None)
+        error = call.excinfo.value if call is not None and call.excinfo is not None else None
+        hidden = (error.__cause__ or error.__context__) if error is not None else None
+        cause = f' while handling {type(hidden).__name__}: {hidden}' if hidden is not None else ''
+        report.outcome = 'failed'
+        policy = collector.config._flowguard_intent.cfg.skip_policy
+        if policy != 'platform':
+            guidance = NO_SKIP if policy == 'forbid' else 'this suite allows no skips: a skip hides why the tests could not run'
+            report.longrepr = f'{report.nodeid} was skipped while it was collected ({_skip_reason(report)}); {guidance}'
+        else:
+            report.longrepr = (f'{report.nodeid} skipped while collected, not from a skipif or xfail marker; '
+                               f'collection skip{cause}: {report.longrepr!s} -> report the missing dependency or original error; do not skip collection')
+    if report.failed:
+        state = collector.config._flowguard_intent
+        kind, reason = ('code', 'unguarded collection skip') if violation else classify_collection(str(report.longrepr), state.cfg)
+        state.readings[report.nodeid] = dict(outcome='failed', kind=kind, reason=reason, phase='collect', seconds=0.0)
+
+
+def _meta(con, name, value):
+    con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', (name, _json(value)))
+
+
+def _save_readings(con, state):
+    from .cache import save_trace_signatures
+    unrecorded = state.readings.keys() - state.footprints.keys()
+    con.executemany('DELETE FROM footprint WHERE test=?', [(test,) for test in unrecorded])
+    for file in (test for test in unrecorded if '::' not in test):
+        prefix = file + '::'
+        con.execute('DELETE FROM footprint WHERE substr(test,1,?)=?', (len(prefix), prefix))
+    save_trace_signatures(con, {}, drop=unrecorded)
+    con.executemany('INSERT OR REPLACE INTO reading VALUES(?,?,?,?,?,?,?)',
+                    [(test, r['outcome'], r['kind'], r['reason'], r['phase'], r['seconds'], state.started)
+                     for test, r in state.readings.items()])
+
+
+def _completion_policy(session, state, declared):
+    if session.exitstatus != pytest.ExitCode.OK:
+        return
+    options = session.config.option
+    recording = session.config.getoption('--flowguard-record-tests')
+    if not recording and (options.collectonly or getattr(options, 'setuponly', False) or getattr(options, 'setupplan', False)):
+        return
+    strict = state.cfg.skip_policy == 'forbid'
+    if not strict and not recording:
+        return
+    problems = list(state.early_exit) if strict or recording else []
+    failed = sorted(test for test, reading in state.readings.items() if reading['outcome'] == 'failed')
+    if failed:
+        problems.append(f'{len(failed)} test(s) failed ({", ".join(failed[:3])})')
+    missing = sorted(state.ordinary_selected - state.readings.keys())
+    if missing:
+        problems.append(f'{len(missing)} collected test(s) never ran ({", ".join(missing[:3])})')
+    if recording and declared:
+        if state.sentinel != 'ok':
+            problems.append('the intent sentinel did not execute successfully')
+        if state.selected - state.results.keys():
+            problems.append('selected intent items never ran')
+    if problems:
+        reason = '; '.join(problems)
+        guidance = NO_SKIP if strict else 'selected tests did not finish; do not report this check as passed'
+        print('\nFlowGuard: ' + reason + '; ' + guidance, file=sys.stderr)
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+        state.session_errors = problems
+        failed = set(missing)
+        if state.early_exit and state.last_test in state.ordinary_selected:
+            failed.add(state.last_test)
+        for test in failed:
+            state.readings[test] = dict(outcome='failed', kind='code', reason=reason, phase='run', seconds=state.durations.get(test, 0.0))
+
+
+def pytest_sessionfinish(session, exitstatus):
+    state = session.config._flowguard_intent
+    model = state.get_model()
+    declared = set(model.declared_items())
+    _completion_policy(session, state, declared)
+    exitstatus = session.exitstatus
+    missing = _missing(state, declared)
+    attempt = dict(declared=len(declared), collected=len(state.collected), selected=len(state.selected),
+                   deferred=len(state.deferred), missing=missing, sentinel=state.sentinel, exit=int(exitstatus),
+                   errors=state.session_errors, stamp=state.started)
+    if not declared and not state.footprints:
+        # Standalone pytest does not build a map, but must retire old traces
+        # for a test it ran without recording. Never refresh them by implication.
+        path = state.cfg.cache / 'map.sqlite'
+        if path.is_file() and state.readings:
+            with closing(sqlite3.connect(path, timeout=30)) as con:
+                con.executescript(SCHEMA)
+                with con:
+                    con.execute('BEGIN IMMEDIATE')
+                    _meta(con, 'intent_attempt', attempt)
+                    _save_readings(con, state)
+        return
+    with closing(state.get_map()) as mapping:
+        con = mapping.con
+        con.executescript(SCHEMA)
+        if 'call_lines' not in {row[1] for row in con.execute('PRAGMA table_info(footprint)')}:
+            con.execute('ALTER TABLE footprint ADD COLUMN call_lines TEXT')
+        con.execute('BEGIN IMMEDIATE')
+        _meta(con, 'intent_attempt', attempt)
+        if not missing and state.sentinel == 'ok' and not state.session_errors:
+            _meta(con, 'intent_collection', attempt)
+            for rid, rule in model.rules.items():
+                required = {model.file_of[rid] + '::' + name for name in model.items_of(rule)}
+                if required <= state.results.keys():
+                    parts = [state.results[item] for item in required]
+                    owner = model.file_of[rid] + '::' + rid + '[rules]'
+                    state.results[owner]['own_contract'] = state.engine.contract_summary(rule, parts=parts)
+            for item, result in state.results.items():
+                con.execute('INSERT OR REPLACE INTO result VALUES(?,?,?,?,?)', (item, result['rule'], result['verdict'], _json(result), state.started))
+            from .deps import record
+            from .cache import save_dependencies
+            fresh = {result['rule'] for result in state.results.values() if result['rule'] is not None}
+            records = {}
+            for rid in fresh:
+                declaration = model.rules.get(rid) or model.states.get(rid) or model.structures.get(rid)
+                records[rid] = record(state.cfg, model, declaration,
+                                      [r for r in state.results.values() if r['rule'] == rid], mapping)
+            save_dependencies(con, records)
+        _save_readings(con, state)
+        # Maps provide the sole fingerprint owner. Missing dynamic functions stay explicitly unmapped.
+        nodes = {(row['file'], row['qual']): row for row in mapping.nodes()}
+        @cache
+        def relative(filename):
+            return state.cfg.rel(filename)
+
+        @cache
+        def node_of(entry):
+            filename, line, qual = entry
+            rel = relative(filename)
+            owner_qual = '' if qual == '<module>' else qual.replace('.<locals>.', '.')
+            node = nodes.get((rel, owner_qual))
+            return rel, node, node['id'] if node else f'{rel}:{qual}'
+
+        observed, rows = set(), []
+        for test, footprint in state.footprints.items():
+            con.execute('DELETE FROM footprint WHERE test=?', (test,))
+            entries = [('parent', footprint.entered, footprint.edges, footprint.call_lines)]
+            entries += [('child', child['entered'], child['edges'], child.get('call_lines', [])) for child in state.child_records(test)]
+            for origin, entered, edges, call_lines in entries:
+                grouped = {}
+                for target, file, line in call_lines:
+                    grouped.setdefault(tuple(target), set()).add((relative(file), line))
+                for entry in entered:
+                    entry = tuple(entry)
+                    rel, node, ident = node_of(entry)
+                    rows.append((test, ident, node['fp'] if node else '', rel, entry[1], entry[2], origin, _json(sorted(grouped.get(entry, [])))))
+                for a, b in edges:
+                    first, second = node_of(tuple(a)), node_of(tuple(b))
+                    if first[1] and second[1]:
+                        observed.add((first[2], second[2]))
+        con.executemany('INSERT OR REPLACE INTO footprint VALUES(?,?,?,?,?,?,?,?)', rows)
+        from .deps import trace_signatures
+        from .cache import save_trace_signatures
+        save_trace_signatures(con, trace_signatures(state.cfg, mapping, state.footprints))
+        mapping.add_observed(observed)

@@ -4,32 +4,30 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowguard"
-version = "1.4.0"
-description = "Small executable feature models connected to real code, tests and original owner words."
+version = "2.0.0"
+description = "Find existing decisions and check necessary copies against one executable rule."
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["pytest>=8.0"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "setuptools>=61"]
+dev = ["setuptools>=61", "wheel"]
 
 [project.scripts]
 flowguard = "flowguard.__main__:main"
 
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.packages.find]
-# Unpassed stage code stays in the repository, outside the installed package.
 include = ["flowguard*"]
-exclude = ["flowguard._next", "flowguard._next.*"]
-
-# Files of the flow-model engine that are not Python: the picture renderer, the vendored Mermaid
-# with its licence, and the one-page guide to writing flow models.
-[tool.setuptools.package-data]
-"flowguard.flow" = ["HOWTO.md", "render.js", "vendor/mermaid.min.js", "vendor/MERMAID-LICENSE"]
-
-# A file list left by an earlier editable install would otherwise ship their sources as package data.
-[tool.setuptools.exclude-package-data]
-flowguard = ["_next/*"]
+exclude = ["flowguard.flow", "flowguard.flow.*", "flowguard.native", "flowguard.native.*",
+           "flowguard.behave", "flowguard.behave.*", "flowguard._next", "flowguard._next.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 norecursedirs = ["build", "work", "worktrees"]
+addopts = "-p flowguard.intent.plugin"
+
+[tool.flowguard]
+authority_docs = ["docs/intent-contracts.md"]

@@ -130,17 +130,17 @@ def test_request_after_git_init_is_checked_against_its_first_commit(tmp_path, ca
     assert code == 2 and 'request_exists' in errors
     assert not body.exists() and (not meta.exists())
 
-def test_unclaimed_owner_words_are_listed_by_status(tmp_path, capsys):
+def test_unclaimed_owner_words_are_listed_by_req_list(tmp_path, capsys):
     root = _project(tmp_path / 'project', capsys)
     source = tmp_path / 'owner.md'
     source.write_bytes(b'Keep an unclaimed request visible.\n')
     for identifier in ('R5', 'R7'):
         assert _call(root, capsys, 'req', 'add', str(source), '--id', identifier)[0] == 0
-    code, output, errors = _call(root, capsys, 'status')
+    code, output, errors = _call(root, capsys, 'req', 'list')
     assert code == 0 and (not errors)
     rows = [line.split()[0] for line in output.splitlines() if line.startswith('  R')]
     assert rows == ['R7', 'R5'], output
-    code, output, errors = _call(root, capsys, 'where', 'R5')
+    code, output, errors = _call(root, capsys, 'show', 'R5')
     assert code == 0 and (not errors) and ('requests:' not in output)
     assert not (root / '.flowguard/requests/index.json').exists()
 

@@ -17,7 +17,6 @@ def _committed_shelf_project(tmp_path):
     return root
 
 def test_a_missing_base_tree_stops_the_origin_reader_instead_of_reading_no_file(tmp_path):
-    from flowguard.map.textrules import _blame
     root = _committed_shelf_project(tmp_path)
     assert git_blob(root, 'HEAD', 'shelf/absent.py') is None and git_blob(root, ':', 'shelf/absent.py') is None
     tree = _git(root, 'rev-parse', 'HEAD:shelf').decode().strip()
@@ -27,7 +26,7 @@ def test_a_missing_base_tree_stops_the_origin_reader_instead_of_reading_no_file(
     tree_object.unlink()
     loans = root / 'shelf/loans.py'
     assert git_blob(root, ':', 'shelf/catalog.py') is not None
-    for read in (lambda: git_blob(root, 'HEAD', 'shelf/loans.py'), lambda: git_blob(root, 'HEAD', 'shelf/absent.py'), lambda: _blame(root, 'shelf/loans.py', None, loans.read_bytes())):
+    for read in (lambda: git_blob(root, 'HEAD', 'shelf/loans.py'), lambda: git_blob(root, 'HEAD', 'shelf/absent.py')):
         with pytest.raises(MapError, match=tree):
             read()
 
@@ -39,7 +38,7 @@ def test_a_repository_git_cannot_give_a_work_tree_is_an_error_not_a_folder_witho
     with pytest.raises(MapError, match='must be run in a work tree'):
         git_common_directory(root)
     capsys.readouterr()
-    assert main(['status', '--root', str(root)]) == 2
+    assert main(['req', 'list', '--root', str(root)]) == 2
     assert 'must be run in a work tree' in capsys.readouterr().err
 
 @pytest.mark.skipif(os.name == 'nt', reason='a POSIX shell script stands in for a failing git')

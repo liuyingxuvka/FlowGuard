@@ -61,39 +61,6 @@ def historical_change(root,*,identifier='20261101-0000-abcdef',links=(),goal='Hi
     return Path(root)/relative
 
 
-def injected_project(root,*,service=None,cli=None):
-    root=Path(root)
-    files={'notes/__init__.py':'','notes/store.py':_INJECTED_STORE,
-           'notes/service.py':_INJECTED_SERVICE if service is None else service}
-    if cli is not None:
-        files['notes/cli.py']=cli
-    for relative,text in files.items():
-        write(root,relative,text)
-    return root
-
-
-def resolution_case(root,files,caller,callee,*,import_roots=(),private=True):
-    from flowguard.map.discover import discover_inventory
-    from flowguard.map.inventory import build_inventory
-    for relative,text in files.items():
-        write(root,relative,text)
-    inv=build_inventory(root,[],write_cache=False,import_roots=import_roots)
-    raw=discover_inventory(root,inv,write_cache=False)
-    assert callee in raw['edges'].get(caller,[]),raw['edges']
-    if caller.partition('#')[0]!=callee.partition('#')[0]:
-        assert callee.partition('#')[0] in inv.file_deps[caller.partition('#')[0]]
-    return inv,raw
-
-
-def write_discovery_project(root):
-    for relative,text in {'notes/__init__.py':'','notes/app.py':APP,'notes/store.py':STORE,'notes/cli.py':CLI}.items():
-        write(root,relative,text)
-
-APP = '\nimport requests\nfrom notes.store import NoteStore\n\nclass App:\n    def __init__(self):\n        self.routes = {}\n    def route(self, path, methods=None):\n        def wrap(fn):\n            self.routes[path] = fn\n            return fn\n        return wrap\n\napp = App()\nstore = NoteStore("notes.db")\n\n@app.route("/notes", methods=["POST"])\ndef create_note(body):\n    store.add(body)\n    requests.post("https://hooks.example/notes", json=body)\n\n@app.route("/notes")\ndef list_notes():\n    return store.all()\n\ndef tally(items):\n    requests = []\n    requests.append(len(items))\n    return requests\n'
-
-STORE = '\nimport sqlite3\n\nclass NoteStore:\n    def __init__(self, path):\n        self.conn = sqlite3.connect(path)\n        self.count = 0\n    def add(self, body):\n        cur = self.conn.cursor()\n        cur.execute("insert into notes values (?)", (body,))\n        self.count += 1\n    def all(self):\n        return self.conn.cursor().execute("select * from notes").fetchall()\n'
-
-CLI = '\nimport argparse\nimport shutil\n\ndef main(argv=None):\n    p = argparse.ArgumentParser()\n    sub = p.add_subparsers(dest="cmd")\n    sub.add_parser("backup")\n    if p.parse_args(argv).cmd == "backup":\n        shutil.copy("notes.db", "notes.bak")\n\n\n\nif __name__ == "__main__":\n    main()\n'
 
 _INJECTED_STORE = 'import json\n\n\nclass NoteStore:\n    def __init__(self, path):\n        self.path = path\n        self.notes = {}\n\n    def save(self, note_id, text):\n        self.notes[note_id] = text\n        with open(self.path, "w") as handle:\n            json.dump(self.notes, handle)\n\n    def delete(self, note_id):\n        self.notes.pop(note_id, None)\n        with open(self.path, "w") as handle:\n            json.dump(self.notes, handle)\n'
 

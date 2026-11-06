@@ -1,7 +1,6 @@
 """Python syntax facts used by reverse discovery."""
 from __future__ import annotations
 import ast
-from collections import defaultdict
 
 ROUTE_LEAVES = {"route", "get", "post", "put", "delete", "patch", "head", "options", "websocket", "api_route"}
 CLI_LEAVES = {"command", "group"}
@@ -23,8 +22,6 @@ EXIT_CALLS = {"sys.exit", "os._exit", "exit", "quit", "abort"}
 DYNAMIC = {"eval", "exec", "getattr", "setattr", "__import__", "importlib.import_module", "import_module",
            "entry_points", "load_entry_point"}
 NETWORK_ROOTS = {"requests", "httpx", "urllib", "aiohttp", "socket", "http", "smtplib", "boto3"}
-MUTATORS = {"append", "extend", "insert", "pop", "remove", "clear", "update", "add", "discard", "setdefault"}
-
 def _name(node: ast.AST | None) -> str:
     if isinstance(node, ast.Name):
         return node.id
@@ -89,32 +86,17 @@ def _effect_kind(call: ast.Call, name: str, imports: dict[str, str] | None = Non
     return ""
 
 class _FileVisitor(ast.NodeVisitor):
+    """Only facts consumed by the map: lexical imports, real calls/effects and constructor bindings."""
     def __init__(self, module: str, package: str) -> None:
         self.module, self.package = module, package
-        self.scope: list[str] = []
-        self.classes: list[str] = []
-        self.functions: dict[str, dict] = {}
-        self.imports: dict[str, str] = {}          # bound name -> "module" or "module:symbol"
-        self.entrypoints: list[dict] = []
-        self.state: dict[str, set[str]] = defaultdict(set)
-        self.main_calls: list[str] = []
-        self.instances: dict[str, str] = {}       # "scope|var" -> constructor call name ("Cls" / "mod.Cls")
-        self.injected: dict[str, str] = {}        # "Cls|self.attr" -> the __init__ parameter assigned to it
-        self.annotations: dict[str, str] = {}     # "Cls|self.attr" -> class-body annotation name
-        self.references: list[dict] = []
-        self.source_constants: dict[str, dict] = {}
-        self.assignment_values: dict[tuple[str, str], ast.AST] = {}
-        self.parser_commands: dict[tuple[str, str], dict] = {}
-        self.parser_destinations: dict[tuple[str, str], str] = {}
-        self.parsed_arguments: set[tuple[str, str]] = set()
-        self.command_bindings: list[dict] = []
-        self.augmented_reads: set[int] = set()
+        self.scope, self.classes = [], []
+        self.functions, self.imports, self.instances, self.annotations = {}, {}, {}, {}
+        self.entrypoints, self.injected = [], {}
 
-    # ---- scope bookkeeping -------------------------------------------------
-    def _symbol(self) -> str:
-        return ".".join(self.scope) or "<module>"
+    def _symbol(self):
+        return '.'.join(self.scope) or '<module>'
 
-    def _fn(self) -> dict | None:
+    def _fn(self):
         return self.functions.get(self._symbol()) if self.scope else None
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
@@ -123,19 +105,17 @@ class _FileVisitor(ast.NodeVisitor):
         self.generic_visit(node)
         self.scope.pop()
 
-    def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+
+    def _visit_function(self, node):
         self.scope.append(node.name)
         symbol = self._symbol()
-        owner_class = ".".join(self.scope[:-1]) if ".".join(self.scope[:-1]) in self.classes else ""
-        self.functions[symbol] = {"line": node.lineno, "class": owner_class, "calls": set(), "effects": [],
-                                  "raises": set(), "dynamic": set(), "writes": set(), "locals": set(), "local_imports": {},
-                                  "deep_writes": set(), "direct_writes": set(), "attr_writes": [], "ctor_calls": [],
-                                  "reads": set(), "read_sites": [], "file_targets": [], "end_line": node.end_lineno}
-        self.augmented_reads.update(id(item.target) for item in ast.walk(node) if isinstance(item, ast.AugAssign))
-        if owner_class and node.name == "__init__":
+        owner_class = '.'.join(self.scope[:-1]) if '.'.join(self.scope[:-1]) in self.classes else ''
+        self.functions[symbol] = {'line': node.lineno, 'class': owner_class, 'calls': set(), 'effects': [],
+                                  'raises': set(), 'locals': set(), 'local_imports': {}, 'ctor_calls': [], 'end_line': node.end_lineno}
+        if owner_class and node.name == '__init__':
             arguments = [*node.args.posonlyargs, *node.args.args][1:] + list(node.args.kwonlyargs)
-            self.functions[symbol]["params"] = [argument.arg for argument in arguments]
-            self.functions[symbol]["annotations"] = {
+            self.functions[symbol]['params'] = [argument.arg for argument in arguments]
+            self.functions[symbol]['annotations'] = {
                 argument.arg: name for argument in arguments if (name := _annotation_class(argument.annotation))}
         for deco in node.decorator_list:
             self._decorator_entrypoint(deco, symbol, node)
@@ -144,95 +124,6 @@ class _FileVisitor(ast.NodeVisitor):
         self.scope.pop()
 
     visit_FunctionDef = visit_AsyncFunctionDef = _visit_function
-
-    def _reference(self, node, raw):
-        name = raw
-        function = self._fn()
-        if function and raw.startswith("self.") and function["class"]:
-            name = function["class"] + raw[4:]
-        else:
-            root, dot, suffix = raw.partition(".")
-            imports = {**self.imports, **(function["local_imports"] if function else {})}
-            if root in imports and (not function or root not in function["locals"]):
-                name = imports[root].replace(":", ".") + (dot + suffix if dot else "")
-        row = {"name": name, "raw": raw, "symbol": self._symbol(), "line": node.lineno,
-               "kind": "attribute" if isinstance(node, ast.Attribute) else "name"}
-        self.references.append(row)
-        if function is not None:
-            function["reads"].add(name)
-            function["read_sites"].append(row)
-
-    def visit_Name(self, node: ast.Name) -> None:
-        if isinstance(node.ctx, ast.Load) or id(node) in self.augmented_reads:
-            self._reference(node, node.id)
-
-    def visit_Attribute(self, node: ast.Attribute) -> None:
-        if isinstance(node.ctx, ast.Load) or id(node) in self.augmented_reads:
-            self._reference(node, _name(node))
-        self.generic_visit(node)
-
-    def _binding(self, bindings, name):
-        parts = self.scope
-        for depth in range(len(parts), -1, -1):
-            value = bindings.get((".".join(parts[:depth]) or "<module>", name))
-            if value is not None:
-                return value
-        return None
-
-    def _destination(self, value, seen=()):
-        """Literal path composition only; arbitrary calls remain unresolved."""
-        if isinstance(value, ast.Constant) and isinstance(value.value, str):
-            parts = value.value.replace("\\", "/").rstrip("/").split("/")
-            return value.value, parts[-1] if parts else None, []
-        name = _name(value) if isinstance(value, (ast.Name, ast.Attribute)) else ""
-        if name and name not in seen:
-            bound = self._binding(self.assignment_values, name)
-            if bound is not None:
-                literal, last, constants = self._destination(bound, (*seen, name))
-                return literal, last, [name, *constants]
-        if isinstance(value, ast.BinOp) and isinstance(value.op, ast.Div):
-            left, _, left_names = self._destination(value.left, seen)
-            right, last, right_names = self._destination(value.right, seen)
-            return ((left.rstrip("/\\") + "/" + right) if left is not None and right is not None else None,
-                    last, [*left_names, *right_names])
-        if isinstance(value, ast.Call):
-            called = _name(value.func)
-            function = self._fn()
-            imports = {**self.imports, **(function["local_imports"] if function else {})}
-            root, dot, tail = called.partition(".")
-            canonical = imports.get(root, root).replace(":", ".") + (dot + tail if dot else "")
-            if canonical in {"pathlib.Path", "pathlib.PosixPath", "pathlib.WindowsPath", "os.path.join", "posixpath.join", "ntpath.join"}:
-                pieces = [self._destination(argument, seen) for argument in value.args]
-                literal = pieces[0][0] if pieces and all(piece[0] is not None for piece in pieces) else None
-                if literal is not None:
-                    for piece in pieces[1:]:
-                        literal = piece[0] if piece[0].startswith("/") else literal.rstrip("/\\") + "/" + piece[0]
-                return literal, pieces[-1][1] if pieces else None, [name for piece in pieces for name in piece[2]]
-        return None, None, []
-
-    def _call_target(self, value):
-        target, seen = _name(value), set()
-        while target and target not in seen:
-            seen.add(target)
-            bound = self._binding(self.assignment_values, target)
-            if not isinstance(bound, (ast.Name, ast.Attribute)):
-                break
-            target = _name(bound)
-        return target
-
-    def _parser_binding(self, value):
-        if isinstance(value, ast.Name):
-            return self._binding(self.parser_commands, value.id)
-        if isinstance(value, ast.Call) and _name(value.func).rsplit(".", 1)[-1] == "add_parser":
-            command = _str_arg(value)
-            receiver = _name(value.func).rsplit(".", 1)[0]
-            selector = self._binding(self.parser_destinations, receiver)
-            if isinstance(value.func, ast.Attribute) and isinstance(value.func.value, ast.Call):
-                selector = _str_arg(value.func.value, 0, "dest") or selector
-            return {"command": command, "selector": selector, "line": value.lineno,
-                    "parser_symbol": self._symbol(), "parser_line": value.lineno,
-                    "parser_column": value.col_offset} if command else None
-        return None
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         cls = ".".join(self.scope)
@@ -249,11 +140,9 @@ class _FileVisitor(ast.NodeVisitor):
             self.visit_Assign(ast.Assign(targets=[node.target], value=node.value, lineno=node.lineno,
                                          col_offset=node.col_offset))
         else:
-            if node.value is not None:
-                self._bind_assignment(node.target, node.value, node.lineno)
             self.generic_visit(node)
 
-    # ---- entrypoints -------------------------------------------------------
+
     def _decorator_entrypoint(self, deco: ast.AST, symbol: str, fn: ast.AST) -> None:
         name = _name(deco)
         leaf = name.rsplit(".", 1)[-1]
@@ -264,50 +153,13 @@ class _FileVisitor(ast.NodeVisitor):
                 methods = ["GET"] if leaf == "route" else [leaf.upper()]
             self.entrypoints.append({"kind": "http_route", "name": f"{','.join(methods)} {_str_arg(call)}",
                                      "symbol": symbol, "line": fn.lineno, "via": name})
-        elif leaf in CLI_LEAVES and "." in name:
-            cli_name = (_str_arg(call, 0, "name") if call is not None else "") or symbol.rsplit(".", 1)[-1].replace("_", "-")
-            self.entrypoints.append({"kind": "cli_command", "name": cli_name, "symbol": symbol, "line": fn.lineno, "via": name})
-        elif leaf in HANDLER_LEAVES and "." in name:
-            self.entrypoints.append({"kind": "handler", "name": name, "symbol": symbol, "line": fn.lineno, "via": name})
 
-    def visit_If(self, node: ast.If) -> None:
-        test = node.test
-        if (isinstance(test, ast.Compare) and isinstance(test.left, ast.Name) and test.left.id == "__name__"
-                and any(isinstance(c, ast.Constant) and c.value == "__main__" for c in test.comparators)):
-            for sub in ast.walk(node):
-                if isinstance(sub, ast.Call):
-                    self.main_calls.append(_name(sub.func))
-            self.entrypoints.append({"kind": "main_guard", "name": "__main__", "symbol": "<module>", "line": node.lineno, "via": ""})
-        if self._fn() is not None:
-            def calls(value):
-                if isinstance(value, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
-                    return
-                if isinstance(value, ast.Call):
-                    yield value
-                for child in ast.iter_child_nodes(value):
-                    yield from calls(child)
-            for condition in ast.walk(test):
-                if not isinstance(condition, ast.Compare) or len(condition.ops) != 1 or not isinstance(condition.ops[0], ast.Eq):
-                    continue
-                left, right = condition.left, condition.comparators[0]
-                if isinstance(left, ast.Constant):
-                    left, right = right, left
-                if (not isinstance(right, ast.Constant) or not isinstance(right.value, str)
-                        or not isinstance(left, ast.Attribute) or not isinstance(left.value, ast.Name)
-                        or (self._symbol(), left.value.id) not in self.parsed_arguments):
-                    continue
-                for statement in node.body:
-                    for call in calls(statement):
-                        self.command_bindings.append({"command": right.value, "selector": left.attr,
-                                                      "target": self._call_target(call.func), "symbol": self._symbol(),
-                                                      "line": call.lineno, "via": "dispatch"})
-        self.generic_visit(node)
 
-    # ---- imports -----------------------------------------------------------
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
             bindings = self._fn()["local_imports"] if self._fn() is not None else self.imports
             bindings[alias.asname or alias.name.split(".")[0]] = alias.name if alias.asname else alias.name.split(".")[0]
+
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if node.level:
@@ -321,72 +173,33 @@ class _FileVisitor(ast.NodeVisitor):
                 bindings = self._fn()["local_imports"] if self._fn() is not None else self.imports
                 bindings[alias.asname or alias.name] = f"{base}:{alias.name}"
 
-    # ---- facts -------------------------------------------------------------
-    def visit_Call(self, node: ast.Call) -> None:
+
+    def visit_Call(self, node):
         name = _name(node.func)
         fn = self._fn()
-        leaf = name.rsplit(".", 1)[-1]
-        if leaf == "add_parser" and _str_arg(node):
-            binding = self._parser_binding(node) or {}
-            self.entrypoints.append({"kind": "cli_command", "name": _str_arg(node), "symbol": self._symbol(),
-                                     "line": node.lineno, "via": "argparse", "builder": self._symbol(),
-                                     "selector": binding.get("selector"), "parser_symbol": binding.get("parser_symbol"),
-                                     "parser_line": binding.get("parser_line"), "parser_column": binding.get("parser_column")})
-        if leaf == "set_defaults" and isinstance(node.func, ast.Attribute):
-            binding = self._parser_binding(node.func.value)
-            if binding:
-                for keyword in node.keywords:
-                    if isinstance(keyword.value, (ast.Name, ast.Attribute)):
-                        self.command_bindings.append({**binding, "target": self._call_target(keyword.value),
-                                                      "symbol": self._symbol(), "line": node.lineno,
-                                                      "via": "set_defaults", "parameter": keyword.arg})
-        if leaf == "add_url_rule" and _str_arg(node).startswith("/"):
-            self.entrypoints.append({"kind": "http_route", "name": _str_arg(node), "symbol": self._symbol(),
-                                     "line": node.lineno, "via": name})
-        if (leaf in {"path", "re_path"} and len(node.args) >= 2 and isinstance(node.args[0], ast.Constant)
+        leaf = name.rsplit('.', 1)[-1]
+        if leaf == 'add_url_rule' and _str_arg(node).startswith('/'):
+            self.entrypoints.append({'kind': 'http_route', 'name': _str_arg(node), 'symbol': self._symbol(),
+                                     'line': node.lineno, 'via': name})
+        if (leaf in {'path', 're_path'} and len(node.args) >= 2 and isinstance(node.args[0], ast.Constant)
                 and isinstance(node.args[0].value, str) and not self.scope):
-            self.entrypoints.append({"kind": "http_route", "name": "/" + _str_arg(node).lstrip("/"),
-                                     "symbol": _name(node.args[1]) or "<view>", "line": node.lineno, "via": name})
+            self.entrypoints.append({'kind': 'http_route', 'name': '/' + _str_arg(node).lstrip('/'),
+                                     'symbol': _name(node.args[1]) or '<view>', 'line': node.lineno, 'via': name})
         if fn is not None and name and leaf[:1].isupper():
             arguments = [[index, self._argument_class(arg)] for index, arg in enumerate(node.args)]
             arguments += [[keyword.arg, self._argument_class(keyword.value)] for keyword in node.keywords if keyword.arg]
             if arguments:
-                fn["ctor_calls"].append([name, arguments])
+                fn['ctor_calls'].append([name, arguments])
         if fn is not None and name:
-            parts = name.split(".")
-            if len(parts) == 4 and parts[0] == "self" and parts[3] in MUTATORS and fn["class"]:
-                fn["attr_writes"].append([parts[1], parts[2], node.lineno])
-            fn["calls"].add(name)
-            # Named function arguments are conservative may-call edges; unresolved values stay outside the graph.
-            fn["calls"].update(_name(arg) for arg in [*node.args, *(kw.value for kw in node.keywords)]
+            fn['calls'].add(name)
+            fn['calls'].update(_name(arg) for arg in [*node.args, *(kw.value for kw in node.keywords)]
                                if isinstance(arg, (ast.Name, ast.Attribute)))
-            root_name = name.split(".", 1)[0]
-            imports = {**self.imports, **fn["local_imports"]} if root_name not in fn["locals"] else {}
-            ctor = self.instances.get(f"{self._symbol()}|{root_name}", "") or self.instances.get(f"|{root_name}", "")
-            ctor = ctor if _imported_root(ctor, {**self.imports, **fn["local_imports"]}) in NETWORK_ROOTS else ""
-            kind = _effect_kind(node, name, imports, ctor)
-            if kind:
-                fn["effects"].append([kind, name, node.lineno])
-            bound = imports.get(root_name, root_name).replace(":", ".")
-            canonical = bound + name[len(root_name):]
-            module_file_call = canonical.startswith(("os.", "shutil.")) or canonical in {"io.open", "builtins.open"} or name == "open"
-            writing_open = (leaf == "open" and isinstance(node.func, ast.Attribute) and not module_file_call
-                            and any(char in _str_arg(node, 0, "mode") for char in "wax+"))
-            if kind == "fs_write" or writing_open:
-                if leaf in {"copy", "copy2", "copyfile", "copytree", "move", "rename", "replace"}:
-                    index = 1 if module_file_call else 0
-                    destination = node.args[index] if len(node.args) > index else next((kw.value for kw in node.keywords if kw.arg in {"dst", "target"}), None)
-                elif module_file_call:
-                    destination = node.args[0] if node.args else next((kw.value for kw in node.keywords if kw.arg in {"file", "path"}), None)
-                else:
-                    destination = node.func.value if isinstance(node.func, ast.Attribute) else None
-                literal, last, constants = self._destination(destination)
-                fn["file_targets"].append({"call": name, "line": node.lineno,
-                                           "expression": ast.unparse(destination) if destination is not None else "",
-                                           "value": literal, "last_component": last, "constants": sorted(set(constants)),
-                                           "unknown": literal is None})
-            if name in DYNAMIC or leaf in {"import_module", "entry_points"}:
-                fn["dynamic"].add(name)
+            root_name = name.split('.', 1)[0]
+            imports = {**self.imports, **fn['local_imports']} if root_name not in fn['locals'] else {}
+            ctor = self.instances.get(f'{self._symbol()}|{root_name}', '') or self.instances.get(f'|{root_name}', '')
+            ctor = ctor if _imported_root(ctor, {**self.imports, **fn['local_imports']}) in NETWORK_ROOTS else ''
+            if kind := _effect_kind(node, name, imports, ctor):
+                fn['effects'].append([kind, name, node.lineno])
         self.generic_visit(node)
 
     def _argument_class(self, value: ast.AST) -> str:
@@ -398,7 +211,8 @@ class _FileVisitor(ast.NodeVisitor):
             return self.instances.get(f"{self._symbol()}|{value.id}", "")
         return ""
 
-    def _write_target(self, target: ast.AST) -> None:
+
+    def _write_target(self, target):
         fn = self._fn()
         if fn is None:
             return
@@ -409,64 +223,14 @@ class _FileVisitor(ast.NodeVisitor):
         base = target
         while isinstance(base, ast.Subscript):
             base = base.value
-        name = _name(base)
-        if name.startswith("self.") and fn["class"]:
-            attr = f"{fn['class']}.{name[5:].split('.')[0]}"
-            self.state[attr].add(self._symbol())
-            fn["writes"].add(attr)
-            parts = name.split(".")
-            if len(parts) >= 3:          # self.attr.field = ...: a write into the object held by attr
-                fn["deep_writes"].add(attr)
-                fn["attr_writes"].append([parts[1], parts[2], getattr(target, "lineno", 0)])
-            else:
-                fn["direct_writes"].add(attr)
-        elif name == "os.environ":
-            fn["effects"].append(["env_write", "os.environ[...]", getattr(target, "lineno", 0)])
-        elif isinstance(target, ast.Subscript) and name and name.split(".")[0] not in fn["locals"]:
-            bound = {**self.imports, **fn["local_imports"]}.get(name.split(".")[0], "")
-            if ":" in bound and "." not in name:
-                fn["writes"].add(f"<import>.{bound}")
-
-    def _bind_assignment(self, target, value, line):
-        target_name = _name(target)
-        if target_name and isinstance(target, (ast.Name, ast.Attribute)):
-            self.assignment_values[(self._symbol(), target_name)] = value
-            if not self._fn() and self.scope:
-                self.assignment_values[("<module>", self._symbol() + "." + target_name)] = value
-            try:
-                literal = ast.literal_eval(value)
-            except (ValueError, TypeError, SyntaxError):
-                literal = object()  # The literal_eval contract: these errors mean "not a literal", a normal answer.
-            identity = (self._symbol() + "." if self.scope else "") + target_name
-            if literal is None or type(literal) in (str, int, float, bool):
-                self.source_constants[identity] = {"value": literal, "line": line, "symbol": self._symbol()}
-            else:
-                self.source_constants.pop(identity, None)
-        if isinstance(target, ast.Name):
-            binding = self._parser_binding(value)
-            if binding:
-                self.parser_commands[(self._symbol(), target.id)] = binding
-            else:
-                self.parser_commands.pop((self._symbol(), target.id), None)
-            if isinstance(value, ast.Call) and _name(value.func).rsplit(".", 1)[-1] == "add_subparsers":
-                destination = _str_arg(value, 0, "dest")
-                if destination:
-                    self.parser_destinations[(self._symbol(), target.id)] = destination
-            else:
-                self.parser_destinations.pop((self._symbol(), target.id), None)
-            if isinstance(value, ast.Call) and _name(value.func).rsplit(".", 1)[-1] == "parse_args":
-                self.parsed_arguments.add((self._symbol(), target.id))
-            else:
-                self.parsed_arguments.discard((self._symbol(), target.id))
-        elif isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
-            self.parsed_arguments.discard((self._symbol(), target.value.id))
+        if _name(base) == 'os.environ':
+            fn['effects'].append(['env_write', 'os.environ[...]', getattr(target, 'lineno', 0)])
 
     def visit_Assign(self, node: ast.Assign) -> None:
         fn = self._fn()
         if fn is not None:
             fn["locals"].update(t.id for t in node.targets if isinstance(t, ast.Name))
         for target in node.targets:
-            self._bind_assignment(target, node.value, node.lineno)
             self._write_target(target)
             ctor = _name(node.value.func) if isinstance(node.value, ast.Call) else ""
             if isinstance(target, ast.Name) and ctor and ctor.rsplit(".", 1)[-1][:1].isupper():
@@ -488,27 +252,24 @@ class _FileVisitor(ast.NodeVisitor):
                 self.instances[key] = assigned if assigned and previous == assigned else "<unresolved>"
         self.generic_visit(node)
 
+
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         self._write_target(node.target)
         self.generic_visit(node)
+
 
     def visit_Delete(self, node: ast.Delete) -> None:
         for target in node.targets:
             self._write_target(target)
         self.generic_visit(node)
 
-    def visit_Global(self, node: ast.Global) -> None:
-        fn = self._fn()
-        if fn is not None:
-            for name in node.names:
-                self.state[f"<module>.{name}"].add(self._symbol())
-                fn["writes"].add(f"<module>.{name}")
 
     def visit_Raise(self, node: ast.Raise) -> None:
         fn = self._fn()
         if fn is not None and node.exc is not None:
             fn["raises"].add(_name(node.exc))
         self.generic_visit(node)
+
 
 def _annotation_class(annotation) -> str:
     """``Cls``, ``"Cls"``, ``mod.Cls``, ``Optional[Cls]`` or ``Cls | None`` -> the class name."""
@@ -527,16 +288,3 @@ def _annotation_class(annotation) -> str:
         return _annotation_class(sides[0]) if len(sides) == 1 else ""
     name = _name(annotation) if isinstance(annotation, (ast.Name, ast.Attribute)) else ""
     return name if name.rsplit(".", 1)[-1][:1].isupper() else ""
-
-def _mutating_method_writes(visitor: _FileVisitor) -> None:
-    """self.items.append(x) mutates state just like self.items = ..."""
-    for symbol, fn in visitor.functions.items():
-        if not fn["class"]:
-            continue
-        for call in fn["calls"]:
-            parts = call.split(".")
-            if len(parts) == 3 and parts[0] == "self" and parts[2] in MUTATORS:
-                attr = f"{fn['class']}.{parts[1]}"
-                visitor.state[attr].add(symbol)
-                fn["writes"].add(attr)
-                fn["deep_writes"].add(attr)

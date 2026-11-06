@@ -1,38 +1,19 @@
-"""Repository inventory: files, Python symbols/imports/duplicate fingerprints, JS imports.
-
-Parse results are cached in .flowguard/cache/inventory.json keyed by
-(content digest, module) plus the parser code and Python version, so an edit
-is seen whatever its size or modification time.  The cache is a speed-up
-only, never authority: deleting .flowguard/cache/ is always safe.
-"""
-
+"""Files, Python import roots and module bindings for the generated structure map."""
 from __future__ import annotations
 
 import ast
-import copy
-import json
 import os
-import re
-import sys
 from functools import lru_cache
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import atomic_write_text, cache_dir, CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_common_directory, git_run, is_test_file, matches_any, norm, normalize_newlines, read_source, sha256_bytes
+from .common import git_common_directory, git_run, norm, read_source
 
 @lru_cache(maxsize=4096)
 def syntax_tree(text):
     """Read-only syntax shared by inventory and test analysis in this process."""
     return ast.parse(text)
 
-
-CACHE_SCHEMA = "flowguard.map.inventory_cache.v5"
-# A parse cache is reused only by the exact parser code that wrote it (upgrades never keep stale parses).
-PARSER_ID = sha256_bytes(Path(__file__).read_bytes() + (Path(__file__).parent / "common.py").read_bytes()
-                         + sys.version.encode())[:16]   # ast results differ between Python versions
-MIN_DUP_NODES = 40   # functions smaller than this many AST nodes are ignored by duplicate detection
-JS_IMPORT = re.compile(r"""(?:import\s[^'"]*?from\s*|import\s*\(\s*|require\s*\(\s*|import\s+)['"](\.{1,2}/[^'"]+)['"]""")
 
 
 @dataclass
@@ -42,38 +23,12 @@ class PyInfo:
     imports: set[str] = field(default_factory=set)   # "a.b" for import, "a:b" for from-import
     loc: int = 0                                     # non-blank, non-comment lines
     parse_error: str = ""
-    bodies: list = field(default_factory=list)       # [symbol, body_hash, node_count]
     lazy_exports: dict[str, str] = field(default_factory=dict)
-    string_literals: set[str] = field(default_factory=set)
-    dynamic_imports: bool = False
     import_lines: dict[str, int] = field(default_factory=dict)
-    import_literals: set[str] = field(default_factory=set)
+    import_reads: dict[str, list[int]] = field(default_factory=dict)
+    literal_dynamic_imports: dict[str, list[int]] = field(default_factory=dict)
+    unknown_dynamic_imports: list[dict] = field(default_factory=list)
 
-
-@dataclass
-class Inventory:
-    root: Path
-    files: list[str]                  # every non-ignored file
-    source: list[str]                 # code plus explicitly registered exact files (includes tests)
-    tests: list[str]                  # source files that look like tests
-    py: dict[str, PyInfo]             # path -> parse result
-    file_deps: dict[str, set[str]]    # path -> repo paths it imports at runtime
-    loc: dict[str, int]
-    explicit_sources: set[str] = field(default_factory=set)
-    dynamic_files: set[str] = field(default_factory=set)
-    mod_to_path: dict[str, str] = field(default_factory=dict)
-    import_roots: tuple[str, ...] = ()
-
-    def set_explicit_sources(self, patterns: list[str]) -> None:
-        self.explicit_sources = {norm(p) for p in patterns if not any(char in p for char in "*?[")}
-        # Exact schema/config/resource paths share the normal owner and freshness
-        # boundary. Globs never broaden the default code inventory. Ignored files
-        # are absent from files, so an explicit path cannot bypass ignore rules.
-        self.source = [f for f in self.files if Path(f).suffix in SOURCE_EXTS or f in self.explicit_sources]
-        self.tests = [f for f in self.source if self.is_test(f)]
-
-    def is_test(self, path: str) -> bool:
-        return path not in self.explicit_sources and is_test_file(path)
 
 
 def list_files(root: Path) -> list[str]:
@@ -90,6 +45,7 @@ def list_files(root: Path) -> list[str]:
     return sorted(found)
 
 
+
 def python_roots(files: list[str]) -> list[str]:
     """Import roots: '' (repo root) plus every parent directory of a top-level package (e.g. 'src')."""
     roots = {""}
@@ -103,14 +59,6 @@ def python_roots(files: list[str]) -> list[str]:
     return sorted(roots, key=len, reverse=True)
 
 
-def module_name(path: str, roots: list[str]) -> str:
-    for root in roots:
-        prefix = f"{root}/" if root else ""
-        if path.startswith(prefix):
-            mod = path[len(prefix):-3].replace("/", ".")
-            return mod[: -len(".__init__")] if mod.endswith(".__init__") else mod
-    return path[:-3].replace("/", ".")
-
 
 def is_type_checking_guard(node: ast.AST) -> bool:
     if not isinstance(node, ast.If):
@@ -120,7 +68,8 @@ def is_type_checking_guard(node: ast.AST) -> bool:
             or isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING")
 
 
-def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = True, data: bytes | None = None) -> PyInfo:
+
+def parse_python(root: Path, path: str, module: str, *, data: bytes | None = None) -> PyInfo:
     """Parse ``data`` when the caller already read the file's bytes, otherwise read them."""
     info = PyInfo(module=module)
     try:
@@ -136,37 +85,6 @@ def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = T
         return info
     package = module if path.endswith("__init__.py") else module.rpartition(".")[0]
 
-    def remember_body(symbol: str, fn: ast.AST) -> None:
-        if not collect_bodies:
-            return
-        body = list(fn.body)
-        if body and isinstance(body[0], ast.Expr) and isinstance(getattr(body[0], "value", None), ast.Constant) \
-                and isinstance(body[0].value.value, str):
-            body = body[1:]                                   # a docstring is not behavior
-        size = sum(1 for stmt in body for _ in ast.walk(stmt))
-        if size >= MIN_DUP_NODES:
-            # Rename only lexical locals. Attributes, constants and global callees
-            # retain their names so different external operations never collapse.
-            local_names = [arg.arg for arg in (*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs)]
-            local_names += [a.arg for a in (fn.args.vararg, fn.args.kwarg) if a]
-            local_names += [n.id for stmt in body for n in ast.walk(stmt)
-                            if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)]
-            globals_ = {name for stmt in body for n in ast.walk(stmt)
-                        if isinstance(n, (ast.Global, ast.Nonlocal)) for name in n.names}
-            replacements = {name: f"_local{i}" for i, name in enumerate(dict.fromkeys(local_names))
-                            if name not in globals_}
-            def normalize(value):
-                if isinstance(value, ast.AST):
-                    fields = {name: normalize(item) for name, item in ast.iter_fields(value)}
-                    if isinstance(value, ast.Name):
-                        fields['id'] = replacements.get(value.id, value.id)
-                    return type(value)(**fields)
-                if isinstance(value, list):
-                    return [normalize(item) for item in value]
-                return value
-            normalized = [normalize(stmt) for stmt in body]
-            dump = "\n".join(ast.dump(stmt, annotate_fields=False) for stmt in normalized)
-            info.bodies.append([symbol, sha256_bytes(dump.encode())[:16], size])
 
     module_nodes = list(tree.body)
     cursor = 0
@@ -181,13 +99,11 @@ def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = T
                 module_nodes.extend(handler.body)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             info.symbols.add(node.name)
-            remember_body(node.name, node)
         elif isinstance(node, ast.ClassDef):
             info.symbols.add(node.name)
             for sub in node.body:
                 if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     info.symbols.add(f"{node.name}.{sub.name}")
-                    remember_body(f"{node.name}.{sub.name}", sub)
         elif isinstance(node, ast.Assign):
             info.symbols.update(t.id for t in node.targets if isinstance(t, ast.Name))
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
@@ -207,7 +123,6 @@ def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = T
                             info.lazy_exports[name.value] = key.value
                 elif isinstance(val, ast.Constant) and isinstance(val.value, str):
                     info.lazy_exports[key.value] = val.value
-    module_aliases: dict[str, str] = {}
     stack: list[ast.AST] = [tree]          # one traversal; "if TYPE_CHECKING:" imports are not runtime deps
     while stack:
         node = stack.pop()
@@ -217,7 +132,6 @@ def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = T
         if isinstance(node, ast.Import):
             info.imports.update(alias.name for alias in node.names)
             for alias in node.names:
-                module_aliases[alias.asname or alias.name.split(".")[0]] = alias.name if alias.asname else alias.name.split(".")[0]
                 info.import_lines[alias.name] = node.lineno
         elif isinstance(node, ast.ImportFrom):
             if node.level:
@@ -233,19 +147,303 @@ def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = T
                     info.import_lines[f"{target}:{alias.name}"] = node.lineno
         else:
             stack.extend(ast.iter_child_nodes(node))
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            info.string_literals.add(node.value)
-        if isinstance(node, ast.Call) and (getattr(node.func, "id", "") or getattr(node.func, "attr", "")) in {"__import__", "import_module"}:
-            info.dynamic_imports = True
-            if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
-                info.import_literals.add(node.args[0].value)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in module_aliases:
-            info.imports.add(f"{module_aliases[node.value.id]}:{node.attr}")
-        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {"getattr", "hasattr"} \
-                and node.args and isinstance(node.args[0], ast.Name) and node.args[0].id in module_aliases:
-            info.imports.add(f"{module_aliases[node.args[0].id]}:*")
+    _read_import_uses(tree, info)
     return info
+
+
+
+def _read_import_uses(tree, info):
+    """Potential source dependencies with literal names; never import the project.
+
+    Only known import bindings qualify. Parameters or assignments that shadow an
+    importer make it unknown rather than pretending it is the standard library.
+    """
+    scopes = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda,
+              ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+
+    def own_nodes(body):
+        stack = list(body)
+        while stack:
+            node = stack.pop()
+            if is_type_checking_guard(node):
+                stack.extend(node.orelse)
+                continue
+            yield node
+            if not isinstance(node, scopes):
+                stack.extend(ast.iter_child_nodes(node))
+
+    def bindings(body, inherited, args=()):
+        found = {arg.arg: {None} for arg in args}
+        for node in own_nodes(body):
+            if isinstance(node, ast.Import):
+                for item in node.names:
+                    origin = item.name if item.asname else item.name.split('.')[0]
+                    found.setdefault(item.asname or origin, set()).add(('module', origin))
+            elif isinstance(node, ast.ImportFrom):
+                for item in node.names:
+                    origin = ('dynamic', 'importlib.import_module') if node.module == 'importlib' and not node.level and item.name == 'import_module' else ('namespace', 'builtins.' + item.name) if node.module == 'builtins' and item.name in {'exec', 'eval', 'globals', 'locals', 'vars', 'setattr', 'delattr'} else None
+                    found.setdefault(item.asname or item.name, set()).add(origin)
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                found.setdefault(node.name, set()).add(None)
+            elif isinstance(node, ast.ExceptHandler) and node.name:
+                found.setdefault(node.name, set()).add(None)
+            elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+                found.setdefault(node.id, set()).add(None)
+        result = dict(inherited)
+        result.update((name, next(iter(origins)) if len(origins) == 1 else None) for name, origins in found.items())
+        return result
+
+    # A source-closed scalar export table is finite; this is not a claim about
+    # arbitrary external monkeypatching. Rebinding, mutation and escaping the
+    # table in this source prevent this proof. Keep this in the import reader.
+    tables = {}
+    for statement in tree.body:
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target] if isinstance(statement, ast.AnnAssign) else []
+        value = statement.value if targets else None
+        if (len(targets) == 1 and isinstance(targets[0], ast.Name) and isinstance(value, ast.Dict)
+                and value.keys and all(isinstance(key, ast.Constant) and isinstance(key.value, str)
+                                      and isinstance(item, ast.Constant) and isinstance(item.value, str)
+                                      and item.value and all(part.isidentifier() for part in item.value.split('.'))
+                                      for key, item in zip(value.keys, value.values))):
+            tables[targets[0].id] = (targets[0], {key.value for key in value.keys},
+                                    tuple(sorted({item.value for item in value.values})))
+    if tables and not any(name == 'importlib' or name.startswith('importlib:') for name in info.imports) and not any(
+            isinstance(node, ast.Name) and node.id == '__import__' for node in ast.walk(tree)):
+        tables.clear()
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)} if tables else {}
+    namespace_aliases, builtins_aliases = set(), set()
+    if tables:
+        for node in (item for item in ast.walk(tree) if isinstance(item, (ast.Import, ast.ImportFrom))):
+            for alias, origin in bindings([node], {}).items():
+                if origin and origin[0] == 'namespace':
+                    namespace_aliases.add(alias)
+                elif origin == ('module', 'builtins'):
+                    builtins_aliases.add(alias)
+    protected = set(bindings(tree.body, {})) | {'globals', 'getattr', '__import__'} if tables else set()
+
+    def lookup(statement, guard):
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target] if isinstance(statement, ast.AnnAssign) else []
+        value = statement.value if targets else None
+        if not (len(targets) == 1 and isinstance(targets[0], ast.Name) and isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Attribute) and value.func.attr == 'get'
+                and isinstance(value.func.value, ast.Name) and value.func.value.id in tables
+                and len(value.args) in (1, 2) and not value.keywords and isinstance(value.args[0], ast.Name)
+                and (len(value.args) == 1 or isinstance(value.args[1], ast.Constant) and value.args[1].value is None)):
+            return None
+        name = targets[0].id
+        if not (isinstance(guard, ast.If) and not guard.orelse and len(guard.body) == 1
+                and isinstance(guard.body[0], ast.Raise) and isinstance(guard.test, ast.Compare)
+                and isinstance(guard.test.left, ast.Name) and guard.test.left.id == name
+                and len(guard.test.ops) == 1 and isinstance(guard.test.ops[0], ast.Is)
+                and isinstance(guard.test.comparators[0], ast.Constant) and guard.test.comparators[0].value is None):
+            return None
+        return name, value.func.value.id, value.args[0].id, guard.end_lineno
+
+    def rebound(name):
+        return any(isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, (ast.Store, ast.Del))
+                   or isinstance(node, ast.arg) and node.arg == name
+                   or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name
+                   or isinstance(node, (ast.Import, ast.ImportFrom)) and any((alias.asname or alias.name.split('.')[0]) == name for alias in node.names)
+                   for node in ast.walk(tree))
+
+    def export_cache(call, table):
+        # The real facade caches only successfully looked-up export keys. It
+        # cannot replace the table/importer or another existing module binding.
+        if rebound('globals'):
+            return False
+        target = parents.get(call)
+        if (isinstance(target, ast.Call) and isinstance(target.func, ast.Name) and target.func.id == 'set'
+                and target.args == [call] and not target.keywords
+                and not rebound('set')):
+            return True  # __dir__ enumerates namespace keys, never exposing the table.
+        if not (isinstance(target, ast.Subscript) and isinstance(target.ctx, ast.Store)
+                and isinstance(target.slice, ast.Name) and tables[table][1].isdisjoint(protected)):
+            return False
+        owner = target
+        while owner in parents and not isinstance(owner, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            owner = parents[owner]
+        if not isinstance(owner, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return False
+        key = target.slice.id
+        if any(isinstance(node, ast.Name) and node.id == key and isinstance(node.ctx, (ast.Store, ast.Del))
+               for node in own_nodes(owner.body)):
+            return False
+        return any(item and item[1:3] == (table, key) and item[3] < call.lineno
+                   for item in (lookup(a, b) for a, b in zip(owner.body, owner.body[1:])))
+
+    @lru_cache(maxsize=None)
+    def closed_table(name):
+        declaration = tables[name][0]
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in {'exec', 'eval', 'globals', 'locals', 'vars', 'setattr', 'delattr'}:
+                parent = parents.get(node)
+                if not isinstance(parent, ast.Call) or parent.func is not node:
+                    return False
+            if (isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in namespace_aliases
+                    or isinstance(node, ast.Attribute) and node.attr in {'exec', 'eval', 'globals', 'locals', 'vars', 'setattr', 'delattr'}
+                    and isinstance(node.value, ast.Name) and node.value.id in builtins_aliases
+                    or isinstance(node, ast.Attribute) and node.attr == name):
+                return False
+            if isinstance(node, ast.Name) and node.id == name and node is not declaration:
+                parent = parents.get(node)
+                call = parents.get(parent)
+                if not (isinstance(node.ctx, ast.Load) and isinstance(parent, ast.Attribute)
+                        and parent.attr == 'get' and isinstance(call, ast.Call) and call.func is parent):
+                    return False
+            if (isinstance(node, ast.arg) and node.arg == name
+                    or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name
+                    or isinstance(node, (ast.Import, ast.ImportFrom)) and any((alias.asname or alias.name.split('.')[0]) == name or alias.name == name for alias in node.names)):
+                return False
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                if node.func.id in {'eval', 'exec', 'locals', 'vars'}:
+                    return False
+                if node.func.id == 'globals' and not export_cache(node, name):
+                    return False
+                if node.func.id == 'getattr' and len(node.args) > 1 and isinstance(node.args[1], ast.Constant) and node.args[1].value == name:
+                    return False
+                if node.func.id in {'setattr', 'delattr'} and (len(node.args) < 2 or not isinstance(node.args[1], ast.Constant) or node.args[1].value == name):
+                    return False
+        return True
+
+    def add(mapping, key, line):
+        lines = mapping.setdefault(key, [])
+        if line not in lines:
+            lines.append(line)
+
+    class Reader(ast.NodeVisitor):
+        def __init__(self):
+            self.env = {'__import__': ('dynamic', '__import__'),
+                        'getattr': ('reflect', 'getattr'), 'hasattr': ('reflect', 'hasattr')}
+            self.class_parent = None
+
+        def visit_If(self, node):
+            if is_type_checking_guard(node):
+                for item in node.orelse:
+                    self.visit(item)
+            else:
+                self.generic_visit(node)
+
+        def scope(self, body, args=(), *, parent=None, is_class=False, local_result=False):
+            previous, old_class_parent = self.env, self.class_parent
+            inherited = previous if parent is None else parent
+            self.env = bindings(body, inherited, args)
+            if tables:
+                if body is tree.body:
+                    self.env.update((name, ('literal-map', values)) for name, (_target, _keys, values) in tables.items() if closed_table(name))
+                stores = {}
+                for statement in body:
+                    for node in ast.walk(statement):
+                        names = [node.id] if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)) else []
+                        if isinstance(node, (ast.Import, ast.ImportFrom)):
+                            names += [alias.asname or alias.name.split('.')[0] for alias in node.names]
+                        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                            names.append(node.name)
+                        elif isinstance(node, ast.ExceptHandler) and node.name:
+                            names.append(node.name)
+                        for name in names:
+                            stores[name] = stores.get(name, 0) + 1
+                for first, second in zip(body, body[1:]):
+                    item = lookup(first, second)
+                    if item:
+                        name, table, _key, after = item
+                        origin = self.env.get(table)
+                        if (local_result and stores.get(name) == 1 and name not in {arg.arg for arg in args}
+                                and not any(isinstance(node, (ast.Global, ast.Nonlocal)) and name in node.names for node in own_nodes(body))
+                                and origin and origin[0] == 'literal-map'):
+                            self.env[name] = ('finite-modules', origin[1], after)
+            self.class_parent = inherited if is_class else None
+            try:
+                for item in body:
+                    self.visit(item)
+            finally:
+                self.env, self.class_parent = previous, old_class_parent
+
+        def visit_Module(self, node):
+            self.scope(node.body)
+
+        def visit_FunctionDef(self, node):
+            for expression in [*node.decorator_list, *node.args.defaults, *filter(None, node.args.kw_defaults)]:
+                self.visit(expression)
+            args = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+            args += [arg for arg in (node.args.vararg, node.args.kwarg) if arg]
+            self.scope(node.body, args, parent=self.class_parent, local_result=True)
+
+        visit_AsyncFunctionDef = visit_FunctionDef
+
+        def visit_ClassDef(self, node):
+            for expression in [*node.bases, *node.decorator_list, *(item.value for item in node.keywords)]:
+                self.visit(expression)
+            self.scope(node.body, is_class=True)
+
+        def visit_Lambda(self, node):
+            args = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+            args += [arg for arg in (node.args.vararg, node.args.kwarg) if arg]
+            self.scope([node.body], args)
+
+        def comprehension(self, node):
+            previous = self.env
+            self.env = dict(previous)
+            for generator in node.generators:
+                for target in ast.walk(generator.target):
+                    if isinstance(target, ast.Name):
+                        self.env[target.id] = None
+            try:
+                self.generic_visit(node)
+            finally:
+                self.env = previous
+
+        visit_ListComp = visit_SetComp = visit_DictComp = visit_GeneratorExp = comprehension
+
+        def module(self, node):
+            if isinstance(node, ast.Name):
+                origin = self.env.get(node.id)
+                return origin[1] if origin and origin[0] == 'module' else None
+            if isinstance(node, ast.Attribute) and (base := self.module(node.value)):
+                return base + '.' + node.attr
+            return None
+
+        def visit_Attribute(self, node):
+            if module := self.module(node.value):
+                name = '*' if node.attr == '__all__' else node.attr
+                key = module + ':' + name
+                info.imports.add(key)
+                add(info.import_reads, key, node.lineno)
+            self.generic_visit(node)
+
+        def visit_Call(self, node):
+            origin = self.env.get(node.func.id) if isinstance(node.func, ast.Name) else None
+            if origin and origin[0] == 'reflect' and node.args and (module := self.module(node.args[0])):
+                name = node.args[1].value if len(node.args) > 1 and isinstance(node.args[1], ast.Constant) and isinstance(node.args[1].value, str) else '*'
+                key = module + ':' + name
+                info.imports.add(key)
+                add(info.import_reads, key, node.lineno)
+            importer = origin[1] if origin and origin[0] == 'dynamic' else None
+            if isinstance(node.func, ast.Attribute) and node.func.attr == 'import_module' and self.module(node.func.value) == 'importlib':
+                importer = 'importlib.import_module'
+            if importer:
+                argument = node.args[0] if node.args else next((item.value for item in node.keywords if item.arg == 'name'), None)
+                name = argument.value if isinstance(argument, ast.Constant) and isinstance(argument.value, str) else None
+                level = node.args[4] if importer == '__import__' and len(node.args) > 4 else next(
+                    (item.value for item in node.keywords if item.arg == 'level'), None)
+                absolute = importer != '__import__' or level is None or isinstance(level, ast.Constant) and level.value == 0
+                finite = self.env.get(argument.id) if isinstance(argument, ast.Name) else None
+                if name and not name.startswith('.') and absolute:
+                    add(info.literal_dynamic_imports, name, node.lineno)
+                elif absolute and finite and finite[0] == 'finite-modules' and node.lineno > finite[2]:
+                    for candidate in finite[1]:
+                        add(info.literal_dynamic_imports, candidate, node.lineno)
+                else:
+                    reason = ('module name is not an absolute string literal' if absolute
+                              else 'relative import level needs an explicit package context')
+                    info.unknown_dynamic_imports.append({'line': node.lineno, 'call': importer, 'reason': reason})
+            self.generic_visit(node)
+
+    Reader().visit(tree)
+    for values in (info.import_reads, info.literal_dynamic_imports):
+        for lines in values.values():
+            lines.sort()
+    info.unknown_dynamic_imports.sort(key=lambda item: (item['line'], item['call']))
+
 
 
 def resolve_module(module: str, importer: str, mod_to_path: dict[str, str], py_paths,
@@ -274,223 +472,3 @@ def resolve_module(module: str, importer: str, mod_to_path: dict[str, str], py_p
             if path in present:
                 return path
     return None
-
-
-def resolve_import(imp: str, mod_to_path: dict[str, str], lazy: dict[str, dict[str, str]] | None = None, *,
-                   importer="", py_paths=(), import_roots=()) -> str | None:
-    """Keep package/lazy-export precedence while using the one native module resolver."""
-    if ":" in imp:
-        base, name = imp.split(":", 1)
-        candidates = ((lazy or {}).get(base, {}).get(name), f"{base}.{name}", base)
-    else:
-        candidates = (imp,)
-    for candidate in candidates:
-        if candidate and (path := resolve_module(candidate, importer, mod_to_path, py_paths, import_roots)):
-            return path
-    return None
-
-
-def js_imports(root: Path, path: str, files_set: set[str]) -> set[str]:
-    """Relative imports/requires of a JS/TS file, resolved to repo files."""
-    try:
-        text = read_source(root / path)
-    except OSError:
-        return set()
-    found = set()
-    for spec in JS_IMPORT.findall(text):
-        cand = os.path.normpath(str(Path(path).parent / spec)).replace("\\", "/")
-        for suffix in ("", ".ts", ".tsx", ".js", ".jsx", ".mjs", "/index.ts", "/index.tsx", "/index.js"):
-            if cand + suffix in files_set:
-                found.add(cand + suffix)
-                break
-    return found
-
-
-def _read_cache(path: Path) -> dict:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data.get("files", {}) if data.get("schema") == CACHE_SCHEMA and data.get("parser") == PARSER_ID else {}
-    except (OSError, ValueError):
-        return {}
-
-
-def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, write_cache: bool = True, import_roots=()) -> Inventory:
-    """Skip body hashes when requested; write_cache=False reads without creating a cache."""
-    files = [f for f in list_files(root) if not matches_any(f, ignore)]
-    files_set = set(files)
-    source = [f for f in files if Path(f).suffix in SOURCE_EXTS]
-    tests = [f for f in source if is_test_file(f)]
-    py_files = [f for f in source if f.endswith(".py")]
-    roots = python_roots(py_files)
-    cache_path = (cache_dir(root) if write_cache else root / CACHE_RELDIR) / "inventory.json"
-    old, new = _read_cache(cache_path), {}
-    py: dict[str, PyInfo] = {}
-    mod_to_path: dict[str, str] = {}
-    for f in py_files:
-        module = module_name(f, roots)
-        try:
-            data = (root / f).read_bytes()
-        except OSError as error:  # An unreadable file is that file's parse error; check reports source_parse_error.
-            py[f] = PyInfo(module=module, parse_error=str(error))
-            mod_to_path[module] = f
-            continue
-        key = [sha256_bytes(normalize_newlines(data)), module]
-        hit = old.get(f)
-        if hit and hit.get("key") == key and (hit.get("bodies") is not None or not with_bodies):
-            info = PyInfo(module, set(hit["symbols"]), set(hit["imports"]), hit["loc"], hit["parse_error"], hit["bodies"] or [],
-                          hit["lazy_exports"], set(hit["string_literals"]), hit["dynamic_imports"], hit["import_lines"],
-                          set(hit["import_literals"]))
-            bodies_known = hit.get("bodies") is not None
-        else:
-            info = parse_python(root, f, module, collect_bodies=with_bodies, data=data)
-            bodies_known = with_bodies
-        new[f] = {"key": key, "symbols": sorted(info.symbols), "imports": sorted(info.imports),
-                  "loc": info.loc, "parse_error": info.parse_error, "bodies": info.bodies if bodies_known else None,
-                  "lazy_exports": info.lazy_exports, "string_literals": sorted(info.string_literals),
-                  "dynamic_imports": info.dynamic_imports, "import_lines": info.import_lines,
-                  "import_literals": sorted(info.import_literals)}
-        py[f] = info
-        mod_to_path[module] = f
-    if write_cache and (new != old or not cache_path.is_file()):
-        try:
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            atomic_write_text(cache_path, json.dumps({"schema": CACHE_SCHEMA, "parser": PARSER_ID, "files": new}))
-        except OSError:
-            pass                                  # read-only checkout: run without cache
-    deps: dict[str, set[str]] = defaultdict(set)
-    loc: dict[str, int] = {}
-    lazy = {info.module: info.lazy_exports for info in py.values() if info.lazy_exports}
-    for f, info in py.items():
-        loc[f] = info.loc
-        for imp in info.imports:
-            target = resolve_import(imp, mod_to_path, lazy, importer=f, py_paths=py_files,
-                                    import_roots=import_roots)
-            if target and target != f:
-                deps[f].add(target)
-            if ":" in imp:
-                base, name = imp.split(":", 1)
-                if name in {"*", "__all__"}:
-                    deps[f].update(mod_to_path[module] for module in set(lazy.get(base, {}).values())
-                                   if module in mod_to_path and mod_to_path[module] != f)
-    for f in source:
-        if f in py:
-            continue
-        try:
-            loc[f] = sum(1 for line in read_source(root / f).splitlines() if line.strip())
-        except OSError:
-            loc[f] = 0
-        if Path(f).suffix in JS_EXTS:
-            deps[f] |= js_imports(root, f, files_set)
-    dynamic_files = {f for f, info in py.items() if info.dynamic_imports and not info.lazy_exports}
-    for f in source:
-        if Path(f).suffix in JS_EXTS:
-            text = read_source(root / f)
-            # Static npm imports are external dependencies, not dynamic imports.
-            if re.search(r"\bimport\s*\(\s*(?!['\"])", text):
-                dynamic_files.add(f)
-    return Inventory(root, files, source, tests, py, dict(deps), loc, dynamic_files=dynamic_files,
-                     mod_to_path=mod_to_path, import_roots=tuple(import_roots))
-
-def function_digests(text):
-    """AST identities for lexical functions, classes and module bindings; never persisted."""
-    tree = syntax_tree(text)
-    result = {'functions': {}, 'classes': {}, 'bindings': {}, 'statements': []}
-    def digest(value):
-        if isinstance(value, ast.AST): value = ast.dump(value, include_attributes=False)
-        return sha256_bytes(repr(value).encode())
-    class WithoutDefinitions(ast.NodeTransformer):
-        def visit_FunctionDef(self, node): return None
-        visit_AsyncFunctionDef = visit_FunctionDef
-        def visit_ClassDef(self, node): return None
-    def body(nodes):
-        syntax = ast.Module(body=copy.deepcopy(nodes), type_ignores=[])
-        return WithoutDefinitions().visit(syntax)
-    def visit(nodes, prefix=''):
-        for node in nodes:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                symbol = prefix + node.name
-                result['functions'][symbol] = {
-                    'sig_digest': digest((ast.dump(node.args), tuple(ast.dump(d) for d in node.decorator_list), ast.dump(node.returns) if node.returns else '', tuple(ast.dump(p) for p in getattr(node, 'type_params', ())))),
-                    'body_digest': digest(body(node.body)),
-                }
-                visit(node.body, symbol + '.')
-            elif isinstance(node, ast.ClassDef):
-                symbol = prefix + node.name
-                names = {target.id for item in node.body for target in
-                         (item.targets if isinstance(item, ast.Assign) else [item.target] if isinstance(item, ast.AnnAssign) else []) if isinstance(target, ast.Name)}
-                result['classes'][symbol] = {'class_digest': digest((tuple(ast.dump(b) for b in node.bases), tuple(ast.dump(k) for k in node.keywords), tuple(ast.dump(d) for d in node.decorator_list), ast.dump(body(node.body)))), 'names': sorted(names)}
-                visit(node.body, symbol + '.')
-            elif isinstance(node, (ast.If, ast.Try, ast.With, ast.AsyncWith, ast.For, ast.While, ast.Match)):
-                for child in ast.iter_child_nodes(node):
-                    if isinstance(child, ast.stmt): visit([child], prefix)
-                    elif isinstance(child, (ast.ExceptHandler, ast.match_case)): visit(child.body, prefix)
-    visit(tree.body)
-    for node in tree.body:
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                result['bindings'][alias.asname or alias.name.split('.')[0]] = ('import', alias.name, '', 0)
-        elif isinstance(node, ast.ImportFrom):
-            for alias in node.names:
-                result['bindings'][alias.asname or alias.name] = ('import', node.module or '', alias.name, node.level)
-        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            value = ast.dump(node.value) if node.value is not None else ''
-            for target in targets:
-                for item in ast.walk(target):
-                    if isinstance(item, ast.Name): result['bindings'][item.id] = ('value', value)
-        elif not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            if not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
-                result['statements'].append(ast.dump(node))
-    return result
-
-
-def coverage_kind(root: Path, anchors) -> str:
-    """Classify explicit cover paths with this inventory's source policy.
-
-    No whole-project parse is needed to classify a small cover set. Directories
-    resolve to their actual inventory members; a missing/unresolvable scope is
-    unknown, never inferred to be a pure data artifact.
-    """
-    root = Path(root).resolve()
-    files, listed = set(), None
-    for anchor in anchors:
-        if anchor.startswith('model:'):
-            continue
-        relative, separator, symbol = anchor.partition(':')
-        path = (root / relative).resolve()
-        try:
-            relative = path.relative_to(root).as_posix()
-        except ValueError:
-            return 'unknown'
-        if path.is_file():
-            if separator and symbol:
-                return 'code'
-            files.add(relative)
-        elif path.is_dir():
-            if listed is None:
-                listed = list_files(root)
-            members = [name for name in listed if (root / name).resolve().is_relative_to(path)]
-            if not members:
-                return 'unknown'
-            files.update(members)
-        else:
-            return 'unknown'
-    if not files:
-        return 'model-only'
-    inventory = Inventory(root, sorted(files), [], [], {}, {}, {})
-    inventory.set_explicit_sources([])
-    return 'code' if inventory.source else 'data-only'
-
-
-def inventory_memo(inv: Inventory, name: str, depends_on=()) -> dict:
-    """Content-dependent working data for this inventory only; never persisted."""
-    memos = inv.__dict__.setdefault('_flowguard_memo', {})
-    dependencies = inv.__dict__.setdefault('_flowguard_memo_dependencies', {})
-    current = tuple(depends_on)
-    previous = dependencies.get(name)
-    if previous is None or not (len(previous) == len(current) and
-            all(left is right for left, right in zip(previous, current))):
-        if previous is None or previous != current:
-            memos[name] = {}
-        dependencies[name] = current
-    return memos.setdefault(name, {})

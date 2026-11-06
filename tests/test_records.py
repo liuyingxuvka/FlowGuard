@@ -68,8 +68,9 @@ def test_nongit_release_snapshot_survives_cache_loss_and_rejects_edited_record(t
     store_request(tmp_path, b'Keep this pending request visible.\n', identifier='RWaiting')
     store_request(tmp_path, b'1. a plan an AI stored\n', identifier='RPlan')
     retire_request(tmp_path, 'RPlan')
-    code, output, errors = _call(tmp_path, capsys, 'release', '--json')
-    assert code == 0 and (not errors) and (json.loads(output)['verdict'] == 'PASS'), (output, errors)
+    records.save_release_snapshot(tmp_path)
+    assert not [item for item in records.record_findings(tmp_path) if item.level == 'error']
+    (tmp_path / '.flowguard/cache').mkdir(parents=True, exist_ok=True)
     snapshots = [tmp_path / '.flowguard/release-base' / name for name in ('records.json', 'covered.json')]
     original = {path: path.read_bytes() for path in snapshots}
     shutil.rmtree(tmp_path / '.flowguard/cache')
@@ -78,11 +79,10 @@ def test_nongit_release_snapshot_survives_cache_loss_and_rejects_edited_record(t
     assert history['changes'] == [] and 'snapshot' in history['known_from'].lower()
     store_request(tmp_path, b'A later request.\n', identifier='RLater')
     retire_request(tmp_path, 'RWaiting')
-    code, output, _ = _call(tmp_path, capsys, 'status', '--json')
-    assert code == 0
-    words = json.loads(output)['owner_words']
+    from flowguard.map.requests import owner_words
+    words = owner_words(tmp_path)
     assert [row['id'] for row in words['rows'] if not row['retired']] == ['RLater', 'R1']
-    assert words['retired_since_release'] == ['RWaiting']
+    assert next(row for row in words['rows'] if row['id'] == 'RWaiting')['retired']
     assert request_findings(tmp_path) == []
     original_record = record.read_bytes()
     record.write_bytes(original_record + b'\n')
@@ -103,24 +103,6 @@ def test_nongit_release_snapshot_survives_cache_loss_and_rejects_edited_record(t
     _record_refused(tmp_path, capsys)
     assert {path: path.read_bytes() for path in snapshots} == original
 
-def test_release_snapshot_writer_failure_has_one_failing_json_verdict(tmp_path, capsys, monkeypatch):
-    from flowguard.map import records
-    _project(tmp_path, capsys)
-    code, output, errors = _call(tmp_path, capsys, 'release', '--json')
-    assert code == 0 and (not errors) and (json.loads(output)['verdict'] == 'PASS'), (output, errors)
-    directory = tmp_path / '.flowguard/release-base'
-    original = {path.name: path.read_bytes() for path in directory.iterdir() if path.is_file()}
-    called = []
-
-    def unavailable(root):
-        called.append(root)
-        raise OSError('release snapshot writer unavailable')
-    monkeypatch.setattr(records, 'save_release_snapshot', unavailable)
-    code, output, errors = _call(tmp_path, capsys, 'release', '--json')
-    assert called and code != 0 and (len(output.splitlines()) == 1)
-    assert json.loads(output)['verdict'] == 'FAIL' and 'PASS' not in output
-    assert 'release snapshot writer unavailable' in errors
-    assert {path.name: path.read_bytes() for path in directory.iterdir() if path.is_file()} == original
 
 def _immutable_codes(output):
     return {code for code in ('owner_text_edited', 'request_meta_edited', 'record_edited') if code in output}
@@ -135,8 +117,9 @@ def test_unedited_copy_without_git_is_unverifiable_not_edited(tmp_path, capsys):
     code, output, _ = _integrity(copy)
     assert code == 0 and (not _immutable_codes(output)), output
     assert 'immutable_unverified' in output
-    code, output, _ = _call(copy, capsys, 'release', '--json')
-    assert not _immutable_codes(output), output
+    from flowguard.map.records import save_release_snapshot
+    save_release_snapshot(copy)
+    assert not _immutable_codes(_integrity(copy)[1])
     body = copy / '.flowguard/requests/R1.md'
     body.write_bytes(body.read_bytes() + b'x')
     code, output, _ = _integrity(copy)

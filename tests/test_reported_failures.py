@@ -99,12 +99,6 @@ def test_a_programming_error_while_reading_owner_words_is_not_shown_as_invalid(t
     with pytest.raises(KeyError, match='injected'):
         requests.owner_words(root)
 
-def test_status_reports_a_failing_git_instead_of_no_git(tmp_path):
-    from flowguard.map.status import _git_header
-    from flowguard.map.common import read_git_paths
-    root = _broken_index_repo(tmp_path)
-    with pytest.raises(MapError, match='index'):
-        _git_header(root, read_git_paths, [])
 
 def test_commit_citations_in_a_repository_without_commits_are_known_to_be_none(tmp_path):
     from flowguard.map.requests import request_citations
@@ -120,35 +114,8 @@ def test_a_malformed_stored_glossary_stops_the_lookup_with_its_error(tmp_path):
     with pytest.raises(MapError, match='G1'):
         _glossaries(tmp_path)
 
-def test_where_ignores_an_invalid_legacy_map(tmp_path):
-    from flowguard.map.derived import where
-    (tmp_path / '.flowguard').mkdir()
-    (tmp_path / '.flowguard/map.json').write_text('{', encoding='utf-8')
-    (tmp_path / 'a.py').write_text('def f():\n    return 1\n', encoding='utf-8')
-    result = where(tmp_path, 'f')
-    assert result['view'] == 'name' and result['name'] == 'f'
-    assert any((row['path'] == 'a.py' and row['function'] == 'f' for row in result['functions']))
 
-def test_an_unsplittable_argparse_program_is_an_unknown_entry():
-    from flowguard.map.textrules import _commands
-    raw = {'files': {'cli.py': {'entrypoints': [{'via': 'argparse', 'parser_symbol': 'p', 'name': 'run', 'line': 3}]}}}
-    unknown = []
-    assert _commands(raw, {'cli.py': {'p': {"tool 'x"}}}, unknown) == {}
-    assert unknown and unknown[0]['path'] == 'cli.py' and ("tool 'x" in unknown[0]['reason']), unknown
 
-def test_the_child_package_shim_is_one_route_and_a_refused_link_is_an_error(monkeypatch):
-    from flowguard.map import common
-    monkeypatch.setenv('PYTHONPATH', '')
-    monkeypatch.setattr(common, '_CHILD_PACKAGE_DIRECTORY', None)
-    shim = Path(common._child_package_import_root()) / 'flowguard'
-    assert shim.is_symlink() and shim.resolve() == Path(common.__file__).resolve().parents[1]
-    monkeypatch.setattr(common, '_CHILD_PACKAGE_DIRECTORY', None)
-
-    def refused(self, *args, **kwargs):
-        raise OSError(1, 'Operation not permitted')
-    monkeypatch.setattr(Path, 'symlink_to', refused)
-    with pytest.raises(MapError, match='Operation not permitted'):
-        common._child_package_import_root()
 RECORD = '20261101-0000-abcdef'
 RECORD_ITEM = dict(kind='change', goal='g', requests=[], base=None, tree='0' * 64, checked='c', promoted='2026-11-01T00:00:00+00:00', plan=[], rules=[], acceptances=[], existing_cleared=[], implemented_by=[], new_actions=[], corrections=[])
 
@@ -262,7 +229,7 @@ def test_a_repository_git_refuses_to_open_is_an_error_not_a_folder_without_git(t
         with pytest.raises(MapError, match='dubious ownership'):
             git_common_directory(place)
     assert git_common_directory(plain) is None
-    for command in (['status'],):
+    for command in (['req', 'list'],):
         assert main([*command, '--root', str(root)]) == 2, command
         assert 'dubious ownership' in capsys.readouterr().err, command
     before = sorted((path.name for path in (root / '.flowguard/requests').iterdir()))
@@ -289,31 +256,14 @@ def test_a_broken_branch_is_an_error_not_a_repository_before_its_first_commit(tm
     (root / '.git' / branch).write_text('zzzz\n', encoding='ascii')
     with pytest.raises(MapError, match='broken'):
         git_head(root)
-    for command in (['status'], ['where', 'f']):
-        assert main([*command, '--root', str(root)]) == 2, command
-        assert 'broken' in capsys.readouterr().err, command
+    # The archive needs Git history; source-only show makes no history claim.
+    assert main(['req', 'list', '--root', str(root)]) == 2
+    assert 'broken' in capsys.readouterr().err
+    assert main(['show', 'a:f', '--root', str(root)]) == 0
+    view = capsys.readouterr()
+    assert 'a:f' in view.out and not view.err
+    assert 'green' not in view.out and 'history complete' not in view.out
 
-@pytest.mark.skipif(os.name == 'nt', reason='a POSIX shell script stands in for a failing git')
-def test_a_failing_git_blame_stops_the_text_origin_instead_of_reading_no_origin(tmp_path, monkeypatch):
-    from flowguard.map import textrules
-    root = tmp_path / 'repo'
-    (root / '.flowguard').mkdir(parents=True)
-    (root / 'a.py').write_text('VALUE = 1\n', encoding='utf-8')
-    (root / 'NOTES.md').write_text('# Notes\n\nThe shelf must keep `limit_respected` true.\n', encoding='utf-8')
-    _git(root, 'init', '-q')
-    _git(root, 'add', '-A')
-    _git(root, 'commit', '-qm', 'base')
-    (root / 'NEW.md').write_text('# New\n\nThe new page names `limit_respected` too.\n', encoding='utf-8')
-    result = textrules.report(root)
-    committed, = [row for row in result['texts'] if row['path'] == 'NOTES.md' and 'limit_respected' in row['text']]
-    uncommitted, = [row for row in result['texts'] if row['path'] == 'NEW.md' and 'limit_respected' in row['text']]
-    chosen, = textrules.select(result, 'source:' + committed['id'])['texts']
-    assert chosen['provenance']['state'] == 'git', chosen
-    chosen, = textrules.select(result, 'source:' + uncommitted['id'])['texts']
-    assert chosen['provenance']['state'] == 'unknown', chosen
-    _failing_git(tmp_path, monkeypatch, 'blame')
-    with pytest.raises(MapError, match='simulated blame failure'):
-        textrules.select(result, 'source:' + committed['id'])
 
 @pytest.mark.skipif(os.name == 'nt', reason='a POSIX shell script stands in for a failing git')
 def test_a_failing_git_listing_stops_the_inventory_instead_of_walking_the_folder(tmp_path, monkeypatch):
@@ -337,7 +287,7 @@ def test_a_folder_outside_any_repository_needs_no_git_executable(tmp_path, monke
     (root / 'a.py').write_text('VALUE = 1\n', encoding='utf-8')
     (root / 'a.py').write_text('def f():\n    return 1\n', encoding='utf-8')
     monkeypatch.setenv('PATH', str(tmp_path / 'no-bin'))
-    for command in (['status'], ['where', 'f']):
+    for command in (['req', 'list'], ['show', 'f']):
         assert main([*command, '--root', str(root)]) == 0, (command, capsys.readouterr())
         assert 'git executable not found' not in capsys.readouterr().err, command
 
@@ -354,27 +304,3 @@ def test_a_folder_inside_the_git_directory_is_a_folder_without_git(tmp_path):
     assert git_common_directory(root) == (root / '.git').resolve()
     assert git_common_directory(cache) is None
     assert list_files(cache) == ['src/program.py']
-
-
-def test_child_package_root_and_child_import_path_share_a_canonical_temporary_alias(tmp_path, monkeypatch):
-    from flowguard.map import common
-    physical = tmp_path / 'physical-temp'
-    physical.mkdir()
-    alias = tmp_path / 'temp-alias'
-    alias.symlink_to(physical, target_is_directory=True)
-    original = common.tempfile.TemporaryDirectory
-
-    def temporary(*args, **kwargs):
-        return original(*args, **{**kwargs, 'dir': alias})
-
-    monkeypatch.setenv('PYTHONPATH', '')
-    monkeypatch.setattr(common, '_CHILD_PACKAGE_DIRECTORY', None)
-    monkeypatch.setattr(common.tempfile, 'TemporaryDirectory', temporary)
-    try:
-        root = common._child_package_import_root()
-        assert root == str(Path(root).resolve())
-        assert root == common.child_import_path(tmp_path, {})[-1]
-        assert (Path(root) / 'flowguard').is_symlink()
-    finally:
-        if common._CHILD_PACKAGE_DIRECTORY is not None:
-            common._CHILD_PACKAGE_DIRECTORY.cleanup()

@@ -1,0 +1,632 @@
+"""A short screen and one pytest check route over generated structure and intent."""
+from __future__ import annotations
+
+import argparse
+from contextlib import closing
+import json
+from pathlib import Path
+import re
+import shlex
+import subprocess
+import sys
+import time
+import tomllib
+
+from flowguard import __version__
+from flowguard.map.common import MapError
+from flowguard.map.requests import owner_words, retire_request, store_request
+from flowguard.structure import build
+from flowguard.structure.query import tokens
+from . import cache
+from .config import find_root, load_config
+
+
+SENTINEL = '''"""Fail when declared FlowGuard intent was not collected."""
+def test_flowguard_intent(request):
+    from flowguard.intent.plugin import sentinel
+    sentinel(request.config)
+'''
+
+PROJECT_RULES = '''<!-- flowguard:start -->
+## FlowGuard rules for the project agent
+
+1. At session start, look at `python -m flowguard` when the project has intent rules.
+2. Before writing a decision, use `python -m flowguard show "what it decides"` to find its existing owner.
+3. Write one rule, bind each real home, and add a literal regression row only when a decision has copies, the owner says everywhere, or a bug was fixed. Otherwise stay quiet.
+4. After changing a bound decision run `python -m flowguard check`; CI runs `check --all`. Store actual owner words once with `req add`.
+<!-- flowguard:end -->
+'''
+
+
+def _limit(lines, budget):
+    if len(lines) <= budget:
+        return lines
+    kept = lines[:max(0, budget - 1)]
+    hidden = lines[len(kept):]
+    reds = sum('red ' in line or line.startswith('red') for line in hidden)
+    return kept + [f'... {len(hidden)} more lines ({reds} red): show RULE for the complete result']
+
+
+def _kind(message):
+    return 'tool' if message.startswith(('not mutable', 'not searched', 'not measured', 'unmapped', 'not exhaustive (budget')) else 'intent'
+
+
+def _action(message):
+    if '->' in message:
+        return message
+    if _kind(message) == 'tool':
+        return message + ' -> tool: nothing to do here'
+    return message + ' -> show the rule and correct its source, binding or regression rows'
+
+
+def _rule_colour(item, result):
+    if item.get('superseded_by'):
+        return 'superseded'
+    values = list(result.get('items', {}).values())
+    if not values:
+        return 'grey'
+    if any(value.get('verdict') == 'red' for value in values):
+        return 'red'
+    if any(value.get('verdict') == 'grey' for value in values):
+        return 'grey'
+    return 'green*' if any(value.get('provisional') for value in values) else 'green'
+
+
+def _test_name(nodeid):
+    """Parameter IDs may contain ::, and the file path may contain brackets."""
+    return nodeid.partition('::')[2].partition('[')[0].rsplit('::', 1)[-1]
+
+
+def render(cfg, data, *, check=False, graph=None):
+    summary = data['summary']
+    rules = summary['rules']
+    errors = summary['errors']
+    load_results = [value for group in data['results'].values() for value in group.get('items', {}).values()
+                    if value.get('kind') == 'load']
+    attempt = data.get('attempt') or {}
+    if not rules and not errors and not load_results and not attempt.get('errors'):
+        return ['FlowGuard check: no intent rules.' if check else 'FlowGuard: no intent rules; show "what it decides" before adding another decision.']
+    lines = [f'FlowGuard {__version__} {cfg.root.name}: {len(rules)} rules, '
+             f'{sum(r.get("rows", 0) for r in rules.values())} rows; {summary["intent_lines"]} intent lines']
+    if graph is not None:
+        source_lines = graph.stats.get('source_lines', 0)
+        ratio = 100 * summary['intent_lines'] / source_lines if source_lines else 0
+        lines[0] += f'; {source_lines} source lines, intent {ratio:.1f}%'
+    red, grey, information, tool_causes = [], [], [], {}
+    for error in errors:
+        red.append(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
+    for result in load_results:
+        red.extend(f'red last check load: {message} -> correct the declaration and run check' for message in result.get('red', []))
+    intent_attempt = attempt and (attempt.get('sentinel') is not None or attempt.get('collected')
+                                  or attempt.get('selected') or attempt.get('deferred'))
+    if intent_attempt and (attempt.get('missing') or attempt.get('sentinel') != 'ok'):
+        red.append('red collection: declared intent or sentinel missing -> run init and collect the complete intent path')
+    red.extend('red verification: ' + message for message in attempt.get('errors', []))
+    red.extend('red ' + _action(message) for message in data.get('history', []))
+    if data.get('check_scope'):
+        information.append(data['check_scope'])
+    information.extend(data.get('probes', []))
+    colours = {}
+    for rid, item in rules.items():
+        result = data['results'].get(rid, {})
+        colour = _rule_colour(item, result)
+        colours[rid] = colour
+        if colour == 'superseded':
+            continue
+        if not result.get('items'):
+            grey.append(f'grey {rid}: no results yet -> run check')
+        for value in result.get('items', {}).values():
+            red.extend(f'red {rid}: {_action(message)}' for message in value.get('red', []))
+            for message in value.get('grey', []):
+                if _kind(message) == 'tool':
+                    cause = message.split(':', 1)[0]
+                    tool_causes.setdefault(cause, set()).add(rid)
+                else:
+                    grey.append(f'grey {rid}: {_action(message)}')
+        if not check:
+            information.append(f'{rid} {colour}: {item["decides"]}; {len(item.get("homes", []))} homes, {item.get("rows", 0)} rows')
+    for test, value in data.get('tests', {}).items():
+        if value.get('outcome') == 'failed':
+            line = f'{test}: {value.get("reason") or value.get("phase")} -> rerun this test after correcting the cause'
+            (grey if value.get('kind') == 'env' else red).append(('grey env ' if value.get('kind') == 'env' else 'red test ') + line)
+    for cause, rids in sorted(tool_causes.items()):
+        grey.append(f'OPEN tool {cause}: {len(rids)} rules -> tool: nothing to do here; show RULE for details')
+    counts = ', '.join(f'{sum(c == colour for c in colours.values())} {colour}' for colour in ('red', 'grey', 'green', 'green*'))
+    lines.append(counts)
+    lines.extend(dict.fromkeys(red))
+    lines.extend(dict.fromkeys(grey))
+    lines.extend(information)
+    if not red and not grey:
+        lines.append('No disagreement found in the checked rules and code homes.')
+    return _limit(lines, cfg.check_lines if check else cfg.screen_lines)
+
+
+def screen(cfg):
+    data = cache.read(cfg)
+    if not data['summary']['rules']:
+        print('\n'.join(render(cfg, data)))
+        return int(bool(data['summary']['errors']))
+    with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        from .deps import Now, stale
+        now = Now(cfg, graph)
+        for rid, result in data['results'].items():
+            if rid not in data['summary']['rules']:
+                continue
+            saved = data['deps'].get(rid)
+            if not saved or stale(saved, now):
+                result['items'] = {'stale': dict(verdict='grey', red=[], grey=['cached result changed or unverified -> run check'], info=[])}
+        print('\n'.join(render(cfg, data, graph=graph)))
+    return int(bool(data['summary']['errors']))
+
+
+def show(cfg, query=None, *, draft=None, gaps=None):
+    data = cache.read(cfg)
+    rules = data['summary']['rules']
+    if gaps:
+        from .engine import Engine
+        from .loader import load
+        model = load(cfg)
+        if gaps not in model.keys():
+            raise ValueError(f'unknown decision key {gaps}')
+        result = Engine(model).check_key(gaps)
+        print(json.dumps(result.get('gaps') or {'gaps': 0}, ensure_ascii=False))
+        return 0
+    query = draft or query
+    if not query:
+        raise ValueError('show needs a rule, function, request id or words')
+    request = cfg.root / '.flowguard/requests' / (query + '.md')
+    if request.is_file():
+        row = next((r for r in owner_words(cfg.root)['rows'] if r['id'] == query), None)
+        if row and not row.get('edited') and not row.get('invalid'):
+            if row.get('retired'):
+                print(f'RETIRED {query}: not the owner\'s words; original bytes remain in the archive.')
+                return 0
+            print(f'OWNER {query}\n' + request.read_bytes().decode('utf-8-sig'))
+            return 0
+        raise ValueError(f'{query}: stored original is not verified')
+    errors = [e for e in data['summary']['errors']
+              if (query in rules and e['file'] == rules[query]['file'])
+              or query in (cfg.root / e['file']).read_text(encoding='utf-8-sig')]
+    if errors:
+        for error in errors:
+            print(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
+        return 1
+    with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        if query in rules:
+            item = rules[query]
+            lines = [f'RULE {query}: {item["decides"]}', item.get('doc', ''), f'source: {item["source"]}',
+                     f'{item["file"]}:{item["line"]}; {item.get("rows", 0)} literal rows']
+            for home in item.get('homes', []) if item.get('kind') == 'rule' else []:
+                lines.append('home ' + home)
+                lines.extend(f'  site L{s["line"]}: {s["field"]} {s["op"]} {s["const"]}' for s in graph.sites(home))
+            for result in data['results'].get(query, {}).get('items', {}).values():
+                lines.extend(result.get('red', []) + result.get('grey', []) + result.get('info', []))
+            excluded = set(item.get('homes', []))
+            excluded.update(side for d in data['summary'].get('distincts', []) if query in (d.get('a'), d.get('b'))
+                            for side in (d.get('a', ''), d.get('b', '')) if ':' in side)
+            for home in item.get('homes', []):
+                results = list(data['results'].get(query, {}).get('items', {}).values())
+                live = next((r for r in results if r.get('target') == home and r.get('kind') == 'live'), None)
+                scope = [(site.get('where') or home, site['line'], site['text']) for site in live.get('sites', []) if site.get('realized')] if live else None
+                found = graph.search_homes(home, sites=scope, not_same=excluded,
+                                           words=item.get('doc', '') + ' ' + item['decides'], k=None, weak=True)
+                if not found['searched']:
+                    lines.append('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
+                for candidate in found['candidates']:
+                    lines.append('unbound candidate ' + json.dumps(candidate, ensure_ascii=False))
+            from .deps import Now, stale
+            if data['results'].get(query) and (not data['deps'].get(query) or stale(data['deps'][query], Now(cfg, graph))):
+                lines.insert(1, 'cached results are stale or unverified -> run check')
+            print('\n'.join(line for line in lines if line))
+            return int(bool(data['summary']['errors']))
+        if data['summary']['errors'] and any(query in (cfg.root / e['file']).read_text(encoding='utf-8-sig') for e in data['summary']['errors']):
+            for error in data['summary']['errors']:
+                print(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
+            return 1
+        node = graph.node(query)
+        if node:
+            print(f'{query} {node["file"]}:{node["line"]}\n{node["sig"]}\n{node["doc"]}')
+            if draft:
+                print('needs its own adapter; build inputs and read the real result')
+                tables = {r[0] for r in graph.con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                if 'footprint' in tables:
+                    from .deps import Now, trace_changes
+                    now = Now(cfg, graph)
+                    observed = False
+                    for test, fingerprint, lines in graph.con.execute('SELECT test,fp,call_lines FROM footprint WHERE node=?', (query,)):
+                        observed = True
+                        saved = data['traces'].get(test)
+                        changes = trace_changes(saved, now)
+                        if fingerprint != node['fp'] or changes:
+                            print(f'historical observation: {test}; source/test/known dependency changed or unverified -> run check --all')
+                        else:
+                            print(f'inputs: last observed in {test} ' + (lines or '') + '; current code/test/known dependencies match')
+                            if saved.get('unknown'):
+                                print('runtime input boundary: dynamic data was not verified; this is a navigation clue, not a result proof')
+                    if not observed:
+                        print('not observed in current test records -> run check --all for a complete recording')
+                else:
+                    print('not observed in current test records -> run check --all for a complete recording')
+            else:
+                found = graph.search_homes(query, k=None, weak=True)
+                if not found['searched']:
+                    print('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
+                for candidate in found['candidates']:
+                    print('candidate ' + json.dumps(candidate, ensure_ascii=False))
+            return 0
+        words = tokens(query)
+        ranked = []
+        for rid, rule in rules.items():
+            score = 1000 if query.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
+            score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))
+            if score:
+                ranked.append((score, f'rule {rid}: {rule["decides"]} {rule.get("doc", "")}'))
+        owners = {**graph.functions(), **{node['id']: node for node in graph.nodes(kind='class')}}
+        for ident, item in owners.items():
+            sites = graph.sites(ident)
+            names = {ident.casefold(), item['qual'].casefold(), item['qual'].rsplit('.', 1)[-1].casefold()}
+            score = 1000 if query.casefold() in names else 0
+            score += 2 * len(words & tokens(' '.join(s['field'] + ' ' + (s['identity'] or '') for s in sites)))
+            score += len(words & tokens(ident + ' ' + item['doc']))
+            if score:
+                ranked.append((score, f'{ident} {item["file"]}:{item["line"]}'))
+        ranked.sort(key=lambda row: (-row[0], row[1]))
+        print('\n'.join(_limit([f'show {query}'] + [line for _, line in ranked], cfg.screen_lines)))
+    return 0
+
+
+def check(cfg, *, everything=False, since=None):
+    import ast
+    from . import deps, history
+    from .loader import load
+    model = load(cfg)
+    historical = history.check(cfg, since)
+    data = cache.read(cfg)
+    retry_incomplete = bool((data.get('attempt') or {}).get('errors'))
+    if not model.declared_items() and not everything and not retry_incomplete:
+        if historical:
+            print('\n'.join('red ' + _action(message) for message in historical))
+            return 1
+        print('FlowGuard check: no intent rules.')
+        return 0
+    sentinel = cfg.root / 'tests/test_flowguard_intent.py'
+    if model.declared_items() and not sentinel.is_file():
+        print('red sentinel missing -> run python -m flowguard init')
+        return 1
+    command = [sys.executable, '-c', 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))',
+               str(Path(__file__).resolve().parents[2]), '-q', '-p', 'flowguard.intent.plugin', '--flowguard-record-tests']
+    initial_baseline = not data.get('collection') or retry_incomplete
+    everything = everything or initial_baseline
+    declared = set(model.declared_items())
+    with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        now = deps.Now(cfg, graph)
+        selected = set(model.rules) if everything else set(deps.affected(data, model, now))
+        impact = graph.impact(since=since) if since or graph.stats.get('changed') else dict(files=[], dirty=[], tests=[])
+        if since:
+            dirty, files = set(impact['dirty']), set(impact['files'])
+            selected.update(rid for rid, saved in data['deps'].items() if rid in model.rules and any(
+                key.startswith('node:') and key[5:] in dirty
+                or key.startswith(('file:', 'module:')) and key.partition(':')[2] in files
+                for key in saved.get('dependencies', {})))
+        selected.update(rid for rid, rule in model.rules.items() if not {
+            model.file_of[rid] + '::' + name for name in model.items_of(rule)
+        } <= data['results'].get(rid, {}).get('items', {}).keys())
+        # Reuse the dependency owner's same-key and uses closure, including --since seeds.
+        seeded = dict(data, results={rid: value for rid, value in data['results'].items() if rid not in selected})
+        selected = set(deps.affected(seeded, model, now))
+        ordinary = set()
+        def ordinary_file(file):
+            path = (cfg.root / file).resolve()
+            return path.is_file() and not path.is_relative_to(cfg.intent) and path != sentinel
+        by_file, unrecorded = {}, set()
+        for nodeid, reading in data['tests'].items():
+            file = nodeid.partition('::')[0]
+            by_file.setdefault(file, []).append(reading)
+            if nodeid not in data['traces']:
+                unrecorded.add(file)
+        test_records = deps.test_dependencies(cfg, graph, now)
+        ordinary.update(file for file, record in test_records.items()
+                        if '<unresolved>' in record or cache.test_signature(record) != data['test_deps'].get(file))
+        tables = {row[0] for row in graph.con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if 'footprint' in tables:
+            for (test,) in graph.con.execute('SELECT DISTINCT test FROM footprint'):
+                if ordinary_file(test.partition('::')[0]) and deps.trace_changes(data['traces'].get(test), now):
+                    ordinary.add(test.partition('::')[0])
+        ordinary.update(file for file in impact['tests'] if ordinary_file(file))
+        for file, readings in by_file.items():
+            if ordinary_file(file) and (file not in test_records or file in unrecorded):
+                ordinary.add(file)
+        for file in test_records:
+            if ordinary_file(file):
+                readings = by_file.get(file, [])
+                if not readings or any(reading['outcome'] == 'failed' for reading in readings):
+                    ordinary.add(file)
+        guards = history._guards({cfg.rel(path): path.read_text(encoding='utf-8-sig')
+                                 for path in (cfg.root / 'tests').rglob('*.py')})
+        rule_markers = {ast.dump(ast.Constant(rid), include_attributes=False) for rid in model.rules}
+        for (file, name), (markers, _) in guards.items():
+            if rule_markers.intersection(markers) and ordinary_file(file):
+                readings = [value for nodeid, value in data['tests'].items()
+                            if nodeid.partition('::')[0] == file and _test_name(nodeid) == name]
+                if not readings or any(value['outcome'] != 'passed' for value in readings):
+                    ordinary.add(file)
+    extras = set(model.states) | set(model.structures)
+    attempt = data.get('attempt') or {}
+    failed_collection = (attempt.get('sentinel') is not None or attempt.get('collected')) and (
+        attempt.get('missing') or attempt.get('sentinel') != 'ok')
+    run = everything or selected or extras or ordinary or model.errors or failed_collection or not data.get('collection')
+    executed, cut = set(), set()
+    opaque_tests = {file for file in ordinary if file not in test_records or '<unresolved>' in test_records[file]}
+    process_code = 0
+    if run:
+        original = data
+        remaining = set(selected)
+        staged = not everything and bool(data['collection']) and all(
+            rid in data['results'] for rid in model.rules) and not model.errors
+        output_parts, fresh_contracts, first_started = [], {}, time.time()
+        while True:
+            ready = {rid for rid in remaining if not set(model.rules[rid].uses) & remaining} if staged else remaining
+            ready = ready or remaining
+            batch = list(command)
+            if not everything:
+                targets = {cfg.rel(cfg.intent), cfg.rel(sentinel), *ordinary}
+                batch += ['--flowguard-rules=' + ','.join(sorted(ready | extras)), *sorted(targets)]
+            started = time.time()
+            process = subprocess.run(batch, cwd=cfg.root, capture_output=True, text=True)
+            process_code = process_code or process.returncode
+            output_parts.append(process.stdout + process.stderr)
+            data = cache.read(cfg)
+            executed.update(ready)
+            if not model.declared_items() and everything:
+                break
+            if not data.get('attempt') or data['attempt'].get('stamp', 0) < started:
+                break
+            remaining -= ready
+            for rid in ready:
+                for result in data['results'].get(rid, {}).get('items', {}).values():
+                    if 'own_contract' in result:
+                        fresh_contracts[rid] = result['own_contract']
+            if not remaining:
+                break
+            with closing(build(cfg.root, roots=cfg.roots)) as graph:
+                now = deps.Now(cfg, graph)
+                keep = set(deps.contract_cut(original, model, now, fresh_contracts, remaining))
+                for rid in remaining - keep:
+                    saved = original['deps'][rid]
+                    updated = dict(saved, dependencies={key: now(key) for key in saved['dependencies']})
+                    cache.save_dependencies(graph.con, {rid: updated})
+                graph.con.commit()
+            cut.update(remaining - keep)
+            remaining = keep
+            if not remaining:
+                break
+            ordinary, extras = set(), set()
+        output = cfg.cache / 'check-output.txt'
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text('\n'.join(output_parts), encoding='utf-8')
+        if not model.declared_items():
+            lines = [f'FlowGuard check: full pytest exit {process_code}; details: {output}']
+            lines.extend('red ' + _action(message) for message in historical)
+            if process_code:
+                actual = [line for part in output_parts for line in part.splitlines() if line.strip()]
+                reasons = [line for line in actual if line.startswith('FlowGuard:')]
+                lines.extend(reasons or actual[-5:])
+            print('\n'.join(_limit(lines, cfg.check_lines)))
+            return process_code or int(bool(historical))
+        if not data.get('attempt') or data['attempt'].get('stamp', 0) < started:
+            print(f'red check did not finish -> read {output} and correct the reported error')
+            return process_code or 1
+        if data['attempt'].get('sentinel') == 'ok' and not data['attempt'].get('missing'):
+            for group in data['results'].values():
+                group['items'] = {item: value for item, value in group['items'].items() if item in declared}
+        if process_code == 0:
+            completed = {file: record for file, record in test_records.items()
+                         if any(nodeid.partition('::')[0] == file and reading['stamp'] >= first_started
+                                for nodeid, reading in data['tests'].items())}
+            with closing(build(cfg.root, roots=cfg.roots)) as graph:
+                cache.save_test_dependencies(graph.con, completed)
+                graph.con.commit()
+    for (file, name), (markers, _) in guards.items():
+        if rule_markers.intersection(markers):
+            for nodeid, reading in data['tests'].items():
+                if nodeid.partition('::')[0] == file and _test_name(nodeid) == name and reading['outcome'] == 'skipped':
+                    historical.append(f'guard lost: {nodeid} was skipped -> restore the real marked test')
+    probes = []
+    revision = history._revision(cfg, since)
+    if revision is not None and executed:
+        old = cache.scan(cfg, history._texts(cfg, revision, cfg.rel(cfg.intent)))['rules']
+        current = data['summary']['rules']
+        with closing(build(cfg.root, roots=cfg.roots)) as graph:
+            for rid in sorted(executed):
+                rule = model.rules[rid]
+                parts = data['results'].get(rid, {}).get('items', {})
+                if not parts or any(value.get('verdict') == 'red' for value in parts.values()):
+                    continue
+                prior = [(row['fields'], row['expect']) for row in old.get(rid, {}).get('row_records', []) if not row['retired']]
+                new_lines = {row['line'] for row in current[rid]['row_records']
+                             if not row['retired'] and (row['fields'], row['expect']) not in prior}
+                retained = {proof.get('signature') for value in parts.values() for proof in value.get('proven_rows', [])}
+                for row in rule.live_rows:
+                    if row.line not in new_lines or history.current_row_signature(rule, row) in retained:
+                        continue
+                    proof = history.proven(cfg, rule, row, revision)
+                    cache.save_proven(graph.con, rule, [proof])
+                    probes.append(f'{rid} row L{row.line}: {proof["status"]}' + (': ' + proof['reason'] if proof.get('reason') else ''))
+            graph.con.commit()
+        data = cache.read(cfg)
+    for group in data['results'].values():
+        group['items'] = {item: value for item, value in group['items'].items() if item in declared}
+    data['summary']['errors'].extend(error for error in model.errors if error not in data['summary']['errors'])
+    data['history'], data['probes'] = historical, probes
+    data['check_scope'] = f'{len(executed)} rules rerun, {len(model.rules) - len(executed)} reused; ' + (
+        'all tests (previous run incomplete)' if retry_incomplete else 'all tests (initial baseline)' if initial_baseline
+        else 'all tests (--all)' if everything else f'{len(test_records)} test files considered')
+    if cut:
+        data['check_scope'] += f'; {len(cut)} unchanged upper contracts'
+    if opaque_tests and not everything:
+        data['check_scope'] += f'; {len(opaque_tests)} test files rerun for unresolved imports/data/children'
+    print('\n'.join(render(cfg, data, check=True)))
+    red = historical or data['summary']['errors'] or (data.get('attempt') or {}).get('errors') or any(
+        value.get('verdict') == 'red' for rid, group in data['results'].items()
+        if rid in data['summary']['rules'] and not data['summary']['rules'][rid].get('superseded_by') or rid is None
+        for value in group.get('items', {}).values())
+    red = red or any(reading['outcome'] == 'failed' for reading in data['tests'].values())
+    return process_code or int(bool(red))
+
+
+def _early_plugin(text):
+    """Use pytest's project configuration so preparation precedes conftest imports."""
+    if text.startswith('\ufeff'):
+        return '\ufeff' + _early_plugin(text[1:])
+    header = '[tool.pytest.ini_options]'
+    data = tomllib.loads(text).get('tool', {}).get('pytest', {}).get('ini_options', {})
+    options = data.get('addopts', '')
+    if not isinstance(options, (str, list)):
+        raise ValueError('pytest addopts must be text or a list of text options')
+    parts = shlex.split(options) if isinstance(options, str) else list(options)
+    plugin = 'flowguard.intent.plugin'
+    if '-p' + plugin in parts or any(a == '-p' and b == plugin for a, b in zip(parts, parts[1:])):
+        return text
+    if any(not isinstance(part, str) for part in parts):
+        raise ValueError('pytest addopts must be text or a list of text options')
+    value = options.rstrip() + ' -p ' + plugin if isinstance(options, str) else [*options, '-p', plugin]
+    line = 'addopts = ' + json.dumps(value.lstrip() if isinstance(value, str) else value, ensure_ascii=False) + '\n'
+    section = re.search(r'^\[tool\.pytest\.ini_options\][ \t]*(?:#.*)?$', text, re.M)
+    if not section:
+        return text.rstrip() + '\n\n' + header + '\n' + line
+    start = section.end()
+    if start == len(text):
+        text += '\n'
+    start += 1
+    next_section = re.search(r'^\[', text[start:], re.M)
+    end = start + next_section.start() if next_section else len(text)
+    body = text[start:end]
+    setting = re.search(r'^[ \t]*addopts[ \t]*=', body, re.M)
+    if setting:
+        finish = body.find('\n', setting.end())
+        while True:
+            finish = len(body) if finish < 0 else finish + 1
+            try:
+                tomllib.loads(body[setting.start():finish])
+                break
+            except tomllib.TOMLDecodeError:
+                if finish == len(body):
+                    raise ValueError('cannot update pytest addopts without changing other settings')
+                finish = body.find('\n', finish)
+        body = body[:setting.start()] + line + body[finish:]
+    else:
+        body = body.rstrip() + '\n' + line + '\n'
+    return text[:start] + body + text[end:]
+
+
+def init(cfg):
+    pyproject = cfg.root / 'pyproject.toml'
+    text = pyproject.read_text(encoding='utf-8') if pyproject.is_file() else ''
+    if '[tool.flowguard]' not in text:
+        text = text.rstrip() + '\n\n[tool.flowguard]\n'
+    pyproject.write_text(_early_plugin(text), encoding='utf-8')
+    cfg.intent.mkdir(parents=True, exist_ok=True)
+    sentinel = cfg.root / 'tests/test_flowguard_intent.py'
+    if sentinel.exists() and sentinel.read_text(encoding='utf-8') != SENTINEL:
+        raise ValueError(f'{sentinel}: an existing test needs merging with the intent sentinel')
+    sentinel.parent.mkdir(parents=True, exist_ok=True)
+    sentinel.write_text(SENTINEL, encoding='utf-8')
+    conftest = sentinel.parent / 'conftest.py'
+    content = conftest.read_text(encoding='utf-8') if conftest.exists() else ''
+    if 'flowguard.intent.plugin' not in content:
+        if 'pytest_plugins' in content:
+            extra = 'pytest_plugins = ([pytest_plugins] if isinstance(pytest_plugins, str) else list(pytest_plugins)) + ["flowguard.intent.plugin"]\n'
+        else:
+            extra = 'pytest_plugins = ["flowguard.intent.plugin"]\n'
+        conftest.write_text(content.rstrip() + '\n\n' + extra, encoding='utf-8')
+    fragment = cfg.root / '.flowguard/ci.yml'
+    fragment.parent.mkdir(parents=True, exist_ok=True)
+    fragment.write_text('''# Merge these steps into the project CI after installing FlowGuard.
+- uses: actions/checkout@v5
+  with:
+    fetch-depth: 0
+- run: python -m flowguard check --all
+''', encoding='utf-8')
+    agents = cfg.root / 'AGENTS.md'
+    content = agents.read_text(encoding='utf-8') if agents.exists() else ''
+    if '<!-- flowguard:start -->' in content:
+        before, _, rest = content.partition('<!-- flowguard:start -->')
+        _, _, after = rest.partition('<!-- flowguard:end -->')
+        content = before + PROJECT_RULES + '\n' + after.lstrip('\n')
+    elif re.search(r'^## FlowGuard rules for the project agent\s*$', content, re.M):
+        content = re.sub(r'^## FlowGuard rules for the project agent\s*\n.*?(?=^## |\Z)', lambda _: PROJECT_RULES + '\n',
+                         content, count=1, flags=re.M | re.S)
+    else:
+        content = content.rstrip() + '\n\n' + PROJECT_RULES
+    agents.write_text(content, encoding='utf-8')
+    print('Initialized intent sentinel, pytest plugin, CI fragment and four project rules.')
+    return 0
+
+
+def requests(cfg, options):
+    if options.operation == 'add':
+        raw = sys.stdin.buffer.read() if options.file == '-' else Path(options.file).read_bytes()
+        item = store_request(cfg.root, raw, identifier=options.identifier, kind=options.kind,
+                             supersedes=options.supersedes)
+        print(f'stored {item["id"]} ({item["kind"]}, sha {item["sha256"][:12]}, {item["bytes"]} bytes)')
+    elif options.operation == 'retire':
+        retire_request(cfg.root, options.identifier, note=options.note)
+        print(f'retired {options.identifier}: not the owner\'s words')
+    else:
+        items = owner_words(cfg.root)['rows']
+        print(f'requests: {len(items)}; show ID for the stored words')
+        for item in items:
+            state = ('retired' if item.get('retired') else 'superseded' if item.get('superseded_by') else 'stored')
+            if item.get('invalid') or item.get('edited'):
+                state = item.get('invalid') or item.get('edited')
+            print(f'  {item["id"]} {item["kind"] or "unverified"} {item["received"]} {state}')
+    return 0
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    root = None
+    if '--root' in argv:
+        at = argv.index('--root')
+        if at + 1 == len(argv):
+            raise SystemExit('--root needs a project directory')
+        root = argv[at + 1]
+        del argv[at:at + 2]
+    parser = argparse.ArgumentParser(prog='flowguard')
+    parser.add_argument('--version', action='version', version=__version__)
+    commands = parser.add_subparsers(dest='command')
+    show_parser = commands.add_parser('show')
+    show_parser.add_argument('query', nargs='?')
+    show_parser.add_argument('--draft')
+    show_parser.add_argument('--gaps')
+    check_parser = commands.add_parser('check')
+    check_parser.add_argument('--all', action='store_true')
+    check_parser.add_argument('--since')
+    commands.add_parser('init')
+    req_parser = commands.add_parser('req')
+    operations = req_parser.add_subparsers(dest='operation', required=True)
+    add = operations.add_parser('add')
+    add.add_argument('file')
+    add.add_argument('--id', dest='identifier')
+    add.add_argument('--kind', choices=('request', 'glossary', 'adoption'), default='request')
+    add.add_argument('--supersedes', action='append', default=[])
+    operations.add_parser('list')
+    retire = operations.add_parser('retire')
+    retire.add_argument('identifier')
+    retire.add_argument('--not-owner', action='store_true', required=True)
+    retire.add_argument('--note')
+    options = parser.parse_args(argv)
+    try:
+        cfg = load_config(root or find_root())
+        if options.command == 'show':
+            return show(cfg, options.query, draft=options.draft, gaps=options.gaps)
+        if options.command == 'check':
+            return check(cfg, everything=options.all, since=options.since)
+        if options.command == 'init':
+            return init(cfg)
+        if options.command == 'req':
+            return requests(cfg, options)
+        return screen(cfg)
+    except (ValueError, MapError, OSError) as error:
+        print(f'flowguard: {error}', file=sys.stderr)
+        return 2
