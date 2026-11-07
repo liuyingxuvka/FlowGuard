@@ -69,9 +69,12 @@ class _Finder:
         self.loaded = {}
 
     def owns(self, filename):
-        return any(root is not None and project_code(filename, root) for root in (self.root, self.host))
+        roots = (self.root,) if self.root == self.host else (self.root, self.host)
+        return any(root is not None and project_code(filename, root) for root in roots)
 
     def application(self, path, root):
+        if isinstance(path, Path) and path.is_relative_to(_SDK):
+            return False
         return project_code(str(path), root) and not path.is_relative_to(_SDK)
 
     def forget(self, root):

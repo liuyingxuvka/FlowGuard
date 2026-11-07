@@ -14,6 +14,7 @@
 - Read a saved owner statement through the existing owner's single-record projection while retaining its integrity and retirement checks. Avoid traceback-source formatting for internal controlled calibration stops; retain actual native exceptions, test lifecycle and outcomes.
 - Keep the skill defaults to status, original words, source navigation and checks of existing bound decisions after the optional-use trial missed its benefit criterion. Anchor old judgments before a relevant edit; behavior comparison and small flow models remain available for focused maintenance.
 - Keep source word search usable when a missing imported symbol has no documentation. Preserve its unresolved identity while continuing to rank actual source candidates.
+- Reduce duplicated ownership work during import preparation: evaluate identical project/host roots once and exclude already resolved SDK paths before application checks. Preserve separate-root order and source/environment boundaries.
 
 ## v2.1.1 - 2026-11-06 - Correct dependency and C++ source boundaries
 
