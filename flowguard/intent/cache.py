@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
@@ -255,7 +256,7 @@ def read(cfg: Config):
     path = cfg.cache / 'map.sqlite'
     if not path.is_file():
         return output
-    with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as con:
+    with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as con, con:
         con.execute('BEGIN')
         tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         names = ('intent_attempt', 'intent_collection', 'intent_dependencies', 'ordinary_collection')

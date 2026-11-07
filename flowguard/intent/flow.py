@@ -888,6 +888,7 @@ class _TraceScope:
         self.ordinary, self.paused = ordinary, False
         self.previous, self.active, self.failed = None, False, False
         self._problems = []
+        self._line_frames = {}
 
     @property
     def problems(self):
@@ -909,6 +910,9 @@ class _TraceScope:
             else:
                 self._problems.append('trace hook changed during anchor observation')
             self.active = False
+        for frame, original in self._line_frames.values():
+            frame.f_trace_lines = original
+        self._line_frames.clear()
 
     def __call__(self, frame, event, arg):
         # A generated trampoline is not the real point. Neither observer may
@@ -925,7 +929,18 @@ class _TraceScope:
             except Exception as error:
                 self.failed = True
                 self._problems.append('observer callback failed: ' + type(error).__name__ + ': ' + str(error))
-        return self if prior is not None or current is not None else None
+        interested = prior is not None or current is not None
+        # These owned observers consume boundaries, not per-line values. Only
+        # change frames they actually follow; restore even an unfinished frame
+        # when this scope closes. Nested scopes retain the first owner's flag.
+        if event == 'call' and interested and frame.f_trace_lines:
+            self._line_frames[id(frame)] = frame, frame.f_trace_lines
+            frame.f_trace_lines = False
+        elif event == 'return':
+            saved = self._line_frames.pop(id(frame), None)
+            if saved is not None:
+                frame.f_trace_lines = saved[1]
+        return self if interested else None
 
 
 @contextmanager

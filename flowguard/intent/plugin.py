@@ -463,7 +463,7 @@ def _missing(state, declared):
         path = state.cfg.cache / 'map.sqlite'
         cached = set()
         if path.is_file():
-            with sqlite3.connect(path) as connection:
+            with closing(sqlite3.connect(path)) as connection, connection:
                 if connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='result'").fetchone():
                     cached = {row[0] for row in connection.execute('SELECT item FROM result')}
         missing |= state.deferred - cached
