@@ -2,6 +2,8 @@
 
 The canonical API guide and executable two-anchor example are in [the skill's local reference](../.agents/skills/flowguard/references/rules.md). The skill installer copies that reference with SKILL.md, so the first rule does not depend on retrieving a web page or guessing the API.
 
+`check --diagnose` records timed check stages in `.flowguard/cache/check-flow.jsonl`, validates their observed pipeline, and records activated ordinary-test source-anchor events in `.flowguard/cache/anchor-events.jsonl`. Ordinary `check` keeps the same project rule/Flow checks without this diagnostic observer. `--all` runs the complete tests with live pytest output; add `--diagnose` when diagnosing a full run. `show CHECK_PIPELINE` reads the built-in declaration without executing it; a real project rule of that name takes priority. Historical logs do not verify the current run. A completed run, a successful check and complete model coverage are separate findings.
+
 ## Generated source queries
 
 The same Map reads Python, JS/JSX, TS/TSX, C, C++ and C#. Normal installation supplies their grammar packages, loaded only when the source language is present. Python remains the only language with executable behavior anchors. Foreign grammar facts support navigation and explicit source checks; they do not execute the application or replace a compiler. Dynamic calls, macros, overloads and external/build-dependent bindings remain unknown with reasons.

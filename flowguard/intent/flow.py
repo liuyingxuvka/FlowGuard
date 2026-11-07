@@ -966,8 +966,9 @@ class Capture:
     or turn an interrupted test into a pass. Values never survive this scope by
     themselves. Unsupported async/generator frames remain explicit unknowns.
     """
-    def __init__(self, root, index, case, *, models=None, _ordinary=False):
+    def __init__(self, root, index, case, *, models=None, _ordinary=False, on_event=None):
         self.root, self.index, self.case = Path(root).resolve(), index, str(case)
+        self.on_event, self.diagnostic_issues = on_event, []
         self._ordinary = _ordinary
         self._model_scopes = None
         if models is not None:
@@ -1047,8 +1048,15 @@ class Capture:
         return result
 
     def _append(self, anchor, phase, args, occurrence, *, result=None,error=None,states=None,before=None,parents=(),caller=()):
-        self.events.append(Event(anchor.name,phase,args,_snapshot(result),error,self.case,occurrence,
-                                 anchor.target,len(self.events)+1,states or {},before or {},parents,caller,str((self.root/anchor.file).resolve()),anchor.source_digest))
+        event = Event(anchor.name,phase,args,_snapshot(result),error,self.case,occurrence,
+                      anchor.target,len(self.events)+1,states or {},before or {},parents,caller,str((self.root/anchor.file).resolve()),anchor.source_digest)
+        self.events.append(event)
+        if self.on_event is not None:
+            try:
+                self.on_event(event)
+            except Exception as error:
+                self.diagnostic_issues.append('diagnostics unavailable: callback raised ' + type(error).__name__)
+                self.on_event = None
 
     def _in_model_scope(self, anchor, frame):
         if self._model_scopes is None or anchor.name in self._model_scopes:

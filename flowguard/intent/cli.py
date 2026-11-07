@@ -2,19 +2,24 @@
 from __future__ import annotations
 
 import argparse
+import codecs
 from contextlib import closing
+import io
 import json
+import locale
+import os
 from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
+import threading
 import time
 import tomllib
 
 from flowguard import __version__
 from flowguard.map.common import MapError
-from flowguard.map.requests import owner_words, retire_request, store_request
+from flowguard.map.requests import owner_word, owner_words, retire_request, store_request
 from flowguard.structure import build
 from flowguard.structure.query import tokens
 from . import cache
@@ -253,11 +258,19 @@ def _copy_pointers(graph, index, anchors, homes, summary, results, words, full, 
     return list(dict.fromkeys(lines)) + _candidate_lines(found, full, 'unbound candidate ')
 
 
-def _unmodelled(index, summary):
+def _unmodelled(index, summary, *, root=None):
     references = {ref for item in summary['rules'].values() for ref in item.get('anchors', [])}
     references.update(value for relation in summary.get('distincts', []) for value in (relation['a'], relation['b']))
-    used = {a.name for a in _anchor_targets(index, references)}
-    return sorted({a.name for a in index.entries if a.source_role == 'production' and a.name not in used})
+    sdk_root = Path(__file__).resolve().parents[2]
+    internal = set()
+    if root is not None and Path(root).resolve() == sdk_root:
+        from .checkflow import covered_sdk_anchors
+        internal = covered_sdk_anchors(root)
+    def identity(anchor):
+        return (anchor.name, anchor.target, anchor.file, anchor.source_digest,
+                anchor.kind, anchor.target_line, anchor.parameters)
+    used = {identity(a) for a in _anchor_targets(index, references)} | internal
+    return sorted({a.name for a in index.entries if a.source_role == 'production' and identity(a) not in used})
 
 
 def _observation_lines(cfg, graph, data, node):
@@ -282,7 +295,58 @@ def _observation_lines(cfg, graph, data, node):
     return lines
 
 
+def _builtin_check_flow_lines(cfg, module, *, full=False):
+    flow = module.CHECK_FLOW
+    source = Path(module.__file__).resolve()
+    line = next((number for number, text in enumerate(source.read_text(encoding='utf-8').splitlines(), 1)
+                 if text.startswith('CHECK_FLOW =')), 1)
+    lines = [f'FLOW {flow.id} (built-in check diagnostic model)', f'source: {source}:{line}',
+             f'nodes ({len(flow.nodes)}):']
+    for node in flow.nodes:
+        detail = f'{node.name}: {node.reference} {node.phase}'
+        if node.end:
+            detail += ' [end]'
+        if full:
+            detail += f'; occurrence={node.occurrence}; caller={node.caller or "any"}'
+        lines.append('  ' + detail)
+    lines.append('edges: ' + ', '.join(f'{left}->{right}' for left, right in flow.edges))
+    lines.append(f'relations ({len(flow.relations)}):')
+    def reading(value):
+        text = value.node + '.' + value.field
+        if value.occurrence is not None:
+            text += f'#{value.occurrence}'
+        if value.view:
+            text += ':' + value.view
+        if type(value.equals) in (bool, int, float, str, bytes, type(None)):
+            text += ' == ' + repr(value.equals)
+        return text
+    for relation in flow.relations:
+        identifier = getattr(relation.rule, 'id', str(relation.rule))
+        values = ', '.join(name + '<-' + reading(value) for name, value in relation.inputs.items())
+        actual = ' actual<-' + reading(relation.actual) if relation.actual is not None else ''
+        lines.append(f'  {identifier} on {relation.on or "matching event"}: {values}{actual}')
+        if full:
+            lines.append('    ' + getattr(relation.rule, 'decides', ''))
+    if full:
+        lines.append('model source: ' + flow.source)
+    lines.extend([f'latest diagnostic log: {cfg.cache / "check-flow.jsonl"}',
+                  'Historical logs do not verify the current run; this view executes no check.'])
+    return lines
+
+
 def show(cfg, query=None, *, draft=None, gaps=None, full=False):
+    query = draft or query
+    if not gaps and query:
+        request = cfg.root / '.flowguard/requests' / (query + '.md')
+        if request.is_file():
+            row = owner_word(cfg.root, query)
+            if row and not row.get('edited') and not row.get('invalid'):
+                if row.get('retired'):
+                    print(f'RETIRED {query}: not the owner\'s words; original bytes remain in the archive.')
+                    return 0
+                print(f'OWNER {query}\n' + request.read_bytes().decode('utf-8-sig'))
+                return 0
+            raise ValueError(f'{query}: stored original is not verified')
     data = cache.read(cfg)
     rules = data['summary']['rules']
     if gaps:
@@ -294,19 +358,8 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
         result = Engine(model).check_key(gaps)
         print(json.dumps(result.get('gaps') or {'gaps': 0}, ensure_ascii=False))
         return 0
-    query = draft or query
     if not query:
         raise ValueError('show needs a rule, function, request id or words')
-    request = cfg.root / '.flowguard/requests' / (query + '.md')
-    if request.is_file():
-        row = next((r for r in owner_words(cfg.root)['rows'] if r['id'] == query), None)
-        if row and not row.get('edited') and not row.get('invalid'):
-            if row.get('retired'):
-                print(f'RETIRED {query}: not the owner\'s words; original bytes remain in the archive.')
-                return 0
-            print(f'OWNER {query}\n' + request.read_bytes().decode('utf-8-sig'))
-            return 0
-        raise ValueError(f'{query}: stored original is not verified')
     errors = [e for e in data['summary']['errors']
               if (query in rules and e['file'] == rules[query]['file'])
               or query in (cfg.root / e['file']).read_text(encoding='utf-8-sig')]
@@ -314,6 +367,10 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
         for error in errors:
             print(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
         return 1
+    if query == 'CHECK_PIPELINE' and query not in rules and not draft:
+        from . import checkflow
+        print('\n'.join(_builtin_check_flow_lines(cfg, checkflow, full=full)))
+        return 0
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         from .anchors import collect
         index = collect(graph)
@@ -357,7 +414,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                     if node and node['id'] not in seen:
                         seen.add(node['id'])
                         print('\n'.join(_observation_lines(cfg, graph, data, node)))
-            unused = set(_unmodelled(index, data['summary'])) & {a.name for a in anchors}
+            unused = set(_unmodelled(index, data['summary'], root=cfg.root)) & {a.name for a in anchors}
             if unused:print('info: not referenced by a current model: ' + ', '.join(sorted(unused)))
             print('\n'.join(_copy_pointers(graph, index, anchors, [], data['summary'], [], query, full)))
             return 0
@@ -429,7 +486,7 @@ def anchor_checks(cfg, *, index=None, automatic=False):
     if agreement.get('active'):
         lines.extend(('red ' if agreement['status'] == 'red' else 'grey ' if agreement['status'] == 'grey' else '') + line
                      for line in differences.render(agreement).splitlines())
-    unused = _unmodelled(index, cache.scan(cfg))
+    unused = _unmodelled(index, cache.scan(cfg), root=cfg.root)
     if unused:
         lines.append('info: anchors not referenced by a current model: ' + ', '.join(unused[:5])
                      + (f'; {len(unused)-5} more' if len(unused)>5 else ''))
@@ -452,38 +509,101 @@ def behavior_changes(cfg, *, automatic=False, index=None):
     return ['Behavior changes:', *differences.render(report).splitlines()]
 
 
-def check(cfg, *, everything=False, since=None):
+def check(cfg, *, everything=False, since=None, diagnose=False):
+    if not diagnose:
+        return _checked(cfg, everything=everything, since=since)
+    from .checkflow import CheckObservation
+    from .diagnostics import EventLog, report_diagnostic
+    with CheckObservation(cfg) as observation:
+        status = observation.call(_checked, cfg, everything=everything, since=since)
+    result = status or int(bool(observation.result['red']))
+    messages = ['red check flow: ' + message for message in observation.result['red']]
+    messages.extend('grey check flow: ' + message for message in observation.issues)
+    if observation.result['grey'] and (everything or any(e.anchor == 'CHECK_SELECTION' for e in observation.events)):
+        unseen = sum(reason.startswith('unobserved edge ') for reason in observation.result['grey'])
+        messages.append(f'Check flow: coverage grey; {unseen} unobserved edges; stages: {observation.path}')
+    for message in messages:
+        error = report_diagnostic(message)
+        if error is not None:
+            issue = f'diagnostics unavailable: stdout reporting raised {type(error).__name__}'
+            observation.issues.append(issue)
+            with EventLog(observation.path, append=True) as writer:
+                writer.write(dict(kind='diagnostic-unavailable', output='stdout', error=type(error).__name__))
+            break
+    return result
+
+
+# flowguard: event CHECK_RUN(cfg: Config, everything: bool, since: str | None)
+def _checked(cfg: Config, *, everything: bool = False, since: str | None = None):
+    from .checkflow import observe
     status = _check(cfg, everything=everything, since=since)
+    red = observe(_check_sources, cfg)
+    return status or int(red)
+
+
+# flowguard: event CHECK_SOURCES(cfg: Config)
+def _check_sources(cfg: Config):
     index, lines, red = anchor_checks(cfg)
     lines.extend(behavior_changes(cfg, index=index))
     if lines:
         print('\n'.join(lines))
-    return status or int(red)
+    return red
 
 
-def _check(cfg, *, everything=False, since=None):
+def _full_pytest(command, root, output):
+    """Tee the existing pytest subprocess, including its unfinished node line."""
+    output.parent.mkdir(parents=True, exist_ok=True)
+    encoding = 'utf-8' if sys.flags.utf8_mode else locale.getencoding()
+    decoder = io.IncrementalNewlineDecoder(codecs.getincrementaldecoder(encoding)(), translate=True)
+    parts, errors, stopped = [], [], threading.Event()
+    with output.open('w', encoding='utf-8') as saved:
+        read_fd, write_fd = os.pipe()
+        def forward():
+            try:
+                with os.fdopen(read_fd, 'rb') as source:
+                    while True:
+                        chunk = source.read1(8192)
+                        if stopped.is_set():
+                            return
+                        try:
+                            text = decoder.decode(chunk, final=not chunk)
+                            parts.append(text)
+                            saved.write(text)
+                            saved.flush()
+                        except Exception as error:
+                            errors.append(error)
+                            text = ''
+                        if text and not errors:
+                            try:
+                                sys.stdout.write(text)
+                                sys.stdout.flush()
+                            except Exception as error:
+                                errors.append(error)
+                        if not chunk:
+                            return
+            except Exception as error:
+                errors.append(error)
+        reader = threading.Thread(target=forward, daemon=True)
+        with os.fdopen(write_fd, 'wb') as destination:
+            reader.start()
+            try:
+                process = subprocess.run(command, cwd=root, stdout=destination, stderr=subprocess.STDOUT, text=True)
+            except BaseException:
+                stopped.set()
+                raise
+            finally:
+                destination.close()
+                reader.join(timeout=1 if stopped.is_set() else None)
+    if errors:
+        raise errors[0]
+    process.stdout, process.stderr = ''.join(parts), ''
+    return process
+
+
+# flowguard: event CHECK_SELECTION(cfg: Config, model: object, data: dict, everything: bool, since: str | None, sentinel: Path)
+def _check_selection(cfg: Config, model: object, data: dict, everything: bool, since: str | None, sentinel: Path):
     import ast
     from . import deps, history
-    from .loader import load
-    model = load(cfg)
-    historical = history.check(cfg, since)
-    data = cache.read(cfg)
-    retry_incomplete = bool((data.get('attempt') or {}).get('errors'))
-    if not model.declared_items() and not everything and not retry_incomplete:
-        if historical:
-            print('\n'.join('red ' + _action(message) for message in historical))
-            return 1
-        print('FlowGuard check: no intent rules.')
-        return 0
-    sentinel = cfg.root / 'tests/test_flowguard_intent.py'
-    if model.declared_items() and not sentinel.is_file():
-        print('red sentinel missing -> run python -m flowguard init')
-        return 1
-    command = [sys.executable, '-c', 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))',
-               str(Path(__file__).resolve().parents[2]), '-q', '-p', 'flowguard.intent.plugin', '--flowguard-record-tests']
-    initial_baseline = not data.get('collection') or retry_incomplete
-    everything = everything or initial_baseline
-    declared = set(model.declared_items())
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         now = deps.Now(cfg, graph)
         selected = set(model.rules) if everything else set(deps.affected(data, model, now))
@@ -543,6 +663,44 @@ def _check(cfg, *, everything=False, since=None):
                             if nodeid.partition('::')[0] == file and _test_name(nodeid) == name]
                 if not readings or any(value['outcome'] != 'passed' for value in readings):
                     ordinary.add(file)
+    return selected, flows, ordinary, test_records, guards, rule_markers
+
+
+# flowguard: event CHECK_PYTEST(command: list, root: Path, output: Path, stream: bool)
+def _run_check_pytest(command: list, root: Path, output: Path, stream: bool):
+    return (_full_pytest(command, root, output) if stream else
+            subprocess.run(command, cwd=root, capture_output=True, text=True))
+
+
+def _check(cfg, *, everything=False, since=None):
+    import ast
+    from . import deps, history
+    from .loader import load
+    from .checkflow import observe
+    stream_all = everything
+    model = observe(load, cfg)
+    historical = history.check(cfg, since)
+    data = cache.read(cfg)
+    retry_incomplete = bool((data.get('attempt') or {}).get('errors'))
+    if not model.declared_items() and not everything and not retry_incomplete:
+        if historical:
+            print('\n'.join('red ' + _action(message) for message in historical))
+            return 1
+        print('FlowGuard check: no intent rules.')
+        return 0
+    sentinel = cfg.root / 'tests/test_flowguard_intent.py'
+    if model.declared_items() and not sentinel.is_file():
+        print('red sentinel missing -> run python -m flowguard init')
+        return 1
+    command = [sys.executable, *(['-u'] if stream_all else []), '-c', 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))',
+               str(Path(__file__).resolve().parents[2]), '-vv' if stream_all else '-q', '-p', 'flowguard.intent.plugin', '--flowguard-record-tests']
+    if stream_all:
+        command += ['-o', 'verbosity_test_cases=2', '--durations=10']
+    initial_baseline = not data.get('collection') or retry_incomplete
+    everything = everything or initial_baseline
+    declared = set(model.declared_items())
+    selected, flows, ordinary, test_records, guards, rule_markers = observe(
+        _check_selection, cfg, model, data, everything, since, sentinel)
     extras = set(model.states) | set(model.structures) | set(model.anchor_distincts) | flows
     attempt = data.get('attempt') or {}
     failed_collection = (attempt.get('sentinel') is not None or attempt.get('collected')) and (
@@ -552,11 +710,17 @@ def _check(cfg, *, everything=False, since=None):
     opaque_tests = {file for file in ordinary if file not in test_records or '<unresolved>' in test_records[file]}
     process_code = 0
     if run:
+        output = cfg.cache / 'check-output.txt'
+        if stream_all:
+            print(f'FlowGuard check --all: running full pytest; live output: {output}', flush=True)
         original = data
         remaining = set(selected)
         staged = not everything and bool(data['collection']) and all(
             rid in data['results'] for rid in model.rules) and not model.errors
         output_parts, fresh_contracts, first_started = [], {}, time.time()
+        from .checkflow import _CURRENT
+        diagnosing = _CURRENT.get() is not None
+        diagnostic_batches = 0
         while True:
             ready = {rid for rid in remaining if not set(model.rules[rid].uses) & remaining} if staged else remaining
             ready = ready or remaining
@@ -564,11 +728,17 @@ def _check(cfg, *, everything=False, since=None):
             if not everything:
                 targets = {cfg.rel(cfg.intent), cfg.rel(sentinel), *ordinary}
                 batch += ['--flowguard-rules=' + ','.join(sorted(ready | extras)), *sorted(targets)]
+            if diagnosing:
+                batch.append('--flowguard-diagnose')
+                if diagnostic_batches:
+                    batch.append('--flowguard-diagnose-append')
             started = time.time()
-            process = subprocess.run(batch, cwd=cfg.root, capture_output=True, text=True)
+            process = observe(_run_check_pytest, batch, cfg.root, output, stream_all)
+            if diagnosing:
+                diagnostic_batches += 1
             process_code = process_code or process.returncode
             output_parts.append(process.stdout + process.stderr)
-            data = cache.read(cfg)
+            data = observe(cache.read, cfg)
             executed.update(ready)
             if not model.declared_items() and everything:
                 break
@@ -594,7 +764,6 @@ def _check(cfg, *, everything=False, since=None):
             if not remaining:
                 break
             ordinary, extras = set(), set()
-        output = cfg.cache / 'check-output.txt'
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text('\n'.join(output_parts), encoding='utf-8')
         if not model.declared_items():
@@ -801,6 +970,7 @@ def main(argv=None):
     show_parser.add_argument('--full', action='store_true', help='Include decision sites and full candidate metadata')
     check_parser = commands.add_parser('check')
     check_parser.add_argument('--all', action='store_true')
+    check_parser.add_argument('--diagnose', action='store_true', help='Record timed check stages and activated source-anchor events')
     check_parser.add_argument('--since')
     compare_parser = commands.add_parser('compare')
     compare_parser.add_argument('left')
@@ -831,7 +1001,7 @@ def main(argv=None):
         if options.command == 'show':
             return show(cfg, options.query, draft=options.draft, gaps=options.gaps, full=options.full)
         if options.command == 'check':
-            return check(cfg, everything=options.all, since=options.since)
+            return check(cfg, everything=options.all, since=options.since, diagnose=options.diagnose)
         if options.command == 'init':
             return init(cfg)
         if options.command == 'req':

@@ -247,7 +247,8 @@ def declaration_names(cfg, summary):
     return declared, unresolved
 
 
-def read(cfg):
+# flowguard: event CHECK_RESULTS(cfg: Config)
+def read(cfg: Config):
     """One SQLite source; a latest failed attempt stays separate from the last full collection."""
     summary = scan(cfg)
     output = dict(summary=summary, results={}, deps={}, attempt=None, collection=None, tests={}, test_deps={}, traces={}, test_collection={})

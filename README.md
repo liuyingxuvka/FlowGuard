@@ -50,6 +50,7 @@ The same generated map and fixed queries read the first languages below. Normal 
 | `python -m flowguard show --draft orders:accept` | Locate an existing calibration test; do not invent its expected answer. |
 | `python -m flowguard check` | Recheck affected rules and tests with ordinary pytest. |
 | `python -m flowguard check --all` | Run all intent and ordinary project tests in CI. |
+| `python -m flowguard check --diagnose` | Record timed check stages and source-anchor events. Combine with `--all` for full CI diagnostics. |
 | `python -m flowguard req list` | List preserved owner messages; `show R1` reads the original. |
 
 Without rules, a check is quiet:

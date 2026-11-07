@@ -161,12 +161,14 @@ def _missing_record(path: Path, relative: Path):
     return f"is missing: {name} was deleted"
 
 
-def _retire_states(root: Path) -> dict:
+def _retire_states(root: Path, *, identifiers=None) -> dict:
     """(kind, problem) of every retire record: the one check behind status and map check.
 
     kind is None (verified here), 'unverified', 'missing', 'unreadable' or 'edited'."""
     states = {}
     for identifier in _stems(root, RETIRED_DIR):
+        if identifiers is not None and identifier not in identifiers:
+            continue
         relative = RETIRED_DIR / (identifier + '.json')
         missing = _missing_record(root / relative, relative)
         if missing:
@@ -318,6 +320,38 @@ def _readable(path: Path) -> bool:
     return True
 
 
+def _owner_row(root, identifier, retired, cited, common):
+    # A retire record applies as written, whatever the state of the request files it hides. Every
+    # request's files, retired or not, are checked against their original bytes; edited text is never shown.
+    edited, invalid, item = _request_problems(root, identifier, [])
+    intact = invalid is None and edited is None
+    text = read_request_bytes(root, identifier).decode('utf-8-sig', errors='replace').splitlines() if intact else []
+    if invalid is not None:
+        # A sidecar whose bytes can be read but are not the stored ones was edited; only a sidecar that
+        # cannot be read is unreadable. Either way none of its fields are trusted or shown.
+        files = [(REQUEST_DIR / (identifier + suffix)).as_posix() for suffix in ('.md', '.json')]
+        problem = f'{invalid}; {restore_advice(root, files, common)}'
+        readable = item is not None or _readable(root / REQUEST_DIR / (identifier + '.json'))
+        return dict(id=identifier, kind=None, received='', first_line='', extra_lines=0, supersedes=[],
+                    superseded_by=[], retired=identifier in retired, cited_by=[],
+                    edited=problem if readable else None, invalid=None if readable else problem)
+    if edited is not None:
+        edited = f"{edited}; {restore_advice(root, [(REQUEST_DIR / (identifier + '.md')).as_posix()], common)}"
+    return dict(id=identifier, kind=item['kind'], received=item['received'],
+                first_line=text[0] if text else '', extra_lines=max(0, len(text) - 1),
+                supersedes=item.get('supersedes', []), superseded_by=[],
+                retired=identifier in retired, cited_by=cited.get(identifier, []), edited=edited, invalid=None)
+
+
+def owner_word(root: Path, identifier: str) -> dict | None:
+    """One on-disk request's display facts; archive links remain in owner_words."""
+    root = Path(root).resolve()
+    if not REQUEST_ID.fullmatch(identifier) or not (root / REQUEST_DIR / (identifier + '.md')).is_file():
+        return None
+    retired = _retire_states(root, identifiers={identifier})
+    return _owner_row(root, identifier, retired, {}, git_common_directory(root))
+
+
 def owner_words(root: Path) -> dict:
     """Stored owner words, newest first, with supersession, retirement and citations; never a to-do state.
 
@@ -326,30 +360,7 @@ def owner_words(root: Path) -> dict:
     retired = retired_requests(root)
     common = git_common_directory(root)
     cited, commits_known = request_citations(root)
-    rows = []
-    for identifier in _identifiers(root):
-        # A retire record applies as written, whatever the state of the request files it hides. Every
-        # request's files, retired or not, are checked against their original bytes; edited text is never shown.
-        body = root / REQUEST_DIR / (identifier + '.md')
-        edited, invalid, item = _request_problems(root, identifier, [])
-        intact = invalid is None and edited is None
-        text = read_request_bytes(root, identifier).decode('utf-8-sig', errors='replace').splitlines() if intact else []
-        if invalid is not None:
-            # A sidecar whose bytes can be read but are not the stored ones was edited; only a sidecar that
-            # cannot be read is unreadable. Either way none of its fields are trusted or shown.
-            files = [(REQUEST_DIR / (identifier + suffix)).as_posix() for suffix in ('.md', '.json')]
-            problem = f'{invalid}; {restore_advice(root, files, common)}'
-            readable = item is not None or _readable(root / REQUEST_DIR / (identifier + '.json'))
-            rows.append(dict(id=identifier, kind=None, received='', first_line='', extra_lines=0, supersedes=[],
-                             superseded_by=[], retired=identifier in retired, cited_by=[],
-                             edited=problem if readable else None, invalid=None if readable else problem))
-            continue
-        if edited is not None:
-            edited = f"{edited}; {restore_advice(root, [(REQUEST_DIR / (identifier + '.md')).as_posix()], common)}"
-        rows.append(dict(id=identifier, kind=item['kind'], received=item['received'],
-                         first_line=text[0] if text else '', extra_lines=max(0, len(text) - 1),
-                         supersedes=item.get('supersedes', []), superseded_by=[],
-                         retired=identifier in retired, cited_by=cited.get(identifier, []), edited=edited, invalid=None))
+    rows = [_owner_row(root, identifier, retired, cited, common) for identifier in _identifiers(root)]
     by_id = {row['id']: row for row in rows}
     for row in rows:
         for old in row['supersedes']:

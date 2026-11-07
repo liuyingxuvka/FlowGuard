@@ -58,7 +58,43 @@ class Session:
         self.started = time.time()
         self.folder = self.bootstrap = None
         self.events, self.anchor_issues = [], []
+        self.diagnostics, self.diagnostic_issues, self.diagnostic_models = None, [], []
+        self.owns_diagnostics = True
+        self.diagnostic_scope = self.main_process, id(config)
         self.calibration_facts = {}
+
+    def start_diagnostics(self, config):
+        requested = (config.getoption('--flowguard-diagnose', default=False)
+                     or getattr(getattr(config, 'known_args_namespace', None), 'flowguard_diagnose', False))
+        append = (config.getoption('--flowguard-diagnose-append', default=False)
+                  or getattr(getattr(config, 'known_args_namespace', None), 'flowguard_diagnose_append', False))
+        if append and not requested:
+            raise pytest.UsageError('--flowguard-diagnose-append requires --flowguard-diagnose')
+        if requested and self.diagnostics is None:
+            from .calibration import probe_context
+            sessions, seen = [], set()
+            current = self
+            while current is not None and id(current) not in seen:
+                seen.add(id(current))
+                sessions.append(current)
+                current = getattr(current, 'previous_session', None)
+            # Drivers register before configure activates their private capability.
+            # Excluding their diagnostics must not change that capability's meaning.
+            if any(probe_context(state.config) or any(
+                    getattr(candidate, '_flowguard_calibration_driver', False)
+                    for candidate in state.config.pluginmanager.get_plugins()) for state in sessions):
+                return
+            from .diagnostics import EventLog
+            owner = next((state for state in sessions[1:]
+                          if state.cfg.root == self.cfg.root and state.main_process == self.main_process
+                          and state.main_thread == self.main_thread and state.diagnostics is not None), None)
+            if owner is not None:
+                self.diagnostics, self.owns_diagnostics = owner.diagnostics, False
+            else:
+                self.diagnostics = EventLog(self.cfg.cache / 'anchor-events.jsonl', append=append)
+            self.diagnostics.write(dict(kind='session', pid=self.main_process, scope_id=self.diagnostic_scope, root=str(self.cfg.root),
+                                        append=bool(append or owner is not None), nested=owner is not None,
+                                        scope='ordinary-test activated anchors; calibration probes are not expanded'))
 
     @contextmanager
     def verification(self):
@@ -94,6 +130,17 @@ class Session:
             os.environ.pop(name, None)
         os.environ.update(values)
 
+    def _report_diagnostic(self, text, *, stream, output):
+        from .diagnostics import report_diagnostic
+        error = report_diagnostic(text, file=stream)
+        if error is not None:
+            issue = f'diagnostics unavailable: {output} reporting raised {type(error).__name__}'
+            self.diagnostic_issues.append(issue)
+            if self.diagnostics is not None:
+                self.diagnostics.issues.append(issue)
+                self.diagnostics.write(dict(kind='diagnostic-unavailable', output=output,
+                                            error=type(error).__name__))
+
     def close(self):
         global _CURRENT
         _CURRENT = self.previous_session
@@ -112,6 +159,25 @@ class Session:
             else:
                 os.environ[name] = value
         self.folder.cleanup()
+        if self.diagnostics is not None:
+            grey = sum(len(result.get('grey', ())) for result in self.diagnostic_models)
+            unclaimed = sum(result.get('runtime', {}).get('unclaimed_relations', 0) for result in self.diagnostic_models)
+            outside = sum('anchor not included' in message for result in self.diagnostic_models for message in result.get('info', ()))
+            self.diagnostic_issues.extend(self.diagnostics.issues)
+            self._report_diagnostic(f'FlowGuard anchor diagnostics: {len(self.diagnostic_models)} model result(s), '
+                                    f'{grey} unverified reason(s), {unclaimed} readings outside rules, '
+                                    f'{outside} unmodelled anchor notices; {self.diagnostics.path}',
+                                    stream=sys.stdout, output='stdout')
+        for issue in dict.fromkeys(self.diagnostic_issues):
+            self._report_diagnostic('FlowGuard ' + issue, stream=sys.stderr, output='stderr')
+        if self.diagnostics is not None:
+            if self.owns_diagnostics:
+                self.diagnostics.write(dict(kind='closed', scope_id=self.diagnostic_scope, model_results=len(self.diagnostic_models)))
+                self.diagnostics.close()
+            for issue in tuple(self.diagnostics.issues):
+                if issue not in self.diagnostic_issues:
+                    self.diagnostic_issues.append(issue)
+                    self._report_diagnostic('FlowGuard ' + issue, stream=sys.stderr, output='stderr')
 
     def guard_process_exit(self, config):
         recording = (config.getoption('--flowguard-record-tests', default=False)
@@ -210,6 +276,8 @@ def pytest_addoption(parser):
     group = parser.getgroup('flowguard')
     group.addoption('--flowguard-rules', default=None, help='Run these changed rules; other fully collected rules are deferred to the cache')
     group.addoption('--flowguard-record-tests', action='store_true', help='Record the ordinary tests actually selected by check')
+    group.addoption('--flowguard-diagnose', action='store_true', help='Write live diagnostics for activated ordinary-test anchors')
+    group.addoption('--flowguard-diagnose-append', action='store_true', help='Append a later diagnostic batch from the same check')
 
 
 def pytest_load_initial_conftests(early_config):
@@ -233,6 +301,7 @@ def _session(config):
         state.import_children()
         config.add_cleanup(state.close)
     config._flowguard_intent.guard_process_exit(config)
+    config._flowguard_intent.start_diagnostics(config)
     return config._flowguard_intent
 
 
@@ -447,7 +516,9 @@ def pytest_runtest_protocol(item):
                 and state.model.flows and not probe_context(item.config)):
             from .flow import Capture
             capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
-                                                   models=state.model.flows.values(), _ordinary=True))
+                                                   models=state.model.flows.values(), _ordinary=True,
+                                                   on_event=(lambda event: state.diagnostics.event(event, scope=state.diagnostic_scope))
+                                                   if state.diagnostics is not None else None))
         try:
             if (isinstance(item, IntentItem) or item.name == SENTINEL
                     or not item.config.getoption('--flowguard-record-tests') and not any(item.iter_markers('rule'))):
@@ -472,6 +543,7 @@ def pytest_runtest_protocol(item):
                 scopes.close()
                 state.events.extend(capture.events)
                 state.anchor_issues.extend(capture.issues)
+                state.diagnostic_issues.extend(capture.diagnostic_issues)
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -632,6 +704,14 @@ def finish_verified(session, exitstatus):
             continue
         result = state.engine.run_flow(flow, state.events, state.anchor_issues)
         state.results[item] = dict(result, rule=identifier, target=None)
+        if state.diagnostics is not None:
+            summary = {key: result.get(key) for key in ('verdict', 'red', 'grey', 'info')}
+            summary['runtime'] = {key: result.get('runtime', {}).get(key) for key in (
+                'verdict', 'unclaimed_relations', 'checked_relations', 'observed_edges', 'ignored_case_scopes')}
+            summary['finite'] = {key: result.get('finite', {}).get(key) for key in ('verdict', 'states', 'exhausted')}
+            summary['static'] = {key: result.get('static', {}).get(key) for key in ('verdict', 'grey')}
+            state.diagnostic_models.append(summary)
+            state.diagnostics.write(dict(kind='validation', scope_id=state.diagnostic_scope, model=identifier, result=summary))
         if result['verdict'] == 'red':
             print('\nFlowGuard flow ' + identifier + ': ' + '; '.join(result['red']), file=sys.stderr)
             session.exitstatus = pytest.ExitCode.TESTS_FAILED

@@ -350,7 +350,8 @@ def _bind_scenarios(model):
                                              group['indices'], actual, tuple(measured.values()), index, group['plan']))
 
 
-def load(cfg=None, root=None, *, anchor_index=None, map_path=None):
+# flowguard: event CHECK_LOAD(cfg: Config | None, root: Path | None, anchor_index: object, map_path: Path | None)
+def load(cfg: Config | None = None, root: Path | None = None, *, anchor_index: object = None, map_path: Path | None = None):
     cfg = cfg or load_config(root)
     setup_path(cfg)
     prepare(cfg.root)

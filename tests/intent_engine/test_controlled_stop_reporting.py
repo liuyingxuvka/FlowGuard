@@ -127,3 +127,46 @@ def test_real_fixture_failures_still_fail_and_keep_the_original_message(tmp_path
     assert result['status'] == ('grey' if phase == 'setup' else 'red'), result
     assert any(p == phase and outcome == 'failed' and 'real '+phase+' failure' in text
                for p, outcome, text in reports), reports
+
+
+@pytest.mark.parametrize('phase,status', [('body','red'),('collection','grey')])
+def test_body_and_collection_failures_keep_native_errors(tmp_path, monkeypatch, phase, status):
+    anchor = native_project(tmp_path)
+    test = tmp_path/'test_native_stop.py'
+    test.write_text(test.read_text() +
+                    ('    ' if phase == 'body' else '') +
+                    'raise AssertionError("real '+phase+' failure")\n')
+    real_main = pytest.main
+    reports, runs = [], []
+
+    class Recorder:
+        @pytest.hookimpl(hookwrapper=True)
+        def pytest_runtest_makereport(self, item, call):
+            outcome = yield
+            report = outcome.get_result()
+            if report.failed:
+                reports.append(str(report.longrepr))
+
+        def pytest_collectreport(self, report):
+            if report.failed:
+                reports.append(str(report.longrepr))
+
+    def recorded(args, plugins):
+        args = ['--tb='+style if arg.startswith('--tb=') else arg for arg in args]
+        code = real_main(args, plugins=[*plugins, Recorder()])
+        native = plugins[0]
+        runs.append((int(code), native.selected, list(native.reports),
+                     list(native.outcomes), list(native.entries)))
+        return code
+
+    monkeypatch.setattr(pytest, 'main', recorded)
+    results = []
+    for style in ('short','line'):
+        reports.clear()
+        result = calibration._stage(tmp_path, anchor, {}, 'baseline')
+        assert result['status'] == status, result
+        assert any('AssertionError' in text and 'real '+phase+' failure' in text for text in reports), reports
+        results.append(result)
+    assert runs[0] == runs[1] and runs[0][0] != 0, runs
+    assert results[0] == results[1], results
+    print(phase, 'native short/line:', runs)

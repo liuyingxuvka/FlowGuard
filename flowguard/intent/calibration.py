@@ -475,7 +475,9 @@ def _run_pytest(root, selector, driver):
     try:
         os.chdir(root)
         with _without_ordinary_observers(), redirect_stdout(capture), redirect_stderr(capture):
-            code = int(pytest.main(['-q', '--tb=short', '-p', 'no:cacheprovider', selector], plugins=[driver]))
+            # Reports retain the native exception and outcome; their captured
+            # display needs the error location/message, not traceback source.
+            code = int(pytest.main(['-q', '--tb=line', '-p', 'no:cacheprovider', selector], plugins=[driver]))
     finally:
         os.chdir(previous_cwd)
         driver.close()
