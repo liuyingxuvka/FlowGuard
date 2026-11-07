@@ -14,7 +14,7 @@ jobs:
   checks:
     name: Complete tests (${{ matrix.os }}, py${{ matrix.python }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 330
     strategy:
       fail-fast: false
       matrix:
@@ -37,10 +37,37 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Create a virtual environment outside the project
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          environment = Path(os.environ["RUNNER_TEMP"]) / "flowguard-ci-venv"
+          subprocess.run([sys.executable, "-m", "venv", str(environment)], check=True)
+          scripts = environment / ("Scripts" if os.name == "nt" else "bin")
+          with open(os.environ["GITHUB_PATH"], "a", encoding="utf-8") as path:
+              path.write(str(scripts) + "\n")
+
+      - name: Verify the active virtual environment before installation
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          import sys
+          environment = Path(sys.prefix).resolve()
+          project = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          assert sys.prefix != sys.base_prefix, "python must use a virtual environment"
+          assert environment == (Path(os.environ["RUNNER_TEMP"]) / "flowguard-ci-venv").resolve(), "python must use the selected runner temporary environment"
+          assert environment != project and project not in environment.parents, "virtual environment must be outside the project"
+          print(f"Python: {sys.executable}\nprefix: {sys.prefix}\nbase_prefix: {sys.base_prefix}")
+
       - name: Install FlowGuard and its test dependencies
         run: python -m pip install -e ".[dev]"
 
       - name: Complete intent and project tests through ordinary pytest
+        id: complete_tests
         run: python -m flowguard check --all
 
       - name: Print the original pytest output on failure
@@ -51,6 +78,125 @@ jobs:
           output = Path(".flowguard/cache/check-output.txt")
           if output.is_file():
               print(output.read_text(encoding="utf-8", errors="replace"))
+
+      - name: Measure K6 once with the successful Ubuntu Python 3.13 cache
+        id: k6_once
+        if: success() && matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        shell: python
+        env:
+          FULL_CHECK_OUTCOME: ${{ steps.complete_tests.outcome }}
+        run: |
+          import hashlib, json, os, signal, sqlite3, subprocess, sys, time, traceback
+          from contextlib import closing
+          from pathlib import Path
+          root, out = Path(os.environ['GITHUB_WORKSPACE']).resolve(), Path(os.environ['RUNNER_TEMP']) / 'k6-once'
+          out.mkdir(parents=True, exist_ok=True)
+          sha = lambda data: hashlib.sha256(data).hexdigest()
+          save = lambda name, value: (out / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+          report = dict(source_commit=head, github_sha=os.environ['GITHUB_SHA'], commands=[], completed=False)
+          rel = 'flowguard/structure/readers/registry.py'
+          source, database = root / rel, root / '.flowguard/cache/map.sqlite'
+          def snapshot():
+              names = subprocess.check_output(['git', 'ls-files', '-z'], cwd=root).decode().split('\0')
+              return {name: sha((root / name).read_bytes()) if (root / name).is_file() else None for name in names if name}
+          def run(label, args):
+              command = args if args[0] == 'git' else [sys.executable, '-m', 'flowguard', *args]
+              print(label, command, flush=True)
+              started, clock = time.time(), time.monotonic()
+              stdout, stderr = out / (label + '.stdout.txt'), out / (label + '.stderr.txt')
+              row = dict(label=label, command=command, cwd=str(root), started_unix=started, exit=None)
+              report['commands'].append(row)
+              with stdout.open('wb') as so, stderr.open('wb') as se:
+                  try:
+                      row['exit'] = subprocess.call(command, cwd=root, stdout=so, stderr=se)
+                  finally:
+                      row.update(seconds=time.monotonic()-clock, stdout_bytes=stdout.stat().st_size, stderr_bytes=stderr.stat().st_size)
+              if args == ['check']:
+                  with closing(sqlite3.connect('file:' + str(database) + '?mode=ro', uri=True)) as con:
+                      fresh = con.execute('SELECT test,outcome FROM reading WHERE stamp>=?', (started,)).fetchall()
+                  ordinary = [(n, v) for n, v in fresh if not n.startswith(cfg.rel(cfg.intent) + '/') and n.partition('::')[0] != 'tests/test_flowguard_intent.py']
+                  row.update(ordinary_rerun_unique_items=len(ordinary), ordinary_readings=ordinary)
+                  raw = root / '.flowguard/cache/check-output.txt'
+                  row['pytest_output_fresh'] = raw.is_file() and raw.stat().st_mtime >= started
+                  if row['pytest_output_fresh']:
+                      (out / (label + '.pytest.txt')).write_bytes(raw.read_bytes())
+                  diagnostic_started = time.monotonic()
+                  with closing(MapHandle(root, database, {})) as graph:
+                      graph.con.execute('PRAGMA query_only=ON')
+                      records = deps.test_dependencies(cfg, graph)
+                  row.update(diagnostic_seconds=time.monotonic()-diagnostic_started, unknown_reasons={f: r['<unresolved>'] for f, r in records.items() if '<unresolved>' in r})
+              return row
+          def interrupted(signum, frame):
+              raise KeyboardInterrupt('CI measurement interrupted; restoring original source')
+          original, before = source.read_bytes(), snapshot()
+          for sig in (signal.SIGTERM, signal.SIGINT):
+              signal.signal(sig, interrupted)
+          try:
+              full = root / '.flowguard/cache/check-output.txt'
+              full_bytes = full.read_bytes()
+              (out / 'full-pytest.txt').write_bytes(full_bytes)
+              report['initial_full'] = dict(command=[sys.executable, '-m', 'flowguard', 'check', '--all'],
+                  outcome=os.environ['FULL_CHECK_OUTCOME'], source_commit=head, mtime=full.stat().st_mtime, sha256=sha(full_bytes), bytes=len(full_bytes), time_source='original GitHub step timestamps')
+              assert report['initial_full']['outcome'] == 'success' and head == report['github_sha']
+              import flowguard
+              from flowguard.intent import deps
+              from flowguard.intent.config import load_config
+              from flowguard.structure.api import MapHandle
+              cfg = load_config(root)
+              report['runtime'] = dict(python=sys.executable, version=sys.version, prefix=sys.prefix,
+                  base_prefix=sys.base_prefix, module=flowguard.__file__, flowguard_version=flowguard.__version__)
+              assert sys.prefix != sys.base_prefix and Path(sys.prefix).resolve() == (out.parent / 'flowguard-ci-venv').resolve()
+              assert not Path(sys.prefix).resolve().is_relative_to(root) and Path(flowguard.__file__).resolve().is_relative_to(root)
+              assert run('git-diff-before', ['git', 'diff', '--exit-code', 'HEAD', '--'])['exit'] == 0
+              needle = b"    return 'cpp' if suffix == '.C' else SUFFIXES.get(suffix.lower())\n"
+              assert original.count(needle) == 1 and sha(original) == '49d44c434c06cfe2c6ab2ce7680343a9e764afc090940105b363de264ff19169'
+              variant = original.replace(needle, b"    if suffix == '.C':\n        return 'cpp'\n    return SUFFIXES.get(suffix.lower())\n", 1)
+              suffixes = ('', '.C', '.PY', '.TSX', '.c', '.cc', '.cjs', '.cpp', '.cs', '.cts', '.cxx', '.go', '.h', '.hh', '.hpp', '.hxx', '.java', '.js', '.jsx', '.kt', '.m', '.mjs', '.mts', '.php', '.py', '.rb', '.rs', '.swift', '.ts', '.tsx', '.unknown')
+              paths = ['src/example' + suffix for suffix in suffixes]
+              paths += [path.upper() for path in paths] + ['.hidden', 'a.b/empty', 'directory/archive.tar.gz']
+              assert len(paths) == 65 and sha(json.dumps(paths, separators=(',', ':')).encode()) == 'aa0ebd8042bc1b30450e822667a36b6c22abc5d68b10ac8363026b8d6f8871b1'
+              left, right = {}, {}
+              exec(compile(original, str(source), 'exec'), left)
+              exec(compile(variant, str(source), 'exec'), right)
+              rows = [dict(path=p, old=left['language_for'](p), new=right['language_for'](p)) for p in paths]
+              save('equivalence.json', dict(cases=65, rows=rows, before_sha256=sha(original), after_sha256=sha(variant)))
+              assert all(row['old'] == row['new'] for row in rows)
+              assert run('warm', ['check'])['exit'] == 0
+              for rule in ('PROJECT_CODE', 'QUOTE_WORDS', 'REQUEST_BYTES', 'INTENT_SENTINEL', 'ROW_LITERALS'):
+                  for form, args in (('short', ['show', rule]), ('full', ['show', rule, '--full'])):
+                      run(rule + '-' + form, args)
+              report['show_stdout_bytes'] = {form: sum(r['stdout_bytes'] for r in report['commands'] if r['label'].endswith('-' + form)) for form in ('short', 'full')}
+              assert all(row['exit'] == 0 for row in report['commands']) and snapshot() == before
+              assert run('git-diff-before-variant', ['git', 'diff', '--exit-code', 'HEAD', '--'])['exit'] == 0
+              source.write_bytes(variant)
+              changed = snapshot()
+              report['variant_changed_files'] = [name for name in sorted(before.keys() | changed.keys()) if before.get(name) != changed.get(name)]
+              assert report['variant_changed_files'] == [rel]
+              assert run('equivalent-change', ['check'])['exit'] == 0
+              report['completed'] = True
+          except BaseException:
+              report['error'] = traceback.format_exc()
+          finally:
+              source.write_bytes(original)
+              after = snapshot()
+              report['source_restored'] = before == after
+              run('git-diff-after', ['git', 'diff', '--exit-code', 'HEAD', '--'])
+              save('source-manifests.json', dict(before=before, after=after))
+              report['passed'] = report['completed'] and report['source_restored'] and all(r['exit'] == 0 for r in report['commands'])
+              save('summary.json', report)
+          raise SystemExit(0 if report['passed'] else 1)
+
+      - name: Upload the one-time K6 text evidence
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python == '3.13' && steps.k6_once.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-once-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/k6-once/*.json
+            ${{ runner.temp }}/k6-once/*.txt
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Verify the distributable skill in a temporary directory
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
