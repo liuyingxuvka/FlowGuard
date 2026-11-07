@@ -931,7 +931,13 @@ class _TraceScope:
 @contextmanager
 def _without_ordinary_observers():
     """Probe observations belong to their verifier, not ordinary-test coverage."""
+    from . import tracer
     saved = head = sys.gettrace()
+    # Legacy Footprint preserves a C profiler by delegating to this exact
+    # recorded trace. Pause its ordinary observers, keeping the recorder head.
+    if (saved is tracer._trace and tracer._ACTIVE and tracer._USING_TRACE
+            and tracer._OLD_CALLBACK is tracer._OLD_TRACE):
+        head = tracer._OLD_TRACE
     scopes = []
     while isinstance(head, _TraceScope) and head.active:
         if head.ordinary:

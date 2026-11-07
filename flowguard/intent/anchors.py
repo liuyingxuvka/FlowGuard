@@ -620,6 +620,14 @@ def observe(root, anchor, values):
 def _observe_current(root, anchor, values):
     if _SESSION.get() != Path(root).resolve():
         raise RuntimeError('project observation requires the verified execution session')
+    # Worker and in-process verification use this one boundary. Synthetic
+    # sensor calls must not become coverage of an ordinary project test.
+    from .flow import _without_ordinary_observers
+    with _without_ordinary_observers():
+        return _observe_verified(root, anchor, values)
+
+
+def _observe_verified(root, anchor, values):
     if anchor.issues:
         return Observation(anchor.status, reasons=tuple(i.message for i in anchor.issues), anchor=anchor.target)
     if anchor.kind == 'states':
