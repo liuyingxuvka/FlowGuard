@@ -1,0 +1,102 @@
+name: Windows failure diagnosis (temporary)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/windows-failure-diagnosis.yml
+      - flowguard/intent/plugin.py
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Reproduce the recorded Windows failures
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout the triggering source and its history
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Python outside the project
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run the targeted diagnostic with its real exit code
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $false
+          $evidence = Join-Path $env:RUNNER_TEMP "flowguard-windows-diagnosis"
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          $environment = Join-Path $env:RUNNER_TEMP "flowguard-windows-diagnosis-venv"
+          $setupPython = '${{ steps.python.outputs.python-path }}'
+          & $setupPython -m venv $environment
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $python = Join-Path $environment "Scripts/python.exe"
+          & $python -m pip install -e ".[dev]"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $identity = @'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          import flowguard
+          import flowguard.intent.cli as cli
+          project = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          prefix = Path(sys.prefix).resolve()
+          expected = (Path(os.environ["RUNNER_TEMP"]) / "flowguard-windows-diagnosis-venv").resolve()
+          assert sys.prefix != sys.base_prefix, "python must use a virtual environment"
+          assert prefix == expected, "python must use the selected runner temporary environment"
+          assert prefix != project and project not in prefix.parents, "virtual environment must be outside the project"
+          assert Path(flowguard.__file__).resolve() == project / "flowguard" / "__init__.py"
+          assert Path(cli.__file__).resolve() == project / "flowguard" / "intent" / "cli.py"
+          source = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          assert source == os.environ["GITHUB_SHA"], "checkout must match the triggering source"
+          proof = dict(source=source, python=sys.executable, version=sys.version, prefix=sys.prefix,
+                       base_prefix=sys.base_prefix, sdk=flowguard.__file__, cli=cli.__file__,
+                       cli_sha256=hashlib.sha256(Path(cli.__file__).read_bytes()).hexdigest())
+          path = Path(os.environ["RUNNER_TEMP"]) / "flowguard-windows-diagnosis" / "identity.json"
+          path.write_text(json.dumps(proof, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(proof, indent=2), flush=True)
+          '@
+          $identity | & $python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $selection = "(INTENT_SENTINEL and (cells or rows)) or test_same_name_copy_disagreement_fails_pytest_and_check_without_rules or test_public_flag_keeps_actual_cli_outcomes_selection_dependencies_and_exit or test_since_selects_real_git_changes_even_after_current_cache_is_fresh or test_a_new_corrected_row_attaches_real_old_code_proof_to_existing_result"
+          $pytestArgs = @("-m", "pytest", "-vv", "--tb=long", "--durations=10", "--flowguard-record-tests", "--flowguard-diagnose", "-x", "-k", $selection)
+          $started = (Get-Date).ToUniversalTime().ToString("o")
+          Write-Host ("DIAGNOSTIC COMMAND: " + $python + " " + ($pytestArgs -join " "))
+          & $python @pytestArgs 2>&1 | Tee-Object -FilePath (Join-Path $evidence "pytest-output.txt")
+          $pytestExit = $LASTEXITCODE
+          $record = [ordered]@{
+            source = $env:GITHUB_SHA
+            cwd = (Get-Location).Path
+            argv = @($python) + $pytestArgs
+            started_utc = $started
+            ended_utc = (Get-Date).ToUniversalTime().ToString("o")
+            exit_code = $pytestExit
+            scope = "Targeted diagnosis of the seven recorded Q failures; full collection then native -k selection and -x"
+            complete_suite = $false
+          }
+          $record | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 -Path (Join-Path $evidence "result.json")
+          exit $pytestExit
+
+      - name: Preserve the diagnostic output even when it fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-failure-diagnosis-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/flowguard-windows-diagnosis
+            .flowguard/cache/anchor-events.jsonl
+            .flowguard/cache/check-flow.jsonl
+          include-hidden-files: true
+          if-no-files-found: ignore

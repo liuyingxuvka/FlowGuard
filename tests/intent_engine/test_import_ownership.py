@@ -46,12 +46,7 @@ def test_resolved_sdk_symlink_keeps_the_sdk_exclusion(tmp_path, monkeypatch):
     actual_sdk = write(sdk / 'module.py')
     monkeypatch.setattr(imports, '_SDK', sdk.resolve())
     link = tmp_path / 'sdk_link.py'
-    try:
-        link.symlink_to(actual_sdk)
-    except OSError as error:
-        if sys.platform == 'win32' and getattr(error, 'winerror', None) == 1314:
-            pytest.skip('This Windows host does not grant symbolic-link creation.')
-        raise
+    link.symlink_to(actual_sdk)
     assert imports._Finder().application(link.resolve(), tmp_path) is False
 
 

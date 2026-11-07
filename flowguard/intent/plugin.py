@@ -95,6 +95,7 @@ class Session:
             self.diagnostics.write(dict(kind='session', pid=self.main_process, scope_id=self.diagnostic_scope, root=str(self.cfg.root),
                                         append=bool(append or owner is not None), nested=owner is not None,
                                         scope='ordinary-test activated anchors; calibration probes are not expanded'))
+            config.pluginmanager.register(self)
 
     @contextmanager
     def verification(self):
@@ -130,16 +131,36 @@ class Session:
             os.environ.pop(name, None)
         os.environ.update(values)
 
+    def _diagnostic_unavailable(self, output, error):
+        issue = f'diagnostics unavailable: {output} reporting raised {type(error).__name__}'
+        self.diagnostic_issues.append(issue)
+        if self.diagnostics is not None:
+            self.diagnostics.issues.append(issue)
+            self.diagnostics.write(dict(kind='diagnostic-unavailable', output=output,
+                                        error=type(error).__name__))
+
     def _report_diagnostic(self, text, *, stream, output):
         from .diagnostics import report_diagnostic
         error = report_diagnostic(text, file=stream)
         if error is not None:
-            issue = f'diagnostics unavailable: {output} reporting raised {type(error).__name__}'
-            self.diagnostic_issues.append(issue)
-            if self.diagnostics is not None:
-                self.diagnostics.issues.append(issue)
-                self.diagnostics.write(dict(kind='diagnostic-unavailable', output=output,
-                                            error=type(error).__name__))
+            self._diagnostic_unavailable(output, error)
+
+    def pytest_runtest_logreport(self, report):
+        # This receives the final pytest outcome, including effective xfail and
+        # FlowGuard's skip/marked-guard corrections. Private probe sessions never
+        # register this enabled diagnostic owner.
+        if not report.failed or self.diagnostics is None:
+            return
+        from .calibration import probe_context
+        if probe_context(self.config):
+            return
+        try:
+            stream = self.config.get_terminal_writer()
+            text = f'\nFlowGuard failure: {report.nodeid} [{report.when}]\n{report.longreprtext}'
+        except Exception as error:
+            self._diagnostic_unavailable('terminal', error)
+            return
+        self._report_diagnostic(text, stream=stream, output='terminal')
 
     def close(self):
         global _CURRENT
