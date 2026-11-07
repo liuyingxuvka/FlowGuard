@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib
 from importlib import _bootstrap_external, machinery, util
 import linecache
+import os
 from pathlib import Path
 import sys
 
@@ -115,6 +116,50 @@ def _find(name, specs=None):
     return spec
 
 
+def _root_names(root):
+    """Flat-name candidates and finders in the known standard path prefix."""
+    names = set()
+    providers = {}
+    loaders = (machinery.SourceFileLoader, machinery.SourcelessFileLoader,
+               machinery.ExtensionFileLoader)
+    try:
+        for entry in sys.path:
+            if not isinstance(entry, str):
+                continue
+            # Do not invoke a path hook that the original lookup may never
+            # reach. Only this known prefix can certify a stopping point.
+            key = entry or os.getcwd()
+            if key not in sys.path_importer_cache:
+                break
+            finder = sys.path_importer_cache[key]
+            if finder is None:
+                continue
+            if (type(finder) is not machinery.FileFinder
+                    or any(method in vars(finder) for method in ('find_spec', '_get_spec', '_fill_cache'))
+                    or any(not any(loader is standard for standard in loaders) for _, loader in finder._loaders)):
+                break
+            # Use the cached finder's lexical path: a relative sys.path entry
+            # can still refer to an earlier cwd, and symlinks can leave/reenter
+            # the root. Resolving this path could wrongly exclude an origin.
+            directory = Path(finder.path)
+            if not directory.is_absolute():
+                break
+            if directory.is_relative_to(root):
+                for filename in os.listdir(directory):
+                    folded = os.path.normcase(filename).casefold()
+                    names.add(folded)
+                    for suffix, _ in finder._loaders:
+                        suffix = os.path.normcase(suffix).casefold()
+                        if suffix and folded.endswith(suffix):
+                            names.add(folded[:-len(suffix)])
+            elif root.is_relative_to(directory):
+                names.add(os.path.normcase(root.relative_to(directory).parts[0]).casefold())
+            providers[directory] = finder
+    except Exception:
+        return set(), {}
+    return names, providers
+
+
 def prepare(root, *, host=False):
     """Start a verification snapshot before application imports.
 
@@ -139,9 +184,20 @@ def prepare(root, *, host=False):
     sys.meta_path.insert(0, _finder)
     if _finder.host is not None and _finder.host != root:
         specs = {}
+        names, providers = _root_names(root)
         for name, (path, _, module, owner) in _finder.loaded.items():
             if owner != _finder.host or not _finder.application(path, owner):
                 continue
+            if (name.isidentifier() and path.name == name + '.py'
+                    and os.path.normcase(name).casefold() not in names
+                    and (provider := providers.get(path.parent)) is not None):
+                try:
+                    stopping = provider.find_spec(name)
+                    if (stopping is not None and stopping.loader is not None and stopping.origin
+                            and not project_code(stopping.origin, root)):
+                        continue
+                except Exception:
+                    pass
             expected = _find(name, specs)
             if (expected is not None and expected.origin and project_code(expected.origin, root)
                     and Path(expected.origin).resolve() != path and sys.modules.get(name) is module):

@@ -383,3 +383,135 @@ assert 'absent_prefix_72958.one' not in calls and 'absent_prefix_72958.two' not 
 assert not any(name.startswith('prefix_namespace') for name in sys.modules)
 ''')
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.fixture
+def flat_import_roots(tmp_path):
+    for folder in ('host', 'temporary'):
+        (tmp_path / folder).mkdir()
+    (tmp_path / 'host/verifier_flat_17.py').write_text('VALUE = 3\n')
+    return tmp_path
+
+
+_FLAT_IMPORT_HOST = '''
+from importlib import machinery, util
+from pathlib import Path
+from flowguard.intent.imports import prepare
+host, target = Path('host').resolve(), Path('temporary').resolve()
+sys.path.insert(0, str(host)); prepare(host, host=True)
+import verifier_flat_17
+sys.path[:0] = [str(target), str(host)]
+machinery.PathFinder.find_spec('absent_verifier_warmup_17', [str(target)])
+'''
+
+
+def test_flat_host_lookup_leaves_late_hooks_alone_and_finds_new_shadow(flat_import_roots):
+    result = python(flat_import_roots, _FLAT_IMPORT_HOST + '''
+import os
+late = str(Path('late_uncached').resolve())
+sys.path.insert(2, late)
+calls = []
+def hook(entry):
+    if entry == late:
+        calls.append(entry)
+        raise RuntimeError('a later hook must remain unreachable')
+    raise ImportError
+sys.path_hooks.insert(0, hook)
+find, lookups = machinery.PathFinder.find_spec, []
+def counted(name, path=None, target=None):
+    lookups.append(name)
+    return find(name, path, target)
+machinery.PathFinder.find_spec = counted
+prepare(target)
+assert 'verifier_flat_17' not in lookups
+stamp = target.stat()
+(target / 'verifier_flat_17.py').write_text('VALUE = 4\\n')
+os.utime(target, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+try:
+    prepare(target)
+except ValueError as error:
+    assert 'conflicts with the active pytest verifier' in str(error)
+else:
+    raise AssertionError('new same-named source must be rejected on the next prepare')
+assert calls == [] and verifier_flat_17.VALUE == 3
+''')
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize('namespace', [True, False], ids=['namespace-provider', 'early-unknown'])
+def test_origin_lookup_reaches_source_after_namespace_or_early_unknown(flat_import_roots, namespace):
+    result = python(flat_import_roots, _FLAT_IMPORT_HOST + '''
+use_namespace = sys.argv[1] == 'True'
+if use_namespace:
+    (host / 'verifier_flat_17.py').unlink()
+    (host / 'verifier_flat_17').mkdir()
+    finder = sys.path_importer_cache[str(host)]
+    finder.invalidate_caches()
+    spec = finder.find_spec('verifier_flat_17')
+    assert spec is not None and spec.loader is None and spec.origin is None
+(target / 'actual.py').write_text('VALUE = 4\\n')
+late = str(Path('late_virtual').resolve())
+class Virtual:
+    def find_spec(self, name, target=None):
+        if name == 'verifier_flat_17':
+            return util.spec_from_file_location(name, Path('temporary/actual.py').resolve())
+        return None
+sys.path_importer_cache[late] = Virtual()
+sys.path.insert(2 if use_namespace else 1, late)
+try:
+    prepare(target)
+except ValueError as error:
+    assert 'conflicts with the active pytest verifier' in str(error)
+else:
+    raise AssertionError('namespace or unknown finder must not hide real source')
+''', namespace)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize('mode', ['find_spec', '_get_spec', '_fill_cache', 'loader'])
+def test_unknown_host_finder_behavior_keeps_full_origin_lookup(flat_import_roots, mode):
+    result = python(flat_import_roots, _FLAT_IMPORT_HOST + '''
+mode = sys.argv[1]
+find = machinery.PathFinder.find_spec
+calls, comparisons = [], []
+def counted(name, path=None, target=None):
+    calls.append(name)
+    return find(name, path, target)
+machinery.PathFinder.find_spec = counted
+prepare(target)
+assert 'verifier_flat_17' not in calls  # The known prefix really is eligible.
+finder = sys.path_importer_cache[str(host)]
+if mode == 'loader':
+    class EqualMeta(type):
+        def __eq__(cls, other):
+            comparisons.append(other)
+            return True
+    class UnknownLoader(metaclass=EqualMeta):
+        pass
+    finder._loaders.append(('.unused17', UnknownLoader))
+else:
+    delegate = getattr(finder, mode)
+    setattr(finder, mode, lambda *args, **kwargs: delegate(*args, **kwargs))
+finder.invalidate_caches()
+calls.clear()
+prepare(target)
+assert calls.count('verifier_flat_17') == 1, calls
+assert comparisons == []
+''', mode)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows FileFinder normalizes suffix case')
+@pytest.mark.parametrize('suffix', ['.PY', '.PYC'])
+def test_windows_uppercase_suffix_cannot_hide_a_host_shadow(flat_import_roots, suffix):
+    result = python(flat_import_roots, _FLAT_IMPORT_HOST + '''
+(target / ('verifier_flat_17' + sys.argv[1])).write_bytes(b'not executed')
+sys.path_importer_cache[str(target)].invalidate_caches()
+try:
+    prepare(target)
+except ValueError as error:
+    assert 'conflicts with the active pytest verifier' in str(error)
+else:
+    raise AssertionError('Windows same-named source must not be screened out')
+''', suffix)
+    assert result.returncode == 0, result.stdout + result.stderr
