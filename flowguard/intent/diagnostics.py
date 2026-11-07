@@ -76,7 +76,8 @@ class EventLog:
         if self.saved is None:
             return
         try:
-            now = time.monotonic_ns()
+            # Monotonic and high resolution, including on Windows Python 3.12.
+            now = time.perf_counter_ns()
             key = scope, event.case, event.anchor, event.site, event.occurrence
             elapsed = None
             if event.phase == 'call':

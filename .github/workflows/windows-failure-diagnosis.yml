@@ -51,6 +51,7 @@ jobs:
           import subprocess
           import sys
           import tempfile
+          import time
           import flowguard
           import flowguard.intent.cli as cli
           project = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
@@ -64,19 +65,32 @@ jobs:
           source = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
           assert source == os.environ["GITHUB_SHA"], "checkout must match the triggering source"
           temporary = tempfile.gettempdir()
+          clock_names = ("monotonic", "perf_counter", "time")
+          clock_info = {}
+          clock_samples = {name: [] for name in clock_names}
+          for name in clock_names:
+              info = time.get_clock_info(name)
+              clock_info[name] = {field: getattr(info, field) for field in
+                                  ("implementation", "monotonic", "adjustable", "resolution")}
+          for _ in range(16):
+              for name in clock_names:
+                  clock_samples[name].append(getattr(time, name + "_ns")())
+          clock_deltas = {name: [right - left for left, right in zip(values, values[1:])]
+                          for name, values in clock_samples.items()}
           proof = dict(source=source, python=sys.executable, version=sys.version, prefix=sys.prefix,
                        base_prefix=sys.base_prefix, sdk=flowguard.__file__, cli=cli.__file__,
                        cli_sha256=hashlib.sha256(Path(cli.__file__).read_bytes()).hexdigest(),
                        tempfile_gettempdir=temporary, tempfile_resolved=str(Path(temporary).resolve()),
                        utf8_mode=sys.flags.utf8_mode, preferred_encoding=locale.getpreferredencoding(False),
-                       locale_encoding=locale.getencoding())
+                       locale_encoding=locale.getencoding(), clock_info=clock_info,
+                       clock_reader_samples_ns=clock_samples, clock_reader_deltas_ns=clock_deltas)
           path = Path(os.environ["RUNNER_TEMP"]) / "flowguard-windows-diagnosis" / "identity.json"
           path.write_text(json.dumps(proof, indent=2) + "\n", encoding="utf-8")
           print(json.dumps(proof, indent=2), flush=True)
           '@
           $identity | & $python -
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $selection = "(INTENT_SENTINEL and (cells or rows)) or test_same_name_copy_disagreement_fails_pytest_and_check_without_rules or test_public_flag_keeps_actual_cli_outcomes_selection_dependencies_and_exit or test_since_selects_real_git_changes_even_after_current_cache_is_fresh or test_a_new_corrected_row_attaches_real_old_code_proof_to_existing_result or test_flow_request_bytes or test_intent_directory_alias or test_import_ownership or test_comparison_display or test_same_node_reentry_pairs_each_actual_session_without_changing_model_results or test_cache_connection_lifecycle or test_anchor_trace_lines"
+          $selection = "(INTENT_SENTINEL and (cells or rows)) or test_same_name_copy_disagreement_fails_pytest_and_check_without_rules or test_public_flag_keeps_actual_cli_outcomes_selection_dependencies_and_exit or test_since_selects_real_git_changes_even_after_current_cache_is_fresh or test_a_new_corrected_row_attaches_real_old_code_proof_to_existing_result or test_flow_request_bytes or test_intent_directory_alias or test_import_ownership or test_comparison_display or test_same_node_reentry_pairs_each_actual_session_without_changing_model_results or test_cache_connection_lifecycle or test_anchor_trace_lines or test_diagnostic_clock"
           $pytestArgs = @("-m", "pytest", "-vv", "--tb=long", "--durations=10", "--flowguard-record-tests", "--flowguard-diagnose", "-x", "-k", $selection)
           $started = (Get-Date).ToUniversalTime().ToString("o")
           Write-Host ("DIAGNOSTIC COMMAND: " + $python + " " + ($pytestArgs -join " "))
@@ -89,7 +103,7 @@ jobs:
             started_utc = $started
             ended_utc = (Get-Date).ToUniversalTime().ToString("o")
             exit_code = $pytestExit
-            scope = "Targeted Windows diagnosis of recorded failures and changed-source regressions including cache lifecycle and trace-line boundaries; full collection then native -k selection and -x"
+            scope = "Targeted Windows diagnosis of recorded failures and changed-source regressions including cache lifecycle, trace-line boundaries and diagnostic clock precision; full collection then native -k selection and -x"
             complete_suite = $false
           }
           $record | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 -Path (Join-Path $evidence "result.json")
