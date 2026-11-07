@@ -220,6 +220,9 @@ def _bind_scenarios(model):
     index = model.anchor_index
     for flow in model.flows.values():
         nodes = {node.name: node for node in flow.nodes}
+        if not any(node.name in flow.starts and node.phase == 'call'
+                   and any(anchor.source_role == 'test' for anchor in index.named(node.reference)) for node in flow.nodes):
+            continue  # Production graphs check readings; ordinary test-entry graphs drive scenarios.
         groups = {}
         def unbound(identifier, reason):
             model.scenario_issues.setdefault(identifier, []).append(f'{flow.id}: {reason}')
@@ -231,27 +234,45 @@ def _bind_scenarios(model):
                     and (left.node, left.field, left.view, left.occurrence) == (right.node, right.field, right.view, right.occurrence)
                     and (left.equals is _UNSET and right.equals is _UNSET
                          or type(left.equals) is type(right.equals) and left.equals == right.equals))
-        def argument_plan(rule, relation, visiting=()):
+        def argument_plan(rule, relation, visiting=(), owner=flow):
             if rule.id in visiting:
                 raise ValueError('scenario witness mapping contains a rule cycle')
             if set(relation.inputs) != set(rule.fields) or not all(isinstance(read, Read) for read in relation.inputs.values()):
                 raise ValueError('scenario inputs must bind every original rule field')
+            local_nodes = {node.name: node for node in owner.nodes}
             entries, fields, children = set(), {}, {}
             for name, read in relation.inputs.items():
                 if plain_argument(read):
-                    entries.add(read.node)
+                    if read.node not in local_nodes:
+                        raise ValueError('scenario argument node is absent')
+                    entries.add(local_nodes[read.node].reference)
                     fields[name] = read.field[4:]
                     continue
-                lower_node = nodes.get(read.node)
+                lower_node = local_nodes.get(read.node)
                 child_id = getattr(lower_node.model, 'id', lower_node.model) if lower_node else None
+                from .flow import _registered_flow, _flow_export, Unverified
+                try:
+                    child_flow = _registered_flow(lower_node.model, model.flows) if lower_node else None
+                    exported = _flow_export(child_flow, model.rules) if child_flow else None
+                except Unverified as error:
+                    raise ValueError(str(error)) from error
+                if exported:
+                    child_id = exported[0].id
+                    if (lower_node.reference, lower_node.phase, read.field, read.view, read.equals) != (
+                            exported[2].reference, exported[2].phase, exported[1].actual.field,
+                            exported[1].actual.view, exported[1].actual.equals):
+                        raise ValueError('parent lower reading must preserve the explicit child export projection')
                 child = model.rules.get(child_id)
                 if child is None or child_id not in rule.uses:
                     raise ValueError('a non-argument input needs an explicit lower Rule node and uses=')
-                sources = [other for other in flow.relations if isinstance(other, Relation)
+                sources = [other for other in owner.relations if isinstance(other, Relation)
                            and getattr(other.rule, 'id', other.rule) == child_id and same_read(other.actual, read)]
+                nested_owner = owner
+                if not sources and exported:
+                    sources, nested_owner = [exported[1]], child_flow
                 if len(sources) != 1 or child_id in children:
                     raise ValueError('the lower outcome needs one explicit original-input relation')
-                entry, nested = argument_plan(child, sources[0], (*visiting, rule.id))
+                entry, nested = argument_plan(child, sources[0], (*visiting, rule.id), nested_owner)
                 entries.add(entry)
                 children[child_id] = dict(field=name, plan=nested)
             if len(entries) != 1:
@@ -270,7 +291,8 @@ def _bind_scenarios(model):
                 case_name, plan = argument_plan(rule, relation)
             except ValueError as error:
                 unbound(identifier, str(error)); continue
-            case_node = nodes.get(case_name)
+            case_nodes = [node for node in flow.nodes if node.reference == case_name and node.phase == 'call']
+            case_node = case_nodes[0] if len(case_nodes) == 1 else None
             measured_node = nodes.get(relation.actual.node)
             if case_node is None or measured_node is None:
                 unbound(identifier, 'scenario input or measured node is absent'); continue

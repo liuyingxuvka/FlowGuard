@@ -139,6 +139,7 @@ def scan(cfg, texts=None):
     for identifier, names, imported, keywords, bindings, aliases in flow_calls:
         item = rules[identifier]
         nodes = {}
+        lower_models = []
         unknown = []
         for value in items(keywords.get('nodes'), bindings):
             if isinstance(value, ast.Constant) and isinstance(value.value, str):
@@ -149,11 +150,14 @@ def scan(cfg, texts=None):
                 target = _literal(expanded(arguments.get('anchor') or (value.args[1] if len(value.args) > 1 else None), bindings)) or local
                 if isinstance(local, str) and isinstance(target, str):
                     nodes[local] = target
+                    lower_models.extend(refs(arguments.get('model'), names, imported))
                 else:
                     unknown.append('node reference: ' + ast.unparse(value))
             else:
                 unknown.append('node reference: ' + ast.unparse(value))
         item['nodes'] = nodes
+        item['models'] = list(dict.fromkeys(lower_models))
+        unknown.extend('lower model reference: ' + name for name in item['models'] if name not in rules)
         item['anchors'] = list(dict.fromkeys(nodes.values()))
         for value in items(keywords.get('transitions'), bindings):
             if isinstance(value, ast.Call) and api_call_name(value, aliases) == 'Transition':

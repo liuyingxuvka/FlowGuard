@@ -883,33 +883,60 @@ class Engine:
                     sampled_by=[x for x in rr["space_reasons"] if x.startswith(rule.id + ": ")], provisional=pending,
                     proven_rows=self._proven_rows.get(rule.id, []))
 
-    def run_flow(self, model, events=(), issues=()):
+    def run_flow(self, model, events=(), issues=(), *, _context=None, _scopes=None):
         from contextlib import closing
         from ..structure import build
-        from .flow import check_flow
+        from .flow import check_flow, _registered_flow, _flow_export, Unverified
         from .flow_paths import analyze_paths
         from .sources import authority
+        _context = _context if _context is not None else dict(stack=[], proofs={}, children={})
         contracts = {}
         for node in model.nodes:
             lower = getattr(node.model, 'id', node.model)
             if lower in self.m.rules:
                 contracts[lower] = self.contract_summary(lower)
         index = self.m.anchor_index
+        boundaries = {}
+        for node in model.nodes:
+            try:
+                child = _registered_flow(node.model, self.m.flows)
+                if child is None:
+                    continue
+                _, _, exported = _flow_export(child, self.m.rules)
+                if (node.reference, node.phase) == (exported.reference, exported.phase):
+                    for entry in child.nodes:
+                        if entry.name in child.starts and entry.phase == 'call':
+                            boundaries.update((anchor.target, node.reference) for anchor in index.named(entry.reference)
+                                              if anchor.source_role == 'production')
+            except Unverified:
+                pass  # The contract/runtime owner reports the explicit grey boundary.
+        completions = set()
+        for reference in {node.reference for node in model.nodes}:
+            pair = [node for node in model.nodes if node.reference == reference]
+            if (len(pair) == 2 and all(node.occurrence is None and not node.caller for node in pair)
+                    and sum(node.phase == 'call' and node.name in model.starts for node in pair) == 1
+                    and sum(node.phase == 'return' and node.name in model.ends for node in pair) == 1):
+                completions.add(reference)
         with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
             static = analyze_paths(graph, index,
-                [node.reference for node in model.nodes if node.name in model.starts and node.model is None],
-                [node.reference for node in model.nodes if node.model is None])
-        result = check_flow(model, index, events, rules=self.m.rules, static=static, contracts=contracts, engine=self)
+                [node.reference for node in model.nodes if node.name in model.starts],
+                [node.reference for node in model.nodes],
+                phases={node.reference: node.phase for node in model.nodes
+                        if sum(n.reference == node.reference for n in model.nodes) == 1}, boundaries=boundaries, completions=completions)
+        result = check_flow(model, index, events, rules=self.m.rules, static=static, contracts=contracts, engine=self, _context=_context, _scopes=_scopes)
         valid, reason = authority(parse_source(model.source), None, self.m.cfg, self.archive, None)
         if not valid:
             result['red' if 'quote gone' in reason else 'grey'].append(reason)
         result['grey'].extend(issues)
         result['verdict'] = 'red' if result['red'] else 'grey' if result['grey'] else 'ok'
-        result['files'] = list(static.files)
+        children = list(_context['children'].values())
+        result['files'] = sorted(set(static.files).union(*(set(child.get('files', ())) for child in children)))
         result['footprint'] = sorted({anchor.target for anchor in index.entries
-                                      if anchor.name in {node.reference for node in model.nodes}})
+                                      if anchor.name in {node.reference for node in model.nodes}}.union(
+                                          *(set(child.get('footprint', ())) for child in children)))
         result['drivers'] = sorted({event.case for event in events
-                                    if event.anchor in {node.reference for node in model.nodes}})
+                                    if event.anchor in {node.reference for node in model.nodes}}.union(
+                                        *(set(child.get('drivers', ())) for child in children)))
         return result
 
     def run_anchor_distinct(self, declaration):

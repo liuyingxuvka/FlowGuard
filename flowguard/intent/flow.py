@@ -163,8 +163,8 @@ def validate(model, index, *, contracts=None):
         if node.occurrence is not None and (type(node.occurrence) is not int or node.occurrence < 1):
             red.append(f'{node.name}: occurrence needs a positive integer')
         if node.model is not None:
-            if not isinstance(node.model, (str, Rule)):
-                grey.append(f'{node.name}: recursive Flow export is unavailable; use a verified lower Rule')
+            if not isinstance(node.model, (str, Rule)) and not (contracts or {}).get(node.model.id if isinstance(node.model, Flow) else None, {}).get('flow') is node.model:
+                grey.append(f'{node.name}: recursive Flow export requires the registered child declaration')
             identifier = getattr(node.model, 'id', node.model)
             contract = (contracts or {}).get(identifier, {})
             if contract.get('verdict') != 'ok' or not contract.get('complete') or not contract.get('outcomes'):
@@ -358,19 +358,84 @@ def _read(read, readings, current=None):
     return value
 
 
+def _registered_flow(reference, flows):
+    """An object must be this declaration, not a same-named substitute."""
+    if isinstance(reference, Flow):
+        if flows.get(reference.id) is not reference:
+            raise Unverified('recursive Flow is not the registered declaration; rebuild from the original intent file')
+        return reference
+    return flows.get(reference) if isinstance(reference, str) else None
+
+
+def _flow_export(model, rules):
+    exports = [relation for relation in model.relations if isinstance(relation, Relation)
+               and isinstance(relation.actual, Read) and relation.actual.node in model.ends
+               and (relation.on or model.nodes[-1].name) == relation.actual.node]
+    if len(exports) != 1:
+        raise Unverified(f'{model.id}: child Flow needs exactly one explicit end-node output Relation; rebuild its export')
+    relation = exports[0]
+    node = next(node for node in model.nodes if node.name == relation.actual.node)
+    if node.phase not in {'return', 'raise'} or relation.actual.field.split('.')[0] != ('error' if node.phase == 'raise' else 'result'):
+        raise Unverified(f'{model.id}: child Flow export needs an actual completed result or error')
+    rule = _rule(relation, rules)
+    if rules.get(rule.id) is not rule:
+        raise Unverified(f'{model.id}: export must reference the registered Rule')
+    return rule, relation, node
+
+
+def _child_scopes(child, parent, node, cases, index):
+    """Keep distinct real child invocations; sibling calls never supply steps."""
+    scopes = {}
+    for case, events in cases.items():
+        for output in events:
+            if node not in _matching_nodes(parent, output, events, index):
+                continue
+            output_identity = output.anchor, output.site, output.occurrence
+            entries = [entry for entry in events if entry.phase == 'call'
+                       and ((entry.anchor, entry.site, entry.occurrence) in output.parents
+                            or (entry.anchor, entry.site, entry.occurrence) == output_identity)
+                       and any(n.name in child.starts and n.phase == 'call'
+                               for n in _matching_nodes(child, entry, events, index))
+                       and index.named(entry.anchor)
+                       and all(a.source_role == 'production' for a in index.named(entry.anchor))]
+            if not entries:
+                raise Unverified(f'{node.name}: child output has no observed enclosing production entry')
+            # Several declared starts in this ancestry are not one boundary.
+            # Nested internal calls are steps, never substitute entries.
+            if len(entries) != 1:
+                raise Unverified(f'{node.name}: child output has several modeled entries; split the child boundary')
+            entry = entries[0]
+            identity = entry.anchor, entry.site, entry.occurrence
+            ancestors = set(entry.parents)
+            selected = [e for e in events if (e.anchor, e.site, e.occurrence) in ancestors | {identity}
+                        or identity in e.parents]
+            completions = [e for e in selected if e.phase in {'return','raise'} and (e.anchor,e.site,e.occurrence) == identity]
+            if len(completions) != 1:
+                raise Unverified(f'{node.name}: child entry needs one observed completion')
+            completion = completions[0]
+            within = entry.sequence < output.sequence < completion.sequence or output is completion
+            if not entry.sequence < completion.sequence or not within or any(
+                    not entry.sequence < e.sequence < completion.sequence for e in selected if identity in e.parents):
+                raise Unverified(f'{node.name}: child ancestry crosses its actual entry interval')
+            scopes[f'{case}/{entry.anchor}@{entry.site}#{entry.occurrence}'] = selected
+    if not scopes:
+        raise Unverified(f'{node.name}: no actual child invocation was observed')
+    return scopes
+
+
 def _engine_contracts(model, engine, contracts, rules):
     """Reuse the existing contract/witness owner, never infer proof from a dict."""
     from .engine import Engine
     supplied = dict(contracts or {})
     red, grey = [], []
-    needed = {getattr(n.model, 'id', n.model) for n in model.nodes if n.model is not None}
+    needed = {getattr(n.model, 'id', n.model): n.model for n in model.nodes if n.model is not None}
     for relation in model.relations:
         try:
             rule = _rule(relation, rules)
             if rule.uses:
-                needed.add(rule.id)
+                needed[rule.id] = rule.id
             if isinstance(engine, Engine):
-                needed.update(q.id for q in engine.m.active(rule.decides)
+                needed.update((q.id, q.id) for q in engine.m.active(rule.decides)
                               if q.uses and not engine.m.distinct_pair(rule.id,q.id))
         except Unverified as error:
             grey.append(str(error))
@@ -379,14 +444,20 @@ def _engine_contracts(model, engine, contracts, rules):
     if not isinstance(engine, Engine):
         grey.append('lower model outputs require the current Engine real contract and joint-witness checks; metadata alone is not verification')
         return supplied, red, grey
-    for identifier in needed:
-        if not isinstance(identifier, str) or identifier not in engine.m.rules:
-            grey.append(f'{identifier}: recursive Flow export is unavailable; reference an existing lower Rule contract')
-            continue
+    for identifier, reference in needed.items():
         try:
-            current = _current_rule(engine,identifier)
-            contract = supplied[identifier] = engine.contract_summary(current)
-            supplied[current.id] = contract
+            child = _registered_flow(reference, engine.m.flows)
+            if child is not None:
+                exported, _, _ = _flow_export(child, rules)
+                current = _current_rule(engine, exported)
+            elif isinstance(reference, Flow) or not isinstance(identifier, str) or identifier not in engine.m.rules:
+                raise Unverified(f'{identifier}: lower model is not a registered Rule or child Flow')
+            else:
+                current = _current_rule(engine, identifier)
+            contract = supplied[identifier] = dict(engine.contract_summary(current))
+            supplied[current.id] = engine.contract_summary(current)
+            if child is not None:
+                contract['flow'] = child
             if contract['verdict'] == 'red':
                 red.append(f'lower model {identifier}: real code contract is red')
                 red.extend(f'{identifier}: {reason}' for key, value in engine.results.items()
@@ -398,42 +469,60 @@ def _engine_contracts(model, engine, contracts, rules):
     return supplied, red, grey
 
 
-def _lower_reading(node, event, engine, contracts, *, model=None, events=(), index=None):
+def _lower_reading(node, event, engine, contracts, *, model=None, events=(), index=None, cases=None, context=None):
     from .engine import Engine
     if node.model is None:
         return
     from .api import Rule
-    if not isinstance(node.model, (str, Rule)):
-        raise Unverified(f'{node.name}: recursive Flow export is not verified by a same-named Rule')
+    child = _registered_flow(node.model, engine.m.flows) if isinstance(engine, Engine) else None
     identifier = getattr(node.model, 'id', node.model)
-    if not isinstance(engine, Engine) or identifier not in engine.m.rules:
-        raise Unverified(f'{node.name}: actual lower input has no current Engine witness verification')
-    rule = _current_rule(engine,identifier)
+    if child is not None:
+        exported, export_relation, export_node = _flow_export(child, engine.m.rules)
+        if (node.reference, node.phase) != (export_node.reference, export_node.phase):
+            raise Unverified(f'{node.name}: parent anchor does not identify the child end-node output')
+        rule = _current_rule(engine, exported)
+        scopes = _child_scopes(child, model, node, cases, index)
+        key = child.id, tuple((case, tuple(id(e) for e in scope)) for case, scope in scopes.items())
+        if key not in context['proofs']:
+            context['proofs'][key] = engine.run_flow(child, [e for scope in scopes.values() for e in scope],
+                                                    _context=context, _scopes=scopes)
+        proof = context['proofs'][key]
+        context['children'][child.id] = proof
+        if proof['red']:
+            return f'{node.name}: child Flow {child.id} is red: ' + '; '.join(proof['red'])
+        if proof['grey']:
+            raise Unverified(f'{node.name}: child Flow {child.id} is grey: ' + '; '.join(proof['grey']))
+        projection_model = child
+    else:
+        if not isinstance(node.model, (str, Rule)):
+            raise Unverified(f'{node.name}: recursive Flow export is not verified by a same-named Rule')
+        if not isinstance(engine, Engine) or identifier not in engine.m.rules:
+            raise Unverified(f'{node.name}: actual lower input has no current Engine witness verification')
+        rule = _current_rule(engine, identifier)
+        projection_model = model
     contract = contracts.get(identifier, {})
     if contract.get('verdict') != 'ok' or not contract.get('complete'):
         raise Unverified(f'{node.name}: lower output cannot be exported from an incomplete contract')
     if event.site not in set(contract.get('homes', ())) | set(contract.get('footprint', ())):
         raise Unverified(f'{node.name}: actual site {event.site} is outside the verified lower contract')
-    if set(event.values) != set(rule.fields):
-        raise Unverified(f'{node.name}: actual lower parameters do not uniquely match its declared fields')
-    expected = _expectation(rule,event.values,engine)
+    inputs = event.values
     actual = Raised(event.error) if event.phase == 'raise' and event.error else event.result
     if event.phase not in {'return', 'raise'}:
         raise Unverified(f'{node.name}: a lower output needs an observed return or raise, not entry')
     declared = []
-    for position, relation in enumerate(model.relations if model is not None else ()):
+    for position, relation in enumerate(projection_model.relations if projection_model is not None else ()):
         reference = getattr(relation.rule, 'id', relation.rule)
         if reference in engine.m.rules and _current_rule(engine, reference).id == rule.id:
             declared.append((position, reference, relation))
     if declared:
         candidates = []
         for reference in dict.fromkeys(reference for _, reference, _ in declared):
-            projection = relation_observations(model, events, index, reference)
+            projection = relation_observations(projection_model, events, index, reference)
             if projection['status'] != 'observed':
                 raise Unverified(f'{node.name}: lower reading is unverified: ' + '; '.join(projection['grey']))
             for observed in projection['observations']:
-                relation = model.relations[observed['relation_index']]
-                if relation.actual.node != node.name:
+                relation = projection_model.relations[observed['relation_index']]
+                if relation.actual.node != (export_node.name if child is not None else node.name):
                     continue
                 # A return has a real result; a raise has a real error. The
                 # default None on a call/raise is never an output projection.
@@ -447,16 +536,21 @@ def _lower_reading(node, event, engine, contracts, *, model=None, events=(), ind
         if len(candidates) != 1:
             raise Unverified(f'{node.name}: lower output needs one actual relation reading from this invocation')
         observed = candidates[0]
-        if set(observed['inputs']) != set(event.values) or any(
-                not same(observed['inputs'][key], value) for key, value in event.values.items()):
+        inputs = observed['inputs']
+        if set(event.values) == set(rule.fields) and any(not same(inputs[key], value) for key, value in event.values.items()):
             raise Unverified(f'{node.name}: lower relation inputs do not match actual lower parameters')
         actual = observed['actual']
+    elif child is not None:
+        raise Unverified(f'{node.name}: child Flow export has no actual relation observation')
+    if set(inputs) != set(rule.fields):
+        raise Unverified(f'{node.name}: actual lower parameters do not uniquely match its declared fields')
+    expected = _expectation(rule, inputs, engine)
     if expected is None:
         raise Unverified(f'{node.name}: lower rule has no opinion on the actual input')
     if not same(expected, actual):
         return f'{node.name}: actual lower result {actual!r} differs from its rule {expected!r}'
     witnesses = engine._verified_witnesses(rule, expected)
-    if not any(all(same(inputs[k], event.values[k]) for k in inputs) for inputs in witnesses):
+    if not any(all(same(witness[k], inputs[k]) for k in witness) for witness in witnesses):
         raise Unverified(f'{node.name}: actual input is outside the verified lower representatives; no full-domain inference')
 
 
@@ -546,7 +640,8 @@ def _event_integrity(case, events):
     return grey
 
 
-def runtime_check(model, events, index, *, rules=None, contracts=None, engine=None):
+def runtime_check(model, events, index, *, rules=None, contracts=None, engine=None, _context=None, _scopes=None):
+    _context = _context if _context is not None else dict(stack=[], proofs={}, children={})
     rules = rules or (engine.m.rules if engine is not None and hasattr(engine, 'm') else {})
     contracts, bridge_red, bridge_grey = _engine_contracts(model, engine, contracts, rules)
     schema = validate(model, index, contracts=contracts)
@@ -554,6 +649,8 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
     edges, observed = set(model.edges), set()
     by_case, ignored, grouping_grey, grouping_info = _group_cases(model,events,index)
     grey.extend(grouping_grey); info.extend(grouping_info)
+    if _scopes is not None:
+        by_case = _scopes
     order = list(by_case)
     checked, unclaimed = 0, 0
     observed_transitions = set()
@@ -581,7 +678,7 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
             try: _reading_source(event,index,Read(node.name),source_cache)
             except Unverified as error: grey.append(f'{case}: {error}')
             try:
-                mismatch = _lower_reading(node, event, engine, contracts, model=model, events=case_events, index=index)
+                mismatch = _lower_reading(node, event, engine, contracts, model=model, events=case_events, index=index, cases=by_case, context=_context)
                 if mismatch: red.append(f'{case}: {mismatch}')
             except Unverified as error: grey.append(f'{case}: {error}')
             except _DomainError as error: red.append(f'{case}: {error}')
@@ -713,8 +810,12 @@ def static_check(model, report):
     for path in report.paths:
         local = []
         prefix = []
-        for anchor in path:
-            matches = [n for n in model.nodes if n.reference == anchor]
+        for observation in path:
+            phase = ''
+            anchor = observation
+            if isinstance(observation, tuple) and len(observation) == 2 and observation[1] in {'call','return'}:
+                anchor, phase = observation
+            matches = [n for n in model.nodes if n.reference == anchor and (not phase or n.phase == phase)]
             if not matches:
                 info.append(f'anchor not included in {model.id}: {anchor}')
                 if not local: prefix.append(anchor)
@@ -732,11 +833,18 @@ def static_check(model, report):
     return _result('flow-static',red,grey,info,files=list(report.files))
 
 
-def check_flow(model, index, events=(), *, rules=None, static=None, contracts=None, engine=None):
+def check_flow(model, index, events=(), *, rules=None, static=None, contracts=None, engine=None, _context=None, _scopes=None):
     rules = rules or (engine.m.rules if engine is not None and hasattr(engine, 'm') else {})
-    contracts, _, _ = _engine_contracts(model, engine, contracts, rules)
-    finite = finite_check(model, index, rules=rules, contracts=contracts,engine=engine)
-    runtime = runtime_check(model, events, index, rules=rules,contracts=contracts,engine=engine)
+    _context = _context if _context is not None else dict(stack=[], proofs={}, children={})
+    if model.id in _context['stack'] or len(_context['stack']) >= 10:
+        return _result('flow', grey=[f'{model.id}: child Flow cycle or depth exceeds 10; split the boundary'])
+    _context['stack'].append(model.id)
+    try:
+        contracts, _, _ = _engine_contracts(model, engine, contracts, rules)
+        finite = finite_check(model, index, rules=rules, contracts=contracts,engine=engine)
+        runtime = runtime_check(model, events, index, rules=rules,contracts=contracts,engine=engine, _context=_context, _scopes=_scopes)
+    finally:
+        _context['stack'].pop()
     parts = [finite,runtime]
     if static is not None: parts.append(static_check(model,static))
     return _result('flow', [r for p in parts for r in p['red']], [r for p in parts for r in p['grey']],

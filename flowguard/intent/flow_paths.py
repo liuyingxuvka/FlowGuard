@@ -17,7 +17,7 @@ from ..structure.store import unpack
 
 @dataclass(frozen=True)
 class PathReport:
-    paths: tuple[tuple[str, ...], ...] = ()
+    paths: tuple[tuple[str | tuple[str, str], ...], ...] = ()
     unknown: tuple[str, ...] = ()
     files: tuple[str, ...] = ()
 
@@ -144,7 +144,30 @@ class _Projection:
         return found
 
     def anchored_call(self, name, target, arguments, stack):
-        return arguments + [name]
+        phases = getattr(self, 'phases', {})
+        if target in getattr(self, 'boundaries', {}):
+            return arguments + [name]
+        if name not in phases:
+            return arguments + [name]
+        pending, seen, nested_anchor = [target], set(), False
+        while pending:
+            caller = pending.pop()
+            if caller in seen:
+                continue
+            seen.add(caller)
+            for edge in self.graph.edges(caller):
+                if edge['kind'] != 'calls' or edge['prov'] != 'resolved':
+                    continue
+                if edge['dst'] in self.targets and edge['dst'] != target:
+                    nested_anchor = True
+                else:
+                    pending.append(edge['dst'])
+        if not nested_anchor:
+            return arguments + [name]
+        nested = self.function(target, stack)
+        if nested is None:
+            return None
+        return arguments + ([name] + nested if phases[name] == 'call' else nested + [name])
 
     def expression(self, expression, caller, function, facts, constants, stack):
         if expression is None or isinstance(expression, (ast.Constant, ast.Name)):
@@ -187,6 +210,8 @@ class _Projection:
             children = [part for pair in zip(expression.keys, expression.values) for part in pair if part is not None]
         elif isinstance(expression, ast.UnaryOp) and isinstance(expression.op, ast.Not):
             children = [expression.operand]
+        elif isinstance(expression, ast.Compare) and len(expression.ops) == 1 and isinstance(expression.ops[0], (ast.Is, ast.IsNot)):
+            children = [expression.left, *expression.comparators]
         elif isinstance(expression, (ast.Attribute, ast.Subscript)):
             return self.issue(caller['file'], expression, 'dynamic attribute or subscript evaluation')
         else:
@@ -265,7 +290,7 @@ class _Projection:
         return result
 
 
-def analyze_paths(graph, index, entry_names, node_names=None):
+def analyze_paths(graph, index, entry_names, node_names=None, *, phases=None, boundaries=None, completions=()):
     """Project provable normal source sequences onto named anchors, without imports.
 
     ``paths`` retains repeated anchor calls. It is conditional on entry invocation
@@ -275,6 +300,10 @@ def analyze_paths(graph, index, entry_names, node_names=None):
     """
     names = set(node_names if node_names is not None else (anchor.name for anchor in index.entries))
     context = _Projection(graph, index, names)
+    context.phases = phases or {}
+    context.boundaries = {graph.canonical(target): name for target, name in (boundaries or {}).items()
+                          if graph.canonical(target) is not None}
+    context.targets.update((target, {name}) for target, name in context.boundaries.items())
     paths = []
     for entry in entry_names:
         sites = context.by_name.get(entry, ())
@@ -287,7 +316,7 @@ def analyze_paths(graph, index, entry_names, node_names=None):
                 continue
             calls = context.function(target)
             if calls is not None:
-                path = (entry, *calls)
+                path = ((entry, 'call'), *calls, (entry, 'return')) if entry in completions else (entry, *calls)
                 if path not in paths:
                     paths.append(path)
     return PathReport(tuple(paths), tuple(sorted(context.unknown)), tuple(sorted(context.files)))

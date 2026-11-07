@@ -154,17 +154,30 @@ class Session:
     def prepare_declaration(self, declaration):
         """Calibrate only a selected contract, before its probe installs code."""
         from .calibration import _prepare, _prepare_scenario, probe_context
+        from .flow import _registered_flow, _flow_export, Unverified
         model = self.get_model()
         if model.errors or probe_context(self.config):
             return
-        pending = [getattr(declaration, 'id', '')]
-        pending.extend(getattr(relation.rule, 'id', relation.rule)
-                       for relation in getattr(declaration, 'relations', ()))
-        pending.extend(getattr(node.model, 'id', node.model)
-                       for node in getattr(declaration, 'nodes', ()) if node.model is not None)
+        pending = [declaration]
         seen = set()
         while pending:
-            identifier = pending.pop()
+            reference = pending.pop()
+            try:
+                flow = _registered_flow(reference, model.flows)
+            except Unverified:
+                continue  # The Flow checker reports an unregistered boundary.
+            identifier = getattr(reference, 'id', reference)
+            if flow is not None:
+                if flow.id in seen:
+                    continue
+                seen.add(flow.id)
+                pending.extend(relation.rule for relation in flow.relations)
+                pending.extend(node.model for node in flow.nodes if node.model is not None)
+                try:
+                    pending.append(_flow_export(flow, model.rules)[0])
+                except Unverified:
+                    pass  # Missing/ambiguous exports remain grey at their owner.
+                continue
             if identifier in seen or identifier not in model.rules:
                 continue
             seen.add(identifier)
@@ -216,7 +229,7 @@ def _session(config):
 
 
 def pytest_configure(config):
-    config.addinivalue_line('markers', 'rule(ID): this test must actually enter a home of the declared rule')
+    config.addinivalue_line('markers', 'rule(ID): this test must actually enter a source anchor of the declared rule')
     _session(config)
 
 
@@ -475,7 +488,7 @@ def pytest_runtest_makereport(item, call):
             from .sites import unwrap
             if not any((code.co_filename, code.co_firstlineno) in entered for fn in homes if fn is not None and (code := getattr(unwrap(fn), '__code__', None))):
                 report.outcome = 'failed'
-                report.longrepr = f'marked but never enters {rid}: no declared home ran -> call the real home or correct the marker'
+                report.longrepr = f'marked but never enters {rid}: no declared source anchor ran -> call the real source anchor or correct the marker'
     if report.failed or report.skipped or report.when == 'call':
         captured = '\n'.join(str(text) for _, text in getattr(report, 'sections', []))
         if getattr(report, '_flowguard_skip_violation', False):

@@ -472,7 +472,39 @@ def record(cfg, model, rule, results, graph):
     now, keys, reasons = Now(cfg, graph), {'engine:'}, []
     roots = [cfg.root / root['path'] for root in graph.roots()]
     files, nodes = {model.file_of[rule.id]}, set()
-    for home in getattr(rule, 'homes', []):
+    declarations = [rule]
+    if getattr(rule, 'nodes', ()):
+        from .flow import _registered_flow, Unverified
+        pending, registered = [(rule, (rule.id,))], {rule.id}
+        while pending:
+            declaration, ancestry = pending.pop()
+            references = [node.model for node in getattr(declaration, 'nodes', ()) if node.model is not None]
+            references.extend(relation.rule for relation in getattr(declaration, 'relations', ())
+                              if hasattr(relation, 'rule'))
+            references.extend(getattr(declaration, 'uses', ()))
+            for reference in references:
+                try:
+                    child = _registered_flow(reference, model.flows)
+                except Unverified as error:
+                    reasons.append(str(error)); continue
+                identifier = getattr(reference, 'id', reference)
+                if child is None:
+                    child = model.rules.get(identifier) if isinstance(identifier, str) else None
+                if child is None:
+                    reasons.append(f'unresolved lower declaration {identifier!r}'); continue
+                if child.id in ancestry:
+                    reasons.append('lower declaration cycle: ' + ' -> '.join((*ancestry, child.id))); continue
+                if child.id not in registered:
+                    registered.add(child.id)
+                    declarations.append(child)
+                    pending.append((child, (*ancestry, child.id)))
+    for declaration in declarations:
+        declaration_file = model.file_of.get(declaration.id)
+        if declaration_file:
+            files.add(declaration_file)
+        else:
+            reasons.append(f'unregistered lower declaration {declaration.id}')
+    for home in (home for declaration in declarations for home in getattr(declaration, 'homes', [])):
         node = graph.canonical(home.target)
         if node:
             nodes.add(node)
@@ -492,7 +524,7 @@ def record(cfg, model, rule, results, graph):
             keys.add('anchor:' + anchor.target)
             if anchor.calibrated_by:
                 files.add(anchor.calibrated_by.partition('::')[0])
-    for node in getattr(rule, 'nodes', ()):
+    for node in (node for declaration in declarations for node in getattr(declaration, 'nodes', ())):
         for anchor in model.anchor_index.named(node.reference):
             nodes.add(graph.canonical(anchor.target) or anchor.target)
             files.add(anchor.file)
@@ -529,12 +561,13 @@ def record(cfg, model, rule, results, graph):
         for edge in graph.edges(identifier):
             if edge['kind'] in {'reads', 'calls'} and edge['prov'] != 'guessed':
                 nodes.add(edge['dst'])
-    source = parse(rule.source)
-    if source.kind == 'doc':
-        files.add(source.path)
-    for rid in source.rids + ((rule.confirmed,) if getattr(rule, 'confirmed', None) else ()):
-        files.update('.flowguard/requests/' + rid + suffix for suffix in ('.md', '.json'))
-        keys.add('authority:' + rid)
+    for declaration in declarations:
+        source = parse(declaration.source)
+        if source.kind == 'doc':
+            files.add(source.path)
+        for rid in source.rids + ((declaration.confirmed,) if getattr(declaration, 'confirmed', None) else ()):
+            files.update('.flowguard/requests/' + rid + suffix for suffix in ('.md', '.json'))
+            keys.add('authority:' + rid)
     # A changed allowlist changes which original document counts as authority.
     files.add('pyproject.toml')
     production = {graph.node(identifier)['file'] for identifier in seen if graph.node(identifier)}
