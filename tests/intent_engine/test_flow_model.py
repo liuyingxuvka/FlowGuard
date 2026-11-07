@@ -548,10 +548,14 @@ def test_one_recorder_can_delegate_from_existing_calibration_hook(tmp_path):
     def hook(frame,event,arg):
         watched=recorder.on_trace(frame,event,arg)
         return hook if watched else None
-    assert sys.gettrace() is None
-    sys.settrace(hook)
-    try:m.save(3)
-    finally:sys.settrace(None);recorder.close()
+    from flowguard.intent.flow import _TraceScope
+    ambient = sys.gettrace()
+    try:
+        with _TraceScope(hook):
+            m.save(3)
+    finally:
+        recorder.close()
+    assert sys.gettrace() is ambient
     assert recorder.issues==[]
     assert [(e.phase,e.result)for e in recorder.events]==[('call',None),('return',3)]
 

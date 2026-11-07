@@ -398,7 +398,7 @@ def _engine_contracts(model, engine, contracts, rules):
     return supplied, red, grey
 
 
-def _lower_reading(node, event, engine, contracts):
+def _lower_reading(node, event, engine, contracts, *, model=None, events=(), index=None):
     from .engine import Engine
     if node.model is None:
         return
@@ -418,6 +418,39 @@ def _lower_reading(node, event, engine, contracts):
         raise Unverified(f'{node.name}: actual lower parameters do not uniquely match its declared fields')
     expected = _expectation(rule,event.values,engine)
     actual = Raised(event.error) if event.phase == 'raise' and event.error else event.result
+    if event.phase not in {'return', 'raise'}:
+        raise Unverified(f'{node.name}: a lower output needs an observed return or raise, not entry')
+    declared = []
+    for position, relation in enumerate(model.relations if model is not None else ()):
+        reference = getattr(relation.rule, 'id', relation.rule)
+        if reference in engine.m.rules and _current_rule(engine, reference).id == rule.id:
+            declared.append((position, reference, relation))
+    if declared:
+        candidates = []
+        for reference in dict.fromkeys(reference for _, reference, _ in declared):
+            projection = relation_observations(model, events, index, reference)
+            if projection['status'] != 'observed':
+                raise Unverified(f'{node.name}: lower reading is unverified: ' + '; '.join(projection['grey']))
+            for observed in projection['observations']:
+                relation = model.relations[observed['relation_index']]
+                if relation.actual.node != node.name:
+                    continue
+                # A return has a real result; a raise has a real error. The
+                # default None on a call/raise is never an output projection.
+                if relation.actual.field.split('.')[0] != ('error' if event.phase == 'raise' else 'result'):
+                    continue
+                source = observed['sources'].get('$actual', {})
+                identity = dict(anchor=event.anchor, site=event.site, phase=event.phase,
+                                occurrence=event.occurrence, file=event.file, source_digest=event.source_digest)
+                if all(source.get(key) == value for key, value in identity.items()):
+                    candidates.append(observed)
+        if len(candidates) != 1:
+            raise Unverified(f'{node.name}: lower output needs one actual relation reading from this invocation')
+        observed = candidates[0]
+        if set(observed['inputs']) != set(event.values) or any(
+                not same(observed['inputs'][key], value) for key, value in event.values.items()):
+            raise Unverified(f'{node.name}: lower relation inputs do not match actual lower parameters')
+        actual = observed['actual']
     if expected is None:
         raise Unverified(f'{node.name}: lower rule has no opinion on the actual input')
     if not same(expected, actual):
@@ -427,10 +460,14 @@ def _lower_reading(node, event, engine, contracts):
         raise Unverified(f'{node.name}: actual input is outside the verified lower representatives; no full-domain inference')
 
 
-def _scenario_scopes(model, by_case, index):
+def _test_entry_references(model, index):
     starts = [n for n in model.nodes if n.name in model.starts]
-    test_start = {n.reference for n in starts if index.named(n.reference)
-                  and all(a.source_role == 'test' for a in index.named(n.reference))}
+    return frozenset(n.reference for n in starts if index.named(n.reference)
+                     and all(a.source_role == 'test' for a in index.named(n.reference)))
+
+
+def _scenario_scopes(model, by_case, index):
+    test_start = _test_entry_references(model, index)
     if not test_start:
         return by_case, 0
     scopes, ignored = {}, 0
@@ -544,7 +581,7 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
             try: _reading_source(event,index,Read(node.name),source_cache)
             except Unverified as error: grey.append(f'{case}: {error}')
             try:
-                mismatch = _lower_reading(node, event, engine, contracts)
+                mismatch = _lower_reading(node, event, engine, contracts, model=model, events=case_events, index=index)
                 if mismatch: red.append(f'{case}: {mismatch}')
             except Unverified as error: grey.append(f'{case}: {error}')
             except _DomainError as error: red.append(f'{case}: {error}')
@@ -730,6 +767,55 @@ def _snapshot(value, depth=0):
 _MISSING = object()
 
 
+
+class _TraceUnavailable(ValueError):
+    pass
+
+
+class _TraceScope:
+    """The SDK's one trace owner; compose its observers, never a debugger."""
+    def __init__(self, callback=None, *, ignored=()):
+        self.callback, self.ignored = callback, ignored
+        self.previous, self.active, self.failed = None, False, False
+        self._problems = []
+
+    @property
+    def problems(self):
+        prior = self.previous.problems if isinstance(self.previous, _TraceScope) else []
+        return [*prior, *self._problems]
+
+    def __enter__(self):
+        self.previous = sys.gettrace()
+        if self.previous is not None and not (isinstance(self.previous, _TraceScope) and self.previous.active):
+            raise _TraceUnavailable('another debugger/trace hook is active; observation was not installed')
+        self.active = True
+        sys.settrace(self)
+        return self
+
+    def __exit__(self, *error):
+        if self.active:
+            if sys.gettrace() is self:
+                sys.settrace(self.previous)
+            else:
+                self._problems.append('trace hook changed during anchor observation')
+            self.active = False
+
+    def __call__(self, frame, event, arg):
+        # A generated trampoline is not the real point. Neither observer may
+        # claim its pre-injection parameters or synthetic return/stop.
+        if frame.f_code in self.ignored:
+            return None
+        prior = self.previous(frame, event, arg) if self.previous is not None else None
+        current = None
+        if self.callback is not None and not self.failed:
+            try:
+                current = self.callback(frame, event, arg)
+            except Exception as error:
+                self.failed = True
+                self._problems.append('observer callback failed: ' + type(error).__name__ + ': ' + str(error))
+        return self if prior is not None or current is not None else None
+
+
 class Capture:
     """Observe only indexed function frames; the caller owns one actual test case.
 
@@ -737,8 +823,21 @@ class Capture:
     or turn an interrupted test into a pass. Values never survive this scope by
     themselves. Unsupported async/generator frames remain explicit unknowns.
     """
-    def __init__(self, root, index, case):
+    def __init__(self, root, index, case, *, models=None):
         self.root, self.index, self.case = Path(root).resolve(), index, str(case)
+        self._model_scopes = None
+        if models is not None:
+            entries = set()
+            for model in models:
+                test_start = _test_entry_references(model, index)
+                if test_start:
+                    entries.update(test_start)
+                else:
+                    # _scenario_scopes keeps the whole case for production
+                    # entries, including a downstream call without its start.
+                    break
+            else:
+                self._model_scopes = frozenset(entries)
         self.events, self.issues = [], []
         self._frames, self._counts, self._sites = {}, Counter(), {}
         for anchor in index.entries:
@@ -751,16 +850,19 @@ class Capture:
         self._active = False
 
     def __enter__(self):
-        if sys.gettrace() is not None:
-            self.issues.append('another trace hook is active; anchor observation was not installed')
+        self._scope = _TraceScope(self._trace)
+        try:
+            self._scope.__enter__()
+        except _TraceUnavailable as error:
+            self.issues.append(str(error))
         else:
-            sys.settrace(self._trace); self._active=True
+            self._active = True
         return self
 
     def __exit__(self, *error):
         if self._active:
-            if sys.gettrace() is self._trace: sys.settrace(None)
-            else: self.issues.append('trace hook changed during anchor observation')
+            self._scope.__exit__(*error)
+            self.issues.extend(self._scope.problems)
             self._active = False
         for anchor in self.index.entries:
             path=self.root/anchor.file
@@ -804,6 +906,17 @@ class Capture:
         self.events.append(Event(anchor.name,phase,args,_snapshot(result),error,self.case,occurrence,
                                  anchor.target,len(self.events)+1,states or {},before or {},parents,caller,str((self.root/anchor.file).resolve()),anchor.source_digest))
 
+    def _in_model_scope(self, anchor, frame):
+        if self._model_scopes is None or anchor.name in self._model_scopes:
+            return True
+        parent = frame.f_back
+        while self._model_scopes and parent is not None:
+            state = self._frames.get(id(parent))
+            if state and state[0].name in self._model_scopes:
+                return True
+            parent = parent.f_back
+        return False
+
     def _callback(self, frame, event, arg):
         key=id(frame)
         if event=='call':
@@ -816,6 +929,10 @@ class Capture:
             if len(selected)!=1:
                 self.issues.append(f'{qual}: runtime source position does not identify one anchor');return None
             anchor=selected[0];self._counts[anchor.name]+=1;occurrence=self._counts[anchor.name]
+            # Keep the existing occurrence identity even for a call outside a
+            # test-entry model. Only its unused value/state/event work is pruned.
+            if not self._in_model_scope(anchor, frame):
+                return None
             args={p.name:_snapshot(frame.f_locals.get(p.name,_Opaque('missing parameter')))for p in anchor.parameters}
             before=self._states(frame,anchor)
             parents=[];parent=frame.f_back

@@ -425,7 +425,8 @@ def pytest_runtest_protocol(item):
         if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
                 and state.model.flows and not probe_context(item.config)):
             from .flow import Capture
-            capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid))
+            capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
+                                                   models=state.model.flows.values()))
         try:
             if (isinstance(item, IntentItem) or item.name == SENTINEL
                     or not item.config.getoption('--flowguard-record-tests') and not any(item.iter_markers('rule'))):

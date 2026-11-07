@@ -253,24 +253,32 @@ class _Driver:
         if Path(fn.__code__.co_filename).resolve() != expected or fn.__qualname__.replace('.<locals>', '') != self.anchor.qual:
             self.problems.append('loaded function does not match the actual source anchor')
             return
-        if self.stage == 'baseline':
-            self.stack.enter_context(self._monitor(fn))
-        else:
-            try:
+        from .flow import _TraceUnavailable
+        try:
+            if self.stage == 'baseline':
+                self.stack.enter_context(self._monitor(fn))
+            else:
+                ignored = set()
+                self.stack.enter_context(self._observing(ignored=ignored))
                 self.stack.enter_context(sites.intercepted(fn, self._call))
-            except sites.NotMutable as error:
-                self.problems.append(str(error))
-                return
+                ignored.add(fn.__code__)
+        except (sites.NotMutable, _TraceUnavailable) as error:
+            self.problems.append(str(error))
+            return
         self.ready = True
 
     @contextmanager
+    def _observing(self, callback=None, *, ignored=()):
+        from .flow import _TraceScope
+        scope = _TraceScope(callback, ignored=ignored)
+        try:
+            with scope:
+                yield
+        finally:
+            self.problems.extend(scope.problems)
+
     def _monitor(self, fn):
         code, frames = fn.__code__, {}
-        previous = sys.gettrace()
-        if previous is not None:
-            self.problems.append('calibration cannot replace an existing debugger/trace callback')
-            yield
-            return
         def trace(frame, event, arg):
             if frame.f_code is not code or self.phase not in ('setup', 'call'):
                 return None
@@ -289,11 +297,7 @@ class _Driver:
                 else:
                     self.problems.append('target did not return a supported value/exception')
             return trace
-        sys.settrace(trace)
-        try:
-            yield
-        finally:
-            sys.settrace(previous)
+        return self._observing(trace)
 
     def _entry(self, frame):
         actual = {}
@@ -773,23 +777,15 @@ class _ScenarioDriver(_Driver):
         if fn.__code__.co_freevars or inspect.iscoroutinefunction(fn) or inspect.isgeneratorfunction(fn):
             self.problems.append('scenario closure/async/generator is unsupported')
             return
-        if self.stage != 'baseline':
-            try:
+        from .flow import _TraceUnavailable
+        try:
+            self.stack.enter_context(self._observing(self.capture.on_trace, ignored=self.ignored))
+            if self.stage != 'baseline':
                 self.stack.enter_context(sites.intercepted(fn, self._call))
                 self.ignored.add(fn.__code__)
-            except sites.NotMutable as error:
-                self.problems.append(str(error)); return
-        previous = sys.gettrace()
-        if previous is not None:
-            self.problems.append('scenario cannot replace an existing trace callback')
+        except (sites.NotMutable, _TraceUnavailable) as error:
+            self.problems.append(str(error))
             return
-        def trace(frame, event, arg):
-            if frame.f_code in self.ignored:
-                return None
-            callback = self.capture.on_trace(frame, event, arg)
-            return trace if callback is not None else None
-        sys.settrace(trace)
-        self.stack.callback(sys.settrace, previous)
         self.ready = True
 
     def _call(self, original, bound):

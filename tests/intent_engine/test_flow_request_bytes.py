@@ -1,9 +1,10 @@
 """Original literal REQUEST_BYTES cases exercise native disk postconditions.
 
-The isolated source copy adds only anchors and a real business read extraction.
+The isolated source copy retains the production anchors and business reader.
 No exercise callback returns the expected payload to the model.
 """
 from contextlib import contextmanager
+import ast
 import difflib
 import importlib.util
 from pathlib import Path
@@ -25,23 +26,25 @@ ORIGINAL_CASES = (
 )
 
 
-def add_real_reader(original):
-    marker = 'def integrity_problem(root, relative_path):'
-    helper = '''# flowguard: sensor original_bytes(root: project, relative_path: file) -> body: bytes
-def read_original_bytes(root: str | Path, relative_path: str) -> bytes:
-    _, path, _ = _paths(root, relative_path)
-    return path.read_bytes()
+def native_reader_source(original):
+    assert 'def integrity_problem(root, relative_path):' in original
+    tree = ast.parse(original)
+    for name in ('write_once', 'read_original_bytes'):
+        assert len([node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == name]) == 1
+    return original
 
 
-'''
-    assert marker in original
-    result = original.replace(marker, helper + marker, 1)
-    result = result.replace('    raw = path.read_bytes()\n    expected = _stored_digest',
-                            '    raw = read_original_bytes(root, relative)\n    expected = _stored_digest', 1)
-    result = result.replace('def write_once(root, relative_path, raw, *, _created=None):',
-        '# flowguard: event write_record(root: str | Path, relative_path: str, raw: bytes, _created: list | None)\n'
-        'def write_once(root: str | Path, relative_path: str, raw: bytes, *, _created: list | None=None):',1)
-    return result
+def stale_reader_source(text):
+    helper = next(node for node in ast.parse(text).body if isinstance(node, ast.FunctionDef)
+                  and node.name == 'read_original_bytes')
+    calls = [node for node in ast.walk(helper) if isinstance(node, ast.Call)
+             and isinstance(node.func, ast.Name) and node.func.id == '_paths']
+    assert len(calls) == 1
+    old_call = ast.get_source_segment(text, calls[0])
+    altered = ast.parse(old_call, mode='eval').body
+    altered.args[1] = ast.Constant('previous.md')
+    old_helper = ast.get_source_segment(text, helper)
+    return text.replace(old_helper, old_helper.replace(old_call, ast.unparse(altered), 1), 1)
 
 
 def load_source(path, name):
@@ -54,7 +57,7 @@ def load_source(path, name):
 
 def scenario(tmp_path, variant='original'):
     original = Path(records.__file__).read_text()
-    text = add_real_reader(original)
+    text = native_reader_source(original)
     reader = 'read_original_bytes'
     if variant == 'normalize': text=text.replace('stream.write(raw)', 'stream.write(raw.replace(b"\\r\\n", b"\\n"))',1)
     elif variant == 'empty': text=text.replace('stream.write(raw)', 'stream.write(b"")',1)
@@ -62,9 +65,7 @@ def scenario(tmp_path, variant='original'):
         text=text.replace('if path.exists() or any(candidate.exists() for candidate in candidates):','if False:',1)
         text=text.replace('with path.open("xb") as stream:', 'with path.open("wb") as stream:',1)
     elif variant == 'wrong_path': text=text.replace('path, written = _new_file(root, relative_path)','path, written = _new_file(root, relative_path)\n    path = path.with_name("other.md")',1)
-    elif variant == 'stale_reader':
-        text=text.replace('def read_original_bytes(root: str | Path, relative_path: str) -> bytes:\n    _, path, _ = _paths(root, relative_path)',
-                          'def read_original_bytes(root: str | Path, relative_path: str) -> bytes:\n    _, path, _ = _paths(root, "previous.md")',1)
+    elif variant == 'stale_reader': text=stale_reader_source(text)
     elif variant == 'moved':
         reader='read_original_bytes_moved'
         text=text.replace('read_original_bytes(',reader+'(')
@@ -97,12 +98,21 @@ def request_case(root: str, exists: bool, payload: str):
     saved=list(api.DECLARED)
     namespace={}
     source=(Path(__file__).parents[1]/'intent/archive_and_sources.py').read_text()
-    original_rule=source.split("@rule('REQUEST_BYTES'",1)[1].split("@REQUEST_BYTES.home",1)[0]
-    exec("from flowguard.intent import rule,row,Refused\n@rule('REQUEST_BYTES'"+original_rule,namespace)
-    rule=namespace['REQUEST_BYTES'];api.DECLARED[:]=saved
+    tree=ast.parse(source)
+    declaration=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='REQUEST_BYTES')
+    rows=next(node for node in tree.body if isinstance(node,ast.Expr) and isinstance(node.value,ast.Call)
+              and isinstance(node.value.func,ast.Attribute) and isinstance(node.value.func.value,ast.Name)
+              and node.value.func.value.id=='REQUEST_BYTES' and node.value.func.attr=='rows')
+    start=min(node.lineno for node in declaration.decorator_list)-1
+    original_rule=''.join(source.splitlines(keepends=True)[start:rows.end_lineno])
+    try:
+        exec("from flowguard.intent import rule,row,Refused\n"+original_rule,namespace)
+        rule=namespace['REQUEST_BYTES']
+    finally:
+        api.DECLARED[:]=saved
     model=Flow('REQUEST_BYTES_FLOW',rule.source,
-        (Node('case','request_case',start=True),Node('write','write_record',phase='return',caller='case'),
-         Node('refused','write_record',phase='raise',end=True,caller='case'),Node('read','original_bytes',phase='return',end=True,caller='case')),
+        (Node('case','request_case',start=True),Node('write','RECORD_WRITE',phase='return',caller='case'),
+         Node('refused','RECORD_WRITE',phase='raise',end=True,caller='case'),Node('read','ORIGINAL_BYTES',phase='return',end=True,caller='case')),
         (('case','write'),('write','read'),('case','refused')),
         relations=(Relation(rule,{'exists':Read('case','arg.exists'),'payload':Read('case','arg.payload')},Read('read',view='utf8'),'read'),
                    Relation(rule,{'exists':Read('case','arg.exists'),'payload':Read('case','arg.payload')},Read('refused','error'),'refused')))
@@ -147,7 +157,7 @@ def test_reader_is_actually_reused_by_native_integrity_business_function(tmp_pat
     native.write_once(directory,'original.md',b'original\r\nbytes')
     with Capture(tmp_path,index,'business_read')as captured:
         assert native.integrity_problem(directory,'original.md') is None
-    assert [e.result for e in captured.events if e.anchor=='original_bytes' and e.phase=='return']==[b'original\r\nbytes']
+    assert [e.result for e in captured.events if e.anchor=='ORIGINAL_BYTES' and e.phase=='return']==[b'original\r\nbytes']
 
 
 def test_utf8_measurement_view_does_not_strip_bom_or_normalize_newlines(tmp_path):
@@ -157,7 +167,7 @@ def test_utf8_measurement_view_does_not_strip_bom_or_normalize_newlines(tmp_path
         directory=tmp_path/('unicode_'+str(i));directory.mkdir()
         with Capture(tmp_path,index,str(i))as captured:case.request_case(str(directory),False,payload)
         assert runtime_check(model,captured.events,index)['red']==[]
-        actual=[e.result for e in captured.events if e.anchor=='original_bytes'and e.phase=='return']
+        actual=[e.result for e in captured.events if e.anchor=='ORIGINAL_BYTES'and e.phase=='return']
         assert actual==[payload.encode('utf-8')]
 
 
@@ -174,7 +184,7 @@ def test_scenario_projection_reads_real_outcome_without_calling_rule_predicate(t
     actual=projected['observations'][0]
     assert actual['inputs']==dict(exists=False,payload='原话不加换行')
     assert actual['actual']=='原话不加换行'
-    assert actual['sources']['$actual']['anchor']=='original_bytes'
+    assert actual['sources']['$actual']['anchor']=='ORIGINAL_BYTES'
     assert actual['sources']['$actual']['view']=='utf8'
 
 
@@ -198,10 +208,10 @@ def test_projection_refuses_orphan_completions_and_source_identity_changes(tmp_p
     native,case,index,model,rule,_,_=scenario(tmp_path)
     directory=tmp_path/'actual';directory.mkdir()
     with Capture(tmp_path,index,'one')as captured:case.request_case(str(directory),False,'原话不加换行')
-    orphan=[e for e in captured.events if not(e.anchor=='original_bytes'and e.phase=='call')]
+    orphan=[e for e in captured.events if not(e.anchor=='ORIGINAL_BYTES'and e.phase=='call')]
     projected=relation_observations(model,orphan,index,'REQUEST_BYTES')
     assert projected['status']=='grey' and projected['observations']==[]
-    broken=[replace(e,source_digest='wrong')if e.anchor=='original_bytes'else e for e in captured.events]
+    broken=[replace(e,source_digest='wrong')if e.anchor=='ORIGINAL_BYTES'else e for e in captured.events]
     projected=relation_observations(model,broken,index,'REQUEST_BYTES')
     assert projected['status']=='grey' and projected['observations']==[]
     assert any('source identity' in r for r in projected['grey'])
