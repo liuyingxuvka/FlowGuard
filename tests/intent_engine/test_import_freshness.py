@@ -303,3 +303,83 @@ assert 'return 4' in inspect.getsource(app.f)
 assert linecache.cache['external-dependency.py'] is external
 ''')
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_host_import_prefixes_are_resolved_once_per_fresh_prepare(tmp_path):
+    for name in ('host', 'temporary'):
+        (tmp_path/name).mkdir()
+    package = tmp_path/'host/prefix_cohort'
+    package.mkdir()
+    (package/'__init__.py').write_text('')
+    for name in ('one', 'two'):
+        (package/(name+'.py')).write_text('VALUE = 3\n')
+    result = python(tmp_path, '''
+from pathlib import Path
+from importlib import invalidate_caches, machinery
+from flowguard.intent.imports import prepare
+from flowguard.intent.config import load_config, setup_path
+host, temporary = load_config('host'), load_config('temporary')
+setup_path(host); prepare(host.root, host=True)
+import prefix_cohort.one, prefix_cohort.two
+original = sys.modules['prefix_cohort.one']
+setup_path(temporary)
+sys.path.append(str(host.root))  # The live verifier remains importable after the target.
+find = machinery.PathFinder.find_spec
+calls = []
+def counted(name, path=None, target=None):
+    calls.append(name)
+    return find(name, path, target)
+machinery.PathFinder.find_spec = counted
+prepare(temporary.root)
+assert calls.count('prefix_cohort') == 1, calls
+assert calls.count('prefix_cohort.one') == 1, calls
+assert calls.count('prefix_cohort.two') == 1, calls
+# A new prepare is a new source snapshot, including changed package precedence.
+shadow = temporary.root / 'prefix_cohort'
+shadow.mkdir()
+(shadow/'__init__.py').write_text('')
+(shadow/'one.py').write_text('VALUE = 4\\n')
+invalidate_caches()
+calls.clear()
+try:
+    prepare(temporary.root)
+except ValueError as error:
+    assert 'conflicts with the active pytest verifier' in str(error)
+else:
+    raise AssertionError('a per-prepare prefix cache must not preserve the old origin')
+assert calls.count('prefix_cohort') == 1, calls
+assert sys.modules['prefix_cohort.one'] is original and original.VALUE == 3
+''')
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_local_import_prefix_memo_keeps_namespace_and_missing_parents(tmp_path):
+    for folder, module in [('first', 'left'), ('second', 'right')]:
+        package = tmp_path/folder/'prefix_namespace'
+        package.mkdir(parents=True)
+        (package/(module+'.py')).write_text('VALUE = 3\n')
+    result = python(tmp_path, '''
+from pathlib import Path
+from importlib import machinery
+from flowguard.intent.imports import _find
+sys.path[:0] = [str(Path('first').resolve()), str(Path('second').resolve())]
+find = machinery.PathFinder.find_spec
+calls = []
+def counted(name, path=None, target=None):
+    calls.append(name)
+    return find(name, path, target)
+machinery.PathFinder.find_spec = counted
+specs = {}
+left = _find('prefix_namespace.left', specs)
+right = _find('prefix_namespace.right', specs)
+assert specs['prefix_namespace'].origin is None
+assert Path(left.origin) == Path('first/prefix_namespace/left.py').resolve()
+assert Path(right.origin) == Path('second/prefix_namespace/right.py').resolve()
+assert calls.count('prefix_namespace') == 1, calls
+assert _find('absent_prefix_72958.one', specs) is None
+assert _find('absent_prefix_72958.two', specs) is None
+assert calls.count('absent_prefix_72958') == 1, calls
+assert 'absent_prefix_72958.one' not in calls and 'absent_prefix_72958.two' not in calls
+assert not any(name.startswith('prefix_namespace') for name in sys.modules)
+''')
+    assert result.returncode == 0, result.stdout + result.stderr

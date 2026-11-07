@@ -96,12 +96,18 @@ class _Finder:
 _finder = _Finder()
 
 
-def _find(name):
+def _find(name, specs=None):
+    # Shared package prefixes have one origin within this preparation snapshot.
+    # Never retain these resolutions between prepare() calls.
+    specs = {} if specs is None else specs
     locations = None
     spec = None
     parts = name.split('.')
     for count in range(1, len(parts) + 1):
-        spec = machinery.PathFinder.find_spec('.'.join(parts[:count]), locations)
+        prefix = '.'.join(parts[:count])
+        if prefix not in specs:
+            specs[prefix] = machinery.PathFinder.find_spec(prefix, locations)
+        spec = specs[prefix]
         if spec is None:
             break
         locations = spec.submodule_search_locations
@@ -129,10 +135,11 @@ def prepare(root, *, host=False):
         sys.meta_path.remove(_finder)
     sys.meta_path.insert(0, _finder)
     if _finder.host is not None and _finder.host != root:
+        specs = {}
         for name, (path, _, module, owner) in _finder.loaded.items():
             if owner != _finder.host or not _finder.application(path, owner):
                 continue
-            expected = _find(name)
+            expected = _find(name, specs)
             if (expected is not None and expected.origin and project_code(expected.origin, root)
                     and Path(expected.origin).resolve() != path and sys.modules.get(name) is module):
                 raise ValueError(f'{name} conflicts with the active pytest verifier; '
