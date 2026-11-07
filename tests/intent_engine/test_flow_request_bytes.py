@@ -97,7 +97,7 @@ def request_case(root: str, exists: bool, payload: str):
     # Execute the original declaration/rows verbatim; retain their Row objects.
     saved=list(api.DECLARED)
     namespace={}
-    source=(Path(__file__).parents[1]/'intent/archive_and_sources.py').read_text()
+    source=(Path(__file__).parents[1]/'intent/archive_and_sources.py').read_text(encoding='utf-8')
     tree=ast.parse(source)
     declaration=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='REQUEST_BYTES')
     rows=next(node for node in tree.body if isinstance(node,ast.Expr) and isinstance(node.value,ast.Call)

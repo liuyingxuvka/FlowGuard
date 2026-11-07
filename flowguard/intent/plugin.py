@@ -333,7 +333,8 @@ def pytest_configure(config):
 
 def _intent_path(path, config):
     folder = config._flowguard_intent.cfg.intent
-    return path.suffix == '.py' and not path.name.startswith('_') and path.is_relative_to(folder)
+    return (path.suffix == '.py' and not path.name.startswith('_')
+            and (path.is_relative_to(folder) or path.parent.resolve().is_relative_to(folder.resolve())))
 
 
 def pytest_collect_file(file_path, parent):
