@@ -13,6 +13,7 @@
 - Keep synthetic pure-sensor verification out of ordinary-test event coverage, as for calibrated probes. Preserve real application calls, source and type checks, footprints and restoration of the surrounding observer.
 - In explicit diagnostic mode, print final runtest failure details as they occur while preserving selection, later tests, effective xfail, private probes and exit codes.
 - Recognize configured intent directories through real directory aliases while preserving pytest paths and existing leaf-link roles.
+- Preserve comparison results on terminals that cannot encode their text by escaping only the human display; Unicode reports and original data stay unchanged.
 - Stream the original test nodes and partial output during `check --all`, preserving real failures and interruptions. Keep readable latest-run diagnostics and CI artifacts. A shared diagnostic-output helper reports unavailable output without replacing the underlying check result.
 - Read a saved owner statement through the existing owner's single-record projection while retaining its integrity and retirement checks. Avoid traceback-source formatting for internal controlled calibration stops; retain actual native exceptions, test lifecycle and outcomes.
 - Keep the skill defaults to status, original words, source navigation and checks of existing bound decisions after the optional-use trial missed its benefit criterion. Anchor old judgments before a relevant edit; behavior comparison and small flow models remain available for focused maintenance.

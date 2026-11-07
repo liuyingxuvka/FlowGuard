@@ -9,6 +9,7 @@ import ast
 from dataclasses import dataclass
 import io
 from pathlib import Path
+import sys
 import tarfile
 import tempfile
 import time
@@ -406,6 +407,22 @@ def render(report, limit=10):
         lines.append(f'候选 {report["total"]} 类，已比较 {report.get("checked", 0)} 类；'
                      f'比较未完成，已证变化 {report["changed"]} 类')
     return '\n'.join(lines)
+
+
+def display(text, *, file=None):
+    """Write human comparison text, escaping only an unrepresentable display.
+
+    The Unicode render and report data stay unchanged. The ASCII fallback keeps
+    real LF boundaries and escapes original backslashes so it is reversible.
+    """
+    stream = sys.stdout if file is None else file
+    encoding = getattr(stream, 'encoding', None)
+    if encoding:
+        try:
+            text.encode(encoding)
+        except UnicodeEncodeError:
+            text = '\n'.join(line.encode('unicode_escape').decode('ascii') for line in text.split('\n'))
+    print(text, file=stream)
 
 
 def anchor_distinct(root, declaration, *, graph=None, index=None, cfg=None, archive=None):

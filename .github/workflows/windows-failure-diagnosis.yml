@@ -76,7 +76,7 @@ jobs:
           '@
           $identity | & $python -
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $selection = "(INTENT_SENTINEL and (cells or rows)) or test_same_name_copy_disagreement_fails_pytest_and_check_without_rules or test_public_flag_keeps_actual_cli_outcomes_selection_dependencies_and_exit or test_since_selects_real_git_changes_even_after_current_cache_is_fresh or test_a_new_corrected_row_attaches_real_old_code_proof_to_existing_result or test_flow_request_bytes or test_intent_directory_alias or test_import_ownership"
+          $selection = "(INTENT_SENTINEL and (cells or rows)) or test_same_name_copy_disagreement_fails_pytest_and_check_without_rules or test_public_flag_keeps_actual_cli_outcomes_selection_dependencies_and_exit or test_since_selects_real_git_changes_even_after_current_cache_is_fresh or test_a_new_corrected_row_attaches_real_old_code_proof_to_existing_result or test_flow_request_bytes or test_intent_directory_alias or test_import_ownership or test_comparison_display or test_same_node_reentry_pairs_each_actual_session_without_changing_model_results"
           $pytestArgs = @("-m", "pytest", "-vv", "--tb=long", "--durations=10", "--flowguard-record-tests", "--flowguard-diagnose", "-x", "-k", $selection)
           $started = (Get-Date).ToUniversalTime().ToString("o")
           Write-Host ("DIAGNOSTIC COMMAND: " + $python + " " + ($pytestArgs -join " "))

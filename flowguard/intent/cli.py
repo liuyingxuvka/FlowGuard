@@ -543,10 +543,11 @@ def _checked(cfg: Config, *, everything: bool = False, since: str | None = None)
 
 # flowguard: event CHECK_SOURCES(cfg: Config)
 def _check_sources(cfg: Config):
+    from .differences import display
     index, lines, red = anchor_checks(cfg)
     lines.extend(behavior_changes(cfg, index=index))
     if lines:
-        print('\n'.join(lines))
+        display('\n'.join(lines))
     return red
 
 
@@ -994,9 +995,9 @@ def main(argv=None):
         if options.command == 'anchor':
             return draft_anchor(cfg, options.target)
         if options.command == 'compare':
-            from .differences import compare, render as render_comparison
+            from .differences import compare, display, render as render_comparison
             result = compare(cfg.root, options.left, options.right)
-            print(render_comparison(result))
+            display(render_comparison(result))
             return int(result['status'] == 'red')
         if options.command == 'show':
             return show(cfg, options.query, draft=options.draft, gaps=options.gaps, full=options.full)

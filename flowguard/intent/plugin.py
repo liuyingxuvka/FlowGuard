@@ -738,12 +738,13 @@ def finish_verified(session, exitstatus):
             print('\nFlowGuard flow ' + identifier + ': ' + '; '.join(result['red']), file=sys.stderr)
             session.exitstatus = pytest.ExitCode.TESTS_FAILED
     from .cli import anchor_checks, behavior_changes
+    from .differences import display
     index, observation_lines, observation_red = anchor_checks(state.cfg, index=model.anchor_index, automatic=True)
     if observation_red:
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
     observation_lines.extend(behavior_changes(state.cfg, automatic=True, index=index))
     if observation_lines:
-        print('\n'.join(observation_lines))
+        display('\n'.join(observation_lines))
     exitstatus = session.exitstatus
     missing = _missing(state, declared)
     attempt = dict(declared=len(declared), collected=len(state.collected), selected=len(state.selected),
