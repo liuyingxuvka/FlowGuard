@@ -414,7 +414,7 @@ class MapHandle:
         result = []
         for node in self.nodes():
             hits = {'sites': sorted(wanted & sites.get(node['id'],set())),
-                    'doc': sorted(wanted & tokens(node['doc'])),
+                    'doc': sorted(wanted & tokens(node['doc'] or '')),
                     'name': sorted(wanted & tokens(node['id'])),
                     'aliases': sorted(aliases.get(node['id'], []))}
             if any(hits.values()):

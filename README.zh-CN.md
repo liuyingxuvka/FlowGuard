@@ -6,6 +6,8 @@
 
 FlowGuard 帮写代码的 AI 找到已有判断，并在以后改动时保持必要副本一致。代码地图由工具生成。只有一个判断在几处、主人说“所有地方”、或修了一个 bug 时才写规则；普通修改仍用普通测试。
 
+默认用法保持收窄：读状态、保存真实原话、找已有代码，在绑定判断改动后检查已有规则。可选使用对照没有证明正确性或时间收益；行为差异和小流程模型仍可用于重复判断、跨会话路径。要改一个需要规则的老判断，先补锚点再改。实测范围和边界见[迁移说明](./docs/upgrade-3.0.md)。
+
 ## 开始
 
 从这个仓库安装；PyPI 上同名的项目不是本工具。需要 Python 3.11 或更新版本。
@@ -50,6 +52,7 @@ python -m flowguard req add owner-message.txt --id R1
 | `python -m flowguard show --draft orders:accept` | 为锚点定位已有标定测试，不编造预期答案。 |
 | `python -m flowguard check` | 通过普通 pytest 重查受影响的规则和测试。 |
 | `python -m flowguard check --all` | 在 CI 运行所有意图项和普通项目测试。 |
+| `python -m flowguard check --diagnose` | 按需记录检查阶段耗时和已激活锚点事件；排查完整套件时再加 `--all`。 |
 | `python -m flowguard req list` | 列出已存原话；`show R1` 读取原文。 |
 
 没有规则时，检查只说一行：

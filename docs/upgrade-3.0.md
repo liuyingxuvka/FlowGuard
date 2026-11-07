@@ -15,4 +15,16 @@ The [local guide](../.agents/skills/flowguard/references/rules.md) contains the 
 
 `check` and ordinary pytest report changed outcome classes, at most ten plus totals. This information alone does not fail tests. Expensive, coupled or unclosed automatic comparisons defer to explicit checking; they are not silently treated as unchanged. Existing red and grey findings remain visible in concise output; `show --full` expands metadata.
 
+## Default use after migration
+
+Keep status, original words, code navigation and checks of existing bound decisions as the default. Anchor an old judgment before a relevant edit when it needs a rule. Behavior comparisons and small flow models remain available for focused repeated judgments and cross-session paths; ordinary edits use ordinary code and tests.
+
+In the small optional-use comparison, each group passed 44/44 hidden checks and left zero measured unintended classes. Total observed wall time was 1652.849 seconds for the tool group and 1462.206 for control (1.130380 times). Equal correctness required at most 0.9 times the cost; the alternative required at least one fewer unintended class and cost at most 1.2 times control. Neither criterion was met. Complete simple-task cost was unknown, and tokens and fees were not recorded. This result sets the narrow default; it does not establish general productivity or token savings. Future trials should use independent hidden checks on repeated judgments and cross-session paths.
+
+## Optional diagnosis
+
+Add `--diagnose` to `check` when investigating a check or its activated project anchors. It records real events and timed stages; ordinary checks retain project rules and Flow verification without enabling this extra collection. `check --all` independently selects the complete suite and streams original pytest nodes and partial output. The generated project CI template remains `check --all`; diagnosis is an explicit choice.
+
+`python -m flowguard show CHECK_PIPELINE` reads the checker's single built-in model, source locations and latest-log path without running verification. Historical logs do not prove the current source. Finite-model checks, observed paths and reading relations are distinct; the checker's own static paths are unverified. Missing or ambiguous batch readings stay grey. Private calibration probes are not expanded into ordinary diagnostics; same-process nested sessions retain separate timing identities. Arbitrary concurrent processes sharing a project cache remain outside the diagnostic guarantee.
+
 Do not convert saved trace digests or caches into evidence for the new API. Rebuild generated maps and check records from unchanged original inputs. `.flowguard/models/` is untouched by this migration; there is no compatibility executor for the removed adapter API. Syntax maps remain available for Python, JS/TS, C/C++ and C#; executable anchors in this release are Python only.

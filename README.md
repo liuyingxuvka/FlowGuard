@@ -6,6 +6,8 @@
 
 FlowGuard helps a coding AI find an existing decision and keep necessary copies consistent across later changes. The code map is generated. Write a rule only when a decision has copies, the owner says "everywhere", or a bug was fixed. Ordinary edits use ordinary tests.
 
+Default use stays narrow: read status, preserve actual owner words, find existing code, and check rules when their bound decisions change. The optional-use trial did not demonstrate a correctness or time benefit. Behavior comparison and small flow models remain available for repeated judgments and cross-session paths. When changing an old judgment that needs a rule, anchor it before editing. See the [migration guide](./docs/upgrade-3.0.md) for the measured scope and boundaries.
+
 ## Start
 
 Install from this repository; the similarly named PyPI project is different. Python 3.11 or newer is required.
@@ -50,7 +52,7 @@ The same generated map and fixed queries read the first languages below. Normal 
 | `python -m flowguard show --draft orders:accept` | Locate an existing calibration test; do not invent its expected answer. |
 | `python -m flowguard check` | Recheck affected rules and tests with ordinary pytest. |
 | `python -m flowguard check --all` | Run all intent and ordinary project tests in CI. |
-| `python -m flowguard check --diagnose` | Record timed check stages and source-anchor events. Combine with `--all` for full CI diagnostics. |
+| `python -m flowguard check --diagnose` | Optionally record timed check stages and activated source-anchor events. Add `--all` when diagnosing the complete suite. |
 | `python -m flowguard req list` | List preserved owner messages; `show R1` reads the original. |
 
 Without rules, a check is quiet:

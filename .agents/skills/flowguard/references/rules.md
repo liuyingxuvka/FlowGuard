@@ -1,6 +1,6 @@
 # Rules and anchors
 
-Use `show "what it decides"` to find an existing owner. Model repeated judgments or complex paths worth checking across sessions.
+Use `show "what it decides"` to find an existing owner. Optionally model repeated judgments or complex paths across sessions.
 
 ## Example
 
