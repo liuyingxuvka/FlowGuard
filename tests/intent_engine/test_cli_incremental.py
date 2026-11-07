@@ -9,6 +9,7 @@ import pytest
 from flowguard.intent import cache, cli
 from flowguard.structure import build
 from test_cli import project
+from tests.intent_engine._source_fixture import source_sessions
 
 
 def git(root, *arguments):
@@ -211,11 +212,13 @@ def test_real_pytest_contract_summary_cuts_unchanged_parent_and_caches_the_cut(t
     capsys.readouterr()
     cached = cache.read(cfg)
     assert any(part.get('own_contract', {}).get('complete') for part in cached['results']['STANDING']['items'].values())
-    (cfg.root / (module + '.py')).write_text(CODE.replace('if ended > 3:', 'if not ended <= 3:'))
+    source = cfg.root / (module + '.py')
+    source.write_text(source.read_text().replace('if ended > 3:', 'if not ended <= 3:'))
     observed = calls(monkeypatch)
     assert cli.check(cfg) == 0
     assert len(observed) == 1
-    assert '--flowguard-rules=STANDING' in observed[0]
+    # The anchor migration also verifies its real observation Flow; CHECKOUT stays reused.
+    assert '--flowguard-rules=STANDING,STANDING_CHECKOUT' in observed[0]
     assert '1 unchanged upper contracts' in capsys.readouterr().out
     observed.clear()
     assert cli.check(cfg) == 0

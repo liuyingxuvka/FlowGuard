@@ -27,7 +27,7 @@ jobs:
   publish:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Release FlowGuard v')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 130
     env:
       SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
       EVENT_NAME: ${{ github.event_name }}
@@ -128,7 +128,7 @@ jobs:
               ), "Complete three-platform ci.yml success required for this exact source"
               return current["html_url"]
 
-          deadline = time.monotonic() + 1200
+          deadline = time.monotonic() + 7200
           while time.monotonic() < deadline:
               runs = api(f"actions/workflows/ci.yml/runs?head_sha={source_sha}&per_page=30")["workflow_runs"]
               candidates = [run for run in runs if run["head_sha"].lower() == source_sha and run["head_branch"] == "main"
@@ -142,7 +142,7 @@ jobs:
               print(f"Waiting for complete ci.yml success at {source_sha}", flush=True)
               time.sleep(15)
           else:
-              raise RuntimeError("exact-source ci.yml did not complete successfully within 20 minutes")
+              raise RuntimeError("exact-source ci.yml did not complete successfully within 120 minutes")
 
           # Recheck main and dereference annotated tags; target_commitish alone is insufficient.
           assert api("git/ref/heads/main")["object"]["sha"].lower() == source_sha, "main advanced; publish its final frozen source instead"

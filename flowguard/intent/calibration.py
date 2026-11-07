@@ -342,6 +342,7 @@ class _Driver:
         return member
 
     def _call(self, original, bound):
+        __tracebackhide__ = lambda info: info.errisinstance(_Stop)
         if self.running:
             raise _Unsupported('recursive calibration target is ambiguous')
         if self.stage == 'case':
@@ -463,6 +464,7 @@ def _stage(root, anchor, values, stage, expected_fn=None):
 
 def _run_pytest(root, selector, driver):
     import pytest
+    from .flow import _without_ordinary_observers
     for name in ('pytest_runtest_protocol', 'pytest_runtest_setup', 'pytest_runtest_call',
                  'pytest_runtest_teardown', 'pytest_runtest_makereport'):
         pytest.hookimpl(hookwrapper=True)(getattr(type(driver), name))
@@ -472,7 +474,7 @@ def _run_pytest(root, selector, driver):
     previous_cwd = Path.cwd()
     try:
         os.chdir(root)
-        with redirect_stdout(capture), redirect_stderr(capture):
+        with _without_ordinary_observers(), redirect_stdout(capture), redirect_stderr(capture):
             code = int(pytest.main(['-q', '--tb=short', '-p', 'no:cacheprovider', selector], plugins=[driver]))
     finally:
         os.chdir(previous_cwd)
@@ -612,6 +614,7 @@ def _prepare(root, anchor, *, _reuse=True):
 
 
 def _observe_current(root, anchor, values):
+    from .flow import _without_ordinary_observers
     if _ACTIVE.get():
         return _observation('grey', anchor, reasons=['a calibration test cannot recursively drive another calibration'])
     scope = _FACTS.get()
@@ -622,7 +625,8 @@ def _observe_current(root, anchor, values):
         fn = sites.unwrap(sites.resolve_loaded(anchor.target))
     except (AttributeError, sites.NotMutable) as error:
         return _observation('grey', anchor, reasons=[str(error)])
-    result = _stage(root, anchor, values, 'case', expected_fn=fn)
+    with _without_ordinary_observers():
+        result = _stage(root, anchor, values, 'case', expected_fn=fn)
     return _observation(result['status'], anchor, _decode(result['outcome']) if 'outcome' in result else None, result.get('reasons', ()))
 
 
@@ -789,6 +793,7 @@ class _ScenarioDriver(_Driver):
         self.ready = True
 
     def _call(self, original, bound):
+        __tracebackhide__ = lambda info: info.errisinstance(_Stop)
         if self.running:
             raise _Unsupported('recursive scenario entry is ambiguous')
         unknown = set(self.values) - {p.name for p in self.anchor.parameters}
@@ -956,12 +961,14 @@ def execute_scenario(root, binding, values):
 
 
 def _observe_scenario_current(root, binding, values):
+    from .flow import _without_ordinary_observers
     if _ACTIVE.get():
         return _scene_observation(binding, dict(status='grey', reasons=['recursive scenario calibration is unsupported']))
     try:
         scope = _FACTS.get()
         if scope is None or _scenario_key(root, binding) not in scope[1]:
             return _scene_observation(binding, dict(status='grey', reasons=['scenario must be prepared before current-code instrumentation']))
-        return _scene_observation(binding, _scenario_stage(root, binding, values, 'case'))
+        with _without_ordinary_observers():
+            return _scene_observation(binding, _scenario_stage(root, binding, values, 'case'))
     except Exception as error:
         return _scene_observation(binding, dict(status='grey', reasons=['current scenario failed: ' + type(error).__name__ + ': ' + str(error)]))

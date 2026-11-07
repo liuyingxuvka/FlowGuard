@@ -10,6 +10,7 @@ from pathlib import Path
 import sqlite3
 import sys
 import tempfile
+import threading
 import time
 
 import pytest
@@ -41,6 +42,7 @@ class Session:
     def __init__(self, config):
         self.config = config
         self.owns_host = False
+        self.owns_root = False
         self.cfg = load_config(config.rootpath)
         self.is_project = project_code(self.cfg)
         self.model = self.engine = self.map = None
@@ -52,6 +54,7 @@ class Session:
         self.last_test = None
         self.process_calls, self.closed = [], False
         self.main_process = os.getpid()
+        self.main_thread = threading.get_ident()
         self.started = time.time()
         self.folder = self.bootstrap = None
         self.events, self.anchor_issues = [], []
@@ -98,7 +101,9 @@ class Session:
         for module, name, real, refused in reversed(self.process_calls):
             if getattr(module, name) is refused:
                 setattr(module, name, real)
-        from .imports import release_host
+        from .imports import release_host, release_root
+        if self.owns_root:
+            release_root(self.cfg.root)
         if self.owns_host:
             release_host(self.cfg.root)
         for name, value in self.import_environment.items():
@@ -213,14 +218,17 @@ def pytest_load_initial_conftests(early_config):
 
 def _session(config):
     global _CURRENT
-    from .imports import prepare
+    from .imports import prepare, hold_root
     try:
-        claimed = prepare(config.rootpath, host=True)
+        nested = (_CURRENT is not None and _CURRENT.main_process == os.getpid()
+                  and _CURRENT.main_thread == threading.get_ident())
+        claimed = prepare(config.rootpath, host=not nested)
     except ValueError as error:
         raise pytest.UsageError(str(error)) from error
     if not hasattr(config, '_flowguard_intent'):
         state = config._flowguard_intent = Session(config)
         state.owns_host = claimed
+        state.owns_root = hold_root(state.cfg.root)
         state.previous_session, _CURRENT = _CURRENT, state
         state.import_children()
         config.add_cleanup(state.close)
@@ -439,7 +447,7 @@ def pytest_runtest_protocol(item):
                 and state.model.flows and not probe_context(item.config)):
             from .flow import Capture
             capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
-                                                   models=state.model.flows.values()))
+                                                   models=state.model.flows.values(), _ordinary=True))
         try:
             if (isinstance(item, IntentItem) or item.name == SENTINEL
                     or not item.config.getoption('--flowguard-record-tests') and not any(item.iter_markers('rule'))):

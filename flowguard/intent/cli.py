@@ -155,7 +155,7 @@ def render(cfg, data, *, check=False, graph=None):
     lines.extend(dict.fromkeys(grey))
     lines.extend(information)
     if not red and not grey:
-        lines.append('No disagreement found in the checked rules and code homes.')
+        lines.append('No disagreement found in the checked rules and source anchors.')
     return _limit(lines, cfg.check_lines if check else cfg.screen_lines)
 
 
@@ -260,6 +260,28 @@ def _unmodelled(index, summary):
     return sorted({a.name for a in index.entries if a.source_role == 'production' and a.name not in used})
 
 
+def _observation_lines(cfg, graph, data, node):
+    """Keep recorded source navigation equally honest for anchored functions."""
+    tables = {r[0] for r in graph.con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    lines, observed = [], False
+    if 'footprint' in tables:
+        from .deps import Now, trace_changes
+        now = Now(cfg, graph)
+        for test, fingerprint, calls in graph.con.execute(
+                'SELECT test,fp,call_lines FROM footprint WHERE node=?', (node['id'],)):
+            observed = True
+            saved = data['traces'].get(test)
+            if fingerprint != node['fp'] or trace_changes(saved, now):
+                lines.append(f'historical observation: {test}; source/test/known dependency changed or unverified -> run check --all')
+            else:
+                lines.append(f'inputs: last observed in {test} ' + (calls or '') + '; current code/test/known dependencies match')
+                if saved.get('unknown'):
+                    lines.append('runtime input boundary: dynamic data was not verified; this is a navigation clue, not a result proof')
+    if not observed:
+        lines.append('not observed in current test records -> run check --all for a complete recording')
+    return lines
+
+
 def show(cfg, query=None, *, draft=None, gaps=None, full=False):
     data = cache.read(cfg)
     rules = data['summary']['rules']
@@ -328,6 +350,13 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
         if anchors:
             print('ANCHOR ' + query)
             print('\n'.join(pointers))
+            if draft:
+                seen = set()
+                for anchor in anchors:
+                    node = graph.node(graph.canonical(anchor.target) or anchor.target)
+                    if node and node['id'] not in seen:
+                        seen.add(node['id'])
+                        print('\n'.join(_observation_lines(cfg, graph, data, node)))
             unused = set(_unmodelled(index, data['summary'])) & {a.name for a in anchors}
             if unused:print('info: not referenced by a current model: ' + ', '.join(sorted(unused)))
             print('\n'.join(_copy_pointers(graph, index, anchors, [], data['summary'], [], query, full)))
@@ -342,25 +371,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                 return 0
             if draft:
                 print('use anchor draft for a source comment; impure code needs an ordinary calibration test')
-                tables = {r[0] for r in graph.con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-                if 'footprint' in tables:
-                    from .deps import Now, trace_changes
-                    now = Now(cfg, graph)
-                    observed = False
-                    for test, fingerprint, lines in graph.con.execute('SELECT test,fp,call_lines FROM footprint WHERE node=?', (query,)):
-                        observed = True
-                        saved = data['traces'].get(test)
-                        changes = trace_changes(saved, now)
-                        if fingerprint != node['fp'] or changes:
-                            print(f'historical observation: {test}; source/test/known dependency changed or unverified -> run check --all')
-                        else:
-                            print(f'inputs: last observed in {test} ' + (lines or '') + '; current code/test/known dependencies match')
-                            if saved.get('unknown'):
-                                print('runtime input boundary: dynamic data was not verified; this is a navigation clue, not a result proof')
-                    if not observed:
-                        print('not observed in current test records -> run check --all for a complete recording')
-                else:
-                    print('not observed in current test records -> run check --all for a complete recording')
+                print('\n'.join(_observation_lines(cfg, graph, data, node)))
             else:
                 found = graph.search_homes(query, k=None, weak=True)
                 if not found['searched']:

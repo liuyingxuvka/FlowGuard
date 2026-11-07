@@ -79,14 +79,14 @@ def project(tmp_path, *, home='checkout', code=CODE, intent=INTENT, lower_types=
     git(root, 'commit', '-qm', 'Existing policy')
     (root / 'tests/intent').mkdir(parents=True)
     (root / 'tests/intent/policy.py').write_text(textwrap.dedent(intent).replace('PKG', module).replace('HOME', home))
-    case='import pytest\nimport '+module+' as app\n'
+    case='import '+module+' as app\n'
     if lower_types['ended']=='End':case+='from '+module+' import End,Flag,Money\n'
     values={'ended':'End.ZERO' if lower_types['ended']=='End'else'0','suspended':'Flag.NO' if lower_types['suspended']=='Flag'else'False','owed':'Money.ZERO' if lower_types['owed']=='Money'else'0','stock':'False'}
     params={**lower_types,'stock':'bool'}
-    for key,value in values.items():case+='@pytest.fixture\ndef '+key+'():return '+value+'\n'
     signature=', '.join(key+': '+kind for key,kind in params.items())
+    definition=', '.join(key+': '+kind+'='+values[key] for key,kind in params.items())
     case+='# flowguard: event CASE('+signature+')\n'
-    case+='def test_case('+signature+'):\n    app.refusal(ended,suspended,owed)\n    result=app.'+home+'(ended,suspended,owed,stock)\n    assert type(result) is bool\n'
+    case+='def test_case('+definition+'):\n    app.refusal(ended,suspended,owed)\n    result=app.'+home+'(ended,suspended,owed,stock)\n    assert type(result) is bool\n'
     (root/'tests/test_case.py').write_text(case)
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'Implement the existing policy')

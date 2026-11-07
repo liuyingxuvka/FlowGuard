@@ -64,6 +64,7 @@ class _Rewritten:
 class _Finder:
     def __init__(self):
         self.root = self.host = None
+        self.active = False
         self.loaded = {}
 
     def owns(self, filename):
@@ -121,6 +122,8 @@ def prepare(root, *, host=False):
     application are not hot-reloaded; use the CLI for an independent process.
     """
     root = Path(root).resolve()
+    if _finder.active and root != _finder.root:
+        raise ValueError('another nested pytest verification is active; start a fresh verification process')
     claimed = host and _finder.host is None
     if host:
         if _finder.host is not None and _finder.host != root:
@@ -168,7 +171,7 @@ def prepare(root, *, host=False):
         for path, _, module, _ in _finder.loaded.values():
             if path in changed:
                 linecache.cache.pop(getattr(module, '__file__', str(path)), None)
-        if root == _finder.host:
+        if root == _finder.host or _finder.active:
             raise ValueError('project source changed during pytest verification; start a fresh verification process')
         _finder.forget(root)
     importlib.invalidate_caches()
@@ -177,6 +180,22 @@ def prepare(root, *, host=False):
 
 def source_spec(name, path):
     return util.spec_from_file_location(name, path, loader=_Source(name, str(path)))
+
+
+def hold_root(root):
+    """Keep the one temporary source slot stable for its active pytest session."""
+    root = Path(root).resolve()
+    if root != _finder.root:
+        raise ValueError('verification source changed before its session started')
+    if root == _finder.host or _finder.active:
+        return False
+    _finder.active = True
+    return True
+
+
+def release_root(root):
+    if _finder.active and _finder.root == Path(root).resolve():
+        _finder.active = False
 
 
 def release_host(root):

@@ -6,6 +6,7 @@ The API/loader owns registration and the pytest plugin owns when a scope runs.
 from __future__ import annotations
 
 from collections import Counter, deque
+from contextlib import contextmanager
 from dataclasses import dataclass, field as data_field
 import dis
 import inspect
@@ -882,8 +883,9 @@ class _TraceUnavailable(ValueError):
 
 class _TraceScope:
     """The SDK's one trace owner; compose its observers, never a debugger."""
-    def __init__(self, callback=None, *, ignored=()):
+    def __init__(self, callback=None, *, ignored=(), ordinary=None):
         self.callback, self.ignored = callback, ignored
+        self.ordinary, self.paused = ordinary, False
         self.previous, self.active, self.failed = None, False, False
         self._problems = []
 
@@ -914,6 +916,8 @@ class _TraceScope:
         if frame.f_code in self.ignored:
             return None
         prior = self.previous(frame, event, arg) if self.previous is not None else None
+        if self.paused and event == 'call':
+            return prior
         current = None
         if self.callback is not None and not self.failed:
             try:
@@ -924,6 +928,37 @@ class _TraceScope:
         return self if prior is not None or current is not None else None
 
 
+@contextmanager
+def _without_ordinary_observers():
+    """Probe observations belong to their verifier, not ordinary-test coverage."""
+    saved = head = sys.gettrace()
+    scopes = []
+    while isinstance(head, _TraceScope) and head.active:
+        if head.ordinary:
+            scopes.append((head, head.paused))
+            head.paused = True
+        head = head.previous
+    if not scopes:
+        yield
+        return
+    head = saved
+    while (isinstance(head, _TraceScope) and head.active and head.ordinary
+           and not head.ordinary._frames):
+        head = head.previous
+    try:
+        if head is not saved:
+            sys.settrace(head)
+        yield
+    finally:
+        for scope, paused in scopes:
+            scope.paused = paused
+        current = sys.gettrace()
+        if current is head and head is not saved:
+            sys.settrace(saved)
+        elif current is not saved:
+            scopes[0][0]._problems.append('trace hook changed during calibration probe')
+
+
 class Capture:
     """Observe only indexed function frames; the caller owns one actual test case.
 
@@ -931,8 +966,9 @@ class Capture:
     or turn an interrupted test into a pass. Values never survive this scope by
     themselves. Unsupported async/generator frames remain explicit unknowns.
     """
-    def __init__(self, root, index, case, *, models=None):
+    def __init__(self, root, index, case, *, models=None, _ordinary=False):
         self.root, self.index, self.case = Path(root).resolve(), index, str(case)
+        self._ordinary = _ordinary
         self._model_scopes = None
         if models is not None:
             entries = set()
@@ -958,7 +994,7 @@ class Capture:
         self._active = False
 
     def __enter__(self):
-        self._scope = _TraceScope(self._trace)
+        self._scope = _TraceScope(self._trace, ordinary=self if self._ordinary else None)
         try:
             self._scope.__enter__()
         except _TraceUnavailable as error:

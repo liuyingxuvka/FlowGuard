@@ -405,7 +405,7 @@ class Now:
                     self.anchor_index = collect(self.graph)
                 anchors = []
                 for anchor in self.anchor_index.entries:
-                    if anchor.target != value:
+                    if value not in (anchor.name, anchor.target):
                         continue
                     data = asdict(anchor)
                     for field in ('line', 'target_line', 'source_digest'):
@@ -516,12 +516,15 @@ def record(cfg, model, rule, results, graph):
             if home.anchor:
                 files.add(home.anchor.file)
                 keys.add('anchor:' + home.anchor.target)  # Source role/type/unit/calibration contract, without unrelated bodies.
-            keys.add('listing:')
+                keys.add('anchor:' + home.anchor.name)  # New same-name sites change this binding, unrelated files do not.
+            else:
+                keys.add('listing:')
         if hasattr(home, 'scenario'):
             files.update((home.scenario.file, home.flow.file))
         for anchor in getattr(home, 'measurement_anchors', (home.anchor,) if home.anchor else ()):
             files.add(anchor.file)
             keys.add('anchor:' + anchor.target)
+            keys.add('anchor:' + anchor.name)
             if anchor.calibrated_by:
                 files.add(anchor.calibrated_by.partition('::')[0])
     for node in (node for declaration in declarations for node in getattr(declaration, 'nodes', ())):
