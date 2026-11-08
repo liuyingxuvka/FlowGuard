@@ -395,7 +395,7 @@ class EditableSDK:
     def find_spec(fullname, path=None, target=None):
         if fullname == 'flowguard':
             return importlib.util.spec_from_file_location(fullname, _sdk + '/__init__.py', submodule_search_locations=[_sdk])
-importlib.machinery.PathFinder.find_spec = staticmethod(lambda fullname, *args, **kwargs: None if fullname == 'flowguard' else _find_path(fullname, *args, **kwargs))
+importlib.machinery.PathFinder.find_spec = classmethod(lambda _cls, fullname, *args, **kwargs: None if fullname == 'flowguard' else _find_path(fullname, *args, **kwargs))
 sys.meta_path.insert(0, EditableSDK)
 '''
     run = subprocess.run

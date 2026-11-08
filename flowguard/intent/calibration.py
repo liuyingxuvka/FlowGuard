@@ -448,7 +448,10 @@ def _stage(root, anchor, values, stage, expected_fn=None):
                    f'pytest exit={code}; selected={driver.selected}; installed={driver.ready}; '
                    f'outcomes={len(driver.outcomes)}; entries={len(driver.entries)}; reports={driver.reports!r}']
         if output := getattr(driver, 'output', ''):
-            reasons.append(output[-4000:])
+            # Native traceback source rendering changes after import caches
+            # warm up. Keep the error itself, not that display-only variation.
+            reasons.extend(line.strip() for line in output.splitlines()
+                           if line.startswith('E   ') or line.startswith('ERROR: '))
         return dict(status='grey', reasons=reasons)
     failed = [(phase, outcome, stop) for phase, outcome, stop in driver.reports if outcome != 'passed']
     if stage == 'baseline':
