@@ -40,32 +40,32 @@ def cleanup():
 @pytest.fixture
 def quote(): return QuoteCase.EXACT
 
-# flowguard: event CASE(x: count)
+# flowguard: event CASE(x: int)
 def test_case(x: int):
     answer = choice(x)
     assert type(answer) is bool
 
-# flowguard: event DUPLICATE(x: count)
+# flowguard: event DUPLICATE(x: int)
 def test_duplicate(x: int):
     choice(x)
     choice(x)
 
-# flowguard: event HARNESS(x: count)
+# flowguard: event HARNESS(x: int)
 def test_harness(x: int):
     choice(x)
     if x == 4: raise ValueError('actual harness failure')
 
-# flowguard: event CLEANUP(x: count)
+# flowguard: event CLEANUP(x: int; cleanup)
 def test_cleanup(x: int, cleanup):
     choice(x)
     cleanup['fail'] = x == 4
 
-# flowguard: event RETURN(x: count)
+# flowguard: event RETURN(x: int)
 def test_return(x: int):
     choice(x)
     return True
 
-# flowguard: event ENUM(quote: kind)
+# flowguard: event ENUM(quote: QuoteCase)
 def test_enum(quote: QuoteCase):
     answer = quote_allows(quote)
     assert type(answer) is bool
@@ -92,6 +92,7 @@ def pytest_runtest_protocol(item, nextitem):
     if item.name == 'test_audit':
         root = Path(__file__).parent
         index = anchors.collect_sources(root, [('policy.py','policy'), ('test_native.py','test_native',True)])
+        assert not index.issues,index.issues
         runtime = Runtime(root)
         def binding(name='CASE', test='test_case', target='CHOICE', field='x'):
             actual = index.named(target)[0]
@@ -136,16 +137,22 @@ def pytest_runtest_protocol(item, nextitem):
             assert point.status=='ok' and point.value is False,point
             wrong_point=calibration.execute(root,sensor,{'x':'bad'})
             assert wrong_point.status=='red' and wrong_point.value is None,wrong_point
-            def change(node): node.body=[ast.Return(ast.Constant(False))]
-            code=sites._recompile(policy.choice,ast.NodeTransformer(),lambda:True,change)
+            original_code=policy.choice.__code__
+            assert policy.choice(3) is True
+            mutant=next(m for m in sites.mutants_of(sites.sites_of(policy.choice),set())
+                        if m.how=='flip' and m.site.text=='x <= 3')
+            code=sites.mutant_code(policy.choice,mutant)
             with sites.installed(policy.choice,code):
-                native.requested_inputs={'x':2}
-                observed=calibration._observe_scenario_current(root,native,{'x':2})
+                native.requested_inputs={'x':3}
+                observed=calibration._observe_scenario_current(root,native,{'x':3})
                 assert observed.status=='ok' and observed.value is False,observed
                 assert policy.choice.__code__ is code
+            assert policy.choice.__code__ is original_code and policy.choice(3) is True
+            native.requested_inputs={'x':2}
             with calibration.session(Runtime(root),item.session.items,nextitem=item):
                 unprepared=calibration._observe_scenario_current(root,native,{'x':2})
                 assert unprepared.status=='grey' and unprepared.value is None,unprepared
+                assert 'prepared' in ' '.join(unprepared.reasons)
     yield
 '''
 

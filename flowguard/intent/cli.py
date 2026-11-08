@@ -311,8 +311,6 @@ def _copy_pointers(graph, index, anchors, homes, summary, results, words, full, 
             if old is None or candidate.get('score', 0) > old.get('score', 0):
                 candidates[candidate['id']] = candidate
     found = dict(candidates=sorted(candidates.values(), key=lambda row: (-row.get('score', 0), row['id'])))
-    if not full:
-        found['candidates'] = found['candidates'][:3]
     return list(dict.fromkeys(lines)) + _candidate_lines(found, full, '线索 unbound candidate ')
 
 
@@ -387,8 +385,9 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
         notice = _map_notice(graph)
         if query in rules and rules[query].get('kind') == 'flow' and not draft:
             from .debug import show_observation
+            _, pointers = _source_pointers(index, rules[query].get('anchors', ()), graph, full=full)
             view = show_observation(cfg, query, index, cache.observations(cfg).get('events', ()))
-            print('\n'.join(view['lines']))
+            print('\n'.join([*pointers, *view['lines']]))
             return int(view['status'] == 'red')
         if query in rules:
             item = rules[query]
@@ -546,8 +545,22 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
     from .signals import render as render_signals
     with collect_signals() as reports:
         status = _check(cfg, everything=everything, since=since, deep=deep, base=base, reports=reports)
-    from .differences import _source_index
-    issues = [issue for issue in _source_index(cfg.root).issues if issue.level == 'red']
+    from .differences import _source_index, _compare_pairs
+    index = _source_index(cfg.root)
+    issues = [issue for issue in index.issues if issue.level == 'red']
+    # A reached but unsafe sensor keeps its actual grey context. Only unvisited
+    # copies may use check's existing, source-verified pure-function exception.
+    observed = {item.get('name') for part in reports for item in part.get('items', ()) if item.get('file')}
+    for name in sorted({anchor.name for anchor in index.entries if anchor.kind == 'sensor'} - observed):
+        copies = [anchor for anchor in index.named(name, 'sensor') if anchor.source_role == 'production']
+        if len(copies) < 2:
+            continue
+        compared = _compare_pairs(cfg.root, [(copies[0], other) for other in copies[1:]])
+        items = compared['items'] or [dict(name=name, status=compared['status'], reasons=compared['reasons'], complete=False)]
+        reports.append(dict(source_changed=compared['status'] != 'ok',
+                            items=[dict(item, comparison=True, same_name=True) for item in items],
+                            red=compared['reasons'] if compared['status'] == 'red' and not compared['changes'] else []))
+        status = status or int(compared['status'] == 'red')
     report = dict(source_changed=any(part.get('source_changed', True) for part in reports),
                   items=[item for part in reports for item in part.get('items', ())],
                   paths=[path for part in reports for path in part.get('paths', ())],

@@ -149,7 +149,8 @@ def render(report, limit=10):
     for item in items:
         if len(lines) >= budget:
             break
-        lines.extend(_block(item, comparison=comparison, same_name=report.get('same_name', False))[:budget - len(lines)])
+        lines.extend(_block(item, comparison=comparison or item.get('comparison', False),
+                            same_name=report.get('same_name', False) or item.get('same_name', False))[:budget - len(lines)])
     for path in report.get('paths', ()):
         if len(lines) >= budget:
             break

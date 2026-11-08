@@ -8,6 +8,7 @@ import uuid
 import pytest
 
 from tests.intent_engine._cli_fixture import check as run_check
+from tests.intent_engine._source_fixture import source_engine, source_sessions
 
 from flowguard.intent import cli
 from flowguard.intent.config import load_config
@@ -125,6 +126,13 @@ def native(engine):
     """Use the same verified source and calibration lifetime as the pytest plugin."""
     from flowguard.intent.anchors import _execution_session as actual_session
     from flowguard.intent import calibration
+    current = calibration._CURRENT.get()
+    if current is None or current.runtime.root != engine.m.cfg.root:
+        deep = engine.m.deep
+        try:
+            source_engine(engine.m)
+        finally:
+            engine.m.deep = deep
     facts = engine.__dict__.setdefault('_native_test_facts', {})
     with actual_session(engine.m.cfg.root), calibration._execution_session(engine.m.cfg.root, facts=facts):
         for rule in engine.m.rules.values():
@@ -203,7 +211,7 @@ def test_joint_counterexample_reaches_the_same_pytest_and_cli_rejection(tmp_path
     command = [sys.executable, '-c',
                'import sys;sys.path.insert(0,sys.argv.pop(1));import pytest;raise SystemExit(pytest.main(sys.argv[1:]))',
                str(Path(cli.__file__).resolve().parents[2]), '-q', '-p', 'flowguard.intent.plugin',
-               'tests/intent', 'tests/test_flowguard_intent.py']
+               'tests']
     plain = subprocess.run(command, cwd=model.cfg.root, capture_output=True, text=True)
     assert plain.returncode == 1, plain.stdout + plain.stderr
     assert 'depends on more' in plain.stdout + plain.stderr

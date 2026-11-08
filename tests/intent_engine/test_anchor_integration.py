@@ -44,7 +44,7 @@ def test_draft_reads_source_without_importing_the_target(tmp_path, capsys):
     project(tmp_path, 'raise RuntimeError("must not be imported")\n' + SOURCE, RULE)
     assert cli.main(['--root', str(tmp_path), 'anchor', 'draft', 'app:accept']) == 0
     text = capsys.readouterr().out
-    assert '# flowguard: sensor accept(days:' in text
+    assert text.splitlines()[0] == '# flowguard: sensor accept'
     assert 'range days:' in text and '3' in text
 
 
@@ -63,7 +63,8 @@ LIMIT.rows(row(days=4,expect=Refused('Exception'),why='the program must actually
 def test_same_name_copy_disagreement_fails_pytest_and_check_without_rules(tmp_path, capsys):
     from flowguard.intent import cli
     copy = SOURCE.replace('def accept(', 'def other(').replace('<= 3', '<= 7')
-    project(tmp_path, SOURCE + '\n' + copy, '')
+    project(tmp_path, SOURCE + '\n' + copy, '',
+            'from app import accept, other\ndef test_copies():\n    assert accept(0) is other(0) is True\n')
     result = run(tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
     assert 'GRACE' in result.stdout

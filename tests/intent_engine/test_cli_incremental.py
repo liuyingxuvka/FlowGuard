@@ -27,11 +27,18 @@ def test_unchanged_check_runs_zero_rules_and_preserves_a_cached_red(tmp_path, mo
     _, cfg = project(tmp_path, wrong=wrong)
     cli.init(cfg)
     assert cli_fixture.check(cfg) == expected
+    before = cache.read(cfg)
     capsys.readouterr()
     observed = calls(monkeypatch)
     assert cli_fixture.check(cfg) == expected
     assert observed == []
-    assert '0 rules rerun, 1 reused' in capsys.readouterr().out
+    after = cache.read(cfg)
+    assert after['results'] == before['results']
+    assert after['collection'] == before['collection']
+    assert after['attempt'] == before['attempt'], 'reuse must not manufacture a new complete run'
+    text = capsys.readouterr().out
+    assert len(text.splitlines()) <= 10
+    assert '红：LIMIT' in text if wrong else text == ''
 
 
 def test_since_selects_real_git_changes_even_after_current_cache_is_fresh(tmp_path, monkeypatch, capsys):
@@ -44,11 +51,14 @@ def test_since_selects_real_git_changes_even_after_current_cache_is_fresh(tmp_pa
     source = root / (root.name + '.py')
     source.write_text(source.read_text().replace('days <= 3', 'not days > 3'))
     assert cli_fixture.check(cfg) == 0
+    before = cache.read(cfg)['attempt']['stamp']
     capsys.readouterr()
     observed = calls(monkeypatch)
     assert cli_fixture.check(cfg, since=base) == 0
     assert len(observed) == 1 and '--flowguard-rules=LIMIT' in observed[0]
-    assert '1 rules rerun' in capsys.readouterr().out
+    checked = cache.read(cfg)['attempt']
+    assert checked['stamp'] > before and checked['sentinel'] == 'ok' and checked['missing'] == []
+    assert len(capsys.readouterr().out.splitlines()) <= 10
     assert cli_fixture.main(['--root', str(root), 'check', '--since', 'missing-control-revision']) == 2
 
 
@@ -105,6 +115,7 @@ def test_a_new_corrected_row_attaches_real_old_code_proof_to_existing_result(tmp
     git(root, 'init', '-q')
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'previous code accepted the fourth day')
+    baseline = git(root, 'rev-parse', 'HEAD')
     source = root / (root.name + '.py')
     source.write_text(source.read_text().replace('days <= 4', 'days <= 3'))
     intent.write_text(new)
@@ -113,7 +124,8 @@ def test_a_new_corrected_row_attaches_real_old_code_proof_to_existing_result(tmp
     proofs = [proof for result in data['results']['LIMIT']['items'].values() for proof in result.get('proven_rows', [])]
     assert len(proofs) == 1 and proofs[0]['status'] == 'proven'
     assert proofs[0]['homes'][0]['actual'] == 'True'
-    assert 'proven' in capsys.readouterr().out
+    assert proofs[0]['base'] == baseline, 'old-code proof must name the real previous commit'
+    assert len(capsys.readouterr().out.splitlines()) <= 10
 
 
 def test_changed_source_selects_ordinary_pytest_after_a_screen_consumed_the_map_delta(tmp_path, monkeypatch):
@@ -181,7 +193,9 @@ def test_child_only_source_change_is_rechecked_without_global_footprints(tmp_pat
     cli.init(cfg)
     child = root / 'worker.py'
     child.write_text('raise SystemExit(0)\n')
-    (root / 'tests/test_child.py').write_text('from subprocess import run as launch\nimport sys\ndef test_child(): assert launch([sys.executable, "-m", "worker"]).returncode == 0\n')
+    # The retired child bootstrap no longer replaces standard timestamp-based module bytecode.
+    # Execute the actual script path; its same-size/mtime change must still select this test.
+    (root / 'tests/test_child.py').write_text('from subprocess import run as launch\nfrom pathlib import Path\nimport sys\ndef test_child(): assert launch([sys.executable, str(Path(__file__).resolve().parents[1] / "worker.py")]).returncode == 0\n')
     assert cli_fixture.check(cfg) == 0
     timestamp = child.stat()
     child.write_text('raise SystemExit(4)\n')
@@ -214,7 +228,8 @@ def test_real_pytest_contract_summary_cuts_unchanged_parent_and_caches_the_cut(t
     assert len(observed) == 1
     # The anchor migration also verifies its real observation Flow; CHECKOUT stays reused.
     assert '--flowguard-rules=STANDING,STANDING_CHECKOUT' in observed[0]
-    assert '1 unchanged upper contracts' in capsys.readouterr().out
+    assert cache.read(cfg)['results']['CHECKOUT'] == cached['results']['CHECKOUT']
+    assert capsys.readouterr().out == ''
     observed.clear()
     assert cli_fixture.check(cfg) == 0
     assert observed == []

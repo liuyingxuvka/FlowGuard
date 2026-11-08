@@ -188,12 +188,18 @@ def valid(x: int) -> bool:
     ('from pathlib import Path\nPath("marker").write_text("bad")\n', 'return x > 0'),
     ('import os\n', 'return x > 0'),
 ])
-def test_unproved_calls_state_imports_and_initialization_are_grey_without_execution(tmp_path, prefix, body):
+def test_unproved_calls_state_imports_and_initialization_are_grey_without_execution(tmp_path, monkeypatch, prefix, body):
     root, index = source(tmp_path, prefix + '# flowguard: sensor check(x: 1) -> allowed: bool\ndef check(x: int) -> bool:\n    ' + body + '\n')
+    monkeypatch.chdir(root)  # Catch the real relative writes, not a different marker path.
     with session(root):
         result = A.observe(root, index.entries[0], {'x': 1})
     assert result.status == 'grey'
-    assert index.entries[0].module not in sys.modules
+    loaded = sys.modules.get(index.entries[0].module)
+    if prefix in ('from pathlib import Path\nPath("marker").write_text("bad")\n', 'import os\n'):
+        assert loaded is None  # Unsafe initializers remain blocked before import.
+    else:
+        assert loaded is not None and Path(loaded.__file__).resolve() == root / index.entries[0].file
+        assert vars(loaded).get('CACHE', []) == [] and 'changed' not in vars(loaded)
     assert not (root / 'marker').exists()
 
 
@@ -263,13 +269,16 @@ def check(active: bool) -> bool: return use(hidden(active))
 def check(value: bool) -> bool: return hidden(value)
 ''',
 ])
-def test_helper_and_rebound_input_cannot_smuggle_nonprimitive_operations(tmp_path, text):
+def test_helper_and_rebound_input_cannot_smuggle_nonprimitive_operations(tmp_path, monkeypatch, text):
     root, index = source(tmp_path, text)
     anchor, = index.entries
+    monkeypatch.chdir(root)
     with session(root):
         result = A.observe(root, anchor, {p.name: True if p.source_type == 'bool' else 1 for p in anchor.parameters})
     assert result.status == 'grey'
-    assert anchor.module not in sys.modules
+    loaded = sys.modules[anchor.module]
+    assert Path(loaded.__file__).resolve() == root / anchor.file
+    assert not (root / 'marker').exists()
 
 
 def test_source_comment_not_an_external_anchor_binding(tmp_path):

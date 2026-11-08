@@ -237,7 +237,8 @@ class Observations:
         self.rules = {}
         for rule in state.model.rules.values():
             for home in rule.homes:
-                self.rules.setdefault(home.target, []).append(rule)
+                if not hasattr(home, 'scenario'):
+                    self.rules.setdefault(home.target, []).append(rule)
         self.by_file = {}
         if self.changed:
             # The existing map supplies module ownership for unanchored changed functions.
@@ -845,6 +846,9 @@ class IntentItem(pytest.Item):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config, items):
+    from .calibration import probe_context
+    if probe_context(config):
+        return  # A private source subtree cannot replace the real collection.
     state = config._flowguard_intent
     state.collected = {i.nodeid for i in items if isinstance(i, IntentItem)}
     if config.getoption('--flowguard-complete', default=False):

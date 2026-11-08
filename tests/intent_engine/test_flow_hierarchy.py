@@ -6,6 +6,7 @@ import uuid
 import pytest
 
 from tests.intent_engine._cli_fixture import check as run_check
+from tests.intent_engine._source_fixture import source_engine, source_sessions
 
 from flowguard.intent import calibration
 from flowguard.intent.anchors import _execution_session
@@ -129,7 +130,8 @@ TOP.rows(row(done=True,stock=True,expect=True,why='completed child is forwarded'
 
 
 def verified(tmp_path, **kwargs):
-    model,engine,module,native=project(tmp_path,**kwargs)
+    model,_,module,native=project(tmp_path,**kwargs)
+    engine=source_engine(model)
     with _execution_session(model.cfg.root),calibration._execution_session(model.cfg.root):
         for rule in model.rules.values():
             for home in rule.homes:
@@ -167,9 +169,9 @@ def test_parent_exports_the_complete_registered_child_graph(tmp_path,missing_sav
         assert any('child Flow CHILD is red' in why for why in result['red']),result
 
 
-@pytest.fixture(scope='module')
-def hierarchy(tmp_path_factory):
-    return verified(tmp_path_factory.mktemp('hierarchy'))
+@pytest.fixture
+def hierarchy(tmp_path, source_sessions):
+    return verified(tmp_path)
 
 
 def test_unobserved_child_edge_stays_grey_at_parent(hierarchy):

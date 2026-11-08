@@ -36,7 +36,9 @@ def test_default_check_finds_a_new_code_boundary_without_dynamic_probe(sample):
     result = check(sample)
     assert result.returncode == 1, result.stdout + result.stderr
     assert 'days=91' in result.stdout and 'rule F, code True' in result.stdout
-    assert 'deep probes and mutation-survival not run (--deep)' in result.stdout
+    with database(sample) as connection:
+        attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
+        assert attempt['deep'] is False
 
 
 def test_deep_check_runs_mutation_survival_after_a_complete_default_cache(sample):
@@ -44,16 +46,22 @@ def test_deep_check_runs_mutation_survival_after_a_complete_default_cache(sample
     assert ordinary.returncode == 0, ordinary.stdout + ordinary.stderr
     deep = check(sample, '--deep')
     assert deep.returncode == 0, deep.stdout + deep.stderr
-    assert 'deep probes and mutation-survival enabled' in deep.stdout
     with database(sample) as connection:
         payloads = [json.loads(row[0]) for row in connection.execute('SELECT payload FROM result')]
         live = [item for item in payloads if item['kind'] == 'live']
         assert len(live) == 1 and live[0]['mutants'] > 0 and live[0]['k'] == live[0]['n'] > 0
         collection = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_collection'").fetchone()[0])
         assert collection['deep'] is True
+        attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
+        assert attempt['deep'] is True
+        deep_attempt = attempt
     ordinary = check(sample)
     assert ordinary.returncode == 0, ordinary.stdout + ordinary.stderr
-    assert 'deep probes and mutation-survival not run (--deep)' in ordinary.stdout
+    with database(sample) as connection:
+        attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
+        # An unaffected default check reuses the historical deep receipt; it
+        # must not relabel that receipt or pretend mutation ran again.
+        assert attempt == deep_attempt
 
 
 def test_unresolved_callee_boundaries_stay_grey_and_deep_finds_the_counterexample(sample):

@@ -137,7 +137,7 @@ def test_short_source_hints_are_globally_capped_and_full_keeps_all(tmp_path,caps
     path=cfg.intent/'policy.py';path.write_text(RULE.split('distinct(',1)[0])
     assert cli.show(cfg,'GRACE')==0
     short=capsys.readouterr().out
-    assert short.count('unbound candidate ')==5 and '2 more source candidates' in short
+    assert short.count('unbound candidate ')==3 and '4 more source candidates' in short
     assert cli.show(cfg,'GRACE',full=True)==0
     full=capsys.readouterr().out
     assert full.count('unbound candidate ')==7

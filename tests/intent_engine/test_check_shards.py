@@ -196,7 +196,7 @@ def test_a_final_source_failure_is_not_hidden_by_successful_pytest(tmp_path):
     result = run(root, '--all', '--deep', inject=injected)
     assert result.returncode == 1, result.stdout + result.stderr
     assert attempt(root)['exit'] == 0, 'the original pytest succeeded before the source check failed'
-    assert 'red broken.py' in result.stdout
+    assert "broken.py:1: anchor parameters ['x'] != source ['y']" in result.stdout
 
 
 def test_a_retired_report_flag_cannot_overwrite_or_reuse_an_existing_report(tmp_path):

@@ -310,8 +310,16 @@ def _rule_id(binding):
     return getattr(rule, 'id', rule)
 
 
+def _tuple_point(value):
+    """An inert rule point is not an automatically enumerated tuple domain."""
+    from .runtime import _simple
+    if type(value) is tuple:
+        return all(_tuple_point(item) for item in value)
+    return not isinstance(value, Enum) and _simple(value)
+
+
 def _scenario(root, binding, values):
-    from .anchors import _source, parameter_kind
+    from .anchors import _source, _accepts, parameter_kind
     from .flow import Capture, relation_observations
     issue = _values(binding.scenario, values)
     if issue:
@@ -334,7 +342,12 @@ def _scenario(root, binding, values):
                     kind = parameter_kind(parameter, bound.arguments.get(name))
                 except ValueError as error:
                     raise _Unavailable(str(error)) from error
-                if kind is None:
+                actual = bound.arguments.get(name)
+                if kind is None and not (
+                        parameter.inferred and name in binding.field_map.values()
+                        and type(value) is tuple and type(actual) is tuple
+                        and _tuple_point(value) and _tuple_point(actual)
+                        and _accepts(parameter.source_type, value) and _accepts(parameter.source_type, actual)):
                     raise _Unavailable(name + ': actual test context cannot be replaced')
                 bound.arguments[name] = _value_in_context(binding.scenario, original, name, value, bound.arguments.get(name))
             calls.append(dict(bound.arguments))

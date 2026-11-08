@@ -35,6 +35,7 @@ transport = sites.transport
 _PRIVATE = ContextVar('flowguard_runtime_private', default=False)
 _OBSERVING = ContextVar('flowguard_runtime_observing', default=frozenset())
 _MISSING = object()
+_INERT = object()
 _SAFE = {bool, int, float, str, bytes, tuple, list, dict, set, frozenset, len, abs, min,
          max, sum, all, any, sorted, round, isinstance, issubclass, type, range, enumerate,
          zip, Decimal, date, datetime, timedelta, Path}
@@ -81,12 +82,16 @@ def _simple(value):
     if type(value) in kinds:
         return True
     operations = ('__eq__', '__lt__', '__le__', '__gt__', '__ge__', '__bool__', '__int__', '__float__')
-    return (isinstance(value, enum.Enum) and type(inspect.getattr_static(value, '_value_', object())) in kinds
-            and not any(isinstance(inspect.getattr_static(type(value), name, None), types.FunctionType)
-                        for name in operations))
+    return (type(type(value)) is enum.EnumType and type(inspect.getattr_static(value, '_value_', object())) in kinds
+            and all(type(inspect.getattr_static(type(value), name, None)) in
+                    (type(None), types.WrapperDescriptorType, types.MethodDescriptorType, types.BuiltinFunctionType)
+                    for name in operations))
 
 
 def _read_sql(connection, text):
+    if type(connection) is not sqlite3.Connection or connection.row_factory is not None or not (
+            connection.text_factory is str or connection.text_factory is bytes):
+        return False
     if not text.lstrip().upper().startswith(('SELECT ', 'SELECT\n')):
         return False
     if '--' in text or '/*' in text or re.search(r'["`\]]\s*\(', text):
@@ -110,12 +115,14 @@ def _read_sql(connection, text):
 
 def _resolve(expression, env):
     if isinstance(expression, ast.Name):
-        return env.get(expression.id, vars(builtins).get(expression.id))
+        return env.get(expression.id, vars(builtins).get(expression.id, _MISSING))
+    if isinstance(expression, ast.Constant):
+        return expression.value
     if isinstance(expression, ast.Attribute):
         owner = _resolve(expression.value, env)
-        if isinstance(owner, (types.ModuleType, type)):
-            return vars(owner).get(expression.attr)
-    return None
+        if type(owner) in (types.ModuleType, type, enum.EnumType):
+            return vars(owner).get(expression.attr, _MISSING)
+    return _MISSING
 
 
 def _definition(fn):
@@ -482,10 +489,11 @@ class Runtime:
                 else:
                     constants.update((name, value) for name in names)
             elif isinstance(statement, ast.ImportFrom):
-                package = getattr(sys.modules.get(module), '__package__', '')
+                package_owner = sys.modules.get(module)
+                package = vars(package_owner).get('__package__', '') if type(package_owner) is types.ModuleType else ''
                 name = importlib.util.resolve_name('.' * statement.level + (statement.module or ''), package)
                 imported = sys.modules.get(name)
-                file = getattr(imported, '__file__', None)
+                file = vars(imported).get('__file__') if type(imported) is types.ModuleType else None
                 if name == 'decimal':
                     previous = {'Decimal': Decimal}
                 elif name == 'datetime':
@@ -550,16 +558,16 @@ class Runtime:
             old_bindings, current_bindings = _binding_facts(tree), _binding_facts(current_tree)
             for name in old_names - local - {'__name__', '__package__', '__file__'}:
                 value = fn.__globals__.get(name)
-                if name not in constants and isinstance(value, (types.ModuleType, type, types.FunctionType)) and \
+                if name not in constants and type(value) in (types.ModuleType, type, enum.EnumType, types.FunctionType) and \
                         old_bindings.get(name) != current_bindings.get(name):
                     raise ValueError('baseline import/binding changed: ' + name)
-                if name in fn.__globals__ and name not in constants and not isinstance(
-                        value, (types.ModuleType, type, types.FunctionType, types.BuiltinFunctionType)):
+                if name in fn.__globals__ and name not in constants and type(value) not in (
+                        types.ModuleType, type, enum.EnumType, types.FunctionType, types.BuiltinFunctionType):
                     raise ValueError('baseline global value is unavailable: ' + name)
             for part in sites.own_nodes(node):
                 if isinstance(part, ast.Attribute):
                     owner = _resolve(part.value, fn.__globals__)
-                    imported_file = getattr(owner, '__file__', None) if isinstance(owner, types.ModuleType) else None
+                    imported_file = vars(owner).get('__file__') if type(owner) is types.ModuleType else None
                     if imported_file and self._project_file(imported_file):
                         source = self._source(Path(imported_file).resolve().relative_to(self.root).as_posix())
                         values = self._constants(ast.parse(source), owner.__name__) if source is not None else {}
@@ -568,9 +576,9 @@ class Runtime:
                             current_tree = ast.parse(Path(imported_file).read_text(encoding='utf-8-sig'))
                             current_values = self._constants(current_tree, owner.__name__, historical=False)
                             self._remember_constant(vars(owner), part.attr, values[part.attr], current_values, current_tree)
-                        elif not isinstance(value, (types.ModuleType, type, types.FunctionType, types.BuiltinFunctionType)):
+                        elif type(value) not in (types.ModuleType, type, enum.EnumType, types.FunctionType, types.BuiltinFunctionType):
                             raise ValueError('baseline module value is unavailable: ' + ast.unparse(part))
-                    elif isinstance(owner, type):
+                    elif type(owner) in (type, enum.EnumType):
                         value = vars(owner).get(part.attr)
                         if _simple(value) or type(value) in (tuple, list, dict, set, frozenset):
                             raise ValueError('baseline class value is unavailable: ' + ast.unparse(part))
@@ -605,7 +613,7 @@ class Runtime:
             for call in (n for definition in (current, node) for n in sites.own_nodes(definition)
                          if isinstance(n, ast.Call)):
                 helper = _resolve(call.func, fn.__globals__)
-                if isinstance(helper, types.FunctionType) and self._project(helper):
+                if type(helper) is types.FunctionType and self._project(helper):
                     dependencies.append(helper)
                     self.register(helper)
             self.patches[fn].dependencies = tuple(dict.fromkeys(dependencies))
@@ -674,25 +682,146 @@ class Runtime:
                             env[name] = replacement
             except ValueError as error:
                 return str(error)
-        for part in sites.own_nodes(node):
+        def inert(value, trail=frozenset()):
+            if value is _INERT:
+                return True
+            if type(value) in (type(None), bool, int, float, str, bytes, Decimal, date, timedelta):
+                return True
+            if type(value) is datetime:
+                return value.tzinfo is None
+            if type(type(value)) is enum.EnumType and _simple(value):
+                hooks = {name for base in type(value).__mro__ for name in vars(base)
+                         if name.startswith('__') and name.endswith('__')}
+                hooks -= {'__module__', '__doc__', '__qualname__', '__annotations__', '__slots__'}
+                native = (type(None), types.WrapperDescriptorType, types.MethodDescriptorType,
+                          types.ClassMethodDescriptorType, types.GetSetDescriptorType, types.BuiltinFunctionType)
+                return all(inspect.getattr_static(type(value), name, None) is inspect.getattr_static(enum.Enum, name, None)
+                           or type(inspect.getattr_static(type(value), name, None)) in native for name in hooks)
+            if type(value) not in (tuple, list, dict, set, frozenset) or id(value) in trail:
+                return False
+            children = [*value.keys(), *value.values()] if type(value) is dict else value
+            return all(inert(item, trail | {id(value)}) for item in children)
+
+        def locals_of(body):
+            result = {arg.arg: [] for arg in (*body.args.posonlyargs, *body.args.args, *body.args.kwonlyargs)}
+            for statement in sites.own_nodes(body):
+                targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target] \
+                    if isinstance(statement, (ast.AnnAssign, ast.NamedExpr)) else []
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        result.setdefault(target.id, []).append(statement.value)
+            return result
+
+        bindings = locals_of(node)
+        def helper_arguments(target, call, namespace=env, assignments=bindings, trail=frozenset()):
+            if any(isinstance(value, ast.Starred) for value in call.args) or any(kw.arg is None for kw in call.keywords):
+                raise ValueError('helper spread arguments are not proved inert')
+            def value(expression):
+                actual = _resolve(expression, namespace)
+                return _INERT if actual is _MISSING and data(expression, namespace, assignments, trail) else actual
+            bound = inspect.signature(target, follow_wrapped=False).bind(
+                *(value(expression) for expression in call.args), **{kw.arg: value(kw.value) for kw in call.keywords})
+            bound.apply_defaults()
+            return bound.arguments
+
+        def data(expression, namespace=env, assignments=bindings, trail=frozenset()):
+            if expression is None:
+                return True
+            if isinstance(expression, ast.Name):
+                if expression.id in assignments:
+                    key = id(assignments), expression.id
+                    if key in trail:
+                        return False
+                    values = assignments[expression.id]
+                    return (all(data(value, namespace, assignments, trail | {key}) for value in values)
+                            if values else inert(namespace.get(expression.id, _MISSING)))
+                return inert(_resolve(expression, namespace))
+            if isinstance(expression, (ast.Constant, ast.Attribute)):
+                return inert(_resolve(expression, namespace))
+            if isinstance(expression, (ast.List, ast.Tuple, ast.Set)):
+                return all(data(value, namespace, assignments, trail) for value in expression.elts)
+            if isinstance(expression, ast.Dict):
+                return all(key is not None and data(key, namespace, assignments, trail) and
+                           data(value, namespace, assignments, trail) for key, value in zip(expression.keys, expression.values))
+            if isinstance(expression, ast.Subscript):
+                return data(expression.value, namespace, assignments, trail) and data(expression.slice, namespace, assignments, trail)
+            if isinstance(expression, (ast.Compare, ast.BinOp, ast.BoolOp, ast.UnaryOp, ast.IfExp, ast.Slice)):
+                return all(data(value, namespace, assignments, trail) for value in ast.iter_child_nodes(expression)
+                           if isinstance(value, ast.expr))
+            if not isinstance(expression, ast.Call):
+                return False
+            if isinstance(expression.func, ast.Attribute) and expression.func.attr in {'fetchone', 'fetchall'}:
+                execute = expression.func.value
+                if isinstance(execute, ast.Call) and isinstance(execute.func, ast.Attribute) and execute.func.attr == 'execute':
+                    connection = _resolve(execute.func.value, namespace)
+                    return (type(connection) is sqlite3.Connection and connection.row_factory is None
+                            and (connection.text_factory is str or connection.text_factory is bytes) and execute.args
+                            and isinstance(execute.args[0], ast.Constant) and type(execute.args[0].value) is str
+                            and _read_sql(connection, execute.args[0].value))
+            target = _resolve(expression.func, namespace)
+            if isinstance(expression.func, ast.Attribute) and expression.func.attr in _READ_METHODS:
+                if type(_resolve(expression.func.value, namespace)) in (str, bytes, list, tuple, dict, set, frozenset) and inert(_resolve(expression.func.value, namespace)) and all(data(value, namespace, assignments, trail)
+                        for value in [*expression.args, *(kw.value for kw in expression.keywords)]):
+                    return True
+            if any(target is value for value in _SAFE) and target is not Path:
+                return all(data(value, namespace, assignments, trail) for value in expression.args) and all(
+                    kw.arg is not None and data(kw.value, namespace, assignments, trail) for kw in expression.keywords)
+            if type(target) is types.FunctionType and self._project(target) and id(target) not in trail:
+                try:
+                    body = self.patches[target].node if historical and target in self.patches else _definition(target)
+                    arguments = helper_arguments(target, expression, namespace, assignments, trail)
+                    return all(data(part.value, {**target.__globals__, **arguments}, locals_of(body), trail | {id(target)})
+                               for part in sites.own_nodes(body) if isinstance(part, ast.Return))
+                except (OSError, TypeError, ValueError, SyntaxError):
+                    return False
+            return False
+
+        parts = list(sites.own_nodes(node))
+        call_functions = {id(part.func) for part in parts if isinstance(part, ast.Call)}
+        for part in parts:
             if isinstance(part, (ast.Global, ast.Nonlocal, ast.Delete, ast.Yield, ast.YieldFrom, ast.Await,
-                                 ast.With, ast.AsyncWith)):
+                                 ast.With, ast.AsyncWith, ast.Import, ast.ImportFrom)):
                 return 'possible side effect: ' + type(part).__name__
             targets = part.targets if isinstance(part, ast.Assign) else [part.target] \
                 if isinstance(part, (ast.AugAssign, ast.AnnAssign, ast.NamedExpr, ast.For, ast.comprehension)) else []
             if any(isinstance(t, (ast.Attribute, ast.Subscript)) for target in targets for t in ast.walk(target)):
                 return 'possible side effect: writing an object or collection'
+            operands = []
+            if isinstance(part, ast.Compare) and not all(isinstance(op, (ast.Is, ast.IsNot)) for op in part.ops):
+                operands = [part.left, *part.comparators]
+            elif isinstance(part, (ast.BinOp, ast.BoolOp, ast.UnaryOp, ast.Subscript)):
+                operands = [value for value in ast.iter_child_nodes(part) if isinstance(value, ast.expr)]
+            elif isinstance(part, (ast.If, ast.IfExp, ast.While, ast.Assert)):
+                operands = [part.test]
+            elif isinstance(part, (ast.For, ast.comprehension)):
+                operands = [part.iter]
+            elif isinstance(part, ast.Return) and part.value is not None:
+                operands = [part.value]
+            elif isinstance(part, ast.Attribute) and id(part) not in call_functions:
+                operands = [part]
+            unsafe = next((value for value in operands if not data(value)), None)
+            if unsafe is not None:
+                line = part.lineno if historical else fn.__code__.co_firstlineno + part.lineno - 1
+                kind = 'unresolved call result' if any(isinstance(value, ast.Call) for value in ast.walk(unsafe)) else 'operand'
+                return f'possible side effect: {kind} {ast.unparse(unsafe)[:120]} is not proved inert at line {line}'
             if not isinstance(part, ast.Call):
                 continue
             target = _resolve(part.func, env)
-            if isinstance(target, (type, types.BuiltinFunctionType)) and target in _SAFE:
+            if any(target is value for value in _SAFE):
+                if not all(data(value) for value in [*part.args, *(kw.value for kw in part.keywords)]):
+                    return 'possible side effect: builtin argument data is not proved inert'
                 continue
-            if isinstance(target, type) and issubclass(target, Exception):
+            if type(target) in (type, enum.EnumType) and issubclass(target, Exception):
+                if any(type(inspect.getattr_static(target, name, None)) not in
+                       (types.WrapperDescriptorType, types.MethodDescriptorType, types.BuiltinFunctionType)
+                       for name in ('__new__', '__init__')):
+                    return 'possible side effect: custom exception construction is not proved inert'
                 continue
-            if isinstance(target, types.FunctionType) and self._project(target):
-                parameters = list(inspect.signature(target).parameters)
-                arguments = {name: _resolve(value, env) for name, value in zip(parameters, part.args)}
-                arguments.update({kw.arg: _resolve(kw.value, env) for kw in part.keywords if kw.arg})
+            if type(target) is types.FunctionType and self._project(target):
+                try:
+                    arguments = helper_arguments(target, part)
+                except (TypeError, ValueError):
+                    return 'possible side effect: helper arguments are not proved inert'
                 problem = self.safety(target, arguments, seen=seen, historical=historical)
                 if not problem:
                     continue
@@ -700,7 +829,7 @@ class Runtime:
             if isinstance(part.func, ast.Attribute):
                 owner = _resolve(part.func.value, env)
                 name = part.func.attr
-                if name in _READ_METHODS and type(owner) in (str, bytes, list, tuple, dict, set, frozenset):
+                if name in _READ_METHODS and type(owner) in (str, bytes, list, tuple, dict, set, frozenset) and inert(owner) and all(data(value) for value in [*part.args, *(kw.value for kw in part.keywords)]):
                     continue
                 if name == 'execute' and type(owner) is sqlite3.Connection and part.args:
                     sql = part.args[0]
@@ -771,15 +900,16 @@ class Runtime:
                           test=self.test, baseline=self.baseline)
         self.readings.append(reading)
         problem = self.safety(original, bound.arguments)
+        if problem:
+            reading.status, reading.reasons = 'grey', [problem]
+            reading.comparison_status, reading.comparison_reasons = 'grey', [problem]
+            return
         patch = self.register(owner)
         old_problem = self.safety(owner, bound.arguments, historical=True)
         if old_problem:
             reading.comparison_status = 'grey'
             reading.comparison_reasons.append(old_problem)
             patch = None
-        if problem:
-            reading.status, reading.reasons = 'grey', [problem]
-            return
         supplied_axes = axes is not None
         if supplied_axes:
             axes = {name: list(values) for name, values in axes.items()}

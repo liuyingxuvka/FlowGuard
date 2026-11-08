@@ -67,6 +67,7 @@ def test_selected_child_relations_and_rule_closures_prepare_before_probe(tmp_pat
     state, parent, _, calls = preparation(tmp_path, monkeypatch)
     item = SimpleNamespace(config=state.config, rule_id=parent.id, kind='flow', target=None,
                            nodeid='tests/intent/policy.py::PARENT[flow]')
+    item.evaluate_verified = lambda: IntentItem.evaluate_verified(item)
     IntentItem.run_verified(item)
     assert calls[-1] == ('probe', 'PARENT')
     assert sorted(calls[:-1]) == [('prepare', name) for name in ('DONE', 'EXTRA', 'LEAF', 'PEER')]

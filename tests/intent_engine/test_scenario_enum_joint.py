@@ -1,9 +1,5 @@
 """All three native Enum details must remain in the Scenario witness product."""
-import json
-import os
-from pathlib import Path
-import subprocess
-import sys
+from tests.intent_engine._source_fixture import source_engine, source_sessions
 import uuid
 
 
@@ -71,30 +67,21 @@ flow('JOINT',source='doc SPEC.txt "Approval is their conjunction."',
 
 
 def test_the_third_native_enum_scenario_witness_is_not_discarded(tmp_path):
-    sdk = Path(__file__).resolve().parents[2]
-    script = '''import json,sys
-from pathlib import Path
-from tests.intent_engine.test_scenario_enum_joint import enum_joint_project
-from flowguard.intent.anchors import _execution_session as actual_session
-from flowguard.intent import calibration
-from flowguard.intent.loader import ScenarioBinding
-model,engine=enum_joint_project(Path(sys.argv[1]))
-assert all(isinstance(h,ScenarioBinding) for r in model.rules.values() for h in r.homes)
-assert all(len(r.homes)==1 for r in model.rules.values())
-with actual_session(model.cfg.root),calibration._execution_session(model.cfg.root):
-    for rule in model.rules.values():
-        prepared=calibration._prepare_scenario(model.cfg.root,rule.homes[0])
-        assert prepared['status']=='ok',(rule.id,prepared)
-    top=model.rules['TOP']
-    result=engine.run_home(top,top.homes[0],'cells')
-print(json.dumps(result,ensure_ascii=False,default=repr),flush=True)
-assert result['verdict']=='red',result
-assert any('depends on more' in reason for reason in result['red']),result
-assert result['composition']==dict(scope='finite',parent_calls=36,checked_all_witnesses=True,finite_domain=True),result
-'''
-    env = dict(os.environ, PYTHONPATH=str(sdk), PYTEST_DISABLE_PLUGIN_AUTOLOAD='1')
-    process = subprocess.run([sys.executable, '-B', '-c', script, str(tmp_path)],
-                             cwd=sdk, env=env, capture_output=True, text=True, timeout=180)
-    assert process.returncode == 0, process.stdout + process.stderr
-    result = json.loads(process.stdout.strip().splitlines()[-1])
+    from flowguard.intent.anchors import _execution_session as actual_session
+    from flowguard.intent import calibration
+    from flowguard.intent.loader import ScenarioBinding
+    model, _ = enum_joint_project(tmp_path)
+    engine = source_engine(model)
+    assert all(isinstance(h, ScenarioBinding) for r in model.rules.values() for h in r.homes)
+    assert all(len(r.homes) == 1 for r in model.rules.values())
+    with actual_session(model.cfg.root), calibration._execution_session(model.cfg.root):
+        for rule in model.rules.values():
+            prepared = calibration._prepare_scenario(model.cfg.root, rule.homes[0])
+            assert prepared['status'] == 'ok', (rule.id, prepared)
+        top = model.rules['TOP']
+        result = engine.run_home(top, top.homes[0], 'cells')
+    assert result['verdict'] == 'red', result
+    assert any('depends on more' in reason for reason in result['red']), result
+    assert result['composition'] == dict(scope='finite', parent_calls=36,
+                                         checked_all_witnesses=True, finite_domain=True), result
     assert result['bad'] == 1 and result['n'] == 4, result

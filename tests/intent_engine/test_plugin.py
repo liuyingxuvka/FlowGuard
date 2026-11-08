@@ -66,39 +66,50 @@ def test_installed_sdk_child_bootstrap_does_not_expose_neighbor_packages_to_no_s
     (site / 'flowguard_test_optional_provider.py').write_text('AVAILABLE = True\n')
     project = tmp_path / 'project'
     project.mkdir()
-    program = r'''
-import json, os, subprocess, sys, types
-from pathlib import Path
-sys.path.insert(0, sys.argv[1])
-from flowguard.intent.plugin import Session
-state = Session(types.SimpleNamespace(rootpath=Path(sys.argv[2])))
-state.previous_session = None
-query = """import importlib.util,json,sys
+    query = """import importlib.util,json,os,sys
 print(json.dumps(dict(optional=importlib.util.find_spec('flowguard_test_optional_provider') is not None,
                      pytest=importlib.util.find_spec('pytest') is not None,
-                     sdk=getattr(sys.modules.get('flowguard'), '__file__', None))))"""
+                     sdk=getattr(sys.modules.get('flowguard'), '__file__', None),
+                     trace=os.environ.get('FLOWGUARD_TRACE_ROOT'),
+                     pythonpath=os.environ.get('PYTHONPATH'))))"""
+    (project / 'test_children.py').write_text(
+        "import json, subprocess, sys\nfrom pathlib import Path\n"
+        + 'QUERY = ' + repr(query) + '\n'
+        + "def child(*flags):\n"
+        + "    result = subprocess.run([sys.executable, *flags, '-c', QUERY], check=True, capture_output=True, text=True)\n"
+        + "    return json.loads(result.stdout)\n"
+        + "def test_real_children():\n"
+        + "    Path('during.json').write_text(json.dumps(dict(no_site=child('-S'), normal=child())))\n")
+    program = r'''
+import json, subprocess, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import flowguard, pytest
+assert Path(flowguard.__file__) == Path(sys.argv[1]) / 'flowguard/__init__.py'
+project = Path(sys.argv[2])
+query = sys.argv[3]
 def child(*flags):
     result = subprocess.run([sys.executable, *flags, '-c', query], check=True, capture_output=True, text=True)
     return json.loads(result.stdout)
-before = child('-S')
-state.import_children()
-try:
-    during = child('-S')
-    normal = child()
-finally:
-    state.close()
-after = child('-S')
-print(json.dumps(dict(before=before, during=during, normal=normal, after=after)))
+def pair():
+    return dict(no_site=child('-S'), normal=child())
+before = pair()
+status = pytest.main(['-q', '-p', 'flowguard.intent.plugin', str(project)])
+after = pair()
+during = json.loads((project / 'during.json').read_text())
+print(json.dumps(dict(before=before, during=during, after=after)))
+raise SystemExit(status)
 '''
-    result = subprocess.run([sys.executable, '-I', '-c', program, str(site), str(project)],
+    result = subprocess.run([sys.executable, '-I', '-c', program, str(site), str(project), query],
                             cwd=project, capture_output=True, text=True, timeout=30)
-    assert result.returncode == 0, result.stdout + result.stderr
-    data = json.loads(result.stdout)
-    assert data['before']['optional'] is False and data['after']['optional'] is False
-    assert data['during']['optional'] is False
-    assert data['during']['sdk'] is None and data['during']['pytest'] is False
-    assert data['normal']['optional'] is False and data['normal']['pytest'] is True
-    assert Path(data['normal']['sdk']) == site / 'flowguard/__init__.py'
+    assert result.returncode == 0 and '1 passed' in result.stdout, result.stdout + result.stderr
+    data = json.loads(result.stdout.splitlines()[-1])
+    assert data['before'] == data['during'] == data['after']
+    for phase in data.values():
+        assert phase['no_site']['optional'] is False and phase['normal']['optional'] is False
+        assert phase['no_site']['sdk'] is None and phase['no_site']['pytest'] is False
+        assert phase['normal']['sdk'] is None and phase['normal']['pytest'] is True
+        assert phase['no_site']['trace'] is None and phase['normal']['trace'] is None
 
 
 def test_unmarked_ordinary_test_keeps_its_result_but_has_no_function_ledger(sample):
@@ -212,7 +223,7 @@ def pytest_sessionfinish(session):
 
 
 def test_fixing_an_early_exit_does_not_leave_an_unclearable_synthetic_failure(sample):
-    from flowguard.intent.cli import main
+    from tests.intent_engine._cli_fixture import main
     config = sample / 'pyproject.toml'
     config.write_text(config.read_text() + '[tool.flowguard]\nskip_policy="forbid"\n')
     test = sample / 'tests/test_exit.py'

@@ -1129,6 +1129,8 @@ def trace_signatures(cfg, graph, tests):
     Unknown runtime inputs remain an explicit boundary, rather than destroying a
     useful code-navigation clue or licensing safe result reuse.
     """
+    if not tests:
+        return
     now = Now(cfg, graph)
     static = test_dependencies(cfg, graph, now)
     mapped = {row[0] for row in graph.con.execute('SELECT id FROM node')}

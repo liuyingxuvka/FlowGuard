@@ -2,6 +2,8 @@
 import uuid
 import pytest
 
+from tests.intent_engine._source_fixture import source_engine, source_sessions
+
 from flowguard.intent.anchors import Observation
 from flowguard.intent import calibration
 from flowguard.intent.api import Refused
@@ -193,7 +195,7 @@ def {identifier}(flag,detail): return flag
     (root / 'tests/intent/policy.py').write_text(intent)
     model = load(root=root)
     assert not model.errors, model.errors
-    return model, Engine(model)
+    return model, source_engine(model)
 
 
 @pytest.mark.parametrize('children', [2, 3])

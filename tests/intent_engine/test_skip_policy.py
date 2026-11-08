@@ -141,11 +141,21 @@ def test_fine(): pass
 
 
 def test_check_all_does_not_accept_collect_only_as_an_unmodeled_project_validation(tmp_path):
-    from flowguard.intent.cli import main
-    root = project(tmp_path, {'test_probe.py': 'def test_fine(): pass\n'}, policy='platform', collect_only=True)
-    assert main(['--root', str(root), 'check', '--all']) == 1
+    from tests.intent_engine._cli_fixture import main
+    root = project(tmp_path, {'test_probe.py': "from pathlib import Path\ndef test_fine(): Path('ran').touch()\n"},
+                   policy='platform', collect_only=True)
+    assert main(['--root', str(root), 'check', '--all']) == 4
     output = (root / '.flowguard/cache/check-output.txt').read_text()
-    assert 'FlowGuard: ' in output and 'collected test(s) never ran' in output
+    assert 'complete checks require the full ordinary collection' in output
+    assert not (root / 'ran').exists()
+    cache = root / '.flowguard/cache/map.sqlite'
+    if cache.exists():
+        import json
+        import sqlite3
+        with sqlite3.connect(cache) as connection:
+            records = dict(connection.execute('SELECT k,v FROM meta'))
+        assert 'intent_collection' not in records
+        assert 'complete_collection' not in json.loads(records.get('intent_attempt', '{}'))
 
 
 @pytest.mark.parametrize('statement', [

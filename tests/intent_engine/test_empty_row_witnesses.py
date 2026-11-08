@@ -1,5 +1,5 @@
 """Empty literal-row items do not require implicit probe side effects."""
-from tests.intent_engine.test_joint_composition import native, project
+from tests.intent_engine.test_joint_composition import native, project, source_sessions
 
 
 def test_empty_rows_do_not_invent_or_require_a_verified_parent_call(tmp_path, monkeypatch):

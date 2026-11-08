@@ -6,6 +6,8 @@ import uuid
 
 import pytest
 
+from tests.intent_engine._source_fixture import source_engine, source_sessions
+
 from flowguard.intent.api import Refused, rule
 from flowguard.intent.anchors import collect_sources
 from flowguard.intent.flow import (Capture, Flow, Node, Read, Relation, Transition,
@@ -256,7 +258,8 @@ def joint_flow(tmp_path, children=2, coupled=False, detail=False, detail_kind=bo
     from test_joint_composition import project, parts
     from types import SimpleNamespace
     from flowguard.intent import sites
-    model,engine=project(tmp_path,children,coupled=coupled,detail_kind=detail_kind)
+    model,_=project(tmp_path,children,coupled=coupled,detail_kind=detail_kind)
+    engine=source_engine(model)
     app=next(model.cfg.root.glob('joint_app_*.py'))
     names=('left','right','third')[:children]
     index=model.anchor_index

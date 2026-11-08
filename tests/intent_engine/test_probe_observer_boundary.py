@@ -1,5 +1,7 @@
 """Counterfactual calibration readings never become ordinary coverage."""
 from contextlib import ExitStack
+from pathlib import Path
+from types import SimpleNamespace
 import importlib
 import sys
 import uuid
@@ -8,9 +10,11 @@ import pytest
 
 from flowguard.intent import anchors, calibration
 from flowguard.intent.config import load_config, setup_path, project_code
-from flowguard.intent.flow import Capture, Flow, Node, _without_ordinary_observers
+from flowguard.intent.flow import Capture, Flow, Node, Read, Relation, _without_ordinary_observers
 from flowguard.intent.imports import prepare
 from flowguard.intent.tracer import Footprint
+from tests.intent_engine._source_fixture import source_sessions
+from tests.intent_engine._protocol_controls import bind_scenario
 
 
 def project(root, outer_body=None):
@@ -23,7 +27,7 @@ def project(root, outer_body=None):
         '# flowguard: sensor LIMIT(x: count) -> allowed: bool calibrated_by='+test+'::test_native\n'
         'def limit(x: int) -> bool:\n    return x <= 3\n'
         '# flowguard: event OUTER()\ndef outer():\n'+outer)
-    (root/test).write_text('from '+module+' import limit\ndef test_native():\n    assert limit(2) is True\n')
+    (root/test).write_text('import pytest\nfrom '+module+' import limit\n@pytest.fixture\ndef x(): return 2\n# flowguard: event CASE(x: int)\ndef test_native(x: int):\n    assert type(limit(x)) is bool\n')
     index = anchors.collect_sources(root, [(module+'.py', module)])
     anchor = next(a for a in index.entries if a.name == 'LIMIT')
     cfg = load_config(root)
@@ -36,16 +40,40 @@ def project(root, outer_body=None):
     return cfg, index, anchor, app, model
 
 
-@pytest.mark.parametrize('stage', ['baseline', 'zero', 'case'])
+def native_scenario(root, anchor):
+    file = anchor.calibrated_by.partition('::')[0]
+    index = anchors.collect_sources(root, [(anchor.file,anchor.module),
+        (file,Path(file).stem,True)])
+    event = index.named('CASE')[0]
+    model = Flow('NATIVE','assumed: actual native test observation',
+        (Node('case','CASE',start=True),Node('answer','LIMIT',phase='return',caller='case',end=True)),
+        (('case','answer'),), relations=(Relation('R',{'x':Read('case','arg.x')},Read('answer'),on='answer'),))
+    binding = SimpleNamespace(flow=model,scenario=event,anchor=anchor,anchor_index=index,
+        field_map={'x':'x'},testnode=anchor.calibrated_by,observed_rule='R',relation_indices=(0,),
+        actual_targets=(anchor.target,),targets=(anchor.target,))
+    scope,_ = bind_scenario(root,binding)
+    return binding,scope
+
+
+@pytest.mark.parametrize('value', [2, 1, 4])
 @pytest.mark.parametrize('order', ['private-first', 'ordinary-first'])
-def test_probe_is_private_while_existing_ordinary_frame_completes(tmp_path, stage, order):
+def test_probe_is_private_while_existing_ordinary_frame_completes(tmp_path, value, order, monkeypatch):
     cfg, index, anchor, app, model = project(tmp_path)
+    binding,scope = native_scenario(tmp_path,anchor)
+    reports=[]
+    replay=scope.runtime.replay
+    def recorded(*args,**kwargs):
+        actual=replay(*args,**kwargs)
+        reports.extend(actual['reports'])
+        return actual
+    monkeypatch.setattr(scope.runtime,'replay',recorded)
     ordinary = Capture(tmp_path, index, 'ordinary', models=[model], _ordinary=True)
     private = Capture(tmp_path, index, 'private')
     result = {}
 
     def runner():
-        result.update(calibration._stage(tmp_path, anchor, {'x': 4} if stage == 'case' else {}, stage))
+        actual=calibration.execute_scenario(tmp_path,binding,{'x':value})
+        result.update(status=actual.status,value=actual.value,reasons=actual.reasons)
         return result['status'] == 'ok'
 
     app.runner = runner
@@ -60,12 +88,12 @@ def test_probe_is_private_while_existing_ordinary_frame_completes(tmp_path, stag
         assert not any(e.anchor == 'LIMIT' for e in ordinary.events)
         probe = [e for e in private.events if e.anchor == 'LIMIT']
         assert [(e.phase, e.values['x']) for e in probe] == [
-            ('call', 4 if stage == 'case' else 2), ('return', 4 if stage == 'case' else 2)]
-        assert probe[-1].result is (stage != 'case')
+            ('call', value), ('return', value)]
+        assert probe[-1].result is (value <= 3)
         assert app.limit(2) is True
     assert sys.gettrace() is ambient
     assert result['status'] == 'ok', result
-    assert result['pytest_exit'] == (0 if stage == 'baseline' else 1), result
+    assert reports and all(report.passed for report in reports), reports
     assert [(e.phase, e.result) for e in ordinary.events if e.anchor == 'OUTER'] == [
         ('call', None), ('return', True)]
     assert [(e.phase, e.occurrence) for e in ordinary.events if e.anchor == 'LIMIT'] == [
@@ -76,17 +104,19 @@ def test_probe_is_private_while_existing_ordinary_frame_completes(tmp_path, stag
 
 def test_explicit_user_capture_models_retains_its_probe_observations(tmp_path):
     _, index, anchor, _, model = project(tmp_path)
+    binding,_ = native_scenario(tmp_path,anchor)
     ambient = sys.gettrace()
     with Capture(tmp_path, index, 'explicit', models=[model]) as explicit:
-        result = calibration._stage(tmp_path, anchor, {'x': 4}, 'case')
+        result = calibration.execute_scenario(tmp_path,binding,{'x':4})
     assert sys.gettrace() is ambient
-    assert result['status'] == 'ok' and result['pytest_exit'] == 1, result
+    assert result.status == 'ok' and result.value is False, result
     assert [(e.phase, e.values['x']) for e in explicit.events] == [('call', 4), ('return', 4)]
     assert explicit.events[-1].result is False and not explicit.issues
 
 
 def test_external_debugger_is_not_removed_by_the_probe_boundary(tmp_path):
     _, index, anchor, _, model = project(tmp_path)
+    binding,_ = native_scenario(tmp_path,anchor)
     ambient = sys.gettrace()
 
     def debugger(frame, event, arg):
@@ -95,11 +125,11 @@ def test_external_debugger_is_not_removed_by_the_probe_boundary(tmp_path):
     sys.settrace(debugger)
     try:
         with Capture(tmp_path, index, 'ordinary', models=[model], _ordinary=True) as ordinary:
-            result = calibration._stage(tmp_path, anchor, {'x': 4}, 'case')
+            result = calibration.execute_scenario(tmp_path,binding,{'x':4})
         assert sys.gettrace() is debugger
     finally:
         sys.settrace(ambient)
-    assert result['status'] == 'grey' and any('debugger/trace' in r for r in result['reasons']), result
+    assert result.status == 'grey' and any('debugger/trace' in r for r in result.reasons), result
     assert any('debugger/trace' in issue for issue in ordinary.issues)
 
 
@@ -127,6 +157,7 @@ def test_private_scenario_retains_actual_return_or_refusal(tmp_path, value):
     from tests.intent_engine.test_scenario_execution import scenario
     from flowguard.intent.cells import Raised
     binding = scenario(tmp_path, refusal=True)
+    bind_scenario(tmp_path,binding)
     ambient = sys.gettrace()
     with calibration._execution_session(tmp_path):
         assert calibration._prepare_scenario(tmp_path, binding)['status'] == 'ok'
@@ -181,6 +212,7 @@ def test_probe_preparation_is_not_ordinary_but_the_actual_root_case_is(tmp_path)
     model = Flow('ROOT', 'assumed: actual root readings',
                  (Node('source', 'PROJECT_SOURCE', phase='return', start=True, end=True),), ())
     binding = scenario(tmp_path)
+    bind_scenario(tmp_path,binding)
     with calibration._execution_session(tmp_path):
         assert calibration._prepare_scenario(tmp_path, binding)['status'] == 'ok'
         ambient = sys.gettrace()

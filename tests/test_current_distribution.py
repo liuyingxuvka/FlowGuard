@@ -50,9 +50,17 @@ from flowguard.structure import build
 for name in ('flow','native','behave','_next'):
     assert importlib.util.find_spec('flowguard.'+name) is None
 from flowguard.__main__ import main
+'''
+    imports_only = subprocess.run([sys.executable, '-I', '-S', '-c', code, str(tmp_path / 'site'), str(project)],
+                                  capture_output=True, text=True)
+    assert imports_only.returncode == 0, imports_only.stdout + imports_only.stderr
+    # The 4.0 test runner uses the declared mandatory pytest dependency. Keep
+    # the package/SDK import check isolated above, then exercise the real CLI
+    # with its installed dependencies available.
+    code += '''
 assert main(['--root',sys.argv[2],'check']) == 0
 '''
-    probe = subprocess.run([sys.executable, '-I', '-S', '-c', code, str(tmp_path / 'site'), str(project)],
+    probe = subprocess.run([sys.executable, '-I', '-c', code, str(tmp_path / 'site'), str(project)],
                            capture_output=True, text=True)
     assert probe.returncode == 0, probe.stdout + probe.stderr
     assert probe.stdout.strip() == 'FlowGuard check: no intent rules.'

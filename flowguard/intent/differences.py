@@ -193,6 +193,9 @@ def _compare_pairs(root, pairs):
                            'independent fresh fixtures are not a shared context')
             continue
         old, new = decision_reading(root, left), decision_reading(root, right)
+        if old.kinds != new.kinds:
+            reasons.append(f'{right.name}: input kinds are unavailable under one common declared domain')
+            continue
         partition = joint_partition(old, new)
         if not old.dependencies_complete or not new.dependencies_complete:
             partition.complete = False

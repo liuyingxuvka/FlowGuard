@@ -122,9 +122,14 @@ def test_plain_pytest_rewrites_changed_assertions_instead_of_reusing_timestamp_c
 
 def test_unmarked_pytest_child_imports_fresh_child_only_code(tmp_path):
     collision(tmp_path / 'child_only.py', 'VALUE = 3\n', 'VALUE = 4\n')
+    # Child bootstrap injection is retired. This ordinary child enters the
+    # existing source-verification boundary itself; the actual VALUE stays 4.
+    child = ('import sys;sys.path.insert(0,' + repr(SDK) + ');'
+             "from flowguard.intent.imports import prepare;prepare('.');"
+             'import child_only; assert child_only.VALUE == 4')
     (tmp_path / 'test_actual.py').write_text('''import subprocess, sys
 def test_actual():
-    subprocess.run([sys.executable, '-c', 'import child_only; assert child_only.VALUE == 4'], check=True)
+    subprocess.run([sys.executable, '-c', ''' + repr(child) + '''], check=True)
 ''')
     result = python(tmp_path, "import pytest;raise SystemExit(pytest.main(['-q','-p','flowguard.intent.plugin']))")
     assert result.returncode == 0, result.stdout + result.stderr

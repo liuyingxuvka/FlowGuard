@@ -6,6 +6,7 @@ from dataclasses import replace
 import pytest
 
 from tests.intent_engine._cli_fixture import check as run_check
+from tests.intent_engine._source_fixture import source_engine, source_sessions
 
 from flowguard.intent import calibration
 from flowguard.intent.anchors import _execution_session
@@ -69,7 +70,8 @@ def CURRENT(flag,detail): return flag
 
 
 def verified(tmp_path, *, flag=True, detail=False, stock=True, supersedes=False):
-    model, engine, module, native = project(tmp_path, supersedes=supersedes)
+    model, _, module, native = project(tmp_path, supersedes=supersedes)
+    engine = source_engine(model)
     with _execution_session(model.cfg.root), calibration._execution_session(model.cfg.root):
         for rule in model.rules.values():
             for home in rule.homes:
@@ -88,9 +90,9 @@ def verified(tmp_path, *, flag=True, detail=False, stock=True, supersedes=False)
     return model, engine, captured
 
 
-@pytest.fixture(scope='module')
-def verified_projection(tmp_path_factory):
-    return verified(tmp_path_factory.mktemp('verified-projection'))
+@pytest.fixture
+def verified_projection(tmp_path, source_sessions):
+    return verified(tmp_path)
 
 
 def test_projected_lower_outcome_matches_its_verified_contract(verified_projection):
@@ -179,3 +181,51 @@ def test_complete_cli_checks_the_same_projected_lower_flow(tmp_path):
     (model.cfg.root / 'tests/test_flowguard_intent.py').write_text(
         'def test_flowguard_intent(request):\n from flowguard.intent.plugin import sentinel\n sentinel(request.config)\n')
     assert run_check(model.cfg, everything=True) == 0
+
+
+def test_complete_cli_keeps_a_real_wrong_projected_lower_result_red(tmp_path):
+    from flowguard.intent import cache
+    model, _, module, _ = project(tmp_path)
+    path = model.cfg.root / (module + '.py')
+    path.write_text(path.read_text().replace('return None', "return 'blocked'", 1))
+    (model.cfg.root / 'tests/test_flowguard_intent.py').write_text(
+        'def test_flowguard_intent(request):\n from flowguard.intent.plugin import sentinel\n sentinel(request.config)\n')
+    assert run_check(model.cfg, everything=True) == 1
+    results = cache.read(model.cfg)['results']
+    flow = results['GATES']['items']['tests/intent/policy.py::GATES[flow]']
+    assert flow['verdict'] == 'red' and any('LOWER' in why for why in flow['red']), flow
+
+
+def test_complete_cli_without_actual_projected_readings_stays_grey(tmp_path):
+    from flowguard.intent import cache
+    model, _, _, _ = project(tmp_path)
+    path = model.cfg.root / 'tests/intent/policy.py'
+    path.write_text(path.read_text().replace("Read('lower',equals=None)",
+                                            "Read('lower','arg.missing',equals=None)"))
+    (model.cfg.root / 'tests/test_flowguard_intent.py').write_text(
+        'def test_flowguard_intent(request):\n from flowguard.intent.plugin import sentinel\n sentinel(request.config)\n')
+    assert run_check(model.cfg, everything=True) == 0
+    results = cache.read(model.cfg)['results']
+    flow = results['GATES']['items']['tests/intent/policy.py::GATES[flow]']
+    assert flow['verdict'] == 'grey' and flow['grey'] and not flow['red'], flow
+
+
+def test_projected_rules_keep_the_raw_sensor_behavior_difference(tmp_path):
+    from flowguard.intent import cache
+    from tests.intent_engine.test_default_runtime_signals import _git
+    model, _, module, _ = project(tmp_path)
+    root = model.cfg.root
+    (root / 'tests/test_flowguard_intent.py').write_text(
+        'def test_flowguard_intent(request):\n from flowguard.intent.plugin import sentinel\n sentinel(request.config)\n')
+    _git(root, 'init', '-q', '-b', 'main')
+    _git(root, 'add', module + '.py', 'tests', 'pyproject.toml', 'SPEC.txt')
+    _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+         'commit', '-qm', 'original projected rule fixture')
+    path = root / (module + '.py')
+    path.write_text(path.read_text().replace("return 'blocked'", "return 'denied'"))
+    assert run_check(model.cfg, everything=True) == 0
+    report = cache.observations(model.cfg)['items']
+    assert not report['red'], report
+    readings = [item for item in report['items'] if item['name'] == 'LOWER_CALL']
+    assert any(change['before'] == "'blocked'" and change['after'] == "'denied'"
+               for reading in readings for change in reading['changes']), readings

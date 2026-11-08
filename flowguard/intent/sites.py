@@ -333,13 +333,16 @@ class _Apply(ast.NodeTransformer):
         return n
 
 
+def _controlled_code(fn, code):
+    _MUTANTS.setdefault(unwrap(fn), weakref.WeakValueDictionary())[id(code)] = code
+    return code
+
+
 def mutant_code(fn, m: Mutant):
     """One source-site mutant, with precise weak provenance for controlled capture."""
     fn = unwrap(fn)
     t = _Apply(m)
-    code = _recompile(fn, t, lambda: t.done)
-    _MUTANTS.setdefault(fn, weakref.WeakValueDictionary())[id(code)] = code
-    return code
+    return _controlled_code(fn, _recompile(fn, t, lambda: t.done))
 
 
 def controlled_mutation(function, code):
@@ -383,7 +386,7 @@ def probe_code(fn, fi: int, sites: list, home: bool = False):
     def mark(fdef):
         call = lambda name: ast.Expr(ast.parse(f"{_Probe.REC.replace('out', name)}.{name}()", mode="eval").body)
         fdef.body = [call("enter"), ast.Try(body=fdef.body, handlers=[], orelse=[], finalbody=[call("leave")])]
-    return _recompile(fn, t, lambda: bool(t.done) or home, mark if home else None)
+    return _controlled_code(fn, _recompile(fn, t, lambda: bool(t.done) or home, mark if home else None))
 
 
 def _recompile(fn, transformer, found, post=None):
