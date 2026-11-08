@@ -71,7 +71,8 @@ def test_numeric_where_accepts_current_rows_but_not_text_candidate(tmp_path):
     with sqlite3.connect(':memory:') as db:
         db.executescript('CREATE TABLE debt(n INTEGER); INSERT INTO debt VALUES (7)')
         assert runtime.observe(fn, inspect.signature(fn).bind(db, 7), axes={'x': [7, 8]}) is True
-        assert runtime.readings[-1].status == 'ok' and len(runtime.readings[-1].rows) == 2
+        assert runtime.readings[-1].status == 'ok'
+        assert {row['x'] for row, value in runtime.readings[-1].rows} == {6, 7, 8}
         assert runtime.observe(fn, inspect.signature(fn).bind(db, 7), axes={'x': [7, '7']}) is True
         assert runtime.readings[-1].status == 'grey' and runtime.readings[-1].rows == []
         assert 'SQL condition candidates' in runtime.readings[-1].reasons[0]
@@ -186,4 +187,5 @@ def test_plain_integer_literal_is_a_real_read_without_table_callbacks(tmp_path, 
     fn, runtime = _runtime(tmp_path, query, statement='return db.execute(QUERY).fetchone()[0] <= x')
     with sqlite3.connect(':memory:') as db:
         assert runtime.observe(fn, inspect.signature(fn).bind(db, 9), axes={'x': [0, 9]})
-    assert runtime.readings[0].status == 'ok' and len(runtime.readings[0].rows) == 2
+    assert runtime.readings[0].status == 'ok'
+    assert {row['x'] for row, value in runtime.readings[0].rows} == {0, 8, 9, 10}

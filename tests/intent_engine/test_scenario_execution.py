@@ -150,6 +150,7 @@ def test_same_sdk_mutant_is_applied_after_real_collection_and_restored(tmp_path)
     import tempfile
     from flowguard.intent import loader
     root = Path(loader.__file__).resolve().parents[2]
+    (root / '.pytest_cache').mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='native-sdk-', dir=root / '.pytest_cache') as folder:
         native = Path(folder) / 'test_native_sdk.py'
         projection = Path(folder) / 'sdk_projection.py'

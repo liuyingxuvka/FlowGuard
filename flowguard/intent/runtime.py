@@ -88,6 +88,24 @@ def _simple(value):
                     for name in operations))
 
 
+def _neighbours(value):
+    """Representable neighbours of exact native quantities, without user operators."""
+    if not any(type(value) is kind for kind in (int, float, Decimal, date, datetime, timedelta)):
+        return
+    try:
+        step = cells.epsilon(value)
+    except ArithmeticError:
+        return
+    if step is not None:
+        for lower in (True, False):
+            try:
+                candidate = value - step if lower else value + step
+                if _simple(candidate) and (type(candidate) is not Decimal or candidate.is_finite()):
+                    yield candidate
+            except ArithmeticError:
+                pass  # A native endpoint has no representable neighbour here.
+
+
 def _read_sql(connection, text, parameters=()):
     """A narrow ordinary-table read; never a general SQLite purity claim."""
     import functools
@@ -917,10 +935,10 @@ class Runtime:
         return True
 
     def axes(self, function, bound, explicit=None):
-        """Preserve explicit classes plus the actual input without cross-axis guesses.
+        """Retain all proved representatives and actuals without cross-axis guesses.
 
-        Only the generic grid adds source constants and neighbours. Constraint
-        readers already supply the complete joint old/current partition.
+        The generic grid adds source constants and their neighbours; the replay
+        loop supplements an explicit grid with actual-tuple neighbours.
         """
         axes = {name: list(values) for name, values in (explicit or {}).items()}
         if explicit is None:
@@ -944,9 +962,8 @@ class Runtime:
             for value in ([actual, *constants] if explicit is None else []):
                 if type(value) is not type(actual) or isinstance(value, bool):
                     continue
-                step = cells.epsilon(value)
-                if step is not None:
-                    values.extend((value - step, value, value + step))
+                values.append(value)
+                values.extend(_neighbours(value))
             unique = []
             for value in values:
                 if not any(outcome_equal(value, old) for old in unique):
@@ -1006,8 +1023,15 @@ class Runtime:
             reading.status, reading.reasons = 'grey', ['no finite simple input classes']
             return
         baseline = _value(original, bound)
-        for values in itertools.product(*axes.values()):
-            inputs = dict(zip(axes, values))
+        points = (dict(zip(axes, values)) for values in itertools.product(*axes.values()))
+        neighbours = []
+        if supplied_axes:
+            actual = {name: bound.arguments.get(name) for name in axes}
+            for name in axes:
+                for value in _neighbours(actual[name]):
+                    if not any(outcome_equal(value, prior) for prior in axes[name]):
+                        neighbours.append({**actual, name: value})
+        for inputs in itertools.chain(points, neighbours):
             arguments = {**bound.arguments, **inputs}
             now = _value(original, _binding(bound.signature, arguments))
             old = None

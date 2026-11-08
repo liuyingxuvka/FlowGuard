@@ -918,7 +918,11 @@ def test_explicit_partition_keeps_every_representative_and_actual_without_cross_
     with runtime.hook(m.standing, axes={'days': range(10), 'owed': [0, 20, 21], 'suspended': [False, True]}):
         assert m.standing(0, 0, False)
     reading = runtime.readings[0]
-    assert len(reading.rows) == 10 * 3 * 2
+    original = {(days, owed, suspended) for days in range(10) for owed in (0, 20, 21) for suspended in (False, True)}
+    actual = {(row['days'], row['owed'], row['suspended']) for row, value in reading.rows}
+    assert original <= actual
+    assert actual - original == {(-1, 0, False), (0, -1, False), (0, 1, False)}
+    assert len(reading.rows) == len(actual) == 63
     assert {row['days'] for row, old, new in reading.changed} == {4, 5, 6, 7}
     assert all(not row['suspended'] and row['owed'] <= 20 for row, old, new in reading.changed)
 
