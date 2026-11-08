@@ -156,11 +156,11 @@ def test_child_guard():
 def test_plain_pytest_executes_declared_items_and_sentinel(sample):
     result = run(sample)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert '5 passed' in result.stdout
+    assert '4 passed' in result.stdout
     with database(sample) as connection:
         attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
-        assert attempt['declared'] == attempt['collected'] == 4 and attempt['sentinel'] == 'ok'
-        assert connection.execute('SELECT count(*) FROM result').fetchone()[0] == 4
+        assert attempt['declared'] == attempt['collected'] == 3 and attempt['sentinel'] == 'ok'
+        assert connection.execute('SELECT count(*) FROM result').fetchone()[0] == 3
 
 
 def test_complete_item_summary_reuses_the_real_results_without_executing_homes_again(sample):
@@ -234,7 +234,7 @@ def test_autoload_disabled_missing_plugin_is_a_real_failure(sample):
     # The package explicitly requests this measurement; it is not a test workaround.
     result = run(sample, plugin=False, env=dict(os.environ, PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'))
     assert result.returncode == 1, result.stdout + result.stderr
-    assert 'plugin not loaded: 0 of 4' in result.stdout and 'LIMIT[rules]' in result.stdout
+    assert 'plugin not loaded: 0 of 3' in result.stdout and 'LIMIT[rules]' in result.stdout
     assert 'skipped' not in result.stdout
 
 
@@ -243,7 +243,7 @@ def test_missing_plugin_diagnosis_reads_declarations_without_executing_the_proje
     path.write_text(path.read_text() + '\nfrom pathlib import Path\nPath("intent-executed").write_text("unsafe diagnostic")\n')
     result = run(sample, plugin=False)
     assert result.returncode == 1
-    assert 'plugin not loaded: 0 of 4' in result.stdout and 'LIMIT[rules]' in result.stdout
+    assert 'plugin not loaded: 0 of 3' in result.stdout and 'LIMIT[rules]' in result.stdout
     assert not (sample / 'intent-executed').exists()
 
 
@@ -252,12 +252,12 @@ def test_partial_collection_never_overwrites_a_complete_result(sample):
     with database(sample) as connection:
         original = connection.execute("SELECT v FROM meta WHERE k='intent_collection'").fetchone()[0]
     result = run(sample, '--ignore=tests/intent')
-    assert result.returncode == 1 and 'only 0 of 4 intent items' in result.stdout
+    assert result.returncode == 1 and 'only 0 of 3 intent items' in result.stdout
     with database(sample) as connection:
         assert connection.execute("SELECT v FROM meta WHERE k='intent_collection'").fetchone()[0] == original
         attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
-        assert attempt['sentinel'] == 'failed' and len(attempt['missing']) == 4
-        assert connection.execute('SELECT count(*) FROM result').fetchone()[0] == 4
+        assert attempt['sentinel'] == 'failed' and len(attempt['missing']) == 3
+        assert connection.execute('SELECT count(*) FROM result').fetchone()[0] == 3
 
 
 def test_an_ordinary_partial_unit_run_does_not_require_the_sentinel(sample):
@@ -270,18 +270,18 @@ def test_an_ordinary_partial_unit_run_does_not_require_the_sentinel(sample):
     with database(sample) as connection:
         assert connection.execute("SELECT v FROM meta WHERE k='intent_collection'").fetchone()[0] == original
         attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
-        assert attempt['sentinel'] is None and len(attempt['missing']) == 4
-        assert connection.execute('SELECT count(*) FROM result').fetchone()[0] == 4
+        assert attempt['sentinel'] is None and len(attempt['missing']) == 3
+        assert connection.execute('SELECT count(*) FROM result').fetchone()[0] == 3
 
 
 def test_k_deselection_is_not_mistaken_for_intent_execution(sample):
     result = run(sample, '-k', 'test_flowguard_intent')
-    assert result.returncode == 1 and 'only 0 of 4 intent items' in result.stdout
+    assert result.returncode == 1 and 'only 0 of 3 intent items' in result.stdout
 
 
 def test_deferred_items_without_cached_results_cannot_pass_sentinel(sample):
     result = run(sample, '--flowguard-rules=unknown')
-    assert result.returncode == 1 and 'only 0 of 4 intent items' in result.stdout
+    assert result.returncode == 1 and 'only 0 of 3 intent items' in result.stdout
 
 
 def test_deferred_items_with_actual_previous_results_are_reported_as_reused(sample):
@@ -290,19 +290,19 @@ def test_deferred_items_with_actual_previous_results_are_reported_as_reused(samp
     assert result.returncode == 0, result.stdout + result.stderr
     with database(sample) as connection:
         attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
-        assert attempt['selected'] == 0 and attempt['deferred'] == 4 and not attempt['missing']
+        assert attempt['selected'] == 0 and attempt['deferred'] == 3 and not attempt['missing']
 
 
 def test_intent_filename_matching_python_files_is_collected_once(sample):
     path = sample / 'tests/intent/decisions.py'
     path.rename(path.with_name('test_decisions.py'))
     result = run(sample)
-    assert result.returncode == 0 and '5 passed' in result.stdout, result.stdout + result.stderr
+    assert result.returncode == 0 and '4 passed' in result.stdout, result.stdout + result.stderr
 
 
 def test_explicit_nonmatching_intent_filename_is_collected_once(sample):
     result = run(sample, 'tests/intent/decisions.py', 'tests/test_flowguard_intent.py')
-    assert result.returncode == 0 and '5 passed' in result.stdout, result.stdout + result.stderr
+    assert result.returncode == 0 and '4 passed' in result.stdout, result.stdout + result.stderr
     collected = run(sample, '--collect-only', 'tests/intent/decisions.py::LIMIT[rules]')
     assert collected.returncode == 0 and '1 test collected' in collected.stdout
     assert collected.stdout.count('tests/intent/decisions.py::LIMIT[rules]') == 1

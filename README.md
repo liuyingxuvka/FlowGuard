@@ -51,7 +51,7 @@ The same generated map and fixed queries read the first languages below. Normal 
 | `python -m flowguard show WINDOW` | Read the rule, sources, anchors and complete findings. |
 | `python -m flowguard show --draft orders:accept` | Locate an existing calibration test; do not invent its expected answer. |
 | `python -m flowguard check` | Recheck affected rules and tests with ordinary pytest. |
-| `python -m flowguard check --all` | Run all intent and ordinary project tests in CI. |
+| `python -m flowguard check --all --deep` | Run all intent and ordinary project tests, decision probes and mutation checks in CI. |
 | `python -m flowguard check --diagnose` | Optionally record timed check stages and activated source-anchor events. Add `--all` when diagnosing the complete suite. |
 | `python -m flowguard req list` | List preserved owner messages; `show R1` reads the original. |
 

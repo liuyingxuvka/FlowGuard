@@ -9,7 +9,7 @@ Ordinary edits do not need an intent model or a separate task record.
 1. At session start, look at `python -m flowguard` when the project has intent rules.
 2. Before writing a decision, use `python -m flowguard show "what it decides"` to find its existing owner.
 3. Write one rule, connect its source anchors, and add a literal regression row only when a decision has copies, the owner says everywhere, or a bug was fixed. Otherwise stay quiet.
-4. After changing a bound decision run `python -m flowguard check`; CI runs `check --all`. Store actual owner words once with `req add`.
+4. After changing a bound decision run `python -m flowguard check`; CI runs `check --all --deep`. Store actual owner words once with `req add`.
 <!-- flowguard:end -->
 
 ## Owners and layout

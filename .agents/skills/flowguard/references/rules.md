@@ -88,4 +88,4 @@ The Map reads Python, JS/TS, C/C++ and C#. Foreign syntax is navigation, not exe
 
 `owner R1` cites archived actual words; `req add` stores their exact bytes. Never archive this guide or an AI plan as owner words. Document sources require quoted text and an `authority_docs` entry. `assumed:` and `lesson:` do not create owner authority. An archive proves bytes, not an interpretation.
 
-The CLI prepares imports. Treat direct Model/Engine instances as fixed snapshots. Native tests cover effects outside modeled relations. Reuse needs closed dependencies; external inputs can require reruns. CI uses `check --all` and an environment outside the project. Observations retain the project's assertions, teardown and skip/collection policy.
+The CLI prepares imports. Treat direct Model/Engine instances as fixed snapshots. Native tests cover effects outside modeled relations. Reuse needs closed dependencies; external inputs can require reruns. CI uses `check --all --deep` and an environment outside the project. Observations retain the project's assertions, teardown and skip/collection policy.

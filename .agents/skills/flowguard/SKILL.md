@@ -7,7 +7,7 @@ description: Read rule status, preserve words and find decision owners. Anchors 
 
 Code is the target. Anchors are observation points. A small model relates readings without repeating the implementation.
 
-Default use: read `python -m flowguard` at session start when rules exist; find code with `python -m flowguard show "what it decides"`; reuse its owner. Save actual owner words once. After changing a bound decision, run `python -m flowguard check` through ordinary pytest; CI uses `check --all`. `show --full` expands metadata. Candidates are clues, not proof.
+Use: read `python -m flowguard` at session start when rules exist; find code with `python -m flowguard show "what it decides"`; reuse its owner. Save actual owner words once. After changing a bound decision, run `python -m flowguard check` through ordinary pytest; CI uses `check --all --deep`. `show --full` expands metadata. Candidates are clues, not proof.
 
 Use ordinary code and tests for ordinary edits. Do not model the development task. When a decision has copies, the owner says "everywhere", or a bug was fixed, one rule and literal regression rows in `tests/intent/` can help. Derive expectations from the requirement independently of code; rows hold literal inputs, `expect` and `why`. Connect rules through source anchors, never an adapter supplying the answer.
 

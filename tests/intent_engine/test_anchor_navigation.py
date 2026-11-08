@@ -196,6 +196,9 @@ def test_missing_plugin_counts_direct_anchors_without_executing_intent(tmp_path)
     path.write_text('raise AssertionError("diagnostics must not execute intent")\n'+path.read_text())
     facts=cache.scan(cfg)
     declared,unresolved=cache.declaration_names(cfg,facts)
+    assert len([name for name in declared if name.startswith('GRACE[')])==5
+    assert not any(name.endswith(':live]') for name in declared)
+    declared,unresolved=cache.declaration_names(cfg,facts,deep=True)
     assert len([name for name in declared if name.startswith('GRACE[')])==7
     assert unresolved==[]
     assert 'GRACE[app.owner:cells]' in declared and 'GRACE[app.declared_copy:live]' in declared

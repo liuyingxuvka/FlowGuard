@@ -464,6 +464,7 @@ def _stage(root, anchor, values, stage, expected_fn=None):
 
 def _run_pytest(root, selector, driver):
     import pytest
+    from .config import _INSERTED_PATHS
     from .flow import _without_ordinary_observers
     for name in ('pytest_runtest_protocol', 'pytest_runtest_setup', 'pytest_runtest_call',
                  'pytest_runtest_teardown', 'pytest_runtest_makereport'):
@@ -472,6 +473,8 @@ def _run_pytest(root, selector, driver):
     capture = io.StringIO()
     token = _ACTIVE.set(True)
     previous_cwd = Path.cwd()
+    previous_path, previous_entries = sys.path, sys.path[:]
+    previous_inserted = _INSERTED_PATHS.copy()
     try:
         os.chdir(root)
         with _without_ordinary_observers(), redirect_stdout(capture), redirect_stderr(capture):
@@ -479,9 +482,15 @@ def _run_pytest(root, selector, driver):
             # display needs the error location/message, not traceback source.
             code = int(pytest.main(['-q', '--tb=line', '-p', 'no:cacheprovider', selector], plugins=[driver]))
     finally:
-        os.chdir(previous_cwd)
-        driver.close()
-        _ACTIVE.reset(token)
+        try:
+            os.chdir(previous_cwd)
+            driver.close()
+        finally:
+            previous_path[:] = previous_entries
+            sys.path = previous_path
+            _INSERTED_PATHS.clear()
+            _INSERTED_PATHS.update(previous_inserted)
+            _ACTIVE.reset(token)
     return code
 
 
@@ -529,10 +538,10 @@ def _child(request):
     # its real "flowguard" name; never replace an old native SDK dependency.
     shadow = any((root / 'flowguard').is_dir() and (root / 'flowguard').resolve() != sdk
                  for root in [cfg.root, *cfg.roots])
-    bootstrap = f"""import importlib.util, importlib.machinery, sys
+    bootstrap = f"""import importlib.util, sys
 from pathlib import Path
 sdk = Path({str(sdk)!r})
-normal = importlib.machinery.PathFinder.find_spec('flowguard')
+normal = importlib.util.find_spec('flowguard')
 loaded = sys.modules.get('flowguard')
 same_loaded = loaded is None or Path(vars(loaded).get('__file__', '')).resolve() == sdk / '__init__.py'
 name = 'flowguard' if {not shadow!r} and same_loaded and normal and normal.origin and Path(normal.origin).resolve() == sdk / '__init__.py' else '_flowguard_execution'

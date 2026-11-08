@@ -51,7 +51,7 @@ python -m flowguard req add owner-message.txt --id R1
 | `python -m flowguard show WINDOW` | 读规则、出处、锚点和完整发现。 |
 | `python -m flowguard show --draft orders:accept` | 为锚点定位已有标定测试，不编造预期答案。 |
 | `python -m flowguard check` | 通过普通 pytest 重查受影响的规则和测试。 |
-| `python -m flowguard check --all` | 在 CI 运行所有意图项和普通项目测试。 |
+| `python -m flowguard check --all --deep` | 在 CI 运行所有意图项、普通项目测试、决策探针和变异检查。 |
 | `python -m flowguard check --diagnose` | 按需记录检查阶段耗时和已激活锚点事件；排查完整套件时再加 `--all`。 |
 | `python -m flowguard req list` | 列出已存原话；`show R1` 读取原文。 |
 

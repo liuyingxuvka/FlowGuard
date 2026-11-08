@@ -219,7 +219,7 @@ def scan(cfg, texts=None):
     return dict(rules=rules, errors=errors, files=sorted(texts), intent_lines=lines, distincts=distincts)
 
 
-def declaration_names(cfg, summary):
+def declaration_names(cfg, summary, *, deep=False):
     """Known failure-diagnostic items, without executing intent or application code.
 
     Scenario bindings require the loader's argument plan. Report that boundary
@@ -242,7 +242,7 @@ def declaration_names(cfg, summary):
             targets.extend(anchor.target for anchor in found)
             if not found:
                 targets.append(name)
-        declared.extend(item_names(identifier, dict.fromkeys(targets), kind=rule['kind']))
+        declared.extend(item_names(identifier, dict.fromkeys(targets), kind=rule['kind'], deep=deep))
         if rule.get('flows'):
             unresolved.append(identifier)
     return declared, unresolved

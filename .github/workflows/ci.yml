@@ -64,7 +64,7 @@ jobs:
         run: python .github/scripts/ci_coverage.py identity
 
       - name: Complete intent and project tests through ordinary pytest
-        run: python -m flowguard check --all --diagnose --shard ${{ matrix.shard }}/${{ matrix.shard_count }} --shard-report .flowguard/cache/check-shard.json
+        run: python -m flowguard check --all --deep --diagnose --shard ${{ matrix.shard }}/${{ matrix.shard_count }} --shard-report .flowguard/cache/check-shard.json
 
       - name: Export the original check coverage and runner identity
         run: python .github/scripts/ci_coverage.py export .flowguard/cache/check-shard.json --platform ${{ matrix.os }} --python ${{ matrix.python }} --output .ci/coverage.json

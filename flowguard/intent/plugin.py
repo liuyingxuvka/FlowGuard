@@ -242,6 +242,7 @@ class Session:
             with self.verification():
                 self.model = load(self.cfg, anchor_index=index,
                                   map_path=Path(self.folder.name) / 'anchor-map.sqlite' if probe else None)
+                self.model.deep = self.config.getoption('--flowguard-deep', default=False)
                 self.engine = Engine(self.model)
         return self.model
 
@@ -297,6 +298,7 @@ class Session:
 
 def pytest_addoption(parser):
     group = parser.getgroup('flowguard')
+    group.addoption('--flowguard-deep', action='store_true', help='Include explicit decision probes and mutation-survival checks')
     group.addoption('--flowguard-rules', default=None, help='Run these changed rules; other fully collected rules are deferred to the cache')
     group.addoption('--flowguard-record-tests', action='store_true', help='Record the ordinary tests actually selected by check')
     group.addoption('--flowguard-diagnose', action='store_true', help='Write live diagnostics for activated ordinary-test anchors')
@@ -821,7 +823,7 @@ def finish_verified(session, exitstatus):
     missing = _missing(state, declared)
     attempt = dict(declared=len(declared), collected=len(state.collected), selected=len(state.selected),
                    deferred=len(state.deferred), missing=missing, sentinel=state.sentinel, exit=int(exitstatus),
-                   errors=state.session_errors, stamp=state.started)
+                   errors=state.session_errors, stamp=state.started, deep=model.deep)
     if state.shard is not None:
         unfinished = sorted(set(state.shard['selected_nodeids']) - state.completed)
         if unfinished and session.exitstatus == pytest.ExitCode.OK:
@@ -854,6 +856,8 @@ def finish_verified(session, exitstatus):
         _meta(con, 'intent_attempt', attempt)
         if not missing and state.sentinel == 'ok' and not state.session_errors:
             _meta(con, 'intent_collection', attempt)
+            if not model.deep:
+                con.execute("DELETE FROM result WHERE item LIKE '%:live]'")
             for rid, rule in model.rules.items():
                 required = {model.file_of[rid] + '::' + name for name in model.items_of(rule)}
                 if required <= state.results.keys():

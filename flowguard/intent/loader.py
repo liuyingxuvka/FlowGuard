@@ -98,17 +98,18 @@ def literal_problems(tree: ast.AST, rel: str) -> list[dict]:
     return problems
 
 
-def item_names(identifier, homes=(), kind='rule'):
+def item_names(identifier, homes=(), kind='rule', *, deep=False):
     """The one pytest item naming scheme, also used by static failure diagnostics."""
     if kind != 'rule':
         return [f'{identifier}[{kind}]']
     return ([f'{identifier}[rules]']
-            + [f'{identifier}[{target.replace(":", ".")}:{part}]' for target in homes for part in ('rows', 'cells', 'live')])
+            + [f'{identifier}[{target.replace(":", ".")}:{part}]' for target in homes for part in (('rows', 'cells', 'live') if deep else ('rows', 'cells'))])
 
 
 class Model:
     def __init__(self, cfg):
         self.cfg = cfg
+        self.deep = False
         self.rules, self.states, self.structures, self.flows, self.anchor_distincts = {}, {}, {}, {}, {}
         self.anchor_index = None
         self.scenario_issues = {}
@@ -144,7 +145,7 @@ class Model:
         return [r for r in self.rules.values() if self.file_of[r.id] == rel]
 
     def items_of(self, rule):
-        return item_names(rule.id, [h.target for h in rule.homes])
+        return item_names(rule.id, [h.target for h in rule.homes], deep=self.deep)
 
     def declared_items(self):
         result = [f'{rel}::load' for rel in self.files if any(e['file'] == rel for e in self.errors)]

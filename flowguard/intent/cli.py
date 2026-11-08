@@ -38,7 +38,7 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 1. At session start, look at `python -m flowguard` when the project has intent rules.
 2. Before writing a decision, use `python -m flowguard show "what it decides"` to find its existing owner.
 3. Write one rule, connect its source anchors, and add a literal regression row only when a decision has copies, the owner says everywhere, or a bug was fixed. Otherwise stay quiet.
-4. After changing a bound decision run `python -m flowguard check`; CI runs `check --all`. Store actual owner words once with `req add`.
+4. After changing a bound decision run `python -m flowguard check`; CI runs `check --all --deep`. Store actual owner words once with `req add`.
 <!-- flowguard:end -->
 '''
 
@@ -509,7 +509,7 @@ def behavior_changes(cfg, *, automatic=False, index=None):
     return ['Behavior changes:', *differences.render(report).splitlines()]
 
 
-def check(cfg, *, everything=False, since=None, diagnose=False, shard=None, shard_report=None):
+def check(cfg, *, everything=False, since=None, diagnose=False, shard=None, shard_report=None, deep=False):
     if shard is not None:
         from .plugin import parse_shard
         parse_shard(shard)
@@ -522,6 +522,8 @@ def check(cfg, *, everything=False, since=None, diagnose=False, shard=None, shar
         raise ValueError('shard report already exists; choose a fresh output path')
     started = time.time()
     options = dict(shard=shard) if shard is not None else {}
+    if deep:
+        options['deep'] = True
     status = _check_with_diagnostics(cfg, everything=everything, since=since, diagnose=diagnose, **options)
     if report is not None:
         attempt = cache.read(cfg).get('attempt') or {}
@@ -543,8 +545,10 @@ def check(cfg, *, everything=False, since=None, diagnose=False, shard=None, shar
     return status
 
 
-def _check_with_diagnostics(cfg, *, everything=False, since=None, diagnose=False, shard=None):
+def _check_with_diagnostics(cfg, *, everything=False, since=None, diagnose=False, shard=None, deep=False):
     options = dict(shard=shard) if shard is not None else {}
+    if deep:
+        options['deep'] = True
     if not diagnose:
         return _checked(cfg, everything=everything, since=since, **options)
     from .checkflow import CheckObservation
@@ -568,10 +572,12 @@ def _check_with_diagnostics(cfg, *, everything=False, since=None, diagnose=False
     return result
 
 
-# flowguard: event CHECK_RUN(cfg: Config, everything: bool, since: str | None, shard: str | None)
-def _checked(cfg: Config, *, everything: bool = False, since: str | None = None, shard: str | None = None):
+# flowguard: event CHECK_RUN(cfg: Config, everything: bool, since: str | None, shard: str | None, deep: bool)
+def _checked(cfg: Config, *, everything: bool = False, since: str | None = None, shard: str | None = None, deep: bool = False):
     from .checkflow import observe
     options = dict(shard=shard) if shard is not None else {}
+    if deep:
+        options['deep'] = True
     status = _check(cfg, everything=everything, since=since, **options)
     red = observe(_check_sources, cfg)
     return status or int(red)
@@ -709,13 +715,14 @@ def _run_check_pytest(command: list, root: Path, output: Path, stream: bool):
             subprocess.run(command, cwd=root, capture_output=True, text=True))
 
 
-def _check(cfg, *, everything=False, since=None, shard=None):
+def _check(cfg, *, everything=False, since=None, shard=None, deep=False):
     import ast
     from . import deps, history
     from .loader import load
     from .checkflow import observe
     stream_all = everything
     model = observe(load, cfg)
+    model.deep = deep
     historical = history.check(cfg, since)
     data = cache.read(cfg)
     retry_incomplete = bool((data.get('attempt') or {}).get('errors'))
@@ -731,11 +738,13 @@ def _check(cfg, *, everything=False, since=None, shard=None):
         return 1
     command = [sys.executable, *(['-u'] if stream_all else []), '-c', 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))',
                str(Path(__file__).resolve().parents[2]), '-vv' if stream_all else '-q', '-p', 'flowguard.intent.plugin', '--flowguard-record-tests']
+    if deep:
+        command.append('--flowguard-deep')
     if stream_all:
         command += ['-o', 'verbosity_test_cases=2', '--durations=10']
     if shard is not None:
         command.append('--flowguard-shard=' + shard)
-    initial_baseline = not data.get('collection') or retry_incomplete
+    initial_baseline = not data.get('collection') or retry_incomplete or deep and not data['collection'].get('deep', False)
     everything = everything or initial_baseline
     declared = set(model.declared_items())
     selected, flows, ordinary, test_records, guards, rule_markers = observe(
@@ -860,7 +869,7 @@ def _check(cfg, *, everything=False, since=None, shard=None):
         group['items'] = {item: value for item, value in group['items'].items() if item in declared}
     data['summary']['errors'].extend(error for error in model.errors if error not in data['summary']['errors'])
     data['history'], data['probes'] = historical, probes
-    data['check_scope'] = f'{len(executed)} rules rerun, {len(model.rules) - len(executed)} reused; ' + (
+    data['check_scope'] = ('deep probes and mutation-survival enabled; ' if deep else 'deep probes and mutation-survival not run (--deep); ') + f'{len(executed)} rules rerun, {len(model.rules) - len(executed)} reused; ' + (
         'all tests (previous run incomplete)' if retry_incomplete else 'all tests (initial baseline)' if initial_baseline
         else 'all tests (--all)' if everything else f'{len(test_records)} test files considered')
     if shard is not None:
@@ -951,7 +960,7 @@ def init(cfg):
 - uses: actions/checkout@v5
   with:
     fetch-depth: 0
-- run: python -m flowguard check --all
+- run: python -m flowguard check --all --deep
 ''', encoding='utf-8')
     agents = cfg.root / 'AGENTS.md'
     content = agents.read_text(encoding='utf-8') if agents.exists() else ''
@@ -1012,6 +1021,7 @@ def main(argv=None):
     show_parser.add_argument('--full', action='store_true', help='Include decision sites and full candidate metadata')
     check_parser = commands.add_parser('check')
     check_parser.add_argument('--all', action='store_true')
+    check_parser.add_argument('--deep', action='store_true', help='Run decision probes and mutation-survival checks')
     check_parser.add_argument('--diagnose', action='store_true', help='Record timed check stages and activated source-anchor events')
     check_parser.add_argument('--since')
     check_parser.add_argument('--shard', help='Run complete intent and one partition of the full ordinary collection (k/n)')
@@ -1046,6 +1056,8 @@ def main(argv=None):
             return show(cfg, options.query, draft=options.draft, gaps=options.gaps, full=options.full)
         if options.command == 'check':
             extra = dict(shard=options.shard, shard_report=options.shard_report) if options.shard is not None or options.shard_report is not None else {}
+            if options.deep:
+                extra['deep'] = True
             return check(cfg, everything=options.all, since=options.since, diagnose=options.diagnose, **extra)
         if options.command == 'init':
             return init(cfg)

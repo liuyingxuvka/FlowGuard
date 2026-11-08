@@ -86,6 +86,7 @@ def source_engine(model):
                 _prepare_scenario(model.cfg.root,binding)
             elif binding.anchor and binding.anchor.calibrated_by:
                 _prepare(model.cfg.root,binding.anchor)
+    model.deep = True  # These Engine controls explicitly exercise decision probes and mutation survival.
     return Engine(model)
 
 

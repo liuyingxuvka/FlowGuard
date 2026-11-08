@@ -344,7 +344,9 @@ class Engine:
             if not checked:
                 parts = [self.run_rules(child)]
                 for home in child.homes:
-                    parts.extend((self.run_home(child, home, 'rows'), self.run_home(child, home, 'cells'), self.run_live(child, home)))
+                    parts.extend(self.run_home(child, home, part) for part in ('rows', 'cells'))
+                    if self.m.deep:
+                        parts.append(self.run_live(child, home))
             outcomes = {}
             for cell in self.rr_space(child.decides)[0]:
                 value = self.effective(child, cell)
@@ -352,7 +354,7 @@ class Engine:
                     outcomes[(type(value).__name__, repr(value))] = value
             reasons = []
             if checked:
-                required = {('rules', None)} | {(part, h.target) for h in child.homes for part in ('rows', 'cells', 'live')}
+                required = {('rules', None)} | {(part, h.target) for h in child.homes for part in (('rows', 'cells', 'live') if self.m.deep else ('rows', 'cells'))}
                 if not required <= {(p['kind'], p.get('target')) for p in parts}:
                     reasons.append('not all declared contract items ran')
             else:
@@ -513,10 +515,26 @@ class Engine:
             info = self._rr_info[key]
             consts = {f: list(v) for f, v in self._rr_space[key][3].items()}
             links = set(info["links"])
+            planes = list(info["planes"])
             kinds = self.kinds(key)
             reasons = list(info["reasons"])
             for r in self.m.key(key):
                 for h in r.homes:
+                    if not self.m.deep:
+                        fn, _, gone = self.home_sites(h.target)
+                        if gone:
+                            continue  # The home item reports the missing target.
+                        try:
+                            reading = read_predicate(S.unwrap(fn), kinds)
+                        except (OSError, TypeError, ValueError, SyntaxError):
+                            reasons.append(f'{h.target}: code boundaries unavailable; run check --deep')
+                            continue
+                        for name, values in reading.consts.items():
+                            consts[name].extend(values)
+                        links.update(reading.links)
+                        planes.extend(reading.planes)
+                        reasons.extend(f'{h.target}: {reason}' for reason in reading.reasons)
+                        continue
                     pr = self.probe(r, h) or {}
                     reasons.extend(reason for reason in pr.get('unmeasured', []) if reason not in reasons)
                     child_nodes = self.child_nodes(r)
@@ -544,7 +562,7 @@ class Engine:
                                       "is on no field"
                                 if why not in reasons:
                                     reasons.append(why)
-            sp = build_space(kinds, consts, info["planes"], links, reasons, info["hints"], seed="code:" + key)
+            sp = build_space(kinds, consts, planes, links, reasons, info["hints"], seed="code:" + key)
             self._code_space[key] = (self._outcome_cells(key, sp.cells), sp.label, sp.pts)
             self._code_reasons[key] = sp.reasons
         return self._code_space[key]

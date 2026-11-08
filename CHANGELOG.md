@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.0.1 - 2026-11-08 - Restore test isolation and make deep checks explicit
+
+- Restore the caller's exact import-path list after each calibrated pytest session, including its ordering, intentional duplicates and pytest path ownership. Preserve restoration after ordinary returns, controlled stops and exceptions.
+- Keep a single FlowGuard SDK namespace in editable installations, while retaining protection against a project shadowing the installed SDK.
+- Move decision probes and mutation-survival checks to explicit `check --deep`. Ordinary pytest and default checks retain rule, literal-row and source-copy checks using readable static code boundaries; unresolved boundaries remain grey. A default collection never substitutes for a complete deep run. CI uses `check --all --deep`.
+- This patch corrects execution and default check costs within the 3.0 source-anchor contract. Existing full anchor syntax, rules, saved inputs and release history remain supported.
+
 ## v3.0.0 - 2026-11-08 - Connect executable rules through source anchors
 
 - Replace the public `Home` / `.home(...)` and custom adapter execution API with source sensors and ordinary calibrated tests. This is an incompatible SDK and saved-rule change; rebuild bindings from the original tests and inputs using [the migration guide](docs/upgrade-3.0.md). Archived owner words, rule predicates, literal rows and historical releases are unchanged.

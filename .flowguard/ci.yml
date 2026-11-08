@@ -2,4 +2,4 @@
 - uses: actions/checkout@v5
   with:
     fetch-depth: 0
-- run: python -m flowguard check --all
+- run: python -m flowguard check --all --deep

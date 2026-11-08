@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowguard"
-version = "3.0.0"
+version = "3.0.1"
 description = "Find existing decisions and check necessary copies against one executable rule."
 requires-python = ">=3.11"
 dependencies = [

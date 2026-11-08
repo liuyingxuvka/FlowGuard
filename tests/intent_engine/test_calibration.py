@@ -370,3 +370,50 @@ assert actual.status=='ok' and actual.value is False,actual.reasons
     env=os.environ.copy();env['PYTHONPATH']=str(fake)
     process=subprocess.run([sys.executable,'-B','-c',script,str(sdk),json.dumps(asdict(anchor))],cwd=root,env=env,capture_output=True,text=True)
     assert process.returncode==0,process.stdout+process.stderr
+
+
+def test_editable_meta_path_sdk_is_loaded_once(tmp_path, monkeypatch):
+    """PEP 660 finders are not PathFinder; native imports must share our SDK."""
+    import subprocess
+    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+def limit(x: int) -> bool:
+    return x <= 3
+''', '''import flowguard
+from policy import limit
+def test_native():
+    assert limit(2) is True
+''')
+    sdk = Path(calibration.__file__).resolve().parents[1]
+    # An editable install contributes a meta-path finder rather than a directory
+    # containing flowguard on sys.path. Model that import contract without
+    # building/installing a distribution during every calibration regression.
+    editable = f'''import importlib.machinery, importlib.util, sys
+_sdk = {str(sdk)!r}
+_find_path = importlib.machinery.PathFinder.find_spec
+class EditableSDK:
+    @staticmethod
+    def find_spec(fullname, path=None, target=None):
+        if fullname == 'flowguard':
+            return importlib.util.spec_from_file_location(fullname, _sdk + '/__init__.py', submodule_search_locations=[_sdk])
+importlib.machinery.PathFinder.find_spec = staticmethod(lambda fullname, *args, **kwargs: None if fullname == 'flowguard' else _find_path(fullname, *args, **kwargs))
+sys.meta_path.insert(0, EditableSDK)
+'''
+    run = subprocess.run
+    def editable_child(arguments, **kwargs):
+        arguments = list(arguments)
+        script = arguments.index('-c') + 1
+        arguments[script] = editable + arguments[script] + '''
+import json
+result_path = Path(sys.argv[2])
+result = json.loads(result_path.read_text())
+result['sdk_names'] = sorted(name for name in ('flowguard', '_flowguard_execution') if name in sys.modules)
+result_path.write_text(json.dumps(result))
+'''
+        return run(arguments, **kwargs)
+    monkeypatch.setattr(calibration.subprocess, 'run', editable_child)
+    original = calibration._child(dict(operation='stage', root=str(tmp_path), anchor=calibration.asdict(anchor),
+                                       values=calibration._encode({}), stage='baseline'))
+    assert original['status'] == 'ok', original.get('reasons')
+    assert original['sdk_names'] == ['flowguard']
+    changed = calibration.execute(tmp_path, anchor, {'x': 5})
+    assert changed.status == 'ok' and changed.value is False, changed.reasons

@@ -2,9 +2,11 @@
 
 The canonical API guide and executable two-anchor example are in [the skill's local reference](../.agents/skills/flowguard/references/rules.md). The skill installer copies that reference with SKILL.md, so the first rule does not depend on retrieving a web page or guessing the API.
 
+`check --deep` adds decision-site probes and mutation-survival checks. Ordinary pytest and default `check` still compare every declared rule/row and source copy, using statically read code boundaries; unresolved boundaries remain grey. They do not run or claim mutation adequacy. CI runs `check --all --deep`; a previous default collection cannot substitute for the first deep collection.
+
 `check --diagnose` records timed check stages in `.flowguard/cache/check-flow.jsonl`, validates their observed pipeline, and records activated ordinary-test source-anchor events in `.flowguard/cache/anchor-events.jsonl`. Ordinary `check` keeps the same project rule/Flow checks without this diagnostic observer. `--all` runs the complete tests with live pytest output; add `--diagnose` when diagnosing a full run. `show CHECK_PIPELINE` reads the built-in declaration without executing it; a real project rule of that name takes priority. Historical logs do not verify the current run. A completed run, a successful check and complete model coverage are separate findings.
 
-For CI partitions, `check --all --shard 1/6 --shard-report .flowguard/cache/shard-1.json` runs all intent items, the sentinel and required scenario tests, plus one fixed ordinary partition. Parallel partitions need separate worktrees and caches. A single partition is partial evidence and never refreshes a complete ordinary-file baseline. FlowGuard's CI aggregates all six partitions on each of the three platforms and verifies their complete node coverage on the exact source, run and attempt before publishing. The ordinary unpartitioned commands are unchanged.
+For CI partitions, `check --all --deep --shard 1/6 --shard-report .flowguard/cache/shard-1.json` runs all intent items, the sentinel and required scenario tests, plus one fixed ordinary partition. Parallel partitions need separate worktrees and caches. A single partition is partial evidence and never refreshes a complete ordinary-file baseline. FlowGuard's CI aggregates all six partitions on each of the three platforms and verifies their complete node coverage on the exact source, run and attempt before publishing. The ordinary unpartitioned commands are unchanged.
 
 ## Generated source queries
 
@@ -31,7 +33,7 @@ Fingerprints help find changed code and possible moves. They do not establish cr
 
 ## Use hierarchy only when it removes repetition
 
-An upper behavior rule can declare `uses=[LOWER]`. A scenario relation connects actual lower and upper readings; the engine derives the logical-input binding and supplies verified joint witnesses. Lower sources, anchors and liveness must pass too. Joint checks combine all verified lower inputs, through nested uses, instead of changing one lower input at a time. Closed boolean/enum domains can have complete finite coverage. Open domains use supported partition representatives and report that boundary; they are not enumerated value by value.
+An upper behavior rule can declare `uses=[LOWER]`. A scenario relation connects actual lower and upper readings; the engine derives the logical-input binding and supplies verified joint witnesses. Lower sources and anchors must pass too; explicit deep checks additionally require mutation liveness. Joint checks combine all verified lower inputs, through nested uses, instead of changing one lower input at a time. Closed boolean/enum domains can have complete finite coverage. Open domains use supported partition representatives and report that boundary; they are not enumerated value by value.
 
 Keep behavior decomposition in those actual uses relations and source constraints in `structure_rule` at their owner. Neither requires a whole-application model, a separate hierarchy format, or modeling the current development task.
 
