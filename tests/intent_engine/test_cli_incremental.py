@@ -40,7 +40,7 @@ def test_unchanged_check_runs_zero_rules_and_preserves_a_cached_red(tmp_path, mo
     assert after['attempt'] == before['attempt'], 'reuse must not manufacture a new complete run'
     text = capsys.readouterr().out
     assert len(text.splitlines()) <= 10
-    assert '红：LIMIT' in text if wrong else text == ''
+    assert '红：LIMIT' in cli_fixture.display_text(text) if wrong else text == ''
 
 
 def test_since_selects_real_git_changes_even_after_current_cache_is_fresh(tmp_path, monkeypatch, capsys):

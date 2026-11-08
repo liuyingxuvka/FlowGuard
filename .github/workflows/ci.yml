@@ -81,7 +81,9 @@ jobs:
         if: failure()
         shell: python
         run: |
+          import sys
           from pathlib import Path
+          sys.stdout.reconfigure(errors="backslashreplace")
           output = Path(".flowguard/cache/check-output.txt")
           if output.is_file():
               print(output.read_text(encoding="utf-8", errors="replace"))

@@ -265,7 +265,7 @@ def watch(cfg, command, *, index=None, model=None):
     """Execute Python normally in this process, recording anchors without replay."""
     command = list(command)
     arguments = command
-    if command and re.fullmatch(r'python(?:\d+(?:\.\d+)*)?(?:\.exe)?', Path(command[0]).name):
+    if command and re.fullmatch(r'python(?:\d+(?:\.\d+)*)?(?:\.exe)?', Path(command[0]).name, re.IGNORECASE):
         arguments = command[1:]
     module = len(arguments) >= 2 and arguments[0] == '-m'
     script = bool(arguments) and arguments[0].endswith('.py')

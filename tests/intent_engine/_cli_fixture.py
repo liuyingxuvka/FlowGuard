@@ -5,6 +5,7 @@ pytest path; its actual arguments are observed without replacing its result.
 """
 from pathlib import Path
 import json
+import re
 import subprocess
 import sys
 import uuid
@@ -12,6 +13,14 @@ import uuid
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 _OBSERVED = None
+
+
+def display_text(result):
+    """Decode the supported escaped display only at a human-text assertion."""
+    text = result if isinstance(result, str) else result.stdout + result.stderr
+    return re.sub(r'\\u([0-9a-fA-F]{4})', lambda match: chr(int(match.group(1), 16)), text)
+
+
 _BOOT = r'''
 import json, sys
 source, marker, before, *arguments = sys.argv[1:]

@@ -11,6 +11,8 @@ import subprocess
 import sys
 import textwrap
 
+from tests.intent_engine._cli_fixture import display_text as _text
+
 
 def _git(root, *arguments):
     return subprocess.run(['git', '-C', str(root), *arguments], check=True,
@@ -51,12 +53,6 @@ def _observations(root):
         row = connection.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()
     assert row is not None
     return json.loads(row[0])['items']
-
-
-def _text(result):
-    # The supported ASCII display fallback retains reversible Unicode escapes.
-    return re.sub(r'\\u([0-9a-fA-F]{4})', lambda match: chr(int(match.group(1), 16)),
-                  result.stdout + result.stderr)
 
 
 def _has_change(text):
@@ -106,7 +102,7 @@ def test_fixed_1_contextual_comparison_reports_the_equal_stock_boundary(tmp_path
     capsys.readouterr()
     assert cli_main(['--root', str(tmp_path), 'check', '--all', '--base', 'HEAD'], cwd=tmp_path) == 0
     cli_text = capsys.readouterr().out
-    assert 'AVAILABLE' in cli_text and re.search(r'共\s*[1-9]\d*\s*类，变\s*0\s*类', cli_text), cli_text
+    assert 'AVAILABLE' in cli_text and re.search(r'共\s*[1-9]\d*\s*类，变\s*0\s*类', _text(cli_text)), cli_text
     cli_report = _observations(tmp_path)
     assert cli_report['comparison_requested'] and cli_report['source_changed'] is False
 

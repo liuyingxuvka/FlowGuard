@@ -142,7 +142,6 @@ def test_unchanged_source_still_checks_a_bound_rule_in_the_real_context(tmp_path
 
 
 def test_no_git_baseline_cannot_turn_an_ordinary_call_into_a_source_lookup_error(tmp_path):
-    import shutil
     _project(tmp_path, '''
         # flowguard: sensor STANDING
         def standing(days: int) -> bool:
@@ -159,7 +158,8 @@ def test_no_git_baseline_cannot_turn_an_ordinary_call_into_a_source_lookup_error
             return days <= 3
         STANDING_RULE.rows(row(days=4, expect=False, why='the fourth day must remain refused'))
     ''')
-    shutil.rmtree(tmp_path / '.git')
+    (tmp_path / '.git').rename(tmp_path.with_name(tmp_path.name + '-git-baseline'))
+    assert not (tmp_path / '.git').exists()
     from tests.intent_engine.test_default_runtime_signals import _run
     result = _run(tmp_path)
     assert result.returncode == 0, _text(result)
