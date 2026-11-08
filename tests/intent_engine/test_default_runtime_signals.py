@@ -152,6 +152,7 @@ def test_fixed_3_old_function_uses_old_module_constant_and_names_its_line(tmp_pa
     text = _text(result)
     assert result.returncode == 0, text
     assert 'STANDING' in text and re.search(r'4\s*[–-]\s*7', text), text
+    assert '；函数返回值 F → T（例：' in text, text
     assert 'GRACE_DAYS' in text and 'policy.py:1' in text, text
     assert _has_change(text), text
 

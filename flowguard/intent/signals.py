@@ -120,7 +120,7 @@ def _block(item, *, comparison=False, same_name=False):
             points = {name: sorted({entry['inputs'][name] for entry in members}, key=C._k) for name in row['inputs']}
             smallest = C.smallest([entry['inputs'] for entry in members], points)
             row = next(entry for entry in members if entry['inputs'] == smallest)
-        lines.append(f'{_region(members)}：{row["before"]} → {row["after"]}（例：{_example(row)}）'
+        lines.append(f'{_region(members)}；函数返回值 {row["before"]} → {row["after"]}（例：{_example(row)}）'
                      + (f'；另 {len(groups) - 1} 组结果变化' if len(groups) > 1 else ''))
     if cause := _cause(item.get('cause')):
         lines.append(cause)

@@ -36,6 +36,7 @@ def test_tuple_readings_print_interval_minimal_example_and_exact_cause():
     lines = signals.render(dict(items=[item], source_changed=True)).splitlines()
     assert len(lines) == 3
     assert 'days=4–7' in lines[1] and '例：days=4' in lines[1]
+    assert '；函数返回值 False → True（例：' in lines[1]
     assert lines[2] == '原因：GRACE_DAYS 3 → 7（shop/policy.py:1）'
 
 

@@ -93,7 +93,7 @@ def test_union_boundary_runs_one_representative_for_four_to_seven():
     assert result['changed'] == 1
     assert result['changes'] == [dict(anchor='grace', region='days=4–7',
                                       witness={'days': '4'}, before='F', after='T')]
-    assert D.render(result) == 'grace：共 3 类，变 1 类\ndays=4–7：F → T（例：days=4）'
+    assert D.render(result) == 'grace：共 3 类，变 1 类\ndays=4–7；函数返回值 F → T（例：days=4）'
 
 
 def test_pure_refactor_has_zero_behavior_changes():
