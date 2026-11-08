@@ -765,7 +765,11 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
                     actual = _read(rel.actual, readings, event) if rel.actual else True
                     checked += 1
                     if not same(expected, actual):
-                        red.append(f'{case}: relation {rule.id} disagrees at {node.name}: expected {expected!r}, actual {actual!r}')
+                        if _observed_only:
+                            from .cells import show_cell
+                            red.append(f'relation {rule.id}: {show_cell(inputs)} -> expected {expected!r}, actual {actual!r}; {case} at {node.name}')
+                        else:
+                            red.append(f'{case}: relation {rule.id} disagrees at {node.name}: expected {expected!r}, actual {actual!r}')
                 except Unverified as error: grey.append(f'{case}: {error}')
                 except Exception as error: red.append(f'{case}: relation raised {type(error).__name__}: {error}')
         if not sequence:

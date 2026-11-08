@@ -13,6 +13,9 @@ This is a major-version migration because supported execution and CLI behavior c
 | `check --diagnose`, diagnostic JSONL and built-in `CHECK_PIPELINE` | Retired. Normal tests report the three signals. Optional `show`, `try` and `watch` use current anchors and historical observations. A project's own rule may still use that identifier; there is no implicit built-in graph. |
 | `--shard` and `--shard-report` | Retired. CI runs complete unsharded checks on Linux Python 3.11/3.13 and Windows Python 3.12. One partial run is never treated as complete evidence. |
 | Default static source-path proof in a Flow check | Frozen. The verdict checks observed anchor paths and the declared finite model. Unwalked model edges stay grey and an observed forbidden path is red; unexecuted source routes remain unverified. Direct static SDK helpers retain only their explicit source scope. |
+| Ordinary execution footprints, trace ledgers and batched contract cuts | Retired. One Map-owned function/file dependency summary selects a single real test session. Closed unchanged evidence retains its original result and scope; unknown inputs rerun. File-level selection can recheck more than the former call-level selector. Marked guards still require real in-memory source observations. |
+| Partial pytest omitted the Flow intent item | Actual anchor events still check their Flow relations and sourced rules. This observed-only result is explicitly incomplete and does not create a full collection receipt or prove lower contracts. |
+| `check --all` with collection-only or selection filters | The real pytest entry rejects an incomplete collection with its native usage-error exit, before ordinary tests can masquerade as a complete run. |
 | Foreign grammars were mandatory | Python is the base map. The unchanged foreign readers are frozen behind the `languages` extra; unavailable grammars stay explicit. |
 | Legacy `flowguard.intent` module entry | Use the single supported `python -m flowguard` entry. |
 | Repository test helper imported as `flowguard.testing` | It belongs to the tests rather than the installed product. Keep such helpers in your own test suite; FlowGuard's copy is now `tests/route_text_support.py`. |
@@ -28,7 +31,7 @@ The safety gate is conservative, not a proof of all possible effects. It checks 
 5. Run the ordinary tests. Review changed outcome classes, inconsistent same-name sensors and sourced rule violations. Compare every known old counterexample; a formerly unverified green must become red or grey, never silently disappear.
 6. Run the complete suite with an environment outside the project, then require complete `ci.yml` success on that exact main commit before publication. Keep historical commits, tags and releases.
 
-The default is now “run tests, read FlowGuard's few lines.” No source change stays quiet unless a constraint fails. An optional session brief remembers the task baseline; `check --base COMMIT` selects another comparison baseline explicitly. Comparison reports supported classes, not every value in an open domain. Independent source words and tests still matter because code and model can share the same mistaken interpretation.
+The default is now “run tests, read FlowGuard's few lines.” With no source change, output stays quiet unless a constraint fails. An optional session brief remembers the task baseline; `check --base COMMIT` selects another comparison baseline explicitly. Comparison reports supported classes, not every value in an open domain. Independent source words and tests still matter because code and model can share the same mistaken interpretation.
 
 ## Optional inspection
 

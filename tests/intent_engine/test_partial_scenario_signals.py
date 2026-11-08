@@ -105,6 +105,7 @@ def test_unchanged_partial_scenario_violation_reports_rule_and_original_quote(tm
     assert any(e['anchor']=='OUTCOME' and e['phase']=='return' and e['result'] is True for e in events),events
     assert result.returncode != 0,text
     assert rule in text and QUOTE in text,text
+    assert 'x=4' in text and 'False' in text and 'True' in text,text
     assert report['red'],report
     witness = ' '.join(report['red']).lower()
     assert 'false' in witness and 'true' in witness,report
