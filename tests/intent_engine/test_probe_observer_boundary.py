@@ -112,8 +112,9 @@ def test_new_foreign_trace_is_retained_and_marks_the_ordinary_scope_unknown(tmp_
 
     try:
         with Capture(tmp_path, index, 'ordinary', models=[model], _ordinary=True) as ordinary:
+            owned = sys.gettrace()
             with _without_ordinary_observers():
-                assert sys.gettrace() is None
+                assert sys.gettrace() is owned
                 sys.settrace(debugger)
             assert sys.gettrace() is debugger
     finally:
@@ -212,7 +213,7 @@ def test_ordinary_only_own_body_raise_is_not_a_normal_none_return(tmp_path):
     assert ordinary.issues == [] and ordinary._frames == {}
 
 
-def test_audit_rejecting_pause_does_not_leave_ordinary_capture_silently_disabled(tmp_path):
+def test_private_pause_does_not_replace_the_shared_observer(tmp_path):
     import subprocess
     import flowguard
     root = __import__('pathlib').Path(flowguard.__file__).resolve().parents[1]
@@ -233,11 +234,12 @@ with tempfile.TemporaryDirectory() as folder:
                 block[0] = False
                 raise RuntimeError('audit refuses pause')
         sys.addaudithook(deny)
-        try:
-            with _without_ordinary_observers():
-                raise AssertionError('audit denial should prevent entry')
-        except RuntimeError as error:
-            assert str(error) == 'audit refuses pause'
+        with _without_ordinary_observers():
+            assert ordinary._scope.paused and sys.gettrace() is owned
+            assert app.limit(4) is False
+            assert ordinary.events == []
+        assert block == [True], 'private pause must not call sys.settrace'
+        block[0] = False  # normal scope teardown may restore the 3.11 fallback
         assert sys.gettrace() is owned and not ordinary._scope.paused
         assert app.limit(2) is True
     assert [event.phase for event in ordinary.events] == ['call', 'return']

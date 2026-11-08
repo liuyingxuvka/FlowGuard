@@ -4,9 +4,9 @@
 
 [中文说明](./README.zh-CN.md)
 
-FlowGuard helps a coding AI find an existing decision and keep necessary copies consistent across later changes. The code map is generated. Write a rule only when a decision has copies, the owner says "everywhere", or a bug was fixed. Ordinary edits use ordinary tests.
+FlowGuard helps a coding AI compare real behavior before asserting requirements. Ordinary tests show three signals: what changed, which copies should have changed together, and which independent rule was violated. The generated code map helps find an existing owner before adding another implementation.
 
-Default use stays narrow: read status, preserve actual owner words, find existing code, and check rules when their bound decisions change. The optional-use trial did not demonstrate a correctness or time benefit. Behavior comparison and small flow models remain available for repeated judgments and cross-session paths. When changing an old judgment that needs a rule, anchor it before editing. See the [migration guide](./docs/upgrade-3.0.md) for the measured scope and boundaries.
+Run the project's tests and read the few FlowGuard lines. A source change reports supported old/new outcome classes; same-name sensors must agree; a sourced rule supplies the intended answer. No source change stays quiet unless a constraint fails. Rules and optional small models retain important decisions across later sessions. This does not establish general productivity or token savings; the earlier optional-use trial did not demonstrate a benefit. See [4.0 migration](./docs/upgrade-4.0.md) for the changed execution boundary.
 
 ## Start
 
@@ -15,23 +15,22 @@ Install from this repository; the similarly named PyPI project is different. Pyt
 ```bash
 python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git"
 cd your-project
-python -m flowguard show "who may accept an order"
 python -m flowguard init
-python -m flowguard req add owner-message.txt --id R1
+python -m pytest
 ```
 
-`show` reads source without importing the application. Reuse an existing owner where possible. `init` adds the pytest sentinel, a CI fragment and four project rules; it does not build a model of the task. Preserve actual owner words once, byte for byte.
+`init` enables the pytest plugin and adds the collection sentinel, CI fragment and four project rules. It does not build a model of the development task. Source navigation uses `show "what it decides"`; optional model views load the requested model. Preserve original words once only when a rule cites them, byte for byte.
 
 ## One rule, every necessary copy
 
 A rule states an expectation independently of the implementation. A source anchor connects the real function. A literal row preserves a known regression. The [local rule guide](./.agents/skills/flowguard/references/rules.md) contains a complete two-anchor example and is copied with the skill.
 
 
-After either copy changes, `check` executes ordinary pytest against the current source. A disagreement is red. An unverified boundary is grey. A newly written authority document may be green*; it is not independent confirmation.
+The shortest anchor is `# flowguard: sensor NAME` above a real function. Parameters are inferred as inputs or context; confirm their meaning and units. Necessary copies use the same name. A missing function or contradictory declared signature is red; unavailable readings stay grey. A newly written authority document may be green*; it is not independent confirmation. The original full comment syntax and literal rows still work.
 
 ## Source map and language boundaries
 
-The same generated map and fixed queries read the first languages below. Normal installation includes their grammar packages; a parser loads only when its language is present. Mapping source does not execute or compile it.
+The base installation maps Python without foreign grammar packages. For the frozen readers below, install the optional extra: `python -m pip install "flowguard[languages] @ git+https://github.com/liuyingxuvka/FlowGuard.git"`. A parser loads only when its language is present; a missing grammar reports that reader as unavailable. Mapping source does not execute or compile it.
 
 | source | map facts | executable behavior anchors |
 | --- | --- | --- |
@@ -46,13 +45,16 @@ The same generated map and fixed queries read the first languages below. Normal 
 
 | command | purpose |
 | --- | --- |
-| `python -m flowguard` | Read a short cached screen when the project has rules; run no tests. |
+| `python -m pytest` | Run normal tests and read the three FlowGuard signals, at most ten lines. |
+| `python -m flowguard` | Read a brief of at most ten lines and remember this task's baseline commit; run no tests. |
 | `python -m flowguard show "what it decides"` | Find a decision owner and static candidates before adding another copy. |
-| `python -m flowguard show WINDOW` | Read the rule, sources, anchors and complete findings. |
-| `python -m flowguard show --draft orders:accept` | Locate an existing calibration test; do not invent its expected answer. |
+| `python -m flowguard show WINDOW` | Read a rule or recorded anchor/model observations; history is labelled as history. |
+| `python -m flowguard try ACCEPT days=4` | Explore one source-bound input; context comes from its real test. |
+| `python -m flowguard try ACCEPT days=4 --grid` | Print every evaluated representative; incomplete partitions remain grey. |
+| `python -m flowguard watch -- python app.py` | Record a real Python run and check its models. |
+| `python -m flowguard model draft PUBLISH` | Propose nodes and edges from observed paths; requirements still need review. |
 | `python -m flowguard check` | Recheck affected rules and tests with ordinary pytest. |
 | `python -m flowguard check --all --deep` | Run all intent and ordinary project tests, decision probes and mutation checks in CI. |
-| `python -m flowguard check --diagnose` | Optionally record timed check stages and activated source-anchor events. Add `--all` when diagnosing the complete suite. |
 | `python -m flowguard req list` | List preserved owner messages; `show R1` reads the original. |
 
 Without rules, a check is quiet:
@@ -61,7 +63,7 @@ Without rules, a check is quiet:
 FlowGuard check: no intent rules.
 ```
 
-Cases remain literal and do not silently shrink. Sources, helpers, data and implementation changes invalidate dependent results. Necessary copies are bound explicitly; candidate similarity alone never proves equivalence. `check --all` records test-to-code links for the complete suite; local `check` refreshes selected tests. These links support affected-test selection and point anchors to existing calibration tests. With plain pytest, unmarked ordinary tests avoid general tracing; marked guards still record their code links. When links are missing, source dependencies select conservatively. Complete collection does more work to preserve those real links. Ordinary checks reuse results within their supported closed input boundary. Unverified external imports or calls rerun; an installed package version alone does not establish purity. Module initialization remains a dependency, while retaining a function object does not by itself execute its body. Open inputs can require a rerun even when source files have not changed.
+Cases remain literal and do not silently shrink. Supported partitions are evaluated in full, without a fixed class cap. A single runtime observes real calls, replays safe input classes in the same context and rechecks the original values. Scenarios rerun their collected ordinary test in the same session with fresh function fixtures. Observation does not start child Python processes or nested test sessions. A calibration test does not make writes safe to replay. Keep effectful business behavior in the ordinary test and connect its actual readings with a flow relation. Function fingerprints support incremental selection; unresolved imports, external inputs or unavailable fixtures cause conservative reruns or grey findings. Similarity is a clue, not equality evidence.
 
 ## Boundaries and migration
 
@@ -69,7 +71,7 @@ Rules check declared inputs and real bindings, not factual truth or every behavi
 
 For real decomposition, a scenario relation connects actual lower and upper readings; the engine derives the binding and supplies verified lower inputs. Checks combine all verified lower inputs jointly, including nested uses. Closed boolean/enum domains can be finite and complete; open domains use supported partition representatives, not every value. Put dependency or ownership constraints in a sourced `structure_rule` at their existing owner. There is no requirement to model the whole application or add another hierarchy layer.
 
-The old flow machines, background jobs, pictures and release test runner are retired. `status`, `where`, `draft`, `decide` and `release` have no compatibility aliases. Keep the original request archive; retain useful contracts as rules and rows; this release leaves `.flowguard/models/` unchanged. See the [intent guide](./docs/intent-guide.md) and [migration guide](./docs/upgrade-3.0.md).
+The old flow machines, background jobs, pictures and release test runner are retired. `status`, `where`, `draft`, `decide` and `release` have no compatibility aliases. Version 4 also retires the diagnostic/shard CLI and its separate check-pipeline recorder. Child-only guard execution is no longer observed. Keep original requests, useful rules and rows; rebuild generated observations from real tests. See the [intent guide](./docs/intent-guide.md) and [4.0 migration](./docs/upgrade-4.0.md).
 
 ## Repository
 
@@ -81,4 +83,4 @@ The old flow machines, background jobs, pictures and release test runner are ret
 
 License: MIT
 
-Source anchors replace `.home` and custom adapters in 3.0. Pure judgments execute directly; effects use an ordinary calibration test and actual readings. Small layered flow models check supported source paths and observed order. Missing or unsupported paths remain grey. See the [3.0 migration](./docs/upgrade-3.0.md).
+Source anchors replace `.home` and custom adapters. Small layered models relate nodes, edges, state transitions and real readings. Missing or unsupported paths remain grey; a model can share an AI's mistaken interpretation, so keep independent tests and source words.

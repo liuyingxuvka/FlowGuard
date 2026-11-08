@@ -6,6 +6,8 @@ import json
 
 import pytest
 
+from tests.intent_engine import _cli_fixture as cli_fixture
+
 from flowguard.intent import cli, deps
 from flowguard.structure import build
 from test_cli import project
@@ -49,32 +51,32 @@ def dependency(cfg):
 def test_external_environment_change_is_executed_and_matches_full(tmp_path, monkeypatch, style):
     root, cfg, _ = external_project(tmp_path, style=style)
     monkeypatch.setenv('FG_N1_VALUE', 'alpha')
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     assert '<unresolved>' in dependency(cfg)
     selected = calls(monkeypatch)
     monkeypatch.setenv('FG_N1_VALUE', 'beta')
-    assert cli.check(cfg) == 1
+    assert cli_fixture.check(cfg) == 1
     assert selected and any('tests/test_external.py' in command for command in selected)
-    assert cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg, everything=True) == 1
     assert 'test_external' in (cfg.cache / 'check-output.txt').read_text()
 
 
 def test_external_source_change_is_not_hidden_by_unchanged_distribution_identity(tmp_path, monkeypatch):
     root, cfg, module = external_project(tmp_path, source='def read(): return "alpha"\n')
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     selected = calls(monkeypatch)
-    assert cli.check(cfg) == 0 and selected  # Correct opaque executions are usable.
+    assert cli_fixture.check(cfg) == 0 and selected  # Correct opaque executions are usable.
     module.write_text('def read(): return "beta"\n')
-    assert cli.check(cfg) == 1
-    assert cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg) == 1
+    assert cli_fixture.check(cfg, everything=True) == 1
 
 
 def test_external_initializer_input_is_not_assumed_pure(tmp_path, monkeypatch):
     root, cfg, _ = external_project(tmp_path, source='import os\nVALUE=os.getenv("FG_N1_VALUE", "alpha")\ndef read(): return VALUE\n')
     monkeypatch.setenv('FG_N1_VALUE', 'alpha')
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     monkeypatch.setenv('FG_N1_VALUE', 'beta')
-    assert cli.check(cfg) == cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg) == cli_fixture.check(cfg, everything=True) == 1
 
 
 def test_unmodeled_stdlib_call_is_not_pure_merely_because_it_is_stdlib(tmp_path):
@@ -104,9 +106,9 @@ def test_a_dependency_environment_inside_the_project_is_still_external(tmp_path,
     cli.init(cfg)
     monkeypatch.setenv('FG_N1_VALUE', 'alpha')
     assert '<unresolved>' in dependency(cfg)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     monkeypatch.setenv('FG_N1_VALUE', 'beta')
-    assert cli.check(cfg) == cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg) == cli_fixture.check(cfg, everything=True) == 1
 
 
 @pytest.mark.parametrize('external', [False, True], ids=['project', 'external'])

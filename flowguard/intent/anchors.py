@@ -12,7 +12,9 @@ from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+import enum
 import importlib
+import inspect
 import io
 import math
 from pathlib import Path, PosixPath, WindowsPath
@@ -45,6 +47,8 @@ class Parameter:
     name: str
     unit: str
     source_type: str
+    role: str = 'input'
+    inferred: bool = False
 
 
 @dataclass(frozen=True)
@@ -65,6 +69,14 @@ class Anchor:
     source_digest: str = ''
     receiver: str = ''
     source_role: str = 'production'
+
+    @property
+    def inputs(self):
+        return tuple(p for p in self.parameters if p.role == 'input')
+
+    @property
+    def contexts(self):
+        return tuple(p for p in self.parameters if p.role == 'context')
 
     @property
     def target(self):
@@ -176,6 +188,71 @@ def _kind(text):
             result.optional = True
             return result
     raise ValueError(f'unsupported simple type: {text}')
+
+
+def _source_types(tree):
+    aliases, modules = {}, {}
+    for statement in tree.body:
+        if isinstance(statement, ast.ImportFrom) and not statement.level:
+            allowed = _TYPE_IMPORTS.get(statement.module, ())
+            aliases.update({a.asname or a.name: a.name for a in statement.names if a.name in allowed})
+        elif isinstance(statement, ast.Import):
+            modules.update({a.asname or a.name: a.name for a in statement.names if a.name in ('typing', 'decimal', 'datetime')})
+    def annotation(node):
+        if node is None:
+            return '?'
+        class Names(ast.NodeTransformer):
+            def visit_Name(self, current):
+                return ast.Name(id=aliases.get(current.id, current.id), ctx=ast.Load())
+            def visit_Attribute(self, current):
+                if isinstance(current.value, ast.Name) and current.value.id in modules and current.attr in _TYPE_IMPORTS[modules[current.value.id]]:
+                    return ast.Name(id=current.attr, ctx=ast.Load())
+                return self.generic_visit(current)
+        # Parse a fresh expression; never mutate the extractor's source AST.
+        return ast.unparse(Names().visit(_type_node(_annotation(node))))
+    return annotation
+
+
+def _parameter_role(text, enum_names=()):
+    if text == '?' or text in enum_names:
+        return 'input'  # The runtime may infer this one parameter from an actual primitive.
+    try:
+        _kind(text)
+        return 'input'
+    except (ValueError, SyntaxError, TypeError, AttributeError):
+        return 'context'
+
+
+def parameter_kind(parameter, actual=...):
+    """One input-kind owner; actual values never override explicit context roles."""
+    if parameter.role == 'context' and not (parameter.inferred and isinstance(actual, enum.Enum)):
+        return None
+    try:
+        kind = _kind(parameter.source_type)
+        if kind is None:
+            raise ValueError('None alone has no varying domain')
+        return kind
+    except (ValueError, SyntaxError, TypeError, AttributeError):
+        if isinstance(actual, enum.Enum):
+            return cells.kind_of(type(actual))
+        if parameter.source_type == '?' and actual is not ...:
+            if type(actual) in (bool, int, float, str, Decimal, date, datetime, timedelta):
+                return cells.kind_of(type(actual))
+            if parameter.inferred:
+                return None
+        raise ValueError(f'{parameter.name}: simple source type or actual primitive is unavailable') from None
+
+
+def _enum_names(tree):
+    names, modules = set(), set()
+    for statement in tree.body:
+        if isinstance(statement, ast.ImportFrom) and statement.module == 'enum' and not statement.level:
+            names.update(a.asname or a.name for a in statement.names if a.name in ('Enum', 'IntEnum', 'StrEnum'))
+        elif isinstance(statement, ast.Import):
+            modules.update(a.asname or a.name for a in statement.names if a.name == 'enum')
+    return {n.name for n in tree.body if isinstance(n, ast.ClassDef) and any(
+        isinstance(b, ast.Name) and b.id in names or isinstance(b, ast.Attribute) and
+        isinstance(b.value, ast.Name) and b.value.id in modules and b.attr in ('Enum', 'IntEnum', 'StrEnum') for b in n.bases)}
 
 
 def _base_type(text):
@@ -293,6 +370,7 @@ def _return_type(node, params):
 def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
     """Canonical comment parse, called with the extractor's already parsed AST."""
     definitions, entries, problems = _definitions(tree), [], []
+    enum_names, annotation = _enum_names(tree), _source_types(tree)
     lines = text.splitlines()
     def issue(level, code, message, line, name=''):
         return Issue(level, code, message, file, line, name)
@@ -350,11 +428,11 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                            values=tuple(values), calibrated_by=calibrated_by, issues=tuple(local),
                            source_digest=source_digest, source_role='test' if is_test else 'production')
         else:
-            parsed = re.fullmatch(r'(' + _NAME + r')\s*\((.*)\)' + (r'\s*->\s*(' + _NAME + r')\s*:\s*(.+)' if kind == 'sensor' else ''), body)
-            if not parsed:
+            parsed = re.fullmatch(r'(' + _NAME + r')(?:\s*\((.*)\))?(?:\s*->\s*(' + _NAME + r')\s*:\s*(.+))?', body)
+            if not parsed or kind == 'event' and parsed[3]:
                 problems.append(issue('red', 'syntax', f'invalid {kind} anchor syntax', line))
                 continue
-            name, raw, *output = parsed.groups()
+            name, raw, output_name, output_type = parsed.groups()
             candidates = []
             for qual, (node, cls) in definitions.items():
                 if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -364,16 +442,23 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                         all(not s.strip() or s.lstrip().startswith('#') for s in lines[line:first - 1]):
                     candidates.append((qual, node, cls))
             qual, node, cls = min(candidates, key=lambda x: x[1].lineno) if candidates else ('', None, '')
-            declared = []
+            declared, context = [], []
             try:
-                for part in _parts(raw):
-                    item = re.fullmatch(r'([^\W\d]\w*)\s*:\s*(.+)', part)
+                sides = _parts(raw, ';') if raw is not None else []
+                if len(sides) > 2:
+                    raise ValueError('anchor has more than one context separator')
+                for part in _parts(sides[0]) if sides else ():
+                    item = re.fullmatch(r'([^\W\d]\w*)(?:\s*:\s*(.+))?', part)
                     if item is None:
-                        raise ValueError(f'parameter needs name: {"unit" if kind == "sensor" else "type"}: {part}')
+                        raise ValueError(f'invalid parameter: {part}')
                     declared.append(item.groups())
+                context = _parts(sides[1]) if len(sides) == 2 else []
+                if any(not item.isidentifier() for item in context):
+                    raise ValueError('context parameters need names')
             except (ValueError, tokenize.TokenError) as error:
                 local.append(issue('red', 'syntax', str(error), line, name))
-            if len({p[0] for p in declared}) != len(declared):
+            names = [p[0] for p in declared] + context
+            if len(set(names)) != len(names):
                 local.append(issue('red', 'signature', 'anchor parameters repeat', line, name))
             actual, receiver, return_type = {}, '', '?'
             if node is None:
@@ -382,29 +467,29 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                 args = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
                 if cls and args and args[0].arg in ('self', 'cls'):
                     receiver = args.pop(0).arg
-                actual = {a.arg: _annotation(a.annotation) for a in args}
-                if len(declared) != len(actual) or {p[0] for p in declared} != set(actual):
-                    local.append(issue('red', 'signature', f'anchor parameters {[p[0] for p in declared]} != source {list(actual)}', line, name))
+                actual = {a.arg: annotation(a.annotation) for a in args}
+                if raw is not None and (len(names) != len(actual) or set(names) != set(actual)):
+                    local.append(issue('red', 'signature', f'anchor parameters {names} != source {list(actual)}', line, name))
                 if node.args.vararg or node.args.kwarg:
                     local.append(issue('grey', 'variadic', 'variadic parameters require a calibrated test', line, name))
-                return_type = _return_type(node, actual)
+                return_type = annotation(node.returns) if node.returns is not None else _return_type(node, actual)
+            meanings = dict(declared) if raw is not None else {key: None for key in actual}
             params = []
-            declared = sorted(declared, key=lambda p: list(actual).index(p[0]) if p[0] in actual else len(actual))
-            for parameter, meaning in declared:
-                source_type = actual.get(parameter, '?')
-                if source_type == '?':
+            for parameter in sorted(dict.fromkeys([*meanings, *context]), key=lambda p: list(actual).index(p) if p in actual else len(actual)):
+                source_type, meaning = actual.get(parameter, '?'), meanings.get(parameter)
+                role = 'context' if parameter in context or len(sides) < 2 and _parameter_role(source_type, enum_names) == 'context' else 'input'
+                if source_type == '?' and raw is not None and role == 'input':
                     local.append(issue('grey', 'type-missing', f'parameter {parameter} has no source type', line, name))
                 if kind == 'sensor':
                     if meaning == '?':
                         local.append(issue('grey', 'unit-missing', f'parameter {parameter} needs its unit confirmed', line, name))
-                    if _unit(source_type) and _unit(source_type) != meaning:
+                    if meaning is not None and _unit(source_type) and _unit(source_type) != meaning:
                         local.append(issue('red', 'unit', f'parameter {parameter} unit {meaning} != source {_unit(source_type)}', line, name))
-                elif meaning == '?':
-                    local.append(issue('grey', 'type-missing', f'event parameter {parameter} needs its type confirmed', line, name))
-                elif _type_id(meaning) != _type_id(source_type) and source_type != '?':
+                elif meaning is not None and meaning != '?' and _type_id(meaning) != _type_id(source_type) and source_type != '?':
                     local.append(issue('red', 'type', f'parameter {parameter} type {meaning} != source {source_type}', line, name))
-                params.append(Parameter(parameter, meaning if kind == 'sensor' else '', source_type))
-            output_name, output_type = output if output else ('', '')
+                params.append(Parameter(parameter, (meaning if meaning is not None else _unit(source_type)) if kind == 'sensor' else '', source_type, role, len(sides) < 2))
+            output_name = output_name or ''
+            output_type = output_type or (return_type if kind == 'sensor' else '')
             if kind == 'sensor':
                 if output_type == '?' or return_type == '?':
                     local.append(issue('grey', 'return-missing', 'return type cannot be checked from source', line, name))
@@ -429,9 +514,16 @@ def _anchor(data):
 def _index(entries, problems):
     index = Index(tuple(entries))
     for name, group in index.by_name.items():
-        roles = {(a.kind, tuple((p.name, p.unit, _type_id(p.source_type)) for p in a.parameters),
-                  a.output, _type_id(a.output_type), a.values) for a in group}
-        if len(roles) > 1:
+        # Omitted labels/units are unknown metadata, not conflicting declarations.
+        roles = {(a.kind, a.values) for a in group}
+        inputs = [(set(p.name for p in a.inputs if not (p.inferred and p.source_type == '?')),
+                   set(p.name for p in a.inputs)) for a in group]
+        types = [{_type_id(value) for value in values if value not in ('', '?')} for values in
+                 [[a.output_type for a in group], *[[p.source_type for a in group for p in a.inputs if p.name == name]
+                   for name in {p.name for a in group for p in a.inputs}]]]
+        labels = [{a.output for a in group if a.output}, *[{p.unit for a in group for p in a.inputs if p.name == name and p.unit not in ('', '?')}
+                  for name in {p.name for a in group for p in a.inputs}]]
+        if len(roles) > 1 or any(required - allowed for required, _ in inputs for _, allowed in inputs) or any(len(values) > 1 for values in types + labels):
             for anchor in group:
                 problems.append(Issue('red', 'identity', f'same anchor {name} has conflicting roles, units or signature', anchor.file, anchor.line, name))
     index.issues = tuple(problems)
@@ -495,14 +587,35 @@ def _source(root, anchor):
 
 
 def _literal_globals(tree):
+    """Fold literals and known stdlib value constructors, never project imports."""
     result = {}
     for statement in tree.body:
-        if isinstance(statement, (ast.Assign, ast.AnnAssign)) and statement.value is not None:
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            result.pop(statement.name, None)
+        elif isinstance(statement, ast.ImportFrom):
+            allowed = _TYPE_IMPORTS.get(statement.module, ())
+            for alias in statement.names:
+                target = alias.asname or alias.name
+                result.pop(target, None)
+                if alias.name in allowed and alias.name in _TYPES:
+                    result[target] = _TYPES[alias.name]
+        elif isinstance(statement, (ast.Assign, ast.AnnAssign)) and statement.value is not None:
             targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+            previous = dict(result)
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    result.pop(target.id, None)
             try:
                 value = ast.literal_eval(statement.value)
             except (ValueError, SyntaxError):
-                continue
+                call = statement.value
+                constructor = previous.get(call.func.id) if isinstance(call, ast.Call) and isinstance(call.func, ast.Name) else None
+                if constructor not in (Decimal, date, datetime, timedelta):
+                    continue
+                try:
+                    value = constructor(*(ast.literal_eval(v) for v in call.args), **{k.arg: ast.literal_eval(k.value) for k in call.keywords})
+                except (ValueError, TypeError, SyntaxError, ArithmeticError):
+                    continue
             for target in targets:
                 if isinstance(target, ast.Name):
                     result[target.id] = value
@@ -512,14 +625,16 @@ def _literal_globals(tree):
 def _read_decision(function, parameters, env, file, line, name, initial=()):
     kinds, issues = {}, list(initial)
     for parameter in parameters:
+        if parameter.role == 'context':
+            continue
         try:
-            kind = _kind(parameter.source_type)
+            kind = parameter_kind(parameter)
             if kind is None:
                 raise ValueError('None alone has no varying domain')
             kinds[parameter.name] = kind
         except (SyntaxError, ValueError, TypeError, AttributeError) as error:
             issues.append(Issue('grey', 'range-missing', f'{parameter.name}: {error}', file, line, name))
-    reading = cells.read_predicate(types.SimpleNamespace(__globals__=env), kinds, node=function) if len(kinds) == len(parameters) else cells.Reading(consts={})
+    reading = cells.read_predicate(types.SimpleNamespace(__globals__=env), kinds, node=function)
     for parameter, kind in kinds.items():
         evidence = kind.name in ('bool', 'enum') or reading.consts.get(parameter) or any(parameter in plane.coefs for plane in reading.planes) or any(parameter in link for link in reading.links)
         if not evidence:
@@ -548,7 +663,7 @@ def decision_reading(graph_or_root, anchor):
         for name in names:
             if name in env:
                 dependencies['literal:' + anchor.module + ':' + name] = content_digest(root / anchor.file, data=repr(env[name]).encode())
-                if not _immutable(env[name]):
+                if not (_immutable(env[name]) or any(env[name] is constructor for constructor in (Decimal, date, datetime, timedelta))):
                     complete = False
             elif name in definitions and isinstance(definitions[name][0], ast.FunctionDef):
                 dependency(definitions[name][0], name)
@@ -575,24 +690,27 @@ def draft(graph, target):
     args = [*function.args.posonlyargs, *function.args.args, *function.args.kwonlyargs]
     if cls and args and args[0].arg in ('self', 'cls'):
         args.pop(0)
-    parameters = tuple(Parameter(a.arg, _unit(_annotation(a.annotation)), _annotation(a.annotation)) for a in args)
+    annotation, enum_names = _source_types(tree), _enum_names(tree)
+    parameters = tuple(Parameter(a.arg, _unit(annotation(a.annotation)), annotation(a.annotation), _parameter_role(annotation(a.annotation), enum_names), True) for a in args)
     kinds, reading, issues = _read_decision(function, parameters, _literal_globals(tree), file, function.lineno, qual)
     ranges = {}
-    if len(kinds) == len(args):
-        if not any(i.code != 'range-incomplete' for i in issues):
-            space = cells.build_space(kinds, reading.consts, reading.planes, reading.links, reading.reasons, reading.hints)
-            # Literal annotation is a finite type; do not manufacture <other> outside it.
-            rows = [row for row in space.cells if all(k.name != 'enum' or row[n] in k.literals for n, k in kinds.items())]
-            ranges = {'points': {n: [v for v in values if kinds[n].name != 'enum' or v in kinds[n].literals]
-                                 for n, values in space.pts.items()},
-                      'cells': rows, 'complete': space.complete, 'reasons': list(space.reasons), 'total': len(rows)}
-            issues.extend(Issue('grey', 'range-incomplete', reason, file, function.lineno) for reason in space.reasons
-                          if not any(i.code == 'range-incomplete' and i.message == reason for i in issues))
+    if kinds:
+        space = cells.build_space(kinds, reading.consts, reading.planes, reading.links, reading.reasons, reading.hints)
+        rows = [row for row in space.cells if all(k.name != 'enum' or row[n] in k.literals for n, k in kinds.items())]
+        ranges = {'points': {n: [v for v in values if kinds[n].name != 'enum' or v in kinds[n].literals]
+                             for n, values in space.pts.items()},
+                  'cells': rows, 'complete': space.complete and not issues,
+                  'reasons': list(space.reasons), 'total': len(rows),
+                  'inputs': [p.name for p in parameters if p.role == 'input'],
+                  'context': [p.name for p in parameters if p.role == 'context']}
+        issues.extend(Issue('grey', 'range-incomplete', reason, file, function.lineno) for reason in space.reasons
+                      if not any(i.code == 'range-incomplete' and i.message == reason for i in issues))
     name = qual.replace('.', '_')
-    comment = f'# flowguard: sensor {name}(' + ', '.join(f'{a.arg}: {_unit(_annotation(a.annotation)) or "?"}' for a in args)
-    comment += f') -> result: {_return_type(function, {a.arg: _annotation(a.annotation) for a in args})}'
-    if any(not _unit(_annotation(a.annotation)) for a in args):
-        issues.append(Issue('grey', 'unit-missing', 'confirm the meaning and units of the proposed parameters', file, function.lineno, name))
+    comment = f'# flowguard: sensor {name}'
+    if any(p.unit for p in parameters):
+        inputs = ', '.join(p.name + (': ' + p.unit if p.unit else '') for p in parameters if p.role == 'input')
+        context = ', '.join(p.name for p in parameters if p.role == 'context')
+        comment += '(' + inputs + ('; ' + context if context else '') + ')'
     return Draft(comment, ranges, tuple(issues))
 
 
@@ -656,7 +774,7 @@ def _observe_verified(root, anchor, values):
     cfg = load_config(root)
     setup_path(cfg)
     try:
-        reasons = _pure_reasons(cfg, anchor, tree, function)
+        reasons = _import_reasons(cfg, anchor, tree, function)
     except (ValueError, SyntaxError, OSError, ImportError) as error:
         return Observation('red', reasons=(f'source verification: {type(error).__name__}: {error}',), anchor=anchor.target)
     if reasons:
@@ -673,10 +791,15 @@ def _observe_verified(root, anchor, values):
         return Observation('red', reasons=('loaded callable does not match the actual source anchor',), anchor=anchor.target)
     positional = [values[a.arg] for a in function.args.posonlyargs]
     kwargs = {name: value for name, value in values.items() if name not in {a.arg for a in function.args.posonlyargs}}
-    try:
-        value = fn(*positional, **kwargs)
-    except Exception as error:
-        return Observation('ok', value=cells.Raised(error), anchor=anchor.target)
+    from .runtime import Runtime, _value
+    runtime = Runtime(root)
+    bound = inspect.signature(fn, follow_wrapped=False).bind(*positional, **kwargs)
+    problem = runtime.safety(fn, bound.arguments)
+    if problem:
+        return Observation('grey', reasons=(problem,), anchor=anchor.target)
+    value = _value(fn, bound)
+    if isinstance(value, cells.Raised):
+        return Observation('ok', value=value, anchor=anchor.target)
     try:
         accepted = _accepts(anchor.output_type, value)
     except (ValueError, SyntaxError, TypeError, AttributeError):
@@ -808,7 +931,7 @@ def _accepts(spec, value):
 
 
 def _immutable(value):
-    return type(value) in (str, bool, int, float, type(None)) or type(value) is tuple and all(_immutable(x) for x in value)
+    return type(value) in (str, bool, int, float, Decimal, date, datetime, timedelta, type(None)) or type(value) is tuple and all(_immutable(x) for x in value)
 
 
 _PURE_BUILTINS = {'abs', 'min', 'max', 'round', 'len', 'int', 'float', 'str', 'bool'}
@@ -818,8 +941,8 @@ _TYPE_IMPORTS = {'typing': {'Literal', 'Optional', 'Annotated'}, 'decimal': {'De
                  'datetime': {'date', 'datetime', 'timedelta'}}
 
 
-def _pure_reasons(cfg, anchor, tree, function):
-    """A small positive proof, not an inference from missing I/O evidence."""
+def _import_reasons(cfg, anchor, tree, function):
+    """Verify initialization before importing an otherwise unobserved function."""
     from .imports import _find
     from ..structure.paths import project_code
     reasons, checked = [], set()
@@ -946,119 +1069,4 @@ def _pure_reasons(cfg, anchor, tree, function):
     imported(anchor.module, set(), anchor.module)
     if (bindings & set(_TYPES)) - set(imports):
         unknown('simple type name is shadowed by a project binding')
-    active = set()
-    closed = {}
-    def closed_call(call, caller):
-        """Only same-module scalar forwarding; annotations alone are no proof."""
-        name = call.func.id if isinstance(call.func, ast.Name) else ''
-        found = definitions.get(name)
-        if not found or found[1] or not isinstance(found[0], ast.FunctionDef):
-            return False
-        callee = found[0]
-        arguments = [*callee.args.posonlyargs, *callee.args.args, *callee.args.kwonlyargs]
-        positional = [*callee.args.posonlyargs, *callee.args.args]
-        if callee.args.vararg or callee.args.kwarg or len(call.args) > len(positional):
-            return False
-        supplied = dict(zip((a.arg for a in positional), call.args))
-        for keyword in call.keywords:
-            if keyword.arg is None or keyword.arg in supplied:
-                return False
-            supplied[keyword.arg] = keyword.value
-        defaults = dict(zip((a.arg for a in positional[-len(callee.args.defaults):]), callee.args.defaults)) if callee.args.defaults else {}
-        defaults.update({a.arg: v for a, v in zip(callee.args.kwonlyargs, callee.args.kw_defaults) if v is not None})
-        caller_types = {a.arg: _annotation(a.annotation) for a in (*caller.args.posonlyargs, *caller.args.args, *caller.args.kwonlyargs)}
-        if set(supplied) - {a.arg for a in arguments}:
-            return False
-        for argument in arguments:
-            value = supplied.get(argument.arg, defaults.get(argument.arg))
-            if isinstance(value, ast.Name) and value.id in caller_types:
-                if _type_id(caller_types[value.id]) != _type_id(_annotation(argument.annotation)):
-                    return False
-            elif isinstance(value, ast.Constant):
-                try:
-                    if not _accepts(_annotation(argument.annotation), value.value):
-                        return False
-                except (ValueError, SyntaxError, TypeError, AttributeError):
-                    return False
-            else:
-                return False
-        if name in closed:
-            return bool(closed[name])
-        closed[name] = None
-        before = len(reasons)
-        body_safe(callee)
-        assignments = {}
-        for statement in ast.walk(callee):
-            if isinstance(statement, ast.Assign) and len(statement.targets) == 1 and isinstance(statement.targets[0], ast.Name):
-                assignments.setdefault(statement.targets[0].id, []).append(statement.value)
-        def primitive(expression, seen=()):
-            if expression is None or isinstance(expression, ast.Constant) and _immutable(expression.value):
-                return True
-            if isinstance(expression, ast.Name):
-                if expression.id in assignments:
-                    values = assignments[expression.id]
-                    return expression.id not in seen and len(values) == 1 and primitive(values[0], (*seen, expression.id))
-                return expression.id in {a.arg for a in arguments} or expression.id in globals_ and _immutable(globals_[expression.id])
-            if isinstance(expression, (ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Compare, ast.IfExp, ast.Subscript, ast.Tuple)):
-                return all(primitive(child, seen) for child in ast.iter_child_nodes(expression) if isinstance(child, ast.expr))
-            if isinstance(expression, ast.Call):
-                builtin = isinstance(expression.func, ast.Name) and expression.func.id in _PURE_BUILTINS and expression.func.id not in bindings
-                return (builtin and all(primitive(x, seen) for x in [*expression.args, *[k.value for k in expression.keywords]])
-                        or closed_call(expression, callee))
-            return False
-        closed[name] = len(reasons) == before and all(primitive(r.value) for r in ast.walk(callee) if isinstance(r, ast.Return))
-        return closed[name]
-
-    def body_safe(node):
-        if node.name in active:
-            unknown(f'recursive call is not bounded: {node.name}')
-            return
-        active.add(node.name)
-        params = {a.arg for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)}
-        nodes = [n for statement in node.body for n in ast.walk(statement)]
-        local = params | {n.id for n in nodes if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)}
-        literal_locals = {}
-        for statement in nodes:
-            if isinstance(statement, ast.Assign) and len(statement.targets) == 1 and isinstance(statement.targets[0], ast.Name):
-                try:
-                    literal_locals[statement.targets[0].id] = ast.literal_eval(statement.value)
-                except (ValueError, SyntaxError):
-                    pass
-        decimal_input = any(_base_type(_annotation(a.annotation)) == 'Decimal' for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs))
-        for value in nodes:
-            if isinstance(value, (ast.Global, ast.Nonlocal, ast.Delete, ast.Yield, ast.YieldFrom, ast.Await, ast.For, ast.AsyncFor,
-                                  ast.While, ast.With, ast.AsyncWith, ast.Try, ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp,
-                                  ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Import, ast.ImportFrom)) and value is not node:
-                unknown(f'function {node.name} contains unproved {type(value).__name__}')
-            elif isinstance(value, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
-                targets = value.targets if isinstance(value, ast.Assign) else [value.target]
-                if any(not isinstance(t, ast.Name) for t in targets):
-                    unknown(f'function {node.name} writes an attribute or item')
-                if any(isinstance(t, ast.Name) and t.id in params for t in targets):
-                    unknown(f'function {node.name} rebinds an input; primitive forwarding is not proved')
-            elif isinstance(value, ast.Attribute):
-                unknown(f'attribute access is not proved pure: {ast.unparse(value)}')
-            elif isinstance(value, ast.Subscript):
-                if not isinstance(value.value, ast.Name) or value.value.id not in params and \
-                        not _immutable(literal_locals.get(value.value.id, globals_.get(value.value.id, object()))):
-                    unknown(f'item access is not proved to use a primitive value: {ast.unparse(value)}')
-            elif isinstance(value, ast.BinOp) and decimal_input:
-                unknown('Decimal arithmetic reads the current decimal context; use a calibrated test')
-            elif isinstance(value, ast.Call):
-                name = value.func.id if isinstance(value.func, ast.Name) else ''
-                if name in _PURE_BUILTINS | _ERRORS and name not in bindings | local:
-                    continue
-                if name in imports and imports[name] in _INTRINSICS and name not in local and name not in globals_ and name not in definitions:
-                    if imports[name] == 'Decimal' and (len(value.args) != 1 or not isinstance(value.args[0], ast.Constant) or value.keywords):
-                        unknown('Decimal construction from a varying value is not proved context-free')
-                    continue
-                if not closed_call(value, node):
-                    unknown(f'call is not proved pure: {ast.unparse(value.func)}')
-            elif isinstance(value, ast.Name) and isinstance(value.ctx, ast.Load):
-                if value.id in local or value.id in _PURE_BUILTINS | _ERRORS or value.id in imports or value.id in definitions or value.id in _TYPES:
-                    continue
-                if value.id not in globals_ or not _immutable(globals_[value.id]):
-                    unknown(f'global value is not a proved immutable literal: {value.id}')
-        active.remove(node.name)
-    body_safe(function)
     return reasons

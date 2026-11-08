@@ -423,20 +423,6 @@ def validate_request_links(root: Path, links) -> None:
             raise MapError(f'request_meta_edited: {identifier}: {error}') from error
 
 
-def _other_worktrees(root: Path):
-    root = Path(root).resolve()
-    if git_common_directory(root) is None:
-        return []
-    top = git_run(root, 'rev-parse', '--show-toplevel')
-    prefix = root.relative_to(Path(os.fsdecode(top.stdout).strip()).resolve())
-    result = git_run(root, 'worktree', 'list', '--porcelain', '-z')
-    return [path for field in result.stdout.split(b'\0') if field.startswith(b'worktree ')
-            and (path := (Path(os.fsdecode(field[9:])) / prefix).resolve()) != root]
-
-
-other_worktrees = _other_worktrees
-
-
 # flowguard: sensor QUOTE_MATCH(text: words, quote: words) -> matched: bool calibrated_by=tests/test_anchor_self_rules.py::test_quote_anchor_case[EXACT]
 def quote_matches(text: str, quote: str) -> bool:
     """Compare owner words exactly, permitting only whitespace runs and ... elision."""
@@ -452,13 +438,6 @@ def quote_matches(text: str, quote: str) -> bool:
             return False
         position = found + len(fragment)
     return bool(quote.strip())
-
-
-def subject_terms(value):
-    value = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', value)
-    value = re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', value)
-    return {word[:-1] if word.endswith('s') and len(word) > 1 else word
-            for word in re.findall(r'[a-z]+|[\u4e00-\u9fff]+', value.lower())}
 
 
 def confirmed_glossaries(root):
@@ -480,22 +459,6 @@ def confirmed_glossaries(root):
         for word, terms in glossary_entries(path.with_suffix('.md').read_bytes()):
             found.append(dict(id=path.stem, word=word, terms=list(terms)))
     return found
-
-
-def shared_terms(quote, terms, glossaries):
-    chinese = re.search(r'[\u4e00-\u9fff]', quote) is not None
-    direct = any(term.lower() in quote.lower() for term in terms) if chinese else bool(subject_terms(quote) & terms)
-    if direct:
-        return True, []
-    used = []
-    for item in glossaries:
-        words = set().union(*(subject_terms(term) for term in item['terms']))
-        word = item['word']
-        present = word.lower() in quote.lower() if chinese else bool(re.search(r'\b' + re.escape(word) + r'\b', quote, re.I))
-        if present and words & terms:
-            used.append(item)
-    return direct or bool(used), used
-
 
 
 def literal_subject_match(quote: str, terms, glossaries=()):

@@ -87,7 +87,8 @@ with anchors._execution_session(root),Capture(root,index,'ordinary',_ordinary=Tr
         with Footprint(project_code(cfg)) as footprint:
             head=sys.gettrace()
             if not hasattr(sys,'monitoring'):
-                assert tracer._USING_TRACE and head is tracer._trace
+                from flowguard.intent.runtime import _HUB
+                assert head is _HUB.trace
             observed=anchors._observe_current(root,anchor,{'flag':True})
             assert observed.status=='ok' and observed.value is True
             assert sys.gettrace() is head

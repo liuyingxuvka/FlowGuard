@@ -7,6 +7,8 @@ import uuid
 
 import pytest
 
+from tests.intent_engine._cli_fixture import check as run_check
+
 from flowguard.intent import cli
 from flowguard.intent.config import load_config
 from flowguard.intent.engine import Engine
@@ -205,4 +207,4 @@ def test_joint_counterexample_reaches_the_same_pytest_and_cli_rejection(tmp_path
     plain = subprocess.run(command, cwd=model.cfg.root, capture_output=True, text=True)
     assert plain.returncode == 1, plain.stdout + plain.stderr
     assert 'depends on more' in plain.stdout + plain.stderr
-    assert cli.check(model.cfg, everything=True) == 1
+    assert run_check(model.cfg, everything=True) == 1

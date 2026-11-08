@@ -12,13 +12,19 @@ permissions:
 
 jobs:
   checks:
-    name: Complete tests (${{ matrix.os }}, py${{ matrix.python }}, shard ${{ matrix.shard }}/${{ matrix.shard_count }})
+    name: Complete tests (${{ matrix.os }}, py${{ matrix.python }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 330
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON('[{"os":"ubuntu-latest","python":"3.11","shard":1,"shard_count":6},{"os":"ubuntu-latest","python":"3.11","shard":2,"shard_count":6},{"os":"ubuntu-latest","python":"3.11","shard":3,"shard_count":6},{"os":"ubuntu-latest","python":"3.11","shard":4,"shard_count":6},{"os":"ubuntu-latest","python":"3.11","shard":5,"shard_count":6},{"os":"ubuntu-latest","python":"3.11","shard":6,"shard_count":6},{"os":"ubuntu-latest","python":"3.13","shard":1,"shard_count":6},{"os":"ubuntu-latest","python":"3.13","shard":2,"shard_count":6},{"os":"ubuntu-latest","python":"3.13","shard":3,"shard_count":6},{"os":"ubuntu-latest","python":"3.13","shard":4,"shard_count":6},{"os":"ubuntu-latest","python":"3.13","shard":5,"shard_count":6},{"os":"ubuntu-latest","python":"3.13","shard":6,"shard_count":6},{"os":"windows-latest","python":"3.12","shard":1,"shard_count":6},{"os":"windows-latest","python":"3.12","shard":2,"shard_count":6},{"os":"windows-latest","python":"3.12","shard":3,"shard_count":6},{"os":"windows-latest","python":"3.12","shard":4,"shard_count":6},{"os":"windows-latest","python":"3.12","shard":5,"shard_count":6},{"os":"windows-latest","python":"3.12","shard":6,"shard_count":6}]') }}
+        include:
+          - os: ubuntu-latest
+            python: "3.11"
+          - os: ubuntu-latest
+            python: "3.13"
+          - os: windows-latest
+            python: "3.12"
     steps:
       - name: Checkout the triggering source and its history
         uses: actions/checkout@v5
@@ -52,30 +58,24 @@ jobs:
           import sys
           environment = Path(sys.prefix).resolve()
           project = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          assert tuple(sys.version_info[:2]) == tuple(map(int, "${{ matrix.python }}".split("."))), "actual Python must match the matrix"
+          assert sys.platform == {"ubuntu-latest": "linux", "windows-latest": "win32"}["${{ matrix.os }}"], "actual platform must match the matrix"
           assert sys.prefix != sys.base_prefix, "python must use a virtual environment"
           assert environment == (Path(os.environ["RUNNER_TEMP"]) / "flowguard-ci-venv").resolve(), "python must use the selected runner temporary environment"
           assert environment != project and project not in environment.parents, "virtual environment must be outside the project"
           print(f"Python: {sys.executable}\nprefix: {sys.prefix}\nbase_prefix: {sys.base_prefix}")
 
       - name: Install FlowGuard and its test dependencies
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -e ".[dev,languages]"
 
       - name: Verify the frozen source before execution
         run: python .github/scripts/ci_coverage.py identity
 
-      - name: Complete intent and project tests through ordinary pytest
-        run: python -m flowguard check --all --deep --diagnose --shard ${{ matrix.shard }}/${{ matrix.shard_count }} --shard-report .flowguard/cache/check-shard.json
+      - name: Complete unsharded intent and project tests
+        run: python -m flowguard check --all --deep
 
-      - name: Export the original check coverage and runner identity
-        run: python .github/scripts/ci_coverage.py export .flowguard/cache/check-shard.json --platform ${{ matrix.os }} --python ${{ matrix.python }} --output .ci/coverage.json
-
-      - name: Upload this shard's coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-${{ matrix.os }}-py${{ matrix.python }}-${{ matrix.shard }}-of-${{ matrix.shard_count }}-${{ github.sha }}-${{ github.run_attempt }}
-          path: .ci/coverage.json
-          include-hidden-files: true
-          if-no-files-found: error
+      - name: Verify the frozen source after execution
+        run: python .github/scripts/ci_coverage.py identity
 
       - name: Print the original pytest output on failure
         if: failure()
@@ -87,7 +87,7 @@ jobs:
               print(output.read_text(encoding="utf-8", errors="replace"))
 
       - name: Verify the distributable skill in a temporary directory
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11' && matrix.shard == 1
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
         shell: python
         run: |
           import os
@@ -100,48 +100,11 @@ jobs:
               subprocess.run([sys.executable, "scripts/install_skill.py", "--target", target], check=True)
               subprocess.run([sys.executable, "scripts/install_skill.py", "--target", target, "--check"], check=True)
 
-      - name: Upload check diagnostics
+      - name: Upload original check output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: check-diagnostics-${{ matrix.os }}-py${{ matrix.python }}-${{ matrix.shard }}-of-${{ matrix.shard_count }}-${{ github.sha }}-${{ github.run_attempt }}
-          path: |
-            .flowguard/cache/check-flow.jsonl
-            .flowguard/cache/anchor-events.jsonl
-            .flowguard/cache/check-output.txt
-            .flowguard/cache/check-shard.json
+          name: check-output-${{ matrix.os }}-py${{ matrix.python }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: .flowguard/cache/check-output.txt
           include-hidden-files: true
           if-no-files-found: ignore
-
-  coverage:
-    name: Complete coverage (three platforms)
-    needs: checks
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      CHECKS_RESULT: ${{ needs.checks.result }}
-    steps:
-      - name: Checkout the same source
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: Set up coverage verification Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-      - name: Download only this run attempt's coverage
-        uses: actions/download-artifact@v4
-        with:
-          pattern: coverage-*-${{ github.sha }}-${{ github.run_attempt }}
-          path: .ci/receipts
-      - name: Verify all exact-source nodes and shard receipts
-        run: python .github/scripts/ci_coverage.py aggregate .ci/receipts --output .ci/complete-coverage.json
-      - name: Save the complete coverage summary
-        uses: actions/upload-artifact@v4
-        with:
-          name: complete-coverage-${{ github.sha }}-${{ github.run_attempt }}
-          path: .ci/complete-coverage.json
-          include-hidden-files: true
-          if-no-files-found: error

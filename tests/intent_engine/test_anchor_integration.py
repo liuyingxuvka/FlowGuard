@@ -5,6 +5,8 @@ import sys
 
 import pytest
 
+from tests.intent_engine import _cli_fixture as cli_fixture
+
 
 def run(root, *args):
     source = str(Path(__file__).resolve().parents[2])
@@ -65,7 +67,7 @@ def test_same_name_copy_disagreement_fails_pytest_and_check_without_rules(tmp_pa
     result = run(tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
     assert 'GRACE' in result.stdout
-    assert cli.main(['--root', str(tmp_path), 'check']) == 1
+    assert cli_fixture.main(['--root', str(tmp_path), 'check']) == 1
     assert 'GRACE' in capsys.readouterr().out
 
 

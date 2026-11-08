@@ -5,6 +5,8 @@ import uuid
 from dataclasses import replace
 import pytest
 
+from tests.intent_engine._cli_fixture import check as run_check
+
 from flowguard.intent import calibration
 from flowguard.intent.anchors import _execution_session
 from flowguard.intent.engine import Engine
@@ -176,4 +178,4 @@ def test_complete_cli_checks_the_same_projected_lower_flow(tmp_path):
     model, _, _, _ = project(tmp_path)
     (model.cfg.root / 'tests/test_flowguard_intent.py').write_text(
         'def test_flowguard_intent(request):\n from flowguard.intent.plugin import sentinel\n sentinel(request.config)\n')
-    assert cli.check(model.cfg, everything=True) == 0
+    assert run_check(model.cfg, everything=True) == 0

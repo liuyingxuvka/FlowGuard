@@ -160,8 +160,7 @@ def test_unmodelled_anchor_is_an_information_pointer_not_a_failure(tmp_path,caps
     assert cli.show(cfg,'grace')==0
     assert 'info: not referenced by a current model: grace' in capsys.readouterr().out
     with closing(build(root,root/'outside-map.sqlite')) as graph:index=anchors.collect(graph)
-    _,lines,red=cli.anchor_checks(cfg,index=index)
-    assert not red and any(line.startswith('info: anchors not referenced')for line in lines)
+    assert cli._unmodelled(index, cache.scan(cfg), root=cfg.root) == ['grace']
 
 
 def test_dynamic_navigation_ref_stays_unknown_without_becoming_a_load_failure(tmp_path,capsys):

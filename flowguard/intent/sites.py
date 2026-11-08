@@ -16,6 +16,7 @@ import importlib
 import inspect
 import sys
 import types
+import weakref
 import textwrap
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -26,6 +27,34 @@ from decimal import Decimal
 from .cells import coerce, const_value, epsilon
 
 _INSTALLED = ContextVar('flowguard_installed_code', default={})
+_TRANSPORT = ContextVar('flowguard_transport_code', default={})
+_MUTANTS = weakref.WeakKeyDictionary()
+
+
+def is_transport(code):
+    return _TRANSPORT.get().get(id(code)) is code
+
+
+def source_caller(frame):
+    """The actual caller with only this runtime's exact transport frames removed."""
+    parent = frame.f_back
+    while parent is not None and is_transport(parent.f_code):
+        parent = parent.f_back
+    return parent
+
+
+def installed_replacement(code):
+    return any(fn.__code__ is code and code is not original
+               for fn, original in _INSTALLED.get().items())
+
+
+@contextmanager
+def transport(codes):
+    token = _TRANSPORT.set({**_TRANSPORT.get(), **{id(code): code for code in codes if code is not None}})
+    try:
+        yield
+    finally:
+        _TRANSPORT.reset(token)
 
 FLIP = {ast.Lt: ast.LtE, ast.LtE: ast.Lt, ast.Gt: ast.GtE, ast.GtE: ast.Gt}
 NEGATE = {ast.Eq: ast.NotEq, ast.NotEq: ast.Eq, ast.Is: ast.IsNot, ast.IsNot: ast.Is, ast.In: ast.NotIn,
@@ -305,9 +334,19 @@ class _Apply(ast.NodeTransformer):
 
 
 def mutant_code(fn, m: Mutant):
-    """The code object of fn with one mutant applied, compiled in fn's own globals."""
+    """One source-site mutant, with precise weak provenance for controlled capture."""
+    fn = unwrap(fn)
     t = _Apply(m)
-    return _recompile(fn, t, lambda: t.done)
+    code = _recompile(fn, t, lambda: t.done)
+    _MUTANTS.setdefault(fn, weakref.WeakValueDictionary())[id(code)] = code
+    return code
+
+
+def controlled_mutation(function, code):
+    function = unwrap(function)
+    registered = _MUTANTS.get(function)
+    return (registered is not None and registered.get(id(code)) is code
+            and function.__code__ is code and function in _INSTALLED.get())
 
 
 class _Probe(ast.NodeTransformer):
@@ -448,9 +487,12 @@ def intercepted(fn, callback):
                     for p in signature.parameters.values() if p.kind == p.KEYWORD_ONLY]
         fdef.body = [ast.Return(ast.Call(ast.Name(key, ast.Load()), args, keywords))]
     code = _recompile(fn, ast.NodeTransformer(), lambda: True, body)
+    original.__flowguard_transport__ = (code, invoke.__code__)
+    mechanical = (*original.__flowguard_transport__, getattr(callback, '__code__', None),
+                  *getattr(callback, '__flowguard_transport__', ()))
     fn.__globals__[key] = invoke
     try:
-        with installed(fn, code):
+        with transport(mechanical), installed(fn, code):
             yield original
     finally:
         fn.__globals__.pop(key, None)

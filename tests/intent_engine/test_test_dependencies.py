@@ -5,6 +5,8 @@ import sqlite3
 
 import pytest
 
+from tests.intent_engine import _cli_fixture as cli_fixture
+
 from flowguard.intent import cache, cli, deps
 from flowguard.structure import build
 from test_cli import project
@@ -34,13 +36,13 @@ def test_default_inventory_and_old_red_do_not_promote_a_production_testfile_api(
     api.write_text('def testfile_snapshot(path): return path\ndef testfile_series(path): return path\n')
     (root / 'tests/test_plain.py').write_text('def test_plain(): assert True\n')
     cli.init(cfg)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     # A genuinely requested explicit pytest can have failed outside the default
     # scope. Preserve that history without promoting it into default check.
     explicit = run(root, str(api))
     assert explicit.returncode == 1 and "fixture 'path' not found" in explicit.stdout
     observed = calls(monkeypatch)
-    assert cli.check(cfg) == 0
+    assert cli_fixture.check(cfg) == 0
     assert not any(str(api.relative_to(root)) in command for command in observed)
     assert not deps.test_scope(cfg)('src/production/test_file_contract.py')
 
@@ -55,12 +57,12 @@ def test_default_pytest_scope_does_not_promote_foreign_test_named_files(tmp_path
 
 def test_an_unused_dynamic_sibling_does_not_prevent_pure_test_reuse(tmp_path, monkeypatch):
     root, cfg = sample(tmp_path, 'from pathlib import Path\ndef value(): return "old"\ndef unused(path): return Path(path).read_text()\n')
-    assert cli.check(cfg) == 0
+    assert cli_fixture.check(cfg) == 0
     assert '<unresolved>' not in record(cfg)
     observed = calls(monkeypatch)
-    assert cli.check(cfg) == 0 and observed == []
+    assert cli_fixture.check(cfg) == 0 and observed == []
     (root / 'owner.py').write_text((root / 'owner.py').read_text().replace('return "old"', 'return "new"'))
-    assert cli.check(cfg) == 1
+    assert cli_fixture.check(cfg) == 1
     assert any('tests/test_ordinary.py' in command for command in observed)
 
 
@@ -69,23 +71,23 @@ def test_literal_project_data_is_content_tracked_including_path_open(tmp_path, m
     expression = 'path.read_text()' if reading == 'read_text' else 'path.open().read()'
     root, cfg = sample(tmp_path, f'from pathlib import Path\ndef value():\n    path = Path(__file__).parent / "data.txt"\n    return {expression}\n')
     (root / 'data.txt').write_text('old')
-    assert cli.check(cfg) == 0
+    assert cli_fixture.check(cfg) == 0
     saved = record(cfg)
     assert '<unresolved>' not in saved and 'data.txt' in saved
     observed = calls(monkeypatch)
-    assert cli.check(cfg) == 0 and observed == []
+    assert cli_fixture.check(cfg) == 0 and observed == []
     (root / 'data.txt').write_text('new')
-    assert cli.check(cfg) == 1 and observed
+    assert cli_fixture.check(cfg) == 1 and observed
 
 
 @pytest.mark.parametrize('expression', ['os.environ["FG_TEST_INPUT"]', 'os.getenv("FG_TEST_INPUT")'])
 def test_environment_reads_never_silently_reuse_a_past_success(tmp_path, monkeypatch, expression):
     root, cfg = sample(tmp_path, 'import os\ndef value(): return ' + expression + '\n')
     monkeypatch.setenv('FG_TEST_INPUT', 'old')
-    assert cli.check(cfg) == 0 and '<unresolved>' in record(cfg)
+    assert cli_fixture.check(cfg) == 0 and '<unresolved>' in record(cfg)
     observed = calls(monkeypatch)
     monkeypatch.setenv('FG_TEST_INPUT', 'new')
-    assert cli.check(cfg) == 1 and observed
+    assert cli_fixture.check(cfg) == 1 and observed
 
 
 @pytest.mark.parametrize('style', ['environment', 'literal'])
@@ -95,9 +97,9 @@ def test_external_path_open_remains_unknown_when_only_the_input_changes(tmp_path
     monkeypatch.setenv('FG_TEST_INPUT', str(outside))
     path = 'os.environ["FG_TEST_INPUT"]' if style == 'environment' else repr(str(outside))
     root, cfg = sample(tmp_path, 'import os\nfrom pathlib import Path\ndef value(): return Path(' + path + ').open().read()\n')
-    assert cli.check(cfg) == 0 and '<unresolved>' in record(cfg)
+    assert cli_fixture.check(cfg) == 0 and '<unresolved>' in record(cfg)
     outside.write_text('new')
-    assert cli.check(cfg) == 1
+    assert cli_fixture.check(cfg) == 1
 
 
 def test_uncalled_function_defaults_still_run_during_import(tmp_path, monkeypatch):
@@ -105,9 +107,9 @@ def test_uncalled_function_defaults_still_run_during_import(tmp_path, monkeypatc
     outside.write_text('present')
     monkeypatch.setenv('FG_TEST_INPUT', str(outside))
     root, cfg = sample(tmp_path, 'import os\nfrom pathlib import Path\ndef unused(value=Path(os.environ["FG_TEST_INPUT"]).read_text()): return value\ndef value(): return "old"\n')
-    assert cli.check(cfg) == 0 and '<unresolved>' in record(cfg)
+    assert cli_fixture.check(cfg) == 0 and '<unresolved>' in record(cfg)
     outside.unlink()
-    assert cli.check(cfg) != 0
+    assert cli_fixture.check(cfg) != 0
     assert 'FileNotFoundError' in (cfg.cache / 'check-output.txt').read_text()
 
 
@@ -123,27 +125,27 @@ def supplied(): return os.environ['FG_TEST_INPUT']
 ''')
     (root / 'tests/test_ordinary.py').write_text('def test_value(supplied): assert supplied == "old"\n')
     monkeypatch.setenv('FG_TEST_INPUT', 'old')
-    assert cli.check(cfg) == 0
+    assert cli_fixture.check(cfg) == 0
     saved = record(cfg)
     assert '<unresolved>' in saved
     assert not any('unused_cli' in reason for reason in saved['<unresolved>'])
     monkeypatch.setenv('FG_TEST_INPUT', 'new')
-    assert cli.check(cfg) == 1
+    assert cli_fixture.check(cfg) == 1
 
 
 def test_resolved_literal_dynamic_import_uses_the_same_dependency_owner(tmp_path, monkeypatch):
     root, cfg = sample(tmp_path, 'import importlib\ndef value():\n    module = importlib.import_module("native_owner")\n    return module.value()\n')
     (root / 'native_owner.py').write_text('def value(): return "old"\n')
-    assert cli.check(cfg) == 0 and '<unresolved>' not in record(cfg)
+    assert cli_fixture.check(cfg) == 0 and '<unresolved>' not in record(cfg)
     observed = calls(monkeypatch)
-    assert cli.check(cfg) == 0 and observed == []
+    assert cli_fixture.check(cfg) == 0 and observed == []
     (root / 'native_owner.py').write_text('def value(): return "new"\n')
-    assert cli.check(cfg) == 1 and observed
+    assert cli_fixture.check(cfg) == 1 and observed
 
 
 def test_unresolved_callback_is_not_silently_treated_as_pure(tmp_path):
     root, cfg = sample(tmp_path, 'def choose(fn): return fn()\ndef value(): return choose(lambda: "old")\n')
-    assert cli.check(cfg) == 0 and '<unresolved>' in record(cfg)
+    assert cli_fixture.check(cfg) == 0 and '<unresolved>' in record(cfg)
 
 
 def test_transitive_fixture_dependency_is_not_lost_by_definition_order(tmp_path, monkeypatch):
@@ -158,9 +160,9 @@ def supplied(base): return base
 ''')
     (root / 'tests/test_ordinary.py').write_text('def test_value(supplied): assert supplied == "old"\n')
     monkeypatch.setenv('FG_TEST_INPUT', 'old')
-    assert cli.check(cfg) == 0 and '<unresolved>' in record(cfg)
+    assert cli_fixture.check(cfg) == 0 and '<unresolved>' in record(cfg)
     monkeypatch.setenv('FG_TEST_INPUT', 'new')
-    assert cli.check(cfg) == 1
+    assert cli_fixture.check(cfg) == 1
 
 
 def test_ambiguous_path_assignment_keeps_the_real_input_boundary(tmp_path):
@@ -173,18 +175,18 @@ def value():
 ''')
     (root / 'first.txt').write_text('old')
     (root / 'second.txt').write_text('other')
-    assert cli.check(cfg) == 0 and '<unresolved>' in record(cfg)
+    assert cli_fixture.check(cfg) == 0 and '<unresolved>' in record(cfg)
     (root / 'first.txt').write_text('new')
-    assert cli.check(cfg) == 1
+    assert cli_fixture.check(cfg) == 1
 
 
 def test_wildcard_import_cannot_hide_an_ambient_dependency(tmp_path, monkeypatch):
     root, cfg = sample(tmp_path, 'import os\ndef value(): return os.getenv("FG_TEST_INPUT")\n')
     (root / 'tests/test_ordinary.py').write_text('from owner import *\ndef test_value(): assert value() == "old"\n')
     monkeypatch.setenv('FG_TEST_INPUT', 'old')
-    assert cli.check(cfg) == 0 and '<unresolved>' in record(cfg)
+    assert cli_fixture.check(cfg) == 0 and '<unresolved>' in record(cfg)
     monkeypatch.setenv('FG_TEST_INPUT', 'new')
-    assert cli.check(cfg) == 1
+    assert cli_fixture.check(cfg) == 1
 
 
 @pytest.mark.parametrize('kind', ['function', 'parameter'])
@@ -199,15 +201,15 @@ def test_successful_complete_file_collection_retires_only_obsolete_failed_nodeid
         test.write_text('import pytest\nfrom owner import value\n@pytest.mark.parametrize("expected", [pytest.param("wrong",id="old")])\ndef test_value(expected): assert value() == expected\n')
         obsolete = 'tests/test_ordinary.py::test_value[old]'
         replacement = 'import pytest\nfrom owner import value\n@pytest.mark.parametrize("expected", [pytest.param("old",id="new")])\ndef test_value(expected): assert value() == expected\n'
-    assert cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg, everything=True) == 1
     assert cache.read(cfg)['tests'][obsolete]['outcome'] == 'failed'
     test.write_text(replacement)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     assert obsolete not in cache.read(cfg)['tests']
     with sqlite3.connect(cfg.cache / 'map.sqlite') as con:
         assert con.execute('SELECT outcome FROM reading WHERE test=?', (obsolete,)).fetchone()[0] == 'failed'
     observed = calls(monkeypatch)
-    assert cli.check(cfg) == 0
+    assert cli_fixture.check(cfg) == 0
     if kind == 'parameter':
         # The original pytest.param input is unchanged. Its third-party import
         # and execution are opaque under N1; collection retirement still works.
@@ -220,7 +222,7 @@ def test_partial_success_does_not_hide_a_newer_partial_failure(tmp_path):
     root, cfg = sample(tmp_path, 'def value(): return "old"\n')
     test = root / 'tests/test_ordinary.py'
     test.write_text('def test_a(): assert True\ndef test_b(): assert True\n')
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     before = cache.read(cfg)['test_collection']
     test.write_text(test.read_text() + 'def test_new(): assert False\n')
     assert run(root, 'tests/test_ordinary.py::test_new').returncode == 1
@@ -232,7 +234,7 @@ def test_partial_success_does_not_hide_a_newer_partial_failure(tmp_path):
 
 def test_failed_collection_preserves_last_complete_nodes_and_current_error(tmp_path):
     root, cfg = sample(tmp_path, 'def value(): return "old"\n')
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     before = cache.read(cfg)['test_collection']
     (root / 'tests/test_ordinary.py').write_text('def broken(:\n')
     assert run(root, 'tests/test_ordinary.py').returncode != 0
@@ -246,10 +248,10 @@ def test_other_file_failure_does_not_keep_an_obsolete_node_current(tmp_path):
     root, cfg = sample(tmp_path, 'def value(): return "old"\n')
     test = root / 'tests/test_ordinary.py'
     test.write_text('def test_old(): assert False\n')
-    assert cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg, everything=True) == 1
     test.write_text('def test_new(): assert True\n')
     (root / 'tests/test_other.py').write_text('def test_current_failure(): assert False\n')
-    assert cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg, everything=True) == 1
     data = cache.read(cfg)
     assert 'tests/test_ordinary.py::test_old' not in data['tests']
     assert data['tests']['tests/test_other.py::test_current_failure']['outcome'] == 'failed'

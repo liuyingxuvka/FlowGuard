@@ -4,12 +4,43 @@ from __future__ import annotations
 import ast
 from contextlib import closing
 import json
+import re
 from pathlib import Path
 import sqlite3
 
 from .config import intent_files
 from .loader import api_aliases, api_call_name, distinct_identifier, literal_problems
-from flowguard.map.common import content_digest
+from flowguard.map.common import MapError, content_digest, git_common_directory, git_head
+
+
+def session_baseline(cfg, *, remember=False):
+    """One task-start commit in the existing SQLite meta; ordinary tests only read it."""
+    if git_common_directory(cfg.root) is None:
+        return None
+    path = cfg.cache / 'map.sqlite'
+    if remember:
+        commit = git_head(cfg.root)
+        if commit is None:
+            return None
+        from ..structure.store import connect
+        with closing(connect(path)) as con, con:
+            con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)',
+                        ('task_baseline', json.dumps({'commit': commit})))
+        return commit
+    if path.is_file():
+        try:
+            with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
+                table = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone()
+                row = con.execute("SELECT v FROM meta WHERE k='task_baseline'").fetchone() if table else None
+                if row:
+                    data = json.loads(row[0])
+                    commit = data.get('commit') if isinstance(data, dict) else None
+                    if not isinstance(commit, str) or not re.fullmatch(r'[0-9a-f]{40}', commit):
+                        raise ValueError('task_baseline needs a full 40-character commit')
+                    return commit
+        except (sqlite3.DatabaseError, ValueError, TypeError) as error:
+            raise MapError(f'{path}: task baseline could not be read: {error}') from error
+    return git_head(cfg.root)
 
 
 def _literal(node, default=None):
@@ -72,7 +103,7 @@ def scan(cfg, texts=None):
                 names[function.name] = identifier
                 identifiers[module + '.' + function.name] = identifier
                 rules[identifier] = dict(id=identifier, decides=values.get('decides', 'structure'), source=values.get('source', ''),
-                    kind='structure' if api_call_name(decorator, aliases) == 'structure_rule' else 'rule', file=relative, line=function.lineno,
+                    kind='structure' if api_call_name(decorator, aliases) == 'structure_rule' else 'rule', file=relative, line=function.lineno, quote=values.get('quote'),
                     doc=ast.get_docstring(function) or '', rows=0, retired=0, homes=[], row_records=[],
                     uses=[], supersedes=[], overrides=[], total=values.get('total', False),
                     anchors=anchor_names(next((k.value for k in decorator.keywords if k.arg == 'anchor'), None), bindings))
@@ -249,6 +280,27 @@ def declaration_names(cfg, summary, *, deep=False):
 
 
 # flowguard: event CHECK_RESULTS(cfg: Config)
+def observations(cfg):
+    """Read the last historical observation view only when explicitly requested."""
+    path = cfg.cache / 'map.sqlite'
+    if not path.is_file():
+        return {}
+    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
+        if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
+            return {}
+        row = con.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()
+    if row is None:
+        return {}
+    try:
+        value = json.loads(row[0])
+        if not isinstance(value, dict):
+            raise ValueError('expected an observation object')
+        return value
+    except (ValueError, TypeError) as error:
+        from flowguard.map.common import MapError
+        raise MapError('historical observations could not be read; run tests to rebuild them') from error
+
+
 def read(cfg: Config):
     """One SQLite source; a latest failed attempt stays separate from the last full collection."""
     summary = scan(cfg)
@@ -256,7 +308,7 @@ def read(cfg: Config):
     path = cfg.cache / 'map.sqlite'
     if not path.is_file():
         return output
-    with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as con, con:
+    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con, con:
         con.execute('BEGIN')
         tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         names = ('intent_attempt', 'intent_collection', 'intent_dependencies', 'ordinary_collection')

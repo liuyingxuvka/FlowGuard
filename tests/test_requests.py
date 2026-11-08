@@ -4,7 +4,7 @@ import hashlib, json, subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 import pytest
-from _pure_helpers import call as _call, git as _git, project as _project, integrity_result as _integrity, historical_change
+from _pure_helpers import call as _call, git as _git, project as _project, integrity_result as _integrity
 
 def test_quote_check_verbatim_and_elision():
     from flowguard.map.requests import quote_matches
@@ -239,26 +239,20 @@ def test_owner_quote_preserves_stored_request_and_glossary(tmp_path):
     assert (tmp_path / '.flowguard/requests/RDuring.md').read_bytes() == raw
 
 @pytest.mark.parametrize('partial', [False, True])
-def test_historical_links_do_not_become_live_citations_or_completion_state(tmp_path, partial):
+def test_legacy_change_files_never_become_live_citations_or_completion_state(tmp_path, partial):
     from flowguard.map.requests import store_request
-    from flowguard.map.records import change_records, record_findings
-    from flowguard.map.common import MapError
     root = _project(tmp_path / 'project')
-    store_request(root, b'extend shelf\r\n', identifier='R1')
-    store_request(root, b'leave this request visible\n', identifier='R2')
+    store_request(root, b'Keep the limit at 3.\r\n', identifier='R1')
+    store_request(root, b'Leave this request visible.\n', identifier='R2')
     originals = {p.name: p.read_bytes() for p in (root / '.flowguard/requests').glob('R*.*')}
-    path = historical_change(root, links=[dict(id='R1', part=partial)])
-    assert change_records(root)[0][1]['requests'] == [dict(id='R1', part=partial)]
+    path = root / '.flowguard/changes/20261101-0000-abcdef.json'
+    path.parent.mkdir()
+    path.write_bytes(json.dumps({'requests': [{'id': 'R1', 'part': partial}]}).encode())
     assert _citations(root) == {'R1': [], 'R2': []}
     assert {p.name: p.read_bytes() for p in (root / '.flowguard/requests').glob('R*.*')} == originals
-    assert not path.with_suffix('.msg').exists()
     path.write_bytes(path.read_bytes() + b' ')
-    unreadable = []
-    assert change_records(root, unreadable=unreadable) == [] and [key for key, _ in unreadable] == [path.stem]
-    assert any((item.code == 'record_edited' for item in record_findings(root)))
-    with pytest.raises(MapError, match=path.stem):
-        change_records(root)
     assert _citations(root) == {'R1': [], 'R2': []}
+    assert {p.name: p.read_bytes() for p in (root / '.flowguard/requests').glob('R*.*')} == originals
 
 def test_request_links_refuse_unknown_duplicate_and_edited_requests(tmp_path):
     from flowguard.map.requests import store_request, request_links

@@ -2,12 +2,13 @@
 from contextlib import redirect_stdout
 import io
 import json
+from pathlib import Path
+import subprocess
 import sys
 
 import pytest
 
-from flowguard.intent import cli, differences as D
-from flowguard.intent.config import load_config
+from flowguard.intent import differences as D
 from tests.intent_engine.test_anchor_integration import project, SOURCE
 
 
@@ -27,27 +28,56 @@ def capture_bytes(encoding, action):
         stream.detach()
 
 
+def run_public_entry(root, mode):
+    """One real top-level session, including the complete public check path."""
+    bootstrap = '''import io,sys
+from contextlib import redirect_stdout
+sdk,root,mode=sys.argv[1:]
+sys.path.insert(0,sdk)
+from flowguard.intent import cli
+buffer=io.BytesIO()
+stream=io.TextIOWrapper(buffer,encoding='cp1252',newline='')
+with redirect_stdout(stream):
+    if mode=='pytest':
+        import pytest
+        status=int(pytest.main(['-q','-p','flowguard.intent.plugin','tests']))
+    elif mode=='check':
+        status=cli.main(['--root',root,'check','--all'])
+    else:
+        status=cli.main(['--root',root,'compare','app:accept','app:other'])
+    print('AFTER_GRACE_DISPLAY')
+stream.flush()
+assert stream.encoding=='cp1252' and stream.errors=='strict'
+sys.stdout.buffer.write(buffer.getvalue())
+stream.detach()
+raise SystemExit(status)
+'''
+    return subprocess.run([sys.executable,'-c',bootstrap,str(Path(__file__).resolve().parents[2]),str(root),mode],
+                          cwd=root,capture_output=True,timeout=60)
+
+
 def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path):
     root=tmp_path/'project'
     other=SOURCE.replace('def accept(', 'def other(').replace('<= 3','<= 7')
-    project(root,SOURCE+'\n'+other,'')
-    cfg=load_config(root)
-    report=D.agreements(root)
+    project(root,SOURCE+'\n'+other,'',
+            'from app import accept, other\ndef test_actual():\n    assert accept(0) is other(0) is True\n')
+    report=D.compare(root, 'app:accept', 'app:other')
     assert report['status']=='red'and report['changed']==1
     rendered=D.render(report)
     assert 'GRACE'in rendered and '↔'in rendered and '→'in rendered and '共 3 类'in rendered
     original_json=json.dumps(report,ensure_ascii=False,sort_keys=True).encode('utf-8')
-    callers=[('pytest',lambda:int(pytest.main(['-q','-p','flowguard.intent.plugin',str(root/'tests')]))),
-             ('check_sources',lambda:int(cli._check_sources(cfg))),
-             ('compare',lambda:cli.main(['--root',str(root),'compare','app:accept','app:other']))]
-    for name,call in callers:
-        status,raw=capture_bytes('cp1252',call)
-        shown=raw.decode('cp1252')
+    for name in ('pytest','check','compare'):
+        result=run_public_entry(root,name)
+        shown=result.stdout.decode('cp1252')
         (tmp_path/(name+'.stdout.txt')).write_text(shown,encoding='utf-8')
-        assert status==1,(name,status,shown)
+        assert result.returncode==1,(name,result.returncode,shown,result.stderr)
         assert 'GRACE'in shown and 'AFTER_GRACE_DISPLAY'in shown,(name,shown)
-        assert r'\u2194'in shown and r'\u2192'in shown,(name,shown)
-        assert r'\u5171 3 \u7c7b'in shown,(name,shown)
+        if name=='compare':
+            assert r'\u2194'in shown and r'\u2192'in shown,(name,shown)
+            assert r'\u5171 3 \u7c7b'in shown,(name,shown)
+        else:
+            # The three-signal view reports the actual same-name contradiction.
+            assert r'\u540c\u540d\u951a\u70b9'in shown and r'\u2260'in shown,(name,shown)
         assert 'UnicodeEncodeError'not in shown,(name,shown)
     # Retain literals and a final LF, including a backslash that looks like an
     # escape and non-LF separators. The fallback must be reversible display.

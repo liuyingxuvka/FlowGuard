@@ -1,27 +1,25 @@
 ---
 name: flowguard
-description: Read rule status, preserve words and find decision owners. Anchors connect rules and optional small flow models for complex maintenance. Maps cover Python, JS/TS, C/C++ and C#; execution is Python only.
+description: Compare real Python behavior before asserting rules. Ordinary tests show changed outcomes, inconsistent same-name sensors and violated independent requirements. A source map and optional small models support complex maintenance.
 ---
 
 # FlowGuard
 
-Code is the target. Anchors are observation points. A small model relates readings without repeating the implementation.
+Run the project's ordinary tests with its FlowGuard plugin enabled. Read the few FlowGuard lines: what changed, what should have changed together, and which independent rule was violated. No source change stays quiet unless a constraint fails. CI uses `python -m flowguard check --all --deep`; probes and mutation checks are explicit deep work.
 
-Use: read `python -m flowguard` at session start when rules exist; find code with `python -m flowguard show "what it decides"`; reuse its owner. Save actual owner words once. After changing a bound decision, run `python -m flowguard check` through ordinary pytest; CI uses `check --all --deep`. `show --full` expands metadata. Candidates are clues, not proof.
+Code is the target. Anchors observe it. Rules and small models relate actual readings without repeating the implementation. Do not model the development task or add a second answer-producing adapter.
 
-Use ordinary code and tests for ordinary edits. Do not model the development task. When a decision has copies, the owner says "everywhere", or a bug was fixed, one rule and literal regression rows in `tests/intent/` can help. Derive expectations from the requirement independently of code; rows hold literal inputs, `expect` and `why`. Connect rules through source anchors, never an adapter supplying the answer.
+When copies must agree, put `# flowguard: sensor NAME` above each real judgment. `anchor draft module:function` proposes the comment and input bounds; confirm meaning and units. Inputs are varied; context objects stay in the real test context. Pure judgments run directly. Context-dependent code needs a real test named by `calibrated_by`; ambiguous or unsafe replay stays grey.
 
-## Optional observations
+A requirement belongs in one independent `rule` in `tests/intent/`. Add literal `row` inputs, `expect` and `why` for genuine regressions. Cite only the relevant original words or authority document. Same-name sensors must agree; sourced `distinct` records genuinely different policies. Neither matching copies nor an observed change establishes the intended answer.
 
-- `python -m flowguard anchor draft module:function` proposes a comment and input bounds. Confirm meaning and units. Unknown types or bounds remain grey. Pure judgments run directly; others need an ordinary project test named by `calibrated_by`. Calibration must agree before replacement cases count.
-- Sensors observe judgments, events observe calls/completion, states identify existing fields. Same-name sensors must agree. `compare A B` compares joint input classes; sourced `distinct` declares different policies.
-- Checks can show changed outcome classes. Before changing a complex old judgment, adding an anchor can preserve its old behavior. These comparisons remain available; they are not a required default step.
-- A complex cross-module path can use a small `flow` in `tests/intent/`: anchor nodes, edges, existing state transitions and reading relations, roughly ten nodes per layer. Reuse verified lower rules. A save call alone does not prove the current file was saved.
+## Optional tools
 
-The optional-use trial missed its correctness/cost gate. Default use stays narrow. Retest repeated decisions and cross-session paths with independent hidden checks.
+- `python -m flowguard` reads a brief and remembers this task's baseline commit; `check --base COMMIT` overrides the comparison baseline.
+- `show "what it decides"` finds existing owners. Reuse them. Copy suggestions are clues; `show --full` expands metadata.
+- `show NAME` shows recorded anchor/model observations. `try NAME k=v [--grid]` explores actual inputs; grid prints every evaluated representative. `watch -- python app.py` records a real run and checks its models.
+- For a complex path, `model draft NAME` proposes a small flow from recorded events. Review nodes, edges, existing state transitions and reading relations; layer large graphs. Unobserved edges stay grey. An observed save call alone does not prove the right file was saved.
 
-Red is a demonstrated mismatch. Grey is unverified, not success. Finite checks cover declared inputs and models; runtime edges need tests. Dynamic calls, external inputs and concurrency may remain unknown. Syntax maps do not prove foreign execution. The local [rule guide](references/rules.md) owns examples and migration.
+Red is a demonstrated disagreement. Grey is unverified, not success. Finite checks cover declared classes and models, not every external input or concurrent execution. Non-Python readers are optional static maps, without executable observations. See [rule examples and migration](references/rules.md).
 
-## Original words
-
-`python -m flowguard req add <file|-> --id R1` stores actual words byte for byte. Never archive an AI plan or edit `.flowguard/requests/`. `req list` and `show R1` retrieve originals; `--supersedes` records replacements. Commits answering saved words include `Request: R1`.
+`req add <file|-> --id R1` stores actual source words byte for byte. Never archive an AI plan or edit `.flowguard/requests/`. `req list` and `show R1` retrieve originals; `--supersedes` records replacements. Commits answering saved words include `Request: R1`.

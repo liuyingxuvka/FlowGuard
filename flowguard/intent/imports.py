@@ -5,6 +5,8 @@ format is reused; dependency packages and the interpreter keep their own loaders
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import importlib
 from importlib import _bootstrap_external, machinery, util
 import linecache
@@ -23,7 +25,33 @@ def _remember(name, path, fingerprint):
     _finder.loaded[name] = (path, fingerprint, sys.modules.get(name), owner)
 
 
+def _notify(module):
+    filename = getattr(module, '__file__', None)
+    if filename:
+        for root, callback in tuple(_finder.observers):
+            if project_code(filename, root):
+                callback(module)
+
+
+@contextmanager
+def observe_imports(root, callback):
+    """Notify after the same verified loader completes; never bypass its checks."""
+    observer = (Path(root).resolve(), callback)
+    _finder.observers.append(observer)
+    try:
+        for path, digest, module, owner in tuple(_finder.loaded.values()):
+            if module is not None and project_code(str(path), observer[0]):
+                callback(module)
+        yield
+    finally:
+        _finder.observers.remove(observer)
+
+
 class _Source(machinery.SourceFileLoader):
+    def exec_module(self, module):
+        super().exec_module(module)
+        _notify(module)
+
     def get_code(self, fullname):
         source = self.get_data(self.path)
         fingerprint = util.source_hash(source)
@@ -60,6 +88,7 @@ class _Rewritten:
         cache.unlink(missing_ok=True)
         _remember(module.__name__, source, util.source_hash(source.read_bytes()))
         self.delegate.exec_module(module)
+        _notify(module)
 
 
 class _Finder:
@@ -67,6 +96,7 @@ class _Finder:
         self.root = self.host = None
         self.active = False
         self.loaded = {}
+        self.observers = []
 
     def owns(self, filename):
         roots = (self.root,) if self.root == self.host else (self.root, self.host)

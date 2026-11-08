@@ -4,12 +4,12 @@ from __future__ import annotations
 import fnmatch
 from functools import cache
 from contextlib import closing, ExitStack, contextmanager
+from contextvars import ContextVar
 import json
 import os
 from pathlib import Path
 import sqlite3
 import sys
-import tempfile
 import threading
 import time
 
@@ -24,6 +24,8 @@ from .tracer import Footprint
 SENTINEL = 'test_flowguard_intent'
 NO_SKIP = 'this suite allows no skip, expected failure or early exit: a check that did not run is never reported as fine'
 _CURRENT = None
+_SIGNALS = ContextVar('flowguard_signals', default=None)
+_TRY = ContextVar('flowguard_try', default=None)
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS reading(test TEXT PRIMARY KEY, outcome TEXT, kind TEXT, reason TEXT,
   phase TEXT, seconds REAL, stamp REAL);
@@ -32,6 +34,45 @@ CREATE TABLE IF NOT EXISTS footprint(test TEXT, node TEXT, fp TEXT, file TEXT, l
 CREATE TABLE IF NOT EXISTS result(item TEXT PRIMARY KEY, rule TEXT, verdict TEXT, payload TEXT, stamp REAL);
 '''
 
+
+@contextmanager
+def collect_signals():
+    """Let a multi-batch check render its runtime facts exactly once."""
+    reports = []
+    token = _SIGNALS.set(reports)
+    try:
+        yield reports
+    finally:
+        _SIGNALS.reset(token)
+
+
+@contextmanager
+def try_reading(target, name, values, grid=False):
+    """Add requested input points to the normal runtime, never narrow its model."""
+    request = dict(target=target, name=name, values=dict(values), grid=grid, readings=[], reasons=[], partition_reasons=[], actual_inputs={})
+    token = _TRY.set(request)
+    try:
+        yield request
+    finally:
+        _TRY.reset(token)
+
+
+def observation_payload(value, seen=frozenset()):
+    import math
+    kind = type(value)
+    if any(kind is native for native in (type(None), bool, int, str)) or kind is float and math.isfinite(value):
+        return value
+    namespace = type.__dict__['__dict__'].__get__(kind)
+    module = namespace.get('__module__', 'builtins')
+    label = (module if type(module) is str else '?') + '.' + type.__dict__['__qualname__'].__get__(kind)
+    if any(kind is native for native in (dict, list, tuple)) and id(value) not in seen:
+        seen = seen | {id(value)}
+        if kind is dict:
+            if all(type(key) is str for key in value):
+                return {key: observation_payload(part, seen) for key, part in value.items()}
+        else:
+            return [observation_payload(part, seen) for part in value]
+    return {'unverified_type': label}
 
 def _json(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, default=repr)
@@ -47,57 +88,22 @@ class Session:
         self.is_project = project_code(self.cfg)
         self.model = self.engine = self.map = None
         self.collected, self.selected, self.deferred = set(), set(), set()
-        self.results, self.readings, self.footprints, self.children, self.durations = {}, {}, {}, {}, {}
+        self.results, self.readings, self.footprints, self.durations = {}, {}, {}, {}
         self.sentinel = None
         self.ordinary_selected, self.early_exit, self.session_errors = set(), [], []
         self.ordinary_files, self.ordinary_deselected = set(), False
         self.last_test = None
-        self.shard = None
         self.completed = set()
         self.process_calls, self.closed = [], False
         self.main_process = os.getpid()
         self.main_thread = threading.get_ident()
         self.started = time.time()
-        self.folder = self.bootstrap = None
         self.events, self.anchor_issues = [], []
-        self.diagnostics, self.diagnostic_issues, self.diagnostic_models = None, [], []
-        self.owns_diagnostics = True
-        self.diagnostic_scope = self.main_process, id(config)
         self.calibration_facts = {}
-
-    def start_diagnostics(self, config):
-        requested = (config.getoption('--flowguard-diagnose', default=False)
-                     or getattr(getattr(config, 'known_args_namespace', None), 'flowguard_diagnose', False))
-        append = (config.getoption('--flowguard-diagnose-append', default=False)
-                  or getattr(getattr(config, 'known_args_namespace', None), 'flowguard_diagnose_append', False))
-        if append and not requested:
-            raise pytest.UsageError('--flowguard-diagnose-append requires --flowguard-diagnose')
-        if requested and self.diagnostics is None:
-            from .calibration import probe_context
-            sessions, seen = [], set()
-            current = self
-            while current is not None and id(current) not in seen:
-                seen.add(id(current))
-                sessions.append(current)
-                current = getattr(current, 'previous_session', None)
-            # Drivers register before configure activates their private capability.
-            # Excluding their diagnostics must not change that capability's meaning.
-            if any(probe_context(state.config) or any(
-                    getattr(candidate, '_flowguard_calibration_driver', False)
-                    for candidate in state.config.pluginmanager.get_plugins()) for state in sessions):
-                return
-            from .diagnostics import EventLog
-            owner = next((state for state in sessions[1:]
-                          if state.cfg.root == self.cfg.root and state.main_process == self.main_process
-                          and state.main_thread == self.main_thread and state.diagnostics is not None), None)
-            if owner is not None:
-                self.diagnostics, self.owns_diagnostics = owner.diagnostics, False
-            else:
-                self.diagnostics = EventLog(self.cfg.cache / 'anchor-events.jsonl', append=append)
-            self.diagnostics.write(dict(kind='session', pid=self.main_process, scope_id=self.diagnostic_scope, root=str(self.cfg.root),
-                                        append=bool(append or owner is not None), nested=owner is not None,
-                                        scope='ordinary-test activated anchors; calibration probes are not expanded'))
-            config.pluginmanager.register(self)
+        self.runtime = None
+        self.observations = None
+        self.source_items = ()
+        self.complete_collection = None
 
     @contextmanager
     def verification(self):
@@ -105,64 +111,6 @@ class Session:
         from .calibration import _execution_session as calibrated_session
         with calibrated_session(self.cfg.root, facts=self.calibration_facts), _execution_session(self.cfg.root):
             yield
-
-    def import_children(self):
-        if self.folder is None:
-            self.folder = tempfile.TemporaryDirectory(prefix='flowguard-child-')
-            self.bootstrap = Path(self.folder.name) / 'bootstrap'
-            self.bootstrap.mkdir()
-            # All Python children read current source; only recorded tests trace.
-            sdk = Path(__file__).resolve().parents[1]
-            (self.bootstrap / 'sitecustomize.py').write_text(
-                'import importlib.util, sys\n'
-                f'_spec = importlib.util.spec_from_file_location("flowguard", {str(sdk / "__init__.py")!r}, '
-                f'submodule_search_locations=[{str(sdk)!r}])\n'
-                '_package = importlib.util.module_from_spec(_spec)\n'
-                'sys.modules["flowguard"] = _package\n'
-                '_spec.loader.exec_module(_package)\n'
-                'from flowguard.intent.child import start\nstart()\n', encoding='utf-8')
-        paths = [str(self.bootstrap), str(self.cfg.root),
-                 *(str(p) for p in self.cfg.roots), *os.environ.get('PYTHONPATH', '').split(os.pathsep)]
-        values = dict(FLOWGUARD_IMPORT_ROOT=str(self.cfg.root), PYTHONPATH=os.pathsep.join(dict.fromkeys(paths)))
-        inherited = ('FLOWGUARD_TRACE_ROOT', 'FLOWGUARD_TRACE_CHILDREN', 'FLOWGUARD_TRACE_TEST')
-        self.import_environment = {name: os.environ.get(name) for name in (*values, *inherited)}
-        # A nested pytest session owns propagation to its children. The caller's
-        # active footprint remains real, but its child context is not this
-        # session's ordinary-test recording policy. Restore it when we close.
-        for name in inherited:
-            os.environ.pop(name, None)
-        os.environ.update(values)
-
-    def _diagnostic_unavailable(self, output, error):
-        issue = f'diagnostics unavailable: {output} reporting raised {type(error).__name__}'
-        self.diagnostic_issues.append(issue)
-        if self.diagnostics is not None:
-            self.diagnostics.issues.append(issue)
-            self.diagnostics.write(dict(kind='diagnostic-unavailable', output=output,
-                                        error=type(error).__name__))
-
-    def _report_diagnostic(self, text, *, stream, output):
-        from .diagnostics import report_diagnostic
-        error = report_diagnostic(text, file=stream)
-        if error is not None:
-            self._diagnostic_unavailable(output, error)
-
-    def pytest_runtest_logreport(self, report):
-        # This receives the final pytest outcome, including effective xfail and
-        # FlowGuard's skip/marked-guard corrections. Private probe sessions never
-        # register this enabled diagnostic owner.
-        if not report.failed or self.diagnostics is None:
-            return
-        from .calibration import probe_context
-        if probe_context(self.config):
-            return
-        try:
-            stream = self.config.get_terminal_writer()
-            text = f'\nFlowGuard failure: {report.nodeid} [{report.when}]\n{report.longreprtext}'
-        except Exception as error:
-            self._diagnostic_unavailable('terminal', error)
-            return
-        self._report_diagnostic(text, stream=stream, output='terminal')
 
     def close(self):
         global _CURRENT
@@ -176,31 +124,8 @@ class Session:
             release_root(self.cfg.root)
         if self.owns_host:
             release_host(self.cfg.root)
-        for name, value in self.import_environment.items():
-            if value is None:
-                os.environ.pop(name, None)
-            else:
-                os.environ[name] = value
-        self.folder.cleanup()
-        if self.diagnostics is not None:
-            grey = sum(len(result.get('grey', ())) for result in self.diagnostic_models)
-            unclaimed = sum(result.get('runtime', {}).get('unclaimed_relations', 0) for result in self.diagnostic_models)
-            outside = sum('anchor not included' in message for result in self.diagnostic_models for message in result.get('info', ()))
-            self.diagnostic_issues.extend(self.diagnostics.issues)
-            self._report_diagnostic(f'FlowGuard anchor diagnostics: {len(self.diagnostic_models)} model result(s), '
-                                    f'{grey} unverified reason(s), {unclaimed} readings outside rules, '
-                                    f'{outside} unmodelled anchor notices; {self.diagnostics.path}',
-                                    stream=sys.stdout, output='stdout')
-        for issue in dict.fromkeys(self.diagnostic_issues):
-            self._report_diagnostic('FlowGuard ' + issue, stream=sys.stderr, output='stderr')
-        if self.diagnostics is not None:
-            if self.owns_diagnostics:
-                self.diagnostics.write(dict(kind='closed', scope_id=self.diagnostic_scope, model_results=len(self.diagnostic_models)))
-                self.diagnostics.close()
-            for issue in tuple(self.diagnostics.issues):
-                if issue not in self.diagnostic_issues:
-                    self.diagnostic_issues.append(issue)
-                    self._report_diagnostic('FlowGuard ' + issue, stream=sys.stderr, output='stderr')
+        if self.map is not None:
+            self.map.close()
 
     def guard_process_exit(self, config):
         recording = (config.getoption('--flowguard-record-tests', default=False)
@@ -226,24 +151,14 @@ class Session:
             pytest.fail(reason + '; ' + guidance, pytrace=False)
         return refused
 
-    def child_folder(self, item):
-        folder = Path(self.folder.name) / str(len(self.children))
-        folder.mkdir()
-        self.children[item.nodeid] = folder
-        return folder
-
     def get_model(self):
         if self.model is None:
-            from .calibration import probe_context
-            probe = probe_context(self.config)
-            previous = self.previous_session
-            index = (previous.model.anchor_index if probe and previous is not None
-                     and previous.cfg.root == self.cfg.root and previous.model is not None else None)
             with self.verification():
-                self.model = load(self.cfg, anchor_index=index,
-                                  map_path=Path(self.folder.name) / 'anchor-map.sqlite' if probe else None)
+                self.model = load(self.cfg)
                 self.model.deep = self.config.getoption('--flowguard-deep', default=False)
                 self.engine = Engine(self.model)
+                from .runtime import Runtime
+                self.runtime = Runtime(self.cfg.root)
         return self.model
 
     def prepare_declaration(self, declaration):
@@ -291,80 +206,514 @@ class Session:
             self.map = build(self.cfg.root, roots=self.cfg.roots)
         return self.map
 
-    def child_records(self, item):
-        folder = self.children.get(item if isinstance(item, str) else item.nodeid)
-        return [json.loads(p.read_text(encoding='utf-8')) for p in sorted(folder.glob('*.json'))] if folder else []
 
+class Observations:
+    """Connect loaded source points to the one runtime during ordinary tests."""
+    def __init__(self, state):
+        import ast
+        from . import anchors, cache, differences
+        from .runtime import Runtime, _functions, _binding_facts
+        from ..map.common import MapError, git_run, read_source
+        self.state, self.cfg = state, state.cfg
+        baseline = state.config.getoption('--flowguard-base', default=None) or cache.session_baseline(self.cfg, remember=False) or 'HEAD'
+        self.runtime = state.runtime = Runtime(self.cfg.root, baseline)
+        if state.config.getoption('--flowguard-base', default=None) and self.runtime._baseline_error:
+            raise pytest.UsageError(self.runtime._baseline_error)
+        self.index = state.model.anchor_index or differences._source_index(self.cfg.root)
+        state.model.anchor_index = self.index
+        try:
+            changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', baseline).stdout
+            added = git_run(self.cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
+            self.files = {os.fsdecode(value) for value in (changed + added).split(b'\0')
+                          if value and value.endswith(b'.py') and state.is_project(str(self.cfg.root / os.fsdecode(value)))}
+        except MapError:
+            self.files = set()
+        self.points = {a.target: dict(anchor=a, target=a.target, file=a.file, module=a.module, qual=a.qual,
+                                     name=a.name, kind=a.kind, node=None)
+                       for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'}
+        self.changed, self.records, self.pairs, self.red, self.grey, self.paths = bool(self.files), [], [], [], [], []
+        self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
+        self.request, self.text = _TRY.get(), ''
+        self.rules = {}
+        for rule in state.model.rules.values():
+            for home in rule.homes:
+                self.rules.setdefault(home.target, []).append(rule)
+        self.by_file = {}
+        if self.changed:
+            # The existing map supplies module ownership for unanchored changed functions.
+            graph = state.get_map()
+            views = {}
+            for row in graph.nodes():
+                if row['file'] not in self.files or row['kind'] not in ('function', 'method') or not state.is_project(str(self.cfg.root / row['file'])):
+                    continue
+                if row['file'] not in views:
+                    tree = ast.parse(read_source(self.cfg.root / row['file']))
+                    old = self.runtime._source(row['file'])
+                    old_tree = ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
+                    views[row['file']] = (dict(_functions(tree)), dict(_functions(old_tree)),
+                                          _binding_facts(old_tree), _binding_facts(tree))
+                current_functions, prior_functions, old_facts, facts = views[row['file']]
+                node = current_functions.get(row['qual'])
+                if node is None:
+                    continue
+                params = tuple(anchors.Parameter(arg.arg, '', anchors._annotation(arg.annotation),
+                                                anchors._parameter_role(anchors._annotation(arg.annotation)), True)
+                               for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+                               if arg.arg not in ('self', 'cls'))
+                if not any(p.role == 'input' and p.source_type != '?' for p in params):
+                    continue
+                prior = prior_functions.get(row['qual'])
+                if prior is not None and ast.dump(prior, include_attributes=False) == ast.dump(node, include_attributes=False):
+                    loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
+                    if not any(old_facts.get(name) != facts.get(name) for name in loaded):
+                        continue
+                self.points.setdefault(row['id'], dict(anchor=None, parameters=params, target=row['id'], file=row['file'],
+                                                       module=row['module'], qual=row['qual'], name=row['qual'], kind='sensor', node=node))
+        for point in self.points.values():
+            self.by_file.setdefault(point['file'], []).append(point)
+
+    def _module(self, module):
+        from .runtime import _PRIVATE
+        token = _PRIVATE.set(True)
+        try:
+            return self._bind_module(module)
+        finally:
+            _PRIVATE.reset(token)
+
+    def _bind_module(self, module):
+        import inspect
+        import types
+        filename = getattr(module, '__file__', None)
+        if not filename:
+            return
+        for point in self.by_file.get(self.cfg.rel(filename), ()):
+            if point['target'] in self.bound:
+                continue
+            value, receiver = module, None
+            for part in point['qual'].split('.'):
+                receiver = value if isinstance(value, type) else None
+                value = vars(value).get(part) if isinstance(value, (types.ModuleType, type)) else None
+                value = value.__func__ if isinstance(value, (staticmethod, classmethod)) else value
+            if not isinstance(value, types.FunctionType):
+                continue
+            from . import sites
+            fn = sites.unwrap(value)
+            point['fn'], point['receiver'] = fn, receiver
+            groups = self.index.named(point['name'], 'sensor') if point['anchor'] else ()
+            if not self.changed and (point['kind'] == 'event' or len(groups) < 2 and not self.rules.get(point['target'])
+                                     and not (self.request and self.request['target'] == point['target'])):
+                continue
+            self.runtime.register(fn)
+            self.bound[point['target']] = point
+            if point['kind'] == 'event':
+                self.event_codes[id(fn.__code__)] = (fn.__code__, point['name'])
+                continue
+            try:
+                original = self.scopes.enter_context(self.runtime.hook(fn, name=point['name'],
+                    axes=lambda original, bound, point=point: self._at_call(point, original, bound)))
+                point['original'] = original
+            except (ValueError, TypeError, sites.NotMutable) as error:
+                self.grey.append(point['name'] + ': ' + str(error))
+
+    def _partition(self, point, original, bound):
+        import ast
+        from types import SimpleNamespace
+        from . import anchors, cells as C, differences as D
+        from .runtime import _definition
+        parameters = point.get('parameters', getattr(point['anchor'], 'parameters', ()))
+        kinds, unknown = {}, []
+        for parameter in parameters:
+            try:
+                kind = anchors.parameter_kind(parameter, bound.arguments.get(parameter.name, ...))
+            except ValueError as error:
+                unknown.append(str(error))
+            else:
+                if kind is not None:
+                    kinds[parameter.name] = kind
+        tree = ast.parse((self.cfg.root / point['file']).read_text(encoding='utf-8-sig'))
+        current = _definition(original)
+        env = anchors._literal_globals(tree)
+        patch = self.runtime.patches.get(point['fn'])
+        previous = patch.node if patch else current
+        old_tree = ast.parse(self.runtime._source(point['file'])) if patch else tree
+        old_env = anchors._literal_globals(old_tree)
+        old_env.update(self.runtime._constants(old_tree, original.__module__))
+        from .runtime import _simple
+        for (_, name), (namespace, before) in self.runtime.constants.items():
+            if namespace is original.__globals__ and name in namespace and _simple(namespace[name]):
+                env[name] = namespace[name]
+                old_env[name] = self.runtime._old_value(namespace, name, before)
+        now_read = C.read_predicate(SimpleNamespace(__globals__=env), kinds, node=current)
+        old_read = C.read_predicate(SimpleNamespace(__globals__=old_env), kinds, node=previous)
+        # An unclosed numeric range keeps candidate examples, never a proof.
+        candidates = {}
+        for name in list(kinds):
+            evidence = kinds[name].name in ('bool', 'enum') or any(
+                reading.consts.get(name) or any(name in plane.coefs for plane in reading.planes)
+                or any(name in link for link in reading.links) for reading in (now_read, old_read))
+            if not evidence:
+                unknown.append(name + ': no closed range; these are candidate examples')
+                kind = kinds.pop(name)
+                literals = [C.coerce(node.value, kind) for tree in (previous, current) for node in ast.walk(tree)
+                            if isinstance(node, ast.Constant) and kind.accepts(C.coerce(node.value, kind))]
+                candidates[name] = C.points(kind, literals)
+                if name in bound.arguments:
+                    env[name] = old_env[name] = bound.arguments[name]
+        views = [SimpleNamespace(kinds=kinds, reading=C.read_predicate(SimpleNamespace(__globals__=values), kinds, node=node),
+                                 issues=(), node=node, literal_globals=values)
+                 for node, values in ((previous, old_env), (current, env))]
+        part = D.joint_partition(*views)
+        # joint_partition already built the joint space and retained every
+        # logical class. Rebuilding that space here duplicated both work and
+        # grid points; the runtime needs these proved representatives only.
+        axes = {name: [] for name in kinds}
+        from .runtime import outcome_equal
+        for region in part.regions:
+            for name, value in region.inputs.items():
+                if not any(outcome_equal(value, prior) for prior in axes[name]):
+                    axes[name].append(value)
+        return {**axes, **candidates}, part if not unknown else None, unknown
+
+    def _at_call(self, point, original, bound):
+        from . import runtime as R
+        token = R._PRIVATE.set(True)
+        try:
+            return self._classes_at_call(point, original, bound)
+        finally:
+            R._PRIVATE.reset(token)
+
+    def _classes_at_call(self, point, original, bound):
+        from . import runtime as R
+        if problem := self.runtime.safety(original, bound.arguments):
+            self.records.append((len(self.runtime.readings), point, None, [problem], None))
+            return {}  # Runtime still records its refusal and makes the one real call.
+        try:
+            axes, part, unknown = self._partition(point, original, bound)
+        except (ValueError, TypeError, OSError, SyntaxError, AttributeError) as error:
+            axes, part, unknown = {}, None, [str(error)]
+        if self.request and self.request['target'] == point['target']:
+            from . import anchors
+            parameters = {parameter.name: parameter for parameter in
+                          point.get('parameters', getattr(point['anchor'], 'parameters', ()))}
+            for parameter in parameters.values():
+                actual = bound.arguments.get(parameter.name, ...)
+                try:
+                    if anchors.parameter_kind(parameter, actual) is not None and R._simple(actual):
+                        self.request['actual_inputs'][parameter.name] = actual
+                except ValueError:
+                    pass  # Unknown inputs never become an invented default.
+            for name, value in self.request['values'].items():
+                try:
+                    kind = anchors.parameter_kind(parameters[name], bound.arguments.get(name, ...))
+                    if kind is None:
+                        raise ValueError(name + ': context inputs cannot be replaced')
+                    if not kind.accepts(value):
+                        raise ValueError(name + ': requested value has the wrong input type')
+                except (KeyError, ValueError) as error:
+                    self.request['reasons'].append(str(error))
+                    continue
+                pool = axes.setdefault(name, [])
+                if not any(R.outcome_equal(value, prior) for prior in pool):
+                    pool.append(value)
+            self.request['partition_reasons'].extend(unknown + (part.reasons if part is not None else []))
+        for rule in self.rules.get(point['target'], ()):
+            if not set(rule.fields) <= axes.keys():
+                self.grey.append(rule.id + ': this real context does not expose all rule inputs')
+                continue
+            values = self.state.engine.rr_space(rule.decides)[2]
+            for field in rule.fields:
+                pool = axes.setdefault(field, [])
+                additions = [*values.get(field, ()), *(row.inputs[field] for row in rule.live_rows if field in row.inputs)]
+                pool.extend(value for value in additions if not any(R.outcome_equal(value, prior) for prior in pool))
+        peers, measured = [], []
+        if not self.runtime.safety(original, bound.arguments) and point['anchor']:
+            for anchor in self.index.named(point['name'], 'sensor'):
+                other = self.bound.get(anchor.target)
+                if other is point:
+                    continue
+                if not other or 'original' not in other:
+                    self.grey.append(point['name'] + ': copy not loaded in this real context: ' + anchor.target)
+                    continue
+                # The actual context is borrowed only under the same named roles.
+                contexts = {p.name: p.source_type for p in point['anchor'].parameters if p.name not in axes}
+                theirs = {p.name: p.source_type for p in anchor.parameters if p.name not in axes}
+                if contexts != theirs or ({'self', 'cls'} & bound.arguments.keys() and point.get('receiver') is not other.get('receiver')):
+                    self.grey.append(point['name'] + ': copy context is not available under the same roles')
+                    continue
+                import inspect
+                try:
+                    arguments = inspect.signature(other['original']).bind(**bound.arguments)
+                except TypeError:
+                    self.grey.append(point['name'] + ': copy signature does not accept this real context')
+                    continue
+                if self.runtime.safety(other['original'], arguments.arguments):
+                    self.grey.append(point['name'] + ': copy is not safe to replay in this context')
+                    continue
+                try:
+                    other_axes, other_part, other_unknown = self._partition(other, other['original'], arguments)
+                except (ValueError, TypeError, OSError, SyntaxError, AttributeError) as error:
+                    self.grey.append(point['name'] + ': copy partition unavailable: ' + str(error))
+                    continue
+                for field, values in other_axes.items():
+                    pool = axes.setdefault(field, [])
+                    pool.extend(value for value in values if not any(R.outcome_equal(value, prior) for prior in pool))
+                if other_unknown or other_part is None or not other_part.complete:
+                    self.grey.append(point['name'] + ': same-name partition is not closed; candidate comparisons only')
+                measured.append((other, arguments))
+        for other, arguments in measured:
+            token = R._PRIVATE.set(True)
+            index = len(self.runtime.readings)
+            try:
+                self.runtime.observe(other['original'], arguments, owner=other['fn'], name=point['name'], axes=axes, private=True)
+            except Exception:
+                pass  # Raised rows, not the synthetic final call, decide agreement.
+            finally:
+                R._PRIVATE.reset(token)
+            if len(self.runtime.readings) > index:
+                peers.append(self.runtime.readings[index])
+        self.records.append((len(self.runtime.readings), point, part, unknown, self._cause(point, original)))
+        self.pairs.append((len(self.runtime.readings), peers))
+        return axes
+
+    @contextmanager
+    def scope(self, item):
+        from .imports import observe_imports
+        self.runtime.test = item.nodeid
+        self.event_codes = {}
+        with ExitStack() as self.scopes:
+            self.bound = {}
+            with observe_imports(self.cfg.root, self._module):
+                for name in {point['module'] for point in self.points.values()}:
+                    if (module := sys.modules.get(name)) is not None:
+                        self._module(module)
+                path = []
+                def event(frame, phase, value):
+                    match = self.event_codes.get(id(frame.f_code))
+                    if phase == 'call' and match and match[0] is frame.f_code:
+                        path.append(match[1])
+                    return None
+                record = self.runtime.record(predicate=lambda code: (match := self.event_codes.get(id(code)))
+                                              and match[0] is code, callback=event, entry_only=True)
+                if self.changed and any(point['kind'] == 'event' for point in self.points.values()):
+                    with record:
+                        yield
+                else:
+                    yield
+                self.actual_path = path
+
+    def old_path(self, item, nextitem):
+        if not self.changed or not self.actual_path or not self.event_codes:
+            return
+        old = []
+        with self.runtime.old_code():
+            codes = {id(point['fn'].__code__): (point['fn'].__code__, point['name']) for point in self.bound.values()
+                     if point['kind'] == 'event' and point['fn'] in self.runtime.patches}
+            if len(codes) != len(self.event_codes):
+                self.grey.append(item.nodeid + ': baseline event code is unavailable')
+                return
+            def event(frame, phase, value):
+                match = codes.get(id(frame.f_code))
+                if phase == 'call' and match and match[0] is frame.f_code:
+                    old.append(match[1])
+                return None
+            with self.runtime.record(codes=list(codes.values()), callback=event, private=True, entry_only=True):
+                result = self.runtime.replay(item, nextitem=nextitem)
+        if result['status'] == 'ok':
+            self.paths.append(dict(test=item.nodeid, before=old, after=self.actual_path))
+        else:
+            self.grey.extend(item.nodeid + ': ' + reason for reason in result['reasons'])
+
+    def _rule_signals(self):
+        """Check already observed values; partial pytest never invents full receipts."""
+        from . import cells as C
+        from .engine import CONFLICT, PredicateError, outcome_eq
+        from .sources import parse
+        engine, checked, quoted = self.state.engine, {}, set()
+        for index, point, part, unknown, cause in self.records:
+            if index >= len(self.runtime.readings):
+                continue
+            reading = self.runtime.readings[index]
+            for rule in self.rules.get(point['target'], ()):
+                if reading.status != 'ok' or not reading.rows:
+                    self.grey.append(rule.id + ': no verified current reading in this test context')
+                    continue
+                active = [other for other in self.state.model.active(rule.decides)
+                          if other is rule or not self.state.model.distinct_pair(rule.id, other.id)]
+                for other in active:
+                    if other.id not in checked:
+                        item = self.state.model.file_of[other.id] + '::' + other.id + '[rules]'
+                        checked[other.id] = self.state.results.get(item) or engine.run_rules(other)
+                guards = [checked[other.id] for other in active]
+                if reasons := [reason for guard in guards for reason in guard['grey']]:
+                    self.grey.extend(rule.id + ': ' + reason for reason in reasons)
+                    continue
+                self.red.extend(rule.id + ': ' + message for guard in guards for message in guard['red'])
+                required = {field for other in active for field in other.fields}
+                for inputs, actual in reading.rows:
+                    if not required <= inputs.keys():
+                        self.grey.append(rule.id + ': this reading does not expose all rule inputs')
+                        continue
+                    try:
+                        expected = engine.effective(rule, inputs)
+                    except PredicateError as error:
+                        self.red.append(str(error))
+                        continue
+                    if expected is CONFLICT:
+                        continue  # The independent rule conflict above owns this red.
+                    if expected is not None and not outcome_eq(expected, actual):
+                        self.red.append(f'{rule.id}: {C.show_cell(inputs)} -> rule {C.show(expected)}, code {str(actual) if type(actual) is bool else C.show(actual)}')
+                        if rule.id not in quoted:
+                            source = parse(rule.source)
+                            self.red.append(rule.id + ' 出处：' + (source.quote or source.text))
+                            quoted.add(rule.id)
+                        break
+
+    def report(self):
+        from types import SimpleNamespace
+        from . import cells as C, differences as D, runtime as R, signals
+        self._rule_signals()
+        items, leads = [], []
+        key = lambda inputs: tuple((name, type(value).__name__, repr(value)) for name, value in sorted(inputs.items()))
+        for index, point, part, unknown, cause in self.records:
+            if index >= len(self.runtime.readings):
+                continue
+            reading = self.runtime.readings[index]
+            if self.request and self.request['target'] == point['target']:
+                self.request['readings'].append(reading)
+            actual = {key(inputs): value for inputs, value in reading.rows}
+            changes = {key(inputs): old for inputs, old, new in reading.changed}
+            if part is not None:
+                before, after = [], []
+                for region in part.regions:
+                    signature = key(region.inputs)
+                    available = signature in actual and reading.status == reading.comparison_status == 'ok'
+                    before.append(SimpleNamespace(status='ok' if available else 'grey', reasons=tuple(reading.reasons + reading.comparison_reasons),
+                                                  value=changes.get(signature, actual.get(signature))))
+                    after.append(SimpleNamespace(status='ok' if available else 'grey', reasons=tuple(reading.reasons), value=actual.get(signature)))
+                result = D._result(point['name'], part, before, after)
+                result['reasons'] += unknown
+                result['complete'] &= not unknown
+            else:
+                from dataclasses import asdict
+                result = asdict(reading)
+                result['reasons'] += unknown
+                result['complete'] = False
+            result.update(name=point['name'], file=point['file'], line=getattr(point['anchor'], 'target_line', 0) or point['node'].lineno,
+                          unanchored=point['anchor'] is None)
+            if reading.status != 'ok':
+                result.update(complete=False, reasons=reading.reasons, status='grey')
+            if cause:
+                result['cause'] = cause
+                if isinstance(cause, dict):
+                    leads.append(signals.stale_copies(self.state.get_map(), [dict(cause, target=point['target'], fields=list(part.regions[0].inputs) if part and part.regions else [])], limit=5))
+            items.append(result)
+        for index, peers in self.pairs:
+            if index >= len(self.runtime.readings):
+                continue
+            current = self.runtime.readings[index]
+            for peer in peers:
+                now = {key(inputs): value for inputs, value in current.rows}
+                other = {key(inputs): value for inputs, value in peer.rows}
+                for signature in now.keys() & other.keys():
+                    if current.status == peer.status == 'ok' and not R.outcome_equal(now[signature], other[signature]):
+                        self.red.append(f'同名锚点 {current.name}：' + ', '.join(f'{name}={value}' for name, kind, value in signature) + '，'
+                                        f'{C.show(now[signature])} ≠ {C.show(other[signature])}')
+                        break
+        for result in self.state.results.values():
+            if result.get('red'):
+                rule = self.state.model.rules.get(result.get('rule'))
+                quote = ''
+                if rule:
+                    from .sources import parse
+                    source = parse(rule.source)
+                    quote = source.quote or source.text
+                self.red.extend(signals.constraint(message, result.get('rule') or '规矩') for message in result['red'])
+                if quote:
+                    self.red.append(str(result.get('rule') or '规矩') + ' 出处：' + quote)
+        for issue in self.index.issues:
+            if issue.level == 'red':
+                self.red.append(issue.message)
+        items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
+        report = dict(source_changed=self.changed, items=items, paths=self.paths,
+                      leads=leads, red=list(dict.fromkeys(self.red)))
+        from dataclasses import fields
+        from .flow import Event
+        self.payload = observation_payload(dict(stamp=self.state.started, baseline=self.runtime.baseline, items=report, paths=self.paths,
+                                  events=[{field.name: getattr(event, field.name) for field in fields(Event)}
+                                          for event in self.state.events if type(event) is Event]))
+        collector = _SIGNALS.get()
+        if collector is not None:
+            collector.append(report)
+        else:
+            self.text = signals.render(report)
+        return bool(self.red)
+
+    def _cause(self, point, original=None):
+        import ast
+        import difflib
+        from . import runtime as R
+        fn = original or point['fn']
+        for (_, name), (namespace, before) in self.runtime.constants.items():
+            if namespace is not fn.__globals__ or name not in fn.__code__.co_names:
+                continue
+            after = namespace[name]
+            if R.outcome_equal(self.runtime._old_value(namespace, name, before), after):
+                continue
+            tree = ast.parse((self.cfg.root / point['file']).read_text(encoding='utf-8-sig'))
+            line = next((node.lineno for node in tree.body if isinstance(node, (ast.Assign, ast.AnnAssign))
+                         and any(isinstance(target, ast.Name) and target.id == name for target in (node.targets if isinstance(node, ast.Assign) else [node.target]))), 1)
+            return dict(name=name, before=before, after=after, file=point['file'], line=line)
+        from ..map.common import MapError
+        try:
+            old = self.runtime._source(point['file'])
+        except MapError:
+            return None  # Runtime owns the explicit unavailable-baseline reason.
+        if old is None:
+            return None
+        source = (self.cfg.root / point['file']).read_text(encoding='utf-8-sig')
+        from .runtime import _functions
+        current = dict(_functions(ast.parse(source))).get(point['qual'])
+        if current is None:
+            return None
+        patch = self.runtime.patches.get(point['fn'])
+        if patch is not None:
+            import copy
+            class Shape(ast.NodeTransformer):
+                def visit_Constant(self, node):
+                    return ast.copy_location(ast.Constant(type(node.value).__name__), node)
+            if ast.dump(Shape().visit(copy.deepcopy(patch.node)), include_attributes=False) == ast.dump(Shape().visit(copy.deepcopy(current)), include_attributes=False):
+                for before_node, after_node in zip((node for node in ast.walk(patch.node) if isinstance(node, ast.Constant)),
+                                                   (node for node in ast.walk(current) if isinstance(node, ast.Constant))):
+                    if type(before_node.value) is type(after_node.value) and not R.outcome_equal(before_node.value, after_node.value):
+                        return dict(name=point['name'] + ' 的常量', before=before_node.value, after=after_node.value,
+                                    file=point['file'], line=after_node.lineno)
+        for tag, i, stop, j, end in difflib.SequenceMatcher(a=old.splitlines(), b=source.splitlines()).get_opcodes():
+            if tag != 'equal' and current.lineno <= j + 1 <= current.end_lineno:
+                return f'{point["name"]}（{point["file"]}:{j + 1}）'
+        return None
 
 def pytest_addoption(parser):
     group = parser.getgroup('flowguard')
+    group.addoption('--flowguard-base', default=None, help='Compare with this baseline commit')
     group.addoption('--flowguard-deep', action='store_true', help='Include explicit decision probes and mutation-survival checks')
+    group.addoption('--flowguard-complete', action='store_true', help='Require the complete ordinary collection without filters')
     group.addoption('--flowguard-rules', default=None, help='Run these changed rules; other fully collected rules are deferred to the cache')
     group.addoption('--flowguard-record-tests', action='store_true', help='Record the ordinary tests actually selected by check')
-    group.addoption('--flowguard-diagnose', action='store_true', help='Write live diagnostics for activated ordinary-test anchors')
-    group.addoption('--flowguard-diagnose-append', action='store_true', help='Append a later diagnostic batch from the same check')
-    group.addoption('--flowguard-shard', default=None, help='Run one complete-intent partition of the full ordinary collection (k/n)')
 
 
-def parse_shard(value):
-    """One parser for the CLI and its ordinary pytest plugin."""
-    parts = str(value).split('/')
-    if len(parts) != 2 or any(not part.isascii() or not part.isdecimal() for part in parts):
-        raise ValueError('shard must be k/n with 1 <= k <= n')
-    index, count = map(int, parts)
-    if not 1 <= index <= count:
-        raise ValueError('shard must be k/n with 1 <= k <= n')
-    return index, count
-
-
-def _shard_items(config, state, items, value):
-    try:
-        index, count = parse_shard(value)
-    except ValueError as error:
-        raise pytest.UsageError(str(error)) from error
+def _require_complete_collection(config, state):
     options = config.option
     selectors = ('keyword', 'markexpr', 'deselect', 'ignore', 'ignore_glob', 'lf', 'newfirst',
                  'stepwise', 'stepwise_skip', 'collectonly', 'setuponly', 'setupplan')
-    collection_overrides = {'testpaths', 'python_files', 'python_classes', 'python_functions',
-                            'norecursedirs', 'collect_imported_tests', 'addopts'}
+    overrides = {'testpaths', 'python_files', 'python_classes', 'python_functions',
+                 'norecursedirs', 'collect_imported_tests', 'addopts'}
     if (not config.getoption('--flowguard-record-tests') or config.getoption('--flowguard-rules') is not None
             or getattr(config.args_source, 'name', '') == 'ARGS'
             or any(getattr(options, name, None) for name in selectors)
-            or any(value.partition('=')[0].strip() in collection_overrides for value in (options.override_ini or ()))
+            or any(value.partition('=')[0].strip() in overrides for value in (options.override_ini or ()))
             or state.ordinary_deselected):
-        raise pytest.UsageError('shards require the full ordinary collection: no paths, filters or collection overrides')
-    model = state.get_model()
-    required_files = set()
-    for rule in model.rules.values():
-        for binding in rule.homes:
-            selector = getattr(binding, 'testnode', '') or getattr(getattr(binding, 'anchor', None), 'calibrated_by', '')
-            if selector:
-                required_files.add(selector.partition('::')[0])
-    references = {node.reference for flow in model.flows.values() for node in flow.nodes}
-    for anchor in model.anchor_index.entries:
-        if anchor.name in references:
-            if anchor.source_role == 'test':
-                required_files.add(anchor.file)
-            if anchor.calibrated_by:
-                required_files.add(anchor.calibrated_by.partition('::')[0])
-    required_files = {state.cfg.rel(path if Path(path).is_absolute() else state.cfg.root / path)
-                      for path in required_files}
-    common = {item.nodeid for item in items if isinstance(item, IntentItem) or item.name == SENTINEL
-              or state.cfg.rel(item.path) in required_files}
-    ordinary = sorted({item.nodeid for item in items} - common)
-    partition = set(ordinary[index - 1::count])
-    selected = common | partition
-    state.shard = dict(schema=1, shard_index=index, shard_count=count,
-                       collected_nodeids=sorted(item.nodeid for item in items),
-                       common_nodeids=sorted(common), partition_nodeids=sorted(partition),
-                       selected_nodeids=sorted(selected))
-    drop = [item for item in items if item.nodeid not in selected]
-    if drop:
-        config.hook.pytest_deselected(items=drop)
-        items[:] = [item for item in items if item.nodeid in selected]
-    # A partial parameter/file run must never refresh a whole-file baseline,
-    # including a partition that happened to own every item in a small suite.
-    state.ordinary_deselected = True
+        raise pytest.UsageError('complete checks require the full ordinary collection: no paths, filters or collection overrides')
+
 
 
 def pytest_load_initial_conftests(early_config):
@@ -385,10 +734,8 @@ def _session(config):
         state.owns_host = claimed
         state.owns_root = hold_root(state.cfg.root)
         state.previous_session, _CURRENT = _CURRENT, state
-        state.import_children()
         config.add_cleanup(state.close)
     config._flowguard_intent.guard_process_exit(config)
-    config._flowguard_intent.start_diagnostics(config)
     return config._flowguard_intent
 
 
@@ -452,6 +799,16 @@ class IntentItem(pytest.Item):
             return self.run_verified()
 
     def run_verified(self):
+        if hasattr(self, '_evaluation_error'):
+            error, traceback = self._evaluation_error
+            raise error.with_traceback(traceback)
+        result = self._prepared_result if hasattr(self, '_prepared_result') else self.evaluate_verified()
+        state = self.config._flowguard_intent
+        state.results[self.nodeid] = dict(result, rule=self.rule_id, target=self.target)
+        if result['verdict'] == 'red':
+            raise IntentFailure('\n'.join(result['red']))
+
+    def evaluate_verified(self):
         state = self.config._flowguard_intent
         model, engine = state.model, state.engine
         declaration = (model.rules.get(self.rule_id) or model.states.get(self.rule_id)
@@ -473,9 +830,7 @@ class IntentItem(pytest.Item):
             else:
                 home = next(h for h in rule.homes if h.target == self.target)
                 result = engine.run_live(rule, home) if self.kind == 'live' else engine.run_home(rule, home, self.kind)
-        state.results[self.nodeid] = dict(result, rule=self.rule_id, target=self.target)
-        if result['verdict'] == 'red':
-            raise IntentFailure('\n'.join(result['red']))
+        return result
 
     def repr_failure(self, excinfo):
         return str(excinfo.value) if isinstance(excinfo.value, IntentFailure) else super().repr_failure(excinfo)
@@ -492,10 +847,9 @@ class IntentItem(pytest.Item):
 def pytest_collection_modifyitems(config, items):
     state = config._flowguard_intent
     state.collected = {i.nodeid for i in items if isinstance(i, IntentItem)}
-    shard = config.getoption('--flowguard-shard')
-    if shard is not None:
-        _shard_items(config, state, items, shard)
-        return
+    if config.getoption('--flowguard-complete', default=False):
+        _require_complete_collection(config, state)
+        state.complete_collection = {item.nodeid for item in items}
     only = config.getoption('--flowguard-rules')
     if only is None or state.model is None:
         return
@@ -511,10 +865,23 @@ def pytest_collection_modifyitems(config, items):
         items[:] = keep
 
 
+@pytest.hookimpl(trylast=True)
 def pytest_collection_finish(session):
     state = session.config._flowguard_intent
-    if state.shard is not None and {item.nodeid for item in session.items} != set(state.shard['selected_nodeids']):
-        raise pytest.UsageError('another selection changed the full shard collection')
+    if state.complete_collection is not None and {item.nodeid for item in session.items} != state.complete_collection:
+        raise pytest.UsageError('another selection changed the full ordinary collection')
+    state.get_model()
+    state.observations = Observations(state)
+    state.source_items = tuple(item for item in session.items if not isinstance(item, IntentItem) and item.name != SENTINEL)
+    session.items[:] = [*state.source_items, *(item for item in session.items if isinstance(item, IntentItem)),
+                       *(item for item in session.items if item.name == SENTINEL)]
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtestloop(session):
+    state = session.config._flowguard_intent
+    if state.complete_collection is not None and {item.nodeid for item in session.items} != state.complete_collection:
+        raise pytest.UsageError('another selection changed the full ordinary collection')
     state.selected = {i.nodeid for i in session.items if isinstance(i, IntentItem)}
     state.ordinary_selected = {i.nodeid for i in session.items if not isinstance(i, IntentItem) and i.name != SENTINEL}
 
@@ -600,52 +967,61 @@ def _skip_reason(report):
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_protocol(item):
+def pytest_runtest_protocol(item, nextitem):
     state = item.config._flowguard_intent
+    from .runtime import _PRIVATE
+    if _PRIVATE.get():
+        yield
+        return
+    if isinstance(item, IntentItem):
+        # Evaluate before pytest sets up this intent item. A source test replay
+        # can then use its own real fixture lifecycle in the same Session.
+        from .calibration import session as source_session
+        try:
+            state.get_model()
+            with state.verification(), source_session(state.runtime, state.source_items, nextitem=item):
+                item._prepared_result = item.evaluate_verified()
+        except Exception as error:
+            item._evaluation_error = error, error.__traceback__
     state.last_test = item.nodeid
     capture = None
     with ExitStack() as scopes:
+        if not isinstance(item, IntentItem) and item.name != SENTINEL and state.observations is not None:
+            scopes.enter_context(state.observations.scope(item))
         from .calibration import probe_context
         if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
-                and state.model.flows and not probe_context(item.config)):
+                and state.model.anchor_index.entries and not probe_context(item.config)
+                and (state.model.flows or state.observations.changed or item.config.getoption('--flowguard-record-tests'))):
             from .flow import Capture
             capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
-                                                   models=state.model.flows.values(), _ordinary=True,
-                                                   on_event=(lambda event: state.diagnostics.event(event, scope=state.diagnostic_scope))
-                                                   if state.diagnostics is not None else None))
+                                                   models=state.model.flows.values() if state.model.flows and not state.observations.changed else None, _ordinary=True))
         try:
             if (isinstance(item, IntentItem) or item.name == SENTINEL
                     or not item.config.getoption('--flowguard-record-tests') and not any(item.iter_markers('rule'))):
                 yield
-                return
-            folder = state.child_folder(item)
-            values = dict(FLOWGUARD_TRACE_ROOT=str(state.cfg.root), FLOWGUARD_TRACE_CHILDREN=str(folder), FLOWGUARD_TRACE_TEST=item.nodeid)
-            previous = {name: os.environ.get(name) for name in values}
-            os.environ.update(values)
-            with Footprint(state.is_project) as footprint:
-                state.footprints[item.nodeid] = footprint
-                try:
+            else:
+                with Footprint(state.is_project) as footprint:
+                    state.footprints[item.nodeid] = footprint
                     yield
-                finally:
-                    for name, value in previous.items():
-                        if value is None:
-                            os.environ.pop(name, None)
-                        else:
-                            os.environ[name] = value
         finally:
             if capture:
                 scopes.close()
                 state.events.extend(capture.events)
                 state.anchor_issues.extend(capture.issues)
-                state.diagnostic_issues.extend(capture.diagnostic_issues)
+    if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.observations is not None
+            and state.readings.get(item.nodeid, {}).get('outcome') == 'passed'):
+        state.observations.old_path(item, nextitem)
 
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
+    from .runtime import _PRIVATE
+    if _PRIVATE.get():
+        return
     state = item.config._flowguard_intent
-    if state.shard is not None and report.when == 'teardown':
+    if state.complete_collection is not None and report.when == 'teardown':
         state.completed.add(item.nodeid)
     _skip_violation(item, call, report)
     state.durations[item.nodeid] = state.durations.get(item.nodeid, 0.0) + report.duration
@@ -656,7 +1032,6 @@ def pytest_runtest_makereport(item, call):
     if report.when == 'call' and report.passed:
         for marker in item.iter_markers('rule'):
             entered = set(state.footprints[item.nodeid].keys())
-            entered.update((entry[0], entry[1]) for child in state.child_records(item) for entry in child['entered'])
             model = state.get_model()
             rid = marker.args[0] if marker.args else ''
             rule = model.rules.get(rid)
@@ -670,8 +1045,7 @@ def pytest_runtest_makereport(item, call):
         if getattr(report, '_flowguard_skip_violation', False):
             kind, reason = 'code', ('unguarded skip' if state.cfg.skip_policy == 'platform' else 'forbidden test outcome')
         else:
-            kind, reason = classify(call.when, call.excinfo, state.cfg, text=str(report.longrepr or '') + captured,
-                                    children=state.child_records(item)) if report.failed else ('', '')
+            kind, reason = classify(call.when, call.excinfo, state.cfg, text=str(report.longrepr or '') + captured) if report.failed else ('', '')
         state.readings[item.nodeid] = dict(outcome=report.outcome, kind=kind, reason=reason, phase=call.when, seconds=state.durations[item.nodeid])
     elif item.nodeid in state.readings:
         state.readings[item.nodeid]['seconds'] = state.durations[item.nodeid]
@@ -774,8 +1148,24 @@ def _completion_policy(session, state, declared):
 
 
 def pytest_sessionfinish(session, exitstatus):
-    with session.config._flowguard_intent.verification():
-        return finish_verified(session, exitstatus)
+    state = session.config._flowguard_intent
+    with state.verification():
+        result = finish_verified(session, exitstatus)
+    # Verification and transaction completion precede optional terminal output.
+    if state.observations is not None and state.observations.text:
+        from .differences import display
+        try:
+            display(state.observations.text)
+        except (OSError, ValueError) as error:
+            state.observations.payload['display_unavailable'] = type(error).__name__
+            path = state.cfg.cache / 'map.sqlite'
+            if path.is_file():
+                try:
+                    with closing(sqlite3.connect(path, timeout=30)) as con, con:
+                        _meta(con, 'runtime_observations', state.observations.payload)
+                except sqlite3.Error:
+                    pass  # The earlier committed verdict remains authoritative.
+    return result
 
 
 def finish_verified(session, exitstatus):
@@ -787,6 +1177,11 @@ def finish_verified(session, exitstatus):
         return  # Unselected intent is not part of this ordinary-test probe.
     model = state.get_model()
     declared = set(model.declared_items())
+    if state.complete_collection is not None:
+        unfinished = state.complete_collection - state.completed
+        if unfinished:
+            state.session_errors.append('complete collection did not finish: ' + ', '.join(sorted(unfinished)[:3]))
+            session.exitstatus = pytest.ExitCode.TESTS_FAILED
     _completion_policy(session, state, declared)
     for identifier, rule in model.rules.items():
         required = {model.file_of[identifier] + '::' + name for name in model.items_of(rule)}
@@ -800,41 +1195,20 @@ def finish_verified(session, exitstatus):
             continue
         result = state.engine.run_flow(flow, state.events, state.anchor_issues)
         state.results[item] = dict(result, rule=identifier, target=None)
-        if state.diagnostics is not None:
-            summary = {key: result.get(key) for key in ('verdict', 'red', 'grey', 'info')}
-            summary['runtime'] = {key: result.get('runtime', {}).get(key) for key in (
-                'verdict', 'unclaimed_relations', 'checked_relations', 'observed_edges', 'ignored_case_scopes')}
-            summary['finite'] = {key: result.get('finite', {}).get(key) for key in ('verdict', 'states', 'exhausted')}
-            summary['static'] = {key: result.get('static', {}).get(key) for key in ('verdict', 'grey')}
-            state.diagnostic_models.append(summary)
-            state.diagnostics.write(dict(kind='validation', scope_id=state.diagnostic_scope, model=identifier, result=summary))
         if result['verdict'] == 'red':
-            print('\nFlowGuard flow ' + identifier + ': ' + '; '.join(result['red']), file=sys.stderr)
             session.exitstatus = pytest.ExitCode.TESTS_FAILED
-    from .cli import anchor_checks, behavior_changes
-    from .differences import display
-    index, observation_lines, observation_red = anchor_checks(state.cfg, index=model.anchor_index, automatic=True)
-    if observation_red:
+    if state.observations is not None and state.observations.report():
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
-    observation_lines.extend(behavior_changes(state.cfg, automatic=True, index=index))
-    if observation_lines:
-        display('\n'.join(observation_lines))
     exitstatus = session.exitstatus
     missing = _missing(state, declared)
     attempt = dict(declared=len(declared), collected=len(state.collected), selected=len(state.selected),
                    deferred=len(state.deferred), missing=missing, sentinel=state.sentinel, exit=int(exitstatus),
                    errors=state.session_errors, stamp=state.started, deep=model.deep)
-    if state.shard is not None:
-        unfinished = sorted(set(state.shard['selected_nodeids']) - state.completed)
-        if unfinished and session.exitstatus == pytest.ExitCode.OK:
-            state.session_errors.append('shard selected tests did not finish: ' + ', '.join(unfinished[:3]))
-            session.exitstatus = pytest.ExitCode.TESTS_FAILED
-            attempt['exit'] = int(session.exitstatus)
-        attempt['shard'] = dict(state.shard, completed_nodeids=sorted(state.completed),
-                                intent=dict(declared_nodeids=sorted(declared), selected_nodeids=sorted(state.selected),
-                                            completed_nodeids=sorted(set(declared) & state.completed)))
-        exitstatus = session.exitstatus
-    if not declared and not state.footprints:
+    if state.complete_collection is not None:
+        attempt['complete_collection'] = dict(collected_nodeids=sorted(state.complete_collection),
+                                               completed_nodeids=sorted(state.completed))
+    observed = state.observations is not None and (state.observations.records or state.observations.paths or state.observations.red)
+    if not declared and not state.footprints and not observed:
         # Standalone pytest does not build a map, but must retire old traces
         # for a test it ran without recording. Never refresh them by implication.
         path = state.cfg.cache / 'map.sqlite'
@@ -844,6 +1218,8 @@ def finish_verified(session, exitstatus):
                 with con:
                     con.execute('BEGIN IMMEDIATE')
                     _meta(con, 'intent_attempt', attempt)
+                    if state.observations is not None and state.observations.payload is not None:
+                        _meta(con, 'runtime_observations', state.observations.payload)
                     _save_readings(con, state)
                     _save_ordinary_collection(con, session, state)
         return
@@ -854,6 +1230,8 @@ def finish_verified(session, exitstatus):
             con.execute('ALTER TABLE footprint ADD COLUMN call_lines TEXT')
         con.execute('BEGIN IMMEDIATE')
         _meta(con, 'intent_attempt', attempt)
+        if state.observations is not None and state.observations.payload is not None:
+            _meta(con, 'runtime_observations', state.observations.payload)
         if not missing and state.sentinel == 'ok' and not state.session_errors:
             _meta(con, 'intent_collection', attempt)
             if not model.deep:
@@ -895,20 +1273,17 @@ def finish_verified(session, exitstatus):
         observed, rows = set(), []
         for test, footprint in state.footprints.items():
             con.execute('DELETE FROM footprint WHERE test=?', (test,))
-            entries = [('parent', footprint.entered, footprint.edges, footprint.call_lines)]
-            entries += [('child', child['entered'], child['edges'], child.get('call_lines', [])) for child in state.child_records(test)]
-            for origin, entered, edges, call_lines in entries:
-                grouped = {}
-                for target, file, line in call_lines:
-                    grouped.setdefault(tuple(target), set()).add((relative(file), line))
-                for entry in entered:
-                    entry = tuple(entry)
-                    rel, node, ident = node_of(entry)
-                    rows.append((test, ident, node['fp'] if node else '', rel, entry[1], entry[2], origin, _json(sorted(grouped.get(entry, [])))))
-                for a, b in edges:
-                    first, second = node_of(tuple(a)), node_of(tuple(b))
-                    if first[1] and second[1]:
-                        observed.add((first[2], second[2]))
+            grouped = {}
+            for target, file, line in footprint.call_lines:
+                grouped.setdefault(tuple(target), set()).add((relative(file), line))
+            for entry in footprint.entered:
+                entry = tuple(entry)
+                rel, node, ident = node_of(entry)
+                rows.append((test, ident, node['fp'] if node else '', rel, entry[1], entry[2], 'parent', _json(sorted(grouped.get(entry, [])))))
+            for a, b in footprint.edges:
+                first, second = node_of(tuple(a)), node_of(tuple(b))
+                if first[1] and second[1]:
+                    observed.add((first[2], second[2]))
         con.executemany('INSERT OR REPLACE INTO footprint VALUES(?,?,?,?,?,?,?,?)', rows)
         from .deps import trace_signatures
         from .cache import save_trace_signatures

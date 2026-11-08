@@ -123,12 +123,11 @@ jobs:
           index = selected[0]
           notes = changes[headings[index].start():headings[index + 1].start() if index + 1 < len(headings) else None].strip()
           ci_url = None
-          required_jobs = coverage.required_jobs()
 
           def successful_ci(current):
               jobs = api(f"actions/runs/{ci_run_id}/attempts/{ci_run_attempt}/jobs?per_page=100")["jobs"]
               coverage.validate_ci_run(current, jobs, source_sha=source_sha, repository=repository,
-                                       run_id=ci_run_id, run_attempt=ci_run_attempt, expected_jobs=required_jobs)
+                                       run_id=ci_run_id, run_attempt=ci_run_attempt)
               return current["html_url"]
 
           # The completed CI event supplies the run and attempt; never poll for or select another green run.

@@ -28,16 +28,17 @@ def _broken_index_repo(tmp_path):
     (root / '.git/index').write_bytes(b'DIRCgarbage')
     return root
 
-def test_an_invalid_release_snapshot_is_one_error_not_edited_requests(tmp_path):
+def test_an_invalid_legacy_snapshot_is_one_error_not_edited_requests(tmp_path):
     from flowguard.map import records
     from flowguard.map.requests import request_findings
     root = _plain_folder_request(tmp_path)
-    records.save_release_snapshot(root)
-    (root / '.flowguard/release-base/records.json').write_text('{', encoding='utf-8')
+    path = root / '.flowguard/release-base/records.json'
+    path.parent.mkdir(parents=True)
+    path.write_text('{', encoding='utf-8')
     with pytest.raises(MapError, match='release_snapshot_invalid'):
         request_findings(root)
     with pytest.raises(MapError, match='release_snapshot_invalid'):
-        records.record_findings(root)
+        records._release_records(root)
 
 def test_a_missing_git_executable_is_an_error_not_a_copy_without_git(tmp_path, monkeypatch):
     from flowguard.map.requests import request_findings, store_request
@@ -51,28 +52,20 @@ def test_a_missing_git_executable_is_an_error_not_a_copy_without_git(tmp_path, m
     with pytest.raises(MapError, match='git executable not found'):
         request_findings(root)
 
-def test_an_unreadable_change_record_is_named_by_its_reader_and_blocks_the_snapshot(tmp_path):
-    from flowguard.map import records
+def test_an_unreadable_request_is_named_by_its_reader_and_refuses_a_quote(tmp_path):
+    from flowguard.map.requests import request_findings, owner_quote
     root = _plain_folder_request(tmp_path)
-    records.write_once(root, '.flowguard/changes/20261101-0000-abcdef.json', b'{}')
-    findings = records.record_findings(root)
-    assert [(item.level, item.code, item.component) for item in findings] == [('error', 'record_edited', '20261101-0000-abcdef')]
-    assert 'invalid change record fields' in findings[0].message
+    sidecar = root / '.flowguard/requests/R1.json'
+    sidecar.write_bytes(b'{')
+    findings = request_findings(root)
+    assert [(item.level, item.code, item.component) for item in findings] == [('error', 'request_meta_edited', 'R1')]
+    assert str(sidecar) in findings[0].message
     assert 'copy, archive or backup' in findings[0].message and 'map check' not in findings[0].message
-    with pytest.raises(MapError, match='20261101-0000-abcdef'):
-        records.save_release_snapshot(root)
+    with pytest.raises(MapError, match='request_meta_edited'):
+        owner_quote(root, 'Keep the limit at 3.', ['limit'], request='R1')
 
-def test_a_damaged_release_boundary_names_its_cause(tmp_path):
-    from flowguard.map import records
-    from flowguard.map.common import read_git_paths
-    root = _plain_folder_request(tmp_path)
-    records.save_release_snapshot(root)
-    (root / '.flowguard/release-base/covered.json').write_text('[]', encoding='utf-8')
-    history = records.since_release(root, records.change_records(root), read_git_paths)
-    assert history['changes'] is None and 'covered.json' in history['known_from'], history['known_from']
 
-def test_record_and_sidecar_validators_name_every_malformed_shape(tmp_path):
-    from flowguard.map.records import _change_record
+def test_sidecar_validator_names_every_original_malformed_shape(tmp_path):
     from flowguard.map.requests import _metadata
     sidecar = tmp_path / 'R1.json'
     base = {'id': 'R1', 'kind': 'request', 'sha256': '0' * 64, 'bytes': 3}
@@ -80,14 +73,6 @@ def test_record_and_sidecar_validators_name_every_malformed_shape(tmp_path):
         sidecar.write_text(json.dumps(broken), encoding='utf-8')
         with pytest.raises(ValueError):
             _metadata(sidecar, 'R1')
-    root = tmp_path / 'plain'
-    record = root / '.flowguard/changes/20261101-0000-abcdef.json'
-    record.parent.mkdir(parents=True)
-    item = dict(kind='change', goal='g', requests=[], base=None, tree='0' * 64, checked='c', plan=[], rules=[], acceptances=[], existing_cleared=[], implemented_by=[], new_actions=[], corrections=[])
-    from flowguard.map.records import write_once
-    write_once(root, record.relative_to(root), json.dumps(item).encode())
-    with pytest.raises(ValueError):
-        _change_record(root, '20261101-0000-abcdef', set())
 
 def test_a_programming_error_while_reading_owner_words_is_not_shown_as_invalid(tmp_path, monkeypatch):
     from flowguard.map import requests
@@ -116,8 +101,6 @@ def test_a_malformed_stored_glossary_stops_the_lookup_with_its_error(tmp_path):
 
 
 
-RECORD = '20261101-0000-abcdef'
-RECORD_ITEM = dict(kind='change', goal='g', requests=[], base=None, tree='0' * 64, checked='c', promoted='2026-11-01T00:00:00+00:00', plan=[], rules=[], acceptances=[], existing_cleared=[], implemented_by=[], new_actions=[], corrections=[])
 
 def _failing_git(tmp_path, monkeypatch, subcommand):
     """Put a git first on PATH that fails one subcommand with its own message and runs the real Git otherwise."""
@@ -130,11 +113,6 @@ def _failing_git(tmp_path, monkeypatch, subcommand):
     script.chmod(493)
     monkeypatch.setenv('PATH', f"{directory}{os.pathsep}{os.environ['PATH']}")
 
-def _write_record(root):
-    from flowguard.map import records
-    records.prepare_directory(root, records.CHANGE_DIR, ('.json',))
-    records.write_once(root, records.CHANGE_DIR / (RECORD + '.json'), json.dumps(RECORD_ITEM).encode())
-    return root / records.CHANGE_DIR / (RECORD + '.json')
 
 def _edit_one_byte(path):
     raw = path.read_bytes()
@@ -142,22 +120,22 @@ def _edit_one_byte(path):
 
 @pytest.mark.skipif(os.name == 'nt', reason='a POSIX shell script stands in for a failing git')
 @pytest.mark.parametrize('checkout', ['fresh_clone', 'original'])
-def test_a_failing_git_log_stops_the_record_check_instead_of_reading_no_history(tmp_path, monkeypatch, checkout):
-    from flowguard.map.records import record_findings
+def test_a_failing_git_log_stops_the_request_check_instead_of_reading_no_history(tmp_path, monkeypatch, checkout):
+    from flowguard.map.requests import request_findings, store_request
     origin = tmp_path / 'origin'
     origin.mkdir()
     _git(origin, 'init', '-q')
-    _write_record(origin)
+    store_request(origin, b'Keep the limit at 3.\n', identifier='R1')
     _git(origin, 'add', '-A')
-    _git(origin, 'commit', '-qm', 'record')
+    _git(origin, 'commit', '-qm', 'original request')
     root = origin
     if checkout == 'fresh_clone':
         root = tmp_path / 'clone'
         subprocess.run(['git', 'clone', '-q', str(origin), str(root)], check=True, capture_output=True)
-    _edit_one_byte(root / '.flowguard/changes' / (RECORD + '.json'))
+    _edit_one_byte(root / '.flowguard/requests/R1.md')
     _failing_git(tmp_path, monkeypatch, 'log')
     with pytest.raises(MapError, match='simulated log failure'):
-        record_findings(root)
+        request_findings(root)
 
 @pytest.mark.skipif(os.name == 'nt', reason='a POSIX shell script stands in for a failing git')
 def test_a_failing_git_listing_stops_the_request_check_instead_of_reading_no_files(tmp_path, monkeypatch):
@@ -172,32 +150,15 @@ def test_a_failing_git_listing_stops_the_request_check_instead_of_reading_no_fil
     with pytest.raises(MapError, match='simulated ls-files failure'):
         request_findings(root)
 
-@pytest.mark.skipif(os.name == 'nt', reason='a POSIX shell script stands in for a failing git')
-def test_a_failing_git_describe_stops_the_release_boundary_instead_of_reading_no_tag(tmp_path, monkeypatch):
-    from flowguard.map import records
-    from flowguard.map.common import read_git_paths
-    root = tmp_path / 'repo'
-    root.mkdir()
-    _git(root, 'init', '-q')
-    (root / 'a.py').write_text('x = 1\n', encoding='utf-8')
-    _git(root, 'add', '-A')
-    _git(root, 'commit', '-qm', 'base')
-    _git(root, 'tag', 'v1.0.0')
-    _failing_git(tmp_path, monkeypatch, 'describe')
-    with pytest.raises(MapError, match='simulated describe failure'):
-        records.since_release(root, [], read_git_paths)
 
-@pytest.mark.parametrize('kind', ['request', 'record'])
+@pytest.mark.parametrize('kind', ['request', 'sidecar'])
 def test_fix_advice_in_a_folder_without_git_suggests_no_git_command(tmp_path, kind):
-    from flowguard.map.records import record_findings
     from flowguard.map.requests import request_findings
     root = _plain_folder_request(tmp_path)
-    if kind == 'request':
-        _edit_one_byte(root / '.flowguard/requests/R1.md')
-        findings = request_findings(root)
-    else:
-        _edit_one_byte(_write_record(root))
-        findings = record_findings(root)
+    suffix = 'md' if kind == 'request' else 'json'
+    path = root / ('.flowguard/requests/R1.' + suffix)
+    path.write_bytes(path.read_bytes() + b'edited')
+    findings = request_findings(root)
     errors = [finding.message for finding in findings if finding.level == 'error']
     assert errors, findings
     for message in errors:

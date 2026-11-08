@@ -95,7 +95,7 @@ def test_real_targets_do_not_let_same_named_copies_escape_agreements(tmp_path):
     report = differences.anchor_distinct(root, declaration)
     assert report['status'] == 'red' and not report['behavior_checked'], report
     assert 'same sensor name cannot be distinct' in ' '.join(report['reasons'])
-    agreement = differences.agreements(root)
+    agreement = differences.compare(root, 'decision:first', 'decision:second')
     assert agreement['status'] == 'red' and agreement['changed'] == 1
 
 
@@ -110,3 +110,14 @@ def accidental_copy(days: int) -> bool:
     assert report['status'] == 'red' and report['selected'] == 2, report
     assert report['changed'] == 1
     assert any(item['after_target'] == 'decision:accidental_copy' and item['changed'] == 0 for item in report['items'])
+
+
+def test_short_sensor_omitted_label_and_unit_are_not_a_proof_of_distinct_roles(tmp_path):
+    root, declaration = project(tmp_path, second_limit=3)
+    path = root / 'decision.py'
+    path.write_text(path.read_text().replace('# flowguard: sensor first(days: day) -> allowed: bool',
+                                            '# flowguard: sensor first'))
+    report = differences.anchor_distinct(root, declaration)
+    assert report['status'] == 'red' and report['distinct_holds'] is False, report
+    assert report['behavior_checked'] and report['scope'] == 'joint-declared-input-classes'
+    assert report['complete'] and report['changed'] == 0

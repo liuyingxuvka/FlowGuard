@@ -473,12 +473,6 @@ def _atom(out: Reading, kinds: dict, d, text: str, lits: list) -> None:
         out.hints.setdefault(f, []).extend(v for v in lits if isinstance(v, (Decimal, float)))
 
 
-def predicate_constants(fn, fields: dict) -> tuple[dict, bool]:
-    """({field: [constants compared with it]}, complete): the bounds read_predicate finds per field."""
-    rd = read_predicate(fn, fields)
-    return rd.consts, rd.complete
-
-
 def comparable(a: Kind, b: Kind) -> bool:
     num = ("int", "float", "dec")
     return (a.name in num and b.name in num) or a.name == b.name

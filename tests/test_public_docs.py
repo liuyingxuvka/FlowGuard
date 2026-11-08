@@ -14,7 +14,7 @@ import unittest
 
 import pytest
 
-from flowguard.intent import cli
+from flowguard.intent import cache, cli
 from flowguard.intent.config import load_config
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,20 +64,21 @@ class InstallerTests(unittest.TestCase):
 
 def test_skill_limits_modeling_and_points_to_one_local_guide():
     text = (SKILL / 'SKILL.md').read_text(encoding='utf-8')
-    for condition in ('has copies', '\"everywhere\"', 'a bug was fixed'):
-        assert condition in text
+    for condition in ('ordinary tests', 'same-name', 'independent', 'context'):
+        assert condition in text.lower()
     assert 'Do not model the development task' in text
     assert not re.search(r'python -m flowguard (?:status|where|draft|decide|release)\b', text)
-    assert re.search(r'python -m flowguard show \"what it decides\"', text)
-    assert 'ordinary pytest' in text and 'not success' in text
+    assert 'show "what it decides"' in text
+    assert 'not success' in text and 'No source change stays quiet unless a constraint fails.' in text
     guide = SKILL / 'references/rules.md'
-    assert '[rule guide](references/rules.md)' in text and guide.is_file()
+    assert re.search(r'\[[^\]]+\]\(references/rules.md\)', text) and guide.is_file()
     assert 'def WINDOW(days):' in guide.read_text(encoding='utf-8')
     # The executable API example has one owner instead of copied manuals.
     for path in (ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'docs/intent-guide.md', SKILL / 'SKILL.md'):
         assert 'def WINDOW(days):' not in path.read_text(encoding='utf-8')
     prompt = (SKILL / 'agents/openai.yaml').read_text(encoding='utf-8')
-    assert 'Otherwise stay quiet' in prompt and 'python -m flowguard show' in prompt
+    assert 'No source change stays quiet unless a' in prompt and 'python -m flowguard show' in prompt
+    assert 'ordinary tests' in prompt and 'Do not model the development task' in prompt
 
 
 def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
@@ -102,23 +103,28 @@ def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
     cfg = load_config(tmp_path)
     cli.init(cfg)
     capsys.readouterr()
-    assert cli.check(cfg) == 0
-    checked = capsys.readouterr().out
-    assert 'WINDOW' in checked or '1 green' in checked
-    assert '0 red' in checked and '0 grey' in checked
+    checked = subprocess.run([sys.executable, '-m', 'flowguard', '--root', str(tmp_path), 'check'],
+                             cwd=ROOT, capture_output=True, text=True)
+    assert checked.returncode == 0, checked.stdout + checked.stderr
+    saved = cache.read(cfg)['results']['WINDOW']['items']
+    assert saved and all(item['verdict'] == 'ok' for item in saved.values())
     wrong = implementation.replace('def preview_accept(days: int) -> bool:\n    return days <= 3',
                                    'def preview_accept(days: int) -> bool:\n    return days <= 4')
     assert wrong != implementation
     (tmp_path / 'orders.py').write_text(wrong + '\n', encoding='utf-8')
-    assert cli.check(cfg) == 1
-    assert 'WINDOW' in capsys.readouterr().out
+    checked = subprocess.run([sys.executable, '-m', 'flowguard', '--root', str(tmp_path), 'check'],
+                             cwd=ROOT, capture_output=True, text=True)
+    assert checked.returncode == 1, checked.stdout + checked.stderr
+    assert 'WINDOW' in checked.stdout
+    assert any(item['verdict'] == 'red' for item in cache.read(cfg)['results']['WINDOW']['items'].values())
 
 
 def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch):
-    for name in ('show', 'check', 'init', 'requests', 'screen', 'draft_anchor'):
+    for name in ('show', 'check', 'init', 'requests', 'screen', 'draft_anchor', 'draft_model', 'try_anchor', 'watch'):
         monkeypatch.setattr(cli, name, lambda *args, **kwargs: 0)
     docs = [ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'AGENTS.md', SKILL / 'SKILL.md',
-            ROOT / 'docs/intent-guide.md', ROOT / 'docs/upgrade-2.0.md', SKILL / 'references/rules.md']
+            ROOT / 'docs/intent-guide.md', ROOT / 'docs/upgrade-2.0.md', ROOT / 'docs/upgrade-4.0.md',
+            SKILL / 'references/rules.md']
     for path in docs:
         text = path.read_text(encoding='utf-8')
         commands = re.findall(r'`python -m flowguard([^`\n]*)`', text)
@@ -139,21 +145,26 @@ def _publish_gate():
     spec = importlib.util.spec_from_file_location('flowguard_ci_coverage', ROOT / '.github/scripts/ci_coverage.py')
     coverage = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(coverage)
-    return coverage.required_jobs(ROOT), function, coverage
+    return coverage.required_jobs(), function, coverage
 
 
 @pytest.mark.parametrize('defect', [None, 'sha', 'branch', 'event', 'path', 'incomplete', 'failed', 'missing_job', 'skipped_job'])
 def test_publication_requires_all_current_jobs_on_the_exact_source(defect):
     required, function, coverage = _publish_gate()
     platforms = [('ubuntu-latest', '3.11'), ('ubuntu-latest', '3.13'), ('windows-latest', '3.12')]
-    assert required == {f'Complete tests ({platform}, py{python}, shard {index}/6)'
-                        for platform, python in platforms for index in range(1, 7)} | {'Complete coverage (three platforms)'}
+    assert required == {f'Complete tests ({platform}, py{python})' for platform, python in platforms}
     source_sha = 'a' * 40
     repository = 'owner/FlowGuard'
     current = dict(id=42, run_attempt=1, head_sha=source_sha, head_branch='main', event='push',
                    repository={'full_name': repository}, head_repository={'full_name': repository},
                    path='.github/workflows/ci.yml', status='completed', conclusion='success', html_url='https://example/42')
-    jobs = [dict(name=name, status='completed', conclusion='success', head_sha=source_sha, run_id=42, run_attempt=1)
+    steps = {'Verify the active virtual environment before installation',
+             'Verify the frozen source before execution', 'Complete unsharded intent and project tests',
+             'Verify the frozen source after execution'}
+    jobs = [dict(name=name, status='completed', conclusion='success', head_sha=source_sha, run_id=42, run_attempt=1,
+                 steps=[dict(name=step, status='completed', conclusion='success')
+                        for step in sorted(steps | ({'Verify the distributable skill in a temporary directory'}
+                                                   if name == 'Complete tests (ubuntu-latest, py3.11)' else set()))])
             for name in sorted(required)]
     if defect in {'sha', 'branch', 'event', 'path', 'incomplete', 'failed'}:
         key, value = {'sha': ('head_sha', 'b' * 40), 'branch': ('head_branch', 'other'),
@@ -183,13 +194,12 @@ def test_publication_requires_all_current_jobs_on_the_exact_source(defect):
 def test_each_supported_ci_platform_runs_the_full_pytest_route():
     text = (ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
     assert 'fetch-depth: 0' in text and 'ref: ${{ github.sha }}' in text
-    _, _, coverage = _publish_gate()
-    plan = coverage.matrix(ROOT)
-    assert len(plan) == 18 and {row['shard_count'] for row in plan} == {6}
-    assert {(row['os'], row['python']) for row in plan} == {
+    plan = re.findall(r'- os: ([^\s]+)\s+python: "([^"]+)"', text)
+    assert len(plan) == 3 and set(plan) == {
         ('ubuntu-latest', '3.11'), ('ubuntu-latest', '3.13'), ('windows-latest', '3.12')}
-    assert 'run: python -m flowguard check --all' in text
-    assert '--shard ${{ matrix.shard }}/${{ matrix.shard_count }} --shard-report' in text
-    assert 'needs: checks' in text and 'ci_coverage.py aggregate' in text
-    assert not any(old in text for old in ('--shards', 'tests/native', 'playwright', 'tests/flow', 'cancel-in-progress: true'))
+    assert 'run: python -m flowguard check --all --deep' in text
+    assert all(step in text for step in ('Verify the active virtual environment before installation',
+           'Verify the frozen source before execution', 'Complete unsharded intent and project tests',
+           'Verify the frozen source after execution'))
+    assert not any(old in text for old in ('--shard', 'aggregate', 'tests/native', 'playwright', 'tests/flow', 'cancel-in-progress: true'))
     assert 'matrix.full' not in text

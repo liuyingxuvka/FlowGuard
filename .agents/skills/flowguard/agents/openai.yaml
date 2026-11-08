@@ -1,11 +1,11 @@
 interface:
   display_name: "FlowGuard"
-  short_description: "Find decision owners and keep necessary copies consistent"
+  short_description: "Compare real behavior and check independent requirements"
   default_prompt: >-
-    Use $flowguard before adding a decision: run `python -m flowguard show "what it decides"`
-    and reuse its existing owner where possible. Only write a rule when the decision has copies,
-    the owner says everywhere, or a bug was fixed; connect source anchors and add a literal regression
-    row. With existing rules, read `python -m flowguard` at session start and run
-    `python -m flowguard check` after a bound decision changes. Otherwise stay quiet and use
-    ordinary tests. Save actual owner words once with `python -m flowguard req add <file|-> --id <id>`;
-    never an AI plan. Report actual results and cite the stored request in commits.
+    Use $flowguard with ordinary tests and read its few lines: changed outcomes, inconsistent
+    same-name sensors and violated independent rules. No source change stays quiet unless a
+    constraint fails. Find existing owners with `python -m flowguard show "what it decides"`.
+    Connect real source anchors; write requirements independently and literal rows for genuine
+    regressions. Do not model the development task. Keep context in real tests; unsafe or
+    unavailable readings stay grey. Save original words once only as a rule's source, never an
+    AI plan. Use optional views when useful, and report actual results.

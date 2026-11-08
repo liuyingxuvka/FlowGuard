@@ -3,6 +3,8 @@ from contextlib import closing
 
 import pytest
 
+from tests.intent_engine import _cli_fixture as cli_fixture
+
 from flowguard.intent import cli, deps
 from flowguard.structure import build
 from test_cli import project
@@ -32,10 +34,10 @@ def test_qualified_submodule_does_not_execute_each_ancestor_lazy_hook(tmp_path, 
     }, 'from pkg.sub import value', 'value() == 3')
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
     assert '<unresolved>' not in recorded(cfg)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     selected = calls(monkeypatch)
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
-    assert cli.check(cfg) == 0 and not selected
+    assert cli_fixture.check(cfg) == 0 and not selected
 
 
 @pytest.mark.parametrize('where', ['parent-lazy', 'parent-initializer', 'leaf-lazy'])
@@ -52,9 +54,9 @@ def test_real_lazy_or_initializer_input_still_reruns(tmp_path, monkeypatch, wher
     root, cfg = prepared(tmp_path, files, imports, expression)
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
     assert '<unresolved>' in recorded(cfg)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
-    assert cli.check(cfg) == cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg) == cli_fixture.check(cfg, everything=True) == 1
 
 
 def test_registering_a_callable_literal_keeps_identity_without_executing_its_body(tmp_path, monkeypatch):
@@ -62,12 +64,12 @@ def test_registering_a_callable_literal_keeps_identity_without_executing_its_bod
     root, cfg = prepared(tmp_path, {'owner.py': body}, 'from owner import value', 'value() == 3')
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
     assert '<unresolved>' not in recorded(cfg)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     selected = calls(monkeypatch)
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
-    assert cli.check(cfg) == 0 and not selected
+    assert cli_fixture.check(cfg) == 0 and not selected
     (root / 'owner.py').write_text(body.replace('return 3', 'return 4'))
-    assert cli.check(cfg) == 1 and selected
+    assert cli_fixture.check(cfg) == 1 and selected
 
 
 @pytest.mark.parametrize('style', ['dispatch', 'callback', 'alias'])
@@ -82,9 +84,9 @@ def test_invoked_or_escaping_callable_keeps_its_real_input_boundary(tmp_path, mo
     root, cfg = prepared(tmp_path, {'owner.py': body}, 'from owner import value', 'value() == "alpha"')
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
     assert '<unresolved>' in recorded(cfg)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
-    assert cli.check(cfg) == cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg) == cli_fixture.check(cfg, everything=True) == 1
 
 
 @pytest.mark.parametrize('style', ['default', 'decorator', 'class'])
@@ -99,9 +101,9 @@ def test_definition_time_effects_remain_part_of_module_initialization(tmp_path, 
     root, cfg = prepared(tmp_path, {'owner.py': body}, 'from owner import value', 'value() == "alpha"')
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
     assert '<unresolved>' in recorded(cfg)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
-    assert cli.check(cfg) == cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg) == cli_fixture.check(cfg, everything=True) == 1
 
 
 @pytest.mark.parametrize('invoke', [False, True])
@@ -112,10 +114,10 @@ def test_lambda_registration_and_execution_have_separate_scopes(tmp_path, monkey
                          'value() == ' + ('"alpha"' if invoke else '3'))
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
     assert ('<unresolved>' in recorded(cfg)) is invoke
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     selected = calls(monkeypatch)
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
-    assert cli.check(cfg) == (1 if invoke else 0)
+    assert cli_fixture.check(cfg) == (1 if invoke else 0)
     assert bool(selected) is invoke
 
 
@@ -130,9 +132,9 @@ def test_stdlib_method_rebinding_is_not_a_harmless_function_registration(tmp_pat
     root, cfg = prepared(tmp_path, {'owner.py': body}, 'from owner import value', 'value() == "alpha"')
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
     assert '<unresolved>' in recorded(cfg)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
-    assert cli.check(cfg) == cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg) == cli_fixture.check(cfg, everything=True) == 1
 
 
 def test_a_method_on_an_unresolved_parameter_is_not_assumed_closed(tmp_path, monkeypatch):
@@ -143,9 +145,9 @@ def test_a_method_on_an_unresolved_parameter_is_not_assumed_closed(tmp_path, mon
     root, cfg = prepared(tmp_path, {'owner.py': body}, 'from owner import value', 'value() == "alpha"')
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
     assert '<unresolved>' in recorded(cfg)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
-    assert cli.check(cfg) == cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg) == cli_fixture.check(cfg, everything=True) == 1
 
 
 def test_an_unmodeled_path_operation_does_not_borrow_the_read_model(tmp_path, monkeypatch):
@@ -154,6 +156,6 @@ def test_an_unmodeled_path_operation_does_not_borrow_the_read_model(tmp_path, mo
     root, cfg = prepared(tmp_path, {'owner.py': body}, 'from owner import value', 'value() == "alpha"')
     (root / 'data.txt').write_text('present')
     assert '<unresolved>' in recorded(cfg)
-    assert cli.check(cfg, everything=True) == 0
+    assert cli_fixture.check(cfg, everything=True) == 0
     (root / 'data.txt').unlink()
-    assert cli.check(cfg) == cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg) == cli_fixture.check(cfg, everything=True) == 1

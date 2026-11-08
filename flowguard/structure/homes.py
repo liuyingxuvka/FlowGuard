@@ -287,16 +287,3 @@ def other_homes(con, fid: str, k=None, words: str = "", decides=None,
     strong = [row for row in by_site if row['strength']=='strong']
     low = [row for row in by_site if row['strength']=='weak']
     return (strong[:k] if k is not None else strong) + ((low[:k] if k is not None else low) if weak else [])
-
-
-def posting_digest(con, toks) -> str:
-    """A digest of which functions hold which of these signature tokens: RULE[others] depends on it, so a copy
-    that appears later in any file re-runs the item."""
-    import hashlib
-    toks = sorted(set(toks))
-    rows = []
-    for i in range(0, len(toks), 500):
-        chunk = toks[i:i + 500]
-        rows += con.execute(f"SELECT t.tok, n.id FROM post p JOIN tok t ON t.tid = p.tid JOIN node n ON n.nid = p.nid "
-                            f"WHERE t.tok IN ({','.join('?' * len(chunk))})", chunk).fetchall()
-    return hashlib.sha256("\n".join(f"{a} {b}" for a, b in sorted(rows)).encode()).hexdigest()[:16]

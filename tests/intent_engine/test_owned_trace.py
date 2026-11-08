@@ -10,11 +10,14 @@ from flowguard.intent.cells import Raised
 from flowguard.intent.flow import Capture
 from tests.intent_engine.test_scenario_execution import scenario
 from tests.intent_engine.test_calibration import project
+from tests.intent_engine._protocol_controls import bind_anchor, bind_scenario
+from tests.intent_engine._source_fixture import source_sessions
 
 
 @pytest.mark.parametrize('value,phase,expected', [(4,'return',False),(-1,'raise','native negative refusal')])
 def test_scenario_keeps_both_capture_scopes_on_the_real_replaced_entry(tmp_path,value,phase,expected):
     binding=scenario(tmp_path,refusal=True)
+    bind_scenario(tmp_path,binding)
     ambient=sys.gettrace()
     with calibration._execution_session(tmp_path):
         assert calibration._prepare_scenario(tmp_path,binding)['status']=='ok'
@@ -37,8 +40,8 @@ def test_scenario_keeps_both_capture_scopes_on_the_real_replaced_entry(tmp_path,
         assert observed.value is expected and end[0].result is expected
 
 
-@pytest.mark.parametrize('stage,values,actual', [('baseline',{},True),('zero',{},True),('case',{'x':4},False)])
-def test_single_monitor_and_interceptor_share_the_same_owned_trace_rule(tmp_path,stage,values,actual):
+@pytest.mark.parametrize('value,actual', [(2,True),(4,False)])
+def test_single_monitor_and_interceptor_share_the_same_owned_trace_rule(tmp_path,value,actual):
     anchor=project(tmp_path,'''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
@@ -46,22 +49,31 @@ def limit(x: int) -> bool:
 def test_native():
     assert limit(2) is True
 ''')
+    scope,_=bind_anchor(tmp_path,anchor)
+    import importlib
+    module=importlib.import_module('policy')
+    alias,original=module.limit,module.limit.__code__
     index=anchors.collect_sources(tmp_path,[('policy.py','policy')])
     ambient=sys.gettrace()
-    with Capture(tmp_path,index,'outer') as outer:
+    # Ordinary coverage receives this actual direct call, not private replay
+    # classes. The explicit runtime still observes all requested representatives.
+    with Capture(tmp_path,index,'outer',_ordinary=True) as outer:
         owned=sys.gettrace()
-        result=calibration._stage(tmp_path,anchor,values,stage)
+        with scope.runtime.hook(module.limit,name='limit',axes={'x':[value]},private=True):
+            result=alias(value)
         assert sys.gettrace() is owned
     assert sys.gettrace() is ambient
-    assert result['status']=='ok',result
-    assert result['pytest_exit']==(0 if stage=='baseline' else 1)
+    assert result is actual
+    assert module.limit is alias and alias.__code__ is original
     assert [(e.phase,e.occurrence)for e in outer.events]==[('call',1),('return',1)]
-    assert outer.events[0].values['x']==values.get('x',2)
+    assert outer.events[0].values['x']==value
     assert outer.events[1].result is actual and outer.issues==[]
+    assert any(inputs['x']==value and observed is actual for inputs,observed in scope.runtime.readings[-1].rows)
 
 
 def test_nested_captures_share_the_sdk_owner_and_restore_exact_ambient(tmp_path):
     binding=scenario(tmp_path)
+    bind_scenario(tmp_path,binding)
     from flowguard.intent.config import load_config,setup_path
     from flowguard.intent.imports import prepare
     import importlib
@@ -81,6 +93,7 @@ def test_nested_captures_share_the_sdk_owner_and_restore_exact_ambient(tmp_path)
 
 def test_external_debugger_is_not_replaced_or_reported_as_business_refusal(tmp_path):
     binding=scenario(tmp_path,refusal=True)
+    bind_scenario(tmp_path,binding)
     with calibration._execution_session(tmp_path):
         assert calibration._prepare_scenario(tmp_path,binding)['status']=='ok'
         ambient=sys.gettrace()
@@ -97,6 +110,7 @@ def test_external_debugger_is_not_replaced_or_reported_as_business_refusal(tmp_p
 
 def test_observer_callback_failure_is_unavailable_not_a_native_value_error(tmp_path):
     binding=scenario(tmp_path,refusal=True)
+    bind_scenario(tmp_path,binding)
     with calibration._execution_session(tmp_path):
         assert calibration._prepare_scenario(tmp_path,binding)['status']=='ok'
         outer=Capture(tmp_path,binding.anchor_index,'outer')

@@ -141,16 +141,17 @@ def test_second():
         assert connection.execute("SELECT node,fp,call_lines FROM footprint WHERE test='tests/test_plain.py::test_second' ORDER BY node").fetchall() == original
 
 
-def test_a_marked_guard_entering_its_home_only_in_a_python_child_is_real(sample):
+def test_a_marked_guard_with_only_an_unobserved_child_fails_closed(sample):
     (sample / 'tests/test_child_guard.py').write_text('''import subprocess, sys, pytest
 @pytest.mark.rule('LIMIT')
 def test_child_guard():
-    subprocess.run([sys.executable, '-c', 'from sample.policy import accept; assert accept(4) is False'], check=True)
+    subprocess.run([sys.executable, '-c', 'from sample.policy import accept; assert accept(4) is False'], check=True, cwd='src')
 ''')
     result = run(sample)
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'marked but never enters LIMIT' in result.stdout + result.stderr
     with database(sample) as connection:
-        assert connection.execute("SELECT count(*) FROM footprint WHERE test='tests/test_child_guard.py::test_child_guard' AND node='sample.policy:accept' AND origin='child'").fetchone()[0] == 1
+        assert connection.execute("SELECT count(*) FROM footprint WHERE test='tests/test_child_guard.py::test_child_guard' AND node='sample.policy:accept' AND origin='child'").fetchone()[0] == 0
 
 
 def test_plain_pytest_executes_declared_items_and_sentinel(sample):
@@ -340,10 +341,10 @@ def test_direct_failure_classification_preserves_pytest_failure(sample, body, ki
     ("open('/outside-project-child-r14/missing.txt')", 'env'),
     ("raise ValueError('a child domain error')", 'code'),
 ])
-def test_failed_python_child_is_classified_from_its_actual_exception(sample, code, kind):
+def test_rendered_child_failure_does_not_invent_observed_child_entries(sample, code, kind):
     text = f'''import subprocess, sys
 def test_child():
-    result = subprocess.run([sys.executable, '-c', {code!r}], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, '-c', {code!r}], capture_output=True, text=True, cwd='src')
     assert result.returncode == 0, result.stderr
 '''
     (sample / 'tests/test_child.py').write_text(text)
@@ -352,8 +353,9 @@ def test_child():
     with database(sample) as connection:
         assert connection.execute("SELECT kind FROM reading WHERE test='tests/test_child.py::test_child'").fetchone()[0] == kind
 
+        assert connection.execute("SELECT count(*) FROM footprint WHERE origin='child'").fetchone()[0] == 0
 
-def test_child_path_classification_reads_the_error_line_not_a_later_repr(sample):
+def test_child_traceback_text_classification_does_not_record_execution(sample):
     from flowguard.intent.config import load_config
     from flowguard.intent.readings import child_failure
     text = '''E       AssertionError: Traceback (most recent call last):
@@ -365,18 +367,27 @@ E        + where 1 = CompletedProcess(args=['python'], stderr='some repr')
     assert child_failure(text, load_config(sample)) == ('env', 'child os error outside project')
     assert child_failure("print('FileNotFoundError: outside')", load_config(sample)) is None
 
+    assert not (sample / '.flowguard/cache/map.sqlite').exists()
 
-def test_child_functions_and_edges_have_the_map_owners_fingerprint(sample):
+def test_only_real_parent_functions_and_edges_have_observed_fingerprints(sample):
     (sample / 'src/sample/failure.py').write_text('def leaf(): return 7\ndef caller(): return leaf()\n')
-    (sample / 'tests/test_child.py').write_text('import subprocess, sys, pytest\nfrom sample.policy import accept\n@pytest.mark.rule("LIMIT")\ndef test_child():\n    assert accept(4) is False\n    subprocess.run([sys.executable,"-c","from sample.failure import caller; assert caller()==7"],check=True)\n')
-    result = run(sample)
+    (sample / 'tests/test_child.py').write_text('''import subprocess, sys, pytest
+from sample.policy import accept
+@pytest.mark.rule("LIMIT")
+def test_child():
+    from sample.failure import caller
+    assert caller() == 7
+    assert accept(4) is False
+    subprocess.run([sys.executable,"-c","from sample.failure import caller; assert caller()==7"],check=True,cwd="src")
+''')
+    result = run(sample, '--flowguard-record-tests')
     assert result.returncode == 0, result.stdout + result.stderr
     with database(sample) as connection:
-        footprints = dict(connection.execute("SELECT node,fp FROM footprint WHERE test='tests/test_child.py::test_child' AND origin='child'"))
-        for name in ('sample.failure:caller', 'sample.failure:leaf'):
+        assert connection.execute("SELECT count(*) FROM footprint WHERE origin='child'").fetchone()[0] == 0
+        footprints = dict(connection.execute("SELECT node,fp FROM footprint WHERE test='tests/test_child.py::test_child' AND origin='parent'"))
+        for name in ('sample.failure:caller', 'sample.failure:leaf', 'sample.failure'):
             assert footprints[name] == connection.execute('SELECT fp FROM node WHERE id=?', (name,)).fetchone()[0]
-        assert footprints['sample.failure'] == connection.execute("SELECT fp FROM node WHERE id='sample.failure'").fetchone()[0]
-        lines = json.loads(connection.execute("SELECT call_lines FROM footprint WHERE node='sample.failure:leaf' AND origin='child'").fetchone()[0])
+        lines = json.loads(connection.execute("SELECT call_lines FROM footprint WHERE node='sample.failure:leaf' AND origin='parent'").fetchone()[0])
         assert ['src/sample/failure.py', 2] in lines
         assert connection.execute("SELECT count(*) FROM edge WHERE src='sample.failure:caller' AND dst='sample.failure:leaf' AND prov='observed'").fetchone()[0] == 1
 

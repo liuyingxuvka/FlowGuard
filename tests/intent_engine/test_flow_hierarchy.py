@@ -5,6 +5,8 @@ import uuid
 
 import pytest
 
+from tests.intent_engine._cli_fixture import check as run_check
+
 from flowguard.intent import calibration
 from flowguard.intent.anchors import _execution_session
 from flowguard.intent.engine import Engine
@@ -277,7 +279,7 @@ def test_complete_cli_reports_the_real_hierarchy(tmp_path,variant,exit_code):
                         "edges=[('entry','check'),('check','save'),('save','published'),('entry','published')],"))
     (model.cfg.root/'tests/test_flowguard_intent.py').write_text(
         'def test_flowguard_intent(request):\n from flowguard.intent.plugin import sentinel\n sentinel(request.config)\n')
-    assert cli.check(model.cfg,everything=True)==exit_code
+    assert run_check(model.cfg,everything=True)==exit_code
 
 
 

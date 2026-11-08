@@ -1,7 +1,7 @@
 """Real route-text failures keep their original diagnostics in the shared owner."""
 import pytest
 
-from flowguard.testing import check_route_texts, local_link
+from tests.route_text_support import check_route_texts, local_link
 
 
 @pytest.fixture

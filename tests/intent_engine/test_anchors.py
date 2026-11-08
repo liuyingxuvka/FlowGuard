@@ -133,11 +133,11 @@ def test_draft_uses_existing_cells_and_missing_numeric_bounds_stays_grey(tmp_pat
     with closing(build(root, tmp_path / 'map.sqlite', workers=1)) as graph:
         target = next(n['id'] for n in graph.nodes() if n['qual'] == 'eligible')
         draft = A.draft(graph, target)
-        assert 'age: ?' in draft.text and draft.status == 'grey'
+        assert draft.text == '# flowguard: sensor eligible' and draft.status == 'ok'
         assert {17, 18, 19} <= set(draft.ranges['points']['age'])
         assert draft.ranges['points']['active'] == [False, True]
         unknown = A.draft(graph, next(n['id'] for n in graph.nodes() if n['qual'] == 'raw'))
-        assert unknown.ranges == {} and any('no readable comparison' in i.message for i in unknown.issues)
+        assert not unknown.ranges['complete'] and any('no readable comparison' in i.message for i in unknown.issues)
 
 
 def test_decision_reading_keeps_source_ast_and_local_dependency_signature(tmp_path):
@@ -313,7 +313,9 @@ def untyped(x): return x == 1
         assert A.observe(root, index.entries[0], {'role': 'outside'}).status == 'red'
     _, missing = source(tmp_path, GOOD.replace('age: int', 'age'), name='missing')
     reading = A.decision_reading(root.parent / 'missing', missing.entries[0])
-    assert reading.issues and reading.reading.consts == {}
+    assert reading.issues and reading.reading.consts == {'active': []}
+    assert set(reading.kinds) == {'active'}
+    assert any(i.code == 'range-missing' and i.message.startswith('age:') for i in reading.issues)
 
 
 def test_parser_owner_digest_invalidates_existing_map(tmp_path, monkeypatch):

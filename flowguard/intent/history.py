@@ -1,17 +1,12 @@
-"""Literal regression preservation and the same engine applied to an archived previous commit."""
+"""Preserve literal regressions and compare previous functions in verified current inputs."""
 from __future__ import annotations
 
 import ast
-import io
 import inspect
 import json
 from pathlib import Path
-import subprocess
-import sys
-import tarfile
-import tempfile
 
-from flowguard.map.common import MapError, content_digest, git_blob, git_run
+from flowguard.map.common import MapError, content_digest, git_blob, git_run, normalize_newlines
 from .cache import scan
 
 
@@ -187,10 +182,18 @@ def current_row_signature(rule, row):
     def binding_facts(binding):
         from dataclasses import asdict
         if hasattr(binding, 'scenario'):
-            from .calibration import _binding_data
-            facts = _binding_data(binding)
-            facts.pop('entries', None)  # Unrelated source anchors do not reinterpret this row.
-            return facts
+            from dataclasses import fields, is_dataclass
+            from .flow import _UNSET
+            def semantic(value):
+                if value is _UNSET:return {'unset':True}
+                if is_dataclass(value):return {field.name:semantic(getattr(value,field.name)) for field in fields(value)}
+                if hasattr(value,'id'):return {'id':value.id}
+                if isinstance(value,dict):return {key:semantic(item) for key,item in value.items()}
+                if isinstance(value,(list,tuple)):return [semantic(item) for item in value]
+                return repr(value)
+            return dict(flow=semantic(binding.flow),scenario=asdict(binding.scenario),anchor=asdict(binding.anchor),
+                        field_map=binding.field_map,testnode=binding.testnode,actual_targets=binding.actual_targets,targets=binding.targets,
+                        relation_indices=binding.relation_indices,argument_plan=semantic(binding.argument_plan))
         return dict(target=binding.target, name=binding.name,
                     anchor=asdict(binding.anchor) if binding.anchor else None,
                     equivalent=binding.equivalent)
@@ -203,11 +206,7 @@ def current_row_signature(rule, row):
 
 
 def confirmation(cfg, rule, engine=None):
-    """Keep valid old-code evidence in the existing result payload, never infer agreement from coverage.
-
-    Observed-case confirmation is deliberately absent: this round removed boundary
-    value recording. A marked or entered test is not proof that its answer agrees.
-    """
+    """Reuse bound previous-function evidence; merely entering a test never clears pending."""
     from .cache import read
     memo = getattr(engine, '_proven_results', None) if engine is not None else None
     if memo is None:
@@ -224,111 +223,111 @@ def confirmation(cfg, rule, engine=None):
         if proof.get('signature') in signatures:
             proofs[proof['signature']] = proof
     return dict(cleared=bool(proofs), proven_rows=list(proofs.values()),
-                reason='a retained row failed in the previous real code and passes now' if proofs else '')
+                reason='a retained row failed in previous functions/constants with the same verified inputs and passes now' if proofs else '')
 
 
-_PROBE = '''
-import json,sys
-from pathlib import Path
-source, root, rid, line, targets = sys.argv[1:]
-targets=json.loads(targets)
-sys.path.insert(0,source)
-from flowguard.intent.loader import load
-from flowguard.intent.engine import Engine,WitnessUnavailable
-from flowguard.intent import sites
-from flowguard.intent.anchors import _execution_session
-from flowguard.intent.calibration import _prepare,_prepare_scenario
-from contextlib import ExitStack
-scopes=ExitStack();scopes.enter_context(_execution_session(root))
-model=load(root=root)
-rule=model.rules.get(rid)
-if model.errors or rule is None:
- print(json.dumps({'status':'unknown','reason':str(model.errors)})); raise SystemExit()
-engine=Engine(model)
-row=next((r for r in rule.live_rows if r.line==int(line)),None)
-if row is None:
- print(json.dumps({'status':'unknown','reason':'new row could not be loaded'})); raise SystemExit()
-answers=[]
-from flowguard.intent.cells import same,Raised
-from flowguard.intent.tracer import Footprint
-from flowguard.intent.readings import project_module
-if not rule.homes:
- print(json.dumps({'status':'unknown','reason':'no real homes bound'})); raise SystemExit()
-for home in rule.homes:
- if home.anchor is None:
-  # A missing historical observation comment is not evidence that the
-  # production function did not exist. Inspect the existing Map, never call
-  # an unbound old function through an anonymous fallback.
-  from contextlib import closing
-  from flowguard.structure import build
-  candidates=targets.get(home.name,[])
-  with closing(build(model.cfg.root,roots=model.cfg.roots)) as graph:
-   present=any(graph.node(graph.canonical(target) or target) for target in candidates)
-  answers.append({'status':'unknown' if present or not candidates else 'new code',
-                  'home':home.name,'reason':'old source has no corresponding observation anchor' if present or not candidates else 'old production function is absent'})
-  continue
- if hasattr(home,'scenario'):
-  _prepare_scenario(model.cfg.root,home)
- elif home.anchor and home.anchor.calibrated_by:
-  _prepare(model.cfg.root,home.anchor)
- fn,_,gone=engine.home_sites(home.target)
- if gone:
-  module=home.target.partition(':')[0].replace('.', '/')
-  exists=any((base/(module+'.py')).is_file() or (base/module/'__init__.py').is_file() for base in [model.cfg.root,*model.cfg.roots])
-  failed_import=any(kind in gone for kind in ('ImportError','ModuleNotFoundError'))
-  answers.append({'status':'unknown' if exists and failed_import else 'new code','home':home.target,'reason':gone}); continue
- with Footprint(engine.is_project) as footprint:
-  got=engine.call(home,row.inputs,fn)
- if isinstance(got,Raised) and isinstance(got.error,WitnessUnavailable):
-  answers.append({'status':'unknown','home':home.target,'reason':'source observation unavailable: '+str(got.error)}); continue
- code=getattr(sites.unwrap(fn),'__code__',None)
- if code is None or sites.code_key(code) not in footprint.keys():
-  answers.append({'status':'unknown','reason':'binding never enters old home'}); continue
- if isinstance(got,Raised) and not same(row.expect,got):
-  error=got.error
-  if isinstance(error,ImportError) and not project_module(getattr(error,'name',''),model.cfg):
-   answers.append({'status':'unknown','reason':repr(got)}); continue
-  if isinstance(error,OSError) and (not getattr(error,'filename',None) or not Path(error.filename).resolve().is_relative_to(model.cfg.root)):
-   answers.append({'status':'unknown','reason':repr(got)}); continue
- answers.append({'status':'regression' if same(row.expect,got) else 'proven','home':home.target,'actual':repr(got)})
-print(json.dumps({'status':'unknown' if any(a['status']=='unknown' for a in answers) else 'proven' if any(a['status']=='proven' for a in answers) else 'new code' if all(a['status']=='new code' for a in answers) else 'regression','homes':answers}))
-'''
+def _historical_home(runtime, home):
+    """An absent function is new code; an absent comment or environment is not."""
+    from . import anchors, sites
+    from .runtime import _functions, _resolve, _SAFE
+    import types,builtins
+    anchor=home.anchor
+    source=runtime._source(anchor.file)
+    if source is None:return dict(status='unknown',reason='old module location cannot be restored')
+    tree=ast.parse(source)
+    definition=dict(_functions(tree)).get(anchor.qual)
+    if definition is None:
+        constants=runtime._constants(tree,anchor.module)
+        inert=all(isinstance(node,(ast.Assign,ast.AnnAssign)) and all(isinstance(t,ast.Name) and t.id in constants for t in (node.targets if isinstance(node,ast.Assign) else [node.target])) for node in tree.body)
+        return dict(status='new code' if inert else 'unknown',reason='old production function is absent' if inert else 'old dynamic function binding cannot be restored')
+    facts=anchors.source_facts(tree,source,anchor.module,anchor.file)
+    previous=next((old for old in facts.get('anchors',()) if old['name']==anchor.name and old['qual']==anchor.qual),None)
+    if previous is None:return dict(status='unknown',reason='old source has no corresponding observation anchor')
+    if [(p['name'],p['source_type'],p['unit']) for p in previous['parameters']]!=[(p.name,p.source_type,p.unit) for p in anchor.parameters]:
+        return dict(status='unknown',reason='old observation parameter meaning cannot be restored')
+    function=sites.unwrap(sites.resolve_loaded(anchor.target))
+    if runtime.register(function) is None:return dict(status='unknown',reason=runtime.unavailable.get(function,'old function unavailable'))
+    for native,patch in runtime.patches.items():
+        names={node.id for node in ast.walk(patch.node) if isinstance(node,ast.Name) and isinstance(node.ctx,ast.Load)}-set(patch.code.co_varnames)
+        available=set(native.__globals__)|set(vars(builtins))|{name for (_,name),(namespace,_) in runtime.constants.items() if namespace is native.__globals__}
+        if names-available:return dict(status='unknown',reason='old global cannot be restored: '+', '.join(sorted(names-available)))
+        old=ast.parse(runtime._source(Path(native.__code__.co_filename).resolve().relative_to(runtime.root).as_posix()))
+        now=ast.parse(Path(native.__code__.co_filename).read_text(encoding='utf-8-sig'))
+        def environment(module):
+            constants=runtime._constants(module,native.__module__)
+            return [ast.dump(node,include_attributes=False) for node in module.body
+                    if not isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef))
+                    and not (isinstance(node,(ast.Assign,ast.AnnAssign)) and all(
+                        isinstance(target,ast.Name) and target.id in constants for target in
+                        (node.targets if isinstance(node,ast.Assign) else [node.target])))]
+        if environment(old)!=environment(now):return dict(status='unknown',reason='old imports or module environment cannot be restored')
+        problem=runtime.safety(native,historical=True)
+        if problem:return dict(status='unknown',reason=problem)
+        for part in ast.walk(patch.node):
+            if isinstance(part,ast.Attribute):
+                owner=_resolve(part.value,native.__globals__)
+                value=_resolve(part,native.__globals__)
+                if isinstance(owner,types.ModuleType) and (id(vars(owner)),part.attr) not in runtime.constants \
+                        and all(value is not known for known in (*_SAFE,*runtime.patches)):
+                    return dict(status='unknown',reason='old imported attribute cannot be restored: '+ast.unparse(part))
+    if hasattr(home,'scenario'):
+        from .calibration import _context
+        _,item=_context(runtime.root,home.testnode)
+        files={home.testnode.partition('::')[0]}|{Path(definition.func.__code__.co_filename).resolve().relative_to(runtime.root).as_posix() for definitions in item._fixtureinfo.name2fixturedefs.values() for definition in definitions if hasattr(definition.func,'__code__') and Path(definition.func.__code__.co_filename).resolve().is_relative_to(runtime.root)}
+        if any(normalize_newlines((runtime._source(file) or '').encode())!=normalize_newlines((runtime.root/file).read_text(encoding='utf-8-sig').encode()) for file in files):
+            return dict(status='unknown',reason='old test context cannot be restored')
+    return None
 
 
-def _probe(root, rule, row):
-    result = subprocess.run([sys.executable, '-c', _PROBE, str(Path(__file__).resolve().parents[2]),
-                             str(root), rule.id, str(row.line), json.dumps({name: [home.target for home in rule.homes if home.name == name and home.anchor is not None] for name in {home.name for home in rule.homes}})], cwd=root, capture_output=True, text=True)
-    if result.returncode:
-        return dict(status='unknown', reason=result.stderr.strip() or f'exit {result.returncode}')
-    try:
-        return json.loads(result.stdout.splitlines()[-1])
-    except (ValueError, IndexError):
-        return dict(status='unknown', reason='old-code probe did not produce a result')
+def _probe(root, rule, row, *, runtime=None):
+    from .loader import load
+    from .engine import Engine,WitnessUnavailable
+    from .calibration import _prepare,_prepare_scenario
+    from .cells import same,Raised
+    from contextlib import nullcontext
+    model=load(root=root)
+    if model.errors or rule.id not in model.rules:return dict(status='unknown',reason=str(model.errors))
+    engine=Engine(model)
+    current=model.rules[rule.id]
+    literal=next((item for item in current.live_rows if item.line==row.line),None)
+    if literal is None or current_row_signature(current,literal)!=current_row_signature(rule,row):
+        return dict(status='unknown',reason='row is not the current literal regression')
+    if not current.homes:return dict(status='unknown',reason='no real homes bound')
+    answers=[]
+    for home in current.homes:
+        answer=dict(home=home.target)
+        if home.anchor is None:
+            answer.update(status='unknown',reason='source observation unavailable: no real anchor')
+        else:
+            if hasattr(home,'scenario'):_prepare_scenario(model.cfg.root,home)
+            elif home.anchor.calibrated_by:_prepare(model.cfg.root,home.anchor)
+            try:
+                boundary=_historical_home(runtime,home) if runtime is not None else None
+                if boundary:answer.update(boundary)
+                else:
+                    with runtime.old_code() if runtime is not None else nullcontext():
+                        got=engine.call(home,row.inputs,None)
+                    if isinstance(got,Raised) and (isinstance(got.error,WitnessUnavailable) or not same(row.expect,got) and isinstance(got.error,(ImportError,OSError))):
+                        answer.update(status='unknown',reason='source observation unavailable: '+str(got.error))
+                    else:answer.update(status='regression' if same(row.expect,got) else 'proven',actual=repr(got))
+            except Exception as error:answer.update(status='unknown',reason=type(error).__name__+': '+str(error))
+        answers.append(answer)
+    statuses={answer['status'] for answer in answers}
+    return dict(status='unknown' if 'unknown' in statuses else 'proven' if 'proven' in statuses
+                else 'new code' if statuses=={'new code'} else 'regression',homes=answers)
 
 
 def proven(cfg, rule, row, base='HEAD^'):
-    """A new row tested against real old code, without inventing a second test executor."""
-    try:
-        revision = _revision(cfg, base)
-    except MapError as error:
-        return dict(status='unknown', reason=str(error))
-    if revision is None:
-        return dict(status='unknown', reason='no previous commit')
-    current = _probe(cfg.root, rule, row)
-    if current['status'] != 'regression':
-        return dict(status='unknown', reason='current row does not pass at every home', current=current)
-    archive = git_run(cfg.root, 'archive', revision).stdout
-    with tempfile.TemporaryDirectory(prefix='flowguard-previous-') as directory:
-        root = Path(directory)
-        with tarfile.open(fileobj=io.BytesIO(archive)) as stream:
-            stream.extractall(root, filter='data')
-        # Only the new regression declaration is carried back. Old production
-        # code and old test helpers stay old; incompatible helpers are unknown.
-        path = Path(rule.file)
-        target = root / path.relative_to(cfg.root)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(path.read_bytes())
-        result = _probe(root, rule, row)
-        result.update(base=git_run(cfg.root, 'rev-parse', revision + '^{commit}').stdout.decode().strip(),
-                      signature=current_row_signature(rule, row))
-        return result
+    """Compare old functions/constants in the same verified inputs, not an old project run."""
+    from .runtime import Runtime
+    try:revision=_revision(cfg,base)
+    except MapError as error:return dict(status='unknown',reason=str(error))
+    if revision is None:return dict(status='unknown',reason='no previous commit')
+    current=_probe(cfg.root,rule,row)
+    if current['status']!='regression':
+        return dict(status='unknown',reason='current row does not pass at every home',current=current)
+    result=_probe(cfg.root,rule,row,runtime=Runtime(cfg.root,revision))
+    result.update(base=git_run(cfg.root,'rev-parse',revision+'^{commit}').stdout.decode().strip(),
+                  signature=current_row_signature(rule,row),
+                  scope='previous functions and constants in the same verified inputs/test context; not the whole previous project')
+    return result

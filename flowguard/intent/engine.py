@@ -1035,7 +1035,7 @@ class Engine:
             try:
                 if home.anchor is None:
                     raise WitnessUnavailable(f'anchor gone: {home.name}')
-                names = {parameter.name for parameter in home.anchor.parameters}
+                names = {parameter.name for parameter in home.anchor.inputs}
                 values = {name: value for name, value in cell.items() if name in names}
                 for identifier in home.rule.uses:
                     child = self.used_rule(home.rule, identifier)

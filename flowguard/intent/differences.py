@@ -1,20 +1,17 @@
 """Behavior differences over the union of two source-owned decision partitions.
 
 Source predicates describe the cells, never their expected answers. Every answer
-comes from the one fresh-process anchor executor. This module owns no registry.
+comes from the shared Runtime and real source callable. This module owns no runner.
 """
 from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
-import io
 from pathlib import Path
 import sys
-import tarfile
-import tempfile
 import time
 
-from flowguard.map.common import git_run, read_source
+from flowguard.map.common import read_source
 from . import cells as C
 
 
@@ -62,35 +59,8 @@ def _key(value):
 
 
 def _label(rows, witness, kinds, consts, atoms, truth, points):
-    numeric = [name for name, kind in kinds.items() if kind.name in ('int', 'float', 'dec')]
-    if len(kinds) == len(numeric) == 1 and rows and all(row[numeric[0]] is not None for row in rows):
-        name = numeric[0]
-        ordered = sorted({row[name] for row in rows})
-        all_points = sorted({p for p in points[name] if p is not None})
-        indices = [all_points.index(p) for p in ordered]
-        if indices == list(range(min(indices), max(indices) + 1)):
-            cuts = sorted({C.coerce(v, kinds[name]) for v in consts[name]
-                           if C.coerce(v, kinds[name]) is not None and kinds[name].accepts(C.coerce(v, kinds[name]))})
-            lower = max((v for v in cuts if v <= ordered[0]), default=None)
-            upper = min((v for v in cuts if v >= ordered[-1]), default=None)
-            closed_lower = lower in ordered if lower is not None else False
-            closed_upper = upper in ordered if upper is not None else False
-            if kinds[name].name == 'int':
-                low = lower + (not closed_lower) if lower is not None else None
-                high = upper - (not closed_upper) if upper is not None else None
-                if low == high and low is not None:
-                    return f'{name}={C.show(low)}'
-                return f'{name}={C.show(low) if low is not None else "−∞"}–{C.show(high) if high is not None else "∞"}'
-            return (f'{C.show(lower) if lower is not None else "−∞"} '
-                    f'{"<=" if closed_lower else "<"} {name} '
-                    f'{"<=" if closed_upper else "<"} {C.show(upper) if upper is not None else "∞"}')
-    if atoms:
-        parts = list(dict.fromkeys(f'undefined ({text})' if yes is None else text if yes else f'not ({text})'
-                                   for (text, _, _), yes in zip(atoms, truth)))
-        parts.extend(f'{name}={C.show(witness[name])}' for name, kind in kinds.items()
-                     if kind.name in ('bool', 'enum', 'str') or witness[name] is None)
-        return ' and '.join(parts)
-    return C.show_cell(witness)
+    from .signals import class_label
+    return class_label(atoms, truth, kinds, witness) if atoms else C.show_cell(witness)
 
 
 def joint_partition(before, after):
@@ -177,9 +147,15 @@ def _result(name, partition, before, after, *, mismatch_is_red=False):
                 representative_points=partition.representative_points)
 
 
-def _schema(anchor):
-    return (anchor.kind, tuple((p.name, p.unit, p.source_type) for p in anchor.parameters),
-            anchor.output, anchor.output_type, anchor.values)
+def _compatible(left, right):
+    """Omitted short-form labels are unknown, not an invented role conflict."""
+    from .anchors import _type_id
+    if left.kind != right.kind or tuple(p.name for p in left.parameters) != tuple(p.name for p in right.parameters):
+        return False
+    known = lambda a, b: not a or not b or a == '?' or b == '?' or a == b
+    return (known(left.output, right.output) and known(_type_id(left.output_type), _type_id(right.output_type))
+            and all(known(a.unit, b.unit) and known(_type_id(a.source_type), _type_id(b.source_type))
+                    for a, b in zip(left.parameters, right.parameters)))
 
 
 def _source_index(root, graph=None):
@@ -201,157 +177,53 @@ def _source_index(root, graph=None):
     return anchors.collect_sources(root, selected)
 
 
-def _pairs(before, after):
-    old = {(a.name, a.target): a for a in before.entries if a.kind == 'sensor'}
-    new = {(a.name, a.target): a for a in after.entries if a.kind == 'sensor'}
-    pairs = [(old.pop(key), new.pop(key)) for key in sorted(old.keys() & new.keys())]
-    for name in sorted({key[0] for key in old} & {key[0] for key in new}):
-        left = [key for key in old if key[0] == name]
-        right = [key for key in new if key[0] == name]
-        if len(left) == len(right) == 1:
-            pairs.append((old.pop(left[0]), new.pop(right[0])))
-    missing = [f'{name}: sensor added, removed or ambiguous; no previous pairing'
-               for name in sorted({key[0] for key in old} | {key[0] for key in new})]
-    return pairs, missing
-
-
-def _compare_pairs(left_root, right_root, pairs, *, changed_only, automatic=False, source_only_history=False):
+def _compare_pairs(root, pairs):
+    """Compare current source anchors; historical replay is Runtime's job."""
     from .anchors import decision_reading
     from .calibration import execute_many
     prepared_at = time.perf_counter()
-    pending, reasons = [], []
+    selected, reasons, conflict = [], [], False
     for left, right in pairs:
-        old = decision_reading(left_root, left)
-        new = decision_reading(right_root, right)
-        closed = old.dependencies_complete and new.dependencies_complete
-        if changed_only and closed and (_schema(left), old.fingerprint, old.dependencies) == (_schema(right), new.fingerprint, new.dependencies):
-            continue
-        if _schema(left) != _schema(right):
+        if not _compatible(left, right):
+            conflict |= left.name == right.name
             reasons.append(f'{right.name}: anchor signature or units changed; no common declared input/output role')
             continue
-        if source_only_history and (left.calibrated_by or right.calibrated_by):
-            reasons.append(f'{right.name}: historical calibrated test non-code inputs are not closed by the source-only snapshot; check-only boundary')
+        if left.calibrated_by or right.calibrated_by:
+            reasons.append(f'{right.name}: comparison needs both anchors in the same actual call context; '
+                           'independent fresh fixtures are not a shared context')
             continue
-        if not closed:
-            reasons.append(f'{right.name}: helper dependencies are not statically closed; check-only')
-        pending.append((left, right, old, new))
-    deferred = automatic and (len(pending) > 20 or any(a.calibrated_by or b.calibrated_by for a, b, _, _ in pending) or reasons)
-    if automatic and not deferred:
-        coupled = [right.name for _, right, old, new in pending
-                   if any(view.reading.links or any(len(plane.coefs) > 1 for plane in view.reading.planes)
-                          for view in (old, new))]
-        if coupled:
-            reasons.append('coupled-field partition is check-only: ' + ', '.join(coupled))
-            deferred = True
-    if automatic and not deferred:
-        # Automatic information has a small execution budget. Estimate before
-        # enumerating; explicit check/compare still retain every original cell.
-        point_bound = 0
-        for _, _, old, new in pending:
-            consts = {name: [value for view in (old, new) for value in view.reading.consts.get(name, ())]
-                      for name in old.kinds}
-            links = {link for view in (old, new) for link in view.reading.links}
-            points, _ = C.field_points(old.kinds, consts, links)
-            count = 1
-            for values in points.values():
-                count *= len(values)
-            point_bound += count
-        if point_bound > 256:
-            reasons.append(f'automatic union grid bound {point_bound} exceeds 256; explicit check keeps the complete domain')
-            deferred = True
-    if deferred:
-        return dict(status='grey', total=0, changed=0, changes=[], complete=False, reasons=list(dict.fromkeys(reasons + ['behavior difference deferred to check: isolated calibration, unresolved dependencies, large domain or more than 20 changed sensors'])), selected=len(pending), deferred=True)
-    selected = [(left, right, joint_partition(old, new)) for left, right, old, new in pending]
-    before_requests = [(left, region.inputs) for left, _, part in selected for region in part.regions]
-    after_requests = [(right, region.inputs) for _, right, part in selected for region in part.regions]
+        old, new = decision_reading(root, left), decision_reading(root, right)
+        partition = joint_partition(old, new)
+        if not old.dependencies_complete or not new.dependencies_complete:
+            partition.complete = False
+            partition.reasons.append(f'{right.name}: helper dependencies are not statically closed; candidate observations only')
+        selected.append((left, right, partition))
     partition_seconds = time.perf_counter() - prepared_at
+    requests = [(anchor, region.inputs) for left, right, part in selected
+                for anchor in (left, right) for region in part.regions]
     start = time.perf_counter()
-    if Path(left_root).resolve() == Path(right_root).resolve():
-        values = execute_many(left_root, before_requests + after_requests) if before_requests or after_requests else []
-        before_values, after_values = values[:len(before_requests)], values[len(before_requests):]
-        old_seconds, new_seconds = time.perf_counter() - start, 0.0
-    else:
-        before_values = execute_many(left_root, before_requests) if before_requests else []
-        old_seconds = time.perf_counter() - start
-        start = time.perf_counter()
-        after_values = execute_many(right_root, after_requests) if after_requests else []
-        new_seconds = time.perf_counter() - start
-    if len(before_values) != len(before_requests) or len(after_values) != len(after_requests):
+    observations = execute_many(root, requests) if requests else []
+    if len(observations) != len(requests):
         raise ValueError('anchor executor returned the wrong number of observations')
     items, offset = [], 0
     for left, right, partition in selected:
-        end = offset + len(partition.regions)
-        item = _result(right.name, partition, before_values[offset:end], after_values[offset:end], mismatch_is_red=not changed_only)
+        size = len(partition.regions)
+        item = _result(right.name, partition, observations[offset:offset + size],
+                       observations[offset + size:offset + size * 2], mismatch_is_red=True)
         item.update(before_target=left.target, after_target=right.target)
         for change in item['changes']:
             change.update(before_target=left.target, after_target=right.target)
         items.append(item)
         reasons.extend(item['reasons'])
-        offset = end
-    return dict(status='red' if not changed_only and any(item['changed'] for item in items) else 'grey' if reasons else 'ok',
+        offset += size * 2
+    return dict(status='red' if conflict or any(item['changed'] for item in items) else 'grey' if reasons else 'ok',
                 total=sum(item['total'] for item in items),
                 checked=sum(item['checked'] for item in items), unknown=sum(item['unknown'] for item in items),
                 changed=sum(item['changed'] for item in items),
                 changes=[change for item in items for change in item['changes']], items=items,
                 complete=not reasons and all(item['complete'] for item in items),
-                reasons=list(dict.fromkeys(reasons)), selected=len(selected), deferred=False,
-                comparison=not changed_only,
-                phases={'partition_and_selection': partition_seconds,
-                        'old_execution': old_seconds, 'new_execution': new_seconds})
-
-
-def changed(root, base='HEAD', *, graph=None, automatic=False):
-    """Compare only changed sensors; old and working sources never share a process."""
-    root = Path(root).resolve()
-    start = time.perf_counter()
-    current = _source_index(root, graph)
-    indexed = time.perf_counter()
-    found = git_run(root, 'rev-parse', '--verify', base+'^{commit}', allowed=(0, 128))
-    if found.returncode:
-        return dict(status='grey', base=base, total=0, changed=0, changes=[], complete=False,
-                    reasons=['old source unavailable: '+found.stderr.decode(errors='replace').strip()],
-                    selected=0, deferred=False, automatic_eligible=False,
-                    elapsed_seconds=time.perf_counter()-start)
-    revision = found.stdout.decode().strip()
-    # Pure observation needs source and package configuration, not the project's
-    # unrelated data blobs. In a partial clone, never fetch an entire data archive.
-    from flowguard.structure.roots import CONFIGS
-    changed_paths = {path.decode() for path in git_run(root, 'diff', '--name-only', '-z', revision).stdout.split(b'\0') if path}
-    changed_paths.update(path.decode() for path in git_run(root, 'ls-files', '--others', '--exclude-standard', '-z').stdout.split(b'\0') if path)
-    source_changes = sorted(path for path in changed_paths if path.endswith('.py') or Path(path).name in CONFIGS)
-    if not source_changes:
-        return dict(status='ok', base=revision, total=0, changed=0, changes=[], items=[],
-                    complete=True, reasons=[], selected=0, deferred=False, automatic_eligible=True,
-                    elapsed_seconds=time.perf_counter()-start,
-                    scope='no changed source/configuration; no behavior comparison attempted',
-                    phases={'current_index': indexed-start},
-                    snapshot=dict(kind='no-source-change', paths=0, omitted_noncode_paths=0, archive_bytes=0))
-    tracked = [path.decode() for path in git_run(root, 'ls-tree', '-r', '--name-only', '-z', revision).stdout.split(b'\0') if path]
-    paths = [path for path in tracked if path.endswith('.py') or Path(path).name in CONFIGS]
-    archive = git_run(root, 'archive', revision, '--', *paths).stdout if paths else b''
-    archived = time.perf_counter()
-    with tempfile.TemporaryDirectory(prefix='flowguard-difference-') as folder:
-        previous = Path(folder)
-        if archive:
-            with tarfile.open(fileobj=io.BytesIO(archive)) as stream:
-                stream.extractall(previous, filter='data')
-        previous_index = _source_index(previous)
-        prepared = time.perf_counter()
-        pairs, missing = _pairs(previous_index, current)
-        report = _compare_pairs(previous, root, pairs, changed_only=True, automatic=automatic, source_only_history=True)
-    report['reasons'] = list(dict.fromkeys(report['reasons'] + missing))
-    if report['reasons'] and report['status'] == 'ok':
-        report['status'] = 'grey'
-        report['complete'] = False
-    elapsed = time.perf_counter() - start
-    report.update(base=revision, elapsed_seconds=elapsed,
-                  automatic_eligible=not report['reasons'] and not report.get('deferred') and elapsed <= 3 and report['selected'] <= 20)
-    report['snapshot'] = dict(kind='tracked-python-and-project-config', paths=len(paths),
-                              omitted_noncode_paths=len(tracked)-len(paths), archive_bytes=len(archive))
-    report['source_changes'] = source_changes
-    report.setdefault('phases', {}).update(current_index=indexed-start, archive=archived-indexed,
-                                          old_extract_and_index=prepared-archived)
-    return report
+                reasons=list(dict.fromkeys(reasons)), selected=len(selected), comparison=True,
+                phases={'partition_and_selection': partition_seconds, 'execution': time.perf_counter() - start})
 
 
 def compare(root, left, right, *, graph=None):
@@ -363,50 +235,12 @@ def compare(root, left, right, *, graph=None):
         if len(matches) != 1:
             raise ValueError(f'{value}: name must identify one sensor; use module:qual for a copy')
         return matches[0]
-    return _compare_pairs(root, root, [(resolve(left), resolve(right))], changed_only=False)
-
-
-def agreements(root, graph=None, *, index=None, automatic=False):
-    """Check necessary same-name sensor copies, reusing the caller's source index.
-
-    A deterministic reference against each other copy needs n−1 comparisons;
-    equality over their complete joint partitions is transitive. Different names
-    are never made equal merely because their bodies look alike.
-    """
-    root = Path(root).resolve()
-    index = _source_index(root, graph) if index is None else index
-    pairs, conflicts, groups = [], [], 0
-    for name, entries in sorted(index.by_name.items()):
-        sensors = sorted((a for a in entries if a.kind == 'sensor'), key=lambda a: a.target)
-        if len(sensors) < 2:
-            continue
-        groups += 1
-        if len({_schema(a) for a in sensors}) > 1:
-            conflicts.append(f'{name}: same sensor name has conflicting roles, units or signatures')
-        else:
-            pairs.extend((sensors[0], other) for other in sensors[1:])
-    report = _compare_pairs(root, root, pairs, changed_only=False, automatic=automatic)
-    report.update(groups=groups, active=bool(groups))
-    if conflicts:
-        report.update(status='red', complete=False, reasons=list(dict.fromkeys(report['reasons'] + conflicts)))
-    return report
+    return _compare_pairs(root, [(resolve(left), resolve(right))])
 
 
 def render(report, limit=10):
-    """At most ten changed-class lines; details and unknown scope stay in data."""
-    lines = [f'{row["anchor"]}'
-             + (f' ({row["before_target"]} ↔ {row["after_target"]})' if report.get('comparison') else '')
-             + f': {row["region"]}: {row["before"]} → {row["after"]}'
-             for row in report['changes'][:min(10, max(0, limit))]]
-    if report.get('reasons'):
-        lines.append(('冲突: ' if report.get('status') == 'red' and not report['changes'] else '未覆盖: ')
-                     + '; '.join(report['reasons'][:2]))
-    if report.get('complete'):
-        lines.append(f'共 {report["total"]} 类，变 {report["changed"]} 类')
-    else:
-        lines.append(f'候选 {report["total"]} 类，已比较 {report.get("checked", 0)} 类；'
-                     f'比较未完成，已证变化 {report["changed"]} 类')
-    return '\n'.join(lines)
+    from .signals import render as render_signals
+    return render_signals(report, limit)
 
 
 def display(text, *, file=None):
@@ -477,22 +311,21 @@ def anchor_distinct(root, declaration, *, graph=None, index=None, cfg=None, arch
     if any(issue.level == 'red' for issue in problems):
         result.update(status='red', reasons=list(dict.fromkeys(issue.message for issue in problems)))
         return result
-    role = lambda a: (tuple(p.name for p in a.parameters), a.output)
-    if {role(a) for a in left} != {role(a) for a in right}:
+    if not any(tuple(p.name for p in a.parameters) == tuple(p.name for p in b.parameters)
+               and (not a.output or not b.output or a.output == b.output) for a in left for b in right):
         result.update(status='ok' if source_ready and not problems else 'grey',
                       complete=source_ready and not problems, distinct_holds=True,
                       scope='declared-role-separation', behavior_checked=False,
                       reasons=([reason] if not source_ready else []) + [issue.message for issue in problems])
         return result
-    units = lambda a: tuple(p.unit for p in a.parameters)
-    if {units(a) for a in left} != {units(a) for a in right}:
+    if any(any(x.unit and y.unit and x.unit != y.unit for x, y in zip(a.parameters, b.parameters))
+           for a in left for b in right):
         result['reasons'] = ['distinct sensor units have no declared common input domain; no conversion is guessed']
         return result
-    types = lambda a: (tuple(p.source_type for p in a.parameters), a.output_type)
-    if {types(a) for a in left} != {types(a) for a in right}:
+    if any(not _compatible(a, b) for a in left for b in right):
         result['reasons'] = ['distinct sensor types have no declared common input/output domain']
         return result
-    report = _compare_pairs(root, root, [(a, b) for a in left for b in right], changed_only=False)
+    report = _compare_pairs(root, [(a, b) for a in left for b in right])
     result.update(report, kind='anchor_distinct', comparison=False, scope='joint-declared-input-classes',
                   behavior_checked=bool(report['items']))
     if not source_ready:

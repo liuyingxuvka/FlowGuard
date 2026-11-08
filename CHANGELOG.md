@@ -1,5 +1,15 @@
 # Changelog
 
+## v4.0.0 - 2026-11-08 - Compare real behavior before asserting requirements
+
+- Make ordinary pytest report changed outcome classes, inconsistent same-name sensors and violated independent rules in a bounded three-signal view. Keep unavailable historical comparisons visibly incomplete; map copy suggestions remain clues.
+- Replace observation subprocesses, archive execution and nested pytest sessions with one shared runtime. Replay safe representatives before the real call with its actual context; drive scenarios through existing collected tests with fresh function fixtures and native lifecycle reports. Preserve the one real application call, native exceptions, foreign debugger ownership and mandatory observer failures.
+- Read previous function bodies and constants from a fixed Git baseline. Include actual input values without scattering unrelated constants across fields. Use function fingerprints and precise code-object identity; equal bytecode in different files must not merge readings. Reject forged enum members and unverified replacement bodies; explicit generated mutation checks remain in `check --deep`.
+- Support the short `# flowguard: sensor NAME` comment and infer inputs versus context. Retain full comments, independent rules, literal rows, source authority, linear partitions and complete finite-model enumeration without a fixed state/depth cap; cycles and unobserved edges remain grey.
+- Add optional historical `show` views, `try`, `watch` and `model draft`. Keep the task brief at ten lines, remember its baseline in the existing cache and store original words only as cited sources. Freeze foreign readers behind the optional `languages` extra.
+- Retire observation RPC/child recording, historical archive comparison wrappers, diagnostic JSONL, the built-in CHECK_PIPELINE, shard switches and the legacy `python -m flowguard.intent` entrypoint. Remove unused change/release-record producers and move repository route-test helpers out of the product. Preserve original archives, snapshot readers and all historical releases.
+- Run a complete unsharded suite on each required CI platform. Publication still requires the complete workflow on the exact main commit. This is a major release because supported execution and CLI boundaries changed; see [the 4.0 migration guide](docs/upgrade-4.0.md). Other skills keep their existing pins.
+
 ## v3.0.1 - 2026-11-08 - Restore test isolation and make deep checks explicit
 
 - Restore the caller's exact import-path list after each calibrated pytest session, including its ordering, intentional duplicates and pytest path ownership. Preserve restoration after ordinary returns, controlled stops and exceptions.

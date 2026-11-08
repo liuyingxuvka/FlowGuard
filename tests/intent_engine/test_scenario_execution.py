@@ -1,10 +1,16 @@
+"""Scenario observations use actual items in the existing pytest session."""
+import ast
+from contextlib import ExitStack
+import importlib
 from pathlib import Path
 from types import SimpleNamespace
 
-from flowguard.intent import anchors, calibration
+from flowguard.intent import anchors, calibration, sites
 from flowguard.intent.flow import Flow, Node, Read, Relation
 from flowguard.intent.cells import Raised
-
+from flowguard.intent.runtime import Runtime
+from tests.intent_engine._source_fixture import source_sessions
+from tests.intent_engine._protocol_controls import bind_scenario
 
 def scenario(tmp_path, *, enum=False, refusal=False, extra=''):
     if enum:
@@ -42,203 +48,181 @@ def choice(x: int) -> bool:
 
 
 def test_scenario_gets_actual_production_result_not_test_none_or_predicate(tmp_path):
-    binding=scenario(tmp_path)
-    actual=calibration.execute_scenario(tmp_path,binding,{'x':4})
-    assert actual.status=='ok' and actual.value is False,actual.reasons
-    actual=calibration.execute_scenario(tmp_path,binding,{'x':2})
-    assert actual.status=='ok' and actual.value is True,actual.reasons
+    binding = scenario(tmp_path)
+    bind_scenario(tmp_path, binding)
+    actual = calibration.execute_scenario(tmp_path, binding, {'x': 4})
+    assert actual.status == 'ok' and actual.value is False, actual.reasons
+    actual = calibration.execute_scenario(tmp_path, binding, {'x': 2})
+    assert actual.status == 'ok' and actual.value is True, actual.reasons
 
 
 def test_scenario_enum_identity_is_real_member_not_its_string_value(tmp_path):
-    binding=scenario(tmp_path,enum=True)
-    changed=calibration._EnumRef('kinds','QuoteCase','CHANGED','changed')
-    actual=calibration.execute_scenario(tmp_path,binding,{'quote':changed})
-    assert actual.status=='ok' and actual.value is False,actual.reasons
-    wrong=calibration._EnumRef('kinds','QuoteCase','CHANGED','not-the-value')
-    actual=calibration.execute_scenario(tmp_path,binding,{'quote':wrong})
-    assert actual.status=='grey' and actual.value is None
+    binding = scenario(tmp_path, enum=True)
+    bind_scenario(tmp_path, binding)
+    enum = importlib.import_module('kinds').QuoteCase
+    actual = calibration.execute_scenario(tmp_path, binding, {'quote': enum.CHANGED})
+    assert actual.status == 'ok' and actual.value is False, actual.reasons
+    forged = object.__new__(enum)
+    forged._name_, forged._value_ = 'CHANGED', 'not-the-value'
+    actual = calibration.execute_scenario(tmp_path, binding, {'quote': forged})
+    assert actual.status == 'grey' and actual.value is None
+    copied = object.__new__(enum)
+    copied._name_, copied._value_ = enum.CHANGED.name, enum.CHANGED.value
+    actual = calibration.execute_scenario(tmp_path, binding, {'quote': copied})
+    assert actual.status == 'grey' and actual.value is None
 
 
 def test_scenario_only_declared_native_error_can_be_refused(tmp_path):
-    binding=scenario(tmp_path,refusal=True)
-    actual=calibration.execute_scenario(tmp_path,binding,{'x':-1})
-    assert actual.status=='ok' and isinstance(actual.value,Raised),actual.reasons
-    assert type(actual.value.error) is ValueError and str(actual.value.error)=='native negative refusal'
-    (tmp_path/'test_case.py').write_text((tmp_path/'test_case.py').read_text()+"    raise ValueError('test harness failure')\n")
-    fresh=scenario(tmp_path,extra="    raise ValueError('test harness failure')\n")
-    actual=calibration.execute_scenario(tmp_path,fresh,{'x':2})
-    assert actual.status in {'red','grey'} and not isinstance(actual.value,Raised)
+    binding = scenario(tmp_path, refusal=True)
+    bind_scenario(tmp_path, binding)
+    actual = calibration.execute_scenario(tmp_path, binding, {'x': -1})
+    assert actual.status == 'ok' and isinstance(actual.value, Raised), actual.reasons
+    assert type(actual.value.error) is ValueError and str(actual.value.error) == 'native negative refusal'
+    fresh = scenario(tmp_path, extra="    raise ValueError('test harness failure')\n")
+    bind_scenario(tmp_path, fresh)
+    actual = calibration.execute_scenario(tmp_path, fresh, {'x': 2})
+    assert actual.status in {'red', 'grey'} and not isinstance(actual.value, Raised)
 
 
 def test_scenario_does_not_choose_first_or_last_reading(tmp_path):
-    binding=scenario(tmp_path,extra='    choice(x)\n')
-    actual=calibration.execute_scenario(tmp_path,binding,{'x':4})
-    assert actual.status=='grey' and actual.value is None
+    binding = scenario(tmp_path, extra='    choice(x)\n')
+    bind_scenario(tmp_path, binding)
+    actual = calibration.execute_scenario(tmp_path, binding, {'x': 4})
+    assert actual.status == 'grey' and actual.value is None
 
 
-def test_scenario_internal_failure_is_not_a_business_refusal(tmp_path, monkeypatch):
-    binding=scenario(tmp_path)
-    def failed(request): raise ValueError('private transport failure')
-    monkeypatch.setattr(calibration,'_child',failed)
-    actual=calibration.execute_scenario(tmp_path,binding,{'x':2})
-    assert actual.status in {'red','grey'} and actual.value is None
-    assert 'transport failure' in ' '.join(actual.reasons)
+def test_scenario_runtime_failure_is_not_a_business_refusal(tmp_path, monkeypatch):
+    binding = scenario(tmp_path)
+    scope, _ = bind_scenario(tmp_path, binding)
+    def failed(*args, **kwargs): raise ValueError('real replay infrastructure failure')
+    monkeypatch.setattr(scope.runtime, 'replay', failed)
+    actual = calibration.execute_scenario(tmp_path, binding, {'x': 2})
+    assert actual.status in {'red', 'grey'} and actual.value is None
+    assert 'replay infrastructure failure' in ' '.join(actual.reasons)
 
 
 def test_scenario_checks_requested_logical_inputs_for_joint_witnesses(tmp_path):
-    binding=scenario(tmp_path)
-    binding.requested_inputs={'x':99}
-    actual=calibration.execute_scenario(tmp_path,binding,{'x':2})
-    assert actual.status=='grey' and actual.value is None
+    binding = scenario(tmp_path)
+    bind_scenario(tmp_path, binding)
+    binding.requested_inputs = {'x': 99}
+    actual = calibration.execute_scenario(tmp_path, binding, {'x': 2})
+    assert actual.status == 'grey' and actual.value is None
     assert 'input did not match' in ' '.join(actual.reasons)
 
 
 def test_scenario_never_uses_test_return_or_rule_predicate_as_actual(tmp_path):
-    binding=scenario(tmp_path,extra='    return True\n')
+    binding = scenario(tmp_path, extra='    return True\n')
     class ExplosiveRule:
-        id='RULE'
-        def eval(self,*args): raise AssertionError('rule predicate used as actual')
-    relation=binding.flow.relations[0]
-    binding.flow.relations=(Relation(ExplosiveRule(),relation.inputs,relation.actual,relation.on),)
-    actual=calibration.execute_scenario(tmp_path,binding,{'x':4})
-    assert actual.status=='ok' and actual.value is False,actual.reasons
+        id = 'RULE'
+        def eval(self, *args): raise AssertionError('rule predicate used as actual')
+    relation = binding.flow.relations[0]
+    binding.flow.relations = (Relation(ExplosiveRule(), relation.inputs, relation.actual, relation.on),)
+    bind_scenario(tmp_path, binding)
+    actual = calibration.execute_scenario(tmp_path, binding, {'x': 4})
+    assert actual.status == 'ok' and actual.value is False, actual.reasons
 
 
 def test_enum_source_binding_must_be_the_actual_native_class(tmp_path):
-    binding=scenario(tmp_path,enum=True)
-    file=tmp_path/'test_case.py'
-    file.write_text(file.read_text()+'''\nfrom enum import Enum
-QuoteCase = Enum('QuoteCase', {'EXACT':'exact','CHANGED':'changed'})
-''')
-    index=anchors.collect_sources(tmp_path,[('policy.py','policy'),('test_case.py','test_case',True)])
-    binding.anchor_index=index;binding.scenario=index.named('CASE')[0]
-    actual=calibration.execute_scenario(tmp_path,binding,{'quote':calibration._EnumRef('kinds','QuoteCase','CHANGED','changed')})
-    assert actual.status=='grey' and actual.value is None
+    binding = scenario(tmp_path, enum=True)
+    file = tmp_path / 'test_case.py'
+    file.write_text(file.read_text()+"\nfrom enum import Enum\nQuoteCase = Enum('QuoteCase', {'EXACT':'exact','CHANGED':'changed'})\n")
+    index = anchors.collect_sources(tmp_path, [('policy.py','policy'),('test_case.py','test_case',True)])
+    binding.anchor_index, binding.scenario = index, index.named('CASE')[0]
+    bind_scenario(tmp_path, binding)
+    changed = importlib.import_module('kinds').QuoteCase.CHANGED
+    actual = calibration.execute_scenario(tmp_path, binding, {'quote': changed})
+    assert actual.status == 'grey' and actual.value is None
     assert 'source type' in ' '.join(actual.reasons)
 
 
 def test_real_probe_plugin_does_not_write_ordinary_cache_or_project_map(tmp_path):
-    binding=scenario(tmp_path)
-    file=tmp_path/'pyproject.toml'
-    file.write_text(file.read_text()+'addopts="-p flowguard.intent.plugin"\n')
-    actual=calibration.execute_scenario(tmp_path,binding,{'x':4})
-    assert actual.status=='ok' and actual.value is False,actual.reasons
-    assert not (tmp_path/'.flowguard/cache').exists(), list((tmp_path/'.flowguard').rglob('*'))
+    binding = scenario(tmp_path)
+    file = tmp_path / 'pyproject.toml'; file.write_text(file.read_text()+'addopts="-p flowguard.intent.plugin"\n')
+    bind_scenario(tmp_path, binding)
+    actual = calibration.execute_scenario(tmp_path, binding, {'x': 4})
+    assert actual.status == 'ok' and actual.value is False, actual.reasons
+    assert not (tmp_path / '.flowguard' / 'cache').exists(), list((tmp_path / '.flowguard').rglob('*'))
 
 
-def test_same_sdk_mutant_is_applied_to_actual_case_not_verifier_collection(tmp_path):
-    import json, os, shutil, subprocess, sys
-    sdk=Path(calibration.__file__).resolve().parents[1]
-    root=tmp_path/'self_sdk';root.mkdir()
-    shutil.copytree(sdk,root/'flowguard',ignore=shutil.ignore_patterns('__pycache__'))
-    (root/'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\naddopts="-p flowguard.intent.plugin"\n')
-    (root/'conftest.py').write_text('''import ast
-from flowguard.intent import loader
-def pytest_collection_modifyitems(items):
-    assert loader.is_literal(ast.Constant(1)) is True, 'mutant reached verifier collection before actual case'
-''')
-    (root/'projection.py').write_text('''# flowguard: sensor PROJECTION(answer: bool) -> accepted: bool
-def projected(answer: bool) -> bool:
-    return answer
-''')
-    (root/'test_native.py').write_text('''import ast
+def test_same_sdk_mutant_is_applied_after_real_collection_and_restored(tmp_path):
+    # Observe this SDK's actual loader in this process. A second copied SDK and
+    # a private interpreter are retired; no package is installed or replaced.
+    import tempfile
+    from flowguard.intent import loader
+    root = Path(loader.__file__).resolve().parents[2]
+    with tempfile.TemporaryDirectory(prefix='native-sdk-', dir=root / '.pytest_cache') as folder:
+        native = Path(folder) / 'test_native_sdk.py'
+        projection = Path(folder) / 'sdk_projection.py'
+        projection.write_text('# flowguard: sensor PROJECTION(answer: bool) -> accepted: bool\ndef projected(answer: bool) -> bool:\n    return answer\n')
+        native.write_text('''import ast
 import pytest
 from flowguard.intent import loader
-from projection import projected
+from sdk_projection import projected
 # flowguard: event CASE(expression: str)
 @pytest.mark.parametrize('expression', ['1'])
 def test_case(expression: str):
-    answer=loader.is_literal(ast.parse(expression,mode='eval').body)
+    answer = loader.is_literal(ast.parse(expression, mode='eval').body)
     assert type(projected(answer)) is bool
 ''')
-    script='''from pathlib import Path
-from types import SimpleNamespace
-import ast
-from flowguard.intent import anchors,calibration,sites,loader
-from flowguard.intent.flow import Flow,Node,Read,Relation
-root=Path.cwd()
-index=anchors.collect_sources(root,[('flowguard/intent/loader.py','flowguard.intent.loader'),('test_native.py','test_native',True),('projection.py','projection')])
-scenario=index.named('CASE')[0];target=index.named('PROJECTION')[0];measurement=index.named('ROW_LITERAL')[0]
-model=Flow('F','actual SDK verifier',(Node('case','CASE',start=True),Node('answer','PROJECTION',phase='return',caller='case',end=True)),(('case','answer'),),relations=(Relation('R',{'expression':Read('case','arg.expression')},Read('answer'),on='answer'),))
-b=SimpleNamespace(flow=model,scenario=scenario,anchor=target,anchor_index=index,field_map={'expression':'expression'},testnode='test_native.py::test_case[1]',observed_rule='R',relation_indices=(0,),actual_targets=(target.target,),targets=(measurement.target,target.target))
-def changed(fdef):fdef.body=[ast.Return(ast.Constant(False))]
-code=sites._recompile(loader.is_literal,ast.NodeTransformer(),lambda:True,changed)
-with calibration._execution_session(root):
-    fact=calibration._prepare_scenario(root,b)
-    assert fact['status']=='ok',fact
-    with sites.installed(loader.is_literal,code):
-        before=loader.is_literal.__code__
-        actual=calibration._observe_scenario_current(root,b,{'expression':'1'})
-        assert actual.status=='ok' and actual.value is False,actual.reasons
-        assert loader.is_literal.__code__ is before,'mutant code was erased after actual observation'
-with calibration._execution_session(root):
-    with sites.installed(loader.is_literal,code):
-        unprepared=calibration._observe_scenario_current(root,b,{'expression':'1'})
-        assert unprepared.status=='grey' and 'prepared' in ' '.join(unprepared.reasons)
-'''
-    env=os.environ.copy();env['PYTHONPATH']=str(root)
-    process=subprocess.run([sys.executable,'-B','-c',script],cwd=root,env=env,capture_output=True,text=True)
-    assert process.returncode==0,process.stdout+process.stderr
+        index = anchors.collect_sources(root, [('flowguard/intent/loader.py','flowguard.intent.loader'),
+            (native.relative_to(root).as_posix(),'test_native_sdk',True),
+            (projection.relative_to(root).as_posix(),'sdk_projection')])
+        target, event = index.named('PROJECTION')[0], index.named('CASE')[0]
+        flow = Flow('F','actual SDK verifier', (Node('case','CASE',start=True),Node('answer','PROJECTION',phase='return',caller='case',end=True)),
+                    (('case','answer'),), relations=(Relation('R',{'expression':Read('case','arg.expression')},Read('answer'),on='answer'),))
+        binding = SimpleNamespace(flow=flow, scenario=event, anchor=target, anchor_index=index, field_map={'expression':'expression'},
+            testnode=native.relative_to(root).as_posix()+'::test_case[1]', observed_rule='R', relation_indices=(0,),
+            actual_targets=(target.target,), targets=(target.target,loader.is_literal.__module__+':is_literal'))
+        scope, item = bind_scenario(root,binding)
+        assert loader.is_literal(ast.Constant(1)) is True
+        mutant=next(m for m in sites.mutants_of(sites.sites_of(loader.is_literal),set())
+                    if m.how=='negate' and m.site.text=='isinstance(node, ast.Constant)')
+        code=sites.mutant_code(loader.is_literal,mutant)
+        original=loader.is_literal.__code__
+        with sites.installed(loader.is_literal,code):
+            actual=calibration._observe_scenario_current(root,binding,{'expression':'1'})
+            assert actual.status=='ok' and actual.value is False,actual.reasons
+            assert loader.is_literal.__code__ is code
+            with calibration.session(Runtime(root),[item],nextitem=scope.nextitem):
+                unprepared=calibration._observe_scenario_current(root,binding,{'expression':'1'})
+                assert unprepared.status=='grey' and 'prepared' in ' '.join(unprepared.reasons)
+        assert loader.is_literal.__code__ is original and loader.is_literal(ast.Constant(1)) is True
 
 
 def test_scenario_parameter_point_type_mismatch_is_red(tmp_path):
-    binding=scenario(tmp_path)
-    actual=calibration.execute_scenario(tmp_path,binding,{'x':'not-an-int'})
-    assert actual.status=='red' and actual.value is None
+    binding = scenario(tmp_path)
+    bind_scenario(tmp_path, binding)
+    actual = calibration.execute_scenario(tmp_path, binding, {'x': 'not-an-int'})
+    assert actual.status == 'red' and actual.value is None
     assert 'parameter type' in ' '.join(actual.reasons)
 
 
-def test_repeated_current_scenario_without_permanent_plugin_keeps_verified_imports(tmp_path):
-    import os,subprocess,sys
-    binding=scenario(tmp_path)
-    script='''from pathlib import Path
-from flowguard.intent import calibration
-root=Path.cwd()
-binding=calibration._binding(__import__('json').loads(__import__('sys').argv[1]))
-with calibration._execution_session(root):
-    fact=calibration._prepare_scenario(root,binding)
-    assert fact['status']=='ok',fact
-    first=calibration._observe_scenario_current(root,binding,{'x':4})
-    assert first.status=='ok' and first.value is False,first.reasons
-    second=calibration._observe_scenario_current(root,binding,{'x':2})
-    assert second.status=='ok' and second.value is True,second.reasons
-'''
-    import json
-    sdk=Path(calibration.__file__).resolve().parents[2]
-    env=os.environ.copy();env['PYTHONPATH']=str(sdk)
-    result=subprocess.run([sys.executable,'-B','-c',script,json.dumps(calibration._binding_data(binding))],cwd=tmp_path,env=env,capture_output=True,text=True)
-    assert result.returncode==0,result.stdout+result.stderr
+def test_repeated_current_scenario_keeps_the_same_real_items_and_imports(tmp_path):
+    binding = scenario(tmp_path)
+    scope, item = bind_scenario(tmp_path, binding)
+    native = importlib.import_module('policy')
+    for x, expected in [(4,False),(2,True),(4,False)]:
+        result = calibration._observe_scenario_current(tmp_path,binding,{'x':x})
+        assert result.status=='ok' and result.value is expected,result.reasons
+        assert calibration._context(tmp_path,binding.testnode)==(scope,item)
+        assert importlib.import_module('policy') is native
 
 
-def test_native_plugin_and_driver_share_one_verified_source_owner(tmp_path):
-    binding=scenario(tmp_path)
-    tests=tmp_path/'tests';tests.mkdir();(tests/'__init__.py').write_text('')
-    (tests/'conftest.py').write_text('pytest_plugins=["flowguard.intent.plugin"]\n')
-    (tmp_path/'test_case.py').rename(tests/'test_case.py')
-    (tmp_path/'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\naddopts="-p flowguard.intent.plugin"\n')
-    index=anchors.collect_sources(tmp_path,[('policy.py','policy'),('tests/test_case.py','tests.test_case',True)])
-    binding.anchor_index=index;binding.scenario=index.named('CASE')[0]
-    binding.testnode='tests/test_case.py::test_case[2]'
-    # Start with one explicitly selected SDK dependency; the outer source-tree
-    # test process may itself have a different installed FlowGuard on PYTHONPATH.
-    # No project plugin, config or assertion is removed to make this control pass.
-    import json, os, subprocess, sys
-    sdk=Path(calibration.__file__).resolve().parents[2]
-    script="""from pathlib import Path
-import json,sys
-from flowguard.intent import calibration
-binding=calibration._binding(json.loads(sys.argv[1]))
-actual=calibration.execute_scenario(Path.cwd(),binding,{'x':4})
-assert actual.status=='ok' and actual.value is False,actual.reasons
-"""
-    env=os.environ.copy();env['PYTHONPATH']=str(sdk)
-    result=subprocess.run([sys.executable,'-B','-c',script,json.dumps(calibration._binding_data(binding))],cwd=tmp_path,env=env,capture_output=True,text=True)
-    assert result.returncode==0,result.stdout+result.stderr
+def test_native_plugin_and_calibration_share_one_verified_source_owner(tmp_path):
+    binding = scenario(tmp_path)
+    file = tmp_path / 'test_case.py'
+    file.write_text(file.read_text().replace('# flowguard: event CASE(x: int)', '# flowguard: event CASE(x: int; request)').replace('def test_case(x: int):','def test_case(x: int, request):')+
+                    '    from flowguard.intent import calibration as native_backend\n    assert request.config.pluginmanager.get_plugin("flowguard.intent.plugin") is not None\n    assert native_backend.probe_context(request.config)\n')
+    index = anchors.collect_sources(tmp_path,[('policy.py','policy'),('test_case.py','test_case',True)])
+    binding.anchor_index,binding.scenario = index,index.named('CASE')[0]
+    scope,item = bind_scenario(tmp_path,binding)
+    actual = calibration.execute_scenario(tmp_path,binding,{'x':4})
+    assert actual.status=='ok' and actual.value is False,actual.reasons
+    assert item.config is scope.items[0].config
 
 
 def test_super_method_mutant_keeps_the_actual_anchor_code_identity(tmp_path):
-    import json,os,subprocess,sys
-    binding=scenario(tmp_path)
+    binding = scenario(tmp_path)
     (tmp_path/'policy.py').write_text('''class Base:
     def offset(self): return 0
 class Policy(Base):
@@ -248,28 +232,14 @@ class Policy(Base):
 ''')
     case=tmp_path/'test_case.py';case.write_text(case.read_text().replace('from policy import choice','from policy import Policy').replace('answer=choice(x)','answer=Policy().choice(x)'))
     index=anchors.collect_sources(tmp_path,[('policy.py','policy'),('test_case.py','test_case',True)])
-    binding.anchor_index=index;binding.scenario=index.named('CASE')[0];binding.anchor=index.named('choice')[0]
+    binding.anchor_index,binding.scenario,binding.anchor = index,index.named('CASE')[0],index.named('choice')[0]
     binding.actual_targets=binding.targets=(binding.anchor.target,)
-    script='''from pathlib import Path
-import json,sys,importlib
-from flowguard.intent import calibration,sites
-from flowguard.intent.config import load_config,setup_path
-from flowguard.intent.imports import prepare
-root=Path.cwd();binding=calibration._binding(json.loads(sys.argv[1]))
-setup_path(load_config(root));prepare(root)
-fn=importlib.import_module('policy').Policy.choice
-with calibration._execution_session(root):
-    fact=calibration._prepare_scenario(root,binding)
-    assert fact['status']=='ok',fact
+    bind_scenario(tmp_path,binding)
+    fn=importlib.import_module('policy').Policy.choice
     mutant=next(m for m in sites.mutants_of(sites.sites_of(fn),set()) if m.how=='flip')
-    code=sites.mutant_code(fn,mutant)
+    code=sites.mutant_code(fn,mutant);original=fn.__code__
     with sites.installed(fn,code):
-        actual=calibration._observe_scenario_current(root,binding,{'x':3})
+        actual=calibration._observe_scenario_current(tmp_path,binding,{'x':3})
         assert actual.status=='ok' and actual.value is False,actual.reasons
-        assert fn.__code__ is code
-        assert code.co_qualname == fn.__qualname__
-'''
-    sdk=Path(calibration.__file__).resolve().parents[2]
-    env=os.environ.copy();env['PYTHONPATH']=str(sdk)
-    process=subprocess.run([sys.executable,'-B','-c',script,json.dumps(calibration._binding_data(binding))],cwd=tmp_path,env=env,capture_output=True,text=True)
-    assert process.returncode==0,process.stdout+process.stderr
+        assert fn.__code__ is code and code.co_qualname==fn.__qualname__
+    assert fn.__code__ is original

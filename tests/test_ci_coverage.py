@@ -1,12 +1,15 @@
-"""A green shard is insufficient unless every planned node and job is accounted for."""
+"""Publication needs complete unsharded checks on all three supported platforms."""
 from __future__ import annotations
 
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
+import re
+import textwrap
 
 import pytest
 
@@ -15,144 +18,152 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('flowguard_ci_coverage_tests', ROOT / '.github/scripts/ci_coverage.py')
 COVERAGE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(COVERAGE)
-SHA = 'a' * 40
-RUN = 123
-ATTEMPT = 2
-REPOSITORY = 'owner/FlowGuard'
-RULE = 'tests/intent/contract.py::RULE[rules]'
-COMMON = [COVERAGE.SENTINEL, RULE, 'tests/test_scenario.py::test_observation[original]']
-ORDINARY = [f'tests/test_cases.py::test_case[{index:02}]' for index in range(36)]
-
-
-def receipt(row):
-    partition = sorted(ORDINARY)[row['shard'] - 1::row['shard_count']]
-    selected = sorted(COMMON + partition)
-    return dict(schema=1, source_sha=SHA, run_id=RUN, run_attempt=ATTEMPT,
-                platform=row['os'], python=row['python'], shard_index=row['shard'], shard_count=row['shard_count'],
-                collected_nodeids=sorted(COMMON + ORDINARY), common_nodeids=sorted(COMMON), partition_nodeids=partition,
-                selected_nodeids=selected, completed_nodeids=selected.copy(),
-                intent=dict(declared_nodeids=[RULE], selected_nodeids=[RULE], completed_nodeids=[RULE]),
-                sentinel='ok', exit=0, pytest_exit=0, errors=[])
-
-
-def receipts():
-    return [receipt(row) for row in COVERAGE.matrix(ROOT)]
-
-
-def aggregate(data):
-    return COVERAGE.aggregate(data, source_sha=SHA, run_id=RUN, run_attempt=ATTEMPT, plan=COVERAGE.matrix(ROOT))
-
-
-def test_six_disjoint_shards_cover_every_ordinary_node_on_every_supported_platform():
-    result = aggregate(receipts())
-    assert {(item['platform'], item['python']) for item in result['platforms']} == COVERAGE.SUPPORTED
-    assert all(item['shards'] == [1, 2, 3, 4, 5, 6] and item['collected'] == 39
-               and item['common'] == 3 and item['partitioned'] == 36 for item in result['platforms'])
-
-
-@pytest.mark.parametrize('defect', [
-    'missing', 'extra', 'duplicate', 'sha', 'run', 'attempt', 'platform', 'python', 'shard',
-    'count', 'selected', 'unfinished', 'partition', 'collection', 'intent', 'no_intent',
-    'sentinel', 'check_exit', 'pytest_exit', 'errors', 'boolean_schema', 'boolean_attempt',
-])
-def test_incomplete_or_foreign_coverage_cannot_be_aggregated(defect):
-    data = receipts()
-    first = data[0]
-    if defect == 'missing':
-        data.pop()
-    elif defect == 'extra':
-        data.append(copy.deepcopy(first))
-    elif defect == 'duplicate':
-        data[-1] = copy.deepcopy(first)
-    elif defect == 'sha':
-        first['source_sha'] = 'b' * 40
-    elif defect == 'run':
-        first['run_id'] += 1
-    elif defect == 'attempt':
-        first['run_attempt'] -= 1
-    elif defect == 'platform':
-        first['platform'] = 'macos-latest'
-    elif defect == 'python':
-        first['python'] = '3.10'
-    elif defect == 'shard':
-        first['shard_index'] = True
-    elif defect == 'count':
-        first['shard_count'] = 5
-    elif defect == 'selected':
-        first['selected_nodeids'].pop()
-    elif defect == 'unfinished':
-        first['completed_nodeids'].pop()
-    elif defect == 'partition':
-        first['partition_nodeids'][0] = ORDINARY[1]
-    elif defect == 'collection':
-        first['collected_nodeids'].remove(ORDINARY[-1])
-    elif defect == 'intent':
-        first['intent']['completed_nodeids'] = []
-    elif defect == 'no_intent':
-        first['intent'] = dict(declared_nodeids=[], selected_nodeids=[], completed_nodeids=[])
-    elif defect == 'sentinel':
-        first['sentinel'] = 'failed'
-    elif defect == 'check_exit':
-        first['exit'] = 1
-    elif defect == 'pytest_exit':
-        first['pytest_exit'] = 1
-    elif defect == 'errors':
-        first['errors'] = ['selected test never completed']
-    elif defect == 'boolean_schema':
-        first['schema'] = True
-    elif defect == 'boolean_attempt':
-        first['run_attempt'] = True
-    with pytest.raises(AssertionError):
-        aggregate(data)
-
-
-@pytest.mark.parametrize('row', COVERAGE.matrix(ROOT))
-def test_each_raw_shard_is_required_independently(row):
-    data = receipts()
-    data = [item for item in data if (item['platform'], item['python'], item['shard_index'])
-            != (row['os'], row['python'], row['shard'])]
-    with pytest.raises(AssertionError, match='missing or extra'):
-        aggregate(data)
+SHA, RUN, ATTEMPT, REPOSITORY = 'a' * 40, 123, 2, 'owner/FlowGuard'
+EXPECTED_JOBS = {
+    'Complete tests (ubuntu-latest, py3.11)',
+    'Complete tests (ubuntu-latest, py3.13)',
+    'Complete tests (windows-latest, py3.12)',
+}
+REQUIRED_STEPS = {
+    'Verify the active virtual environment before installation',
+    'Verify the frozen source before execution',
+    'Complete unsharded intent and project tests',
+    'Verify the frozen source after execution',
+}
+SKILL_STEP = 'Verify the distributable skill in a temporary directory'
 
 
 def ci_context():
     current = dict(id=RUN, run_attempt=ATTEMPT, head_sha=SHA, head_branch='main', event='push',
                    repository={'full_name': REPOSITORY}, head_repository={'full_name': REPOSITORY},
                    path='.github/workflows/ci.yml', status='completed', conclusion='success')
-    jobs = [dict(name=name, head_sha=SHA, run_id=RUN, run_attempt=ATTEMPT, status='completed', conclusion='success')
-            for name in sorted(COVERAGE.required_jobs(ROOT))]
+    jobs = []
+    for name in sorted(EXPECTED_JOBS):
+        steps = REQUIRED_STEPS | ({SKILL_STEP} if name == 'Complete tests (ubuntu-latest, py3.11)' else set())
+        jobs.append(dict(name=name, head_sha=SHA, run_id=RUN, run_attempt=ATTEMPT, status='completed', conclusion='success',
+                         steps=[dict(name=step, status='completed', conclusion='success') for step in sorted(steps)]))
     return current, jobs
 
 
-@pytest.mark.parametrize('defect', [None, 'extra_job', 'duplicate_job', 'skip', 'failure', 'cancelled',
-                                  'job_sha', 'job_attempt', 'job_run', 'run_attempt', 'fork', 'head_fork'])
-def test_publisher_requires_the_exact_nineteen_same_attempt_successes(defect):
+def validate(current, jobs):
+    COVERAGE.validate_ci_run(current, jobs, source_sha=SHA, repository=REPOSITORY, run_id=RUN, run_attempt=ATTEMPT)
+
+
+def test_three_full_platform_checks_are_sufficient_and_independently_required():
+    current, jobs = ci_context()
+    assert COVERAGE.required_jobs() == EXPECTED_JOBS
+    validate(current, jobs)
+    for missing in EXPECTED_JOBS:
+        with pytest.raises(AssertionError, match='complete exact CI job set'):
+            validate(current, [job for job in jobs if job['name'] != missing])
+
+
+@pytest.mark.parametrize('defect', [
+    'extra_job', 'duplicate_job', 'job_skip', 'job_failure', 'job_cancelled', 'job_running',
+    'job_sha', 'job_attempt', 'job_run', 'boolean_job_attempt', 'boolean_job_run',
+    'run_sha', 'run_attempt', 'run_id', 'run_branch', 'run_event', 'run_workflow',
+    'run_status', 'run_result', 'fork', 'head_fork', 'boolean_run_attempt', 'boolean_run_id',
+])
+def test_foreign_partial_or_failed_ci_is_never_release_evidence(defect):
     current, jobs = ci_context()
     if defect == 'extra_job':
         jobs.append(dict(jobs[0], name='Other check'))
     elif defect == 'duplicate_job':
-        jobs[-1] = jobs[0].copy()
-    elif defect in {'skip', 'failure', 'cancelled'}:
-        jobs[0]['conclusion'] = {'skip': 'skipped', 'failure': 'failure', 'cancelled': 'cancelled'}[defect]
-    elif defect == 'job_sha':
-        jobs[0]['head_sha'] = 'b' * 40
-    elif defect == 'job_attempt':
-        jobs[0]['run_attempt'] = ATTEMPT - 1
-    elif defect == 'job_run':
-        jobs[0]['run_id'] = RUN + 1
-    elif defect == 'run_attempt':
-        current['run_attempt'] = ATTEMPT + 1
-    elif defect == 'fork':
-        current['repository']['full_name'] = 'other/FlowGuard'
-    elif defect == 'head_fork':
-        current['head_repository']['full_name'] = 'other/FlowGuard'
-    if defect:
-        with pytest.raises(AssertionError):
-            COVERAGE.validate_ci_run(current, jobs, source_sha=SHA, repository=REPOSITORY,
-                                     run_id=RUN, run_attempt=ATTEMPT, expected_jobs=COVERAGE.required_jobs(ROOT))
+        jobs[-1] = copy.deepcopy(jobs[0])
+    elif defect.startswith('job_') and defect.removeprefix('job_') in {'skip', 'failure', 'cancelled'}:
+        jobs[0]['conclusion'] = {'job_skip': 'skipped', 'job_failure': 'failure', 'job_cancelled': 'cancelled'}[defect]
+    elif defect == 'job_running':
+        jobs[0]['status'] = 'in_progress'
+    elif defect in {'job_sha', 'job_attempt', 'job_run', 'boolean_job_attempt', 'boolean_job_run'}:
+        key, value = {'job_sha': ('head_sha', 'b' * 40), 'job_attempt': ('run_attempt', 1),
+                      'job_run': ('run_id', RUN + 1), 'boolean_job_attempt': ('run_attempt', True),
+                      'boolean_job_run': ('run_id', True)}[defect]
+        jobs[0][key] = value
+    elif defect in {'fork', 'head_fork'}:
+        current['repository' if defect == 'fork' else 'head_repository']['full_name'] = 'other/FlowGuard'
     else:
-        COVERAGE.validate_ci_run(current, jobs, source_sha=SHA, repository=REPOSITORY,
-                                 run_id=RUN, run_attempt=ATTEMPT, expected_jobs=COVERAGE.required_jobs(ROOT))
+        key, value = {'run_sha': ('head_sha', 'b' * 40), 'run_attempt': ('run_attempt', 1),
+                      'run_id': ('id', RUN + 1), 'run_branch': ('head_branch', 'other'),
+                      'run_event': ('event', 'workflow_dispatch'), 'run_workflow': ('path', '.github/workflows/other.yml'),
+                      'run_status': ('status', 'in_progress'), 'run_result': ('conclusion', 'failure'),
+                      'boolean_run_attempt': ('run_attempt', True), 'boolean_run_id': ('id', True)}[defect]
+        current[key] = value
+    with pytest.raises(AssertionError):
+        validate(current, jobs)
+
+
+@pytest.mark.parametrize('step', sorted(REQUIRED_STEPS | {SKILL_STEP}))
+@pytest.mark.parametrize('defect', ['missing', 'duplicate', 'skipped', 'failure', 'cancelled', 'running'])
+def test_a_green_job_cannot_hide_a_missing_or_unfinished_required_step(step, defect):
+    current, jobs = ci_context()
+    job = next(job for job in jobs if any(item['name'] == step for item in job['steps']))
+    selected = next(item for item in job['steps'] if item['name'] == step)
+    if defect == 'missing':
+        job['steps'].remove(selected)
+    elif defect == 'duplicate':
+        job['steps'].append(selected.copy())
+    elif defect == 'running':
+        selected['status'] = 'in_progress'
+    else:
+        selected['conclusion'] = defect
+    with pytest.raises(AssertionError, match='required full-check step'):
+        validate(current, jobs)
+
+
+def test_a_smaller_candidate_matrix_cannot_reduce_publication_requirements(tmp_path, monkeypatch):
+    workflow = tmp_path / '.github/workflows/ci.yml'
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text('jobs: {checks: {strategy: {matrix: {include: [{os: ubuntu-latest, python: "3.11"}]}}}}\n')
+    monkeypatch.chdir(tmp_path)
+    current, jobs = ci_context()
+    assert COVERAGE.required_jobs() == EXPECTED_JOBS
+    with pytest.raises(AssertionError, match='complete exact CI job set'):
+        validate(current, jobs[:1])
+
+
+def workflow_steps():
+    text = (ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
+    assert re.findall(r'^  (\w+):$', text.split('jobs:\n', 1)[1], re.M) == ['checks']
+    assert 'fail-fast: false' in text
+    assert 'name: Complete tests (${{ matrix.os }}, py${{ matrix.python }})' in text
+    assert re.findall(r'- os: (\S+)\n            python: "([^"]+)"', text) == [
+        ('ubuntu-latest', '3.11'), ('ubuntu-latest', '3.13'), ('windows-latest', '3.12'),
+    ]
+    assert re.search(r'--shard\b|matrix\.shard|\bshard_count:', text) is None
+    return dict(re.findall(r'^      - name: (.+?)\n(.*?)(?=^      - name: |\Z)', text, re.M | re.S))
+
+
+def test_repository_workflow_runs_the_complete_check_without_shards_or_filters():
+    steps = workflow_steps()
+    assert steps['Complete unsharded intent and project tests'].strip() == 'run: python -m flowguard check --all --deep'
+    for name in ('Verify the frozen source before execution', 'Verify the frozen source after execution'):
+        assert steps[name].strip() == 'run: python .github/scripts/ci_coverage.py identity'
+    assert 'ref: ${{ github.sha }}' in steps['Checkout the triggering source and its history']
+    assert 'fetch-depth: 0' in steps['Checkout the triggering source and its history']
+    assert 'scripts/install_skill.py' in steps[SKILL_STEP] and '--check' in steps[SKILL_STEP]
+    assert "if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'" in steps[SKILL_STEP]
+
+
+def test_workflow_verifies_an_actual_fresh_outside_virtual_environment(tmp_path):
+    runner = tmp_path / 'runner'
+    environment = runner / 'flowguard-ci-venv'
+    project = tmp_path / 'project'
+    project.mkdir()
+    subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(environment)], check=True)
+    python = environment / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+    script = textwrap.dedent(workflow_steps()['Verify the active virtual environment before installation'].split('        run: |\n', 1)[1])
+    script = script.replace('${{ matrix.python }}', '.'.join(map(str, sys.version_info[:2])))
+    script = script.replace('${{ matrix.os }}', 'windows-latest' if os.name == 'nt' else 'ubuntu-latest')
+    context = dict(os.environ, RUNNER_TEMP=str(runner), GITHUB_WORKSPACE=str(project))
+    completed = subprocess.run([str(python), '-c', script], env=context, text=True, capture_output=True)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    for source, wrong, message in [('tuple(map(int, \"' + '.'.join(map(str, sys.version_info[:2])) + '\".split(\".\")))', '(0, 0)', 'actual Python must match the matrix'),
+                                   ('sys.platform ==', '\"wrong-platform\" ==', 'actual platform must match the matrix')]:
+        rejected = subprocess.run([str(python), '-c', script.replace(source, wrong)], env=context, text=True, capture_output=True)
+        assert rejected.returncode != 0 and message in rejected.stderr
+    context['GITHUB_WORKSPACE'] = str(runner)
+    rejected = subprocess.run([str(python), '-c', script], env=context, text=True, capture_output=True)
+    assert rejected.returncode != 0 and 'virtual environment must be outside the project' in rejected.stderr
 
 
 def git_project(tmp_path):
@@ -166,29 +177,14 @@ def git_project(tmp_path):
     return project, subprocess.check_output(['git', '-C', str(project), 'rev-parse', 'HEAD'], text=True).strip()
 
 
-def test_ci_export_preserves_original_execution_facts_and_binds_actual_runner(tmp_path, monkeypatch):
+def test_identity_preserves_the_exact_ci_attempt_and_real_git_source(tmp_path, monkeypatch, capsys):
     project, source_sha = git_project(tmp_path)
-    data = receipt(COVERAGE.matrix(ROOT)[0])
-    data['source_sha'] = source_sha
-    for field in ('run_id', 'run_attempt', 'platform', 'python'):
-        data.pop(field)
-    data['interpreter'] = dict(version=list(sys.version_info[:3]), executable=sys.executable,
-                               prefix=sys.prefix, base_prefix=sys.base_prefix)
-    report = tmp_path / 'original.json'
-    report.write_text(json.dumps(data), encoding='utf-8')
-    output = tmp_path / 'coverage.json'
-    target_python = '.'.join(map(str, sys.version_info[:2]))
-    platform = next(row['os'] for row in COVERAGE.matrix(ROOT) if row['python'] == target_python)
-    # The supported test interpreters are the same explicit versions as the CI matrix.
-    monkeypatch.setenv('GITHUB_SHA', source_sha)
-    monkeypatch.setenv('GITHUB_RUN_ID', str(RUN))
-    monkeypatch.setenv('GITHUB_RUN_ATTEMPT', str(ATTEMPT))
-    monkeypatch.setenv('GITHUB_WORKSPACE', str(project))
-    monkeypatch.setenv('RUNNER_OS', 'Windows' if platform == 'windows-latest' else 'Linux')
-    COVERAGE.main(['export', str(report), '--platform', platform, '--python', target_python, '--output', str(output)])
-    result = json.loads(output.read_text(encoding='utf-8'))
-    assert {key: value for key, value in result.items() if key not in {'run_id', 'run_attempt', 'platform', 'python'}} == data
-    assert (result['run_id'], result['run_attempt'], result['platform'], result['python']) == (RUN, ATTEMPT, platform, target_python)
+    for key, value in dict(GITHUB_SHA=source_sha, GITHUB_RUN_ID=str(RUN), GITHUB_RUN_ATTEMPT=str(ATTEMPT),
+                           GITHUB_WORKSPACE=str(project)).items():
+        monkeypatch.setenv(key, value)
+    COVERAGE.main(['identity'])
+    assert json.loads(capsys.readouterr().out) == dict(source_sha=source_sha, run_id=RUN, run_attempt=ATTEMPT,
+                                                    tracked_source_unchanged=True)
 
 
 @pytest.mark.parametrize('defect', ['head', 'tracked_source'])

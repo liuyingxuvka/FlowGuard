@@ -39,7 +39,7 @@ def child_failure(text, cfg):
     return None
 
 
-def classify(when, excinfo, cfg, *, text='', children=()):
+def classify(when, excinfo, cfg, *, text=''):
     """Return the cause category; the original pytest outcome is never changed."""
     error = excinfo.value if excinfo is not None else None
     seen, explicit_code = set(), ''
@@ -59,14 +59,6 @@ def classify(when, excinfo, cfg, *, text='', children=()):
         if isinstance(error, (SyntaxError, AssertionError)):
             explicit_code = type(error).__name__
         error = error.__cause__ or error.__context__
-    for child in children:
-        failure = child.get('failure')
-        if failure:
-            if failure['type'] in {'ImportError', 'ModuleNotFoundError'}:
-                name = failure.get('name', '')
-                return ('code', f'project import {name}') if project_module(name, cfg) else ('env', f'missing package {name}')
-            if failure['type'] in {'OSError', 'FileNotFoundError', 'PermissionError'} and _outside(failure.get('filename', ''), cfg):
-                return 'env', 'child os error outside project'
     parsed = child_failure(text, cfg)
     if parsed:
         return parsed

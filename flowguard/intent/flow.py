@@ -118,6 +118,46 @@ class Event:
     source_digest: str = ''
 
 
+@dataclass(frozen=True)
+class ModelDraft:
+    model: Flow | None
+    notes: tuple[str, ...]
+
+    @property
+    def status(self):
+        return 'grey'  # Observations do not license a requirement or close unobserved paths.
+
+
+def draft_model(name, index, events):
+    """Draft the existing Flow data from actual paths, without inventing semantics."""
+    notes = ['Observed paths only; required paths, state transitions and relations need review.']
+    cases, identities, order, edges, starts, ends, cache = {}, {}, [], set(), set(), set(), {}
+    for event in events:
+        case = cases.setdefault(event.case, [])
+        case.append(event)
+        key = event.anchor, event.phase
+        if key not in identities:
+            identities[key] = f'n{len(identities) + 1}'
+            order.append(key)
+        try:
+            _reading_source(event, index, Read(identities[key]), cache)
+        except Unverified as error:
+            notes.append(str(error))
+    for case, observations in cases.items():
+        notes.extend(_event_integrity(case, observations))
+        path = [identities[event.anchor, event.phase] for event in observations]
+        starts.add(path[0]); ends.add(path[-1])
+        edges.update(zip(path, path[1:]))
+    if not order:
+        return ModelDraft(None, (*notes, 'No observed anchor paths; no model was drafted.'))
+    model = Flow(name, 'assumed: observed paths only; confirm required paths and relations',
+                 tuple(Node(identities[key], key[0], phase=key[1], start=identities[key] in starts,
+                            end=identities[key] in ends) for key in order), tuple(sorted(edges)))
+    checked = validate(model, index)
+    notes.extend(checked['red'] + checked['grey'] + checked['info'])
+    return ModelDraft(model, tuple(dict.fromkeys(notes)))
+
+
 class Unverified(ValueError):
     pass
 
@@ -248,7 +288,9 @@ def _state_relation(relation, state, rules, engine=None):
     return rule.id, _expectation(rule,inputs,engine)
 
 
-def finite_check(model, index, *, rules=None, contracts=None, max_states=4096, engine=None):
+def finite_check(model, index, *, rules=None, contracts=None, max_states=None, engine=None):
+    if max_states is not None and (type(max_states) is not int or max_states < 1):
+        raise ValueError('max_states must be a positive integer or None for full exhaustion')
     rules = rules or (engine.m.rules if engine is not None and hasattr(engine, 'm') else {})
     schema = validate(model, index, contracts=contracts)
     red, grey, info = list(schema['red']), list(schema['grey']), list(schema['info'])
@@ -269,7 +311,8 @@ def finite_check(model, index, *, rules=None, contracts=None, max_states=4096, e
     while pending:
         key = pending.popleft()
         if key in seen: continue
-        if len(seen) >= max_states:
+        if max_states is not None and len(seen) >= max_states:
+            pending.appendleft(key)
             grey.append(f'finite model exceeds {max_states} states; it was not exhausted')
             break
         seen.add(key); node, values = key; reached.add(node)
@@ -837,8 +880,8 @@ def static_check(model, report):
 def check_flow(model, index, events=(), *, rules=None, static=None, contracts=None, engine=None, _context=None, _scopes=None):
     rules = rules or (engine.m.rules if engine is not None and hasattr(engine, 'm') else {})
     _context = _context if _context is not None else dict(stack=[], proofs={}, children={})
-    if model.id in _context['stack'] or len(_context['stack']) >= 10:
-        return _result('flow', grey=[f'{model.id}: child Flow cycle or depth exceeds 10; split the boundary'])
+    if model.id in _context['stack']:
+        return _result('flow', grey=[f'{model.id}: child Flow cycle; split the boundary'])
     _context['stack'].append(model.id)
     try:
         contracts, _, _ = _engine_contracts(model, engine, contracts, rules)
@@ -881,103 +924,59 @@ class _TraceUnavailable(ValueError):
     pass
 
 
+_TRACE_SCOPES = []
+
+
 class _TraceScope:
-    """The SDK's one trace owner; compose its observers, never a debugger."""
-    def __init__(self, callback=None, *, ignored=(), ordinary=None):
-        self.callback, self.ignored = callback, ignored
-        self.ordinary, self.paused = ordinary, False
-        self.previous, self.active, self.failed = None, False, False
+    """Compatibility scope; the runtime owns the only monitoring/trace hook."""
+    def __init__(self, callback=None, *, ignored=(), ordinary=None, predicate=None):
+        self.callback, self.ignored, self.ordinary = callback, ignored, ordinary
+        self.predicate = predicate if predicate is not None else (lambda code: True) if callback is not None else None
+        self.active, self.paused, self.previous = False, False, None
         self._problems = []
-        self._line_frames = {}
 
     @property
     def problems(self):
-        prior = self.previous.problems if isinstance(self.previous, _TraceScope) else []
-        return [*prior, *self._problems]
+        prior = self.previous.problems if self.previous is not None else []
+        own = self._record.issues if hasattr(self, '_record') else []
+        return [*prior, *self._problems, *own]
 
     def __enter__(self):
-        self.previous = sys.gettrace()
-        if self.previous is not None and not (isinstance(self.previous, _TraceScope) and self.previous.active):
-            raise _TraceUnavailable('another debugger/trace hook is active; observation was not installed')
+        from .runtime import Runtime
+        self.previous = _TRACE_SCOPES[-1] if _TRACE_SCOPES else None
+        self._record = Runtime(Path.cwd()).record(predicate=self.predicate, callback=self.callback,
+                                                 ignored=self.ignored, private=not bool(self.ordinary))
+        self._record.__enter__()
+        if not self._record.active:
+            raise _TraceUnavailable('; '.join(self._record.issues))
         self.active = True
-        sys.settrace(self)
+        _TRACE_SCOPES.append(self)
         return self
 
     def __exit__(self, *error):
         if self.active:
-            if sys.gettrace() is self:
-                sys.settrace(self.previous)
-            else:
-                self._problems.append('trace hook changed during anchor observation')
+            self._record.__exit__(*error)
+            _TRACE_SCOPES.remove(self)
             self.active = False
-        for frame, original in self._line_frames.values():
-            frame.f_trace_lines = original
-        self._line_frames.clear()
-
-    def __call__(self, frame, event, arg):
-        # A generated trampoline is not the real point. Neither observer may
-        # claim its pre-injection parameters or synthetic return/stop.
-        if frame.f_code in self.ignored:
-            return None
-        prior = self.previous(frame, event, arg) if self.previous is not None else None
-        if self.paused and event == 'call':
-            return prior
-        current = None
-        if self.callback is not None and not self.failed:
-            try:
-                current = self.callback(frame, event, arg)
-            except Exception as error:
-                self.failed = True
-                self._problems.append('observer callback failed: ' + type(error).__name__ + ': ' + str(error))
-        interested = prior is not None or current is not None
-        # These owned observers consume boundaries, not per-line values. Only
-        # change frames they actually follow; restore even an unfinished frame
-        # when this scope closes. Nested scopes retain the first owner's flag.
-        if event == 'call' and interested and frame.f_trace_lines:
-            self._line_frames[id(frame)] = frame, frame.f_trace_lines
-            frame.f_trace_lines = False
-        elif event == 'return':
-            saved = self._line_frames.pop(id(frame), None)
-            if saved is not None:
-                frame.f_trace_lines = saved[1]
-        return self if interested else None
 
 
 @contextmanager
 def _without_ordinary_observers():
-    """Probe observations belong to their verifier, not ordinary-test coverage."""
-    from . import tracer
-    saved = head = sys.gettrace()
-    # Legacy Footprint preserves a C profiler by delegating to this exact
-    # recorded trace. Pause its ordinary observers, keeping the recorder head.
-    if (saved is tracer._trace and tracer._ACTIVE and tracer._USING_TRACE
-            and tracer._OLD_CALLBACK is tracer._OLD_TRACE):
-        head = tracer._OLD_TRACE
-    scopes = []
-    while isinstance(head, _TraceScope) and head.active:
-        if head.ordinary:
-            scopes.append((head, head.paused))
-            head.paused = True
-        head = head.previous
-    if not scopes:
-        yield
-        return
-    head = saved
-    while (isinstance(head, _TraceScope) and head.active and head.ordinary
-           and not head.ordinary._frames):
-        head = head.previous
+    """Private calls cannot create ordinary readings; open real frames still finish."""
+    from .runtime import _PRIVATE
+    scopes = [(scope, scope.paused) for scope in _TRACE_SCOPES if scope.ordinary]
+    saved = sys.gettrace()
+    token = _PRIVATE.set(True)
+    for scope, _ in scopes:
+        scope.paused = True
     try:
-        if head is not saved:
-            sys.settrace(head)
         yield
     finally:
+        _PRIVATE.reset(token)
         for scope, paused in scopes:
             scope.paused = paused
-        current = sys.gettrace()
-        if current is head and head is not saved:
-            sys.settrace(saved)
-        elif current is not saved:
-            scopes[0][0]._problems.append('trace hook changed during calibration probe')
+            if sys.gettrace() is not saved:
+                scope._problems.append('trace hook changed during calibration probe')
 
 
 class Capture:
@@ -1016,7 +1015,8 @@ class Capture:
         self._active = False
 
     def __enter__(self):
-        self._scope = _TraceScope(self._trace, ordinary=self if self._ordinary else None)
+        self._scope = _TraceScope(self._trace, ordinary=self if self._ordinary else None,
+                                  predicate=lambda code: (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in self._sites)
         try:
             self._scope.__enter__()
         except _TraceUnavailable as error:
@@ -1093,6 +1093,7 @@ class Capture:
     def _callback(self, frame, event, arg):
         key=id(frame)
         if event=='call':
+            from .sites import installed_replacement, controlled_mutation, resolve_loaded, source_caller
             qual=frame.f_code.co_qualname.replace('.<locals>.','.')
             candidates=self._sites.get((frame.f_code.co_filename,qual),())
             if not candidates: return None
@@ -1101,14 +1102,22 @@ class Capture:
             selected=[a for a in candidates if a.line<=frame.f_code.co_firstlineno<=a.target_line]
             if len(selected)!=1:
                 self.issues.append(f'{qual}: runtime source position does not identify one anchor');return None
-            anchor=selected[0];self._counts[anchor.name]+=1;occurrence=self._counts[anchor.name]
+            anchor=selected[0]
+            if installed_replacement(frame.f_code):
+                try:
+                    verified = controlled_mutation(resolve_loaded(anchor.target), frame.f_code)
+                except (AttributeError, ValueError, TypeError):
+                    verified = False
+                if not verified:
+                    self.issues.append(f'{qual}: installed code body is unverified');return None
+            self._counts[anchor.name]+=1;occurrence=self._counts[anchor.name]
             # Keep the existing occurrence identity even for a call outside a
             # test-entry model. Only its unused value/state/event work is pruned.
             if not self._in_model_scope(anchor, frame):
                 return None
             args={p.name:_snapshot(frame.f_locals.get(p.name,_Opaque('missing parameter')))for p in anchor.parameters}
             before=self._states(frame,anchor)
-            parents=[];parent=frame.f_back
+            parents=[];parent=source_caller(frame)
             caller=(parent.f_code.co_filename,parent.f_code.co_qualname.replace('.<locals>.','.'),parent.f_lineno)if parent else ()
             while parent is not None:
                 found=self._frames.get(id(parent))

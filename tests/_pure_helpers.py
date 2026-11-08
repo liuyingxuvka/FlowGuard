@@ -1,7 +1,4 @@
 """Pure source/Git fixtures and declared historical inputs; no legacy CLI import."""
-from datetime import datetime, timezone
-import hashlib
-import json
 from pathlib import Path
 import subprocess
 
@@ -34,9 +31,8 @@ def call(root,capsys,*arguments):
 
 def integrity(root):
     """Inspect the retained independent readers directly, without map-check plumbing."""
-    from flowguard.map.records import record_findings
     from flowguard.map.requests import request_findings
-    findings=[*request_findings(root),*record_findings(root)]
+    findings=request_findings(root)
     return findings
 
 
@@ -46,19 +42,6 @@ def integrity_result(root):
     return int(any(finding.level=='error' for finding in findings)),text,''
 
 
-def historical_change(root,*,identifier='20261101-0000-abcdef',links=(),goal='Historical fixture input',fields=None):
-    """A declared old record tests immutable readers, never a new verified promotion."""
-    from flowguard.map.records import CHANGE_DIR,prepare_directory,write_once
-    item=dict(kind='change',goal=goal,base=None,tree=hashlib.sha256(goal.encode()).hexdigest(),
-              promoted=datetime(2026,11,1,tzinfo=timezone.utc).isoformat(),checked='Historical fixture input.',
-              requests=list(links),plan=[],rules=[],acceptances=[],existing_cleared=[],implemented_by=[],
-              new_actions=[],corrections=[])
-    if fields:
-        item.update(fields)
-    prepare_directory(root,CHANGE_DIR,('.json','.msg'))
-    relative=CHANGE_DIR/(identifier+'.json')
-    write_once(root,relative,json.dumps(item,ensure_ascii=False).encode())
-    return Path(root)/relative
 
 
 

@@ -6,10 +6,10 @@ Ordinary edits do not need an intent model or a separate task record.
 <!-- flowguard:start -->
 ## FlowGuard rules for the project agent
 
-1. At session start, look at `python -m flowguard` when the project has intent rules.
-2. Before writing a decision, use `python -m flowguard show "what it decides"` to find its existing owner.
-3. Write one rule, connect its source anchors, and add a literal regression row only when a decision has copies, the owner says everywhere, or a bug was fixed. Otherwise stay quiet.
-4. After changing a bound decision run `python -m flowguard check`; CI runs `check --all --deep`. Store actual owner words once with `req add`.
+1. Run ordinary tests with the FlowGuard plugin; read its changed outcomes, inconsistent copies and violated rules. Do not model the development task.
+2. Before adding a judgment, use `python -m flowguard show "what it decides"` to find and reuse its existing owner.
+3. Copies that must agree share a source sensor name. Requirements belong in independent rules; literal rows preserve genuine regressions. Unknown observations stay grey.
+4. CI runs `check --all --deep`; local `check` selects affected tests. Preserve actual words only as a rule's source, once and byte for byte with `req add`.
 <!-- flowguard:end -->
 
 ## Owners and layout

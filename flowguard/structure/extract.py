@@ -910,7 +910,18 @@ def extract(root: Path, rel: str, data: bytes, module: str, is_test: bool) -> di
     from .readers.registry import language_for, extract as foreign
     language = language_for(rel)
     if language != 'python':
-        return foreign(root, rel, data, module, is_test)
+        from importlib.metadata import PackageNotFoundError
+        from .readers.common import GRAMMARS
+        from flowguard.map.common import MapError
+        try:
+            return foreign(root, rel, data, module, is_test)
+        except (PackageNotFoundError, ModuleNotFoundError) as error:
+            missing = getattr(error, 'name', None)
+            if missing not in {'tree-sitter', 'tree_sitter', *GRAMMARS[language][:2]}:
+                raise
+            raise MapError(f'{rel}: {language} reader unavailable: missing {missing}; '
+                           'install the optional dependencies with pip install '
+                           '"flowguard[languages] @ git+https://github.com/liuyingxuvka/FlowGuard.git"') from error
     facts = _extract_python(root, rel, data, module, is_test)
     facts['language'] = 'python'
     import sys

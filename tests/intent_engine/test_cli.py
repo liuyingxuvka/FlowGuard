@@ -6,6 +6,8 @@ import tomllib
 
 import pytest
 
+from tests.intent_engine import _cli_fixture as cli_fixture
+
 from flowguard.intent import cache, cli
 from flowguard.intent.config import load_config
 from tests.intent_engine._source_fixture import annotate
@@ -47,7 +49,14 @@ def test_no_rules_is_one_quiet_line_without_building_a_map(tmp_path, capsys, mon
     monkeypatch.setattr(cli, 'build', unused_map)
     assert cli.screen(load_config(tmp_path)) == 0
     assert len(capsys.readouterr().out.splitlines()) == 1
-    assert cli.check(load_config(tmp_path)) == 0
+    assert cli_fixture.check(load_config(tmp_path), before_main="""
+from flowguard.intent import cli
+
+def unused_map(*args, **kwargs):
+    raise AssertionError('no intent should not parse the full project')
+
+cli.build = unused_map
+""") == 0
     assert len(capsys.readouterr().out.splitlines()) == 1
 
 
@@ -111,7 +120,7 @@ def test_check_uses_real_pytest_items_and_finds_the_regression(tmp_path, capsys)
     _, cfg = project(tmp_path, wrong=True)
     cli.init(cfg)
     capsys.readouterr()
-    assert cli.check(cfg) == 1
+    assert cli_fixture.check(cfg) == 1
     text = capsys.readouterr().out
     assert 'LIMIT' in text and 'rule F, code True' in text
     assert len(text.splitlines()) <= 20
@@ -135,7 +144,7 @@ def test_a_skipped_declaration_is_a_visible_load_failure(tmp_path, capsys):
     path.write_text('import pytest\npytest.skip("missing declaration must fail")\n' + path.read_text())
     cli.init(cfg)
     capsys.readouterr()
-    assert cli.check(cfg) == 1
+    assert cli_fixture.check(cfg) == 1
     assert 'Skipped' in capsys.readouterr().out
     assert cli.screen(cfg) == 0  # A screen reports cached facts; check owns execution status.
     assert 'last check load' in capsys.readouterr().out
@@ -163,7 +172,7 @@ def test_show_import_alias_points_to_the_actual_source_owner(tmp_path, capsys):
 def test_short_show_retains_each_red_and_grey_reading(tmp_path, capsys):
     root, cfg = project(tmp_path, wrong=True)
     cli.init(cfg)
-    assert cli.check(cfg, everything=True) == 1
+    assert cli_fixture.check(cfg, everything=True) == 1
     capsys.readouterr()
     saved = cache.read(cfg)['results']['LIMIT']['items']
     messages = [text for result in saved.values() for kind in ('red', 'grey') for text in result.get(kind, [])]

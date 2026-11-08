@@ -4,9 +4,9 @@
 
 [English](./README.md)
 
-FlowGuard 帮写代码的 AI 找到已有判断，并在以后改动时保持必要副本一致。代码地图由工具生成。只有一个判断在几处、主人说“所有地方”、或修了一个 bug 时才写规则；普通修改仍用普通测试。
+FlowGuard 帮写代码的 AI 先比较真实行为，再核对要求。普通测试自动给出三个信号：变了什么、哪些副本该一起变却没变、违反了哪条独立规矩。生成的代码地图帮助找到已有负责人，避免又写一套实现。
 
-默认用法保持收窄：读状态、保存真实原话、找已有代码，在绑定判断改动后检查已有规则。可选使用对照没有证明正确性或时间收益；行为差异和小流程模型仍可用于重复判断、跨会话路径。要改一个需要规则的老判断，先补锚点再改。实测范围和边界见[迁移说明](./docs/upgrade-3.0.md)。
+默认就是跑项目测试，看 FlowGuard 那几行。源码变化时比较可支持的旧、新结果类；同名锚点必须一致；有出处的独立规则表达预期。源码没变且没有约束违反时保持安静。规则和可选小模型帮助后续会话保留重要判断；这不等于已经证明普遍节省时间或 token，之前的可选使用对照没有证明收益。[4.0 迁移说明](./docs/upgrade-4.0.md)列出这次执行边界的变化。
 
 ## 开始
 
@@ -15,23 +15,22 @@ FlowGuard 帮写代码的 AI 找到已有判断，并在以后改动时保持必
 ```bash
 python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git"
 cd your-project
-python -m flowguard show "who may accept an order"
 python -m flowguard init
-python -m flowguard req add owner-message.txt --id R1
+python -m pytest
 ```
 
-`show` 读取源码，不导入应用。能复用已有负责人就复用。`init` 添加 pytest 哨兵、CI 片段和四条项目规则，不为这次任务建模型。主人原话只保存一次，逐字节保留。
+`init` 启用 pytest 插件，添加采集哨兵、CI 片段和四条项目规则，不为当前开发任务建模。源码导航用 `show "what it decides"`；可选模型视图会加载所查看的模型。只有某条规则需要引用时才保存相关原话，一次、逐字节保留。
 
 ## 一条规则，绑定每个必要副本
 
 规则从要求独立写出预期；源码里的锚点连接真实函数；字面情况行保留已知回归。[本地规则指南](./.agents/skills/flowguard/references/rules.md)含完整的双锚点例子，会和技能一起复制。
 
 
-任一副本改动后，`check` 通过普通 pytest 执行当前源码。不一致为红，没验证的边界为灰。刚写的权威文档可能显示 green*，这不等于独立确认。
+最短锚点是在真实函数上方写 `# flowguard: sensor NAME`。工具从参数推断输入和上下文；确认含义和单位，需要一致的副本挂同名锚点。函数不存在或明确声明的签名矛盾为红；没验证的读数为灰。刚写的权威文档可能显示 green*，这不等于独立确认。旧的完整注释写法和字面情况行继续有效。
 
 ## 源码地图和语言边界
 
-同一份生成地图和固定查询可读取下面的首批语言。正常安装包含对应 grammar 包；只有实际出现该语言时才载入解析器。读取源码不等于执行或编译源码。
+基础安装只需 Python 读取器，不带外语种 grammar。要用下面已冻结的读取器，请安装可选附加：`python -m pip install "flowguard[languages] @ git+https://github.com/liuyingxuvka/FlowGuard.git"`。只在出现相应语言时载入解析器；缺少 grammar 会明确报告该读取器不可用。读取源码不等于执行或编译源码。
 
 | source | map facts | executable behavior anchors |
 | --- | --- | --- |
@@ -46,13 +45,16 @@ python -m flowguard req add owner-message.txt --id R1
 
 | command | purpose |
 | --- | --- |
-| `python -m flowguard` | 项目已有规则时读取短屏幕和缓存，不运行测试。 |
+| `python -m pytest` | 跑普通测试，读取最多十行的三个 FlowGuard 信号。 |
+| `python -m flowguard` | 读十行以内的简报，记下这次任务的基准提交，不运行测试。 |
 | `python -m flowguard show "what it decides"` | 新写判断之前找已有负责人和静态候选。 |
-| `python -m flowguard show WINDOW` | 读规则、出处、锚点和完整发现。 |
-| `python -m flowguard show --draft orders:accept` | 为锚点定位已有标定测试，不编造预期答案。 |
+| `python -m flowguard show WINDOW` | 读规则或已记录的锚点、模型观察；历史明确标为历史。 |
+| `python -m flowguard try ACCEPT days=4` | 查看一个真实输入的结果，上下文由实际测试提供。 |
+| `python -m flowguard try ACCEPT days=4 --grid` | 打印全部已计算代表值；分区未闭合仍为灰。 |
+| `python -m flowguard watch -- python app.py` | 正常运行 Python 目标，记录锚点并检查模型。 |
+| `python -m flowguard model draft PUBLISH` | 按观察路径起草节点和边，要求仍需确认。 |
 | `python -m flowguard check` | 通过普通 pytest 重查受影响的规则和测试。 |
 | `python -m flowguard check --all --deep` | 在 CI 运行所有意图项、普通项目测试、决策探针和变异检查。 |
-| `python -m flowguard check --diagnose` | 按需记录检查阶段耗时和已激活锚点事件；排查完整套件时再加 `--all`。 |
 | `python -m flowguard req list` | 列出已存原话；`show R1` 读取原文。 |
 
 没有规则时，检查只说一行：
@@ -61,7 +63,7 @@ python -m flowguard req add owner-message.txt --id R1
 FlowGuard check: no intent rules.
 ```
 
-情况行保持字面值，不会悄悄缩水。出处、帮助代码、数据和实现变化都会使依赖结果失效。必要副本要明确绑定，候选相似不构成等价证明。`check --all` 为完整套件记录测试与代码的联系，局部 `check` 重录选中的测试。这些联系用于选择受影响测试，并为锚点定位已有标定测试。直接运行 pytest 时，不普遍跟踪未标记的普通测试；明确标记的守护测试仍记录联系。联系缺失时按源码依赖保守选择。完整采集保留这些真实联系，因此会多做一些必要工作。 普通检查只在所支持、输入可闭合的范围内复用结果；未验证的外部导入或调用仍会重跑，安装包版本相同不证明它没有外部输入。模块初始化仍算依赖，保留函数对象本身不等于执行函数体。即使源码未改，开放输入仍可能需要重跑。
+情况行保持字面值，不会悄悄缩水。可支持的分区全量运行，不设固定情况数上限。一个运行时观察真实调用，在同一组上下文里回放安全的输入类，再复查原值；场景在同一个已采集会话里，以新的函数级夹具重跑原测试。观察不启动 Python 子进程，也不开嵌套测试会话。标定测试不会让写操作变得可安全重放；有副作用的业务仍由普通测试执行，小模型只连接实际读数。函数指纹用于增量选择；未解析导入、外部输入或不可用的夹具会保守重跑或标灰。相似只是一条线索，不构成等价证明。
 
 ## 边界和迁移
 
@@ -69,7 +71,7 @@ FlowGuard check: no intent rules.
 
 真正拆分判断时，场景关系连接真实的上下层读数，由引擎提供验证过的联合输入。检查会联合组合全部已验证下层输入，包括嵌套的 uses。闭合的布尔/枚举域可以完整穷尽；开放域只检查可支持的分区代表，不能声称枚举每个值。依赖或归属约束放在其已有负责人处，用有出处的 `structure_rule` 检查。不要求为整个应用建模，也不增加一套层次维护层。
 
-旧状态机、后台任务、图片和发布测试运行器已退役。`status`、`where`、`draft`、`decide`、`release` 不保留兼容别名。保留原话档案，保留有用的契约和情况行，本轮不改 `.flowguard/models/`。详见[意图指南](./docs/intent-guide.md)和[迁移指南](./docs/upgrade-3.0.md)。
+旧状态机、后台任务、图片和发布测试运行器已退役。`status`、`where`、`draft`、`decide`、`release` 不保留兼容别名。4.0 也退役了诊断和分片参数、独立的检查器流程记录；只在子进程里调用的守护目标不再算已观察。保留原话、已有规则和情况行，用真实测试重建生成的观察。详见[意图指南](./docs/intent-guide.md)和[4.0 迁移说明](./docs/upgrade-4.0.md)。
 
 ## 仓库
 
@@ -81,4 +83,4 @@ FlowGuard check: no intent rules.
 
 License: MIT
 
-3.0 用源码锚点取代 `.home` 和手写适配函数。纯判断直接调用；有副作用的函数用项目自己的普通测试标定，并读取真实结果。复杂部分可写小型分层流程模型，核对可确定的代码路径和测试实际顺序；未验证或不支持的范围保持灰色。[3.0 迁移说明](./docs/upgrade-3.0.md)列出重建方法。
+源码锚点取代 `.home` 和手写适配函数。小型分层模型只连接节点、边、状态转移和真实读数；未验证或不支持的范围保持灰色。模型也可能和 AI 一起理解错要求，仍要保留独立测试和出处原话。
