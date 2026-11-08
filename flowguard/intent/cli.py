@@ -694,6 +694,8 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     initial_baseline = not data.get('collection') or retry_incomplete or deep and not data['collection'].get('deep', False)
     everything = everything or initial_baseline
     declared = set(model.declared_items())
+    if stream_all:
+        print('FlowGuard check --all: preparing source dependencies before pytest.', flush=True)
     selected, flows, ordinary, test_records, guards, rule_markers = _check_selection(
         cfg, model, data, everything, since, sentinel)
     extras = flows

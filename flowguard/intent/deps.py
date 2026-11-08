@@ -258,12 +258,8 @@ def _literal_reads(tree, relative, cfg, modules):
     return allowed, files, bool(constructors)
 
 
-def _file_dependencies(cfg, graph, seeds, now):
-    """Conservative file closure shared by intent and ordinary test selection.
-
-    A whole imported file is one unit: unused dynamic siblings also stay opaque.
-    No project/external initializer is imported to discover an origin.
-    """
+def _dependency_index(graph):
+    """Read the unchanged Map once per dependency analysis, never across calls."""
     from flowguard.structure.store import unpack
     facts = {path: (module, unpack(data), sha) for path, module, data, sha in graph.con.execute('SELECT path,module,data,sha FROM file')}
     nodes = graph.nodes()
@@ -310,6 +306,16 @@ def _file_dependencies(cfg, graph, seeds, now):
         name = declaration.get('name', '')
         if module in modules and name and name != '*' and not known_export(module, name):
             unknown.setdefault(declaration['file'], []).append('unresolved import ' + module + ':' + name)
+    return facts, nodes, imports, unknown, modules, declarations
+
+
+def _file_dependencies(cfg, graph, seeds, now, *, index=None):
+    """Conservative file closure shared by intent and ordinary test selection.
+
+    A whole imported file is one unit: unused dynamic siblings also stay opaque.
+    No project/external initializer is imported to discover an origin.
+    """
+    facts, nodes, imports, unknown, modules, declarations = _dependency_index(graph) if index is None else index
     seeds = {cfg.rel(cfg.root / seed) for seed in seeds}
     pending = list(seeds) + ['pyproject.toml', 'pytest.ini', 'setup.cfg', 'tox.ini']
     for seed in seeds:
@@ -522,4 +528,8 @@ def affected(data, model, now):
 
 def test_dependencies(cfg, graph, now=None):
     now = now or Now(cfg, graph)
-    return {file: _file_dependencies(cfg, graph, {file}, now) for file in sorted(test_files(cfg, graph))}
+    files = sorted(test_files(cfg, graph))
+    if not files:
+        return {}
+    index = _dependency_index(graph)
+    return {file: _file_dependencies(cfg, graph, {file}, now, index=index) for file in files}
