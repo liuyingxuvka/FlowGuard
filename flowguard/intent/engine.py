@@ -1174,7 +1174,7 @@ class Engine:
                              'all verified partition representatives; open domains are not enumerated value by value'))
             res['contracts'] = {identifier: self.contract_summary(identifier) for identifier in rule.uses}
             for identifier, contract in res['contracts'].items():
-                if identifier not in self._used_witnesses.get(rule.id, set()):
+                if cases and identifier not in self._used_witnesses.get(rule.id, set()):
                     res['grey'].append(f'{identifier} declared but no verified witness was used -> connect the lower Rule outcome through uses and a Flow relation')
                 if contract['verdict'] != 'ok':
                     res['grey'].append(f'{identifier} lower contract is {contract["verdict"]} -> fix its source, homes or liveness before reusing it')
