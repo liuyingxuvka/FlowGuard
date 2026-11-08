@@ -824,7 +824,6 @@ def _link_file(con, lk: Linker, facts, f: str) -> None:
             t = _resolve_call(lk, facts, name, qual, f)
             return f"{lk.primary.get(t.partition('#')[0], '?')}:{t.partition('#')[2]}" if t else None
         feeds = {t for name in raw.get("feeds", []) if (t := target_of(name)) and t != src}
-        preds = sorted({t for name in raw.get("preds", []) if (t := target_of(name)) and t != src})
         edges += [(src, t, "feeds", "resolved", f, 0) for t in sorted(feeds)]
         cbases = bases.get(cls, [])
         local = (ff.get("functions", {}).get(qual) or {}).get("local_imports") or {}

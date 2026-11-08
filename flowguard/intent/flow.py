@@ -684,10 +684,14 @@ def _event_integrity(case, events):
     return grey
 
 
-def runtime_check(model, events, index, *, rules=None, contracts=None, engine=None, _context=None, _scopes=None):
+def runtime_check(model, events, index, *, rules=None, contracts=None, engine=None, _context=None, _scopes=None,
+                  _observed_only=False):
     _context = _context if _context is not None else dict(stack=[], proofs={}, children={})
     rules = rules or (engine.m.rules if engine is not None and hasattr(engine, 'm') else {})
-    contracts, bridge_red, bridge_grey = _engine_contracts(model, engine, contracts, rules)
+    if _observed_only:
+        contracts, bridge_red, bridge_grey = {}, [], []
+    else:
+        contracts, bridge_red, bridge_grey = _engine_contracts(model, engine, contracts, rules)
     schema = validate(model, index, contracts=contracts)
     red, grey, info = list(schema['red'])+bridge_red, list(schema['grey'])+bridge_grey, list(schema['info'])
     edges, observed = set(model.edges), set()
@@ -722,7 +726,8 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
             try: _reading_source(event,index,Read(node.name),source_cache)
             except Unverified as error: grey.append(f'{case}: {error}')
             try:
-                mismatch = _lower_reading(node, event, engine, contracts, model=model, events=case_events, index=index, cases=by_case, context=_context)
+                mismatch = None if _observed_only else _lower_reading(
+                    node, event, engine, contracts, model=model, events=case_events, index=index, cases=by_case, context=_context)
                 if mismatch: red.append(f'{case}: {mismatch}')
             except Unverified as error: grey.append(f'{case}: {error}')
             except _DomainError as error: red.append(f'{case}: {error}')
@@ -772,6 +777,10 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
     grey.extend(f'unobserved state transition {t.state}: {t.before!r} -> {t.after!r} at {t.on}'
                 for t in model.transitions if (t.state,t.before,t.after,t.on) not in observed_transitions)
     if unclaimed: info.append(f'{unclaimed} readings were outside the original rules opinion')
+    if _observed_only:
+        if unclaimed:
+            grey.append(f'{unclaimed} observed readings have no rule opinion')
+        info.append('scope: actual observed anchor paths and relations only; finite model and lower contracts were not proved')
     return _result('flow-runtime', red, grey, info, observed_edges=sorted(observed), cases=len(by_case),
                    checked_relations=checked, unclaimed_relations=unclaimed,
                    observed_transitions=sorted(observed_transitions,key=repr), ignored_case_scopes=ignored)

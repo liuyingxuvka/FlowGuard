@@ -46,6 +46,11 @@ def database(root):
     return sqlite3.connect(root / '.flowguard/cache/map.sqlite')
 
 
+def retired_ledgers(connection):
+    return {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")} & {
+        'footprint', 'trace_test', 'trace_group', 'trace_value'}
+
+
 def test_no_intent_or_marked_guard_does_not_build_a_map_or_inject_child_tracing(tmp_path):
     (tmp_path / 'tests').mkdir()
     (tmp_path / 'tests/test_plain.py').write_text('''import os, subprocess, sys
@@ -123,10 +128,10 @@ def test_plain():
     assert result.returncode == 0, result.stdout + result.stderr
     with database(sample) as connection:
         assert connection.execute("SELECT outcome FROM reading WHERE test='tests/test_plain.py::test_plain'").fetchone()[0] == 'passed'
-        assert connection.execute("SELECT count(*) FROM footprint WHERE test='tests/test_plain.py::test_plain'").fetchone()[0] == 0
+        assert not retired_ledgers(connection)
 
 
-def test_recording_selected_tests_preserves_other_facts_and_unrecorded_runs_retire_them(sample):
+def test_recording_selected_tests_preserves_other_readings_and_complete_collection(sample):
     (sample / 'tests/test_plain.py').write_text('''from sample.policy import accept
 def test_first():
     assert accept(4) is False
@@ -135,21 +140,25 @@ def test_second():
 ''')
     assert run(sample, '--flowguard-record-tests').returncode == 0
     with database(sample) as connection:
-        original = connection.execute("SELECT node,fp,call_lines FROM footprint WHERE test='tests/test_plain.py::test_second' ORDER BY node").fetchall()
-        assert original
-        assert connection.execute("SELECT static_group,observed_group FROM trace_test WHERE test='tests/test_plain.py::test_first'").fetchone()
+        original = connection.execute("SELECT * FROM reading WHERE test='tests/test_plain.py::test_second'").fetchone()
+        assert original and original[1] == 'passed'
+        complete = connection.execute("SELECT v FROM meta WHERE k='ordinary_collection'").fetchone()[0]
+        assert json.loads(complete)['tests/test_plain.py']['tests'] == [
+            'tests/test_plain.py::test_first', 'tests/test_plain.py::test_second']
+        assert not retired_ledgers(connection)
     assert run(sample, '--flowguard-record-tests', '--flowguard-rules=', 'tests/intent',
                'tests/test_flowguard_intent.py', 'tests/test_plain.py::test_first').returncode == 0
     with database(sample) as connection:
-        assert connection.execute("SELECT node,fp,call_lines FROM footprint WHERE test='tests/test_plain.py::test_second' ORDER BY node").fetchall() == original
-        assert connection.execute("SELECT count(*) FROM footprint WHERE test='tests/test_plain.py::test_first'").fetchone()[0]
+        assert connection.execute("SELECT * FROM reading WHERE test='tests/test_plain.py::test_second'").fetchone() == original
+        assert connection.execute("SELECT outcome FROM reading WHERE test='tests/test_plain.py::test_first'").fetchone()[0] == 'passed'
+        assert connection.execute("SELECT v FROM meta WHERE k='ordinary_collection'").fetchone()[0] == complete
+        assert not retired_ledgers(connection)
     assert run(sample, 'tests/test_plain.py::test_first').returncode == 0
     with database(sample) as connection:
-        assert connection.execute("SELECT count(*) FROM footprint WHERE test='tests/test_plain.py::test_first'").fetchone()[0] == 0
-        signatures = {row[0] for row in connection.execute('SELECT test FROM trace_test')}
-        assert 'tests/test_plain.py::test_first' not in signatures
-        assert 'tests/test_plain.py::test_second' in signatures
-        assert connection.execute("SELECT node,fp,call_lines FROM footprint WHERE test='tests/test_plain.py::test_second' ORDER BY node").fetchall() == original
+        assert connection.execute("SELECT outcome FROM reading WHERE test='tests/test_plain.py::test_first'").fetchone()[0] == 'passed'
+        assert connection.execute("SELECT * FROM reading WHERE test='tests/test_plain.py::test_second'").fetchone() == original
+        assert connection.execute("SELECT v FROM meta WHERE k='ordinary_collection'").fetchone()[0] == complete
+        assert not retired_ledgers(connection)
 
 
 def test_a_marked_guard_with_only_an_unobserved_child_fails_closed(sample):
@@ -162,7 +171,7 @@ def test_child_guard():
     assert result.returncode == 1, result.stdout + result.stderr
     assert 'marked but never enters LIMIT' in result.stdout + result.stderr
     with database(sample) as connection:
-        assert connection.execute("SELECT count(*) FROM footprint WHERE test='tests/test_child_guard.py::test_child_guard' AND node='sample.policy:accept' AND origin='child'").fetchone()[0] == 0
+        assert not retired_ledgers(connection)
 
 
 def test_plain_pytest_executes_declared_items_and_sentinel(sample):
@@ -364,7 +373,7 @@ def test_child():
     with database(sample) as connection:
         assert connection.execute("SELECT kind FROM reading WHERE test='tests/test_child.py::test_child'").fetchone()[0] == kind
 
-        assert connection.execute("SELECT count(*) FROM footprint WHERE origin='child'").fetchone()[0] == 0
+        assert not retired_ledgers(connection)
 
 def test_child_traceback_text_classification_does_not_record_execution(sample):
     from flowguard.intent.config import load_config
@@ -380,7 +389,7 @@ E        + where 1 = CompletedProcess(args=['python'], stderr='some repr')
 
     assert not (sample / '.flowguard/cache/map.sqlite').exists()
 
-def test_only_real_parent_functions_and_edges_have_observed_fingerprints(sample):
+def test_recording_preserves_real_parent_results_and_Map_callee_identities(sample):
     (sample / 'src/sample/failure.py').write_text('def leaf(): return 7\ndef caller(): return leaf()\n')
     (sample / 'tests/test_child.py').write_text('''import subprocess, sys, pytest
 from sample.policy import accept
@@ -394,13 +403,19 @@ def test_child():
     result = run(sample, '--flowguard-record-tests')
     assert result.returncode == 0, result.stdout + result.stderr
     with database(sample) as connection:
-        assert connection.execute("SELECT count(*) FROM footprint WHERE origin='child'").fetchone()[0] == 0
-        footprints = dict(connection.execute("SELECT node,fp FROM footprint WHERE test='tests/test_child.py::test_child' AND origin='parent'"))
-        for name in ('sample.failure:caller', 'sample.failure:leaf', 'sample.failure'):
-            assert footprints[name] == connection.execute('SELECT fp FROM node WHERE id=?', (name,)).fetchone()[0]
-        lines = json.loads(connection.execute("SELECT call_lines FROM footprint WHERE node='sample.failure:leaf' AND origin='parent'").fetchone()[0])
-        assert ['src/sample/failure.py', 2] in lines
-        assert connection.execute("SELECT count(*) FROM edge WHERE src='sample.failure:caller' AND dst='sample.failure:leaf' AND prov='observed'").fetchone()[0] == 1
+        assert not retired_ledgers(connection)
+        assert connection.execute("SELECT outcome FROM reading WHERE test='tests/test_child.py::test_child'").fetchone()[0] == 'passed'
+        assert connection.execute("SELECT file,line FROM edge WHERE src='sample.failure:caller' AND dst='sample.failure:leaf' AND prov='resolved' AND kind='calls'").fetchone() == ('src/sample/failure.py', 2)
+        assert connection.execute("SELECT count(*) FROM edge WHERE src='sample.failure:caller' AND dst='sample.failure:leaf' AND prov='observed'").fetchone()[0] == 0
+    from contextlib import closing
+    from flowguard.intent.deps import function_fingerprints
+    from flowguard.structure import build
+    with closing(build(sample)) as graph:
+        fingerprints = function_fingerprints(graph, ['sample.failure:caller'])
+        for name in ('sample.failure:caller', 'sample.failure:leaf'):
+            node = graph.node(name)
+            assert fingerprints[node['file']][node['qual']] == node['fp']
+        assert graph.node('sample.failure')['file'] == 'src/sample/failure.py'
 
 
 @pytest.mark.parametrize('calls_home', [True, False])
@@ -412,8 +427,8 @@ def test_rule_marker_requires_entering_a_real_home(sample, calls_home):
     assert ('marked but never enters LIMIT' in result.stdout) is not calls_home
     if calls_home:
         with database(sample) as connection:
-            lines = json.loads(connection.execute("SELECT call_lines FROM footprint WHERE test='tests/test_marked.py::test_marked' AND node='sample.policy:accept'").fetchone()[0])
-            assert ['tests/test_marked.py', 5] in lines
+            assert connection.execute("SELECT outcome FROM reading WHERE test='tests/test_marked.py::test_marked'").fetchone()[0] == 'passed'
+            assert not retired_ledgers(connection)
 
 
 def test_collection_failure_is_an_environment_reading(sample):
@@ -432,18 +447,18 @@ def test_comprehension_is_covered_by_its_named_owner_and_nested_functions_surviv
     assert result.returncode == 0, result.stdout + result.stderr
     with database(sample) as connection:
         previous = connection.execute("SELECT fp FROM node WHERE id='sample.comps:outer'").fetchone()[0]
-        entries = dict(connection.execute("SELECT node,fp FROM footprint WHERE test='tests/test_comp.py::test_comp'"))
-        assert entries['sample.comps:outer'] == previous
-        assert entries['sample.comps:outer.inner']
-        assert not any('<genexpr>' in node for node in entries)
-        assert connection.execute("SELECT count(*) FROM edge WHERE src='sample.comps:outer' AND dst='sample.comps:outer.inner' AND prov='observed'").fetchone()[0] == 1
+        assert connection.execute("SELECT fp FROM node WHERE id='sample.comps:outer.inner'").fetchone()[0]
+        assert not connection.execute("SELECT id FROM node WHERE id LIKE '%<genexpr>%' ").fetchall()
+        assert connection.execute("SELECT count(*) FROM edge WHERE src='sample.comps:outer' AND dst='sample.comps:outer.inner' AND prov='resolved' AND kind='calls'").fetchone()[0] == 1
+        assert not retired_ledgers(connection)
     source.write_text(source.read_text().replace('<= 3', '<= 4'))
     result = run(sample)
     assert result.returncode == 0, result.stdout + result.stderr
     with database(sample) as connection:
         current = connection.execute("SELECT fp FROM node WHERE id='sample.comps:outer'").fetchone()[0]
         assert current != previous
-        assert connection.execute("SELECT fp FROM footprint WHERE test='tests/test_comp.py::test_comp' AND node='sample.comps:outer'").fetchone()[0] == current
+        assert connection.execute("SELECT outcome FROM reading WHERE test='tests/test_comp.py::test_comp'").fetchone()[0] == 'passed'
+        assert not retired_ledgers(connection)
 
 
 def test_nested_footprints_keep_their_own_project_scope(tmp_path):

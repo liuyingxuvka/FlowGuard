@@ -2,14 +2,13 @@
 
 A single decision-site postings query over the generated store. Candidates come
 from the postings index (token -> nodes): only nodes sharing a realized decision-site
-signature are scored. Ranking uses matched sites and signature rarity; the rule's words
-only re-rank those matches. A candidate is a pointer, not proof.
+signature are scored. The public ranking uses strength, coverage score and identity.
+A candidate is a pointer, not proof.
 """
 from __future__ import annotations
 
 import json
 import math
-import re
 from collections import Counter
 
 from . import features as ff
@@ -145,19 +144,13 @@ OPS = {"Lt": "<", "Gt": ">", "LtE": "<=", "GtE": ">=", "Eq": "==", "NotEq": "!="
        "truth": "", "has": "has", "lacks": "lacks"}
 
 
-def _terms(text: str) -> set:
-    text = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", text or "")
-    return {w for w in re.findall(r"[a-z]{4,}", text.lower().replace("_", " "))} - {"that", "this", "with", "from",
-                                                                                    "when", "than", "only", "must"}
-
-
 def site_homes(con, fid: str, sites=None, words: str = "", exclude=(), groups=None) -> list[dict]:
     """Other homes by decision-site matching: every function holding a site with one of the home's (or the
-    rule's realized) site signatures, ranked by how many of those sites it holds, then by their weight
-    (kind x idf). A function that does much else is still a candidate. Listed when it shares one site of a
+    rule's realized) site signatures, with a coverage score weighted by kind x idf.
+    A function that does much else is still a candidate. Listed when it shares one site of a
     strong kind (a constant identity, an environment variable or config key, a literal set, tuple or
     version, a value on a field of the same name, or a large rare number), or at least half of the sites
-    (two or more) of weaker kinds. The words only re-rank. Each result names the matched sites."""
+    (two or more) of weaker kinds. Each result names the matched sites."""
     sc = Scorer(con)
     home = sc.row(fid)
     if home is None:
@@ -201,7 +194,6 @@ def site_homes(con, fid: str, sites=None, words: str = "", exclude=(), groups=No
 
     def order(t):
         return (SHOWN_FIRST.index(sig_kind(t)) if sig_kind(t) in SHOWN_FIRST else 99, t)
-    want = _terms(words)
     best_of = [max(weight(t) for t in g["sigs"]) for g in groups]
     need = max(2, math.ceil(len(groups) / 2))
     up = {s for (s,) in con.execute("SELECT src FROM edge WHERE dst = ? AND kind = 'calls'", (fid,))}
@@ -231,7 +223,6 @@ def site_homes(con, fid: str, sites=None, words: str = "", exclude=(), groups=No
             continue
         got = sum(max(weight(t) for t in ts) for ts in matched.values())
         score = got / sum(best_of)
-        bonus = len(want & _terms(row[0].replace(":", " ") + " " + (row[2] or ""))) if want else 0
         shown = []
         for gi, ts in sorted(matched.items(), key=lambda kv: (min(order(t) for t in kv[1]), kv[0])):
             said = sorted(ts, key=order)
@@ -250,10 +241,7 @@ def site_homes(con, fid: str, sites=None, words: str = "", exclude=(), groups=No
                     "reason": ("shared temporal field (candidate only)" if time_field and not is_strong else
                                "shared decision field" if field_only and not is_strong else "same decision sites") + f" ({len(matched)} of {len(groups)} {mode}): " + "; ".join(shown[:3])
                               + (f"; +{len(shown) - 3} more" if len(shown) > 3 else ""),
-                    "sites": shown, "_rank": (-len(matched), -(got * (1 + 0.2 * min(bonus, 3))), cid)})
-    out.sort(key=lambda x: x["_rank"])
-    for x in out:
-        del x["_rank"]
+                    "sites": shown})
     return out
 
 
@@ -287,3 +275,11 @@ def other_homes(con, fid: str, k=None, words: str = "", decides=None,
     strong = [row for row in by_site if row['strength']=='strong']
     low = [row for row in by_site if row['strength']=='weak']
     return (strong[:k] if k is not None else strong) + ((low[:k] if k is not None else low) if weak else [])
+
+
+def ranked(candidates, k=None):
+    """The public candidate order and per-strength limit, applied after all homes merge."""
+    rows = sorted(candidates, key=lambda row: (row['strength'] != 'strong', -row['score'], row['id']))
+    if k is not None:
+        rows = [row for strength in ('strong', 'weak') for row in [c for c in rows if c['strength'] == strength][:k]]
+    return rows

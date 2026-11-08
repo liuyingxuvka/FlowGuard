@@ -226,7 +226,7 @@ def confirmation(cfg, rule, engine=None):
                 reason='a retained row failed in previous functions/constants with the same verified inputs and passes now' if proofs else '')
 
 
-def _historical_home(runtime, home):
+def _historical_home(runtime, home, values):
     """An absent function is new code; an absent comment or environment is not."""
     from . import anchors, sites
     from .runtime import _functions, _resolve, _SAFE
@@ -261,8 +261,6 @@ def _historical_home(runtime, home):
                         isinstance(target,ast.Name) and target.id in constants for target in
                         (node.targets if isinstance(node,ast.Assign) else [node.target])))]
         if environment(old)!=environment(now):return dict(status='unknown',reason='old imports or module environment cannot be restored')
-        problem=runtime.safety(native,historical=True)
-        if problem:return dict(status='unknown',reason=problem)
         for part in ast.walk(patch.node):
             if isinstance(part,ast.Attribute):
                 owner=_resolve(part.value,native.__globals__)
@@ -270,6 +268,17 @@ def _historical_home(runtime, home):
                 if isinstance(owner,types.ModuleType) and (id(vars(owner)),part.attr) not in runtime.constants \
                         and all(value is not known for known in (*_SAFE,*runtime.patches)):
                     return dict(status='unknown',reason='old imported attribute cannot be restored: '+ast.unparse(part))
+    signature = inspect.signature(function, follow_wrapped=False)
+    supplied = {parameter.name: values[parameter.name] for parameter in anchor.parameters if parameter.name in values}
+    positional = [supplied[parameter.name] for parameter in signature.parameters.values()
+                  if parameter.kind is inspect.Parameter.POSITIONAL_ONLY and parameter.name in supplied]
+    keywords = {name: value for name, value in supplied.items()
+                if name in signature.parameters and signature.parameters[name].kind is not inspect.Parameter.POSITIONAL_ONLY}
+    arguments = signature.bind(*positional, **keywords)
+    arguments.apply_defaults()
+    problem = runtime.safety(function, arguments.arguments, historical=True)
+    if problem:
+        return dict(status='unknown', reason=problem)
     if hasattr(home,'scenario'):
         from .calibration import _context
         _,item=_context(runtime.root,home.testnode)
@@ -302,7 +311,7 @@ def _probe(root, rule, row, *, runtime=None):
             if hasattr(home,'scenario'):_prepare_scenario(model.cfg.root,home)
             elif home.anchor.calibrated_by:_prepare(model.cfg.root,home.anchor)
             try:
-                boundary=_historical_home(runtime,home) if runtime is not None else None
+                boundary=_historical_home(runtime,home,row.inputs) if runtime is not None else None
                 if boundary:answer.update(boundary)
                 else:
                     with runtime.old_code() if runtime is not None else nullcontext():

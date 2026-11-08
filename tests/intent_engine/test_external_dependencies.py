@@ -136,13 +136,12 @@ def test_origin_lookup_never_imports_an_uninitialized_parent(tmp_path, external,
     module = name + '.nested.provider'
     parents = [name, name + '.nested', module]
     assert not any(part in sys.modules for part in parents)
+    (root / 'tests/test_origin.py').write_text('from ' + module + ' import read\ndef test_origin(): assert callable(read)\n')
     with closing(build(root)) as graph:
-        context = deps._TestDependencies(cfg, graph, deps.Now(cfg, graph))
-        kind, location = context.origin(module)
-        if namespace:
-            assert (kind, location) == ('unknown', None)
-            assert context.import_reason(module) == 'unverified external import ' + module
+        observed = deps.test_dependencies(cfg, graph)['tests/test_origin.py']
+        assert '<unresolved>' in observed
+        if external:
+            assert any(name in reason for reason in observed['<unresolved>'])
         else:
-            assert kind == ('external' if external else 'project')
-            assert Path(location) == leaf
+            assert leaf.relative_to(root).as_posix() in observed
     assert not any(part in sys.modules for part in parents)

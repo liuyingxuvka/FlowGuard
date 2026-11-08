@@ -316,9 +316,6 @@ def read(cfg: Config):
         for key, name in [('attempt', 'intent_attempt'), ('collection', 'intent_collection'), ('deps', 'intent_dependencies'), ('test_collection', 'ordinary_collection')]:
             if name in metadata:
                 output[key] = json.loads(metadata[name])
-        if 'trace_test' in tables:
-            output['traces'] = {test: dict(groups=[static, observed], unknown=bool(unknown))
-                                for test, static, observed, unknown in con.execute('SELECT * FROM trace_test')}
         if 'test_dependency' in tables:
             output['test_deps'] = {file: dict(group=group, unknown=bool(unknown))
                                    for file, group, unknown in con.execute('SELECT * FROM test_dependency')}
@@ -337,7 +334,6 @@ def read(cfg: Config):
             return (not saved or test in saved['tests']
                     or readings.get(test, {}).get('stamp', 0) >= saved['stamp'])
         output['tests'] = {test: value for test, value in readings.items() if current(test)}
-        output['traces'] = {test: value for test, value in output['traces'].items() if current(test)}
     return output
 
 
@@ -366,8 +362,8 @@ def save_dependencies(con, records):
 
 
 def standard_dependencies(record):
-    return {('engine:' if path == '<engine>' else 'file:' + path): value
-            for path, value in record.items() if path != '<unresolved>'}
+    from .deps import standard_keys
+    return standard_keys(record)
 
 
 def _group_identity(dependencies):
@@ -379,67 +375,13 @@ def test_signature(record):
     return dict(group=_group_identity(standard_dependencies(record)), unknown='<unresolved>' in record)
 
 
-class _Signatures:
-    """Intern immutable dependency values and sets in the existing SQLite cache."""
-    def __init__(self, con):
-        _write_transaction(con)
-        self.con, self.shared = con, {}
-        for sql in (
-            'CREATE TABLE IF NOT EXISTS trace_value(id INTEGER PRIMARY KEY, key TEXT, digest TEXT, UNIQUE(key,digest))',
-            'CREATE TABLE IF NOT EXISTS trace_group(id TEXT PRIMARY KEY, refs TEXT)',
-            'CREATE TABLE IF NOT EXISTS trace_test(test TEXT PRIMARY KEY, static_group TEXT, observed_group TEXT, unknown INT)',
-            'CREATE TABLE IF NOT EXISTS test_dependency(file TEXT PRIMARY KEY, group_id TEXT, unknown INT)',
-        ):
-            con.execute(sql)
-        self.values = {(key, digest): identifier for identifier, key, digest in con.execute('SELECT * FROM trace_value')}
-        self.groups = {row[0] for row in con.execute('SELECT id FROM trace_group')}
-
-    def group(self, dependencies, *, shared=False):
-        if shared and id(dependencies) in self.shared:
-            return self.shared[id(dependencies)][1]
-        identifier = _group_identity(dependencies)
-        if identifier not in self.groups:
-            refs = []
-            for pair in sorted(dependencies.items()):
-                if pair not in self.values:
-                    cursor = self.con.execute('INSERT INTO trace_value(key,digest) VALUES(?,?)', pair)
-                    self.values[pair] = cursor.lastrowid
-                refs.append(self.values[pair])
-            self.con.execute('INSERT INTO trace_group VALUES(?,?)', (identifier, json.dumps(refs, separators=(',', ':'))))
-            self.groups.add(identifier)
-        if shared:
-            # Pin the shared mapping: an unpinned dict id could be reused by a later test.
-            self.shared[id(dependencies)] = dependencies, identifier
-        return identifier
-
-    def finish(self):
-        cursor = self.con.execute('DELETE FROM trace_group WHERE id NOT IN '
-            '(SELECT static_group FROM trace_test UNION SELECT observed_group FROM trace_test UNION SELECT group_id FROM test_dependency)')
-        if cursor.rowcount:
-            used = {value for (refs,) in self.con.execute('SELECT refs FROM trace_group') for value in json.loads(refs)}
-            self.con.executemany('DELETE FROM trace_value WHERE id=?', [(value,) for value in self.values.values() if value not in used])
-        # Legacy repeated JSON is ignored, not rewritten or copied here. Removing
-        # a very large old blob would itself need a large rollback journal.
-
-
 def save_test_dependencies(con, records):
-    store = _Signatures(con)
-    for file, record in records.items():
-        group = store.group(standard_dependencies(record))
-        con.execute('INSERT OR REPLACE INTO test_dependency VALUES(?,?,?)', (file, group, '<unresolved>' in record))
-    store.finish()
-
-
-def save_trace_signatures(con, records, drop=()):
-    """A new reading without a new recording invalidates that test's old evidence."""
-    store = _Signatures(con)
-    for removed in drop:
-        con.execute('DELETE FROM trace_test WHERE test=? OR substr(test,1,?)=?', (removed, len(removed) + 2, removed + '::'))
-    for test, record in records.items() if isinstance(records, dict) else records:
-        static = store.group(record['static'], shared=True)
-        observed = store.group(record['observed'])
-        con.execute('INSERT OR REPLACE INTO trace_test VALUES(?,?,?,?)', (test, static, observed, record['unknown']))
-    store.finish()
+    """Store the existing file digest directly, without per-test trace ledgers."""
+    _write_transaction(con)
+    con.execute('CREATE TABLE IF NOT EXISTS test_dependency(file TEXT PRIMARY KEY, group_id TEXT, unknown INT)')
+    con.executemany('INSERT OR REPLACE INTO test_dependency VALUES(?,?,?)',
+                    [(file, test_signature(record)['group'], '<unresolved>' in record)
+                     for file, record in records.items()])
 
 
 def save_proven(con, rule, proofs):

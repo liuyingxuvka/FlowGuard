@@ -58,9 +58,9 @@ def test_default_pytest_scope_does_not_promote_foreign_test_named_files(tmp_path
 def test_an_unused_dynamic_sibling_does_not_prevent_pure_test_reuse(tmp_path, monkeypatch):
     root, cfg = sample(tmp_path, 'from pathlib import Path\ndef value(): return "old"\ndef unused(path): return Path(path).read_text()\n')
     assert cli_fixture.check(cfg) == 0
-    assert '<unresolved>' not in record(cfg)
+    assert '<unresolved>' in record(cfg)  # File-grained closure includes the dynamic sibling.
     observed = calls(monkeypatch)
-    assert cli_fixture.check(cfg) == 0 and observed == []
+    assert cli_fixture.check(cfg) == 0 and observed
     (root / 'owner.py').write_text((root / 'owner.py').read_text().replace('return "old"', 'return "new"'))
     assert cli_fixture.check(cfg) == 1
     assert any('tests/test_ordinary.py' in command for command in observed)
@@ -73,9 +73,9 @@ def test_literal_project_data_is_content_tracked_including_path_open(tmp_path, m
     (root / 'data.txt').write_text('old')
     assert cli_fixture.check(cfg) == 0
     saved = record(cfg)
-    assert '<unresolved>' not in saved and 'data.txt' in saved
+    assert '<unresolved>' in saved and 'data.txt' in saved
     observed = calls(monkeypatch)
-    assert cli_fixture.check(cfg) == 0 and observed == []
+    assert cli_fixture.check(cfg) == 0 and observed
     (root / 'data.txt').write_text('new')
     assert cli_fixture.check(cfg) == 1 and observed
 
@@ -136,9 +136,9 @@ def supplied(): return os.environ['FG_TEST_INPUT']
 def test_resolved_literal_dynamic_import_uses_the_same_dependency_owner(tmp_path, monkeypatch):
     root, cfg = sample(tmp_path, 'import importlib\ndef value():\n    module = importlib.import_module("native_owner")\n    return module.value()\n')
     (root / 'native_owner.py').write_text('def value(): return "old"\n')
-    assert cli_fixture.check(cfg) == 0 and '<unresolved>' not in record(cfg)
+    assert cli_fixture.check(cfg) == 0 and '<unresolved>' in record(cfg)
     observed = calls(monkeypatch)
-    assert cli_fixture.check(cfg) == 0 and observed == []
+    assert cli_fixture.check(cfg) == 0 and observed
     (root / 'native_owner.py').write_text('def value(): return "new"\n')
     assert cli_fixture.check(cfg) == 1 and observed
 

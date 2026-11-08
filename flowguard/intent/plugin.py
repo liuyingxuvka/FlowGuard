@@ -29,8 +29,6 @@ _TRY = ContextVar('flowguard_try', default=None)
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS reading(test TEXT PRIMARY KEY, outcome TEXT, kind TEXT, reason TEXT,
   phase TEXT, seconds REAL, stamp REAL);
-CREATE TABLE IF NOT EXISTS footprint(test TEXT, node TEXT, fp TEXT, file TEXT, line INTEGER,
-  qual TEXT, origin TEXT, call_lines TEXT, PRIMARY KEY(test,node,origin));
 CREATE TABLE IF NOT EXISTS result(item TEXT PRIMARY KEY, rule TEXT, verdict TEXT, payload TEXT, stamp REAL);
 '''
 
@@ -344,6 +342,7 @@ class Observations:
             if namespace is original.__globals__ and name in namespace and _simple(namespace[name]):
                 env[name] = namespace[name]
                 old_env[name] = self.runtime._old_value(namespace, name, before)
+        count = len(kinds)
         now_read = C.read_predicate(SimpleNamespace(__globals__=env), kinds, node=current)
         old_read = C.read_predicate(SimpleNamespace(__globals__=old_env), kinds, node=previous)
         # An unclosed numeric range keeps candidate examples, never a proof.
@@ -360,9 +359,11 @@ class Observations:
                 candidates[name] = C.points(kind, literals)
                 if name in bound.arguments:
                     env[name] = old_env[name] = bound.arguments[name]
-        views = [SimpleNamespace(kinds=kinds, reading=C.read_predicate(SimpleNamespace(__globals__=values), kinds, node=node),
-                                 issues=(), node=node, literal_globals=values)
-                 for node, values in ((previous, old_env), (current, env))]
+        readings = (old_read, now_read) if len(kinds) == count else tuple(
+            C.read_predicate(SimpleNamespace(__globals__=values), kinds, node=node)
+            for node, values in ((previous, old_env), (current, env)))
+        views = [SimpleNamespace(kinds=kinds, reading=reading, issues=(), node=node, literal_globals=values)
+                 for node, values, reading in zip((previous, current), (old_env, env), readings)]
         part = D.joint_partition(*views)
         # joint_partition already built the joint space and retained every
         # logical class. Rebuilding that space here duplicated both work and
@@ -569,10 +570,67 @@ class Observations:
                             quoted.add(rule.id)
                         break
 
+    def _flow_signals(self):
+        """Check actual projected readings without proving or replaying a contract."""
+        from dataclasses import replace
+        from .flow import runtime_check, _rule, _test_entry_references, Unverified
+        from .sources import authority, parse
+        state, results, guards = self.state, [], {}
+        self.grey.extend(state.anchor_issues)
+        observed_anchors = {event.anchor for event in state.events}
+        observed_calls = {event.anchor for event in state.events if event.phase == 'call'}
+        for identifier, model in state.model.flows.items():
+            if f'{state.model.file_of[identifier]}::{identifier}[flow]' in state.results:
+                continue  # The explicitly selected Flow item owns its complete check.
+            if not observed_anchors.intersection(node.reference for node in model.nodes):
+                continue
+            entries = _test_entry_references(model, self.index)
+            if entries and not entries.intersection(observed_calls):
+                continue  # A sensor called outside this explicit scenario is not its case.
+            relations, grey, quotes = [], [], {}
+            for relation in model.relations:
+                try:
+                    rule = _rule(relation, state.model.rules)
+                except Unverified:
+                    relations.append(relation)  # The reading owner reports the unknown rule.
+                    continue
+                reasons = []
+                for active in state.model.active(rule.decides):
+                    if active is not rule and state.model.distinct_pair(rule.id, active.id):
+                        continue
+                    if active.id not in guards:
+                        source = parse(active.source)
+                        valid, reason = authority(source, active.confirmed, self.cfg, state.engine.archive, active.quote)
+                        borrowed = state.engine.borrowed(active)
+                        guards[active.id] = (([reason] if not valid else []) + borrowed, source.quote or source.text)
+                    reasons.extend(active.id + ': ' + reason for reason in guards[active.id][0])
+                    quotes[active.id] = guards[active.id][1]
+                if reasons:
+                    grey.extend(reasons)
+                else:
+                    relations.append(relation)
+            observed = runtime_check(replace(model, relations=tuple(relations)), state.events, self.index,
+                                     rules=state.model.rules, engine=state.engine, _observed_only=True)
+            source = parse(model.source)
+            valid, reason = authority(source, None, self.cfg, state.engine.archive, None)
+            observed['grey'].extend([*grey, *([] if valid else [reason])])
+            observed['verdict'] = 'red' if observed['red'] else 'grey' if observed['grey'] else 'ok'
+            observed['info'].append('rule scope: actual input points and static project-reference checks; full independence remains an intent check')
+            observed.update(id=identifier, scope='observed paths and relations only', complete=False)
+            self.grey.extend(identifier + ': ' + reason for reason in observed['grey'])
+            self.red.extend(identifier + ': ' + reason for reason in observed['red'])
+            if observed['red']:
+                if (quote := source.quote or source.text) not in quotes.values():
+                    quotes[identifier] = quote
+                self.red.extend(name + ' 出处：' + quote for name, quote in quotes.items())
+            results.append(observed)
+        return results
+
     def report(self):
         from types import SimpleNamespace
         from . import cells as C, differences as D, runtime as R, signals
         self._rule_signals()
+        partial_flows = self._flow_signals()
         items, leads = [], []
         key = lambda inputs: tuple((name, type(value).__name__, repr(value)) for name, value in sorted(inputs.items()))
         for index, point, part, unknown, cause in self.records:
@@ -634,9 +692,10 @@ class Observations:
         for issue in self.index.issues:
             if issue.level == 'red':
                 self.red.append(issue.message)
+        self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
         report = dict(source_changed=self.changed, items=items, paths=self.paths,
-                      leads=leads, red=list(dict.fromkeys(self.red)))
+                      leads=leads, red=list(dict.fromkeys(self.red)), partial_flows=partial_flows)
         from dataclasses import fields
         from .flow import Event
         self.payload = observation_payload(dict(stamp=self.state.started, baseline=self.runtime.baseline, items=report, paths=self.paths,
@@ -891,6 +950,9 @@ def pytest_runtestloop(session):
 
 
 def pytest_deselected(items):
+    from .calibration import probe_context
+    if any(probe_context(item.config) for item in items):
+        return
     if _CURRENT is not None and any(not isinstance(item, IntentItem) for item in items):
         _CURRENT.ordinary_deselected = True
 
@@ -1001,7 +1063,7 @@ def pytest_runtest_protocol(item, nextitem):
                                                    models=state.model.flows.values() if state.model.flows and not state.observations.changed else None, _ordinary=True))
         try:
             if (isinstance(item, IntentItem) or item.name == SENTINEL
-                    or not item.config.getoption('--flowguard-record-tests') and not any(item.iter_markers('rule'))):
+                    or not any(item.iter_markers('rule'))):
                 yield
             else:
                 with Footprint(state.is_project) as footprint:
@@ -1086,13 +1148,6 @@ def _meta(con, name, value):
 
 
 def _save_readings(con, state):
-    from .cache import save_trace_signatures
-    unrecorded = state.readings.keys() - state.footprints.keys()
-    con.executemany('DELETE FROM footprint WHERE test=?', [(test,) for test in unrecorded])
-    for file in (test for test in unrecorded if '::' not in test):
-        prefix = file + '::'
-        con.execute('DELETE FROM footprint WHERE substr(test,1,?)=?', (len(prefix), prefix))
-    save_trace_signatures(con, {}, drop=unrecorded)
     con.executemany('INSERT OR REPLACE INTO reading VALUES(?,?,?,?,?,?,?)',
                     [(test, r['outcome'], r['kind'], r['reason'], r['phase'], r['seconds'], state.started)
                      for test, r in state.readings.items()])
@@ -1230,8 +1285,6 @@ def finish_verified(session, exitstatus):
     with closing(state.get_map()) as mapping:
         con = mapping.con
         con.executescript(SCHEMA)
-        if 'call_lines' not in {row[1] for row in con.execute('PRAGMA table_info(footprint)')}:
-            con.execute('ALTER TABLE footprint ADD COLUMN call_lines TEXT')
         con.execute('BEGIN IMMEDIATE')
         _meta(con, 'intent_attempt', attempt)
         if state.observations is not None and state.observations.payload is not None:
@@ -1260,36 +1313,4 @@ def finish_verified(session, exitstatus):
             save_dependencies(con, records)
         _save_readings(con, state)
         _save_ordinary_collection(con, session, state)
-        # Maps provide the sole fingerprint owner. Missing dynamic functions stay explicitly unmapped.
-        nodes = {(row['file'], row['qual']): row for row in mapping.nodes()}
-        @cache
-        def relative(filename):
-            return state.cfg.rel(filename)
-
-        @cache
-        def node_of(entry):
-            filename, line, qual = entry
-            rel = relative(filename)
-            owner_qual = '' if qual == '<module>' else qual.replace('.<locals>.', '.')
-            node = nodes.get((rel, owner_qual))
-            return rel, node, node['id'] if node else f'{rel}:{qual}'
-
-        observed, rows = set(), []
-        for test, footprint in state.footprints.items():
-            con.execute('DELETE FROM footprint WHERE test=?', (test,))
-            grouped = {}
-            for target, file, line in footprint.call_lines:
-                grouped.setdefault(tuple(target), set()).add((relative(file), line))
-            for entry in footprint.entered:
-                entry = tuple(entry)
-                rel, node, ident = node_of(entry)
-                rows.append((test, ident, node['fp'] if node else '', rel, entry[1], entry[2], 'parent', _json(sorted(grouped.get(entry, [])))))
-            for a, b in footprint.edges:
-                first, second = node_of(tuple(a)), node_of(tuple(b))
-                if first[1] and second[1]:
-                    observed.add((first[2], second[2]))
-        con.executemany('INSERT OR REPLACE INTO footprint VALUES(?,?,?,?,?,?,?,?)', rows)
-        from .deps import trace_signatures
-        from .cache import save_trace_signatures
-        save_trace_signatures(con, trace_signatures(state.cfg, mapping, state.footprints))
-        mapping.add_observed(observed)
+        con.commit()

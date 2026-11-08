@@ -78,7 +78,7 @@ Identifiers must be actual string readings. A call named save proves only an att
 
 State comments identify existing fields, for example `# flowguard: states Job.status = new | saved | published`; `Transition` references that field and a real node. Finite states are fully explored without a default fixed state cap; keep about ten meaningful nodes per layer. Layers have no fixed depth cap, while cycles remain grey. Use `model=LOWER` for a Rule contract, or a registered child Flow with one end-reading Rule. Child paths, state and readings must pass for the same source/invocation; red/grey child evidence propagates. Joint witnesses reuse the original engine. Missing evidence and ambiguous exports stay grey.
 
-Tests record only anchors, with case, invocation, actual caller, order and source identity. Repeated readings are not collapsed to one value. Scenario models use their explicit test entry; production models do not ignore bypasses merely because their entry was absent. Missing exercised edges are grey. Definite source bypasses and observed invalid paths are red; unsupported dispatch/control stays unknown. Models and code can share a wrong interpretation; retain original words and independent tests.
+Tests record only anchors, with case, invocation, actual caller, order and source identity. Repeated readings are not collapsed to one value. Scenario models use their explicit test entry; production models do not ignore bypasses merely because their entry was absent. Missing exercised edges are grey. Observed invalid paths are red; unexecuted source routes stay unverified. Static path proof is frozen. Models and code can share a wrong interpretation; retain original words and independent tests.
 
 ## Sources and maintenance
 

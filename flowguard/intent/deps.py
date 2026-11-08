@@ -1,182 +1,26 @@
-"""Reuse only results whose code, helpers and original sources still have the same identities."""
+"""One Map-owned, file-grained dependency identity; unknown inputs are rerun."""
 from __future__ import annotations
 
 import ast
-import copy
-from collections import Counter
-import json
 from importlib.metadata import distributions
-from importlib.machinery import BuiltinImporter, FrozenImporter, PathFinder
-import sysconfig
+import fnmatch
+import json
 import locale
 from pathlib import Path
 import site
 import sys
-import fnmatch
 import tomllib
 
 from flowguard.map.common import content_digest, read_source
-from flowguard.structure.paths import project_code
-from .config import is_test_rel
 from .sources import parse
 
 
-# These modules were initialized by this engine before project loading. This is
-# import provenance, not permission to treat their functions as pure.
-_ENGINE_MODULES = frozenset(sys.modules)
-
-
-def _digest(data):
-    return content_digest(Path('summary'), data=data.encode())
+def _digest(text):
+    return content_digest(Path('dependencies'), data=text.encode())
 
 
 def file_digest(path):
     return content_digest(path, source_only=True) if path.is_file() else 'gone'
-
-
-class _Module(ast.NodeTransformer):
-    def __init__(self, retained, *, calls_only=False):
-        self.retained, self.calls_only, self.stack = retained, calls_only, []
-
-    def visit(self, node):
-        self.stack.append(node)
-        try:
-            return super().visit(node)
-        finally:
-            self.stack.pop()
-
-    def generic_visit(self, node):
-        # A read-only AST view: share unchanged children and copy only the
-        # containers whose definition bodies are pruned. No shared source AST
-        # is ever edited, and a discarded function body is never deep-copied.
-        changes = {}
-        for field, value in ast.iter_fields(node):
-            if isinstance(value, list):
-                result = [self.visit(child) if isinstance(child, ast.AST) else child for child in value]
-                if any(a is not b for a, b in zip(value, result)):
-                    changes[field] = result
-            elif isinstance(value, ast.AST):
-                result = self.visit(value)
-                if result is not value:
-                    changes[field] = result
-        if not changes:
-            return node
-        result = copy.copy(node)
-        for field, value in changes.items():
-            setattr(result, field, value)
-        return result
-
-    def visit_FunctionDef(self, node):
-        if node.name not in self.retained:
-            result = copy.copy(node)
-            result.body = [ast.Pass()]
-            return self.generic_visit(result) if self.calls_only else result
-        return node
-    visit_AsyncFunctionDef = visit_FunctionDef
-
-    def visit_Lambda(self, node):
-        if not self.calls_only:
-            return node
-        executes = False
-        for parent in reversed(self.stack[:-1]):
-            if isinstance(parent, ast.Call):
-                executes = True
-                break
-            if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                executes = node in parent.decorator_list
-                break
-            if isinstance(parent, (ast.Assign, ast.AnnAssign)):
-                targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
-                executes = any(isinstance(target, ast.Attribute) for target in targets)
-                break
-            if isinstance(parent, (ast.Lambda, ast.Return)):
-                break
-        if not executes:
-            result = copy.copy(node)
-            result.body = ast.Constant(None)
-            return self.generic_visit(result)
-        return self.generic_visit(node)
-
-    def visit_ClassDef(self, node):
-        return node if node.name in self.retained else self.generic_visit(node)
-
-
-def _module_tree(path):
-    tree = ast.parse(read_source(path))
-    definitions = {n.name: n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
-    retained = {n.id for statement in tree.body if statement not in definitions.values()
-                for n in ast.walk(statement) if isinstance(n, ast.Name)}
-    while True:
-        before = set(retained)
-        retained.update(n.id for name in before & definitions.keys() for n in ast.walk(definitions[name]) if isinstance(n, ast.Name))
-        if retained == before:
-            return _Module(retained).visit(tree)
-
-
-def module_digest(path):
-    if not path.is_file():
-        return 'gone'
-    try:
-        tree = _module_tree(path)
-    except SyntaxError:
-        return file_digest(path)
-    return _digest(ast.dump(tree, include_attributes=False))
-
-
-def module_paths(cfg, module, roots=()):
-    parts = module.split('.')
-    return sorted({cfg.rel(path) for root in dict.fromkeys([cfg.root, *cfg.roots, *roots]) for n in range(1, len(parts) + 1)
-                   for stem in [root.joinpath(*parts[:n])] for path in (stem.with_suffix('.py'), stem / '__init__.py')
-                   if path.resolve().is_relative_to(cfg.root)})
-
-
-def _imports(path, cfg, tree=None):
-    """Resolve local imports from paths, without importing a helper or a package initializer."""
-    try:
-        tree = tree if tree is not None else ast.parse(read_source(path))
-    except (OSError, SyntaxError):
-        return [], []
-    base = next((r for r in sorted([cfg.root, *cfg.roots], key=lambda p: len(str(p)), reverse=True) if path.is_relative_to(r)), cfg.root)
-    module = list(path.relative_to(base).with_suffix('').parts)
-    package = module[:-1]
-    modules, data = [], []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            modules.extend(a.name for a in node.names)
-        elif isinstance(node, ast.ImportFrom):
-            prefix = package[:len(package) - node.level + 1] if node.level else []
-            name = '.'.join([*prefix, *(node.module or '').split('.')]).strip('.')
-            modules.append(name)
-            modules.extend(name + '.' + a.name for a in node.names if a.name != '*')
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and Path(node.value).suffix in {'.json', '.yaml', '.yml', '.csv', '.toml', '.txt', '.md'}:
-            for candidate in (cfg.root / node.value, path.parent / node.value):
-                if candidate.resolve().is_relative_to(cfg.root) and candidate.is_file():
-                    data.append(cfg.rel(candidate))
-    return modules, data
-
-
-def _aliases(tree, path, cfg):
-    """Lexical import bindings; test files intentionally have no runtime map facts."""
-    base = next((r for r in sorted([cfg.root, *cfg.roots], key=lambda p: len(str(p)), reverse=True) if path.is_relative_to(r)), cfg.root)
-    package = list(path.relative_to(base).with_suffix('').parts)[:-1]
-    result = {}
-    class Visit(ast.NodeVisitor):
-        def visit_FunctionDef(self, node):
-            pass
-        visit_AsyncFunctionDef = visit_FunctionDef
-        def visit_ClassDef(self, node):
-            pass
-        def visit_Import(self, node):
-            for alias in node.names:
-                result[alias.asname or alias.name.split('.')[0]] = alias.name if alias.asname else alias.name.split('.')[0]
-        def visit_ImportFrom(self, node):
-            prefix = package[:len(package) - node.level + 1] if node.level else []
-            module = '.'.join([*prefix, *(node.module or '').split('.')]).strip('.')
-            for alias in node.names:
-                if alias.name != '*':
-                    result[alias.asname or alias.name] = module + ':' + alias.name
-    Visit().visit(tree)
-    return result
 
 
 def _pytest_options(cfg):
@@ -190,29 +34,27 @@ def _patterns(options, name, default):
 
 
 def test_scope(cfg):
-    """The default pytest search scope, shared by selection and cached diagnostics."""
-    options = _pytest_options(cfg)
-    paths = []
+    """pytest's configured default file scope, never production testfile APIs."""
+    options, paths = _pytest_options(cfg), []
     for value in _patterns(options, 'testpaths', ['.']):
         path = Path(value)
         if path.is_absolute() or not any(char in value for char in '*?['):
             path = path if path.is_absolute() else cfg.root / path
             paths.extend([path.resolve()] if path.exists() else [])
         else:
-            paths.extend(p.resolve() for p in cfg.root.glob(value))
-    # pytest falls back to the invocation directory when configured paths match nothing.
+            paths.extend(path.resolve() for path in cfg.root.glob(value))
     paths = paths or [cfg.root]
     patterns = _patterns(options, 'python_files', ['test_*.py', '*_test.py'])
     def contains(relative):
         path = (cfg.root / relative).resolve()
-        return (path.is_relative_to(cfg.root) and path.is_file()
+        return (path.is_relative_to(cfg.root) and path.is_file() and path.suffix == '.py'
                 and any(path == base or path.is_relative_to(base) for base in paths)
-                and path.suffix == '.py' and any(fnmatch.fnmatchcase(path.name, pattern) for pattern in patterns))
+                and any(fnmatch.fnmatchcase(path.name, pattern) for pattern in patterns))
     return contains
 
 
 def test_files(cfg, graph):
-    """Potential Python test files inside pytest's default scope; never import them."""
+    """Potential default Python test files; imports and fixtures never execute."""
     options, contains = _pytest_options(cfg), test_scope(cfg)
     functions = _patterns(options, 'python_functions', ['test'])
     classes = _patterns(options, 'python_classes', ['Test'])
@@ -223,14 +65,13 @@ def test_files(cfg, graph):
                    and isinstance(n.value, ast.Constant) and n.value.value is False for n in body)
     result = set()
     for file, error in graph.con.execute('SELECT path,parse_error FROM file'):
-        path = cfg.root / file
-        if not contains(file) or path.suffix != '.py' or path.is_relative_to(cfg.intent) or file == 'tests/test_flowguard_intent.py':
+        if not contains(file):
             continue
         if error:
             result.add(file)
             continue
         try:
-            body = ast.parse(read_source(path)).body
+            body = ast.parse(read_source(cfg.root / file)).body
         except (OSError, SyntaxError):
             result.add(file)
             continue
@@ -240,159 +81,20 @@ def test_files(cfg, graph):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and matches(node.name, functions):
                 result.add(file)
             elif isinstance(node, ast.ClassDef) and not disabled(node.body) and (matches(node.name, classes) or node.bases):
-                if any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and matches(n.name, functions) for n in node.body):
+                if any(isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) and matches(child.name, functions) for child in node.body):
                     result.add(file)
             elif isinstance(node, (ast.Import, ast.ImportFrom)) and options.get('collect_imported_tests', True):
                 if any(a.name == '*' or matches(a.asname or a.name.split('.')[-1], [*functions, *classes]) for a in node.names):
                     result.add(file)
             elif isinstance(node, (ast.Assign, ast.AnnAssign)):
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                if any(isinstance(t, ast.Name) and matches(t.id, [*functions, *classes]) for t in targets):
+                if any(isinstance(target, ast.Name) and matches(target.id, [*functions, *classes]) for target in targets):
                     result.add(file)
     return result
 
 
-def _map_imports(graph, nodes=None):
-    files = {node['id']: node['file'] for node in (graph.nodes() if nodes is None else nodes)}
-    targets, unknown = {}, set()
-    for edge in graph.imports():
-        if edge['prov'] == 'unknown':
-            unknown.add(edge['file'])
-        if edge['dst'] in files:
-            if files[edge['dst']]:
-                targets.setdefault(edge['file'], set()).add(files[edge['dst']])
-            else:
-                unknown.add(edge['file'])
-    return targets, unknown
-
-
-def _path(node, file, bindings=None, aliases=None, seen=()):
-    bindings, aliases = bindings or {}, aliases or {}
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return Path(node.value)
-    if isinstance(node, ast.Name) and node.id == '__file__':
-        return file
-    if isinstance(node, ast.Name) and node.id in bindings and node.id not in seen:
-        return _path(bindings[node.id], file, bindings, aliases, (*seen, node.id))
-    if isinstance(node, ast.Attribute) and node.attr == 'parent':
-        value = _path(node.value, file, bindings, aliases, seen)
-        return value.parent if value is not None else None
-    if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Attribute) and node.value.attr == 'parents' and isinstance(node.slice, ast.Constant) and type(node.slice.value) is int:
-        value = _path(node.value.value, file, bindings, aliases, seen)
-        try:
-            return value.parents[node.slice.value] if value is not None else None
-        except IndexError:
-            return None
-    if isinstance(node, ast.Call):
-        name = _name(node.func, aliases)
-        if name in {'Path', 'pathlib.Path', 'pathlib.PosixPath', 'pathlib.WindowsPath'} and len(node.args) == 1:
-            return _path(node.args[0], file, bindings, aliases, seen)
-        if isinstance(node.func, ast.Attribute) and node.func.attr in {'resolve', 'absolute'} and not node.args:
-            value = _path(node.func.value, file, bindings, aliases, seen)
-            return value.resolve() if value is not None else None
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
-        left, right = _path(node.left, file, bindings, aliases, seen), _path(node.right, file, bindings, aliases, seen)
-        return left / right if left is not None and right is not None else None
-    return None
-
-
-def _name(node, aliases=None):
-    if isinstance(node, ast.Name):
-        return (aliases or {}).get(node.id, node.id).replace(':', '.')
-    if isinstance(node, ast.Attribute):
-        base = _name(node.value, aliases)
-        return base + '.' + node.attr if base else ''
-    return ''
-
-
-def _bindings(tree):
-    result = {}
-    class Visit(ast.NodeVisitor):
-        def bind(self, target, value=None):
-            if isinstance(target, ast.Name):
-                old = result.get(target.id)
-                result[target.id] = value if target.id not in result or old is not None and value is not None and ast.dump(old) == ast.dump(value) else None
-            elif isinstance(target, (ast.Tuple, ast.List)):
-                for child in target.elts:
-                    self.bind(child)
-        def visit_FunctionDef(self, node):
-            pass
-        visit_AsyncFunctionDef = visit_FunctionDef
-        def visit_ClassDef(self, node):
-            pass
-        def visit_Assign(self, node):
-            for target in node.targets if isinstance(node, ast.Assign) else [node.target]:
-                self.bind(target, node.value)
-            self.generic_visit(node)
-        visit_AnnAssign = visit_Assign
-        def visit_AugAssign(self, node):
-            self.bind(node.target)
-            self.generic_visit(node)
-        def visit_For(self, node):
-            self.bind(node.target)
-            self.generic_visit(node)
-        visit_AsyncFor = visit_For
-        def visit_With(self, node):
-            for item in node.items:
-                if item.optional_vars:
-                    self.bind(item.optional_vars)
-            self.generic_visit(node)
-        visit_AsyncWith = visit_With
-        def visit_NamedExpr(self, node):
-            self.bind(node.target, node.value)
-            self.generic_visit(node)
-    Visit().visit(tree)
-    return result
-
-
-def _read_path(call, file, bindings=None, aliases=None):
-    """One owner for builtin/io.open, Path.open and Path.read_* argument positions."""
-    name = _name(call.func, aliases)
-    short = call.func.attr if isinstance(call.func, ast.Attribute) else name.rsplit('.', 1)[-1]
-    if short in {'read_text', 'read_bytes'} and isinstance(call.func, ast.Attribute):
-        return True, _path(call.func.value, file, bindings, aliases)
-    if short != 'open':
-        return False, None
-    builtin = name in {'open', 'builtins.open', 'io.open'}
-    expression = call.args[0] if builtin and call.args else call.func.value if isinstance(call.func, ast.Attribute) else None
-    offset = 1 if builtin else 0
-    mode = next((k.value for k in call.keywords if k.arg == 'mode'), call.args[offset] if len(call.args) > offset else ast.Constant('r'))
-    if not isinstance(mode, ast.Constant) or not isinstance(mode.value, str):
-        return True, None
-    if isinstance(mode, ast.Constant) and isinstance(mode.value, str) and any(x in mode.value for x in 'wax') and '+' not in mode.value:
-        return False, None
-    return True, _path(expression, file, bindings, aliases)
-
-
-def _data_reads(cfg, node):
-    """Literal file dependencies only; dynamic reads explicitly prevent reuse."""
-    path = cfg.root / node['file']
-    tree = _module_tree(path) if node['kind'] == 'module' else ast.parse(read_source(path))
-    if node['kind'] == 'const':
-        tree = ast.parse(node['sig'], mode='eval')
-    for name in node['qual'].split('.') if node['qual'] and node['kind'] != 'const' else []:
-        tree = next((child for child in tree.body if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and child.name == name), tree)
-    if node['kind'] == 'class':
-        tree = _Module(set()).visit(tree)
-    dependencies, reasons = [], []
-    for call in (n for n in ast.walk(tree) if isinstance(n, ast.Call)):
-        reading, value = _read_path(call, path)
-        if not reading:
-            continue
-        value = (cfg.root / value).resolve() if value is not None else None
-        if value is None or not value.is_relative_to(cfg.root):
-            reasons.append(f'dynamic or external data read at {node["file"]}:{call.lineno} -> declare a literal input before reusing this result')
-        else:
-            dependencies.append(cfg.rel(value))
-    return dependencies, reasons
-
-
 def project_functions(graph, targets, *, stop=()):
-    """One map-owned closure for function identities and their project callees.
-
-    This is source identity, not a claim that external inputs are closed. The
-    caller retains the input boundary and the module initialization identity.
-    """
+    """The Map's function identities and known project call/read closure."""
     pending, seen, stop = list(targets), set(), set(stop)
     while pending:
         identifier = pending.pop()
@@ -410,20 +112,18 @@ def project_functions(graph, targets, *, stop=()):
 
 
 def function_fingerprints(graph, targets):
-    """AST identities, including project callees, for the runtime's reuse key."""
+    """Function bodies and their project callees; not an input-closure proof."""
     result = {}
     for identifier, node in project_functions(graph, targets):
-        if node and node['file']:
-            result.setdefault(node['file'], {})[node['qual']] = node['fp']
-        else:
+        if not node or not node['file']:
             raise ValueError('unmapped project dependency: ' + identifier)
+        result.setdefault(node['file'], {})[node['qual']] = node['fp']
     return result
 
 
 class Now:
     def __init__(self, cfg, graph):
         self.cfg, self.graph, self.memo = cfg, graph, {}
-        self.trace_groups = {}
 
     def __call__(self, key):
         if key not in self.memo:
@@ -431,205 +131,190 @@ class Now:
             if kind == 'node':
                 node = self.graph.node(value)
                 digest = node['fp'] if node else 'gone'
-            elif kind == 'anchor':
-                from dataclasses import asdict
-                from .anchors import collect
-                if not hasattr(self, 'anchor_index'):
-                    self.anchor_index = collect(self.graph)
-                anchors = []
-                for anchor in self.anchor_index.entries:
-                    if value not in (anchor.name, anchor.target):
-                        continue
-                    data = asdict(anchor)
-                    for field in ('line', 'target_line', 'source_digest'):
-                        data.pop(field, None)
-                    data['issues'] = [dict(level=issue.level,code=issue.code,message=issue.message,name=issue.name)
-                                      for issue in anchor.issues]
-                    anchors.append(data)
-                digest = _digest(json.dumps(anchors,sort_keys=True,default=repr))
-            elif kind == 'module':
-                digest = module_digest(self.cfg.root / value)
+            elif kind == 'engine':
+                base = Path(__file__).resolve().parents[1]
+                locations = list(site.getsitepackages())
+                if site.ENABLE_USER_SITE:
+                    user = site.getusersitepackages()
+                    locations.extend([user] if isinstance(user, str) else user)
+                packages = sorted({(item.metadata.get('Name', ''), item.version)
+                                   for item in distributions(path=list(dict.fromkeys(locations)))})
+                context = (str(self.cfg.root), sys.version, repr(sys.flags), locale.getencoding(),
+                           sys.get_int_max_str_digits() if hasattr(sys, 'get_int_max_str_digits') else None)
+                digest = _digest('\n'.join(str(path.relative_to(base)) + ':' + file_digest(path)
+                                          for path in sorted(base.rglob('*.py'))) + repr(context) + repr(packages))
+            elif kind == 'listing':
+                digest = _digest('\n'.join(row[0] for row in self.graph.con.execute('SELECT path FROM file ORDER BY path')))
             elif kind == 'authority':
                 from .sources import Archive
                 if not hasattr(self, 'archive'):
                     self.archive = Archive(self.cfg.root)
                 digest = _digest(repr(self.archive.status(value)))
-            elif kind == 'engine':
-                base = Path(__file__).resolve().parents[1]
-                files = sorted(base.rglob('*.py'))
-                locations = list(site.getsitepackages())
-                if site.ENABLE_USER_SITE:
-                    user = site.getusersitepackages()
-                    locations.extend([user] if isinstance(user, str) else user)
-                # Build tools may add their private vendor directories to sys.path.
-                # They do not change the interpreter's installed package identities.
-                packages = sorted({(d.metadata.get('Name', ''), d.version)
-                                   for d in distributions(path=list(dict.fromkeys(locations)))})
-                context = (str(self.cfg.root), sys.version, repr(sys.flags), locale.getencoding(),
-                           sys.get_int_max_str_digits() if hasattr(sys, 'get_int_max_str_digits') else None)
-                digest = _digest('\n'.join(str(p.relative_to(base)) + ':' + file_digest(p) for p in files) + repr(context) + repr(packages))
-            elif kind == 'listing':
-                digest = _digest('\n'.join(r[0] for r in self.graph.con.execute('SELECT path FROM file ORDER BY path')))
             else:
                 digest = file_digest(self.cfg.root / value)
             self.memo[key] = digest
         return self.memo[key]
 
-    def trace_changes(self, identifier):
-        if identifier not in self.trace_groups:
-            con = self.graph.con
-            owned = not con.in_transaction
-            if owned:
-                con.execute('BEGIN')
-            try:
-                row = con.execute('SELECT refs FROM trace_group WHERE id=?', (identifier,)).fetchone()
-                if row is None:
-                    changes = ['recorded dependency group is missing']
-                else:
-                    refs, values = json.loads(row[0]), {}
-                    for offset in range(0, len(refs), 900):
-                        part = refs[offset:offset + 900]
-                        values.update((identifier, (key, digest)) for identifier, key, digest in con.execute(
-                            'SELECT id,key,digest FROM trace_value WHERE id IN (' + ','.join('?' for _ in part) + ')', part))
-                    changes = (['recorded dependency values are missing'] if len(values) != len(set(refs)) else
-                               [key for ref in refs for key, value in [values[ref]] if self(key) != value])
-            finally:
-                if owned:
-                    con.rollback()  # End only this read snapshot; never commit another owner's work.
-            self.trace_groups[identifier] = changes
-        return self.trace_groups[identifier]
+
+def _file_dependencies(cfg, graph, seeds, now):
+    """Conservative file closure shared by intent and ordinary test selection.
+
+    A whole imported file is one unit: unused dynamic siblings also stay opaque.
+    No project/external initializer is imported to discover an origin.
+    """
+    from flowguard.structure.store import unpack
+    facts = {path: (module, unpack(data)) for path, module, data in graph.con.execute('SELECT path,module,data FROM file')}
+    nodes = graph.nodes()
+    by_id = {node['id']: node for node in nodes}
+    imports, unknown = {}, {}
+    for edge in graph.imports():
+        target = by_id.get(edge['dst'])
+        if target and target['file']:
+            imports.setdefault(edge['file'], set()).add(target['file'])
+        elif edge['prov'] == 'unknown':
+            name = edge['dst'].removeprefix('missing:')
+            if name.split('.')[0].split(':')[0] not in {'flowguard', 'pytest'}:
+                unknown.setdefault(edge['file'], []).append('unverified external import ' + name)
+    modules = {module for module, _ in facts.values()}
+    for declaration in graph.imports(declarations=True):
+        if declaration.get('typing'):
+            continue
+        module = declaration.get('module', '')
+        if module not in modules and module not in {'flowguard.intent', 'flowguard.intent.api', '__future__'}:
+            unknown.setdefault(declaration['file'], []).append('unverified external import ' + module)
+    pending = list(seeds) + ['pyproject.toml', 'pytest.ini', 'setup.cfg', 'tox.ini']
+    for seed in seeds:
+        parent = (cfg.root / seed).parent
+        while parent.is_relative_to(cfg.root):
+            pending.extend(cfg.rel(parent / name) for name in ('conftest.py', '__init__.py') if (parent / name).is_file())
+            if parent == cfg.root:
+                break
+            parent = parent.parent
+    result, reasons, seen = {'<engine>': now('engine:'), '<listing>': now('listing:')}, [], set()
+    while pending:
+        relative = pending.pop()
+        if relative in seen:
+            continue
+        seen.add(relative)
+        path = (cfg.root / relative).resolve()
+        if not path.is_relative_to(cfg.root):
+            reasons.append('dependency is outside the project: ' + relative)
+            continue
+        result[relative] = now('file:' + relative)
+        if path.suffix != '.py' or not path.is_file():
+            continue
+        if relative not in facts:
+            reasons.append('source is not mapped: ' + relative)
+            continue
+        module, raw = facts[relative]
+        parent = path.parent
+        while parent.is_relative_to(cfg.root):
+            initializer = parent / '__init__.py'
+            if initializer.is_file():
+                pending.append(cfg.rel(initializer))
+            if parent == cfg.root:
+                break
+            parent = parent.parent
+        pending.extend(imports.get(relative, ()))
+        reasons.extend(unknown.get(relative, ()))
+        if raw.get('parse_error') or raw.get('unknown_dynamic_imports') or raw.get('star') or raw.get('getattr') or raw.get('syspath'):
+            reasons.append('dynamic source boundary in ' + relative)
+        targets = [node['id'] for node in nodes if node['file'] == relative and node['kind'] in {'function', 'method', 'test'}]
+        try:
+            for file, definitions in function_fingerprints(graph, targets).items():
+                pending.append(file)
+                for qual in definitions:
+                    target = next((node for node in nodes if node['file'] == file and node['qual'] == qual), None)
+                    if target:
+                        result['node:' + target['id']] = target['fp']
+        except ValueError as error:
+            reasons.append(str(error))
+        try:
+            tree = ast.parse(read_source(path))
+        except (OSError, SyntaxError) as error:
+            reasons.append(str(error))
+            continue
+        definitions = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+        from .loader import api_aliases, api_call_name
+        aliases = api_aliases(tree)
+        rules = {node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 and any(isinstance(decorator, ast.Call) and api_call_name(decorator, aliases) == 'rule'
+                         for decorator in node.decorator_list)}
+        project_names, bindings = set(), {}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                for alias in node.names:
+                    bound = alias.asname or alias.name.split('.')[0]
+                    project_names.add(bound)
+                    bindings[bound] = alias.name if isinstance(node, ast.Import) else (node.module or '') + '.' + alias.name
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and Path(node.value).suffix in {'.json', '.yaml', '.yml', '.csv', '.toml', '.txt', '.md'}:
+                pending.extend(cfg.rel(candidate) for candidate in (cfg.root / node.value, path.parent / node.value)
+                               if candidate.resolve().is_relative_to(cfg.root) and candidate.is_file())
+        for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+            name = ast.unparse(call.func)
+            first, _, rest = name.partition('.')
+            if first in bindings:
+                qualified = bindings[first] + ('.' + rest if rest else '')
+                module = qualified.rpartition('.')[0]
+                if module not in modules and bindings[first].split('.')[0] not in {'flowguard', '__future__'}:
+                    reasons.append('unverified external call ' + qualified + ' in ' + relative)
+            if isinstance(call.func, ast.Attribute) and call.func.attr == 'rows' and isinstance(call.func.value, ast.Name) and call.func.value.id in rules:
+                continue
+            if isinstance(call.func, ast.Name) and (name in definitions or name in {'bool','int','float','str','len','sum','min','max','all','any','range','enumerate','zip','sorted','tuple','list','dict','set','frozenset','abs','round','rule','row','flow','node','relation','transition','state','read'} or name in project_names):
+                continue
+            if isinstance(call.func, ast.Attribute) and name.partition('.')[0] in project_names:
+                # External imports already keep this whole file unverified.
+                continue
+            reasons.append('unverified call ' + name + ' in ' + relative)
+    if reasons:
+        result['<unresolved>'] = sorted(set(reasons))
+    return result
+
+
+def standard_keys(record):
+    return {('engine:' if key == '<engine>' else 'listing:' if key == '<listing>' else key if key.startswith('node:') else 'file:' + key): value
+            for key, value in record.items() if key != '<unresolved>'}
 
 
 def record(cfg, model, rule, results, graph):
-    """Return dependency keys and explicit incompleteness; never refresh a rule that did not run."""
-    now, keys, reasons = Now(cfg, graph), {'engine:'}, []
-    roots = [cfg.root / root['path'] for root in graph.roots()]
-    files, nodes = {model.file_of[rule.id]}, set()
-    declarations = [rule]
-    if getattr(rule, 'nodes', ()):
-        from .flow import _registered_flow, Unverified
-        pending, registered = [(rule, (rule.id,))], {rule.id}
-        while pending:
-            declaration, ancestry = pending.pop()
-            references = [node.model for node in getattr(declaration, 'nodes', ()) if node.model is not None]
-            references.extend(relation.rule for relation in getattr(declaration, 'relations', ())
-                              if hasattr(relation, 'rule'))
-            references.extend(getattr(declaration, 'uses', ()))
-            for reference in references:
-                try:
-                    child = _registered_flow(reference, model.flows)
-                except Unverified as error:
-                    reasons.append(str(error)); continue
-                identifier = getattr(reference, 'id', reference)
-                if child is None:
-                    child = model.rules.get(identifier) if isinstance(identifier, str) else None
-                if child is None:
-                    reasons.append(f'unresolved lower declaration {identifier!r}'); continue
-                if child.id in ancestry:
-                    reasons.append('lower declaration cycle: ' + ' -> '.join((*ancestry, child.id))); continue
-                if child.id not in registered:
-                    registered.add(child.id)
-                    declarations.append(child)
-                    pending.append((child, (*ancestry, child.id)))
-    for declaration in declarations:
-        declaration_file = model.file_of.get(declaration.id)
-        if declaration_file:
-            files.add(declaration_file)
-        else:
-            reasons.append(f'unregistered lower declaration {declaration.id}')
-    for home in (home for declaration in declarations for home in getattr(declaration, 'homes', [])):
-        node = graph.canonical(home.target)
-        if node:
-            nodes.add(node)
-        else:
-            keys.update('file:' + p for p in module_paths(cfg, home.target.partition(':')[0], roots))
-            keys.add('listing:')
-        files.update(p for p in module_paths(cfg, home.target.partition(':')[0], roots) if (cfg.root / p).is_file())
-        if hasattr(home, 'anchor'):
-            if home.anchor:
-                files.add(home.anchor.file)
-                keys.add('anchor:' + home.anchor.target)  # Source role/type/unit/calibration contract, without unrelated bodies.
-                keys.add('anchor:' + home.anchor.name)  # New same-name sites change this binding, unrelated files do not.
-            else:
-                keys.add('listing:')
-        if hasattr(home, 'scenario'):
-            files.update((home.scenario.file, home.flow.file))
-        for anchor in getattr(home, 'measurement_anchors', (home.anchor,) if home.anchor else ()):
-            files.add(anchor.file)
-            keys.add('anchor:' + anchor.target)
-            keys.add('anchor:' + anchor.name)
-            if anchor.calibrated_by:
-                files.add(anchor.calibrated_by.partition('::')[0])
-    for node in (node for declaration in declarations for node in getattr(declaration, 'nodes', ())):
-        for anchor in model.anchor_index.named(node.reference):
-            nodes.add(graph.canonical(anchor.target) or anchor.target)
-            files.add(anchor.file)
-            keys.add('anchor:' + anchor.target)
-        keys.add('listing:')
-    if getattr(rule, 'binding_kind', '') == 'anchor':
-        keys.add('listing:')
-        for anchor in model.anchor_index.entries:
-            if any(value in (anchor.name, anchor.target) for value in (rule.a, rule.b)):
-                nodes.add(graph.canonical(anchor.target) or anchor.target)
-                keys.add('anchor:' + anchor.target)
+    """One coarse source/word identity; a grey/failed result never becomes reusable."""
+    seeds = {model.file_of[rule.id], 'pyproject.toml'}
+    nodes, authorities = set(), set()
     entries = list(results.values()) if isinstance(results, dict) else list(results)
-    for result in entries:
-        nodes.update(result.get('footprint', []))
-        for relative in result.get('files', []):
-            if is_test_rel(relative):
-                files.add(relative)
-    seen = set()
-    for identifier, node in project_functions(graph, nodes):
-        seen.add(identifier)
-        if not node:
-            reasons.append('unmapped footprint ' + identifier)
-            continue
-        keys.add('node:' + identifier)
-        keys.add('module:' + node['file'])
-        data, unread = _data_reads(cfg, node)
-        files.update(data)
-        reasons.extend(unread)
-    for declaration in declarations:
+    # All declarations are cheap inputs; this avoids a second lower-model resolver.
+    seeds.update(model.file_of.values())
+    for declaration in [rule, *model.rules.values(), *model.flows.values()]:
+        for home in getattr(declaration, 'homes', ()):
+            if home.anchor:
+                seeds.add(home.anchor.file)
+                nodes.add(home.anchor.target)
+                if home.anchor.calibrated_by:
+                    seeds.add(home.anchor.calibrated_by.partition('::')[0])
+            if hasattr(home, 'scenario'):
+                seeds.update((home.scenario.file, home.flow.file))
+        for node in getattr(declaration, 'nodes', ()):
+            for anchor in model.anchor_index.named(node.reference):
+                seeds.add(anchor.file)
+                nodes.add(anchor.target)
         source = parse(declaration.source)
         if source.kind == 'doc':
-            files.add(source.path)
+            seeds.add(source.path)
         for rid in source.rids + ((declaration.confirmed,) if getattr(declaration, 'confirmed', None) else ()):
-            files.update('.flowguard/requests/' + rid + suffix for suffix in ('.md', '.json'))
-            keys.add('authority:' + rid)
-    # A changed allowlist changes which original document counts as authority.
-    files.add('pyproject.toml')
-    production = {graph.node(identifier)['file'] for identifier in seen if graph.node(identifier)}
-    imported_files, unknown_imports = _map_imports(graph)
-    pending, visited = list(files), set()
-    while pending:
-        relative = pending.pop()
-        key = 'file:' + relative
-        if relative in visited:
-            continue
-        visited.add(relative)
-        keys.add(('module:' if relative in production and not is_test_rel(relative) else 'file:') + relative)
-        path = cfg.root / relative
-        if path.suffix != '.py' or not path.is_file():
-            continue
-        pending.extend(imported_files.get(relative, ()))
-        if relative in unknown_imports:
-            reasons.append('unresolved import in ' + relative)
-        modules, data = _imports(path, cfg)
-        pending.extend(data)
-        for module in modules:
-            candidates = module_paths(cfg, module, roots)
-            keys.update('file:' + p for p in candidates if not (cfg.root / p).is_file())
-            existing = [p for p in candidates if (cfg.root / p).is_file()]
-            for imported in existing:
-                pending.append(imported)
-    if getattr(rule, 'target', None) or getattr(rule, 'pred', None) and not hasattr(rule, 'decides'):
-        keys.add('listing:')
-    child_homes = {graph.canonical(h.target) for child in getattr(rule, 'uses', []) if child in model.rules for h in model.rules[child].homes}
-    own = {identifier for identifier, _ in project_functions(graph,
-            [graph.canonical(h.target) for h in getattr(rule, 'homes', [])], stop=child_homes)}
-    contracts = {child: summary for result in entries for child, summary in result.get('contracts', {}).items()}
-    return dict(dependencies={key: now(key) for key in sorted(keys)}, reasons=sorted(set(reasons)),
-                own_nodes=sorted(own), contracts=contracts)
+            seeds.update('.flowguard/requests/' + rid + suffix for suffix in ('.md', '.json'))
+            authorities.add(rid)
+    for entry in entries:
+        seeds.update(entry.get('files', ()))
+        for identifier in entry.get('footprint', ()):
+            node = graph.node(identifier)
+            if node and node['file']:
+                seeds.add(node['file'])
+    dependencies = _file_dependencies(cfg, graph, seeds, Now(cfg, graph))
+    keys = standard_keys(dependencies)
+    now = Now(cfg, graph)
+    keys['listing:'] = now('listing:')
+    keys.update(('authority:' + rid, now('authority:' + rid)) for rid in authorities)
+    return dict(dependencies=keys, reasons=dependencies.get('<unresolved>', []), own_nodes=sorted(nodes),
+                contracts={child: value for result in entries for child, value in result.get('contracts', {}).items()})
 
 
 def stale(saved, now):
@@ -638,523 +323,21 @@ def stale(saved, now):
     return [key for key, digest in saved['dependencies'].items() if now(key) != digest]
 
 
+def reusable(data, identifier, now):
+    values = data.get('results', {}).get(identifier, {}).get('items', {}).values()
+    return bool(values) and all(value.get('verdict') in {'ok', 'red'} for value in values) and not stale(data.get('deps', {}).get(identifier), now)
+
+
 def affected(data, model, now):
-    chosen = {rid for rid in model.rules if rid not in data.get('results', {}) or stale(data.get('deps', {}).get(rid), now)}
+    chosen = {identifier for identifier in model.rules if not reusable(data, identifier, now)}
     while True:
         before = set(chosen)
-        keys = {model.rules[r].decides for r in chosen}
-        chosen.update(r.id for r in model.rules.values() if r.decides in keys or set(r.uses) & chosen)
+        keys = {model.rules[identifier].decides for identifier in chosen}
+        chosen.update(rule.id for rule in model.rules.values() if rule.decides in keys or set(rule.uses) & chosen)
         if chosen == before:
             return sorted(chosen)
 
 
-def contract_cut(data, model, now, fresh_contracts, selected=None):
-    """A verified unchanged lower contract may stop only its own internal node changes."""
-    selected = set(affected(data, model, now) if selected is None else selected)
-    for rid in sorted(selected):
-        saved = data.get('deps', {}).get(rid, {})
-        changes = stale(saved, now)
-        if not changes or any(not key.startswith('node:') for key in changes):
-            continue
-        if any(key[5:] in saved.get('own_nodes', []) for key in changes):
-            continue
-        covered = set()
-        for child in model.rules[rid].uses:
-            new = fresh_contracts.get(child, {})
-            old = saved.get('contracts', {}).get(child, {})
-            if (new.get('verdict') != 'ok' or old.get('verdict') != 'ok'
-                    or not new.get('complete') or not old.get('complete') or new.get('outcomes') != old.get('outcomes')):
-                continue
-            covered.update(key for key in data.get('deps', {}).get(child, {}).get('dependencies', {}) if key.startswith('node:'))
-        if set(changes) <= covered:
-            selected.remove(rid)
-    return sorted(selected)
-
-
-class _TestDependencies:
-    """One-call static closure. Imports execute definitions, not every function body.
-
-    Function bodies enter through actual source references and the map's call/read
-    edges. No past trace is used to exclude a possible dependency.
-    """
-    def __init__(self, cfg, graph, now):
-        from flowguard.structure.store import unpack
-        self.cfg, self.graph, self.now = cfg, graph, now
-        self.roots = [cfg.root / r['path'] for r in graph.roots()]
-        self.nodes = {n['id']: n for n in graph.nodes()}
-        self.files = {p: (m, data) for p, m, data in graph.con.execute('SELECT path,module,data FROM file')}
-        self.unpack = unpack
-        self.parsed, self.summaries, self.path_cache, self.exists_cache, self.symbols = {}, {}, {}, {}, {}
-        self.initials = {}
-        self.origins = {}
-        stdlib = Path(sysconfig.get_path("stdlib")).resolve()
-        self.stdlib = stdlib
-        extras = _patterns(_pytest_options(cfg), "pythonpath", [])
-        self.search_paths = list(dict.fromkeys(str(p) for p in [cfg.root, *cfg.roots,
-                                 *(cfg.root / value for value in extras), *map(Path, sys.path)]))
-        self.imports = {}
-        for edge in graph.imports():
-            self.imports.setdefault((edge['file'], edge['line']), []).append(edge)
-
-    def exists(self, relative):
-        if relative not in self.exists_cache:
-            self.exists_cache[relative] = (self.cfg.root / relative).is_file()
-        return self.exists_cache[relative]
-
-    def paths(self, module):
-        if module not in self.path_cache:
-            self.path_cache[module] = tuple(module_paths(self.cfg, module, self.roots))
-        return self.path_cache[module]
-
-    def origin(self, module):
-        """Locate an import without executing a project or third-party initializer."""
-        if not module:
-            return 'unknown', None
-        if module not in self.origins:
-            spec = None
-            cached = sys.modules.get(module)
-            if cached is not None and module in _ENGINE_MODULES:
-                spec = getattr(cached, '__spec__', None)
-            if spec is None:
-                search = self.search_paths
-                for index, part in enumerate(module.split('.')):
-                    name = '.'.join(module.split('.')[:index + 1])
-                    try:
-                        spec = (BuiltinImporter.find_spec(name) or FrozenImporter.find_spec(name)
-                                or PathFinder.find_spec(name, search))
-                    except KeyError as error:
-                        # PathFinder's namespace path expects its parent in
-                        # sys.modules. Discovery must not initialize that parent
-                        # just to establish provenance; leave this import opaque.
-                        parent = name.rpartition('.')[0]
-                        if error.args != (parent,) or parent in sys.modules:
-                            raise
-                        spec = None
-                        break
-                    if spec is None:
-                        break
-                    search = spec.submodule_search_locations
-                    if index < len(module.split('.')) - 1 and search is None:
-                        spec = None
-                        break
-            location = getattr(spec, 'origin', None)
-            if location in {'built-in', 'frozen'}:
-                kind = 'interpreter'
-            elif location and location not in {'namespace'}:
-                path = Path(location).resolve()
-                if project_code(str(path), self.cfg.root):
-                    kind = 'project'
-                elif path.is_relative_to(Path(__file__).resolve().parents[1]):
-                    kind = 'engine'
-                elif path.is_relative_to(self.stdlib) and not {'site-packages', 'dist-packages'} & set(path.parts):
-                    kind = 'stdlib'
-                else:
-                    kind = 'external'
-            else:
-                kind = 'unknown'
-            self.origins[module] = kind, location
-        return self.origins[module]
-
-    def import_reason(self, module):
-        kind, location = self.origin(module)
-        if kind in {'project', 'engine'}:
-            return ''
-        if kind in {'stdlib', 'interpreter'} and module in _ENGINE_MODULES:
-            return ''
-        return 'unverified external import ' + module
-
-    def modeled_path_call(self, node, file, bindings, aliases):
-        """The existing Path/read model, bound to the actual stdlib implementation."""
-        name = _name(node.func, aliases)
-        if self.origin('pathlib')[0] != 'stdlib':
-            return False
-        if name in {'pathlib.Path', 'pathlib.PosixPath', 'pathlib.WindowsPath'}:
-            return len(node.args) == 1 and _path(node, file, bindings, aliases) is not None
-        if isinstance(node.func, ast.Attribute):
-            if node.func.attr in {'resolve', 'absolute'}:
-                return not node.args and _path(node, file, bindings, aliases) is not None
-            reading, path = _read_path(node, file, bindings, aliases)
-            if reading and path is not None:
-                return True  # Input tracking (including outside-project refusal) follows below.
-            if node.func.attr == 'read' and isinstance(node.func.value, ast.Call):
-                reading, path = _read_path(node.func.value, file, bindings, aliases)
-                return reading and path is not None
-        return False
-
-    def file(self, relative):
-        if relative not in self.parsed:
-            tree = ast.parse(read_source(self.cfg.root / relative))
-            data = self.unpack(self.files[relative][1]) if relative in self.files else {}
-            definitions = {}
-            def collect(body, prefix=''):
-                for node in body:
-                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                        qual = prefix + node.name
-                        definitions[qual] = node
-                        collect(node.body, qual + '.')
-            collect(tree.body)
-            initial = _Module(set(), calls_only=True).visit(tree)
-            self.initials[relative] = initial
-            self.parsed[relative] = tree, data, definitions, _bindings(initial)
-        return self.parsed[relative]
-
-    def symbol(self, module, qual, seen=()):
-        key = module, qual
-        if key in seen:
-            return None
-        if key not in self.symbols:
-            self.symbols[key] = self._symbol(module, qual, seen)
-        return self.symbols[key]
-
-    def _symbol(self, module, qual, seen=()):
-        key = module, qual
-        ident = self.graph.canonical(module + ':' + qual)
-        if ident in self.nodes:
-            node = self.nodes[ident]
-            return (node['file'], node['qual']) if node['file'] else None
-        stem = module.replace('.', '/')
-        for relative in self.paths(module):
-            if not self.exists(relative) or not (relative.endswith(stem + '.py') or relative.endswith(stem + '/__init__.py')):
-                continue
-            tree, data, definitions, _ = self.file(relative)
-            if qual in definitions:
-                return relative, qual
-            first, dot, rest = qual.partition('.')
-            if first in definitions and isinstance(definitions[first], ast.ClassDef):
-                return relative, first
-            bound = data.get('facts', {}).get('imports', {}).get(first)
-            lazy = data.get('lazy', {}).get(first)
-            if lazy:
-                found = self.symbol(lazy, qual, (*seen, key))
-                if found:
-                    return found
-            if bound:
-                mod, _, name = bound.partition(':')
-                found = self.symbol(mod, '.'.join(p for p in (name, rest) if p), (*seen, key))
-                if found:
-                    return found
-        return None
-
-    def summary(self, relative, qual):
-        """Follow existing map edges and lexical calls; opaque input forces a rerun."""
-        key = relative, qual
-        if key in self.summaries:
-            return self.summaries[key]
-        dependencies, references, reasons = {relative}, set(), set()
-        result = dependencies, references, reasons
-        self.summaries[key] = result
-        if not relative.endswith('.py') or not self.exists(relative):
-            return result
-        try:
-            tree, data, definitions, globals_ = self.file(relative)
-        except (OSError, SyntaxError) as error:
-            reasons.add(f'{relative}: cannot read source ({type(error).__name__})')
-            return result
-        module = self.files.get(relative, ('',))[0]
-        aliases = _aliases(tree, self.cfg.root / relative, self.cfg)
-        aliases.update(data.get('facts', {}).get('imports', {}))
-        aliases.update({name: module + ':' + name for name in definitions if '.' not in name})
-        aliases.update({name: '?' for name in globals_})
-        if qual in {'', '*'}:
-            active = self.initials[relative]
-            if qual == '*':
-                patterns = _patterns(_pytest_options(self.cfg), 'python_functions', ['test'])
-                references.update((relative, name) for name, node in definitions.items()
-                                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
-                                      node.name.startswith(p) or fnmatch.fnmatchcase(node.name, p) for p in patterns))
-        elif qual in definitions:
-            node = definitions[qual]
-            body = [node] if isinstance(node, ast.ClassDef) else node.body
-            active = _Module(set(), calls_only=True).visit(ast.Module(body=body, type_ignores=[]))
-            function = data.get('facts', {}).get('functions', {}).get(qual, {})
-            aliases.update(function.get('local_imports', function.get('imports', {})))
-        else:
-            return result
-        aliases.update(_aliases(active, self.cfg.root / relative, self.cfg))
-        bindings = {**globals_, **_bindings(active)}
-        parameters = set()
-        if qual in definitions and isinstance(definitions[qual], (ast.FunctionDef, ast.AsyncFunctionDef)):
-            args = definitions[qual].args
-            parameters = {arg.arg for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]}
-            bindings.update({name: None for name in parameters})
-            aliases.update({name: '?' for name in parameters})
-        parents = {child: parent for parent in ast.walk(active) for child in ast.iter_child_nodes(parent)}
-        ident = module + (':' + qual if qual and qual != '*' else '')
-        project_calls = set()
-        for edge in self.graph.edges(ident):
-            target = self.nodes.get(edge['dst'])
-            if edge['kind'] in {'calls', 'reads'} and edge['prov'] != 'guessed' and target and target['file']:
-                dependencies.add(target['file'])
-                references.add((target['file'], target['qual'] if edge['kind'] == 'calls' else ''))
-                if edge['kind'] == 'calls' and edge['prov'] == 'resolved':
-                    project_calls.add((edge['line'], target['qual'].rsplit('.', 1)[-1]))
-        def alias_of(node):
-            if isinstance(node, ast.Name):
-                return aliases.get(node.id, '?')
-            if isinstance(node, ast.Attribute):
-                base = alias_of(node.value)
-                return base + ('.' if ':' in base else ':') + node.attr if base != '?' else '?'
-            if isinstance(node, ast.Call) and _name(node.func, aliases) == 'importlib.import_module' and node.args and isinstance(node.args[0], ast.Constant):
-                return node.args[0].value if isinstance(node.args[0].value, str) else '?'
-            return '?'
-        for name, value in _bindings(active).items():
-            aliases[name] = alias_of(value)
-        def resolve(node):
-            alias = alias_of(node)
-            mod, _, name = alias.partition(':')
-            local = ast.unparse(node)
-            found = next(((relative, candidate) for candidate in (qual + '.' + local, local) if candidate in definitions), None)
-            return found or (self.symbol(mod, name) if alias != '?' else None)
-        def execute_reference(node):
-            parent = parents.get(node)
-            if isinstance(parent, ast.Call) and parent.func is node:
-                return True
-            if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                return node in parent.decorator_list or isinstance(parent, ast.ClassDef) and node in parent.bases
-            while parent is not None and not isinstance(parent, (ast.Assign, ast.AnnAssign, ast.Return, ast.Expr)):
-                if isinstance(parent, ast.Call):
-                    return True
-                parent = parents.get(parent)
-            return isinstance(parent, (ast.Assign, ast.AnnAssign)) and any(
-                isinstance(target, ast.Attribute) for target in (parent.targets if isinstance(parent, ast.Assign) else [parent.target]))
-        def add(found):
-            if found:
-                dependencies.add(found[0])
-                references.add(found)
-                _, _, defs, _ = self.file(found[0])
-                node = defs.get(found[1])
-                if isinstance(node, ast.ClassDef):
-                    references.update((found[0], found[1] + '.' + member.name) for member in node.body
-                                      if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)))
-        call_counts = Counter((node.lineno, node.func.attr if isinstance(node.func, ast.Attribute) else _name(node.func, aliases).rsplit('.', 1)[-1])
-                              for node in ast.walk(active) if isinstance(node, ast.Call))
-        for node in ast.walk(active):
-            if isinstance(node, (ast.Name, ast.Attribute)) and isinstance(node.ctx, ast.Load):
-                if execute_reference(node):
-                    add(resolve(node))
-                if _name(node, aliases) in {'os.environ', 'sys.argv', 'sys.stdin'}:
-                    reasons.add(f'{relative}:{node.lineno}: external environment/input')
-            if isinstance(node, (ast.Import, ast.ImportFrom)):
-                modules, _ = _imports(self.cfg.root / relative, self.cfg, ast.Module(body=[node], type_ignores=[]))
-                for imported in modules[:1] if isinstance(node, ast.ImportFrom) else modules:
-                    dependencies.update(self.paths(imported))
-                    references.update((file, '') for file in self.paths(imported) if self.exists(file))
-                    reason = self.import_reason(imported)
-                    if reason:
-                        reasons.add(f'{relative}:{node.lineno}: {reason}')
-                if isinstance(node, ast.ImportFrom) and any(a.name == '*' for a in node.names):
-                    reasons.add(f'{relative}:{node.lineno}: wildcard binding')
-                if isinstance(node, ast.ImportFrom):
-                    for bound in _aliases(ast.Module(body=[node], type_ignores=[]), self.cfg.root / relative, self.cfg).values():
-                        mod, _, wanted = bound.partition(':')
-                        stem = mod.replace('.', '/')
-                        for file in self.paths(mod):
-                            if not self.exists(file) or not (file.endswith(stem + '.py') or file.endswith(stem + '/__init__.py')):
-                                continue
-                            _, metadata, defs, _ = self.file(file)
-                            if '__getattr__' in defs and wanted.partition('.')[0] not in metadata.get('bound', []):
-                                references.add((file, '__getattr__'))
-                            if file == relative:
-                                earlier = [statement for statement in tree.body if statement.lineno < node.lineno]
-                                exports = {statement.name for statement in earlier if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
-                                exports.update(_bindings(ast.Module(body=earlier, type_ignores=[])))
-                                child = mod + '.' + wanted
-                                child_stem = child.replace('.', '/')
-                                submodule = any(self.exists(path) and (path.endswith(child_stem + '.py') or path.endswith(child_stem + '/__init__.py')) for path in self.paths(child))
-                                if wanted not in exports and not submodule:
-                                    reasons.add(f'{relative}:{node.lineno}: unresolved self import')
-                for edge in self.imports.get((relative, node.lineno), ()):
-                    target = self.nodes.get(edge['dst'])
-                    if edge['prov'] == 'unknown' or target and not target['file']:
-                        reasons.add(f'{relative}:{node.lineno}: unresolved import')
-            if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Delete)):
-                targets = node.targets if isinstance(node, (ast.Assign, ast.Delete)) else [node.target]
-                for target in targets:
-                    if isinstance(target, (ast.Attribute, ast.Subscript)):
-                        imported = alias_of(target.value).partition(':')[0]
-                        if imported != '?' and self.origin(imported)[0] != 'project':
-                            reasons.add(f'{relative}:{node.lineno}: external binding mutation')
-            if not isinstance(node, ast.Call):
-                continue
-            name = _name(node.func, aliases)
-            raw = ast.unparse(node.func)
-            short = node.func.attr if isinstance(node.func, ast.Attribute) else name.rsplit('.', 1)[-1]
-            found = resolve(node.func)
-            add(found)
-            project_call = found is not None or (node.lineno, short) in project_calls and call_counts[node.lineno, short] == 1
-            modeled_path = self.modeled_path_call(node, self.cfg.root / relative, bindings, aliases)
-            local_import = name == 'importlib.import_module' and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str) and self.origin(node.args[0].value)[0] == 'project'
-            imported = alias_of(node.func).partition(':')[0]
-            if not project_call and not modeled_path and not local_import:
-                if imported != '?' and self.origin(imported)[0] != 'project':
-                    reasons.add(f'{relative}:{node.lineno}: unverified external call {name or raw}')
-                if isinstance(node.func, ast.Attribute):
-                    value = node.func.value
-                    literal = isinstance(value, (ast.Constant, ast.List, ast.Tuple, ast.Dict, ast.Set))
-                    if not literal:
-                        reasons.add(f'{relative}:{node.lineno}: unresolved receiver call')
-            if name in {'os.getenv', 'getenv', 'input', 'eval', 'exec', 'builtins.eval', 'builtins.exec'}:
-                reasons.add(f'{relative}:{node.lineno}: dynamic input/execution')
-            if name in {'globals', 'locals', 'vars'} or short in {'getfixturevalue', 'getattr', 'setattr', 'delattr'}:
-                reasons.add(f'{relative}:{node.lineno}: dynamic namespace/callable')
-            if short in {'import_module', '__import__'}:
-                if local_import:
-                    files = self.paths(node.args[0].value)
-                    dependencies.update(files)
-                    references.update((file, '') for file in files if self.exists(file))
-                else:
-                    reasons.add(f'{relative}:{node.lineno}: unresolved import')
-            if short in {'run', 'Popen', 'check_call', 'check_output', 'system', 'execv', 'execve'} and not project_call:
-                reasons.add(f'{relative}:{node.lineno}: child/process input')
-            reading, value = _read_path(node, self.cfg.root / relative, bindings, aliases)
-            if reading and not project_call:
-                value = (self.cfg.root / value).resolve() if value is not None else None
-                if value is None or not value.is_relative_to(self.cfg.root):
-                    reasons.add(f'{relative}:{node.lineno}: dynamic or external file')
-                else:
-                    dependencies.add(self.cfg.rel(value))
-            if isinstance(node.func, (ast.Call, ast.Subscript)) or isinstance(node.func, ast.Name) and aliases.get(node.func.id) == '?' and not project_call:
-                reasons.add(f'{relative}:{node.lineno}: unresolved callback')
-            if name.startswith('sys.path.') or name in {'site.addsitedir', 'os.chdir', 'os.getcwd'}:
-                reasons.add(f'{relative}:{node.lineno}: dynamic location/import path')
-        references.discard(key)
-        return result
-
-    def record(self, relative):
-        pending, seen, files, reasons = [(relative, '*')], set(), {'pyproject.toml'}, set()
-        path = self.cfg.root / relative
-        try:
-            test_tree = self.file(relative)[0]
-        except (OSError, SyntaxError):
-            test_tree = ast.Module(body=[], type_ignores=[])
-            reasons.add(f'{relative}: source could not be collected')
-        fixture_names = {arg.arg for node in ast.walk(test_tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                         for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]}
-        for node in ast.walk(test_tree):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'usefixtures':
-                fixture_names.update(arg.value for arg in node.args if isinstance(arg, ast.Constant) and isinstance(arg.value, str))
-                if any(not isinstance(arg, ast.Constant) or not isinstance(arg.value, str) for arg in node.args):
-                    reasons.add(f'{relative}:{node.lineno}: dynamic fixture declaration')
-        fixture_sources = {relative}
-        for parent in (path.parent, *path.parent.parents):
-            if not parent.is_relative_to(self.cfg.root):
-                break
-            file = self.cfg.rel(parent / 'conftest.py')
-            pending.append((file, ''))
-            if self.exists(file):
-                fixture_sources.add(file)
-        registry, visited_sources = {}, set()
-        while fixture_sources:
-            file = fixture_sources.pop()
-            if file in visited_sources:
-                continue
-            visited_sources.add(file)
-            try:
-                tree, data, definitions, bindings = self.file(file)
-            except (OSError, SyntaxError):
-                reasons.add(f'{file}: fixture source could not be collected')
-                continue
-            aliases = _aliases(tree, self.cfg.root / file, self.cfg)
-            candidates = [(file, qual, node, node.name) for qual, node in definitions.items() if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
-            for imported, bound in aliases.items():
-                module, _, qual = bound.partition(':')
-                found = self.symbol(module, qual) if qual else None
-                if found:
-                    _, _, defs, _ = self.file(found[0])
-                    node = defs.get(found[1])
-                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                        candidates.append((*found, node, imported))
-            plugins = bindings.get('pytest_plugins')
-            if plugins is not None:
-                try:
-                    names = ast.literal_eval(plugins)
-                    names = [names] if isinstance(names, str) else names
-                    for module in names:
-                        matches = [p for p in self.paths(module) if self.exists(p)]
-                        if not matches and not module.startswith('flowguard.'):
-                            reasons.add(f'{file}: external pytest plugin {module}')
-                        fixture_sources.update(matches)
-                        pending.extend((p, '') for p in matches)
-                except (ValueError, TypeError):
-                    reasons.add(f'{file}: dynamic pytest plugins')
-            for owner, qual, node, exposed in candidates:
-                owner_tree, _, _, _ = self.file(owner)
-                owner_aliases = _aliases(owner_tree, self.cfg.root / owner, self.cfg)
-                for mark in node.decorator_list:
-                    call = mark if isinstance(mark, ast.Call) else None
-                    name = _name(call.func if call else mark, owner_aliases)
-                    if name not in {'pytest.fixture', 'fixture'}:
-                        continue
-                    public = next((k.value.value for k in call.keywords if k.arg == 'name' and isinstance(k.value, ast.Constant)), exposed) if call else exposed
-                    auto = next((not isinstance(k.value, ast.Constant) or bool(k.value.value) for k in call.keywords if k.arg == 'autouse'), False) if call else False
-                    registry.setdefault(public, []).append((owner, qual, [arg.arg for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]]))
-                    if auto:
-                        fixture_names.add(public)
-        selected_fixtures = set()
-        while fixture_names:
-            name = fixture_names.pop()
-            if name in selected_fixtures:
-                continue
-            selected_fixtures.add(name)
-            for file, qual, required in registry.get(name, ()):
-                pending.append((file, qual))
-                fixture_names.update(required)
-        while pending:
-            scope = pending.pop()
-            if scope in seen:
-                continue
-            seen.add(scope)
-            dependencies, references, unknown = self.summary(*scope)
-            files.update(dependencies)
-            reasons.update(unknown)
-            pending.extend(references)
-            if scope[1]:
-                pending.append((scope[0], ''))
-        record = {file: self.now('file:' + file) for file in sorted(files)}
-        record['<engine>'] = self.now('engine:')
-        if reasons:
-            record['<unresolved>'] = sorted(reasons)
-        return record
-
-
 def test_dependencies(cfg, graph, now=None):
-    """Current default Python tests, with shared module/active-source dependencies."""
-    context = _TestDependencies(cfg, graph, now or Now(cfg, graph))
-    return {file: context.record(file) for file in sorted(test_files(cfg, graph))}
-
-
-def trace_signatures(cfg, graph, tests):
-    """Version a real recording by its test, known dependencies and observed code.
-
-    Unknown runtime inputs remain an explicit boundary, rather than destroying a
-    useful code-navigation clue or licensing safe result reuse.
-    """
-    if not tests:
-        return
-    now = Now(cfg, graph)
-    static = test_dependencies(cfg, graph, now)
-    mapped = {row[0] for row in graph.con.execute('SELECT id FROM node')}
-    shared = {}
-    for test in tests:
-        file = test.partition('::')[0]
-        known = static.get(file, {file: now('file:' + file), '<engine>': now('engine:')})
-        if file not in shared:
-            from .cache import standard_dependencies
-            shared[file] = standard_dependencies(known)
-        observed = {}
-        for node, source, encoded in graph.con.execute('SELECT node,file,call_lines FROM footprint WHERE test=?', (test,)):
-            if node in mapped:
-                observed['node:' + node] = now('node:' + node)
-            paths = [source, *(path for path, line in json.loads(encoded or '[]'))]
-            for relative in paths:
-                path = (cfg.root / relative).resolve()
-                if path.is_relative_to(cfg.root):
-                    relative = cfg.rel(path)
-                    observed['file:' + relative] = now('file:' + relative)
-        yield test, dict(static=shared[file], observed=observed, unknown=file not in static or '<unresolved>' in known)
-
-
-def trace_changes(saved, now):
-    if not saved or not saved.get('groups'):
-        return ['no recorded dependency signature']
-    return [key for group in saved['groups'] for key in now.trace_changes(group)]
+    now = now or Now(cfg, graph)
+    return {file: _file_dependencies(cfg, graph, {file}, now) for file in sorted(test_files(cfg, graph))}

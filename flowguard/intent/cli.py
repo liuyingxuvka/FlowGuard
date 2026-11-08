@@ -325,25 +325,7 @@ def _unmodelled(index, summary, *, root=None):
 
 
 def _observation_lines(cfg, graph, data, node):
-    """Keep recorded source navigation equally honest for anchored functions."""
-    tables = {r[0] for r in graph.con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    lines, observed = [], False
-    if 'footprint' in tables:
-        from .deps import Now, trace_changes
-        now = Now(cfg, graph)
-        for test, fingerprint, calls in graph.con.execute(
-                'SELECT test,fp,call_lines FROM footprint WHERE node=?', (node['id'],)):
-            observed = True
-            saved = data['traces'].get(test)
-            if fingerprint != node['fp'] or trace_changes(saved, now):
-                lines.append(f'historical observation: {test}; source/test/known dependency changed or unverified -> run check --all')
-            else:
-                lines.append(f'inputs: last observed in {test} ' + (calls or '') + '; current code/test/known dependencies match')
-                if saved.get('unknown'):
-                    lines.append('runtime input boundary: dynamic data was not verified; this is a navigation clue, not a result proof')
-    if not observed:
-        lines.append('not observed in current test records -> run check --all for a complete recording')
-    return lines
+    return ['source navigation: current Map identity; runtime readings are historical and available for declared anchors']
 
 
 def show(cfg, query=None, *, draft=None, gaps=None, full=False):
@@ -587,63 +569,43 @@ def _check_selection(cfg: Config, model: object, data: dict, everything: bool, s
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         now = deps.Now(cfg, graph)
         selected = set(model.rules) if everything else set(deps.affected(data, model, now))
-        flows = {identifier for identifier in model.flows
-                 if everything or identifier not in data['results'] or identifier not in data['deps']
-                 or deps.stale(data['deps'][identifier], now)}
-        impact = graph.impact(since=since) if since or graph.stats.get('changed') else dict(files=[], dirty=[], tests=[])
+        flows = {identifier for identifier in [*model.flows, *model.states, *model.structures, *model.anchor_distincts]
+                 if everything or not deps.reusable(data, identifier, now)}
+        selected.update(identifier for identifier, rule in model.rules.items() if not {
+            model.file_of[identifier] + '::' + name for name in model.items_of(rule)
+        } <= data['results'].get(identifier, {}).get('items', {}).keys())
+        records = deps.test_dependencies(cfg, graph, now)
+        test_scope = deps.test_scope(cfg)
+        def ordinary_file(file):
+            path = (cfg.root / file).resolve()
+            return test_scope(file) and not path.is_relative_to(cfg.intent) and path != sentinel
+        ordinary = set()
+        for file, record in records.items():
+            if not ordinary_file(file):
+                continue
+            readings = {nodeid: reading for nodeid, reading in data['tests'].items() if nodeid.partition('::')[0] == file}
+            full = data['test_collection'].get(file, {})
+            if (everything or '<unresolved>' in record or cache.test_signature(record) != data['test_deps'].get(file)
+                    or not full or not full['tests'] or not set(full['tests']) <= readings.keys()
+                    or any(reading['outcome'] != 'passed' for reading in readings.values())):
+                ordinary.add(file)
+        # An opaque test may change shared inputs for another test or rule.
+        if any('<unresolved>' in record for file, record in records.items() if ordinary_file(file)):
+            ordinary.update(file for file in records if ordinary_file(file))
+            selected.update(model.rules)
+            flows.update([*model.flows, *model.states, *model.structures, *model.anchor_distincts])
         if since:
-            dirty, files = set(impact['dirty']), set(impact['files'])
-            selected.update(rid for rid, saved in data['deps'].items() if rid in model.rules and any(
+            impact = graph.impact(since=since)
+            ordinary.update(file for file in impact['tests'] if ordinary_file(file))
+            files, dirty = set(impact['files']), set(impact['dirty'])
+            selected.update(identifier for identifier, saved in data['deps'].items() if identifier in model.rules and any(
                 key.startswith('node:') and key[5:] in dirty
                 or key.startswith(('file:', 'module:')) and key.partition(':')[2] in files
                 for key in saved.get('dependencies', {})))
-        selected.update(rid for rid, rule in model.rules.items() if not {
-            model.file_of[rid] + '::' + name for name in model.items_of(rule)
-        } <= data['results'].get(rid, {}).get('items', {}).keys())
-        # Reuse the dependency owner's same-key and uses closure, including --since seeds.
-        seeded = dict(data, results={rid: value for rid, value in data['results'].items() if rid not in selected})
-        selected = set(deps.affected(seeded, model, now))
-        ordinary = set()
-        for identifier in flows:
-            for result in data['results'].get(identifier, {}).get('items', {}).values():
-                ordinary.update(test.partition('::')[0] for test in result.get('drivers', ()))
-        current_test_scope = deps.test_scope(cfg)
-        def ordinary_file(file):
-            path = (cfg.root / file).resolve()
-            return current_test_scope(file) and not path.is_relative_to(cfg.intent) and path != sentinel
-        by_file, unrecorded = {}, set()
-        for nodeid, reading in data['tests'].items():
-            file = nodeid.partition('::')[0]
-            by_file.setdefault(file, []).append(reading)
-            if nodeid not in data['traces']:
-                unrecorded.add(file)
-        test_records = deps.test_dependencies(cfg, graph, now)
-        ordinary.update(file for file, record in test_records.items()
-                        if '<unresolved>' in record or cache.test_signature(record) != data['test_deps'].get(file))
-        tables = {row[0] for row in graph.con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if 'footprint' in tables:
-            for (test,) in graph.con.execute('SELECT DISTINCT test FROM footprint'):
-                if test in data['tests'] and ordinary_file(test.partition('::')[0]) and deps.trace_changes(data['traces'].get(test), now):
-                    ordinary.add(test.partition('::')[0])
-        ordinary.update(file for file in impact['tests'] if ordinary_file(file))
-        for file, readings in by_file.items():
-            if ordinary_file(file) and (file not in test_records or file in unrecorded):
-                ordinary.add(file)
-        for file in test_records:
-            if ordinary_file(file):
-                readings = by_file.get(file, [])
-                if not readings or any(reading['outcome'] == 'failed' for reading in readings):
-                    ordinary.add(file)
         guards = history._guards({cfg.rel(path): path.read_text(encoding='utf-8-sig')
                                  for path in (cfg.root / 'tests').rglob('*.py')})
-        rule_markers = {ast.dump(ast.Constant(rid), include_attributes=False) for rid in model.rules}
-        for (file, name), (markers, _) in guards.items():
-            if rule_markers.intersection(markers) and ordinary_file(file):
-                readings = [value for nodeid, value in data['tests'].items()
-                            if nodeid.partition('::')[0] == file and _test_name(nodeid) == name]
-                if not readings or any(value['outcome'] != 'passed' for value in readings):
-                    ordinary.add(file)
-    return selected, flows, ordinary, test_records, guards, rule_markers
+        rule_markers = {ast.dump(ast.Constant(identifier), include_attributes=False) for identifier in model.rules}
+    return selected, flows, ordinary, records, guards, rule_markers
 
 
 # flowguard: event CHECK_PYTEST(command: list, root: Path, output: Path, stream: bool)
@@ -733,12 +695,12 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     declared = set(model.declared_items())
     selected, flows, ordinary, test_records, guards, rule_markers = _check_selection(
         cfg, model, data, everything, since, sentinel)
-    extras = set(model.states) | set(model.structures) | set(model.anchor_distincts) | flows
+    extras = flows
     attempt = data.get('attempt') or {}
     failed_collection = (attempt.get('sentinel') is not None or attempt.get('collected')) and (
         attempt.get('missing') or attempt.get('sentinel') != 'ok')
     run = everything or selected or extras or ordinary or model.errors or failed_collection or not data.get('collection')
-    executed, cut = set(), set()
+    executed = set()
     opaque_tests = {file for file in ordinary if file not in test_records or '<unresolved>' in test_records[file]}
     process_code = 0
     if run:
@@ -746,50 +708,16 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
         if stream_all:
             scope = ': running full pytest'
             print(f'FlowGuard check --all{scope}; live output: {output}', flush=True)
-        original = data
-        remaining = set(selected)
-        staged = not everything and bool(data['collection']) and all(
-            rid in data['results'] for rid in model.rules) and not model.errors
-        output_parts, fresh_contracts, first_started = [], {}, time.time()
-        while True:
-            ready = {rid for rid in remaining if not set(model.rules[rid].uses) & remaining} if staged else remaining
-            ready = ready or remaining
-            batch = list(command)
-            if not everything:
-                targets = {cfg.rel(cfg.intent), cfg.rel(sentinel), *ordinary}
-                batch += ['--flowguard-rules=' + ','.join(sorted(ready | extras)), *sorted(targets)]
-            started = time.time()
-            process = _run_check_pytest(batch, cfg.root, output, stream_all)
-            process_code = process_code or process.returncode
-            output_parts.append(process.stdout + process.stderr)
-            data = cache.read(cfg)
-            executed.update(ready)
-            if not model.declared_items() and everything:
-                break
-            if not data.get('attempt') or data['attempt'].get('stamp', 0) < started:
-                break
-            remaining -= ready
-            for rid in ready:
-                for result in data['results'].get(rid, {}).get('items', {}).values():
-                    if 'own_contract' in result:
-                        fresh_contracts[rid] = result['own_contract']
-            if not remaining:
-                break
-            with closing(build(cfg.root, roots=cfg.roots)) as graph:
-                now = deps.Now(cfg, graph)
-                keep = set(deps.contract_cut(original, model, now, fresh_contracts, remaining))
-                for rid in remaining - keep:
-                    saved = original['deps'][rid]
-                    updated = dict(saved, dependencies={key: now(key) for key in saved['dependencies']})
-                    cache.save_dependencies(graph.con, {rid: updated})
-                graph.con.commit()
-            cut.update(remaining - keep)
-            remaining = keep
-            if not remaining:
-                break
-            ordinary, extras = set(), set()
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text('\n'.join(output_parts), encoding='utf-8')
+        batch = list(command)
+        if not everything:
+            targets = {cfg.rel(cfg.intent), cfg.rel(sentinel), *ordinary}
+            batch += ['--flowguard-rules=' + ','.join(sorted(selected | extras)), *sorted(targets)]
+        started = time.time()
+        process = _run_check_pytest(batch, cfg.root, output, stream_all)
+        process_code = process.returncode
+        output_parts = [process.stdout + process.stderr]
+        data = cache.read(cfg)
+        executed.update(selected)
         if not model.declared_items():
             lines = [f'FlowGuard check: full pytest exit {process_code}; details: {output}']
             lines.extend('red ' + _action(message) for message in historical)
@@ -807,8 +735,10 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
                 group['items'] = {item: value for item, value in group['items'].items() if item in declared}
         if process_code == 0:
             completed = {file: record for file, record in test_records.items()
-                         if any(nodeid.partition('::')[0] == file and reading['stamp'] >= first_started
-                                for nodeid, reading in data['tests'].items())}
+                         if (data['test_collection'].get(file, {}).get('stamp', 0) >= started
+                             and data['test_collection'][file]['tests']
+                             and all(data['tests'].get(nodeid, {}).get('outcome') == 'passed'
+                                     for nodeid in data['test_collection'][file]['tests']))}
             with closing(build(cfg.root, roots=cfg.roots)) as graph:
                 cache.save_test_dependencies(graph.con, completed)
                 graph.con.commit()
@@ -847,8 +777,6 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     data['check_scope'] = ('deep probes and mutation-survival enabled; ' if deep else 'deep probes and mutation-survival not run (--deep); ') + f'{len(executed)} rules rerun, {len(model.rules) - len(executed)} reused; ' + (
         'all tests (previous run incomplete)' if retry_incomplete else 'all tests (initial baseline)' if initial_baseline
         else 'all tests (--all)' if everything else f'{len(test_records)} test files considered')
-    if cut:
-        data['check_scope'] += f'; {len(cut)} unchanged upper contracts'
     if opaque_tests and not everything:
         data['check_scope'] += f'; {len(opaque_tests)} test files rerun for unresolved imports/data/children'
     report(render(cfg, data, check=True))

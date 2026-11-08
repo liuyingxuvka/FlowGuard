@@ -168,7 +168,7 @@ def test_same_sqlite_keeps_latest_failed_attempt_and_previous_complete_results(t
     assert result['deps']['LIMIT']['dependencies']['file:policy.txt'] == 'old'
 
 
-def test_unchanged_and_unrelated_function_body_do_not_rerun(tmp_path):
+def test_unchanged_reuses_but_same_file_body_changes_invalidate(tmp_path):
     root, cfg, module = fixture(tmp_path)
     model, graph, saved, result = execute(cfg)
     assert not saved['reasons']
@@ -177,7 +177,7 @@ def test_unchanged_and_unrelated_function_body_do_not_rerun(tmp_path):
     path.write_text(path.read_text().replace('return x + 1', 'return x + 99'))
     graph.close()
     graph = build(root)
-    assert deps.stale(saved, deps.Now(cfg, graph)) == []
+    assert 'file:' + module + '.py' in deps.stale(saved, deps.Now(cfg, graph))
     graph.close()
 
 
@@ -216,11 +216,12 @@ def test_transitive_test_helper_is_hashed(tmp_path):
 def test_module_initializer_function_is_part_of_module_identity(tmp_path):
     path = tmp_path / 'module.py'
     path.write_text('def compute(): return 3\nLIMIT=compute()\ndef unused(): return 1\n')
-    before = deps.module_digest(path)
+    before = deps.file_digest(path)
     path.write_text(path.read_text().replace('unused(): return 1', 'unused(): return 2'))
-    assert deps.module_digest(path) == before
+    changed = deps.file_digest(path)
+    assert changed != before, 'file-grained identity includes every function body'
     path.write_text(path.read_text().replace('compute(): return 3', 'compute(): return 4'))
-    assert deps.module_digest(path) != before
+    assert deps.file_digest(path) != changed
 
 
 def test_rule_and_row_removal_compare_git_not_last_cache(tmp_path):
@@ -332,7 +333,8 @@ def test_unresolved_data_paths_do_not_reuse_a_green_result(tmp_path):
     model = load(cfg)
     graph = build(root)
     saved = deps.record(cfg, model, model.rules['LIMIT'], [], graph)
-    assert any('dynamic or external data read' in reason for reason in saved['reasons'])
+    assert saved['reasons']
+    assert deps.stale(saved, deps.Now(cfg, graph)), 'an unclosed data input cannot reuse a green result'
     assert deps.stale(saved, deps.Now(cfg, graph)) == ['no complete reusable result']
     graph.close()
 
@@ -526,40 +528,6 @@ def test_an_unresolved_import_remains_unknown_when_it_can_execute(tmp_path, wher
         assert '<unresolved>' in deps.test_dependencies(cfg, graph)['tests/test_actual.py']
     result = run(root, 'tests/test_actual.py')
     assert result.returncode != 0 and 'no_such_export' in result.stdout + result.stderr
-
-
-def test_trace_storage_shares_large_static_sets_and_keeps_old_refs_stale(tmp_path):
-    root = tmp_path / 'normalized'
-    root.mkdir()
-    source = root / 'app.py'
-    source.write_text('VALUE = 1\n')
-    cfg = load_config(root)
-    shared = {'file:absent/dep' + str(n) + '.py': 'gone' for n in range(5000)}
-    shared['file:app.py'] = deps.file_digest(source)
-    tests = ['tests/test_actual.py::test_case[' + str(n) + ']' for n in range(120)]
-    with closing(build(root)) as graph:
-        cache.save_trace_signatures(graph.con, ((test, dict(static=shared, observed={}, unknown=False)) for test in tests))
-        graph.con.commit()
-        first = cache.read(cfg)['traces']
-        assert len(first) == len(tests)
-        assert len(json.dumps(first)) < 100_000
-        current_snapshot = deps.Now(cfg, graph)
-        assert all(not deps.trace_changes(record, current_snapshot) for record in first.values())
-        cache.save_trace_signatures(graph.con, ((test, dict(static=shared, observed={}, unknown=False)) for test in tests))
-        graph.con.commit()
-        size = graph.con.execute('PRAGMA page_count').fetchone()[0] * graph.con.execute('PRAGMA page_size').fetchone()[0]
-        repeated_json = len(json.dumps(dict(dependencies=shared))) * len(tests)
-        assert size < repeated_json // 10
-        source.write_text('VALUE = 2\n')
-        changed_snapshot = deps.Now(cfg, graph)
-        assert all(deps.trace_changes(record, changed_snapshot) for record in first.values())
-        new = dict(shared, **{'file:app.py': deps.file_digest(source)})
-        cache.save_trace_signatures(graph.con, {tests[0]: dict(static=new, observed={}, unknown=False)}, drop=tests[1:])
-        graph.con.commit()
-        current = cache.read(cfg)['traces']
-        assert list(current) == [tests[0]]
-        assert not deps.trace_changes(current[tests[0]], deps.Now(cfg, graph))
-        assert deps.trace_changes(first[tests[0]], deps.Now(cfg, graph)), 'a reclaimed group cannot become a different fresh identity'
 
 
 def test_legacy_trace_json_is_not_loaded_or_treated_as_current(tmp_path):

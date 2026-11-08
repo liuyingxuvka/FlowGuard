@@ -178,12 +178,13 @@ def _source_engine(model):
     # deselection remain real; only FlowGuard's unrelated outer-model observer
     # recognizes its own private runtime context.
     from flowguard.intent.runtime import _PRIVATE
-    with calibration.session(runtime,items,nextitem=request.node):
-        token=_PRIVATE.set(True)
-        try:
-            request.config.hook.pytest_collection_modifyitems(
-                session=request.session,config=request.config,items=items)
-        finally:_PRIVATE.reset(token)
+    if items:
+        with calibration.session(runtime,items,nextitem=request.node):
+            token=_PRIVATE.set(True)
+            try:
+                request.config.hook.pytest_collection_modifyitems(
+                    session=request.session,config=request.config,items=items)
+            finally:_PRIVATE.reset(token)
     scopes.enter_context(calibration.session(runtime,items,nextitem=request.node))
     scopes.enter_context(_execution_session(cfg.root))
     from flowguard.intent.calibration import _prepare, _prepare_scenario

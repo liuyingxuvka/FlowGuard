@@ -295,7 +295,7 @@ class MapHandle:
     # ---- other homes ---------------------------------------------------------------
     def other_homes(self, ident: str, k: int = 5, *, words: str = "", decides=None,
                     not_same=(), weak: bool = False, sites=None) -> list[dict]:
-        """One static decision-site query. Words re-rank; candidates never execute.
+        """One static decision-site query. Candidates never execute.
 
         `sites` names the rule's realized sites as (node, line, text); without
         them the home's own sites are used. `search_homes` also returns whether
@@ -348,9 +348,7 @@ class MapHandle:
                 prior['old_values'] = sorted({g['value'] for g in matched})
                 prior['identity_shared'] = any(g['identity'] and any('sg:id:'+g['identity'] in own for own in row_sigs) for g in matched)
                 prior['reason'] = 'stale copy? still matches old '+', '.join(prior['old_values'])+' -> update, bind or distinct; '+candidate['reason']
-        ranked = sorted(found.values(), key=lambda row: (row['strength'] != 'strong', -row['score'], row['id']))
-        if k is not None:
-            ranked = [row for strength in ('strong','weak') for row in [c for c in ranked if c['strength'] == strength][:k]]
+        ranked = homes.ranked(found.values(), k)
         return dict(candidates=ranked, total=len(found), searched=bool(searched), anchors=anchors,
                     searched_anchors=searched, historical_sites=historical,
                     reason='' if searched else 'not searched: no readable decision sites -> bind the real decision function')

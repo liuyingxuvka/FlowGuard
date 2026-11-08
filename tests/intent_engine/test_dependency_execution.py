@@ -33,11 +33,11 @@ def test_qualified_submodule_does_not_execute_each_ancestor_lazy_hook(tmp_path, 
         'pkg/sub.py': 'def value(): return 3\n',
     }, 'from pkg.sub import value', 'value() == 3')
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
-    assert '<unresolved>' not in recorded(cfg)
+    assert '<unresolved>' in recorded(cfg)  # Whole parent initializer is conservative.
     assert cli_fixture.check(cfg, everything=True) == 0
     selected = calls(monkeypatch)
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
-    assert cli_fixture.check(cfg) == 0 and not selected
+    assert cli_fixture.check(cfg) == 0 and selected
 
 
 @pytest.mark.parametrize('where', ['parent-lazy', 'parent-initializer', 'leaf-lazy'])
@@ -63,11 +63,11 @@ def test_registering_a_callable_literal_keeps_identity_without_executing_its_bod
     body = 'import os\ndef effect(): return os.getenv("FG_N3_VALUE", "alpha")\nREGISTRY={"effect": effect}\ndef value(): return 3\n'
     root, cfg = prepared(tmp_path, {'owner.py': body}, 'from owner import value', 'value() == 3')
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
-    assert '<unresolved>' not in recorded(cfg)
+    assert '<unresolved>' in recorded(cfg)  # No execution-view interpreter to exclude the body.
     assert cli_fixture.check(cfg, everything=True) == 0
     selected = calls(monkeypatch)
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
-    assert cli_fixture.check(cfg) == 0 and not selected
+    assert cli_fixture.check(cfg) == 0 and selected
     (root / 'owner.py').write_text(body.replace('return 3', 'return 4'))
     assert cli_fixture.check(cfg) == 1 and selected
 
@@ -113,12 +113,12 @@ def test_lambda_registration_and_execution_have_separate_scopes(tmp_path, monkey
     root, cfg = prepared(tmp_path, {'owner.py': body}, 'from owner import value',
                          'value() == ' + ('"alpha"' if invoke else '3'))
     monkeypatch.setenv('FG_N3_VALUE', 'alpha')
-    assert ('<unresolved>' in recorded(cfg)) is invoke
+    assert '<unresolved>' in recorded(cfg)
     assert cli_fixture.check(cfg, everything=True) == 0
     selected = calls(monkeypatch)
     monkeypatch.setenv('FG_N3_VALUE', 'beta')
     assert cli_fixture.check(cfg) == (1 if invoke else 0)
-    assert bool(selected) is invoke
+    assert selected  # Both branches rerun; their independent expected outcomes still differ.
 
 
 def test_stdlib_method_rebinding_is_not_a_harmless_function_registration(tmp_path, monkeypatch):

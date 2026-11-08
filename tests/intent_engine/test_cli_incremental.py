@@ -163,7 +163,7 @@ def test_static_transitive_helper_and_conftest_content_are_test_dependencies(tmp
     # closed; adding unrelated code must not expand the selected set or rules.
     assert len(observed) == 1
     baseline = list(observed[0])
-    assert '--flowguard-rules=' in baseline
+    assert '--flowguard-rules=LIMIT' in baseline, 'an opaque fixture must recheck the shared rule scope'
     observed.clear()
     (root / 'unrelated.py').write_text('UNRELATED = 123\n')
     assert cli_fixture.check(cfg) == 0
@@ -175,7 +175,7 @@ def test_static_transitive_helper_and_conftest_content_are_test_dependencies(tmp
     assert cache.read(cfg)['tests']['tests/test_ordinary.py::test_actual']['outcome'] == 'failed'
 
 
-def test_unresolved_import_reruns_only_its_test_file(tmp_path, monkeypatch):
+def test_unresolved_import_rechecks_shared_scope_in_one_session(tmp_path, monkeypatch):
     root, cfg = project(tmp_path)
     cli.init(cfg)
     (root / 'tests/test_static.py').write_text('def test_static(): assert True\n')
@@ -185,7 +185,8 @@ def test_unresolved_import_reruns_only_its_test_file(tmp_path, monkeypatch):
     assert cli_fixture.check(cfg) == 0
     assert len(observed) == 1
     assert 'tests/test_dynamic.py' in observed[0]
-    assert 'tests/test_static.py' not in observed[0]
+    assert 'tests/test_static.py' in observed[0], 'opaque input may affect another test in the shared Session'
+    assert '--flowguard-rules=LIMIT' in observed[0]
 
 
 def test_child_only_source_change_is_rechecked_without_global_footprints(tmp_path):
@@ -212,7 +213,7 @@ def test_all_runs_real_pytest_even_without_intent(tmp_path):
     assert cli_fixture.check(load_config(tmp_path), everything=True) == 1
 
 
-def test_real_pytest_contract_summary_cuts_unchanged_parent_and_caches_the_cut(tmp_path, monkeypatch, capsys):
+def test_changed_dependency_rechecks_the_parent_in_one_real_pytest_session(tmp_path, monkeypatch, capsys):
     from test_composition import project as composed, CODE
     model, _, module = composed(tmp_path)
     cfg = model.cfg
@@ -226,13 +227,18 @@ def test_real_pytest_contract_summary_cuts_unchanged_parent_and_caches_the_cut(t
     observed = calls(monkeypatch)
     assert cli_fixture.check(cfg) == 0
     assert len(observed) == 1
-    # The anchor migration also verifies its real observation Flow; CHECKOUT stays reused.
-    assert '--flowguard-rules=STANDING,STANDING_CHECKOUT' in observed[0]
-    assert cache.read(cfg)['results']['CHECKOUT'] == cached['results']['CHECKOUT']
+    # File-grained input identity includes the child's source for CHECKOUT too.
+    # An old own_contract never cuts that changed dependency out of this Session.
+    assert '--flowguard-rules=CHECKOUT,STANDING,STANDING_CHECKOUT' in observed[0]
+    checked = cache.read(cfg)
+    assert checked['attempt']['stamp'] > cached['attempt']['stamp']
+    assert checked['results']['CHECKOUT']['items']
     assert capsys.readouterr().out == ''
     observed.clear()
     assert cli_fixture.check(cfg) == 0
-    assert observed == []
+    assert len(observed) == 1, 'the unclosed scenario must run rather than reuse an old partial result'
+    assert '--flowguard-rules=CHECKOUT,STANDING,STANDING_CHECKOUT' in observed[0]
+    observed.clear()
     assert cli_fixture.check(cfg, everything=True) == 0
     assert len(observed) == 1 and not any(str(arg).startswith('--flowguard-rules=') for arg in observed[0])
 
@@ -251,7 +257,7 @@ def test_states_are_rechecked_even_without_any_decision_rules(tmp_path):
 
 
 @pytest.mark.parametrize('changed', ['source', 'helper', 'test'])
-def test_draft_call_sites_are_current_only_while_known_source_signatures_match(tmp_path, capsys, changed):
+def test_draft_navigation_does_not_claim_an_ordinary_trace_is_a_current_reading(tmp_path, capsys, changed):
     root, cfg = project(tmp_path)
     cli.init(cfg)
     helper = root / 'support.py'
@@ -263,17 +269,19 @@ def test_draft_call_sites_are_current_only_while_known_source_signatures_match(t
     target = root.name + ':accept'
     assert cli.show(cfg, draft=target) == 0
     current = capsys.readouterr().out
-    assert 'inputs: last observed in tests/test_actual.py::test_actual' in current
-    assert 'current code/test/known dependencies match' in current
+    assert 'source navigation: current Map identity' in current
+    assert 'inputs: last observed' not in current
+    assert not cache.read(cfg)['traces']
     path = root / (root.name + '.py') if changed == 'source' else helper if changed == 'helper' else test
     path.write_text(path.read_text() + '\n# changed version\n')
     assert cli.show(cfg, draft=target) == 0
     stale = capsys.readouterr().out
-    assert 'historical observation:' in stale
+    assert 'source navigation: current Map identity' in stale
     assert 'inputs: last observed' not in stale
+    assert not cache.read(cfg)['traces']
 
 
-def test_unrecorded_direct_pytest_invalidates_old_draft_footprints(tmp_path, capsys):
+def test_direct_pytest_preserves_its_real_reading_without_a_draft_footprint(tmp_path, capsys):
     root, cfg = project(tmp_path)
     cli.init(cfg)
     test = root / 'tests/test_actual.py'
@@ -281,13 +289,18 @@ def test_unrecorded_direct_pytest_invalidates_old_draft_footprints(tmp_path, cap
     assert cli_fixture.check(cfg, everything=True) == 0
     capsys.readouterr()
     nodeid = 'tests/test_actual.py::test_actual'
-    assert nodeid in cache.read(cfg)['traces']
+    before = cache.read(cfg)
+    assert before['tests'][nodeid]['outcome'] == 'passed'
+    assert not before['traces']
     result = subprocess.run([sys.executable, '-c',
         'import sys;sys.path.insert(0,sys.argv.pop(1));import pytest;raise SystemExit(pytest.main(sys.argv[1:]))',
         str(Path(cli.__file__).resolve().parents[2]), '-q', str(test)], cwd=root, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert nodeid not in cache.read(cfg)['traces']
+    after = cache.read(cfg)
+    assert after['tests'][nodeid]['outcome'] == 'passed'
+    assert after['tests'][nodeid]['stamp'] > before['tests'][nodeid]['stamp']
+    assert not after['traces']
     assert cli.show(cfg, draft=root.name + ':accept') == 0
     output = capsys.readouterr().out
-    assert 'not observed in current test records' in output
+    assert 'source navigation: current Map identity' in output
     assert 'inputs: last observed' not in output
