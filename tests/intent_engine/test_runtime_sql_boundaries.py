@@ -157,3 +157,33 @@ def test_text_candidate_is_rejected_when_only_old_body_uses_numeric_where(tmp_pa
         db.executescript('CREATE TABLE debt(n INTEGER); INSERT INTO debt VALUES (7)')
         assert runtime.observe(m.allowed, inspect.signature(m.allowed).bind(db, 7), axes={'x': [7, '7']})
     assert runtime.readings[0].status == 'grey' and runtime.readings[0].rows == []
+
+
+@pytest.mark.parametrize('kind', ['authorizer', 'progress'])
+def test_literal_integer_read_rejects_callbacks_before_any_extra_sql(tmp_path, kind):
+    fn, runtime = _runtime(tmp_path, 'SELECT 6', statement='return db.execute(QUERY).fetchone()[0] <= x')
+    counts = []
+    for observe in (False, True):
+        with sqlite3.connect(':memory:') as db:
+            hits = []
+            if kind == 'authorizer':
+                db.set_authorizer(lambda *args: (hits.append(args), sqlite3.SQLITE_OK)[1])
+            else:
+                db.set_progress_handler(lambda: (hits.append(1), 0)[1], 1)
+            if observe:
+                assert runtime.safety(fn, {'db': db, 'x': 9})
+                assert hits == []
+                assert runtime.observe(fn, inspect.signature(fn).bind(db, 9), axes={'x': [0, 9]})
+                assert runtime.readings[0].status == 'grey' and runtime.readings[0].rows == []
+            else:
+                assert fn(db, 9)
+            counts.append(len(hits))
+    assert counts[0] > 0 and counts[1] == counts[0]
+
+
+@pytest.mark.parametrize('query', ['SELECT 6', 'SELECT -6', 'SELECT +6', 'SELECT 0;'])
+def test_plain_integer_literal_is_a_real_read_without_table_callbacks(tmp_path, query):
+    fn, runtime = _runtime(tmp_path, query, statement='return db.execute(QUERY).fetchone()[0] <= x')
+    with sqlite3.connect(':memory:') as db:
+        assert runtime.observe(fn, inspect.signature(fn).bind(db, 9), axes={'x': [0, 9]})
+    assert runtime.readings[0].status == 'ok' and len(runtime.readings[0].rows) == 2

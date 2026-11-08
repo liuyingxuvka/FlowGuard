@@ -42,12 +42,20 @@ def test_default_check_finds_a_new_code_boundary_without_dynamic_probe(sample):
 
 
 def test_deep_check_runs_mutation_survival_after_a_complete_default_cache(sample):
+    # This positive cache case needs a real, independently readable source.
+    (sample / 'policy.txt').write_text('At most three days.\n')
+    config = sample / 'pyproject.toml'
+    config.write_text(config.read_text() + '[tool.flowguard]\nauthority_docs=["policy.txt"]\n')
+    declaration = sample / 'tests/intent/decisions.py'
+    declaration.write_text(declaration.read_text().replace(
+        'assumed: the known boundary', 'doc policy.txt "At most three days."'))
     ordinary = check(sample)
     assert ordinary.returncode == 0, ordinary.stdout + ordinary.stderr
     deep = check(sample, '--deep')
     assert deep.returncode == 0, deep.stdout + deep.stderr
     with database(sample) as connection:
         payloads = [json.loads(row[0]) for row in connection.execute('SELECT payload FROM result')]
+        assert all(item['verdict'] == 'ok' for item in payloads)
         live = [item for item in payloads if item['kind'] == 'live']
         assert len(live) == 1 and live[0]['mutants'] > 0 and live[0]['k'] == live[0]['n'] > 0
         collection = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_collection'").fetchone()[0])
@@ -78,3 +86,23 @@ def test_unresolved_callee_boundaries_stay_grey_and_deep_finds_the_counterexampl
     deep = check(sample, '--deep')
     assert deep.returncode == 1, deep.stdout + deep.stderr
     assert 'days=91' in deep.stdout and 'rule F, code True' in deep.stdout
+
+
+def test_assumed_source_stays_grey_and_does_not_reuse_a_deep_receipt(sample):
+    deep = check(sample, '--deep')
+    assert deep.returncode == 0, deep.stdout + deep.stderr
+    with database(sample) as connection:
+        deep_attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
+        payloads = [json.loads(row[0]) for row in connection.execute('SELECT payload FROM result')]
+        rules = next(item for item in payloads if item['kind'] == 'rules')
+        assert rules['verdict'] == 'grey' and any('assumed' in reason for reason in rules['grey'])
+        assert any(item['kind'] == 'live' and item['mutants'] > 0 for item in payloads)
+    ordinary = check(sample)
+    assert ordinary.returncode == 0, ordinary.stdout + ordinary.stderr
+    with database(sample) as connection:
+        attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
+        payloads = [json.loads(row[0]) for row in connection.execute('SELECT payload FROM result')]
+        assert attempt['deep'] is False and attempt['stamp'] > deep_attempt['stamp']
+        assert all(item['kind'] != 'live' for item in payloads)
+        rules = next(item for item in payloads if item['kind'] == 'rules')
+        assert rules['verdict'] == 'grey' and any('assumed' in reason for reason in rules['grey'])

@@ -106,6 +106,8 @@ def _read_sql(connection, text, parameters=()):
             cache = True
         else:
             return False  # CPython exposes authorizer/progress/trace callables here.
+    if type(parameters) in (tuple, list) and not parameters and re.fullmatch(r'\s*SELECT\s+[+-]?[0-9]+\s*;?\s*', text, re.I):
+        return True  # No table, converter, collation, function or parameter.
     ident = r'[A-Za-z_][A-Za-z_0-9]*'
     match = re.fullmatch(r'\s*SELECT\s+(' + ident + r'|COUNT\(\*\))\s+FROM\s+(' + ident +
                          r')(?:\s+WHERE\s+(' + ident + r')\s*=\s*\?)?\s*;?\s*', text, re.I)

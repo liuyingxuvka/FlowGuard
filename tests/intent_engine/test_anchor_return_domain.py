@@ -1,5 +1,6 @@
 """Finite input proof does not require a finite/single-kind output domain."""
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -40,8 +41,33 @@ def test_mixed_return_does_not_waive_unknown_call_purity(tmp_path):
     root, index = source(tmp_path, MIXED.replace('return expected and observed and expected != observed', 'return opaque(expected, observed)'))
     with session(root):
         actual = A.observe(root, index.entries[0], {'expected': 'W', 'observed': 'W'})
-    assert actual.status == 'grey' and any('opaque' in reason for reason in actual.reasons)
-    assert index.entries[0].module not in sys.modules
+    assert actual.status == 'grey' and any('opaque' in reason for reason in actual.reasons), actual.reasons
+    assert actual.value is None
+    loaded = sys.modules[index.entries[0].module]
+    assert Path(loaded.__file__).resolve() == root / index.entries[0].file
+
+
+def test_mixed_return_unknown_helper_never_runs_its_write(tmp_path, monkeypatch):
+    prefix = '''CALLS = []
+def opaque(expected, observed):
+    CALLS.append((expected, observed))
+    with open('marker', 'w') as stream:
+        stream.write('bad')
+    return False
+'''
+    root, index = source(tmp_path, prefix + MIXED.replace(
+        'return expected and observed and expected != observed', 'return opaque(expected, observed)'))
+    monkeypatch.chdir(root)
+    with session(root):
+        actual = A.observe(root, index.entries[0], {'expected': 'W', 'observed': 'W'})
+    # A known helper is inspected; its write remains forbidden even though the
+    # declared return permits several kinds and no result is guessed.
+    assert actual.status == 'grey' and any('possible side effect' in reason for reason in actual.reasons), actual.reasons
+    assert actual.value is None
+    loaded = sys.modules[index.entries[0].module]
+    assert Path(loaded.__file__).resolve() == root / index.entries[0].file
+    assert loaded.CALLS == []
+    assert not (root / 'marker').exists()
 
 
 def test_list_input_remains_outside_the_proved_finite_input_kinds(tmp_path):

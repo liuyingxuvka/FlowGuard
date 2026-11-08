@@ -177,10 +177,11 @@ def _changed(model, module, source):
     return current, source_engine(current)
 
 
-def test_same_lower_contract_cuts_the_upper_recheck(tmp_path):
+def test_same_lower_contract_does_not_cut_the_upper_dependency_recheck(tmp_path):
     model, engine, module = project(tmp_path)
     with closing(build(model.cfg.root)) as graph:
         saved = _saved(model, engine, graph)
+        old_lower = engine.contract_summary('STANDING')
         new_code = CODE.replace("if ended > 3:", "if not ended <= 3:")
         current, changed = _changed(model, module, new_code)
         graph.refresh()
@@ -189,9 +190,10 @@ def test_same_lower_contract_cuts_the_upper_recheck(tmp_path):
         assert set(picked) == {'STANDING', 'CHECKOUT'}
         lower = changed.contract_summary('STANDING')
         assert lower['verdict'] == 'ok', lower
-        chosen = deps.contract_cut(saved, current, now, {'STANDING': lower}, picked)
-        assert 'CHECKOUT' not in chosen
-        assert 'STANDING' in chosen
+        assert lower['outcomes'] == old_lower['outcomes']
+        # Equal lower outcomes do not erase a changed real input of the upper.
+        dependency = 'file:' + module + '.py'
+        assert saved['deps']['CHECKOUT']['dependencies'][dependency] != now(dependency)
         parent = current.rules['CHECKOUT']
         assert changed.run_home(parent, parent.homes[0], 'cells')['verdict'] == 'ok'
 
@@ -200,14 +202,18 @@ def test_an_undeclared_detail_can_miss_locally_but_all_recheck_catches_it(tmp_pa
     model, engine, module = project(tmp_path, home='checkout_reads_reason')
     with closing(build(model.cfg.root)) as graph:
         saved = _saved(model, engine, graph)
+        old_lower = engine.contract_summary('STANDING')
         new_code = CODE.replace("if suspended:\n        return 'blocked'", "if suspended:\n        return 'allowed'")
         current, changed = _changed(model, module, new_code)
         graph.refresh()
         now = deps.Now(current.cfg, graph)
         lower = changed.contract_summary('STANDING')
         assert lower['verdict'] == 'ok', lower
-        picked = deps.contract_cut(saved, current, now, {'STANDING': lower}, deps.affected(saved, current, now))
-        assert 'CHECKOUT' not in picked
+        assert lower['outcomes'] == old_lower['outcomes']
+        picked = deps.affected(saved, current, now)
+        assert {'STANDING', 'CHECKOUT'} <= set(picked)
+        dependency = 'file:' + module + '.py'
+        assert saved['deps']['CHECKOUT']['dependencies'][dependency] != now(dependency)
         parent = current.rules['CHECKOUT']
         full_result = changed.run_home(parent, parent.homes[0], 'cells')
         assert full_result['verdict'] == 'red'
