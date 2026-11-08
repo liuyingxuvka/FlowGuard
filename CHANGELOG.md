@@ -1,6 +1,6 @@
 # Changelog
 
-## v3.0.0 - 2026-11-07 - Connect executable rules through source anchors
+## v3.0.0 - 2026-11-08 - Connect executable rules through source anchors
 
 - Replace the public `Home` / `.home(...)` and custom adapter execution API with source sensors and ordinary calibrated tests. This is an incompatible SDK and saved-rule change; rebuild bindings from the original tests and inputs using [the migration guide](docs/upgrade-3.0.md). Archived owner words, rule predicates, literal rows and historical releases are unchanged.
 - Draft and verify sensor, state and event anchors against real source signatures. Run supported pure judgments directly; retain unknown purity, input ranges and calibration boundaries instead of supplying an answer through an adapter.
@@ -22,6 +22,9 @@
 - Keep the skill defaults to status, original words, source navigation and checks of existing bound decisions after the optional-use trial missed its benefit criterion. Anchor old judgments before a relevant edit; behavior comparison and small flow models remain available for focused maintenance.
 - Keep source word search usable when a missing imported symbol has no documentation. Preserve its unresolved identity while continuing to rank actual source candidates.
 - Reduce duplicated ownership work during import preparation: evaluate identical project/host roots once and exclude already resolved SDK paths before application checks. Preserve separate-root order and source/environment boundaries.
+- Preserve both real caller edges when different functions resume the same generator. Remove the code-ID deduplication cache: footprints use their existing result sets and no longer retain temporary rewritten code just for deduplication.
+- Support explicit `check --all --shard k/n` partitions through the existing pytest route. Each partition checks every intent item, the sentinel and required scenario tests; ordinary primary nodes are disjoint. A partition never refreshes a complete ordinary-file baseline. Optional shard reports record the final check result after source and history checks.
+- Run all three CI platforms in six partitions each and require exact-source coverage of the complete collection before publication. Publish from that successful CI run and attempt; missing, failed, skipped or incomplete jobs do not satisfy the release gate.
 
 ## v2.1.1 - 2026-11-06 - Correct dependency and C++ source boundaries
 

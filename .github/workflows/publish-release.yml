@@ -7,13 +7,18 @@ on:
         description: Full 40-character source commit SHA on main
         required: true
         type: string
-  push:
+      ci_run_id:
+        description: Successful push CI run ID for this exact source
+        required: true
+        type: string
+      ci_run_attempt:
+        description: Exact successful attempt of that CI run
+        required: true
+        type: string
+  workflow_run:
+    workflows: [FlowGuard CI]
+    types: [completed]
     branches: [main]
-    paths:
-      - pyproject.toml
-      - VERSION
-      - CHANGELOG.md
-      - .github/workflows/publish-release.yml
 
 permissions:
   contents: write
@@ -25,18 +30,20 @@ concurrency:
 
 jobs:
   publish:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Release FlowGuard v')
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository && startsWith(github.event.workflow_run.head_commit.message, 'Release FlowGuard v'))
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 30
     env:
-      SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
+      SOURCE_SHA: ${{ inputs.source_sha || github.event.workflow_run.head_sha }}
+      CI_RUN_ID: ${{ inputs.ci_run_id || github.event.workflow_run.id }}
+      CI_RUN_ATTEMPT: ${{ inputs.ci_run_attempt || github.event.workflow_run.run_attempt }}
       EVENT_NAME: ${{ github.event_name }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Check out the selected source
         uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.source_sha || github.sha }}
+          ref: ${{ inputs.source_sha || github.event.workflow_run.head_sha }}
           persist-credentials: false
 
       - name: Set up Python
@@ -50,6 +57,7 @@ jobs:
           python - <<'PY'
           import ast
           from email.parser import Parser
+          import importlib.util
           import json
           import os
           from pathlib import Path
@@ -57,13 +65,19 @@ jobs:
           import subprocess
           import sys
           import tempfile
-          import time
           import tomllib
 
           repository = os.environ["GITHUB_REPOSITORY"]
           source_sha = os.environ["SOURCE_SHA"]
           assert re.fullmatch(r"[0-9a-fA-F]{40}", source_sha), "source_sha must be a full 40-character commit SHA"
           source_sha = source_sha.lower()
+          assert os.environ['EVENT_NAME'] in {'workflow_run', 'workflow_dispatch'}, 'unsupported publication trigger'
+          assert re.fullmatch(r'[1-9][0-9]*', os.environ['CI_RUN_ID']), 'an exact CI run ID is required'
+          assert re.fullmatch(r'[1-9][0-9]*', os.environ['CI_RUN_ATTEMPT']), 'an exact CI attempt is required'
+          ci_run_id, ci_run_attempt = int(os.environ['CI_RUN_ID']), int(os.environ['CI_RUN_ATTEMPT'])
+          spec = importlib.util.spec_from_file_location('flowguard_ci_coverage', Path('.github/scripts/ci_coverage.py'))
+          coverage = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(coverage)
 
           def output(*args):
               return subprocess.check_output(args, text=True).strip()
@@ -100,8 +114,7 @@ jobs:
           versions = [ast.literal_eval(node.value) for node in identity.body if isinstance(node, ast.Assign)
                       and any(isinstance(target, ast.Name) and target.id == "__version__" for target in node.targets)]
           assert versions == [version], "source version declaration differs from pyproject"
-          if os.environ["EVENT_NAME"] == "push":
-              assert output("git", "show", "-s", "--format=%s", "HEAD") == f"Release FlowGuard {tag}", "push release subject must match the current version exactly"
+          assert output("git", "show", "-s", "--format=%s", "HEAD") == f"Release FlowGuard {tag}", "release subject must match the current version exactly"
           changes = Path("CHANGELOG.md").read_text(encoding="utf-8")
           headings = list(re.finditer(r"(?m)^##[ \t]+([^\n]+)", changes))
           version_heading = re.compile(rf"(?:v?{re.escape(version)}|\[{re.escape(version)}\])(?:$|[ \t-])")
@@ -110,39 +123,16 @@ jobs:
           index = selected[0]
           notes = changes[headings[index].start():headings[index + 1].start() if index + 1 < len(headings) else None].strip()
           ci_url = None
-          required_jobs = {
-              "Complete tests (ubuntu-latest, py3.11)",
-              "Complete tests (ubuntu-latest, py3.13)",
-              "Complete tests (windows-latest, py3.12)",
-          }
+          required_jobs = coverage.required_jobs()
 
           def successful_ci(current):
-              assert current["head_sha"].lower() == source_sha, "CI source differs from the selected source"
-              assert current["head_branch"] == "main", "CI must check the main source"
-              assert current["event"] in {"push", "workflow_dispatch"}, "CI event is not a source check"
-              assert current["path"].split("@")[0] == ".github/workflows/ci.yml", "CI workflow differs"
-              assert current["status"] == "completed" and current["conclusion"] == "success", "CI did not complete successfully"
-              jobs = api(f"actions/runs/{current['id']}/jobs?per_page=100")["jobs"]
-              assert len(jobs) == len(required_jobs) and {job["name"] for job in jobs} == required_jobs and all(
-                  job["status"] == "completed" and job["conclusion"] == "success" for job in jobs
-              ), "Complete three-platform ci.yml success required for this exact source"
+              jobs = api(f"actions/runs/{ci_run_id}/attempts/{ci_run_attempt}/jobs?per_page=100")["jobs"]
+              coverage.validate_ci_run(current, jobs, source_sha=source_sha, repository=repository,
+                                       run_id=ci_run_id, run_attempt=ci_run_attempt, expected_jobs=required_jobs)
               return current["html_url"]
 
-          deadline = time.monotonic() + 21000
-          while time.monotonic() < deadline:
-              runs = api(f"actions/workflows/ci.yml/runs?head_sha={source_sha}&per_page=30")["workflow_runs"]
-              candidates = [run for run in runs if run["head_sha"].lower() == source_sha and run["head_branch"] == "main"
-                            and run["event"] in {"push", "workflow_dispatch"} and run["path"].split("@")[0] == ".github/workflows/ci.yml"]
-              if candidates:
-                  current = max(candidates, key=lambda run: (run["run_number"], run.get("run_attempt", 1)))
-                  if current["status"] == "completed":
-                      assert current["conclusion"] == "success", f"exact-source CI did not succeed: {current['html_url']}"
-                      ci_url = successful_ci(current)
-                      break
-              print(f"Waiting for complete ci.yml success at {source_sha}", flush=True)
-              time.sleep(15)
-          else:
-              raise RuntimeError("exact-source ci.yml did not complete successfully within 350 minutes")
+          # The completed CI event supplies the run and attempt; never poll for or select another green run.
+          ci_url = successful_ci(api(f'actions/runs/{ci_run_id}'))
 
           # Recheck main and dereference annotated tags; target_commitish alone is insufficient.
           assert api("git/ref/heads/main")["object"]["sha"].lower() == source_sha, "main advanced; publish its final frozen source instead"

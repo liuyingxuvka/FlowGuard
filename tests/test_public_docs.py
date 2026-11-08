@@ -134,21 +134,27 @@ def _publish_gate():
     script = workflow.split("python - <<'PY'\n", 1)[1].rsplit('\n          PY', 1)[0]
     script = '\n'.join(line[10:] if line.startswith('          ') else line for line in script.splitlines())
     tree = ast.parse(script)
-    required = next(node for node in tree.body if isinstance(node, ast.Assign)
-                    and any(isinstance(t, ast.Name) and t.id == 'required_jobs' for t in node.targets))
     function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'successful_ci')
-    return ast.literal_eval(required.value), function
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('flowguard_ci_coverage', ROOT / '.github/scripts/ci_coverage.py')
+    coverage = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(coverage)
+    return coverage.required_jobs(ROOT), function, coverage
 
 
 @pytest.mark.parametrize('defect', [None, 'sha', 'branch', 'event', 'path', 'incomplete', 'failed', 'missing_job', 'skipped_job'])
 def test_publication_requires_all_current_jobs_on_the_exact_source(defect):
-    required, function = _publish_gate()
-    assert required == {'Complete tests (ubuntu-latest, py3.11)', 'Complete tests (ubuntu-latest, py3.13)',
-                        'Complete tests (windows-latest, py3.12)'}
+    required, function, coverage = _publish_gate()
+    platforms = [('ubuntu-latest', '3.11'), ('ubuntu-latest', '3.13'), ('windows-latest', '3.12')]
+    assert required == {f'Complete tests ({platform}, py{python}, shard {index}/6)'
+                        for platform, python in platforms for index in range(1, 7)} | {'Complete coverage (three platforms)'}
     source_sha = 'a' * 40
-    current = dict(id=42, head_sha=source_sha, head_branch='main', event='push',
+    repository = 'owner/FlowGuard'
+    current = dict(id=42, run_attempt=1, head_sha=source_sha, head_branch='main', event='push',
+                   repository={'full_name': repository}, head_repository={'full_name': repository},
                    path='.github/workflows/ci.yml', status='completed', conclusion='success', html_url='https://example/42')
-    jobs = [dict(name=name, status='completed', conclusion='success') for name in sorted(required)]
+    jobs = [dict(name=name, status='completed', conclusion='success', head_sha=source_sha, run_id=42, run_attempt=1)
+            for name in sorted(required)]
     if defect in {'sha', 'branch', 'event', 'path', 'incomplete', 'failed'}:
         key, value = {'sha': ('head_sha', 'b' * 40), 'branch': ('head_branch', 'other'),
                       'event': ('event', 'pull_request'), 'path': ('path', '.github/workflows/partial.yml'),
@@ -162,7 +168,8 @@ def test_publication_requires_all_current_jobs_on_the_exact_source(defect):
     def api(path):
         calls.append(path)
         return {'jobs': jobs}
-    namespace = dict(source_sha=source_sha, required_jobs=required, api=api)
+    namespace = dict(source_sha=source_sha, required_jobs=required, api=api, coverage=coverage,
+                     repository=repository, ci_run_id=42, ci_run_attempt=1)
     module = ast.Module(body=[function], type_ignores=[])
     exec(compile(ast.fix_missing_locations(module), '<published CI gate>', 'exec'), namespace)
     if defect:
@@ -170,13 +177,19 @@ def test_publication_requires_all_current_jobs_on_the_exact_source(defect):
             namespace['successful_ci'](current)
     else:
         assert namespace['successful_ci'](current) == 'https://example/42'
-        assert calls == ['actions/runs/42/jobs?per_page=100']
+        assert calls == ['actions/runs/42/attempts/1/jobs?per_page=100']
 
 
 def test_each_supported_ci_platform_runs_the_full_pytest_route():
     text = (ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
     assert 'fetch-depth: 0' in text and 'ref: ${{ github.sha }}' in text
-    assert re.findall(r'python: "([^"]+)"', text) == ['3.11', '3.13', '3.12']
+    _, _, coverage = _publish_gate()
+    plan = coverage.matrix(ROOT)
+    assert len(plan) == 18 and {row['shard_count'] for row in plan} == {6}
+    assert {(row['os'], row['python']) for row in plan} == {
+        ('ubuntu-latest', '3.11'), ('ubuntu-latest', '3.13'), ('windows-latest', '3.12')}
     assert 'run: python -m flowguard check --all' in text
+    assert '--shard ${{ matrix.shard }}/${{ matrix.shard_count }} --shard-report' in text
+    assert 'needs: checks' in text and 'ci_coverage.py aggregate' in text
     assert not any(old in text for old in ('--shards', 'tests/native', 'playwright', 'tests/flow', 'cancel-in-progress: true'))
     assert 'matrix.full' not in text

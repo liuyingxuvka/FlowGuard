@@ -35,7 +35,6 @@ def _record_owned(code, frame):
     if code.co_name in _IMPLICIT:
         return  # Its AST is part of the enclosing named function's fingerprint.
     direct = frame.f_back
-    call_key = (id(code), id(direct.f_code), direct.f_lineno) if direct else (id(code), 0, 0)
     single = len(_ACTIVE) == 1
     key = caller = None
     for footprint in _ACTIVE:
@@ -45,12 +44,6 @@ def _record_owned(code, frame):
             continue
         if footprint.inside is not None and not _within(frame, footprint.inside):
             continue
-        if call_key in footprint._seen_calls:
-            continue
-        footprint._seen_calls.add(call_key)
-        footprint._code_refs[id(code)] = code
-        if direct:
-            footprint._code_refs[id(direct.f_code)] = direct.f_code
         if key is None:
             key = (code.co_filename, code.co_firstlineno, code.co_qualname)
             caller = direct
@@ -134,8 +127,6 @@ class Footprint:
         self.is_project, self.inside = is_project, inside
         self.entered, self.edges = set(), set()
         self.call_lines = set()
-        self._seen_calls = set()
-        self._code_refs = {}  # Prevent an id reused by code-object mutation from hiding a new call.
 
     def __enter__(self):
         first = not _ACTIVE

@@ -509,13 +509,48 @@ def behavior_changes(cfg, *, automatic=False, index=None):
     return ['Behavior changes:', *differences.render(report).splitlines()]
 
 
-def check(cfg, *, everything=False, since=None, diagnose=False):
+def check(cfg, *, everything=False, since=None, diagnose=False, shard=None, shard_report=None):
+    if shard is not None:
+        from .plugin import parse_shard
+        parse_shard(shard)
+        if not everything or since is not None:
+            raise ValueError('--shard requires --all and cannot be combined with --since')
+    if shard_report is not None and shard is None:
+        raise ValueError('--shard-report requires --shard')
+    report = Path(shard_report) if shard_report is not None else None
+    if report is not None and report.exists():
+        raise ValueError('shard report already exists; choose a fresh output path')
+    started = time.time()
+    options = dict(shard=shard) if shard is not None else {}
+    status = _check_with_diagnostics(cfg, everything=everything, since=since, diagnose=diagnose, **options)
+    if report is not None:
+        attempt = cache.read(cfg).get('attempt') or {}
+        recorded = attempt.get('shard') or {}
+        if (attempt.get('stamp', 0) < started or not recorded
+                or (recorded.get('shard_index'), recorded.get('shard_count')) != parse_shard(shard)):
+            print('red shard did not finish a current recorded attempt; no report written', file=sys.stderr)
+            return status or 1
+        process = subprocess.run(['git', '-C', str(cfg.root), 'rev-parse', 'HEAD'], capture_output=True, text=True)
+        payload = dict(attempt['shard'], sentinel=attempt['sentinel'], exit=int(status),
+                       pytest_exit=attempt['exit'], errors=attempt['errors'],
+                       source_sha=process.stdout.strip() if process.returncode == 0 else None,
+                       interpreter=dict(version=list(sys.version_info[:3]), executable=sys.executable,
+                                        prefix=sys.prefix, base_prefix=sys.base_prefix))
+        report.parent.mkdir(parents=True, exist_ok=True)
+        with report.open('x', encoding='utf-8') as target:
+            json.dump(payload, target, ensure_ascii=False, sort_keys=True)
+            target.write('\n')
+    return status
+
+
+def _check_with_diagnostics(cfg, *, everything=False, since=None, diagnose=False, shard=None):
+    options = dict(shard=shard) if shard is not None else {}
     if not diagnose:
-        return _checked(cfg, everything=everything, since=since)
+        return _checked(cfg, everything=everything, since=since, **options)
     from .checkflow import CheckObservation
     from .diagnostics import EventLog, report_diagnostic
     with CheckObservation(cfg) as observation:
-        status = observation.call(_checked, cfg, everything=everything, since=since)
+        status = observation.call(_checked, cfg, everything=everything, since=since, **options)
     result = status or int(bool(observation.result['red']))
     messages = ['red check flow: ' + message for message in observation.result['red']]
     messages.extend('grey check flow: ' + message for message in observation.issues)
@@ -533,10 +568,11 @@ def check(cfg, *, everything=False, since=None, diagnose=False):
     return result
 
 
-# flowguard: event CHECK_RUN(cfg: Config, everything: bool, since: str | None)
-def _checked(cfg: Config, *, everything: bool = False, since: str | None = None):
+# flowguard: event CHECK_RUN(cfg: Config, everything: bool, since: str | None, shard: str | None)
+def _checked(cfg: Config, *, everything: bool = False, since: str | None = None, shard: str | None = None):
     from .checkflow import observe
-    status = _check(cfg, everything=everything, since=since)
+    options = dict(shard=shard) if shard is not None else {}
+    status = _check(cfg, everything=everything, since=since, **options)
     red = observe(_check_sources, cfg)
     return status or int(red)
 
@@ -673,7 +709,7 @@ def _run_check_pytest(command: list, root: Path, output: Path, stream: bool):
             subprocess.run(command, cwd=root, capture_output=True, text=True))
 
 
-def _check(cfg, *, everything=False, since=None):
+def _check(cfg, *, everything=False, since=None, shard=None):
     import ast
     from . import deps, history
     from .loader import load
@@ -697,6 +733,8 @@ def _check(cfg, *, everything=False, since=None):
                str(Path(__file__).resolve().parents[2]), '-vv' if stream_all else '-q', '-p', 'flowguard.intent.plugin', '--flowguard-record-tests']
     if stream_all:
         command += ['-o', 'verbosity_test_cases=2', '--durations=10']
+    if shard is not None:
+        command.append('--flowguard-shard=' + shard)
     initial_baseline = not data.get('collection') or retry_incomplete
     everything = everything or initial_baseline
     declared = set(model.declared_items())
@@ -713,7 +751,8 @@ def _check(cfg, *, everything=False, since=None):
     if run:
         output = cfg.cache / 'check-output.txt'
         if stream_all:
-            print(f'FlowGuard check --all: running full pytest; live output: {output}', flush=True)
+            scope = f' --shard {shard}: running complete intent and one ordinary partition' if shard else ': running full pytest'
+            print(f'FlowGuard check --all{scope}; live output: {output}', flush=True)
         original = data
         remaining = set(selected)
         staged = not everything and bool(data['collection']) and all(
@@ -782,7 +821,7 @@ def _check(cfg, *, everything=False, since=None):
         if data['attempt'].get('sentinel') == 'ok' and not data['attempt'].get('missing'):
             for group in data['results'].values():
                 group['items'] = {item: value for item, value in group['items'].items() if item in declared}
-        if process_code == 0:
+        if process_code == 0 and shard is None:
             completed = {file: record for file, record in test_records.items()
                          if any(nodeid.partition('::')[0] == file and reading['stamp'] >= first_started
                                 for nodeid, reading in data['tests'].items())}
@@ -824,6 +863,8 @@ def _check(cfg, *, everything=False, since=None):
     data['check_scope'] = f'{len(executed)} rules rerun, {len(model.rules) - len(executed)} reused; ' + (
         'all tests (previous run incomplete)' if retry_incomplete else 'all tests (initial baseline)' if initial_baseline
         else 'all tests (--all)' if everything else f'{len(test_records)} test files considered')
+    if shard is not None:
+        data['check_scope'] = f'{len(executed)} rules rerun; shard {shard}: complete intent, partial ordinary tests'
     if cut:
         data['check_scope'] += f'; {len(cut)} unchanged upper contracts'
     if opaque_tests and not everything:
@@ -973,6 +1014,8 @@ def main(argv=None):
     check_parser.add_argument('--all', action='store_true')
     check_parser.add_argument('--diagnose', action='store_true', help='Record timed check stages and activated source-anchor events')
     check_parser.add_argument('--since')
+    check_parser.add_argument('--shard', help='Run complete intent and one partition of the full ordinary collection (k/n)')
+    check_parser.add_argument('--shard-report', help='Write a fresh JSON receipt after all check stages finish')
     compare_parser = commands.add_parser('compare')
     compare_parser.add_argument('left')
     compare_parser.add_argument('right')
@@ -1002,7 +1045,8 @@ def main(argv=None):
         if options.command == 'show':
             return show(cfg, options.query, draft=options.draft, gaps=options.gaps, full=options.full)
         if options.command == 'check':
-            return check(cfg, everything=options.all, since=options.since, diagnose=options.diagnose)
+            extra = dict(shard=options.shard, shard_report=options.shard_report) if options.shard is not None or options.shard_report is not None else {}
+            return check(cfg, everything=options.all, since=options.since, diagnose=options.diagnose, **extra)
         if options.command == 'init':
             return init(cfg)
         if options.command == 'req':

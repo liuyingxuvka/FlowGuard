@@ -52,6 +52,8 @@ class Session:
         self.ordinary_selected, self.early_exit, self.session_errors = set(), [], []
         self.ordinary_files, self.ordinary_deselected = set(), False
         self.last_test = None
+        self.shard = None
+        self.completed = set()
         self.process_calls, self.closed = [], False
         self.main_process = os.getpid()
         self.main_thread = threading.get_ident()
@@ -299,6 +301,68 @@ def pytest_addoption(parser):
     group.addoption('--flowguard-record-tests', action='store_true', help='Record the ordinary tests actually selected by check')
     group.addoption('--flowguard-diagnose', action='store_true', help='Write live diagnostics for activated ordinary-test anchors')
     group.addoption('--flowguard-diagnose-append', action='store_true', help='Append a later diagnostic batch from the same check')
+    group.addoption('--flowguard-shard', default=None, help='Run one complete-intent partition of the full ordinary collection (k/n)')
+
+
+def parse_shard(value):
+    """One parser for the CLI and its ordinary pytest plugin."""
+    parts = str(value).split('/')
+    if len(parts) != 2 or any(not part.isascii() or not part.isdecimal() for part in parts):
+        raise ValueError('shard must be k/n with 1 <= k <= n')
+    index, count = map(int, parts)
+    if not 1 <= index <= count:
+        raise ValueError('shard must be k/n with 1 <= k <= n')
+    return index, count
+
+
+def _shard_items(config, state, items, value):
+    try:
+        index, count = parse_shard(value)
+    except ValueError as error:
+        raise pytest.UsageError(str(error)) from error
+    options = config.option
+    selectors = ('keyword', 'markexpr', 'deselect', 'ignore', 'ignore_glob', 'lf', 'newfirst',
+                 'stepwise', 'stepwise_skip', 'collectonly', 'setuponly', 'setupplan')
+    collection_overrides = {'testpaths', 'python_files', 'python_classes', 'python_functions',
+                            'norecursedirs', 'collect_imported_tests', 'addopts'}
+    if (not config.getoption('--flowguard-record-tests') or config.getoption('--flowguard-rules') is not None
+            or getattr(config.args_source, 'name', '') == 'ARGS'
+            or any(getattr(options, name, None) for name in selectors)
+            or any(value.partition('=')[0].strip() in collection_overrides for value in (options.override_ini or ()))
+            or state.ordinary_deselected):
+        raise pytest.UsageError('shards require the full ordinary collection: no paths, filters or collection overrides')
+    model = state.get_model()
+    required_files = set()
+    for rule in model.rules.values():
+        for binding in rule.homes:
+            selector = getattr(binding, 'testnode', '') or getattr(getattr(binding, 'anchor', None), 'calibrated_by', '')
+            if selector:
+                required_files.add(selector.partition('::')[0])
+    references = {node.reference for flow in model.flows.values() for node in flow.nodes}
+    for anchor in model.anchor_index.entries:
+        if anchor.name in references:
+            if anchor.source_role == 'test':
+                required_files.add(anchor.file)
+            if anchor.calibrated_by:
+                required_files.add(anchor.calibrated_by.partition('::')[0])
+    required_files = {state.cfg.rel(path if Path(path).is_absolute() else state.cfg.root / path)
+                      for path in required_files}
+    common = {item.nodeid for item in items if isinstance(item, IntentItem) or item.name == SENTINEL
+              or state.cfg.rel(item.path) in required_files}
+    ordinary = sorted({item.nodeid for item in items} - common)
+    partition = set(ordinary[index - 1::count])
+    selected = common | partition
+    state.shard = dict(schema=1, shard_index=index, shard_count=count,
+                       collected_nodeids=sorted(item.nodeid for item in items),
+                       common_nodeids=sorted(common), partition_nodeids=sorted(partition),
+                       selected_nodeids=sorted(selected))
+    drop = [item for item in items if item.nodeid not in selected]
+    if drop:
+        config.hook.pytest_deselected(items=drop)
+        items[:] = [item for item in items if item.nodeid in selected]
+    # A partial parameter/file run must never refresh a whole-file baseline,
+    # including a partition that happened to own every item in a small suite.
+    state.ordinary_deselected = True
 
 
 def pytest_load_initial_conftests(early_config):
@@ -426,6 +490,10 @@ class IntentItem(pytest.Item):
 def pytest_collection_modifyitems(config, items):
     state = config._flowguard_intent
     state.collected = {i.nodeid for i in items if isinstance(i, IntentItem)}
+    shard = config.getoption('--flowguard-shard')
+    if shard is not None:
+        _shard_items(config, state, items, shard)
+        return
     only = config.getoption('--flowguard-rules')
     if only is None or state.model is None:
         return
@@ -443,6 +511,8 @@ def pytest_collection_modifyitems(config, items):
 
 def pytest_collection_finish(session):
     state = session.config._flowguard_intent
+    if state.shard is not None and {item.nodeid for item in session.items} != set(state.shard['selected_nodeids']):
+        raise pytest.UsageError('another selection changed the full shard collection')
     state.selected = {i.nodeid for i in session.items if isinstance(i, IntentItem)}
     state.ordinary_selected = {i.nodeid for i in session.items if not isinstance(i, IntentItem) and i.name != SENTINEL}
 
@@ -573,6 +643,8 @@ def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
     state = item.config._flowguard_intent
+    if state.shard is not None and report.when == 'teardown':
+        state.completed.add(item.nodeid)
     _skip_violation(item, call, report)
     state.durations[item.nodeid] = state.durations.get(item.nodeid, 0.0) + report.duration
     if item.name == SENTINEL and report.when == 'call':
@@ -750,6 +822,16 @@ def finish_verified(session, exitstatus):
     attempt = dict(declared=len(declared), collected=len(state.collected), selected=len(state.selected),
                    deferred=len(state.deferred), missing=missing, sentinel=state.sentinel, exit=int(exitstatus),
                    errors=state.session_errors, stamp=state.started)
+    if state.shard is not None:
+        unfinished = sorted(set(state.shard['selected_nodeids']) - state.completed)
+        if unfinished and session.exitstatus == pytest.ExitCode.OK:
+            state.session_errors.append('shard selected tests did not finish: ' + ', '.join(unfinished[:3]))
+            session.exitstatus = pytest.ExitCode.TESTS_FAILED
+            attempt['exit'] = int(session.exitstatus)
+        attempt['shard'] = dict(state.shard, completed_nodeids=sorted(state.completed),
+                                intent=dict(declared_nodeids=sorted(declared), selected_nodeids=sorted(state.selected),
+                                            completed_nodeids=sorted(set(declared) & state.completed)))
+        exitstatus = session.exitstatus
     if not declared and not state.footprints:
         # Standalone pytest does not build a map, but must retire old traces
         # for a test it ran without recording. Never refresh them by implication.
