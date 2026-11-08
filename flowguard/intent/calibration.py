@@ -444,7 +444,12 @@ def _stage(root, anchor, values, stage, expected_fn=None):
     if driver.problems:
         return dict(status='grey', reasons=driver.problems)
     if driver.selected != 1 or len(driver.outcomes) != 1:
-        return dict(status='grey', reasons=['test must reach the actual anchor exactly once; target may be absent or ambiguous'])
+        reasons = ['test must reach the actual anchor exactly once; target may be absent or ambiguous',
+                   f'pytest exit={code}; selected={driver.selected}; installed={driver.ready}; '
+                   f'outcomes={len(driver.outcomes)}; entries={len(driver.entries)}; reports={driver.reports!r}']
+        if output := getattr(driver, 'output', ''):
+            reasons.append(output[-4000:])
+        return dict(status='grey', reasons=reasons)
     failed = [(phase, outcome, stop) for phase, outcome, stop in driver.reports if outcome != 'passed']
     if stage == 'baseline':
         if code != 0 or failed:
@@ -491,6 +496,7 @@ def _run_pytest(root, selector, driver):
             _INSERTED_PATHS.clear()
             _INSERTED_PATHS.update(previous_inserted)
             _ACTIVE.reset(token)
+    driver.output = capture.getvalue()
     return code
 
 
