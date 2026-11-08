@@ -156,6 +156,108 @@ class Now:
         return self.memo[key]
 
 
+def _literal_reads(tree, relative, cfg, modules):
+    """Use the Map's literal path resolver, with actual stdlib import bindings."""
+    from flowguard.structure.roots import _path_value
+    constructors, namespace, assigned = set(), set(), {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == 'pathlib':
+                    namespace.add(alias.asname or 'pathlib')
+                    constructors.add((alias.asname or 'pathlib') + '.Path')
+        elif isinstance(node, ast.ImportFrom) and node.module == 'pathlib' and not node.level:
+            for alias in node.names:
+                if alias.name == 'Path':
+                    constructors.add(alias.asname or alias.name)
+                    namespace.add(alias.asname or alias.name)
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)) else []
+        for target in targets:
+            for part in ast.walk(target):
+                if isinstance(part, ast.Name):
+                    assigned.setdefault(part.id, []).append(node.value if target is part and isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)) else None)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            assigned.setdefault(node.name, []).append(None)
+        if isinstance(node, ast.arg):
+            assigned.setdefault(node.arg, []).append(None)
+    if 'pathlib' in modules or namespace & assigned.keys():
+        return set(), set(), False
+    env = {name: values[0] if len(values) == 1 else None for name, values in assigned.items()}
+    def expanded(node, seen=frozenset()):
+        return expanded(env[node.id], seen | {node.id}) if isinstance(node, ast.Name) and node.id in env and node.id not in seen else node
+    def literal(node):
+        try:
+            ast.literal_eval(node)
+            return True
+        except (TypeError, ValueError):
+            return False
+    def read_open(call):
+        if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Attribute) or call.func.attr != 'open':
+            return None
+        if not all(literal(value) for value in [*call.args, *(keyword.value for keyword in call.keywords)]) or any(keyword.arg is None for keyword in call.keywords):
+            return None
+        mode = next((value.value for value in call.keywords if value.arg == 'mode'), call.args[0] if call.args else ast.Constant('r'))
+        if not isinstance(mode, ast.Constant) or mode.value not in {'r', 'rt', 'rb'}:
+            return None
+        return call.func.value
+    def path_calls(expression):
+        pending, found, names = [expression], set(), set()
+        while pending:
+            part = pending.pop()
+            if isinstance(part, ast.Name) and part.id in env and part.id not in names:
+                names.add(part.id)
+                if env[part.id] is not None:
+                    pending.append(env[part.id])
+            if isinstance(part, ast.Call):
+                name = ast.unparse(part.func)
+                if not (name in constructors and len(part.args) == 1 and not part.keywords
+                        or name == 'str' and 'str' not in assigned and len(part.args) == 1 and not part.keywords
+                        or isinstance(part.func, ast.Attribute) and part.func.attr in {'resolve', 'absolute'} and not part.args and not part.keywords):
+                    return None
+                found.add(id(part))
+            if isinstance(part, ast.Subscript) and (not isinstance(part.slice, ast.Constant) or type(part.slice.value) is not int or part.slice.value < 0):
+                return None
+            pending.extend(ast.iter_child_nodes(part))
+        return found, names
+    def canonical(node):
+        if node is None:
+            return None
+        result = ast.parse(ast.unparse(node), mode='eval').body
+        for call in ast.walk(result):
+            if isinstance(call, ast.Call) and ast.unparse(call.func) in constructors:
+                call.func = ast.Name(id='Path', ctx=ast.Load())
+        return result
+    allowed, files = set(), set()
+    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+        if not all(literal(value) for value in [*call.args, *(keyword.value for keyword in call.keywords if keyword.arg is not None)]) or any(keyword.arg is None for keyword in call.keywords):
+            continue
+        expression, extra = None, set()
+        if call.func.attr in {'read_text', 'read_bytes'}:
+            expression = call.func.value
+        elif call.func.attr == 'open':
+            expression = read_open(call)
+        elif call.func.attr == 'read':
+            stream = expanded(call.func.value)
+            expression = read_open(stream)
+            if expression is not None:
+                extra.add(id(stream))
+        if expression is None:
+            continue
+        calls = path_calls(expression)
+        if calls is None:
+            continue
+        calls, names = calls
+        value = _path_value(canonical(expression), relative, {name: canonical(env[name]) for name in names})
+        if value is None:
+            continue
+        path = (cfg.root / value).resolve()
+        if not path.is_relative_to(cfg.root) or path.exists() and not path.is_file():
+            continue
+        allowed.update(calls | extra | {id(call)})
+        files.add(cfg.rel(path))
+    return allowed, files, bool(constructors)
+
+
 def _file_dependencies(cfg, graph, seeds, now):
     """Conservative file closure shared by intent and ordinary test selection.
 
@@ -163,7 +265,7 @@ def _file_dependencies(cfg, graph, seeds, now):
     No project/external initializer is imported to discover an origin.
     """
     from flowguard.structure.store import unpack
-    facts = {path: (module, unpack(data)) for path, module, data in graph.con.execute('SELECT path,module,data FROM file')}
+    facts = {path: (module, unpack(data), sha) for path, module, data, sha in graph.con.execute('SELECT path,module,data,sha FROM file')}
     nodes = graph.nodes()
     by_id = {node['id']: node for node in nodes}
     imports, unknown = {}, {}
@@ -175,13 +277,18 @@ def _file_dependencies(cfg, graph, seeds, now):
             name = edge['dst'].removeprefix('missing:')
             if name.split('.')[0].split(':')[0] not in {'flowguard', 'pytest'}:
                 unknown.setdefault(edge['file'], []).append('unverified external import ' + name)
-    modules = {module for module, _ in facts.values()}
+    modules = {module: data for module, data, _ in facts.values()}
     for declaration in graph.imports(declarations=True):
         if declaration.get('typing'):
             continue
         module = declaration.get('module', '')
-        if module not in modules and module not in {'flowguard.intent', 'flowguard.intent.api', '__future__'}:
+        if module not in modules and module not in {'flowguard.intent', 'flowguard.intent.api', '__future__', 'pathlib'}:
             unknown.setdefault(declaration['file'], []).append('unverified external import ' + module)
+        name = declaration.get('name', '')
+        if (module in modules and name and name != '*'
+                and module + '.' + name not in modules and graph.canonical(module + ':' + name) is None):
+            unknown.setdefault(declaration['file'], []).append('unresolved import ' + module + ':' + name)
+    seeds = {cfg.rel(cfg.root / seed) for seed in seeds}
     pending = list(seeds) + ['pyproject.toml', 'pytest.ini', 'setup.cfg', 'tox.ini']
     for seed in seeds:
         parent = (cfg.root / seed).parent
@@ -200,13 +307,19 @@ def _file_dependencies(cfg, graph, seeds, now):
         if not path.is_relative_to(cfg.root):
             reasons.append('dependency is outside the project: ' + relative)
             continue
-        result[relative] = now('file:' + relative)
-        if path.suffix != '.py' or not path.is_file():
+        result[relative] = file_digest(path)
+        if path.suffix != '.py':
+            continue
+        if not path.is_file():
+            if relative in facts:
+                reasons.append('Map source identity changed: ' + relative + '; rebuild map before reuse')
             continue
         if relative not in facts:
             reasons.append('source is not mapped: ' + relative)
             continue
-        module, raw = facts[relative]
+        module, raw, mapped_digest = facts[relative]
+        if result[relative] != mapped_digest:
+            reasons.append('Map source identity changed: ' + relative + '; rebuild map before reuse')
         parent = path.parent
         while parent.is_relative_to(cfg.root):
             initializer = parent / '__init__.py'
@@ -234,6 +347,10 @@ def _file_dependencies(cfg, graph, seeds, now):
         except (OSError, SyntaxError) as error:
             reasons.append(str(error))
             continue
+        literal_calls, literal_files, trusted_pathlib = _literal_reads(tree, relative, cfg, modules)
+        pending.extend(literal_files)
+        if not trusted_pathlib and any(row.get('module') == 'pathlib' for row in graph.imports(declarations=True) if row['file'] == relative):
+            reasons.append('unverified pathlib binding in ' + relative)
         definitions = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
         from .loader import api_aliases, api_call_name
         aliases = api_aliases(tree)
@@ -242,6 +359,19 @@ def _file_dependencies(cfg, graph, seeds, now):
                          for decorator in node.decorator_list)}
         project_names, bindings = set(), {}
         for node in ast.walk(tree):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, (ast.AugAssign, ast.AnnAssign)) else []
+            if isinstance(node, (ast.Global, ast.Nonlocal)) or any(isinstance(target, (ast.Attribute, ast.Subscript)) for target in targets):
+                reasons.append('unverified shared-state writes in ' + relative)
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                if any(isinstance(target, ast.Name) and target.id == 'pytest_plugins' for target in targets):
+                    try:
+                        plugins = ast.literal_eval(node.value)
+                        plugins = [plugins] if isinstance(plugins, str) else plugins
+                    except (TypeError, ValueError):
+                        plugins = None
+                    if type(plugins) not in (list, tuple, set) or any(plugin != 'flowguard.intent.plugin' for plugin in plugins):
+                        reasons.append('unverified pytest plugin inputs in ' + relative)
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 for alias in node.names:
                     bound = alias.asname or alias.name.split('.')[0]
@@ -251,13 +381,17 @@ def _file_dependencies(cfg, graph, seeds, now):
                 pending.extend(cfg.rel(candidate) for candidate in (cfg.root / node.value, path.parent / node.value)
                                if candidate.resolve().is_relative_to(cfg.root) and candidate.is_file())
         for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+            if id(call) in literal_calls:
+                continue
             name = ast.unparse(call.func)
             first, _, rest = name.partition('.')
             if first in bindings:
                 qualified = bindings[first] + ('.' + rest if rest else '')
                 module = qualified.rpartition('.')[0]
                 if module not in modules and bindings[first].split('.')[0] not in {'flowguard', '__future__'}:
-                    reasons.append('unverified external call ' + qualified + ' in ' + relative)
+                    reasons.append(('dynamic or external data read' if bindings[first].split('.')[0] == 'pathlib' else 'unverified external call ' + qualified) + ' in ' + relative)
+            if isinstance(call.func, ast.Name) and name == 'type' and len(call.args) == 1 and not call.keywords:
+                continue
             if isinstance(call.func, ast.Attribute) and call.func.attr == 'rows' and isinstance(call.func.value, ast.Name) and call.func.value.id in rules:
                 continue
             if isinstance(call.func, ast.Name) and (name in definitions or name in {'bool','int','float','str','len','sum','min','max','all','any','range','enumerate','zip','sorted','tuple','list','dict','set','frozenset','abs','round','rule','row','flow','node','relation','transition','state','read'} or name in project_names):
