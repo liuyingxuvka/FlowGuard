@@ -205,6 +205,41 @@ class Session:
         return self.map
 
 
+def _metadata_value(value):
+    """Hash only exact inert data; unknown objects never run cache-key hooks."""
+    from datetime import date, datetime, timedelta
+    from decimal import Decimal
+    import math
+    kind = type(value)
+    for number, native in enumerate((type(None), bool, int, str, bytes)):
+        if kind is native:
+            return number, value
+    if kind is float:
+        return ('float', value.hex()) if math.isfinite(value) else None
+    if kind is Decimal:
+        return ('decimal', value.as_tuple()) if value.is_finite() else None
+    if kind is datetime:
+        return ('datetime', value.isoformat(), value.fold) if value.tzinfo is None else None
+    if kind is date:
+        return 'date', value.isoformat()
+    if kind is timedelta:
+        return 'timedelta', value.days, value.seconds, value.microseconds
+    if kind is tuple:
+        values = tuple(_metadata_value(item) for item in value)
+        return ('tuple', values) if all(item is not None for item in values) else None
+    for number, constructor in enumerate((bool, int, float, str, bytes, Decimal, date, datetime, timedelta)):
+        if value is constructor:
+            return 'constructor', number
+    return None
+
+
+def _partition_copy(axes, part):
+    from .differences import Partition, Region
+    return ({name: list(pool) for name, pool in axes.items()},
+            Partition([Region(dict(region.inputs), region.label) for region in part.regions],
+                      part.complete, list(part.reasons), part.representative_points), [])
+
+
 class Observations:
     """Connect loaded source points to the one runtime during ordinary tests."""
     def __init__(self, state):
@@ -213,6 +248,7 @@ class Observations:
         from .runtime import Runtime, _functions, _binding_facts
         from ..map.common import MapError, git_run, read_source
         self.state, self.cfg = state, state.cfg
+        self.comparison_requested = bool(state.config.getoption('--flowguard-base', default=None))
         baseline = state.config.getoption('--flowguard-base', default=None) or cache.session_baseline(self.cfg, remember=False) or 'HEAD'
         self.runtime = state.runtime = Runtime(self.cfg.root, baseline)
         if state.config.getoption('--flowguard-base', default=None) and self.runtime._baseline_error:
@@ -299,7 +335,7 @@ class Observations:
             fn = sites.unwrap(value)
             point['fn'], point['receiver'] = fn, receiver
             groups = self.index.named(point['name'], 'sensor') if point['anchor'] else ()
-            if not self.changed and (point['kind'] == 'event' or len(groups) < 2 and not self.rules.get(point['target'])
+            if not self.changed and (point['kind'] == 'event' or not self.comparison_requested and len(groups) < 2 and not self.rules.get(point['target'])
                                      and not (self.request and self.request['target'] == point['target'])):
                 continue
             self.runtime.register(fn)
@@ -329,12 +365,34 @@ class Observations:
             else:
                 if kind is not None:
                     kinds[parameter.name] = kind
-        tree = ast.parse((self.cfg.root / point['file']).read_text(encoding='utf-8-sig'))
-        current = _definition(original)
-        env = anchors._literal_globals(tree)
+        path = self.cfg.root / point['file']
+        source = path.read_bytes()
+        code = original.__code__
         patch = self.runtime.patches.get(point['fn'])
-        previous = patch.node if patch else current
-        old_tree = ast.parse(self.runtime._source(point['file'])) if patch else tree
+        old_code = patch.code if patch else None
+        old_source = self.runtime._source(point['file']) if patch else None
+        baseline, old_identity = _metadata_value(self.runtime.baseline), _metadata_value(old_source)
+        identity = (id(code), source, old_identity, baseline, id(old_code))
+        key = point['file'], original.__qualname__
+        cacheable = baseline is not None and old_identity is not None and Path(code.co_filename).resolve() == path.resolve()
+        data = self.metadata.setdefault(key, {}) if cacheable else {}
+        if (data.get('identity') != identity or data.get('code') is not code
+                or data.get('old_code') is not old_code):
+            file_data = self.metadata.setdefault((point['file'],), {}) if cacheable else {}
+            source_identity = source, old_identity, baseline
+            if file_data.get('identity') != source_identity:
+                tree = ast.parse(source.decode('utf-8-sig'))
+                file_data.update(identity=source_identity, tree=tree,
+                                 old_tree=ast.parse(old_source) if patch else tree)
+            current = _definition(original)
+            previous = patch.node if patch else current
+            data.clear()
+            data.update(identity=identity, code=code, old_code=old_code,
+                        tree=file_data['tree'], current=current, previous=previous, old_tree=file_data['old_tree'],
+                        names=sorted({node.id for body in (previous, current) for node in ast.walk(body)
+                                      if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}))
+        tree, current, previous, old_tree = (data[name] for name in ('tree', 'current', 'previous', 'old_tree'))
+        env = anchors._literal_globals(tree)
         old_env = anchors._literal_globals(old_tree)
         old_env.update(self.runtime._constants(old_tree, original.__module__))
         from .runtime import _simple
@@ -342,6 +400,17 @@ class Observations:
             if namespace is original.__globals__ and name in namespace and _simple(namespace[name]):
                 env[name] = namespace[name]
                 old_env[name] = self.runtime._old_value(namespace, name, before)
+        roles = tuple((p.name, p.unit, p.source_type, p.role, p.inferred) for p in parameters)
+        domains = tuple((name, kind.name, kind.optional, kind.literals) for name, kind in kinds.items())
+        facts = [roles, domains]
+        for namespace in (env, old_env, original.__globals__):
+            facts.append(tuple((name, namespace[name]) for name in data['names'] if name in namespace))
+        tokens = [_metadata_value(value) for value in facts]
+        reusable = (not unknown and all(kind.enum_type is None for kind in kinds.values())
+                    and all(value is not None for value in tokens))
+        domain_key = tuple(tokens) if reusable else None
+        if reusable and data.get('domain_key') == domain_key and 'partition' in data:
+            return _partition_copy(*data['partition'])
         count = len(kinds)
         now_read = C.read_predicate(SimpleNamespace(__globals__=env), kinds, node=current)
         old_read = C.read_predicate(SimpleNamespace(__globals__=old_env), kinds, node=previous)
@@ -374,7 +443,12 @@ class Observations:
             for name, value in region.inputs.items():
                 if not any(outcome_equal(value, prior) for prior in axes[name]):
                     axes[name].append(value)
-        return {**axes, **candidates}, part if not unknown else None, unknown
+        axes.update(candidates)
+        if reusable and not unknown and part.complete and all(
+                _metadata_value(tuple(region.inputs.values())) is not None for region in part.regions):
+            saved_axes, saved_part, _ = _partition_copy(axes, part)
+            data.update(domain_key=domain_key, partition=(saved_axes, saved_part))
+        return axes, part if not unknown else None, unknown
 
     def _at_call(self, point, original, bound):
         from . import runtime as R
@@ -694,7 +768,7 @@ class Observations:
                 self.red.append(issue.message)
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
-        report = dict(source_changed=self.changed, items=items, paths=self.paths,
+        report = dict(source_changed=self.changed, comparison_requested=self.comparison_requested, items=items, paths=self.paths,
                       leads=leads, red=list(dict.fromkeys(self.red)), partial_flows=partial_flows)
         from dataclasses import fields
         from .flow import Event
@@ -1293,12 +1367,6 @@ def finish_verified(session, exitstatus):
             _meta(con, 'intent_collection', attempt)
             if not model.deep:
                 con.execute("DELETE FROM result WHERE item LIKE '%:live]'")
-            for rid, rule in model.rules.items():
-                required = {model.file_of[rid] + '::' + name for name in model.items_of(rule)}
-                if required <= state.results.keys():
-                    parts = [state.results[item] for item in required]
-                    owner = model.file_of[rid] + '::' + rid + '[rules]'
-                    state.results[owner]['own_contract'] = state.engine.contract_summary(rule, parts=parts)
             for item, result in state.results.items():
                 con.execute('INSERT OR REPLACE INTO result VALUES(?,?,?,?,?)', (item, result['rule'], result['verdict'], _json(result), state.started))
             from .deps import record

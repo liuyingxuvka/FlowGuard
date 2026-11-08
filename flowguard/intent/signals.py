@@ -139,7 +139,7 @@ def render(report, limit=10):
     comparison = report.get('comparison', False)
     if comparison and report.get('status') == 'red' and not report.get('changes'):
         red += report.get('reasons', ())
-    if not red and report.get('status') != 'red' and not any(item.get('status') == 'red' for item in items) and (report.get('source_changed') is False
+    if not red and report.get('status') != 'red' and not any(item.get('status') == 'red' for item in items) and not report.get('comparison_requested') and (report.get('source_changed') is False
                     or report.get('snapshot', {}).get('kind') == 'no-source-change'):
         return ''
     lines = ['红：' + str(message) for message in red[:budget]]

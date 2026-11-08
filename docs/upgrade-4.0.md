@@ -22,7 +22,9 @@ This is a major-version migration because supported execution and CLI behavior c
 
 The safety gate is conservative, not a proof of all possible effects. It checks calls statically and rechecks the original values. Unknown operations, unavailable fixtures, ambiguous target invocations and unsupported contexts remain unverified. An unchanged result from one context does not establish every database, filesystem or concurrent state.
 
-Direct SQLite replay supports only literal reads from an ordinary main table, optionally with a verified numeric equality parameter. It rejects visible Python callbacks, converters/adapters and unsupported SQL rather than treating any `SELECT` as pure. Numeric storage-class validation can scan the current condition column; it is not cached across changing database states. Use actual scenario readings for more complex contexts. Arbitrary extensions or hidden native hooks are outside this restricted proof scope.
+Direct SQLite replay supports a literal integer `SELECT` without parameters, or literal reads from an ordinary main table, optionally with a verified numeric equality parameter. It rejects visible Python callbacks, converters/adapters and unsupported SQL rather than treating any `SELECT` as pure. Numeric storage-class validation can scan the current condition column; it is not cached across changing database states. Use actual scenario readings for more complex contexts. Arbitrary extensions or hidden native hooks are outside this restricted proof scope.
+
+The session may reuse unchanged source syntax and closed input partitions. This does not reuse a business result, database state, safety verdict or actual reading; current inputs and contexts are observed again.
 
 ## Preserve inputs, rebuild observations
 
@@ -33,7 +35,7 @@ Direct SQLite replay supports only literal reads from an ordinary main table, op
 5. Run the ordinary tests. Review changed outcome classes, inconsistent same-name sensors and sourced rule violations. Compare every known old counterexample; a formerly unverified green must become red or grey, never silently disappear.
 6. Run the complete suite with an environment outside the project, then require complete `ci.yml` success on that exact main commit before publication. Keep historical commits, tags and releases.
 
-The default is now “run tests, read FlowGuard's few lines.” With no source change, output stays quiet unless a constraint fails. An optional session brief remembers the task baseline; `check --base COMMIT` selects another comparison baseline explicitly. Comparison reports supported classes, not every value in an open domain. Independent source words and tests still matter because code and model can share the same mistaken interpretation.
+The default is now “run tests, read FlowGuard's few lines.” With no source change, output stays quiet unless a constraint fails. An optional session brief remembers the task baseline. To request a genuine comparison even against unchanged code, run `pytest --flowguard-base COMMIT` or `check --all --base COMMIT`; a complete comparison can then report zero changed classes. Comparison reports supported classes, not every value in an open domain. Independent source words and tests still matter because code and model can share the same mistaken interpretation.
 
 ## Optional inspection
 

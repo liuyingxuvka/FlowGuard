@@ -13,7 +13,7 @@ def fixture(tmp_path, source):
     runtime.register(actual.decision)
     point = dict(anchor=None, parameters=(anchors.Parameter('x', 'count', 'int'),),
                  fn=actual.decision, file='r19_candidate.py')
-    owner = SimpleNamespace(cfg=SimpleNamespace(root=tmp_path), runtime=runtime)
+    owner = SimpleNamespace(cfg=SimpleNamespace(root=tmp_path), runtime=runtime, metadata={})
     return actual, runtime, point, owner
 
 

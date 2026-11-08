@@ -165,6 +165,42 @@ def test_true_source_call_and_mutated_same_object_stays_observed(tmp_path):
             module.eligible.__code__ = original
 
 
+def test_direct_sensor_without_git_checks_all_eight_flags_and_live_identity(tmp_path, monkeypatch):
+    names = tuple('abcdefgh')
+    text = '# flowguard: sensor flags(' + ', '.join(f'{name}: {name}' for name in names) + ') -> allowed: bool\n'
+    text += 'def accept(' + ', '.join(f'{name}: bool' for name in names) + ') -> bool:\n'
+    text += '    return ' + ' and '.join(names) + '\n'
+    root, index = source(tmp_path, text)
+    anchor, = index.entries
+    assert not any((parent / '.git').exists() for parent in (root, *root.parents))
+    from flowguard.map import common
+    git_calls = []
+    def no_history(*args, **kwargs):
+        git_calls.append((args, kwargs))
+        raise AssertionError('direct sensor observation must not query a Git baseline')
+    monkeypatch.setattr(common, 'git_run', no_history)
+    observed = {}
+    with session(root):
+        cases = [(True,) * 8] + [tuple(name != absent for name in names) for absent in names]
+        for values in cases:
+            result = A.observe(root, anchor, dict(zip(names, values)))
+            assert result.status == 'ok', result
+            assert result.value is all(values), values
+            observed[values] = result.value
+        assert len(observed) == 9
+        assert observed[(True,) * 8] is True
+        assert observed[(True,) * 7 + (False,)] is False
+        calls = []
+        def replacement(*args, **kwargs):
+            calls.append(True)
+            return True
+        monkeypatch.setattr(sys.modules[anchor.module], 'accept', replacement)
+        rebound = A.observe(root, anchor, dict.fromkeys(names, True))
+        assert rebound.status == 'red' and 'loaded callable' in rebound.reasons[0]
+        assert calls == []
+    assert git_calls == []
+
+
 def test_real_runtime_exception_retains_type_and_message(tmp_path):
     text = '''# flowguard: sensor valid(x: 1) -> allowed: bool
 def valid(x: int) -> bool:

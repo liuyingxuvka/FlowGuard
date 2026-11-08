@@ -792,7 +792,7 @@ def _observe_verified(root, anchor, values):
     positional = [values[a.arg] for a in function.args.posonlyargs]
     kwargs = {name: value for name, value in values.items() if name not in {a.arg for a in function.args.posonlyargs}}
     from .runtime import Runtime, _value
-    runtime = Runtime(root)
+    runtime = Runtime(root, previous={})
     bound = inspect.signature(fn, follow_wrapped=False).bind(*positional, **kwargs)
     problem = runtime.safety(fn, bound.arguments)
     if problem:

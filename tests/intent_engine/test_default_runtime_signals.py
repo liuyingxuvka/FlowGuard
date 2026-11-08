@@ -4,6 +4,8 @@ Each fixture commits the original source before editing it. The project's own
 assertions keep passing; observations must reveal the independent difference.
 """
 from pathlib import Path
+import json
+import sqlite3
 import re
 import subprocess
 import sys
@@ -36,12 +38,19 @@ def _project(root, source, test, *, rule=None):
     return root / 'policy.py'
 
 
-def _run(root):
+def _run(root, *options):
     source = str(Path(__file__).resolve().parents[2])
     bootstrap = ('import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; '
                  'raise SystemExit(pytest.main(sys.argv[1:]))')
-    return subprocess.run([sys.executable, '-c', bootstrap, source, '-q', '-p', 'flowguard.intent.plugin'],
+    return subprocess.run([sys.executable, '-c', bootstrap, source, '-q', '-p', 'flowguard.intent.plugin', *options],
                           cwd=root, capture_output=True, text=True, timeout=30)
+
+
+def _observations(root):
+    with sqlite3.connect(root / '.flowguard/cache/map.sqlite') as connection:
+        row = connection.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()
+    assert row is not None
+    return json.loads(row[0])['items']
 
 
 def _text(result):
@@ -54,7 +63,7 @@ def _has_change(text):
     return bool(re.search(r'→|->|(?:change|变)', text, re.I))
 
 
-def test_fixed_1_contextual_comparison_reports_the_equal_stock_boundary(tmp_path):
+def test_fixed_1_contextual_comparison_reports_the_equal_stock_boundary(tmp_path, capsys):
     policy = _project(tmp_path, '''
         import sqlite3
         # flowguard: sensor AVAILABLE(stock: count, reserved: count; db, item_id) -> allowed: bool
@@ -80,7 +89,26 @@ def test_fixed_1_contextual_comparison_reports_the_equal_stock_boundary(tmp_path
     policy.write_text(original)
     reverted = _run(tmp_path)
     assert reverted.returncode == 0, _text(reverted)
-    assert not re.search(r'变\s*[1-9]\d*\s*类', _text(reverted)), _text(reverted)
+    assert 'AVAILABLE' not in _text(reverted), _text(reverted)
+    assert _observations(tmp_path)['source_changed'] is False
+    assert not _observations(tmp_path)['items']
+    compared = _run(tmp_path, '--flowguard-base', 'HEAD')
+    compared_text = _text(compared)
+    assert compared.returncode == 0, compared_text
+    assert 'AVAILABLE' in compared_text and re.search(r'共\s*[1-9]\d*\s*类，变\s*0\s*类', compared_text), compared_text
+    report = _observations(tmp_path)
+    assert report['source_changed'] is False and report['comparison_requested'] is True
+    readings = [item for item in report['items'] if item.get('name') == 'AVAILABLE']
+    assert len(readings) == 1, report
+    assert readings[0]['complete'] and readings[0]['total'] > 0, readings
+    assert readings[0]['changed'] == 0 and readings[0]['changes'] == [], readings
+    from tests.intent_engine._cli_fixture import main as cli_main
+    capsys.readouterr()
+    assert cli_main(['--root', str(tmp_path), 'check', '--all', '--base', 'HEAD'], cwd=tmp_path) == 0
+    cli_text = capsys.readouterr().out
+    assert 'AVAILABLE' in cli_text and re.search(r'共\s*[1-9]\d*\s*类，变\s*0\s*类', cli_text), cli_text
+    cli_report = _observations(tmp_path)
+    assert cli_report['comparison_requested'] and cli_report['source_changed'] is False
 
 
 def test_fixed_2_database_writes_stay_grey_without_replaying_the_effect(tmp_path):
@@ -283,6 +311,13 @@ def test_fixed_9_reused_connection_is_observed_again_after_rows_change(tmp_path)
     assert result.returncode == 0, text
     assert 'STANDING' in text and re.search(r'4\s*[–-]\s*7', text), text
     assert _has_change(text), text
+    report = _observations(tmp_path)
+    readings = [item for item in report['items'] if item.get('name') == 'STANDING']
+    assert len(readings) == 2, report
+    assert all(item['complete'] and item['total'] > 0 for item in readings), readings
+    assert readings[0]['changed'] == 0 and readings[0]['changes'] == [], readings
+    assert readings[1]['changed'] > 0 and readings[1]['changes'], readings
+    assert all(row['before'] == 'F' and row['after'] == 'T' for row in readings[1]['changes']), readings
 
 
 def test_late_imported_sensor_is_observed_without_eagerly_importing_its_module(tmp_path):

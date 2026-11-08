@@ -238,18 +238,6 @@ def compatible(v, kind) -> bool:
     return False
 
 
-def assign(site: Site, kinds: dict) -> tuple[set, str]:
-    """The rule fields a code site decides on: by name, else every field of the constant's unit kind."""
-    parts = site.names | {p for n in site.names for p in n.split("_") if p}
-    named = {f for f in kinds if f in parts}
-    if named:
-        return named, "name"
-    if site.has_const:
-        by_kind = {f for f, k in kinds.items() if compatible(site.const, k)}
-        return by_kind, "kind" if by_kind else ""
-    return set(), ""
-
-
 def site_constants(site: Site) -> list:
     if not site.has_const:
         return []

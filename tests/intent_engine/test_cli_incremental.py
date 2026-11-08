@@ -240,17 +240,22 @@ def test_changed_dependency_rechecks_the_parent_in_one_real_pytest_session(tmp_p
     assert checked['attempt']['stamp'] > cached['attempt']['stamp']
     assert checked['results']['CHECKOUT']['items']
     assert capsys.readouterr().out == ''
-    assert any(part['verdict'] == 'grey' for part in checked['results']['STANDING_CHECKOUT']['items'].values())
-    assert not checked['deps']['CHECKOUT']['reasons'] and not checked['deps']['STANDING']['reasons']
+    flows = list(checked['results']['STANDING_CHECKOUT']['items'].values())
+    assert len(flows) == 1 and flows[0]['verdict'] == 'ok'
+    assert flows[0]['finite']['exhausted'] and flows[0]['finite']['states'] == 3
+    assert flows[0]['runtime']['observed_edges'] == [['case', 'standing'], ['standing', 'checkout']]
+    assert flows[0]['runtime']['cases'] == 1 and flows[0]['runtime']['checked_relations'] == 2
+    assert any('unexecuted source routes remain unverified' in note for note in flows[0]['info'])
+    assert all(not checked['deps'][rule]['reasons'] for rule in ('CHECKOUT', 'STANDING', 'STANDING_CHECKOUT'))
     with closing(sqlite3.connect(cfg.cache / 'map.sqlite')) as connection:
         receipts = connection.execute("SELECT item,stamp FROM result WHERE rule IN ('CHECKOUT','STANDING') ORDER BY item").fetchall()
     assert receipts
     observed.clear()
     assert cli_fixture.check(cfg) == 0
-    assert len(observed) == 1, 'the unclosed scenario must run rather than reuse an old partial result'
-    assert '--flowguard-rules=STANDING_CHECKOUT' in observed[0]
+    assert observed == [], 'the finite/runtime proof has closed inputs; rereading cannot fabricate a fresh run'
     reused = cache.read(cfg)
-    for rule in ('CHECKOUT', 'STANDING'):
+    assert reused['attempt'] == checked['attempt'] and reused['collection'] == checked['collection']
+    for rule in ('CHECKOUT', 'STANDING', 'STANDING_CHECKOUT'):
         assert reused['results'][rule] == checked['results'][rule]
     with closing(sqlite3.connect(cfg.cache / 'map.sqlite')) as connection:
         assert connection.execute("SELECT item,stamp FROM result WHERE rule IN ('CHECKOUT','STANDING') ORDER BY item").fetchall() == receipts
@@ -258,6 +263,37 @@ def test_changed_dependency_rechecks_the_parent_in_one_real_pytest_session(tmp_p
     assert cli_fixture.check(cfg, everything=True) == 0
     assert len(observed) == 1 and not any(str(arg).startswith('--flowguard-rules=') for arg in observed[0])
 
+
+    # Missing a direct reading is genuinely unverified; nested standing cannot
+    # be silently relabelled as the model's declared direct caller.
+    case = cfg.root / 'tests/test_case.py'
+    original = case.read_text()
+    missing = original.replace('    app.refusal(ended,suspended,owed)\n', '', 1)
+    assert missing != original
+    case.write_text(missing)
+    observed.clear()
+    assert cli_fixture.check(cfg) == 0 and len(observed) == 1
+    uncertain = cache.read(cfg)
+    assert uncertain['tests']['tests/test_case.py::test_case']['outcome'] == 'passed'
+    unknown = list(uncertain['results']['STANDING_CHECKOUT']['items'].values())
+    assert unknown and unknown[0]['verdict'] == 'grey' and not unknown[0]['red']
+    assert any('declared direct caller edge' in reason for reason in unknown[0]['grey'])
+    observed.clear()
+    assert cli_fixture.check(cfg) == 0 and len(observed) == 1
+    assert cache.read(cfg)['attempt']['stamp'] > uncertain['attempt']['stamp']
+
+    # Both direct readings now exist, but their order is certainly forbidden.
+    pair = '    app.refusal(ended,suspended,owed)\n    result=app.checkout(ended,suspended,owed,stock)\n'
+    reverse = '    result=app.checkout(ended,suspended,owed,stock)\n    app.refusal(ended,suspended,owed)\n'
+    assert pair in original
+    case.write_text(original.replace(pair, reverse, 1))
+    observed.clear()
+    assert cli_fixture.check(cfg) == 1 and len(observed) == 1
+    broken = cache.read(cfg)
+    assert broken['tests']['tests/test_case.py::test_case']['outcome'] == 'passed'
+    rejected = list(broken['results']['STANDING_CHECKOUT']['items'].values())
+    assert rejected and rejected[0]['verdict'] == 'red'
+    assert any('runtime path case -> checkout is not allowed' in reason for reason in rejected[0]['red'])
 
 def test_states_are_rechecked_even_without_any_decision_rules(tmp_path):
     root, cfg = project(tmp_path)

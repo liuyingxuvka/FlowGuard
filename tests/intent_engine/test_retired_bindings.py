@@ -40,21 +40,41 @@ def adapter(c,fn):raise RuntimeError('cannot be called')
     assert all(not hasattr(d,'adapter')for d in model.distincts)
 
 
-def test_source_contract_change_invalidates_without_hashing_unrelated_bodies(tmp_path):
+def test_source_contract_change_invalidates_with_Map_function_and_file_scope(tmp_path):
     root,cfg,module=fixture(tmp_path)
+    outside=root/'outside.py'
+    outside.write_text('def unrelated(x): return x + 1\n')
     model,graph,saved,result=execute(cfg)
     assert not saved['reasons'] and result['verdict']=='ok'
     target=module+':accept'
-    assert 'anchor:'+target in saved['dependencies']
+    node_key,file_key='node:'+target,'file:'+module+'.py'
+    assert saved['dependencies'][node_key]==graph.node(target)['fp']
+    assert file_key in saved['dependencies']
+    state={'deps':{'LIMIT':saved},'results':{'LIMIT':{'items':{'cells':result}}}}
     source=root/(module+'.py')
     original=source.read_text()
-    source.write_text(original.replace('return x + 1','return x + 99'))
     graph.close()
+    outside.write_text('def unrelated(x): return x + 99\n')
     with closing(build(root))as current:
-        assert deps.stale(saved,deps.Now(cfg,current))==[]
-    source.write_text(original.replace('LIMIT(x: x)','LIMIT(x: count)'))
+        now=deps.Now(cfg,current)
+        assert deps.stale(saved,now)==[]
+        assert deps.reusable(state,'LIMIT',now)
+    # The function fingerprint stays local, while the declared file dependency
+    # conservatively invalidates any body change in that same file.
+    source.write_text(original.replace('return x + 1','return x + 99'))
     with closing(build(root))as current:
-        assert 'anchor:'+target in deps.stale(saved,deps.Now(cfg,current))
+        now=deps.Now(cfg,current)
+        assert now(node_key)==saved['dependencies'][node_key]
+        assert file_key in deps.stale(saved,now) and node_key not in deps.stale(saved,now)
+        assert not deps.reusable(state,'LIMIT',now)
+    contract=original.replace('LIMIT(x: x)','LIMIT(x: count)')
+    assert contract!=original
+    source.write_text(contract)
+    with closing(build(root))as current:
+        now=deps.Now(cfg,current)
+        assert now(node_key)==saved['dependencies'][node_key]
+        assert file_key in deps.stale(saved,now)
+        assert not deps.reusable(state,'LIMIT',now)
 
 
 def test_equivalent_sources_survive_superseding_as_source_bindings(tmp_path):

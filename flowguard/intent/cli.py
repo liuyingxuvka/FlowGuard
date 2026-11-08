@@ -544,6 +544,7 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
                             red=compared['reasons'] if compared['status'] == 'red' and not compared['changes'] else []))
         status = status or int(compared['status'] == 'red')
     report = dict(source_changed=any(part.get('source_changed', True) for part in reports),
+                  comparison_requested=any(part.get('comparison_requested') for part in reports),
                   items=[item for part in reports for item in part.get('items', ())],
                   paths=[path for part in reports for path in part.get('paths', ())],
                   leads=[lead for part in reports for lead in part.get('leads', ())],
