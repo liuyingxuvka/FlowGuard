@@ -76,3 +76,71 @@ def close():
         assert sys.gettrace() is ambient
     assert sys.gettrace() is ambient
     assert capture.issues == []
+
+
+def test_closing_one_live_capture_keeps_the_other_captures_line_suppression(tmp_path):
+    index, module = source(tmp_path, '''import sys
+# flowguard: event CLOSE()
+def close():
+    frame = sys._getframe()
+    before = frame.f_trace_lines
+    inner.close()
+    during = frame.f_trace_lines
+    outer.close()
+    return before, during, frame.f_trace_lines
+''')
+    ambient = sys.gettrace()
+    with Capture(tmp_path, index, 'outer') as outer, Capture(tmp_path, index, 'inner') as inner:
+        module.outer, module.inner = outer, inner
+        before, during, after = module.close()
+        expected = hasattr(sys, 'monitoring')
+        assert before is expected and during is expected
+        assert after is True
+        assert sys.gettrace() is ambient
+    assert outer.issues == inner.issues == []
+    assert [event.phase for event in outer.events] == ['call']
+    assert [event.phase for event in inner.events] == ['call']
+
+
+def test_record_closed_from_its_call_callback_does_not_reclaim_the_live_frame(tmp_path):
+    from flowguard.intent.runtime import Runtime
+    _, module = source(tmp_path, '''import sys
+# flowguard: event CLOSE()
+def close():
+    return sys._getframe().f_trace_lines
+''')
+    runtime = Runtime(tmp_path)
+    def callback(frame, event, arg):
+        if event == 'call':
+            record.__exit__(None, None, None)
+        return callback
+    ambient = sys.gettrace()
+    record = runtime.record([(module.close.__code__, 'CLOSE')], callback=callback)
+    with record as events:
+        assert module.close() is True
+        assert sys.gettrace() is ambient
+    assert [event['phase'] for event in events] == ['call']
+    assert runtime.issues == []
+
+
+def test_a_line_flag_not_changed_by_the_observer_is_not_forced_on_at_close(tmp_path):
+    from flowguard.intent.runtime import Runtime
+    _, module = source(tmp_path, '''import sys
+# flowguard: event CLOSE()
+def close():
+    frame = sys._getframe()
+    record.__exit__(None, None, None)
+    return frame.f_trace_lines
+''')
+    runtime = Runtime(tmp_path)
+    def callback(frame, event, arg):
+        if event == 'call':
+            frame.f_trace_lines = False
+        return callback
+    record = runtime.record([(module.close.__code__, 'CLOSE')], callback=callback)
+    module.record = record
+    ambient = sys.gettrace()
+    with record:
+        assert module.close() is False
+        assert sys.gettrace() is ambient
+    assert runtime.issues == []

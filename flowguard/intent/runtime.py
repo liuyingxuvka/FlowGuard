@@ -360,6 +360,12 @@ class _ObserverHub:
             sys.settrace(self.trace)  # CPython cleared our raising trace callback.
         self.records.remove(record)
         record.active = False
+        if not hasattr(sys, 'monitoring'):
+            for key in tuple(record.frames):
+                if not any(key in other.frames for other in self.records):
+                    saved = self.lines.pop(key, None)
+                    if saved:
+                        saved[0].f_trace_lines = saved[1]
         if self.records and hasattr(sys, 'monitoring'):
             self.refresh()
         elif not self.records:
@@ -486,7 +492,7 @@ class _Record:
             except BaseException:
                 self.interrupted = True
                 raise
-        return interested
+        return interested and self.active
 
     def __enter__(self):
         self.ambient = sys.gettrace()
