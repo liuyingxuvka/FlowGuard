@@ -86,7 +86,8 @@ def test_inert_container_and_simple_local_arithmetic_are_replayed(tmp_path):
     runtime = Runtime(tmp_path, previous={'r19_candidate.py': source})
     with runtime.hook(m.decision, axes={'x': [0, 1, 4]}):
         assert m.decision(1) is True
-    assert runtime.readings[0].status == 'ok' and len(runtime.readings[0].rows) == 3
+    assert runtime.readings[0].status == 'ok' and len(runtime.readings[0].rows) == 4
+    assert {row['x']: value for row, value in runtime.readings[0].rows} == {0: True, 1: True, 2: True, 4: False}
 
 
 def test_body_import_is_rejected_before_it_can_load_a_dependency(tmp_path, monkeypatch):
@@ -135,7 +136,8 @@ def test_inert_helper_defaults_keep_the_real_binding_and_can_be_replayed(tmp_pat
     runtime = Runtime(tmp_path, previous={'r19_candidate.py': source})
     with runtime.hook(m.decision, axes={'x': [0, 1, 3]}):
         assert m.decision(1) is False
-    assert runtime.readings[0].status == 'ok' and len(runtime.readings[0].rows) == 3
+    assert runtime.readings[0].status == 'ok' and len(runtime.readings[0].rows) == 4
+    assert {row['x']: value for row, value in runtime.readings[0].rows} == {0: False, 1: False, 2: True, 3: True}
 
 
 def test_sql_read_with_a_custom_row_callback_is_not_executed_by_metadata_or_grid(tmp_path):
