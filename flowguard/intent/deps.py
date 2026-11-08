@@ -278,15 +278,37 @@ def _file_dependencies(cfg, graph, seeds, now):
             if name.split('.')[0].split(':')[0] not in {'flowguard', 'pytest'}:
                 unknown.setdefault(edge['file'], []).append('unverified external import ' + name)
     modules = {module: data for module, data, _ in facts.values()}
-    for declaration in graph.imports(declarations=True):
+    declarations = graph.imports(declarations=True)
+    def known_export(module, name, seen=frozenset()):
+        entry = by_id.get(module)
+        module = entry['module'] if entry and entry['file'] else module
+        pair = module, name
+        if pair in seen:
+            return False
+        target = graph.canonical(module + ':' + name)
+        if target and (node := graph.node(target)) and node['file']:
+            return True
+        if module + '.' + name in modules:
+            return True
+        raw = modules.get(module, {})
+        binding = (raw.get('facts') or {}).get('imports', {}).get(name)
+        links = set()
+        if binding and ':' in binding:
+            links.add(tuple(binding.split(':', 1)))
+        elif binding in modules:
+            return True
+        if name in raw.get('bound', ()):
+            links.update((row.get('module', ''), name) for row in declarations
+                         if row['src'] == module and row.get('name') == name and not row.get('typing'))
+        return bool(links) and all(known_export(origin, member, seen | {pair}) for origin, member in links)
+    for declaration in declarations:
         if declaration.get('typing'):
             continue
         module = declaration.get('module', '')
-        if module not in modules and module not in {'flowguard.intent', 'flowguard.intent.api', '__future__', 'pathlib'}:
+        if module not in modules and module not in {'flowguard.intent', 'flowguard.intent.api', '__future__', 'pathlib', 'pytest'}:
             unknown.setdefault(declaration['file'], []).append('unverified external import ' + module)
         name = declaration.get('name', '')
-        if (module in modules and name and name != '*'
-                and module + '.' + name not in modules and graph.canonical(module + ':' + name) is None):
+        if module in modules and name and name != '*' and not known_export(module, name):
             unknown.setdefault(declaration['file'], []).append('unresolved import ' + module + ':' + name)
     seeds = {cfg.rel(cfg.root / seed) for seed in seeds}
     pending = list(seeds) + ['pyproject.toml', 'pytest.ini', 'setup.cfg', 'tox.ini']
@@ -349,7 +371,7 @@ def _file_dependencies(cfg, graph, seeds, now):
             continue
         literal_calls, literal_files, trusted_pathlib = _literal_reads(tree, relative, cfg, modules)
         pending.extend(literal_files)
-        if not trusted_pathlib and any(row.get('module') == 'pathlib' for row in graph.imports(declarations=True) if row['file'] == relative):
+        if not trusted_pathlib and any(row.get('module') == 'pathlib' for row in declarations if row['file'] == relative):
             reasons.append('unverified pathlib binding in ' + relative)
         definitions = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
         from .loader import api_aliases, api_call_name
@@ -380,8 +402,34 @@ def _file_dependencies(cfg, graph, seeds, now):
             if isinstance(node, ast.Constant) and isinstance(node.value, str) and Path(node.value).suffix in {'.json', '.yaml', '.yml', '.csv', '.toml', '.txt', '.md'}:
                 pending.extend(cfg.rel(candidate) for candidate in (cfg.root / node.value, path.parent / node.value)
                                if candidate.resolve().is_relative_to(cfg.root) and candidate.is_file())
+        # Only actual fixture decorators are framework declarations. Runtime
+        # pytest calls and aliases escaping that declaration remain opaque.
+        framework_nodes, framework_calls = set(), set()
+        if 'pytest' not in modules:
+            for function in (node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))):
+                for decorator in function.decorator_list:
+                    target = decorator.func if isinstance(decorator, ast.Call) else decorator
+                    name = ast.unparse(target)
+                    first, _, rest = name.partition('.')
+                    qualified = bindings.get(first, first) + ('.' + rest if rest else '')
+                    if qualified != 'pytest.fixture':
+                        continue
+                    if isinstance(decorator, ast.Call):
+                        try:
+                            for argument in [*decorator.args, *(keyword.value for keyword in decorator.keywords)]:
+                                ast.literal_eval(argument)
+                        except (TypeError, ValueError):
+                            continue
+                        if any(keyword.arg is None for keyword in decorator.keywords):
+                            continue
+                        framework_calls.add(id(decorator))
+                    framework_nodes.update(id(part) for part in ast.walk(decorator))
+        pytest_names = {name for name, value in bindings.items() if value == 'pytest' or value.startswith('pytest.')}
+        if any(isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in pytest_names
+               and id(node) not in framework_nodes for node in ast.walk(tree)):
+            reasons.append('unverified pytest runtime use in ' + relative)
         for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
-            if id(call) in literal_calls:
+            if id(call) in literal_calls or id(call) in framework_calls:
                 continue
             name = ast.unparse(call.func)
             first, _, rest = name.partition('.')

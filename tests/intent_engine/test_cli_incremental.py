@@ -1,6 +1,8 @@
 """The public check route must use cached facts without changing their conclusion."""
 from pathlib import Path
+from contextlib import closing
 import os
+import sqlite3
 import subprocess
 import sys
 
@@ -156,21 +158,25 @@ def test_static_transitive_helper_and_conftest_content_are_test_dependencies(tmp
     conftest.write_text(conftest.read_text() + '\nimport pytest\nfrom test_helper import value\n@pytest.fixture\ndef supplied(): return value()\n')
     (root / 'tests/test_ordinary.py').write_text('def test_actual(supplied): assert supplied == 3\n')
     assert cli_fixture.check(cfg) == 0
+    cached = cache.read(cfg)
+    assert not cached['test_deps']['tests/test_ordinary.py']['unknown']
+    assert not cached['deps']['LIMIT']['reasons']
     observed = calls(monkeypatch)
     assert cli_fixture.check(cfg) == 0
-    # N1 keeps the original third-party pytest fixture initialization opaque.
-    # Compare against its real no-op selection rather than silently calling it
-    # closed; adding unrelated code must not expand the selected set or rules.
-    assert len(observed) == 1
-    baseline = list(observed[0])
-    assert '--flowguard-rules=LIMIT' in baseline, 'an opaque fixture must recheck the shared rule scope'
-    observed.clear()
+    assert observed == [], 'a closed unchanged fixture does not start another Session'
+    reused = cache.read(cfg)
+    for field in ('results', 'deps', 'attempt', 'collection', 'tests', 'test_deps', 'test_collection'):
+        assert reused[field] == cached[field], f'reuse must not refresh {field}'
+    # A new file changes the declared project-listing input even when its code
+    # is unrelated. Recheck once; this is distinct from the unchanged case.
     (root / 'unrelated.py').write_text('UNRELATED = 123\n')
     assert cli_fixture.check(cfg) == 0
-    assert observed == [baseline], 'an unrelated module must not expand current selection'
+    assert len(observed) == 1 and '--flowguard-rules=LIMIT' in observed[0]
+    observed.clear()
     helper.write_text('def value(): return 42\n')
     build(root).close()
     assert cli_fixture.check(cfg) == 1
+    assert len(observed) == 1
     assert any('tests/test_ordinary.py' in command for command in observed)
     assert cache.read(cfg)['tests']['tests/test_ordinary.py::test_actual']['outcome'] == 'failed'
 
@@ -234,10 +240,20 @@ def test_changed_dependency_rechecks_the_parent_in_one_real_pytest_session(tmp_p
     assert checked['attempt']['stamp'] > cached['attempt']['stamp']
     assert checked['results']['CHECKOUT']['items']
     assert capsys.readouterr().out == ''
+    assert any(part['verdict'] == 'grey' for part in checked['results']['STANDING_CHECKOUT']['items'].values())
+    assert not checked['deps']['CHECKOUT']['reasons'] and not checked['deps']['STANDING']['reasons']
+    with closing(sqlite3.connect(cfg.cache / 'map.sqlite')) as connection:
+        receipts = connection.execute("SELECT item,stamp FROM result WHERE rule IN ('CHECKOUT','STANDING') ORDER BY item").fetchall()
+    assert receipts
     observed.clear()
     assert cli_fixture.check(cfg) == 0
     assert len(observed) == 1, 'the unclosed scenario must run rather than reuse an old partial result'
-    assert '--flowguard-rules=CHECKOUT,STANDING,STANDING_CHECKOUT' in observed[0]
+    assert '--flowguard-rules=STANDING_CHECKOUT' in observed[0]
+    reused = cache.read(cfg)
+    for rule in ('CHECKOUT', 'STANDING'):
+        assert reused['results'][rule] == checked['results'][rule]
+    with closing(sqlite3.connect(cfg.cache / 'map.sqlite')) as connection:
+        assert connection.execute("SELECT item,stamp FROM result WHERE rule IN ('CHECKOUT','STANDING') ORDER BY item").fetchall() == receipts
     observed.clear()
     assert cli_fixture.check(cfg, everything=True) == 0
     assert len(observed) == 1 and not any(str(arg).startswith('--flowguard-rules=') for arg in observed[0])

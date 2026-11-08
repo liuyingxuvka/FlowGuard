@@ -22,6 +22,8 @@ This is a major-version migration because supported execution and CLI behavior c
 
 The safety gate is conservative, not a proof of all possible effects. It checks calls statically and rechecks the original values. Unknown operations, unavailable fixtures, ambiguous target invocations and unsupported contexts remain unverified. An unchanged result from one context does not establish every database, filesystem or concurrent state.
 
+Direct SQLite replay supports only literal reads from an ordinary main table, optionally with a verified numeric equality parameter. It rejects visible Python callbacks, converters/adapters and unsupported SQL rather than treating any `SELECT` as pure. Numeric storage-class validation can scan the current condition column; it is not cached across changing database states. Use actual scenario readings for more complex contexts. Arbitrary extensions or hidden native hooks are outside this restricted proof scope.
+
 ## Preserve inputs, rebuild observations
 
 1. Keep original-word files byte for byte. Keep every useful independent rule, literal row, expected result and real negative control. Full source comments continue to work; the shortest sensor comment is `# flowguard: sensor NAME`.

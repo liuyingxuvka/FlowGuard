@@ -88,29 +88,75 @@ def _simple(value):
                     for name in operations))
 
 
-def _read_sql(connection, text):
+def _read_sql(connection, text, parameters=()):
+    """A narrow ordinary-table read; never a general SQLite purity claim."""
+    import functools
+    import gc
     if type(connection) is not sqlite3.Connection or connection.row_factory is not None or not (
             connection.text_factory is str or connection.text_factory is bytes):
         return False
-    if not text.lstrip().upper().startswith(('SELECT ', 'SELECT\n')):
+    noise, cache = [sqlite3.Connection, connection.text_factory], False
+    for ref in gc.get_referents(connection):
+        if not callable(ref):
+            continue
+        found = next((i for i, value in enumerate(noise) if ref is value), None)
+        if found is not None:
+            noise.pop(found)
+        elif not cache and type(ref) is functools._lru_cache_wrapper and inspect.getattr_static(ref, '__wrapped__', None) is connection:
+            cache = True
+        else:
+            return False  # CPython exposes authorizer/progress/trace callables here.
+    ident = r'[A-Za-z_][A-Za-z_0-9]*'
+    match = re.fullmatch(r'\s*SELECT\s+(' + ident + r'|COUNT\(\*\))\s+FROM\s+(' + ident +
+                         r')(?:\s+WHERE\s+(' + ident + r')\s*=\s*\?)?\s*;?\s*', text, re.I)
+    if match is None or type(parameters) not in (tuple, list):
         return False
-    if '--' in text or '/*' in text or re.search(r'["`\]]\s*\(', text):
-        return False  # Obfuscated function names are not a proven literal read.
-    calls = {name.upper() for name in re.findall(r'\b([^\W\d]\w*)\s*\(', text)}
-    syntax = {'IN', 'EXISTS', 'NOT', 'AND', 'OR', 'WHERE', 'SELECT', 'CASE', 'CAST'}
-    functions = calls - syntax
-    if not functions:
-        return True
-    inert = {'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'COALESCE', 'IFNULL', 'NULLIF',
-             'LENGTH', 'ABS', 'LOWER', 'UPPER', 'ROUND'}
-    if not functions <= inert:
+    column, table, where = match.groups()
+    if type(sqlite3.adapters) is not dict or type(sqlite3.converters) is not dict or any(type(key) is not str for key in sqlite3.converters):
         return False
+    if len(parameters) != bool(where) or where and not _sql_number(parameters[0]):
+        return False
+    sqltext = lambda value: value.decode('utf-8') if type(value) is bytes else value
     try:
-        installed = connection.execute('PRAGMA function_list').fetchall()
-    except sqlite3.Error:
+        tables = connection.execute('PRAGMA table_list').fetchall()
+        owned = [row for row in tables if sqltext(row[1]).lower() == table.lower()]
+        if len(owned) != 1 or sqltext(owned[0][0]) != 'main' or sqltext(owned[0][2]) != 'table':
+            return False
+        columns = connection.execute('PRAGMA main.table_xinfo("' + table + '")').fetchall()
+        requested = {name.lower() for name in (column, where) if name and name.upper() != 'COUNT(*)'}
+        for name in requested:
+            fields = [row for row in columns if sqltext(row[1]).lower() == name]
+            if len(fields) != 1 or fields[0][6] or sqltext(fields[0][2]).split('(', 1)[0].split(' ', 1)[0].upper() in sqlite3.converters:
+                return False
+        if column.upper() == 'COUNT(*)' or where:
+            functions = connection.execute('PRAGMA function_list').fetchall()
+            for name in ({'typeof'} if where else set()) | ({'count'} if column.upper() == 'COUNT(*)' else set()):
+                matches = [row for row in functions if sqltext(row[0]).lower() == name]
+                if not matches or not any(row[1] for row in matches) or any(not row[1] for row in matches):
+                    return False
+        if where and not all(sqltext(row[0]) in ('integer', 'real') for row in connection.execute(
+                'SELECT typeof("' + where + '") FROM main."' + table + '"')):
+            return False  # Storage classes now, not declared INTEGER affinity.
+        return True
+    except (sqlite3.Error, UnicodeError, IndexError, TypeError):
         return False
-    return all(any(row[0].upper() == name and row[1] for row in installed)
-               and not any(row[0].upper() == name and not row[1] for row in installed) for name in functions)
+
+
+def _sql_number(value):
+    return type(value) in (int, float, bool) and value == value and type(sqlite3.adapters) is dict and not any(
+        type(key) is tuple and key and key[0] is type(value) for key in sqlite3.adapters)
+
+
+def _sql_parameters(call, namespace, assignments):
+    if len(call.args) == 1 and not call.keywords:
+        return ()
+    if len(call.args) != 2 or call.keywords:
+        return None
+    node = call.args[1]
+    values = node.elts if isinstance(node, (ast.Tuple, ast.List)) else [node]
+    if any(isinstance(value, ast.Name) and assignments.get(value.id) for value in values):
+        return None
+    return tuple(_resolve(value, namespace) for value in node.elts) if isinstance(node, (ast.Tuple, ast.List)) else _resolve(node, namespace)
 
 
 def _resolve(expression, env):
@@ -757,7 +803,7 @@ class Runtime:
                     return (type(connection) is sqlite3.Connection and connection.row_factory is None
                             and (connection.text_factory is str or connection.text_factory is bytes) and execute.args
                             and isinstance(execute.args[0], ast.Constant) and type(execute.args[0].value) is str
-                            and _read_sql(connection, execute.args[0].value))
+                            and _read_sql(connection, execute.args[0].value, _sql_parameters(execute, namespace, assignments)))
             target = _resolve(expression.func, namespace)
             if isinstance(expression.func, ast.Attribute) and expression.func.attr in _READ_METHODS:
                 if type(_resolve(expression.func.value, namespace)) in (str, bytes, list, tuple, dict, set, frozenset) and inert(_resolve(expression.func.value, namespace)) and all(data(value, namespace, assignments, trail)
@@ -833,7 +879,7 @@ class Runtime:
                     continue
                 if name == 'execute' and type(owner) is sqlite3.Connection and part.args:
                     sql = part.args[0]
-                    if isinstance(sql, ast.Constant) and type(sql.value) is str and _read_sql(owner, sql.value):
+                    if isinstance(sql, ast.Constant) and type(sql.value) is str and _read_sql(owner, sql.value, _sql_parameters(part, env, bindings)):
                         continue
                     return 'possible side effect: database statement is not a literal read'
                 if name in {'fetchone', 'fetchall'} and isinstance(part.func.value, ast.Call) and \
@@ -841,6 +887,32 @@ class Runtime:
                     continue  # The inner execute is checked independently.
             return 'possible side effect: unresolved call ' + ast.unparse(part.func)
         return ''
+
+    def _sql_axes(self, function, bound, axes):
+        suspects = {name for name in axes if type(bound.arguments.get(name)) in (int, float, bool)
+                    and not all(_sql_number(value) for value in axes[name])}
+        if not suspects:
+            return True
+        pending, visited = [function], set()
+        while pending:
+            current = pending.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            definitions = [_definition(current)] + ([self.patches[current].node] if current in self.patches else [])
+            for call in (part for node in definitions for part in sites.own_nodes(node) if isinstance(part, ast.Call)):
+                target = _resolve(call.func, current.__globals__)
+                if type(target) is types.FunctionType and self._project(target):
+                    pending.append(target)
+                if not (isinstance(call.func, ast.Attribute) and call.func.attr == 'execute' and call.args
+                        and isinstance(call.args[0], ast.Constant) and type(call.args[0].value) is str
+                        and re.search(r'\bWHERE\b', call.args[0].value, re.I)):
+                    continue
+                names = set(axes) if current is not function else {node.id for arg in call.args[1:]
+                         for node in ast.walk(arg) if isinstance(node, ast.Name)} & set(axes)
+                if names & suspects:
+                    return False
+        return True
 
     def axes(self, function, bound, explicit=None):
         """Preserve explicit classes plus the actual input without cross-axis guesses.
@@ -919,6 +991,9 @@ class Runtime:
                 reading.status, reading.reasons = 'grey', ['input is not an inert simple value: ' + ', '.join(unsupported)]
                 return
         axes = self.axes(original, bound, axes)
+        if not self._sql_axes(original, bound, axes):
+            reading.status, reading.reasons = 'grey', ['SQL condition candidates are not native numbers without adapters']
+            return
         reading.context = tuple(n for n in bound.arguments if n not in axes)
         unsupported = [name for name, values in axes.items() if not _simple(bound.arguments.get(name))
                        or any(not _simple(value) for value in values)]

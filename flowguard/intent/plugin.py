@@ -259,7 +259,7 @@ class Observations:
                                                 anchors._parameter_role(anchors._annotation(arg.annotation)), True)
                                for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
                                if arg.arg not in ('self', 'cls'))
-                if not any(p.role == 'input' and p.source_type != '?' for p in params):
+                if not any(p.role == 'input' for p in params):
                     continue
                 prior = prior_functions.get(row['qual'])
                 if prior is not None and ast.dump(prior, include_attributes=False) == ast.dump(node, include_attributes=False):

@@ -73,9 +73,9 @@ def test_literal_project_data_is_content_tracked_including_path_open(tmp_path, m
     (root / 'data.txt').write_text('old')
     assert cli_fixture.check(cfg) == 0
     saved = record(cfg)
-    assert '<unresolved>' in saved and 'data.txt' in saved
+    assert '<unresolved>' not in saved and 'data.txt' in saved
     observed = calls(monkeypatch)
-    assert cli_fixture.check(cfg) == 0 and observed
+    assert cli_fixture.check(cfg) == 0 and observed == []
     (root / 'data.txt').write_text('new')
     assert cli_fixture.check(cfg) == 1 and observed
 
