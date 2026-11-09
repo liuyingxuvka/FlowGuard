@@ -1027,7 +1027,8 @@ class _TraceScope:
     def __enter__(self):
         from .runtime import Runtime
         self.previous = _TRACE_SCOPES[-1] if _TRACE_SCOPES else None
-        self._record = Runtime(Path.cwd()).record(self.codes or (), predicate=self.predicate, callback=self.callback,
+        # A recording runtime only: no baseline to resolve (that was a git process for every test).
+        self._record = Runtime(Path.cwd(), previous={}).record(self.codes or (), predicate=self.predicate, callback=self.callback,
                                                  ignored=self.ignored, private=not bool(self.ordinary))
         self._record.__enter__()
         if not self._record.active:

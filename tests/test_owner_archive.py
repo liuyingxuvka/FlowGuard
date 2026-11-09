@@ -134,3 +134,43 @@ def test_show_rejects_changed_words_and_does_not_repeat_them(tmp_path, capsys):
     code, output, errors = _call(root, capsys, 'show', 'R2')
     assert code == 2 and 'not verified' in errors
     assert 'Someone changed' not in output + errors
+
+
+def test_a_source_checks_only_the_cited_request_and_reads_what_the_whole_archive_says(tmp_path):
+    """A rule's source checks the request it cites (and the sidecars that may supersede it), not every
+    stored request: on FlowGuard's own 54 requests that check took seconds of every pytest session. Each
+    status equals the one read from the whole archive, for current, superseded, retired and edited words."""
+    import json as _json
+    from flowguard.intent.sources import Archive
+    from flowguard.map.requests import owner_words, retire_request, store_request
+    root = _project(tmp_path / 'project')
+    _git(root, 'init', '-q')
+    store_request(root, b'Keep the limit at 3.\n', identifier='R1')
+    store_request(root, b'Keep the limit at 4.\n', identifier='R2', supersedes=['R1'])
+    store_request(root, b'Not the owner.\n', identifier='R3')
+    retire_request(root, 'R3')
+    store_request(root, b'Members pay too.\n', identifier='R4')
+    store_request(root, b'Members pay half.\n', identifier='R5')
+    store_request(root, b'Later words.\n', identifier='R6', supersedes=['R5'])
+    _git(root, 'add', '-A')
+    _git(root, 'commit', '-qm', 'requests')
+    (root / '.flowguard/requests/R4.md').write_bytes(b'Members pay nothing.\n')          # edited owner text
+    sidecar = root / '.flowguard/requests/R6.json'                                       # edited sidecar
+    sidecar.write_text(_json.dumps(dict(_json.loads(sidecar.read_text(encoding='utf-8')), note='x')), encoding='utf-8')
+
+    rows = {row['id']: row for row in owner_words(root)['rows']}
+    def whole(rid, quote=None):         # the status the whole archive gave before
+        item = rows.get(rid)
+        if item is None:
+            return False, f'{rid} missing -> req add the actual owner words'
+        if item.get('invalid') or item.get('edited') or item.get('unverified'):
+            return False, f'{rid} bytes unverified -> restore the stored original'
+        if item.get('retired') or item.get('superseded_by'):
+            return False, f'{rid} is no longer current -> cite the current request'
+        return True, f'owner {rid}'
+    archive = Archive(root)
+    for rid in ('R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'):
+        assert archive.status(rid) == whole(rid), rid
+    assert [archive.status(rid)[0] for rid in ('R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7')] == [False, True, False, False, True, False, False]
+    assert set(archive.rows) == {'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'}
+    assert Archive(tmp_path / 'nothing').status('R1') == (False, 'R1 missing -> req add the actual owner words')

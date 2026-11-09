@@ -98,13 +98,26 @@ class Session:
         self.started = time.time()
         self.events, self.anchor_issues = [], []
         self.calibration_facts = {}
-        self.runtime = None
+        self._runtime = None
         self.observations = None
         self.source_items = ()
         self.complete_collection = None
         self.ledger_result = None
         self.sentinel_ledger = False
         self.session_red = []            # reds only the session decides: a failed JUnit testcase
+
+    @property
+    def runtime(self):
+        """The session's one runtime; Observations gives it its baseline. Made only when something needs
+        it before then, so a session does not resolve its baseline twice."""
+        if self._runtime is None:
+            from .runtime import Runtime
+            self._runtime = Runtime(self.cfg.root)
+        return self._runtime
+
+    @runtime.setter
+    def runtime(self, value):
+        self._runtime = value
 
     @contextmanager
     def verification(self):
@@ -158,8 +171,6 @@ class Session:
                 self.model = load(self.cfg)
                 self.model.deep = self.config.getoption('--flowguard-deep', default=False)
                 self.engine = Engine(self.model)
-                from .runtime import Runtime
-                self.runtime = Runtime(self.cfg.root)
         return self.model
 
     def prepare_declaration(self, declaration):
@@ -344,7 +355,7 @@ class Observations:
             for home in rule.homes:
                 if not hasattr(home, 'scenario'):
                     self.rules.setdefault(home.target, []).append(rule)
-        self.by_file = {}
+        self.by_file, self.rels = {}, {}
         if self.changed:
             # The existing map supplies module ownership for unanchored changed functions.
             graph = state.get_map()
@@ -401,7 +412,9 @@ class Observations:
         filename = getattr(module, '__file__', None)
         if not filename:
             return
-        for point in self.by_file.get(self.cfg.rel(filename), ()):
+        if filename not in self.rels:
+            self.rels[filename] = self.cfg.rel(filename)       # every test binds every loaded module again
+        for point in self.by_file.get(self.rels[filename], ()):
             if point['target'] in self.bound:
                 continue
             value, receiver = module, None

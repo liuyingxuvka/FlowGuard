@@ -352,6 +352,33 @@ def owner_word(root: Path, identifier: str) -> dict | None:
     return _owner_row(root, identifier, retired, {}, git_common_directory(root))
 
 
+def request_state(root: Path, identifier: str) -> dict | None:
+    """owner_words' row for one stored request (None when there is none), checking only that request's
+    files and the sidecars of the requests that name it as superseded, not every stored request.
+    `cited_by` is not read here (it is history, not a state)."""
+    root = Path(root).resolve()
+    identifiers = _identifiers(root)
+    if identifier not in identifiers:
+        return None
+    retired = {identifier: None} if identifier in _stems(root, RETIRED_DIR) else {}
+    row = _owner_row(root, identifier, retired, {}, git_common_directory(root))
+    for other in identifiers:
+        meta = REQUEST_DIR / (other + '.json')
+        try:
+            item = _metadata(root / meta, other)
+        except (OSError, ValueError):
+            continue        # an unreadable or malformed sidecar supersedes nothing (its row is invalid)
+        if identifier not in item.get('supersedes', []):
+            continue
+        try:
+            if integrity_problem(root, meta):
+                continue    # an edited sidecar supersedes nothing (its row is invalid)
+        except Unverifiable:
+            pass            # owner_words checks such a sidecar against its own digest only
+        row['superseded_by'].append(other)
+    return row
+
+
 def owner_words(root: Path) -> dict:
     """Stored owner words, newest first, with supersession, retirement and citations; never a to-do state.
 

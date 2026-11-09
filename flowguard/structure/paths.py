@@ -12,7 +12,9 @@ def project_code(filename: str, root: Path) -> bool:
     and trace/profile callbacks must not repeat filesystem probes on every line.
     Keep the lexical root boundary used by source-relative frame locations.
     """
-    return _accepted(filename, root, Path(root).resolve(), Path(sys.prefix).resolve(), {}, None)
+    if not _lexical(filename, root):
+        return False
+    return _accepted(filename, Path(root).resolve(), Path(sys.prefix).resolve(), {}, None)
 
 
 def project_files(filenames, root: Path) -> list[bool]:
@@ -21,7 +23,13 @@ def project_files(filenames, root: Path) -> list[bool]:
     not once per file."""
     project, prefix = Path(root).resolve(), Path(sys.prefix).resolve()
     environments, directories = {}, {} if os.name == 'posix' else None
-    return [_accepted(filename, root, project, prefix, environments, directories) for filename in filenames]
+    return [_lexical(filename, root) and _accepted(filename, project, prefix, environments, directories)
+            for filename in filenames]
+
+
+def _lexical(filename, root):
+    """The cheap first test: the file's spelling starts inside the root (most files asked are not)."""
+    return bool(filename) and os.path.normcase(filename).startswith(os.path.normcase(str(root).rstrip(os.sep) + os.sep))
 
 
 def _resolved(filename, directories):
@@ -37,9 +45,7 @@ def _resolved(filename, directories):
     return path.resolve() if path.is_symlink() else path
 
 
-def _accepted(filename, root, project, prefix, environments, directories):
-    if not filename or not os.path.normcase(filename).startswith(os.path.normcase(str(root).rstrip(os.sep) + os.sep)):
-        return False
+def _accepted(filename, project, prefix, environments, directories):
     path = _resolved(filename, directories)
     if not path.is_relative_to(project) or path.is_relative_to(prefix):
         return False

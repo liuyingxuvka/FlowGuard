@@ -37,7 +37,7 @@ class Footprint:
 
     def __enter__(self):
         from .runtime import Runtime
-        runtime = Runtime(Path.cwd())
+        runtime = Runtime(Path.cwd(), previous={})       # records only: no baseline is resolved
         scope = runtime.record(predicate=lambda code: code.co_name not in _IMPLICIT and self.is_project(code.co_filename),
                                callback=self._entry, private=True, entry_only=True)
         scope.__enter__()

@@ -8,7 +8,7 @@ import re
 import shlex
 
 from .api import IntentError
-from flowguard.map.requests import owner_words, quote_matches
+from flowguard.map.requests import quote_matches, request_state
 from flowguard.map.common import git_blob, git_common_directory, git_head, git_run
 
 
@@ -43,11 +43,16 @@ def parse(text):
 
 
 class Archive:
+    """Stored owner words, each request checked when a source first cites it: a session pays for the
+    requests its rules cite, not for every stored request."""
     def __init__(self, root):
         self.root = Path(root)
-        self.rows = {r['id']: r for r in owner_words(self.root)['rows']} if (self.root / '.flowguard/requests').is_dir() else {}
+        self.present = (self.root / '.flowguard/requests').is_dir()
+        self.rows = {}
 
     def status(self, rid, quote=None):
+        if self.present and rid not in self.rows:
+            self.rows[rid] = request_state(self.root, rid)
         item = self.rows.get(rid)
         if item is None:
             return False, f'{rid} missing -> req add the actual owner words'

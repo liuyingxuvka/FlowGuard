@@ -21,7 +21,7 @@ _SDK = Path(__file__).resolve().parent.parent
 
 def _remember(name, path, fingerprint):
     path = Path(path).resolve()
-    owner = _finder.root if _finder.root is not None and project_code(str(path), _finder.root) else _finder.host
+    owner = _finder.root if _finder.root is not None and _finder.project(str(path), _finder.root) else _finder.host
     _finder.loaded[name] = (path, fingerprint, sys.modules.get(name), owner)
 
 
@@ -29,7 +29,7 @@ def _notify(module):
     filename = getattr(module, '__file__', None)
     if filename:
         for root, callback in tuple(_finder.observers):
-            if project_code(filename, root):
+            if _finder.project(filename, root):
                 callback(module)
 
 
@@ -40,7 +40,7 @@ def observe_imports(root, callback):
     _finder.observers.append(observer)
     try:
         for path, digest, module, owner in tuple(_finder.loaded.values()):
-            if module is not None and project_code(str(path), observer[0]):
+            if module is not None and _finder.project(str(path), observer[0]):
                 callback(module)
         yield
     finally:
@@ -100,6 +100,15 @@ class _Finder:
         # Modules already classified by prepare() for (root, host): name -> (module id, file).
         self.verified, self.verified_for = {}, None
         self.applications = {}
+        self.projects = {}
+
+    def project(self, filename, root):
+        """project_code(filename, root) for the observers, decided once per process: the source tree is fixed
+        for the session (project_code's callers cache it), and every test's observation asks again."""
+        key = (filename, root)
+        if key not in self.projects:
+            self.projects[key] = project_code(filename, root)
+        return self.projects[key]
 
     def owns(self, filename):
         roots = (self.root,) if self.root == self.host else (self.root, self.host)
