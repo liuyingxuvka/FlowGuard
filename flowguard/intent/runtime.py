@@ -858,8 +858,11 @@ class Runtime:
                             and _read_sql(connection, execute.args[0].value, _sql_parameters(execute, namespace, assignments)))
             target = _resolve(expression.func, namespace)
             if isinstance(expression.func, ast.Attribute) and expression.func.attr in _READ_METHODS:
-                if type(_resolve(expression.func.value, namespace)) in (str, bytes, list, tuple, dict, set, frozenset) and inert(_resolve(expression.func.value, namespace)) and all(data(value, namespace, assignments, trail)
-                        for value in [*expression.args, *(kw.value for kw in expression.keywords)]):
+                receiver = _resolve(expression.func.value, namespace)
+                # A read method of inert data (also a computed one: str(value).strip().lower()) reads data.
+                if (type(receiver) in (str, bytes, list, tuple, dict, set, frozenset) and inert(receiver)
+                        or receiver is _MISSING and data(expression.func.value, namespace, assignments, trail)) and all(
+                        data(value, namespace, assignments, trail) for value in [*expression.args, *(kw.value for kw in expression.keywords)]):
                     return True
             if any(target is value for value in _SAFE) and target is not Path or _plain_record(target):
                 return all(data(value, namespace, assignments, trail) for value in expression.args) and all(
@@ -927,7 +930,9 @@ class Runtime:
             if isinstance(part.func, ast.Attribute):
                 owner = _resolve(part.func.value, env)
                 name = part.func.attr
-                if name in _READ_METHODS and type(owner) in (str, bytes, list, tuple, dict, set, frozenset) and inert(owner) and all(data(value) for value in [*part.args, *(kw.value for kw in part.keywords)]):
+                if name in _READ_METHODS and (type(owner) in (str, bytes, list, tuple, dict, set, frozenset) and inert(owner)
+                                              or owner is _MISSING and data(part.func.value)) \
+                        and all(data(value) for value in [*part.args, *(kw.value for kw in part.keywords)]):
                     continue
                 if name == 'execute' and type(owner) is sqlite3.Connection and part.args:
                     sql = part.args[0]

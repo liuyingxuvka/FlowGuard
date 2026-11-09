@@ -573,7 +573,8 @@ def dir_relative_imports(tree, package: str) -> list[list]:
 
 def syntax_records(tree, module, rel):
     """Fixed structural facts, retained once with the file parse (never a second scanner)."""
-    found = {"handlers": [], "literal_sets": [], "assignments": [], "syntax_calls": [], "symbol_reads": []}
+    found = {"handlers": [], "literal_sets": [], "assignments": [], "syntax_calls": [], "symbol_reads": [], "field_types": [],
+             "literals": []}
     package = module if rel.endswith('__init__.py') else module.rpartition('.')[0]
     aliases = {}
     classes = {n.name for n in tree.body if isinstance(n, ast.ClassDef)}
@@ -613,6 +614,68 @@ def syntax_records(tree, module, rel):
         literal_depth = 0
         bindings = dict(aliases)
         or_nonfinal = set()
+        quiet = 0                 # inside raise or a logging/print/exception call: strings are messages
+        declaring = ""            # Kind = Literal['a', 'b'] at module level: the union's declaration name
+        consumed = set()
+
+        # String literals that decide or name a value, in the TS/JS reader's terms: comparisons (compare),
+        # the containers of `in` tests (member), match cases (case), returned values through ?: and
+        # and/or (return), set literals and set()/frozenset() arguments (set) and Literal[...] members
+        # (union). Dict keys, `'key' in mapping`, messages and raise statements are never recorded.
+        def label(self, node, context):
+            if self.quiet or not (isinstance(node, ast.Constant) and isinstance(node.value, str)) or id(node) in self.consumed:
+                return
+            self.consumed.add(id(node))
+            self.add('literals', node, column=node.col_offset + 1, value=node.value, context=context,
+                     function=self.qual or '<module>',
+                     **({'declaration': self.declaring} if context == 'union' and self.declaring else {}))
+
+        def labels(self, node, context):
+            if isinstance(node, ast.IfExp) and context == 'return':
+                self.labels(node.body, context)
+                self.labels(node.orelse, context)
+            elif isinstance(node, ast.BoolOp) and context == 'return':
+                for value in node.values:
+                    self.labels(value, context)
+            elif isinstance(node, (ast.Tuple, ast.List, ast.Set)) and context in ('member', 'set', 'union'):
+                for item in node.elts:
+                    self.label(item, context)
+            else:
+                self.label(node, context)
+
+        def visit_Compare(self, node):
+            sides = [node.left, *node.comparators]
+            for left, operator, right in zip(sides, node.ops, sides[1:]):
+                if isinstance(operator, (ast.Eq, ast.NotEq, ast.Is, ast.IsNot)):
+                    self.label(left, 'compare')
+                    self.label(right, 'compare')
+                elif isinstance(operator, (ast.In, ast.NotIn)) and isinstance(right, (ast.Tuple, ast.List, ast.Set)):
+                    self.labels(right, 'member')
+            self.generic_visit(node)
+
+        def visit_Return(self, node):
+            if node.value is not None:
+                self.labels(node.value, 'return')
+            self.generic_visit(node)
+
+        def visit_Lambda(self, node):
+            self.labels(node.body, 'return')
+            self.generic_visit(node)
+
+        def visit_MatchValue(self, node):
+            self.label(node.value, 'case')
+            self.generic_visit(node)
+
+        def visit_Raise(self, node):
+            self.quiet += 1
+            self.generic_visit(node)
+            self.quiet -= 1
+
+        def visit_Subscript(self, node):
+            base = node.value
+            if isinstance(base, ast.Name) and base.id == 'Literal' or isinstance(base, ast.Attribute) and base.attr == 'Literal':
+                self.labels(node.slice, 'union')
+            self.generic_visit(node)
 
         def add(self, category, node, **facts):
             found[category].append(dict(node=module + (":" + self.qual if self.qual else ""),
@@ -675,14 +738,20 @@ def syntax_records(tree, module, rel):
 
         def visit_Call(self, node):
             resolved = self.resolve(node.func)
-            self.add("syntax_calls", node, text=fgs.dotted(node.func) or ast.unparse(node.func),resolved=resolved,
+            dotted = fgs.dotted(node.func)
+            self.add("syntax_calls", node, text=dotted or ast.unparse(node.func),resolved=resolved,
                      positional_arg_count=len(node.args), keyword_count=len(node.keywords),
                      boolop_or_nonfinal=id(node) in self.or_nonfinal)
             if resolved == 'contextlib.suppress':
                 self.add('handlers',node,kind='suppress',type='suppress('+', '.join(ast.unparse(arg) for arg in node.args)+')',
                          name=None,end_line=node.end_lineno,raises=False,reraise=False,non_raising=True,body=ast.unparse(node))
+            if dotted in ('set', 'frozenset') and len(node.args) == 1:
+                self.labels(node.args[0], 'set')
+            quiet = _message_call(dotted or '')
             depth, self.literal_depth = self.literal_depth, 0
+            self.quiet += quiet
             self.generic_visit(node)
+            self.quiet -= quiet
             self.literal_depth = depth
 
         def visit_BoolOp(self, node):
@@ -729,22 +798,39 @@ def syntax_records(tree, module, rel):
                     self.add('handlers',node,kind='exit_method',type=target.id+' may return true',name=None,end_line=node.end_lineno,
                              raises=False,reraise=False,non_raising=True,body=ast.unparse(value))
             literal = isinstance(value, ast.Constant) and isinstance(value.value, (str, int, float, bool, type(None)))
+            # A computed right side keeps its text; the map folds enum members and named constants at query time.
+            computed = {'expr': ast.unparse(value)[:300]} if not literal and isinstance(
+                value, (ast.Name, ast.Attribute, ast.IfExp, ast.Subscript, ast.UnaryOp, ast.BinOp)) else {}
             for target in targets:
                 field = ast.unparse(target)
-                owner, unresolved = module, False
-                if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id in ("self", "cls") and self.cls:
-                    field = self.cls + "." + target.attr
-                elif isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
-                    kind = self.typed.get(target.value.id)
+                owner, unresolved, form = module, False, {}
+                key = target.slice.value if isinstance(target, ast.Subscript) and isinstance(target.slice, ast.Constant) \
+                    and isinstance(target.slice.value, str) else None
+                if key is not None:                        # row['status'] = ...: the key is the field name
+                    receiver, attr, form = target.value, key, {'form': 'key'}
+                elif isinstance(target, ast.Attribute):
+                    receiver, attr = target.value, target.attr
+                else:
+                    receiver, attr = None, ''
+                if isinstance(receiver, ast.Name) and receiver.id in ("self", "cls") and self.cls:
+                    field = self.cls + "." + attr
+                elif isinstance(receiver, ast.Name):
+                    kind = self.typed.get(receiver.id)
                     if kind:
                         owner, _, cls = kind.partition(':')
-                        field = cls + '.' + target.attr
+                        field = cls + '.' + attr
                     else:
-                        unresolved = True
+                        field, unresolved = receiver.id + '.' + attr, True
+                elif receiver is not None and key is not None:
+                    field, unresolved = ast.unparse(receiver) + '.' + key, True
+                elif isinstance(target, ast.Name) and self.cls and self.qual == self.cls:
+                    field = self.cls + '.' + target.id     # a class-body default belongs to its class
                 self.add("assignments", node, field=owner + ":" + field,
-                         value=value.value if literal else None, literal=literal, unresolved=unresolved)
+                         value=value.value if literal else None, literal=literal, unresolved=unresolved, **computed, **form)
 
         def literal(self, node):
+            if isinstance(node, ast.Set):
+                self.labels(node, 'set')
             if self.literal_depth or isinstance(getattr(node, 'ctx', None), ast.Store):
                 self.generic_visit(node)
                 return
@@ -778,13 +864,23 @@ def syntax_records(tree, module, rel):
 
         def visit_Assign(self, node):
             self.assignment(node, node.targets, node.value)
+            named = not self.qual and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+            declaring, self.declaring = self.declaring, node.targets[0].id if named else self.declaring
             self.generic_visit(node)
+            self.declaring = declaring
 
         def visit_AnnAssign(self, node):
+            if isinstance(node.target, ast.Name) and self.cls and self.qual == self.cls and (kind := annotation_class(node.annotation)):
+                # `status: RunStatus` in a class body: the field's declared type (an enum's members are its values)
+                optional = 'None' in ast.unparse(node.annotation) or 'Optional' in ast.unparse(node.annotation)
+                self.add('field_types', node, field=module + ':' + self.cls + '.' + node.target.id, type=kind,
+                         **({'optional': True} if optional else {}))
             if isinstance(node.target, ast.Name) and (kind := annotation_class(node.annotation)):
                 self.typed[node.target.id] = kind
             self.assignment(node, [node.target], node.value)
+            declaring, self.declaring = self.declaring, node.target.id if not self.qual and isinstance(node.target, ast.Name) else self.declaring
             self.generic_visit(node)
+            self.declaring = declaring
 
     Reader().visit(tree)
     return found
@@ -817,89 +913,14 @@ def sql_writes(nodes: list, module: str, rel: str, qual: str) -> list[dict]:
 MESSAGE_CALLS = {'debug', 'info', 'warning', 'warn', 'error', 'exception', 'critical', 'log', 'fatal'}
 
 
-def _message_call(node) -> bool:
-    """A logging, print, warning or exception-construction call: its strings are messages, not values."""
-    name = fgs.dotted(node.func) or ''
+def _message_call(name: str) -> bool:
+    """A logging, print, warning or exception-construction call (by its dotted name): its strings are
+    messages, not values."""
     head, _, last = name.rpartition('.')
     receiver = head.rpartition('.')[2]
     receiver = receiver.casefold()
     return (name == 'print' or last.endswith(('Error', 'Exception', 'Warning'))
             or last in MESSAGE_CALLS and (receiver in ('logging', 'log', 'logger', 'warnings') or receiver.endswith('logger')))
-
-
-def string_literals(tree, module: str, rel: str) -> list[dict]:
-    """String literals that decide or name a value, in the TS/JS reader's terms: comparisons (compare),
-    the containers of `in` tests (member), match cases (case), returned values through `?:`/and/or
-    (return), set literals and set()/frozenset() arguments (set) and `Literal[...]` members (union).
-    Dict keys, `'key' in mapping` tests, logging/print calls, exception messages and raise statements are
-    left out."""
-    rows, consumed = [], set()
-
-    def add(node, qual, context):
-        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in consumed:
-            consumed.add(id(node))
-            rows.append(dict(node=module + (':' + qual if qual else ''), file=rel, line=node.lineno,
-                             column=node.col_offset + 1, value=node.value, context=context, function=qual or '<module>'))
-
-    def returned(node):
-        if isinstance(node, ast.IfExp):
-            return [*returned(node.body), *returned(node.orelse)]
-        if isinstance(node, ast.BoolOp):
-            return [item for value in node.values for item in returned(value)]
-        return [node]
-
-    def elements(node):
-        return list(node.elts) if isinstance(node, (ast.Tuple, ast.List, ast.Set)) else []
-
-    def visit(node, qual):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            outer = [*node.decorator_list]
-            if isinstance(node, ast.ClassDef):
-                outer += [*node.bases, *(keyword.value for keyword in node.keywords)]
-            else:
-                arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs,
-                             *(item for item in (node.args.vararg, node.args.kwarg) if item)]
-                outer += [*node.args.defaults, *(value for value in node.args.kw_defaults if value is not None),
-                          *(arg.annotation for arg in arguments if arg.annotation is not None),
-                          *([node.returns] if node.returns is not None else [])]
-            for child in outer:
-                visit(child, qual)
-            inner = qual + ('.' if qual else '') + node.name
-            for child in node.body:
-                visit(child, inner)
-            return
-        if isinstance(node, ast.Raise) or isinstance(node, ast.Call) and _message_call(node):
-            return
-        if isinstance(node, ast.Compare):
-            sides = [node.left, *node.comparators]
-            for left, operator, right in zip(sides, node.ops, sides[1:]):
-                if isinstance(operator, (ast.Eq, ast.NotEq, ast.Is, ast.IsNot)):
-                    add(left, qual, 'compare')
-                    add(right, qual, 'compare')
-                elif isinstance(operator, (ast.In, ast.NotIn)):
-                    for item in elements(right):
-                        add(item, qual, 'member')
-        elif isinstance(node, (ast.Return, ast.Lambda)):
-            value = node.value if isinstance(node, ast.Return) else node.body
-            for item in returned(value) if value is not None else ():
-                add(item, qual, 'return')
-        elif isinstance(node, ast.MatchValue):
-            add(node.value, qual, 'case')
-        elif isinstance(node, ast.Set):
-            for item in node.elts:
-                add(item, qual, 'set')
-        elif isinstance(node, ast.Call) and fgs.dotted(node.func) in ('set', 'frozenset') and len(node.args) == 1:
-            for item in elements(node.args[0]):
-                add(item, qual, 'set')
-        elif isinstance(node, ast.Subscript) and (fgs.dotted(node.value) or '').rpartition('.')[2] == 'Literal':
-            for item in elements(node.slice) or [node.slice]:
-                add(item, qual, 'union')
-        for child in ast.iter_child_nodes(node):
-            visit(child, qual)
-
-    for statement in tree.body:
-        visit(statement, '')
-    return rows
 
 
 def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: bool) -> dict:
@@ -922,8 +943,8 @@ def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: boo
         out.update(source_facts(tree, text, module, rel,
                                 source_digest=content_digest(root / rel, data=data), is_test=is_test))
     out.update(syntax_records(tree, module, rel))
-    if not is_test:
-        out["literals"] = string_literals(tree, module, rel)
+    if is_test:
+        out["literals"] = []          # a test's strings are its own data, not the code's labels
     out["syspath"] = syspath_entries(tree, rel) if "sys.path" in text or "addsitedir" in text else []
     out["optional"] = sorted(_optional_import_lines(tree))
     out["star"] = any(i.endswith(":*") for i in info.imports)

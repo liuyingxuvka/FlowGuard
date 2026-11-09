@@ -76,6 +76,8 @@ class Anchor:
     source_role: str = 'production'
     owner: bool = False      # `# flowguard: owner NAME` on a function: the reference its same-name copies follow
     writers: tuple = ()      # a data owner `owner Table.column writers=module:function,...`
+    pairs: tuple = ()        # `with=Model.field[=value],...`: fields every write of this one also writes
+    alone: tuple = ()        # `alone=function(reason),...`: writers that may write it alone, with why
     projection: str = ''     # `-> result[0]` / `-> result.ok`: copies are compared on this part of the result
 
     @property
@@ -395,14 +397,9 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
         local = []
         is_owner = kind == 'owner'
         if is_owner:
-            listed = re.fullmatch(r'(' + _NAME + r')\s+writers=(\S+)', body.strip())
-            if listed:
-                writers = tuple(dict.fromkeys(part for part in listed[2].split(',') if part))
-                if '.' not in listed[1].strip('.') or not writers:
-                    problems.append(issue('red', 'syntax', 'a data owner needs Table.column (or Model.field) writers=function,...', line))
-                    continue
-                entries.append(asdict(Anchor('owner', listed[1], file, module, '', line, line, writers=writers,
-                                             source_digest=source_digest, source_role='test' if is_test else 'production')))
+            data_owner = _data_owner(body, file, module, line, is_test)
+            if data_owner is not None:
+                (entries if isinstance(data_owner, dict) else problems).append(data_owner)
                 continue
             kind = 'sensor'          # A function owner is the reference copy of its same-name sensors.
         if kind == 'states':
@@ -442,9 +439,7 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                                    for t in (n.targets if isinstance(n, ast.Assign) else [n.target]))]
             if not field_nodes:
                 local.append(issue('red', 'target-missing', f'state field {name} is not in source', line, name))
-            for field_node in field_nodes:
-                if isinstance(field_node.value, ast.Constant) and field_node.value.value not in values:
-                    local.append(issue('red', 'states-values', f'source writes state {field_node.value.value!r} outside {name}', field_node.lineno, name))
+            # The values written to the field are checked by value_gate, over all of its writes.
             entry = Anchor(kind, name, file, module, name, line, field_nodes[0].lineno if field_nodes else 0,
                            values=tuple(values), calibrated_by=calibrated_by, issues=tuple(local),
                            source_digest=source_digest, source_role='test' if is_test else 'production')
@@ -533,21 +528,43 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
     return {'anchors': entries, 'anchor_issues': [asdict(p) for p in problems]} if entries or problems else {}
 
 
+_DATA_OWNER = re.compile(r'(?P<name>' + _NAME + r')(?:\s+writers=(?P<writers>\S+))?(?:\s+with=(?P<with>\S+))?'
+                         r'(?:\s+alone=(?P<alone>(?:[\w.:]+\([^()]*\),?)+))?\s*')
+
+
+def _data_owner(body, file, module, line, is_test):
+    """`Table.column writers=f,... with=Model.field[=value],... alone=f(reason),...` as an owner anchor
+    (a dict), a syntax Issue, or None for a function owner (a bare name above a function)."""
+    listed = _DATA_OWNER.fullmatch(body.strip())
+    if listed and not (listed['writers'] or listed['with'] or listed['alone']):
+        return None
+    writers = tuple(dict.fromkeys(part for part in (listed['writers'] or '').split(',') if part)) if listed else ()
+    pairs = tuple(dict.fromkeys(part for part in (listed['with'] or '').split(',') if part)) if listed else ()
+    alone = tuple(re.findall(r'[\w.:]+\([^()]*\)', listed['alone'] or '')) if listed else ()
+    if not listed or '.' not in listed['name'].strip('.') or not (writers or pairs) \
+            or any('.' not in pair.partition('=')[0].strip('.') for pair in pairs) or alone and not pairs:
+        return Issue('red', 'syntax', 'a data owner needs Table.column (or Model.field) with writers=function,... '
+                     'and/or with=Model.field[=value],...; alone=function(reason) needs with=', file, line)
+    return asdict(Anchor('owner', listed['name'], file, module, '', line, line, writers=writers, pairs=pairs, alone=alone,
+                         source_role='test' if is_test else 'production'))
+
+
 def foreign_owners(text, module, file, *, is_test=False):
-    """`// flowguard: owner Table.column writers=fn,...` (and a bare `owner NAME`) in a JS/TS source.
-    Foreign code does not run here: a data owner checks static writes; a function owner is navigation."""
+    """`// flowguard: owner Table.column writers=fn,... with=... alone=...` (and a bare `owner NAME`) in a
+    JS/TS source. Foreign code does not run here: a data owner checks static writes; a function owner is
+    navigation."""
     entries, problems = [], []
     for number, line in enumerate(text.splitlines(), 1):
         found = re.search(r'//\s*flowguard:\s*owner\b\s*(.*)$', line)
         if not found:
             continue
-        listed = re.fullmatch(r'(' + _NAME + r')(?:\s+writers=(\S+))?\s*', found[1])
-        writers = tuple(dict.fromkeys(part for part in (listed[2] or '').split(',') if part)) if listed else ()
-        if not listed or listed[2] is not None and ('.' not in listed[1].strip('.') or not writers):
-            problems.append(asdict(Issue('red', 'syntax', 'owner needs NAME, or Table.column writers=function,...', file, number)))
-            continue
-        entries.append(asdict(Anchor('owner', listed[1], file, module, '', number, number, writers=writers,
-                                     source_role='test' if is_test else 'production')))
+        owner = _data_owner(found[1], file, module, number, is_test)
+        if owner is None and re.fullmatch(_NAME + r'\s*', found[1]):
+            owner = asdict(Anchor('owner', found[1].strip(), file, module, '', number, number,
+                                  source_role='test' if is_test else 'production'))
+        elif owner is None:
+            owner = Issue('red', 'syntax', 'owner needs NAME, or Table.column writers=function,...', file, number)
+        (entries if isinstance(owner, dict) else problems).append(owner if isinstance(owner, dict) else asdict(owner))
     return {'anchors': entries, 'anchor_issues': problems} if entries or problems else {}
 
 
@@ -557,6 +574,8 @@ def _anchor(data):
     data['issues'] = tuple(Issue(**p) for p in data.get('issues', ()))
     data['values'] = tuple(data.get('values', ()))
     data['writers'] = tuple(data.get('writers', ()))
+    data['pairs'] = tuple(data.get('pairs', ()))
+    data['alone'] = tuple(data.get('alone', ()))
     return Anchor(**data)
 
 
@@ -633,7 +652,7 @@ def _index(entries, problems):
 def collect(graph):
     """Read the single stored source index, including anchored project tests."""
     from ..structure.store import unpack
-    entries, problems = [], []
+    entries, problems, field_types, assignments = [], [], [], []
     for file, sha, blob in graph.con.execute('SELECT path,sha,data FROM file ORDER BY path'):
         data = unpack(blob)
         for value in data.get('anchors', ()):
@@ -641,7 +660,60 @@ def collect(graph):
             entries.append(anchor)
             problems.extend(anchor.issues)
         problems.extend(Issue(**value) for value in data.get('anchor_issues', ()))
+        field_types.extend(data.get('field_types', ()))
+        assignments.append(data.get('assignments', ()))
+    classes = dict(graph.con.execute("SELECT id, sig FROM node WHERE kind='class'"))
+    table = declared_sets(entries, field_types, classes, graph._value_env)
+    if table:      # one value gate over the same unpacked facts
+        problems.extend(value_gate(table, [graph._folded(row) for rows in assignments for row in rows if row['field'] in table]))
     return _index(entries, problems)
+
+
+_ENUM_BASES = {'Enum', 'StrEnum', 'IntEnum', 'Flag', 'IntFlag'}
+
+
+def declared_sets(entries, field_types=(), classes=None, constants=None):
+    """The one table of declared value sets the value gate reads, keyed `module:Class.field`: each
+    `# flowguard: states` anchor, and each class field annotated with an enum (`status: RunStatus`),
+    whose members' folded values are its set. `classes` gives a class id's signature (its bases);
+    `constants(module)` the module's folded constants. Other languages add rows of the same shape."""
+    from ..structure import decide
+    table = {}
+    for anchor in entries:
+        if anchor.kind == 'states':
+            table[anchor.module + ':' + anchor.name] = dict(name=anchor.name, values=tuple(anchor.values),
+                                                            where=f'states {anchor.file}:{anchor.line}')
+    for row in field_types:
+        bases = decide.class_bases((classes or {}).get(row['type']) or '')
+        if not {base.rpartition('.')[2] for base in bases} & _ENUM_BASES or constants is None:
+            continue
+        module, _, cls = row['type'].partition(':')
+        values = tuple(folded[1] for key, folded in constants(module).items() if key.startswith(cls + '.')
+                       and '.' not in key[len(cls) + 1:] and folded and folded[0] in ('str', 'num'))
+        if values:
+            table.setdefault(row['field'], dict(name=row['field'].partition(':')[2],
+                                                values=values + ((None,) if row.get('optional') else ()),
+                                                where=f'enum {row["type"]} ({row["file"]}:{row["line"]})'))
+    return table
+
+
+def value_gate(table, writes):
+    """Every value written to a declared field must be in its declared set (red otherwise). A write
+    whose value cannot be read (a parameter, a call) is not judged here."""
+    issues = []
+    for row in writes:
+        declared = table.get(row['field'])
+        values = row.get('values') or ([row['value']] if row.get('literal') else None)
+        if declared is None or values is None:
+            continue
+        for value in values:
+            if not any(type(value) is type(allowed) and value == allowed for allowed in declared['values']):
+                issues.append(Issue('red', 'states-values',
+                                    f'code writes {declared["name"]}={value!r}; allowed: '
+                                    + ' | '.join(map(repr, declared['values'])) + f' ({row["file"]}:{row["line"]})'
+                                    f' -> write a declared value; to add one, change the declaration first ({declared["where"]})',
+                                    row['file'], row['line'], declared['name']))
+    return issues
 
 
 def collect_sources(root, files_with_modules):
@@ -667,7 +739,24 @@ def collect_sources(root, files_with_modules):
             entries.append(anchor)
             problems.extend(anchor.issues)
         problems.extend(Issue(**value) for value in data.get('anchor_issues', ()))
+        if any(value['kind'] == 'states' for value in data.get('anchors', ())):
+            problems.extend(_slice_gate(root, file, module, raw, [_anchor(value) for value in data['anchors']]))
     return _index(entries, problems)
+
+
+def _slice_gate(root, file, module, raw, entries):
+    """The value gate on one file of a source slice, with that file's own constants (no map)."""
+    from ..structure import decide
+    from ..structure.api import _fold_values
+    from ..structure.extract import extract
+    facts = extract(root, file, raw, module, False)
+    env = decide.own_env([(node['qual'], node['sig']) for node in facts['nodes'] if node['kind'] == 'const'])
+    classes = {module + ':' + node['qual']: node['sig'] for node in facts['nodes'] if node['kind'] == 'class'}
+    writes = []
+    for row in facts.get('assignments', ()):
+        values = _fold_values(row['expr'], env) if row.get('expr') else None
+        writes.append(dict(row, values=values) if values else row)
+    return value_gate(declared_sets(entries, facts.get('field_types', ()), classes, lambda name: env if name == module else {}), writes)
 
 
 def _source(root, anchor):

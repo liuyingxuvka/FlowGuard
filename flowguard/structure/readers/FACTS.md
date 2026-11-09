@@ -105,4 +105,9 @@ fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` comp
   `'key' in mapping`, logging/print calls, exception constructors and `raise` are never recorded; test
   files contribute none. `literal_groups()` groups Python and TS/JS rows together.
 - Owner comments: `# flowguard: owner NAME` on a function is a sensor with `owner=True`; `owner T.c
-  writers=...` (and `// flowguard: owner ...` in TS/JS) is an anchor of kind `owner` with `writers`.
+  writers=... with=M.f[=v] alone=f(why)` (and `// flowguard: owner ...` in TS/JS) is an anchor of kind `owner` with `writers`, `pairs`, `alone`.
+- `assignments` (Python): a computed right side keeps `expr`; `MapHandle.assignments()`/`writes()` fold it with the
+  decision sites' constant folding (enum members, module and imported constants, each branch of `?:`) into `values`.
+  `row['k'] = v` has `form='key'` and the field `receiver.k`; a class-body default is `module:Class.name`.
+- `field_types` (Python): `name: Type` in a class body, with the annotated class id (an enum is a declared value
+  set) and `optional`. TS/TSX `literals` in a union carry the `declaration` (type alias) name; Python `X = Literal[...]` too.

@@ -604,7 +604,7 @@ def _store_file(con, f, facts, sha, names, is_test, build_no) -> None:
                                   "handlers", "literal_sets", "assignments", "syntax_calls", "symbol_reads",
                                   "language", "parser", "locations", "dependencies", "exports", "bindings",
                                   "binding_unknowns", "syntax_recoveries", "anchors", "anchor_issues",
-                                  "writes", "literals", "schema") if k in facts}
+                                  "writes", "literals", "schema", "field_types") if k in facts}
     con.execute("INSERT OR REPLACE INTO file VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (f, sha, module, json.dumps(names), int(is_test), facts["parse_error"], facts["loc"], build_no,
                  json.dumps(facts["syspath"]), pack(keep), facts.get('source_lines',0)))

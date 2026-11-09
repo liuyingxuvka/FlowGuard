@@ -90,7 +90,8 @@ def test_owner_comments_name_a_reference_copy_or_a_field_with_its_writers():
     assert rows == [('sensor', 'ROUND', 'owner', True, ()), ('sensor', 'ROUND', 'copy', False, ()),
                     ('owner', 'hires.reserved', '', False, ('shop.store:reserve', 'shop.store:release'))]
     assert [issue['message'] for issue in facts['anchor_issues']] == [
-        'a data owner needs Table.column (or Model.field) writers=function,...']
+        'a data owner needs Table.column (or Model.field) with writers=function,... and/or with=Model.field[=value],...; '
+        'alone=function(reason) needs with=']
     ts = anchors.foreign_owners('// flowguard: owner Employee.organizationalUnitId writers=transferEmployee\n',
                                 'typescript/a.ts', 'a.ts')
     assert [(row['kind'], row['name'], tuple(row['writers']), row['line']) for row in ts['anchors']] == [
@@ -246,13 +247,15 @@ def test_fixed_10_a_registered_owner_lists_the_other_six_kwp_copies_by_behavior(
     assert '不是证明' in same and all(place in same for place in (
         'Step3/src/kwp_step3/technology.py:53', 'Step2/src/kwp_step2/try_data.py:15',
         'Step10/step10_baublock_progress_maps.py:'))
+    assert '这是在负责人的全部代表值上比较的结果，调用点是否走到负数、非有限值等没有核对' in header, header
     half = [line for line in leads if 'value=-2.5 → -2（负责人给 -3）' in line]
-    assert len(half) == 2 and any('simulation_preparation.py:25' in line for line in half) \
-        and any('Step6a/kwp_step6a/config.py:' in line for line in half), text
+    assert len(half) == 1 and half[0].startswith('线索：相似 2 份：') and 'simulation_preparation.py:25' in half[0] \
+        and 'Step6a/kwp_step6a/config.py:' in half[0], text
+    # Grouped by the first difference; int(x + 0.5) and floor(x + 0.5) still differ on negative whole numbers.
+    assert '这几份在别的代表值上也互不相同' in half[0], half[0]
     legacy = next(line for line in leads if 'step2_demand_library.py' in line)
-    assert 'value=nan → 0（负责人给 raised ValueError）' in legacy, text
-    # int(x + 0.5) and floor(x + 0.5) also differ from each other on negative whole numbers.
-    assert half[0] != half[1]
+    assert legacy.startswith('线索：相似 1 份：') and 'value=nan → 0（负责人给 raised ValueError）' in legacy, text
+    assert len([line for line in leads if re.match(r'线索：(副本|分叉的副本|相似) ', line)]) == 3, text
 
 
 def test_fixed_11_three_changed_copies_name_the_four_left_behind(tmp_path):
@@ -516,9 +519,191 @@ def test_show_lists_an_owners_old_ledger(tmp_path):
             return amount * 0.5
     '''})
     for name, wanted in (('hires.reserved', ['owner hires.reserved shop.py:1; writers=shop:reserve',
-                                              'outside writers: shop.py:7 legacy（sql:update，值 0）']),
+                                              'outside writers: shop.py:7 legacy (sql:update, value 0)']),
                          ('HALF', ['owner HALF shop.py:11; 1 unregistered look-alikes (not run here; check --all compares them)',
                                    'look-alike shop.py:15 same'])):
         result = subprocess.run([sys.executable, '-c', _cli_fixture._BOOT, SOURCE, 'unused-marker', '',
                                  '--root', str(tmp_path), 'show', name], cwd=tmp_path, capture_output=True, text=True, timeout=60)
-        assert result.returncode == 0 and all(line in result.stdout.splitlines() for line in wanted), result.stdout + result.stderr
+        assert result.returncode == 0 and all(line in _text(result.stdout).splitlines() for line in wanted), _text(result)
+
+
+# ---- coordinator additions: write values, value gate, pairs, own literals, two declarations ----------------
+
+def _copy_fixture(root, name):
+    fixtures = Path(__file__).resolve().parents[1] / 'fixtures' / name
+    for path in fixtures.rglob('*.txt'):
+        target = root / path.relative_to(fixtures).with_suffix('')
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(path.read_bytes())
+    return root
+
+
+def test_all_sixteen_kwp_status_writes_read_their_enum_values(tmp_path):
+    from contextlib import closing
+    from flowguard.structure import build
+    _copy_fixture(tmp_path, 'kwp_orchestrator')
+    with closing(build(tmp_path)) as graph:
+        rows = [row for row in graph.assignments(include_unknown=True)
+                if row['field'] == 'kwp_platform.orchestrator:KwpApplication.status']
+        assert len(rows) == 16 and all(row.get('values') for row in rows)
+        assert {value for row in rows for value in row['values']} == {
+            'planned', 'canceled', 'stale', 'running', 'recovering', 'completed', 'waiting_for_data', 'partial', 'failed'}
+        assert next(row for row in rows if row['line'] == 244)['values'] == ['running', 'planned']   # a if c else b
+
+
+def test_write_values_read_constants_keys_and_class_defaults(tmp_path):
+    from contextlib import closing
+    from flowguard.structure import build
+    (tmp_path / 'jobs.py').write_text(textwrap.dedent('''
+        from enum import Enum
+        DONE = 'done'
+
+
+        class Phase(Enum):
+            NEW = 'new'
+
+
+        class Job:
+            status = 'new'
+
+            def finish(self):
+                self.status = DONE
+
+            def restart(self):
+                self.status = Phase.NEW
+
+
+        def record(row):
+            row['status'] = 'archived'
+    ''').lstrip())
+    with closing(build(tmp_path)) as graph:
+        rows = {(row['field'], row['line']): row.get('values') or [row['value']] for row in graph.assignments(include_unknown=True)}
+        assert rows[('jobs:Job.status', 10)] == ['new'] and rows[('jobs:Job.status', 13)] == ['done']
+        assert rows[('jobs:Job.status', 16)] == ['new']
+        by_name = [row for row in graph.writes('status', by_name=True) if row['function'] == 'record']
+        assert [(row['field'], row['how'], row['receiver'], row['value']) for row in by_name] == [('status', 'name', 'row', 'archived')]
+
+
+def test_one_value_gate_checks_states_anchors_enums_and_writes_outside_the_class(tmp_path):
+    from contextlib import closing
+    from flowguard.structure import build
+    (tmp_path / 'models.py').write_text(textwrap.dedent('''
+        from enum import StrEnum
+
+
+        class Phase(StrEnum):
+            NEW = 'new'
+            SAVED = 'saved'
+
+
+        # flowguard: states Job.status = new | saved | published
+        class Job:
+            def save(self):
+                self.status = 'saved'
+
+
+        class Step:
+            phase: Phase
+            later: Phase | None = None
+    ''').lstrip())
+    (tmp_path / 'writers.py').write_text(textwrap.dedent('''
+        from models import Job, Step, Phase
+
+
+        def close(job: Job):
+            job.status = 'closed'
+
+
+        def jump(step: Step):
+            step.phase = 'published'
+            step.phase = Phase.SAVED
+    ''').lstrip())
+    with closing(build(tmp_path)) as graph:
+        found = [(issue.code, issue.file, issue.line, issue.name) for issue in anchors.collect(graph).issues]
+    assert found == [('states-values', 'writers.py', 5, 'Job.status'), ('states-values', 'writers.py', 9, 'Step.phase')], found
+    with closing(build(tmp_path)) as graph:
+        message = next(issue.message for issue in anchors.collect(graph).issues if issue.name == 'Job.status')
+    assert message.startswith("code writes Job.status='closed'; allowed: 'new' | 'saved' | 'published' (writers.py:5)"), message
+
+
+def test_a_registered_pair_is_red_where_a_write_leaves_its_partner_out(tmp_path):
+    _project(tmp_path, {'shop/__init__.py': '', 'shop/store.py': '''
+        def _mark(db, hire_id):
+            db.execute("UPDATE hires SET state = 'held' WHERE id = ?", (hire_id,))
+
+
+        def _deep(db, hire_id):
+            _mark(db, hire_id)
+
+
+        def reserve(db, hire_id):
+            db.execute("UPDATE hires SET reserved = 1 WHERE id = ?", (hire_id,))
+            _deep(db, hire_id)
+
+
+        def release(db, hire_id):
+            db.execute("UPDATE hires SET reserved = 0 WHERE id = ?", (hire_id,))
+
+
+        def import_rows(db):
+            db.execute("UPDATE hires SET reserved = 0")
+    '''})
+    code, text = _check(tmp_path)
+    assert code == 0 and '配对没写' not in text, text
+    store = tmp_path / 'shop/store.py'
+    store.write_text("# flowguard: owner hires.reserved with=hires.state=held alone=shop.store:import_rows(bulk import marks rows later)\n"
+                     + store.read_text())
+    code, text = _check(tmp_path)
+    assert code == 1, text
+    red = next(line for line in text.splitlines() if line.startswith('红：配对没写'))
+    assert red.startswith('红：配对没写：shop/store.py:16 release 写了 hires.reserved，调用树（向下 3 层）里没写 hires.state=held'), red
+    assert 'reserve' not in red.split('写了')[0] and 'import_rows' not in red and 'alone=函数名(理由)' in red, red
+
+
+def test_copy_discovery_compares_on_the_codes_own_literals(tmp_path):
+    _copy_fixture(tmp_path, 'kwp_normalize')
+    _project(tmp_path, {}, pyproject='[tool.pytest.ini_options]\npythonpath = ["Step1/src", "Step3/src"]\n')
+    technology = tmp_path / 'Step3/src/kwp_step3/technology.py'
+    technology.write_text(technology.read_text().replace('def normalize_technology_name(value: object)',
+                                                          '# flowguard: owner TECHNOLOGY\ndef normalize_technology_name(value: object)'))
+    code, text = _check(tmp_path)
+    assert code == 0, text
+    forked = next(line for line in _lines(text) if line.startswith('线索：分叉的副本 1 份'))
+    assert 'Step1/src/kwp_step1/utils.py:' in forked and "→ 'district_heat'（负责人给 'waermenetze'）" in forked, forked
+
+
+def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path):
+    _project(tmp_path, {'a/contracts.py': '''
+        from enum import StrEnum
+
+
+        class AvailabilityStatus(StrEnum):
+            READY = "ready"
+            BLOCKED = "blocked"
+    ''', 'b/contracts.py': '''
+        from enum import StrEnum
+
+
+        class AvailabilityStatus(StrEnum):
+            AVAILABLE = "available"
+            BLOCKED = "blocked"
+    ''', 'a/kinds.py': 'from typing import Literal\nKind = Literal["member", "guest"]\n',
+         'tests/test_case.py': 'def test_native():\n    assert True\n'})
+    code, text = _check(tmp_path)
+    assert '两份声明不同' not in text, text                      # old: only the old ledger lists it
+    code, text = _check(tmp_path, '--all')
+    assert ("线索：旧账 两份声明不同：AvailabilityStatus a/contracts.py:4（'blocked' | 'ready'；少 'available'）  "
+            "b/contracts.py:4（'available' | 'blocked'；少 'ready'）") in text, text
+    (tmp_path / 'b/kinds.py').write_text('from typing import Literal\nKind = Literal["member", "guest", "staff"]\n')
+    code, text = _check(tmp_path)
+    assert ("线索：两份声明不同：Kind a/kinds.py:2（'guest' | 'member'；少 'staff'）  b/kinds.py:2（'guest' | 'member' | 'staff'）"
+            in text), text
+
+
+def test_two_typescript_union_declarations_with_different_members_are_a_lead(tmp_path):
+    _project(tmp_path, {'backend/src/lending.ts': "export type LendingStatus = 'DRAFT' | 'ACTIVE' | 'ENDED';\n"})
+    (tmp_path / 'frontend/src').mkdir(parents=True)
+    (tmp_path / 'frontend/src/lending.ts').write_text("export type LendingStatus = 'DRAFT' | 'ACTIVE';\n")
+    code, text = _check(tmp_path)
+    assert ("线索：两份声明不同：LendingStatus backend/src/lending.ts:1（'ACTIVE' | 'DRAFT' | 'ENDED'）  "
+            "frontend/src/lending.ts:1（'ACTIVE' | 'DRAFT'；少 'ENDED'）") in text, text

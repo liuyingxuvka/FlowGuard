@@ -198,10 +198,36 @@ class MapHandle:
         return Rows(result)
 
     def assignments(self, *, include_unknown=False, language=None):
-        """Assignments to literal values; opt in to targets whose value is unknown."""
+        """Assignments to literal values; opt in to targets whose value is unknown. A Python right side
+        that names an enum member or a module constant (also through `a if c else b`) is folded as the
+        decision sites fold it, into `values` (and `value` when there is one)."""
         self._mark_query('assignments',language)
-        return self._language_rows([row for row in self._syntax('assignments')
+        return self._language_rows([self._folded(row) for row in self._syntax('assignments')
                 if include_unknown or row.get('literal',True)],language)
+
+    def _value_env(self, module):
+        """The module's folded constants for its own code: own constants and imported ones."""
+        from . import decide
+        envs = self.__dict__.setdefault('_value_envs', {})
+        if module not in envs:
+            envs[module] = {}
+            own = decide.own_env(self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line",
+                                                  (module,)).fetchall())
+            stored = self.con.execute('SELECT data FROM file WHERE module=? LIMIT 1', (module,)).fetchone()
+            imports = store.unpack(stored[0]).get('facts', {}).get('imports', {}) if stored else {}
+            def own_of(name):
+                return decide.own_env(self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line",
+                                                       (name,)).fetchall())
+            envs[module] = decide.module_env(own, imports, own_of)
+        return envs[module]
+
+    def _folded(self, row):
+        if not row.get('expr') or row.get('literal') or '(' in row['expr'] and ' if ' not in row['expr']:
+            return row                    # a call's result is not a constant this map can fold
+        values = _fold_values(row['expr'], self._value_env(row['node'].partition(':')[0]))
+        if values is None:
+            return row
+        return dict(row, values=values, **({'value': values[0]} if len(values) == 1 else {}))
 
     # ---- writes, string literals and schema descriptions ---------------------------------------
     def _schema_rows(self):
@@ -248,6 +274,7 @@ class MapHandle:
             rows += [dict(row, language=kind) for row in bind([w for w in writes if w.get('via') == 'prisma'], models)]
             rows += [dict(row, language=kind) for row in bind_sql([w for w in writes if w.get('via') == 'sql'], models)]
             for row in facts.get('assignments', []):
+                row = self._folded(row) if kind == 'python' else row
                 if kind in ECMA and row.get('form') == 'member' and by_name and row.get('field'):
                     rows.append(dict(node=row['node'], function=row['node'].partition(':')[2] or '<module>', file=row['file'],
                                      line=row['line'], column=row.get('column'), call_line=row['line'], how='name',
@@ -265,7 +292,8 @@ class MapHandle:
                                      model=None if row.get('unresolved') else cls, field=attr, table=None, db_column=None,
                                      nested=False, unclear=False, schema=None, receiver=cls,
                                      reason='attribute assignment matched by field name only' if row.get('unresolved') else '',
-                                     language=kind, **({'value': row['value']} if row.get('literal') else {})))
+                                     language=kind, **({'value': row['value']} if row.get('literal') else {}),
+                                     **({key: row[key] for key in ('value', 'values') if key in row} if row.get('values') else {})))
         if target is not None:
             rows = [row for row in rows if _writes_target(row, target, models)]
         return Rows(sorted(rows, key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
@@ -722,6 +750,35 @@ class MapHandle:
                 elif old[i][0] != new[i][0]:
                     rows.append((i, "changed", old[i][0], new[i][0], old[i][1], new[i][1]))
         return rows
+
+
+def _fold_values(text, env):
+    """The constant values a right side can take: one folded constant, or each branch of `a if c else b`."""
+    import ast
+    from . import features as ff
+    node = _expression(text)
+    if node is None:
+        return None
+    branches, values = [node], []
+    while branches:
+        current = branches.pop(0)
+        if isinstance(current, ast.IfExp):
+            branches[:0] = [current.body, current.orelse]
+            continue
+        folded = ff.fold(current, env, {})
+        if not folded or folded[0] not in ('str', 'num'):
+            return None
+        values.append(folded[1])
+    return values
+
+
+@__import__('functools').lru_cache(maxsize=4096)
+def _expression(text):
+    import ast
+    try:
+        return ast.parse(text, mode='eval').body
+    except SyntaxError:
+        return None
 
 
 def literal_key(value: str) -> str:

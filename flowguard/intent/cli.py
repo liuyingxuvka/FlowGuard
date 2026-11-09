@@ -395,7 +395,8 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
             from .deps import Now, stale
             if data['results'].get(query) and (not data['deps'].get(query) or stale(data['deps'][query], Now(cfg, graph))):
                 lines.insert(1, 'cached results are stale or unverified -> run check')
-            print('\n'.join(line for line in lines if line))
+            from .differences import display      # copy pointers carry project names: escape what the console cannot show
+            display('\n'.join(line for line in lines if line))
             return int(bool(data['summary']['errors']))
         if data['summary']['errors'] and any(query in (cfg.root / e['file']).read_text(encoding='utf-8-sig') for e in data['summary']['errors']):
             for error in data['summary']['errors']:
@@ -407,7 +408,8 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
             print('\n'.join(pointers))
             from .owners import show_lines     # an owner's old ledger: writes outside its writers, look-alikes
             if owned := show_lines(cfg, graph, index, query):
-                print('\n'.join(owned))
+                from .differences import display
+                display('\n'.join(owned))
             from .debug import show_observation
             from types import SimpleNamespace
             model = SimpleNamespace(rules={rid: SimpleNamespace(id=rid, anchors=value.get('anchors', ()))
@@ -423,7 +425,8 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                         print('\n'.join(_observation_lines(cfg, graph, data, node)))
             unused = set(_unmodelled(index, data['summary'], root=cfg.root)) & {a.name for a in anchors}
             if unused:print('info: not referenced by a current model: ' + ', '.join(sorted(unused)))
-            print('\n'.join(_copy_pointers(graph, index, anchors, [], data['summary'], [], query, full)))
+            from .differences import display
+            display('\n'.join(_copy_pointers(graph, index, anchors, [], data['summary'], [], query, full)))
             return 0
         node = graph.node(graph.canonical(query) or query)
         if node:

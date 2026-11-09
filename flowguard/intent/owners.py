@@ -140,6 +140,44 @@ def owner_writes(change, index, *, everything=False):
     return found
 
 
+def _call_tree(graph, node, depth=3):
+    """The function and what it calls, down `depth` levels of the map's call edges."""
+    seen, frontier = {node}, {node}
+    for _ in range(depth):
+        frontier = {dst for src in frontier for (dst,) in graph.con.execute(
+            "SELECT dst FROM edge WHERE src = ? AND kind = 'calls'", (src,))} - seen
+        seen |= frontier
+    return seen
+
+
+def _holds(row, value):
+    if value is None:
+        return True
+    values = row.get('values') or ([row['value']] if 'value' in row else [])
+    return any(str(item) == value for item in values)
+
+
+def owner_pairs(change, index, *, everything=False):
+    """`with=`: each write of a registered field also writes its partner in its call tree (down three
+    levels), unless its function is listed in `alone=`. Red when this change adds the write or the rule."""
+    found = Findings()
+    for owner in (a for a in index.entries if a.kind == 'owner' and a.pairs):
+        rows = [row for row in change.graph.writes(owner.name, by_name=True) if not row.get('unclear')]
+        alone = [item.partition('(')[0] for item in owner.alone]
+        new_rule = change.baseline and not _owner_at_baseline(change, owner)
+        for pair in owner.pairs:
+            target, _, value = pair.partition('=')
+            partners = {row['node'] for row in change.graph.writes(target, by_name=True)
+                        if not row.get('unclear') and _holds(row, value or None)}
+            missing = [row for row in rows if not _allowed(row, alone) and not _call_tree(change.graph, row['node']) & partners]
+            shown = [row for row in missing if everything or new_rule or row['file'] in change.files]
+            if shown:
+                found.red.append(f'配对没写：' + '  '.join(f'{row["file"]}:{row["line"]} {row["function"]}' for row in shown)
+                                 + f' 写了 {owner.name}，调用树（向下 3 层）里没写 {pair} → 补写；有意只写一边，'
+                                   f'把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 {owner.file}:{owner.line}）')
+    return found
+
+
 # ---- static leads: old values, rules that still hold them, new spellings ------------------------------
 
 def _literal(node):
@@ -267,10 +305,52 @@ def old_value_leads(change):
     return found
 
 
-def literal_drift(change):
-    """A label spelled a new way (case, spaces, punctuation aside) that this change adds to a group of
-    spellings: only a spelling the baseline code never used is reported."""
+def _declarations(graph):
+    """Named value sets the map reads: union type aliases (`type X = 'a' | 'b'`, `X = Literal[...]`) and
+    Python enums; {name: [(file, line, values)]}."""
+    from flowguard.structure import decide
+    from . import anchors
+    found, sets = {}, {}
+    for row in graph.literals(contexts={'union'}):
+        if row.get('declaration'):
+            item = sets.setdefault((row['declaration'], row['file']), [row['line'], set()])
+            item[0] = min(item[0], row['line'])
+            item[1].add(row['value'])
+    for (name, file), (line, values) in sets.items():
+        found.setdefault(name, []).append((file, line, frozenset(values)))
+    for ident, file, line, sig in graph.con.execute("SELECT id, file, line, sig FROM node WHERE kind = 'class' AND file LIKE '%.py'"):
+        if {base.rpartition('.')[2] for base in decide.class_bases(sig or '')} & anchors._ENUM_BASES:
+            module, _, cls = ident.partition(':')
+            values = frozenset(folded[1] for key, folded in graph._value_env(module).items() if key.startswith(cls + '.')
+                               and '.' not in key[len(cls) + 1:] and folded and folded[0] in ('str', 'num'))
+            if values:
+                found.setdefault(cls.rpartition('.')[2], []).append((file, line, values))
+    return found
+
+
+def declarations_differ(change, *, everything=False):
+    """Two declarations of one name (union type or enum) with different members: a lead, reported when
+    this change touches one of them (`check --all` lists all)."""
     found = Findings()
+    for name, items in sorted(_declarations(change.graph).items()):
+        if len(items) < 2 or len({values for _, _, values in items}) < 2:
+            continue
+        if not everything and not any(file in change.files for file, _, _ in items):
+            continue
+        union = set().union(*(values for _, _, values in items))
+        parts = [f'{file}:{line}（{" | ".join(map(repr, sorted(values, key=repr)))}'
+                 + (f'；少 {", ".join(map(repr, sorted(union - values, key=repr)))}' if union - values else '') + '）'
+                 for file, line, values in sorted(items)]
+        found.leads.append(('旧账 ' if everything and not any(file in change.files for file, _, _ in items) else '')
+                           + f'两份声明不同：{name} ' + '  '.join(parts) + ' → 留一份，别处引用它；有意不同就改成不同的名字')
+    return found
+
+
+def literal_drift(change, *, everything=False):
+    """A label spelled a new way (case, spaces, punctuation aside) that this change adds to a group of
+    spellings: only a spelling the baseline code never used is reported. Two declarations of one name
+    with different members are part of the same lead family."""
+    found = declarations_differ(change, everything=everything)
     if not change.files:
         return found
     groups = change.graph.literal_groups()
@@ -320,7 +400,7 @@ def static_findings(cfg, graph, index, base=None, *, everything=False):
     """What any run can report without replay: owner writes, old values, rules, new spellings and
     unchanged copies of a changed function's old body."""
     change = Change(cfg, graph, baseline(cfg, base))
-    found = owner_writes(change, index, everything=everything)
+    found = owner_writes(change, index, everything=everything).extend(owner_pairs(change, index, everything=everything))
     if change.baseline:
         found.extend(old_value_leads(change)).extend(literal_drift(change)).extend(changed_once(change))
     return found
@@ -433,15 +513,28 @@ def _show(value):
     return f'raised {type(value.error).__name__}' if isinstance(value, Raised) else show(value)
 
 
+def _order(rows, names):
+    """Row indexes in the fixed comparison order: non-finite values, then the representatives (halves and
+    small whole numbers from negative up), then boundaries and the code's own literals."""
+    import math
+    from .cells import representatives
+    def rank(index):
+        row = rows[index]
+        special = [['nan', 'inf', '-inf'].index(repr(row[name])) for name in names
+                   if type(row[name]) is float and not math.isfinite(row[name])]
+        if special:
+            return 0, min(special), index
+        fixed = [repr(value) for name in names for value in representatives(_kind_of(row[name]))]
+        return 1, min((fixed.index(repr(row[name])) for name in names if repr(row[name]) in fixed), default=len(fixed)), index
+    return sorted(range(len(rows)), key=rank)
+
+
 def _example(rows, names, mine, reference, label='负责人'):
     """The first differing finite value and the first differing non-finite one, in the fixed
     representative order (halves, negatives, zero, then boundaries), and how many more differ."""
     import math
-    from .cells import representatives
-    def rank(row):
-        fixed = [repr(value) for name in names for value in representatives(_kind_of(row[name]))]
-        return min((fixed.index(repr(row[name])) for name in names if repr(row[name]) in fixed), default=len(fixed))
-    differing = sorted(((row, a, b) for row, a, b in zip(rows, mine, reference) if not _same(a, b)), key=lambda item: rank(item[0]))
+    differing = [(rows[index], mine[index], reference[index]) for index in _order(rows, names)
+                 if not _same(mine[index], reference[index])]
     finite = [item for item in differing if all(not (type(item[0][n]) is float and not math.isfinite(item[0][n])) for n in names)]
     chosen = finite[:1] + [item for item in differing if item not in finite][:1]
     text = '；'.join(', '.join(f'{name}={_show(row[name])}' for name in names) + f' → {_show(a)}（{label}给 {_show(b)}）'
@@ -477,10 +570,26 @@ def _functions(graph, cfg):
         node = trees[file].get(qual)
         if node is None:
             continue
+        if (file, '') not in trees:
+            trees[(file, '')] = _module_literals(ast.parse(read_source(cfg.root / file)))
         rows.append(dict(id=ident, file=file, module=module, qual=qual, line=line, end=end or line,
                          shape=set(shape_list(blob) if isinstance(blob, bytes) else blob or ()), node=node,
-                         constants=_numbers(node), simple=_simple_parameters(node)))
+                         constants=_numbers(node), simple=_simple_parameters(node),
+                         literals=_own_literals(node, trees[(file, '')])))
     return rows
+
+
+def _own_literals(node, constants):
+    """The strings and numbers a function's own code spells: its constants (no docstring) and the
+    members of the module constants it reads (an alias table's keys and values)."""
+    body = node.body[1:] if ast.get_docstring(node) is not None else node.body
+    found = [n.value for statement in body for n in ast.walk(statement) if isinstance(n, ast.Constant)]
+    for name in sorted({n.id for statement in body for n in ast.walk(statement)
+                        if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load) and n.id in constants}):
+        value = constants[name][0]
+        found.extend([*value.keys(), *value.values()] if isinstance(value, dict) else
+                     list(value) if isinstance(value, (tuple, list, set, frozenset)) else [value])
+    return list(dict.fromkeys(value for value in found if type(value) in (str, int, float)))
 
 
 def _numbers(node):
@@ -495,9 +604,19 @@ def _simple_parameters(node):
     if arguments.vararg or arguments.kwarg or arguments.kwonlyargs:
         return None
     names = [a for a in (*arguments.posonlyargs, *arguments.args)]
-    if any(_parameter_role(_annotation(a.annotation)) != 'input' for a in names):
+    if any(_parameter_role(_annotation(a.annotation)) != 'input' and _annotation(a.annotation) not in LOOSE for a in names):
         return None
     return [a.arg for a in names]
+
+
+LOOSE = {'object', 'Any', 'typing.Any'}      # annotations that say nothing about the input: read as unannotated
+
+
+def _inferred(values):
+    """The input kind a function's own literals suggest for an unannotated (or Any/object) parameter."""
+    from .cells import Kind
+    kinds = {type(value) for value in values}
+    return Kind('str') if str in kinds else Kind('float') if kinds & {int, float} else None
 
 
 def _similarity(a, b):
@@ -528,21 +647,29 @@ def look_alikes(cfg, graph, target, excluded=()):
     return sorted(out, key=lambda row: (-row['score'], row['id']))
 
 
-def _classes(cfg, anchor):
-    """The owner's case classes plus fixed numeric representatives; (rows, kinds, reason)."""
-    from . import anchors, differences as D
-    if anchor.contexts:
+def _classes(cfg, anchor, literals=()):
+    """The owner's case classes, fixed numeric representatives and the literals of the compared code,
+    one row set for every candidate; (rows, kinds, reason)."""
+    from . import anchors, cells as C, differences as D
+    if any(p.role == 'context' and p.source_type not in LOOSE for p in anchor.parameters):
         return None, {}, '负责人需要测试里的上下文参数，没有可单独运行的情况类'
     try:
         view = anchors.decision_reading(cfg.root, anchor)
     except (ValueError, SyntaxError, OSError) as error:
         return None, {}, f'负责人读不了：{error}'
-    if not view.kinds or set(view.kinds) != {p.name for p in anchor.inputs}:
+    kinds = dict(view.kinds)
+    for parameter in anchor.parameters:
+        if parameter.name not in kinds and (kind := _inferred(literals)) is not None:
+            kinds[parameter.name] = kind
+    if not kinds or set(kinds) != {p.name for p in anchor.parameters}:
         return None, {}, '负责人的输入不是简单类型'
-    part = D.joint_partition(view, view)
-    rows = [dict(region.inputs) for region in part.regions]
-    points = {name: [row[name] for row in rows] for name in view.kinds}
-    return D._with_representatives(rows, view.kinds, points, []), view.kinds, ''
+    if set(view.kinds) == set(kinds):
+        rows = [dict(region.inputs) for region in D.joint_partition(view, view).regions]
+    else:
+        rows = [{name: (C.points(kind, [v for v in literals if kind.accepts(v)]) or [C.OTHER])[0] for name, kind in kinds.items()}]
+    points = {name: [row[name] for row in rows] for name in kinds}
+    extra = {name: [C.coerce(value, kind) for value in literals if kind.accepts(C.coerce(value, kind))] for name, kind in kinds.items()}
+    return D._with_representatives(rows, kinds, points, [], extra), kinds, ''
 
 
 def _category(same, total, shape, shared):
@@ -572,8 +699,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         if home is None:
             continue
         old_owner = _owner_at_baseline(change, owner)
-        rows, kinds, reason = _classes(cfg, owner)
-        names = [p.name for p in owner.inputs]
+        names = [p.name for p in owner.parameters]
         candidates = [row for row in _look_alikes(functions, home, registered) if len(row['simple']) == len(names)]
         new_owner = change.baseline and not old_owner
         shown = [row for row in candidates if everything or new_owner or row['id'] in added
@@ -581,6 +707,9 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         candidates_seen += len(candidates)
         if not shown:
             continue
+        # One row set for all: the owner's classes, fixed representatives and every compared function's literals.
+        rows, kinds, reason = _classes(cfg, owner, list(dict.fromkeys(
+            value for row in (home, *shown) for value in row['literals'])))
         label = f'{owner.name}（{owner.file}:{owner.target_line}）'
         if reason:
             found.leads.append(f'负责人 {label} 的疑似副本 {len(shown)} 份没有比较：{reason}')
@@ -602,22 +731,28 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
             category = _category(same, len(rows), _similarity(row['shape'], home['shape']), bool(row['constants'] & home['constants']))
             if category is None:
                 continue
-            key = (category, tuple(_show(value) for value in outcomes))
-            groups.setdefault(key, (outcomes, []))[1].append(row)
+            # Grouped by the first difference from the owner in the fixed representative order.
+            first = next(((index, _show(a)) for index in _order(rows, names)
+                          for a, b in [(outcomes[index], reference['now'][index])] if not _same(a, b)), None)
+            groups.setdefault((category, first), []).append((row, outcomes))
         seconds = time.perf_counter() - started
-        total = sum(len(members) for _, members in groups.values()) + len(unclear)
+        total = sum(len(group) for group in groups.values()) + len(unclear)
         if not total:
             continue
         found.leads.append(f'负责人 {label} 的疑似副本 {total} 份（候选 {len(candidates)} 个，用时 {seconds:.2f} 秒，'
-                           f'{len(rows)} 个代表值）→ 每份选一样：改成调用负责人；或在副本上方写 # flowguard: sensor {owner.name}；'
+                           f'{len(rows)} 个代表值；这是在负责人的全部代表值上比较的结果，调用点是否走到负数、非有限值等没有核对）'
+                           f'→ 每份选一样：改成调用负责人；或在副本上方写 # flowguard: sensor {owner.name}；'
                            f'或写 distinct("{owner.name}", "<副本的锚点名>", why="...", source="...")')
         order = {'副本': 0, '分叉的副本': 1, '相似': 2}
-        for (category, _), (outcomes, members) in sorted(groups.items(), key=lambda item: (order[item[0][0]], item[1][1][0]['id'])):
+        for (category, _), group in sorted(groups.items(), key=lambda item: (order[item[0][0]], item[1][0][0]['id'])):
+            members = [row for row, _ in group]
             places = '  '.join(f'{row["file"]}:{row["line"]}' for row in members)
             if category == '副本':
                 text = f'{category} {len(members)} 份（在 {len(rows)} 个代表值上与负责人相同，不是证明）：{places}'
             else:
-                text = f'{category} {len(members)} 份：{_example(rows, names, outcomes, reference["now"])}：{places}'
+                apart = len({tuple(_show(value) for value in outcomes) for _, outcomes in group}) > 1
+                text = (f'{category} {len(members)} 份：{_example(rows, names, group[0][1], reference["now"])}：{places}'
+                        + ('（第一处不同相同；这几份在别的代表值上也互不相同）' if apart else ''))
             fresh = [row for row in members if row['id'] in added]
             if fresh and old_owner and category != '相似':
                 found.red.append(f'负责人 {label} 之外新起了一份：' + '  '.join(f'{row["file"]}:{row["line"]}' for row in fresh)
@@ -636,12 +771,18 @@ def _owner_at_baseline(change, owner):
     text = change.old_text(owner.file)
     if text is None or 'flowguard:' not in text:
         return False
-    from .anchors import source_facts
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
-        return False
-    rows = source_facts(tree, text, owner.module, owner.file).get('anchors', ())
+    from .anchors import foreign_owners, source_facts
+    if not owner.file.endswith('.py'):
+        rows = foreign_owners(text, owner.module, owner.file).get('anchors', ())
+    else:
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            return False
+        rows = source_facts(tree, text, owner.module, owner.file).get('anchors', ())
+    if owner.kind == 'owner':                   # a data owner: the same rule, its pairs included
+        return any(row['kind'] == 'owner' and row['name'] == owner.name and tuple(row.get('pairs', ())) == owner.pairs
+                   for row in rows)
     return any(row['name'] == owner.name and row['qual'] == owner.qual and row.get('owner') for row in rows)
 
 
@@ -659,6 +800,8 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
     started = time.perf_counter()
     impact = change.impact()
     touched = set(impact['changed']) | set(impact['added'])
+    if not any(ident.partition(':')[0] for ident in impact['changed']):
+        return found                      # nothing changed: no function to compare with its look-alikes
     functions = _functions(graph, cfg)
     by_id = {row['id']: row for row in functions}
     runtime = Runtime(cfg.root, change.baseline)
@@ -749,9 +892,11 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
 def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=()):
     """`check`: the static findings plus copy discovery and the changed-alone comparison."""
     change = Change(cfg, graph, baseline(cfg, base))
-    found = owner_writes(change, index, everything=everything)
+    found = owner_writes(change, index, everything=everything).extend(owner_pairs(change, index, everything=everything))
     if change.baseline:
-        found.extend(old_value_leads(change)).extend(literal_drift(change))
+        found.extend(old_value_leads(change))
+    if change.baseline or everything:
+        found.extend(literal_drift(change, everything=everything))
     found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
     found.extend(changed_alone(cfg, graph, index, change, excluded=excluded))
     return found
@@ -765,8 +910,13 @@ def show_lines(cfg, graph, index, name):
             rows = [row for row in graph.writes(owner.name, by_name=True)]
             outside = [row for row in rows if not row.get('unclear') and not _allowed(row, owner.writers)]
             lines.append(f'owner {owner.name} {owner.file}:{owner.line}; writers={",".join(owner.writers)}')
-            lines.extend('outside writers: ' + _write_text(row) for row in outside)
-            lines.extend('unclear: ' + _write_text(row) + f' {row.get("reason", "")}' for row in rows if row.get('unclear'))
+            def plain(row):
+                value = f', value {row["value"]!r}' if 'value' in row else ''
+                return f'{row["file"]}:{row["line"]} {row["function"]} ({row["kind"]}{value})'
+            lines.extend('outside writers: ' + plain(row) for row in outside)
+            lines.extend('unclear: ' + plain(row) + f' {row.get("reason", "")}' for row in rows if row.get('unclear'))
+            lines.extend(f'with {pair}' for pair in owner.pairs)
+            lines.extend(f'alone {item}' for item in owner.alone)
         elif owner.owner:
             functions = _functions(graph, cfg)
             home = next((row for row in functions if row['id'] == owner.target), None)

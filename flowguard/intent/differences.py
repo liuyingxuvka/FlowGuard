@@ -126,12 +126,13 @@ def joint_partition(before, after):
     return Partition(regions, space.complete and not reasons, list(dict.fromkeys(reasons)), len(rows))
 
 
-def _with_representatives(rows, kinds, points, reasons):
-    """An unreadable numeric domain still runs the same fixed representatives on both sides."""
+def _with_representatives(rows, kinds, points, reasons, extra=None):
+    """An unreadable numeric domain still runs the same fixed representatives on both sides; `extra`
+    adds values of its own per input (the literals copy discovery reads from the compared code)."""
     base = C.smallest(rows, points)
     added = 0
     for name, kind in kinds.items():
-        for value in C.representatives(kind):
+        for value in [*C.representatives(kind), *(extra or {}).get(name, ())]:
             if not any(_key(row[name]) == _key(value) and all(row[other] == base[other] for other in kinds if other != name)
                        for row in rows):
                 rows.append({**base, name: value})
