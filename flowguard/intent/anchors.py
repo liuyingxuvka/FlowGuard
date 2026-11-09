@@ -630,12 +630,31 @@ def _data_owner(body, file, module, line, is_test):
                          source_role='test' if is_test else 'production'))
 
 
-def foreign_owners(text, module, file, *, is_test=False):
+def foreign_owners(text, module, file, *, is_test=False, functions=()):
     """`// flowguard: owner Table.column writers=fn,... with=... alone=...` (and a bare `owner NAME`) in a
     JS/TS source. Foreign code does not run here: a data owner checks static writes; a function owner is
-    navigation."""
+    navigation. `// flowguard: sensor NAME` names the function declared on the next lines (`functions` are
+    the reader's node rows); the vitest adapter observes it, and same-name sensors are copies."""
     entries, problems = [], []
-    for number, line in enumerate(text.splitlines(), 1):
+    lines = text.splitlines()
+    for number, line in enumerate(lines, 1):
+        sensor = re.match(r'\s*//\s*flowguard:\s*sensor\b\s*(.*)$', line)
+        if sensor:
+            name = sensor[1].strip()
+            following = [row for row in functions if row.get('kind') in ('function', 'method')
+                         and number < row['line'] <= number + 3 and not row['qual'].rpartition('.')[2].startswith('<anonymous')]
+            if not re.fullmatch(_NAME, name):
+                problems.append(asdict(Issue('red', 'syntax', f'{file}:{number}: sensor needs one NAME: // flowguard: sensor NAME',
+                                             file, number)))
+            elif not following:
+                problems.append(asdict(Issue('red', 'syntax', f'{file}:{number}: sensor {name} needs a function declared on the next line',
+                                             file, number, name)))
+            else:
+                target = min(following, key=lambda row: row['line'])
+                params = tuple(Parameter(value, '', '', 'input', True) for value in target.get('raw', {}).get('parameters', ()))
+                entries.append(asdict(Anchor('sensor', name, file, module, target['qual'], number, target['line'], params,
+                                             source_role='test' if is_test else 'production')))
+            continue
         found = re.search(r'//\s*flowguard:\s*owner\b\s*(.*)$', line)
         if not found:
             continue

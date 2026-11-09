@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import ast
 import json
 import posixpath
 import sqlite3
@@ -582,15 +583,71 @@ class MapHandle:
         """String literals used to decide or name a value: comparisons (compare), switch cases (case),
         returned values (return), union type members (union), `new Set([...])` (set), array elements
         (array) and `.includes()/.has()` arguments (member). Object keys, logging calls and error
-        messages are left out."""
+        messages are left out. A JS/TS comparison with a constant's name (`status === ACTIVE`,
+        `kind === Kind.A`) is a compare row with the folded value and `name` (see `_compared_values`)."""
         self._mark_query('literals', language)
-        rows = self._language_rows(self._syntax('literals'), language)
+        folded = [row for row in self._compared_values() if isinstance(row['value'], str)]
+        rows = self._language_rows(self._syntax('literals') + folded, language)
         return Rows(row for row in rows if contexts is None or row['context'] in contexts)
 
     def numbers(self):
         """JS/TS number literals in comparisons (`===`, `<`, `>=`, ...) and `case` labels, in the literal
-        row shape: what an old-value lead looks for after a numeric constant changes."""
-        return Rows(self._syntax('numbers'))
+        row shape: what an old-value lead looks for after a numeric constant changes. A comparison with
+        a constant's name (`rounded > LIMIT`, also imported) is a row with the folded value and `name`."""
+        folded = [row for row in self._compared_values()
+                  if isinstance(row['value'], (int, float)) and not isinstance(row['value'], bool)]
+        return Rows(self._syntax('numbers') + folded)
+
+    def lookup_keys(self):
+        """JS/TS lookups `TABLE[expression]` in a module object constant (`const LABELS = {...}`, also
+        imported): one row per lookup with the table's `keys`, the strings that select a stored value."""
+        rows = []
+        for row in self._syntax('table_lookups'):
+            found, table = self._ts_constant(row['file'], row['name'])
+            if found and isinstance(table, dict):
+                rows.append(dict(row, keys=list(table)))
+        return Rows(rows)
+
+    def _compared_values(self):
+        """The compared_names rows whose name folds to one literal: a module `const NAME = literal`, a member
+        `Obj.KEY` of a module object constant, or either one imported from a mapped module."""
+        if 'compared_values' not in self._derived:
+            rows = []
+            for row in self._syntax('compared_names'):
+                found, value = self._ts_constant(row['file'], row['name'])
+                if found and not isinstance(value, dict) and value is not None:
+                    rows.append(dict(node=row['node'], file=row['file'], value=value, context='compare',
+                                     function=row['function'], name=row['name'], folded=True,
+                                     **{key: row[key] for key in ('line', 'column', 'end_line', 'end_column')}))
+            self._derived['compared_values'] = rows
+        return self._derived['compared_values']
+
+    def _ts_constant(self, file, name, depth=0):
+        """(found, value) of a JS/TS name in `file`: its literal, a module object's {key: literal}, or `Obj.KEY`."""
+        head, _, member = name.partition('.')
+        tables = self._derived.setdefault('ts_files', {})
+        if file not in tables:
+            facts = next((data for path, _, data in self._files() if path == file), {})
+            consts = {qual: _js_literal(sig) for qual, sig in self.con.execute(
+                "SELECT qual, sig FROM node WHERE file=? AND kind='const'", (file,))}
+            consts.update({row['name']: row['values'] for row in facts.get('const_tables', ())})
+            imports = {row['alias']: (row['resolved'], row['name']) for row in facts.get('dependencies', ())
+                       if row.get('kind') == 'import' and row.get('alias') and row.get('resolved')}
+            tables[file] = (consts, imports)
+        consts, imports = tables[file]
+        if head in consts:
+            value = consts[head]
+            if not member:
+                return value is not _UNREADABLE, value
+            return (isinstance(value, dict) and value.get(member) is not None), value.get(member) if isinstance(value, dict) else None
+        if head in imports and depth < 3:
+            module, imported = imports[head]
+            target = self.con.execute('SELECT path FROM file WHERE module=?', (module,)).fetchone()
+            if target is None or imported == 'default':
+                return False, None
+            return self._ts_constant(target[0], member if imported == '*' else imported + ('.' + member if member else ''),
+                                     depth + 1) if imported != '*' or member else (False, None)
+        return False, None
 
     def literal_groups(self, *, language=None, contexts=None, min_spellings=2):
         """String literals grouped ignoring case, whitespace and punctuation; a group with several spellings
@@ -1063,6 +1120,23 @@ def _expression(text):
         return ast.parse(text, mode='eval').body
     except SyntaxError:
         return None
+
+
+_UNREADABLE = object()
+
+
+def _js_literal(text):
+    """The value of a JS/TS literal the reader stored as a constant's signature, else _UNREADABLE."""
+    text = text.strip()
+    if text in ('true', 'false'):
+        return text == 'true'
+    if text == 'null':
+        return None
+    try:
+        value = ast.literal_eval(text.replace('_', '') if text[:1].isdigit() or text[:1] in '-.' else text)
+    except (ValueError, SyntaxError):
+        return _UNREADABLE      # the signature is not a literal Python can read: the name is not folded, no value invented
+    return value if isinstance(value, (int, float, str)) else _UNREADABLE
 
 
 def language_of(path):
