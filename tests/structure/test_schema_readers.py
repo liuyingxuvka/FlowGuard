@@ -196,3 +196,24 @@ def test_schema_gaps_follow_rebuilds_skip_archives_and_compare_each_description_
     with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
         with pytest.raises(ValueError, match='archives must be a list of path patterns'):
             graph.schema_gaps()
+
+
+def test_label_groups_keep_codes_routes_and_test_spellings_apart(tmp_path):
+    # Planning Tool 0.6.28 listed 207 old label leads and none was a label spelled two ways: an enum code next to
+    # a key ('ACTIVE' / 'Active'), a route next to a key ('/admin' / 'admin'), or spellings only tests use.
+    with closing(project(tmp_path, {
+        'src/units.ts': '''export function label(type: string) {
+  if (type === 'MAIN_DEPARTMENT') { return 'Main Department'; }
+  if (type === 'main-department') { return 'Main department'; }
+  if (type === '/admin') { return 'admin'; }
+  return type === 'ACTIVE' ? 'Active' : 'active';
+}
+''',
+        'tests/units.test.ts': '''export function expectLabel(found: string) {
+  return found === 'My organization' || found === 'Admin';
+}
+''',
+        'src/nav.ts': "export const title = (mine: boolean) => mine ? 'My Organization' : 'Other';\n",
+    })) as graph:
+        groups = sorted((group['key'], sorted(group['spellings'])) for group in graph.literal_groups())
+        assert groups == [('active', ['Active', 'active']), ('maindepartment', ['Main Department', 'Main department'])], groups

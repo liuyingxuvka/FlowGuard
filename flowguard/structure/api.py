@@ -803,17 +803,21 @@ class MapHandle:
         return False, None
 
     def literal_groups(self, *, language=None, contexts=None, min_spellings=2):
-        """String literals grouped ignoring case, whitespace and punctuation; a group with several spellings
-        ('My Organization' / 'My organization') is a clue of drift, not a verdict."""
+        """String literals of production code grouped ignoring case, whitespace and punctuation (`literal_key`),
+        within one kind of spelling (`literal_shape`: a code such as MAIN_DEPARTMENT never groups with the key
+        'main-department' or the label 'Main department', nor a route '/admin' with 'admin'); a group with
+        several spellings ('My Organization' / 'My organization') is a clue of drift, not a verdict. A spelling
+        that only test files use does not count."""
+        tests = {path for (path,) in self.con.execute('SELECT path FROM file WHERE is_test = 1')}
         groups = {}
         for row in self.literals(language=language, contexts=contexts):
-            if not isinstance(row['value'], str):
+            if not isinstance(row['value'], str) or row['file'] in tests:
                 continue                    # numbers in comparisons serve old-value leads, not spellings
             key = literal_key(row['value'])
             if key:
-                groups.setdefault(key, {}).setdefault(row['value'], []).append(row)
+                groups.setdefault((key, literal_shape(row['value'])), {}).setdefault(row['value'], []).append(row)
         return [dict(key=key, spellings={value: found for value, found in sorted(spellings.items())})
-                for key, spellings in sorted(groups.items()) if len(spellings) >= min_spellings]
+                for (key, _), spellings in sorted(groups.items()) if len(spellings) >= min_spellings]
 
     def schema_gaps(self, schemas=None):
         """Columns one description of a table has and another lacks. Each SQL description of tables (one
@@ -1313,6 +1317,17 @@ def language_of(path):
 def literal_key(value: str) -> str:
     """Letters and digits only, case folded: the spelling-independent identity of a label."""
     return ''.join(ch for ch in value.casefold() if ch.isalnum())
+
+
+def literal_shape(value: str) -> tuple[str, str]:
+    """The kind of spelling a literal is: its leading punctuation (a route '/x', an option '--x', an extension
+    '.x') and 'code' (no lower-case letter: MAIN_DEPARTMENT, ID), 'text' (words with spaces: a label) or 'word'
+    (a key, an id, one word). Only spellings of one kind can be the same label spelled two ways."""
+    body = value.strip()
+    lead = body[:len(body) - len(body.lstrip('/\\.-_#@:~+*'))]
+    body = body[len(lead):].strip()
+    kind = 'code' if not any(ch.islower() for ch in body) else 'text' if any(ch.isspace() for ch in body) else 'word'
+    return lead, kind
 
 
 def _writes_target(row, target, models) -> bool:
