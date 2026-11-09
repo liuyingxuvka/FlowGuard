@@ -168,3 +168,12 @@ def test_a_sentence_about_0_70_is_listed_not_rewritten_and_the_projects_own_work
     assert f'AGENTS.md:{number} still names FlowGuard 0.70 (' in out, out
     assert 'section "Release workflow"' not in out, out
 
+
+def test_only_the_pinned_statement_and_the_install_line_change_and_another_bold_0_70_stays(tmp_path, capsys):
+    archived = '- Reports written by FlowGuard **0.70.14** stay in `docs/archive/` as they are.\n'
+    result = _init(tmp_path, TEAM + WORKFLOW + LIMITS + archived)
+    out = capsys.readouterr().out
+    assert f'Use FlowGuard **{cli.__version__}**' in result and f'FlowGuard.git@v{cli.__version__}"' in result, result
+    assert result.endswith(archived), result                               # byte for byte
+    number = result.splitlines().index(archived.rstrip('\n')) + 1
+    assert f'AGENTS.md:{number} still names FlowGuard 0.70 (' in out, out   # listed to reword

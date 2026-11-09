@@ -1323,8 +1323,8 @@ def _legacy_agents(content, rules, newline, languages):
     extra = '[languages]' if languages else ''
     content, installs = re.subn(r'flowguard(?:\[[\w,]+\])? @ (git\+\S+?)@v0\.70\.\d+',
                                 lambda match: f'flowguard{extra} @ {match[1]}@v{__version__}', content)
-    content, versions = re.subn(r'(\bUse\s+FlowGuard\s+\**|FlowGuard\s+\*\*)0\.70\.\d+',
-                                lambda match: match[1] + __version__, content)
+    # Only the pinned statement; any other bold 'FlowGuard **0.70.x**' says what 0.70 was and is listed below.
+    content, versions = re.subn(r'(\bUse\s+FlowGuard\s+\**)0\.70\.\d+', lambda match: match[1] + __version__, content)
     lines = [f'AGENTS.md: the FlowGuard 0.70 section "{title}" is replaced by the project rules block' for title in removed]
     if installs or versions:
         lines.append(f'AGENTS.md: the FlowGuard version and install line now name {__version__}')
