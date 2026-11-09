@@ -481,6 +481,19 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     assert 'set FLOWGUARD_PYTHON' in output and 'no-such-python' in output, output
 
 
+def test_the_files_init_writes_bring_no_label_spellings_of_their_own(tmp_path):
+    _commit(tmp_path, {
+        'package.json': '{"name": "app", "type": "module", "scripts": {"test": "vitest run"}, "devDependencies": {"vitest": "4.1.11"}}\n',
+        'src/flags.ts': "export function known(x: string): boolean {\n  return x === '3' || x === 'c' || x === 'ROOT';\n}\n",
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0 and 'Generated flowguard.static.test.mjs (vitest)' in text, text
+    code, text = _static(tmp_path)          # init's '-3', '-c' and '--root' are FlowGuard's, not the project's labels
+    assert code == 0 and not _lines(text, '线索：标签写法不一致'), text
+    code, text = _static(tmp_path, '--all')
+    assert 'flowguard.static.test.mjs' not in text and 'flowguard.vitest.mjs' not in text, text
+
+
 def test_check_static_all_lists_label_spellings_the_baseline_already_had(tmp_path):
     root = _planning(tmp_path / 'pt')
     _commit(root, {})                          # both spellings are old: nothing new to report
@@ -519,7 +532,9 @@ def test_init_writes_a_jest_test_for_a_jest_project_and_keeps_a_foreign_file(tmp
     assert code == 0 and 'Generated web/flowguard.static.test.js (jest)' in text, text
     body = generated.read_text(encoding='utf-8')
     assert "require('node:child_process')" in body and 'path.resolve(__dirname, "..")' in body and 'vitest' not in body, body
-    assert 'FLOWGUARD_PYTHON' in body and json.dumps(sys.executable) in body, body
+    # the interpreter that ran init is read from the git-ignored cache, never written into the committed file
+    assert 'FLOWGUARD_PYTHON' in body and sys.executable not in body and '".flowguard/cache/python"' in body, body
+    assert (tmp_path / '.flowguard/cache/python').read_text(encoding='utf-8') == sys.executable
     generated.write_text('test("mine", () => {});\n')
     code, text = _flowguard(tmp_path, 'init')
     assert code == 2 and 'an existing file has this name' in text, text

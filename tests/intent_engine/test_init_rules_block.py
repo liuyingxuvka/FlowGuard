@@ -81,3 +81,62 @@ def test_other_level_one_headings_are_not_touched(tmp_path, capsys):
     text = '# FlowGuard rules for the release manager\n\nKeep this.\n'
     result = _init(tmp_path, text)
     assert result.startswith(text) and result.count('FlowGuard rules for the project agent') == 1
+
+
+# The AGENTS.md FlowGuard 0.70 wrote into the owner's Planning Tool (shortened; same sections and wording).
+TEAM = """Team coding standards live in `.github/copilot-instructions.md`.
+This file supplements them only with the FlowGuard workflow.
+
+## Engine and database guard
+
+Use FlowGuard **0.70.14** with Python 3.11 or newer. The only approved installation is:
+
+```text
+python -m pip install --user "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.70.14"
+```
+
+FlowGuard needs no database. Before every FlowGuard command or unit-test invocation,
+clear both `DATABASE_URL` and `CENTRAL_DATABASE_URL`.
+
+"""
+WORKFLOW = """## Six-step workflow
+
+1. Start with `python -m flowguard read`. Find ownership with
+   `python -m flowguard read --find <file-or-keywords>`.
+2. For code-only changes, run the relevant Vitest files, then `python -m flowguard map check`.
+3. Use `target start / add / check / promote` for structural changes.
+
+## Owner-authorized current-map exception (2026-10-29)
+
+For this task's complete migration only, the owner explicitly authorized direct current-map changes.
+The approved test-launch configuration uses `python -m flowguard_unit_runner`.
+
+"""
+LIMITS = """## Project-specific limits
+
+- `.flowguard/models/owners/**` are preserved 0.70.2 models and evidence.
+- No agent may run `backend/tests/integration/**`: those tests write real databases.
+- Do not run `flowguard change` against a large multi-commit diff.
+"""
+
+
+def test_the_flowguard_0_70_workflow_gives_way_to_the_rules_and_the_project_rules_stay(tmp_path, capsys):
+    (tmp_path / 'web').mkdir()
+    (tmp_path / 'web/package.json').write_text('{"name": "web", "scripts": {"test": "vitest run"}, "devDependencies": {"vitest": "4.1.11"}}\n')
+    result = _init(tmp_path, TEAM + WORKFLOW + LIMITS)
+    out = capsys.readouterr().out
+    engine = TEAM.replace('**0.70.14**', f'**{cli.__version__}**').replace(
+        'flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v0.70.14',
+        f'flowguard[languages] @ git+https://github.com/liuyingxuvka/FlowGuard.git@v{cli.__version__}')
+    assert result == engine + cli.PROJECT_RULES + '\n' + LIMITS, result       # in the workflow's place
+    assert 'flowguard read' not in result and 'current-map' not in result and 'map check' not in result
+    assert out.splitlines()[0] == 'Initialized intent sentinel, pytest plugin, CI fragment and three project rules.'
+    assert 'AGENTS.md: the FlowGuard 0.70 section "Six-step workflow" is replaced by the project rules block' in out, out
+    assert 'AGENTS.md: the FlowGuard 0.70 section "Owner-authorized current-map exception (2026-10-29)" is replaced' in out, out
+    assert f'AGENTS.md: the FlowGuard version and install line now name {cli.__version__}' in out, out
+    lines = result.splitlines()
+    for text in ('are preserved 0.70.2 models', 'Do not run `flowguard change`'):
+        number = next(index for index, line in enumerate(lines, 1) if text in line)
+        assert f'AGENTS.md:{number} still names FlowGuard 0.70 (' in out, out          # listed to reword, not deleted
+    again = _init(tmp_path, result)
+    assert again == result, 'init is idempotent after the replacement'

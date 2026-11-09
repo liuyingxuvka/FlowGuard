@@ -181,7 +181,7 @@ def test_static_transitive_helper_and_conftest_content_are_test_dependencies(tmp
     helper = root / 'test_helper.py'
     helper.write_text('def value(): return 3\n')
     conftest = root / 'tests/conftest.py'
-    conftest.write_text(conftest.read_text() + '\nimport pytest\nfrom test_helper import value\n@pytest.fixture\ndef supplied(): return value()\n')
+    conftest.write_text((conftest.read_text() if conftest.exists() else '') + '\nimport pytest\nfrom test_helper import value\n@pytest.fixture\ndef supplied(): return value()\n')
     (root / 'tests/test_ordinary.py').write_text('def test_actual(supplied): assert supplied == 3\n')
     assert cli_fixture.check(cfg) == 0
     cached = cache.read(cfg)

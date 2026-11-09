@@ -515,7 +515,7 @@ def literal_drift(change, *, everything=False):
     found = declarations_differ(change, everything=everything)
     if not change.files and not everything:
         return found
-    groups = change.graph.literal_groups()
+    groups = _project_spellings(change, change.graph.literal_groups())
     if not groups:
         return found
     before = {row['value'] for file in change.files for row in change.old_facts(file).get('literals', ())}
@@ -533,6 +533,25 @@ def literal_drift(change, *, everything=False):
         found.leads.append(('' if fresh else '旧账 ') + '标签写法不一致：' + ' 与 '.join(parts)
                            + ' → 统一成一种写法，或让它们取自同一个负责人')
     return found
+
+
+def _project_spellings(change, groups):
+    """The label groups without the spellings of FlowGuard's own generated files (`init` writes '-3', '-c',
+    '--root' into them), keeping the groups that still have two spellings."""
+    from .config import init_generated
+    own = {}
+    def project(row):
+        if row['file'] not in own:
+            path = change.cfg.root / row['file']
+            own[row['file']] = not (path.is_file() and init_generated(path))
+        return own[row['file']]
+    kept = []
+    for group in groups:
+        spellings = {value: [row for row in rows if project(row)] for value, rows in group['spellings'].items()}
+        spellings = {value: rows for value, rows in spellings.items() if rows}
+        if len(spellings) >= 2:
+            kept.append(dict(group, spellings=spellings))
+    return kept
 
 
 def changed_once(change):

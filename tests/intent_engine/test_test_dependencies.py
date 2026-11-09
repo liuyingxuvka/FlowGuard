@@ -116,7 +116,7 @@ def test_uncalled_function_defaults_still_run_during_import(tmp_path, monkeypatc
 def test_used_fixture_bodies_are_included_but_plain_conftest_helpers_are_not(tmp_path, monkeypatch):
     root, cfg = sample(tmp_path, 'def value(): return "old"\n')
     conftest = root / 'tests/conftest.py'
-    conftest.write_text(conftest.read_text() + '''
+    conftest.write_text((conftest.read_text() if conftest.exists() else '') + '''
 import os, pytest
 from pathlib import Path
 def unused_cli(): return Path(os.environ['UNUSED']).read_text()
@@ -151,7 +151,7 @@ def test_unresolved_callback_is_not_silently_treated_as_pure(tmp_path):
 def test_transitive_fixture_dependency_is_not_lost_by_definition_order(tmp_path, monkeypatch):
     root, cfg = sample(tmp_path, 'def value(): return "old"\n')
     conftest = root / 'tests/conftest.py'
-    conftest.write_text(conftest.read_text() + '''
+    conftest.write_text((conftest.read_text() if conftest.exists() else '') + '''
 import os, pytest
 @pytest.fixture
 def base(): return os.environ['FG_TEST_INPUT']

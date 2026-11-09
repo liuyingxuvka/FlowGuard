@@ -287,7 +287,10 @@ def test_init_wires_the_vitest_config_readably_and_says_jest_is_static_only(tmp_
     assert 'The execution side supports vitest only: this jest project runs check --static alone.' in text, text
     assert not (tmp_path / 'job/flowguard.vitest.mjs').exists()
     generated = (tmp_path / 'web/flowguard.vitest.mjs').read_text(encoding='utf-8')
-    assert "'-m', 'flowguard.intent.vitest', 'prepare'" in generated and json.dumps(sys.executable) in generated
+    # No machine path in a committed file: the interpreter that ran init is read from the git-ignored cache.
+    assert "'-m', 'flowguard.intent.vitest', 'prepare'" in generated and sys.executable not in generated
+    assert '".flowguard/cache/python"' in generated and sys.executable not in (tmp_path / 'web/flowguard.static.test.mjs').read_text(encoding='utf-8')
+    assert (tmp_path / '.flowguard/cache/python').read_text(encoding='utf-8') == sys.executable
     code, again = _flowguard(tmp_path, 'init')
     assert code == 0 and 'web/vitest.config.ts already lists flowguard().' in again, again
     assert (tmp_path / 'web/vitest.config.ts').read_text(encoding='utf-8') == web          # run twice, wired once
@@ -295,6 +298,25 @@ def test_init_wires_the_vitest_config_readably_and_says_jest_is_static_only(tmp_
     assert undone.replace('flowguard() /* flowguard: vitest */, ', '') + '\n' == \
         "import react from '@vitejs/plugin-react';\nimport { defineConfig } from 'vitest/config';\n\n" \
         "export default defineConfig({\n  plugins: [react()],\n  test: { environment: 'jsdom' },\n});\n"
+
+
+def test_init_adds_its_test_to_suite_scripts_on_named_folders_and_skips_a_package_without_a_runner(tmp_path):
+    package = ('{\n  "name": "api",\n  "type": "module",\n  "scripts": {\n    "test": "vitest run",\n'
+               '    "test:unit": "prisma generate && vitest run tests/unit --reporter=dot",\n'
+               '    "test:one": "vitest run tests/unit/a.test.ts",\n    "check:schema": "vitest run tests/unit"\n  },\n'
+               '  "devDependencies": {\n    "vitest": "4.1.11"\n  }\n}\n')
+    _commit(tmp_path, {'api/package.json': package, 'api/tests/unit/a.test.ts': "import { it } from 'vitest';\nit('a', () => {});\n",
+                       'lib/package.json': '{"name": "lib", "scripts": {"build": "tsc"}, "devDependencies": {"typescript": "5.6.0"}}\n'})
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0, text
+    after = package.replace('vitest run tests/unit --reporter=dot', 'vitest run tests/unit --reporter=dot flowguard.static.test.mjs')
+    assert (tmp_path / 'api/package.json').read_text(encoding='utf-8') == after       # its own formatting kept
+    assert ('api/package.json script "test:unit" runs vitest on named paths only; init added flowguard.static.test.mjs: '
+            'prisma generate && vitest run tests/unit --reporter=dot flowguard.static.test.mjs') in text, text
+    assert not (tmp_path / 'lib/flowguard.static.test.mjs').exists()
+    assert 'lib/package.json names no test runner (vitest or jest in its dependencies or scripts): no FlowGuard test' in text, text
+    code, again = _flowguard(tmp_path, 'init')
+    assert code == 0 and (tmp_path / 'api/package.json').read_text(encoding='utf-8') == after and 'init added' not in again, again
 
 
 # ---- real vitest -----------------------------------------------------------------------------------
