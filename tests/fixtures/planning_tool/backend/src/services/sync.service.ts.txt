@@ -1,0 +1,120 @@
+// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+export class SyncService { // fixture wrapper
+  async commitSync(localToCentralWrites: any[], localToCentralRows: any[], centralToLocalWrites: any[], centralToLocalRows: any[], phases: any, unappliedFields: any[], defaultStatus: any, defaultResource: any) { // fixture wrapper
+// copied from planning-tool/backend/src/services/sync.service.ts lines 555-667
+    if (localToCentralWrites.length > 0) {
+      const committed = { added: 0, overwritten: 0, ignored: localToCentralRows.length - localToCentralWrites.length };
+      try {
+        await centralPrisma.$transaction(async (tx) => {
+          for (const row of localToCentralWrites) {
+            if (row.action === 'add') {
+              await tx.centralEmployee.create({
+                data: {
+                  sapNumber: row.sapNumber,
+                  name: row.fields.name,
+                  firstName: row.fields.firstName ?? null,
+                  surname: row.fields.surname ?? null,
+                  email: row.fields.email?.trim() || null,
+                  orgUnitId: row.resolvedOrgUnitId ?? null,
+                  active: true,
+                },
+              });
+              committed.added++;
+            } else if (row.action === 'overwrite' && row.matchedCentralId) {
+              const updated = await tx.centralEmployee.updateMany({
+                where: {
+                  id: row.matchedCentralId,
+                  sapNumber: row.sapNumber,
+                  updatedAt: row.targetUpdatedAt ? new Date(row.targetUpdatedAt) : undefined,
+                },
+                data: {
+                  name: row.fields.name,
+                  firstName: row.fields.firstName ?? null,
+                  surname: row.fields.surname ?? null,
+                  email: row.fields.email?.trim() || null,
+                  orgUnitId: row.resolvedOrgUnitId ?? null,
+                },
+              });
+              if (updated.count !== 1) throw new AppError(`SAP ${row.sapNumber}: Central target changed during synchronization.`, 409, 'SYNC_TARGET_VERSION_CONFLICT');
+              committed.overwritten++;
+            }
+          }
+        }, { maxWait: 30_000, timeout: 120_000 });
+        phases.central = { status: 'COMMITTED', ...committed, skipped: 0, errors: [] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error('Sync local→central commit failed', { error: message });
+        if (isUnknownTransactionFailure(error)) {
+          phases.central = { status: 'UNKNOWN', added: committed.added, overwritten: committed.overwritten, ignored: committed.ignored, skipped: 0, errors: [`Local→Central sync outcome is unknown: ${message}. Re-read both stores before any further command.`] };
+          return resultFromPhases(phases, [], unappliedFields);
+        }
+        phases.central = { status: 'FAILED', added: 0, overwritten: 0, ignored: 0, skipped: 0, errors: [`Local→Central sync failed: ${message}`] };
+        return resultFromPhases(phases, [], unappliedFields);
+      }
+    }
+
+    if (centralToLocalWrites.length > 0) {
+      const committed = { added: 0, overwritten: 0, ignored: centralToLocalRows.length - centralToLocalWrites.length };
+      try {
+        await prisma.$transaction(async (tx) => {
+          for (const row of centralToLocalWrites) {
+            if (row.action === 'add') {
+              await tx.employee.create({
+                data: {
+                  name: row.fields.name,
+                  firstName: row.fields.firstName ?? null,
+                  surname: row.fields.surname ?? null,
+                  email: row.fields.email,
+                  sapReference: row.sapNumber,
+                  organizationalUnitId: row.resolvedOrgUnitId ?? null,
+                  startDate: new Date(),
+                  employeeStatusId: defaultStatus!.id,
+                  resourceTypeId: defaultResource!.id,
+                  roles: { create: [{ role: AppRole.EMPLOYEE }] },
+                },
+              });
+              committed.added++;
+            } else if (row.action === 'overwrite' && row.matchedLocalId) {
+              const current = await tx.employee.findUnique({
+                where: { id: row.matchedLocalId },
+                select: { organizationalUnitId: true },
+              });
+              if (current?.organizationalUnitId && row.resolvedOrgUnitId === null) {
+                await revokeEmployeeObjectAuthorities(tx, row.matchedLocalId, new Date());
+                await tx.userRole.deleteMany({
+                  where: { employeeId: row.matchedLocalId, role: AppRole.SELF_PLANNING_EMPLOYEE },
+                });
+              }
+              const updated = await tx.employee.updateMany({
+                where: {
+                  id: row.matchedLocalId,
+                  sapReference: row.sapNumber,
+                  updatedAt: row.targetUpdatedAt ? new Date(row.targetUpdatedAt) : undefined,
+                },
+                data: {
+                  name: row.fields.name,
+                  firstName: row.fields.firstName ?? null,
+                  surname: row.fields.surname ?? null,
+                  ...(unappliedFields.some((item) => item.sapNumber === row.sapNumber && item.field === 'email')
+                    ? {}
+                    : { email: row.fields.email }),
+                  organizationalUnitId: row.resolvedOrgUnitId ?? null,
+                },
+              });
+              if (updated.count !== 1) throw new AppError(`SAP ${row.sapNumber}: Local target changed during synchronization.`, 409, 'SYNC_TARGET_VERSION_CONFLICT');
+              committed.overwritten++;
+            }
+          }
+        }, { maxWait: 30_000, timeout: 120_000 });
+        phases.local = { status: 'COMMITTED', ...committed, skipped: 0, errors: [] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error('Sync central→local commit failed', { error: message });
+        phases.local = isUnknownTransactionFailure(error)
+          ? { status: 'UNKNOWN', added: committed.added, overwritten: committed.overwritten, ignored: committed.ignored, skipped: 0, errors: [`Central→Local sync outcome is unknown: ${message}. Re-read both stores before any further command.`] }
+          : { status: 'FAILED', added: 0, overwritten: 0, ignored: committed.ignored, skipped: 0, errors: [`Central→Local sync failed: ${message}`] };
+      }
+    }
+  } // fixture wrapper
+} // fixture wrapper

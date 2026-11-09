@@ -439,6 +439,12 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
             return 0
         words = tokens(query)
         ranked = []
+        if re.fullmatch(r'[A-Za-z_]\w*\.[A-Za-z_]\w*', query):      # Model.field or table.column: who writes it
+            for row in graph.writes(query):
+                where = f'{row["file"]}:{row["line"]}' + (f' (call line {row["call_line"]})' if row['call_line'] != row['line'] else '')
+                unclear = f'; unclear: {row["reason"]}' if row['unclear'] else ''
+                ranked.append((2000 - bool(row['unclear']), f'writes {row["model"] or row["table"]}.{row["field"]} '
+                               f'{where} {row["function"]} ({row["kind"]}{unclear})'))
         for rid, rule in rules.items():
             score = 1000 if query.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
             score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))

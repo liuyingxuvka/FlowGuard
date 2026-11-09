@@ -162,9 +162,7 @@ class MapHandle:
         return {n["id"]: n for n in self.nodes(language=language) if n["kind"] in ("function", "method")}
 
     def _syntax(self, kind):
-        if self._syntax_cache is None:
-            self._syntax_cache = [store.unpack(data) for (data,) in self.con.execute("SELECT data FROM file ORDER BY path")]
-        return [fact for data in self._syntax_cache for fact in data.get(kind, [])]
+        return [fact for data in self._syntax_files() for fact in data.get(kind, [])]
 
     def handlers(self, *, language=None):
         self._mark_query("handlers",language)
@@ -198,6 +196,105 @@ class MapHandle:
         self._mark_query('assignments',language)
         return self._language_rows([row for row in self._syntax('assignments')
                 if include_unknown or row.get('literal',True)],language)
+
+    # ---- writes, string literals and schema descriptions ---------------------------------------
+    def _schema_rows(self):
+        from .readers.registry import SCHEMA_LANGUAGES, SUFFIXES
+        suffixes = [suffix for suffix, language in SUFFIXES.items() if language in SCHEMA_LANGUAGES]
+        rows = []
+        for path, blob in self.con.execute("SELECT path, data FROM file WHERE " + ' OR '.join(['lower(path) LIKE ?'] * len(suffixes))
+                                           + " ORDER BY path", ['%' + suffix for suffix in suffixes]):
+            facts = store.unpack(blob)
+            if facts.get('language') in SCHEMA_LANGUAGES:
+                rows.append((path, facts.get('schema', {})))
+        return rows
+
+    def schemas(self):
+        """What every mapped Prisma schema (models, fields, @map, @@map, @relation) and SQL file
+        (CREATE TABLE, ALTER TABLE ADD/DROP COLUMN, DROP TABLE) declares, by file."""
+        rows = self._schema_rows()
+        self._mark_query('schema', files=[path for path, _ in rows])
+        return [dict(schema, file=path) for path, schema in rows]
+
+    def _models(self):
+        from .readers.prisma import Models
+        return Models([(path, schema) for path, schema in self._schema_rows() if schema.get('kind') == 'prisma'])
+
+    def writes(self, target=None, *, language=None, by_name=False):
+        """Who writes what, statically: Prisma client writes bound to schema models (connect and nested
+        writes follow @relation), SQL write statements (TS/JS raw SQL and .sql files), and Python
+        attribute assignments bound to a class. `by_name=True` adds property assignments `obj.f = ...`
+        that only a field name ties to a target (how='name'). `target` is `Model.field`, `table.column`,
+        a model or table, or a bare field/column name; rows whose fields are not visible (spread,
+        non-literal data) are kept for their model with `unclear=True`. Never execution evidence."""
+        from .readers.prisma import bind, bind_sql
+        from .readers.registry import ECMA, language_for
+        self._mark_query('writes', language)
+        models = self._models()
+        rows = []
+        for facts in self._syntax_files():
+            kind = facts.get('language', 'python')
+            if language is not None and kind != language:
+                continue
+            writes = facts.get('writes', [])
+            rows += [dict(row, language=kind) for row in bind([w for w in writes if w.get('via') == 'prisma'], models)]
+            rows += [dict(row, language=kind) for row in bind_sql([w for w in writes if w.get('via') == 'sql'], models)]
+            for row in facts.get('assignments', []):
+                if kind in ECMA and row.get('form') == 'member' and by_name and row.get('field'):
+                    rows.append(dict(node=row['node'], function=row['node'].partition(':')[2] or '<module>', file=row['file'],
+                                     line=row['line'], column=row.get('column'), call_line=row['line'], how='name',
+                                     method='assign', kind='assign', model=None, field=row['field'], table=None, db_column=None,
+                                     nested=False, unclear=False, schema=None, receiver=row['target'].rpartition('.')[0],
+                                     reason='property assignment matched by field name only', language=kind))
+                elif kind == 'python':
+                    owner, _, written = row['field'].partition(':')
+                    cls, dot, attr = written.rpartition('.')
+                    if not dot or '[' in written or (row.get('unresolved') and not by_name):
+                        continue
+                    rows.append(dict(node=row['node'], function=row['node'].partition(':')[2] or '<module>', file=row['file'],
+                                     line=row['line'], column=None, call_line=row['line'],
+                                     how='name' if row.get('unresolved') else 'attribute', method='assign', kind='assign',
+                                     model=None if row.get('unresolved') else cls, field=attr, table=None, db_column=None,
+                                     nested=False, unclear=False, schema=None, receiver=cls,
+                                     reason='attribute assignment matched by field name only' if row.get('unresolved') else '',
+                                     language=kind))
+        if target is not None:
+            rows = [row for row in rows if _writes_target(row, target, models)]
+        return Rows(sorted(rows, key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
+
+    def _syntax_files(self):
+        if self._syntax_cache is None:
+            self._syntax_cache = [store.unpack(data) for (data,) in self.con.execute("SELECT data FROM file ORDER BY path")]
+        return self._syntax_cache
+
+    def literals(self, *, language=None, contexts=None):
+        """String literals used to decide or name a value: comparisons (compare), switch cases (case),
+        returned values (return), union type members (union), `new Set([...])` (set), array elements
+        (array) and `.includes()/.has()` arguments (member). Object keys, logging calls and error
+        messages are left out."""
+        self._mark_query('literals', language)
+        rows = self._language_rows(self._syntax('literals'), language)
+        return Rows(row for row in rows if contexts is None or row['context'] in contexts)
+
+    def literal_groups(self, *, language=None, contexts=None, min_spellings=2):
+        """String literals grouped ignoring case, whitespace and punctuation; a group with several spellings
+        ('My Organization' / 'My organization') is a clue of drift, not a verdict."""
+        groups = {}
+        for row in self.literals(language=language, contexts=contexts):
+            key = literal_key(row['value'])
+            if key:
+                groups.setdefault(key, {}).setdefault(row['value'], []).append(row)
+        return [dict(key=key, spellings={value: found for value, found in sorted(spellings.items())})
+                for key, spellings in sorted(groups.items()) if len(spellings) >= min_spellings]
+
+    def schema_gaps(self):
+        """Columns one description of a table has and another lacks. A Prisma schema (models, @map,
+        @@map) is compared with every SQL description of its tables (one .sql file, or one Prisma
+        `migrations/` folder applied in order) and with other Prisma schemas that describe the same
+        tables. Only tables a description creates are compared; a description that creates at least
+        half of a schema's tables also reports the tables it lacks."""
+        from .readers.prisma import gaps
+        return gaps(self.schemas())
 
     def calls(self, *, include_reads=False, language=None):
         """Syntactic calls; optionally include symbol reads, never execution evidence."""
@@ -621,3 +718,21 @@ class MapHandle:
                 elif old[i][0] != new[i][0]:
                     rows.append((i, "changed", old[i][0], new[i][0], old[i][1], new[i][1]))
         return rows
+
+
+def literal_key(value: str) -> str:
+    """Letters and digits only, case folded: the spelling-independent identity of a label."""
+    return ''.join(ch for ch in value.casefold() if ch.isalnum())
+
+
+def _writes_target(row, target, models) -> bool:
+    """`Model.field`, `table.column`, a model or table name, or a bare field/column name."""
+    head, dot, tail = target.rpartition('.')
+    names = {str(row.get('model') or '').casefold(), str(row.get('table') or '').casefold()} - {''}
+    fields = {str(row.get('field') or '').casefold(), str(row.get('db_column') or '').casefold()} - {''}
+    if not dot:
+        wanted = target.casefold()
+        return wanted in names or wanted in fields
+    if head.casefold() not in names and not (row.get('how') == 'name' and row.get('model') is None):
+        return False
+    return tail.casefold() in fields or row.get('unclear') and row.get('field') in ('?', '*') and head.casefold() in names

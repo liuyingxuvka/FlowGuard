@@ -1,0 +1,222 @@
+// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+// copied from planning-tool/backend/prisma/schema.prisma lines 17-20
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+// copied from planning-tool/backend/prisma/schema.prisma lines 71-171
+model Employee {
+  id                   String   @id @default(uuid())
+  name                 String
+  firstName            String?  @map("first_name")
+  surname              String?  @map("surname")
+  email                String   @unique
+  passwordHash         String?  @map("password_hash")
+  sapReference         Int      @map("sap_reference")
+  supervisorId         String?  @map("supervisor_id")
+  organizationalUnitId String?  @map("organizational_unit_id")
+  personnelSource      String @default("INTERNAL") @map("personnel_source")
+  externalType         String @default("NONE") @map("external_type")
+  storageScope         String @default("LOCAL") @map("storage_scope")
+  personnelLifecycleState String @default("ACTIVE") @map("personnel_lifecycle_state")
+  centralSyncState     String @default("NOT_REQUIRED") @map("central_sync_state")
+  centralSyncError     String? @map("central_sync_error")
+  centralSyncAttemptedAt DateTime? @map("central_sync_attempted_at")
+  personnelCommandKey  String? @map("personnel_command_key")
+  startDate            DateTime @map("start_date")
+  endDate              DateTime? @map("end_date")
+  employeeStatusId     String   @map("employee_status_id")
+  resourceTypeId       String   @map("resource_type_id")
+  maStatusId           String?  @map("ma_status_id")
+  lastKnownVersion     String?  @map("last_known_version")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  authorityVersion     Int      @default(0) @map("authority_version")
+
+  // Relations
+  supervisor         Employee?           @relation("EmployeeSupervisor", fields: [supervisorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subordinates       Employee[]          @relation("EmployeeSupervisor")
+  employeeStatus     CatalogEntry        @relation("EmployeeStatus", fields: [employeeStatusId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resourceType       CatalogEntry        @relation("ResourceType", fields: [resourceTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maStatus           CatalogEntry?       @relation("MaStatus", fields: [maStatusId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roles              UserRole[]
+  deputyAssignments  DeputyAssignment[]
+  authorityAssignments AuthorityAssignment[]
+
+  // Durable membership-transfer lifecycle.  A pending transfer is a real
+  // state transition, not an audit-only hint; it must survive process restart
+  // and be protected by a filtered unique index in SQL Server.
+  transferRequests       EmployeeTransfer[] @relation("EmployeeTransferTarget")
+  requestedTransfers     EmployeeTransfer[] @relation("EmployeeTransferRequester")
+  decidedTransfers       EmployeeTransfer[] @relation("EmployeeTransferDecider")
+
+  // Inverse relations — Shared Master Data
+  ledProjects              Project[]              @relation("ProjectLeader")
+  projectPreferences       EmployeeProjectPreference[]
+  ownedPspElements         PspElement[]
+  technicalLeadAssignments ProjectTechnicalLead[] @relation("TechLead")
+  technicalLeadCreations   ProjectTechnicalLead[] @relation("TechLeadCreator")
+  projectMemberships       ProjectMember[]        @relation("ProjectMembership")
+  projectMembershipCreations ProjectMember[]      @relation("ProjectMembershipCreator")
+
+  // Inverse relations — Personnel Planning
+  assignments              Assignment[]           @relation("AssignmentEmployee")
+  assignmentCreations      Assignment[]           @relation("AssignmentCreator")
+  lendingAssignments       LendingAssignment[]    @relation("LendingEmployee")
+  lendingManagerScopes     LendingAssignment[]    @relation("LendingManager")
+  lendingAmendmentRequests LendingAssignmentAmendment[] @relation("LendingAmendmentEmployee")
+  absenceRecords           AbsenceRecord[]        @relation("AbsenceEmployee")
+  absenceCreations         AbsenceRecord[]        @relation("AbsenceCreator")
+  demandCreations          Demand[]
+  projectRequests          ProjectRequest[]
+
+  // Inverse relations — Finance
+  sapImportRuns            SapImportRun[]
+  tplPureCostCreations     TplPlanEntryPureCost[]
+  tplResourceCreations     TplPlanEntryResource[]
+  limitProfileCreations    LimitProfile[]
+  limitCategorySplitCreations  LimitCategorySplit[]
+  limitSubElementSplitCreations LimitSubElementSplit[]
+  ratingConfigCreations    RatingConfig[]
+
+  // Inverse relations — Capacity
+  capacityEntries          CapacityCalendarEntry[] @relation("CapacityEmployee")
+  capacityCreations        CapacityCalendarEntry[] @relation("CapacityCreator")
+
+  // Inverse relations — System
+  snapshots                Snapshot[]
+  auditEvents              AuditEvent[]
+  userPreferences          UserPreference[]
+  notifications            Notification[]
+  milestoneCreations       ProjectMilestone[]     @relation("MilestoneCreator")
+  phaseCreations           ProjectPhase[]         @relation("PhaseCreator")
+  supportTickets           SupportTicket[]        @relation("EmployeeTickets")
+
+  @@map("employees")
+}
+
+model UserRole {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  role       String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([employeeId, role])
+  @@map("user_roles")
+}
+// copied from planning-tool/backend/prisma/schema.prisma lines 176-223
+model EmployeeTransfer {
+  id                  String    @id @default(uuid())
+  employeeId         String    @map("employee_id")
+  requestedById       String    @map("requested_by_id")
+  decidedById         String?   @map("decided_by_id")
+  fromOrgUnitId       String?   @map("from_org_unit_id")
+  targetOrgUnitId     String    @map("target_org_unit_id")
+  direction           String    @default("OUTGOING")
+  approvalContractVersion Int   @default(2) @map("approval_contract_version")
+  requestOrigin       String?   @map("request_origin")
+  requestAuthorityProofJson String? @db.NVarChar(Max) @map("request_authority_proof_json")
+  sourceApprovalCommandKey String? @map("source_approval_command_key")
+  targetApprovalCommandKey String? @map("target_approval_command_key")
+  organizationRoleReleasePlanJson String? @db.NVarChar(Max) @map("organization_role_release_plan_json")
+  employeeAuthorityRevision Int @default(0) @map("employee_authority_revision")
+  status              String    @default("PENDING")
+  reason              String?
+  commandKey          String    @unique @map("command_key")
+  /// The command key of the terminal decision (or requester cancel operation;
+  /// historical EXPIRE rows retain their original key for audit only).
+  /// It is deliberately separate from the request key so a retry of a
+  /// cross-database decision can be recognized without losing request replay.
+  lastCommandKey      String?   @map("last_command_key")
+  /// The terminal operation bound to lastCommandKey.  A key is an idempotency
+  /// identity, not a bearer token that may be reused for a different command.
+  lastCommandAction   String?   @map("last_command_action")
+  revision            Int       @default(1)
+  /// Nullable historical metadata. New PENDING organization transfers do not
+  /// have a wall-clock expiry; legacy terminal rows may retain their original
+  /// value for audit/history compatibility.
+  expiresAt           DateTime? @map("expires_at")
+  requestedAt         DateTime  @default(now()) @map("requested_at")
+  decidedAt           DateTime? @map("decided_at")
+  centralSyncState    String    @default("NOT_REQUIRED") @map("central_sync_state")
+  centralSyncError    String?   @map("central_sync_error")
+  centralSyncAttemptedAt DateTime? @map("central_sync_attempted_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  employee     Employee  @relation("EmployeeTransferTarget", fields: [employeeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requestedBy Employee  @relation("EmployeeTransferRequester", fields: [requestedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  decidedBy   Employee? @relation("EmployeeTransferDecider", fields: [decidedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  commandIdentities EmployeeTransferCommand[]
+
+  @@index([employeeId, status])
+  @@index([targetOrgUnitId, status])
+  @@map("employee_transfers")
+}
+// copied from planning-tool/backend/prisma/schema.prisma lines 253-277
+model AuthorityAssignment {
+  id                  String   @id @default(uuid())
+  employeeId          String   @map("employee_id")
+  definitionCode      String   @map("definition_code")
+  domain              String
+  bindingKind         String   @map("binding_kind")
+  bindingId           String?  @map("binding_id")
+  bindingRootId       String?  @map("binding_root_id")
+  bindingMembersJson  String?  @map("binding_members_json")
+  identityKey         String   @unique @map("identity_key")
+  sourceRef           String   @map("source_ref")
+  validFrom           DateTime? @map("valid_from")
+  validTo             DateTime? @map("valid_to")
+  active              Boolean  @default(true)
+  revision            Int      @default(1)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([employeeId, active])
+  @@index([definitionCode, bindingKind, bindingId])
+  @@index([sourceRef])
+  @@map("authority_assignments")
+}
+// copied from planning-tool/backend/prisma/schema.prisma lines 1305-1324
+model AuditEvent {
+  id         String   @id @default(uuid())
+  domain     String
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  oldValue   String?  @db.NVarChar(Max) @map("old_value")
+  newValue   String?  @db.NVarChar(Max) @map("new_value")
+  actorId    String   @map("actor_id")
+  timestamp  DateTime
+  contextId  String?  @map("context_id")
+  idempotencyKey String? @map("idempotency_key")
+  severity   String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  actor Employee @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("audit_events")
+}
+// copied from planning-tool/backend/prisma/schema.prisma lines 1361-1376
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String   @map("recipient_id")
+  type        String
+  title       String
+  message     String
+  isRead      Boolean  @default(false) @map("is_read")
+  metadata    String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  recipient Employee @relation(fields: [recipientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([recipientId, isRead])
+  @@map("notifications")
+}
+

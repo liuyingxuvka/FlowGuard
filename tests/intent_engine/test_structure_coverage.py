@@ -19,12 +19,13 @@ def model(tmp_path, files, query):
 
 
 def test_unsupported_query_cannot_certify_empty_foreign_exception_paths(tmp_path):
-    m = model(tmp_path, {'service.ts': 'function read(){try { work(); } catch(e){return 0;}}'},
+    # C# catch clauses are still outside the reader (TypeScript's are read since round 20).
+    m = model(tmp_path, {'Service.cs': 'class S { int Read(){ try { Work(); } catch (System.Exception e) { return 0; } return 1; } }'},
               'list(graph.handlers())')
     result = Engine(m).run_structure(m.structures['PATHS'])
     assert result['verdict'] == 'grey' and result['n'] == 0
-    assert any('handlers query incomplete for typescript' in reason for reason in result['grey'])
-    assert result['query_coverage']['issues'][0]['files'] == ['service.ts']
+    assert any('handlers query incomplete for csharp' in reason for reason in result['grey'])
+    assert result['query_coverage']['issues'][0]['files'] == ['Service.cs']
 
 
 def test_explicit_native_scope_keeps_independent_python_contract_usable(tmp_path):

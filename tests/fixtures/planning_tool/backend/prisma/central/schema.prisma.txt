@@ -1,0 +1,77 @@
+// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+// copied from planning-tool/backend/prisma/central/schema.prisma lines 15-18
+datasource db {
+  provider = "sqlserver"
+  url      = env("CENTRAL_DATABASE_URL")
+}
+// copied from planning-tool/backend/prisma/central/schema.prisma lines 30-50
+model CentralOrgUnit {
+  id                 String   @id @default(uuid())
+  type               String
+  name               String
+  code               String?
+  oeKey              Int?     @map("oe_key")
+  parentId           String?  @map("parent_id")
+  managerSapNumber   Int?     @map("manager_sap_number")
+  managerEmployeeId  String?  @map("manager_employee_id")
+  active             Boolean
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  parent    CentralOrgUnit?  @relation("CentralOrgUnitHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  CentralOrgUnit[] @relation("CentralOrgUnitHierarchy")
+  employees CentralEmployee[]
+  aliases   OrgUnitAlias[]
+
+  @@index([parentId])
+  @@map("central_org_units")
+}
+// copied from planning-tool/backend/prisma/central/schema.prisma lines 64-88
+model CentralEmployee {
+  id        String   @id @default(uuid())
+  sapNumber Int      @unique @map("sap_number")
+  firstName String?  @map("first_name")
+  surname   String?  @map("surname")
+  name      String
+  email     String?  @map("email")
+  orgUnitId String?  @map("org_unit_id")
+  active    Boolean
+  personnelSource String @default("INTERNAL") @map("personnel_source")
+  externalType String @default("NONE") @map("external_type")
+  storageScope String @default("CENTRAL") @map("storage_scope")
+  personnelLifecycleState String @default("ACTIVE") @map("personnel_lifecycle_state")
+  centralSyncState String @default("ACTIVE") @map("central_sync_state")
+  centralSyncError String? @map("central_sync_error")
+  centralSyncAttemptedAt DateTime? @map("central_sync_attempted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orgUnit CentralOrgUnit? @relation(fields: [orgUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lendingAssignments CentralLendingAssignment[] @relation("CentralLendingEmployee")
+
+  @@index([orgUnitId])
+  @@map("central_employees")
+}
+// copied from planning-tool/backend/prisma/central/schema.prisma lines 94-114
+model CentralLendingAssignment {
+  id                String   @id @default(uuid())
+  localAssignmentId String   @unique @map("local_assignment_id")
+  employeeSapNumber Int      @map("employee_sap_number")
+  sourceUnitId      String   @map("source_unit_id")
+  targetUnitId      String   @map("target_unit_id")
+  managerScopeId    String   @map("manager_scope_id")
+  fteShare          Decimal  @map("fte_share")
+  validFrom         DateTime @map("valid_from")
+  validTo           DateTime? @map("valid_to")
+  status            String
+  revision          Int      @default(1)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  employee CentralEmployee @relation("CentralLendingEmployee", fields: [employeeSapNumber], references: [sapNumber], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([employeeSapNumber, status])
+  @@index([sourceUnitId, targetUnitId, status])
+  @@map("central_lending_assignments")
+}

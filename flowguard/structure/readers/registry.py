@@ -5,8 +5,10 @@ SUFFIXES = {
     '.py':'python', '.js':'javascript', '.jsx':'javascript', '.mjs':'javascript', '.cjs':'javascript',
     '.ts':'typescript', '.mts':'typescript', '.cts':'typescript', '.tsx':'tsx',
     '.c':'c', '.h':'c', '.cpp':'cpp', '.cc':'cpp', '.cxx':'cpp', '.hpp':'cpp', '.hh':'cpp', '.hxx':'cpp',
-    '.cs':'csharp',
+    '.cs':'csharp', '.prisma':'prisma', '.sql':'sql',
 }
+SCHEMA_LANGUAGES = ('prisma', 'sql')        # read by FlowGuard's own text readers, no grammar package
+ECMA = ('javascript', 'typescript', 'tsx')
 OTHER_SOURCE = {'.go', '.rs', '.java', '.kt', '.swift', '.m', '.rb', '.php'}
 
 
@@ -21,8 +23,12 @@ def module_name(rel):
 
 def extract(root, rel, data, module, is_test):
     language = language_for(rel)
-    if language in ('javascript', 'typescript', 'tsx'):
+    if language in ECMA:
         from .ecma import extract as read
+    elif language == 'prisma':
+        from .prisma import extract as read
+    elif language == 'sql':
+        from .sql import extract as read
     elif language in ('c', 'cpp'):
         from .cfamily import extract as read
     elif language == 'csharp':
@@ -46,13 +52,22 @@ def available():
         result[language] = dict(queries=query_support(language), installed=installed is not None and Path(__file__).with_name(reader+'.py').is_file(),
             grammar=package, grammar_version=installed, native_home=False,
             suffixes=sorted(suffix for suffix, value in SUFFIXES.items() if value == language))
-    return result
+    return result               # prisma/sql need no optional package: their readers ship with FlowGuard
 
 
-QUERIES = ('nodes','functions','keys','handlers','literal_sets','assignments','calls','symbol_reads','imports','tests')
+QUERIES = ('nodes','functions','keys','handlers','literal_sets','assignments','calls','symbol_reads','imports','tests',
+           'writes','literals','schema')
+SUPPORT = {
+    'python': set(QUERIES) - {'writes', 'literals'},     # writes: attribute assignments only, no SQL strings yet
+    **{language: {'nodes','functions','keys','assignments','calls','imports','handlers','writes','literals'}
+       for language in ECMA},
+    # A schema file has no code: its empty code facts are complete. `schema` is what it declares.
+    **{language: set(QUERIES) for language in SCHEMA_LANGUAGES},
+}
 
 
 def query_support(language):
     """A grammar's existence never grants unimplemented fixed-query coverage."""
-    return {name: language == 'python' or language in SUFFIXES.values() and name in ('nodes','functions','keys','assignments','calls','imports')
-            for name in QUERIES}
+    implemented = SUPPORT.get(language, {'nodes','functions','keys','assignments','calls','imports'}
+                              if language in SUFFIXES.values() else set())
+    return {name: name in implemented for name in QUERIES}

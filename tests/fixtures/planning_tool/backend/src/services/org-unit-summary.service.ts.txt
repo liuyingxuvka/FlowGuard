@@ -1,0 +1,16 @@
+// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+// copied from planning-tool/backend/src/services/org-unit-summary.service.ts lines 191-203
+function countWorkingDaysLocal(startDate: Date, endDate: Date): number {
+  const start = normalizeToUtcMidnight(startDate);
+  const end = normalizeToUtcMidnight(endDate);
+  if (start > end) return 0;
+  let count = 0;
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const day = cursor.getUTCDay();
+    if (day !== 0 && day !== 6) count += 1;
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return count;
+}

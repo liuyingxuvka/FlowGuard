@@ -131,5 +131,9 @@ def analyze(nodes: list, mod_aliases: set) -> dict:
 
 
 def shape_of(nodes: list) -> list[int]:
-    kinds = [type(n).__name__ for n in nodes]
+    return kinds_shape([type(n).__name__ for n in nodes])
+
+
+def kinds_shape(kinds: list[str]) -> list[int]:
+    """Sorted 3-gram hashes of syntax node kinds in depth-first order (Python AST or a grammar's types)."""
     return sorted({zlib.crc32("/".join(kinds[i:i + 3]).encode()) & 0xFFFFF for i in range(len(kinds) - 2)})[:400]

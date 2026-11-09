@@ -45,7 +45,8 @@ def load_config(root=None):
     path = root / 'pyproject.toml'
     data = tomllib.loads(path.read_text(encoding='utf-8-sig')) if path.is_file() else {}
     settings = data.get('tool', {}).get('flowguard', {})
-    allowed = {'roots', 'intent', 'exclude', 'authority_docs', 'screen_lines', 'check_lines', 'skip_policy'}
+    # `propagate` names TS/JS functions that hand a caught error on; the map reader reads it.
+    allowed = {'roots', 'intent', 'exclude', 'authority_docs', 'screen_lines', 'check_lines', 'skip_policy', 'propagate'}
     if set(settings) - allowed:
         raise ValueError('unknown [tool.flowguard] keys: ' + ', '.join(sorted(set(settings) - allowed)))
     cfg = Config(root, [root / value for value in settings.get('roots', [])],

@@ -1,0 +1,61 @@
+// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+// copied from planning-tool/backend/src/services/authority/organization-navigation.ts lines 1-58
+/**
+ * Resolve the single organization-entry label exposed by the authenticated
+ * session projection.  This is display metadata, not an authorization grant;
+ * the organization tree and every target decision remain server-authorized
+ * independently.
+ */
+
+export type OrganizationNavigationLabel =
+  | 'My Team'
+  | 'My Department'
+  | 'My Unit'
+  | 'My Area'
+  | 'My Group'
+  | 'My Organization';
+
+const UNIT_TYPE_LABELS: Record<string, OrganizationNavigationLabel> = {
+  TEAM: 'My Team',
+  DEPARTMENT: 'My Department',
+  SUB_UNIT: 'My Unit',
+  AREA: 'My Area',
+  EXPERT_GROUP: 'My Group',
+};
+
+const ORGANIZATION_MANAGER_ROLES = new Set([
+  'ORGANIZATION_MANAGER',
+  'MANAGEMENT',
+  'HIGHER_MANAGEMENT',
+]);
+
+const APPLICATION_ADMIN_ROLES = new Set([
+  'SYSTEM_ADMIN',
+  'SYSTEM_ADMINISTRATOR',
+  'PLANNING_ADMIN',
+  'PLANNING_ADMINISTRATOR',
+]);
+
+/**
+ * Match the reference-main display rule while keeping the decision in the
+ * server session projection.  An unassigned employee deliberately receives
+ * `My Unit`: the label identifies the one organization entry and does not
+ * imply that a unit binding exists.
+ */
+export function resolveOrganizationNavigationLabel(
+  roles: readonly string[],
+  homeOrganizationType: string | null | undefined,
+): OrganizationNavigationLabel {
+  if (roles.some((role) => ORGANIZATION_MANAGER_ROLES.has(role))) {
+    return 'My Organization';
+  }
+  if (roles.includes('DEPARTMENT_MANAGER')) return 'My Department';
+  if (roles.includes('TEAM_LEADER')) return 'My Team';
+  if (roles.some((role) => APPLICATION_ADMIN_ROLES.has(role))) {
+    return 'My Organization';
+  }
+  return homeOrganizationType
+    ? UNIT_TYPE_LABELS[homeOrganizationType] ?? 'My Unit'
+    : 'My Unit';
+}

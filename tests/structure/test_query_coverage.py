@@ -12,13 +12,22 @@ def setup(tmp_path, files):
 
 
 def test_foreign_try_catch_is_unavailable_not_a_proven_empty_handler_list(tmp_path):
-    with closing(setup(tmp_path,{'code.ts':'function read(){try { work(); } catch(error) { return 0; }}\n'})) as graph:
+    # C# catch clauses are still outside the reader (TypeScript's are read since round 20).
+    with closing(setup(tmp_path,{'Code.cs':'class C { int Read(){ try { Work(); } catch (System.Exception error) { return 0; } return 1; } }\n'})) as graph:
         assert graph.handlers()==[]
         coverage=graph.query_coverage()
         assert not coverage['complete']
         assert coverage['issues'][0]['query']=='handlers'
-        assert coverage['issues'][0]['files']==['code.ts']
-        assert graph.capabilities()['languages']['typescript']['queries']['handlers'] is False
+        assert coverage['issues'][0]['files']==['Code.cs']
+        assert graph.capabilities()['languages']['csharp']['queries']['handlers'] is False
+
+
+def test_typescript_catch_is_a_read_handler_with_complete_coverage(tmp_path):
+    with closing(setup(tmp_path,{'code.ts':'function read(){try { work(); } catch(error) { return 0; }}\n'})) as graph:
+        rows=graph.handlers()
+        assert [(row['kind'],row['type'],row['non_raising']) for row in rows]==[('catch','error',True)]
+        assert graph.query_coverage()['complete']
+        assert graph.capabilities()['languages']['typescript']['queries']['handlers'] is True
 
 
 def test_explicit_python_scope_does_not_block_on_unrelated_foreign_reader(tmp_path):
