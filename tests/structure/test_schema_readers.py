@@ -308,4 +308,116 @@ model Room {
     # Person.unit: NoAction against the optional relation's default SetNull; Room.unit: Restrict against
     # Cascade; NoAction and Restrict both refuse the delete, so the sqlserver template agrees.
     assert rules == [dict(schema='prisma/schema.prisma', description='prisma/schema.sqlite.prisma',
-                          relations=[('Person.unit', 'NoAction/Restrict', 'SetNull'), ('Room.unit', 'NoAction/Restrict', 'Cascade')])]
+                          relations=[('Person.unit', 'NoAction/Restrict', 'SetNull', 'person(unitid)'),
+                                     ('Room.unit', 'NoAction/Restrict', 'Cascade', 'room(unitid)')])]
+
+
+def test_delete_rules_follow_the_key_fields_and_match_relations_by_their_foreign_key(tmp_path):
+    # Round 23 review of the onDelete pairs: an optional relation over a required key restricts (Prisma 6.19
+    # `migrate diff` writes ON DELETE RESTRICT; only optional keys give SET NULL); a model or relation renamed
+    # under the same @@map/@map is the same foreign key; a schema whose table has the key columns but no
+    # @relation has no foreign key at all, so deleting the parent leaves its rows pointing nowhere.
+    in_use = '''
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Unit {
+  id     String  @id
+  code   String
+  rooms  Room[]
+  desks  Desk[]
+  seats  Seat[]
+  lamps  Lamp[]
+  @@unique([id, code])
+}
+
+model Room {
+  id     String @id
+  unitId String
+  unit   Unit?  @relation(fields: [unitId], references: [id])
+}
+
+model Desk {
+  id       String  @id
+  unitId   String
+  unitCode String?
+  unit     Unit?   @relation(fields: [unitId, unitCode], references: [id, code])
+}
+
+model Seat {
+  id     String @id
+  unitId String @map("unit_id")
+  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: NoAction)
+  @@map("seats")
+}
+
+model Lamp {
+  id     String @id
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: NoAction)
+}
+
+model Door {
+  id     String @id
+  unitId String
+}
+'''
+    template = '''
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Unit {
+  id     String  @id
+  code   String
+  rooms  Room[]
+  desks  Desk[]
+  chairs Chair[]
+  doors  Door[]
+  @@unique([id, code])
+}
+
+model Room {
+  id     String @id
+  unitId String
+  unit   Unit?  @relation(fields: [unitId], references: [id], onDelete: NoAction)
+}
+
+model Desk {
+  id       String  @id
+  unitId   String
+  unitCode String?
+  unit     Unit?   @relation(fields: [unitId, unitCode], references: [id, code], onDelete: Cascade)
+}
+
+model Chair {
+  id     String @id
+  unit_id String
+  owner  Unit   @relation(fields: [unit_id], references: [id], onDelete: Cascade)
+  @@map("Seats")
+}
+
+model Lamp {
+  id     String @id
+  unitId String
+}
+
+model Door {
+  id     String @id
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id])
+}
+'''
+    with closing(project(tmp_path, {'prisma/schema.prisma': in_use, 'prisma/schema.sqlite.prisma': template})) as graph:
+        rules = graph.schema_delete_rules()
+    # Room.unit restricts on both sides; Desk.unit (one key field required) restricts against Cascade; the
+    # template's Chair.owner is the in-use Seat.unit (table seats, column unit_id); its Lamp has the key column
+    # but no relation; its Door has the relation the schema in use lacks, shown by the template's name.
+    assert rules == [dict(schema='prisma/schema.prisma', description='prisma/schema.sqlite.prisma', relations=[
+        ('Desk.unit', 'NoAction/Restrict', 'Cascade', 'desk(unitcode,unitid)'),
+        ('Door.unit', None, 'NoAction/Restrict', 'door(unitid)'),
+        ('Lamp.unit', 'NoAction/Restrict', None, 'lamp(unitid)'),
+        ('Seat.unit', 'NoAction/Restrict', 'Cascade', 'seats(unit_id)')])], rules

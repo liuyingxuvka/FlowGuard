@@ -407,29 +407,67 @@ def _schema_pairs(described, in_use, package):
     return out
 
 
+def key_required(field, model) -> bool:
+    """Whether a relation's foreign key can never be null: the relation field or one of its key fields
+    (`@relation(fields: [...])`) is required. Prisma's default delete rule follows it: Restrict when
+    required, SetNull only when every key field is optional (`unitId String` under `unit Unit?` restricts;
+    `prisma migrate diff` writes ON DELETE RESTRICT). A key field the model does not declare (Prisma
+    refuses that schema) counts as required."""
+    fields = {item['name']: item for item in model['fields']}
+    return not field['optional'] or not all(name in fields and fields[name]['optional'] for name in field['relation']['fields'])
+
+
+def _foreign_keys(schema):
+    """{(table, key columns): [(Model.field, delete rule)]} of one Prisma schema's relations that hold a
+    foreign key (`@relation(fields: [...])` on a `model`): the table and the key columns as mapped (`@@map`,
+    `@map`; case folded, columns sorted), the way the database names the key, so a model or relation renamed
+    under the same mapping is the same key. The rule is the relation's `onDelete`, else Prisma's default
+    (`key_required`); NoAction and Restrict both refuse the delete and read as one. A key field the model
+    does not declare reads as its own column. Two relations on one key (Prisma requires a `map:` name for
+    the second) stay in schema order."""
+    out = {}
+    for model in schema.get('models', []):
+        if model['kind'] != 'model':
+            continue
+        fields = {field['name']: field for field in model['fields']}
+        for field in model['fields']:
+            if field.get('relation') and field['relation'].get('fields'):
+                rule = field.get('on_delete') or ('Restrict' if key_required(field, model) else 'SetNull')
+                columns = tuple(sorted((fields[name]['column'] if name in fields else name).casefold()
+                                       for name in field['relation']['fields']))
+                out.setdefault((model['table'].casefold(), columns), []).append(
+                    (f"{model['name']}.{field['name']}", 'NoAction/Restrict' if rule in ('NoAction', 'Restrict') else rule))
+    return out
+
+
 def delete_rules(schemas, in_use=frozenset(), package=None) -> list[dict]:
     """Relations whose delete rule differs between two Prisma schemas of one database (the pairs `gaps`
-    compares): {schema, description, relations: [(Model.field, rule in schema, rule in description)]}. A
-    rule is the relation's `onDelete`, else Prisma's default (Restrict for a required relation, SetNull for
-    an optional one); NoAction and Restrict both refuse the delete and count as one."""
+    compares): {schema, description, relations: [(Model.field, rule in schema, rule in description, key)]}
+    by name. Relations are matched by their foreign key (`_foreign_keys`; `key` is `table(columns)`) and
+    named as the schema names them, as the description does when only it has the key. A side whose table
+    has the key's columns but no relation on them has no foreign key (rule None): deleting the parent there
+    leaves the rows pointing nowhere. A table or column one side lacks is the column check's (`gaps`)."""
+    from itertools import zip_longest
     prisma = [schema for schema in schemas if schema.get('kind') == 'prisma']
     names = {model['name'] for schema in prisma for model in schema.get('models', [])}
     described = sorted((schema['file'], prisma_tables(schema, names)) for schema in prisma)
     by_file = {schema['file']: schema for schema in prisma}
 
-    def rules(schema):
-        out = {}
-        for model in schema.get('models', []):
-            for field in model['fields']:
-                if field.get('relation') and field['relation'].get('fields'):
-                    rule = field.get('on_delete') or ('SetNull' if field['optional'] else 'Restrict')
-                    out[f"{model['name']}.{field['name']}"] = 'NoAction/Restrict' if rule in ('NoAction', 'Restrict') else rule
-        return out
+    def holds(tables, key):
+        table, columns = key
+        return table in tables and all(column in tables[table]['columns'] for column in columns)
 
     out = []
-    for (left, _), (right, _) in _schema_pairs(described, in_use, package or (lambda file: '')):
-        a, b = rules(by_file[left]), rules(by_file[right])
-        differ = [(key, a[key], b[key]) for key in sorted(set(a) & set(b)) if a[key] != b[key]]
+    for (left, left_tables), (right, right_tables) in _schema_pairs(described, in_use, package or (lambda file: '')):
+        a, b = _foreign_keys(by_file[left]), _foreign_keys(by_file[right])
+        differ = []
+        for key in set(a) | set(b):
+            for mine, theirs in zip_longest(a.get(key, ()), b.get(key, ())):
+                if mine is None and not holds(left_tables, key) or theirs is None and not holds(right_tables, key):
+                    continue
+                rule, other = mine[1] if mine else None, theirs[1] if theirs else None
+                if rule != other:
+                    differ.append(((mine or theirs)[0], rule, other, f'{key[0]}({",".join(key[1])})'))
         if differ:
-            out.append(dict(schema=left, description=right, relations=differ))
+            out.append(dict(schema=left, description=right, relations=sorted(differ, key=lambda item: (item[0], item[3]))))
     return out

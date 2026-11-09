@@ -28,6 +28,7 @@ SHOWN_GROUPS = 3             # copies or unowned fields the --all listing shows 
 DELETING = ('delete', 'deleteMany', 'nested:delete', 'nested:deleteMany', 'sql:delete')
 INSERTING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'sql:insert')      # code that makes rows
 RESTRICTING = ('NoAction', 'Restrict')
+NO_KEY = '没有外键'           # a schema whose table has a relation's key columns but no @relation on them
 
 
 @dataclass(frozen=True)
@@ -284,13 +285,25 @@ def columns(change, *, everything=False):
 
 
 def delete_rules(change):
-    """Relations whose delete rule differs between two Prisma schemas of one database
-    (`MapHandle.schema_delete_rules()`): code tested against one deletes rows the other refuses to delete,
-    or nulls what the other keeps. One issue per pair (`check --all`); a lead when this change adds one."""
+    """Relations whose delete rule differs between two Prisma schemas of one database, a side without the
+    foreign key included (`MapHandle.schema_delete_rules()`): code tested against one deletes rows the other
+    refuses to delete, or nulls what the other keeps. One issue per pair, named by its two files in path
+    order (whichever the pair is read against), listing every relation (`check --all`); a lead naming the
+    relations this change adds, and the touched lead when it edits either file."""
     found = _findings()
     rules = change.graph.schema_delete_rules()
     if not rules:
         return found
+
+    def ident(item, relation):      # one relation of one pair, whichever file the pair is read against
+        _, rule, other, key = relation
+        return frozenset((item['schema'], item['description'])), key, \
+            frozenset({(item['schema'], rule), (item['description'], other)})
+
+    def listed(relations):
+        return '、'.join(f'{name}（{NO_KEY if rule is None else rule} / {NO_KEY if other is None else other}）'
+                        for name, rule, other, _ in relations)
+
     before = None
     changed = {item for item in change.files if item.endswith('.prisma')}
     if change.baseline and changed:
@@ -301,21 +314,22 @@ def delete_rules(change):
                 schemas.append(row)
             elif facts.get('schema'):
                 schemas.append(dict(facts['schema'], file=row['file']))
-        before = {(item['schema'], item['description'], relation) for item in change.graph.schema_delete_rules(schemas)
-                  for relation in item['relations']}
+        before = {ident(item, relation) for item in change.graph.schema_delete_rules(schemas) for relation in item['relations']}
     for item in rules:
-        schema, description = item['schema'], item['description']
-        shown = [f'{key}（{left} / {right}）' for key, left, right in item['relations']]
-        text = (f'onDelete 不同：{description} 对照 {schema}：{len(shown)} 条关系（括号里先是 {schema} 的规则，再是这份的）：'
-                + '、'.join(shown[:6]) + (f' 等 {len(shown)} 条' if len(shown) > 6 else ''))
-        name = f'ondelete:{description}~{schema}'
+        schema, description, relations = item['schema'], item['description'], item['relations']
+        head = f'onDelete 不同：{description} 对照 {schema}：'
+        legend = f'括号里先是 {schema} 的规则，再是这份的'
+        text = head + f'{len(relations)} 条关系（{legend}）：' + listed(relations)
+        name = 'ondelete:' + '~'.join(sorted((schema, description)))
         step = ('让两份 schema 的删除规则一致，或让测试用的那份也照在用的那份删；有意不同（例如 SQL Server 不允许多条级联路径），'
                 '就把决定记进 .flowguard/ledger.toml：')
-        fresh = before is not None and any((schema, description, relation) not in before for relation in item['relations'])
+        entry = tuple(_structure_lines(name))
+        fresh = [relation for relation in relations if before is not None and ident(item, relation) not in before]
         if fresh:
-            found.leads.append(text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)))
+            found.leads.append(head + f'这次新增 {len(fresh)} 条关系（共 {len(relations)} 条；{legend}）：' + listed(fresh)
+                               + ' → ' + step + ' ' + ' '.join(entry))
         found.issues.append(Issue(name, 4, f'onDelete {description.rpartition("/")[2]}', text, step, frozenset(),
-                                  frozenset({schema, description}), new=fresh, entry=tuple(_structure_lines(name))))
+                                  frozenset({schema, description}), new=bool(fresh), entry=entry))
     return found
 
 
@@ -542,6 +556,7 @@ def touched(change, issues):
         if issue.new:
             continue
         hit = issue.nodes & edited or issue.rank == 3 and issue.files & change.files \
+            or issue.name.startswith('ondelete:') and issue.files & change.files \
             or issue.rank == 1 and any(file in change.files for file in issue.files if file.endswith(('.prisma', '.sql')))
         if hit:
             out.append(f'未决结构问题：{issue.text} → {issue.next_step()}')
