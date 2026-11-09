@@ -1354,7 +1354,8 @@ class Runtime:
         self.patches, self.constants, self.unavailable = {}, {}, {}
         self.current_constants = {}
         self._sources, self._registered = {}, set()
-        self._trees, self._imported, self._projects = {}, {}, {}   # parsed sources, imported constants, boundary
+        self._trees, self._imported, self._projects = {}, {}, {}   # parsed sources, module constants, boundary
+        self._bindings = {}     # id(parsed tree) -> (tree, its _binding_facts); the trees are kept in _trees
         self._reads = {}     # (function, historical) → the module state its static check found it reads
         self.test = ''
 
@@ -1401,7 +1402,7 @@ class Runtime:
                 elif file and self._project_file(file):
                     relative = Path(file).resolve().relative_to(self.root).as_posix()
                     source = self._source(relative) if historical else (self.root / relative).read_text(encoding='utf-8-sig')
-                    previous = self._imported_constants(source, name, seen, historical) if source is not None else {}
+                    previous = self._module_constants(source, name, seen, historical) if source is not None else {}
                 else:
                     previous = {}
                 for alias in statement.names:
@@ -1422,11 +1423,11 @@ class Runtime:
             self._trees[key] = ast.parse(source, filename)
         return self._trees[key]
 
-    def _imported_constants(self, source, module, seen, historical):
-        """_constants of an imported module's source. The same source, module, import path and the same
-        loaded modules behind its `from` imports give the same constants, so each is read once per runtime
-        (registering every function of a module read all its imports' sources again). A copy is returned:
-        the values become old constants that a replay puts back into module namespaces."""
+    def _module_constants(self, source, module, seen, historical):
+        """_constants of a module's source. The same source, module, import path and the same loaded
+        modules behind its `from` imports give the same constants, so each is read once per runtime
+        (registering every function of a module read it and all its imports' sources again). A copy is
+        returned: the values become old constants that a replay puts back into module namespaces."""
         tree = self._parsed(source)
         package_owner = sys.modules.get(module)
         package = vars(package_owner).get('__package__', '') if type(package_owner) is types.ModuleType else ''
@@ -1441,8 +1442,14 @@ class Runtime:
             self._imported[key] = self._constants(tree, module, seen, historical=historical)
         return copy.deepcopy(self._imported[key])
 
+    def _binding_facts(self, tree):
+        """_binding_facts of a tree, once per tree object (callers only read them)."""
+        if id(tree) not in self._bindings or self._bindings[id(tree)][0] is not tree:
+            self._bindings[id(tree)] = tree, _binding_facts(tree)
+        return self._bindings[id(tree)][1]
+
     def _remember_constant(self, namespace, name, old_value, current, tree):
-        if name not in current and ({name, '*', '__getattr__'} & _binding_facts(tree).keys()):
+        if name not in current and ({name, '*', '__getattr__'} & self._binding_facts(tree).keys()):
             raise ValueError('current source constant is unavailable: ' + name)
         key = id(namespace), name
         self.constants[key] = namespace, old_value
@@ -1471,9 +1478,10 @@ class Runtime:
             if node is None:
                 raise ValueError('function is absent or structurally different in the baseline')
             current = _definition(fn)
-            constants = self._constants(tree, fn.__module__)
-            current_tree = self._parsed((self.root / file).read_text(encoding='utf-8-sig'))
-            current_constants = self._constants(current_tree, fn.__module__, historical=False)
+            constants = self._module_constants(source, fn.__module__, set(), True)
+            current_text = (self.root / file).read_text(encoding='utf-8-sig')
+            current_tree = self._parsed(current_text)
+            current_constants = self._module_constants(current_text, fn.__module__, set(), False)
             # All old constants in this module are swapped together: helpers use
             # their own real globals, including imported aliases to functions.
             old_names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
@@ -1481,7 +1489,7 @@ class Runtime:
                 self._remember_constant(fn.__globals__, name, constants[name], current_constants, current_tree)
             local = {arg.arg for arg in node.args.posonlyargs + node.args.args + node.args.kwonlyargs}
             local.update(n.id for n in sites.own_nodes(node) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store))
-            old_bindings, current_bindings = _binding_facts(tree), _binding_facts(current_tree)
+            old_bindings, current_bindings = self._binding_facts(tree), self._binding_facts(current_tree)
             for name in old_names - local - {'__name__', '__package__', '__file__'}:
                 value = fn.__globals__.get(name)
                 if name not in constants and type(value) in (types.ModuleType, type, enum.EnumType, types.FunctionType) and \
@@ -1496,11 +1504,12 @@ class Runtime:
                     imported_file = vars(owner).get('__file__') if type(owner) is types.ModuleType else None
                     if imported_file and self._project_file(imported_file):
                         source = self._source(Path(imported_file).resolve().relative_to(self.root).as_posix())
-                        values = self._constants(ast.parse(source), owner.__name__) if source is not None else {}
+                        values = self._module_constants(source, owner.__name__, set(), True) if source is not None else {}
                         value = vars(owner).get(part.attr)
                         if part.attr in values:
-                            current_tree = ast.parse(Path(imported_file).read_text(encoding='utf-8-sig'))
-                            current_values = self._constants(current_tree, owner.__name__, historical=False)
+                            current_text = Path(imported_file).read_text(encoding='utf-8-sig')
+                            current_tree = self._parsed(current_text)
+                            current_values = self._module_constants(current_text, owner.__name__, set(), False)
                             self._remember_constant(vars(owner), part.attr, values[part.attr], current_values, current_tree)
                         elif type(value) not in (types.ModuleType, type, enum.EnumType, types.FunctionType, types.BuiltinFunctionType):
                             raise ValueError('baseline module value is unavailable: ' + ast.unparse(part))
