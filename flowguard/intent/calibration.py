@@ -261,8 +261,8 @@ def _sensor(root, anchor, values):
         reading, rows, gate = readings[0]
         if reading is not None and reading.status != 'ok' or len(rows) != 1:
             return _unavailable('; '.join(reading.reasons if reading else ()) or 'requested reading is unavailable or ambiguous')
-        if gate and rows[0] is None and anchor.qual.rsplit('.', 1)[-1] == '__init__':
-            return _unavailable('constructor None is not a judgment observation; ' + gate)
+        if rows[0] is None and anchor.qual.rsplit('.', 1)[-1] == '__init__':
+            return _unavailable('constructor None is not a judgment observation' + ('; ' + gate if gate else ''))
         return dict(status='ok', outcome=rows[0], gate=gate)
     except (OSError, ValueError, TypeError, SyntaxError, AttributeError, sites.NotMutable) as error:
         return _unavailable(str(error))

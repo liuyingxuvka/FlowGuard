@@ -1,0 +1,21 @@
+import sqlite3
+
+
+def connect(path):
+    db = sqlite3.connect(path)
+    db.execute("create table if not exists items(id integer primary key, stock integer, reserved integer)")
+    db.execute("create table if not exists hires(item_id integer)")
+    return db
+
+
+# flowguard: sensor AVAILABLE
+def can_hire(db: sqlite3.Connection, item_id: int, stock: int, reserved: int) -> bool:
+    row = db.execute("select stock, reserved from items where id=?", (item_id,)).fetchone()
+    return stock > reserved and row is not None
+
+
+# flowguard: sensor HIRES
+def hire_count(db: sqlite3.Connection, item_id: int, stock: int, reserved: int) -> int:
+    db.execute("insert into hires(item_id) values (?)", (item_id,))
+    (count,) = db.execute("select count(*) from hires").fetchone()
+    return count + stock - reserved

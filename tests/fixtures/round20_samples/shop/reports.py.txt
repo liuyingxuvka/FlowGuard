@@ -1,0 +1,24 @@
+def nightly_report(rows):
+    lines = []
+    total = 0
+    skipped = 0
+    for row in rows:
+        name = row["name"].strip().title()
+        amount = int(row.get("amount", 0))
+        if amount < 0:
+            skipped += 1
+            continue
+        total += amount
+        days_late = int(row.get("days_late", 0))
+        flags = []
+        if row.get("suspended"):
+            flags.append("suspended")
+        if days_late <= 14:
+            flags.append("in-grace")
+        else:
+            flags.append("overdue")
+        if amount > 100:
+            flags.append("large")
+        lines.append(f"{name}: {amount} [{', '.join(flags)}]")
+    lines.append(f"total={total} skipped={skipped}")
+    return lines

@@ -240,8 +240,10 @@ def test_unavailable_external_helper_stays_grey_without_guessing_or_archiving(tm
     source = 'import unknown_external_dependency\ndef allowed(active: bool):\n    return unknown_external_dependency.calculate(active)\n'
     repository(root, source)
     runtime, reading = historical(root, {'active': [False, True]})
-    assert reading.status == 'grey' and not reading.rows and not reading.changed
-    assert reading.reasons
+    # The external helper is the same object for the current and the baseline code, so its replay under
+    # the guard compares nothing it cannot see; no old version of it is guessed or archived.
+    assert reading.status == 'ok' and reading.rows and not reading.changed
+    assert 'unknown_external_dependency' not in str(runtime.patches)
 
 
 def test_runtime_replays_old_and_current_helper_bodies_in_the_same_real_module(tmp_path):

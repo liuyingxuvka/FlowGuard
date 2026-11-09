@@ -1,0 +1,5 @@
+from shop.fees import late_fee
+
+
+def test_fee():
+    assert late_fee(5, False) == 9

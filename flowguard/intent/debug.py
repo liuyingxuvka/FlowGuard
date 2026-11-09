@@ -14,7 +14,7 @@ import sys
 
 from . import anchors, cells, config
 from .flow import Capture, Event, Read, Unverified, _group_cases, _matching_nodes, _reading_source, runtime_check
-from .runtime import Runtime, _value, outcome_equal
+from .runtime import Runtime, outcome_equal
 from ..map.common import content_digest
 
 
@@ -237,7 +237,9 @@ def try_anchor(cfg, name, values, grid=False, runner=None, *, index=None):
                 reason = runtime.safety(fn, bound.arguments)
                 if reason:
                     return _result('grey', [f'{name}: {reason}'])
-                value = _value(fn, bound)
+                value, refused = runtime.guarded(fn, bound)
+                if refused:
+                    return _result('grey', [f'{name}: {refused}'])
                 return _result('ok', [f'{name}: {dict(bound.arguments)!r} → {value!r}'], value=value,
                                rows=[(dict(bound.arguments), value)], tested=1, reasons=[])
             decision = anchors.decision_reading(cfg.root, anchor)

@@ -794,13 +794,15 @@ def _observe_verified(root, anchor, values):
         return Observation('red', reasons=('loaded callable does not match the actual source anchor',), anchor=anchor.target)
     positional = [values[a.arg] for a in function.args.posonlyargs]
     kwargs = {name: value for name, value in values.items() if name not in {a.arg for a in function.args.posonlyargs}}
-    from .runtime import Runtime, _value
+    from .runtime import Runtime
     runtime = Runtime(root, previous={})
     bound = inspect.signature(fn, follow_wrapped=False).bind(*positional, **kwargs)
     problem = runtime.safety(fn, bound.arguments)
     if problem:
         return Observation('grey', reasons=(problem,), anchor=anchor.target)
-    value = _value(fn, bound)
+    value, refused = runtime.guarded(fn, bound)
+    if refused:
+        return Observation('grey', reasons=(refused,), anchor=anchor.target)
     if isinstance(value, cells.Raised):
         return Observation('ok', value=value, anchor=anchor.target)
     try:

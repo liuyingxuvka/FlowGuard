@@ -1,0 +1,2 @@
+def renewal_allowed(days_late: int) -> bool:
+    return days_late <= 14

@@ -37,12 +37,15 @@ def test_actual_return_outside_declared_union_is_red(tmp_path):
     assert actual.status == 'red' and type(actual.value) is int and actual.value == 1
 
 
-def test_mixed_return_does_not_waive_unknown_call_purity(tmp_path):
-    root, index = source(tmp_path, MIXED.replace('return expected and observed and expected != observed', 'return opaque(expected, observed)'))
+def test_mixed_return_does_not_waive_unknown_call_effects(tmp_path, monkeypatch):
+    root, index = source(tmp_path, MIXED.replace(
+        'return expected and observed and expected != observed', "return open(expected + observed, 'w').close() or False"))
+    monkeypatch.chdir(root)
     with session(root):
         actual = A.observe(root, index.entries[0], {'expected': 'W', 'observed': 'W'})
-    assert actual.status == 'grey' and any('opaque' in reason for reason in actual.reasons), actual.reasons
-    assert actual.value is None
+    # The unknown call runs under the replay guard, which refuses its write before it happens.
+    assert actual.status == 'grey' and any('回放被拦住' in reason and '写文件 WW' in reason for reason in actual.reasons), actual.reasons
+    assert actual.value is None and not (root / 'WW').exists()
     loaded = sys.modules[index.entries[0].module]
     assert Path(loaded.__file__).resolve() == root / index.entries[0].file
 
@@ -62,7 +65,7 @@ def opaque(expected, observed):
         actual = A.observe(root, index.entries[0], {'expected': 'W', 'observed': 'W'})
     # A known helper is inspected; its write remains forbidden even though the
     # declared return permits several kinds and no result is guessed.
-    assert actual.status == 'grey' and any('possible side effect' in reason for reason in actual.reasons), actual.reasons
+    assert actual.status == 'grey' and any('明确的写操作' in reason and 'CALLS' in reason for reason in actual.reasons), actual.reasons
     assert actual.value is None
     loaded = sys.modules[index.entries[0].module]
     assert Path(loaded.__file__).resolve() == root / index.entries[0].file

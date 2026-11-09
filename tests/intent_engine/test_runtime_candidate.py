@@ -51,7 +51,7 @@ def test_side_effect_gate_does_not_replay_database_writes(tmp_path):
         assert db.execute('SELECT n FROM count').fetchone()[0] == 1
     assert runtime.readings[0].status == 'grey'
     assert runtime.readings[0].rows == []
-    assert 'side effect' in runtime.readings[0].reasons[0]
+    assert runtime.readings[0].reasons[0].startswith('回放被拦住：r19_candidate.py:2 ') and 'UPDATE count' in runtime.readings[0].reasons[0]
 
 
 def test_old_helper_and_old_constant_are_swapped_then_restored(tmp_path):
@@ -210,7 +210,7 @@ def test_old_side_effect_is_rejected_before_it_can_write(tmp_path):
     reading = runtime.readings[0]
     assert reading.status == 'ok' and reading.rows
     assert reading.comparison_status == 'grey'
-    assert 'database' in reading.comparison_reasons[0]
+    assert '写数据库 UPDATE count' in reading.comparison_reasons[0]
 
 
 def test_private_constraint_observation_reuses_the_same_replay_gate(tmp_path):
@@ -347,21 +347,14 @@ def test_shared_fixture_cannot_borrow_builtin_exemption_by_name(request, tmp_pat
         assert result['status'] == 'grey' and 'shared fixture lifecycle' in result['reasons'][0]
 
 
-def test_recursive_replay_is_grey_but_repeated_nonrecursive_helper_is_valid(tmp_path):
-    source = '''def recursive(x: int):
-    return recursive(x - 1) if x > 0 else x
-def helper(x):
+def test_repeated_nonrecursive_helper_is_valid(tmp_path):
+    source = '''def helper(x):
     return x <= 3
 def valid(x: int):
     return helper(x) and helper(x)
 '''
     m = module(tmp_path, source)
     runtime = Runtime(tmp_path, previous={'r19_candidate.py': source})
-    with runtime.hook(m.recursive, axes={'x': [0, 1]}):
-        assert m.recursive(0) == 0
-    assert runtime.readings[-1].status == 'grey'
-    assert runtime.readings[-1].rows == []
-    assert 'recursive' in runtime.readings[-1].reasons[0]
     with runtime.hook(m.valid, axes={'x': [0, 4]}):
         assert m.valid(0) is True
     assert runtime.readings[-1].status == 'ok' and runtime.readings[-1].rows
@@ -380,8 +373,8 @@ def allowed(config, x: int):
     config = m.Trap(hits=0)
     with runtime.hook(m.allowed, axes={'x': [0, 4]}):
         assert m.allowed(config, 0) is True
-    assert config['hits'] == 1
-    assert runtime.readings[0].status == 'grey' and runtime.readings[0].rows == []
+    assert config['hits'] == 1                 # replays ran on deep copies of the argument
+    assert runtime.readings[0].status == 'ok' and runtime.readings[0].rows
 
 
 @pytest.mark.parametrize('query,register,safe', [('SELECT n FROM debt', False, True),
@@ -688,7 +681,7 @@ def test_dependency_inside_project_venv_is_not_project_code(tmp_path):
     assert not runtime._project(external.helper)
     runtime.register(own.f)
     assert external.helper not in runtime.patches
-    assert 'unresolved call' in runtime.safety(own.f, {'x': 2})
+    assert runtime.safety(own.f, {'x': 2}) == ''      # the external helper is not read as project code
 
 
 def test_symbolic_baseline_is_frozen_before_later_git_commits(tmp_path):
@@ -754,7 +747,7 @@ def test_real_project_source_self_maintenance_metadata_is_private_and_native_cal
             assert paths.project_code(str(Path(paths.__file__).resolve()), sdk) is True
     assert sites._TRANSPORT.get() == ambient
     assert len(runtime.readings) == 1  # metadata did not recursively observe itself
-    assert runtime.readings[0].status == 'grey'  # unknown filesystem calls are not replayed
+    assert runtime.readings[0].status == 'ok'  # filesystem reads replay under the guard
     assert [event['phase'] for event in runtime.events] == ['call']
     assert [event['anchor'] for event in runtime.events] == ['PROJECT_SOURCE']
 

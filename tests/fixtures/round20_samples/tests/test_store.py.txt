@@ -1,0 +1,20 @@
+import json
+import os
+
+from shop.store import connect, can_hire, hire_count
+
+
+def test_can_hire(tmp_path):
+    db = connect(tmp_path / "s.db")
+    db.execute("insert into items values (1, 2, 1)")
+    assert can_hire(db, 1, 2, 1)
+
+
+def test_hire_count(tmp_path):
+    db = connect(tmp_path / "h.db")
+    assert hire_count(db, 1, 2, 1) == 2
+    rows = db.execute("select count(*) from hires").fetchone()[0]
+    if os.environ.get("HIRES_ROWS"):
+        with open(os.environ["HIRES_ROWS"], "w") as handle:
+            json.dump(rows, handle)
+    assert rows == 1

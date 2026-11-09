@@ -67,7 +67,9 @@ def test_native(filename):
         with scope.runtime.hook(module.limit, name='limit', axes={'x': [2,5]}, private=True):
             result = scope.runtime.replay(item, nextitem=scope.nextitem)
     assert result['status'] == 'ok' and all(report.passed for report in result['reports']), result
-    assert calls == ['call']
+    # The real call, and one replayed call that the guard stops at its first write: the fixture still
+    # finds only the real call's file, and the reading stays grey.
+    assert calls == ['call', 'call']
     assert scope.runtime.readings[-1].status == 'grey' and not scope.runtime.readings[-1].rows
     assert module.limit is alias and module.limit.__code__ is original
 
@@ -135,7 +137,7 @@ def stamp(x: int) -> float:
     bind_anchor(tmp_path, anchor)
     result = calibration.execute(tmp_path, anchor, {'x': 1})
     assert result.status == 'grey' and result.value is None
-    assert 'time.time' in ' '.join(result.reasons)
+    assert 'original-value recheck changed' in ' '.join(result.reasons)
 
 
 def test_baseline_assert_and_teardown_failures_are_not_hidden(tmp_path):

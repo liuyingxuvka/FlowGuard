@@ -1,0 +1,6 @@
+from shop.publish import Store, release
+
+
+def test_release(tmp_path):
+    release(Store(tmp_path), "a1")
+    assert (tmp_path / "pub-a1").exists()

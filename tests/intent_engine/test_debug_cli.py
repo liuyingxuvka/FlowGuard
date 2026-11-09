@@ -6,6 +6,7 @@ import uuid
 
 from flowguard.intent import cache, cli
 from flowguard.intent.config import load_config
+from tests.intent_engine._cli_fixture import display_text
 
 
 def project(root):
@@ -159,11 +160,12 @@ def test_limit():
     assert limit(db, 2) is True
     assert db == [2]
 ''')
-    for inputs in (['days=4'], ['days=4', 'db=1']):
+    for inputs, code, expected in ((['days=4'], 0, "{'days': 4} → False"), (['days=4', 'db=1'], 2, 'context inputs cannot be replaced')):
         result = subprocess.run([sys.executable, '-m', 'flowguard', '--root', str(tmp_path), 'try', 'LIMIT', *inputs],
                                 cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
-        assert result.returncode == 2, (result.stdout, result.stderr)
-        assert 'possible side effect' in result.stdout
+        # The append goes to a deep copy of the test's list: the named test's own assertion db == [2] holds.
+        assert result.returncode == code, (result.stdout, result.stderr)
+        assert expected in display_text(result.stdout)
         assert 'ordinary test exited' not in result.stdout
 
 

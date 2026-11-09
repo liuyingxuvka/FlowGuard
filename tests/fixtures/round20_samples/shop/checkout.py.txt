@@ -1,0 +1,21 @@
+def checkout(order):
+    items = order["items"]
+    subtotal = 0
+    for item in items:
+        price = int(item["price"])
+        qty = int(item.get("qty", 1))
+        subtotal += price * qty
+    discount = 0
+    if order.get("coupon") == "SPRING":
+        discount += subtotal // 20
+    member = order.get("member", False)
+    days_late = int(order.get("days_late", 0))
+    blocked = False
+    if member:
+        if days_late <= 14:
+            discount += subtotal // 10
+        else:
+            blocked = True
+    shipping = 0 if subtotal > 50 else 5
+    total = subtotal - discount + shipping
+    return {"total": total, "blocked": blocked, "discount": discount}

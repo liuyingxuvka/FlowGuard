@@ -177,7 +177,7 @@ def test_child_guard():
 def test_plain_pytest_executes_declared_items_and_sentinel(sample):
     result = run(sample)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert '4 passed' in result.stdout
+    assert '3 passed, 1 unverified' in result.stdout
     with database(sample) as connection:
         attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
         assert attempt['declared'] == attempt['collected'] == 3 and attempt['sentinel'] == 'ok'
@@ -318,12 +318,12 @@ def test_intent_filename_matching_python_files_is_collected_once(sample):
     path = sample / 'tests/intent/decisions.py'
     path.rename(path.with_name('test_decisions.py'))
     result = run(sample)
-    assert result.returncode == 0 and '4 passed' in result.stdout, result.stdout + result.stderr
+    assert result.returncode == 0 and '3 passed, 1 unverified' in result.stdout, result.stdout + result.stderr
 
 
 def test_explicit_nonmatching_intent_filename_is_collected_once(sample):
     result = run(sample, 'tests/intent/decisions.py', 'tests/test_flowguard_intent.py')
-    assert result.returncode == 0 and '4 passed' in result.stdout, result.stdout + result.stderr
+    assert result.returncode == 0 and '3 passed, 1 unverified' in result.stdout, result.stdout + result.stderr
     collected = run(sample, '--collect-only', 'tests/intent/decisions.py::LIMIT[rules]')
     assert collected.returncode == 0 and '1 test collected' in collected.stdout
     assert collected.stdout.count('tests/intent/decisions.py::LIMIT[rules]') == 1

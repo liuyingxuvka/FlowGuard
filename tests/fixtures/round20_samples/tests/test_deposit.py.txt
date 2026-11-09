@@ -1,0 +1,6 @@
+from shop.deposit import needs_approval
+
+
+def test_approval():
+    assert needs_approval(150, False)
+    assert not needs_approval(50, False)

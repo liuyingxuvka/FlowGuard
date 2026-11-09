@@ -1,0 +1,13 @@
+from shop.renewal import renewal_allowed
+from shop.booking import booking_allowed
+from shop.quote import quote_discount
+from shop.reports import nightly_report
+from shop.checkout import checkout
+
+
+def test_grace_copies():
+    assert renewal_allowed(0)
+    assert booking_allowed(0, False)
+    assert quote_discount(0, 100) == 10
+    assert nightly_report([{"name": "ann", "amount": 5, "days_late": 0}])[0] == "Ann: 5 [in-grace]"
+    assert checkout({"items": [{"price": 10}], "member": True, "days_late": 0})["blocked"] is False

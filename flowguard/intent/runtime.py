@@ -19,11 +19,13 @@ import enum
 import inspect
 import importlib.util
 import itertools
+import os
 from pathlib import Path
 import re
 import sqlite3
 import sys
 import textwrap
+import threading
 import types
 
 from . import cells, sites
@@ -35,12 +37,9 @@ transport = sites.transport
 _PRIVATE = ContextVar('flowguard_runtime_private', default=False)
 _OBSERVING = ContextVar('flowguard_runtime_observing', default=frozenset())
 _MISSING = object()
-_INERT = object()
 _SAFE = {bool, int, float, str, bytes, tuple, list, dict, set, frozenset, len, abs, min,
          max, sum, all, any, sorted, round, isinstance, issubclass, type, range, enumerate,
          zip, Decimal, date, datetime, timedelta, Path}
-_READ_METHODS = {'get', 'keys', 'values', 'items', 'count', 'index', 'startswith',
-                 'endswith', 'lower', 'upper', 'strip', 'split', 'join', 'replace'}
 
 
 def _private_call(function, *args):
@@ -106,14 +105,186 @@ def _neighbours(value):
                 pass  # A native endpoint has no representable neighbour here.
 
 
-def _read_sql(connection, text, parameters=()):
-    """A narrow ordinary-table read; never a general SQLite purity claim."""
+# ---- replay guard -------------------------------------------------------------------------------
+# A call-site replay (the current code, the baseline code swapped in, the original-value recheck)
+# runs its calls inside one guard: only in the replaying thread and only while a replayed call runs.
+# The audit hook refuses file writes, processes, threads and network access before they happen.
+# sqlite3 connections in the arguments (and their attributes, two levels deep) refuse writing
+# statements and return to a savepoint afterwards; connections opened during a call refuse them too.
+# Any refusal voids the whole replay, also when the replayed code catches it. Arguments the guard
+# cannot see into (a file open for writing, a socket, another database driver) are not replayed.
+
+class Refused(BaseException):
+    """Raised in the audit hook, so the refused operation does not happen. A BaseException: an
+    ordinary `except Exception` in the replayed code does not continue with further effects."""
+
+
+_WRITE_FLAGS = os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_TRUNC
+_REFUSED_EVENTS = {
+    'os.remove': '删除文件', 'os.rename': '改名或移动文件', 'os.rmdir': '删除目录', 'os.mkdir': '新建目录',
+    'os.chmod': '改文件权限', 'os.chown': '改文件属主', 'os.utime': '改文件时间', 'os.truncate': '截断文件',
+    'os.link': '新建链接', 'os.symlink': '新建链接', 'shutil.rmtree': '删除目录树',
+    'subprocess.Popen': '启动子进程', 'os.system': '执行 shell 命令', 'os.exec': '替换当前进程',
+    'os.spawn': '启动子进程', 'os.posix_spawn': '启动子进程', 'os.fork': '复制当前进程', 'os.forkpty': '复制当前进程',
+    'os.kill': '给进程发信号', 'os.putenv': '改环境变量', 'os.unsetenv': '改环境变量',
+    'socket.connect': '连接网络', 'socket.sendto': '发送网络数据', 'socket.sendmsg': '发送网络数据',
+    'urllib.Request': '发起网络请求',
+    '_thread.start_new_thread': '启动线程', '_thread.start_joinable_thread': '启动线程',
+}
+_MUTATORS = {'append', 'extend', 'insert', 'pop', 'remove', 'clear', 'update', 'setdefault', 'add', 'discard',
+             'sort', 'reverse', 'popitem', 'appendleft', 'extendleft', 'popleft', 'write', 'writelines',
+             'put', 'put_nowait', '__setitem__', '__delitem__'}
+_SQL_READS = {sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION, 33}  # 33: SQLITE_RECURSIVE
+_SQL_TABLE_PRAGMAS = {'table_info', 'table_xinfo', 'index_list', 'index_info', 'index_xinfo', 'foreign_key_list'}
+_SQL_READ_PRAGMAS = _SQL_TABLE_PRAGMAS | {
+    'table_list', 'database_list', 'function_list', 'pragma_list', 'collation_list', 'module_list',
+    'compile_options', 'user_version', 'schema_version', 'application_id', 'encoding', 'page_count',
+    'page_size', 'freelist_count', 'data_version', 'foreign_keys', 'integrity_check', 'quick_check'}
+_SQL_WRITES = {
+    sqlite3.SQLITE_INSERT: 'INSERT', sqlite3.SQLITE_UPDATE: 'UPDATE', sqlite3.SQLITE_DELETE: 'DELETE',
+    sqlite3.SQLITE_ALTER_TABLE: 'ALTER', sqlite3.SQLITE_TRANSACTION: 'BEGIN/COMMIT/ROLLBACK',
+    sqlite3.SQLITE_SAVEPOINT: 'SAVEPOINT', sqlite3.SQLITE_ATTACH: 'ATTACH', sqlite3.SQLITE_DETACH: 'DETACH',
+    sqlite3.SQLITE_REINDEX: 'REINDEX', sqlite3.SQLITE_ANALYZE: 'ANALYZE', sqlite3.SQLITE_PRAGMA: 'PRAGMA',
+    **{getattr(sqlite3, name): 'CREATE' for name in dir(sqlite3) if name.startswith('SQLITE_CREATE_')},
+    **{getattr(sqlite3, name): 'DROP' for name in dir(sqlite3) if name.startswith('SQLITE_DROP_')}}
+
+
+class _Local(threading.local):
+    guard = None
+
+
+_LOCAL = _Local()
+_CALLING = 0          # the one switch the audit hook reads: replayed calls now running in any thread
+_HOOKED = False
+
+
+def _install():
+    """Install the audit hook on the first replay; it cannot be removed and costs one global test."""
+    global _HOOKED
+    if not _HOOKED:
+        sys.addaudithook(_audit)
+        _HOOKED = True
+
+
+def _audit(event, args):
+    if not _CALLING:
+        return
+    guard = _LOCAL.guard
+    if guard is None:
+        return
+    if event == 'open':
+        mode, flags = args[1], args[2]
+        if not (type(mode) is str and any(letter in mode for letter in 'wax+')
+                or type(flags) is int and flags & _WRITE_FLAGS):
+            return
+        what = '写文件 ' + (os.fsdecode(args[0]) if isinstance(args[0], (str, bytes, os.PathLike)) else f'（文件描述符 {args[0]}）')
+    elif event == 'sqlite3.connect/handle':
+        guard.opened.append(args[0])    # not initialised yet: the connect wrapper installs its authorizer
+        return
+    elif event == 'sqlite3.connect':
+        if not _creates_database(args[0]):
+            return
+        what = '新建数据库文件 ' + os.fsdecode(args[0])
+    elif event in _REFUSED_EVENTS:
+        what = _REFUSED_EVENTS[event] + ''.join(' ' + os.fsdecode(value) for value in args[:1] if isinstance(value, (str, bytes)))
+    else:
+        return
+    frame = sys._getframe(1)
+    if _bytecode_cache(frame):
+        return
+    raise Refused(guard.refuse(what, frame))
+
+
+def _connect(*args, **kwargs):
+    """sqlite3.connect while a replayed call runs: the new connection refuses writes like the arguments' ones."""
+    connection = _SQLITE_CONNECT(*args, **kwargs)
+    guard = _LOCAL.guard
+    if guard is not None:
+        guard.adopt(connection)
+    return connection
+
+
+_SQLITE_CONNECT = sqlite3.connect
+
+
+def _creates_database(database):
+    """sqlite3.connect creates a missing database file at once; memory and existing files do not."""
+    name = os.fsdecode(database) if isinstance(database, (str, bytes, os.PathLike)) else ''
+    if name in ('', ':memory:') or name.startswith('file:') and ('mode=memory' in name or 'mode=ro' in name):
+        return False
+    return not Path(name.removeprefix('file:').partition('?')[0]).exists()
+
+
+def _bytecode_cache(frame):
+    """The import system writing a .pyc for a module imported during the replay is not its effect."""
+    for _ in range(4):
+        if frame is None:
+            return False
+        code = frame.f_code
+        if code.co_filename.startswith('<frozen importlib') and code.co_name in ('_write_atomic', 'set_data'):
+            return True
+        frame = frame.f_back
+    return False
+
+
+@contextmanager
+def unguarded():
+    """FlowGuard's own work that happens to run inside a replayed call (an import observer) is not guarded."""
+    previous, _LOCAL.guard = _LOCAL.guard, None
+    try:
+        yield
+    finally:
+        _LOCAL.guard = previous
+
+
+def _data(value, trail=frozenset()):
+    """Inert data whose comparison runs no project operator: the only outcomes a replay compares."""
+    if type(value) in (type(None), bool, int, float, str, bytes, Decimal, date, timedelta):
+        return True
+    if type(value) is datetime:
+        return value.tzinfo is None
+    if isinstance(value, cells.Raised):
+        return True
+    if type(type(value)) is enum.EnumType and _simple(value):
+        hooks = {name for base in type(value).__mro__ for name in vars(base)
+                 if name.startswith('__') and name.endswith('__')}
+        hooks -= {'__module__', '__doc__', '__qualname__', '__annotations__', '__slots__'}
+        native = (type(None), types.WrapperDescriptorType, types.MethodDescriptorType,
+                  types.ClassMethodDescriptorType, types.GetSetDescriptorType, types.BuiltinFunctionType)
+        return all(inspect.getattr_static(type(value), name, None) is inspect.getattr_static(enum.Enum, name, None)
+                   or type(inspect.getattr_static(type(value), name, None)) in native for name in hooks)
+    if type(value) not in (tuple, list, dict, set, frozenset) or id(value) in trail:
+        return False
+    children = [*value.keys(), *value.values()] if type(value) is dict else value
+    return all(_data(item, trail | {id(value)}) for item in children)
+
+
+def _attributes(value):
+    """An object's own attribute dictionary, read without running project code."""
+    descriptor = inspect.getattr_static(value, '__dict__', None)
+    if type(descriptor) is types.GetSetDescriptorType:
+        found = descriptor.__get__(value)
+        return found if type(found) is dict else {}
+    return {}
+
+
+def _children(value):
+    if type(value) is dict:
+        return [(f'[{key!r}]', item) for key, item in itertools.islice(value.items(), 1000)]
+    if type(value) in (list, tuple, set, frozenset):
+        return [(f'[{index}]', item) for index, item in enumerate(itertools.islice(value, 1000))]
+    return [('.' + str(name), item) for name, item in itertools.islice(_attributes(value).items(), 1000)]
+
+
+def _callbacks(connection):
+    """True when the connection holds a Python callback (authorizer, progress, trace, collation,
+    function or row factory). No Python version can read an authorizer back, so the replay could not
+    restore it; the other callbacks would run again in every replayed statement."""
     import functools
     import gc
-    if type(connection) is not sqlite3.Connection or connection.row_factory is not None or not (
-            connection.text_factory is str or connection.text_factory is bytes):
-        return False
     noise, cache = [sqlite3.Connection, connection.text_factory], False
+    if connection.row_factory is not None or not (connection.text_factory is str or connection.text_factory is bytes):
+        return True
     for ref in gc.get_referents(connection):
         if not callable(ref):
             continue
@@ -123,60 +294,193 @@ def _read_sql(connection, text, parameters=()):
         elif not cache and type(ref) is functools._lru_cache_wrapper and inspect.getattr_static(ref, '__wrapped__', None) is connection:
             cache = True
         else:
-            return False  # CPython exposes authorizer/progress/trace callables here.
-    if type(parameters) in (tuple, list) and not parameters and re.fullmatch(r'\s*SELECT\s+[+-]?[0-9]+\s*;?\s*', text, re.I):
-        return True  # No table, converter, collation, function or parameter.
-    ident = r'[A-Za-z_][A-Za-z_0-9]*'
-    match = re.fullmatch(r'\s*SELECT\s+(' + ident + r'|COUNT\(\*\))\s+FROM\s+(' + ident +
-                         r')(?:\s+WHERE\s+(' + ident + r')\s*=\s*\?)?\s*;?\s*', text, re.I)
-    if match is None or type(parameters) not in (tuple, list):
-        return False
-    column, table, where = match.groups()
-    if type(sqlite3.adapters) is not dict or type(sqlite3.converters) is not dict or any(type(key) is not str for key in sqlite3.converters):
-        return False
-    if len(parameters) != bool(where) or where and not _sql_number(parameters[0]):
-        return False
-    sqltext = lambda value: value.decode('utf-8') if type(value) is bytes else value
-    try:
-        tables = connection.execute('PRAGMA table_list').fetchall()
-        owned = [row for row in tables if sqltext(row[1]).lower() == table.lower()]
-        if len(owned) != 1 or sqltext(owned[0][0]) != 'main' or sqltext(owned[0][2]) != 'table':
-            return False
-        columns = connection.execute('PRAGMA main.table_xinfo("' + table + '")').fetchall()
-        requested = {name.lower() for name in (column, where) if name and name.upper() != 'COUNT(*)'}
-        for name in requested:
-            fields = [row for row in columns if sqltext(row[1]).lower() == name]
-            if len(fields) != 1 or fields[0][6] or sqltext(fields[0][2]).split('(', 1)[0].split(' ', 1)[0].upper() in sqlite3.converters:
-                return False
-        if column.upper() == 'COUNT(*)' or where:
-            functions = connection.execute('PRAGMA function_list').fetchall()
-            for name in ({'typeof'} if where else set()) | ({'count'} if column.upper() == 'COUNT(*)' else set()):
-                matches = [row for row in functions if sqltext(row[0]).lower() == name]
-                if not matches or not any(row[1] for row in matches) or any(not row[1] for row in matches):
-                    return False
-        if where and not all(sqltext(row[0]) in ('integer', 'real') for row in connection.execute(
-                'SELECT typeof("' + where + '") FROM main."' + table + '"')):
-            return False  # Storage classes now, not declared INTEGER affinity.
-        return True
-    except (sqlite3.Error, UnicodeError, IndexError, TypeError):
-        return False
+            return True
+    return False
 
 
-def _sql_number(value):
-    return type(value) in (int, float, bool) and value == value and type(sqlite3.adapters) is dict and not any(
-        type(key) is tuple and key and key[0] is type(value) for key in sqlite3.adapters)
+def _visible(arguments):
+    """(sqlite3 connections and cursors to keep shared, why the replay cannot see the arguments).
+
+    The arguments and their attributes or items, two levels deep: a file open for writing, a socket,
+    a database connection other than sqlite3, or a sqlite3 connection holding Python callbacks keeps
+    the replay from running."""
+    import io
+    sockets = sys.modules.get('socket')
+    shared, seen = [], set()
+
+    def problem(value, label, depth):
+        if id(value) in seen or _simple(value):
+            return ''
+        seen.add(id(value))
+        kind = type(value)
+        if kind is sqlite3.Cursor:
+            shared.append(value)
+            value, kind = value.connection, sqlite3.Connection
+        if kind is sqlite3.Connection:
+            if value not in shared:
+                shared.append(value)
+            return f'参数 {label} 的 sqlite3 连接带着 Python 回调（authorizer、progress、trace、函数或行工厂），回放后恢复不了' \
+                if _callbacks(value) else ''
+        if sockets is not None and isinstance(value, sockets.socket):
+            return f'参数 {label} 是套接字'
+        if isinstance(value, io.IOBase) and not value.closed and value.writable():
+            return f'参数 {label} 是写模式打开的文件'
+        names = {name for name in ('cursor', 'commit', 'rollback', 'execute', 'fetchone')
+                 if callable(inspect.getattr_static(kind, name, None))}
+        if {'cursor', 'commit', 'rollback'} <= names or {'execute', 'commit'} <= names or {'execute', 'fetchone'} <= names:
+            return f'参数 {label} 是 sqlite3 以外的数据库连接（{kind.__module__}.{kind.__qualname__}）'
+        if depth >= 2:
+            return ''
+        for name, item in _children(value):
+            if found := problem(item, label + name, depth + 1):
+                return found
+        return ''
+
+    for name, value in arguments.items():
+        if found := problem(value, name, 0):
+            return shared, found
+    return shared, ''
 
 
-def _sql_parameters(call, namespace, assignments):
-    if len(call.args) == 1 and not call.keywords:
-        return ()
-    if len(call.args) != 2 or call.keywords:
-        return None
-    node = call.args[1]
-    values = node.elts if isinstance(node, (ast.Tuple, ast.List)) else [node]
-    if any(isinstance(value, ast.Name) and assignments.get(value.id) for value in values):
-        return None
-    return tuple(_resolve(value, namespace) for value in node.elts) if isinstance(node, (ast.Tuple, ast.List)) else _resolve(node, namespace)
+def _snapshot(value):
+    """What a replay could change in an argument it could not copy: its own simple attributes and items."""
+    return [(name, item if _simple(item) else ('object', id(item))) for name, item in _children(value)]
+
+
+class _Guard:
+    """One guarded replay of one call site; `void` holds the first refusal of the current code."""
+
+    def __init__(self, runtime, arguments):
+        self.runtime = runtime
+        self.shared, self.unseen = _visible(arguments)
+        self.connections = [value for value in self.shared if type(value) is sqlite3.Connection]
+        self.void = self.void_old = ''
+        self.adopted, self.opened, self.compared, self.saved = [], [], {}, []
+        self.old = False
+        self.functions = set()
+        self.code = _value.__code__     # the frame that calls the replayed function: where a location search stops
+
+    def __enter__(self):
+        _install()
+        for connection in self.connections:
+            before = connection.total_changes
+            # SQL functions defined in Python run project code on every statement that calls them.
+            self.functions |= {row[0].lower() for row in connection.execute('PRAGMA function_list') if not row[1]}
+            connection.execute('SAVEPOINT flowguard_replay')
+            connection.set_authorizer(self._authorize)
+            self.saved.append((connection, before))
+        return self
+
+    def __exit__(self, *error):
+        for connection, before in reversed(self.saved):
+            connection.set_authorizer(None)
+            connection.execute('ROLLBACK TO flowguard_replay')
+            connection.execute('RELEASE flowguard_replay')
+            if connection.total_changes != before:
+                self._mark(f'回放被拦住：回放之后数据库仍有改动（total_changes {before} → {connection.total_changes}）')
+        for connection in self.adopted:
+            try:
+                connection.set_authorizer(None)
+            except sqlite3.ProgrammingError:
+                pass  # The replayed call closed the connection it opened; nothing is left to restore.
+        for name, (value, before) in self.compared.items():
+            if _snapshot(value) != before:
+                self._mark(f'回放改了参数 {name}：它复制不了，回放之后和原值不同')
+        return False
+
+    def _mark(self, reason):
+        if self.old:
+            self.void_old = self.void_old or reason
+        else:
+            self.void = self.void or reason
+
+    def adopt(self, connection):
+        """A connection opened during a replayed call refuses writes like the arguments' connections."""
+        connection.set_authorizer(self._authorize)
+        self.adopted.append(connection)
+
+    def _unadopted(self):
+        """A connection opened without the sqlite3.connect wrapper (an alias bound before the replay) had no
+        authorizer: whatever it did is not known, so the replay is void."""
+        for connection in self.opened:
+            if not any(connection is adopted for adopted in self.adopted):
+                self._mark('回放被拦不住：回放期间新建的 sqlite3 连接没经过 sqlite3.connect（例如 from sqlite3 import connect），'
+                           '它的写入看不见')
+        self.opened.clear()
+
+    def refuse(self, what, frame):
+        reason = '回放被拦住：' + self._where(frame) + what
+        self._mark(reason)
+        return reason
+
+    def _where(self, frame):
+        """`file:line text：` of the innermost project frame; a baseline function's line is its baseline line."""
+        import linecache
+        old = {id(patch.code): patch for patch in self.runtime.patches.values()} if self.old else {}
+        while frame is not None and frame.f_code is not self.code:
+            file = frame.f_code.co_filename
+            if self.runtime._project_file(file):
+                relative = Path(file).resolve().relative_to(self.runtime.root).as_posix()
+                line, text = frame.f_lineno, ''
+                if (patch := old.get(id(frame.f_code))) is not None:
+                    # The swapped code keeps the current first line; its body lines are the baseline's, shifted.
+                    line += patch.node.lineno - frame.f_code.co_firstlineno
+                    source = self.runtime._source(relative) or ''
+                    text = source.splitlines()[line - 1].strip() if 0 < line <= len(source.splitlines()) else ''
+                    relative += '（基准）'
+                else:
+                    text = linecache.getline(file, line).strip()
+                return f'{relative}:{line} ' + (f'{text}：' if text else '')
+            frame = frame.f_back
+        return ''
+
+    def _authorize(self, action, first, second, database, trigger):
+        if action == sqlite3.SQLITE_FUNCTION and (second or '').lower() in self.functions:
+            self.refuse(f'调用 Python 写的 SQL 函数 {second}', sys._getframe(1))
+            return sqlite3.SQLITE_DENY
+        if action in _SQL_READS or action == sqlite3.SQLITE_PRAGMA and (first or '').lower() in _SQL_READ_PRAGMAS and (
+                second is None or (first or '').lower() in _SQL_TABLE_PRAGMAS):
+            return sqlite3.SQLITE_OK
+        self.refuse('写数据库 ' + _SQL_WRITES.get(action, f'（authorizer 动作 {action}）') + (f' {first}' if first else ''),
+                    sys._getframe(1))
+        return sqlite3.SQLITE_DENY
+
+    def call(self, fn, bound, *, old=False):
+        """One replayed call: its outcome, with the arguments copied and every effect refused."""
+        global _CALLING
+        previous, _LOCAL.guard = _LOCAL.guard, self
+        self.old = old
+        sqlite = sys.modules.get('sqlite3')
+        patched = sqlite is not None and sqlite.connect is _SQLITE_CONNECT
+        if patched:
+            sqlite.connect = _connect    # other threads calling it meanwhile get the plain behaviour
+        _CALLING += 1
+        try:
+            return _value(fn, self._copied(bound))
+        except Refused as error:
+            return cells.Raised(error)  # The refusal is already recorded; this whole replay is void.
+        finally:
+            _CALLING -= 1
+            if patched:
+                sqlite.connect = _SQLITE_CONNECT
+            self._unadopted()
+            self.old = False
+            _LOCAL.guard = previous
+
+    def _copied(self, bound):
+        """Replay on deep copies; what cannot be copied is compared with its original afterwards."""
+        memo = {id(value): value for value in self.shared}
+        arguments = {}
+        for name, value in bound.arguments.items():
+            if _simple(value) or id(value) in memo:
+                arguments[name] = value
+                continue
+            try:
+                arguments[name] = copy.deepcopy(value, dict(memo))
+            except (TypeError, ValueError, AttributeError, RecursionError, copy.Error):
+                arguments[name] = value  # Not copyable: the replay runs on the original and compares it afterwards.
+                self.compared.setdefault(name, (value, _snapshot(value)))
+        return _binding(bound.signature, arguments)
 
 
 def _resolve(expression, env):
@@ -300,6 +604,7 @@ class Reading:
     comparison_status: str = 'ok'
     comparison_reasons: list = field(default_factory=list)
     actual: tuple | None = None  # (simple inputs, outcome) of the real call; never a replay.
+    lost: str = ''  # why it is grey, when the baseline code in this same context replays cleanly
 
 
 class _ObserverHub:
@@ -311,10 +616,12 @@ class _ObserverHub:
         self.previous = None
         self.foreign, self.lines = {}, {}
         self.wanted, self.dynamic = set(), False
+        self.wanted_lines = set()   # first lines of the observed code, for the Python 3.11 trace fast path
 
     def index(self):
         """The observed code objects; a dynamic predicate alone needs every call."""
         self.wanted = {key for record in self.records for key in record.codes}
+        self.wanted_lines = {code.co_firstlineno for record in self.records for code, _ in record.codes.values()}
         self.dynamic = any(record.predicate is not None for record in self.records)
 
     def add(self, record):
@@ -446,8 +753,12 @@ class _ObserverHub:
         self.dispatch(frame, 'return', None)
 
     def _trace(self, frame, event, arg):
-        if event == 'call' and self.previous is None and not self.dynamic and id(frame.f_code) not in self.wanted:
-            return None  # Python 3.11: an unobserved frame costs one lookup and is not traced further.
+        if event == 'call' and self.previous is None and not self.dynamic and (
+                frame.f_lasti == 0 and frame.f_lineno not in self.wanted_lines or id(frame.f_code) not in self.wanted):
+            # Python 3.11: an unobserved frame costs one lookup and is not traced further. A fresh call
+            # starts on its first line, so the line lookup comes first: reading f_code raises an audit
+            # event on 3.11, which the replay guard's hook would see on every call.
+            return None
         key = id(frame)
         prior = self.previous if event == 'call' else self.foreign.get(key)
         foreign = prior(frame, event, arg) if prior is not None else None
@@ -562,6 +873,7 @@ class _Record:
         self.codes[id(code)] = (code, name)
         if self.active:
             _HUB.wanted.add(id(code))
+            _HUB.wanted_lines.add(code.co_firstlineno)
             if _HUB.tool is not None:
                 _HUB.local(code)
 
@@ -798,12 +1110,22 @@ class Runtime:
                     target[0][target[1]] = value
 
     def safety(self, function, arguments=None, seen=None, *, historical=False):
-        """Conservative static gate; unknown calls remain unavailable."""
+        """Why this call is not replayed, or ''. Only explicit writes stop a replay statically: a
+        `global`/`nonlocal` name the function assigns, an assignment, deletion or mutating method call
+        on module state, here and in the project helpers it calls. The arguments must be visible to the
+        replay guard. Reads, dates, properties and unresolved calls run under the guard instead."""
         fn = sites.unwrap(function)
+        top = seen is None
         seen = set() if seen is None else seen
         if fn in seen:
-            return 'possible nontermination: recursive replay is not proven finite'
-        seen = seen | {fn}
+            return ''
+        seen.add(fn)
+        if top and arguments:
+            unseen = _visible(arguments)[1]
+            if unseen:
+                return '看不清：' + unseen
+        if inspect.isgeneratorfunction(fn) or inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn):
+            return '看不清：生成器或协程函数的函数体在回放里不运行'
         try:
             if historical:
                 if fn not in self.patches:
@@ -813,203 +1135,72 @@ class Runtime:
                 node = _definition(fn)
         except (OSError, TypeError, SyntaxError):
             return 'source is unavailable for side-effect checking'
-        env = {**fn.__globals__, **(arguments or {})}
-        if historical:
-            try:
-                for (_, name), (namespace, value) in self.constants.items():
-                    replacement = self._old_value(namespace, name, value)
-                    if namespace is fn.__globals__:
-                        if replacement is _MISSING:
-                            env.pop(name, None)
-                        else:
-                            env[name] = replacement
-            except ValueError as error:
-                return str(error)
-        def inert(value, trail=frozenset()):
-            if value is _INERT:
-                return True
-            if type(value) in (type(None), bool, int, float, str, bytes, Decimal, date, timedelta):
-                return True
-            if type(value) is datetime:
-                return value.tzinfo is None
-            if type(type(value)) is enum.EnumType and _simple(value):
-                hooks = {name for base in type(value).__mro__ for name in vars(base)
-                         if name.startswith('__') and name.endswith('__')}
-                hooks -= {'__module__', '__doc__', '__qualname__', '__annotations__', '__slots__'}
-                native = (type(None), types.WrapperDescriptorType, types.MethodDescriptorType,
-                          types.ClassMethodDescriptorType, types.GetSetDescriptorType, types.BuiltinFunctionType)
-                return all(inspect.getattr_static(type(value), name, None) is inspect.getattr_static(enum.Enum, name, None)
-                           or type(inspect.getattr_static(type(value), name, None)) in native for name in hooks)
-            if type(value) not in (tuple, list, dict, set, frozenset) or id(value) in trail:
-                return False
-            children = [*value.keys(), *value.values()] if type(value) is dict else value
-            return all(inert(item, trail | {id(value)}) for item in children)
-
-        def locals_of(body):
-            result = {arg.arg: [] for arg in (*body.args.posonlyargs, *body.args.args, *body.args.kwonlyargs)}
-            for statement in sites.own_nodes(body):
-                targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target] \
-                    if isinstance(statement, (ast.AnnAssign, ast.NamedExpr)) else []
-                for target in targets:
-                    if isinstance(target, ast.Name):
-                        result.setdefault(target.id, []).append(statement.value)
-            return result
-
-        bindings = locals_of(node)
-        def helper_arguments(target, call, namespace=env, assignments=bindings, trail=frozenset()):
-            if any(isinstance(value, ast.Starred) for value in call.args) or any(kw.arg is None for kw in call.keywords):
-                raise ValueError('helper spread arguments are not proved inert')
-            def value(expression):
-                actual = _resolve(expression, namespace)
-                return _INERT if actual is _MISSING and data(expression, namespace, assignments, trail) else actual
-            bound = inspect.signature(target, follow_wrapped=False).bind(
-                *(value(expression) for expression in call.args), **{kw.arg: value(kw.value) for kw in call.keywords})
-            bound.apply_defaults()
-            return bound.arguments
-
-        def data(expression, namespace=env, assignments=bindings, trail=frozenset()):
-            if expression is None:
-                return True
-            if isinstance(expression, ast.Name):
-                if expression.id in assignments:
-                    key = id(assignments), expression.id
-                    if key in trail:
-                        return False
-                    values = assignments[expression.id]
-                    return (all(data(value, namespace, assignments, trail | {key}) for value in values)
-                            if values else inert(namespace.get(expression.id, _MISSING)))
-                return inert(_resolve(expression, namespace))
-            if isinstance(expression, (ast.Constant, ast.Attribute)):
-                return inert(_resolve(expression, namespace))
-            if isinstance(expression, (ast.List, ast.Tuple, ast.Set)):
-                return all(data(value, namespace, assignments, trail) for value in expression.elts)
-            if isinstance(expression, ast.Dict):
-                return all(key is not None and data(key, namespace, assignments, trail) and
-                           data(value, namespace, assignments, trail) for key, value in zip(expression.keys, expression.values))
-            if isinstance(expression, ast.Subscript):
-                return data(expression.value, namespace, assignments, trail) and data(expression.slice, namespace, assignments, trail)
-            if isinstance(expression, (ast.Compare, ast.BinOp, ast.BoolOp, ast.UnaryOp, ast.IfExp, ast.Slice)):
-                return all(data(value, namespace, assignments, trail) for value in ast.iter_child_nodes(expression)
-                           if isinstance(value, ast.expr))
-            if not isinstance(expression, ast.Call):
-                return False
-            if isinstance(expression.func, ast.Attribute) and expression.func.attr in {'fetchone', 'fetchall'}:
-                execute = expression.func.value
-                if isinstance(execute, ast.Call) and isinstance(execute.func, ast.Attribute) and execute.func.attr == 'execute':
-                    connection = _resolve(execute.func.value, namespace)
-                    return (type(connection) is sqlite3.Connection and connection.row_factory is None
-                            and (connection.text_factory is str or connection.text_factory is bytes) and execute.args
-                            and isinstance(execute.args[0], ast.Constant) and type(execute.args[0].value) is str
-                            and _read_sql(connection, execute.args[0].value, _sql_parameters(execute, namespace, assignments)))
-            target = _resolve(expression.func, namespace)
-            if isinstance(expression.func, ast.Attribute) and expression.func.attr in _READ_METHODS:
-                if type(_resolve(expression.func.value, namespace)) in (str, bytes, list, tuple, dict, set, frozenset) and inert(_resolve(expression.func.value, namespace)) and all(data(value, namespace, assignments, trail)
-                        for value in [*expression.args, *(kw.value for kw in expression.keywords)]):
-                    return True
-            if any(target is value for value in _SAFE) and target is not Path:
-                return all(data(value, namespace, assignments, trail) for value in expression.args) and all(
-                    kw.arg is not None and data(kw.value, namespace, assignments, trail) for kw in expression.keywords)
-            if type(target) is types.FunctionType and self._project(target) and id(target) not in trail:
-                try:
-                    body = self.patches[target].node if historical and target in self.patches else _definition(target)
-                    arguments = helper_arguments(target, expression, namespace, assignments, trail)
-                    return all(data(part.value, {**target.__globals__, **arguments}, locals_of(body), trail | {id(target)})
-                               for part in sites.own_nodes(body) if isinstance(part, ast.Return))
-                except (OSError, TypeError, ValueError, SyntaxError):
-                    return False
-            return False
-
         parts = list(sites.own_nodes(node))
-        call_functions = {id(part.func) for part in parts if isinstance(part, ast.Call)}
+        declared = {name for part in parts if isinstance(part, (ast.Global, ast.Nonlocal)) for name in part.names}
+        stored = {part.id for part in parts if isinstance(part, ast.Name) and isinstance(part.ctx, (ast.Store, ast.Del))}
+        local = ({arg.arg for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs,
+                                      *(x for x in (node.args.vararg, node.args.kwarg) if x))} | stored) - declared
+        namespace = fn.__globals__
+
+        def line(part):
+            return part.lineno if historical else fn.__code__.co_firstlineno + part.lineno - 1
+
+        def shared(expression):
+            """The module-level object an attribute/subscript/method chain starts from, if it is module state."""
+            while isinstance(expression, (ast.Attribute, ast.Subscript, ast.Call)):
+                expression = expression.func if isinstance(expression, ast.Call) else expression.value
+            if not isinstance(expression, ast.Name) or expression.id in local:
+                return None
+            value = namespace.get(expression.id, _MISSING)
+            if value is _MISSING or callable(value) or type(value) is types.ModuleType or _simple(value):
+                return None
+            return expression.id
+
         for part in parts:
-            if isinstance(part, (ast.Global, ast.Nonlocal, ast.Delete, ast.Yield, ast.YieldFrom, ast.Await,
-                                 ast.With, ast.AsyncWith, ast.Import, ast.ImportFrom)):
-                return 'possible side effect: ' + type(part).__name__
-            targets = part.targets if isinstance(part, ast.Assign) else [part.target] \
-                if isinstance(part, (ast.AugAssign, ast.AnnAssign, ast.NamedExpr, ast.For, ast.comprehension)) else []
-            if any(isinstance(t, (ast.Attribute, ast.Subscript)) for target in targets for t in ast.walk(target)):
-                return 'possible side effect: writing an object or collection'
-            operands = []
-            if isinstance(part, ast.Compare) and not all(isinstance(op, (ast.Is, ast.IsNot)) for op in part.ops):
-                operands = [part.left, *part.comparators]
-            elif isinstance(part, (ast.BinOp, ast.BoolOp, ast.UnaryOp, ast.Subscript)):
-                operands = [value for value in ast.iter_child_nodes(part) if isinstance(value, ast.expr)]
-            elif isinstance(part, (ast.If, ast.IfExp, ast.While, ast.Assert)):
-                operands = [part.test]
-            elif isinstance(part, (ast.For, ast.comprehension)):
-                operands = [part.iter]
-            elif isinstance(part, ast.Return) and part.value is not None:
-                operands = [part.value]
-            elif isinstance(part, ast.Attribute) and id(part) not in call_functions:
-                operands = [part]
-            unsafe = next((value for value in operands if not data(value)), None)
-            if unsafe is not None:
-                line = part.lineno if historical else fn.__code__.co_firstlineno + part.lineno - 1
-                kind = 'unresolved call result' if any(isinstance(value, ast.Call) for value in ast.walk(unsafe)) else 'operand'
-                return f'possible side effect: {kind} {ast.unparse(unsafe)[:120]} is not proved inert at line {line}'
+            if isinstance(part, (ast.Global, ast.Nonlocal)) and set(part.names) & stored:
+                kind = '全局变量' if isinstance(part, ast.Global) else '外层变量'
+                return f'明确的写操作：第 {line(part)} 行给{kind} {", ".join(sorted(set(part.names) & stored))} 赋值'
+            targets = part.targets if isinstance(part, (ast.Assign, ast.Delete)) else [part.target] \
+                if isinstance(part, ast.AugAssign) or isinstance(part, ast.AnnAssign) and part.value is not None else []
+            for target in targets:
+                for item in ast.walk(target):
+                    if isinstance(item, (ast.Attribute, ast.Subscript)) and (name := shared(item.value)):
+                        return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{ast.unparse(item)}）'
             if not isinstance(part, ast.Call):
                 continue
-            target = _resolve(part.func, env)
-            if any(target is value for value in _SAFE):
-                if not all(data(value) for value in [*part.args, *(kw.value for kw in part.keywords)]):
-                    return 'possible side effect: builtin argument data is not proved inert'
-                continue
-            if type(target) in (type, enum.EnumType) and issubclass(target, Exception):
-                if any(type(inspect.getattr_static(target, name, None)) not in
-                       (types.WrapperDescriptorType, types.MethodDescriptorType, types.BuiltinFunctionType)
-                       for name in ('__new__', '__init__')):
-                    return 'possible side effect: custom exception construction is not proved inert'
-                continue
+            if isinstance(part.func, ast.Attribute) and part.func.attr in _MUTATORS and (name := shared(part.func.value)):
+                return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{ast.unparse(part.func)}）'
+            if isinstance(part.func, ast.Name) and part.func.id in ('setattr', 'delattr') and part.func.id not in local \
+                    and part.args and (name := shared(ast.Attribute(part.args[0], 'x', ast.Load()))):
+                return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{part.func.id}）'
+            target = _resolve(part.func, namespace)
             if type(target) is types.FunctionType and self._project(target):
-                try:
-                    arguments = helper_arguments(target, part)
-                except (TypeError, ValueError):
-                    return 'possible side effect: helper arguments are not proved inert'
-                problem = self.safety(target, arguments, seen=seen, historical=historical)
-                if not problem:
-                    continue
-                return problem
-            if isinstance(part.func, ast.Attribute):
-                owner = _resolve(part.func.value, env)
-                name = part.func.attr
-                if name in _READ_METHODS and type(owner) in (str, bytes, list, tuple, dict, set, frozenset) and inert(owner) and all(data(value) for value in [*part.args, *(kw.value for kw in part.keywords)]):
-                    continue
-                if name == 'execute' and type(owner) is sqlite3.Connection and part.args:
-                    sql = part.args[0]
-                    if isinstance(sql, ast.Constant) and type(sql.value) is str and _read_sql(owner, sql.value, _sql_parameters(part, env, bindings)):
-                        continue
-                    return 'possible side effect: database statement is not a literal read'
-                if name in {'fetchone', 'fetchall'} and isinstance(part.func.value, ast.Call) and \
-                        isinstance(part.func.value.func, ast.Attribute) and part.func.value.func.attr == 'execute':
-                    continue  # The inner execute is checked independently.
-            return 'possible side effect: unresolved call ' + ast.unparse(part.func)
+                if problem := self.safety(target, None, seen, historical=historical and target in self.patches):
+                    return problem
         return ''
 
-    def _sql_axes(self, function, bound, axes):
-        suspects = {name for name in axes if type(bound.arguments.get(name)) in (int, float, bool)
-                    and not all(_sql_number(value) for value in axes[name])}
-        if not suspects:
-            return True
-        pending, visited = [function], set()
-        while pending:
-            current = pending.pop()
-            if current in visited:
-                continue
-            visited.add(current)
-            definitions = [_definition(current)] + ([self.patches[current].node] if current in self.patches else [])
-            for call in (part for node in definitions for part in sites.own_nodes(node) if isinstance(part, ast.Call)):
-                target = _resolve(call.func, current.__globals__)
-                if type(target) is types.FunctionType and self._project(target):
-                    pending.append(target)
-                if not (isinstance(call.func, ast.Attribute) and call.func.attr == 'execute' and call.args
-                        and isinstance(call.args[0], ast.Constant) and type(call.args[0].value) is str
-                        and re.search(r'\bWHERE\b', call.args[0].value, re.I)):
-                    continue
-                names = set(axes) if current is not function else {node.id for arg in call.args[1:]
-                         for node in ast.walk(arg) if isinstance(node, ast.Name)} & set(axes)
-                if names & suspects:
-                    return False
-        return True
+    def guarded(self, fn, bound):
+        """One guarded call that is not a test's own call: (outcome, why it was refused or '')."""
+        guard = _Guard(self, bound.arguments)
+        if guard.unseen:
+            return None, '看不清：' + guard.unseen
+        with guard:
+            outcome = guard.call(fn, bound)
+        return outcome, guard.void
+
+    def _lost(self, reading, owner, bound):
+        """Mark a grey reading lost when the baseline code, in this same context, replays cleanly:
+        compared with the baseline it would have been red or green."""
+        patch = self.register(owner)
+        if patch is None or self.safety(owner, bound.arguments, historical=True):
+            return
+        guard = _Guard(self, bound.arguments)
+        if guard.unseen:
+            return
+        with guard, self.old_code():
+            outcome = guard.call(patch.callable(), bound, old=True)
+        if not guard.void_old and _data(outcome):
+            reading.lost = reading.reasons[0]
 
     def axes(self, function, bound, explicit=None):
         """Retain all proved representatives and actuals without cross-axis guesses.
@@ -1074,7 +1265,8 @@ class Runtime:
         return outcome
 
     def _replay_rows(self, original, bound, *, owner, name, axes):
-        """No normal call here, including when metadata or a replay gate is grey."""
+        """No normal call here, including when metadata or a replay gate is grey. Every replayed call
+        runs in one guard; a refused effect voids the reading."""
         reading = Reading(name or owner.__qualname__, owner.__module__ + ':' + owner.__qualname__,
                           test=self.test, baseline=self.baseline)
         self.readings.append(reading)
@@ -1082,6 +1274,8 @@ class Runtime:
         if problem:
             reading.status, reading.reasons = 'grey', [problem]
             reading.comparison_status, reading.comparison_reasons = 'grey', [problem]
+            if not problem.startswith('看不清'):
+                self._lost(reading, owner, bound)
             return
         patch = self.register(owner)
         old_problem = self.safety(owner, bound.arguments, historical=True)
@@ -1098,9 +1292,6 @@ class Runtime:
                 reading.status, reading.reasons = 'grey', ['input is not an inert simple value: ' + ', '.join(unsupported)]
                 return
         axes = self.axes(original, bound, axes)
-        if not self._sql_axes(original, bound, axes):
-            reading.status, reading.reasons = 'grey', ['SQL condition candidates are not native numbers without adapters']
-            return
         reading.context = tuple(n for n in bound.arguments if n not in axes)
         unsupported = [name for name, values in axes.items() if not _simple(bound.arguments.get(name))
                        or any(not _simple(value) for value in values)]
@@ -1110,7 +1301,6 @@ class Runtime:
         if not axes:
             reading.status, reading.reasons = 'grey', ['no finite simple input classes']
             return
-        baseline = _value(original, bound)
         points = (dict(zip(axes, values)) for values in itertools.product(*axes.values()))
         neighbours = []
         if supplied_axes:
@@ -1119,17 +1309,43 @@ class Runtime:
                 for value in _neighbours(actual[name]):
                     if not any(outcome_equal(value, prior) for prior in axes[name]):
                         neighbours.append({**actual, name: value})
-        for inputs in itertools.chain(points, neighbours):
-            arguments = {**bound.arguments, **inputs}
-            now = _value(original, _binding(bound.signature, arguments))
-            old = None
-            if patch is not None:
-                with self.old_code():
-                    old = _value(patch.callable(), _binding(bound.signature, arguments))
-            reading.rows.append((inputs, now))
-            if patch is not None and not outcome_equal(old, now):
-                reading.changed.append((inputs, old, now))
-        again = _value(original, bound)
+        opaque = ''
+        guard = _Guard(self, bound.arguments)
+        with guard:
+            baseline = guard.call(original, bound)
+            if not _data(baseline):
+                opaque = type(baseline).__name__
+            for inputs in itertools.chain(points, neighbours):
+                if guard.void or opaque:
+                    break
+                arguments = _binding(bound.signature, {**bound.arguments, **inputs})
+                now = guard.call(original, arguments)
+                old = None
+                if patch is not None and not guard.void_old:
+                    with self.old_code():
+                        old = guard.call(patch.callable(), arguments, old=True)
+                if not _data(now) or not _data(old):
+                    opaque = type(now if not _data(now) else old).__name__
+                    break
+                reading.rows.append((inputs, now))
+                if patch is not None and not guard.void_old and not outcome_equal(old, now):
+                    reading.changed.append((inputs, old, now))
+            again = None if guard.void or opaque else guard.call(original, bound)
+        if guard.void:
+            reading.status, reading.reasons = 'grey', [guard.void]
+            reading.rows.clear()
+            reading.changed.clear()
+            self._lost(reading, owner, bound)
+            return
+        if opaque or not _data(again):
+            reading.status, reading.reasons = 'grey', [f'回放结果不是可以比较的简单数据（{opaque or type(again).__name__}）：不运行它的比较运算']
+            reading.rows.clear()
+            reading.changed.clear()
+            return
+        if guard.void_old:
+            reading.comparison_status = 'grey'
+            reading.comparison_reasons.append('基准代码的' + guard.void_old)
+            reading.changed.clear()
         if not outcome_equal(baseline, again):
             reading.status, reading.reasons = 'grey', ['original-value recheck changed: possible side effect or unstable input']
             reading.rows.clear()

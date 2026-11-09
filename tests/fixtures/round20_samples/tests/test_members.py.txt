@@ -1,0 +1,9 @@
+from shop.members import open_db, may_borrow
+
+
+def test_borrow(tmp_path):
+    db = open_db(tmp_path / "m.db")
+    assert may_borrow(db, 1, 0)
+    db.execute("insert into debts values (1, 5)")
+    assert may_borrow(db, 1, 0)
+    assert db.execute("select count(*) from debts").fetchone()[0] == 1

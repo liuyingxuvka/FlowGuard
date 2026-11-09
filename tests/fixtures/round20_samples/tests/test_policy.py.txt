@@ -1,0 +1,8 @@
+from shop.policy import standing_allows
+from shop.preview import preview_allows
+
+
+def test_standing_basic():
+    assert standing_allows(0, False, 0)
+    assert not standing_allows(9, False, 0)
+    assert preview_allows(0, False, 0)

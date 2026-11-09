@@ -1,0 +1,5 @@
+def late_fee(days: int, member: bool) -> int:
+    if days <= 2:
+        return 0
+    fee = (days - 2) * 3
+    return fee // 2 if member else fee

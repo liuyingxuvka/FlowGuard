@@ -7,6 +7,9 @@ test went from 0.03 s to 1.01 s). Observation points are now the code objects of
 anchored functions (and functions included for comparison), monitored with
 local events; an unrelated hot loop is not seen at all.
 
+The replay guard's audit hook (installed by the first call-site replay, which an earlier test of the
+project makes) costs nothing in that loop: plain calls raise no audit event, so the hook never runs.
+
 Run this file directly to print the measured call-phase times::
 
     python tests/intent_engine/test_hot_observation_scope.py
@@ -61,7 +64,12 @@ def test_hot():
     started = time.perf_counter()
     assert work(400000) == 400000
     elapsed = time.perf_counter() - started
-    state = dict(seconds=elapsed)
+    events, counting = [], [True]       # counted in a separate short loop, so counting costs the timing nothing
+    sys.addaudithook(lambda event, args: events.append(event) if counting[0] else None)
+    assert work(1000) == 1000
+    counting[0] = False
+    runtime = sys.modules.get('flowguard.intent.runtime')
+    state = dict(seconds=elapsed, audit_events=len(events), hooked=bool(runtime and runtime._HOOKED))
     monitoring = getattr(sys, 'monitoring', None)
     if monitoring is not None:
         tool = next((n for n in range(6) if monitoring.get_tool(n) == 'flowguard-runtime'), None)
@@ -74,6 +82,13 @@ def test_hot():
         state['trace'] = sys.gettrace() is not None
     with open(os.environ['HOT_RESULT'], 'w') as handle:
         json.dump(state, handle)
+'''
+
+TEST_REPLAY = '''from shop.policy import standing
+
+
+def test_a_replay_first():
+    assert standing(1) is True
 '''
 
 TEST_POLICY = '''from shop.policy import publish, standing
@@ -100,6 +115,7 @@ def project(root):
     (root / 'shop/settings.py').write_text('GRACE = 3\n')
     (root / 'shop/hot.py').write_text(HOT)
     (root / 'shop/policy.py').write_text(POLICY)
+    (root / 'tests/test_a_replay.py').write_text(TEST_REPLAY)    # runs before test_hot.py
     (root / 'tests/test_hot.py').write_text(TEST_HOT)
     (root / 'tests/test_policy.py').write_text(TEST_POLICY)
     (root / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n.pytest_cache/\n')
@@ -133,6 +149,10 @@ def test_unrelated_hot_loop_is_not_monitored_when_the_tree_has_a_change(tmp_path
         assert state['tool'] is not None, 'the anchored functions are observed with the shared monitoring tool'
         assert not state['global'] & state['start'], f'process-wide call monitoring is on: {state}'
         assert state['local_step'] == 0, f'an unanchored unchanged function is monitored: {state}'
+    # The earlier test's replay installed the audit hook; the hot loop's 1 001 calls raised (almost) no
+    # audit event for it. On Python 3.11 the trace fallback reads f_code (an audit event) only for a call
+    # that starts on the first line of an observed function, here `work` beside `standing` on line 5.
+    assert state['hooked'] is True and state['audit_events'] < 10, state
     # Observation points still work: the changed constant is reported at its sensor
     # and the event path of the ordinary test is recorded.
     assert 'STANDING' in completed.stdout, completed.stdout
@@ -143,15 +163,22 @@ def test_unrelated_hot_loop_is_not_monitored_when_the_tree_has_a_change(tmp_path
 
 
 def measure(repeat=5):
-    """Median call-phase seconds of the 400 000-call test: no plugin, no change, one unrelated change."""
+    """Median call-phase seconds of the 400 000-call test: no plugin, no change, and one unrelated change
+    (with which an earlier test's replay has installed the audit hook before the loop runs)."""
     with tempfile.TemporaryDirectory() as folder:
         root = project(Path(folder) / 'hot')
         numbers = {}
         for label, plugin, changed in (('without plugin', False, False), ('plugin, no change', True, False),
-                                       ('plugin, unrelated change', True, True)):
+                                       ('plugin, unrelated change, audit hook installed', True, True)):
             if changed:
                 change(root)
-            numbers[label] = round(statistics.median(run(root, plugin=plugin)[0]['seconds'] for _ in range(repeat)), 4)
+            states = [run(root, plugin=plugin)[0] for _ in range(repeat)]
+            numbers[label] = round(statistics.median(state['seconds'] for state in states), 4)
+            if changed:
+                numbers['audit hook installed'] = all(state['hooked'] for state in states)
+                numbers['audit events in the loop'] = max(state['audit_events'] for state in states)
+        base = numbers['without plugin']
+        numbers['extra with the hook'] = f"{100 * (numbers['plugin, unrelated change, audit hook installed'] - base) / base:+.1f}%"
         return numbers
 
 

@@ -1,0 +1,4 @@
+def quote_discount(days_late: int, amount: int) -> int:
+    if days_late <= 14:
+        return amount // 10
+    return 0

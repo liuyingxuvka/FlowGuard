@@ -41,7 +41,9 @@ PLACEHOLDER_REASON = '换成真实的理由：这处做了什么、为什么可�
 PLACEHOLDER_RULE = dict(file='成文规矩所在的文件', text='该文件里必须出现的一句话')
 MIN_WORDS = 8
 FIELDS = {'count', 'reason', 'rule'}
-SECTIONS = frozenset()          # Named sections a later part of the ledger may add; none are read yet.
+UNVERIFIED = 'unverified'
+SECTIONS = frozenset({UNVERIFIED})  # Named sections beside the handler entries.
+PLACEHOLDER_UNVERIFIED = '换成真实的理由：为什么这个判断不再回放、由什么守住它（不少于 8 个词）'
 WARNING_FILTERS = {'warnings.simplefilter', 'warnings.filterwarnings', 'warnings.catch_warnings',
                    'pytest.mark.filterwarnings'}
 BROAD = {'Exception', 'BaseException', 'builtins.Exception', 'builtins.BaseException'}
@@ -176,7 +178,8 @@ def parse(text):
         return {}, [Finding(f'兜底账本读不了：{LEDGER}：{error}', ('改正这个文件的 TOML 写法',))], None
     entries, red, malformed = {}, [], set()
     for key, value in data.items():
-        if key in SECTIONS:
+        if key == UNVERIFIED:
+            red.extend(_unverified_section(value)[1])
             continue
         if key.count(':') < 2 or not isinstance(value, dict):
             red.append(Finding(f'兜底账本里的 {_quote(key)} 不是条目：键要写成 "文件:函数:捕获的类型"，值是一张表',
@@ -209,6 +212,39 @@ def parse(text):
             continue
         entries[key] = Entry(key, count, reason, rule)
     return entries, red, malformed
+
+
+def _unverified_section(value):
+    """({anchor or rule name: reason}, [Finding]) of the [unverified] section: observations that the baseline
+    code makes and the current code cannot, kept unverified on purpose. Each reason has at least eight words."""
+    if not isinstance(value, dict):
+        return {}, [Finding(f'兜底账本的 [{UNVERIFIED}] 要写成一段：每行 名字 = "理由"',
+                            (f'改成 [{UNVERIFIED}] 下面一行一条：锚点或规则的名字 = "理由"',))]
+    entries, red = {}, []
+    for name, reason in value.items():
+        if not isinstance(reason, str):
+            problem = 'reason 要写一段文字'
+        elif reason.strip() == PLACEHOLDER_UNVERIFIED:
+            problem = '理由还是占位文字：写明为什么不再回放、由什么守住它'
+        elif words(reason) < MIN_WORDS:
+            problem = f'理由只有 {words(reason)} 个词，至少 {MIN_WORDS} 个：写明为什么不再回放、由什么守住它'
+        else:
+            entries[name] = reason
+            continue
+        red.append(Finding(f'兜底账本 [{UNVERIFIED}] 里的 {_quote(name)}：{problem}', ('改正这一行',)))
+    return entries, red
+
+
+def unverified(cfg):
+    """({name: reason}, [Finding]) of the ledger's [unverified] section; no ledger lists nothing."""
+    ledger = path(cfg)
+    if not ledger.is_file():
+        return {}, []
+    try:
+        data = tomllib.loads(ledger.read_text(encoding='utf-8-sig'))
+    except tomllib.TOMLDecodeError:
+        return {}, []           # parse() reports the unreadable ledger once, as red.
+    return _unverified_section(data[UNVERIFIED]) if UNVERIFIED in data else ({}, [])
 
 
 def _sentence_problem(cfg, rule, texts):

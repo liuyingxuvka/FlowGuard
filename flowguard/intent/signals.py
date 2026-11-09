@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import re
 from decimal import Decimal, InvalidOperation
 
 from . import cells as C
@@ -73,7 +74,18 @@ def _region(rows):
         combinations *= len(choices)
     actual = {tuple(_shown(row['inputs'][name]) for name in names) for row in rows}
     if combinations != len(actual):
-        # Correlated axes must not be presented as their Cartesian product.
+        # Correlated axes must not be presented as their Cartesian product. Two integer inputs equal in
+        # every row are one relation, when the rows are exactly that relation times the other values.
+        equal = [(left, right) for index, left in enumerate(names) for right in names[index + 1:]
+                 if all(type(row['inputs'][left]) is int and row['inputs'][left] == row['inputs'][right] for row in rows)]
+        if len(equal) == 1:
+            left, right = equal[0]
+            rest = [name for name in names if name not in equal[0]]
+            product = len(values[left])
+            for name in rest:
+                product *= len(values[name])
+            if product == len(actual):
+                return '，'.join([f'{left}={right}（{_points(values[left])}）', *(f'{name}={_points(values[name])}' for name in rest)])
         return _example(rows[0])
     return '，'.join(f'{name}={_points(choices)}' for name, choices in values.items())
 
@@ -87,7 +99,8 @@ def _cause(cause):
             f'（{cause["file"]}:{cause["line"]}）')
 
 
-def _block(item, *, comparison=False, same_name=False):
+def _facts(item, *, comparison=False):
+    """The parts every view of one observed point shares: name, place, counts, first change, cause."""
     changes = list(_changes(item))
     total = item.get('total', len(item.get('rows', ())))
     count = item.get('changed', len(changes))
@@ -104,39 +117,229 @@ def _block(item, *, comparison=False, same_name=False):
     reasons = list(dict.fromkeys([*item.get('comparison_reasons', ()), *item.get('reasons', ())]))
     unknown = not item.get('complete', False) or status not in (None, 'ok', 'red') or bool(reasons)
     checked = item.get('checked', len(item.get('rows', ())) if status == 'ok' else len(changes))
-    title = f'{name}{location}：' if name or location else ''
-    if comparison and count:
-        title = ('红 同名锚点 ' if same_name else '红 对比 ') + title
-    header = title + (f'候选 {total} 类，已比较 {checked} 类；比较未完成，已证变化 {count} 类' if unknown
-                                    else f'共 {total} 类，变 {count} 类')
-    lines = [header]
+    summary = (f'候选 {total} 类，已比较 {checked} 类；比较未完成，已证变化 {count} 类' if unknown
+               else f'共 {total} 类，变 {count} 类')
+    change = overall = ''
     if changes:
         groups = defaultdict(list)
         for row in changes:
             groups[(str(row['before']), str(row['after']))].append(row)
+
+        def smallest(members):
+            row = members[0]
+            if row.get('inputs'):
+                points = {key: sorted({entry['inputs'][key] for entry in members}, key=C._k) for key in row['inputs']}
+                least = C.smallest([entry['inputs'] for entry in members], points)
+                row = next(entry for entry in members if entry['inputs'] == least)
+            return row
         members = next(iter(groups.values()))
-        row = members[0]
-        if row.get('inputs'):
-            points = {name: sorted({entry['inputs'][name] for entry in members}, key=C._k) for name in row['inputs']}
-            smallest = C.smallest([entry['inputs'] for entry in members], points)
-            row = next(entry for entry in members if entry['inputs'] == smallest)
-        lines.append(f'{_region(members)}；函数返回值 {row["before"]} → {row["after"]}（例：{_example(row)}）'
-                     + (f'；另 {len(groups) - 1} 组结果变化' if len(groups) > 1 else ''))
-    if cause := _cause(item.get('cause')):
-        lines.append(cause)
-    if reasons and len(lines) < 3:
-        lines.append('未覆盖：' + '; '.join(reasons))
+        row = smallest(members)
+        change = (f'{_region(members)}；函数返回值 {row["before"]} → {row["after"]}（例：{_example(row)}）'
+                  + (f'；另 {len(groups) - 1} 组结果变化' if len(groups) > 1 else ''))
+        overall = change
+        if len(groups) > 1:
+            row = smallest(changes)
+            overall = (f'{_region(changes)}；函数返回值有 {len(groups)} 种变化（例：{_example(row)}：'
+                       f'{row["before"]} → {row["after"]}）')
+    return dict(name=name, location=location, count=count, total=total, checked=checked, unknown=unknown,
+                summary=summary, change=change, overall=overall, cause=_cause(item.get('cause')), reasons=reasons, status=status)
+
+
+def _block(item, *, comparison=False, same_name=False):
+    facts = _facts(item, comparison=comparison)
+    title = f'{facts["name"]}{facts["location"]}：' if facts['name'] or facts['location'] else ''
+    if comparison and facts['count']:
+        title = ('红 同名锚点 ' if same_name else '红 对比 ') + title
+    lines = [title + facts['summary']]
+    if facts['change']:
+        lines.append(facts['change'])
+    if facts['cause']:
+        lines.append(facts['cause'])
+    if facts['reasons'] and len(lines) < 3:
+        lines.append('未覆盖：' + '; '.join(facts['reasons']))
     return lines[:3]
 
 
 def render(report, limit=10):
-    """Red constraints precede differences and leads; full facts remain in report.
-
-    The fallback ledger's red lines come first, complete and untruncated, each with the entry to copy;
-    they do not count against the ten-line budget of the other signals."""
+    """A test run's report (`session`) prints red, then changes, leads and what stayed unverified;
+    a single comparison keeps its bounded block view. Full facts remain in the report."""
+    if report.get('session'):
+        return _session(report, limit)
     ledger = list(report.get('ledger', ()))
     rest = _render(report, limit, quiet=bool(ledger))
     return '\n'.join([*ledger, *([rest] if rest else [])])
+
+
+# ---- the end-of-test view ------------------------------------------------------------------------
+# Four kinds, in this order: 红 (every red, the places of one rule or owner on one line, each followed
+# by the next step to copy), 变 (changed outcomes and paths), 线索 (leads) and 未验证 (grey, merged
+# and counted). The last three share ten lines; names and places are never shortened.
+
+def red(subject, *texts, next=()):
+    """One red finding as report text (`SUBJECT：text`) and its next steps keyed by the subject.
+
+    Reports keep red findings as text; `steps` carries the lines to copy under the merged red line."""
+    return (subject + '：' if subject else '') + '；'.join(texts), {subject: list(next)} if subject and next else {}
+
+
+def _red_entry(message):
+    text = str(message)
+    subject, marker, quote = text.partition(' 出处：')
+    if marker and subject and '：' not in subject and ': ' not in subject:
+        return dict(subject=subject, separator='：', texts=[], quote=quote)
+    for separator in ('：', ': '):
+        head, found, rest = text.partition(separator)
+        if found and head and len(head) <= 60 and '=' not in head and '\n' not in head:
+            parts = [part.strip().rstrip(';').strip().removeprefix('smallest ') for part in rest.split('；') if part.strip().rstrip(';')]
+            return dict(subject=head, separator=separator, texts=parts, quote='')
+    return dict(subject='', separator='', texts=[text], quote='')
+
+
+def _red_lines(report, items):
+    entries, order = {}, []
+    steps = dict(report.get('steps', {}))
+    messages = [*report.get('red', ()), *(message for item in items for message in item.get('red', ()))]
+    for item in items:
+        if item.get('comparison') and _facts(item, comparison=True)['count']:
+            facts = _facts(item, comparison=True)
+            kind = '同名锚点 ' if item.get('same_name') or report.get('same_name') else '对比 '
+            message, step = red(kind + facts['name'], facts['location'].strip('（）') + '：' + facts['change'],
+                                next=['让这几处一致；行为本来就该不同时，改用不同的锚点名'] if kind == '同名锚点 ' else ())
+            messages.append(message)
+            steps = {**step, **steps}
+    for message in messages:
+        entry = _red_entry(message)
+        key = entry['subject'] or ('', len(order))
+        if key not in entries:
+            entries[key] = entry
+            order.append(key)
+            continue
+        merged = entries[key]
+        merged['texts'] += entry['texts']
+        merged['quote'] = merged['quote'] or entry['quote']
+    lines = []
+    for key in order:
+        entry = entries[key]
+        body = '；'.join(dict.fromkeys(entry['texts']))
+        line = '红  ' + (entry['subject'] + (entry['separator'] + body if body else '') if entry['subject'] else body)
+        if entry['quote']:
+            line += f'  {entry["subject"]} 出处：{entry["quote"]}'
+        lines.append(line)
+        lines.extend('    ' + step for step in steps.get(entry['subject'], ()) if entry['subject'])
+    for finding in report.get('ledger_red', ()):
+        lines.append('红  ' + finding['text'])
+        lines.extend('    ' + step for step in finding['fix'])
+    return lines
+
+
+def _lead_line(lead):
+    if not isinstance(lead, dict):
+        return '线索  ' + str(lead)
+    locations = lead.get('locations', ())
+    if not locations:
+        return ''
+    values = ','.join(dict.fromkeys(_shown(row['old']) for row in locations))
+    return (f'线索  旧值 {values} 还出现在 {lead["total"]} 个判断里：'
+            + '  '.join(f'{row["file"]}:{row["line"]}' + ('（大函数中）' if row.get('big') else '') for row in locations)
+            + ' → 需求变了就一起改；要锁定它们，在负责人上方写 # flowguard: owner 名，副本上方写 # flowguard: sensor 名')
+
+
+def _fit(lines, room, overflow):
+    if room <= 0:
+        return []
+    if len(lines) <= room:
+        return lines
+    return lines[:room - 1] + [overflow(len(lines) - room + 1)]
+
+
+def _session(report, limit):
+    budget = min(10, max(1, limit))
+    items = list(report.get('items', ()))
+    reds = _red_lines(report, items)
+    requested = bool(report.get('comparison_requested'))
+    if not reds and not report.get('source_changed') and not requested:
+        return ''
+    changes, names, unverified, calls = [], [], [], {}
+    for item in items:
+        if item.get('comparison'):
+            continue
+        if item.get('name') == '未覆盖' and not item.get('file'):
+            unverified.extend((*_grey(str(reason)), False) for reason in item.get('reasons', ()))
+            continue
+        facts = _facts(item)
+        subject = f'{facts["name"]}{facts["location"]}'
+        if facts['count']:
+            # Calls of one point in several contexts with the same change print once, with their count.
+            key = subject, facts['overall'], facts['cause']
+            if key in calls:
+                calls[key][1] += 1
+                continue
+            counted = facts['summary'] if not facts['unknown'] else f'已比较 {facts["checked"]} 类（划分未完成），变 {facts["count"]} 类'
+            calls[key] = [len(changes), 1]
+            changes.append(f'变  {subject}{"" if subject.endswith("）") else " "}{counted}：{facts["overall"]}'
+                           + (f'  {facts["cause"]}' if facts['cause'] else ''))
+            names.append(facts['name'])
+        elif item.get('lost'):
+            continue    # A lost observation is red, or listed under [unverified] with its reason.
+        elif facts['unknown'] or facts['status'] == 'grey':
+            # A point whose own code changed is listed before the others. An observed point whose
+            # comparison with the baseline did not finish says so; a point not observed gives its reason.
+            prefix = '' if item.get('status') == 'grey' else '比较未完成：'
+            unverified.extend((subject, prefix + reason, bool(item.get('cause'))) for reason in facts['reasons'] or ['原因没有记下'])
+        elif requested:
+            changes.append(f'比较  {subject}{"" if subject.endswith("）") else " "}{facts["summary"]}')
+            names.append(facts['name'])
+    for position, number in calls.values():
+        if number > 1:
+            changes[position] += f'（{number} 次调用相同）'
+    for path in report.get('paths', ()):
+        if path['before'] != path['after']:
+            changes.append(f'变  路径 {path["test"]}：' + ' → '.join(path['before']) + ' 变成 ' + ' → '.join(path['after']))
+            names.append('路径 ' + path['test'])
+    changes = list(dict.fromkeys(changes))
+    leads = [line for line in dict.fromkeys(_lead_line(lead) for lead in report.get('leads', ())) if line]
+    unverified.extend((*_grey(str(reason)), False) for reason in report.get('unverified', ()))
+    counted, causes = {}, {}
+    for subject, reason, changed in sorted(unverified, key=lambda entry: not entry[2]):
+        counted[(subject, reason)] = counted.get((subject, reason), 0) + 1
+        cause = re.sub(r'^(比较未完成：)?[A-Za-z_][\w.]*: ', r'\1', reason)
+        causes.setdefault(cause, set()).add(subject or reason)
+    if not (reds or changes or leads or counted):
+        return ''
+    room = budget
+    shown = _fit(changes, room - bool(leads) - bool(counted),
+                 lambda rest: f'变  另 {rest} 项变化：' + '、'.join(dict.fromkeys(names[len(changes) - rest:])))
+    room -= len(shown)
+    shown_leads = _fit(leads, room - bool(counted), lambda rest: f'线索  另 {rest} 条：python -m flowguard check 列出全部线索')
+    room -= len(shown_leads)
+    lines = [_title(report), *reds, *shown, *shown_leads]
+    if counted and room > 0:
+        subjects = {subject or reason for subject, reason in counted}
+        common = max(causes, key=lambda cause: (len(causes[cause]), -list(causes).index(cause)))
+        lines.append(f'未验证 {len(subjects)} 项（不是通过）：最常见的原因是"{common}"'
+                     + (f'（{len(causes[common])} 项）' if len(causes[common]) > 1 else ''))
+        details = [f'未验证  {subject + "：" if subject else ""}{reason}' + (f'（{number} 次）' if number > 1 else '')
+                   for (subject, reason), number in counted.items()]
+        lines.extend(_fit(details, min(3, room - 1),
+                          lambda rest: f'未验证  另 {rest} 项：python -m flowguard show 名字 看它的原因'))
+    return '\n'.join(lines)
+
+
+def _grey(text):
+    """(subject, reason) of a grey line written as `NAME: reason` or `NAME：reason`."""
+    for separator in ('：', ': '):
+        head, found, rest = text.partition(separator)
+        if found and head and len(head) <= 80 and '=' not in head and ' ' not in head.strip('[]:.'):
+            return head, rest
+    return '', text
+
+
+def _title(report):
+    baseline, kind = report.get('baseline'), report.get('baseline_kind', 'task')
+    if not baseline:
+        return 'FlowGuard（没有基准提交：不比较改前改后）'
+    label = {'task': '相对任务开始', 'base': '相对 --flowguard-base', 'HEAD': '相对 HEAD'}.get(kind, '相对')
+    return f'FlowGuard（{label} {baseline[:7]}）'
 
 
 def _render(report, limit, *, quiet=False):

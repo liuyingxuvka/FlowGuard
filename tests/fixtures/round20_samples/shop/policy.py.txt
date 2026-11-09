@@ -1,0 +1,11 @@
+GRACE_DAYS = 3
+OWED_LIMIT = 20
+
+
+def within_grace(days_after_expiry: int) -> bool:
+    return days_after_expiry <= GRACE_DAYS
+
+
+# flowguard: sensor STANDING
+def standing_allows(days_after_expiry: int, suspended: bool, owed: int) -> bool:
+    return within_grace(days_after_expiry) and not suspended and owed <= OWED_LIMIT

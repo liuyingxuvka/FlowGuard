@@ -1,0 +1,11 @@
+from flowguard.intent import rule, row
+
+
+@rule("DEPOSIT_REVIEW", decides="deposit needs manual approval",
+      fields={"deposit": int, "member": bool},
+      source="owner R1: 会员也一样，不能例外。", anchor="APPROVAL")
+def DEPOSIT_REVIEW(deposit, member):
+    return deposit > 100
+
+
+DEPOSIT_REVIEW.rows(row(deposit=150, member=True, expect=True, why="members are not exempt"))

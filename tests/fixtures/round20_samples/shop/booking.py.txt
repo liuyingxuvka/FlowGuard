@@ -1,0 +1,4 @@
+def booking_allowed(days_late: int, vip: bool) -> bool:
+    if vip:
+        return True
+    return days_late <= 14

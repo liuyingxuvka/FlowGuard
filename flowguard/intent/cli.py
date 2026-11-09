@@ -549,15 +549,26 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
                             items=[dict(item, comparison=True, same_name=True) for item in items],
                             red=compared['reasons'] if compared['status'] == 'red' and not compared['changes'] else []))
         status = status or int(compared['status'] == 'red')
-    report = dict(source_changed=any(part.get('source_changed', True) for part in reports),
+    baseline = next((part for part in reports if part.get('baseline')), {})
+    ledger_red = []
+    for finding in (finding for part in reports for finding in part.get('ledger_red', ())):
+        if finding not in ledger_red:
+            ledger_red.append(finding)
+    red = []
+    for message in (*(message for part in reports for message in part.get('red', ())),
+                    *(f'{issue.file}:{issue.line}: {issue.message}' for issue in issues)):
+        # One red per finding: the same text from two batches, also with an ASCII colon, prints once.
+        if not any(message.replace('：', ': ') == seen.replace('：', ': ') for seen in red):
+            red.append(message)
+    report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind', 'task'),
+                  source_changed=any(part.get('source_changed', True) for part in reports),
                   comparison_requested=any(part.get('comparison_requested') for part in reports),
                   items=[item for part in reports for item in part.get('items', ())],
                   paths=[path for part in reports for path in part.get('paths', ())],
                   leads=[lead for part in reports for lead in part.get('leads', ())],
-                  red=list(dict.fromkeys([*(message for part in reports for message in part.get('red', ())),
-                       *(f'{issue.file}:{issue.line}: {issue.message}' for issue in issues)])),
-                  ledger=list(dict.fromkeys(line for part in reports for line in part.get('ledger', ()))))
-    report['red'] = list({message.replace('：', ': '): message for message in reversed(report['red'])}.values())[::-1]
+                  unverified=[line for part in reports for line in part.get('unverified', ())],
+                  red=red, ledger_red=ledger_red,
+                  steps={subject: lines for part in reversed(reports) for subject, lines in part.get('steps', {}).items()})
     text = render_signals(report)
     if text:
         try:
@@ -677,7 +688,7 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
         else:
             from .signals import constraint
             red = [constraint(line.removeprefix('red ')) for line in lines if line.startswith('red ')]
-            grey = [line for line in lines if line.startswith(('grey ', 'OPEN '))]
+            grey = [line.removeprefix('grey ') for line in lines if line.startswith(('grey ', 'OPEN '))]
             reports.append(dict(source_changed=bool(red or grey), red=red, items=[dict(
                 name='未覆盖', status='grey', complete=False, changes=[], reasons=grey)] if grey else []))
     historical = history.check(cfg, since)
@@ -691,7 +702,8 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
         if shown and reports is None:
             print('\n'.join(shown))
         elif shown:
-            reports.append(dict(source_changed=True, red=[], items=[], ledger=shown))
+            reports.append(dict(source_changed=True, red=[], items=[],
+                                ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in result.red]))
         if historical:
             report(['red ' + _action(message) for message in historical])
             return 1
@@ -806,8 +818,9 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
         else 'all tests (--all)' if everything else f'{len(test_records)} test files considered')
     if opaque_tests and not everything:
         data['check_scope'] += f'; {len(opaque_tests)} test files rerun for unresolved imports/data/children'
-    report(render(cfg, data, check=True))
-    red = historical or data['summary']['errors'] or (data.get('attempt') or {}).get('errors') or any(
+    owner_grey = _owner_rules_unverified(cfg, data) if stream_all else []
+    report(render(cfg, data, check=True) + owner_grey)
+    red = owner_grey or historical or data['summary']['errors'] or (data.get('attempt') or {}).get('errors') or any(
         value.get('verdict') == 'red' for rid, group in data['results'].items()
         if rid in data['summary']['rules'] and not data['summary']['rules'][rid].get('superseded_by') or rid is None
         for value in group.get('items', {}).values())
@@ -815,6 +828,32 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     red = red or any(reading['outcome'] == 'failed' and current_test_scope(nodeid.partition('::')[0])
                     for nodeid, reading in data['tests'].items())
     return process_code or int(bool(red))
+
+
+def _owner_rules_unverified(cfg, data):
+    """check --all: a rule quoting the owner's words that stays grey fails, unless the ledger's
+    [unverified] section lists it with a reason."""
+    from . import ledger
+    from .api import IntentError
+    from .sources import parse
+    listed = ledger.unverified(cfg)[0]
+    lines = []
+    for rid, item in data['summary']['rules'].items():
+        result = data['results'].get(rid, {})
+        if item.get('superseded_by') or _rule_colour(item, result) != 'grey' or rid in listed:
+            continue
+        try:
+            source = parse(item.get('source', ''))
+        except IntentError:
+            continue        # The load check reports an unreadable source.
+        if source.kind != 'owner':
+            continue
+        reasons = [message for value in result.get('items', {}).values() for message in value.get('grey', ())]
+        lines.append(f'red {rid}: 规则有主人原话出处（{source.rids[0]}），现在是灰（未验证）：'
+                     + (reasons[0] if reasons else 'no results yet')
+                     + f' -> 恢复可观察；或在 {ledger.LEDGER} 的 [unverified] 段写一句理由：{rid} = '
+                     + ledger._quote(ledger.PLACEHOLDER_UNVERIFIED))
+    return lines
 
 
 def _early_plugin(text):

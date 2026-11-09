@@ -1,0 +1,3 @@
+# flowguard: sensor APPROVAL
+def needs_approval(deposit: int, member: bool) -> bool:
+    return deposit > 100
