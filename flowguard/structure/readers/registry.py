@@ -58,7 +58,7 @@ def available():
 QUERIES = ('nodes','functions','keys','handlers','literal_sets','assignments','calls','symbol_reads','imports','tests',
            'writes','literals','schema')
 SUPPORT = {
-    'python': set(QUERIES) - {'writes', 'literals'},     # writes: attribute assignments only, no SQL strings yet
+    'python': set(QUERIES),     # writes: attribute assignments and SQL write statements in string literals
     **{language: {'nodes','functions','keys','assignments','calls','imports','handlers','writes','literals'}
        for language in ECMA},
     # A schema file has no code: its empty code facts are complete. `schema` is what it declares.

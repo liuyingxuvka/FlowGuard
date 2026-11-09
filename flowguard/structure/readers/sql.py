@@ -19,8 +19,9 @@ ENDS = re.compile(r'\b(?:where|from|output|returning|option)\b', re.I)
 STATEMENT = re.compile(
     rf'\b(?P<verb>create\s+(?:or\s+replace\s+)?(?:temporary\s+|temp\s+)?table(?:\s+if\s+not\s+exists)?'
     rf'|alter\s+table(?:\s+if\s+exists)?(?:\s+only)?|drop\s+table(?:\s+if\s+exists)?'
-    rf'|insert\s+(?:or\s+\w+\s+)?into|insert(?=\s+{NAME}\s*\()|update|delete\s+from|delete(?=\s+{NAME}\s+where\b)'
+    rf'|insert\s+(?:or\s+\w+\s+)?into|insert(?=\s+{NAME}\s*\()|replace\s+into|update|delete\s+from|delete(?=\s+{NAME}\s+where\b)'
     rf'|merge\s+into)\s+(?P<table>{QUALIFIED})', re.I)
+LITERAL = re.compile(r"[+-]?(?:\d+\.\d*|\.\d+|\d+)(?:e[+-]?\d+)?|N?'(?:[^']|'')*'|null|true|false", re.I)
 
 
 def unquote(name: str) -> str:
@@ -110,6 +111,21 @@ def _clause_end(text: str, start: int) -> int:
     return min(ends) if ends else len(text)
 
 
+def literal(text: str):
+    """(True, value) for a SQL number, 'text', NULL, TRUE or FALSE; (False, None) for anything else
+    (a placeholder, a column, an expression): a value the statement does not spell is never guessed."""
+    text = text.strip()
+    if not LITERAL.fullmatch(text):
+        return False, None
+    low = text.lower()
+    if low in ('null', 'true', 'false'):
+        return True, None if low == 'null' else low == 'true'
+    if text.endswith("'"):
+        return True, text[text.index("'") + 1:-1].replace("''", "'")
+    number = float(text)
+    return True, int(text) if re.fullmatch(r'[+-]?\d+', text) else number
+
+
 def _column(part: str, at: int):
     match = re.match(NAME, part)
     if not match or match.group(0).lower() in CONSTRAINTS:
@@ -166,7 +182,7 @@ def statements(text: str) -> list[dict]:
             row['end'] = end
         elif verb.startswith('drop'):
             row['verb'] = 'drop'
-        elif verb.startswith('insert') or verb.startswith('merge'):
+        elif verb.startswith(('insert', 'merge', 'replace')):
             row['verb'] = 'insert'
             rest = source[after:]
             if rest.lstrip().startswith('('):
@@ -176,6 +192,15 @@ def statements(text: str) -> list[dict]:
                     row['columns'] = [dict(name=unquote(m.group(0)), offset=at + m.start(), type='')
                                       for part, at in top_level(source[opening + 1:closing - 1], opening + 1)
                                       if (m := re.match(NAME, part))]
+                    values = re.compile(r'\s*values\s*\(', re.I).match(source, closing)
+                    end = balanced(source, values.end() - 1) if values else -1
+                    if end > 0:                         # one VALUES row: each spelled literal belongs to its column
+                        items = top_level(source[values.end():end - 1])
+                        if len(items) == len(row['columns']):
+                            for column, (item, _) in zip(row['columns'], items):
+                                readable, value = literal(item)
+                                if readable:
+                                    column['value'] = value
         elif verb == 'update':
             found = re.compile(r'\s+(?:as\s+)?(?:\w+\s+)?set\s', re.I).match(source, after)
             if not found:
@@ -185,10 +210,14 @@ def statements(text: str) -> list[dict]:
             semi = source.find(';', start)
             end = min(i for i in (stop.start() if stop else len(source), semi if semi >= 0 else len(source)))
             for part, at in top_level(source[start:end], start):
-                left = part.split('=', 1)[0] if '=' in part else ''
+                left, _, right = part.partition('=') if '=' in part else ('', '', '')
                 names = re.findall(NAME, left)
                 if names:
-                    row['columns'].append(dict(name=unquote(names[-1]), offset=at, type=''))
+                    column = dict(name=unquote(names[-1]), offset=at, type='')
+                    readable, value = literal(right)
+                    if readable:
+                        column['value'] = value
+                    row['columns'].append(column)
         elif verb.startswith('delete'):
             row['verb'] = 'delete'
         out.append(row)

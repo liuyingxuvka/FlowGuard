@@ -81,14 +81,18 @@ def test_same_name_disagreement_is_red_but_source_copies_are_only_leads():
     assert len(text.splitlines()) <= 3
 
 
-def test_demo_eight_finds_four_old_value_sites_including_two_large_functions(tmp_path):
+def test_demo_eight_lists_every_old_value_site_whatever_its_field_name(tmp_path):
+    """Round 20 removed the shared-field-word filter and the five-location cap of this lead."""
     source = '''GRACE_DAYS=21
+LIMITS=(14, 30)
 def owner(days):
     return days <= GRACE_DAYS
 def preview(days):
     return days <= 14
-def renewal(days):
-    return days <= 14
+def renewal(overdue_days):
+    return overdue_days <= 14
+def standing(days):
+    return days <= LIMITS[0]
 '''
     for name in ('booking', 'delivery'):
         source += '\ndef '+name+'(days):\n'
@@ -96,21 +100,19 @@ def renewal(days):
         source += '    if days <= 14:\n        return "grace"\n'
         source += ''.join(f'    later_{number} = {number}\n' for number in range(20))
         source += '    return "expired"\n'
-    source += '\ndef unrelated(amount):\n    return amount <= 14\n'
+    source += '\ndef unrelated(amount):\n    return amount <= 15\n'
     (tmp_path/'policy.py').write_text(source)
-    change = dict(before=14, after=21, target='policy:owner', fields=['days'], identity='policy:GRACE_DAYS')
+    change = dict(before=14, after=21, target='policy:owner', identity='policy:GRACE_DAYS')
     with closing(build(tmp_path)) as graph:
-        report = signals.stale_copies(graph, [change], limit=5)
-        assert report['kind'] == 'lead' and report['total'] == 4
+        report = signals.stale_copies(graph, [change])
+        assert report['kind'] == 'lead' and report['total'] == 5
         assert {row['target'] for row in report['locations']} == {
-            'policy:preview', 'policy:renewal', 'policy:booking', 'policy:delivery'}
-        assert all(source.splitlines()[row['line']-1].strip().endswith('14:') or
-                   source.splitlines()[row['line']-1].strip() == 'return days <= 14' for row in report['locations'])
+            'policy:preview', 'policy:renewal', 'policy:standing', 'policy:booking', 'policy:delivery'}
+        assert {row['target'] for row in report['locations'] if row['big']} == {'policy:booking', 'policy:delivery'}
         text = signals.render(dict(items=[], leads=[report]))
-        assert '旧值 14 还出现在 4 个判断里' in text
+        assert '旧值 14 还出现在 5 个判断里' in text and len(text.splitlines()) == 1
         assert all(f"{row['file']}:{row['line']}" in text for row in report['locations'])
-        assert len(signals.stale_copies(graph, [change])['locations']) == 3
-        assert len(signals.stale_copies(graph, [change], limit=100)['locations']) == 4
+        assert '# flowguard: owner' in text and '…' not in text
 
 
 def test_successful_comparison_grid_is_not_a_claim_of_complete_partition():

@@ -686,4 +686,7 @@ def extract(root, rel, data, module, is_test):
 
     visit(tree.root_node,shadows=frozenset(scoped_names(tree.root_node)))
     out['bindings'] = [row for row in out['dependencies'] if row.get('alias') and row['kind'] == 'import']
+    if b'flowguard:' in data:
+        from flowguard.intent.anchors import foreign_owners
+        out.update(foreign_owners(source.decode('utf-8'), module, rel, is_test=is_test))
     return out

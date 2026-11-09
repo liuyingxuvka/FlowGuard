@@ -790,6 +790,118 @@ def syntax_records(tree, module, rel):
     return found
 
 
+def sql_writes(nodes: list, module: str, rel: str, qual: str) -> list[dict]:
+    """INSERT, UPDATE and DELETE statements spelled in this scope's string literals, read by the one SQL
+    statement reader and recorded for the function that holds them (`<module>` outside functions). A value
+    the statement spells as a literal is kept per column; a placeholder or expression has none."""
+    from .readers.sql import statements, line_of
+    rows = []
+    for node in nodes:
+        if not (isinstance(node, ast.Constant) and isinstance(node.value, str) and len(node.value) < 20000
+                and fgs.SQL_RE.match(node.value)):
+            continue
+        for row in statements(node.value):
+            if row['verb'] not in ('insert', 'update', 'delete'):
+                continue
+            fact = dict(node=module + (':' + qual if qual else ''), file=rel,
+                        line=node.lineno + line_of(node.value, row['offset']) - 1, via='sql', statement=row['verb'],
+                        function=qual or '<module>', table=row['table'], schema=row['schema'],
+                        columns=[column['name'] for column in row['columns']] or ['*'])
+            values = {column['name']: column['value'] for column in row['columns'] if 'value' in column}
+            if values:
+                fact['values'] = values
+            rows.append(fact)
+    return rows
+
+
+MESSAGE_CALLS = {'debug', 'info', 'warning', 'warn', 'error', 'exception', 'critical', 'log', 'fatal'}
+
+
+def _message_call(node) -> bool:
+    """A logging, print, warning or exception-construction call: its strings are messages, not values."""
+    name = fgs.dotted(node.func) or ''
+    head, _, last = name.rpartition('.')
+    receiver = head.rpartition('.')[2]
+    receiver = receiver.casefold()
+    return (name == 'print' or last.endswith(('Error', 'Exception', 'Warning'))
+            or last in MESSAGE_CALLS and (receiver in ('logging', 'log', 'logger', 'warnings') or receiver.endswith('logger')))
+
+
+def string_literals(tree, module: str, rel: str) -> list[dict]:
+    """String literals that decide or name a value, in the TS/JS reader's terms: comparisons (compare),
+    the containers of `in` tests (member), match cases (case), returned values through `?:`/and/or
+    (return), set literals and set()/frozenset() arguments (set) and `Literal[...]` members (union).
+    Dict keys, `'key' in mapping` tests, logging/print calls, exception messages and raise statements are
+    left out."""
+    rows, consumed = [], set()
+
+    def add(node, qual, context):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in consumed:
+            consumed.add(id(node))
+            rows.append(dict(node=module + (':' + qual if qual else ''), file=rel, line=node.lineno,
+                             column=node.col_offset + 1, value=node.value, context=context, function=qual or '<module>'))
+
+    def returned(node):
+        if isinstance(node, ast.IfExp):
+            return [*returned(node.body), *returned(node.orelse)]
+        if isinstance(node, ast.BoolOp):
+            return [item for value in node.values for item in returned(value)]
+        return [node]
+
+    def elements(node):
+        return list(node.elts) if isinstance(node, (ast.Tuple, ast.List, ast.Set)) else []
+
+    def visit(node, qual):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            outer = [*node.decorator_list]
+            if isinstance(node, ast.ClassDef):
+                outer += [*node.bases, *(keyword.value for keyword in node.keywords)]
+            else:
+                arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs,
+                             *(item for item in (node.args.vararg, node.args.kwarg) if item)]
+                outer += [*node.args.defaults, *(value for value in node.args.kw_defaults if value is not None),
+                          *(arg.annotation for arg in arguments if arg.annotation is not None),
+                          *([node.returns] if node.returns is not None else [])]
+            for child in outer:
+                visit(child, qual)
+            inner = qual + ('.' if qual else '') + node.name
+            for child in node.body:
+                visit(child, inner)
+            return
+        if isinstance(node, ast.Raise) or isinstance(node, ast.Call) and _message_call(node):
+            return
+        if isinstance(node, ast.Compare):
+            sides = [node.left, *node.comparators]
+            for left, operator, right in zip(sides, node.ops, sides[1:]):
+                if isinstance(operator, (ast.Eq, ast.NotEq, ast.Is, ast.IsNot)):
+                    add(left, qual, 'compare')
+                    add(right, qual, 'compare')
+                elif isinstance(operator, (ast.In, ast.NotIn)):
+                    for item in elements(right):
+                        add(item, qual, 'member')
+        elif isinstance(node, (ast.Return, ast.Lambda)):
+            value = node.value if isinstance(node, ast.Return) else node.body
+            for item in returned(value) if value is not None else ():
+                add(item, qual, 'return')
+        elif isinstance(node, ast.MatchValue):
+            add(node.value, qual, 'case')
+        elif isinstance(node, ast.Set):
+            for item in node.elts:
+                add(item, qual, 'set')
+        elif isinstance(node, ast.Call) and fgs.dotted(node.func) in ('set', 'frozenset') and len(node.args) == 1:
+            for item in elements(node.args[0]):
+                add(item, qual, 'set')
+        elif isinstance(node, ast.Subscript) and (fgs.dotted(node.value) or '').rpartition('.')[2] == 'Literal':
+            for item in elements(node.slice) or [node.slice]:
+                add(item, qual, 'union')
+        for child in ast.iter_child_nodes(node):
+            visit(child, qual)
+
+    for statement in tree.body:
+        visit(statement, '')
+    return rows
+
+
 def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: bool) -> dict:
     """Everything the store keeps for one file; nothing here depends on another file."""
     info = parse_python(root, rel, module, data=data)
@@ -799,7 +911,7 @@ def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: boo
            "unknown_dynamic_imports": info.unknown_dynamic_imports,
            "lazy": info.lazy_exports, "bound": sorted(info.symbols),
            "nodes": [], "syspath": [], "keys": [], "facts": {}, "optional": [], "star": False, "getattr": False,
-           "submodules": False}
+           "submodules": False, "writes": [], "literals": []}
     if info.parse_error:
         return out
     text = read_source(root / rel, data=data)
@@ -810,6 +922,8 @@ def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: boo
         out.update(source_facts(tree, text, module, rel,
                                 source_digest=content_digest(root / rel, data=data), is_test=is_test))
     out.update(syntax_records(tree, module, rel))
+    if not is_test:
+        out["literals"] = string_literals(tree, module, rel)
     out["syspath"] = syspath_entries(tree, rel) if "sys.path" in text or "addsitedir" in text else []
     out["optional"] = sorted(_optional_import_lines(tree))
     out["star"] = any(i.endswith(":*") for i in info.imports)
@@ -835,6 +949,8 @@ def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: boo
     aliases = {a.asname or a.name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
     module_level = [n for s in tree.body if not isinstance(s, DEFS) for n in own_nodes([s])]
     out["keys"] += [(k, v, line, "") for k, v, line in keys_of(module_level)]
+    if not is_test:
+        out["writes"] += sql_writes(module_level, module, rel, "")
 
     def consts(body, prefix):
         for node in body:
@@ -892,6 +1008,7 @@ def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: boo
                     row["raw"] = {k: v for k, v in raw.items() if v}
                     out["keys"] += [(k, v, line, qual) for k, v, line in keys_of(own)]
                     out["keys"] += [("sql", t[4:], node.lineno, qual) for t in raw["sr"] + raw["sw"] if t.startswith("sql:")]
+                    out["writes"] += sql_writes(own, module, rel, qual)
                     out["keys"] += [("file", f, node.lineno, qual) for f in raw["fr"] + raw["fw"]]
                 out["nodes"].append(row)
                 if is_class:

@@ -46,28 +46,10 @@ def test_import_root_aliases_do_not_recommend_a_bound_home_again(repo):
     assert result['candidates'] == []
 
 
-def test_a_changed_threshold_is_a_weak_pointer_not_a_verdict(repo):
-    repo.write({'policy.py': 'def old(importance): return importance >= 0.7\ndef current(importance): return importance >= 0.75\n'})
-    mapped = repo.build()
-    result = mapped.search_homes('policy:current')
-    candidate = next(row for row in result['candidates'] if row['id']=='policy:old')
-    assert candidate['strength']=='weak' and 'shared decision field' in candidate['reason']
-    assert 'verdict' not in candidate
-
-
-def test_a_word_inside_two_different_fields_does_not_make_them_one_decision(repo):
-    repo.write({'policy.py': 'def missing(source_ids):\n    if not source_ids: return True\n    return False\ndef unrelated(source_model):\n    if source_model: return True\n    return False\ndef copy(source_ids):\n    if source_ids: return True\n    return False\n'})
-    mapped = repo.build()
-    candidates = {row['id'] for row in mapped.search_homes('policy:missing')['candidates']}
-    assert 'policy:copy' in candidates
-    assert 'policy:unrelated' not in candidates
-
-
 def test_comparisons_returned_inside_containers_are_decisions(repo):
     repo.write({'policy.py': 'def card(importance): return {"important": importance >= 0.75}\ndef count(importance): return importance >= 0.7\n'})
     mapped = repo.build()
     assert any(site['field']=='importance' for site in mapped.sites('policy:card'))
-    assert 'policy:card' in {r['id'] for r in mapped.search_homes('policy:count')['candidates']}
 
 
 def test_cached_old_constants_find_stale_copies_after_a_change(repo):
@@ -102,20 +84,6 @@ def test_rare_result_literals_help_search_but_common_status_words_do_not(repo):
     mapped = repo.build()
     assert 'policy:second' in {r['id'] for r in mapped.search_homes('policy:first')['candidates']}
     assert not mapped.search_homes('policy:common')['searched']
-
-
-def test_a_shared_predicate_is_a_static_pointer(repo):
-    repo.write({'policy.py': '''
-        def allowed(quota): return quota <= 3
-        def first(quota):
-            if allowed(quota): return True
-            return False
-        def second(quota):
-            if not allowed(quota): return False
-            return True
-    '''})
-    mapped = repo.build()
-    assert 'policy:second' in {r['id'] for r in mapped.search_homes('policy:first')['candidates']}
 
 
 def test_bound_and_distinct_homes_are_not_recommended_again(repo):

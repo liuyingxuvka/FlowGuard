@@ -300,10 +300,12 @@ def _copy_pointers(graph, index, anchors, homes, summary, results, words, full, 
     for target in targets:
         live = next((result for result in results if result.get('target') == target and result.get('kind') == 'live'), None)
         scope = [(site.get('where') or target, site['line'], site['text']) for site in live.get('sites', []) if site.get('realized')] if live else None
-        found = graph.search_homes(target, sites=scope, not_same=excluded, words=words, k=None, weak=True)
+        found = graph.search_homes(target, sites=scope, not_same=excluded, words=words, k=None)
         if not found['searched']:
             lines.append('copy search unavailable: ' + found.get('reason', 'no readable decision sites'))
-        for candidate in found['candidates']:
+        from .owners import look_alikes      # static copy candidates, the same ones check runs for an owner
+        registered = {a.target for a in index.entries if a.kind == 'sensor'}
+        for candidate in [*found['candidates'], *look_alikes(load_config(graph.root), graph, target, excluded | registered)]:
             node = graph.node(candidate['id'])
             if node:
                 candidate = dict(candidate, file=node['file'], line=node['line'])
@@ -403,6 +405,9 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
         if anchors:
             print('ANCHOR ' + query)
             print('\n'.join(pointers))
+            from .owners import show_lines     # an owner's old ledger: writes outside its writers, look-alikes
+            if owned := show_lines(cfg, graph, index, query):
+                print('\n'.join(owned))
             from .debug import show_observation
             from types import SimpleNamespace
             model = SimpleNamespace(rules={rid: SimpleNamespace(id=rid, anchors=value.get('anchors', ()))
@@ -432,7 +437,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                 print('use anchor draft for a source comment; impure code needs an ordinary calibration test')
                 print('\n'.join(_observation_lines(cfg, graph, data, node)))
             else:
-                found = graph.search_homes(query, k=None, weak=True)
+                found = graph.search_homes(query, k=None)
                 if not found['searched']:
                     print('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
                 print('\n'.join(_candidate_lines(found, full, 'candidate ')))
@@ -540,7 +545,9 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
     # copies may use check's existing, source-verified pure-function exception.
     observed = {item.get('name') for part in reports for item in part.get('items', ()) if item.get('file')}
     for name in sorted({anchor.name for anchor in index.entries if anchor.kind == 'sensor'} - observed):
-        copies = [anchor for anchor in index.named(name, 'sensor') if anchor.source_role == 'production']
+        # A function owner is the reference its same-name copies are compared with.
+        copies = sorted((anchor for anchor in index.named(name, 'sensor') if anchor.source_role == 'production'),
+                        key=lambda anchor: not anchor.owner)
         if len(copies) < 2:
             continue
         compared = _compare_pairs(cfg.root, [(copies[0], other) for other in copies[1:]])
@@ -549,6 +556,10 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
                             items=[dict(item, comparison=True, same_name=True) for item in items],
                             red=compared['reasons'] if compared['status'] == 'red' and not compared['changes'] else []))
         status = status or int(compared['status'] == 'red')
+    found = _owner_findings(cfg, everything=everything, base=base)
+    if found.red or found.leads:
+        reports.append(dict(source_changed=True, red=found.red, leads=found.leads, items=[]))
+        status = status or int(bool(found.red))
     report = dict(source_changed=any(part.get('source_changed', True) for part in reports),
                   comparison_requested=any(part.get('comparison_requested') for part in reports),
                   items=[item for part in reports for item in part.get('items', ())],
@@ -571,6 +582,19 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
             except (OSError, ValueError):
                 pass
     return status or int(bool(issues))
+
+
+def _owner_findings(cfg, *, everything=False, base=None):
+    """Owners, copies and static leads of this change; copy discovery runs only here, in check."""
+    from . import anchors, owners
+    if not owners.baseline(cfg, base) and not everything:
+        return owners.Findings()            # nothing is new without a baseline; the old ledger is check --all
+    with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        index = anchors.collect(graph)
+        distincts = cache.read(cfg)['summary'].get('distincts', [])
+        excluded = {target for item in distincts for target in (item['a'], item['b']) if ':' in target}
+        excluded |= {anchor.target for item in distincts for name in (item['a'], item['b']) for anchor in index.named(name)}
+        return owners.check_findings(cfg, graph, index, base, everything=everything, excluded=excluded)
 
 
 def _check_selection(cfg: Config, model: object, data: dict, everything: bool, since: str | None, sentinel: Path):

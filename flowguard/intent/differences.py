@@ -79,6 +79,8 @@ def joint_partition(before, after):
                           hints={name: [v for reading in readings for v in reading.hints.get(name, ())] for name in kinds})
     rows = [row for row in space.cells if all(kind.name != 'enum' or row[name] in kind.literals
                                              for name, kind in kinds.items())]
+    if not (space.complete and not reasons) and rows:
+        rows = _with_representatives(rows, kinds, space.pts, reasons)
     # A finite type retains each real input. Unknown predicates retain their grid;
     # a small sample never becomes an exhaustive behavior-equivalence claim.
     atoms = []
@@ -122,6 +124,22 @@ def joint_partition(before, after):
         regions.append(Region(witness, label))
     regions.sort(key=lambda region: tuple((name, _key(value)) for name, value in sorted(region.inputs.items())))
     return Partition(regions, space.complete and not reasons, list(dict.fromkeys(reasons)), len(rows))
+
+
+def _with_representatives(rows, kinds, points, reasons):
+    """An unreadable numeric domain still runs the same fixed representatives on both sides."""
+    base = C.smallest(rows, points)
+    added = 0
+    for name, kind in kinds.items():
+        for value in C.representatives(kind):
+            if not any(_key(row[name]) == _key(value) and all(row[other] == base[other] for other in kinds if other != name)
+                       for row in rows):
+                rows.append({**base, name: value})
+                added += 1
+    if added:
+        reasons.append(f'numeric classes are not readable here: compared on {len(rows)} representative values '
+                       '(boundaries, halves, negatives, non-finite); agreement on them is not a proof')
+    return rows
 
 
 def _result(name, partition, before, after, *, mismatch_is_red=False):

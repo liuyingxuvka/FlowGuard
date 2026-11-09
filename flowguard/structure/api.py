@@ -226,19 +226,21 @@ class MapHandle:
         from .readers.prisma import Models
         return Models([(path, schema) for path, schema in self._schema_rows() if schema.get('kind') == 'prisma'])
 
-    def writes(self, target=None, *, language=None, by_name=False):
+    def writes(self, target=None, *, language=None, by_name=False, facts=None):
         """Who writes what, statically: Prisma client writes bound to schema models (connect and nested
-        writes follow @relation), SQL write statements (TS/JS raw SQL and .sql files), and Python
-        attribute assignments bound to a class. `by_name=True` adds property assignments `obj.f = ...`
+        writes follow @relation), SQL write statements (TS/JS raw SQL, .sql files and Python string literals,
+        recorded for the function holding them), and Python attribute assignments bound to a class. A Python
+        row carries `value` when the assignment or statement spells the written literal. `by_name=True` adds property assignments `obj.f = ...`
         that only a field name ties to a target (how='name'). `target` is `Model.field`, `table.column`,
         a model or table, or a bare field/column name; rows whose fields are not visible (spread,
-        non-literal data) are kept for their model with `unclear=True`. Never execution evidence."""
+        non-literal data) are kept for their model with `unclear=True`. `facts` reads these file facts
+        (for example one file's facts at a baseline commit) instead of the map's. Never execution evidence."""
         from .readers.prisma import bind, bind_sql
         from .readers.registry import ECMA, language_for
         self._mark_query('writes', language)
         models = self._models()
         rows = []
-        for facts in self._syntax_files():
+        for facts in self._syntax_files() if facts is None else facts:
             kind = facts.get('language', 'python')
             if language is not None and kind != language:
                 continue
@@ -263,7 +265,7 @@ class MapHandle:
                                      model=None if row.get('unresolved') else cls, field=attr, table=None, db_column=None,
                                      nested=False, unclear=False, schema=None, receiver=cls,
                                      reason='attribute assignment matched by field name only' if row.get('unresolved') else '',
-                                     language=kind))
+                                     language=kind, **({'value': row['value']} if row.get('literal') else {})))
         if target is not None:
             rows = [row for row in rows if _writes_target(row, target, models)]
         return Rows(sorted(rows, key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
@@ -395,7 +397,7 @@ class MapHandle:
 
     # ---- other homes ---------------------------------------------------------------
     def other_homes(self, ident: str, k: int = 5, *, words: str = "", decides=None,
-                    not_same=(), weak: bool = False, sites=None) -> list[dict]:
+                    not_same=(), sites=None) -> list[dict]:
         """One static decision-site query. Candidates never execute.
 
         `sites` names the rule's realized sites as (node, line, text); without
@@ -403,10 +405,10 @@ class MapHandle:
         readable sites were found, so an empty list is not proof of no copies.
         """
         return self.search_homes(ident, k=k, words=words, decides=decides,
-                                 not_same=not_same, weak=weak, sites=sites)['candidates']
+                                 not_same=not_same, sites=sites)['candidates']
 
     def search_homes(self, ident, *, k=None, words='', decides=None,
-                     not_same=(), weak=True, sites=None, since=None):
+                     not_same=(), sites=None, since=None):
         """Static candidates and an explicit searched/not-searched fact, never a verdict."""
         requested = ident
         ident = self.canonical(ident) or ident
@@ -426,7 +428,7 @@ class MapHandle:
             groups, _ = homes.site_groups(self.con, target, sites)
             if groups:
                 searched.append(target)
-            for candidate in homes.other_homes(self.con, target, None, words, decides, excluded, weak, sites):
+            for candidate in homes.other_homes(self.con, target, None, words, decides, excluded, sites):
                 candidate.setdefault('anchors', []).append(target)
                 prior = found.get(candidate['id'])
                 if prior:
@@ -438,8 +440,6 @@ class MapHandle:
                 old = self._groups_at(target,since)
             historical += len(old)
             for candidate in homes.site_homes(self.con, target, words=words, exclude=excluded, groups=old):
-                if not weak and candidate['strength']=='weak':
-                    continue
                 row_sigs = [set(json.loads(raw)) for (raw,) in self.con.execute('SELECT sigs FROM site WHERE node=?',(candidate['id'],))]
                 matched = [g for g in old if any({s for s in g['sigs'] if s.startswith(('sg:n:','sg:t:','sg:m:','sg:s:','sg:set:','sg:v:','sg:f:'))} & own for own in row_sigs)]
                 if not matched:

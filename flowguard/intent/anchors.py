@@ -49,6 +49,11 @@ class Parameter:
     source_type: str
     role: str = 'input'
     inferred: bool = False
+    alias: str = ''          # the source parameter this declared name maps to: ELIGIBLE(days=overdue_days)
+
+    @property
+    def source(self):
+        return self.alias or self.name
 
 
 @dataclass(frozen=True)
@@ -69,6 +74,9 @@ class Anchor:
     source_digest: str = ''
     receiver: str = ''
     source_role: str = 'production'
+    owner: bool = False      # `# flowguard: owner NAME` on a function: the reference its same-name copies follow
+    writers: tuple = ()      # a data owner `owner Table.column writers=module:function,...`
+    projection: str = ''     # `-> result[0]` / `-> result.ok`: copies are compared on this part of the result
 
     @property
     def inputs(self):
@@ -139,7 +147,8 @@ class DecisionReading:
 
 
 _NAME = r'[^\W\d][\w.-]*'
-_HEAD = re.compile(r'#\s*flowguard:\s*(sensor|states|event)\b\s*(.*)')
+_HEAD = re.compile(r'#\s*flowguard:\s*(sensor|states|event|owner)\b\s*(.*)')
+_PROJECTION = r'result(?:\[[^\]]*\]|\.[^\W\d]\w*)+'
 _SESSION = ContextVar('flowguard_anchor_session', default=None)
 _TYPES = {'bool': bool, 'int': int, 'float': float, 'str': str, 'None': type(None),
           'Decimal': Decimal, 'date': date, 'datetime': datetime, 'timedelta': timedelta}
@@ -384,6 +393,18 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
         calibrated_by = calibration[1] if calibration else ''
         body = body[:calibration.start()] if calibration else body
         local = []
+        is_owner = kind == 'owner'
+        if is_owner:
+            listed = re.fullmatch(r'(' + _NAME + r')\s+writers=(\S+)', body.strip())
+            if listed:
+                writers = tuple(dict.fromkeys(part for part in listed[2].split(',') if part))
+                if '.' not in listed[1].strip('.') or not writers:
+                    problems.append(issue('red', 'syntax', 'a data owner needs Table.column (or Model.field) writers=function,...', line))
+                    continue
+                entries.append(asdict(Anchor('owner', listed[1], file, module, '', line, line, writers=writers,
+                                             source_digest=source_digest, source_role='test' if is_test else 'production')))
+                continue
+            kind = 'sensor'          # A function owner is the reference copy of its same-name sensors.
         if kind == 'states':
             parsed = re.fullmatch(r'(' + _NAME + r')\s*=\s*(.+)', body)
             if not parsed or '.' not in parsed[1]:
@@ -428,11 +449,11 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                            values=tuple(values), calibrated_by=calibrated_by, issues=tuple(local),
                            source_digest=source_digest, source_role='test' if is_test else 'production')
         else:
-            parsed = re.fullmatch(r'(' + _NAME + r')(?:\s*\((.*)\))?(?:\s*->\s*(' + _NAME + r')\s*:\s*(.+))?', body)
-            if not parsed or kind == 'event' and parsed[3]:
-                problems.append(issue('red', 'syntax', f'invalid {kind} anchor syntax', line))
+            parsed = re.fullmatch(r'(' + _NAME + r')(?:\s*\((.*)\))?(?:\s*->\s*(?:(' + _NAME + r')\s*:\s*(.+)|(' + _PROJECTION + r')))?\s*', body)
+            if not parsed or kind == 'event' and (parsed[3] or parsed[5]) or parsed[5] and not _projection_path(parsed[5]):
+                problems.append(issue('red', 'syntax', f'invalid {"owner" if is_owner else kind} anchor syntax', line))
                 continue
-            name, raw, output_name, output_type = parsed.groups()
+            name, raw, output_name, output_type, projection = parsed.groups()
             candidates = []
             for qual, (node, cls) in definitions.items():
                 if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -442,24 +463,29 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                         all(not s.strip() or s.lstrip().startswith('#') for s in lines[line:first - 1]):
                     candidates.append((qual, node, cls))
             qual, node, cls = min(candidates, key=lambda x: x[1].lineno) if candidates else ('', None, '')
-            declared, context = [], []
+            declared, context, aliases = [], [], {}
             try:
                 sides = _parts(raw, ';') if raw is not None else []
                 if len(sides) > 2:
                     raise ValueError('anchor has more than one context separator')
                 for part in _parts(sides[0]) if sides else ():
-                    item = re.fullmatch(r'([^\W\d]\w*)(?:\s*:\s*(.+))?', part)
+                    item = re.fullmatch(r'([^\W\d]\w*)(?:\s*=\s*([^\W\d]\w*))?(?:\s*:\s*(.+))?', part)
                     if item is None:
                         raise ValueError(f'invalid parameter: {part}')
-                    declared.append(item.groups())
+                    declared.append((item[1], item[3]))
+                    if item[2] and item[2] != item[1]:
+                        aliases[item[2]] = item[1]
                 context = _parts(sides[1]) if len(sides) == 2 else []
                 if any(not item.isidentifier() for item in context):
                     raise ValueError('context parameters need names')
             except (ValueError, tokenize.TokenError) as error:
                 local.append(issue('red', 'syntax', str(error), line, name))
             names = [p[0] for p in declared] + context
-            if len(set(names)) != len(names):
+            source_of = {value: key for key, value in aliases.items()}       # declared name -> source parameter
+            spelled = [source_of.get(item, item) for item in names]          # the source spelling of each parameter
+            if len(set(names)) != len(names) or len(set(spelled)) != len(spelled):
                 local.append(issue('red', 'signature', 'anchor parameters repeat', line, name))
+            names, canonical = spelled, source_of
             actual, receiver, return_type = {}, '', '?'
             if node is None:
                 local.append(issue('red', 'target-missing', 'anchor has no following function in source', line, name))
@@ -473,8 +499,10 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                 if node.args.vararg or node.args.kwarg:
                     local.append(issue('grey', 'variadic', 'variadic parameters require a calibrated test', line, name))
                 return_type = annotation(node.returns) if node.returns is not None else _return_type(node, actual)
-            meanings = dict(declared) if raw is not None else {key: None for key in actual}
+            meanings = {canonical.get(key, key): value for key, value in declared} if raw is not None else {key: None for key in actual}
             params = []
+            if aliases and calibrated_by:
+                local.append(issue('grey', 'parameter-map', 'a parameter mapping needs a directly observed sensor, not a calibration test', line, name))
             for parameter in sorted(dict.fromkeys([*meanings, *context]), key=lambda p: list(actual).index(p) if p in actual else len(actual)):
                 source_type, meaning = actual.get(parameter, '?'), meanings.get(parameter)
                 role = 'context' if parameter in context or len(sides) < 2 and _parameter_role(source_type, enum_names) == 'context' else 'input'
@@ -487,10 +515,11 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                         local.append(issue('red', 'unit', f'parameter {parameter} unit {meaning} != source {_unit(source_type)}', line, name))
                 elif meaning is not None and meaning != '?' and _type_id(meaning) != _type_id(source_type) and source_type != '?':
                     local.append(issue('red', 'type', f'parameter {parameter} type {meaning} != source {source_type}', line, name))
-                params.append(Parameter(parameter, (meaning if meaning is not None else _unit(source_type)) if kind == 'sensor' else '', source_type, role, len(sides) < 2))
+                params.append(Parameter(aliases.get(parameter, parameter), (meaning if meaning is not None else _unit(source_type)) if kind == 'sensor' else '',
+                                        source_type, role, len(sides) < 2, parameter if parameter in aliases else ''))
             output_name = output_name or ''
-            output_type = output_type or (return_type if kind == 'sensor' else '')
-            if kind == 'sensor':
+            output_type = output_type or (return_type if kind == 'sensor' and not projection else '')
+            if kind == 'sensor' and not projection:
                 if output_type == '?' or return_type == '?':
                     local.append(issue('grey', 'return-missing', 'return type cannot be checked from source', line, name))
                 elif _type_id(output_type) != _type_id(return_type):
@@ -498,9 +527,28 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
             entry = Anchor(kind, name, file, module, qual, line, node.lineno if node else 0,
                            tuple(params), output_name, output_type, calibrated_by=calibrated_by,
                            issues=tuple(local), source_digest=source_digest, receiver=receiver,
-                           source_role='test' if is_test else 'production')
+                           source_role='test' if is_test else 'production', owner=is_owner,
+                           projection=projection or '')
         entries.append(asdict(entry))
     return {'anchors': entries, 'anchor_issues': [asdict(p) for p in problems]} if entries or problems else {}
+
+
+def foreign_owners(text, module, file, *, is_test=False):
+    """`// flowguard: owner Table.column writers=fn,...` (and a bare `owner NAME`) in a JS/TS source.
+    Foreign code does not run here: a data owner checks static writes; a function owner is navigation."""
+    entries, problems = [], []
+    for number, line in enumerate(text.splitlines(), 1):
+        found = re.search(r'//\s*flowguard:\s*owner\b\s*(.*)$', line)
+        if not found:
+            continue
+        listed = re.fullmatch(r'(' + _NAME + r')(?:\s+writers=(\S+))?\s*', found[1])
+        writers = tuple(dict.fromkeys(part for part in (listed[2] or '').split(',') if part)) if listed else ()
+        if not listed or listed[2] is not None and ('.' not in listed[1].strip('.') or not writers):
+            problems.append(asdict(Issue('red', 'syntax', 'owner needs NAME, or Table.column writers=function,...', file, number)))
+            continue
+        entries.append(asdict(Anchor('owner', listed[1], file, module, '', number, number, writers=writers,
+                                     source_role='test' if is_test else 'production')))
+    return {'anchors': entries, 'anchor_issues': problems} if entries or problems else {}
 
 
 def _anchor(data):
@@ -508,7 +556,46 @@ def _anchor(data):
     data['parameters'] = tuple(Parameter(**p) for p in data.get('parameters', ()))
     data['issues'] = tuple(Issue(**p) for p in data.get('issues', ()))
     data['values'] = tuple(data.get('values', ()))
+    data['writers'] = tuple(data.get('writers', ()))
     return Anchor(**data)
+
+
+def _projection_path(text):
+    """The fixed read steps of `result[0]`, `result['ok']` or `result.ok.value`; None for anything else."""
+    try:
+        node = ast.parse(text, mode='eval').body
+    except SyntaxError:
+        return None
+    steps = []
+    while isinstance(node, (ast.Subscript, ast.Attribute)):
+        if isinstance(node, ast.Attribute):
+            steps.append(('attr', node.attr))
+        elif isinstance(node.slice, ast.Constant) and type(node.slice.value) in (int, str):
+            steps.append(('item', node.slice.value))
+        else:
+            return None
+        node = node.value
+    return tuple(reversed(steps)) if isinstance(node, ast.Name) and node.id == 'result' and steps else None
+
+
+def project(anchor, value):
+    """The part of an actual result a projected sensor compares; a raised outcome stays raised."""
+    if not anchor.projection or isinstance(value, cells.Raised):
+        return value
+    for kind, key in _projection_path(anchor.projection):
+        if kind == 'attr':
+            if isinstance(value, (dict, list, tuple)) or inspect.getattr_static(value, key, _NO_VALUE) is _NO_VALUE:
+                raise ValueError(f'{anchor.projection}: the result has no attribute {key}')
+            value = getattr(value, key)
+        else:
+            if type(value) not in (tuple, list, dict) or type(value) is dict and key not in value or \
+                    type(value) is not dict and not (type(key) is int and -len(value) <= key < len(value)):
+                raise ValueError(f'{anchor.projection}: the result has no item {key!r}')
+            value = value[key]
+    return value
+
+
+_NO_VALUE = object()
 
 
 def _index(entries, problems):
@@ -524,8 +611,21 @@ def _index(entries, problems):
         labels = [{a.output for a in group if a.output}, *[{p.unit for a in group for p in a.inputs if p.name == name and p.unit not in ('', '?')}
                   for name in {p.name for a in group for p in a.inputs}]]
         if len(roles) > 1 or any(required - allowed for required, _ in inputs for _, allowed in inputs) or any(len(values) > 1 for values in types + labels):
+            reference = next((a for a in group if a.owner), group[0])
+            wanted = [p.name for p in reference.inputs]
             for anchor in group:
-                problems.append(Issue('red', 'identity', f'same anchor {name} has conflicting roles, units or signature', anchor.file, anchor.line, name))
+                own = [p.name for p in anchor.inputs]
+                hint = ''
+                if len(roles) == 1 and anchor is not reference and own != wanted and len(own) == len(wanted):
+                    # Parameters correspond only by name; the mapping is written, never guessed from position or type.
+                    hint = (f'; parameters correspond only by name: write # flowguard: sensor {name}('
+                            + ', '.join(f'{p}=<its parameter>' for p in wanted) + ') on this copy')
+                problems.append(Issue('red', 'identity', f'same anchor {name} has conflicting roles, units or signature' + hint, anchor.file, anchor.line, name))
+        owners = [anchor for anchor in group if anchor.owner or anchor.kind == 'owner']
+        if len(owners) > 1:
+            for anchor in owners:
+                problems.append(Issue('red', 'owner', f'{name} has {len(owners)} owners ({", ".join(f"{a.file}:{a.line}" for a in owners)}): '
+                                      'keep one owner; mark the copies # flowguard: sensor ' + name, anchor.file, anchor.line, name))
     index.issues = tuple(problems)
     return index
 
@@ -648,9 +748,14 @@ def decision_reading(graph_or_root, anchor):
     root = Path(graph_or_root if isinstance(graph_or_root, (str, Path)) else graph_or_root.root)
     _, tree, function = _source(root, anchor)
     env = _literal_globals(tree)
-    kinds, reading, issues = _read_decision(function, anchor.parameters, env, anchor.file, anchor.line, anchor.name, anchor.issues)
+    initial = anchor.issues
+    if any(parameter.alias for parameter in anchor.parameters):
+        function, problem = _declared_names(function, anchor.parameters)
+        initial += (Issue('grey', 'parameter-map', problem, anchor.file, anchor.line, anchor.name),) if problem else ()
+    kinds, reading, issues = _read_decision(function, anchor.parameters, env, anchor.file, anchor.line, anchor.name, initial)
     from ..structure.extract import fingerprint
     definitions, dependencies, seen, complete = _definitions(tree), {}, set(), True
+    pure = _pure_bindings(tree)
     def dependency(node, qual):
         nonlocal complete
         if qual in seen:
@@ -667,11 +772,28 @@ def decision_reading(graph_or_root, anchor):
                     complete = False
             elif name in definitions and isinstance(definitions[name][0], ast.FunctionDef):
                 dependency(definitions[name][0], name)
-            elif name not in _TYPES and name not in _PURE_BUILTINS | _ERRORS:
+            elif name not in _TYPES and name not in _PURE_BUILTINS | _ERRORS | pure:
                 complete = False
     dependency(function, anchor.qual)
     return DecisionReading(kinds, reading, tuple(issues), function, env,
                            fingerprint(function, function.name), dependencies, complete)
+
+
+def _declared_names(function, parameters):
+    """A copy of the function read under its declared parameter names (days for overdue_days), never run."""
+    import copy
+    renamed = {p.alias: p.name for p in parameters if p.alias}
+    taken = {n.id for n in ast.walk(function) if isinstance(n, ast.Name)} | {a.arg for a in ast.walk(function) if isinstance(a, ast.arg)}
+    clash = sorted((set(renamed.values()) & taken) - set(renamed))
+    if clash:
+        return function, 'parameter mapping cannot be read: the copy already uses ' + ', '.join(clash)
+    class Rename(ast.NodeTransformer):
+        def visit_Name(self, node):
+            return ast.copy_location(ast.Name(id=renamed.get(node.id, node.id), ctx=node.ctx), node)
+        def visit_arg(self, node):
+            node.arg = renamed.get(node.arg, node.arg)
+            return node
+    return Rename().visit(copy.deepcopy(function)), ''
 
 
 def draft(graph, target):
@@ -763,8 +885,11 @@ def _observe_verified(root, anchor, values):
         return Observation('red', reasons=('observation fields differ from the real anchor parameters',), anchor=anchor.target)
     for parameter in anchor.parameters:
         try:
-            _kind(parameter.source_type)  # point container shapes are not a pure finite input proof
-            accepted = _accepts(parameter.source_type, values[parameter.name])
+            kind = _kind(parameter.source_type)  # point container shapes are not a pure finite input proof
+            value = values[parameter.name]
+            # A float parameter's representative values include NaN and the infinities.
+            accepted = _accepts(parameter.source_type, value) or kind is not None and kind.name == 'float' \
+                and type(value) is float and not math.isfinite(value)
         except (ValueError, SyntaxError, TypeError, AttributeError):
             return Observation('grey', reasons=(f'{parameter.name}: simple source type is not known',), anchor=anchor.target)
         if not accepted:
@@ -789,6 +914,7 @@ def _observe_verified(root, anchor, values):
     code = getattr(fn, '__code__', None)
     if code is None or Path(code.co_filename).resolve() != path or fn.__qualname__.replace('.<locals>', '') != anchor.qual:
         return Observation('red', reasons=('loaded callable does not match the actual source anchor',), anchor=anchor.target)
+    values = {parameter.source: values[parameter.name] for parameter in anchor.parameters}
     positional = [values[a.arg] for a in function.args.posonlyargs]
     kwargs = {name: value for name, value in values.items() if name not in {a.arg for a in function.args.posonlyargs}}
     from .runtime import Runtime, _value
@@ -800,6 +926,11 @@ def _observe_verified(root, anchor, values):
     value = _value(fn, bound)
     if isinstance(value, cells.Raised):
         return Observation('ok', value=value, anchor=anchor.target)
+    if anchor.projection:
+        try:
+            return Observation('ok', value=project(anchor, value), anchor=anchor.target)
+        except ValueError as error:
+            return Observation('grey', reasons=(str(error),), anchor=anchor.target)
     try:
         accepted = _accepts(anchor.output_type, value)
     except (ValueError, SyntaxError, TypeError, AttributeError):
@@ -935,6 +1066,18 @@ def _immutable(value):
 
 
 _PURE_BUILTINS = {'abs', 'min', 'max', 'round', 'len', 'int', 'float', 'str', 'bool'}
+_PURE_MODULES = {'math'}     # standard modules of pure functions: importing them initializes nothing of the project
+
+
+def _pure_bindings(tree):
+    """Module names and functions bound by `import math` / `from math import floor` at module level."""
+    names = set()
+    for statement in tree.body:
+        if isinstance(statement, ast.Import):
+            names.update(a.asname or a.name for a in statement.names if a.name in _PURE_MODULES)
+        elif isinstance(statement, ast.ImportFrom) and not statement.level and statement.module in _PURE_MODULES:
+            names.update(a.asname or a.name for a in statement.names if a.name != '*')
+    return names
 _ERRORS = {'ValueError', 'TypeError', 'ZeroDivisionError', 'OverflowError', 'AssertionError', 'RuntimeError', 'KeyError'}
 _INTRINSICS = {'Decimal', 'date', 'datetime', 'timedelta'}
 _TYPE_IMPORTS = {'typing': {'Literal', 'Optional', 'Annotated'}, 'decimal': {'Decimal'},
@@ -990,6 +1133,8 @@ def _import_reasons(cfg, anchor, tree, function):
             unknown(f'function annotation initialization is not proved pure: {node.name}')
 
     def imported(module, names, here):
+        if module in _PURE_MODULES and not project_code(getattr(sys.modules.get(module), '__file__', None) or 'built-in', cfg.root):
+            return
         for count in range(1, len(module.split('.')) + 1):
             name = '.'.join(module.split('.')[:count])
             spec = _find(name)

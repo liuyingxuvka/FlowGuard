@@ -1,0 +1,780 @@
+"""Owners and copies: one owner per judgment or field, and what this change does to the rest.
+
+A function owner (`# flowguard: owner NAME`) is the reference its same-name sensors follow; the
+existing same-name comparison checks those. Copy discovery runs unregistered look-alikes on the
+owner's case classes, through the runtime's one call-site replay (`Runtime._replay_rows`), only in
+`check`. A data owner (`owner Table.column writers=...`) turns a new write outside its writers red.
+Static leads (an old value still elsewhere, also in rules; a new spelling of a label) never replay.
+Only what this change adds is reported; older findings are the old ledger (`check --all`, `show`).
+Grouping is a finite sample of representative values, never a proof of equal behavior.
+"""
+from __future__ import annotations
+
+import ast
+from collections import Counter
+from contextlib import contextmanager
+import ctypes
+from dataclasses import dataclass, field
+import importlib
+import inspect
+import threading
+import time
+
+from flowguard.map.common import git_blob, is_test_file, read_source
+
+SIMILAR_SHAPE = 0.5          # 3-gram Jaccard of two function bodies that counts as a similar structure
+TRIVIAL = {0, 1, -1, 2}      # numbers too common to tie two functions together
+TIMEOUT = 2.0                # seconds for one function's replay before it is listed as unclear
+PEERS = 40                   # look-alikes of one changed function replayed at most, the most similar first
+
+
+@dataclass
+class Findings:
+    """Red lines and leads for the existing signal report, each with the next step to copy."""
+    red: list = field(default_factory=list)
+    leads: list = field(default_factory=list)
+    stats: dict = field(default_factory=dict)
+
+    def extend(self, other):
+        self.red.extend(other.red)
+        self.leads.extend(other.leads)
+        for key, value in other.stats.items():
+            self.stats[key] = self.stats.get(key, 0) + value
+        return self
+
+
+# ---- the change: baseline commit, changed files and their facts at the baseline ---------------------
+
+class Change:
+    """The working tree against one baseline commit, read once; no baseline means nothing is new."""
+
+    def __init__(self, cfg, graph, baseline):
+        self.cfg, self.graph, self.baseline = cfg, graph, baseline
+        self.files = set(graph._git_changed(baseline)) if baseline else set()
+        self._modules = {path: module for path, module in graph.con.execute('SELECT path, module FROM file')}
+        self._texts, self._facts, self._impact = {}, {}, None
+
+    def impact(self):
+        """The map's changed, added and removed ids against the baseline (read once)."""
+        if self._impact is None:
+            self._impact = self.graph.impact(since=self.baseline)
+        return self._impact
+
+    def old_text(self, file):
+        if file not in self._texts:
+            raw = git_blob(self.cfg.root, self.baseline, file) if self.baseline else None
+            self._texts[file] = raw.decode('utf-8-sig', errors='replace') if raw is not None else None
+        return self._texts[file]
+
+    def old_facts(self, file):
+        """The map facts the same extractor reads from the file's baseline bytes ({} when it was absent)."""
+        if file not in self._facts:
+            from flowguard.structure.extract import extract
+            raw = git_blob(self.cfg.root, self.baseline, file) if self.baseline else None
+            module = self._modules.get(file)
+            self._facts[file] = extract(self.cfg.root, file, raw, module, is_test_file(file)) if raw is not None and module else {}
+        return self._facts[file]
+
+    def changed_python(self):
+        return sorted(file for file in self.files if file.endswith('.py') and file in self._modules
+                      and not is_test_file(file) and not (self.cfg.root / file).resolve().is_relative_to(self.cfg.intent))
+
+
+def baseline(cfg, base=None):
+    """The comparison commit: an explicit --base, else the task baseline (cache.session_baseline)."""
+    from . import cache
+    return base or cache.session_baseline(cfg)
+
+
+# ---- data owners --------------------------------------------------------------------------------------
+
+def _allowed(row, writers):
+    for writer in writers:
+        if ':' in writer:
+            if row['node'] == writer:
+                return True
+        elif row['function'] == writer or row['function'].endswith('.' + writer):
+            return True
+    return False
+
+
+def _write_key(row):
+    return row['file'], row['function'], row['kind'], str(row.get('model') or row.get('table')), str(row.get('field') or row.get('db_column'))
+
+
+def _write_text(row):
+    value = f'，值 {row["value"]!r}' if 'value' in row else ''
+    return f'{row["file"]}:{row["line"]} {row["function"]}（{row["kind"]}{value}）'
+
+
+def owner_writes(change, index, *, everything=False):
+    """A write outside a data owner's writers that this change adds is red; older ones are the old ledger."""
+    found = Findings()
+    for owner in (a for a in index.entries if a.kind == 'owner' and a.writers):
+        rows = [row for row in change.graph.writes(owner.name, by_name=True) if not row.get('unclear')]
+        outside = [row for row in rows if not _allowed(row, owner.writers)]
+        if not outside:
+            continue
+        before = Counter()
+        for file in {row['file'] for row in outside} & change.files:
+            facts = change.old_facts(file)
+            if facts:
+                before.update(_write_key(row) for row in change.graph.writes(owner.name, by_name=True, facts=[facts])
+                              if not row.get('unclear'))
+        now, new, old = Counter(_write_key(row) for row in outside), [], []
+        for row in outside:
+            key = _write_key(row)
+            fresh = change.baseline and row['file'] in change.files and now[key] > before[key]
+            (new if fresh else old).append(row)
+        allowed = '、'.join(owner.writers)
+        where = f'{owner.file}:{owner.line}'
+        if new:
+            functions = '、'.join(dict.fromkeys(row['node'] if row.get('language', 'python') == 'python' else row['function']
+                                                for row in new))     # TS/JS writers are function names
+            found.red.append(f'负责人以外新增写入 {owner.name}：' + '  '.join(_write_text(row) for row in new)
+                             + f'；只允许 {allowed} → 改成调用 {allowed}，或确有必要时把 {functions} 加进 '
+                               f'writers=（owner 注释在 {where}）')
+        if old and everything:
+            found.leads.append(f'旧账 {owner.name} 负责人以外的写入：' + '  '.join(_write_text(row) for row in old)
+                               + f'；只允许 {allowed}（owner 注释在 {where}）')
+    return found
+
+
+# ---- static leads: old values, rules that still hold them, new spellings ------------------------------
+
+def _literal(node):
+    try:
+        return True, ast.literal_eval(node)
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        return False, None
+
+
+def _value_kind(value):
+    return 'number' if type(value) in (int, float) else 'text' if type(value) is str else None
+
+
+def _differences(before, after):
+    """(old, new) pairs of two literal values: scalars, or the members of tuples, lists and dicts."""
+    if type(before) in (tuple, list) and type(after) in (tuple, list) and len(before) == len(after):
+        return [pair for a, b in zip(before, after) for pair in _differences(a, b)]
+    if type(before) is dict and type(after) is dict and before.keys() == after.keys():
+        return [pair for key in before for pair in _differences(before[key], after[key])]
+    if _value_kind(before) and _value_kind(before) == _value_kind(after) and before != after:
+        return [(before, after)]
+    return []
+
+
+def _module_literals(tree):
+    found = {}
+    for statement in tree.body:
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target] \
+            if isinstance(statement, ast.AnnAssign) and statement.value is not None else []
+        for target in targets:
+            readable, value = _literal(statement.value)
+            if isinstance(target, ast.Name) and readable:
+                found[target.id] = (value, statement.lineno)
+    return found
+
+
+def constant_changes(change):
+    """Literal values this change replaced: module constants (also inside tuples and dicts) and the
+    constants of a function whose structure is otherwise unchanged. Read from source, never run."""
+    from .runtime import _functions
+    out = []
+    for file in change.changed_python():
+        old = change.old_text(file)
+        if old is None:
+            continue
+        try:
+            old_tree, new_tree = ast.parse(old), ast.parse(read_source(change.cfg.root / file))
+        except SyntaxError:
+            continue
+        module = change._modules[file]
+        before, after = _module_literals(old_tree), _module_literals(new_tree)
+        for name in before.keys() & after.keys():
+            for old_value, new_value in _differences(before[name][0], after[name][0]):
+                out.append(dict(name=name, before=old_value, after=new_value, file=file, line=after[name][1],
+                                identity=module + ':' + name, target=''))
+        old_functions, new_functions = dict(_functions(old_tree)), dict(_functions(new_tree))
+        for qual in old_functions.keys() & new_functions.keys():
+            a, b = old_functions[qual], new_functions[qual]
+            first = [node for node in ast.walk(a) if isinstance(node, ast.Constant)]
+            second = [node for node in ast.walk(b) if isinstance(node, ast.Constant)]
+            if len(first) != len(second) or _shape(a) != _shape(b):
+                continue
+            for x, y in zip(first, second):
+                for old_value, new_value in _differences(x.value, y.value):
+                    out.append(dict(name=qual + ' 的常量', before=old_value, after=new_value, file=file, line=y.lineno,
+                                    identity='', target=module + ':' + qual))
+    return out
+
+
+def _shape(function):
+    import copy
+
+    class Blank(ast.NodeTransformer):
+        def visit_Constant(self, node):
+            return ast.copy_location(ast.Constant(type(node.value).__name__), node)
+    return ast.dump(Blank().visit(copy.deepcopy(function)), include_attributes=False)
+
+
+def rule_old_values(cfg, old):
+    """Rules in the intent folder whose predicate or literal rows still spell an old value."""
+    kind = _value_kind(old)
+    if kind is None or not cfg.intent.is_dir():
+        return []
+    def holds(node):
+        return isinstance(node, ast.Constant) and _value_kind(node.value) == kind and node.value == old
+    found = []
+    for path in sorted(cfg.intent.rglob('*.py')):
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8-sig'))
+        except (SyntaxError, UnicodeError):
+            continue
+        rules = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for decorator in node.decorator_list:
+                name = decorator.func.attr if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute) \
+                    else decorator.func.id if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name) else ''
+                if name == 'rule':
+                    arguments = [*decorator.args, *(k.value for k in decorator.keywords if k.arg == 'id')]
+                    identifier = arguments[0].value if arguments and isinstance(arguments[0], ast.Constant) else node.name
+                    body = node.body[1:] if ast.get_docstring(node) is not None else node.body
+                    rules[node.name] = (identifier, sorted({n.lineno for s in body for n in ast.walk(s) if holds(n)}), set())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'rows' \
+                    and isinstance(node.func.value, ast.Name) and node.func.value.id in rules:
+                rules[node.func.value.id][2].update(n.lineno for n in ast.walk(node) if holds(n))
+        for identifier, judged, rows in rules.values():
+            if judged or rows:
+                parts = ([f'判断第 {"、".join(map(str, judged))} 行'] if judged else []) + \
+                        ([f'回归行第 {"、".join(map(str, sorted(rows)))} 行'] if rows else [])
+                found.append(f'规则 {identifier} 里还写着旧值 {old!r}（{cfg.rel(path)} {"、".join(parts)}）：需求变了就先改规则')
+    return found
+
+
+def old_value_leads(change):
+    """Each replaced value that other decisions and rules still spell; a lead, not a verdict."""
+    from .signals import stale_copies
+    found = Findings()
+    for item in constant_changes(change):
+        lead = stale_copies(change.graph, [item])
+        if lead['total']:
+            found.leads.append(lead)
+        found.leads.extend(rule_old_values(change.cfg, item['before']))
+    return found
+
+
+def literal_drift(change):
+    """A label spelled a new way (case, spaces, punctuation aside) that this change adds to a group of
+    spellings: only a spelling the baseline code never used is reported."""
+    found = Findings()
+    if not change.files:
+        return found
+    groups = change.graph.literal_groups()
+    if not groups:
+        return found
+    before = {row['value'] for file in change.files for row in change.old_facts(file).get('literals', ())}
+    before |= {row['value'] for group in groups for rows in group['spellings'].values() for row in rows
+               if row['file'] not in change.files}
+    for group in groups:
+        fresh = [value for value in group['spellings'] if value not in before]
+        if not fresh:
+            continue
+        parts = []
+        for value, rows in group['spellings'].items():
+            places = '、'.join(f'{row["file"]}:{row["line"]}' for row in rows)
+            parts.append(f'{value!r}（{places}' + ('，这次新增的写法' if value in fresh else '') + '）')
+        found.leads.append('标签写法不一致：' + ' 与 '.join(parts) + ' → 统一成一种写法，或让它们取自同一个负责人')
+    return found
+
+
+def changed_once(change):
+    """A changed function whose baseline body (the fingerprint without name and docstring) an unchanged
+    function still has: the copy this edit probably also needed. Static; `check` compares behavior."""
+    found = Findings()
+    files = change.changed_python()
+    if not files:
+        return found
+    delta = change.graph._delta_against(change.baseline, files)
+    touched = {row[0] for row in delta}
+    for ident, kind, old_fp, new_fp, _, _ in delta:
+        if kind != 'changed' or not old_fp:
+            continue
+        twins = [(other, file, line) for other, file, line in change.graph.con.execute(
+            "SELECT id, file, line FROM node WHERE fp = ? AND kind IN ('function', 'method') ORDER BY id", (old_fp,))
+            if other not in touched]
+        if twins:
+            node = change.graph.node(ident) or {}
+            name = ident.partition(':')[2].rpartition('.')[2].strip('_').upper()
+            found.leads.append(f'{ident.partition(":")[2]}（{node.get("file")}:{node.get("line")}）改了，改前和它一模一样的 '
+                               f'{len(twins)} 份没改：' + '  '.join(f'{file}:{line}' for _, file, line in twins)
+                               + f'（要一起改就一起改；要锁定：在负责人上方加 # flowguard: owner {name}，'
+                                 f'副本上方加 # flowguard: sensor {name}）')
+    return found
+
+
+def static_findings(cfg, graph, index, base=None, *, everything=False):
+    """What any run can report without replay: owner writes, old values, rules, new spellings and
+    unchanged copies of a changed function's old body."""
+    change = Change(cfg, graph, baseline(cfg, base))
+    found = owner_writes(change, index, everything=everything)
+    if change.baseline:
+        found.extend(old_value_leads(change)).extend(literal_drift(change)).extend(changed_once(change))
+    return found
+
+
+# ---- replay of candidate functions (check only) ------------------------------------------------------
+
+class _Timeout(BaseException):
+    """Raised into a replay that ran too long; not an Exception, so replay never records it as a result."""
+
+
+@contextmanager
+def watchdog(seconds):
+    """Interrupt this thread after `seconds` (Windows too: the interpreter's async exception, no signal)."""
+    target, lock, done = threading.get_ident(), threading.Lock(), threading.Event()
+    state = dict(finished=False, fired=False)
+    def watch():
+        if done.wait(seconds):
+            return
+        with lock:
+            if not state['finished']:
+                state['fired'] = True
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(target), ctypes.py_object(_Timeout))
+    thread = threading.Thread(target=watch, name='flowguard-copy-watchdog', daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        with lock:
+            state['finished'] = True
+            if state['fired']:     # delivered or still pending: clear a pending one before leaving
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(target), None)
+        done.set()
+
+
+def _load(cfg, module, qual):
+    """The live function object; an import that fails is a reason, the run continues without it."""
+    from .config import setup_path
+    from .imports import prepare
+    setup_path(cfg)
+    prepare(cfg.root)
+    try:
+        value = importlib.import_module(module)
+        for part in qual.split('.'):
+            value = getattr(value, part)
+    except (ImportError, SyntaxError, OSError, ArithmeticError, LookupError, ValueError, TypeError,
+            AttributeError, NameError, RuntimeError, AssertionError) as error:
+        return None, f'导入出错：{type(error).__name__}: {error}'
+    if not inspect.isfunction(value):
+        return None, f'{module}:{qual} 不是普通函数'
+    return value, ''
+
+
+def _replay(runtime, function, rows, names, label, seconds=None):
+    """Outcomes of `function` on each row, through the runtime's call-site replay; (outcomes, reason)."""
+    from . import sites
+    seconds = TIMEOUT if seconds is None else seconds
+    from .runtime import _PRIVATE
+    fn = sites.unwrap(function)
+    signature = inspect.signature(fn)
+    parameters = [p for p in signature.parameters.values()
+                  if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
+    if len(parameters) != len(names) or len(parameters) != len(signature.parameters):
+        return None, '参数个数不同'
+    try:
+        bound = signature.bind(*(rows[0][name] for name in names))
+    except TypeError as error:
+        return None, f'参数绑定不了：{error}'
+    axes = {}
+    for parameter, name in zip(parameters, names):
+        pool = axes.setdefault(parameter.name, [])
+        for row in rows:
+            if not any(repr(row[name]) == repr(value) for value in pool):
+                pool.append(row[name])
+    token = _PRIVATE.set(True)
+    start = len(runtime.readings)
+    try:
+        with watchdog(seconds):
+            runtime._replay_rows(fn, bound, owner=fn, name=label, axes=axes)
+    except _Timeout:
+        return None, f'超过 {seconds:g} 秒没有结束'
+    finally:
+        _PRIVATE.reset(token)
+    reading = runtime.readings[start] if len(runtime.readings) > start else None
+    if reading is None or reading.status != 'ok':
+        return None, '; '.join(reading.reasons) if reading else 'no replay reading'
+    by_inputs = {tuple(repr(inputs[p.name]) for p in parameters): value for inputs, value in reading.rows}
+    outcomes = []
+    for row in rows:
+        signature_key = tuple(repr(row[name]) for name in names)
+        if signature_key not in by_inputs:
+            return None, 'replay skipped a representative value'
+        outcomes.append(by_inputs[signature_key])
+    old = {tuple(repr(inputs[p.name]) for p in parameters): before for inputs, before, _ in reading.changed}
+    previous = [old.get(tuple(repr(row[name]) for name in names), outcome) for row, outcome in zip(rows, outcomes)]
+    return dict(now=outcomes, before=previous, compared=reading.comparison_status == 'ok'), ''
+
+
+def _same(left, right):
+    """Equal outcomes; raised outcomes agree by exception type, whatever their messages say."""
+    from .cells import Raised
+    from .runtime import outcome_equal
+    if isinstance(left, Raised) or isinstance(right, Raised):
+        return isinstance(left, Raised) and isinstance(right, Raised) and type(left.error) is type(right.error)
+    return outcome_equal(left, right)
+
+
+def _show(value):
+    from .cells import Raised, show
+    return f'raised {type(value.error).__name__}' if isinstance(value, Raised) else show(value)
+
+
+def _example(rows, names, mine, reference, label='负责人'):
+    """The first differing finite value and the first differing non-finite one, in the fixed
+    representative order (halves, negatives, zero, then boundaries), and how many more differ."""
+    import math
+    from .cells import representatives
+    def rank(row):
+        fixed = [repr(value) for name in names for value in representatives(_kind_of(row[name]))]
+        return min((fixed.index(repr(row[name])) for name in names if repr(row[name]) in fixed), default=len(fixed))
+    differing = sorted(((row, a, b) for row, a, b in zip(rows, mine, reference) if not _same(a, b)), key=lambda item: rank(item[0]))
+    finite = [item for item in differing if all(not (type(item[0][n]) is float and not math.isfinite(item[0][n])) for n in names)]
+    chosen = finite[:1] + [item for item in differing if item not in finite][:1]
+    text = '；'.join(', '.join(f'{name}={_show(row[name])}' for name in names) + f' → {_show(a)}（{label}给 {_show(b)}）'
+                    for row, a, b in chosen)
+    return text + (f'；另 {len(differing) - len(chosen)} 处不同' if len(differing) > len(chosen) else '')
+
+
+def _kind_of(value):
+    from .cells import Kind
+    return Kind({float: 'float', int: 'int'}.get(type(value), 'dec' if type(value).__name__ == 'Decimal' else 'other'))
+
+
+# ---- copy discovery against a registered function owner ----------------------------------------------
+
+def _functions(graph, cfg):
+    """Callable module-level production functions, with their body shape, numeric constants and sizes."""
+    from pathlib import Path
+    from flowguard.structure.store import shape_list
+    from .runtime import _functions as definitions
+    rows, trees = [], {}
+    tool = Path(__file__).resolve().parents[1]          # the running FlowGuard package never replays itself
+    for ident, file, module, qual, line, end, blob in graph.con.execute(
+            "SELECT n.id, n.file, n.module, n.qual, n.line, n.end_line, n.shape FROM node n JOIN file f ON f.path = n.file "
+            "WHERE n.kind = 'function' AND f.is_test = 0 AND n.file LIKE '%.py' ORDER BY n.id"):
+        path = (cfg.root / file).resolve()
+        if '.' in qual or path.is_relative_to(cfg.intent) or path.is_relative_to(tool):
+            continue                    # a nested function has no importable name of its own
+        if file not in trees:
+            try:
+                trees[file] = dict(definitions(ast.parse(read_source(cfg.root / file))))
+            except (SyntaxError, OSError, UnicodeError):
+                trees[file] = {}
+        node = trees[file].get(qual)
+        if node is None:
+            continue
+        rows.append(dict(id=ident, file=file, module=module, qual=qual, line=line, end=end or line,
+                         shape=set(shape_list(blob) if isinstance(blob, bytes) else blob or ()), node=node,
+                         constants=_numbers(node), simple=_simple_parameters(node)))
+    return rows
+
+
+def _numbers(node):
+    return {n.value for n in ast.walk(node) if isinstance(n, ast.Constant) and type(n.value) in (int, float)
+            and n.value not in TRIVIAL}
+
+
+def _simple_parameters(node):
+    """The positional parameter names when all are simple or unannotated; None for any other signature."""
+    from .anchors import _annotation, _parameter_role
+    arguments = node.args
+    if arguments.vararg or arguments.kwarg or arguments.kwonlyargs:
+        return None
+    names = [a for a in (*arguments.posonlyargs, *arguments.args)]
+    if any(_parameter_role(_annotation(a.annotation)) != 'input' for a in names):
+        return None
+    return [a.arg for a in names]
+
+
+def _similarity(a, b):
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
+def _look_alikes(functions, home, excluded):
+    """Copy candidates of one function: the same number of simple parameters, and a similar body shape
+    or a shared number other than 0, 1, -1 and 2. Static; size never excludes a function."""
+    return [row for row in functions if row['id'] != home['id'] and row['id'] not in excluded and row['simple'] is not None
+            and home['simple'] is not None and len(row['simple']) == len(home['simple'])
+            and (_similarity(row['shape'], home['shape']) >= SIMILAR_SHAPE or row['constants'] & home['constants'])]
+
+
+def look_alikes(cfg, graph, target, excluded=()):
+    """`show`'s static copy pointers for a function: look-alikes that were not run, with the reason."""
+    functions = _functions(graph, cfg)
+    home = next((row for row in functions if row['id'] == target), None)
+    if home is None:
+        return []
+    out = []
+    for row in _look_alikes(functions, home, set(excluded)):
+        shape, shared = _similarity(row['shape'], home['shape']), sorted(row['constants'] & home['constants'])
+        reasons = ([f'similar body {shape:.2f}'] if shape >= SIMILAR_SHAPE else []) + \
+                  ([f'shared number {", ".join(map(repr, shared))}'] if shared else [])
+        out.append(dict(id=row['id'], file=row['file'], line=row['line'], how='look-alike', strength='strong',
+                        score=round(shape, 2), reason='look-alike, not run: ' + '; '.join(reasons)))
+    return sorted(out, key=lambda row: (-row['score'], row['id']))
+
+
+def _classes(cfg, anchor):
+    """The owner's case classes plus fixed numeric representatives; (rows, kinds, reason)."""
+    from . import anchors, differences as D
+    if anchor.contexts:
+        return None, {}, '负责人需要测试里的上下文参数，没有可单独运行的情况类'
+    try:
+        view = anchors.decision_reading(cfg.root, anchor)
+    except (ValueError, SyntaxError, OSError) as error:
+        return None, {}, f'负责人读不了：{error}'
+    if not view.kinds or set(view.kinds) != {p.name for p in anchor.inputs}:
+        return None, {}, '负责人的输入不是简单类型'
+    part = D.joint_partition(view, view)
+    rows = [dict(region.inputs) for region in part.regions]
+    points = {name: [row[name] for row in rows] for name in view.kinds}
+    return D._with_representatives(rows, view.kinds, points, []), view.kinds, ''
+
+
+def _category(same, total, shape, shared):
+    if same == total:
+        return '副本'
+    if 2 * same >= total and shape >= SIMILAR_SHAPE:
+        return '分叉的副本'
+    return '相似' if shared else None
+
+
+def discover(cfg, graph, index, change, *, everything=False, excluded=()):
+    """Unregistered look-alikes of each function owner, grouped by their results on its classes."""
+    from .runtime import Runtime
+    found = Findings()
+    owners = [a for a in index.entries if a.kind == 'sensor' and a.owner and a.source_role == 'production' and not a.issues]
+    if not owners:
+        return found
+    started = time.perf_counter()
+    functions = _functions(graph, cfg)
+    by_id = {row['id']: row for row in functions}
+    registered = {a.target for a in index.entries if a.kind == 'sensor'} | set(excluded)
+    added = set(change.impact()['added']) if change.baseline else set()
+    runtime = Runtime(cfg.root, previous={})
+    candidates_seen = 0
+    for owner in owners:
+        home = by_id.get(owner.target)
+        if home is None:
+            continue
+        old_owner = _owner_at_baseline(change, owner)
+        rows, kinds, reason = _classes(cfg, owner)
+        names = [p.name for p in owner.inputs]
+        candidates = [row for row in _look_alikes(functions, home, registered) if len(row['simple']) == len(names)]
+        new_owner = change.baseline and not old_owner
+        shown = [row for row in candidates if everything or new_owner or row['id'] in added
+                 or row['file'] in change.files]
+        candidates_seen += len(candidates)
+        if not shown:
+            continue
+        label = f'{owner.name}（{owner.file}:{owner.target_line}）'
+        if reason:
+            found.leads.append(f'负责人 {label} 的疑似副本 {len(shown)} 份没有比较：{reason}')
+            continue
+        fn, why = _load(cfg, owner.module, owner.qual)
+        reference, why = _replay(runtime, fn, rows, names, owner.name) if fn else (None, why)
+        if reference is None:
+            found.leads.append(f'负责人 {label} 自己运行不了，副本没有比较：{why}')
+            continue
+        groups, unclear = {}, []
+        for row in shown:
+            fn, why = _load(cfg, row['module'], row['qual'])
+            result, why = _replay(runtime, fn, rows, names, owner.name) if fn else (None, why)
+            if result is None:
+                unclear.append(f'{row["file"]}:{row["line"]}（{why}）')
+                continue
+            outcomes = result['now']
+            same = sum(_same(a, b) for a, b in zip(outcomes, reference['now']))
+            category = _category(same, len(rows), _similarity(row['shape'], home['shape']), bool(row['constants'] & home['constants']))
+            if category is None:
+                continue
+            key = (category, tuple(_show(value) for value in outcomes))
+            groups.setdefault(key, (outcomes, []))[1].append(row)
+        seconds = time.perf_counter() - started
+        total = sum(len(members) for _, members in groups.values()) + len(unclear)
+        if not total:
+            continue
+        found.leads.append(f'负责人 {label} 的疑似副本 {total} 份（候选 {len(candidates)} 个，用时 {seconds:.2f} 秒，'
+                           f'{len(rows)} 个代表值）→ 每份选一样：改成调用负责人；或在副本上方写 # flowguard: sensor {owner.name}；'
+                           f'或写 distinct("{owner.name}", "<副本的锚点名>", why="...", source="...")')
+        order = {'副本': 0, '分叉的副本': 1, '相似': 2}
+        for (category, _), (outcomes, members) in sorted(groups.items(), key=lambda item: (order[item[0][0]], item[1][1][0]['id'])):
+            places = '  '.join(f'{row["file"]}:{row["line"]}' for row in members)
+            if category == '副本':
+                text = f'{category} {len(members)} 份（在 {len(rows)} 个代表值上与负责人相同，不是证明）：{places}'
+            else:
+                text = f'{category} {len(members)} 份：{_example(rows, names, outcomes, reference["now"])}：{places}'
+            fresh = [row for row in members if row['id'] in added]
+            if fresh and old_owner and category != '相似':
+                found.red.append(f'负责人 {label} 之外新起了一份：' + '  '.join(f'{row["file"]}:{row["line"]}' for row in fresh)
+                                 + f'（{category}）→ 改成调用 {owner.qual}，或在它上方写 # flowguard: sensor {owner.name}')
+            found.leads.append(('旧账 ' if everything and not new_owner and not fresh else '') + text)
+        if unclear:
+            found.leads.append(f'看不清 {len(unclear)} 份：' + '  '.join(unclear))
+    found.stats.update(copy_candidates=candidates_seen, copy_seconds=time.perf_counter() - started)
+    return found
+
+
+def _owner_at_baseline(change, owner):
+    """Did the baseline commit already declare this owner (same name and function)?"""
+    if not change.baseline:
+        return False
+    text = change.old_text(owner.file)
+    if text is None or 'flowguard:' not in text:
+        return False
+    from .anchors import source_facts
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return False
+    rows = source_facts(tree, text, owner.module, owner.file).get('anchors', ())
+    return any(row['name'] == owner.name and row['qual'] == owner.qual and row.get('owner') for row in rows)
+
+
+# ---- one changed, its former twins not (unregistered too) ---------------------------------------------
+
+def changed_alone(cfg, graph, index, change, *, excluded=()):
+    """A changed function whose old version agreed with unchanged look-alikes on every representative
+    value, while the new one differs: those copies probably needed the same change. Owners make it red."""
+    from . import cells as C
+    from .anchors import Parameter, parameter_kind, _annotation
+    from .runtime import Runtime
+    found = Findings()
+    if not change.baseline:
+        return found
+    started = time.perf_counter()
+    impact = change.impact()
+    touched = set(impact['changed']) | set(impact['added'])
+    functions = _functions(graph, cfg)
+    by_id = {row['id']: row for row in functions}
+    runtime = Runtime(cfg.root, change.baseline)
+    anchored = {a.target: a for a in index.entries if a.kind == 'sensor'}
+    alone, examined = {}, 0
+    for ident in sorted(set(impact['changed'])):
+        row = by_id.get(ident)
+        old_text = change.old_text(row['file']) if row else None
+        if row is None or row['simple'] is None or not row['simple'] or old_text is None:
+            continue
+        from .runtime import _functions as definitions
+        try:
+            old_node = dict(definitions(ast.parse(old_text))).get(row['qual'])
+        except SyntaxError:
+            continue
+        if old_node is None or _simple_parameters(old_node) != row['simple']:
+            continue
+        from flowguard.structure.extract import own_nodes, shape, strip_doc
+        old_shape = set(shape(own_nodes(strip_doc(old_node.body))))
+        old_numbers = _numbers(old_node)
+        peers = [other for other in functions if other['id'] not in touched and other['id'] not in excluded
+                 and other['simple'] is not None and len(other['simple']) == len(row['simple'])
+                 and (_similarity(other['shape'], old_shape) >= SIMILAR_SHAPE or other['constants'] & old_numbers)]
+        peers = sorted(peers, key=lambda other: (-_similarity(other['shape'], old_shape), other['id']))[:PEERS]
+        if not peers:
+            continue
+        kinds = {}
+        for argument in (*row['node'].args.posonlyargs, *row['node'].args.args):
+            try:
+                kind = parameter_kind(Parameter(argument.arg, '', _annotation(argument.annotation), 'input', True), 0.0)
+            except ValueError:
+                kind = None
+            if kind is None:
+                break
+            kinds[argument.arg] = kind
+        if len(kinds) != len(row['simple']):
+            continue
+        literals = [n.value for tree in (old_node, row['node']) for n in ast.walk(tree) if isinstance(n, ast.Constant)]
+        axes = {name: list(dict.fromkeys([*C.points(kind, [C.coerce(v, kind) for v in literals if kind.accepts(C.coerce(v, kind))]),
+                                          *C.representatives(kind)], ))
+                for name, kind in kinds.items()}
+        base = {name: values[0] for name, values in axes.items()}
+        rows = [dict(base, **{name: value}) for name, values in axes.items() for value in values]
+        fn, why = _load(cfg, row['module'], row['qual'])
+        if fn is None:
+            continue
+        mine, why = _replay(runtime, fn, rows, row['simple'], row['qual'])
+        if mine is None or not mine['compared'] or all(_same(a, b) for a, b in zip(mine['before'], mine['now'])):
+            continue            # no comparable old version, or the edit kept every representative's result
+        examined += 1
+        twins, similar = [], []
+        for peer in peers:
+            other, why = _load(cfg, peer['module'], peer['qual'])
+            theirs, why = _replay(runtime, other, rows, row['simple'], peer['qual']) if other else (None, why)
+            if theirs is not None and all(_same(a, b) for a, b in zip(mine['before'], theirs['now'])):
+                if not all(_same(a, b) for a, b in zip(mine['now'], theirs['now'])):
+                    twins.append(peer)
+            else:
+                similar.append((peer, why if theirs is None else ''))
+        if twins or similar:
+            alone[row['id']] = (row, sorted(twins, key=lambda peer: peer['id']),
+                                sorted(similar, key=lambda item: item[0]['id']))
+    merged = {}
+    for row, twins, similar in alone.values():     # several edits that left the same copies behind: one line
+        key = (tuple(peer['id'] for peer in twins), tuple(peer['id'] for peer, _ in similar))
+        merged.setdefault(key, (twins, similar, []))[2].append(row)
+    for twins, similar, changed in merged.values():
+        row = min(changed, key=lambda item: (len(item['qual']), item['qual']))
+        anchor = next((anchored[item['id']] for item in changed if item['id'] in anchored), None)
+        name = anchor.name if anchor else row['qual'].strip('_').upper()
+        parts = []
+        if twins:
+            parts.append(f'原来和{"它们" if len(changed) > 1 else "它"}行为相同的 {len(twins)} 份没改：' + '  '.join(f'{peer["file"]}:{peer["line"]}' for peer in twins))
+        if similar:
+            parts.append(f'相似（结构相近或用同一个常量）的 {len(similar)} 份也没改：'
+                         + '  '.join(f'{peer["file"]}:{peer["line"]}' + (f'（看不清：{why}）' if why else '') for peer, why in similar))
+        text = ('、'.join(f'{item["qual"]}（{item["file"]}:{item["line"]}）' for item in changed)
+                + (f' 这 {len(changed)} 处' if len(changed) > 1 else '') + '改了行为；' + '；'.join(parts))
+        if anchor and twins:
+            found.red.append(f'{"负责人" if anchor.owner else "锚点"} {anchor.name}：' + text + f' → 一起改，或改成调用 {row["qual"]}')
+        else:
+            found.leads.append(text + f'（要一起改就一起改；要锁定：在负责人上方加 # flowguard: owner {name}，'
+                                      f'副本上方加 # flowguard: sensor {name}）')
+    found.stats.update(changed_examined=examined, changed_seconds=time.perf_counter() - started)
+    return found
+
+
+def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=()):
+    """`check`: the static findings plus copy discovery and the changed-alone comparison."""
+    change = Change(cfg, graph, baseline(cfg, base))
+    found = owner_writes(change, index, everything=everything)
+    if change.baseline:
+        found.extend(old_value_leads(change)).extend(literal_drift(change))
+    found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
+    found.extend(changed_alone(cfg, graph, index, change, excluded=excluded))
+    return found
+
+
+def show_lines(cfg, graph, index, name):
+    """`show NAME` of an owner: its writers and the writes outside them, or its unregistered look-alikes."""
+    lines = []
+    for owner in index.named(name):
+        if owner.kind == 'owner' and owner.writers:
+            rows = [row for row in graph.writes(owner.name, by_name=True)]
+            outside = [row for row in rows if not row.get('unclear') and not _allowed(row, owner.writers)]
+            lines.append(f'owner {owner.name} {owner.file}:{owner.line}; writers={",".join(owner.writers)}')
+            lines.extend('outside writers: ' + _write_text(row) for row in outside)
+            lines.extend('unclear: ' + _write_text(row) + f' {row.get("reason", "")}' for row in rows if row.get('unclear'))
+        elif owner.owner:
+            functions = _functions(graph, cfg)
+            home = next((row for row in functions if row['id'] == owner.target), None)
+            registered = {a.target for a in index.entries if a.kind == 'sensor'}
+            if home is None:
+                continue
+            similar = _look_alikes(functions, home, registered)
+            lines.append(f'owner {owner.name} {owner.file}:{owner.target_line}; {len(similar)} unregistered look-alikes '
+                         '(not run here; check --all compares them)')
+            lines.extend(f'look-alike {row["file"]}:{row["line"]} {row["qual"]}' for row in similar)
+    return lines
