@@ -1111,19 +1111,24 @@ def _packages(root):
                   if not any(part == 'node_modules' or part.startswith('.') for part in path.relative_to(root).parts[:-1]))
 
 
+# Suites that reach real databases and services: init leaves their scripts as they are.
+_OTHER_SUITES = {'integration', 'e2e', 'smoke', 'perf', 'performance', 'load', 'bench', 'benchmark'}
 # Options of vitest and jest whose value is the next word; the others are flags.
 _VALUED = {'-c', '--config', '-r', '--root', '--dir', '--project', '-t', '--testNamePattern', '--reporter', '--outputFile',
            '--environment', '--pool', '--shard', '--mode', '--exclude', '--testPathPattern', '--selectProjects', '--rootDir'}
 
 
 def _filtered_scripts(cfg, package, runner, name):
-    """Lines saying what init did to the test suite scripts (`test`, `test:unit`, ...) that run the runner on
-    named folders only (`vitest run tests/unit`): such a script skips a test at the package root, so `name`
-    is added to it. A script that runs single files is a check of its own and stays as it is. The file keeps
-    its own formatting; a script init cannot edit safely is named with the edit to make."""
+    """Lines saying what init did to a test suite script (`test:unit`, ...) that runs the runner on named
+    folders only (`vitest run tests/unit`): such a script skips a test at the package root, so `name` is
+    added to one of them, a `unit` script first. The check covers the whole repository, so one script is
+    enough: nothing is added when a script already runs `name`, and an integration, end-to-end, smoke,
+    performance or benchmark suite (real databases and services) is never the one. A script that runs
+    single files is a check of its own and stays as it is. The file keeps its own formatting; a script init
+    cannot edit safely is named with the edit to make."""
     text = package.read_text(encoding='utf-8-sig')
     scripts = json.loads(text).get('scripts') or {}
-    lines = []
+    candidates = []
     for script, command in scripts.items():
         if not isinstance(command, str) or not re.fullmatch(r'test(?:[:_-].+)?', script):
             continue
@@ -1140,22 +1145,25 @@ def _filtered_scripts(cfg, package, runner, name):
                     valued = word in _VALUED
                 else:
                     paths.append(word)
-            if not paths or name in paths or rest[:1] == ['related'] or not all((package.parent / path).is_dir() for path in paths):
+            if name in paths:
+                return []
+            if not paths or rest[:1] == ['related'] or not all((package.parent / path).is_dir() for path in paths):
                 continue
-            new = command.replace(segment, segment.rstrip() + ' ' + name + segment[len(segment.rstrip()):], 1)
-            where = f'{cfg.rel(package)} script "{script}"'
-            if any(word in ('-r', '--root', '--dir', '--rootDir') for word in rest):
-                lines.append(f'{where} names its own root or folder ({command}): add {name} to what it runs yourself')
+            if set(re.split(r'[:_-]', script.lower())) & _OTHER_SUITES:
                 continue
-            spelled = re.compile(r'(' + re.escape(json.dumps(script)) + r'\s*:\s*)' + re.escape(json.dumps(command)))
-            if len(spelled.findall(text)) != 1:
-                lines.append(f'{where} runs {runner} on named paths only: change it to {new} so it runs {name} too')
-                continue
-            text = spelled.sub(lambda match: match.group(1) + json.dumps(new), text)
-            package.write_text(text, encoding='utf-8')
-            lines.append(f'{where} runs {runner} on named paths only; init added {name}: {new}')
+            candidates.append((script, command, segment, rest))
             break
-    return lines
+    for script, command, segment, rest in sorted(candidates, key=lambda item: 'unit' not in item[0].lower()):
+        new = command.replace(segment, segment.rstrip() + ' ' + name + segment[len(segment.rstrip()):], 1)
+        where = f'{cfg.rel(package)} script "{script}"'
+        if any(word in ('-r', '--root', '--dir', '--rootDir') for word in rest):
+            return [f'{where} names its own root or folder ({command}): add {name} to what it runs yourself']
+        spelled = re.compile(r'(' + re.escape(json.dumps(script)) + r'\s*:\s*)' + re.escape(json.dumps(command)))
+        if len(spelled.findall(text)) != 1:
+            return [f'{where} runs {runner} on named paths only: change it to {new} so it runs {name} too']
+        package.write_text(spelled.sub(lambda match: match.group(1) + json.dumps(new), text), encoding='utf-8')
+        return [f'{where} runs {runner} on named paths only; init added {name}: {new}']
+    return []
 
 
 def _npm_check(cfg, package):

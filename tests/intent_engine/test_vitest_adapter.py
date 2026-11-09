@@ -319,6 +319,29 @@ def test_init_adds_its_test_to_suite_scripts_on_named_folders_and_skips_a_packag
     assert code == 0 and (tmp_path / 'api/package.json').read_text(encoding='utf-8') == after and 'init added' not in again, again
 
 
+def test_init_wires_one_unit_suite_script_and_never_an_integration_suite(tmp_path):
+    # Planning Tool 0.6.28 (round 22): test:unit already ran the static test, and init added it to
+    # test:integration too, the suite that writes real databases and no agent may run.
+    scripts = ('"test": "vitest run", "test:integration": "vitest run tests/integration", '
+               '"test:e2e": "vitest run tests/e2e", "test:api": "vitest run tests/api", "test:unit": "vitest run tests/unit"')
+    package = '{"name": "api", "scripts": {' + scripts + '}, "devDependencies": {"vitest": "4.1.11"}}\n'
+    files = {'api/package.json': package}
+    files.update({f'api/tests/{folder}/a.test.ts': "import { it } from 'vitest';\nit('a', () => {});\n"
+                  for folder in ('unit', 'integration', 'e2e', 'api')})
+    _commit(tmp_path, files)
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0 and text.count('init added') == 1, text
+    after = package.replace('"vitest run tests/unit"', '"vitest run tests/unit flowguard.static.test.mjs"')
+    assert (tmp_path / 'api/package.json').read_text(encoding='utf-8') == after, text       # the unit suite, once
+    # the static test already in one suite: init adds it nowhere else, also with only integration suites left
+    wired = package.replace('"vitest run tests/integration"', '"vitest run tests/integration flowguard.static.test.mjs"')
+    for start in (wired.replace(', "test:unit": "vitest run tests/unit"', '').replace(', "test:api": "vitest run tests/api"', ''),
+                  package.replace(', "test:unit": "vitest run tests/unit"', '').replace(', "test:api": "vitest run tests/api"', '')):
+        (tmp_path / 'api/package.json').write_text(start, encoding='utf-8')
+        code, text = _flowguard(tmp_path, 'init')
+        assert code == 0 and 'init added' not in text and (tmp_path / 'api/package.json').read_text(encoding='utf-8') == start, text
+
+
 # ---- real vitest -----------------------------------------------------------------------------------
 
 def _tool(name):
