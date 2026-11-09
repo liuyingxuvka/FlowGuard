@@ -100,17 +100,27 @@ def standing(days):
         source += '    if days <= 14:\n        return "grace"\n'
         source += ''.join(f'    later_{number} = {number}\n' for number in range(20))
         source += '    return "expired"\n'
-    source += '\ndef unrelated(amount):\n    return amount <= 15\n'
-    (tmp_path/'policy.py').write_text(source)
+    # A field named nothing like `days` is listed too: without the field-word filter `amount <= 14` is a site.
+    source += '\ndef unrelated(amount):\n    return amount <= 14\n'
+    (tmp_path/'policy.py').write_text(source, encoding='utf-8')
     change = dict(before=14, after=21, target='policy:owner', identity='policy:GRACE_DAYS')
+    lines = source.splitlines()
+    # Each site's line is the comparison that still holds the old value, inside its own function.
+    expected = {'policy:preview': 'return days <= 14', 'policy:renewal': 'return overdue_days <= 14',
+                'policy:standing': 'return days <= LIMITS[0]', 'policy:booking': 'if days <= 14:',
+                'policy:delivery': 'if days <= 14:', 'policy:unrelated': 'return amount <= 14'}
+    where = {}
+    for target, text in expected.items():
+        start = next(number for number, line in enumerate(lines) if line.startswith(f'def {target.partition(":")[2]}('))
+        where[target] = next(number for number, line in enumerate(lines) if number > start and line.strip() == text) + 1
     with closing(build(tmp_path)) as graph:
         report = signals.stale_copies(graph, [change])
-        assert report['kind'] == 'lead' and report['total'] == 5
-        assert {row['target'] for row in report['locations']} == {
-            'policy:preview', 'policy:renewal', 'policy:standing', 'policy:booking', 'policy:delivery'}
+        assert report['kind'] == 'lead' and report['total'] == 6
+        assert {row['target']: row['line'] for row in report['locations']} == where, report['locations']
+        assert all(row['file'] == 'policy.py' for row in report['locations'])
         assert {row['target'] for row in report['locations'] if row['big']} == {'policy:booking', 'policy:delivery'}
         text = signals.render(dict(items=[], leads=[report]))
-        assert '旧值 14 还出现在 5 个判断里' in text and len(text.splitlines()) == 1
+        assert '旧值 14 还出现在 6 个判断里' in text and len(text.splitlines()) == 1
         assert all(f"{row['file']}:{row['line']}" in text for row in report['locations'])
         assert '# flowguard: owner' in text and '…' not in text
 
