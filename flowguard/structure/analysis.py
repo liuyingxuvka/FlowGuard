@@ -62,9 +62,19 @@ def sql_names(text: str) -> tuple[set, set, list]:
     return reads, writes - {"col:"}, cmps
 
 
+def exit_kind(stmts: list) -> str:
+    """`raise` or `return` for the first of this branch's own statements that leaves the function, else ''."""
+    for s in stmts:
+        if isinstance(s, ast.Raise):
+            return "raise"
+        if isinstance(s, ast.Return):
+            return "return"
+    return ""
+
+
 def ends(stmts: list) -> bool:
     """Does this branch leave the function (a raise or a return among its own statements)?"""
-    return any(isinstance(s, (ast.Raise, ast.Return)) for s in stmts)
+    return bool(exit_kind(stmts))
 
 
 def analyze(nodes: list, mod_aliases: set) -> dict:

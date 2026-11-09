@@ -242,13 +242,6 @@ def owner_pairs(change, index, *, everything=False):
 
 # ---- static leads: old values, rules that still hold them, new spellings ------------------------------
 
-def _literal(node):
-    try:
-        return True, ast.literal_eval(node)
-    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-        return False, None
-
-
 def _value_kind(value):
     return 'number' if type(value) in (int, float) else 'text' if type(value) is str else None
 
@@ -264,14 +257,18 @@ def _differences(before, after):
     return []
 
 
+_UNREADABLE = object()
+
+
 def _module_literals(tree):
+    from .cache import _literal
     found = {}
     for statement in tree.body:
         targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target] \
             if isinstance(statement, ast.AnnAssign) and statement.value is not None else []
         for target in targets:
-            readable, value = _literal(statement.value)
-            if isinstance(target, ast.Name) and readable:
+            value = _literal(statement.value, _UNREADABLE)
+            if isinstance(target, ast.Name) and value is not _UNREADABLE:
                 found[target.id] = (value, statement.lineno)
     return found
 
@@ -323,10 +320,11 @@ def _foreign_constant_changes(change):
 
 
 def _literal_text(text):
-    try:
-        return True, ast.literal_eval(text)
-    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-        return False, None        # a JS/TS constant that is no literal takes no part in old-value leads
+    """(readable, value) of a constant's source text; a JS/TS constant that is no literal takes no part in
+    old-value leads."""
+    from .cache import _literal
+    value = _literal(text, _UNREADABLE)
+    return (False, None) if value is _UNREADABLE else (True, value)
 
 
 def constant_changes(change):

@@ -120,11 +120,6 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/cache.py:_literal:(ValueError, TypeError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["flowguard/intent/cache.py:scan:SyntaxError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
@@ -174,6 +169,11 @@ rule = "旧账"
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
+
+["flowguard/intent/cache.py:_literal:(ValueError, TypeError, SyntaxError, MemoryError, RecursionError)"]
+count = 1
+reason = "读不出字面值（不是字面值，或嵌套太深）时返回调用方给的默认值；调用方把它当成不是字面值，报出自己的错误或不取这个值，不会当成通过"
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/cells.py:const_value:Exception"]
 count = 1
@@ -251,11 +251,6 @@ reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；�
 rule = "旧账"
 
 ["flowguard/intent/deps.py:_file_dependencies:ValueError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/deps.py:_literal_reads.literal:(TypeError, ValueError)"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
@@ -576,16 +571,6 @@ reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；�
 rule = "旧账"
 
 ["flowguard/intent/owners.py:_functions:(SyntaxError, OSError, UnicodeError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/owners.py:_literal:(ValueError, TypeError, SyntaxError, MemoryError, RecursionError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/owners.py:_literal_text:(ValueError, TypeError, SyntaxError, MemoryError, RecursionError)"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"

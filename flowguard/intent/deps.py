@@ -255,12 +255,10 @@ def _literal_reads(tree, relative, cfg, modules):
     env = {name: values[0] if len(values) == 1 else None for name, values in assigned.items()}
     def expanded(node, seen=frozenset()):
         return expanded(env[node.id], seen | {node.id}) if isinstance(node, ast.Name) and node.id in env and node.id not in seen else node
+    from .cache import _literal
+    unreadable = object()
     def literal(node):
-        try:
-            ast.literal_eval(node)
-            return True
-        except (TypeError, ValueError):
-            return False
+        return _literal(node, unreadable) is not unreadable
     def read_open(call):
         if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Attribute) or call.func.attr != 'open':
             return None

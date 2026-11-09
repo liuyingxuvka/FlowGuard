@@ -54,9 +54,12 @@ _TEMPLATES = {'precedes': ('first', 'then'), 'guarded_by': ('guard', 'action'), 
 
 
 def _literal(node, default=None):
+    """The literal value of a syntax node, or `default` when it is none: the one literal reader of the
+    intent tools (the cache screen, the owners' constants, the dependency closure). A node too deep to read
+    is not a literal either."""
     try:
         return ast.literal_eval(node)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
         return default
 
 
