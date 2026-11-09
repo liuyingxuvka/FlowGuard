@@ -523,11 +523,68 @@ def test_a_new_hard_delete_names_the_children_it_leaves_once_per_function_and_pa
     assert leads[0].startswith('线索：删除没处理子表：backend/src/services/hard-delete.service.ts:9  '
                                'backend/src/services/hard-delete.service.ts:10 removeEmployeeRow 删 Employee，NoAction 子表 '), leads
     listed = leads[0].partition('NoAction 子表 ')[2].partition(' 在同一操作里')[0]
-    # deleted (UserRole), counted inside OR (AuthorityAssignment), nulled (AuditEvent), Cascade (EmployeeLog), a
-    # table no code creates or updates rows in (EmployeeBadge) and an optional self relation (Employee.supervisor)
-    # are not listed.
-    assert listed == 'EmployeeNote、EmployeeTransfer（3 个外键：decidedById、employeeId、requestedById）、Notification', listed
+    # deleted (UserRole), counted inside OR (AuthorityAssignment), nulled (AuditEvent), Cascade (EmployeeLog) and a
+    # table no code creates or updates rows in (EmployeeBadge) are not listed; the optional self relation
+    # Employee.supervisor is (round 21, P12): one employee row is deleted and the copied create writes supervisorId.
+    assert listed == 'Employee、EmployeeNote、EmployeeTransfer（3 个外键：decidedById、employeeId、requestedById）、Notification', listed
     assert '[structure."delete:backend/src/services/hard-delete.service.ts:removeEmployeeRow:Employee"]' in text, text
+
+
+def test_a_one_row_delete_of_a_tree_the_code_builds_names_its_children(tmp_path):
+    # Planning Tool 0.6.28 `demand.service.ts remove` (round 21, P12): a demand with forwarded child demands
+    # (`parentDemandId`, NoAction) was deleted by id; optional self relations were skipped wholesale.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Demand {
+              id       String   @id
+              parentId String?
+              parent   Demand?  @relation("DemandTree", fields: [parentId], references: [id], onDelete: NoAction)
+              children Demand[] @relation("DemandTree")
+            }
+
+            model Folder {
+              id       String   @id
+              parentId String?
+              parent   Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: NoAction)
+              children Folder[] @relation("FolderTree")
+            }
+
+            model Tag {
+              id       String  @id
+              parentId String?
+              parent   Tag?    @relation("TagTree", fields: [parentId], references: [id], onDelete: NoAction)
+              children Tag[]   @relation("TagTree")
+            }
+        ''',
+        'src/build.ts': '''
+            export async function forward(prisma: any, id: string) {
+              await prisma.demand.create({ data: { id: id + '-f', parentId: id } });
+              await prisma.folder.create({ data: { id: id + '-f', parentId: id } });
+              await prisma.tag.create({ data: { id: id + '-t', parentId: null } });
+            }
+        ''',
+    })
+    _write(tmp_path, {'src/remove.ts': '''
+        export async function removeDemand(prisma: any, id: string) {
+          await prisma.demand.delete({ where: { id } });
+        }
+        export async function removeFolders(prisma: any, ids: string[]) {
+          for (const id of ids) {
+            await prisma.folder.delete({ where: { id } });
+          }
+          await prisma.folder.deleteMany({ where: { id: { in: ids } } });
+        }
+        export async function removeTag(prisma: any, id: string) {
+          await prisma.tag.delete({ where: { id } });
+        }
+    '''})
+    code, text = _static(tmp_path)
+    assert code == 0, text
+    # Folder rows go in a loop (hierarchy order) or all at once; no code links Tag rows into a tree.
+    assert _lines(text, '线索：删除没处理子表') == [
+        '线索：删除没处理子表：src/remove.ts:2 removeDemand 删 Demand，NoAction 子表 Demand 在同一操作里没删、没置空、没计数'
+        '（调用按名字解析） → 删除前先删或置空这些子表的行，或先计数并拒绝删除；有意交给数据库拒绝，就把决定记进 '
+        '.flowguard/ledger.toml：'], text
 
 
 # ---- fixed example 17: columns one description lacks -------------------------------------------------

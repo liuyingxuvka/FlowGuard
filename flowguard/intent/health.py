@@ -142,7 +142,8 @@ def _handled(child, parent, rows, queries, back):
 def deletes(change, *, everything=False):
     """A Prisma delete of a parent whose restricting children (NoAction/Restrict) are not deleted, nulled
     or counted anywhere in the same operation: the function's callers three levels up and what they call
-    three levels down (JS/TS calls resolved by name). Tables the code never creates rows in are left out.
+    three levels down (JS/TS calls resolved by name). Tables the code never creates rows in are left out, and
+    an optional self relation unless one row is deleted and code creates rows with that self reference.
     One lead per (function, parent); a lead only when this change adds it."""
     from .owners import named, operation, row_function
     found = _findings()
@@ -166,11 +167,19 @@ def deletes(change, *, everything=False):
         if row['kind'] not in DELETING[:4] or row.get('how') != 'prisma' or row['file'] in tests:
             continue
         groups.setdefault((row['file'], row['function'], row['model'], row_function(row)), []).append(row)
+    # Rows production code creates or keeps with a self reference set (`parentDemandId: id`): a tree of that table.
+    trees = {(row['model'], row['field']) for row in rows if row['file'] not in tests and not is_test_file(row['file'])
+             and (row['kind'] in CREATING or row['kind'] == 'connect' or row['kind'].startswith(('nested:create', 'nested:upsert',
+                                                                                                  'nested:connect')))
+             and not (row.get('values') and all(value is None for value in row['values']))}
     for (file, function, parent, ident), calls in sorted(groups.items()):
-        # An optional self relation (a tree's parent) is left out: deletes of a tree remove children with or before
-        # their parents in ways this reading does not follow (loops in hierarchy order, one deleteMany).
+        # An optional self relation (a tree's parent) is read only for a delete of one row, outside a loop, of a
+        # table whose rows code links into a tree: a deleteMany or a loop in hierarchy order removes children
+        # with their parents in ways this reading does not follow.
+        one_row = any(row['kind'] in ('delete', 'nested:delete') and not row.get('loop') for row in calls)
         children = [child for child in graph.children(parent) if _restricts(child) and child['child'] in created
-                    and not (child['child'] == parent and not child['required'])]
+                    and not (child['child'] == parent and not child['required']
+                             and not (one_row and any((parent, key) in trees for key in child['keys'])))]
         if not children:
             continue
         tree = operation(graph, ident)

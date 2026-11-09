@@ -78,7 +78,8 @@ This is finite source coverage, not full type or execution proof.
   `where`, `select`, `include`, `orderBy` never contribute. A local `const x = {...}` (block
   scoped, with later `x.f = ...`), `cond && {...}`, `cond ? {...} : {...}` and `rows.map(r => ({...}))`
   are followed; other spreads and values are `leaf='spread'|'opaque'` with a reason.
-  `$executeRaw`/`$executeRawUnsafe` SQL text is read by `readers/sql.py:statements`.
+  `$executeRaw`/`$executeRawUnsafe` SQL text is read by `readers/sql.py:statements`. A `delete`/`deleteMany`
+  inside a loop of its function (a for/while/do body, a `.forEach`/`.map` callback) carries `loop: true`.
 - `assignments[].form`: `member` (`obj.f = ...`), `pair`, `declarator`, `class-field` or `identifier`.
 
 ## Schema files

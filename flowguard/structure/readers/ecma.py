@@ -384,6 +384,21 @@ def extract(root, rel, data, module, is_test):
     def add_write(rows, base, path, leaf, at, reason='', written=None):
         rows.append(dict(base, path=path, leaf=leaf, reason=reason, **(written or {}), **position(at, source)))
 
+    def in_loop(node):
+        """Is a call inside a loop of its function: a for/while/do body, or a callback of `.forEach`/`.map`?"""
+        child, parent = node, node.parent
+        while parent is not None:
+            if parent.type in ('for_statement', 'for_in_statement', 'while_statement', 'do_statement') \
+                    and child == field(parent, 'body'):
+                return True
+            if child.type in FUNCTIONS:
+                call = parent.parent if parent.type == 'arguments' else None
+                callee = field(call, 'function') if call is not None and call.type == 'call_expression' else None
+                prop = field(callee, 'property') if callee is not None and callee.type == 'member_expression' else None
+                return prop is not None and text(prop, source) in ('forEach', 'map', 'flatMap')
+            child, parent = parent, parent.parent
+        return False
+
     def value_parts(node):
         """[('value', v) | ('ref', 'Name.KEY')] an expression can take: a literal, a member of a named
         object (`Status.ACTIVE`), or each branch of `c ? a : b`; None when any part is not spelled."""
@@ -588,7 +603,7 @@ def extract(root, rel, data, module, is_test):
         if arg.type == 'identifier':
             add_write(rows, base, [], 'opaque', arg, 'Prisma argument is not an object literal')
         elif method in ('delete', 'deleteMany'):
-            add_write(rows, base, [], 'delete', node)
+            add_write(rows, dict(base, loop=True) if in_loop(node) else base, [], 'delete', node)
         elif method == 'upsert':
             for branch in ('create', 'update'):
                 if branch in keys:

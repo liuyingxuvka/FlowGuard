@@ -211,7 +211,7 @@ def bind(rows, models: Models):
     field per call: the first path that reaches it keeps its position)."""
     out, seen = [], set()
     for row in rows:
-        base = {key: row[key] for key in ('node', 'function', 'file', 'line', 'column', 'call_line') if key in row}
+        base = {key: row[key] for key in ('node', 'function', 'file', 'line', 'column', 'call_line', 'loop') if key in row}
         base.update(how='prisma', method=row['method'], receiver=row.get('receiver', ''), accessor=row['accessor'])
         model = models.by_accessor.get(row['accessor'])
         kind = row['method'] + (':' + row['branch'] if row.get('branch') else '')
