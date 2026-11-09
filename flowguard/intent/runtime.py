@@ -1354,6 +1354,7 @@ class Runtime:
         self.patches, self.constants, self.unavailable = {}, {}, {}
         self.current_constants = {}
         self._sources, self._registered = {}, set()
+        self._trees, self._imported, self._projects = {}, {}, {}   # parsed sources, imported constants, boundary
         self._reads = {}     # (function, historical) → the module state its static check found it reads
         self.test = ''
 
@@ -1400,7 +1401,7 @@ class Runtime:
                 elif file and self._project_file(file):
                     relative = Path(file).resolve().relative_to(self.root).as_posix()
                     source = self._source(relative) if historical else (self.root / relative).read_text(encoding='utf-8-sig')
-                    previous = self._constants(ast.parse(source), name, seen, historical=historical) if source is not None else {}
+                    previous = self._imported_constants(source, name, seen, historical) if source is not None else {}
                 else:
                     previous = {}
                 for alias in statement.names:
@@ -1413,6 +1414,32 @@ class Runtime:
                     if isinstance(part, ast.Name) and isinstance(part.ctx, (ast.Store, ast.Del)):
                         constants.pop(part.id, None)  # conditional/dynamic binding is unknown
         return constants
+
+    def _parsed(self, source, filename='<unknown>'):
+        """ast.parse(source, filename), once per runtime: callers only read the tree."""
+        key = source, filename
+        if key not in self._trees:
+            self._trees[key] = ast.parse(source, filename)
+        return self._trees[key]
+
+    def _imported_constants(self, source, module, seen, historical):
+        """_constants of an imported module's source. The same source, module, import path and the same
+        loaded modules behind its `from` imports give the same constants, so each is read once per runtime
+        (registering every function of a module read all its imports' sources again). A copy is returned:
+        the values become old constants that a replay puts back into module namespaces."""
+        tree = self._parsed(source)
+        package_owner = sys.modules.get(module)
+        package = vars(package_owner).get('__package__', '') if type(package_owner) is types.ModuleType else ''
+        loaded = []
+        for statement in tree.body:
+            if isinstance(statement, ast.ImportFrom):
+                name = importlib.util.resolve_name('.' * statement.level + (statement.module or ''), package)
+                imported = sys.modules.get(name)
+                loaded.append((name, vars(imported).get('__file__') if type(imported) is types.ModuleType else None))
+        key = source, module, frozenset(seen), historical, package, tuple(loaded)
+        if key not in self._imported:
+            self._imported[key] = self._constants(tree, module, seen, historical=historical)
+        return copy.deepcopy(self._imported[key])
 
     def _remember_constant(self, namespace, name, old_value, current, tree):
         if name not in current and ({name, '*', '__getattr__'} & _binding_facts(tree).keys()):
@@ -1439,13 +1466,13 @@ class Runtime:
             source = self._source(file)
             if source is None:
                 raise ValueError('function has no source in the baseline')
-            tree = ast.parse(source, str(self.root / file))
+            tree = self._parsed(source, str(self.root / file))
             node = dict(_functions(tree)).get(fn.__qualname__)
             if node is None:
                 raise ValueError('function is absent or structurally different in the baseline')
             current = _definition(fn)
             constants = self._constants(tree, fn.__module__)
-            current_tree = ast.parse((self.root / file).read_text(encoding='utf-8-sig'))
+            current_tree = self._parsed((self.root / file).read_text(encoding='utf-8-sig'))
             current_constants = self._constants(current_tree, fn.__module__, historical=False)
             # All old constants in this module are swapped together: helpers use
             # their own real globals, including imported aliases to functions.
@@ -1526,8 +1553,11 @@ class Runtime:
         return bool(file and self._project_file(file))
 
     def _project_file(self, file):
-        from flowguard.structure.paths import project_code
-        return project_code(file, self.root)
+        """project_code, once per file for this runtime (its callers ask for every name a function reads)."""
+        if file not in self._projects:
+            from flowguard.structure.paths import project_code
+            self._projects[file] = project_code(file, self.root)
+        return self._projects[file]
 
     @contextmanager
     def old_code(self):
