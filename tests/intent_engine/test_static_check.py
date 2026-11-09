@@ -587,6 +587,71 @@ def test_a_one_row_delete_of_a_tree_the_code_builds_names_its_children(tmp_path)
         '.flowguard/ledger.toml：'], text
 
 
+def test_a_table_the_code_reads_or_deletes_but_never_fills_is_a_structure_problem(tmp_path):
+    # Planning Tool 0.6.28 (round 21, P18): local DeputyAssignment is read and deleted, no code makes its rows.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Deputy {
+              id String @id
+              @@map("deputies")
+            }
+
+            model Request {
+              id     String @id
+              status String
+            }
+
+            model Level {
+              id   String @id
+              name String
+              @@map("levels")
+            }
+
+            model Note {
+              id String @id
+            }
+        ''',
+        'prisma/migrations/001/migration.sql': '''
+            CREATE TABLE levels (id TEXT, name TEXT);
+            INSERT INTO levels (id, name) VALUES ('1', 'low');
+        ''',
+        'docs/history/old.sql': "INSERT INTO deputies (id) VALUES ('d1');\n",
+        'src/deputies.ts': '''
+            export async function deputiesOf(prisma: any, id: string) {
+              return prisma.deputy.findMany({ where: { id } });
+            }
+            export async function purge(prisma: any) {
+              await prisma.deputy.deleteMany({ where: { id: 'old' } });
+              await prisma.request.updateMany({ data: { status: 'CLOSED' } });
+              return prisma.request.count({ where: { status: 'OPEN' } });
+            }
+            export async function notes(prisma: any) {
+              await prisma.note.create({ data: { id: 'n' } });
+              await prisma.level.findMany({ where: { name: 'low' } });
+              return prisma.note.findMany({ where: { id: 'n' } });
+            }
+        ''',
+        'tests/deputies.test.ts': '''
+            await prisma.deputy.create({ data: { id: 'd1' } });
+            await prisma.request.create({ data: { id: 'r1', status: 'OPEN' } });
+        ''',
+    })
+    code, text = _static(tmp_path, '--all')
+    found = [line for line in text.splitlines() if '建行：' in line]
+    # Level rows come from a migration's INSERT, Note rows from code; a test fixture and an archived SQL file
+    # under docs/ make no rows the application has.
+    assert found == [
+        '1. 建行：代码从不建行的表：Deputy 读 src/deputies.ts:2，删 src/deputies.ts:5，没有一处 create/upsert/INSERT',
+        '2. 建行：代码从不建行的表：Request 读 src/deputies.ts:7，改 src/deputies.ts:6，没有一处 create/upsert/INSERT'], text
+    assert '       [structure."uncreated:Deputy"]' in text, text
+    source = tmp_path / 'src/deputies.ts'
+    source.write_text(source.read_text().replace('where: { id } }', 'where: { id }, take: 5 }'))
+    code, text = _static(tmp_path)
+    assert _lines(text, '线索：未决结构问题：代码从不建行的表') == [
+        '线索：未决结构问题：代码从不建行的表：Deputy 读 src/deputies.ts:2，删 src/deputies.ts:5，没有一处 create/upsert/INSERT'
+        ' → 先告诉主人：这些行从哪里来（种子、迁移、外部系统）；没有来源就删掉这些读和删，有意如此就把决定记进 .flowguard/ledger.toml：'], text
+
+
 # ---- fixed example 17: columns one description lacks -------------------------------------------------
 
 def test_fixed_17_missing_columns_between_prisma_and_init_sql_are_listed_one_by_one(tmp_path):

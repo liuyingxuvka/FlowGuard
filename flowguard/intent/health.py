@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from flowguard.map.common import is_test_file
 
-RANKS = {1: '取值', 2: '配对', 3: '缺列', 4: '删除', 5: '副本', 6: '写入'}
+RANKS = {1: '取值', 2: '配对', 3: '缺列', 4: '删除', 5: '副本', 6: '写入', 7: '建行'}
 BOOKKEEPING = {'id', 'createdat', 'updatedat', 'created_at', 'updated_at', 'createdbyid', 'updatedbyid',
                'created_by', 'updated_by', 'revision', 'version'}     # written by every writer on purpose
 WRITER_FILES = 3             # files writing one field without an owner before it is an issue
@@ -26,6 +26,7 @@ CREATING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'ups
             'updateManyAndReturn', 'sql:insert', 'sql:update')   # code that makes or keeps rows of a table
 SHOWN_GROUPS = 3             # copies or unowned fields the --all listing shows one by one; more become one line
 DELETING = ('delete', 'deleteMany', 'nested:delete', 'nested:deleteMany', 'sql:delete')
+INSERTING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'sql:insert')      # code that makes rows
 RESTRICTING = ('NoAction', 'Restrict')
 
 
@@ -350,6 +351,43 @@ def writers(change, index, rows=None):
         found.issues.append(Issue(f'writers:{name}', 6, f'写入 {name}', text, step,
                                   frozenset(row_function(row) for row in rows), frozenset(files),
                                   entry=tuple(_structure_lines(f'writers:{name}'))))
+    return found
+
+
+# ---- tables code reads or deletes but never makes rows in -----------------------------------------
+
+def uncreated(change):
+    """A Prisma model production code reads or deletes (also updates) while no production code or live SQL
+    makes its rows (create, createMany, upsert, a nested create, INSERT): the rows come from elsewhere or the
+    reads are dead. One issue per model (`check --all`, `show`); a change that edits one of its readers
+    gets the touched lead."""
+    from .owners import row_function
+    found = _findings()
+    graph = change.graph
+    if not graph._models().by_name:
+        return found
+    tests = {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
+    def live(row):
+        return row['file'] not in tests and not is_test_file(row['file']) and not graph.archived(row['file'])
+    rows = [row for row in change.writes() if row.get('how') in ('prisma', 'sql') and row.get('model') and live(row)]
+    made = {row['model'] for row in rows if row['kind'] in INSERTING
+            or row['kind'].startswith(('nested:create', 'nested:upsert', 'nested:connectOrCreate'))}
+    uses = {}
+    for row in [*rows, *(row for row in graph.queries() if row.get('model') and live(row))]:
+        if row['model'] in made:
+            continue
+        verb = '删' if 'kind' in row and row['kind'] in DELETING else '改' if 'kind' in row else '读'
+        uses.setdefault(row['model'], {}).setdefault(verb, []).append(row)
+    for model, verbs in sorted(uses.items()):
+        if set(verbs) == {'改'}:
+            continue                # only updated: the writers check lists who writes it
+        text = (f'代码从不建行的表：{model} ' + '，'.join(f'{verb} {_places(verbs[verb])}' for verb in ('读', '删', '改') if verb in verbs)
+                + '，没有一处 create/upsert/INSERT')
+        step = '先告诉主人：这些行从哪里来（种子、迁移、外部系统）；没有来源就删掉这些读和删，有意如此就把决定记进 .flowguard/ledger.toml：'
+        found.issues.append(Issue(f'uncreated:{model}', 7, f'建行 {model}', text, step,
+                                  frozenset(row_function(row) for items in verbs.values() for row in items),
+                                  frozenset(row['file'] for items in verbs.values() for row in items),
+                                  entry=tuple(_structure_lines(f'uncreated:{model}'))))
     return found
 
 
