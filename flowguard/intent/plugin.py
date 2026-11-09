@@ -104,6 +104,7 @@ class Session:
         self.complete_collection = None
         self.ledger_result = None
         self.sentinel_ledger = False
+        self.session_red = []            # reds only the session decides: a failed JUnit testcase
 
     @contextmanager
     def verification(self):
@@ -313,6 +314,7 @@ class Observations:
         self.structure = None
         self.event_record = self.capture = None
         self.request, self.text = _TRY.get(), ''
+        self.session_red = []       # set by report(): the reds no failed test carries
         self.rules = {}
         for rule in state.model.rules.values():
             for home in rule.homes:
@@ -892,7 +894,7 @@ class Observations:
                                         + f' -> 让 {point["qual"]} 和{"负责人" if owner else "同名副本"}一致，或改用不同的锚点名并写 distinct')
                         break
                         break
-        unverified = []
+        unverified, failed_items = [], set()      # an intent item's red is already a failed test
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':
                 unverified.extend(item.partition('::')[2] + '：' + str(reason) for reason in result.get('grey', ()) or ['未验证'])
@@ -903,9 +905,11 @@ class Observations:
                     from .sources import parse
                     source = parse(rule.source)
                     quote = source.quote or source.text
-                self.red.extend(signals.constraint(message, result.get('rule') or '规矩') for message in result['red'])
+                lines = [signals.constraint(message, result.get('rule') or '规矩') for message in result['red']]
                 if quote:
-                    self.red.append(str(result.get('rule') or '规矩') + ' 出处：' + quote)
+                    lines.append(str(result.get('rule') or '规矩') + ' 出处：' + quote)
+                self.red.extend(lines)
+                failed_items.update(lines)
         unverified.extend(self._lost())
         # Each violated rule names the next step: correct the code, or the rule first when the need changed.
         for rule in self.state.model.rules.values():
@@ -945,6 +949,9 @@ class Observations:
             collector.append(report)
         else:
             self.text = signals.render(report)
+        # The reds no failed test carries: a lost observation, a copy, a static finding, the ledger.
+        self.session_red = [*(line for line in report['red'] if line not in failed_items),
+                            *(finding['text'] for finding in report['ledger_red'])]
         return bool(self.red or fallbacks.red)
 
     def _red(self, subject, *texts, next=()):
@@ -1282,8 +1289,12 @@ class IntentItem(pytest.Item):
         if self.kind == 'load':
             red = [f"{e['file']}:{e['line']}: {e['msg']}" for e in model.errors if e['file'] == model.cfg.rel(self.path)]
             result = dict(kind='load', verdict='red', red=red, grey=[], info=[])
-        elif self.kind in ('states', 'structure', 'flow', 'anchor_distinct'):
-            declaration = (model.states if self.kind == 'states' else model.flows if self.kind == 'flow'
+        elif self.kind == 'flow':
+            # Intent items run after every ordinary test, so the session's anchor events are complete here:
+            # the item itself is red, grey or green, never a stand-in decided before the events were read.
+            result = engine.run_flow(model.flows[self.rule_id], state.events, state.anchor_issues)
+        elif self.kind in ('states', 'structure', 'anchor_distinct'):
+            declaration = (model.states if self.kind == 'states'
                            else model.anchor_distincts if self.kind == 'anchor_distinct' else model.structures)[self.rule_id]
             result = getattr(engine, 'run_' + self.kind)(declaration)
         else:
@@ -1515,6 +1526,9 @@ def pytest_runtest_makereport(item, call):
     state = item.config._flowguard_intent
     if isinstance(item, IntentItem) and report.when == 'call' and report.passed:
         report.flowguard_unverified = state.results.get(item.nodeid, {}).get('verdict') == 'grey'
+        if report.flowguard_unverified:
+            # JUnit XML reads the item's properties at teardown: a grey item is not written as a plain pass.
+            item.user_properties.append(('flowguard_outcome', 'unverified'))
     if state.complete_collection is not None and report.when == 'teardown':
         state.completed.add(item.nodeid)
     _skip_violation(item, call, report)
@@ -1634,10 +1648,12 @@ def _completion_policy(session, state, declared):
             state.readings[test] = dict(outcome='failed', kind='code', reason=reason, phase='run', seconds=state.durations.get(test, 0.0))
 
 
+@pytest.hookimpl(tryfirst=True)     # the session verdict exists before junitxml writes its file
 def pytest_sessionfinish(session, exitstatus):
     state = session.config._flowguard_intent
     with state.verification():
         result = finish_verified(session, exitstatus)
+    _junit_session(session, state)
     # Verification and transaction completion precede optional terminal output.
     if state.observations is not None and state.observations.text:
         from .differences import display
@@ -1656,6 +1672,22 @@ def pytest_sessionfinish(session, exitstatus):
                 except sqlite3.Error:
                     pass  # The earlier committed verdict remains authoritative.
     return result
+
+
+def _junit_session(session, state):
+    """A red that only the session decides is a failed `flowguard::session` testcase in JUnit XML.
+
+    The XML otherwise counts the ordinary tests alone, so a lost observation or a ledger red that exits
+    1 would read `failures="0"`. Only the junitxml plugin receives these reports, the same way it
+    receives every test's; the terminal counts and the cache do not change."""
+    from _pytest.junitxml import xml_key
+    xml = session.config.stash.get(xml_key, None)
+    if xml is None or not state.session_red:
+        return
+    text = '\n'.join(dict.fromkeys(state.session_red))
+    for when, outcome, longrepr in (('call', 'failed', text), ('teardown', 'passed', None)):
+        xml.pytest_runtest_logreport(pytest.TestReport('flowguard::session', ('flowguard', None, 'session'),
+                                                       {}, outcome, longrepr, when))
 
 
 def finish_verified(session, exitstatus):
@@ -1679,16 +1711,11 @@ def finish_verified(session, exitstatus):
             parts = [state.results[item] for item in required]
             owner = model.file_of[identifier] + '::' + identifier + '[rules]'
             state.results[owner]['own_contract'] = state.engine.contract_summary(rule, parts=parts)
-    for identifier, flow in model.flows.items():
-        item = f'{model.file_of[identifier]}::{identifier}[flow]'
-        if item not in state.results:
-            continue
-        result = state.engine.run_flow(flow, state.events, state.anchor_issues)
-        state.results[item] = dict(result, rule=identifier, target=None)
-        if result['verdict'] == 'red':
-            session.exitstatus = pytest.ExitCode.TESTS_FAILED
     if state.observations is not None and state.observations.report():
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
+        if state.observations.session_red:
+            state.session_red.extend(state.observations.text.splitlines() or state.observations.session_red)
+    state.session_red[:0] = state.session_errors
     exitstatus = session.exitstatus
     missing = _missing(state, declared)
     attempt = dict(declared=len(declared), collected=len(state.collected), selected=len(state.selected),

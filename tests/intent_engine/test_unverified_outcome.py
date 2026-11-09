@@ -267,3 +267,81 @@ def test_dash_n_two_never_ends_as_a_passed_run_with_or_without_xdist(tmp_path):
         assert REFUSED in text, text
     else:
         assert 'unrecognized arguments: -n' in text, text
+
+
+def _junit(path):
+    import xml.etree.ElementTree as ET
+    suite = ET.parse(path).getroot().find('testsuite')
+    cases = {case.get('classname') + '::' + case.get('name'): case for case in suite.iter('testcase')}
+    properties = {name: {(item.get('name'), item.get('value')) for item in case.iter('property')} for name, case in cases.items()}
+    return suite, cases, properties
+
+
+def test_junit_xml_marks_a_grey_item_and_writes_a_session_red_as_a_failed_testcase(tmp_path):
+    root = _project(tmp_path / 'grey', ASSUMED)
+    result, text = _pytest(root, '-q', f'--junitxml={tmp_path / "grey.xml"}')
+    assert result.returncode == 0 and '1 unverified' in text, text
+    suite, cases, properties = _junit(tmp_path / 'grey.xml')
+    assert suite.get('failures') == '0' and 'flowguard::session' not in cases, cases
+    assert properties['tests.intent.limit::LIMIT_RULE[rules]'] == {('flowguard_outcome', 'unverified')}, properties
+    assert all(not found for name, found in properties.items() if name != 'tests.intent.limit::LIMIT_RULE[rules]'), properties
+    # A lost observation exits 1 although every test passed: the XML has the same failed verdict.
+    root = _lost_project(tmp_path / 'lost')
+    result, text = _pytest(root, '-q', f'--junitxml={tmp_path / "lost.xml"}')
+    assert result.returncode == 1 and '2 passed' in text and '红：观察丢失 STANDING' in text, text
+    suite, cases, properties = _junit(tmp_path / 'lost.xml')
+    assert suite.get('failures') == '1', cases
+    failure = cases['flowguard::session'].find('failure')
+    assert failure is not None and '红：观察丢失 STANDING' in failure.get('message'), failure
+    assert '[unverified]' in failure.text and 'STANDING = ' in failure.text, failure.text
+    assert all(case.find('failure') is None for name, case in cases.items() if name != 'flowguard::session'), cases
+
+
+FLOW_DOCS = '''
+    class Doc:
+        def __init__(self):
+            self.state = 'draft'
+
+    # flowguard: event STORED
+    def store(doc: Doc):
+        doc.state = 'stored'
+
+    # flowguard: event SHIPPED
+    def ship(doc: Doc):
+        doc.state = 'shipped'
+'''
+
+
+def _owner_flow(root, tmp_path, calls):
+    files = {'docs_mod.py': FLOW_DOCS,
+             'tests/test_docs.py': 'from docs_mod import Doc, store, ship\n\ndef test_cycle():\n    doc = Doc()\n'
+                                   + ''.join(f'    {call}(doc)\n' for call in calls) + '    assert doc.state\n',
+             'tests/intent/flows.py': '''
+                 from flowguard.intent import precedes
+                 ORDER = precedes("STORED", "SHIPPED", source="owner R1: 先存好再发出去")
+             '''}
+    root = _project(root, files)
+    (tmp_path / 'owner.txt').write_text('先存好再发出去，不能跳过存。\n', encoding='utf-8')
+    stored, text = _cli(root, 'req', 'add', str(tmp_path / 'owner.txt'), '--id', 'R1')
+    assert stored.returncode == 0, text
+    _git(root, 'add', '.')
+    _git(root, 'commit', '-qm', 'owner words')
+    return root
+
+
+def test_a_flow_item_shows_the_verdict_of_the_events_it_was_judged_on(tmp_path):
+    green = _owner_flow(tmp_path / 'green', tmp_path, ['store', 'ship'])
+    result, text = _pytest(green, '-v', f'--junitxml={tmp_path / "green.xml"}')
+    line = next(line for line in text.splitlines() if 'PRECEDES_STORED_SHIPPED[flow]' in line)
+    assert result.returncode == 0 and 'PASSED' in line and 'UNVERIFIED' not in line, text
+    assert 'unverified' not in text.splitlines()[-1], text
+    assert not any(_junit(tmp_path / 'green.xml')[2].values())
+    red = _owner_flow(tmp_path / 'red', tmp_path, ['ship', 'store'])
+    result, text = _pytest(red, '-v', f'--junitxml={tmp_path / "red.xml"}')
+    line = next(line for line in text.splitlines() if 'PRECEDES_STORED_SHIPPED[flow]' in line)
+    assert result.returncode == 1 and 'FAILED' in line and 'UNVERIFIED' not in line, text
+    assert '1 failed, 2 passed' in text.splitlines()[-1], text
+    suite, cases, properties = _junit(tmp_path / 'red.xml')
+    # The red is the Flow test's own failure; the session adds no second testcase for it.
+    assert suite.get('failures') == '1' and cases['tests.intent.flows::PRECEDES_STORED_SHIPPED[flow]'].find('failure') is not None, cases
+
