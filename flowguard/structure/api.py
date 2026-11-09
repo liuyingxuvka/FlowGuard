@@ -426,46 +426,61 @@ class MapHandle:
     def prisma_schemas_in_use(self):
         """The Prisma schema files the client generator reads: each file named `schema.prisma` (Prisma's
         default name, the place a project's sync script copies a provider template onto), each file or
-        folder the nearest package.json names in `"prisma": {"schema": ...}` or a script's `--schema`, and
-        the `schema:` of a `prisma.config.ts` (`.mts`, `.js`, `.mjs`, `.cjs`) beside it. Other `.prisma`
-        files (`schema.sqlite.prisma` templates, fragments) only describe. A package whose Prisma files name
-        none of these (the generated `schema.prisma` git-ignored, a schema set up in CI) uses them all:
-        `prisma_schemas_guessed` lists those files, and the value gate says so. `archived` files (a release
-        snapshot under `docs/`) are neither in use nor guessed."""
+        folder a package.json names in `"prisma": {"schema": ...}` or a script's `--schema` (each package.json
+        from a Prisma file's nearest package up to the repository root: a workspace root names a member's
+        schema), and the `schema:` of a `prisma.config.ts` (`.mts`, `.js`, `.mjs`, `.cjs`) beside one of them
+        (`_config_schemas`). Other `.prisma` files (`schema.sqlite.prisma` templates, fragments) only
+        describe. A package whose Prisma files name none of these (the generated `schema.prisma` git-ignored,
+        a schema set up in CI) uses them all: `prisma_schemas_guessed` lists those files, and the value gate
+        says so. `archived` files (a release snapshot under `docs/`) are neither in use nor guessed."""
         if 'schemas_in_use' in self._derived:
             return self._derived['schemas_in_use']
-        import re
         files = [path for path, schema in self._schema_rows() if schema.get('kind') == 'prisma' and not self.archived(path)]
-        named, guessed = set(), set()
+        named = set()
+        for package in sorted({folder for path in files for folder in self._packages_up(path)}):
+            named |= self._prisma_named(package)
+
+        def in_use(path):
+            return posixpath.basename(path) == 'schema.prisma' or path in named or any(path.startswith(folder + '/') for folder in named)
+
+        guessed = set()
         for package in sorted({self.package(path) for path in files}):
-            listed = []
-            manifest = self.root / package / 'package.json'
-            if manifest.is_file():
-                try:
-                    data = json.loads(manifest.read_text(encoding='utf-8-sig'))
-                except json.JSONDecodeError as error:
-                    raise MapError(f'{posixpath.join(package, "package.json")} is not valid JSON: {error}') from error
-                settings = data.get('prisma') if isinstance(data, dict) else None
-                listed += [settings['schema']] if isinstance(settings, dict) and isinstance(settings.get('schema'), str) else []
-                scripts = data.get('scripts') if isinstance(data, dict) else None
-                for script in (scripts or {}).values() if isinstance(scripts, dict) else ():
-                    if isinstance(script, str):
-                        listed += [found[1] for found in re.finditer(r'--schema(?:=|\s+)["\']?([^\s"\'&|;]+)', script)]
-            for suffix in ('ts', 'mts', 'js', 'mjs', 'cjs'):
-                config = self.root / package / f'prisma.config.{suffix}'
-                if config.is_file():
-                    listed += [found[1] for found in re.finditer(r'\bschema\s*:\s*["\'`]([^"\'`]+)["\'`]',
-                                                                 config.read_text(encoding='utf-8-sig'))]
-            named |= {posixpath.normpath(posixpath.join(package, item)) for item in listed}
             own = [path for path in files if self.package(path) == package]
-            if not any(posixpath.basename(path) == 'schema.prisma' or path in named
-                       or any(path.startswith(folder + '/') for folder in named) for path in own):
+            if not any(in_use(path) for path in own):
                 guessed.update(own)
-        used = {path for path in files if posixpath.basename(path) == 'schema.prisma' or path in named
-                or any(path.startswith(folder + '/') for folder in named)} | guessed
+        used = {path for path in files if in_use(path)} | guessed
         self._derived['schemas_in_use'] = used
         self._derived['schemas_guessed'] = frozenset(guessed)
         return used
+
+    def _packages_up(self, file):
+        """The folder of every package.json from a file's nearest package (`package`) up to the root ('')."""
+        folders = [self.package(file)]
+        while folders[-1]:
+            folders.append(self.package(folders[-1]))
+        return folders
+
+    def _prisma_named(self, package):
+        """The repository paths one package folder names as Prisma schemas: its package.json's
+        `"prisma": {"schema": ...}` and scripts' `--schema`, and its prisma.config.* `schema:`."""
+        listed = []
+        manifest = self.root / package / 'package.json'
+        if manifest.is_file():
+            try:
+                data = json.loads(manifest.read_text(encoding='utf-8-sig'))
+            except json.JSONDecodeError as error:
+                raise MapError(f'{posixpath.join(package, "package.json")} is not valid JSON: {error}') from error
+            settings = data.get('prisma') if isinstance(data, dict) else None
+            listed += [settings['schema']] if isinstance(settings, dict) and isinstance(settings.get('schema'), str) else []
+            scripts = data.get('scripts') if isinstance(data, dict) else None
+            for script in (scripts or {}).values() if isinstance(scripts, dict) else ():
+                if isinstance(script, str):
+                    listed += [found[1] for found in re.finditer(r'--schema(?:=|\s+)["\']?([^\s"\'&|;]+)', script)]
+        for suffix in ('ts', 'mts', 'js', 'mjs', 'cjs'):
+            config = self.root / package / f'prisma.config.{suffix}'
+            if config.is_file():
+                listed += _config_schemas(config.read_text(encoding='utf-8-sig'))
+        return {posixpath.normpath(posixpath.join(package, re.sub(r"\\+", "/", item))) for item in listed if item.strip()}
 
     def prisma_schemas_guessed(self):
         """The Prisma files `prisma_schemas_in_use` takes because their package names no schema in use."""
@@ -1456,6 +1471,29 @@ def _js_literal(text):
     # A signature that is not a literal Python can read is not folded: no value is invented.
     value = literal_value(text.replace('_', '') if text[:1].isdigit() or text[:1] in '-.' else text, _UNREADABLE)
     return value if isinstance(value, (int, float, str)) else _UNREADABLE
+
+
+_JS_STRING = r'''"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\$])*`'''
+_JS_COMMENT_OR_STRING = re.compile(r'//[^\n]*|/\*.*?\*/|' + _JS_STRING, re.S)
+# `schema: 'x'` (also a quoted key), or `path.join(...)`/`path.resolve(...)` of string literals after
+# leading names such as `__dirname` or `import.meta.dirname`
+_CONFIG_SCHEMA = re.compile(
+    r'''(?<![\w$.])(?:schema|"schema"|'schema')\s*:\s*(?:(?P<plain>%(s)s)|path\s*\.\s*(?:join|resolve)\s*\(\s*'''
+    r'''(?P<args>(?:%(n)s\s*,\s*)*(?:%(s)s)(?:\s*,\s*(?:%(s)s))*)\s*,?\s*\))'''
+    % dict(s=_JS_STRING, n=r'[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*'))
+
+
+def _config_schemas(text):
+    """The schema paths a `prisma.config.ts` names, comments left out: `schema: 'x'` (`'schema': 'x'`,
+    `"schema": "x"`) and `path.join(...)`/`path.resolve(...)` whose arguments are string literals (leading
+    names such as `__dirname` or `import.meta.dirname` stand for the config's folder). Any other value (a variable, a
+    template with `${}`) names nothing."""
+    text = _JS_COMMENT_OR_STRING.sub(lambda found: found[0] if found[0][0] in '"\'`' else ' ', text)
+    out = []
+    for found in _CONFIG_SCHEMA.finditer(text):
+        parts = [found['plain']] if found['plain'] else re.findall(_JS_STRING, found['args'])
+        out.append(posixpath.join(*(re.sub(r'\\+', '/', part[1:-1]) for part in parts)))
+    return out
 
 
 def language_of(path):

@@ -309,3 +309,46 @@ model Room {
     # Cascade; NoAction and Restrict both refuse the delete, so the sqlserver template agrees.
     assert rules == [dict(schema='prisma/schema.prisma', description='prisma/schema.sqlite.prisma',
                           relations=[('Person.unit', 'NoAction/Restrict', 'SetNull'), ('Room.unit', 'NoAction/Restrict', 'Cascade')])]
+
+
+MODEL = 'model Item {\n  id String @id\n}\n'
+
+
+def test_a_package_json_above_the_nearest_package_names_the_schema_in_use(tmp_path):
+    # 4.2 review: only the nearest package.json was read, so a schema named by the repository root or by a
+    # workspace root above the member package was never in use and the member's files were all guessed.
+    with closing(project(tmp_path, {
+        'package.json': '{"name": "root", "prisma": {"schema": "backend/prisma/main.prisma"}}\n',
+        'backend/package.json': '{"name": "backend"}\n',
+        'backend/prisma/main.prisma': MODEL,
+        'backend/prisma/sqlite.prisma': MODEL,
+        'apps/package.json': '{"name": "apps", "private": true, "scripts": {"db": "prisma generate --schema=api/db/live.prisma"}}\n',
+        'apps/api/package.json': '{"name": "api"}\n',
+        'apps/api/db/live.prisma': MODEL,
+        'apps/api/db/old.prisma': MODEL,
+    })) as graph:
+        assert graph.prisma_schemas_in_use() == {'backend/prisma/main.prisma', 'apps/api/db/live.prisma'}
+        assert graph.prisma_schemas_guessed() == set()
+
+
+def test_a_prisma_config_names_its_schema_without_its_comments(tmp_path):
+    # 4.2 review: the config's `schema:` was a regex over the raw text: a commented-out line named a schema,
+    # and a quoted key, path.join/path.resolve and a Windows path named none.
+    files = {
+        'a/prisma.config.ts': "// schema: 'prisma/old.prisma',\nexport default defineConfig({ 'schema': 'prisma/live.prisma' });\n",
+        'b/prisma.config.ts': "import path from 'node:path';\n"
+                              "export default defineConfig({ schema: path.join(__dirname, 'db', 'live.prisma') });\n",
+        'c/prisma.config.mts': 'export default { "schema": "db\\\\live.prisma" };\n',
+        'd/prisma.config.ts': "/* schema: 'db/old.prisma' */\n"
+                              "export default { schema: path.resolve(import.meta.dirname, 'db/live.prisma') };\n",
+        'e/prisma.config.ts': "const file = process.env.SCHEMA ?? 'db/live.prisma';\nexport default { schema: file };\n",
+    }
+    for package in 'abcde':
+        files[f'{package}/package.json'] = '{"name": "%s"}\n' % package
+        folder = 'prisma' if package == 'a' else 'db'
+        files.update({f'{package}/{folder}/live.prisma': MODEL, f'{package}/{folder}/old.prisma': MODEL})
+    with closing(project(tmp_path, files)) as graph:
+        # a variable names nothing: that package keeps the guess
+        assert graph.prisma_schemas_in_use() == {'a/prisma/live.prisma', 'b/db/live.prisma', 'c/db/live.prisma',
+                                                 'd/db/live.prisma', 'e/db/live.prisma', 'e/db/old.prisma'}
+        assert graph.prisma_schemas_guessed() == {'e/db/live.prisma', 'e/db/old.prisma'}
