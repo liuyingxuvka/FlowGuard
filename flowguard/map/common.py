@@ -163,6 +163,17 @@ def normalize_newlines(data: bytes) -> bytes:
 
 
 
+def literal_value(node, default=None):
+    """The literal value of a Python syntax node or source text, or `default` when it is none: the one literal
+    reader of the package (the map's JS/TS constants, the cache screen, the owners' constants, the dependency
+    closure). A value too deep to read is not a literal either."""
+    import ast
+    try:
+        return ast.literal_eval(node)
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        return default
+
+
 def content_digest(path: Path, *, data: bytes | None = None, source_only: bool = False) -> str:
     """Normalize source newlines; a checked non-source input keeps its real bytes.
 

@@ -77,13 +77,13 @@ def save_observation(cfg, events):
     from dataclasses import fields
     import json
     import time
-    from .cache import session_baseline
+    from .cache import put_meta, session_baseline
     from .plugin import observation_payload
     from ..structure.store import connect
     payload = observation_payload(dict(stamp=time.time(), baseline=session_baseline(cfg), items={}, paths=[],
         events=[{field.name: getattr(event, field.name) for field in fields(Event)} for event in events]))
     with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
-        con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', ('runtime_observations', json.dumps(payload)))
+        put_meta(con, 'runtime_observations', json.dumps(payload))
 
 
 def try_in_test(cfg, anchor, values, *, grid=False):

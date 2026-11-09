@@ -44,14 +44,10 @@ def project(tmp_path, *, skip=False, optional_edge=False):
 
 def test_default_flow_does_not_build_or_run_a_static_path_proof(tmp_path, monkeypatch):
     import flowguard.structure as structure
-    import flowguard.intent.flow_paths as paths
-    flows = importlib.import_module('flowguard.intent.flow')
     engine, flow, events = project(tmp_path)
     def forbidden(*args, **kwargs):
-        raise AssertionError('default flow must not invoke frozen static path machinery')
+        raise AssertionError('a flow verdict must not build the map for a static path proof')
     monkeypatch.setattr(structure, 'build', forbidden)
-    monkeypatch.setattr(paths, 'analyze_paths', forbidden)
-    monkeypatch.setattr(flows, 'static_check', forbidden)
     result = engine.run_flow(flow, events)
     assert result['verdict'] == 'ok' and result['runtime']['verdict'] == 'ok', result
     assert 'static' not in result

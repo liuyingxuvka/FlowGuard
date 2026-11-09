@@ -421,15 +421,20 @@ def added_entry(value: int): publish(value)
     assert any('added_entry' in r for r in result['info'])
 
 
-def test_static_new_root_route_is_checked_but_wrapping_existing_entry_is_legal(tmp_path):
-    from flowguard.intent.flow import static_check
-    from flowguard.intent.flow_paths import PathReport
-    index,_=source(tmp_path,BASIC)
-    model=Flow('PRODUCTION','assumed: owner path',('begin','save','publish'),(('begin','save'),('save','publish')))
-    bad=static_check(model,PathReport((('new_entry','publish'),),(),('app.py',)))
-    assert bad['verdict']=='red' and any('new entry new_entry' in r for r in bad['red']),bad
-    good=static_check(model,PathReport((('new_wrapper','begin','save','publish'),),(),('app.py',)))
-    assert good['verdict']=='ok' and any('new_wrapper' in r for r in good['info']),good
+def test_new_production_wrapper_of_the_declared_entry_is_legal_in_actual_runtime(tmp_path):
+    # The runtime counterpart of the retired static route check: a new entry that goes through the
+    # declared start is no bypass.
+    body=BASIC+'''# flowguard: event added_wrapper(value: int)
+def added_wrapper(value: int): begin(value); save(value); publish(value)
+'''
+    index,m=source(tmp_path,body)
+    model=Flow('PRODUCTION','assumed: publication requires saving',
+        ('begin',Node('save',phase='return'),Node('publish',phase='return')),
+        (('begin','save'),('save','publish')))
+    with Capture(tmp_path,index,'wrapper')as captured:m.added_wrapper(3)
+    result=runtime_check(model,captured.events,index)
+    assert result['verdict']=='ok' and not result['red'],result
+    assert any('added_wrapper' in r for r in result['info']),result
 
 
 def test_mutable_enum_value_and_noncontainer_empty_are_unverified(tmp_path):
@@ -509,28 +514,6 @@ def test_arbitrary_recursive_flow_cannot_borrow_a_same_named_rule_contract(tmp_p
     flow.nodes=tuple(replace(n,model=nested)if n.name=='left'else n for n in flow.nodes)
     result=check_flow(flow,index,captured.events,engine=engine)
     assert result['verdict']=='grey' and any('recursive Flow' in r for r in result['grey']),result
-
-
-@pytest.mark.parametrize('bypass',[True,False])
-def test_real_map_module_root_new_entry_respects_existing_owner(tmp_path,bypass):
-    from contextlib import closing
-    from flowguard.structure import build
-    from flowguard.intent.flow import static_check
-    from flowguard.intent.flow_paths import analyze_root_paths
-    body=BASIC+"""# flowguard: event existing_entry(value: int)
-def existing_entry(value: int): save(value); publish(value)
-# flowguard: event added_entry(value: int)
-def added_entry(value: int): """+('publish(value)'if bypass else'existing_entry(value)')+"""
-if __name__=='__main__': added_entry(3)
-"""
-    index,_=source(tmp_path,body)
-    model=Flow('PRODUCTION','assumed: all real root routes',('existing_entry','save','publish'),
-        (('existing_entry','save'),('save','publish')))
-    with closing(build(tmp_path))as graph:
-        report=analyze_root_paths(graph,index,{'existing_entry','save','publish'})
-    result=static_check(model,report)
-    assert result['verdict']==('red'if bypass else'ok'),result
-    if bypass:assert any('new entry added_entry' in r for r in result['red']),result
 
 
 def test_invariant_does_not_become_a_synthetic_decision_reading(tmp_path):

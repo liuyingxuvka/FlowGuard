@@ -79,11 +79,8 @@ def _leads(stmts: list, returned: frozenset = frozenset()) -> str:
     """`raise` or `return` when a branch leaves the function, also from a nested block; `return` when it
     sets a name whose value is returned later (`status = "blocked"`, `reasons.append(...)`)."""
     sets = ""
-    for s in stmts:
-        if isinstance(s, ast.Raise):
-            return "raise"
-        if isinstance(s, ast.Return):
-            return "return"
+    if (kind := fgs.exit_kind(stmts)):
+        return kind
     for s in stmts:
         if isinstance(s, BLOCKS):
             inner = [*getattr(s, "body", []), *getattr(s, "orelse", []), *getattr(s, "finalbody", []),

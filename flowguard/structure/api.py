@@ -1186,10 +1186,9 @@ def _js_literal(text):
         return text == 'true'
     if text == 'null':
         return None
-    try:
-        value = ast.literal_eval(text.replace('_', '') if text[:1].isdigit() or text[:1] in '-.' else text)
-    except (ValueError, SyntaxError):
-        return _UNREADABLE      # the signature is not a literal Python can read: the name is not folded, no value invented
+    from flowguard.map.common import literal_value
+    # A signature that is not a literal Python can read is not folded: no value is invented.
+    value = literal_value(text.replace('_', '') if text[:1].isdigit() or text[:1] in '-.' else text, _UNREADABLE)
     return value if isinstance(value, (int, float, str)) else _UNREADABLE
 
 
