@@ -283,6 +283,42 @@ def columns(change, *, everything=False):
     return found
 
 
+def delete_rules(change):
+    """Relations whose delete rule differs between two Prisma schemas of one database
+    (`MapHandle.schema_delete_rules()`): code tested against one deletes rows the other refuses to delete,
+    or nulls what the other keeps. One issue per pair (`check --all`); a lead when this change adds one."""
+    found = _findings()
+    rules = change.graph.schema_delete_rules()
+    if not rules:
+        return found
+    before = None
+    changed = {item for item in change.files if item.endswith('.prisma')}
+    if change.baseline and changed:
+        schemas = []
+        for row in change.graph.schemas():
+            facts = change.old_facts(row['file']) if row['file'] in changed else None
+            if facts is None:
+                schemas.append(row)
+            elif facts.get('schema'):
+                schemas.append(dict(facts['schema'], file=row['file']))
+        before = {(item['schema'], item['description'], relation) for item in change.graph.schema_delete_rules(schemas)
+                  for relation in item['relations']}
+    for item in rules:
+        schema, description = item['schema'], item['description']
+        shown = [f'{key}（{left} / {right}）' for key, left, right in item['relations']]
+        text = (f'onDelete 不同：{description} 对照 {schema}：{len(shown)} 条关系（括号里先是 {schema} 的规则，再是这份的）：'
+                + '、'.join(shown[:6]) + (f' 等 {len(shown)} 条' if len(shown) > 6 else ''))
+        name = f'ondelete:{description}~{schema}'
+        step = ('让两份 schema 的删除规则一致，或让测试用的那份也照在用的那份删；有意不同（例如 SQL Server 不允许多条级联路径），'
+                '就把决定记进 .flowguard/ledger.toml：')
+        fresh = before is not None and any((schema, description, relation) not in before for relation in item['relations'])
+        if fresh:
+            found.leads.append(text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)))
+        found.issues.append(Issue(name, 4, f'onDelete {description.rpartition("/")[2]}', text, step, frozenset(),
+                                  frozenset({schema, description}), new=fresh, entry=tuple(_structure_lines(name))))
+    return found
+
+
 # ---- same-name functions whose bodies differ ------------------------------------------------------
 
 def copies(change, index):

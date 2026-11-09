@@ -636,6 +636,7 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     if change.baseline or everything:
         found.extend(literal_drift(change, everything=everything))
     found.extend(health.deletes(change, everything=everything)).extend(health.columns(change, everything=everything))
+    found.extend(health.delete_rules(change))
     found.extend(health.copies(change, index)).extend(health.writers(change, index)).extend(health.uncreated(change))
     found.extend(health.labels(change))
     if replay:

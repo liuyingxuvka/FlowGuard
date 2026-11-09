@@ -355,42 +355,81 @@ def gaps(schemas, in_use=frozenset(), package=None) -> list[dict]:
                 out.append(dict(kind=kind + '-table', table=left[key]['name'], model=left[key].get('model'), schema=left_id,
                                 description=right_id, file=None, line=None, missing=['<table>'], extra=[]))
 
-    def near(ident, file):
-        mine, theirs = ident.rstrip('/').split('/')[:-1], file.split('/')[:-1]
-        return next((i for i, (a, b) in enumerate(zip(mine, theirs)) if a != b), min(len(mine), len(theirs)))
+    for ident, tables, partial in sql:
+        chosen = _reference(ident, tables, described, in_use)
+        if chosen:
+            compare(chosen[0], chosen[1], ident, tables, 'sql', partial)
+    for left, right in _schema_pairs(described, in_use, package):
+        compare(*left, *right, 'prisma')
+    return out
 
-    def reference(ident, tables, candidates):
-        """The schema a description is a copy of: of the schemas sharing its tables, one in use when one shares
-        at least half as many as the schema sharing the most (one table name in common is another database); then
-        the most shared tables, the most columns in them (a projection names fewer), the nearest folder and the
-        name."""
-        shared = [(file, model_tables) for file, model_tables in candidates if file != ident and set(tables) & set(model_tables)]
-        most = max((len(set(tables) & set(model_tables)) for _, model_tables in shared), default=0)
-        shared = [item for item in shared if item[0] in in_use and 2 * len(set(tables) & set(item[1])) >= most] or shared
-        def rank(item):
-            common = set(tables) & set(item[1])
-            return len(common), sum(len(item[1][key]['columns']) for key in common), near(ident, item[0])
-        return max(shared, key=rank, default=None)
+
+def _near(ident, file):
+    mine, theirs = ident.rstrip('/').split('/')[:-1], file.split('/')[:-1]
+    return next((i for i, (a, b) in enumerate(zip(mine, theirs)) if a != b), min(len(mine), len(theirs)))
+
+
+def _reference(ident, tables, candidates, in_use):
+    """The schema a description is a copy of: of the schemas sharing its tables, one in use when one shares
+    at least half as many as the schema sharing the most (one table name in common is another database); then
+    the most shared tables, the most columns in them (a projection names fewer), the nearest folder and the
+    name."""
+    shared = [(file, model_tables) for file, model_tables in candidates if file != ident and set(tables) & set(model_tables)]
+    most = max((len(set(tables) & set(model_tables)) for _, model_tables in shared), default=0)
+    shared = [item for item in shared if item[0] in in_use and 2 * len(set(tables) & set(item[1])) >= most] or shared
+    def rank(item):
+        common = set(tables) & set(item[1])
+        return len(common), sum(len(item[1][key]['columns']) for key in common), _near(ident, item[0])
+    return max(shared, key=rank, default=None)
+
+
+def _schema_pairs(described, in_use, package):
+    """[(reference, description)] of Prisma schemas `(file, prisma_tables)`: each compared once with its
+    `_reference` (a schema in use only with another in use), read against the schema in use, else the larger;
+    a projection in another package (its tables and columns all in the reference) is left out."""
+    def weight(item):
+        return item[0] in in_use, len(item[1]), sum(len(table['columns']) for table in item[1].values())
 
     def within(small, large):
         return all(key in large and set(table['columns']) <= set(large[key]['columns']) for key, table in small.items())
 
-    for ident, tables, partial in sql:
-        chosen = reference(ident, tables, described)
-        if chosen:
-            compare(chosen[0], chosen[1], ident, tables, 'sql', partial)
-    def weight(item):                            # the schema a pair is read against: in use, then the larger
-        return item[0] in in_use, len(item[1]), sum(len(table['columns']) for table in item[1].values())
-
-    pairs = {}
+    pairs, out = {}, []
     for file, tables in described:
         others = [item for item in described if item[0] in in_use] if file in in_use else described
-        chosen = reference(file, tables, others)
+        chosen = _reference(file, tables, others, in_use)
         if chosen:
             pairs.setdefault(frozenset((file, chosen[0])), sorted([chosen, (file, tables)], key=lambda item: item[0]))
     for left, right in (pairs[key] for key in sorted(pairs, key=sorted)):
         left, right = (right, left) if weight(right) > weight(left) else (left, right)
         if package(left[0]) != package(right[0]) and within(right[1], left[1]):
-            continue                            # a projection in another package
-        compare(*left, *right, 'prisma')
+            continue
+        out.append((left, right))
+    return out
+
+
+def delete_rules(schemas, in_use=frozenset(), package=None) -> list[dict]:
+    """Relations whose delete rule differs between two Prisma schemas of one database (the pairs `gaps`
+    compares): {schema, description, relations: [(Model.field, rule in schema, rule in description)]}. A
+    rule is the relation's `onDelete`, else Prisma's default (Restrict for a required relation, SetNull for
+    an optional one); NoAction and Restrict both refuse the delete and count as one."""
+    prisma = [schema for schema in schemas if schema.get('kind') == 'prisma']
+    names = {model['name'] for schema in prisma for model in schema.get('models', [])}
+    described = sorted((schema['file'], prisma_tables(schema, names)) for schema in prisma)
+    by_file = {schema['file']: schema for schema in prisma}
+
+    def rules(schema):
+        out = {}
+        for model in schema.get('models', []):
+            for field in model['fields']:
+                if field.get('relation') and field['relation'].get('fields'):
+                    rule = field.get('on_delete') or ('SetNull' if field['optional'] else 'Restrict')
+                    out[f"{model['name']}.{field['name']}"] = 'NoAction/Restrict' if rule in ('NoAction', 'Restrict') else rule
+        return out
+
+    out = []
+    for (left, _), (right, _) in _schema_pairs(described, in_use, package or (lambda file: '')):
+        a, b = rules(by_file[left]), rules(by_file[right])
+        differ = [(key, a[key], b[key]) for key in sorted(set(a) & set(b)) if a[key] != b[key]]
+        if differ:
+            out.append(dict(schema=left, description=right, relations=differ))
     return out

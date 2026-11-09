@@ -972,6 +972,41 @@ def test_a_prisma_view_the_code_reads_is_not_a_table_without_rows(tmp_path):
 
 # ---- fixed example 17: columns one description lacks -------------------------------------------------
 
+def test_delete_rules_that_differ_between_two_schemas_are_one_structure_problem_and_a_lead_when_added(tmp_path):
+    schema = """
+        datasource db {
+          provider = "%s"
+          url      = env("DATABASE_URL")
+        }
+
+        model Unit {
+          id    String @id
+          rooms Room[]
+        }
+
+        model Room {
+          id     String @id
+          unitId String
+          unit   Unit   @relation(fields: [unitId], references: [id], onDelete: %s)
+        }
+    """
+    _commit(tmp_path, {'prisma/schema.prisma': schema % ('sqlserver', 'NoAction'),
+                       'prisma/schema.sqlite.prisma': schema % ('sqlite', 'NoAction')})
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and 'onDelete 不同' not in text, text
+    _write(tmp_path, {'prisma/schema.sqlite.prisma': schema % ('sqlite', 'Cascade')})
+    code, text = _static(tmp_path)
+    leads = _lines(text, '线索：onDelete 不同')
+    assert code == 0 and leads == [
+        '线索：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：1 条关系'
+        '（括号里先是 prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / Cascade） → 让两份 schema 的删除规则一致，或让测试用的那份也照在用的那份删；'
+        '有意不同（例如 SQL Server 不允许多条级联路径），就把决定记进 .flowguard/ledger.toml： '
+        '[structure."ondelete:prisma/schema.sqlite.prisma~prisma/schema.prisma"] '
+        'decision = "换成主人的决定：谁负责、为什么这样（不少于 8 个词）" source = "R<n>"'], text
+    code, text = _static(tmp_path, '--all')
+    assert '. 删除：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma' in text, text
+
+
 def test_fixed_17_missing_columns_between_prisma_and_init_sql_are_listed_one_by_one(tmp_path):
     _planning(tmp_path)
     init = tmp_path / 'backend/prisma/central/init-azure-sql.sql'

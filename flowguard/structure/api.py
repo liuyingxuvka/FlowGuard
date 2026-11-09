@@ -935,6 +935,14 @@ class MapHandle:
         rows = self.schemas() if schemas is None else schemas
         return gaps([row for row in rows if not self.archived(row['file'])], self.prisma_schemas_in_use(), self.package)
 
+    def schema_delete_rules(self, schemas=None):
+        """Relations whose delete rule differs between two Prisma schemas of one database, the pairs
+        `schema_gaps` compares (`readers.prisma.delete_rules`): a provider template that cascades or nulls
+        where the schema in use refuses the delete. `schemas` replaces the map's descriptions."""
+        from .readers.prisma import delete_rules
+        rows = self.schemas() if schemas is None else schemas
+        return delete_rules([row for row in rows if not self.archived(row['file'])], self.prisma_schemas_in_use(), self.package)
+
     def calls(self, *, include_reads=False, language=None):
         """Syntactic calls; optionally include symbol reads, never execution evidence."""
         self._mark_query('calls',language)

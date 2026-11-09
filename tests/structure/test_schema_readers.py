@@ -270,3 +270,42 @@ def test_label_groups_keep_codes_routes_and_test_spellings_apart(tmp_path):
     })) as graph:
         groups = sorted((group['key'], sorted(group['spellings'])) for group in graph.literal_groups())
         assert groups == [('active', ['Active', 'active']), ('maindepartment', ['Main Department', 'Main department'])], groups
+
+
+def test_a_provider_template_whose_delete_rules_differ_from_the_schema_in_use_is_listed(tmp_path):
+    # Planning Tool 0.6.28 (round 22, P02): the SQLite template nulls the children of 27 relations whose
+    # parents the SQL Server schema in use refuses to delete; tests on SQLite pass where production fails.
+    schema = '''
+datasource db {
+  provider = "%s"
+  url      = env("DATABASE_URL")
+}
+
+model Unit {
+  id     String  @id
+  people Person[]
+  rooms  Room[]
+}
+
+model Person {
+  id     String  @id
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id]%s)
+}
+
+model Room {
+  id     String @id
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: %s)
+}
+'''
+    with closing(project(tmp_path, {
+        'prisma/schema.prisma': schema % ('sqlserver', ', onDelete: NoAction', 'Restrict'),
+        'prisma/schema.sqlite.prisma': schema % ('sqlite', '', 'Cascade'),
+        'prisma/schema.sqlserver.prisma': schema % ('sqlserver', ', onDelete: NoAction', 'NoAction'),
+    })) as graph:
+        rules = graph.schema_delete_rules()
+    # Person.unit: NoAction against the optional relation's default SetNull; Room.unit: Restrict against
+    # Cascade; NoAction and Restrict both refuse the delete, so the sqlserver template agrees.
+    assert rules == [dict(schema='prisma/schema.prisma', description='prisma/schema.sqlite.prisma',
+                          relations=[('Person.unit', 'NoAction/Restrict', 'SetNull'), ('Room.unit', 'NoAction/Restrict', 'Cascade')])]
