@@ -998,6 +998,26 @@ def _resolved(filename):
     return str(Path(filename).resolve())
 
 
+_DIGESTS = {}
+
+
+def _source_digest(path):
+    """Content digest, recomputed whenever the file's status changes (ctime included).
+
+    Every ordinary test opens a capture that checks each anchored file before and
+    after the case; unchanged files are not hashed again for every test.
+    """
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return None
+    key = (stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    cached = _DIGESTS.get(str(path))
+    if cached is None or cached[0] != key:
+        cached = _DIGESTS[str(path)] = (key, content_digest(path))
+    return cached[1]
+
+
 class Capture:
     """Observe only indexed function frames; the caller owns one actual test case.
 
@@ -1028,17 +1048,19 @@ class Capture:
         for anchor in index.entries:
             if anchor.kind not in {'event','sensor'}: continue
             path = (self.root/anchor.file).resolve()
-            if anchor.source_digest and (not path.is_file() or content_digest(path) != anchor.source_digest):
+            if anchor.source_digest and _source_digest(path) != anchor.source_digest:
                 self.issues.append(f'{anchor.name}: anchor source changed; rebuild the map'); continue
             self._sites.setdefault((str(path),anchor.qual),[]).append(anchor)
+        self._by_file = {}
+        for site in self._sites:
+            self._by_file.setdefault(site[0], set()).add(site)
         self._trace = self._callback
         self._active = False
 
     def _codes(self, module):
         from .runtime import module_codes
         filename = getattr(module, '__file__', None)
-        path = _resolved(filename) if isinstance(filename, str) else None
-        wanted = {site for site in self._sites if site[0] == path}
+        wanted = self._by_file.get(_resolved(filename)) if isinstance(filename, str) else None
         return [(code, '') for code in module_codes(module, wanted)] if wanted else []
 
     def loaded(self, module):
@@ -1071,7 +1093,7 @@ class Capture:
             self._active = False
         for anchor in self.index.entries:
             path=self.root/anchor.file
-            if anchor.source_digest and (not path.is_file() or content_digest(path)!=anchor.source_digest):
+            if anchor.source_digest and _source_digest(path)!=anchor.source_digest:
                 self.issues.append(f'{anchor.name}: source changed during anchor observation')
         self._frames.clear()
 

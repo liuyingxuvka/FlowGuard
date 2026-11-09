@@ -1147,9 +1147,10 @@ def pytest_runtest_protocol(item, nextitem):
         if not isinstance(item, IntentItem) and item.name != SENTINEL and state.observations is not None:
             scopes.enter_context(state.observations.scope(item))
         from .calibration import probe_context
+        # Anchor events are always recorded (local events on anchored code only), so
+        # show NAME and model draft have data after a plain pytest run.
         if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
-                and state.model.anchor_index.entries and not probe_context(item.config)
-                and (state.model.flows or state.observations.changed or item.config.getoption('--flowguard-record-tests'))):
+                and state.model.anchor_index.entries and not probe_context(item.config)):
             from .flow import Capture
             capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
                                                    models=state.model.flows.values() if state.model.flows and not state.observations.changed else None, _ordinary=True))
@@ -1366,10 +1367,13 @@ def finish_verified(session, exitstatus):
     if not declared and not state.footprints and not observed:
         # Standalone pytest does not build a map, but must retire old traces
         # for a test it ran without recording. Never refresh them by implication.
+        # Recorded anchor events are kept even before the first map exists.
         path = state.cfg.cache / 'map.sqlite'
-        if path.is_file() and state.readings:
+        if (path.is_file() or state.events) and state.readings:
+            from flowguard.map.common import cache_dir
+            cache_dir(state.cfg.root)
             with closing(sqlite3.connect(path, timeout=30)) as con:
-                con.executescript(SCHEMA)
+                con.executescript(SCHEMA + 'CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);\n')
                 with con:
                     con.execute('BEGIN IMMEDIATE')
                     _meta(con, 'intent_attempt', attempt)
