@@ -233,6 +233,12 @@ class MapHandle:
 
     # ---- writes, string literals and schema descriptions ---------------------------------------
     def _schema_rows(self):
+        """(path, schema facts) of every Prisma/SQL file, read once per handle and build."""
+        if 'schema_rows' not in self._derived:
+            self._derived['schema_rows'] = self._read_schema_rows()
+        return self._derived['schema_rows']
+
+    def _read_schema_rows(self):
         from .readers.registry import SCHEMA_LANGUAGES, SUFFIXES
         suffixes = [suffix for suffix, language in SUFFIXES.items() if language in SCHEMA_LANGUAGES]
         rows = []
@@ -251,10 +257,12 @@ class MapHandle:
         return [dict(schema, file=path) for path, schema in rows]
 
     def _models(self):
-        from .readers.prisma import Models
-        return Models([(path, schema) for path, schema in self._schema_rows() if schema.get('kind') == 'prisma'])
+        if 'models' not in self._derived:
+            from .readers.prisma import Models
+            self._derived['models'] = Models([(path, schema) for path, schema in self._schema_rows() if schema.get('kind') == 'prisma'])
+        return self._derived['models']
 
-    def writes(self, target=None, *, language=None, by_name=False, facts=None):
+    def writes(self, target=None, *, language=None, by_name=False, facts=None, fold=True):
         """Who writes what, statically: Prisma client writes bound to schema models (connect and nested
         writes follow @relation), SQL write statements (TS/JS raw SQL, .sql files and Python string literals,
         recorded for the function holding them), and Python attribute assignments bound to a class. A Python
@@ -262,7 +270,8 @@ class MapHandle:
         that only a field name ties to a target (how='name'). `target` is `Model.field`, `table.column`,
         a model or table, or a bare field/column name; rows whose fields are not visible (spread,
         non-literal data) are kept for their model with `unclear=True`. `facts` reads these file facts
-        (for example one file's facts at a baseline commit) instead of the map's. Never execution evidence."""
+        (for example one file's facts at a baseline commit) instead of the map's; `fold=False` skips folding Python
+        right sides into `values` (who writes, not what). Never execution evidence."""
         from .readers.prisma import bind, bind_sql
         from .readers.registry import ECMA, language_for
         self._mark_query('writes', language)
@@ -276,7 +285,7 @@ class MapHandle:
             rows += [self._resolved(dict(row, language=kind)) for row in bind([w for w in writes if w.get('via') == 'prisma'], models)]
             rows += [dict(row, language=kind) for row in bind_sql([w for w in writes if w.get('via') == 'sql'], models)]
             for row in facts.get('assignments', []):
-                row = self._folded(row) if kind == 'python' else row
+                row = self._folded(row) if kind == 'python' and fold else row
                 if kind in ECMA and row.get('form') == 'member' and by_name and row.get('field'):
                     rows.append(dict(node=row['node'], function=row['node'].partition(':')[2] or '<module>', file=row['file'],
                                      line=row['line'], column=row.get('column'), call_line=row['line'], how='name',

@@ -73,9 +73,10 @@ class Change:
         return self._touched
 
     def writes(self):
-        """Every write row of the map (read once per check)."""
+        """Every write row of the map, read once per check; Python right sides are not folded (the structure
+        checks ask who writes; a JS/TS or SQL row keeps the literal values its source spells)."""
         if not hasattr(self, '_writes'):
-            self._writes = self.graph.writes(by_name=True)
+            self._writes = self.graph.writes(by_name=True, fold=False)
         return self._writes
 
     def old_text(self, file):

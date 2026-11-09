@@ -235,8 +235,9 @@ def screen(cfg):
     from .health import brief_line
     baseline = cache.session_baseline(cfg, remember=True)
     data = cache.read(cfg)
+    from .differences import display
     structure = brief_line(cfg)         # one line from the last check; the brief builds no map
-    print('\n'.join([*_brief(cfg, data, baseline), *([structure] if structure else [])]))
+    display('\n'.join([*_brief(cfg, data, baseline), *([structure] if structure else [])]))
     return int(bool(data['summary']['errors']))
 
 
@@ -477,8 +478,9 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
             for alias in item['matches'].get('aliases', []):
                 ranked.append((1000, f'{alias} -> {item["id"]} {item["file"]}:{item["line"]}'))
         ranked.sort(key=lambda row: (-row[0], row[1]))
-        print('\n'.join(_limit([f'show {query}'] + ([notice] if notice else [])
-                               + [line for _, line in ranked], cfg.screen_lines)))
+        from .differences import display          # a structure line carries Chinese text: escape what the console cannot show
+        display('\n'.join(_limit([f'show {query}'] + ([notice] if notice else [])
+                                 + [line for _, line in ranked], cfg.screen_lines)))
     return 0
 
 

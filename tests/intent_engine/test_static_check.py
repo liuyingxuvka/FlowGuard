@@ -316,7 +316,7 @@ def _run_generated(root, target, env=None):
     runner = root.parent / (root.name + '-run.mjs')
     runner.write_text(RUN_STUB)
     environment = dict(os.environ, PYTHONPATH=SOURCE + os.pathsep + os.environ.get('PYTHONPATH', ''), **(env or {}))
-    return subprocess.run([_node(), str(runner), str(target)], cwd=root, capture_output=True, text=True, timeout=240,
+    return subprocess.run([_node(), str(runner), str(target)], cwd=root, capture_output=True, encoding='utf-8', timeout=240,
                           env=environment)
 
 

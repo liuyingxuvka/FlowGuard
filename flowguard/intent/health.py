@@ -319,6 +319,8 @@ def writers(change, index, rows=None):
     by_field = {}
     for row in change.writes() if rows is None else rows:
         holder, name = row.get('model') or row.get('table'), row.get('field') or row.get('db_column')
+        if row.get('language', 'python') == 'python' and row['how'] == 'attribute' and '.' in str(holder):
+            continue            # `module.Class.method = ...` patches a module's class; it writes no data field
         if not holder or row.get('unclear') or name in ('*', '?', None) or row['file'] in tests \
                 or is_test_file(row['file']) or str(name).casefold() in BOOKKEEPING or row['function'] == '<module>' \
                 or row['function'].rpartition('.')[2] == holder:      # a class-body default declares, it does not write
