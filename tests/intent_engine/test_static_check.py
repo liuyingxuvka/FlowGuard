@@ -109,6 +109,20 @@ def test_check_static_reports_only_new_values_outside_a_check_and_lists_old_ones
     assert code == 2 and 'check --static runs no tests' in text, text
 
 
+def test_the_title_of_check_static_base_names_the_cli_option(tmp_path):
+    _commit(_planning(tmp_path, 'planning_tool_static'))
+    head = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    _write(tmp_path, {'backend/src/services/notice.service.ts': '''
+        export async function notice(prisma: any, id: string) {
+          await prisma.auditEvent.create({ data: { severity: 'NOTICE', entityId: id } });
+        }
+    '''})
+    code, text = _static(tmp_path, '--base', 'HEAD')
+    assert code == 1 and text.splitlines()[0] == 'FlowGuard（相对 --base HEAD）', text      # the option the CLI took
+    code, text = _static(tmp_path)
+    assert code == 1 and text.splitlines()[0] == f'FlowGuard（相对任务开始 {head[:7]}）', text
+
+
 def test_value_sets_come_from_prisma_enums_sql_checks_and_typescript_types(tmp_path):
     _write(tmp_path, {
         'prisma/schema.prisma': '''
@@ -168,6 +182,81 @@ def test_value_sets_come_from_prisma_enums_sql_checks_and_typescript_types(tmp_p
     assert outside == [('src/accounts.ts', 3, 'Account.role', 'OWNER'), ('src/accounts.ts', 3, 'Account.status', 'archived'),
                        ('src/types.ts', 7, 'Job.state', 'GONE'), ('src/types.ts', 9, 'Event.severity', 'mid')], outside
     # Kind.BOT resolves through the `as const` object; Kind.ROBOT names no member, so its value is not judged.
+
+
+def test_a_package_whose_prisma_files_name_no_schema_in_use_is_judged_by_all_of_them_and_says_so(tmp_path):
+    # Round 21 verification of V1: with only provider templates committed (the generated schema.prisma is
+    # git-ignored) or one schema under another name, every Prisma enum stopped gating without a word.
+    schema = """
+        enum Kind {
+          A
+          B
+        }
+
+        model Item {
+          id   String @id
+          kind Kind
+        }
+    """
+    write = {'src/items.ts': """
+        export async function add(prisma: any, id: string) {
+          await prisma.item.create({ data: { id, kind: 'C' } });
+        }
+    """}
+    for files in ({'prisma/schema.sqlite.prisma': schema, 'prisma/schema.postgres.prisma': schema},
+                  {'prisma/main.prisma': schema}):
+        root = tmp_path / str(len(files))
+        _commit(root, files)
+        _write(root, write)
+        code, text = _static(root)
+        red = _lines(text, '红：取值')
+        assert code == 1 and len(red) == 1 and "src/items.ts:2 Item.kind='C'，允许 A|B" in red[0], text
+        assert '没找到生成器在用的 schema，按这个包的全部 schema 判' in red[0], red
+    # prisma.config.ts names the schema in use: the template beside it only describes, and nothing is guessed
+    root = tmp_path / 'config'
+    _commit(root, {'prisma/schema.sqlite.prisma': schema.replace('  B\n', '  B\n          C\n'),
+                   'prisma/schema.postgres.prisma': schema,
+                   'prisma.config.ts': "import { defineConfig } from 'prisma/config';\n"
+                                       "export default defineConfig({ schema: 'prisma/schema.postgres.prisma' });\n"})
+    _write(root, write)
+    code, text = _static(root)
+    red = _lines(text, '红：取值')
+    assert code == 1 and len(red) == 1 and '（enum Kind (prisma/schema.postgres.prisma:1)）' in red[0], text
+
+
+def test_a_package_json_that_is_not_json_names_its_file(tmp_path):
+    _commit(tmp_path, {'web/package.json': '{"name": "web",\n', 'web/prisma/main.prisma': 'model Item {\n  id String @id\n}\n'})
+    code, text = _static(tmp_path)
+    assert code == 2 and 'web/package.json is not valid JSON' in text, text
+
+
+def test_an_object_typed_with_a_prisma_client_type_is_gated_by_its_model(tmp_path):
+    # Round 21 verification of V2: keeping TS types apart from Prisma models also stopped gating an object
+    # typed with the model's own generated type.
+    _commit(tmp_path, {'prisma/schema.prisma': """
+        enum Kind {
+          A
+          B
+        }
+
+        model Item {
+          id   String @id
+          kind Kind
+        }
+    """})
+    _write(tmp_path, {
+        'src/sample.ts': """
+            import type { Item } from '@prisma/client';
+            export const sample: Item = { id: '1', kind: 'C' };
+        """,
+        'src/own.ts': """
+            interface Item { id: string; kind: string }
+            export const mine: Item = { id: '1', kind: 'C' };
+        """,
+    })
+    code, text = _static(tmp_path)
+    red = _lines(text, '红：取值')
+    assert code == 1 and len(red) == 1 and red[0].startswith("红：取值不在声明集合里：src/sample.ts:2 Item.kind='C'，允许 A|B"), text
 
 
 def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript_types_apart(tmp_path):
@@ -961,6 +1050,19 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     assert 'set FLOWGUARD_PYTHON' in output and 'no-such-python' in output, output
 
 
+def test_the_files_init_writes_bring_no_label_spellings_of_their_own(tmp_path):
+    _commit(tmp_path, {
+        'package.json': '{"name": "app", "type": "module", "scripts": {"test": "vitest run"}, "devDependencies": {"vitest": "4.1.11"}}\n',
+        'src/flags.ts': "export function known(x: string): boolean {\n  return x === '3' || x === 'c' || x === 'ROOT';\n}\n",
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0 and 'Generated flowguard.static.test.mjs (vitest)' in text, text
+    code, text = _static(tmp_path)          # init's '-3', '-c' and '--root' are FlowGuard's, not the project's labels
+    assert code == 0 and not _lines(text, '线索：标签写法不一致'), text
+    code, text = _static(tmp_path, '--all')
+    assert 'flowguard.static.test.mjs' not in text and 'flowguard.vitest.mjs' not in text, text
+
+
 def test_check_static_all_lists_label_spellings_the_baseline_already_had(tmp_path):
     root = _planning(tmp_path / 'pt')
     _commit(root, {})                          # both spellings are old: nothing new to report
@@ -971,6 +1073,55 @@ def test_check_static_all_lists_label_spellings_the_baseline_already_had(tmp_pat
     assert "'My organization'（frontend/src/utils/organization-navigation.ts:" in old and '这次新增的写法' not in old, old
 
 
+def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lists_every_lead(tmp_path):
+    words = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima']
+    _commit(tmp_path, {
+        'src/upper.ts': ''.join(f"export function is{word}(x: string) {{ return x === '{word} Label'; }}\n" for word in words),
+        'src/lower.ts': ''.join(f"export function was{word}(x: string) {{ return x === '{word.lower()} label'; }}\n" for word in words),
+        'src/gamma.ts': "export function isGamma(x: string) { return x === 'Gamma Ray'; }\n",
+    })
+    # a label spelled another way ('Gamma ray'), not a key ('gamma-ray' is of another kind: literal_shape)
+    _write(tmp_path, {'src/ray.ts': "export function isRay(x: string) { return x === 'Gamma ray'; }\n"})
+    code, text = _static(tmp_path, '--all')
+    leads = _lines(text, '线索：')
+    assert code == 0 and leads[0].startswith("线索：标签写法不一致：'Gamma Ray'"), text       # the new one first
+    assert "'Gamma ray'（src/ray.ts:1，这次新增的写法）" in leads[0], leads
+    assert leads[-1].startswith('线索：另 ') and leads[-1].endswith('条：python -m flowguard check --static --all --leads 列出全部线索'), leads
+    code, text = _static(tmp_path, '--all', '--leads')
+    every = _lines(text, '线索：')
+    assert code == 0 and len(every) == 13 and every[0] == leads[0] and not any(line.startswith('线索：另 ') for line in every), text
+    assert all(line.startswith('线索：旧账 标签写法不一致') for line in every[1:]), every
+    code, text = _static(tmp_path)
+    assert code == 0 and _lines(text, '线索：') == [leads[0]], text
+
+
+def test_the_overflow_of_a_run_against_base_names_that_base_in_the_command_that_lists_every_lead(tmp_path):
+    words = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima']
+    _commit(tmp_path, {'src/upper.ts': ''.join(f"export function is{word}(x: string) {{ return x === '{word} Label'; }}\n"
+                                               for word in words)})
+    _write(tmp_path, {'src/lower.ts': ''.join(f"export function was{word}(x: string) {{ return x === '{word.lower()} label'; }}\n"
+                                              for word in words)})
+    _commit(tmp_path, message='twelve new spellings')
+    # Against HEAD nothing is new; against HEAD~1 the twelve spellings are: the listing command keeps that base.
+    code, text = _static(tmp_path, '--base', 'HEAD~1')
+    leads = _lines(text, '线索：')
+    assert code == 0 and leads[-1].endswith('条：python -m flowguard check --static --base HEAD~1 --leads 列出全部线索'), leads
+    code, text = _static(tmp_path, '--base', 'HEAD~1', '--leads')
+    assert code == 0 and len(_lines(text, '线索：')) == 12, text
+
+
+def test_the_overflow_of_show_spells_a_phrase_query_so_cmd_exe_reads_it_too(tmp_path):
+    _commit(tmp_path, {
+        'pyproject.toml': '[tool.flowguard]\nscreen_lines = 3\n',
+        'src/unit.ts': ''.join(f'export function employeeUnit{name}(id: string) {{ return id; }}\n'
+                               for name in ('Label', 'Code', 'Name', 'Path')),
+    })
+    code, text = _flowguard(tmp_path, 'show', 'employee unit')
+    # single quotes ('employee unit') are no quotes in cmd.exe: the owner's Windows console would split the query
+    assert code == 0 and text.splitlines()[-1].endswith(
+        'more lines: python -m flowguard show "employee unit" --full lists them all'), text
+
+
 def test_init_writes_a_jest_test_for_a_jest_project_and_keeps_a_foreign_file(tmp_path):
     _commit(tmp_path, {'web/package.json': '{"name": "web", "scripts": {"test": "jest"}, "devDependencies": {"jest": "29.7.0"}}\n'})
     code, text = _flowguard(tmp_path, 'init')
@@ -978,7 +1129,9 @@ def test_init_writes_a_jest_test_for_a_jest_project_and_keeps_a_foreign_file(tmp
     assert code == 0 and 'Generated web/flowguard.static.test.js (jest)' in text, text
     body = generated.read_text(encoding='utf-8')
     assert "require('node:child_process')" in body and 'path.resolve(__dirname, "..")' in body and 'vitest' not in body, body
-    assert 'FLOWGUARD_PYTHON' in body and json.dumps(sys.executable) in body, body
+    # the interpreter that ran init is read from the git-ignored cache, never written into the committed file
+    assert 'FLOWGUARD_PYTHON' in body and sys.executable not in body and '".flowguard/cache/python"' in body, body
+    assert (tmp_path / '.flowguard/cache/python').read_text(encoding='utf-8') == sys.executable
     generated.write_text('test("mine", () => {});\n')
     code, text = _flowguard(tmp_path, 'init')
     assert code == 2 and 'an existing file has this name' in text, text
@@ -1053,6 +1206,26 @@ def test_a_change_that_touches_an_open_structure_problem_gets_one_lead(tmp_path)
     assert code == 0 and lead in text, text
     code, text = _static(tmp_path, '--all')
     assert '1. 写入：Job.status 有 3 个文件在写，没有登记负责人' in text, text
+
+
+def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_problem(tmp_path):
+    def writer(name, status):
+        return (f"export async function {name}(prisma: any, ids: string[]) {{\n"
+                f"  await Promise.all(ids.map(async (id) => {{\n"
+                f"    await prisma.job.update({{ where: {{ id }}, data: {{ status: '{status}' }} }});\n"
+                f"  }}));\n}}\n")
+    _commit(tmp_path, {
+        'prisma/schema.prisma': 'model Job {\n  id     String @id\n  status String\n}\n',
+        'src/close.ts': writer('closeJobs', 'closed'), 'src/hold.ts': writer('holdJobs', 'held'),
+        'src/reopen.ts': writer('reopenJobs', 'open'),
+    })
+    hold = tmp_path / 'src/hold.ts'
+    hold.write_text('// flowguard: sensor HOLD_JOBS\n' + hold.read_text(encoding='utf-8'), encoding='utf-8')
+    code, text = _static(tmp_path)
+    assert code == 0 and '未决结构问题' not in text, text      # the callback only moved one line down
+    hold.write_text(hold.read_text(encoding='utf-8').replace("'held'", "'paused'"), encoding='utf-8')
+    code, text = _static(tmp_path)
+    assert code == 0 and '线索：未决结构问题：Job.status 有 3 个文件在写' in text, text      # an edit inside it does
 
 
 def test_a_structure_decision_closes_its_problem_and_a_decided_owner_needs_its_anchor(tmp_path):

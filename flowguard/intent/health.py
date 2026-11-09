@@ -66,8 +66,9 @@ def _foreign_writes(change, facts=None):
     out = [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None])
            for row in rows if row.get('model') and not row.get('unclear') and row.get('language', 'python') != 'python'
            and row.get('values')]
-    out += [dict(row, field=f'{row["container"]}.{row["field"]}', gate=f'ts:{row["container"]}.{row["field"]}',
-                 values=[v for v in row.get('values', ()) if v is not None])     # gated by the TS type's own sets
+    # gated by the TS type's own sets; a type the file imports from the Prisma client by its model's sets
+    out += [dict(row, field=f'{row["container"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None],
+                 **({} if row.get('prisma') else {'gate': f'ts:{row["container"]}.{row["field"]}'}))
             for row in graph.typed_writes(facts=facts) if row.get('values')]
     return [row for row in out if row['values']]
 
