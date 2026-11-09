@@ -91,7 +91,7 @@ FlowGuard's core stays in Python; another language gets only the thin interface 
 
 ## Boundaries and migration
 
-Behavior is compared only in the contexts the tests reach, and the output names the test. Similar code and new spellings are leads, not proof. Consistent copies do not prove the intended answer; a rule with a source does. Version 4.1 keeps every 4.0 comment, rule and saved input; see [the 4.1 notes](./docs/upgrade-4.1.md) and the [intent guide](./docs/intent-guide.md).
+Behavior is compared only in the contexts the tests reach, and the output names the test. Similar code and new spellings are leads, not proof. Consistent copies do not prove the intended answer; a rule with a source does. Versions 4.1 and 4.2 keep every 4.0 comment, rule and saved input; see [the 4.1 notes](./docs/upgrade-4.1.md), [the 4.2 notes](./docs/upgrade-4.2.md) and the [intent guide](./docs/intent-guide.md).
 
 ## Repository
 
