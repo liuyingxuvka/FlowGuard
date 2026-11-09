@@ -2,7 +2,8 @@
 
 A single decision-site postings query over the generated store. Candidates come
 from the postings index (token -> nodes): only nodes sharing a realized decision-site
-signature are scored. The public ranking uses strength, coverage score and identity.
+signature are scored, and only a strong match (a site kind that names the decision) is a candidate.
+The public ranking uses coverage score and identity.
 A candidate is a pointer, not proof.
 """
 from __future__ import annotations
@@ -147,10 +148,10 @@ OPS = {"Lt": "<", "Gt": ">", "LtE": "<=", "GtE": ">=", "Eq": "==", "NotEq": "!="
 def site_homes(con, fid: str, sites=None, words: str = "", exclude=(), groups=None) -> list[dict]:
     """Other homes by decision-site matching: every function holding a site with one of the home's (or the
     rule's realized) site signatures, with a coverage score weighted by kind x idf.
-    A function that does much else is still a candidate. Listed when it shares one site of a
+    A function that does much else is still a candidate. Listed only when it shares one site of a
     strong kind (a constant identity, an environment variable or config key, a literal set, tuple or
-    version, a value on a field of the same name, or a large rare number), or at least half of the sites
-    (two or more) of weaker kinds. Each result names the matched sites."""
+    version, a value on a field of the same name, or a large rare number). Each result names the
+    matched sites."""
     sc = Scorer(con)
     home = sc.row(fid)
     if home is None:
@@ -195,7 +196,6 @@ def site_homes(con, fid: str, sites=None, words: str = "", exclude=(), groups=No
     def order(t):
         return (SHOWN_FIRST.index(sig_kind(t)) if sig_kind(t) in SHOWN_FIRST else 99, t)
     best_of = [max(weight(t) for t in g["sigs"]) for g in groups]
-    need = max(2, math.ceil(len(groups) / 2))
     up = {s for (s,) in con.execute("SELECT src FROM edge WHERE dst = ? AND kind = 'calls'", (fid,))}
     down = {d for (d,) in con.execute("SELECT dst FROM edge WHERE src = ? AND kind = 'calls'", (fid,))}
     out = []
@@ -203,23 +203,12 @@ def site_homes(con, fid: str, sites=None, words: str = "", exclude=(), groups=No
         row = con.execute(f"SELECT id, kind, doc FROM node WHERE nid = ? AND kind IN {FUNCS}", (nid,)).fetchone()
         if row is None or row[0] in skip:
             continue
-        field_only = {t for said in matched.values() for t in said if t.startswith('sg:field:') and t[9:] not in common}
         cid = row[0]
         crow = con.execute("SELECT line, field, op, const, sigs FROM site WHERE node = ? ORDER BY line", (cid,)).fetchall()
         rsigs = [set(json.loads(r[4] or "[]")) for r in crow]
-        is_strong = any(group_strong(groups[gi]["sigs"], ts, rsigs, strong) for gi, ts in matched.items())
-        # A sole duration comparison loses its field token during unit
-        # normalization. Preserve its exact source field as a weak clue, only
-        # when the normalized boundary set also agrees. Do not relax a
-        # multi-site decision to one shared time value.
-        time_field = False
-        if len(groups) == 1 and groups[0].get('field'):
-            boundary = {token for token in groups[0]['sigs'] if token.startswith('sg:t:')}
-            time_field = bool(boundary) and any(
-                row[1] == groups[0]['field'] and boundary == {token for token in sigs if token.startswith('sg:t:')}
-                for row, sigs in zip(crow, rsigs))
-        shared_predicate = any(t.startswith('sg:p:') for said in matched.values() for t in said)
-        if not is_strong and len(matched) < need and not field_only and not shared_predicate and not time_field:
+        # Only a strong decision-site match names the same decision; weaker shared kinds (a field name,
+        # a predicate, half of the sites) were 3.0's weak candidates and were removed for their noise.
+        if not any(group_strong(groups[gi]["sigs"], ts, rsigs, strong) for gi, ts in matched.items()):
             continue
         got = sum(max(weight(t) for t in ts) for ts in matched.values())
         score = got / sum(best_of)
@@ -237,9 +226,8 @@ def site_homes(con, fid: str, sites=None, words: str = "", exclude=(), groups=No
             shown.append(f"{where}({', '.join(dict.fromkeys(decide.say_signature(x) for x in said[:2]))})")
         relation = "calls the home" if cid in up else "called by the home" if cid in down else ""
         out.append({"id": cid, "score": round(min(score, 1.0), 2), "relation": relation, "how": "sites",
-                    "strength": "strong" if is_strong else "weak", "matched": len(matched), "of": len(groups),
-                    "reason": ("shared temporal field (candidate only)" if time_field and not is_strong else
-                               "shared decision field" if field_only and not is_strong else "same decision sites") + f" ({len(matched)} of {len(groups)} {mode}): " + "; ".join(shown[:3])
+                    "strength": "strong", "matched": len(matched), "of": len(groups),
+                    "reason": f"same decision sites ({len(matched)} of {len(groups)} {mode}): " + "; ".join(shown[:3])
                               + (f"; +{len(shown) - 3} more" if len(shown) > 3 else ""),
                     "sites": shown})
     return out
@@ -265,21 +253,17 @@ def group_strong(gsigs: set, shared: set, rsigs: list[set], strong) -> bool:
 
 
 def other_homes(con, fid: str, k=None, words: str = "", decides=None,
-                not_same=(), weak: bool = False, sites=None) -> list[dict]:
+                not_same=(), sites=None) -> list[dict]:
     """One postings query over the declared decision sites; never execute candidates."""
     if Scorer(con).row(fid) is None:
         raise KeyError(f"no node {fid} on the map")
     if decides:
         words += ' ' + (decides if isinstance(decides,str) else ' '.join(decides))
     by_site = site_homes(con, fid, sites, words, not_same)
-    strong = [row for row in by_site if row['strength']=='strong']
-    low = [row for row in by_site if row['strength']=='weak']
-    return (strong[:k] if k is not None else strong) + ((low[:k] if k is not None else low) if weak else [])
+    return by_site[:k] if k is not None else by_site
 
 
 def ranked(candidates, k=None):
-    """The public candidate order and per-strength limit, applied after all homes merge."""
-    rows = sorted(candidates, key=lambda row: (row['strength'] != 'strong', -row['score'], row['id']))
-    if k is not None:
-        rows = [row for strength in ('strong', 'weak') for row in [c for c in rows if c['strength'] == strength][:k]]
-    return rows
+    """The public candidate order and limit, applied after all homes merge."""
+    rows = sorted(candidates, key=lambda row: (-row['score'], row['id']))
+    return rows[:k] if k is not None else rows

@@ -292,7 +292,7 @@ def test_an_assigned_threshold_is_a_decision_site_with_identity_and_value(repo):
     m = repo.build()
     sites = m.sites("plat.storage:build_download_plan")
     assert any(s["identity"] == "plat.storage:LARGE_TRANSFER_BYTES" and s["leads"] == "return" for s in sites), sites
-    found = {h["id"]: h for h in m.other_homes("plat.storage:build_download_plan", 10, weak=True)}
+    found = {h["id"]: h for h in m.other_homes("plat.storage:build_download_plan", 10)}
     assert "plat.readiness:Matrix.apply_download_plan" in found, found
     assert found["plat.readiness:Matrix.apply_download_plan"]["strength"] == "strong"
     assert "plat.limits:check_upload" in found                     # same 1 GiB value, written as a literal

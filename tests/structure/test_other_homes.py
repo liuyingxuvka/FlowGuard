@@ -52,7 +52,7 @@ DUP = {
 def test_a_duplicate_decision_written_differently_is_an_other_home(repo):
     repo.write(DUP)
     m = repo.build()
-    found = m.other_homes("lib.standing:may_borrow", weak=True)
+    found = m.other_homes("lib.standing:may_borrow")
     strong = [h for h in found if h["strength"] == "strong"]
     assert strong and strong[0]["id"] == "lib.doors:door_opens", found
     assert "tests suspended" in strong[0]["reason"] and "3 days" in strong[0]["reason"]

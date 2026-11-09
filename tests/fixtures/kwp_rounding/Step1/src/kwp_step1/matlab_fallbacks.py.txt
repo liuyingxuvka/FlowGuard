@@ -1,0 +1,28 @@
+"""MATLAB-authorized fallback policies for BuildingStatic.
+
+All values and branches below are copied from the authoritative MATLAB source;
+this module must not acquire Python-only defaults.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from math import ceil, floor, isfinite, sin
+from typing import Any, Mapping
+
+# fixture: "from .utils import ..." (line 12) left out; the copied function does not use it
+
+
+def matlab_round(value: float) -> int:
+    """Round a finite scalar with MATLAB's half-away-from-zero rule.
+
+    Python's built-in :func:`round` uses ties-to-even, while the MATLAB
+    source uses ``round`` for integer-valued Step-1 decisions.  Keep this
+    helper deliberately scalar and finite: the callers below have already
+    selected/validated numeric source values, and returning an integer is the
+    contract those branches require.
+    """
+    number = float(value)
+    if not isfinite(number):
+        raise ValueError("matlab_round requires a finite scalar")
+    return floor(number + 0.5) if number >= 0.0 else ceil(number - 0.5)
+

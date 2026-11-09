@@ -1,0 +1,64 @@
+"""Source-equivalent technology, factor, and year-alignment helpers.
+
+The MATLAB source keeps these small helpers in the Step-3 script itself.  The
+Python package exposes them as pure functions so that the runner, the cache,
+and focused parity tests all use the same normalization and lookup boundary.
+No value is inferred here: unknown names are returned unchanged, while a
+missing year-aligned value is represented by the caller's explicit fallback.
+"""
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+import math
+
+# fixture: "import numpy as np" (line 14) left out; the copied function does not use it
+
+
+_ALIAS = {
+    "natural_gas": "gas", "gas_boiler": "gas", "erdgas": "gas",
+    "gasheizung": "gas", "gastherme": "gas",
+    "oil_boiler": "oil", "heizoel": "oil", "heizöl": "oil",
+    "oel": "oil", "öl": "oil", "oilheating": "oil",
+    "air_hp": "hp_air", "air_heat_pump": "hp_air", "luft_wp": "hp_air",
+    "luftwaermepumpe": "hp_air", "luftwärmepumpe": "hp_air",
+    "brine_hp": "hp_sole", "sole_wp": "hp_sole", "erdsonde": "hp_sole",
+    "solewaermepumpe": "hp_sole", "solewärmepumpe": "hp_sole",
+    "water_hp": "hp_water", "wasser_wp": "hp_water",
+    "grundwasser_wp": "hp_water", "wasserwaermepumpe": "hp_water",
+    "wasserwärmepumpe": "hp_water",
+    "pellets": "pellet", "pellet_boiler": "pellet", "pelletheizung": "pellet",
+    "woodchips": "chips", "hackschnitzel": "chips",
+    "hackschnitzelheizung": "chips",
+    "district_heating": "district_heat", "district heat": "district_heat",
+    "waermenetz": "district_heat", "wärmenetz": "district_heat",
+    "fernwaerme": "district_heat", "fernwärme": "district_heat",
+    "direct_electric": "dch", "directelectric": "dch",
+    "stromdirekt": "dch", "direct_electric_heating": "dch",
+}
+
+# These are the finite source defaults from getEtaStructForStep3,
+# getCO2FactorStructForStep3, and getPEFactorStructForStep3.
+ETA = {"gas": .95, "oil": .92, "pellet": .88, "chips": .85,
+       "dch": 1.0, "district_heat": 1.0}
+CO2 = {"gas": .240, "oil": .310, "pellet": .035, "chips": .020,
+       "district_heat": .120, "dch": .360}
+PE = {"gas": 1.10, "oil": 1.10, "pellet": .20, "chips": .20,
+      "electricity": 1.80, "district_heat": .70, "dch": 1.80}
+DEFAULT_PRICES = {
+    "gas": .12, "oil": .13, "pellet": .08, "chips": .055,
+    "electricity": .30, "district_heat": .12,
+}
+
+
+def matlab_round(value: float) -> int:
+    """Round a finite scalar with MATLAB's half-away-from-zero rule.
+
+    MATLAB ``round`` differs from Python's built-in ties-to-even rule.  Step
+    3 uses the operation for source integer decisions such as residential
+    unit counts and switch years, so keep the conversion explicit at the
+    source boundary instead of relying on Python's default.
+    """
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("matlab_round requires a finite scalar")
+    return math.floor(number + 0.5) if number >= 0.0 else math.ceil(number - 0.5)

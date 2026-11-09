@@ -39,8 +39,31 @@ _INERT = object()
 _SAFE = {bool, int, float, str, bytes, tuple, list, dict, set, frozenset, len, abs, min,
          max, sum, all, any, sorted, round, isinstance, issubclass, type, range, enumerate,
          zip, Decimal, date, datetime, timedelta, Path}
+import math as _math
+_SAFE |= {getattr(_math, name) for name in (       # pure numeric functions of the math module
+    'floor', 'ceil', 'trunc', 'isfinite', 'isnan', 'isinf', 'isclose', 'fabs', 'copysign', 'fmod', 'modf',
+    'frexp', 'ldexp', 'sqrt', 'exp', 'log', 'log2', 'log10', 'pow', 'hypot', 'sin', 'cos', 'tan', 'asin',
+    'acos', 'atan', 'atan2', 'degrees', 'radians', 'gcd', 'fsum', 'prod', 'comb', 'perm', 'factorial')}
 _READ_METHODS = {'get', 'keys', 'values', 'items', 'count', 'index', 'startswith',
                  'endswith', 'lower', 'upper', 'strip', 'split', 'join', 'replace'}
+
+
+def _plain_record(target):
+    """A project dataclass or NamedTuple whose construction runs only generated code that stores its
+    fields: no custom __new__/__init__/__post_init__/__setattr__ and no default factory but a builtin."""
+    import dataclasses
+    if type(target) is not type or not (dataclasses.is_dataclass(target) or issubclass(target, tuple) and hasattr(target, '_fields')):
+        return False
+    for klass in target.__mro__:
+        if klass in (object, tuple):
+            continue
+        for name in ('__new__', '__init__', '__post_init__', '__setattr__'):
+            hook = vars(klass).get(name)
+            if hook is not None and getattr(getattr(hook, '__code__', None), 'co_filename', None) != '<string>':
+                return False
+    return not dataclasses.is_dataclass(target) or all(
+        item.default_factory is dataclasses.MISSING or item.default_factory in (list, dict, set, tuple)
+        for item in dataclasses.fields(target))
 
 
 def _private_call(function, *args):
@@ -847,6 +870,7 @@ class Runtime:
 
         def locals_of(body):
             result = {arg.arg: [] for arg in (*body.args.posonlyargs, *body.args.args, *body.args.kwonlyargs)}
+            parameters[id(result)] = set(result)
             for statement in sites.own_nodes(body):
                 targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target] \
                     if isinstance(statement, (ast.AnnAssign, ast.NamedExpr)) else []
@@ -855,6 +879,7 @@ class Runtime:
                         result.setdefault(target.id, []).append(statement.value)
             return result
 
+        parameters = {}
         bindings = locals_of(node)
         def helper_arguments(target, call, namespace=env, assignments=bindings, trail=frozenset()):
             if any(isinstance(value, ast.Starred) for value in call.args) or any(kw.arg is None for kw in call.keywords):
@@ -874,7 +899,8 @@ class Runtime:
                 if expression.id in assignments:
                     key = id(assignments), expression.id
                     if key in trail:
-                        return False
+                        # `value = float(value)`: the reassignment reads the parameter's actual argument.
+                        return expression.id in parameters.get(id(assignments), ()) and inert(namespace.get(expression.id, _MISSING))
                     values = assignments[expression.id]
                     return (all(data(value, namespace, assignments, trail | {key}) for value in values)
                             if values else inert(namespace.get(expression.id, _MISSING)))
@@ -903,10 +929,13 @@ class Runtime:
                             and _read_sql(connection, execute.args[0].value, _sql_parameters(execute, namespace, assignments)))
             target = _resolve(expression.func, namespace)
             if isinstance(expression.func, ast.Attribute) and expression.func.attr in _READ_METHODS:
-                if type(_resolve(expression.func.value, namespace)) in (str, bytes, list, tuple, dict, set, frozenset) and inert(_resolve(expression.func.value, namespace)) and all(data(value, namespace, assignments, trail)
-                        for value in [*expression.args, *(kw.value for kw in expression.keywords)]):
+                receiver = _resolve(expression.func.value, namespace)
+                # A read method of inert data (also a computed one: str(value).strip().lower()) reads data.
+                if (type(receiver) in (str, bytes, list, tuple, dict, set, frozenset) and inert(receiver)
+                        or receiver is _MISSING and data(expression.func.value, namespace, assignments, trail)) and all(
+                        data(value, namespace, assignments, trail) for value in [*expression.args, *(kw.value for kw in expression.keywords)]):
                     return True
-            if any(target is value for value in _SAFE) and target is not Path:
+            if any(target is value for value in _SAFE) and target is not Path or _plain_record(target):
                 return all(data(value, namespace, assignments, trail) for value in expression.args) and all(
                     kw.arg is not None and data(kw.value, namespace, assignments, trail) for kw in expression.keywords)
             if type(target) is types.FunctionType and self._project(target) and id(target) not in trail:
@@ -950,7 +979,7 @@ class Runtime:
             if not isinstance(part, ast.Call):
                 continue
             target = _resolve(part.func, env)
-            if any(target is value for value in _SAFE):
+            if any(target is value for value in _SAFE) or _plain_record(target):
                 if not all(data(value) for value in [*part.args, *(kw.value for kw in part.keywords)]):
                     return 'possible side effect: builtin argument data is not proved inert'
                 continue
@@ -972,7 +1001,9 @@ class Runtime:
             if isinstance(part.func, ast.Attribute):
                 owner = _resolve(part.func.value, env)
                 name = part.func.attr
-                if name in _READ_METHODS and type(owner) in (str, bytes, list, tuple, dict, set, frozenset) and inert(owner) and all(data(value) for value in [*part.args, *(kw.value for kw in part.keywords)]):
+                if name in _READ_METHODS and (type(owner) in (str, bytes, list, tuple, dict, set, frozenset) and inert(owner)
+                                              or owner is _MISSING and data(part.func.value)) \
+                        and all(data(value) for value in [*part.args, *(kw.value for kw in part.keywords)]):
                     continue
                 if name == 'execute' and type(owner) is sqlite3.Connection and part.args:
                     sql = part.args[0]

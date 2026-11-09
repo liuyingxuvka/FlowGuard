@@ -1,0 +1,8 @@
+"""FlowGuard fixture: Step6a/kwp_step6a/config.py lines 321-324 of KWP 64479aa, copied verbatim."""
+import math
+
+
+def _matlab_positive_round(value: float) -> int:
+    """MATLAB-compatible rounding for the positive model-year domain."""
+
+    return int(math.floor(float(value) + 0.5))

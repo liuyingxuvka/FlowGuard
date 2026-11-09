@@ -1,0 +1,11 @@
+"""FlowGuard fixture: Step10/step10_baublock_progress_maps.py lines 2174-2180 of KWP 64479aa, copied verbatim."""
+import math
+
+
+def _matlab_round_scalar(value: float) -> int:
+    """Round a finite scalar with MATLAB's half-away-from-zero rule."""
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("_matlab_round_scalar requires a finite scalar")
+    return math.floor(number + 0.5) if number >= 0.0 else math.ceil(number - 0.5)
+

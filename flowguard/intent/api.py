@@ -13,7 +13,8 @@ from itertools import islice
 from datetime import date, datetime, timedelta
 from decimal import Decimal as D
 
-__all__ = ["rule", "row", "distinct", "states", "structure_rule", "allow", "flow", "Node", "Transition", "Read", "Relation", "Refused", "IntentError", "D", "date", "datetime", "timedelta"]
+__all__ = ["rule", "row", "distinct", "states", "structure_rule", "allow", "flow", "Node", "Transition", "Read", "Relation",
+           "precedes", "guarded_by", "transitions", "checks", "Refused", "IntentError", "D", "date", "datetime", "timedelta"]
 
 ID = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")
 TARGET = re.compile(r"[A-Za-z_][\w.]*:[A-Za-z_][\w.]*\Z")
@@ -183,14 +184,81 @@ def rule(id, decides, source, fields, overrides=(), supersedes=(), total=False, 
 
 def flow(identifier, *, source, nodes, edges, transitions=(), relations=()):
     """A small observation model: anchors, paths, state transitions and relations."""
+    return _declare_flow(identifier, source, nodes, edges, transitions, relations)
+
+
+def _declare_flow(identifier, source, nodes, edges, transitions=(), relations=(), optional=(), depth=2):
     from .flow import Flow
-    caller = sys._getframe(1)
+    caller = sys._getframe(depth)
     if not isinstance(identifier, str) or not ID.fullmatch(identifier):
         raise IntentError(f'line {caller.f_lineno}: flow id must be a word, got {identifier!r}')
-    item = Flow(identifier, source, nodes, edges, transitions, relations)
+    item = Flow(identifier, source, nodes, edges, transitions, relations, optional=optional)
     item.file, item.line = caller.f_code.co_filename, caller.f_lineno
     DECLARED.append(item)
     return item
+
+
+# ---- one-line relation templates: each is an ordinary Flow, checked by the existing flow checks ----
+
+def _template_id(kind, *names):
+    return kind.upper() + '_' + '_'.join(re.sub(r'\W+', '_', name).strip('_') for name in names)
+
+
+def _template_source(kind, source, *arguments):
+    return source or f'assumed: {kind}(' + ', '.join(map(repr, arguments)) + ')'
+
+
+def precedes(first, then, *, source=None):
+    """Every observed `then` comes after a `first` in the same test: `first` starts each path."""
+    from .flow import Node
+    edges = (('first', 'then'), ('first', 'first'), ('then', 'then'), ('then', 'first'))
+    return _declare_flow(_template_id('precedes', first, then), _template_source('precedes', source, first, then),
+                         (Node('first', first, start=True, end=True), Node('then', then, end=True)), edges,
+                         optional=edges[1:], depth=2)
+
+
+def guarded_by(guard, action, *, source=None):
+    """Every observed `action` has its own `guard` before it: no action follows an action directly."""
+    from .flow import Node
+    edges = (('guard', 'action'), ('guard', 'guard'), ('action', 'guard'))
+    return _declare_flow(_template_id('guarded_by', guard, action), _template_source('guarded_by', source, guard, action),
+                         (Node('guard', guard, start=True, end=True), Node('action', action, end=True)), edges,
+                         optional=edges[1:], depth=2)
+
+
+def transitions(state, *, source=None, **allowed):
+    """The allowed changes of one `states` field wherever an anchored call changes it:
+    transitions("Job.status", new={"saved"}, saved={"published"}). Its values come from the field's
+    existing `# flowguard: states` comment; this line only says which changes are allowed."""
+    from .flow import Transition
+    if not allowed:
+        raise IntentError(f'transitions({state!r}) needs before={{after, ...}} pairs')
+    steps = []
+    for before, afters in allowed.items():
+        values = afters if isinstance(afters, (set, frozenset, list, tuple)) else (afters,)
+        steps.extend(Transition(state, before, after, '*') for after in sorted(values, key=repr))
+    return _declare_flow(_template_id('transitions', state), _template_source('transitions', source, state),
+                         (), (), tuple(steps), depth=2)
+
+
+def checks(rule, case, *, actual=None, source=None, **fields):
+    """A rule checked on a scenario test's own arguments: checks("FEE", "FEE_CASE", days="arg.days").
+    The decision read is `actual` (an anchor name, optionally `NAME.result...`), by default the rule's
+    single anchor or the anchor named like the rule; the existing scenario binding derives the rest."""
+    from .flow import Node, Read, Relation
+    identifier = rule.id if isinstance(rule, Rule) else rule
+    if not fields:
+        raise IntentError(f'checks({identifier!r}, {case!r}) needs field="arg.name" readings')
+    if actual is None:
+        anchors = rule.anchors if isinstance(rule, Rule) else ()
+        actual = anchors[0] if len(anchors) == 1 else identifier
+    anchor, _, path = actual.partition('.')
+    relation = Relation(rule, {name: Read('case', value) for name, value in fields.items()},
+                        actual=Read('actual', path or 'result'), on='actual')
+    return _declare_flow(_template_id('checks', identifier, case), _template_source('checks', source, identifier, case),
+                         (Node('case', case, start=True), Node('actual', anchor, phase='return', end=True)),
+                         (('case', 'actual'), ('actual', 'actual')), relations=(relation,),
+                         optional=(('actual', 'actual'),), depth=2)
 
 
 from .flow import Node, Transition, Read, Relation

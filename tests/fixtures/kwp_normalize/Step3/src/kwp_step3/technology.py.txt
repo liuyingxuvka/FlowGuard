@@ -1,0 +1,29 @@
+"""FlowGuard fixture: Step3/src/kwp_step3/technology.py lines 17-37 and 67-70 of KWP 64479aa, copied verbatim."""
+
+_ALIAS = {
+    "natural_gas": "gas", "gas_boiler": "gas", "erdgas": "gas",
+    "gasheizung": "gas", "gastherme": "gas",
+    "oil_boiler": "oil", "heizoel": "oil", "heizöl": "oil",
+    "oel": "oil", "öl": "oil", "oilheating": "oil",
+    "air_hp": "hp_air", "air_heat_pump": "hp_air", "luft_wp": "hp_air",
+    "luftwaermepumpe": "hp_air", "luftwärmepumpe": "hp_air",
+    "brine_hp": "hp_sole", "sole_wp": "hp_sole", "erdsonde": "hp_sole",
+    "solewaermepumpe": "hp_sole", "solewärmepumpe": "hp_sole",
+    "water_hp": "hp_water", "wasser_wp": "hp_water",
+    "grundwasser_wp": "hp_water", "wasserwaermepumpe": "hp_water",
+    "wasserwärmepumpe": "hp_water",
+    "pellets": "pellet", "pellet_boiler": "pellet", "pelletheizung": "pellet",
+    "woodchips": "chips", "hackschnitzel": "chips",
+    "hackschnitzelheizung": "chips",
+    "district_heating": "district_heat", "district heat": "district_heat",
+    "waermenetz": "district_heat", "wärmenetz": "district_heat",
+    "fernwaerme": "district_heat", "fernwärme": "district_heat",
+    "direct_electric": "dch", "directelectric": "dch",
+    "stromdirekt": "dch", "direct_electric_heating": "dch",
+}
+
+
+def normalize_technology_name(value: object) -> str:
+    """Port ``normalizeTechnologyName_Step3`` (unknown names pass through)."""
+    text = str(value).strip().lower()
+    return _ALIAS.get(text, text)

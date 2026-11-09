@@ -389,12 +389,13 @@ class Engine:
         from .sources import authority
         valid, why = authority(parse_source(declaration.source), None, self.m.cfg, self.archive)
         red, grey = [], [] if valid else [why]
+        from .anchors import value_gate
         with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
-            writes = [row for row in graph.assignments() if row['field'] == declaration.target]
-            for write in writes:
-                if not any(type(write['value']) is type(value) and write['value'] == value for value in declaration.values):
-                    red.append(f'code writes {declaration.target}={write["value"]!r}; allowed: {declaration.values!r} '
-                               f'({write["file"]}:{write["line"]}) -> update the code or the sourced allowed values')
+            writes = [row for row in graph.assignments(include_unknown=True) if row['field'] == declaration.target
+                      and (row.get('literal') or row.get('values'))]
+            table = {declaration.target: dict(name=declaration.target, values=tuple(declaration.values),
+                                              where=f'states() {self.m.file_of.get(declaration.id, "")}:{declaration.line}')}
+            red.extend(issue.message for issue in value_gate(table, writes))
         if not writes:
             grey.append(f'no literal writes found for {declaration.target} -> check the field binding')
         return dict(kind='states', verdict='red' if red else 'grey' if grey else 'ok', red=red, grey=grey,

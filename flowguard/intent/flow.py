@@ -84,10 +84,12 @@ class Flow:
     relations: tuple = ()
     file: str = ''
     line: int = 0
+    optional: tuple = ()     # allowed edges a template adds; unobserved, they are not reported unverified
 
     def __post_init__(self):
         self.nodes = tuple(n if isinstance(n, Node) else Node(n) for n in self.nodes)
         self.edges = tuple(tuple(e) for e in self.edges)
+        self.optional = tuple(tuple(e) for e in self.optional)
         self.transitions = tuple(t if isinstance(t, Transition) else Transition(*t) for t in self.transitions)
         self.relations = tuple(self.relations)
 
@@ -159,6 +161,60 @@ def draft_model(name, index, events):
     return ModelDraft(model, tuple(dict.fromkeys(notes)))
 
 
+def template_text(kind, args, kwargs=None):
+    """One template line, exactly as a program writes it: precedes("A", "B"), transitions("Job.status", new={"saved"})."""
+    def literal(value):
+        if isinstance(value, (set, frozenset)):
+            return '{' + ', '.join(literal(item) for item in sorted(value, key=repr)) + '}'
+        return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"' if isinstance(value, str) else repr(value)
+    parts = [literal(value) for value in args]
+    kwargs = kwargs or {}
+    if all(isinstance(key, str) and key.isidentifier() and key not in ('source', 'actual') for key in kwargs):
+        parts += [f'{key}={literal(value)}' for key, value in kwargs.items()]
+    elif kwargs:
+        parts.append('**{' + ', '.join(f'{literal(key)}: {literal(value)}' for key, value in kwargs.items()) + '}')
+    return f'{kind}(' + ', '.join(parts) + ')'
+
+
+def template_lines(events):
+    """Template proposals from observed paths, grouped by flow: the entry anchor that starts each test's
+    path. `precedes` where every observed later anchor followed the earlier one; `transitions` for the
+    state changes actually read. Observations only: review, delete or tighten (guarded_by, checks) each
+    line. Rows are data (kind, args, kwargs, text) so another tool can generate the same lines."""
+    cases = {}
+    for event in events:
+        cases.setdefault(event.case, []).append(event)
+    flows = {}
+    for observed in cases.values():
+        calls = [event for event in observed if event.phase == 'call']
+        if calls:
+            flows.setdefault(calls[0].anchor, []).append(observed)
+    out = []
+    for entry, group in sorted(flows.items()):
+        def row(kind, args, kwargs=None):
+            out.append(dict(flow=entry, tests=len(group), kind=kind, args=tuple(args), kwargs=dict(kwargs or {}),
+                            text=template_text(kind, args, kwargs)))
+        order = list(dict.fromkeys(event.anchor for observed in group for event in observed if event.phase == 'call'))
+        for first, then in zip(order, order[1:]):
+            def holds(observed):
+                calls = [event.anchor for event in observed if event.phase == 'call']
+                return then not in calls or first in calls[:calls.index(then)]
+            if all(holds(observed) for observed in group) and any(then in [e.anchor for e in observed] for observed in group):
+                row('precedes', (first, then))
+        changes = {}
+        for observed in group:
+            for event in observed:
+                if event.phase != 'return':
+                    continue
+                for name, after in event.states.items():
+                    before = event.before_states.get(name, _MISSING)
+                    if before is not _MISSING and before != after and all(type(v) in (str, int, bool) for v in (before, after)):
+                        changes.setdefault(name, {}).setdefault(before, set()).add(after)
+        for name, allowed in sorted(changes.items()):
+            row('transitions', (name,), {before: allowed[before] for before in sorted(allowed, key=repr)})
+    return out
+
+
 class Unverified(ValueError):
     pass
 
@@ -187,7 +243,9 @@ def validate(model, index, *, contracts=None):
     names = [n.name for n in model.nodes]
     if not model.id or not model.source:
         red.append('flow needs an id and a sourced declaration')
-    if not names or any(not isinstance(n,str) or not n for n in names) or len(names) != len(set(names)):
+    # A transitions template has no nodes: its changes hold wherever an anchored call changes the state.
+    anywhere = bool(model.transitions) and all(t.on == '*' for t in model.transitions)
+    if (not names and not anywhere) or any(not isinstance(n,str) or not n for n in names) or len(names) != len(set(names)):
         red.append('flow needs nonempty, unique local node names')
     if len(names) > 10:
         info.append(f'{len(names)} nodes in one layer exceeds about 10; split at a real lower contract')
@@ -227,7 +285,7 @@ def validate(model, index, *, contracts=None):
         if len(edge) != 2 or any(n not in names for n in edge):
             red.append(f'edge references unknown nodes: {edge!r}')
     for item in model.transitions:
-        if item.on not in names:
+        if item.on not in names and item.on != '*':
             red.append(f'transition references unknown node {item.on}')
         anchors = index.named(item.state, 'states')
         if not anchors:
@@ -716,9 +774,19 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
         grey.extend(f'{case}: declared direct caller edge for {name} was not verified; helper extraction needs an explicit new binding'
                     for name in sorted(uncertain_callers))
         references = {n.reference for n in model.nodes}
+        anywhere = {t.state for t in model.transitions if t.on == '*'}
         for event in case_events:
+            for state_name in anywhere if event.phase == 'return' else ():
+                before, after = event.before_states.get(state_name, _MISSING), event.states.get(state_name, _MISSING)
+                if before is _MISSING or after is _MISSING or before == after:
+                    continue
+                if any(t.state == state_name and t.on == '*' and t.before == before and t.after == after for t in model.transitions):
+                    observed_transitions.add((state_name, before, after, '*'))
+                else:
+                    red.append(f'{case}: {state_name} actually changes {before!r} -> {after!r} at {event.anchor}, outside declared transitions')
             if event.anchor not in references:
-                info.append(f'anchor not included in {model.id}: {event.anchor}')
+                if references:
+                    info.append(f'anchor not included in {model.id}: {event.anchor}')
             nodes = _matching_nodes(model,event,case_events,index)
             if len(nodes) > 1:
                 grey.append(f'{case}: {event.anchor} matches several model nodes; bind occurrence metadata'); continue
@@ -742,7 +810,7 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
             elif node.name not in model.starts:
                 (grey if uncertain_callers else red).append(f'{case}: runtime starts at {node.name}, outside declared entries')
             sequence.append(node.name); readings.setdefault(node.name, []).append(event)
-            modeled_states = {t.state for t in model.transitions}
+            modeled_states = {t.state for t in model.transitions if t.on != '*'}
             for state_name in modeled_states:
                 expected = [t for t in model.transitions if t.on == node.name and t.state == state_name]
                 before = event.before_states.get(state_name, _MISSING)
@@ -774,11 +842,12 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
                 except Unverified as error: grey.append(f'{case}: {error}')
                 except Exception as error: red.append(f'{case}: relation raised {type(error).__name__}: {error}')
         if not sequence:
-            grey.append(f'{case}: no model anchor was observed')
+            if model.nodes:
+                grey.append(f'{case}: no model anchor was observed')
         elif sequence[-1] not in model.ends:
             (grey if uncertain_callers else red).append(f'{case}: runtime stopped at {sequence[-1]}, before a declared terminal')
     if not by_case: grey.append('no runtime anchor cases were observed')
-    grey.extend(f'unobserved edge {a} -> {b}' for a,b in sorted(edges - observed))
+    grey.extend(f'unobserved edge {a} -> {b}' for a,b in sorted(edges - observed - set(model.optional)))
     grey.extend(f'unobserved state transition {t.state}: {t.before!r} -> {t.after!r} at {t.on}'
                 for t in model.transitions if (t.state,t.before,t.after,t.on) not in observed_transitions)
     if unclaimed: info.append(f'{unclaimed} readings were outside the original rules opinion')

@@ -194,6 +194,19 @@ def points(kind: Kind, consts, dense: bool = False) -> list:
     return uniq
 
 
+def representatives(kind: Kind) -> list:
+    """Fixed values for a numeric input whose classes cannot be read from its comparisons: zero, small
+    whole numbers on both sides, the halves between them and, for floats, NaN and both infinities.
+    Every one is run; agreement on them is a finite sample, never a proof of equal behavior."""
+    if kind.name == "float":
+        return [-2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, math.nan, math.inf, -math.inf]
+    if kind.name == "dec":
+        return [Decimal(text) for text in ("-2.5", "-2", "-1.5", "-1", "-0.5", "0", "0.5", "1", "1.5", "2", "2.5")]
+    if kind.name == "int":
+        return [-2, -1, 0, 1, 2]
+    return []
+
+
 def _mid(a, b):
     """A value strictly between a and b, or None when the type has none (5 and 6 as ints)."""
     if isinstance(a, int) and isinstance(b, int):
@@ -687,6 +700,8 @@ def same(expected, got) -> bool:
     if isinstance(expected, bool) or isinstance(got, bool):
         return type(expected) is type(got) and expected == got
     if isinstance(expected, (int, float, Decimal)) and isinstance(got, (int, float, Decimal)):
+        if expected != expected and got != got:      # NaN answers NaN: one outcome, though NaN != NaN
+            return True
         return Decimal(str(expected)) == Decimal(str(got))
     return expected == got
 
