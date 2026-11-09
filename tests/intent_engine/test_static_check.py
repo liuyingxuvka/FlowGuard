@@ -491,6 +491,27 @@ def test_check_static_all_lists_label_spellings_the_baseline_already_had(tmp_pat
     assert "'My organization'（frontend/src/utils/organization-navigation.ts:" in old and '这次新增的写法' not in old, old
 
 
+def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lists_every_lead(tmp_path):
+    words = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima']
+    _commit(tmp_path, {
+        'src/upper.ts': ''.join(f"export function is{word}(x: string) {{ return x === '{word} Label'; }}\n" for word in words),
+        'src/lower.ts': ''.join(f"export function was{word}(x: string) {{ return x === '{word.lower()} label'; }}\n" for word in words),
+        'src/gamma.ts': "export function isGamma(x: string) { return x === 'Gamma Ray'; }\n",
+    })
+    _write(tmp_path, {'src/ray.ts': "export function isRay(x: string) { return x === 'gamma-ray'; }\n"})
+    code, text = _static(tmp_path, '--all')
+    leads = _lines(text, '线索：')
+    assert code == 0 and leads[0].startswith("线索：标签写法不一致：'Gamma Ray'"), text       # the new one first
+    assert "'gamma-ray'（src/ray.ts:1，这次新增的写法）" in leads[0], leads
+    assert leads[-1].startswith('线索：另 ') and leads[-1].endswith('条：python -m flowguard check --static --all --leads 列出全部线索'), leads
+    code, text = _static(tmp_path, '--all', '--leads')
+    every = _lines(text, '线索：')
+    assert code == 0 and len(every) == 13 and every[0] == leads[0] and not any(line.startswith('线索：另 ') for line in every), text
+    assert all(line.startswith('线索：旧账 标签写法不一致') for line in every[1:]), every
+    code, text = _static(tmp_path)
+    assert code == 0 and _lines(text, '线索：') == [leads[0]], text
+
+
 def test_init_writes_a_jest_test_for_a_jest_project_and_keeps_a_foreign_file(tmp_path):
     _commit(tmp_path, {'web/package.json': '{"name": "web", "scripts": {"test": "jest"}, "devDependencies": {"jest": "29.7.0"}}\n'})
     code, text = _flowguard(tmp_path, 'init')

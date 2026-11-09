@@ -314,6 +314,8 @@ def _session(report, limit):
     changes, names = _unique(changes, names)
     compared, compared_names = _unique(compared, compared_names)
     leads = [line for line in dict.fromkeys(_lead_line(lead) for lead in report.get('leads', ())) if line]
+    # What this change adds comes before the old ledger (`--all`): the budget never hides a new lead behind old ones.
+    leads.sort(key=lambda line: line.startswith('线索：旧账'))
     unverified.extend((*_grey(str(reason)), False) for reason in report.get('unverified', ()))
     counted, causes = {}, {}
     for subject, reason, changed in sorted(unverified, key=lambda entry: not entry[2]):
@@ -329,8 +331,13 @@ def _session(report, limit):
     shown += _fit(compared, room - len(shown) - bool(leads) - bool(counted),
                   lambda rest: f'比较：另 {rest} 项没有变化：' + '、'.join(dict.fromkeys(compared_names[len(compared) - rest:])))
     room -= len(shown)
-    shown_leads = _fit(leads, room - bool(counted), lambda rest: f'线索：另 {rest} 条：python -m flowguard check 列出全部线索')
-    room -= len(shown_leads)
+    # `all_leads` (check --leads) prints every lead outside the budget; otherwise the overflow names that command.
+    more = report['more_leads'] if 'more_leads' in report else 'python -m flowguard check --static --leads'
+    if report.get('all_leads'):
+        shown_leads = leads
+    else:
+        shown_leads = _fit(leads, room - bool(counted), lambda rest: f'线索：另 {rest} 条：{more} 列出全部线索')
+        room -= len(shown_leads)
     lines = [_title(report), *reds, *shown, *shown_leads]
     if counted and room > 0:
         subjects = {subject or reason for subject, reason in counted}

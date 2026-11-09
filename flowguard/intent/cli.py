@@ -592,8 +592,8 @@ def watch(cfg, command):
 
 
 
-def check(cfg, *, everything=False, since=None, deep=False, base=None):
-    """Run the one ordinary pytest route; source validation executes no code."""
+def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
+    """Run the one ordinary pytest route; source validation executes no code. `leads` prints every lead."""
     from .plugin import collect_signals
     from .signals import render as render_signals
     with collect_signals() as reports:
@@ -638,6 +638,7 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
             baseline = dict(baseline=owner_baseline(cfg, base), baseline_kind='base' if base else 'task')
     report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind', 'task'),
                   baseline_option='--base', source_changed=any(part.get('source_changed', True) for part in reports),
+                  all_leads=leads, more_leads='python -m flowguard check' + ' --all' * everything + ' --leads',
                   comparison_requested=any(part.get('comparison_requested') for part in reports),
                   items=[item for part in reports for item in part.get('items', ())],
                   paths=[path for part in reports for path in part.get('paths', ())],
@@ -665,12 +666,13 @@ def _show_signals(text, status):
                 pass
 
 
-def static_check(cfg, *, everything=False, base=None):
+def static_check(cfg, *, everything=False, base=None, leads=False):
     """`check --static`: the map checks alone, without pytest: the fallback ledger, owner writes and pairs,
     values outside declared sets, old values, new spellings, unchanged copies, deletes that leave children,
     missing columns and touched structure problems. The report is rendered as at the end of an ordinary
     test run; only what this change adds is reported unless `everything` (`--all`), which also lists every
-    open structure problem. Exit 1 when anything is red."""
+    open structure problem. `leads` (`--leads`) prints every lead instead of the first ones. Exit 1 when
+    anything is red."""
     from . import anchors, health, ledger as fallbacks, owners
     from .signals import render as render_signals
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
@@ -684,6 +686,7 @@ def static_check(cfg, *, everything=False, base=None):
     red = list(dict.fromkeys([*found.red, *(issue.message for issue in index.issues if issue.level == 'red')]))
     report = dict(session=True, baseline=baseline, baseline_kind='base' if base else 'task', baseline_option='--base',
                   source_changed=bool(red or found.leads or found.section or result.red), red=red, leads=found.leads,
+                  all_leads=leads, more_leads='python -m flowguard check --static' + ' --all' * everything + ' --leads',
                   items=[], ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in result.red],
                   structure=found.section)
     status = int(bool(red or result.red))
@@ -1275,6 +1278,7 @@ def main(argv=None):
     check_parser.add_argument('--base', help='Compare behavior with this commit instead of the remembered session baseline')
     check_parser.add_argument('--static', action='store_true',
                               help='Map checks only, without pytest (any language FlowGuard reads, e.g. TS/JS, Prisma, SQL)')
+    check_parser.add_argument('--leads', action='store_true', help='Print every lead, not only the first ones')
     compare_parser = commands.add_parser('compare')
     compare_parser.add_argument('left')
     compare_parser.add_argument('right')
@@ -1317,9 +1321,10 @@ def main(argv=None):
         if options.command == 'check' and options.static:
             if options.deep or options.since:
                 raise ValueError('check --static runs no tests: --deep and --since need the pytest check')
-            return static_check(cfg, everything=options.all, base=options.base)
+            return static_check(cfg, everything=options.all, base=options.base, leads=options.leads)
         if options.command == 'check':
-            return check(cfg, everything=options.all, since=options.since, deep=options.deep, base=options.base)
+            return check(cfg, everything=options.all, since=options.since, deep=options.deep, base=options.base,
+                         leads=options.leads)
         if options.command == 'init':
             return init(cfg)
         if options.command == 'ledger':
