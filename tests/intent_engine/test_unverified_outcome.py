@@ -40,10 +40,10 @@ def _project(root, files):
     return root
 
 
-def _pytest(root, *options):
+def _pytest(root, *options, env=None):
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
     result = subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '-p', 'no:cacheprovider', *options],
-                            cwd=root, capture_output=True, text=True, timeout=180)
+                            cwd=root, capture_output=True, text=True, timeout=180, env=env)
     return result, display_text(result)
 
 
@@ -195,3 +195,75 @@ def test_a_grey_mutation_probe_alone_does_not_make_an_owner_rule_unverified(tmp_
     grey = dict(kind='cells', verdict='grey', grey=['field days could not be read'])
     data['results']['LIMIT']['items']['cells'] = grey
     assert len(_owner_rules_unverified(cfg, data)) == 1
+
+
+# The options pytest-xdist 3 sets before any pytest_configure (xdist/plugin.py pytest_cmdline_main and
+# xdist/remote.py): `dist` with `tx` on the controller, `workerinput` on a worker. The stand-in is the
+# same interface without the package, so the refusal is exercised whether or not xdist is installed.
+XDIST_STAND_IN = '''
+import pytest
+
+def pytest_addoption(parser):
+    group = parser.getgroup('xdist stand-in')
+    group._addoption('-n', '--numprocesses', dest='numprocesses', type=int, default=None)
+    group.addoption('--dist', dest='dist', default='no')
+    group.addoption('--tx', dest='tx', action='append', default=[])
+    group.addoption('--as-worker', dest='as_worker', action='store_true', default=False)
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_cmdline_main(config):
+    if config.option.numprocesses:
+        if config.option.dist == 'no':
+            config.option.dist = 'load'
+        config.option.tx = ['popen'] * config.option.numprocesses
+    if config.option.as_worker:
+        config.workerinput = {'workerid': 'gw0'}
+'''
+
+REFUSED = 'FlowGuard judges a test session in one pytest process: pytest-xdist workers'
+
+
+def _lost_project(root):
+    root = _project(root, STANDING)
+    policy = root / 'policy.py'
+    policy.write_text(policy.read_text(encoding='utf-8').replace('    return days <= 3', '    open("audit.log", "a").close()\n    return days <= 3'), encoding='utf-8')
+    return root
+
+
+def _ran(text):
+    import re
+    return re.search(r'\d+ (passed|failed|unverified)', text) is not None
+
+
+def test_distributed_workers_are_refused_before_a_red_can_be_lost(tmp_path):
+    import os
+    root = _lost_project(tmp_path / 'p')
+    plugins = tmp_path / 'plugins'                       # outside the project: not project code
+    plugins.mkdir()
+    (plugins / 'xdist_stand_in.py').write_text(XDIST_STAND_IN, encoding='utf-8')
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join(filter(None, [str(plugins), os.environ.get('PYTHONPATH')])))
+    stand_in = ('-q', '-p', 'no:xdist', '-p', 'xdist_stand_in')
+    plain, text = _pytest(root, *stand_in, env=env)
+    assert plain.returncode == 1 and '红：观察丢失 STANDING' in text, text
+    for options in (['-n', '2'], ['--dist', 'load', '--tx', 'popen'], ['--as-worker']):
+        refused, text = _pytest(root, *stand_in, *options, env=env)
+        assert refused.returncode == 4 and REFUSED in text, (options, text)
+        assert not _ran(text) and '红：' not in text, (options, text)
+    for options in (['-n', '0'], ['--dist', 'load'], ['-n', '2', '--collect-only']):   # no worker starts
+        single, text = _pytest(root, *stand_in, *options, env=env)
+        assert REFUSED not in text, (options, text)
+        assert single.returncode == (0 if '--collect-only' in options else 1), (options, text)
+        assert '--collect-only' in options or '红：观察丢失 STANDING' in text, (options, text)
+
+
+def test_dash_n_two_never_ends_as_a_passed_run_with_or_without_xdist(tmp_path):
+    # With pytest-xdist installed FlowGuard refuses the workers; without it pytest refuses `-n` itself.
+    # Either way the lost observation cannot end as `3 passed` with exit 0.
+    import importlib.util
+    root = _lost_project(tmp_path / 'p')
+    result, text = _pytest(root, '-q', '-n', '2')
+    assert result.returncode == 4 and not _ran(text), text
+    if importlib.util.find_spec('xdist') is not None:
+        assert REFUSED in text, text
+    else:
+        assert 'unrecognized arguments: -n' in text, text

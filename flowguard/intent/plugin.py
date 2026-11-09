@@ -1186,7 +1186,25 @@ def _session(config):
 
 def pytest_configure(config):
     config.addinivalue_line('markers', 'rule(ID): this test must actually enter a source anchor of the declared rule')
+    _refuse_distribution(config)
     _session(config)
+
+
+def _refuse_distribution(config):
+    """One pytest process judges the whole session; distributed workers are refused before any test runs.
+
+    The session verdicts (a lost observation, a Flow over every test's events, the sentinel's complete
+    collection, the ledger) need every test of the run in one process. pytest-xdist runs them in workers,
+    and its controller reads a worker's exit status only for an interrupt, so a red found there would end
+    as a green run. Its own options, read the way it reads them (`dist` with `tx`, or a worker's
+    `workerinput`), are set before any `pytest_configure`."""
+    option = config.option
+    worker = hasattr(config, 'workerinput')
+    distributed = getattr(option, 'dist', 'no') != 'no' and bool(getattr(option, 'tx', None)) and not option.collectonly
+    if worker or distributed:
+        raise pytest.UsageError(
+            'FlowGuard judges a test session in one pytest process: pytest-xdist workers (-n, --dist, --tx) '
+            'would end a red found in a worker as a passed run -> run pytest without -n, or with -n 0')
 
 
 def _intent_path(path, config):
