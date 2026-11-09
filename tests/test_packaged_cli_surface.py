@@ -40,12 +40,17 @@ def test_wheel_configuration_includes_every_console_example_package() -> None:
 
 @pytest.mark.parametrize("command", [("check",), ("req", "list"), ("show", "run")])
 @pytest.mark.parametrize("read_first", [False, True])
-def test_cli_closed_output_pipe_is_quiet(tmp_path, command, read_first):
+@pytest.mark.parametrize("unbuffered", [False, True])
+def test_cli_closed_output_pipe_is_quiet(tmp_path, command, read_first, unbuffered):
+    # PYTHONUNBUFFERED makes the first write meet the closed pipe inside the command, not at the final flush.
     directory = tmp_path / ".flowguard"
     directory.mkdir()
     (tmp_path/'app.py').write_text('def run(): return 1\n')
     args = [*command, "--root", str(tmp_path)]
-    proc = subprocess.Popen([sys.executable, "-m", "flowguard", *args], cwd=ROOT,
+    env = {key: value for key, value in os.environ.items() if key != "PYTHONUNBUFFERED"}
+    if unbuffered:
+        env["PYTHONUNBUFFERED"] = "1"
+    proc = subprocess.Popen([sys.executable, "-m", "flowguard", *args], cwd=ROOT, env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if read_first:
         proc.stdout.readline()

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import codecs
 from importlib.metadata import distributions
 import fnmatch
 import json
@@ -139,7 +140,10 @@ class Now:
                     locations.extend([user] if isinstance(user, str) else user)
                 packages = sorted({(item.metadata.get('Name', ''), item.version)
                                    for item in distributions(path=list(dict.fromkeys(locations)))})
-                context = (str(self.cfg.root), sys.version, repr(sys.flags), locale.getencoding(),
+                # A C/POSIX locale puts the parent in UTF-8 mode and hands its child C.UTF-8 (PEP 538/540): the
+                # two decode alike but differ in utf8_mode, so the effective encoding stands in for that flag.
+                flags = tuple((name, getattr(sys.flags, name)) for name in sys.flags.__match_args__ if name != 'utf8_mode')
+                context = (str(self.cfg.root), sys.version, repr(flags), codecs.lookup(locale.getpreferredencoding(False)).name,
                            sys.get_int_max_str_digits() if hasattr(sys, 'get_int_max_str_digits') else None)
                 digest = _digest('\n'.join(str(path.relative_to(base)) + ':' + file_digest(path)
                                           for path in sorted(base.rglob('*.py'))) + repr(context) + repr(packages))

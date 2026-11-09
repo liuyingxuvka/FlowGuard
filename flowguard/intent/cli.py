@@ -556,6 +556,8 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
         try:
             from .differences import display
             display(text)
+        except BrokenPipeError:
+            raise           # A closed consumer is quiet at the command entry, not an unavailable output.
         except (OSError, ValueError) as error:
             try:
                 print(f'FlowGuard output unavailable: {type(error).__name__}; verification status {status}', file=sys.stderr)
@@ -979,6 +981,8 @@ def main(argv=None):
         if options.command == 'req':
             return requests(cfg, options)
         return screen(cfg)
+    except BrokenPipeError:
+        raise               # The command entry exits quietly when the consumer closes stdout.
     except (ValueError, MapError, OSError) as error:
         print(f'flowguard: {error}', file=sys.stderr)
         return 2
