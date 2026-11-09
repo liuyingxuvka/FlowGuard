@@ -16,7 +16,7 @@ import posixpath
 import sqlite3
 from pathlib import Path
 
-from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_run
+from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_run, glob_match
 from . import homes, store
 from .extract import extract
 from .store import shape_list
@@ -24,6 +24,7 @@ from .query import Rows, may_share, tokens
 
 NODE_COLS = ("id", "file", "module", "qual", "kind", "cls", "line", "end_line", "sig", "doc", "fp", "size", "effects", "build")
 SIMILAR = 0.85
+ARCHIVES = ('**/docs/**',)        # files no code runs against: database histories, release snapshots
 
 
 def build(root, store_path=None, *, roots=None, force=False, workers=None) -> "MapHandle":
@@ -420,21 +421,50 @@ class MapHandle:
                     out.append(dict(name=name, file=row['file'], line=row['line'], values=tuple(values), kind=row['kind']))
         return out
 
+    def prisma_schemas_in_use(self):
+        """The Prisma schema files the client generator reads: each file named `schema.prisma` (Prisma's
+        default name, the place a project's sync script copies a provider template onto) and each file or
+        folder the nearest package.json names in `"prisma": {"schema": ...}` or a script's `--schema`.
+        Other `.prisma` files (`schema.sqlite.prisma` templates, fragments) only describe."""
+        if 'schemas_in_use' in self._derived:
+            return self._derived['schemas_in_use']
+        import re
+        files = [path for path, schema in self._schema_rows() if schema.get('kind') == 'prisma']
+        named = set()
+        for package in sorted({self.package(path) for path in files}):
+            manifest = self.root / package / 'package.json'
+            if not manifest.is_file():
+                continue
+            data = json.loads(manifest.read_text(encoding='utf-8-sig'))
+            settings = data.get('prisma') if isinstance(data, dict) else None
+            listed = [settings['schema']] if isinstance(settings, dict) and isinstance(settings.get('schema'), str) else []
+            scripts = data.get('scripts') if isinstance(data, dict) else None
+            for script in (scripts or {}).values() if isinstance(scripts, dict) else ():
+                if isinstance(script, str):
+                    listed += [found[1] for found in re.finditer(r'--schema(?:=|\s+)["\']?([^\s"\'&|;]+)', script)]
+            named |= {posixpath.normpath(posixpath.join(package, item)) for item in listed}
+        used = {path for path in files if posixpath.basename(path) == 'schema.prisma' or path in named
+                or any(path.startswith(folder + '/') for folder in named)}
+        self._derived['schemas_in_use'] = used
+        return used
+
     def value_sets(self):
-        """The declared value sets of fields that code outside Python declares, keyed `Model.field`: a Prisma
-        field typed with a Prisma enum, a SQL `CHECK (column IN ('a', ...))` on a model's table (the latest
-        one in a migrations folder; several descriptions add up), and a JS/TS interface, class or object
-        type member annotated with a closed string union or an alias of `as const`/`new Set` values.
-        Each row: key, name, values, where (file:line), kind, fold (the database compares text without
+        """The declared value sets of fields that code outside Python declares: a field of a Prisma schema in
+        use (`prisma_schemas_in_use`) typed with a Prisma enum and a SQL `CHECK (column IN ('a', ...))` on a
+        model's table (the latest one in a migrations folder; several descriptions add up), keyed and gated
+        `Model.field`, both kept when a field has both; and a JS/TS interface, class or object type member
+        annotated with a closed string union or an alias of `as const`/`new Set` values, keyed `Type.field`
+        and gated `ts:Type.field` (a TS type is not the Prisma model of the same name). Each row: key, name,
+        field (the gate's key), values, where (file:line), kind, fold (the database compares text without
         case: SQL Server and MySQL default collations)."""
         if 'value_sets' in self._derived:
             return self._derived['value_sets']
-        from .readers.sql import MIGRATION
-        models, out = self._models(), {}
+        enums_out, checks_out, types_out = {}, {}, {}
         schemas = self.schemas()
+        in_use = self.prisma_schemas_in_use()
         providers = {}
         for schema in schemas:
-            if schema.get('kind') != 'prisma':
+            if schema.get('kind') != 'prisma' or schema['file'] not in in_use:
                 continue
             enums = {enum['name']: [member['name'] for member in enum['fields']] for enum in schema.get('enums', ())}
             for model in schema.get('models', ()):
@@ -442,37 +472,15 @@ class MapHandle:
                 for field in model['fields']:
                     if field['type'] in enums and enums[field['type']]:
                         enum = next(item for item in schema['enums'] if item['name'] == field['type'])
-                        out.setdefault(f"{model['name']}.{field['name']}", dict(
-                            key=f"{model['name']}.{field['name']}", name=f"{model['name']}.{field['name']}",
-                            values=tuple(enums[field['type']]), where=f"enum {field['type']} ({schema['file']}:{enum['line']})",
+                        key = f"{model['name']}.{field['name']}"
+                        enums_out.setdefault(key, dict(
+                            key=key, name=key, field=key, values=tuple(enums[field['type']]),
+                            where=f"enum {field['type']} ({schema['file']}:{enum['line']})",
                             kind='prisma-enum', fold=False, file=schema['file']))
-        groups = {}
-        for schema in sorted((item for item in schemas if item.get('kind') == 'sql'), key=lambda item: item['file']):
-            found = MIGRATION.match(schema['file'])
-            group = groups.setdefault(found.group('folder') if found else schema['file'], {})
-            for item in [*schema.get('tables', ()), *schema.get('changes', ())]:
-                for check in item.get('checks', ()):
-                    group[(item.get('name') or item['table']).casefold(), check['column'].casefold()] = \
-                        (item.get('name') or item['table'], dict(check, file=schema['file']))
-        # A migrations folder (applied in order) is the description a CHECK is cited from when it has one.
-        for _, group in sorted(groups.items(), key=lambda item: (not item[0].endswith('migrations'), item[0])):
-            for (table, column), (spelled, check) in group.items():
-                model = models.table_model(spelled)
-                field = models.column_field(model, check['column']) if model else None
-                if field is None:
-                    continue
-                key = f"{model}.{field['name']}"
-                provider = providers.get(model, '')
-                previous = out.get(key)
-                values = tuple(check['values'])
-                where, file = f"CHECK {check['file']}:{check['line']}", check['file']
-                if previous and previous['kind'] == 'sql-check':
-                    values = tuple(dict.fromkeys([*previous['values'], *values]))
-                    where, file = previous['where'], previous['file']
-                elif previous:
-                    continue                 # a Prisma enum already declares the field's values
-                out[key] = dict(key=key, name=key, values=values, where=where, kind='sql-check',
-                                fold=provider in ('sqlserver', 'mysql'), file=file)
+        for key, (_, check) in self._check_sets().items():
+            model = key.partition('.')[0]
+            checks_out[key] = dict(key=key, name=key, field=key, values=check['values'], where=check['where'],
+                                   kind='sql-check', fold=providers.get(model, '') in ('sqlserver', 'mysql'), file=check['file'])
         for _, _, facts in self._kinds('typed_fields'):
             for row in facts.get('typed_fields', ()):
                 key = f"{row['container']}.{row['field']}"
@@ -483,10 +491,87 @@ class MapHandle:
                     if not values:
                         continue
                     where, file = f"{row['of']} ({origin['file']}:{origin['line']})", origin['file']
-                out.setdefault(key, dict(key=key, name=key, values=tuple(values), where=where, kind='ts-type', fold=False,
-                                         file=file))
-        self._derived['value_sets'] = sorted(out.values(), key=lambda row: row['key'])
+                types_out.setdefault(key, dict(key=key, name=key, field='ts:' + key, values=tuple(values), where=where,
+                                               kind='ts-type', fold=False, file=file))
+        rows = [*enums_out.values(), *checks_out.values(), *types_out.values()]
+        self._derived['value_sets'] = sorted(rows, key=lambda row: (row['key'], row['field']))
         return self._derived['value_sets']
+
+    def archived(self, path):
+        """Is this file an archive (a database history or release snapshot kept under a `docs` folder), a
+        description no code runs against? `[tool.flowguard] archives`, a list of path patterns (`**` crosses
+        folders, a folder covers what is in it), replaces the default `ARCHIVES`; `archives = []` makes every
+        file live."""
+        if 'archives' not in self._derived:
+            patterns = store.project_config(self.root).get('archives', list(ARCHIVES))
+            if not isinstance(patterns, list) or not all(isinstance(item, str) and item.strip('/') for item in patterns):
+                raise ValueError('[tool.flowguard] archives must be a list of path patterns')
+            self._derived['archives'] = tuple(item.strip('/') for item in patterns)
+        return any(glob_match(path, pattern) or glob_match(path, pattern + '/**') for pattern in self._derived['archives'])
+
+    def _check_sets(self):
+        """{Model.field: (per description {description: (values, file, line)}, the gate's set)} of SQL
+        `CHECK (column IN (...))` on mapped tables outside `archived` files: a migrations folder's latest CHECK
+        of a column, or one file's; the gate's set adds the descriptions up and is cited from a migrations
+        folder when one has it."""
+        if 'check_sets' in self._derived:
+            return self._derived['check_sets']
+        from .readers.sql import MIGRATION
+        models, groups = self._models(), {}
+        for schema in sorted((item for item in self.schemas() if item.get('kind') == 'sql' and not self.archived(item['file'])),
+                             key=lambda item: item['file']):
+            found = MIGRATION.match(schema['file'])
+            group = groups.setdefault(found.group('folder') if found else schema['file'], {})
+            for item in [*schema.get('tables', ()), *schema.get('changes', ())]:
+                for check in item.get('checks', ()):
+                    group[(item.get('name') or item['table']).casefold(), check['column'].casefold()] = \
+                        (item.get('name') or item['table'], dict(check, file=schema['file']))
+        out = {}
+        # A migrations folder (applied in order) is the description a CHECK is cited from when it has one.
+        for description, group in sorted(groups.items(), key=lambda item: (not item[0].endswith('migrations'), item[0])):
+            for (table, column), (spelled, check) in group.items():
+                model = models.table_model(spelled)
+                field = models.column_field(model, check['column']) if model else None
+                if field is None:
+                    continue
+                key = f"{model}.{field['name']}"
+                each, gate = out.setdefault(key, ({}, None))
+                each[description] = (tuple(check['values']), check['file'], check['line'])
+                if gate is None:
+                    gate = dict(values=tuple(check['values']), where=f"CHECK {check['file']}:{check['line']}", file=check['file'])
+                else:
+                    gate = dict(gate, values=tuple(dict.fromkeys([*gate['values'], *check['values']])))
+                out[key] = (each, gate)
+        self._derived['check_sets'] = out
+        return out
+
+    def field_declarations(self):
+        """{Model.field: [(file, line, values)]}: every declaration of one database field's values, also those
+        of schemas not in use: each Prisma schema's enum typing it, each SQL description's CHECK on its column
+        and each exported JS/TS declaration (outside tests) named like one of those enums."""
+        enum_names, found = {}, {}
+        for schema in self.schemas():
+            if schema.get('kind') != 'prisma':
+                continue
+            enums = {enum['name']: enum for enum in schema.get('enums', ())}
+            for model in schema.get('models', ()):
+                for field in model['fields']:
+                    enum = enums.get(field['type'])
+                    if enum and enum['fields']:
+                        key = f"{model['name']}.{field['name']}"
+                        found.setdefault(key, []).append((schema['file'], enum['line'],
+                                                          frozenset(member['name'] for member in enum['fields'])))
+                        enum_names.setdefault(key, set()).add(field['type'])
+        for key, (each, _) in self._check_sets().items():
+            found.setdefault(key, []).extend((file, line, frozenset(values)) for values, file, line in each.values())
+        from flowguard.map.common import is_test_file
+        by_name = {}
+        for row in self.declarations():
+            if not is_test_file(row['file']):
+                by_name.setdefault(row['name'], []).append((row['file'], row['line'], frozenset(row['values'])))
+        for key, names in enum_names.items():
+            found[key].extend(item for name in sorted(names) for item in by_name.get(name, ()))
+        return found
 
     def typed_writes(self, facts=None):
         """Values JS/TS code gives a typed member: a class field initializer, `this.f = 'v'` in a class, and
@@ -520,11 +605,27 @@ class MapHandle:
         names = ('child', 'relation', 'keys', 'on_delete', 'required', 'file', 'line')
         return [dict(zip(names, row)) for row in self._models().children(model)]
 
+    def package(self, file):
+        """The folder of the nearest package.json above a file ('' when none or at the root): one JS/TS
+        package (backend, frontend) of a repository that holds several."""
+        packages = self._derived.setdefault('packages', {})
+        folder, trail = posixpath.dirname(file), []
+        while folder not in packages:
+            trail.append(folder)
+            if not folder or (self.root / folder / 'package.json').is_file():
+                packages[folder] = folder
+                break
+            folder = posixpath.dirname(folder)
+        for item in trail:
+            packages[item] = packages[folder]
+        return packages[folder]
+
     def call_index(self):
         """({caller: {callee: how}}, {callee: {caller: how}}): the map's resolved call edges ('edge'), and JS/TS
-        member calls resolved by name ('name'): `this.m()` to the method of the same class or object literal,
-        `holder.m()` to the method of the class or `const holder = {...}` named so, and a callee name only
-        one function has. Prisma client calls (`x.model.update(...)`) are never resolved by name."""
+        member calls resolved by name ('name'), only to functions of the caller's own package (`package`):
+        `this.m()` to the method of the same class or object literal, `holder.m()` to the method of the class
+        or `const holder = {...}` named so, and a callee name only one function of the package has. Prisma
+        client calls (`x.model.update(...)`) are never resolved by name."""
         if 'calls' in self._derived:
             return self._derived['calls']
         from .readers.ecma import PRISMA_READS, PRISMA_WRITES
@@ -545,6 +646,7 @@ class MapHandle:
                 by_holder.setdefault((holder, name), []).append((ident, file))
                 owners[ident] = holder
         def one(candidates, file):
+            candidates = [(ident, where) for ident, where in candidates if self.package(where) == self.package(file)]
             local = [ident for ident, where in candidates if where == file]
             chosen = local if len(local) == 1 else [ident for ident, _ in candidates]
             return chosen[0] if len(chosen) == 1 else None
@@ -580,11 +682,16 @@ class MapHandle:
 
     def call_tree(self, node, depth=3, *, up=0):
         """{function: how} of `node` (with the functions nested in it) and what they call, `depth` levels down;
-        with `up`, first the callers `up` levels up, each with what it calls. how is 'edge', 'name' (some JS/TS
-        call on the way was resolved by name) or 'self'."""
+        with `up`, first the callers `up` levels up, each with what it calls; from production code the way up
+        does not enter test files (a test that calls a function is not part of its operation). how is 'edge',
+        'name' (some JS/TS call on the way was resolved by name) or 'self'."""
         import bisect
         down, upward = self.call_index()
         callers = self._derived.setdefault('callers', sorted(down))
+        if 'test_modules' not in self._derived:
+            self._derived['test_modules'] = {module for (module,) in self.con.execute('SELECT module FROM file WHERE is_test = 1')}
+        tests = self._derived['test_modules']
+        climb_tests = node.partition(':')[0] in tests
         def body(ident):
             found = [ident]
             index = bisect.bisect_left(callers, ident + '.')
@@ -599,6 +706,8 @@ class MapHandle:
             for ident, how in frontier.items():
                 for item in body(ident):
                     for caller, edge in upward.get(item, {}).items():
+                        if not climb_tests and caller.partition(':')[0] in tests:
+                            continue
                         named = caller.partition(':')[0] + ':' + '.'.join(part for part in caller.partition(':')[2].split('.')
                                                                           if not part.startswith('<anonymous'))
                         if named not in roots:
@@ -640,6 +749,81 @@ class MapHandle:
         folded = [row for row in self._compared_values()
                   if isinstance(row['value'], (int, float)) and not isinstance(row['value'], bool)]
         return Rows(self._syntax('numbers') + folded)
+
+    def label_tables(self, tables=None):
+        """Label tables that disagree: module-level JS/TS tables of production code (`const_tables` and
+        `option_lists`, outside tests and `archived` files) with at least 3 keys and only non-empty string
+        values, an enum object (every value its key) aside. A label table shows text: at least half of its
+        values start with a capital and have a lower-case letter (a CSS class list, a variant name or a code is
+        no label). Two label tables are copies when they share at least 3 keys, at least half of the smaller
+        one's, and one of those keys has the same label in both; copies form a family. Each family row lists
+        its `tables` (name, file, line, values), `differ` ({key: {label: [table index]}} for keys with several
+        labels) and `lacking` ({table index: keys}): a table whose keys are all a family table's but for at
+        most a third of them, also a table that maps the keys to codes (`ORG_TYPE_TO_ROLE` without ENTITY).
+        `tables` replaces the map's rows (for example a baseline's)."""
+        import itertools
+        if tables is None:
+            tests = {path for (path,) in self.con.execute('SELECT path FROM file WHERE is_test = 1')}
+            tables = [dict(row, kind=kind) for _, _, facts in self._kinds('const_tables', 'option_lists')
+                      for kind in ('const_tables', 'option_lists') for row in facts.get(kind, ())
+                      if row['file'] not in tests and not self.archived(row['file'])]
+        # An option without a key ({ value: '', label: 'All' }) is a filter's "no choice", not a key.
+        tables = [dict(row, values={key: value for key, value in row['values'].items() if key}) for row in tables]
+        tables = [row for row in tables if len(row['values']) >= 3
+                  and all(isinstance(value, str) and value for value in row['values'].values())
+                  and any(key != value for key, value in row['values'].items())]
+        def shown(text):
+            return text[:1].isupper() and any(ch.islower() for ch in text)
+        labels = [i for i, row in enumerate(tables) if 2 * sum(map(shown, row['values'].values())) >= len(row['values'])]
+        def shares(a, b):
+            common = a.keys() & b.keys()
+            return len(common) >= 3 and 2 * len(common) >= min(len(a), len(b))
+        peers = {i: set() for i in labels}
+        for i, j in itertools.combinations(labels, 2):
+            a, b = tables[i]['values'], tables[j]['values']
+            if shares(a, b) and any(a[key] == b[key] for key in a.keys() & b.keys()):
+                peers[i].add(j)
+                peers[j].add(i)
+        out, seen = [], set()
+        for start in labels:
+            if start in seen or not peers[start]:
+                continue
+            family, todo = [], [start]
+            while todo:
+                item = todo.pop()
+                if item not in family:
+                    family.append(item)
+                    todo.extend(peers[item])
+            seen.update(family)
+            members = sorted(family, key=lambda i: (-len(tables[i]['values']), tables[i]['kind'] != 'const_tables',
+                                                    tables[i]['file'], tables[i]['line']))
+            keys = sorted({key for i in members for key in tables[i]['values']})
+            differ = {}
+            for key in keys:
+                spelled = {}
+                for position, i in enumerate(members):
+                    if key in tables[i]['values']:
+                        spelled.setdefault(tables[i]['values'][key], []).append(position)
+                # 'Code (required)' or 'Area / Expert group' is the label 'Code' or 'Area' with an addition.
+                plain = {label for label in spelled if not any(label != other and label.startswith(other)
+                                                                and not label[len(other):].strip()[:1].isalnum()
+                                                                for other in spelled)}
+                if len(plain) > 1:
+                    differ[key] = {label: spelled[label] for label in sorted(plain)}
+            shown_at, lacking = list(members), {}
+            for i, row in enumerate(tables):
+                if row['kind'] != 'const_tables' or i in labels and i not in family:
+                    continue                  # a dropdown offers a choice of keys; another label table has its family
+                for other in members:
+                    mine, theirs = row['values'].keys(), tables[other]['values'].keys()
+                    if mine < theirs and shares(row['values'], tables[other]['values']) and 3 * len(theirs - mine) <= len(theirs):
+                        if i not in shown_at:
+                            shown_at.append(i)
+                        lacking.setdefault(shown_at.index(i), set()).update(theirs - mine)
+            if differ or lacking:
+                out.append(dict(tables=[tables[i] for i in shown_at], differ=differ,
+                                lacking={i: sorted(keys) for i, keys in sorted(lacking.items())}))
+        return out
 
     def lookup_keys(self):
         """JS/TS lookups `TABLE[expression]` in a module object constant (`const LABELS = {...}`, also
@@ -694,26 +878,34 @@ class MapHandle:
         return False, None
 
     def literal_groups(self, *, language=None, contexts=None, min_spellings=2):
-        """String literals grouped ignoring case, whitespace and punctuation; a group with several spellings
-        ('My Organization' / 'My organization') is a clue of drift, not a verdict."""
+        """String literals of production code grouped ignoring case, whitespace and punctuation (`literal_key`),
+        within one kind of spelling (`literal_shape`: a code such as MAIN_DEPARTMENT never groups with the key
+        'main-department' or the label 'Main department', nor a route '/admin' with 'admin'); a group with
+        several spellings ('My Organization' / 'My organization') is a clue of drift, not a verdict. A spelling
+        that only test files use does not count."""
+        tests = {path for (path,) in self.con.execute('SELECT path FROM file WHERE is_test = 1')}
         groups = {}
         for row in self.literals(language=language, contexts=contexts):
-            if not isinstance(row['value'], str):
+            if not isinstance(row['value'], str) or row['file'] in tests:
                 continue                    # numbers in comparisons serve old-value leads, not spellings
             key = literal_key(row['value'])
             if key:
-                groups.setdefault(key, {}).setdefault(row['value'], []).append(row)
+                groups.setdefault((key, literal_shape(row['value'])), {}).setdefault(row['value'], []).append(row)
         return [dict(key=key, spellings={value: found for value, found in sorted(spellings.items())})
-                for key, spellings in sorted(groups.items()) if len(spellings) >= min_spellings]
+                for (key, _), spellings in sorted(groups.items()) if len(spellings) >= min_spellings]
 
-    def schema_gaps(self):
-        """Columns one description of a table has and another lacks. A Prisma schema (models, @map,
-        @@map) is compared with every SQL description of its tables (one .sql file, or one Prisma
-        `migrations/` folder applied in order) and with other Prisma schemas that describe the same
-        tables. Only tables a description creates are compared; a description that creates at least
-        half of a schema's tables also reports the tables it lacks."""
+    def schema_gaps(self, schemas=None):
+        """Columns one description of a table has and another lacks. Each SQL description of tables (one
+        .sql file, or one Prisma `migrations/` folder applied in order) and each Prisma schema (models, @map,
+        @@map) is compared once, with the schema it describes: one in use (`prisma_schemas_in_use`) when one
+        shares its tables, else the schema sharing the most tables and columns, then the nearest folder. A
+        schema whose tables and columns all occur in a schema of another package (`package`) is a projection
+        and lacks nothing. Archived files (`archived`) describe nothing. Only tables a description creates
+        are compared; a description that creates at least half of a schema's tables also reports the tables
+        it lacks. `schemas` replaces the map's descriptions (for example with a baseline's)."""
         from .readers.prisma import gaps
-        return gaps(self.schemas())
+        rows = self.schemas() if schemas is None else schemas
+        return gaps([row for row in rows if not self.archived(row['file'])], self.prisma_schemas_in_use(), self.package)
 
     def calls(self, *, include_reads=False, language=None):
         """Syntactic calls; optionally include symbol reads, never execution evidence."""
@@ -1200,6 +1392,17 @@ def language_of(path):
 def literal_key(value: str) -> str:
     """Letters and digits only, case folded: the spelling-independent identity of a label."""
     return ''.join(ch for ch in value.casefold() if ch.isalnum())
+
+
+def literal_shape(value: str) -> tuple[str, str]:
+    """The kind of spelling a literal is: its leading punctuation (a route '/x', an option '--x', an extension
+    '.x') and 'code' (no lower-case letter: MAIN_DEPARTMENT, ID), 'text' (words with spaces: a label) or 'word'
+    (a key, an id, one word). Only spellings of one kind can be the same label spelled two ways."""
+    body = value.strip()
+    lead = body[:len(body) - len(body.lstrip('/\\.-_#@:~+*'))]
+    body = body[len(lead):].strip()
+    kind = 'code' if not any(ch.islower() for ch in body) else 'text' if any(ch.isspace() for ch in body) else 'word'
+    return lead, kind
 
 
 def _writes_target(row, target, models) -> bool:

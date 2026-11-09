@@ -170,6 +170,133 @@ def test_value_sets_come_from_prisma_enums_sql_checks_and_typescript_types(tmp_p
     # Kind.BOT resolves through the `as const` object; Kind.ROBOT names no member, so its value is not judged.
 
 
+def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript_types_apart(tmp_path):
+    # Planning Tool 0.6.28 (round 21, V1/V2/P01): the enum of a SQLite template the generator never reads
+    # gated the field and hid every CHECK; a frontend interface Demand was gated by the Prisma model Demand.
+    files = {
+        'backend/package.json': '{"name": "backend", "scripts": {"generate": "prisma generate && '
+                                'prisma generate --schema=prisma/central/central.prisma"}}\n',
+        'backend/prisma/schema.prisma': '''
+            datasource db {
+              provider = "sqlserver"
+              url      = env("DATABASE_URL")
+            }
+
+            model Notice {
+              id   String @id
+              kind String
+              @@map("notices")
+            }
+
+            model Demand {
+              id   String @id
+              unit String
+              @@map("demands")
+            }
+        ''',
+        'backend/prisma/schema.sqlite.prisma': '''
+            datasource db {
+              provider = "sqlite"
+              url      = env("DATABASE_URL")
+            }
+
+            enum NoticeKind {
+              CREATED
+            }
+
+            enum DemandUnit {
+              FTE_MONTH
+              HEADCOUNT
+            }
+
+            model Notice {
+              id   String     @id
+              kind NoticeKind
+              @@map("notices")
+            }
+
+            model Demand {
+              id   String     @id
+              unit DemandUnit
+              @@map("demands")
+            }
+        ''',
+        'backend/prisma/central/central.prisma': '''
+            datasource db {
+              provider = "postgresql"
+              url      = env("CENTRAL_URL")
+            }
+
+            enum Level {
+              LOW
+              HIGH
+            }
+
+            model Gauge {
+              id    String @id
+              level Level
+              @@map("gauges")
+            }
+        ''',
+        'backend/prisma/migrations/001/migration.sql': '''
+            CREATE TABLE notices (id NVARCHAR(36), kind NVARCHAR(20) CHECK (kind IN ('CREATED', 'UPDATED')));
+            CREATE TABLE demands (id NVARCHAR(36), unit NVARCHAR(20) CHECK (unit IN ('FTE_MONTH', 'HEADCOUNT')));
+        ''',
+        'backend/prisma/central/migrations/001/migration.sql': '''
+            CREATE TABLE gauges (id TEXT, level TEXT CHECK (level IN ('LOW', 'HIGH', 'MID')));
+        ''',
+        'docs/history/old-setup.sql': '''
+            CREATE TABLE notices (id NVARCHAR(36), kind NVARCHAR(20) CHECK (kind IN ('CREATED', 'ARCHIVED')));
+        ''',
+        'backend/src/types/notice.ts': '''
+            export type NoticeKind = 'CREATED' | 'UPDATED' | 'DELETED';
+        ''',
+        'backend/src/notice.service.ts': '''
+            export async function notify(prisma: any) {
+              await prisma.notice.create({ data: { kind: 'UPDATED' } });
+              await prisma.notice.create({ data: { kind: 'ARCHIVED' } });
+              await prisma.gauge.create({ data: { level: 'MID' } });
+            }
+        ''',
+        'frontend/package.json': '{"name": "frontend"}\n',
+        'frontend/src/types.ts': '''
+            export interface Demand { unit: 'FTE' | 'HOURS'; }
+        ''',
+        'frontend/src/demand.ts': '''
+            import type { Demand } from './types';
+            export const first: Demand = { unit: 'FTE' };
+            export const second = { unit: 'DAYS' } as Demand;
+        ''',
+    }
+    _commit(tmp_path, files)
+    with closing(build(tmp_path)) as graph:
+        assert graph.prisma_schemas_in_use() == {'backend/prisma/schema.prisma', 'backend/prisma/central/central.prisma'}
+        sets = sorted((row['key'], row['field'], row['values'], row['kind']) for row in graph.value_sets())
+        assert sets == [('Demand.unit', 'Demand.unit', ('FTE_MONTH', 'HEADCOUNT'), 'sql-check'),
+                        ('Demand.unit', 'ts:Demand.unit', ('FTE', 'HOURS'), 'ts-type'),
+                        ('Gauge.level', 'Gauge.level', ('LOW', 'HIGH'), 'prisma-enum'),
+                        ('Gauge.level', 'Gauge.level', ('LOW', 'HIGH', 'MID'), 'sql-check'),
+                        ('Notice.kind', 'Notice.kind', ('CREATED', 'UPDATED'), 'sql-check')], sets
+    code, text = _static(tmp_path, '--all')
+    values = [line for line in text.splitlines() if '取值：' in line]
+    # 'UPDATED' is in the CHECK the database runs (the template enum lacks it); the archived description under
+    # docs/ does not add 'ARCHIVED'; 'MID' passes the CHECK but not the enum of the schema in use; the frontend
+    # Demand is judged by its own union only.
+    assert values == [
+        "1. 取值：取值不在声明集合里：frontend/src/demand.ts:3 Demand.unit='DAYS'，允许 FTE|HOURS（frontend/src/types.ts:1）",
+        "2. 取值：取值不在声明集合里：backend/src/notice.service.ts:4 Gauge.level='MID'，允许 LOW|HIGH"
+        "（enum Level (backend/prisma/central/central.prisma:6)）",
+        "3. 取值：取值不在声明集合里：backend/src/notice.service.ts:3 Notice.kind='ARCHIVED'，允许 CREATED|UPDATED"
+        "（CHECK backend/prisma/migrations/001/migration.sql:1）"], text
+    differ = sorted(line for line in _lines(text, '线索：旧账 两份声明不同：'))
+    assert differ == [
+        "线索：旧账 两份声明不同：Gauge.level backend/prisma/central/central.prisma:6（'HIGH' | 'LOW'；少 'MID'）  "
+        "backend/prisma/central/migrations/001/migration.sql:1（'HIGH' | 'LOW' | 'MID'） → 补上缺的值；那份描述不再使用，就写明或删掉它",
+        "线索：旧账 两份声明不同：Notice.kind backend/prisma/migrations/001/migration.sql:1（'CREATED' | 'UPDATED'；少 'DELETED'）  "
+        "backend/prisma/schema.sqlite.prisma:6（'CREATED'；少 'DELETED', 'UPDATED'）  backend/src/types/notice.ts:1"
+        "（'CREATED' | 'DELETED' | 'UPDATED'） → 补上缺的值；那份描述不再使用，就写明或删掉它"], text
+
+
 def _config(root):
     from flowguard.intent.config import load_config
     return load_config(root)
@@ -219,6 +346,111 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
         '把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
 
 
+def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
+    # Planning Tool 0.6.28 (round 21, V3/G29): the plugin counted only .py files as changes, so the root
+    # pytest passed quietly while check --static had this task's pair reds.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Central {
+              id        String @id
+              orgUnitId String
+            }
+
+            model Local {
+              id     String @id
+              unitId String
+            }
+        ''',
+        'src/owners.ts': '// flowguard: owner Central.orgUnitId with=Local.unitId\nexport {};\n',
+        'tests/test_ok.py': 'def test_ok():\n    assert True\n',
+        'pyproject.toml': '[tool.pytest.ini_options]\ntestpaths = ["tests"]\n',
+    })
+    code, text = _pytest(tmp_path)
+    assert code == 0 and '配对没写' not in text, text
+    _write(tmp_path, {'src/admin.ts': '''
+        export async function editCentral(prisma: any, id: string, unit: string) {
+          await prisma.central.update({ where: { id }, data: { orgUnitId: unit } });
+        }
+    '''})
+    code, text = _pytest(tmp_path)
+    assert code == 1, text
+    assert '红：配对没写：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId' in text, text
+
+
+def test_the_value_gate_reads_the_fallback_of_a_nullish_default(tmp_path):
+    # Planning Tool 0.6.28 (round 21, G16): `sourceType: input.sourceType ?? 'CSV_IMPORT'` was not judged,
+    # `sourceType: 'CSV_IMPORT'` was red.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Project {
+              id         String @id
+              sourceType String
+              @@map("projects")
+            }
+        ''',
+        'prisma/migrations/001/migration.sql': '''
+            CREATE TABLE projects (id TEXT, sourceType TEXT CHECK (sourceType IN ('MANUAL', 'IMPORT')));
+        ''',
+    })
+    _write(tmp_path, {'src/projects.ts': '''
+        export async function create(prisma: any, input: any) {
+          await prisma.project.create({ data: { sourceType: input.sourceType ?? 'MANUAL' } });
+          await prisma.project.create({ data: { sourceType: input.sourceType ?? 'CSV_IMPORT' } });
+          await prisma.project.create({ data: { sourceType: input.sourceType ?? input.fallback } });
+        }
+    '''})
+    code, text = _static(tmp_path)
+    assert code == 1, text
+    assert [line.partition(' → ')[0] for line in _lines(text, '红：取值')] == [
+        "红：取值不在声明集合里：src/projects.ts:3 Project.sourceType='CSV_IMPORT'，允许 MANUAL|IMPORT"
+        "（CHECK prisma/migrations/001/migration.sql:1）"], text
+
+
+def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_path):
+    # Planning Tool 0.6.28 (round 21, V4): the business references follow a SAP number when it changes; with
+    # with= alone every function that creates an employee was red.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Employee {
+              id     String @id
+              sapRef Int
+            }
+
+            model Opportunity {
+              id            String @id
+              responsibleNo Int
+            }
+        ''',
+        'src/employees.ts': '''
+            export async function hire(prisma: any, id: string, sap: number) {
+              await prisma.employee.create({ data: { id, sapRef: sap } });
+            }
+            export async function renumber(prisma: any, id: string, old: number, sap: number) {
+              await prisma.employee.update({ where: { id }, data: { sapRef: sap } });
+              await prisma.opportunity.updateMany({ where: { responsibleNo: old }, data: { responsibleNo: sap } });
+            }
+            export async function fixNumber(prisma: any, id: string, sap: number) {
+              await prisma.employee.update({ where: { id }, data: { sapRef: sap } });
+            }
+        ''',
+    })
+    owner = '// flowguard: owner Employee.sapRef with=Opportunity.responsibleNo on=update\nexport {};\n'
+    _write(tmp_path, {'src/owners.ts': owner})
+    code, text = _static(tmp_path)
+    assert code == 1, text
+    assert _lines(text, '红：配对没写') == [
+        '红：配对没写：src/employees.ts:9 fixNumber（JS/TS 调用按名字解析）（只查修改） 写了 Employee.sapRef，同一操作'
+        '（调用方向上 3 层、再从那里向下 3 层）里没写 Opportunity.responsibleNo → 补写；有意只写一边，把函数加进 owner 行的 '
+        'alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
+    _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=create')})
+    code, text = _static(tmp_path)
+    assert code == 1 and [line.partition('（JS/TS')[0] for line in _lines(text, '红：配对没写')] == [
+        '红：配对没写：src/employees.ts:2 hire'], text
+    _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=later')})
+    code, text = _static(tmp_path)
+    assert code == 1 and 'on= is update or create and limits with=: owner Model.field with=Other.field on=update' in text, text
+
+
 def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_helpers(tmp_path):
     files = {
         'shop/__init__.py': '',
@@ -250,6 +482,101 @@ def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_he
     assert _lines(text, '红：配对没写') == [
         '红：配对没写：shop/store.py:16 release 写了 hires.reserved，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 '
         'hires.state=held → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 shop/store.py:1）'], text
+
+
+def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_path):
+    # Planning Tool 0.6.28 `removeRole` (round 21, G13/G15): a frontend page with the same method names and a
+    # backend test that calls both service methods satisfied the pair; a test's fixture write was a pair red.
+    _commit(tmp_path, {
+        'backend/package.json': '{"name": "backend"}\n',
+        'frontend/package.json': '{"name": "frontend"}\n',
+        'backend/prisma/schema.prisma': '''
+            model Unit {
+              id         String  @id
+              managerId  String?
+              managerSap Int?
+            }
+        ''',
+        'backend/src/unit.service.ts': '''
+            export const unitService = {
+              async setManager(prisma: any, id: string, sap: number) {
+                await prisma.unit.update({ where: { id }, data: { managerId: id, managerSap: sap } });
+              },
+              async moveManager(prisma: any, id: string, sap: number) {
+                await prisma.unit.update({ where: { id }, data: { managerId: id } });
+                await this.mirrorSap(prisma, id, sap);
+              },
+              async mirrorSap(prisma: any, id: string, sap: number) {
+                await prisma.unit.update({ where: { id }, data: { managerSap: sap } });
+              },
+              async removeManager(prisma: any, id: string) {
+                await prisma.unit.updateMany({ where: { managerId: id }, data: { managerId: null } });
+              },
+              async dropManager(prisma: any, id: string) {
+                await prisma.unit.updateMany({ where: { managerId: id }, data: { managerId: null } });
+              },
+            };
+        ''',
+        'frontend/src/UnitPage.tsx': '''
+            export function UnitPage(api: any) {
+              api.removeManager('u1');
+              api.setManager('u1', 7);
+              return null;
+            }
+        ''',
+        'backend/tests/unit.service.test.ts': '''
+            import { unitService } from '../src/unit.service';
+            await prisma.unit.create({ data: { id: 'u1', managerId: 'm1' } });
+            export async function roundTrip(prisma: any) {
+              await unitService.dropManager(prisma, 'u1');
+              await unitService.setManager(prisma, 'u1', 7);
+            }
+        ''',
+    })
+    _write(tmp_path, {'backend/src/owners.ts': '// flowguard: owner Unit.managerId with=Unit.managerSap\nexport {};\n'})
+    code, text = _static(tmp_path)
+    assert code == 1, text
+    # moveManager reaches mirrorSap through `this` in its own package; the page's calls are the frontend's own
+    # names, and the test that calls dropManager is not part of its operation; the test's fixture is no write to hold.
+    assert _lines(text, '红：配对没写') == [
+        '红：配对没写：backend/src/unit.service.ts:13 removeManager  backend/src/unit.service.ts:16 dropManager'
+        '（JS/TS 调用按名字解析） 写了 Unit.managerId，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 Unit.managerSap'
+        ' → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 backend/src/owners.ts:1）'], text
+
+
+def test_show_of_a_field_names_the_fields_its_writers_also_write_as_with_candidates(tmp_path):
+    # Planning Tool 0.6.28 (round 21, P51/P22): PspElement.move changes parentPspId without hierarchyLevel;
+    # registering the pair turns it red at once, but nothing pointed at the pair.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Node {
+              id        String  @id
+              parentId  String?
+              level     Int
+              title     String
+              createdAt DateTime
+            }
+        ''',
+        'src/nodes.ts': '''
+            export async function addRoot(prisma: any, id: string, title: string) {
+              await prisma.node.create({ data: { id, parentId: null, level: 0, title, createdAt: new Date() } });
+            }
+            export async function addChild(prisma: any, id: string, parent: any, title: string) {
+              await prisma.node.create({ data: { id, parentId: parent.id, level: parent.level + 1, title, createdAt: new Date() } });
+            }
+            export async function move(prisma: any, id: string, parentId: string) {
+              await prisma.node.update({ where: { id }, data: { parentId } });
+            }
+        ''',
+    })
+    code, text = _flowguard(tmp_path, 'show', 'Node.parentId')
+    assert code == 0, text
+    # id and createdAt are bookkeeping that every writer sets
+    assert _lines(text, 'with= candidate') == [
+        'with= candidate (reference only): Node.level is written by 2 of the 3 functions that write Node.parentId; not by '
+        'src/nodes.ts:8 move -> if the owner says they change together: // flowguard: owner Node.parentId with=Node.level',
+        'with= candidate (reference only): Node.title is written by 2 of the 3 functions that write Node.parentId; not by '
+        'src/nodes.ts:8 move -> if the owner says they change together: // flowguard: owner Node.parentId with=Node.title'], text
 
 
 # ---- deletes that leave restricting children ---------------------------------------------------------
@@ -305,11 +632,133 @@ def test_a_new_hard_delete_names_the_children_it_leaves_once_per_function_and_pa
     assert leads[0].startswith('线索：删除没处理子表：backend/src/services/hard-delete.service.ts:9  '
                                'backend/src/services/hard-delete.service.ts:10 removeEmployeeRow 删 Employee，NoAction 子表 '), leads
     listed = leads[0].partition('NoAction 子表 ')[2].partition(' 在同一操作里')[0]
-    # deleted (UserRole), counted inside OR (AuthorityAssignment), nulled (AuditEvent), Cascade (EmployeeLog), a
-    # table no code creates or updates rows in (EmployeeBadge) and an optional self relation (Employee.supervisor)
-    # are not listed.
-    assert listed == 'EmployeeNote、EmployeeTransfer（3 个外键：decidedById、employeeId、requestedById）、Notification', listed
+    # deleted (UserRole), counted inside OR (AuthorityAssignment), nulled (AuditEvent), Cascade (EmployeeLog) and a
+    # table no code creates or updates rows in (EmployeeBadge) are not listed; the optional self relation
+    # Employee.supervisor is (round 21, P12): one employee row is deleted and the copied create writes supervisorId.
+    assert listed == 'Employee、EmployeeNote、EmployeeTransfer（3 个外键：decidedById、employeeId、requestedById）、Notification', listed
     assert '[structure."delete:backend/src/services/hard-delete.service.ts:removeEmployeeRow:Employee"]' in text, text
+
+
+def test_a_one_row_delete_of_a_tree_the_code_builds_names_its_children(tmp_path):
+    # Planning Tool 0.6.28 `demand.service.ts remove` (round 21, P12): a demand with forwarded child demands
+    # (`parentDemandId`, NoAction) was deleted by id; optional self relations were skipped wholesale.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Demand {
+              id       String   @id
+              parentId String?
+              parent   Demand?  @relation("DemandTree", fields: [parentId], references: [id], onDelete: NoAction)
+              children Demand[] @relation("DemandTree")
+            }
+
+            model Folder {
+              id       String   @id
+              parentId String?
+              parent   Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: NoAction)
+              children Folder[] @relation("FolderTree")
+            }
+
+            model Tag {
+              id       String  @id
+              parentId String?
+              parent   Tag?    @relation("TagTree", fields: [parentId], references: [id], onDelete: NoAction)
+              children Tag[]   @relation("TagTree")
+            }
+        ''',
+        'src/build.ts': '''
+            export async function forward(prisma: any, id: string) {
+              await prisma.demand.create({ data: { id: id + '-f', parentId: id } });
+              await prisma.folder.create({ data: { id: id + '-f', parentId: id } });
+              await prisma.tag.create({ data: { id: id + '-t', parentId: null } });
+            }
+        ''',
+    })
+    _write(tmp_path, {'src/remove.ts': '''
+        export async function removeDemand(prisma: any, id: string) {
+          await prisma.demand.delete({ where: { id } });
+        }
+        export async function removeFolders(prisma: any, ids: string[]) {
+          for (const id of ids) {
+            await prisma.folder.delete({ where: { id } });
+          }
+          await prisma.folder.deleteMany({ where: { id: { in: ids } } });
+        }
+        export async function removeTag(prisma: any, id: string) {
+          await prisma.tag.delete({ where: { id } });
+        }
+    '''})
+    code, text = _static(tmp_path)
+    assert code == 0, text
+    # Folder rows go in a loop (hierarchy order) or all at once; no code links Tag rows into a tree.
+    assert _lines(text, '线索：删除没处理子表') == [
+        '线索：删除没处理子表：src/remove.ts:2 removeDemand 删 Demand，NoAction 子表 Demand 在同一操作里没删、没置空、没计数'
+        '（调用按名字解析） → 删除前先删或置空这些子表的行，或先计数并拒绝删除；有意交给数据库拒绝，就把决定记进 '
+        '.flowguard/ledger.toml：'], text
+
+
+def test_a_table_the_code_reads_or_deletes_but_never_fills_is_a_structure_problem(tmp_path):
+    # Planning Tool 0.6.28 (round 21, P18): local DeputyAssignment is read and deleted, no code makes its rows.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Deputy {
+              id String @id
+              @@map("deputies")
+            }
+
+            model Request {
+              id     String @id
+              status String
+            }
+
+            model Level {
+              id   String @id
+              name String
+              @@map("levels")
+            }
+
+            model Note {
+              id String @id
+            }
+        ''',
+        'prisma/migrations/001/migration.sql': '''
+            CREATE TABLE levels (id TEXT, name TEXT);
+            INSERT INTO levels (id, name) VALUES ('1', 'low');
+        ''',
+        'docs/history/old.sql': "INSERT INTO deputies (id) VALUES ('d1');\n",
+        'src/deputies.ts': '''
+            export async function deputiesOf(prisma: any, id: string) {
+              return prisma.deputy.findMany({ where: { id } });
+            }
+            export async function purge(prisma: any) {
+              await prisma.deputy.deleteMany({ where: { id: 'old' } });
+              await prisma.request.updateMany({ data: { status: 'CLOSED' } });
+              return prisma.request.count({ where: { status: 'OPEN' } });
+            }
+            export async function notes(prisma: any) {
+              await prisma.note.create({ data: { id: 'n' } });
+              await prisma.level.findMany({ where: { name: 'low' } });
+              return prisma.note.findMany({ where: { id: 'n' } });
+            }
+        ''',
+        'tests/deputies.test.ts': '''
+            await prisma.deputy.create({ data: { id: 'd1' } });
+            await prisma.request.create({ data: { id: 'r1', status: 'OPEN' } });
+        ''',
+    })
+    code, text = _static(tmp_path, '--all')
+    found = [line for line in text.splitlines() if '建行：' in line]
+    # Level rows come from a migration's INSERT, Note rows from code; a test fixture and an archived SQL file
+    # under docs/ make no rows the application has.
+    assert found == [
+        '1. 建行：代码从不建行的表：Deputy 读 src/deputies.ts:2，删 src/deputies.ts:5，没有一处 create/upsert/INSERT',
+        '2. 建行：代码从不建行的表：Request 读 src/deputies.ts:7，改 src/deputies.ts:6，没有一处 create/upsert/INSERT'], text
+    assert '       [structure."uncreated:Deputy"]' in text, text
+    source = tmp_path / 'src/deputies.ts'
+    source.write_text(source.read_text().replace('where: { id } }', 'where: { id }, take: 5 }'))
+    code, text = _static(tmp_path)
+    assert _lines(text, '线索：未决结构问题：代码从不建行的表') == [
+        '线索：未决结构问题：代码从不建行的表：Deputy 读 src/deputies.ts:2，删 src/deputies.ts:5，没有一处 create/upsert/INSERT'
+        ' → 先告诉主人：这些行从哪里来（种子、迁移、外部系统）；没有来源就删掉这些读和删，有意如此就把决定记进 .flowguard/ledger.toml：'], text
 
 
 # ---- fixed example 17: columns one description lacks -------------------------------------------------

@@ -78,7 +78,10 @@ This is finite source coverage, not full type or execution proof.
   `where`, `select`, `include`, `orderBy` never contribute. A local `const x = {...}` (block
   scoped, with later `x.f = ...`), `cond && {...}`, `cond ? {...} : {...}` and `rows.map(r => ({...}))`
   are followed; other spreads and values are `leaf='spread'|'opaque'` with a reason.
-  `$executeRaw`/`$executeRawUnsafe` SQL text is read by `readers/sql.py:statements`.
+  `$executeRaw`/`$executeRawUnsafe` SQL text is read by `readers/sql.py:statements`. A `delete`/`deleteMany`
+  inside a loop of its function (a for/while/do body, a `.forEach`/`.map` callback) carries `loop: true`. A
+  written value keeps `values` for a literal, each branch of `c ? a : b` and the fallback of `x ?? 'v'`; when only
+  that fallback is spelled the row also carries `partial: true`.
 - `assignments[].form`: `member` (`obj.f = ...`), `pair`, `declarator`, `class-field` or `identifier`.
 
 ## Schema files
@@ -87,10 +90,14 @@ This is finite source coverage, not full type or execution proof.
 readers: no grammar package. Nodes are `model`/`enum` (Prisma) and `table` (SQL CREATE TABLE);
 keys `model`, `table`, `column`; the `schema` fact holds models with fields (`column` from
 `@map`, table from `@@map`, `relation` from `@relation(fields, references)`) or tables, ALTER
-ADD/DROP COLUMN and DROP TABLE changes. Schema files have no code, so code queries over them are
+ADD/DROP/RENAME COLUMN, ALTER ... RENAME TO (`rename`, SQLite's table rebuild), CREATE TABLE ... AS SELECT
+(`copy`: the table, its columns unread) and DROP TABLE changes, and the lines of CREATE TABLE statements whose
+table is not spelled (`unread`: a name built at run time). Schema files have no code, so code queries over them are
 complete and empty. `MapHandle.writes()` binds write paths to models at query time (accessor
 `centralEmployee` -> model `CentralEmployee`, relation -> model, `connect` -> the foreign-key
-fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` compares descriptions.
+fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` compares each live description
+once with the schema it describes (`archived()` files under `docs/` by default, `[tool.flowguard] archives`,
+describe nothing).
 
 ## Python writes and literals
 
@@ -127,7 +134,10 @@ fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` comp
   `container`, `field`, `optional`; `typed_writes`: the literal values a class field initializer, `this.f = ...`
   in a class, or an object written as `const x: T = {...}`, `{...} satisfies T`, `{...} as T` give a member.
 - `numbers` (TS/JS): number literals in `===`/`<`/`>=`/... comparisons and `case` labels, in the literal row shape.
+- `const_tables` (TS/JS, module level): `const NAME = {key: literal, ...}`; `option_lists`: `const NAME =
+  [{ value: 'K', label: 'L' }, ...]` as {K: L} (key from `value`/`key`/`id`/`code`, text from
+  `label`/`title`/`text`/`name`). `MapHandle.label_tables()` compares the label tables of both.
 - `nodes[].raw.holder` (TS/JS methods): the class or `const x = {...}` object a method belongs to; calls are
-  resolved by name through it (`MapHandle.call_index()`).
+  resolved by name through it, inside the caller's package (nearest `package.json`; `MapHandle.call_index()`).
 - Prisma fields carry `on_delete` (from `@relation(..., onDelete: X)`); SQL tables and ALTER changes carry `checks`
   (`CHECK (col IN ('a', ...))` with string values, also inside `EXEC(N'...')`).

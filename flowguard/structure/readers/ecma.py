@@ -42,6 +42,8 @@ NESTED = {'create', 'createMany', 'connect', 'connectOrCreate', 'disconnect', 's
           'upsert', 'delete', 'deleteMany'}
 SCALAR_OPS = {'set', 'increment', 'decrement', 'multiply', 'divide', 'push', 'unset'}
 RAW_WRITES = {'$executeRaw', '$executeRawUnsafe'}
+OPTION_KEYS = ('value', 'key', 'id', 'code')            # the key of a `[{ value: 'K', label: 'L' }]` option
+OPTION_LABELS = ('label', 'title', 'text', 'name')      # the text it shows
 PRISMA_READS = {'count', 'findFirst', 'findFirstOrThrow', 'findMany', 'findUnique', 'findUniqueOrThrow', 'aggregate',
                 'groupBy'}
 QUERY_ARGS = {'where', 'select', 'include', 'orderBy', 'take', 'skip', 'distinct', 'cursor', 'by', '_count'}
@@ -87,7 +89,7 @@ def extract(root, rel, data, module, is_test):
     language = language_for(rel)
     out = blank(module, data, language)
     out.update(queries=[], value_sets=[], typed_fields=[], typed_writes=[], numbers=[], compared_names=[],
-               const_tables=[], table_lookups=[])
+               const_tables=[], table_lookups=[], option_lists=[])
     source, tree = parse(data, language)
     handed_on = set(propagate_names(root))
     if tree.root_node.has_error:
@@ -281,6 +283,32 @@ def extract(root, rel, data, module, is_test):
             if item.type not in FUNCTIONS | CLASSES:
                 stack.extend(item.named_children)
 
+    def logged(statement):
+        """`console.error(...)`, `logger.warn(...)`, `this.logger.info(...)`: a statement that only logs."""
+        call = unwrap(statement.named_children[0]) if statement.type == 'expression_statement' and statement.named_children else None
+        callee = field(call, 'function') if call is not None and call.type == 'call_expression' else None
+        receiver = field(callee, 'object') if callee is not None and callee.type == 'member_expression' else None
+        last = text(receiver, source).rsplit('.', 1)[-1] if receiver is not None else ''
+        return last in LOG_OBJECTS or last.endswith(('Logger', 'logger'))
+
+    def ending(body, handed):
+        """How a catch body ends (common.ENDINGS): it raises or hands the error on somewhere, returns or assigns a
+        substitute, only logs, is empty (a bare `return;`, `continue;` or `break;` leaves without a value or a
+        word), or does other work (reports it to the user, answers a request)."""
+        statements = [item for item in (body.named_children if body is not None else []) if item.type not in COMMENTS
+                      and item.type not in ('continue_statement', 'break_statement')
+                      and not (item.type == 'return_statement' and not item.named_children)]
+        if handed:
+            return 'handed'
+        if not statements:
+            return 'empty'
+        if all(logged(item) for item in statements):
+            return 'log'
+        if any(item.type == 'return_statement' and item.named_children
+               or item.type in ('assignment_expression', 'augmented_assignment_expression') for item in own_nodes(body)):
+            return 'substitute'
+        return 'other'
+
     def catch(node, owner, scope):
         parameter, body = field(node, 'parameter'), field(node, 'body')
         error = text(parameter, source) if parameter is not None and parameter.type == 'identifier' else ''
@@ -298,6 +326,7 @@ def extract(root, rel, data, module, is_test):
                                         and text(unwrap(item.named_children[0]), source) == error for item in throws),
             non_raising=falls or leaves, propagates=sorted(handed) if not (falls or leaves) else [],
             hands_on=sorted(handed), function=function, key=f'{rel}:{function}:{caught}',
+            ends=ending(body, handed | ({'throw'} if any(item.type == 'throw_statement' for item in throws) else set())),
             body=text(body, source), **position(node, source)))
 
     # ---- string literals that decide or name a value -----------------------------------------
@@ -384,15 +413,34 @@ def extract(root, rel, data, module, is_test):
     def add_write(rows, base, path, leaf, at, reason='', written=None):
         rows.append(dict(base, path=path, leaf=leaf, reason=reason, **(written or {}), **position(at, source)))
 
+    def in_loop(node):
+        """Is a call inside a loop of its function: a for/while/do body, or a callback of `.forEach`/`.map`?"""
+        child, parent = node, node.parent
+        while parent is not None:
+            if parent.type in ('for_statement', 'for_in_statement', 'while_statement', 'do_statement') \
+                    and child == field(parent, 'body'):
+                return True
+            if child.type in FUNCTIONS:
+                call = parent.parent if parent.type == 'arguments' else None
+                callee = field(call, 'function') if call is not None and call.type == 'call_expression' else None
+                prop = field(callee, 'property') if callee is not None and callee.type == 'member_expression' else None
+                return prop is not None and text(prop, source) in ('forEach', 'map', 'flatMap')
+            child, parent = parent, parent.parent
+        return False
+
     def value_parts(node):
         """[('value', v) | ('ref', 'Name.KEY')] an expression can take: a literal, a member of a named
-        object (`Status.ACTIVE`), or each branch of `c ? a : b`; None when any part is not spelled."""
+        object (`Status.ACTIVE`), or each branch of `c ? a : b`; None when any part is not spelled. The
+        fallback of `x ?? 'v'` is a part, with ('partial', None) when `x` is not spelled."""
         node = unwrap(node)
         if node is None:
             return None
         if node.type == 'ternary_expression':
             first, second = value_parts(field(node, 'consequence')), value_parts(field(node, 'alternative'))
             return first + second if first is not None and second is not None else None
+        if node.type == 'binary_expression' and operator(node) == '??':
+            first, second = value_parts(field(node, 'left')), value_parts(field(node, 'right'))
+            return None if second is None else (first if first is not None else [('partial', None)]) + second
         valid, value = literal(node, source)
         if valid:
             return [('value', value)]
@@ -403,11 +451,13 @@ def extract(root, rel, data, module, is_test):
         return None
 
     def written_of(node):
-        """`values` (literals) and `refs` (`Name.KEY` spellings) of a written expression, when every part is spelled."""
+        """`values` (literals) and `refs` (`Name.KEY` spellings) of a written expression, when every part is spelled;
+        `partial` when only the fallback of `x ?? 'v'` is (the value may also be what `x` holds)."""
         parts = value_parts(node)
         if not parts:
             return {}
-        return dict(values=[value for kind, value in parts if kind == 'value'], refs=[value for kind, value in parts if kind == 'ref'])
+        return dict(values=[value for kind, value in parts if kind == 'value'], refs=[value for kind, value in parts if kind == 'ref'],
+                    **({'partial': True} if ('partial', None) in parts else {}))
 
     def object_fields(value, base, prefix, rows, depth=0):
         """Write paths of one Prisma data value: fields, nested operations and what stays unclear."""
@@ -588,7 +638,7 @@ def extract(root, rel, data, module, is_test):
         if arg.type == 'identifier':
             add_write(rows, base, [], 'opaque', arg, 'Prisma argument is not an object literal')
         elif method in ('delete', 'deleteMany'):
-            add_write(rows, base, [], 'delete', node)
+            add_write(rows, dict(base, loop=True) if in_loop(node) else base, [], 'delete', node)
         elif method == 'upsert':
             for branch in ('create', 'update'):
                 if branch in keys:
@@ -830,6 +880,31 @@ def extract(root, rel, data, module, is_test):
                 table[name] = item if known else None
         return table or None
 
+    def option_list(value):
+        """{key: label} of a module-level `const NAME = [{ value: 'K', label: 'L' }, ...]`: every element an object
+        that spells one of OPTION_KEYS and one of OPTION_LABELS as string literals (a dropdown's options)."""
+        value = unwrap(value)
+        if value is None or value.type != 'array' or not value.named_children:
+            return None
+        table = {}
+        for item in value.named_children:
+            item = unwrap(item)
+            if item is None or item.type != 'object':
+                return None
+            spelled = {}
+            for pair in item.named_children:
+                key = field(pair, 'key') if pair.type == 'pair' else None
+                if key is not None and key.type == 'property_identifier':
+                    known, found = literal(unwrap(field(pair, 'value')), source)
+                    if known and isinstance(found, str):
+                        spelled[text(key, source)] = found
+            key = next((spelled[name] for name in OPTION_KEYS if name in spelled), None)
+            label = next((spelled[name] for name in OPTION_LABELS if name in spelled), None)
+            if key is None or label is None:
+                return None
+            table[key] = label
+        return table
+
     def visit(node, scope='', cls='', parameters=(), shadows=frozenset()):
         if node.type in ('import_statement', 'export_statement'):
             imports(node, scope)
@@ -925,6 +1000,10 @@ def extract(root, rel, data, module, is_test):
         if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
                 and field(node, 'name').type == 'identifier' and (table := const_table(field(node, 'value'))) is not None:
             out['const_tables'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table,
+                                            **position(node, source)))
+        if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
+                and field(node, 'name').type == 'identifier' and (table := option_list(field(node, 'value'))):
+            out['option_lists'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table,
                                             **position(node, source)))
         if node.type == 'number' and (found := number_context(node))[0]:
             out['numbers'].append(dict(node=owner, file=rel, value=found[1], context=found[0],

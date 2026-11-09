@@ -17,7 +17,9 @@ legacy entry can only shrink, never grow, compared with the ledger at the task's
 the record `ledger init` kept. Deleting a ledger that the baseline commit still has is red as well.
 
 Other languages supply handler rows through their map reader with the same fields (`node`, `file`, `line`,
-`kind`, `type`, `non_raising`); the language comes from the file suffix. A file whose reader cannot supply
+`kind`, `type`, `non_raising`, and for `except`/`catch` rows `ends`: how the body ends); the language comes from
+the file suffix. `check --all` lists the legacy entries of production code whose handlers carry on with a
+substitute value, only log or are empty (`open_legacy`). A file whose reader cannot supply
 handlers, or that does not parse, is listed as not checked; it is never read as having no handlers.
 """
 from __future__ import annotations
@@ -72,6 +74,15 @@ class Fallback:
     kind: str
     language: str
     refused: str        # why this form can never be listed; empty when it may be listed with a reason
+    ends: str           # how its body ends (readers.common.ENDINGS)
+
+
+# How the other forms end: `contextlib.suppress`, a warning filter and an `__exit__` that returns true drop the
+# error without a word; a `return` in `finally` replaces it with its value.
+FORM_ENDS = {'suppress': 'empty', 'warning_filter': 'empty', 'exit_method': 'empty', 'finally': 'substitute'}
+# The legacy entries `--all` lists, the most worrying first: production code that carries on with a substitute
+# value, only logs, or says nothing.
+OPEN_ENDS = {'substitute': '返回或改成替代值', 'log': '只记日志', 'empty': '空块'}
 
 
 @dataclass(frozen=True)
@@ -147,9 +158,44 @@ def fallbacks(cfg, graph):
         function = row['function'] if language in ECMA else row['node'].partition(':')[2] or '<module>'
         key = f"{row['file']}:{function}:{caught}"
         refused = _python_refusal(row['kind'], caught) if language == 'python' else ''
+        ends = row['ends'] if row['kind'] in ('except', 'catch') else FORM_ENDS[row['kind']]
         found.setdefault(key, []).append(Fallback(key, row['file'], function, caught, row['line'], row['kind'],
-                                                   language, refused))
+                                                   language, refused, ends))
     return found, unread
+
+
+def open_legacy(cfg, graph):
+    """The `--all` lines of legacy entries (rule = "旧账", never reviewed) in production code whose handlers do
+    not hand the error on, by how their bodies end (OPEN_ENDS): an entry counts once, by its most worrying
+    handler. A ledger that does not parse lists nothing here; its red lines say why."""
+    ledger = path(cfg)
+    if not ledger.is_file():
+        return []
+    entries, _, malformed = parse(ledger.read_text(encoding='utf-8-sig'))
+    if malformed is None:
+        return []
+    found, _ = fallbacks(cfg, graph)
+    tests = {file for (file,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
+    order = list(OPEN_ENDS)
+    groups = {}
+    for key, entry in sorted(entries.items()):
+        items = found.get(key, [])
+        if not entry.legacy or not items or items[0].file in tests or graph.archived(items[0].file):
+            continue
+        ends = [item.ends for item in items if item.ends in OPEN_ENDS]
+        if ends:
+            groups.setdefault(min(ends, key=order.index), []).append(items)
+    if not groups:
+        return []
+    total = sum(len(group) for group in groups.values())
+    lines = [f'旧账兜底 {total} 条在生产代码里没有把错误交出去（{LEDGER} 里 rule = "{LEGACY_RULE}"、未审；按 catch 体分）：']
+    for ends in order:
+        if ends in groups:
+            lines.append(f'   {OPEN_ENDS[ends]} {len(groups[ends])} 条：'
+                         + '、'.join(f'{_where(items)} {items[0].function}' for items in groups[ends]))
+    lines.append('   下一步：逐条看：错误该让调用方知道就改代码让它抛出或交出去；可以留就把这一条的 reason 写成它做了什么、'
+                 '为什么可以留，rule 指向成文规矩')
+    return lines
 
 
 def words(text) -> int:

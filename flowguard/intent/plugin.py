@@ -322,6 +322,7 @@ class Observations:
         from . import anchors, cache, differences
         from .runtime import Runtime, _functions, _binding_facts
         from ..map.common import MapError, git_run, read_source
+        from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
         self.comparison_requested = bool(state.config.getoption('--flowguard-base', default=None))
         task = cache.session_baseline(self.cfg, remember=False)
@@ -338,9 +339,13 @@ class Observations:
             self.files = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                           if value and value.endswith(b'.py') and state.is_project(str(self.cfg.root / os.fsdecode(value)))}
             self.differs = {os.fsdecode(value) for value in changed.split(b'\0') if value}
+            # A changed TS/JS, Prisma, SQL or other mapped file is a change too: the map checks read it.
+            self.mapped = {os.fsdecode(value) for value in (changed + added).split(b'\0')
+                           if value and language_for(os.fsdecode(value)) not in (None, 'python')}
         except MapError:
             self.files = set()
             self.differs = set()
+            self.mapped = set()
         self.points = {a.target: dict(anchor=a, target=a.target, file=a.file, module=a.module, qual=a.qual,
                                      name=a.name, kind=a.kind, node=None)
                        for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'}
@@ -1057,11 +1062,12 @@ class Observations:
             elif issue.code == 'source-syntax':
                 self.grey.append(f'{issue.file}' + (f':{issue.line}' if issue.line else '')
                                  + ': cannot be parsed, only this file is unverified: ' + issue.message)
-        if self.changed:
+        if self.changed or self.mapped:
             # Static leads and owner writes need no replay: an old value still elsewhere (rules too),
-            # a new spelling of a label, a new write outside a data owner's writers.
-            from . import owners
-            found = owners.static_findings(self.cfg, self.state.get_map(), self.index, self.runtime.baseline)
+            # a new spelling of a label, a new write outside a data owner's writers, a pair, a value.
+            from . import anchors, owners
+            graph = self.state.get_map()       # the map's index also holds the TS/JS owners (check --static reads it)
+            found = owners.static_findings(self.cfg, graph, anchors.collect(graph), self.runtime.baseline)
             self.red.extend(found.red)
             leads.extend(found.leads)
             self.structure = found.summary         # the session brief's count of open structure problems
@@ -1069,7 +1075,8 @@ class Observations:
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
         fallbacks = self.state.ledger()
         report = dict(session=True, baseline=self.runtime.baseline, baseline_kind=self.baseline_kind,
-                      source_changed=self.changed, comparison_requested=self.comparison_requested, items=items, paths=self.paths,
+                      source_changed=self.changed or bool(self.mapped), comparison_requested=self.comparison_requested,
+                      items=items, paths=self.paths,
                       leads=leads, red=list(dict.fromkeys(self.red)), steps=self.steps, partial_flows=partial_flows, unverified=unverified,
                       ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in fallbacks.red])
         from dataclasses import fields

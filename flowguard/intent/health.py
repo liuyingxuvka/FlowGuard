@@ -1,8 +1,8 @@
 """Structure health: the map checks that need no test run, and the open structure problems they leave.
 
 Each check reads the one map (`MapHandle.writes()`, `value_sets()`, `queries()`, `children()`,
-`schema_gaps()`, `call_tree()`) and reports only what this change adds: red for a value outside its
-declared set, leads for a delete that leaves restricting children, a column one description of a table
+`schema_gaps()`, `label_tables()`, `call_tree()`) and reports only what this change adds: red for a value
+outside its declared set, leads for a delete that leaves restricting children, a column one description of a table
 lacks and two same-name functions whose bodies differ. Every problem, old ones too, is also an `Issue`
 with a stable name; `check --all` and `check --static --all` list them by severity, and a change that
 touches an open one gets a single lead. The owner's decision in the `[structure]` section of
@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from flowguard.map.common import is_test_file
 
-RANKS = {1: '取值', 2: '配对', 3: '缺列', 4: '删除', 5: '副本', 6: '写入'}
+RANKS = {1: '取值', 2: '配对', 3: '缺列', 4: '删除', 5: '副本', 6: '写入', 7: '建行', 8: '标签'}
 BOOKKEEPING = {'id', 'createdat', 'updatedat', 'created_at', 'updated_at', 'createdbyid', 'updatedbyid',
                'created_by', 'updated_by', 'revision', 'version'}     # written by every writer on purpose
 WRITER_FILES = 3             # files writing one field without an owner before it is an issue
@@ -26,6 +26,7 @@ CREATING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'ups
             'updateManyAndReturn', 'sql:insert', 'sql:update')   # code that makes or keeps rows of a table
 SHOWN_GROUPS = 3             # copies or unowned fields the --all listing shows one by one; more become one line
 DELETING = ('delete', 'deleteMany', 'nested:delete', 'nested:deleteMany', 'sql:delete')
+INSERTING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'sql:insert')      # code that makes rows
 RESTRICTING = ('NoAction', 'Restrict')
 
 
@@ -65,7 +66,8 @@ def _foreign_writes(change, facts=None):
     out = [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None])
            for row in rows if row.get('model') and not row.get('unclear') and row.get('language', 'python') != 'python'
            and row.get('values')]
-    out += [dict(row, field=f'{row["container"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None])
+    out += [dict(row, field=f'{row["container"]}.{row["field"]}', gate=f'ts:{row["container"]}.{row["field"]}',
+                 values=[v for v in row.get('values', ()) if v is not None])     # gated by the TS type's own sets
             for row in graph.typed_writes(facts=facts) if row.get('values')]
     return [row for row in out if row['values']]
 
@@ -83,21 +85,25 @@ def values(change, *, everything=False):
     outside = list(outside_sets(table, _foreign_writes(change)))
     if not outside:
         return found
-    key = lambda row, value: (row['file'], row_function(row), row['field'], repr(value))
+    key = lambda row, declared, value: (row['file'], row_function(row), row['field'], declared['where'], repr(value))
     before = Counter()
     for file in {row['file'] for row, _, _ in outside} & change.files:
         facts = change.old_facts(file)
         if facts:
-            before.update(key(row, value) for row, _, value in outside_sets(table, _foreign_writes(change, [facts])))
-    now = Counter(key(row, value) for row, _, value in outside)
-    by_field = {}
+            before.update(key(row, declared, value) for row, declared, value
+                          in outside_sets(table, _foreign_writes(change, [facts])))
+    now = Counter(key(row, declared, value) for row, declared, value in outside)
+    by_field, names = {}, set()
     for row, declared, value in outside:
-        by_field.setdefault(row['field'], (declared, []))[1].append((row, value))
-    for name, (declared, items) in sorted(by_field.items()):
-        where = declared['where']
+        by_field.setdefault((row.get('gate', row['field']), declared['where']), (declared, []))[1].append((row, value))
+    for (_, where), (declared, items) in sorted(by_field.items()):
+        name = declared['name']
+        # a field's second set (a CHECK beside its enum, a TS type of a model's name) is its own issue
+        issue_name = f'values:{name}' if f'values:{name}' not in names else f'values:{name}:{where}'
+        names.add(issue_name)
         changed_set = declared.get('file') in change.files
         fresh = [(row, value) for row, value in items if changed_set or row['file'] in change.files
-                 and now[key(row, value)] > before[key(row, value)]]
+                 and now[key(row, declared, value)] > before[key(row, declared, value)]]
         allowed = '|'.join(map(str, declared['values']))
         def line(chosen):
             return ('取值不在声明集合里：' + '  '.join(f'{row["file"]}:{row["line"]} {name}={value!r}' for row, value in chosen)
@@ -105,7 +111,7 @@ def values(change, *, everything=False):
         step = '改用集合里的值；集合真要加值，先改那条声明（' + where + '）'
         if fresh and change.baseline:
             found.red.append(line(fresh) + ' → ' + step)
-        found.issues.append(Issue(f'values:{name}', 1, f'取值 {name}', line(items), step,
+        found.issues.append(Issue(issue_name, 1, f'取值 {name}', line(items), step,
                                   frozenset(row_function(row) for row, _ in items), frozenset(row['file'] for row, _ in items),
                                   new=bool(fresh and change.baseline)))
     return found
@@ -124,7 +130,8 @@ def _handled(child, parent, rows, queries, back):
     keys = set(child['keys']) | {child['relation']}
     for row in rows:
         if row.get('model') == child['child'] and (row['kind'] in DELETING or row['field'] in child['keys']
-                                                   and None in (row.get('values') or ()) or row['kind'] == 'disconnect'):
+                                                   and None in (row.get('values') or ()) and not row.get('partial')
+                                                   or row['kind'] == 'disconnect'):
             return True
     for row in queries:
         if row.get('model') == child['child'] and set(row['keys']) & keys:
@@ -137,7 +144,8 @@ def _handled(child, parent, rows, queries, back):
 def deletes(change, *, everything=False):
     """A Prisma delete of a parent whose restricting children (NoAction/Restrict) are not deleted, nulled
     or counted anywhere in the same operation: the function's callers three levels up and what they call
-    three levels down (JS/TS calls resolved by name). Tables the code never creates rows in are left out.
+    three levels down (JS/TS calls resolved by name). Tables the code never creates rows in are left out, and
+    an optional self relation unless one row is deleted and code creates rows with that self reference.
     One lead per (function, parent); a lead only when this change adds it."""
     from .owners import named, operation, row_function
     found = _findings()
@@ -161,11 +169,19 @@ def deletes(change, *, everything=False):
         if row['kind'] not in DELETING[:4] or row.get('how') != 'prisma' or row['file'] in tests:
             continue
         groups.setdefault((row['file'], row['function'], row['model'], row_function(row)), []).append(row)
+    # Rows production code creates or keeps with a self reference set (`parentDemandId: id`): a tree of that table.
+    trees = {(row['model'], row['field']) for row in rows if row['file'] not in tests and not is_test_file(row['file'])
+             and (row['kind'] in CREATING or row['kind'] == 'connect' or row['kind'].startswith(('nested:create', 'nested:upsert',
+                                                                                                  'nested:connect')))
+             and not (row.get('values') and not row.get('partial') and all(value is None for value in row['values']))}
     for (file, function, parent, ident), calls in sorted(groups.items()):
-        # An optional self relation (a tree's parent) is left out: deletes of a tree remove children with or before
-        # their parents in ways this reading does not follow (loops in hierarchy order, one deleteMany).
+        # An optional self relation (a tree's parent) is read only for a delete of one row, outside a loop, of a
+        # table whose rows code links into a tree: a deleteMany or a loop in hierarchy order removes children
+        # with their parents in ways this reading does not follow.
+        one_row = any(row['kind'] in ('delete', 'nested:delete') and not row.get('loop') for row in calls)
         children = [child for child in graph.children(parent) if _restricts(child) and child['child'] in created
-                    and not (child['child'] == parent and not child['required'])]
+                    and not (child['child'] == parent and not child['required']
+                             and not (one_row and any((parent, key) in trees for key in child['keys'])))]
         if not children:
             continue
         tree = operation(graph, ident)
@@ -233,7 +249,6 @@ def columns(change, *, everything=False):
     before = None
     changed = {item for item in change.files if item.endswith(('.prisma', '.sql'))}
     if change.baseline and changed:
-        from flowguard.structure.readers.prisma import gaps as compare
         schemas = []
         for row in change.graph.schemas():
             if row['file'] in changed:
@@ -242,7 +257,8 @@ def columns(change, *, everything=False):
                     schemas.append(dict(facts['schema'], file=row['file']))
             else:
                 schemas.append(row)
-        before = {(_gap_key(item), name) for item in compare(schemas) for name in [*item['missing'], *item['extra']]}
+        before = {(_gap_key(item), name) for item in change.graph.schema_gaps(schemas)
+                  for name in [*item['missing'], *item['extra']]}
     pairs = {}
     for item in gaps:
         pairs.setdefault((item['description'], item['schema']), []).append(item)
@@ -337,6 +353,125 @@ def writers(change, index, rows=None):
                                   frozenset(row_function(row) for row in rows), frozenset(files),
                                   entry=tuple(_structure_lines(f'writers:{name}'))))
     return found
+
+
+# ---- fields written together with one field: with= candidates for show --------------------------
+
+PARTNER_SHARE = 0.5          # share of a field's writing functions that also write a field before it is a with= candidate
+PARTNERS_SHOWN = 5
+
+
+def co_written(change, name):
+    """Lines for `show Model.field`: other fields most of its production writers also write in the same
+    function, each with the writers that leave it out and the `owner ... with=` line to copy. Reference
+    only: writing two fields together often is no rule until the owner says so."""
+    from .owners import row_function
+    tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
+    def field_of(row):
+        holder, column = row.get('model') or row.get('table'), row.get('field') or row.get('db_column')
+        bound = not row.get('unclear') and not (row.get('how') == 'name' and row.get('language', 'python') != 'python')
+        if not bound or not holder or column in ('*', '?', None) or row['file'] in tests or is_test_file(row['file']) \
+                or row['function'] == '<module>':
+            return None
+        return f'{holder}.{column}'
+    by_function, places = {}, {}
+    for row in change.writes():
+        key = field_of(row)
+        if key is not None:
+            by_function.setdefault(row_function(row), set()).add(key)
+            if key.casefold() == name.casefold():
+                places.setdefault(row_function(row), f'{row["file"]}:{row["line"]} {row["function"]}')
+    writers = sorted(places)
+    if len(writers) < 2:
+        return []
+    shared = Counter(other for function in writers for other in by_function[function]
+                     if other.casefold() != name.casefold() and other.rpartition('.')[2].casefold() not in BOOKKEEPING)
+    target = next(key for function in writers for key in by_function[function] if key.casefold() == name.casefold())
+    comment = '//' if any(ident.startswith(('typescript/', 'tsx/', 'javascript/')) for ident in writers) else '#'
+    lines = []
+    for other, count in sorted(shared.items(), key=lambda item: (-item[1], item[0]))[:PARTNERS_SHOWN]:
+        if count < 2 or count < PARTNER_SHARE * len(writers):
+            break
+        alone = [places[function] for function in writers if other not in by_function[function]]
+        lines.append(f'with= candidate (reference only): {other} is written by {count} of the {len(writers)} functions '
+                     f'that write {target}' + (f'; not by {"  ".join(alone)}' if alone else '')
+                     + f' -> if the owner says they change together: {comment} flowguard: owner {target} with={other}')
+    return lines
+
+
+# ---- tables code reads or deletes but never makes rows in -----------------------------------------
+
+def uncreated(change):
+    """A Prisma model production code reads or deletes (also updates) while no production code or live SQL
+    makes its rows (create, createMany, upsert, a nested create, INSERT): the rows come from elsewhere or the
+    reads are dead. One issue per model (`check --all`, `show`); a change that edits one of its readers
+    gets the touched lead."""
+    from .owners import row_function
+    found = _findings()
+    graph = change.graph
+    if not graph._models().by_name:
+        return found
+    tests = {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
+    def live(row):
+        return row['file'] not in tests and not is_test_file(row['file']) and not graph.archived(row['file'])
+    rows = [row for row in change.writes() if row.get('how') in ('prisma', 'sql') and row.get('model') and live(row)]
+    made = {row['model'] for row in rows if row['kind'] in INSERTING
+            or row['kind'].startswith(('nested:create', 'nested:upsert', 'nested:connectOrCreate'))}
+    uses = {}
+    for row in [*rows, *(row for row in graph.queries() if row.get('model') and live(row))]:
+        if row['model'] in made:
+            continue
+        verb = '删' if 'kind' in row and row['kind'] in DELETING else '改' if 'kind' in row else '读'
+        uses.setdefault(row['model'], {}).setdefault(verb, []).append(row)
+    for model, verbs in sorted(uses.items()):
+        if set(verbs) == {'改'}:
+            continue                # only updated: the writers check lists who writes it
+        text = (f'代码从不建行的表：{model} ' + '，'.join(f'{verb} {_places(verbs[verb])}' for verb in ('读', '删', '改') if verb in verbs)
+                + '，没有一处 create/upsert/INSERT')
+        step = '先告诉主人：这些行从哪里来（种子、迁移、外部系统）；没有来源就删掉这些读和删，有意如此就把决定记进 .flowguard/ledger.toml：'
+        found.issues.append(Issue(f'uncreated:{model}', 7, f'建行 {model}', text, step,
+                                  frozenset(row_function(row) for items in verbs.values() for row in items),
+                                  frozenset(row['file'] for items in verbs.values() for row in items),
+                                  entry=tuple(_structure_lines(f'uncreated:{model}'))))
+    return found
+
+
+# ---- label tables that disagree --------------------------------------------------------------------
+
+def labels(change):
+    """Label tables that disagree (`MapHandle.label_tables()`): copies of one table of labels that spell a
+    key's label differently, and lookup tables that lack a key their copies have. One issue per family
+    (`check --all`); a change that edits or adds one of its tables gets it as a lead."""
+    found = _findings()
+    for family in change.graph.label_tables():
+        tables = family['tables']
+        names = [table['name'] for table in tables]
+        def ref(i):
+            return names[i] if names.count(names[i]) == 1 else f'{names[i]}（{tables[i]["file"].rpartition("/")[2]}:{tables[i]["line"]}）'
+        parts = [f'{key} ' + ' 与 '.join(f'{label!r}（{"、".join(ref(i) for i in where)}）' for label, where in spelled.items())
+                 for key, spelled in family['differ'].items()]
+        parts += [f'{ref(i)} 缺 {"、".join(keys)}' for i, keys in family['lacking'].items()]
+        text = ('标签表不一致：' + '、'.join(f'{table["file"]}:{table["line"]} {table["name"]}' for table in tables)
+                + '：' + '；'.join(parts))
+        head = tables[0]
+        name = f'labels:{head["file"]}:{head["name"]}'
+        step = ('让这些表取自同一张表（一个负责人），或统一写法、补上缺的键；有意不同（缩写、另一种用途）就把决定记进 '
+                '.flowguard/ledger.toml：')
+        fresh = bool(change.baseline) and any(_table_changed(change, table) for table in tables)
+        if fresh:
+            found.leads.append(text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)))
+        found.issues.append(Issue(name, 8, f'标签 {head["name"]}', text, step, frozenset(),
+                                  frozenset(table['file'] for table in tables), new=fresh,
+                                  entry=tuple(_structure_lines(name))))
+    return found
+
+
+def _table_changed(change, table):
+    """Whether this change adds the table or changes its keys or labels."""
+    if table['file'] not in change.files:
+        return False
+    old = [row for row in change.old_facts(table['file']).get(table['kind'], ()) if row['name'] == table['name']]
+    return not old or {key: value for key, value in old[0]['values'].items() if key} != table['values']
 
 
 # ---- decisions, touched issues, the --all section and the brief ----------------------------------

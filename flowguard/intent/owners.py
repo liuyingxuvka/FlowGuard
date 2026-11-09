@@ -192,6 +192,13 @@ def operation(graph, node):
     return _call_tree(graph, node, 3, up=3)
 
 
+def creates(row):
+    """Does a write row make a row (create, createMany, upsert's create branch, a nested create, SQL INSERT) rather
+    than change one that exists?"""
+    from .health import INSERTING
+    return row['kind'] in INSERTING or row['kind'].startswith(('nested:create', 'nested:upsert:create', 'nested:connectOrCreate'))
+
+
 def _holds(row, value):
     if value is None:
         return True
@@ -201,14 +208,18 @@ def _holds(row, value):
 
 def owner_pairs(change, index, *, everything=False):
     """`with=`: each write of a registered field also writes its partner in the same operation (`operation`:
-    callers three levels up, then three levels down from them), unless its function is listed in `alone=`.
-    Red when this change adds the write or the rule."""
+    callers three levels up, then three levels down from them), unless its function is listed in `alone=`;
+    `on=update` holds only the writes that change a row (`on=create` only those that make one, `creates`).
+    A test's fixture write is not held to the pair. Red when this change adds the write or the rule."""
     from .health import Issue
     found = Findings()
     def bound(row):         # a JS/TS `obj.f = ...` matched by field name alone is not a write of a model
         return not row.get('unclear') and not (row.get('how') == 'name' and row.get('language', 'python') != 'python')
+    tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
     for owner in (a for a in index.entries if a.kind == 'owner' and a.pairs):
-        rows = [row for row in change.graph.writes(owner.name, by_name=True) if bound(row)]
+        rows = [row for row in change.graph.writes(owner.name, by_name=True) if bound(row)
+                and row['file'] not in tests and not is_test_file(row['file'])
+                and (not owner.on or creates(row) == (owner.on == 'create'))]
         alone = [item.partition('(')[0] for item in owner.alone]
         new_rule = change.baseline and not _owner_at_baseline(change, owner)
         for pair in owner.pairs:
@@ -226,7 +237,8 @@ def owner_pairs(change, index, *, everything=False):
                     calls[id(row)] = 'name' in tree.values() or row.get('language', 'python') != 'python'
             def where(rows):
                 return '  '.join(f'{row["file"]}:{row["line"]} {row["function"]}' for row in rows) \
-                    + ('（JS/TS 调用按名字解析）' if any(calls[id(row)] for row in rows) else '')
+                    + ('（JS/TS 调用按名字解析）' if any(calls[id(row)] for row in rows) else '') \
+                    + {'update': '（只查修改）', 'create': '（只查新建）'}.get(owner.on, '')
             step = (f'补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 {owner.file}:{owner.line}）')
             shown = [row for row in missing if everything or new_rule or row['file'] in change.files]
             if shown:
@@ -490,10 +502,14 @@ def _declarations(graph):
 
 
 def declarations_differ(change, *, everything=False):
-    """Two declarations of one name (union type or enum) with different members: a lead, reported when
-    this change touches one of them (`check --all` lists all)."""
+    """Two declarations of one name (union type or enum) with different members, and the declarations of one
+    database field (`MapHandle.field_declarations`: each Prisma schema's enum, each SQL CHECK, a JS/TS
+    declaration of the enum's name) with different values: a lead, reported when this change touches one
+    of them (`check --all` lists all)."""
     found = Findings()
-    for name, items in sorted(_declarations(change.graph).items()):
+    named = [(name, items, ' → 留一份，别处引用它；有意不同就改成不同的名字') for name, items in _declarations(change.graph).items()]
+    fields = [(name, items, ' → 补上缺的值；那份描述不再使用，就写明或删掉它') for name, items in change.graph.field_declarations().items()]
+    for name, items, step in sorted(named + fields):
         if len(items) < 2 or len({values for _, _, values in items}) < 2:
             continue
         if not everything and not any(file in change.files for file, _, _ in items):
@@ -503,7 +519,7 @@ def declarations_differ(change, *, everything=False):
                  + (f'；少 {", ".join(map(repr, sorted(union - values, key=repr)))}' if union - values else '') + '）'
                  for file, line, values in sorted(items)]
         found.leads.append(('旧账 ' if everything and not any(file in change.files for file, _, _ in items) else '')
-                           + f'两份声明不同：{name} ' + '  '.join(parts) + ' → 留一份，别处引用它；有意不同就改成不同的名字')
+                           + f'两份声明不同：{name} ' + '  '.join(parts) + step)
     return found
 
 
@@ -600,11 +616,16 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     if change.baseline or everything:
         found.extend(literal_drift(change, everything=everything))
     found.extend(health.deletes(change, everything=everything)).extend(health.columns(change, everything=everything))
-    found.extend(health.copies(change, index)).extend(health.writers(change, index))
+    found.extend(health.copies(change, index)).extend(health.writers(change, index)).extend(health.uncreated(change))
+    found.extend(health.labels(change))
     if replay:
         found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
         found.extend(changed_alone(cfg, graph, index, change, excluded=excluded))
-    return health.assess(cfg, change, index, found, everything=everything)
+    found = health.assess(cfg, change, index, found, everything=everything)
+    if everything:
+        from .ledger import open_legacy
+        found.section.extend(open_legacy(cfg, graph))
+    return found
 
 
 # ---- replay of candidate functions (check only) ------------------------------------------------------

@@ -79,6 +79,7 @@ class Anchor:
     writers: tuple = ()      # a data owner `owner Table.column writers=module:function,...`
     pairs: tuple = ()        # `with=Model.field[=value],...`: fields every write of this one also writes
     alone: tuple = ()        # `alone=function(reason),...`: writers that may write it alone, with why
+    on: str = ''             # `on=update` / `on=create`: the pairs hold only for writes that change a row / make one
     projection: str = ''     # `-> result[0]` / `-> result.ok`: copies are compared on this part of the result
     fields: tuple = ()       # `fields days=(today - hire.due).days`: rule fields read from each call's own arguments
 
@@ -613,24 +614,28 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
 
 
 _DATA_OWNER = re.compile(r'(?P<name>' + _NAME + r')(?:\s+writers=(?P<writers>\S+))?(?:\s+with=(?P<with>\S+))?'
-                         r'(?:\s+alone=(?P<alone>(?:[\w.:]+\([^()]*\),?)+))?\s*')
+                         r'(?:\s+on=(?P<on>\S+))?(?:\s+alone=(?P<alone>(?:[\w.:]+\([^()]*\),?)+))?\s*')
 
 
 def _data_owner(body, file, module, line, is_test):
-    """`Table.column writers=f,... with=Model.field[=value],... alone=f(reason),...` as an owner anchor
-    (a dict), a syntax Issue, or None for a function owner (a bare name above a function)."""
+    """`Table.column writers=f,... with=Model.field[=value],... on=update alone=f(reason),...` as an owner
+    anchor (a dict), a syntax Issue, or None for a function owner (a bare name above a function)."""
     listed = _DATA_OWNER.fullmatch(body.strip())
-    if listed and not (listed['writers'] or listed['with'] or listed['alone']):
+    if listed and not (listed['writers'] or listed['with'] or listed['alone'] or listed['on']):
         return None
     writers = tuple(dict.fromkeys(part for part in (listed['writers'] or '').split(',') if part)) if listed else ()
     pairs = tuple(dict.fromkeys(part for part in (listed['with'] or '').split(',') if part)) if listed else ()
     alone = tuple(re.findall(r'[\w.:]+\([^()]*\)', listed['alone'] or '')) if listed else ()
+    on = (listed['on'] or '') if listed else ''
     if not listed or '.' not in listed['name'].strip('.') or not (writers or pairs) \
             or any('.' not in pair.partition('=')[0].strip('.') for pair in pairs) or alone and not pairs:
         return Issue('red', 'syntax', 'a data owner needs Table.column (or Model.field) with writers=function,... '
                      'and/or with=Model.field[=value],...; alone=function(reason) needs with=', file, line)
+    if on not in ('', 'update', 'create') or on and not pairs:
+        return Issue('red', 'syntax', 'on= is update or create and limits with=: owner Model.field with=Other.field on=update '
+                     '(alone=function(reason) after it)', file, line)
     return asdict(Anchor('owner', listed['name'], file, module, '', line, line, writers=writers, pairs=pairs, alone=alone,
-                         source_role='test' if is_test else 'production'))
+                         on=on, source_role='test' if is_test else 'production'))
 
 
 def foreign_owners(text, module, file, *, is_test=False, functions=()):
@@ -783,7 +788,8 @@ def declared_sets(entries, field_types=(), classes=None, constants=None, foreign
     `# flowguard: states` anchor, and each class field annotated with an enum (`status: RunStatus`),
     whose members' folded values are its set. `classes` gives a class id's signature (its bases);
     `constants(module)` the module's folded constants. `foreign` adds the rows other languages declare
-    (`MapHandle.value_sets()`), keyed `Model.field`."""
+    (`MapHandle.value_sets()`), keyed by their `field` (`Model.field`, `ts:Type.field`); a second set of one
+    field (a Prisma enum and a SQL CHECK) is kept in `also`, and a value must be in each."""
     from ..structure import decide
     table = {}
     for anchor in entries:
@@ -802,27 +808,33 @@ def declared_sets(entries, field_types=(), classes=None, constants=None, foreign
                                                 values=values + ((None,) if row.get('optional') else ()),
                                                 where=f'enum {row["type"]} ({row["file"]}:{row["line"]})'))
     for row in foreign:             # MapHandle.value_sets(): Prisma enums, SQL CHECK sets, JS/TS annotated members
-        table.setdefault(row['key'], dict(name=row['name'], values=tuple(row['values']), where=row['where'],
-                                          fold=row.get('fold', False), file=row.get('file', '')))
+        declared = dict(name=row['name'], values=tuple(row['values']), where=row['where'], fold=row.get('fold', False),
+                        file=row.get('file', ''))
+        key = row.get('field', row['key'])
+        if key in table:
+            table[key].setdefault('also', []).append(declared)
+        else:
+            table[key] = declared
     return table
 
 
 def outside_sets(table, writes):
-    """(write, declared set, value) for every readable value written to a declared field that its set does
-    not hold. A write whose value cannot be read (a parameter, a call) is not judged; a set with
-    `fold` compares text without case (the database's collation does)."""
+    """(write, declared set, value) for every readable value written to a declared field that its set (or
+    one of its sets) does not hold. A write whose value cannot be read (a parameter, a call) is not judged;
+    a set with `fold` compares text without case (the database's collation does)."""
     for row in writes:
-        declared = table.get(row['field'])
+        first = table.get(row.get('gate', row['field']))       # a write's `gate` key, when its field name is not it
         values = row.get('values') or ([row['value']] if row.get('literal') else None)
-        if declared is None or values is None:
+        if first is None or values is None:
             continue
-        for value in values:
-            if declared.get('fold') and isinstance(value, str):
-                held = any(isinstance(allowed, str) and allowed.casefold() == value.casefold() for allowed in declared['values'])
-            else:
-                held = any(type(value) is type(allowed) and value == allowed for allowed in declared['values'])
-            if not held:
-                yield row, declared, value
+        for declared in (first, *first.get('also', ())):
+            for value in values:
+                if declared.get('fold') and isinstance(value, str):
+                    held = any(isinstance(allowed, str) and allowed.casefold() == value.casefold() for allowed in declared['values'])
+                else:
+                    held = any(type(value) is type(allowed) and value == allowed for allowed in declared['values'])
+                if not held:
+                    yield row, declared, value
 
 
 def value_gate(table, writes):

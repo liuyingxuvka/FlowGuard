@@ -486,8 +486,10 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                 ranked.append((2000 - bool(row['unclear']), f'writes {row["model"] or row["table"]}.{row["field"]} '
                                f'{where} {row["function"]} ({row["kind"]}{unclear})'))
             from . import health, owners as checks       # several files write it and nobody owns it: say so first
-            for issue in health.writers(checks.Change(cfg, graph, None), index, written).issues:
+            change = checks.Change(cfg, graph, None)
+            for issue in health.writers(change, index, written).issues:
                 ranked.append((2001, f'structure: {issue.text} -> {issue.step} ' + ' '.join(issue.entry)))
+            ranked.extend((2001, line) for line in health.co_written(change, query))
         for rid, rule in rules.items():
             score = 1000 if query.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
             score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))

@@ -717,10 +717,11 @@ def syntax_records(tree, module, rel):
 
         def visit_ExceptHandler(self, node):
             body = own_nodes(node.body)
+            raises = any(isinstance(n, ast.Raise) for n in body)
             self.add("handlers", node, kind='except', type=ast.unparse(node.type) if node.type else "", name=node.name,
-                     end_line=node.end_lineno, raises=any(isinstance(n, ast.Raise) for n in body),
+                     end_line=node.end_lineno, raises=raises,
                      reraise=any(isinstance(n, ast.Raise) and n.exc is None for n in body),
-                     non_raising=handler_outcome(node.body) != (False, False),
+                     non_raising=handler_outcome(node.body) != (False, False), ends=_ending(node.body, body, raises),
                      body="\n".join(ast.unparse(n) for n in node.body))
             self.generic_visit(node)
 
@@ -908,6 +909,25 @@ def sql_writes(nodes: list, module: str, rel: str, qual: str) -> list[dict]:
 
 
 MESSAGE_CALLS = {'debug', 'info', 'warning', 'warn', 'error', 'exception', 'critical', 'log', 'fatal'}
+
+
+def _ending(statements, nodes, raises) -> str:
+    """How an except body ends (readers.common.ENDINGS): it raises somewhere, returns or assigns a substitute,
+    only logs, is empty (`pass`, `...`, a docstring, a bare `return`, `continue` or `break`) or does other work."""
+    if raises:
+        return 'handed'
+    work = [node for node in statements if not isinstance(node, (ast.Pass, ast.Continue, ast.Break))
+            and not (isinstance(node, ast.Return) and node.value is None)
+            and not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant))]
+    if not work:
+        return 'empty'
+    if all(isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) and _message_call(ast.unparse(node.value.func))
+           and not ast.unparse(node.value.func).endswith(('Error', 'Exception', 'Warning')) for node in work):
+        return 'log'
+    if any(isinstance(node, ast.Return) and node.value is not None or isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign))
+           for node in nodes):
+        return 'substitute'
+    return 'other'
 
 
 def _message_call(name: str) -> bool:
