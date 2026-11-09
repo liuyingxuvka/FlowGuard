@@ -360,7 +360,7 @@ def valid(x: int):
     assert runtime.readings[-1].status == 'ok' and runtime.readings[-1].rows
 
 
-def test_overridden_container_read_method_is_not_assumed_inert(tmp_path):
+def test_overridden_container_read_method_runs_only_on_a_copy_of_the_argument(tmp_path):
     source = '''class Trap(dict):
     def get(self, name):
         self["hits"] += 1

@@ -44,6 +44,18 @@ def local_alias(x):
 '''
 
 
+@pytest.mark.parametrize('name', ['class_subscription', 'context_subscription', 'global_compare', 'global_binop',
+                                  'global_boolop', 'global_attribute', 'container_compare', 'local_alias'])
+def test_the_static_check_runs_no_implicit_operator(tmp_path, name):
+    # Only the static check: what a replay of these does is the replay guard's (its in-memory effects
+    # are a documented known miss).
+    m = module(tmp_path, SOURCE)
+    runtime = Runtime(tmp_path, previous={'r19_candidate.py': SOURCE})
+    arguments = {'context': [m.TRAP], 'x': 1} if name == 'context_subscription' else {'x': 1}
+    assert runtime.safety(getattr(m, name), arguments) == ''
+    assert m.hits == []
+
+
 def test_static_resolution_never_reads_a_metaclass_dictionary_property(tmp_path):
     source = '''hits=[]
 class Meta(type):
