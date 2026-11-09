@@ -512,7 +512,7 @@ def literal_drift(change, *, everything=False):
     spellings: only a spelling the baseline code never used is reported. Two declarations of one name
     with different members are part of the same lead family."""
     found = declarations_differ(change, everything=everything)
-    if not change.files:
+    if not change.files and not everything:
         return found
     groups = change.graph.literal_groups()
     if not groups:
@@ -522,13 +522,15 @@ def literal_drift(change, *, everything=False):
                if row['file'] not in change.files}
     for group in groups:
         fresh = [value for value in group['spellings'] if value not in before]
-        if not fresh:
+        if not fresh and not everything:
             continue
         parts = []
         for value, rows in group['spellings'].items():
             places = '、'.join(f'{row["file"]}:{row["line"]}' for row in rows)
             parts.append(f'{value!r}（{places}' + ('，这次新增的写法' if value in fresh else '') + '）')
-        found.leads.append('标签写法不一致：' + ' 与 '.join(parts) + ' → 统一成一种写法，或让它们取自同一个负责人')
+        # --all also lists the spellings the baseline already had, as the old ledger.
+        found.leads.append(('' if fresh else '旧账 ') + '标签写法不一致：' + ' 与 '.join(parts)
+                           + ' → 统一成一种写法，或让它们取自同一个负责人')
     return found
 
 

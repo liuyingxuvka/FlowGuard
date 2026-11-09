@@ -339,8 +339,13 @@ def _session(report, limit):
                      + (f'（{len(causes[common])} 项）' if len(causes[common]) > 1 else ''))
         details = [f'未验证：{subject + "：" if subject else ""}{reason}' + (f'（{number} 次）' if number > 1 else '')
                    for (subject, reason), number in counted.items()]
-        lines.extend(_fit(details, min(3, room - 1),
-                          lambda rest: f'未验证：另 {rest} 项：python -m flowguard show 名字 看它的原因'))
+        keys = list(counted)
+
+        def hidden(rest):
+            # The detail lines left out are counted as lines, and the names they cover are listed in full.
+            names = '、'.join(dict.fromkeys(subject for subject, _ in keys[len(keys) - rest:] if subject))
+            return f'未验证：另 {rest} 条' + (f'（{names}）' if names else '') + '：python -m flowguard show 名字 看它的原因'
+        lines.extend(_fit(details, min(3, room - 1), hidden))
     return '\n'.join(lines)
 
 

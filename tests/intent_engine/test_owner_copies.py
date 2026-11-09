@@ -275,6 +275,9 @@ def test_fixed_11_three_changed_copies_name_the_four_left_behind(tmp_path):
         (tmp_path / relative).write_text(text, encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0, text
+    # No rules, so no pytest batch: the title still names the baseline the leads were compared with.
+    title = next(line for line in text.splitlines() if line.startswith('FlowGuard（'))
+    assert title.startswith('FlowGuard（相对任务开始 '), text
     lead = next(line for line in _lines(text) if '改了行为' in line)
     assert '这 3 处改了行为' in lead and all(place in lead for place in (
         'Step1/src/kwp_step1/matlab_fallbacks.py:15', 'Step3/src/kwp_step3/technology.py:53',

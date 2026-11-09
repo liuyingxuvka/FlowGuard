@@ -625,6 +625,11 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
         # One red per finding: the same text from two batches, also with an ASCII colon, prints once.
         if not any(message.replace('：', ': ') == seen.replace('：', ': ') for seen in red):
             red.append(message)
+    if not baseline.get('baseline'):
+        # Without a pytest batch (no rules) the owner findings still compared with the remembered baseline.
+        from .owners import baseline as owner_baseline
+        if owner_baseline(cfg, base):
+            baseline = dict(baseline=owner_baseline(cfg, base), baseline_kind='base' if base else 'task')
     report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind', 'task'),
                   source_changed=any(part.get('source_changed', True) for part in reports),
                   comparison_requested=any(part.get('comparison_requested') for part in reports),

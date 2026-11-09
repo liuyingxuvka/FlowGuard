@@ -392,6 +392,16 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     assert 'set FLOWGUARD_PYTHON' in output and 'no-such-python' in output, output
 
 
+def test_check_static_all_lists_label_spellings_the_baseline_already_had(tmp_path):
+    root = _planning(tmp_path / 'pt')
+    _commit(root, {})                          # both spellings are old: nothing new to report
+    code, text = _static(root)
+    assert code == 0 and not _lines(text, '线索：标签写法不一致'), text
+    code, text = _static(root, '--all')
+    old = next(line for line in _lines(text, '线索：旧账 标签写法不一致') if 'My Organization' in line)
+    assert "'My organization'（frontend/src/utils/organization-navigation.ts:" in old and '这次新增的写法' not in old, old
+
+
 def test_init_writes_a_jest_test_for_a_jest_project_and_keeps_a_foreign_file(tmp_path):
     _commit(tmp_path, {'web/package.json': '{"name": "web", "scripts": {"test": "jest"}, "devDependencies": {"jest": "29.7.0"}}\n'})
     code, text = _flowguard(tmp_path, 'init')

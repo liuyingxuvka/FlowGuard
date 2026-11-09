@@ -179,3 +179,12 @@ def test_an_explicit_comparison_lists_changes_first_and_counts_unchanged_points_
     assert not any(line.startswith('变：另') for line in lines) and len(lines) == 11, lines
     assert lines[2:-1] == [f'比较：K{number}（knobs.py:{2 + 4 * number}）共 2 类，变 0 类' for number in range(8)], lines
     assert lines[-1] == '比较：另 4 项没有变化：K8、K9、K10、K11', lines
+
+
+def test_the_unverified_overflow_counts_lines_and_names_every_point_it_leaves_out():
+    report = dict(session=True, baseline='a' * 40, baseline_kind='task', source_changed=True, items=[],
+                  unverified=[f'N{number}: reason {number} needs a test' for number in range(1, 7)])
+    lines = signals.render(report).splitlines()
+    assert lines[1] == '未验证 6 项（不是通过）：最常见的原因是"reason 1 needs a test"', lines
+    assert lines[2:4] == ['未验证：N1：reason 1 needs a test', '未验证：N2：reason 2 needs a test'], lines
+    assert lines[-1] == '未验证：另 4 条（N3、N4、N5、N6）：python -m flowguard show 名字 看它的原因', lines
