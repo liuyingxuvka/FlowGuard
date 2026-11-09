@@ -126,7 +126,8 @@ class _Finder:
     def application(self, path, root):
         # project_code is fixed for a file within one process (see its docstring);
         # prepare() asks this for every loaded project module on each call.
-        key = (os.fspath(path), os.fspath(root))     # text keys: comparing Path objects costs more than the lookup
+        # Keys by type and text: comparing Path objects costs more than the lookup itself.
+        key = (type(path), str(path), type(root), str(root))
         if key not in self.applications:
             if isinstance(path, Path) and path.is_relative_to(_SDK):
                 self.applications[key] = False
