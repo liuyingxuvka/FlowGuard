@@ -66,8 +66,9 @@ def _planning(root, *folders):
 
 def _flowguard(root, *arguments, env=None):
     result = subprocess.run([sys.executable, '-c', _cli_fixture._BOOT, SOURCE, 'unused-marker', '', '--root', str(root), *arguments],
-                            cwd=root, capture_output=True, text=True, timeout=180,
-                            env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', **(env or {})))
+                            cwd=root, capture_output=True, encoding='utf-8', timeout=180,
+                            # The boot calls cli.main without the entry's safe stdio: a cp1252 console needs utf-8.
+                            env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONIOENCODING='utf-8', **(env or {})))
     return result.returncode, _text(result)
 
 

@@ -221,7 +221,7 @@ def test_fixed_6_copies_with_different_return_forms_are_compared_through_their_p
     '''}) / 'policy.py'
     agreed = _pytest(tmp_path)
     assert agreed.returncode == 0 and '同名锚点' not in _text(agreed), _text(agreed)
-    policy.write_text(policy.read_text().replace('overdue_days <= 3', 'overdue_days <= 5'))
+    policy.write_text(policy.read_text(encoding='utf-8').replace('overdue_days <= 3', 'overdue_days <= 5'), encoding='utf-8')
     result = _pytest(tmp_path)
     text = _text(result)
     assert result.returncode == 1 and '1 passed' in result.stdout, text
@@ -233,10 +233,10 @@ def test_fixed_6_copies_with_different_return_forms_are_compared_through_their_p
 def test_fixed_10_a_registered_owner_lists_the_other_six_kwp_copies_by_behavior(tmp_path):
     _commit(_kwp(tmp_path))
     owner = tmp_path / 'Step1/src/kwp_step1/matlab_fallbacks.py'
-    lines = owner.read_text().splitlines(True)
+    lines = owner.read_text(encoding='utf-8').splitlines(True)
     assert lines[13] == '\n' and lines[14].startswith('def matlab_round(')
     lines[13] = '# flowguard: owner MATLAB_ROUND\n'
-    owner.write_text(''.join(lines))
+    owner.write_text(''.join(lines), encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0, text
     leads = _lines(text)
@@ -264,15 +264,15 @@ def test_fixed_11_three_changed_copies_name_the_four_left_behind(tmp_path):
     for relative, floor in (('Step1/src/kwp_step1/matlab_fallbacks.py', 'floor'), ('Step3/src/kwp_step3/technology.py', 'math.floor'),
                             ('Step10/step10_baublock_progress_maps.py', 'math.floor')):
         path = tmp_path / relative
-        fixed[relative] = path.read_text()
+        fixed[relative] = path.read_text(encoding='utf-8')
         # The pre-1da8721 bodies are reconstructed (README): the unchanged copies' floor(x + 0.5).
         before, count = re.subn(r'(    """.*?"""\n)    number = float\(value\)\n.*?\n(?=\n|\Z)',
                                 lambda match: match.group(1) + f'    return int({floor}(float(value) + 0.5))\n', fixed[relative], count=1, flags=re.S)
         assert count == 1
-        path.write_text(before)
+        path.write_text(before, encoding='utf-8')
     _commit(tmp_path, 'before 1da8721')
     for relative, text in fixed.items():
-        (tmp_path / relative).write_text(text)
+        (tmp_path / relative).write_text(text, encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0, text
     lead = next(line for line in _lines(text) if '改了行为' in line)
@@ -298,10 +298,10 @@ def test_fixed_8_one_changed_grace_copy_names_the_other_four(tmp_path):
         source += '    if days <= 14:\n        return "grace"\n' + ''.join(f'    later_{n} = {n}\n' for n in range(20))
         source += '    return "expired"\n\n'
     source += 'def unrelated(amount: int) -> bool:\n    return amount <= 15\n'
-    (tmp_path / 'policy.py').write_text(source)
+    (tmp_path / 'policy.py').write_text(source, encoding='utf-8')
     _project(tmp_path, {'tests/test_case.py': 'from policy import renewal\ndef test_native():\n    assert renewal(0)\n'})
     changed = source.replace('return overdue_days <= 14', 'return overdue_days <= 21')
-    (tmp_path / 'policy.py').write_text(changed)
+    (tmp_path / 'policy.py').write_text(changed, encoding='utf-8')
     result = _pytest(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
@@ -343,7 +343,7 @@ def test_fixed_14_a_rule_that_still_holds_the_old_value_is_a_lead(tmp_path):
             row(days=14, expect=True, why="the last grace day"),
         )
     '''}) / 'policy.py'
-    policy.write_text(policy.read_text().replace('GRACE_DAYS = 14', 'GRACE_DAYS = 21'))
+    policy.write_text(policy.read_text(encoding='utf-8').replace('GRACE_DAYS = 14', 'GRACE_DAYS = 21'), encoding='utf-8')
     text = _text(_pytest(tmp_path))
     assert '线索：规则 GRACE 里还写着旧值 14（tests/intent/grace.py 判断第 7 行、回归行第 12 行）：需求变了就先改规则' in text, text
 
@@ -362,8 +362,8 @@ def test_fixed_18_numbers_equal_only_at_zero_are_unrelated_and_dict_keys_never_d
             return {'id': row, 'name': 'x'}
     ''', 'tests/test_case.py': 'def test_native():\n    assert True\n'})
     money = tmp_path / 'money.py'
-    money.write_text(money.read_text().replace('def margin', '# flowguard: owner MARGIN\ndef margin')
-                     + "\n\ndef upper(row):\n    return {'ID': row}\n")
+    money.write_text(money.read_text(encoding='utf-8').replace('def margin', '# flowguard: owner MARGIN\ndef margin')
+                     + "\n\ndef upper(row):\n    return {'ID': row}\n", encoding='utf-8')
     code, text = _check(tmp_path, '--all')
     assert code == 0, text
     assert 'money.py:6' not in text and '疑似副本' not in text and '写法不一致' not in text, text
@@ -378,7 +378,7 @@ def test_a_new_spelling_of_a_label_is_a_lead_and_an_old_one_is_not(tmp_path):
     '''})
     code, text = _check(tmp_path)
     assert '写法不一致' not in text, text
-    (tmp_path / 'view.py').write_text("def title(kind):\n    return 'My organization' if kind else ''\n")
+    (tmp_path / 'view.py').write_text("def title(kind):\n    return 'My organization' if kind else ''\n", encoding='utf-8')
     code, text = _check(tmp_path)
     lead = next(line for line in _lines(text) if '写法不一致' in line)
     assert "'My Organization'（labels.py:2）" in lead and "'My organization'（view.py:2，这次新增的写法）" in lead, text
@@ -403,7 +403,7 @@ def test_a_new_write_outside_a_data_owner_is_red_and_older_ones_are_the_old_ledg
     assert code == 0 and '负责人以外' not in text, text
     code, text = _check(tmp_path, '--all')
     assert code == 0 and '线索：旧账 hires.reserved 负责人以外的写入：shop/store.py:7 legacy（sql:update，值 0）' in text, text
-    (tmp_path / 'shop/api.py').write_text('def cancel(db, hire_id):\n    db.execute("UPDATE hires SET reserved = 0 WHERE id = ?", (hire_id,))\n')
+    (tmp_path / 'shop/api.py').write_text('def cancel(db, hire_id):\n    db.execute("UPDATE hires SET reserved = 0 WHERE id = ?", (hire_id,))\n', encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 1, text
     red = next(line for line in text.splitlines() if line.startswith('红：负责人以外新增写入'))
@@ -473,7 +473,7 @@ def test_a_new_copy_of_a_registered_owner_is_red(tmp_path):
     code, text = _check(tmp_path)
     assert code == 0 and not _lines(text), text
     rules = tmp_path / 'rules.py'
-    rules.write_text(rules.read_text() + '\n\ndef again(amount: float) -> float:\n    return 0.5 * amount\n')
+    rules.write_text(rules.read_text(encoding='utf-8') + '\n\ndef again(amount: float) -> float:\n    return 0.5 * amount\n', encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 1, text
     assert '红：负责人 HALF（rules.py:2） 之外新起了一份：rules.py:6（副本）→ 改成调用 half，或在它上方写 # flowguard: sensor HALF' in text, text
@@ -486,14 +486,14 @@ def test_a_typescript_data_owner_turns_a_new_prisma_write_outside_its_writers_re
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(path.read_bytes())
     (tmp_path / 'backend/src/owners.ts').write_text(
-        '// flowguard: owner Employee.organizationalUnitId writers=transferEmployee\nexport {};\n')
-    (tmp_path / '.gitignore').write_text('.flowguard/cache/\n')
+        '// flowguard: owner Employee.organizationalUnitId writers=transferEmployee\nexport {};\n', encoding='utf-8')
+    (tmp_path / '.gitignore').write_text('.flowguard/cache/\n', encoding='utf-8')
     _commit(tmp_path)
     code, text = _check(tmp_path)
     assert code == 0 and '负责人以外新增写入' not in text, text
     (tmp_path / 'backend/src/services/rogue.ts').write_text(
         'export async function moveEmployee(prisma: any, id: string, unit: string) {\n'
-        '  await prisma.employee.update({ where: { id }, data: { organizationalUnitId: unit } });\n}\n')
+        '  await prisma.employee.update({ where: { id }, data: { organizationalUnitId: unit } });\n}\n', encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 1, text
     red = next(line for line in text.splitlines() if line.startswith('红：负责人以外新增写入'))
@@ -577,7 +577,7 @@ def test_write_values_read_constants_keys_and_class_defaults(tmp_path):
 
         def record(row):
             row['status'] = 'archived'
-    ''').lstrip())
+    ''').lstrip(), encoding='utf-8')
     with closing(build(tmp_path)) as graph:
         rows = {(row['field'], row['line']): row.get('values') or [row['value']] for row in graph.assignments(include_unknown=True)}
         assert rows[('jobs:Job.status', 10)] == ['new'] and rows[('jobs:Job.status', 13)] == ['done']
@@ -607,7 +607,7 @@ def test_one_value_gate_checks_states_anchors_enums_and_writes_outside_the_class
         class Step:
             phase: Phase
             later: Phase | None = None
-    ''').lstrip())
+    ''').lstrip(), encoding='utf-8')
     (tmp_path / 'writers.py').write_text(textwrap.dedent('''
         from models import Job, Step, Phase
 
@@ -619,7 +619,7 @@ def test_one_value_gate_checks_states_anchors_enums_and_writes_outside_the_class
         def jump(step: Step):
             step.phase = 'published'
             step.phase = Phase.SAVED
-    ''').lstrip())
+    ''').lstrip(), encoding='utf-8')
     with closing(build(tmp_path)) as graph:
         found = [(issue.code, issue.file, issue.line, issue.name) for issue in anchors.collect(graph).issues]
     assert found == [('states-values', 'writers.py', 5, 'Job.status'), ('states-values', 'writers.py', 9, 'Step.phase')], found
@@ -654,7 +654,7 @@ def test_a_registered_pair_is_red_where_a_write_leaves_its_partner_out(tmp_path)
     assert code == 0 and '配对没写' not in text, text
     store = tmp_path / 'shop/store.py'
     store.write_text("# flowguard: owner hires.reserved with=hires.state=held alone=shop.store:import_rows(bulk import marks rows later)\n"
-                     + store.read_text())
+                     + store.read_text(encoding='utf-8'), encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 1, text
     red = next(line for line in text.splitlines() if line.startswith('红：配对没写'))
@@ -669,8 +669,8 @@ def test_copy_discovery_compares_on_the_codes_own_literals(tmp_path):
     _copy_fixture(tmp_path, 'kwp_normalize')
     _project(tmp_path, {}, pyproject='[tool.pytest.ini_options]\npythonpath = ["Step1/src", "Step3/src"]\n')
     technology = tmp_path / 'Step3/src/kwp_step3/technology.py'
-    technology.write_text(technology.read_text().replace('def normalize_technology_name(value: object)',
-                                                          '# flowguard: owner TECHNOLOGY\ndef normalize_technology_name(value: object)'))
+    technology.write_text(technology.read_text(encoding='utf-8').replace('def normalize_technology_name(value: object)',
+                                                          '# flowguard: owner TECHNOLOGY\ndef normalize_technology_name(value: object)'), encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0, text
     forked = next(line for line in _lines(text) if line.startswith('线索：分叉的副本 1 份'))
@@ -699,7 +699,7 @@ def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path
     code, text = _check(tmp_path, '--all')
     assert ("线索：旧账 两份声明不同：AvailabilityStatus a/contracts.py:4（'blocked' | 'ready'；少 'available'）  "
             "b/contracts.py:4（'available' | 'blocked'；少 'ready'）") in text, text
-    (tmp_path / 'b/kinds.py').write_text('from typing import Literal\nKind = Literal["member", "guest", "staff"]\n')
+    (tmp_path / 'b/kinds.py').write_text('from typing import Literal\nKind = Literal["member", "guest", "staff"]\n', encoding='utf-8')
     code, text = _check(tmp_path)
     assert ("线索：两份声明不同：Kind a/kinds.py:2（'guest' | 'member'；少 'staff'）  b/kinds.py:2（'guest' | 'member' | 'staff'）"
             in text), text
@@ -708,7 +708,7 @@ def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path
 def test_two_typescript_union_declarations_with_different_members_are_a_lead(tmp_path):
     _project(tmp_path, {'backend/src/lending.ts': "export type LendingStatus = 'DRAFT' | 'ACTIVE' | 'ENDED';\n"})
     (tmp_path / 'frontend/src').mkdir(parents=True)
-    (tmp_path / 'frontend/src/lending.ts').write_text("export type LendingStatus = 'DRAFT' | 'ACTIVE';\n")
+    (tmp_path / 'frontend/src/lending.ts').write_text("export type LendingStatus = 'DRAFT' | 'ACTIVE';\n", encoding='utf-8')
     code, text = _check(tmp_path)
     assert ("线索：两份声明不同：LendingStatus backend/src/lending.ts:1（'ACTIVE' | 'DRAFT' | 'ENDED'）  "
             "frontend/src/lending.ts:1（'ACTIVE' | 'DRAFT'；少 'ENDED'）") in text, text

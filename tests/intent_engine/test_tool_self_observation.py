@@ -33,17 +33,17 @@ def test_changed_runtime_observe_in_the_running_tool_is_not_hooked(tmp_path):
         def test_observe_runs_once(tmp_path):
             runtime = Runtime(tmp_path)
             assert runtime.observe(positive, inspect.signature(positive).bind(1)) is True
-    ''').lstrip())
-    (root / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n.pytest_cache/\n')
-    (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath = ["."]\naddopts = "-p flowguard.intent.plugin"\n')
+    ''').lstrip(), encoding='utf-8')
+    (root / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n.pytest_cache/\n', encoding='utf-8')
+    (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath = ["."]\naddopts = "-p flowguard.intent.plugin"\n', encoding='utf-8')
     _git(root, 'init', '-q', '-b', 'main')
     _git(root, 'add', '.')
     _git(root, 'commit', '-qm', 'tool copy')
     runtime = root / 'flowguard/intent/runtime.py'
-    text = runtime.read_text()
+    text = runtime.read_text(encoding='utf-8')
     marker = '        owner = sites.unwrap(owner or original)\n'
     assert text.count(marker) == 1
-    runtime.write_text(text.replace(marker, marker + '        observed_by = name\n'))
+    runtime.write_text(text.replace(marker, marker + '        observed_by = name\n'), encoding='utf-8')
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
     result = subprocess.run([sys.executable, '-c', bootstrap, str(root), '-q', '-p', 'no:cacheprovider'],
                             cwd=root, capture_output=True, text=True, timeout=120)
