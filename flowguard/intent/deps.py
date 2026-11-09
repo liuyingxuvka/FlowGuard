@@ -34,8 +34,13 @@ def _patterns(options, name, default):
     return value.split() if isinstance(value, str) else value
 
 
+# pytest's own default; a project's `norecursedirs` replaces it.
+NORECURSEDIRS = ['*.egg', '.*', '_darcs', 'build', 'CVS', 'dist', 'node_modules', 'venv', '{arch}']
+
+
 def test_scope(cfg):
-    """pytest's configured default file scope, never production testfile APIs."""
+    """pytest's configured default file scope, never production testfile APIs: `testpaths`, `python_files`
+    and the folders `norecursedirs` keeps pytest out of (below a testpaths entry, matched by folder name)."""
     options, paths = _pytest_options(cfg), []
     for value in _patterns(options, 'testpaths', ['.']):
         path = Path(value)
@@ -46,10 +51,14 @@ def test_scope(cfg):
             paths.extend(path.resolve() for path in cfg.root.glob(value))
     paths = paths or [cfg.root]
     patterns = _patterns(options, 'python_files', ['test_*.py', '*_test.py'])
+    skipped = _patterns(options, 'norecursedirs', NORECURSEDIRS)
+    def recursed(path, base):
+        return path == base or path.is_relative_to(base) and not any(
+            fnmatch.fnmatch(folder, pattern) for folder in path.relative_to(base).parts[:-1] for pattern in skipped)
     def contains(relative):
         path = (cfg.root / relative).resolve()
         return (path.is_relative_to(cfg.root) and path.is_file() and path.suffix == '.py'
-                and any(path == base or path.is_relative_to(base) for base in paths)
+                and any(recursed(path, base) for base in paths)
                 and any(fnmatch.fnmatchcase(path.name, pattern) for pattern in patterns))
     return contains
 

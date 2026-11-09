@@ -76,7 +76,8 @@ FlowGuard's core stays in Python; another language gets only the thin interface 
 | command | purpose |
 | --- | --- |
 | `python -m pytest` | Run the tests and read the FlowGuard block. |
-| `python -m flowguard` | A short brief that remembers this task's baseline commit. |
+| `python -m flowguard` | A short brief that remembers this task's baseline commit; commits during the task keep it. |
+| `python -m flowguard new-task` | Start the next task: HEAD becomes the baseline, then the brief. |
 | `python -m flowguard show "what it decides"` | Find the owner, writers, readers, copies and rules. |
 | `python -m flowguard check` | Recheck affected rules and tests; copy discovery runs here. |
 | `python -m flowguard check --static` | Map checks without tests; exit 1 on red. |

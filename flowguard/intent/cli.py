@@ -184,7 +184,7 @@ def _brief_source(cfg, item):
     return source.kind + ' / unconfirmed'
 
 
-def _brief(cfg, data, baseline):
+def _brief(cfg, data, baseline, note=''):
     summary, candidates = data['summary'], []
     active = {rid: item for rid, item in summary['rules'].items() if not item.get('superseded_by')}
     for error in summary['errors']:
@@ -219,9 +219,10 @@ def _brief(cfg, data, baseline):
     reds = sum(line.startswith('red ') for line in candidates)
     header = f'FlowGuard: {len(active)} rules; {reds} red (parse / last check); baseline {baseline[:12] if baseline else "none (no Git commit)"}'
     if not active and not candidates:
-        return [f'FlowGuard: no intent rules; baseline {baseline[:12] if baseline else "none (no Git commit)"}.']
+        return [f'FlowGuard: no intent rules; baseline {baseline[:12] if baseline else "none (no Git commit)"}.',
+                *([note] if note else [])]
     # A cached green is not a new verification. The brief reads no source map.
-    lines = [header] + sorted(candidates, key=lambda line: not line.startswith('red '))
+    lines = [header, *([note] if note else [])] + sorted(candidates, key=lambda line: not line.startswith('red '))
     lines = [line if len(line) <= 100 else line[:75] + '... (excerpt; show RULE)' for line in lines]
     budget = min(10, cfg.screen_lines)
     if len(lines) <= budget:
@@ -230,13 +231,15 @@ def _brief(cfg, data, baseline):
     return lines[:budget - 1] + [f'... {len(hidden)} more lines ({sum(line.startswith("red ") for line in hidden)} red): show RULE for details']
 
 
-def screen(cfg):
+def screen(cfg, *, new_task=False):
+    """The brief. It keeps the task baseline while HEAD descends from it; `new_task` (`new-task`) starts the
+    next task at HEAD."""
     from .health import brief_line
-    baseline = cache.session_baseline(cfg, remember=True)
+    baseline, note = cache.remember_baseline(cfg, new_task=new_task)
     data = cache.read(cfg)
     from .differences import display
     structure = brief_line(cfg)         # one line from the last check; the brief builds no map
-    display('\n'.join([*_brief(cfg, data, baseline), *([structure] if structure else [])]))
+    display('\n'.join([*_brief(cfg, data, baseline, note), *([structure] if structure else [])]))
     return int(bool(data['summary']['errors']))
 
 
@@ -1273,6 +1276,7 @@ def main(argv=None):
     compare_parser.add_argument('left')
     compare_parser.add_argument('right')
     commands.add_parser('init')
+    commands.add_parser('new-task', help='Start the next task: record HEAD as the task baseline, then print the brief')
     ledger_parser = commands.add_parser('ledger', help='The fallback ledger: handlers that may end without raising')
     ledger_operations = ledger_parser.add_subparsers(dest='operation', required=True)
     ledger_operations.add_parser('init', help='Record every existing fallback as legacy')
@@ -1319,7 +1323,7 @@ def main(argv=None):
             return ledger(cfg, options.operation)
         if options.command == 'req':
             return requests(cfg, options)
-        return screen(cfg)
+        return screen(cfg, new_task=options.command == 'new-task')
     except BrokenPipeError:
         raise               # The command entry exits quietly when the consumer closes stdout.
     except (ValueError, MapError, OSError) as error:

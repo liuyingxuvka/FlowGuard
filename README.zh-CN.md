@@ -76,7 +76,8 @@ FlowGuard 的核心留在 Python；别的语言只做它需要的那一层薄接
 | 命令 | 用途 |
 | --- | --- |
 | `python -m pytest` | 跑测试，看 FlowGuard 那一段。 |
-| `python -m flowguard` | 简短的简报，并记下这次任务的基准提交。 |
+| `python -m flowguard` | 简短的简报，并记下这次任务的基准提交；任务中途提交，基准不变。 |
+| `python -m flowguard new-task` | 开始下一个任务：HEAD 成为基准，再打印简报。 |
 | `python -m flowguard show "what it decides"` | 查负责人、谁写谁读、副本和规则。 |
 | `python -m flowguard check` | 重查受影响的规则和测试；副本发现在这里跑。 |
 | `python -m flowguard check --static` | 不跑测试的地图检查；有红时退出码为 1。 |
