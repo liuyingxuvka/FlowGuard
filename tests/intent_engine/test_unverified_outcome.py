@@ -434,3 +434,19 @@ def test_an_unanchored_changed_function_whose_replay_is_refused_is_listed_unveri
     assert result.returncode == 0 and '观察丢失' not in text and '红：' not in text, text
     assert '未验证 1 项（不是通过）' in text, text
     assert '未验证：limit（未挂锚点，自动）（policy.py:1）：回放被拦住：policy.py:2 open("audit.log", "a").close()：写文件 audit.log' in text, text
+
+
+def test_check_all_fails_a_grey_template_flow_quoting_the_owner_and_the_brief_lists_it(tmp_path):
+    root = _owner_flow(tmp_path / 'p', tmp_path, [])       # no test stores or ships: the Flow stays grey
+    checked, text = _cli(root, 'check', '--all')
+    assert checked.returncode == 1, text
+    assert '红：PRECEDES_STORED_SHIPPED：规则有主人原话出处（R1），现在是灰（未验证）' in text, text
+    assert '[unverified] 段写一句理由：PRECEDES_STORED_SHIPPED = ' in text, text
+    brief, text = _cli(root)
+    assert brief.returncode == 0 and 'FlowGuard: 1 rules;' in text, text
+    assert 'PRECEDES_STORED_SHIPPED: unfinished / unverified; R1: 先存好再发出去' in text, text
+    (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
+    (root / ledger.LEDGER).write_text('[unverified]\nPRECEDES_STORED_SHIPPED = ' + ledger._quote(
+        '测试还没有走到存和发这两步，顺序由 test_docs 之外的集成检查守住') + '\n', encoding='utf-8')
+    listed, text = _cli(root, 'check', '--all')
+    assert listed.returncode == 0 and '规则有主人原话出处' not in text, text

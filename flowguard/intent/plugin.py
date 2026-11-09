@@ -1033,9 +1033,11 @@ class Observations:
         with a reason; listed ones are returned as unverified lines. Without a baseline nothing is lost."""
         from . import ledger
         listed = ledger.unverified(self.cfg)[0]     # its malformed lines are red in the ledger's own check
-        names = {anchor.name for anchor in self.index.entries} | set(self.state.model.rules)
+        model = self.state.model      # check --all asks for any grey owner-sourced declaration, a Flow too
+        names = ({anchor.name for anchor in self.index.entries} | set(model.rules) | set(model.flows)
+                 | set(model.states) | set(model.structures) | set(model.anchor_distincts))
         for name in sorted(set(listed) - names):
-            self._red(f'[unverified] 里的 {name}', f'不是锚点或规则的名字，从 {ledger.LEDGER} 的 [unverified] 段删掉它')
+            self._red(f'[unverified] 里的 {name}', f'不是锚点、规则或模型的名字，从 {ledger.LEDGER} 的 [unverified] 段删掉它')
         kept, seen = [], set()
         for index, point, part, unknown, cause in self.records:
             if index >= len(self.runtime.readings) or not self._losable(point):

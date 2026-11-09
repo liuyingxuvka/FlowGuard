@@ -144,3 +144,32 @@ def test_model_draft_writes_template_lines_grouped_by_flow(tmp_path):
          dict(precedes=precedes, transitions=transitions))
     assert len(api.DECLARED) == 3 and all(isinstance(item, Flow) for item in api.DECLARED)
     assert all(isinstance(event, Event) for event in events)
+
+
+def test_the_static_scan_names_each_template_flow_as_the_loader_does(tmp_path):
+    # check --all and the session brief read the static scan; a template must be in it with its source.
+    from flowguard.intent import cache
+    from flowguard.intent.config import load_config
+    from flowguard.intent.loader import load
+    folder = tmp_path / 'tests/intent'
+    folder.mkdir(parents=True)
+    (folder / 'flows.py').write_text(
+        'from flowguard.intent import precedes, guarded_by, transitions, checks, rule\n'
+        '@rule("FEE", decides="fee", fields={"days": int}, source="assumed: one fee", anchor="FEE_SITE")\n'
+        'def FEE(days):\n    return days\n'
+        'precedes("SAVED", "PUBLISHED", source="owner R1: 先保存再发布")\n'
+        'guarded_by("PERMISSION_OK", "UPDATE_RECORD")\n'
+        'transitions("Job.status", new={"saved"}, saved={"published"}, source="owner R2: 只能这样变")\n'
+        'checks(FEE, "FEE_CASE", days="arg.days")\n', encoding='utf-8')
+    cfg = load_config(tmp_path)
+    model = load(cfg)
+    assert not model.errors, model.errors
+    summary = cache.scan(cfg)
+    scanned = {identifier: rule['source'] for identifier, rule in summary['rules'].items() if rule['kind'] == 'flow'}
+    assert scanned == {identifier: flow.source for identifier, flow in model.flows.items()}, scanned
+    assert scanned['PRECEDES_SAVED_PUBLISHED'] == 'owner R1: 先保存再发布'
+    assert summary['rules']['PRECEDES_SAVED_PUBLISHED']['anchors'] == ['SAVED', 'PUBLISHED']
+    assert summary['rules']['CHECKS_FEE_FEE_CASE']['anchors'] == ['FEE_CASE', 'FEE_SITE']
+    declared, _ = cache.declaration_names(cfg, summary)
+    flows = {item.partition('::')[2] for item in model.declared_items() if item.endswith('[flow]')}
+    assert len(flows) == 4 and flows == {item for item in declared if item.endswith('[flow]')}, declared
