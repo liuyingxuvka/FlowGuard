@@ -70,7 +70,10 @@ def test_native(filename):
     # The real call, and one replayed call that the guard stops at its first write: the fixture still
     # finds only the real call's file, and the reading stays grey.
     assert calls == ['call', 'call']
-    assert scope.runtime.readings[-1].status == 'grey' and not scope.runtime.readings[-1].rows
+    reading = scope.runtime.readings[-1]
+    assert reading.status == 'grey' and not reading.rows
+    assert reading.reasons[0].startswith("回放被拦住：policy.py:7 Path(filename + '.closed').write_text('finished')：写文件 ")
+    assert reading.reasons[0].endswith('limit.txt.closed'), reading.reasons
     assert module.limit is alias and module.limit.__code__ is original
 
 
@@ -138,6 +141,24 @@ def stamp(x: int) -> float:
     result = calibration.execute(tmp_path, anchor, {'x': 1})
     assert result.status == 'grey' and result.value is None
     assert 'original-value recheck changed' in ' '.join(result.reasons)
+
+
+def test_a_coarse_clock_still_cannot_calibrate_a_clock_reading_sensor(tmp_path, monkeypatch):
+    # Windows' time.time ticks every 1/64 second: the original-value recheck waits for the next tick,
+    # so the two calls of the sensor read different times, whatever the machine's speed.
+    import time
+    real = time.time
+    monkeypatch.setattr(time, 'time', lambda: (real() * 64 // 1) / 64)
+    anchor = project(tmp_path, '''import time
+# flowguard: sensor stamp(x: count) -> result: float calibrated_by=test_policy.py::test_native
+def stamp(x: int) -> float:
+    return time.time() + x
+''', 'from policy import stamp\ndef test_native(): assert stamp(0) > 0\n')
+    bind_anchor(tmp_path, anchor)
+    for _ in range(3):
+        result = calibration.execute(tmp_path, anchor, {'x': 1})
+        assert result.status == 'grey' and result.value is None
+        assert 'original-value recheck changed' in ' '.join(result.reasons)
 
 
 def test_baseline_assert_and_teardown_failures_are_not_hidden(tmp_path):
