@@ -335,6 +335,9 @@ class Observations:
         self.changed, self.records, self.pairs, self.red, self.grey, self.paths = bool(self.files), [], [], [], [], []
         self.steps = {}         # the next steps to copy under a red line, by its subject
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
+        # Comparisons by fingerprint (_reuse): the key of each reading index, the stored results this
+        # session kept, the new results to store, and the engine identity and stored entries, read once.
+        self.keys, self.reused, self.fresh, self.engine_digest, self.stored = {}, {}, {}, None, None
         self.structure = None
         self.event_record = self.capture = None
         self.request, self.text = _TRY.get(), ''
@@ -600,11 +603,50 @@ class Observations:
         finally:
             R._PRIVATE.reset(token)
 
+    def _reuse(self, point, original, bound):
+        """The comparison an earlier session computed under this call's fingerprint, as the reading the
+        runtime keeps in place of a replay; None when there is none or no key can be taken. The key covers
+        FlowGuard's own code, the baseline, the anchor's file and the project configuration, the bodies of the
+        target and of the project functions it calls, the current values of the constants they read and the
+        call's arguments. Only a session with a change has a key (its map is built already); a point with rules,
+        `fields`, same-name copies or a try request has none, and nor has one whose inputs the map cannot
+        read completely (deps.comparison_inputs)."""
+        from . import cache, deps, runtime as R
+        anchor = point['anchor']
+        if (not self.changed or self.rules.get(point['target']) or not self.runtime.baseline
+                or anchor is not None and (anchor.fields or len(self.index.named(point['name'], 'sensor')) > 1)
+                or self.request and self.request['target'] == point['target']):
+            return None
+        graph = self.state.get_map()
+        fingerprints, constants, reasons = deps.comparison_inputs(graph, point['target'])
+        values = [(module, name, _metadata_value(vars(sys.modules[module]).get(name, ...)))
+                  for module, name in constants if module in sys.modules]
+        arguments = [(name, _metadata_value(value)) for name, value in bound.arguments.items()]
+        if reasons or len(values) != len(constants) or any(item[-1] is None for item in [*values, *arguments]):
+            return None
+        if self.engine_digest is None:
+            self.engine_digest = deps.Now(self.cfg, graph)('engine:')
+        key = deps.digest((self.engine_digest, self.runtime.baseline, point['target'], point['name'],
+                           deps.file_digest(self.cfg.root / point['file']), deps.file_digest(self.cfg.root / 'pyproject.toml'),
+                           sorted(fingerprints.items()), values, arguments))
+        index = len(self.runtime.readings)
+        self.keys[index] = key
+        if self.stored is None:
+            self.stored = cache.comparisons(self.cfg, self.runtime.baseline)
+        if key not in self.stored:
+            return None
+        self.reused[index] = json.loads(self.stored[key])
+        self.records.append((index, point, None, [], self._cause(point, original)))
+        self.pairs.append((index, point, []))
+        return R.Reading(point['name'], self.reused[index]['target'], test=self.runtime.test, baseline=self.runtime.baseline)
+
     def _classes_at_call(self, point, original, bound):
         from . import runtime as R
         if problem := self.runtime.safety(original, bound.arguments):
             self.records.append((len(self.runtime.readings), point, None, [problem], None))
             return {}  # Runtime still records its refusal and makes the one real call.
+        if (reading := self._reuse(point, original, bound)) is not None:
+            return reading
         try:
             axes, part, unknown = self._partition(point, original, bound)
         except (ValueError, TypeError, OSError, SyntaxError, AttributeError) as error:
@@ -913,7 +955,9 @@ class Observations:
                 self.request['readings'].append(reading)
             actual = {key(_declared(point, inputs)): value for inputs, value in reading.rows}
             changes = {key(_declared(point, inputs)): old for inputs, old, new in reading.changed}
-            if part is not None:
+            if index in self.reused:
+                result = self.reused[index]['result']
+            elif part is not None:
                 before, after = [], []
                 for region in part.regions:
                     signature = key(region.inputs)
@@ -924,6 +968,8 @@ class Observations:
                 result = D._result(point['name'], part, before, after)
                 result['reasons'] += unknown
                 result['complete'] &= not unknown
+                if index in self.keys and reading.status == reading.comparison_status == 'ok':
+                    self.fresh[self.keys[index]] = json.dumps(dict(target=reading.target, result=result), ensure_ascii=False)
             else:
                 from dataclasses import asdict
                 result = asdict(reading)
@@ -1862,4 +1908,7 @@ def finish_verified(session, exitstatus):
             save_dependencies(con, records)
         _save_readings(con, state)
         _save_ordinary_collection(con, session, state)
+        if state.observations is not None and state.observations.fresh:
+            from .cache import save_comparisons
+            save_comparisons(con, state.observations.runtime.baseline, state.observations.fresh)
         con.commit()

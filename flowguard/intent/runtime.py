@@ -1865,7 +1865,10 @@ class Runtime:
         observing = _OBSERVING.set(_OBSERVING.get() | {owner})
         index = len(self.readings)
         try:
-            self._replay_rows(original, bound, owner=owner, name=name, axes=axes)
+            if isinstance(axes, Reading):   # a comparison stored under the same fingerprint: kept, not replayed
+                self.readings.append(axes)
+            else:
+                self._replay_rows(original, bound, owner=owner, name=name, axes=axes)
             if fields and index < len(self.readings):
                 self.field_values(original, bound, fields, line, self.readings[index])
         finally:

@@ -410,6 +410,29 @@ def structure_summary(cfg):
     return json.loads(row[0]) if row else None
 
 
+COMPARISONS = 'CREATE TABLE IF NOT EXISTS comparison(key TEXT PRIMARY KEY, baseline TEXT, payload TEXT)'
+
+
+def comparisons(cfg, baseline):
+    """The anchor comparisons an earlier session stored against this baseline, by fingerprint key."""
+    path = cfg.cache / 'map.sqlite'
+    if not path.is_file():
+        return {}
+    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
+        if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='comparison'").fetchone():
+            return {}
+        return dict(con.execute('SELECT key,payload FROM comparison WHERE baseline=?', (baseline,)))
+
+
+def save_comparisons(con, baseline, entries):
+    """Keep the comparisons of the current baseline only; an older baseline's keys can never match again."""
+    _write_transaction(con)
+    con.execute(COMPARISONS)
+    con.execute('DELETE FROM comparison WHERE baseline!=?', (baseline,))
+    con.executemany('INSERT OR REPLACE INTO comparison VALUES(?,?,?)',
+                    [(key, baseline, payload) for key, payload in entries.items()])
+
+
 def save_dependencies(con, records):
     _write_transaction(con)
     row = con.execute("SELECT v FROM meta WHERE k='intent_dependencies'").fetchone()

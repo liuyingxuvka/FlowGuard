@@ -122,6 +122,72 @@ def function_fingerprints(graph, targets):
     return result
 
 
+# Builtins whose result depends on their arguments alone; the same names the file closure accepts below.
+_PURE = frozenset({'bool', 'int', 'float', 'str', 'len', 'sum', 'min', 'max', 'all', 'any', 'range', 'enumerate',
+                   'zip', 'sorted', 'tuple', 'list', 'dict', 'set', 'frozenset', 'abs', 'round'})
+
+
+def comparison_inputs(graph, target):
+    """What one anchor comparison runs, read from the Map: (fingerprints, constants, reasons).
+
+    The fingerprints are the bodies of the target and of the project functions it calls; the constants
+    are the module names they read, whose current values belong to the comparison's key. A reason means
+    an input the Map cannot read (an effect, a call other than to those functions or a pure builtin, a
+    read of an import, a dynamic boundary): that comparison is computed again, never reused."""
+    from flowguard.structure.store import unpack
+    fingerprints, constants, reasons, files = {}, [], [], {}
+    closure = dict(project_functions(graph, [target]))
+    for identifier, node in closure.items():
+        if not node or not node['file']:
+            reasons.append('unmapped project dependency: ' + identifier)
+            continue
+        fingerprints[identifier] = node['fp']
+        if node['kind'] == 'const':
+            constants.append((node['module'], node['qual']))
+            continue
+        if node['kind'] not in {'function', 'method'}:
+            reasons.append(f'{identifier} is a {node["kind"]}')
+            continue
+        if node['effects']:
+            reasons.append(f'{identifier} has effects: {node["effects"]}')
+        if node['file'] not in files:
+            row = graph.con.execute('SELECT data FROM file WHERE path=?', (node['file'],)).fetchone()
+            files[node['file']] = unpack(row[0]) if row else {'parse_error': 'not mapped'}
+        raw = files[node['file']]
+        if raw.get('parse_error') or raw.get('unknown_dynamic_imports') or raw.get('star') or raw.get('getattr') or raw.get('syspath'):
+            reasons.append('dynamic source boundary in ' + node['file'])
+        bound, owner = set(raw.get('bound', ())), node['module'] + ':' + node['qual'].rpartition('.')[0]
+        def known(name):
+            """A project symbol of this closure under its dotted name, its module-level name, or `self.x` of
+            the method's own class; or a project module read for one of its attributes."""
+            if name.startswith(('self.', 'cls.')) and node['kind'] == 'method':
+                candidates = [owner + '.' + name.partition('.')[2]]
+            elif '.' not in name:
+                candidates = [node['module'] + ':' + name]
+            else:
+                parts = name.split('.')
+                candidates = ['.'.join(parts[:cut]) + ':' + '.'.join(parts[cut:]) for cut in range(len(parts) - 1, 0, -1)]
+            return (any((graph.canonical(candidate) or candidate) in closure for candidate in candidates)
+                    or (graph.node(name) or {}).get('kind') == 'module')
+        for call in raw.get('syntax_calls', ()):
+            name = call['resolved'] or call['text']
+            if call['node'] == identifier and not (name in _PURE and name not in bound or known(name)):
+                reasons.append(f'{identifier} calls {name}')
+        for read in raw.get('symbol_reads', ()):
+            name = read['resolved'] or read['text']
+            if read['node'] != identifier or name.partition('.')[0] in {'self', 'cls'} and node['kind'] == 'method':
+                continue
+            # A plain name the module does not bind is a parameter, a local or a builtin.
+            if (name in bound or '.' in name) and not known(name):
+                reasons.append(f'{identifier} reads {name}')
+    return fingerprints, constants, list(dict.fromkeys(reasons))
+
+
+def digest(value):
+    """One key for a value already reduced to text-stable data (repr of primitives and tuples)."""
+    return _digest(repr(value))
+
+
 class Now:
     def __init__(self, cfg, graph):
         self.cfg, self.graph, self.memo = cfg, graph, {}
