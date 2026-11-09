@@ -26,6 +26,10 @@ A data owner lists its writers: `# flowguard: owner hires.reserved writers=shop.
 
 Static leads need no replay: an old value this change replaced that other decisions still spell (any field name; also members of tuple and dict constants), a rule in `tests/intent/` whose predicate or literal rows still hold it, a function whose old body an unchanged function still has, and a label spelled a new way (case, spaces and punctuation aside) next to existing spellings. A changed unit (days to seconds) is a known miss. Leads only report what this change adds.
 
+## Relation templates
+
+`from flowguard.intent import precedes, guarded_by, transitions, checks` writes one relation per line; each is an ordinary Flow checked by the existing flow checks. `precedes("SAVED", "PUBLISHED")`: in a test, publishing comes after a save. `guarded_by("PERMISSION_OK", "UPDATE_RECORD")`: every update has its own permission check before it. `transitions("Job.status", new={"saved"}, saved={"published"})`: the allowed changes of a field whose values the existing `# flowguard: states` comment declares. `checks("FEE", "FEE_CASE", days="arg.days")`: rule FEE checked on a scenario test's own arguments. Observed disallowed paths are red; unobserved declared edges and transitions stay unverified. Copies use `owner`, `sensor` and `distinct`, and a single writer uses `owner ... writers=`, so there is no `same` or `single_writer` template. `model draft NAME` also prints template lines from observed paths, grouped by the flow each test starts.
+
 ## Generated source queries
 
 The base installation maps Python. The seven foreign readers are frozen optional additions: install the `languages` extra to map JS/JSX, TS/TSX, C, C++ and C#. Grammars load only when their source language is present; unavailable grammars are reported explicitly. Python remains the only language with executable behavior anchors. Foreign syntax supports navigation and explicit source checks; it does not execute the application or replace a compiler. Dynamic calls, macros, overloads and external/build-dependent bindings remain unknown with reasons.

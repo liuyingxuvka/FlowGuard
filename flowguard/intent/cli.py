@@ -490,14 +490,23 @@ def draft_anchor(cfg, target):
 
 def draft_model(cfg, name):
     from .debug import _events, _index
-    from .flow import draft_model as from_events
-    result = from_events(name, _index(cfg), _events(cache.observations(cfg).get('events', ())))
+    from .flow import draft_model as from_events, template_lines
+    events = _events(cache.observations(cfg).get('events', ()))
+    result = from_events(name, _index(cfg), events)
     for note in result.notes:
         print('# grey: ' + note)
     if result.model is not None:
         model = result.model
         print('from flowguard.intent import flow, Node')
         print(f'MODEL = flow({model.id!r}, source={model.source!r}, nodes={model.nodes!r}, edges={model.edges!r})')
+    lines = template_lines(events)
+    if lines:
+        print('# one-line templates from observed paths, grouped by flow; keep, tighten (guarded_by, checks) or delete each')
+        print('from flowguard.intent import precedes, transitions')
+        for flow in dict.fromkeys(row['flow'] for row in lines):
+            members = [row for row in lines if row['flow'] == flow]
+            print(f'# flow {flow} ({members[0]["tests"]} tests)')
+            print('\n'.join(row['text'] for row in members))
     return 0
 
 

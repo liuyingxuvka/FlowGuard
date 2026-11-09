@@ -703,7 +703,10 @@ class Observations:
         for identifier, model in state.model.flows.items():
             if f'{state.model.file_of[identifier]}::{identifier}[flow]' in state.results:
                 continue  # The explicitly selected Flow item owns its complete check.
-            if not observed_anchors.intersection(node.reference for node in model.nodes):
+            if not model.nodes:      # a transitions template: any anchored call that read its state
+                if not any(t.state in event.states for event in state.events for t in model.transitions):
+                    continue
+            elif not observed_anchors.intersection(node.reference for node in model.nodes):
                 continue
             entries = _test_entry_references(model, self.index)
             if entries and not entries.intersection(observed_calls):
