@@ -14,7 +14,6 @@ from flowguard.intent import ledger
 from flowguard.intent.config import load_config
 from flowguard.structure import build
 from tests._pure_helpers import git, write
-from tests.intent_engine._cli_fixture import display_text
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 RULE = 'One route per function: when a step fails, the error reaches the caller or is reported with its text.'
@@ -511,7 +510,7 @@ def test_ordinary_pytest_fails_on_a_new_fallback_and_prints_the_entry_to_copy(sh
     assert attempt(shop)['sentinel'] == 'ok'                # The intent collection itself stayed complete.
     # The plugin route also fails a run that does not collect the sentinel.
     partial = pytest_run(shop, 'tests/test_stock.py')
-    assert partial.returncode == 1 and '红  新增兜底未登记' in display_text(partial.stdout), partial.stdout + partial.stderr
+    assert partial.returncode == 1 and '红：新增兜底未登记' in partial.stdout, partial.stdout + partial.stderr
     add_entry(shop, entry('src/shop/stock.py:lookup:KeyError'))
     green = pytest_run(shop)
     assert green.returncode == 0 and '2 passed' in green.stdout and '红' not in green.stdout, green.stdout + green.stderr
@@ -531,7 +530,7 @@ def test_ledger_check_and_check_list_the_differences_without_running_tests(shop)
     red = cli(shop, 'ledger', 'check')
     assert red.returncode == 1 and '红：不能登记的写法：src/shop/stock.py:' in red.stdout, red.stdout + red.stderr
     checked = cli(shop, 'check')
-    assert checked.returncode == 1 and '红  不能登记的写法：src/shop/stock.py:' in display_text(checked.stdout), checked.stdout + checked.stderr
+    assert checked.returncode == 1 and '红：不能登记的写法：src/shop/stock.py:' in checked.stdout, checked.stdout + checked.stderr
     again = cli(shop, 'ledger', 'init')
     assert again.returncode == 2 and 'already exists' in again.stderr
     (shop / ledger.LEDGER).unlink()

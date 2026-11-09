@@ -221,25 +221,25 @@ def _red_lines(report, items):
     for key in order:
         entry = entries[key]
         body = '；'.join(dict.fromkeys(entry['texts']))
-        line = '红  ' + (entry['subject'] + (entry['separator'] + body if body else '') if entry['subject'] else body)
+        line = '红：' + (entry['subject'] + (entry['separator'] + body if body else '') if entry['subject'] else body)
         if entry['quote']:
             line += f'  {entry["subject"]} 出处：{entry["quote"]}'
         lines.append(line)
         lines.extend('    ' + step for step in steps.get(entry['subject'], ()) if entry['subject'])
     for finding in report.get('ledger_red', ()):
-        lines.append('红  ' + finding['text'])
+        lines.append('红：' + finding['text'])
         lines.extend('    ' + step for step in finding['fix'])
     return lines
 
 
 def _lead_line(lead):
     if not isinstance(lead, dict):
-        return '线索  ' + str(lead)
+        return '线索：' + str(lead)
     locations = lead.get('locations', ())
     if not locations:
         return ''
     values = ','.join(dict.fromkeys(_shown(row['old']) for row in locations))
-    return (f'线索  旧值 {values} 还出现在 {lead["total"]} 个判断里：'
+    return (f'线索：旧值 {values} 还出现在 {lead["total"]} 个判断里：'
             + '  '.join(f'{row["file"]}:{row["line"]}' + ('（大函数中）' if row.get('big') else '') for row in locations)
             + ' → 需求变了就一起改；要锁定它们，在负责人上方写 # flowguard: owner 名，副本上方写 # flowguard: sensor 名')
 
@@ -276,7 +276,7 @@ def _session(report, limit):
                 continue
             counted = facts['summary'] if not facts['unknown'] else f'已比较 {facts["checked"]} 类（划分未完成），变 {facts["count"]} 类'
             calls[key] = [len(changes), 1]
-            changes.append(f'变  {subject}{"" if subject.endswith("）") else " "}{counted}：{facts["overall"]}'
+            changes.append(f'变：{subject}{"" if subject.endswith("）") else " "}{counted}：{facts["overall"]}'
                            + (f'  {facts["cause"]}' if facts['cause'] else ''))
             names.append(facts['name'])
         elif item.get('lost'):
@@ -287,14 +287,14 @@ def _session(report, limit):
             prefix = '' if item.get('status') == 'grey' else '比较未完成：'
             unverified.extend((subject, prefix + reason, bool(item.get('cause'))) for reason in facts['reasons'] or ['原因没有记下'])
         elif requested:
-            changes.append(f'比较  {subject}{"" if subject.endswith("）") else " "}{facts["summary"]}')
+            changes.append(f'比较：{subject}{"" if subject.endswith("）") else " "}{facts["summary"]}')
             names.append(facts['name'])
     for position, number in calls.values():
         if number > 1:
             changes[position] += f'（{number} 次调用相同）'
     for path in report.get('paths', ()):
         if path['before'] != path['after']:
-            changes.append(f'变  路径 {path["test"]}：' + ' → '.join(path['before']) + ' 变成 ' + ' → '.join(path['after']))
+            changes.append(f'变：路径 {path["test"]}：' + ' → '.join(path['before']) + ' 变成 ' + ' → '.join(path['after']))
             names.append('路径 ' + path['test'])
     changes = list(dict.fromkeys(changes))
     leads = [line for line in dict.fromkeys(_lead_line(lead) for lead in report.get('leads', ())) if line]
@@ -308,9 +308,9 @@ def _session(report, limit):
         return ''
     room = budget
     shown = _fit(changes, room - bool(leads) - bool(counted),
-                 lambda rest: f'变  另 {rest} 项变化：' + '、'.join(dict.fromkeys(names[len(changes) - rest:])))
+                 lambda rest: f'变：另 {rest} 项变化：' + '、'.join(dict.fromkeys(names[len(changes) - rest:])))
     room -= len(shown)
-    shown_leads = _fit(leads, room - bool(counted), lambda rest: f'线索  另 {rest} 条：python -m flowguard check 列出全部线索')
+    shown_leads = _fit(leads, room - bool(counted), lambda rest: f'线索：另 {rest} 条：python -m flowguard check 列出全部线索')
     room -= len(shown_leads)
     lines = [_title(report), *reds, *shown, *shown_leads]
     if counted and room > 0:
@@ -318,10 +318,10 @@ def _session(report, limit):
         common = max(causes, key=lambda cause: (len(causes[cause]), -list(causes).index(cause)))
         lines.append(f'未验证 {len(subjects)} 项（不是通过）：最常见的原因是"{common}"'
                      + (f'（{len(causes[common])} 项）' if len(causes[common]) > 1 else ''))
-        details = [f'未验证  {subject + "：" if subject else ""}{reason}' + (f'（{number} 次）' if number > 1 else '')
+        details = [f'未验证：{subject + "：" if subject else ""}{reason}' + (f'（{number} 次）' if number > 1 else '')
                    for (subject, reason), number in counted.items()]
         lines.extend(_fit(details, min(3, room - 1),
-                          lambda rest: f'未验证  另 {rest} 项：python -m flowguard show 名字 看它的原因'))
+                          lambda rest: f'未验证：另 {rest} 项：python -m flowguard show 名字 看它的原因'))
     return '\n'.join(lines)
 
 

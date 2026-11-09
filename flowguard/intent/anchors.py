@@ -803,6 +803,9 @@ def _observe_verified(root, anchor, values):
     value, refused = runtime.guarded(fn, bound)
     if refused:
         return Observation('grey', reasons=(refused,), anchor=anchor.target)
+    if isinstance(value, cells.Raised) and isinstance(value.error, ImportError):
+        # An import inside the function failed in this observation's environment: not its behaviour.
+        return Observation('grey', reasons=(f'看不清：观察时导入失败：{type(value.error).__name__}: {value.error}',), anchor=anchor.target)
     if isinstance(value, cells.Raised):
         return Observation('ok', value=value, anchor=anchor.target)
     try:

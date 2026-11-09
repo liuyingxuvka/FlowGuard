@@ -113,7 +113,7 @@ def test_a_new_write_that_loses_the_baseline_observation_fails_with_two_ways_out
     assert result.returncode == 1 and '2 passed' in text, text
     assert '未验证' not in text, text                 # the lost observation is red, not also listed as grey
     lines = text.splitlines()
-    index = next(i for i, line in enumerate(lines) if line.startswith('红  观察丢失 STANDING：'))
+    index = next(i for i, line in enumerate(lines) if line.startswith('红：观察丢失 STANDING：'))
     assert 'policy.py:2 在 tests/test_policy.py::test_standing 里，基准代码能比较，现在是灰' in lines[index], lines[index]
     assert 'policy.py:3 open("audit.log", "a").close()：写文件 audit.log' in lines[index], lines[index]
     assert lines[index + 1].startswith('    恢复可观察：'), lines
@@ -172,7 +172,7 @@ def test_check_all_fails_a_grey_rule_quoting_the_owner_unless_it_is_listed(tmp_p
     _git(root, 'commit', '-qm', 'owner words')
     checked, text = _cli(root, 'check', '--all')
     assert checked.returncode == 1, text
-    assert '红  LIMIT_RULE：规则有主人原话出处（R1），现在是灰（未验证）：module initialization of json is not proved pure' in text, text
+    assert '红：LIMIT_RULE：规则有主人原话出处（R1），现在是灰（未验证）：module initialization of json is not proved pure' in text, text
     assert f'[unverified] 段写一句理由：LIMIT_RULE = ' in text, text
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
     (root / ledger.LEDGER).write_text('[unverified]\nLIMIT_RULE = ' + ledger._quote(
