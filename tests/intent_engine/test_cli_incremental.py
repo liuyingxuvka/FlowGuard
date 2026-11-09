@@ -5,6 +5,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -128,6 +129,31 @@ def test_a_new_corrected_row_attaches_real_old_code_proof_to_existing_result(tmp
     assert proofs[0]['homes'][0]['actual'] == 'True'
     assert proofs[0]['base'] == baseline, 'old-code proof must name the real previous commit'
     assert len(capsys.readouterr().out.splitlines()) <= 10
+
+
+@pytest.mark.parametrize('since', [None, 'HEAD'])
+@pytest.mark.parametrize('added', [1, 2])
+def test_new_passing_rows_do_not_lock_check_against_its_own_map(tmp_path, capsys, since, added):
+    """Old-code proofs run before check writes them; one new row or several never waits on itself."""
+    root, cfg = project(tmp_path)
+    cli.init(cfg)
+    git(root, 'init', '-q')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'committed rule with one literal row')
+    intent = cfg.intent / 'policy.py'
+    rows = [(2, 'second day accepted'), (1, 'first day accepted')][:added]
+    intent.write_text(intent.read_text() + ''.join(
+        f"LIMIT.rows(row(days={days},expect=True,why={why!r}))\n" for days, why in rows))
+    started = time.perf_counter()
+    status = cli_fixture.check(cfg, since=since)
+    elapsed = time.perf_counter() - started
+    text = capsys.readouterr()
+    assert 'database is locked' not in text.out + text.err
+    assert status == 0, text.out + text.err
+    assert elapsed < 30, f'check waited {elapsed:.1f} s on its own SQLite lock'
+    data = cache.read(cfg)
+    assert data['attempt']['sentinel'] == 'ok'
+    assert all(value['verdict'] == 'ok' for value in data['results']['LIMIT']['items'].values())
 
 
 def test_changed_source_selects_ordinary_pytest_after_a_screen_consumed_the_map_delta(tmp_path, monkeypatch):
