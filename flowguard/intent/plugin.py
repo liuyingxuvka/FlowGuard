@@ -202,6 +202,17 @@ class Session:
                     # A `fields` anchor is checked on its tests' calls; its calibrated test is not rerun.
                     _prepare(self.cfg.root, binding.anchor)
 
+    def rule_contracts(self):
+        """A rule whose items all ran in this session takes its contract from those actual results;
+        a Flow with that rule as a lower model reads it. Rerunning it after more items ran is the same."""
+        model = self.model
+        for identifier, rule in model.rules.items():
+            required = {model.file_of[identifier] + '::' + name for name in model.items_of(rule)}
+            if required <= self.results.keys():
+                parts = [self.results[item] for item in required]
+                owner = model.file_of[identifier] + '::' + identifier + '[rules]'
+                self.results[owner]['own_contract'] = self.engine.contract_summary(rule, parts=parts)
+
     def get_map(self):
         if self.map is None:
             from flowguard.structure import build
@@ -1368,8 +1379,9 @@ class IntentItem(pytest.Item):
             red = [f"{e['file']}:{e['line']}: {e['msg']}" for e in model.errors if e['file'] == model.cfg.rel(self.path)]
             result = dict(kind='load', verdict='red', red=red, grey=[], info=[])
         elif self.kind == 'flow':
-            # Intent items run after every ordinary test, so the session's anchor events are complete here:
-            # the item itself is red, grey or green, never a stand-in decided before the events were read.
+            # Flow items run after every ordinary test and every other intent item, so the session's anchor
+            # events and its rules' contracts are complete here: the item itself is red, grey or green.
+            state.rule_contracts()
             result = engine.run_flow(model.flows[self.rule_id], state.events, state.anchor_issues)
         elif self.kind in ('states', 'structure', 'anchor_distinct'):
             declaration = (model.states if self.kind == 'states'
@@ -1429,7 +1441,10 @@ def pytest_collection_finish(session):
     state.observations = Observations(state)
     state.engine.call_sites = state.observations.rule_calls
     state.source_items = tuple(item for item in session.items if not isinstance(item, IntentItem) and item.name != SENTINEL)
-    session.items[:] = [*state.source_items, *(item for item in session.items if isinstance(item, IntentItem)),
+    intent = [item for item in session.items if isinstance(item, IntentItem)]
+    # A Flow reads its lower rules' contracts from their items' results, so Flow items run last.
+    session.items[:] = [*state.source_items, *(item for item in intent if item.kind != 'flow'),
+                       *(item for item in intent if item.kind == 'flow'),
                        *(item for item in session.items if item.name == SENTINEL)]
 
 
@@ -1783,12 +1798,7 @@ def finish_verified(session, exitstatus):
             state.session_errors.append('complete collection did not finish: ' + ', '.join(sorted(unfinished)[:3]))
             session.exitstatus = pytest.ExitCode.TESTS_FAILED
     _completion_policy(session, state, declared)
-    for identifier, rule in model.rules.items():
-        required = {model.file_of[identifier] + '::' + name for name in model.items_of(rule)}
-        if required <= state.results.keys():
-            parts = [state.results[item] for item in required]
-            owner = model.file_of[identifier] + '::' + identifier + '[rules]'
-            state.results[owner]['own_contract'] = state.engine.contract_summary(rule, parts=parts)
+    state.rule_contracts()
     if state.observations is not None and state.observations.report():
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
         if state.observations.session_red:
