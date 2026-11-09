@@ -170,6 +170,133 @@ def test_value_sets_come_from_prisma_enums_sql_checks_and_typescript_types(tmp_p
     # Kind.BOT resolves through the `as const` object; Kind.ROBOT names no member, so its value is not judged.
 
 
+def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript_types_apart(tmp_path):
+    # Planning Tool 0.6.28 (round 21, V1/V2/P01): the enum of a SQLite template the generator never reads
+    # gated the field and hid every CHECK; a frontend interface Demand was gated by the Prisma model Demand.
+    files = {
+        'backend/package.json': '{"name": "backend", "scripts": {"generate": "prisma generate && '
+                                'prisma generate --schema=prisma/central/central.prisma"}}\n',
+        'backend/prisma/schema.prisma': '''
+            datasource db {
+              provider = "sqlserver"
+              url      = env("DATABASE_URL")
+            }
+
+            model Notice {
+              id   String @id
+              kind String
+              @@map("notices")
+            }
+
+            model Demand {
+              id   String @id
+              unit String
+              @@map("demands")
+            }
+        ''',
+        'backend/prisma/schema.sqlite.prisma': '''
+            datasource db {
+              provider = "sqlite"
+              url      = env("DATABASE_URL")
+            }
+
+            enum NoticeKind {
+              CREATED
+            }
+
+            enum DemandUnit {
+              FTE_MONTH
+              HEADCOUNT
+            }
+
+            model Notice {
+              id   String     @id
+              kind NoticeKind
+              @@map("notices")
+            }
+
+            model Demand {
+              id   String     @id
+              unit DemandUnit
+              @@map("demands")
+            }
+        ''',
+        'backend/prisma/central/central.prisma': '''
+            datasource db {
+              provider = "postgresql"
+              url      = env("CENTRAL_URL")
+            }
+
+            enum Level {
+              LOW
+              HIGH
+            }
+
+            model Gauge {
+              id    String @id
+              level Level
+              @@map("gauges")
+            }
+        ''',
+        'backend/prisma/migrations/001/migration.sql': '''
+            CREATE TABLE notices (id NVARCHAR(36), kind NVARCHAR(20) CHECK (kind IN ('CREATED', 'UPDATED')));
+            CREATE TABLE demands (id NVARCHAR(36), unit NVARCHAR(20) CHECK (unit IN ('FTE_MONTH', 'HEADCOUNT')));
+        ''',
+        'backend/prisma/central/migrations/001/migration.sql': '''
+            CREATE TABLE gauges (id TEXT, level TEXT CHECK (level IN ('LOW', 'HIGH', 'MID')));
+        ''',
+        'docs/history/old-setup.sql': '''
+            CREATE TABLE notices (id NVARCHAR(36), kind NVARCHAR(20) CHECK (kind IN ('CREATED', 'ARCHIVED')));
+        ''',
+        'backend/src/types/notice.ts': '''
+            export type NoticeKind = 'CREATED' | 'UPDATED' | 'DELETED';
+        ''',
+        'backend/src/notice.service.ts': '''
+            export async function notify(prisma: any) {
+              await prisma.notice.create({ data: { kind: 'UPDATED' } });
+              await prisma.notice.create({ data: { kind: 'ARCHIVED' } });
+              await prisma.gauge.create({ data: { level: 'MID' } });
+            }
+        ''',
+        'frontend/package.json': '{"name": "frontend"}\n',
+        'frontend/src/types.ts': '''
+            export interface Demand { unit: 'FTE' | 'HOURS'; }
+        ''',
+        'frontend/src/demand.ts': '''
+            import type { Demand } from './types';
+            export const first: Demand = { unit: 'FTE' };
+            export const second = { unit: 'DAYS' } as Demand;
+        ''',
+    }
+    _commit(tmp_path, files)
+    with closing(build(tmp_path)) as graph:
+        assert graph.prisma_schemas_in_use() == {'backend/prisma/schema.prisma', 'backend/prisma/central/central.prisma'}
+        sets = sorted((row['key'], row['field'], row['values'], row['kind']) for row in graph.value_sets())
+        assert sets == [('Demand.unit', 'Demand.unit', ('FTE_MONTH', 'HEADCOUNT'), 'sql-check'),
+                        ('Demand.unit', 'ts:Demand.unit', ('FTE', 'HOURS'), 'ts-type'),
+                        ('Gauge.level', 'Gauge.level', ('LOW', 'HIGH'), 'prisma-enum'),
+                        ('Gauge.level', 'Gauge.level', ('LOW', 'HIGH', 'MID'), 'sql-check'),
+                        ('Notice.kind', 'Notice.kind', ('CREATED', 'UPDATED'), 'sql-check')], sets
+    code, text = _static(tmp_path, '--all')
+    values = [line for line in text.splitlines() if '取值：' in line]
+    # 'UPDATED' is in the CHECK the database runs (the template enum lacks it); the archived description under
+    # docs/ does not add 'ARCHIVED'; 'MID' passes the CHECK but not the enum of the schema in use; the frontend
+    # Demand is judged by its own union only.
+    assert values == [
+        "1. 取值：取值不在声明集合里：frontend/src/demand.ts:3 Demand.unit='DAYS'，允许 FTE|HOURS（frontend/src/types.ts:1）",
+        "2. 取值：取值不在声明集合里：backend/src/notice.service.ts:4 Gauge.level='MID'，允许 LOW|HIGH"
+        "（enum Level (backend/prisma/central/central.prisma:6)）",
+        "3. 取值：取值不在声明集合里：backend/src/notice.service.ts:3 Notice.kind='ARCHIVED'，允许 CREATED|UPDATED"
+        "（CHECK backend/prisma/migrations/001/migration.sql:1）"], text
+    differ = sorted(line for line in _lines(text, '线索：旧账 两份声明不同：'))
+    assert differ == [
+        "线索：旧账 两份声明不同：Gauge.level backend/prisma/central/central.prisma:6（'HIGH' | 'LOW'；少 'MID'）  "
+        "backend/prisma/central/migrations/001/migration.sql:1（'HIGH' | 'LOW' | 'MID'） → 补上缺的值；那份描述不再使用，就写明或删掉它",
+        "线索：旧账 两份声明不同：Notice.kind backend/prisma/migrations/001/migration.sql:1（'CREATED' | 'UPDATED'；少 'DELETED'）  "
+        "backend/prisma/schema.sqlite.prisma:6（'CREATED'；少 'DELETED', 'UPDATED'）  backend/src/types/notice.ts:1"
+        "（'CREATED' | 'DELETED' | 'UPDATED'） → 补上缺的值；那份描述不再使用，就写明或删掉它"], text
+
+
 def _config(root):
     from flowguard.intent.config import load_config
     return load_config(root)

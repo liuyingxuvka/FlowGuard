@@ -65,7 +65,8 @@ def _foreign_writes(change, facts=None):
     out = [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None])
            for row in rows if row.get('model') and not row.get('unclear') and row.get('language', 'python') != 'python'
            and row.get('values')]
-    out += [dict(row, field=f'{row["container"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None])
+    out += [dict(row, field=f'{row["container"]}.{row["field"]}', gate=f'ts:{row["container"]}.{row["field"]}',
+                 values=[v for v in row.get('values', ()) if v is not None])     # gated by the TS type's own sets
             for row in graph.typed_writes(facts=facts) if row.get('values')]
     return [row for row in out if row['values']]
 
@@ -83,21 +84,25 @@ def values(change, *, everything=False):
     outside = list(outside_sets(table, _foreign_writes(change)))
     if not outside:
         return found
-    key = lambda row, value: (row['file'], row_function(row), row['field'], repr(value))
+    key = lambda row, declared, value: (row['file'], row_function(row), row['field'], declared['where'], repr(value))
     before = Counter()
     for file in {row['file'] for row, _, _ in outside} & change.files:
         facts = change.old_facts(file)
         if facts:
-            before.update(key(row, value) for row, _, value in outside_sets(table, _foreign_writes(change, [facts])))
-    now = Counter(key(row, value) for row, _, value in outside)
-    by_field = {}
+            before.update(key(row, declared, value) for row, declared, value
+                          in outside_sets(table, _foreign_writes(change, [facts])))
+    now = Counter(key(row, declared, value) for row, declared, value in outside)
+    by_field, names = {}, set()
     for row, declared, value in outside:
-        by_field.setdefault(row['field'], (declared, []))[1].append((row, value))
-    for name, (declared, items) in sorted(by_field.items()):
-        where = declared['where']
+        by_field.setdefault((row.get('gate', row['field']), declared['where']), (declared, []))[1].append((row, value))
+    for (_, where), (declared, items) in sorted(by_field.items()):
+        name = declared['name']
+        # a field's second set (a CHECK beside its enum, a TS type of a model's name) is its own issue
+        issue_name = f'values:{name}' if f'values:{name}' not in names else f'values:{name}:{where}'
+        names.add(issue_name)
         changed_set = declared.get('file') in change.files
         fresh = [(row, value) for row, value in items if changed_set or row['file'] in change.files
-                 and now[key(row, value)] > before[key(row, value)]]
+                 and now[key(row, declared, value)] > before[key(row, declared, value)]]
         allowed = '|'.join(map(str, declared['values']))
         def line(chosen):
             return ('取值不在声明集合里：' + '  '.join(f'{row["file"]}:{row["line"]} {name}={value!r}' for row, value in chosen)
@@ -105,7 +110,7 @@ def values(change, *, everything=False):
         step = '改用集合里的值；集合真要加值，先改那条声明（' + where + '）'
         if fresh and change.baseline:
             found.red.append(line(fresh) + ' → ' + step)
-        found.issues.append(Issue(f'values:{name}', 1, f'取值 {name}', line(items), step,
+        found.issues.append(Issue(issue_name, 1, f'取值 {name}', line(items), step,
                                   frozenset(row_function(row) for row, _ in items), frozenset(row['file'] for row, _ in items),
                                   new=bool(fresh and change.baseline)))
     return found

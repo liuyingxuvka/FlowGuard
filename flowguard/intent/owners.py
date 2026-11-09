@@ -492,10 +492,14 @@ def _declarations(graph):
 
 
 def declarations_differ(change, *, everything=False):
-    """Two declarations of one name (union type or enum) with different members: a lead, reported when
-    this change touches one of them (`check --all` lists all)."""
+    """Two declarations of one name (union type or enum) with different members, and the declarations of one
+    database field (`MapHandle.field_declarations`: each Prisma schema's enum, each SQL CHECK, a JS/TS
+    declaration of the enum's name) with different values: a lead, reported when this change touches one
+    of them (`check --all` lists all)."""
     found = Findings()
-    for name, items in sorted(_declarations(change.graph).items()):
+    named = [(name, items, ' → 留一份，别处引用它；有意不同就改成不同的名字') for name, items in _declarations(change.graph).items()]
+    fields = [(name, items, ' → 补上缺的值；那份描述不再使用，就写明或删掉它') for name, items in change.graph.field_declarations().items()]
+    for name, items, step in sorted(named + fields):
         if len(items) < 2 or len({values for _, _, values in items}) < 2:
             continue
         if not everything and not any(file in change.files for file, _, _ in items):
@@ -505,7 +509,7 @@ def declarations_differ(change, *, everything=False):
                  + (f'；少 {", ".join(map(repr, sorted(union - values, key=repr)))}' if union - values else '') + '）'
                  for file, line, values in sorted(items)]
         found.leads.append(('旧账 ' if everything and not any(file in change.files for file, _, _ in items) else '')
-                           + f'两份声明不同：{name} ' + '  '.join(parts) + ' → 留一份，别处引用它；有意不同就改成不同的名字')
+                           + f'两份声明不同：{name} ' + '  '.join(parts) + step)
     return found
 
 

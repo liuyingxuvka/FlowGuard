@@ -420,21 +420,50 @@ class MapHandle:
                     out.append(dict(name=name, file=row['file'], line=row['line'], values=tuple(values), kind=row['kind']))
         return out
 
+    def prisma_schemas_in_use(self):
+        """The Prisma schema files the client generator reads: each file named `schema.prisma` (Prisma's
+        default name, the place a project's sync script copies a provider template onto) and each file or
+        folder the nearest package.json names in `"prisma": {"schema": ...}` or a script's `--schema`.
+        Other `.prisma` files (`schema.sqlite.prisma` templates, fragments) only describe."""
+        if 'schemas_in_use' in self._derived:
+            return self._derived['schemas_in_use']
+        import re
+        files = [path for path, schema in self._schema_rows() if schema.get('kind') == 'prisma']
+        named = set()
+        for package in sorted({self.package(path) for path in files}):
+            manifest = self.root / package / 'package.json'
+            if not manifest.is_file():
+                continue
+            data = json.loads(manifest.read_text(encoding='utf-8-sig'))
+            settings = data.get('prisma') if isinstance(data, dict) else None
+            listed = [settings['schema']] if isinstance(settings, dict) and isinstance(settings.get('schema'), str) else []
+            scripts = data.get('scripts') if isinstance(data, dict) else None
+            for script in (scripts or {}).values() if isinstance(scripts, dict) else ():
+                if isinstance(script, str):
+                    listed += [found[1] for found in re.finditer(r'--schema(?:=|\s+)["\']?([^\s"\'&|;]+)', script)]
+            named |= {posixpath.normpath(posixpath.join(package, item)) for item in listed}
+        used = {path for path in files if posixpath.basename(path) == 'schema.prisma' or path in named
+                or any(path.startswith(folder + '/') for folder in named)}
+        self._derived['schemas_in_use'] = used
+        return used
+
     def value_sets(self):
-        """The declared value sets of fields that code outside Python declares, keyed `Model.field`: a Prisma
-        field typed with a Prisma enum, a SQL `CHECK (column IN ('a', ...))` on a model's table (the latest
-        one in a migrations folder; several descriptions add up), and a JS/TS interface, class or object
-        type member annotated with a closed string union or an alias of `as const`/`new Set` values.
-        Each row: key, name, values, where (file:line), kind, fold (the database compares text without
+        """The declared value sets of fields that code outside Python declares: a field of a Prisma schema in
+        use (`prisma_schemas_in_use`) typed with a Prisma enum and a SQL `CHECK (column IN ('a', ...))` on a
+        model's table (the latest one in a migrations folder; several descriptions add up), keyed and gated
+        `Model.field`, both kept when a field has both; and a JS/TS interface, class or object type member
+        annotated with a closed string union or an alias of `as const`/`new Set` values, keyed `Type.field`
+        and gated `ts:Type.field` (a TS type is not the Prisma model of the same name). Each row: key, name,
+        field (the gate's key), values, where (file:line), kind, fold (the database compares text without
         case: SQL Server and MySQL default collations)."""
         if 'value_sets' in self._derived:
             return self._derived['value_sets']
-        from .readers.sql import MIGRATION
-        models, out = self._models(), {}
+        enums_out, checks_out, types_out = {}, {}, {}
         schemas = self.schemas()
+        in_use = self.prisma_schemas_in_use()
         providers = {}
         for schema in schemas:
-            if schema.get('kind') != 'prisma':
+            if schema.get('kind') != 'prisma' or schema['file'] not in in_use:
                 continue
             enums = {enum['name']: [member['name'] for member in enum['fields']] for enum in schema.get('enums', ())}
             for model in schema.get('models', ()):
@@ -442,37 +471,15 @@ class MapHandle:
                 for field in model['fields']:
                     if field['type'] in enums and enums[field['type']]:
                         enum = next(item for item in schema['enums'] if item['name'] == field['type'])
-                        out.setdefault(f"{model['name']}.{field['name']}", dict(
-                            key=f"{model['name']}.{field['name']}", name=f"{model['name']}.{field['name']}",
-                            values=tuple(enums[field['type']]), where=f"enum {field['type']} ({schema['file']}:{enum['line']})",
+                        key = f"{model['name']}.{field['name']}"
+                        enums_out.setdefault(key, dict(
+                            key=key, name=key, field=key, values=tuple(enums[field['type']]),
+                            where=f"enum {field['type']} ({schema['file']}:{enum['line']})",
                             kind='prisma-enum', fold=False, file=schema['file']))
-        groups = {}
-        for schema in sorted((item for item in schemas if item.get('kind') == 'sql'), key=lambda item: item['file']):
-            found = MIGRATION.match(schema['file'])
-            group = groups.setdefault(found.group('folder') if found else schema['file'], {})
-            for item in [*schema.get('tables', ()), *schema.get('changes', ())]:
-                for check in item.get('checks', ()):
-                    group[(item.get('name') or item['table']).casefold(), check['column'].casefold()] = \
-                        (item.get('name') or item['table'], dict(check, file=schema['file']))
-        # A migrations folder (applied in order) is the description a CHECK is cited from when it has one.
-        for _, group in sorted(groups.items(), key=lambda item: (not item[0].endswith('migrations'), item[0])):
-            for (table, column), (spelled, check) in group.items():
-                model = models.table_model(spelled)
-                field = models.column_field(model, check['column']) if model else None
-                if field is None:
-                    continue
-                key = f"{model}.{field['name']}"
-                provider = providers.get(model, '')
-                previous = out.get(key)
-                values = tuple(check['values'])
-                where, file = f"CHECK {check['file']}:{check['line']}", check['file']
-                if previous and previous['kind'] == 'sql-check':
-                    values = tuple(dict.fromkeys([*previous['values'], *values]))
-                    where, file = previous['where'], previous['file']
-                elif previous:
-                    continue                 # a Prisma enum already declares the field's values
-                out[key] = dict(key=key, name=key, values=values, where=where, kind='sql-check',
-                                fold=provider in ('sqlserver', 'mysql'), file=file)
+        for key, (_, check) in self._check_sets().items():
+            model = key.partition('.')[0]
+            checks_out[key] = dict(key=key, name=key, field=key, values=check['values'], where=check['where'],
+                                   kind='sql-check', fold=providers.get(model, '') in ('sqlserver', 'mysql'), file=check['file'])
         for _, _, facts in self._kinds('typed_fields'):
             for row in facts.get('typed_fields', ()):
                 key = f"{row['container']}.{row['field']}"
@@ -483,10 +490,81 @@ class MapHandle:
                     if not values:
                         continue
                     where, file = f"{row['of']} ({origin['file']}:{origin['line']})", origin['file']
-                out.setdefault(key, dict(key=key, name=key, values=tuple(values), where=where, kind='ts-type', fold=False,
-                                         file=file))
-        self._derived['value_sets'] = sorted(out.values(), key=lambda row: row['key'])
+                types_out.setdefault(key, dict(key=key, name=key, field='ts:' + key, values=tuple(values), where=where,
+                                               kind='ts-type', fold=False, file=file))
+        rows = [*enums_out.values(), *checks_out.values(), *types_out.values()]
+        self._derived['value_sets'] = sorted(rows, key=lambda row: (row['key'], row['field']))
         return self._derived['value_sets']
+
+    @staticmethod
+    def archived(path):
+        """Is this SQL file kept under a `docs` folder (a database history or release snapshot), a description
+        no code runs against?"""
+        return 'docs' in path.split('/')[:-1]
+
+    def _check_sets(self):
+        """{Model.field: (per description {description: (values, file, line)}, the gate's set)} of SQL
+        `CHECK (column IN (...))` on mapped tables outside `archived` files: a migrations folder's latest CHECK
+        of a column, or one file's; the gate's set adds the descriptions up and is cited from a migrations
+        folder when one has it."""
+        if 'check_sets' in self._derived:
+            return self._derived['check_sets']
+        from .readers.sql import MIGRATION
+        models, groups = self._models(), {}
+        for schema in sorted((item for item in self.schemas() if item.get('kind') == 'sql' and not self.archived(item['file'])),
+                             key=lambda item: item['file']):
+            found = MIGRATION.match(schema['file'])
+            group = groups.setdefault(found.group('folder') if found else schema['file'], {})
+            for item in [*schema.get('tables', ()), *schema.get('changes', ())]:
+                for check in item.get('checks', ()):
+                    group[(item.get('name') or item['table']).casefold(), check['column'].casefold()] = \
+                        (item.get('name') or item['table'], dict(check, file=schema['file']))
+        out = {}
+        # A migrations folder (applied in order) is the description a CHECK is cited from when it has one.
+        for description, group in sorted(groups.items(), key=lambda item: (not item[0].endswith('migrations'), item[0])):
+            for (table, column), (spelled, check) in group.items():
+                model = models.table_model(spelled)
+                field = models.column_field(model, check['column']) if model else None
+                if field is None:
+                    continue
+                key = f"{model}.{field['name']}"
+                each, gate = out.setdefault(key, ({}, None))
+                each[description] = (tuple(check['values']), check['file'], check['line'])
+                if gate is None:
+                    gate = dict(values=tuple(check['values']), where=f"CHECK {check['file']}:{check['line']}", file=check['file'])
+                else:
+                    gate = dict(gate, values=tuple(dict.fromkeys([*gate['values'], *check['values']])))
+                out[key] = (each, gate)
+        self._derived['check_sets'] = out
+        return out
+
+    def field_declarations(self):
+        """{Model.field: [(file, line, values)]}: every declaration of one database field's values, also those
+        of schemas not in use: each Prisma schema's enum typing it, each SQL description's CHECK on its column
+        and each exported JS/TS declaration (outside tests) named like one of those enums."""
+        enum_names, found = {}, {}
+        for schema in self.schemas():
+            if schema.get('kind') != 'prisma':
+                continue
+            enums = {enum['name']: enum for enum in schema.get('enums', ())}
+            for model in schema.get('models', ()):
+                for field in model['fields']:
+                    enum = enums.get(field['type'])
+                    if enum and enum['fields']:
+                        key = f"{model['name']}.{field['name']}"
+                        found.setdefault(key, []).append((schema['file'], enum['line'],
+                                                          frozenset(member['name'] for member in enum['fields'])))
+                        enum_names.setdefault(key, set()).add(field['type'])
+        for key, (each, _) in self._check_sets().items():
+            found.setdefault(key, []).extend((file, line, frozenset(values)) for values, file, line in each.values())
+        from flowguard.map.common import is_test_file
+        by_name = {}
+        for row in self.declarations():
+            if not is_test_file(row['file']):
+                by_name.setdefault(row['name'], []).append((row['file'], row['line'], frozenset(row['values'])))
+        for key, names in enum_names.items():
+            found[key].extend(item for name in sorted(names) for item in by_name.get(name, ()))
+        return found
 
     def typed_writes(self, facts=None):
         """Values JS/TS code gives a typed member: a class field initializer, `this.f = 'v'` in a class, and
