@@ -1,0 +1,13 @@
+from flowguard.intent import rule, row
+
+
+@rule("GRACE", decides="grace period", fields={"days": int}, anchor="STANDING",
+      source="assumed: a member keeps standing for fourteen days")
+def GRACE(days):
+    return days <= 14
+
+
+GRACE.rows(
+    row(days=15, expect=False, why="day fifteen is past the grace period"),
+    row(days=14, expect=True, why="the last grace day"),
+)

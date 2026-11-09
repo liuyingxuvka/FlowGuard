@@ -1,0 +1,6 @@
+from shop.policy import standing
+
+
+def test_standing():
+    assert standing(0)
+    assert not standing(30)

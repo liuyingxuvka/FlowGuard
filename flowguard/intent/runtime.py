@@ -509,6 +509,29 @@ class _Guard:
         return _binding(bound.signature, arguments)
 
 
+class _Field:
+    """One `fields NAME=EXPRESSION` of an anchor: called with the anchor function's own arguments, it
+    returns the expression's value in that function's module, the arguments being its local names."""
+
+    def __init__(self, function, name, expression):
+        self.name, self.expression, self.namespace = name, expression, function.__globals__
+        self.signature = inspect.signature(function, follow_wrapped=False)
+        self.code = compile(expression, f'<flowguard fields {name}>', 'eval')
+
+    def __call__(self, *args, **kwargs):
+        bound = self.signature.bind(*args, **kwargs)
+        bound.apply_defaults()
+        # One namespace, so comprehensions and lambdas in the expression see the arguments too.
+        return eval(self.code, {**self.namespace, **bound.arguments})
+
+    def definition(self, parameters, line):
+        """The expression as a function of the same parameters, at the anchor comment's line, for the
+        static check of explicit writes."""
+        node = ast.parse(f'def _flowguard_field({", ".join(parameters)}):\n    return ({self.expression})\n').body[0]
+        ast.increment_lineno(node, line - 2)      # the expression's own line is the comment's
+        return node
+
+
 def _resolve(expression, env):
     if isinstance(expression, ast.Name):
         return env.get(expression.id, vars(builtins).get(expression.id, _MISSING))
@@ -631,6 +654,9 @@ class Reading:
     comparison_reasons: list = field(default_factory=list)
     actual: tuple | None = None  # (simple inputs, outcome) of the real call; never a replay.
     lost: str = ''  # why it is grey, when the baseline code in this same context replays cleanly
+    fields: dict | None = None  # an anchor's `fields` values at the real call, read before it ran
+    field_rows: list = field(default_factory=list)  # the same values at each replayed row (None: not read)
+    field_reasons: list = field(default_factory=list)  # why a field could not be read: its name and error
 
 
 class _ObserverHub:
@@ -1135,32 +1161,36 @@ class Runtime:
                 else:
                     target[0][target[1]] = value
 
-    def safety(self, function, arguments=None, seen=None, *, historical=False):
+    def safety(self, function, arguments=None, seen=None, *, historical=False, node=None):
         """Why this call is not replayed, or ''. Only explicit writes stop a replay statically: a
         `global`/`nonlocal` name the function assigns, an assignment, deletion or mutating method call
         on module state, here and in the project helpers it calls. The arguments must be visible to the
-        replay guard. Reads, dates, properties and unresolved calls run under the guard instead."""
+        replay guard. Reads, dates, properties and unresolved calls run under the guard instead.
+        `node` checks another definition in the function's module instead (an anchor's `fields`
+        expression, whose lines are the anchor comment's)."""
         fn = sites.unwrap(function)
         top = seen is None
         seen = set() if seen is None else seen
-        if fn in seen:
+        if fn in seen and node is None:
             return ''
         seen.add(fn)
         if top and arguments:
             unseen = _visible(arguments)[1]
             if unseen:
                 return '看不清：' + unseen
-        if inspect.isgeneratorfunction(fn) or inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn):
+        if node is None and (inspect.isgeneratorfunction(fn) or inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)):
             return '看不清：生成器或协程函数的函数体在回放里不运行'
-        try:
-            if historical:
-                if fn not in self.patches:
-                    return 'baseline function is unavailable: ' + self.unavailable.get(fn, fn.__qualname__)
-                node = self.patches[fn].node
-            else:
-                node = _definition(fn)
-        except (OSError, TypeError, SyntaxError):
-            return 'source is unavailable for side-effect checking'
+        written = node is not None       # the given definition carries its own source lines
+        if not written:
+            try:
+                if historical:
+                    if fn not in self.patches:
+                        return 'baseline function is unavailable: ' + self.unavailable.get(fn, fn.__qualname__)
+                    node = self.patches[fn].node
+                else:
+                    node = _definition(fn)
+            except (OSError, TypeError, SyntaxError):
+                return 'source is unavailable for side-effect checking'
         parts = list(sites.own_nodes(node))
         declared = {name for part in parts if isinstance(part, (ast.Global, ast.Nonlocal)) for name in part.names}
         stored = {part.id for part in parts if isinstance(part, ast.Name) and isinstance(part.ctx, (ast.Store, ast.Del))}
@@ -1169,7 +1199,7 @@ class Runtime:
         namespace = fn.__globals__
 
         def line(part):
-            return part.lineno if historical else fn.__code__.co_firstlineno + part.lineno - 1
+            return part.lineno if historical or written else fn.__code__.co_firstlineno + part.lineno - 1
 
         def shared(expression):
             """The module-level object an attribute/subscript/method chain starts from, if it is module state."""
@@ -1204,6 +1234,53 @@ class Runtime:
                 if problem := self.safety(target, None, seen, historical=historical and target in self.patches):
                     return problem
         return ''
+
+    def field_values(self, original, bound, fields, line, reading):
+        """An anchor's `fields` values, with the real call's arguments and with each replayed row's, in
+        one guard of their own: reading them is a guarded execution like a replay (static explicit-write
+        check, audit hook, sqlite savepoint and authorizer, copied arguments). A value that cannot be read
+        leaves its call without fields and names the field and its error in `reading.field_reasons`."""
+        fn = sites.unwrap(original)
+        evaluators = [_Field(fn, name, expression) for name, expression in fields]
+        parameters = list(inspect.signature(fn, follow_wrapped=False).parameters)
+        for evaluator in evaluators:
+            problem = self.safety(fn, None, historical=False, node=evaluator.definition(parameters, line))
+            if problem:
+                reading.field_reasons.append(f'字段 {evaluator.name}：{problem}')
+                return
+        guard = _Guard(self, bound.arguments)
+        if guard.unseen:
+            reading.field_reasons.append(f'字段 {", ".join(name for name, _ in fields)}：看不清：{guard.unseen}')
+            return
+        calls = [bound, *(_binding(bound.signature, {**bound.arguments, **inputs}) for inputs, _ in reading.rows)]
+        found = []
+        with guard:
+            for arguments in calls:
+                values = {}
+                for evaluator in evaluators:
+                    value = guard.call(evaluator, arguments)
+                    if guard.void:
+                        reading.field_reasons.append(f'字段 {evaluator.name}：{guard.void}')
+                        break
+                    if isinstance(value, cells.Raised):
+                        reason = f'字段 {evaluator.name} 求不出值：{type(value.error).__name__}: {value.error}'
+                    elif not _simple(value):
+                        reason = f'字段 {evaluator.name} 的值不是简单数据（{type(value).__name__}）'
+                    else:
+                        values[evaluator.name] = value
+                        continue
+                    if reason not in reading.field_reasons:
+                        reading.field_reasons.append(reason)
+                    values = None
+                    break
+                if guard.void:
+                    break
+                found.append(values)
+        if guard.void:      # a refused effect voids every value this guard read
+            if not any(reason.endswith(guard.void) for reason in reading.field_reasons):
+                reading.field_reasons.append(f'字段 {", ".join(name for name, _ in fields)}：{guard.void}')
+            return
+        reading.fields, reading.field_rows = found[0], found[1:]
 
     def guarded(self, fn, bound):
         """One guarded call that is not a test's own call: (outcome, why it was refused or '')."""
@@ -1265,8 +1342,9 @@ class Runtime:
             axes[name] = unique
         return axes
 
-    def observe(self, original, bound, *, owner=None, name='', axes=None, private=False):
-        """Metadata and replay are private; the real call always runs outside them."""
+    def observe(self, original, bound, *, owner=None, name='', axes=None, private=False, fields=(), line=0):
+        """Metadata and replay are private; the real call always runs outside them. An anchor's
+        `fields` are read before the real call, with its arguments and each replayed row's."""
         owner = sites.unwrap(owner or original)
         if (_PRIVATE.get() and not private) or owner in _OBSERVING.get():
             return original(*bound.args, **bound.kwargs)
@@ -1275,6 +1353,8 @@ class Runtime:
         index = len(self.readings)
         try:
             self._replay_rows(original, bound, owner=owner, name=name, axes=axes)
+            if fields and index < len(self.readings):
+                self.field_values(original, bound, fields, line, self.readings[index])
         finally:
             _OBSERVING.reset(observing)
             _PRIVATE.reset(token)
@@ -1380,7 +1460,7 @@ class Runtime:
             reading.reasons.append('comparison grid is not a proof of partition completeness')
 
     @contextmanager
-    def hook(self, function, *, name='', axes=None, private=False):
+    def hook(self, function, *, name='', axes=None, private=False, fields=(), line=0):
         owner = sites.unwrap(function)
         _private_call(self.register, owner)
         def callback(original, bound):
@@ -1390,7 +1470,8 @@ class Runtime:
                 values = _private_call(axes, original, bound)
             else:
                 values = axes
-            return self.observe(original, bound, owner=owner, name=name, axes=values, private=private)
+            return self.observe(original, bound, owner=owner, name=name, axes=values, private=private,
+                                fields=fields, line=line)
         callback.__flowguard_transport__ = (type(self).observe.__code__,)
         with sites.intercepted(owner, callback) as original:
             yield original

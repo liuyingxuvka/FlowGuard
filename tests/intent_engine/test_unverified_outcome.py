@@ -180,3 +180,18 @@ def test_check_all_fails_a_grey_rule_quoting_the_owner_unless_it_is_listed(tmp_p
     listed, text = _cli(root, 'check', '--all')
     assert listed.returncode == 0, text
     assert '规则有主人原话出处' not in text, text
+
+
+def test_a_grey_mutation_probe_alone_does_not_make_an_owner_rule_unverified(tmp_path):
+    # --deep adds a `live` mutation item; it cannot call a `fields` anchor directly, yet the rule was checked.
+    from flowguard.intent.cli import _owner_rules_unverified
+    from flowguard.intent.config import load_config
+    cfg = load_config(tmp_path)
+    rules = {'LIMIT': dict(source='owner R1: limit', decides='limit')}
+    checked = dict(kind='cells', verdict='ok', grey=[])
+    probe = dict(kind='live', verdict='grey', grey=['live mutation needs a directly callable anchor'])
+    data = dict(summary=dict(rules=rules), results=dict(LIMIT=dict(items={'cells': checked, 'live': probe})))
+    assert _owner_rules_unverified(cfg, data) == []
+    grey = dict(kind='cells', verdict='grey', grey=['field days could not be read'])
+    data['results']['LIMIT']['items']['cells'] = grey
+    assert len(_owner_rules_unverified(cfg, data)) == 1

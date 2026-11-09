@@ -1,0 +1,9 @@
+from pathlib import Path
+
+
+# flowguard: sensor SEND_NOTICE(days: day; outbox) -> sent: bool
+def send_notice(days: int, outbox: str) -> bool:
+    if days <= 3:
+        return False
+    Path(outbox).write_text(f"{days} days overdue\n")
+    return True

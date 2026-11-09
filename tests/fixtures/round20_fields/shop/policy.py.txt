@@ -1,0 +1,10 @@
+GRACE_DAYS = 14
+
+
+def within_grace(days: int) -> bool:
+    return days <= GRACE_DAYS
+
+
+# flowguard: sensor STANDING
+def standing(days: int) -> bool:
+    return within_grace(days)

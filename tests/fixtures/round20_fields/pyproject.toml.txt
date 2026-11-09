@@ -1,0 +1,10 @@
+[project]
+name = "shop"
+version = "0.1.0"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-p flowguard.intent.plugin"
+
+[tool.flowguard]

@@ -203,6 +203,8 @@ class Engine:
         self._used_witnesses = {}
         self._provisional = {}
         self._proven_rows = {}
+        # The calls a `fields` anchor's tests reached: set by the pytest plugin for its session.
+        self.call_sites = None
 
     def child_nodes(self, rule):
         nodes = set()
@@ -640,7 +642,11 @@ class Engine:
             gap = [i for i in range(len(cells)) if all(vals[r.id][i] is None for r in live)]
             if gap:
                 c = smallest([cells[i] for i in gap], pts)
-                out["gaps"] = dict(n=len(gap), cell=show_cell(c), total=[r.id for r in live if r.total])
+                out["gaps"] = dict(n=len(gap), cell=show_cell(c), total=[r.id for r in live if r.total],
+                                   cells=[show_cell(cells[i]) for i in gap])
+        # The classes each rule gives no result for (another rule may decide them): `show RULE` lists them.
+        out["silent"] = {r.id: [show_cell(cells[i]) for i, value in enumerate(vals[r.id]) if value is None]
+                         for r in rules if r.id in vals}
         for new in act:
             for old in new.supersedes:
                 if old in vals and new.id in vals:
@@ -1083,6 +1089,11 @@ class Engine:
         fn, sites, gone = self.home_sites(home.target)
         if gone:
             return dict(kind=part, verdict="red", red=[f"home gone: {home.target} ({gone})"], grey=[], info=[])
+        if isinstance(home, _AnchorBinding) and home.anchor is not None and home.anchor.fields:
+            res = self._at_calls(rule, home, part)
+            res['seconds'] = round(time.perf_counter() - t0, 4)
+            self.results[(rule.id, home.target, part)] = res
+            return res
         try:
             cases = self.cases(rule, home, part)
         except PredicateError as e:
@@ -1159,6 +1170,55 @@ class Engine:
             res['provisional'] = any(contract.get('provisional') for contract in res['contracts'].values())
         self.results[(rule.id, home.target, part)] = res
         return res
+
+    def _at_calls(self, rule, home, part: str) -> dict:
+        """A `fields` anchor's rule fields come from each call's own arguments, so the rule is checked on
+        the calls the tests reached (the real call and its replayed input classes), not by calling the
+        anchor: `cells` checks every such call against the rule, `rows` each literal row a call reached."""
+        names = ', '.join(name for name, _ in home.anchor.fields)
+        if self.call_sites is None:
+            return dict(kind=part, verdict='grey', red=[], info=[], n=0, bad=0, entered=False,
+                        grey=[f'{home.short}: fields（{names}）在测试走到的调用上求值，需要普通 pytest 会话 -> 运行项目的测试'])
+        calls, reasons = self.call_sites(rule, home)
+        tests = sorted({test for _, _, test in calls})
+        red, grey, bad, checked = [], [f'{home.short}: {reason}' for reason in reasons], [], 0
+        try:
+            if part == 'cells':
+                for inputs, outcome, _ in calls:
+                    expected = self.effective(rule, inputs)
+                    if expected is None or expected is CONFLICT:
+                        continue        # no opinion here; a conflict is the [rules] item's red
+                    checked += 1
+                    if not same(expected, outcome):
+                        bad.append(({name: inputs[name] for name in rule.fields}, expected, outcome, 'cell'))
+                cases = checked
+            else:
+                cases = 0
+                for cell, expected, label in self.cases(rule, home, 'rows'):
+                    reached = [outcome for inputs, outcome, _ in calls
+                               if all(name in inputs and outcome_eq(inputs[name], value) for name, value in cell.items())]
+                    if not reached:
+                        grey.append(f'{home.short}: {label}（{show_cell(cell)}）没有被测试走到的调用核对；'
+                                    f'fields 只在调用上求值，回归行和规则的核对见 [rules]')
+                        continue
+                    cases += 1
+                    checked += len(reached)
+                    bad.extend((cell, expected, outcome, label) for outcome in reached if not same(expected, outcome))
+        except PredicateError as error:
+            return dict(kind=part, verdict='red', red=[str(error)], grey=[], info=[], n=0, bad=0, entered=True)
+        if bad:
+            first = smallest([b[0] for b in bad], self.rr_space(rule.decides)[2])
+            cell, expected, got, label = next(b for b in bad if b[0] is first)
+            red.append(f'{home.short}: {len(bad)} of {checked} calls disagree; smallest {show_cell(cell)} -> '
+                       f'rule {show(expected)}, code {got!r}' + (f' ({label})' if label != 'cell' else ''))
+        if not checked and not grey:
+            grey.append(f'{home.short}: 没有被测试走到、读得出 fields（{names}）且规则表了态的调用')
+        info = [f'checked on {checked} calls the tests reached ({len(tests)} tests); fields {names} are read from each '
+                'call\'s own arguments, and classes the tests did not reach are not checked']
+        files = sorted({test.partition('::')[0] for test in tests} | {home.anchor.file})
+        return dict(kind=part, verdict='red' if red else 'grey' if grey else 'ok', red=red, grey=grey, info=info,
+                    n=cases, bad=len(bad), entered=bool(calls), label=f'{checked} calls', tests=tests,
+                    footprint=[home.target], files=files)
 
     # ------------------------------------------------------------ probes (design 3.1 constants, 3.6 realized sites)
 
@@ -1324,6 +1384,9 @@ class Engine:
         t0 = time.perf_counter()
         if errors := self.anchor_errors(home):
             return dict(kind='live', verdict='red', red=errors, grey=[], info=[], k=0, n=0)
+        if isinstance(home, _AnchorBinding) and home.anchor is not None and home.anchor.fields:
+            return dict(kind='live', verdict='grey', red=[], info=[], k=0, n=0, sites=[], mutants=0,
+                        grey=[f'{home.short}: fields 锚点的规则在测试走到的调用上核对，变异存活检查需要能直接调用的锚点'])
         fn, sites, gone = self.home_sites(home.target)
         if gone:
             return dict(kind="live", verdict="red", red=[f"home gone: {home.target}"], grey=[], info=[], k=0, n=0)
