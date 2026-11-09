@@ -7,13 +7,14 @@ lacks and two same-name functions whose bodies differ. Every problem, old ones t
 with a stable name; `check --all` and `check --static --all` list them by severity, and a change that
 touches an open one gets a single lead. The owner's decision in the `[structure]` section of
 `.flowguard/ledger.toml` (eight words or more, sourced from stored owner words or a written rule)
-closes an issue; a decision on who writes a field also needs its `owner ... writers=` anchor.
+closes an issue and the lead a change that adds to it would get; a decision on who writes a field also
+needs its `owner ... writers=` anchor.
 Fields that several files write without an owner are issues only (`--all`, `show`).
 """
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from flowguard.map.common import is_test_file
 
@@ -44,6 +45,7 @@ class Issue:
     files: frozenset = frozenset()
     new: bool = False            # this change added it: it is already a red line or a lead
     entry: tuple = ()            # lines to copy (a ledger entry), shown indented under the step
+    lead: str = ''               # the lead this change got for it (also in Findings.leads; `assess` drops it once decided)
 
     def next_step(self):
         return '\n'.join([self.step, *('    ' + line for line in self.entry)])
@@ -215,7 +217,8 @@ def deletes(change, *, everything=False):
         issue = Issue(f'delete:{file}:{function}:{parent}', 4, f'删除 {parent}（{function}）', text, step,
                       frozenset({named(ident)}), frozenset({file}), new=fresh, entry=entry)
         if fresh:
-            found.leads.append(text + ' → ' + issue.next_step())
+            issue = replace(issue, lead=text + ' → ' + issue.next_step())
+            found.leads.append(issue.lead)
         found.issues.append(issue)
     return found
 
@@ -277,10 +280,11 @@ def columns(change, *, everything=False):
                                                          for name in [*item['missing'], *item['extra']])
         text = f'几份描述之间缺的列：{description} 对照 {schema}：' + '；'.join(parts)
         step = f'补上缺的列和表；那份描述过时了，就写明它不再使用或删掉它（{description}）'
+        lead = text + ' → ' + step if fresh else ''
         if fresh:
-            found.leads.append(text + ' → ' + step)
+            found.leads.append(lead)
         found.issues.append(Issue(f'columns:{description}~{schema}', 3, f'缺列 {description.rstrip("/").rpartition("/")[2]}',
-                                  text, step, frozenset(), frozenset({schema, description.rstrip('/')}), new=fresh))
+                                  text, step, frozenset(), frozenset({schema, description.rstrip('/')}), new=fresh, lead=lead))
     return found
 
 
@@ -325,11 +329,12 @@ def delete_rules(change):
                 '就把决定记进 .flowguard/ledger.toml：')
         entry = tuple(_structure_lines(name))
         fresh = [relation for relation in relations if before is not None and ident(item, relation) not in before]
+        lead = (head + f'这次新增 {len(fresh)} 条关系（共 {len(relations)} 条；{legend}）：' + listed(fresh)
+                + ' → ' + step + ' ' + ' '.join(entry)) if fresh else ''
         if fresh:
-            found.leads.append(head + f'这次新增 {len(fresh)} 条关系（共 {len(relations)} 条；{legend}）：' + listed(fresh)
-                               + ' → ' + step + ' ' + ' '.join(entry))
+            found.leads.append(lead)
         found.issues.append(Issue(name, 4, f'onDelete {description.rpartition("/")[2]}', text, step, frozenset(),
-                                  frozenset({schema, description}), new=bool(fresh), entry=entry))
+                                  frozenset({schema, description}), new=bool(fresh), entry=entry, lead=lead))
     return found
 
 
@@ -510,11 +515,12 @@ def labels(change):
         step = ('让这些表取自同一张表（一个负责人），或统一写法、补上缺的键；有意不同（缩写、另一种用途）就把决定记进 '
                 '.flowguard/ledger.toml：')
         fresh = bool(change.baseline) and any(_table_changed(change, table) for table in tables)
+        lead = text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)) if fresh else ''
         if fresh:
-            found.leads.append(text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)))
+            found.leads.append(lead)
         found.issues.append(Issue(name, 8, f'标签 {head["name"]}', text, step, frozenset(),
                                   frozenset(table['file'] for table in tables), new=fresh,
-                                  entry=tuple(_structure_lines(name))))
+                                  entry=tuple(_structure_lines(name)), lead=lead))
     return found
 
 
@@ -623,9 +629,14 @@ def brief_line(cfg):
 
 
 def assess(cfg, change, index, found, *, everything=False):
-    """Close decided issues and add the touched leads and decision reds to `found`; `found.summary` is for
-    the session brief, `found.section` the `--all` listing."""
+    """Close decided issues, with the leads their checks gave them (the owner already chose), and add the
+    touched leads and decision reds to `found`; `found.summary` is for the session brief, `found.section`
+    the `--all` listing."""
     issues, red = decided(cfg, index, found.issues)
+    still = {issue.name for issue in issues}
+    for issue in found.issues:
+        if issue.lead and issue.name not in still:
+            found.leads.remove(issue.lead)
     found.red.extend(red)
     found.leads.extend(touched(change, issues))
     found.summary = summary(issues)

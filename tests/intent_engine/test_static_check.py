@@ -13,6 +13,8 @@ import subprocess
 import sys
 import textwrap
 
+import pytest
+
 from tests.intent_engine import _cli_fixture
 from tests.intent_engine._cli_fixture import display_text as _text
 
@@ -1088,6 +1090,60 @@ def test_a_change_to_either_schema_of_an_open_ondelete_pair_gets_the_touched_lea
             'prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / Cascade） → 让两份 schema 的删除规则一致，'
             '或让测试用的那份也照在用的那份删；有意不同（例如 SQL Server 不允许多条级联路径），就把决定记进 .flowguard/ledger.toml：'], (file, text)
         path.write_text(saved, encoding='utf-8')
+
+
+UNITS = '''
+    datasource db {
+      provider = "%s"
+      url      = env("DATABASE_URL")
+    }
+
+    model Unit {
+      id   String @id
+      name String%s
+    }
+'''
+LABELS = "export const %s = { BU: 'Business Unit', TEAM: 'Team', AREA: '%s' };\n"
+# kind: (baseline, the change that adds the problem, the lead's start, the problem's name)
+ADDED = {
+    'deletes': ({'prisma/schema.prisma': _rooms('sqlserver', [('Room', 'NoAction')]),
+                 'src/rooms.ts': "export async function addRoom(prisma: any, unitId: string) {\n"
+                                 "  await prisma.room.create({ data: { id: 'r', unitId } });\n}\n"},
+                {'src/remove.ts': "export async function removeUnit(prisma: any, id: string) {\n"
+                                  "  await prisma.unit.delete({ where: { id } });\n}\n"},
+                '删除没处理子表', 'delete:src/remove.ts:removeUnit:Unit'),
+    'columns': ({'prisma/schema.prisma': UNITS % ('sqlserver', ''), 'prisma/schema.sqlite.prisma': UNITS % ('sqlite', '')},
+                {'prisma/schema.prisma': UNITS % ('sqlserver', '\n      code String')},
+                '几份描述之间缺的列', 'columns:prisma/schema.sqlite.prisma~prisma/schema.prisma'),
+    'ondelete': ({'prisma/schema.prisma': _rooms('sqlserver', [('Room', 'NoAction')]),
+                  'prisma/schema.sqlite.prisma': _rooms('sqlite', [('Room', 'NoAction')])},
+                 {'prisma/schema.sqlite.prisma': _rooms('sqlite', [('Room', 'Cascade')])},
+                 'onDelete 不同', 'ondelete:prisma/schema.prisma~prisma/schema.sqlite.prisma'),
+    'labels': ({'src/a.ts': LABELS % ('TYPE_LABELS', 'Area'), 'src/b.ts': LABELS % ('KIND_LABELS', 'Area')},
+               {'src/b.ts': LABELS % ('KIND_LABELS', 'Areas')},
+               '标签表不一致', 'labels:src/a.ts:TYPE_LABELS'),
+}
+
+
+@pytest.mark.parametrize('kind', sorted(ADDED))
+def test_a_structure_problem_the_owner_decided_gets_no_lead_when_a_change_adds_it(tmp_path, kind):
+    # Round 23 review: a decision in [structure] closed the problem in --all, but a change that added to it
+    # still got the lead with a ledger entry to copy, which would have duplicated the decided table.
+    before, change, start, name = ADDED[kind]
+    _commit(tmp_path, before)
+    base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    _write(tmp_path, change)
+    def leads():
+        from flowguard.intent import owners
+        cfg = _config(tmp_path)
+        with closing(build(cfg.root, roots=cfg.roots)) as graph:
+            return [lead for lead in owners.static_findings(cfg, graph, anchors.collect(graph), base).leads if lead.startswith(start)]
+    assert len(leads()) == 1, kind
+    sentence = 'The owner keeps this difference on purpose and reviews it every release.'
+    _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
+        f'[structure."{name}"]\ndecision = "the owner keeps this difference on purpose and reviews it every release"\n'
+        f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
+    assert leads() == [], kind
 
 
 def test_fixed_17_missing_columns_between_prisma_and_init_sql_are_listed_one_by_one(tmp_path):
