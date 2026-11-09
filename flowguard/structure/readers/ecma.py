@@ -35,6 +35,8 @@ WRAPPERS = {'parenthesized_expression', 'as_expression', 'satisfies_expression',
             'type_assertion', 'await_expression'}
 EQUALITY = {'===', '!==', '==', '!='}
 LOG_OBJECTS = {'console', 'logger', 'log', 'logging'}
+# The response object a request handler answers through (Express `res`, Fastify `reply`, Koa/Hono `ctx`).
+RESPONSE_OBJECTS = {'res', 'reply', 'response', 'ctx'}
 PRISMA_WRITES = {'create', 'createMany', 'createManyAndReturn', 'update', 'updateMany', 'updateManyAndReturn',
                  'upsert', 'delete', 'deleteMany'}
 PRISMA_ARGS = {'data', 'where', 'create', 'update', 'select', 'include', 'omit'}
@@ -291,20 +293,41 @@ def extract(root, rel, data, module, is_test):
         last = text(receiver, source).rsplit('.', 1)[-1] if receiver is not None else ''
         return last in LOG_OBJECTS or last.endswith(('Logger', 'logger'))
 
+    def answers(value):
+        """`res.status(500).json({...})`, `reply.code(500).send(...)`, `res.end()`: a call chain on a response
+        object (RESPONSE_OBJECTS) answers the request. A chain of calls without arguments that ends in neither
+        `end()` nor `send()` (`res.text()`, `response.json()`) reads a fetched response instead."""
+        node, passed, method = unwrap(value), False, ''
+        if node is None or node.type != 'call_expression':
+            return False
+        while node is not None and node.type in ('call_expression', 'member_expression'):
+            if node.type == 'call_expression':
+                arguments = field(node, 'arguments')
+                passed = passed or any(item.type not in COMMENTS for item in (arguments.named_children if arguments else []))
+                node = unwrap(field(node, 'function'))
+            else:
+                method = method or text(field(node, 'property'), source)
+                node = unwrap(field(node, 'object'))
+        return (node is not None and node.type == 'identifier' and text(node, source) in RESPONSE_OBJECTS
+                and (passed or method in ('end', 'send')))
+
     def ending(body, handed):
         """How a catch body ends (common.ENDINGS): it raises or hands the error on somewhere, returns or assigns a
         substitute, only logs, is empty (a bare `return;`, `continue;` or `break;` leaves without a value or a
-        word), or does other work (reports it to the user, answers a request)."""
+        word), or does other work (reports it to the user, answers a request, also by returning the answer:
+        `return res.status(500).json(...)`)."""
+        def returned(item):
+            return next((child for child in item.named_children if child.type not in COMMENTS), None)
         statements = [item for item in (body.named_children if body is not None else []) if item.type not in COMMENTS
                       and item.type not in ('continue_statement', 'break_statement')
-                      and not (item.type == 'return_statement' and not item.named_children)]
+                      and not (item.type == 'return_statement' and returned(item) is None)]
         if handed:
             return 'handed'
         if not statements:
             return 'empty'
         if all(logged(item) for item in statements):
             return 'log'
-        if any(item.type == 'return_statement' and item.named_children
+        if any(item.type == 'return_statement' and returned(item) is not None and not answers(returned(item))
                or item.type in ('assignment_expression', 'augmented_assignment_expression') for item in own_nodes(body)):
             return 'substitute'
         return 'other'

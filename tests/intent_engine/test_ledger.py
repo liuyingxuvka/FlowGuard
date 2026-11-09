@@ -676,6 +676,7 @@ export function each(items: string[]) {
   for (const item of items) { try { sync(item); } catch (error) { console.warn('skipped', item); continue; } }
   outer: for (const item of items) { try { sync(item); } catch { break outer; } }
 }
+export function stop() { try { halt(); } catch { return /* already stopped */; } }
 ''')
     write(root, 'src/shop/__init__.py', '')
     write(root, 'src/shop/leave.py', '''def each(items, log):
@@ -696,4 +697,46 @@ def first(items, log):
     with closing(build(root, workers=1)) as graph:
         ends = sorted((row['file'], row['line'], row['ends']) for row in graph.handlers())
     assert ends == [('src/shop/leave.py', 5, 'empty'), ('src/shop/leave.py', 12, 'log'),
-                    ('web/leave.ts', 2, 'empty'), ('web/leave.ts', 6, 'log'), ('web/leave.ts', 7, 'empty')], ends
+                    ('web/leave.ts', 2, 'empty'), ('web/leave.ts', 6, 'log'), ('web/leave.ts', 7, 'empty'),
+                    ('web/leave.ts', 9, 'empty')], ends     # a comment is not a returned value
+
+
+def test_a_catch_that_returns_its_answer_to_the_request_answers_it_and_a_python_return_stays_a_substitute(tmp_path):
+    # An Express or Fastify route that ends `catch (error) { return res.status(500).json({...}); }` answers the
+    # request with the error, so check --all does not list it with the substitutes, the way the same call without
+    # `return` already was not. A value besides the answer, or a fetched body read another way, is still one.
+    # Python cannot tell a response it answers with from a stand-in value: every returned value is a substitute.
+    root = tmp_path / 'shop'
+    write(root, 'web/routes.ts', '''export async function list(req: any, res: any) {
+  try { res.json(await all()); } catch (error) { return res.status(500).json({ error: 'LIST_FAILED' }); }
+}
+export async function one(request: any, reply: any) {
+  try { return await find(request.id); } catch (error) { return await reply.code(500).send({ error: String(error) }); }
+}
+export async function edit(req: any, res: any) {
+  try { await save(req.body); } catch (error: any) {
+    console.error('save failed', error);
+    if (error.code === 'P2025') return res.status(404).json({ error: 'NOT_FOUND' });
+    return res.sendStatus(500);
+  }
+}
+export async function close(req: any, res: any) { try { await stop(); } catch { return res.end(); } }
+export async function hono(ctx: any) { try { await work(); } catch (error) { return ctx.json({ error: 'FAILED' }, 500); } }
+export async function guess(req: any, res: any) {
+  try { await save(req.body); } catch (error) { if (req.quiet) return null; return res.status(500).json({}); }
+}
+export async function body(res: Response) { try { return await res.json(); } catch { return res.text(); } }
+''')
+    write(root, 'src/shop/__init__.py', '')
+    write(root, 'src/shop/routes.py', '''def read(request, load, JSONResponse):
+    try:
+        return load(request)
+    except LookupError:
+        return JSONResponse(status_code=404, content={'error': 'NOT_FOUND'})
+''')
+    with closing(build(root, workers=1)) as graph:
+        ends = sorted((row['file'], row['line'], row['ends']) for row in graph.handlers())
+    assert ends == [('src/shop/routes.py', 4, 'substitute'),
+                    ('web/routes.ts', 2, 'other'), ('web/routes.ts', 5, 'other'), ('web/routes.ts', 8, 'other'),
+                    ('web/routes.ts', 14, 'other'), ('web/routes.ts', 15, 'other'), ('web/routes.ts', 17, 'substitute'),
+                    ('web/routes.ts', 19, 'substitute')], ends
