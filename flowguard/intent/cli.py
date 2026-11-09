@@ -31,10 +31,9 @@ def test_flowguard_intent(request):
 PROJECT_RULES = '''<!-- flowguard:start -->
 ## FlowGuard rules for the project agent
 
-1. Run ordinary tests with the FlowGuard plugin; read its changed outcomes, inconsistent copies and violated rules. Do not model the development task.
-2. Before adding a judgment, use `python -m flowguard show "what it decides"` to find and reuse its existing owner.
-3. Copies that must agree share a source sensor name. Requirements belong in independent rules; literal rows preserve genuine regressions. Unknown observations stay grey.
-4. CI runs `check --all --deep`; local `check` selects affected tests. Preserve actual words only as a rule's source, once and byte for byte with `req add`.
+1. Run the project's tests and read the FlowGuard lines; every red and lead ends with the next step: do it, and when it says to tell the owner, tell the owner before changing the structure.
+2. A judgment or a field that must agree everywhere has one owner: `# flowguard: owner NAME` above it, `# flowguard: sensor NAME` above each copy, `writers=` on a data owner.
+3. A rule the owner set that must keep holding goes into `tests/intent/`, its source the owner's words stored once, byte for byte, with `python -m flowguard req add <file|-> --id <id>`.
 <!-- flowguard:end -->
 '''
 
