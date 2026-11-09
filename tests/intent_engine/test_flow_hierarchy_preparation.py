@@ -42,6 +42,7 @@ def preparation(tmp_path, monkeypatch, *, probing=False):
     state.model = model
     state.get_model = lambda: model
     state.results = {}
+    state.events, state.anchor_issues = [object()], ['anchor issue']   # the session's observed events
     calls = []
     installed = False
 
@@ -49,9 +50,11 @@ def preparation(tmp_path, monkeypatch, *, probing=False):
         assert root == tmp_path and not installed
         calls.append(('prepare', binding.name))
 
-    def probe(declaration):
+    def probe(declaration, events, issues):
         nonlocal installed
         assert declaration is parent
+        # The Flow item is judged on the session's events, not on an empty stand-in.
+        assert events is state.events and issues is state.anchor_issues
         installed = True
         calls.append(('probe', declaration.id))
         return dict(kind='flow', verdict='ok', red=[], grey=[], info=[])
