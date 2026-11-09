@@ -614,8 +614,10 @@ class Observations:
             if index >= len(self.runtime.readings):
                 continue
             reading = self.runtime.readings[index]
+            # A refused replay leaves the real call: its own inputs and outcome are still a current reading.
+            rows = reading.rows if reading.status == 'ok' and reading.rows else [reading.actual] if reading.actual else []
             for rule in self.rules.get(point['target'], ()):
-                if reading.status != 'ok' or not reading.rows:
+                if not rows:
                     self.grey.append(rule.id + ': no verified current reading in this test context')
                     continue
                 active = [other for other in self.state.model.active(rule.decides)
@@ -630,7 +632,7 @@ class Observations:
                     continue
                 self.red.extend(rule.id + ': ' + message for guard in guards for message in guard['red'])
                 required = {field for other in active for field in other.fields}
-                for inputs, actual in reading.rows:
+                for inputs, actual in rows:
                     if not required <= inputs.keys():
                         self.grey.append(rule.id + ': this reading does not expose all rule inputs')
                         continue

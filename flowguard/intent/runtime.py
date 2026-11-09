@@ -299,6 +299,7 @@ class Reading:
     baseline: str = ''
     comparison_status: str = 'ok'
     comparison_reasons: list = field(default_factory=list)
+    actual: tuple | None = None  # (simple inputs, outcome) of the real call; never a replay.
 
 
 class _ObserverHub:
@@ -984,12 +985,23 @@ class Runtime:
             return original(*bound.args, **bound.kwargs)
         token = _PRIVATE.set(True)
         observing = _OBSERVING.set(_OBSERVING.get() | {owner})
+        index = len(self.readings)
         try:
             self._replay_rows(original, bound, owner=owner, name=name, axes=axes)
         finally:
             _OBSERVING.reset(observing)
             _PRIVATE.reset(token)
-        return original(*bound.args, **bound.kwargs)
+        reading = self.readings[index] if index < len(self.readings) else None
+        inputs = {name: value for name, value in bound.arguments.items() if _simple(value)}
+        try:
+            outcome = original(*bound.args, **bound.kwargs)
+        except Exception as error:
+            if reading is not None:
+                reading.actual = (inputs, cells.Raised(error))
+            raise
+        if reading is not None:
+            reading.actual = (inputs, outcome)
+        return outcome
 
     def _replay_rows(self, original, bound, *, owner, name, axes):
         """No normal call here, including when metadata or a replay gate is grey."""
