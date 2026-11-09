@@ -658,7 +658,10 @@ def test_a_registered_pair_is_red_where_a_write_leaves_its_partner_out(tmp_path)
     code, text = _check(tmp_path)
     assert code == 1, text
     red = next(line for line in text.splitlines() if line.startswith('红：配对没写'))
-    assert red.startswith('红：配对没写：shop/store.py:16 release 写了 hires.reserved，调用树（向下 3 层）里没写 hires.state=held'), red
+    # Round 20 semantics change: the partner is looked for in the same operation (callers three levels up,
+    # then three levels down from them), no longer in the writer's own call tree only.
+    assert red.startswith('红：配对没写：shop/store.py:16 release 写了 hires.reserved，'
+                          '同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 hires.state=held'), red
     assert 'reserve' not in red.split('写了')[0] and 'import_rows' not in red and 'alone=函数名(理由)' in red, red
 
 

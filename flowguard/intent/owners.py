@@ -182,6 +182,16 @@ def _call_tree(graph, node, depth=3, up=0):
     return tree
 
 
+OPERATION = '同一操作（调用方向上 3 层、再从那里向下 3 层）'
+
+
+def operation(graph, node):
+    """{named function: how} of the operation a function belongs to: its callers three levels up and what
+    each of them calls three levels down, so a caller that writes one field through one helper and its
+    partner through another is one operation. Pairs and deletes read the same tree."""
+    return _call_tree(graph, node, 3, up=3)
+
+
 def _holds(row, value):
     if value is None:
         return True
@@ -190,8 +200,9 @@ def _holds(row, value):
 
 
 def owner_pairs(change, index, *, everything=False):
-    """`with=`: each write of a registered field also writes its partner in its call tree (down three
-    levels), unless its function is listed in `alone=`. Red when this change adds the write or the rule."""
+    """`with=`: each write of a registered field also writes its partner in the same operation (`operation`:
+    callers three levels up, then three levels down from them), unless its function is listed in `alone=`.
+    Red when this change adds the write or the rule."""
     from .health import Issue
     found = Findings()
     def bound(row):         # a JS/TS `obj.f = ...` matched by field name alone is not a write of a model
@@ -209,7 +220,7 @@ def owner_pairs(change, index, *, everything=False):
             for row in rows:
                 if _allowed(row, alone):
                     continue
-                tree = _call_tree(change.graph, row_function(row))
+                tree = operation(change.graph, row_function(row))
                 if not tree.keys() & partners:
                     missing.append(row)
                     calls[id(row)] = 'name' in tree.values() or row.get('language', 'python') != 'python'
@@ -219,11 +230,11 @@ def owner_pairs(change, index, *, everything=False):
             step = (f'补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 {owner.file}:{owner.line}）')
             shown = [row for row in missing if everything or new_rule or row['file'] in change.files]
             if shown:
-                found.red.append(f'配对没写：{where(shown)} 写了 {owner.name}，调用树（向下 3 层）里没写 {pair} → ' + step)
+                found.red.append(f'配对没写：{where(shown)} 写了 {owner.name}，{OPERATION}里没写 {pair} → ' + step)
             if missing:
                 found.issues.append(Issue(
                     f'pair:{owner.name}>{pair}', 2, f'配对 {owner.name}',
-                    f'配对没写：{where(missing)} 写了 {owner.name}，调用树（向下 3 层）里没写 {pair}',
+                    f'配对没写：{where(missing)} 写了 {owner.name}，{OPERATION}里没写 {pair}',
                     step, frozenset(row_function(row) for row in missing), frozenset(row['file'] for row in missing),
                     new=bool(shown)))
     return found

@@ -139,7 +139,7 @@ def deletes(change, *, everything=False):
     or counted anywhere in the same operation: the function's callers three levels up and what they call
     three levels down (JS/TS calls resolved by name). Tables the code never creates rows in are left out.
     One lead per (function, parent); a lead only when this change adds it."""
-    from .owners import _call_tree, named, row_function
+    from .owners import named, operation, row_function
     found = _findings()
     graph = change.graph
     models = graph._models()
@@ -168,7 +168,7 @@ def deletes(change, *, everything=False):
                     and not (child['child'] == parent and not child['required'])]
         if not children:
             continue
-        tree = _call_tree(graph, ident, 3, up=3)
+        tree = operation(graph, ident)
         own = {(row['file'], row['call_line']) for row in calls}      # a delete never handles its own children
         near = [item for node in tree for item in by_function.get(node, ())
                 if (item['file'], item.get('call_line')) not in own]

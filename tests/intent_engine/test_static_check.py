@@ -213,8 +213,42 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
     code, text = _static(tmp_path)
     assert code == 1, text
     assert _lines(text, '红：配对没写') == [
-        '红：配对没写：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId，调用树（向下 3 层）里没写 '
-        'Local.unitId → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
+        '红：配对没写：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId，'
+        '同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 Local.unitId → 补写；有意只写一边，'
+        '把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
+
+
+def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_helpers(tmp_path):
+    files = {
+        'shop/__init__.py': '',
+        'shop/store.py': '''
+            # flowguard: owner hires.reserved with=hires.state=held
+            def _reserve_row(db, hire_id):
+                db.execute("UPDATE hires SET reserved = 1 WHERE id = ?", (hire_id,))
+
+
+            def _hold_row(db, hire_id):
+                db.execute("UPDATE hires SET state = 'held' WHERE id = ?", (hire_id,))
+
+
+            def reserve(db, hire_id):
+                _reserve_row(db, hire_id)
+                _hold_row(db, hire_id)
+
+
+            def release(db, hire_id):
+                db.execute("UPDATE hires SET reserved = 0 WHERE id = ?", (hire_id,))
+        ''',
+        'pyproject.toml': '[tool.pytest.ini_options]\npythonpath = ["."]\n',
+    }
+    _commit(tmp_path, {name: text for name, text in files.items() if name != 'shop/store.py'})
+    _write(tmp_path, {'shop/store.py': files['shop/store.py']})
+    code, text = _static(tmp_path)
+    assert code == 1, text
+    # _reserve_row writes reserved alone, but its caller reserve writes state='held' through _hold_row
+    assert _lines(text, '红：配对没写') == [
+        '红：配对没写：shop/store.py:16 release 写了 hires.reserved，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 '
+        'hires.state=held → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 shop/store.py:1）'], text
 
 
 # ---- deletes that leave restricting children ---------------------------------------------------------
