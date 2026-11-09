@@ -323,10 +323,12 @@ def prisma_tables(schema, model_names) -> dict:
 def gaps(schemas, in_use=frozenset(), package=None) -> list[dict]:
     """Missing columns (and, for a near-complete description, missing tables) between descriptions. Each
     description is compared once, with the Prisma schema it describes (`reference`): a SQL description and a
-    schema not `in_use` (a provider template) with one in use when one shares their tables, two schemas in
+    schema not `in_use` (a provider template) with one in use when one shares at least half as many of their
+    tables as the schema sharing the most (a schema of another database may share a table name), two schemas in
     use with each other. A schema whose tables and columns all occur in a schema of another `package` (a
     client that reads part of the database) is a projection: what it leaves out is no gap. A SQL description
-    with a CREATE TABLE the reader cannot read (`partial`) lacks no table, only columns of the tables it shows."""
+    with a CREATE TABLE whose table is not spelled (`partial`) lacks no table, only columns of the tables it
+    shows; a table it copies (`AS SELECT`, columns None) lacks no column."""
     from .sql import describe
     prisma = [schema for schema in schemas if schema.get('kind') == 'prisma']
     names = {model['name'] for schema in prisma for model in schema.get('models', [])}
@@ -339,6 +341,8 @@ def gaps(schemas, in_use=frozenset(), package=None) -> list[dict]:
         common = set(left) & set(right)
         for key in sorted(common):
             a, b = left[key], right[key]
+            if b['columns'] is None:
+                continue                        # CREATE TABLE ... AS SELECT: the columns are not spelled
             missing = sorted(name for cf, name in a["columns"].items() if cf not in b["columns"])
             extra = sorted(name for cf, name in b['columns'].items() if cf not in a['columns'])
             if missing or extra:
@@ -354,11 +358,13 @@ def gaps(schemas, in_use=frozenset(), package=None) -> list[dict]:
         return next((i for i, (a, b) in enumerate(zip(mine, theirs)) if a != b), min(len(mine), len(theirs)))
 
     def reference(ident, tables, candidates):
-        """The schema a description is a copy of: of the schemas sharing its tables, one in use when one is;
-        then the most shared tables, the most columns in them (a projection names fewer), the nearest folder
-        and the name."""
+        """The schema a description is a copy of: of the schemas sharing its tables, one in use when one shares
+        at least half as many as the schema sharing the most (one table name in common is another database); then
+        the most shared tables, the most columns in them (a projection names fewer), the nearest folder and the
+        name."""
         shared = [(file, model_tables) for file, model_tables in candidates if file != ident and set(tables) & set(model_tables)]
-        shared = [item for item in shared if item[0] in in_use] or shared
+        most = max((len(set(tables) & set(model_tables)) for _, model_tables in shared), default=0)
+        shared = [item for item in shared if item[0] in in_use and 2 * len(set(tables) & set(item[1])) >= most] or shared
         def rank(item):
             common = set(tables) & set(item[1])
             return len(common), sum(len(item[1][key]['columns']) for key in common), near(ident, item[0])

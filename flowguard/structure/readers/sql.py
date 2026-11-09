@@ -174,9 +174,9 @@ def statements(text: str) -> list[dict]:
             opening = source.find('(', after)
             closing = balanced(source, opening) if opening >= 0 and not source[after:opening].strip() else -1
             if closing < 0:
-                # CREATE TABLE ... AS SELECT, or a name built at run time (N'CREATE TABLE [dbo].' + QUOTENAME(@t)):
-                # the table or its columns are not spelled.
-                out.append(dict(row, verb='unread'))
+                # CREATE TABLE t AS SELECT: the table is spelled, its columns are not (`copy`); a name built at run
+                # time (N'CREATE TABLE [dbo].' + QUOTENAME(@t)): not even the table is (`unread`).
+                out.append(dict(row, verb='copy' if re.match(r'\s+as\b', source[after:], re.I) else 'unread'))
                 continue
             row['columns'] = [c for part, at in top_level(source[opening + 1:closing - 1], opening + 1)
                               if (c := _column(part, at))]
@@ -262,8 +262,9 @@ def line_of(text: str, offset: int) -> int:
 
 
 def extract(root, rel, data, module, is_test):
-    """Tables and columns a SQL file declares (create, alter add/drop/rename, drop), the lines of CREATE TABLE
-    statements it cannot read (`unread`) and its write statements."""
+    """Tables and columns a SQL file declares (create, alter add/drop/rename, drop), the tables a CREATE TABLE ...
+    AS SELECT copies (a `copy` change: columns unread), the lines of CREATE TABLE statements whose table is not
+    spelled (`unread`) and its write statements."""
     from flowguard.map.common import normalize_newlines
     from .common import blank
     from .registry import language_for
@@ -292,6 +293,8 @@ def extract(root, rel, data, module, is_test):
                                      shape=[], size=len(columns), raw=dict(name=row['table'], schema=row['schema'])))
             out['keys'].append(('table', row['table'], line, ''))
             out['keys'] += [('column', row['table'] + '.' + c['name'], c['line'], '') for c in columns]
+        elif row['verb'] == 'copy':
+            changes.append(dict(verb='copy', table=row['table'], schema=row['schema'], line=line, add=[], drop=[], checks=[]))
         elif row['verb'] in ('alter', 'drop'):
             changes.append(dict(verb=row['verb'], table=row['table'], schema=row['schema'], line=line,
                                 add=columns, drop=row['drop'], **({'rename': row['rename']} if 'rename' in row else {}),
@@ -312,8 +315,9 @@ MIGRATION = re.compile(r'^(?P<folder>(?:.*/)?migrations)/[^/]+/migration\.sql$',
 def describe(schemas) -> list[dict]:
     """SQL descriptions of tables: each .sql file alone, except Prisma `migrations/<name>/migration.sql`
     files, which are applied in folder order as one description. A table counts only once a
-    CREATE TABLE in the description defines it; ALTER ADD/DROP COLUMN, ALTER ... RENAME TO (SQLite's
-    `CREATE TABLE "new_t"`, `DROP TABLE "t"`, `ALTER TABLE "new_t" RENAME TO "t"`) and DROP TABLE then change it."""
+    CREATE TABLE in the description defines it (a CREATE TABLE ... AS SELECT with columns None: they are not
+    spelled); ALTER ADD/DROP COLUMN, ALTER ... RENAME TO (SQLite's `CREATE TABLE "new_t"`, `DROP TABLE "t"`,
+    `ALTER TABLE "new_t" RENAME TO "t"`) and DROP TABLE then change it."""
     grouped = {}
     for schema in schemas:
         if schema.get('kind') != 'sql':
@@ -332,7 +336,9 @@ def describe(schemas) -> list[dict]:
                                        columns={c['name'].casefold(): c['name'] for c in item['columns']}, checks={})
                 elif verb == 'drop':
                     tables.pop(item['table'].casefold(), None)
-                elif key in tables:
+                elif verb == 'copy':
+                    tables[key] = dict(name=item['table'], file=schema['file'], line=item['line'], columns=None, checks={})
+                elif key in tables and tables[key]['columns'] is not None:
                     columns = tables[key]['columns']
                     for name in item['drop']:
                         columns.pop(name.casefold(), None)
@@ -342,7 +348,7 @@ def describe(schemas) -> list[dict]:
                                                  for c in item.get('checks', ()))
                 if verb == 'alter' and 'rename' in item and key in tables:
                     tables[item['rename'].casefold()] = dict(tables.pop(key), name=item['rename'])
-        # A CREATE TABLE the reader cannot read may create any table: such a description lacks no table.
+        # A CREATE TABLE whose table is not spelled may create any table: such a description lacks no table.
         out.append(dict(description=ident, files=sorted(item['file'] for item in members), tables=tables,
                         partial=any(schema['unread'] for schema in members)))
     return out

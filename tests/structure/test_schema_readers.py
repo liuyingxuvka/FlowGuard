@@ -198,6 +198,59 @@ def test_schema_gaps_follow_rebuilds_skip_archives_and_compare_each_description_
             graph.schema_gaps()
 
 
+CENTRAL = '''model Setting {
+  id    String @id
+  label String
+  @@map("settings")
+}
+model Person {
+  id    String @id
+  name  String
+  email String
+  @@map("people")
+}
+model Unit {
+  id    String @id
+  title String
+  @@map("units")
+}
+'''
+
+
+def test_a_copied_table_hides_no_gap_and_a_schema_of_another_database_is_no_reference(tmp_path):
+    # A CREATE TABLE ... AS SELECT backup made a whole migrations folder lack no table, so the table it really lacks
+    # went unreported; and a second database described only by provider templates was compared with the first
+    # database's schema in use because the two share one table name.
+    main = (SCHEMA % 'sqlite').replace('model Log {', 'model Setting {\n  id    String @id\n  value String\n'
+                                       '  @@map("settings")\n}\nmodel Log {')
+    with closing(project(tmp_path, {
+        'prisma/schema.prisma': main,
+        'prisma/migrations/1_init/migration.sql':
+            'CREATE TABLE "items" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "note" TEXT);\n'
+            'CREATE TABLE "orders" ("id" TEXT NOT NULL, "item_id" TEXT NOT NULL);\n'
+            'CREATE TABLE "settings" ("id" TEXT NOT NULL, "value" TEXT NOT NULL);\n',
+        'prisma/migrations/2_backup/migration.sql': 'CREATE TABLE "items_backup" AS SELECT * FROM "items";\n',
+        'prisma/rebuild.sql':
+            'CREATE TABLE items (id TEXT, note TEXT);\nCREATE TABLE orders (id TEXT, item_id TEXT);\n'
+            'CREATE TABLE settings (id TEXT, value TEXT);\n'
+            'CREATE TABLE new_logs AS SELECT id FROM old_logs;\nALTER TABLE new_logs RENAME TO logs;\n'
+            'ALTER TABLE logs ADD COLUMN extra TEXT;\n',
+        'prisma/central/schema.sqlite.prisma': CENTRAL,
+        'prisma/central/schema.sqlserver.prisma': CENTRAL,
+        'prisma/central/init.sql': 'CREATE TABLE settings (id TEXT, label TEXT);\nCREATE TABLE people (id TEXT, name TEXT);\n'
+                                   'CREATE TABLE units (id TEXT, title TEXT);\n',
+    })) as graph:
+        found = sorted((gap['description'], gap['schema'], gap['kind'], gap['table'], tuple(gap['missing']), tuple(gap['extra']))
+                       for gap in graph.schema_gaps())
+        # The backup copy names its table, so the folder still lacks logs; the copy renamed to logs in rebuild.sql
+        # is that table, its columns unread; init.sql describes the second database's templates.
+        assert found == [
+            ('prisma/central/init.sql', 'prisma/central/schema.sqlite.prisma', 'sql', 'people', ('email',), ()),
+            ('prisma/migrations/', 'prisma/schema.prisma', 'sql-table', 'logs', ('<table>',), ()),
+            ('prisma/rebuild.sql', 'prisma/schema.prisma', 'sql', 'items', ('name',), ()),
+        ], found
+
+
 def test_label_groups_keep_codes_routes_and_test_spellings_apart(tmp_path):
     # Planning Tool 0.6.28 listed 207 old label leads and none was a label spelled two ways: an enum code next to
     # a key ('ACTIVE' / 'Active'), a route next to a key ('/admin' / 'admin'), or spellings only tests use.
