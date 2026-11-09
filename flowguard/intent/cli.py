@@ -872,17 +872,26 @@ def init(cfg):
 - run: python -m flowguard check --all --deep
 ''', encoding='utf-8')
     agents = cfg.root / 'AGENTS.md'
-    content = agents.read_text(encoding='utf-8') if agents.exists() else ''
+    # Bytes outside the replaced block are kept, including their line endings.
+    content = agents.read_bytes().decode('utf-8') if agents.exists() else ''
+    newline = '\r\n' if '\r\n' in content else '\n'
+    rules = PROJECT_RULES.replace('\n', newline)
+    # The owner's repositories carry a level-one block whose commands 4.x no longer has.
+    owner_block = re.compile(r'^# FlowGuard rules for the project agent[ \t]*\r?\n.*?(?=^#{1,6} |^<!-- flowguard:start -->|\Z)',
+                             re.M | re.S)
     if '<!-- flowguard:start -->' in content:
         before, _, rest = content.partition('<!-- flowguard:start -->')
         _, _, after = rest.partition('<!-- flowguard:end -->')
-        content = before + PROJECT_RULES + '\n' + after.lstrip('\n')
+        content = before + rules + (newline + after.lstrip('\r\n') if after.strip() else '')
+        content = owner_block.sub('', content, count=1)
     elif re.search(r'^## FlowGuard rules for the project agent\s*$', content, re.M):
-        content = re.sub(r'^## FlowGuard rules for the project agent\s*\n.*?(?=^## |\Z)', lambda _: PROJECT_RULES + '\n',
+        content = re.sub(r'^## FlowGuard rules for the project agent\s*\n.*?(?=^## |\Z)', lambda _: rules + newline,
                          content, count=1, flags=re.M | re.S)
+    elif owner_block.search(content):
+        content = owner_block.sub(lambda match: rules + (newline if match.end() < len(content) else ''), content, count=1)
     else:
-        content = content.rstrip() + '\n\n' + PROJECT_RULES
-    agents.write_text(content, encoding='utf-8')
+        content = content.rstrip() + newline + newline + rules
+    agents.write_bytes(content.encode('utf-8'))
     print('Initialized intent sentinel, pytest plugin, CI fragment and four project rules.')
     return 0
 
