@@ -626,18 +626,47 @@ class MapHandle:
         """Values JS/TS code gives a typed member: a class field initializer, `this.f = 'v'` in a class, and
         the literal fields of an object written as `const x: T = {...}`, `{...} satisfies T` or `{...} as T`.
         Not database writes: they feed the value gate only; `prisma` marks a `T` the file imports from the
-        Prisma client (a model's type, gated by the model). `facts` reads these file facts instead."""
+        Prisma client (`_prisma_client`), also under another local name (`{ Item as Row }`), and an `NS.T`
+        whose `NS` is a namespace or named import of the client and `T` a mapped model: a model's type,
+        gated by `model`, the imported model's name. A module that re-exports the client's types is not
+        followed. `facts` reads these file facts instead."""
         rows, seen = [], set()
+        models = self._models().by_name
         for facts in [data for _, _, data in self._kinds('language', 'typed_writes', 'dependencies')] if facts is None else facts:
-            prisma = {row['alias'] for row in facts.get('dependencies', ())
-                      if row.get('kind') == 'import' and row.get('alias') and PRISMA_CLIENT.search(row.get('module') or '')}
-            for row in facts.get('typed_writes', ()):
-                key = (row['file'], row['line'], row.get('column'), row['container'], row['field'])
-                if key not in seen:
-                    seen.add(key)
-                    rows.append(self._resolved(dict(row, model=row['container'], language=facts.get('language'),
-                                                    prisma=row['container'] in prisma)))
+            written = facts.get('typed_writes', ())
+            if not written:
+                continue
+            client = {row['alias']: row['name'] for row in facts.get('dependencies', ())
+                      if row.get('kind') == 'import' and row.get('alias') and self._prisma_client(written[0]['file'], row.get('module') or '')}
+            for row in written:
+                key = (row['file'], row['line'], row['column'], row['container'], row['field'])
+                if key in seen:
+                    continue
+                seen.add(key)
+                space, dot, name = row['container'].partition('.')
+                if dot:
+                    model = name if space in client and client[space] != 'default' and name in models else None
+                else:
+                    model = client[space] if client.get(space) not in (None, '*', 'default') else None
+                rows.append(self._resolved(dict(row, model=model or row['container'], language=facts.get('language'),
+                                                prisma=model is not None)))
         return Rows(rows)
+
+    def _prisma_client(self, file, module):
+        """Does `file` import the Prisma client by this spelling: `@prisma/client`, `.prisma/client`, a
+        `generated/prisma` folder, or a relative path into the `output` folder of a mapped schema's
+        generator (`generator client { output = "../generated/db" }`, resolved from the schema's folder)."""
+        if PRISMA_CLIENT.search(module):
+            return True
+        if not module.startswith('.'):
+            return False
+        if 'prisma_outputs' not in self._derived:
+            self._derived['prisma_outputs'] = frozenset(
+                posixpath.normpath(posixpath.join(posixpath.dirname(path), re.sub(r'\\+', '/', output)))
+                for path, schema in self._schema_rows() if schema.get('kind') == 'prisma' and not self.archived(path)
+                for output in schema.get('outputs', ()) if output.strip())
+        target = posixpath.normpath(posixpath.join(posixpath.dirname(file), module))
+        return any(target == folder or target.startswith(folder + '/') for folder in self._derived['prisma_outputs'])
 
     def queries(self, model=None):
         """Prisma reads (`count`, `findMany`, `findFirst`, `aggregate`, ...), bound to their model by

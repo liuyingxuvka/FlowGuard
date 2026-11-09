@@ -352,3 +352,12 @@ def test_a_prisma_config_names_its_schema_without_its_comments(tmp_path):
         assert graph.prisma_schemas_in_use() == {'a/prisma/live.prisma', 'b/db/live.prisma', 'c/db/live.prisma',
                                                  'd/db/live.prisma', 'e/db/live.prisma', 'e/db/old.prisma'}
         assert graph.prisma_schemas_guessed() == {'e/db/live.prisma', 'e/db/old.prisma'}
+
+
+def test_prisma_generators_record_their_output_folders():
+    from flowguard.structure.readers.prisma import read
+    schema = read('generator client {\n  provider = "prisma-client-js"\n  output   = "../generated/db" // the client\n}\n'
+                  '// generator old { output = "../old" }\n'
+                  'generator docs { provider = "x" output = "../docs/erd" }\n'
+                  'model Item {\n  id String @id\n}\n')
+    assert schema['outputs'] == ['../generated/db', '../docs/erd'] and [model['name'] for model in schema['models']] == ['Item']

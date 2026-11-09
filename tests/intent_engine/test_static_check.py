@@ -342,6 +342,55 @@ def test_an_object_typed_with_a_prisma_client_type_is_gated_by_its_model(tmp_pat
     assert code == 1 and len(red) == 1 and red[0].startswith("红：取值不在声明集合里：src/sample.ts:2 Item.kind='C'，允许 A|B"), text
 
 
+def test_a_prisma_client_type_under_an_alias_a_namespace_or_a_generator_output_is_gated_by_its_model(tmp_path):
+    # 4.2 review: `{ Item as Row }` was marked a client type but gated as Row.kind, so never; `P.Item` of a
+    # namespace import and a type imported from the generator's own output folder were not client types.
+    _commit(tmp_path, {'prisma/schema.prisma': """
+        generator client {
+          provider = "prisma-client-js"
+          output   = "../generated/db"
+        }
+
+        enum Kind {
+          A
+          B
+        }
+
+        model Item {
+          id   String @id
+          kind Kind
+        }
+    """})
+    _write(tmp_path, {
+        'src/alias.ts': """
+            import type { Item as Row } from '@prisma/client';
+            export const row: Row = { id: '1', kind: 'C' };
+        """,
+        'src/space.ts': """
+            import * as P from '@prisma/client';
+            import { Prisma } from '@prisma/client';
+            export const one: P.Item = { id: '1', kind: 'D' };
+            export const two = { id: '2', kind: 'E' } satisfies Prisma.Item;
+            export const three = { id: '3', kind: 'F' } as P.ItemCreateInput;
+        """,
+        'src/output.ts': """
+            import type { Item } from '../generated/db';
+            export const four: Item = { id: '4', kind: 'G' };
+        """,
+        # a module that re-exports the client's types is not followed
+        'src/models.ts': "export type { Item } from '@prisma/client';\n",
+        'src/elsewhere.ts': """
+            import type { Item } from './models';
+            export const five: Item = { id: '5', kind: 'H' };
+        """,
+    })
+    code, text = _static(tmp_path)
+    assert code == 1 and _lines(text, '红：取值') == [
+        "红：取值不在声明集合里：src/alias.ts:2 Item.kind='C'  src/output.ts:2 Item.kind='G'  src/space.ts:3 Item.kind='D'  "
+        "src/space.ts:4 Item.kind='E'，允许 A|B（enum Kind (prisma/schema.prisma:6)） → 改用集合里的值；集合真要加值，"
+        "先改那条声明（enum Kind (prisma/schema.prisma:6)）"], text
+
+
 def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript_types_apart(tmp_path):
     # Planning Tool 0.6.28 (round 21, V1/V2/P01): the enum of a SQLite template the generator never reads
     # gated the field and hid every CHECK; a frontend interface Demand was gated by the Prisma model Demand.
