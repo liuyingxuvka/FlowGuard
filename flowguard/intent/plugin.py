@@ -1725,7 +1725,8 @@ def pytest_make_collect_report(collector):
 
 
 def _meta(con, name, value):
-    con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', (name, _json(value)))
+    from .cache import put_meta
+    put_meta(con, name, _json(value))
 
 
 def _save_readings(con, state):

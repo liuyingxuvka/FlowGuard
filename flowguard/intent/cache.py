@@ -13,6 +13,13 @@ from .loader import api_aliases, api_call_name, distinct_identifier, literal_pro
 from flowguard.map.common import MapError, content_digest, git_common_directory, git_head
 
 
+# flowguard: owner meta.k writers=flowguard.intent.cache:put_meta
+# flowguard: owner meta.v writers=flowguard.intent.cache:put_meta
+def put_meta(con, name, text):
+    """The one writer of the test cache's keys in the map's SQLite meta table (the map writes its own keys)."""
+    con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', (name, text))
+
+
 def session_baseline(cfg, *, remember=False):
     """One task-start commit in the existing SQLite meta; ordinary tests only read it."""
     if git_common_directory(cfg.root) is None:
@@ -24,8 +31,7 @@ def session_baseline(cfg, *, remember=False):
             return None
         from ..structure.store import connect
         with closing(connect(path)) as con, con:
-            con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)',
-                        ('task_baseline', json.dumps({'commit': commit})))
+            put_meta(con, 'task_baseline', json.dumps({'commit': commit}))
         return commit
     if path.is_file():
         try:
@@ -387,7 +393,7 @@ def save_test_collection(con, files, stamp):
     row = con.execute("SELECT v FROM meta WHERE k='ordinary_collection'").fetchone()
     current = json.loads(row[0]) if row else {}
     current.update({file: dict(tests=sorted(tests), stamp=stamp) for file, tests in files.items()})
-    con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', ('ordinary_collection', json.dumps(current, sort_keys=True)))
+    put_meta(con, 'ordinary_collection', json.dumps(current, sort_keys=True))
 
 
 STRUCTURE = 'structure_issues'
@@ -395,7 +401,7 @@ STRUCTURE = 'structure_issues'
 
 def save_structure(con, summary):
     """The open structure problems' count and heaviest names (`health.summary`), for the session brief."""
-    con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', (STRUCTURE, json.dumps(summary, ensure_ascii=False)))
+    put_meta(con, STRUCTURE, json.dumps(summary, ensure_ascii=False))
 
 
 def structure_summary(cfg):
@@ -438,7 +444,7 @@ def save_dependencies(con, records):
     row = con.execute("SELECT v FROM meta WHERE k='intent_dependencies'").fetchone()
     existing = json.loads(row[0]) if row else {}
     existing.update(records)
-    con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', ('intent_dependencies', json.dumps(existing, sort_keys=True)))
+    put_meta(con, 'intent_dependencies', json.dumps(existing, sort_keys=True))
 
 
 def standard_dependencies(record):
