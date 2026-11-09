@@ -7,5 +7,6 @@ interface:
     says so. No source change stays quiet unless a constraint fails. Find existing owners with
     `python -m flowguard show "what it decides"`; mark one owner and its same-name copies.
     Write the owner's lasting rules independently in tests/intent with their original words as
-    the source. Do not model the development task. Grey is unverified, not success. Report
+    the source. When review finds a problem, register it in the same change so FlowGuard keeps it
+    from regressing. Do not model the development task. Grey is unverified, not success. Report
     actual results.

@@ -13,6 +13,8 @@ FlowGuard keeps a project consistent while a coding AI changes it. Type checkers
 
 It does not catch everything: requirements nobody wrote down, visual style, concurrency and external services are out of scope. Grey means unverified, never passed.
 
+**How it is meant to work.** Finding a problem takes careful review: an AI reading the code, a probe, the owner's words. Once found, it is registered as an owner, a pair, a value set, a rule or a ledger entry, and from then on FlowGuard keeps it from coming back. The structure listing (`check --all`) points review at the places worth reading first. The registrations grow with the software: from the first requirement on, each problem found and each rule the owner sets adds one, so the model grows from small to large together with the code.
+
 ## Start
 
 Install from this repository; the similarly named PyPI project is different. Python 3.11 or newer is required.
