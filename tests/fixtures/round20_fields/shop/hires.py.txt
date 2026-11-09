@@ -1,0 +1,28 @@
+import sqlite3
+from dataclasses import dataclass
+from datetime import date
+
+
+@dataclass
+class Hire:
+    id: int
+    customer: int
+    due: date
+
+
+def open_db(path):
+    db = sqlite3.connect(path)
+    db.execute("create table if not exists customers(id integer primary key, member integer)")
+    return db
+
+
+def is_member(db, customer):
+    row = db.execute("select member from customers where id = ?", (customer,)).fetchone()
+    return bool(row and row[0])
+
+
+# flowguard: sensor MAY_BORROW fields days=(today - hire.due).days member=is_member(db, hire.customer)
+def may_borrow(db: sqlite3.Connection, hire: Hire, today: date) -> bool:
+    if (today - hire.due).days <= 10:
+        return True
+    return is_member(db, hire.customer)

@@ -1,0 +1,15 @@
+from flowguard.intent import Node, Read, Relation, flow, row, rule
+
+
+@rule("NOTICE", decides="overdue notice", fields={"days": int},
+      source="assumed: a notice goes out after three days overdue")
+def NOTICE(days):
+    return days > 3
+
+
+NOTICE.rows(row(days=4, expect=True, why="the fourth day sends the first notice"))
+
+flow("NOTICE_SENT", source="assumed: the notice test's own call",
+     nodes=[Node("case", "NOTICE_CASE", start=True), Node("answer", "SEND_NOTICE", phase="return", caller="case", end=True)],
+     edges=[("case", "answer")],
+     relations=[Relation("NOTICE", {"days": Read("case", "arg.days")}, Read("answer"), on="answer")])

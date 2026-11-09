@@ -256,19 +256,17 @@ def _shape(function):
     return ast.dump(Blank().visit(copy.deepcopy(function)), include_attributes=False)
 
 
-def rule_old_values(cfg, old):
-    """Rules in the intent folder whose predicate or literal rows still spell an old value."""
-    kind = _value_kind(old)
-    if kind is None or not cfg.intent.is_dir():
+def _rule_declarations(cfg):
+    """The rules in the intent folder, read from source and never run: for each file its path and tree,
+    and for each rule its id, predicate node, anchor names and `.rows(...)` calls."""
+    if not cfg.intent.is_dir():
         return []
-    def holds(node):
-        return isinstance(node, ast.Constant) and _value_kind(node.value) == kind and node.value == old
     found = []
     for path in sorted(cfg.intent.rglob('*.py')):
         try:
             tree = ast.parse(path.read_text(encoding='utf-8-sig'))
         except (SyntaxError, UnicodeError):
-            continue
+            continue        # the loader reports a rule file it cannot read
         rules = {}
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -279,17 +277,64 @@ def rule_old_values(cfg, old):
                 if name == 'rule':
                     arguments = [*decorator.args, *(k.value for k in decorator.keywords if k.arg == 'id')]
                     identifier = arguments[0].value if arguments and isinstance(arguments[0], ast.Constant) else node.name
-                    body = node.body[1:] if ast.get_docstring(node) is not None else node.body
-                    rules[node.name] = (identifier, sorted({n.lineno for s in body for n in ast.walk(s) if holds(n)}), set())
+                    anchor = next((k.value for k in decorator.keywords if k.arg == 'anchor'), None)
+                    named = [anchor] if isinstance(anchor, ast.Constant) else list(getattr(anchor, 'elts', ()))
+                    line = min([node.lineno, *(item.lineno for item in node.decorator_list)])  # as the loader counts it
+                    rules[node.name] = dict(id=identifier, node=node, line=line, rows=[],
+                                            anchors=[item.value for item in named if isinstance(item, ast.Constant)
+                                                     and isinstance(item.value, str)])
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'rows' \
                     and isinstance(node.func.value, ast.Name) and node.func.value.id in rules:
-                rules[node.func.value.id][2].update(n.lineno for n in ast.walk(node) if holds(n))
-        for identifier, judged, rows in rules.values():
+                rules[node.func.value.id]['rows'].append(node)
+        found.append((path, list(rules.values())))
+    return found
+
+
+def rule_old_values(cfg, old):
+    """Rules in the intent folder whose predicate or literal rows still spell an old value."""
+    kind = _value_kind(old)
+    if kind is None:
+        return []
+    def holds(node):
+        return isinstance(node, ast.Constant) and _value_kind(node.value) == kind and node.value == old
+    found = []
+    for path, rules in _rule_declarations(cfg):
+        for item in rules:
+            node = item['node']
+            body = node.body[1:] if ast.get_docstring(node) is not None else node.body
+            judged = sorted({n.lineno for s in body for n in ast.walk(s) if holds(n)})
+            rows = sorted({n.lineno for call in item['rows'] for n in ast.walk(call) if holds(n)})
             if judged or rows:
                 parts = ([f'判断第 {"、".join(map(str, judged))} 行'] if judged else []) + \
-                        ([f'回归行第 {"、".join(map(str, sorted(rows)))} 行'] if rows else [])
-                found.append(f'规则 {identifier} 里还写着旧值 {old!r}（{cfg.rel(path)} {"、".join(parts)}）：需求变了就先改规则')
+                        ([f'回归行第 {"、".join(map(str, rows))} 行'] if rows else [])
+                found.append(f'规则 {item["id"]} 里还写着旧值 {old!r}（{cfg.rel(path)} {"、".join(parts)}）：需求变了就先改规则')
+    return found
+
+
+def copies_without_rule(change, index):
+    """A changed function that is a rule's anchor or one of its same-name copies, in a change that does not
+    touch that rule's file: the requirement may have changed without its rule. A lead with both next steps.
+    Changed means its body, a constant it reads or a function it calls changed against the baseline."""
+    found = Findings()
+    rules = [(path, item) for path, items in _rule_declarations(change.cfg) for item in items if item['anchors']]
+    if not change.baseline or not rules:
+        return found
+    impact = change.impact()
+    moved = set(impact['dirty']) | set(impact['callers'])
+    copies = {}
+    for anchor in index.entries:
+        if anchor.kind == 'sensor' and anchor.source_role == 'production' and anchor.target in moved:
+            copies.setdefault(anchor.name, []).append(anchor)
+    for path, item in rules:
+        file = change.cfg.rel(path)
+        changed = [anchor for name in item['anchors'] for anchor in copies.get(name, ())]
+        if not changed or file in change.files:
+            continue
+        names = '、'.join(dict.fromkeys(anchor.name for anchor in changed))
+        places = '、'.join(dict.fromkeys(f'{anchor.file}:{anchor.qual}' for anchor in changed))
+        found.leads.append(f'{names} 的副本 {places} 改了，规则 {item["id"]} 没改 → 需求变了：先用 python -m flowguard req add '
+                           f'存下新的原话，再改规则 {file}:{item["line"]}；需求没变：确认这次代码改动是对的')
     return found
 
 
@@ -403,6 +448,7 @@ def static_findings(cfg, graph, index, base=None, *, everything=False):
     found = owner_writes(change, index, everything=everything).extend(owner_pairs(change, index, everything=everything))
     if change.baseline:
         found.extend(old_value_leads(change)).extend(literal_drift(change)).extend(changed_once(change))
+        found.extend(copies_without_rule(change, index))
     return found
 
 
@@ -894,7 +940,7 @@ def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=(
     change = Change(cfg, graph, baseline(cfg, base))
     found = owner_writes(change, index, everything=everything).extend(owner_pairs(change, index, everything=everything))
     if change.baseline:
-        found.extend(old_value_leads(change))
+        found.extend(old_value_leads(change)).extend(copies_without_rule(change, index))
     if change.baseline or everything:
         found.extend(literal_drift(change, everything=everything))
     found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))

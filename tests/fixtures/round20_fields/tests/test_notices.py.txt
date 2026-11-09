@@ -1,0 +1,18 @@
+from pathlib import Path
+
+import pytest
+
+from shop.notices import send_notice
+
+
+@pytest.fixture
+def days():
+    return 5
+
+
+# flowguard: event NOTICE_CASE(days: int; tmp_path) calibrated_by=tests/test_notices.py::test_notice
+def test_notice(days: int, tmp_path):
+    outbox = tmp_path / "outbox.txt"
+    sent = send_notice(days, str(outbox))
+    assert type(sent) is bool
+    assert outbox.exists() is sent

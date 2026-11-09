@@ -16,6 +16,7 @@ import enum
 import importlib
 import inspect
 import io
+import keyword
 import math
 from pathlib import Path, PosixPath, WindowsPath
 import re
@@ -79,6 +80,7 @@ class Anchor:
     pairs: tuple = ()        # `with=Model.field[=value],...`: fields every write of this one also writes
     alone: tuple = ()        # `alone=function(reason),...`: writers that may write it alone, with why
     projection: str = ''     # `-> result[0]` / `-> result.ok`: copies are compared on this part of the result
+    fields: tuple = ()       # `fields days=(today - hire.due).days`: rule fields read from each call's own arguments
 
     @property
     def inputs(self):
@@ -338,6 +340,64 @@ def _parts(text, delimiter=','):
     return result + ([text[start:].strip()] if text[start:].strip() else [])
 
 
+FIELDS_HELP = ('写法：fields 名=表达式 名=表达式，表达式用函数自己的参数和模块里的名字，例如 '
+               '# flowguard: sensor FEE fields days=(today - hire.due).days member=customer.is_member')
+
+
+def _tokens(text):
+    return [token for token in tokenize.generate_tokens(io.StringIO(text).readline)
+            if token.type not in (tokenize.NL, tokenize.NEWLINE, tokenize.ENDMARKER, tokenize.INDENT, tokenize.DEDENT)]
+
+
+def _split_fields(body):
+    """(head, field text or None): an anchor's head before its top-level `fields` keyword. `fields` is
+    the keyword when a field name follows it, so `-> fields: int` stays an output name."""
+    tokens, depth = _tokens(body), 0
+    for index, token in enumerate(tokens):
+        if token.type == tokenize.OP and token.string in ('(', '[', '{'):
+            depth += 1
+        elif token.type == tokenize.OP and token.string in (')', ']', '}'):
+            depth -= 1
+        elif index and depth == 0 and token.type == tokenize.NAME and token.string == 'fields' and (
+                index + 1 == len(tokens) or tokens[index + 1].type == tokenize.NAME):
+            return body[:token.start[1]].rstrip(), body[token.end[1]:].strip()
+    return body, None
+
+
+def _field_items(text):
+    """[(name, expression)] of `name=expression name=expression`; ValueError says what is wrong.
+    An expression runs to the next top-level `name=`; `==` and keyword arguments inside calls stay in it."""
+    tokens, depth, starts = _tokens(text), 0, []
+    for index, token in enumerate(tokens):
+        if token.type == tokenize.OP and token.string in ('(', '[', '{'):
+            depth += 1
+        elif token.type == tokenize.OP and token.string in (')', ']', '}'):
+            depth -= 1
+        elif depth == 0 and token.type == tokenize.NAME and index + 1 < len(tokens) \
+                and tokens[index + 1].type == tokenize.OP and tokens[index + 1].string == '=':
+            starts.append(index)
+    if not starts or starts[0] != 0:
+        raise ValueError('fields 后面要写 名=表达式' + (f'，{text!r} 不是' if text else ''))
+    items = []
+    for position, index in enumerate(starts):
+        name = tokens[index].string
+        end = tokens[starts[position + 1]].start[1] if position + 1 < len(starts) else len(text)
+        expression = text[tokens[index + 1].end[1]:end].strip()
+        if keyword.iskeyword(name):
+            raise ValueError(f'字段名 {name} 是 Python 关键字')
+        if not expression:
+            raise ValueError(f'字段 {name} 没有表达式')
+        try:
+            ast.parse(expression, mode='eval')
+        except SyntaxError as error:
+            raise ValueError(f'字段 {name} 的 {expression} 不是一个 Python 表达式（{error.msg}）') from None
+        items.append((name, expression))
+    names = [name for name, _ in items]
+    if len(set(names)) != len(names):
+        raise ValueError('字段名重复：' + ', '.join(sorted({name for name in names if names.count(name) > 1})))
+    return tuple(items)
+
+
 def _return_type(node, params):
     if node.returns is not None:
         return _annotation(node.returns)
@@ -391,13 +451,29 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
             continue
         kind, body = match.groups()
         line, column = token.start
-        calibration = re.search(r'\s+calibrated_by=(\S+)\s*$', body)
+        calibration = re.search(r'\s+calibrated_by=(\S+)(?=\s+fields\s|\s*$)', body)
         calibrated_by = calibration[1] if calibration else ''
-        body = body[:calibration.start()] if calibration else body
+        body = body[:calibration.start()] + body[calibration.end():] if calibration else body
         local = []
         is_owner = kind == 'owner'
+        try:
+            body, field_text = _split_fields(body)
+            fields = _field_items(field_text) if field_text is not None else ()
+        except (ValueError, tokenize.TokenError) as error:
+            # A wrong anchor is red at its own line, with the way to write it.
+            reason = (f'锚点写错了：括号或引号没有配对（{error.args[0]}）' if isinstance(error, tokenize.TokenError)
+                      else f'fields 写错了：{error}')
+            problems.append(issue('red', 'syntax', f'{file}:{line} {reason}' + ('' if isinstance(error, tokenize.TokenError)
+                                  else '。' + FIELDS_HELP), line))
+            continue
+        if fields and kind in ('states', 'event'):
+            problems.append(issue('red', 'syntax', f'{file}:{line} fields 只用于 sensor 和函数的 owner 锚点。{FIELDS_HELP}', line))
+            continue
         if is_owner:
             data_owner = _data_owner(body, file, module, line, is_test)
+            if data_owner is not None and fields:
+                problems.append(issue('red', 'syntax', f'{file}:{line} 数据负责人不带 fields；fields 只用于判断函数。{FIELDS_HELP}', line))
+                continue
             if data_owner is not None:
                 (entries if isinstance(data_owner, dict) else problems).append(data_owner)
                 continue
@@ -512,6 +588,11 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                     local.append(issue('red', 'type', f'parameter {parameter} type {meaning} != source {source_type}', line, name))
                 params.append(Parameter(aliases.get(parameter, parameter), (meaning if meaning is not None else _unit(source_type)) if kind == 'sensor' else '',
                                         source_type, role, len(sides) < 2, parameter if parameter in aliases else ''))
+            taken = set(actual) | {p.name for p in params} | ({receiver} if receiver else set())
+            for field_name, _ in fields:
+                if field_name in taken:
+                    local.append(issue('red', 'syntax', f'{file}:{line} 字段 {field_name} 和参数同名：参数本来就是规则字段，'
+                                       f'不用写进 fields。{FIELDS_HELP}', line, name))
             output_name = output_name or ''
             output_type = output_type or (return_type if kind == 'sensor' and not projection else '')
             if kind == 'sensor' and not projection:
@@ -523,7 +604,7 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                            tuple(params), output_name, output_type, calibrated_by=calibrated_by,
                            issues=tuple(local), source_digest=source_digest, receiver=receiver,
                            source_role='test' if is_test else 'production', owner=is_owner,
-                           projection=projection or '')
+                           projection=projection or '', fields=fields)
         entries.append(asdict(entry))
     return {'anchors': entries, 'anchor_issues': [asdict(p) for p in problems]} if entries or problems else {}
 
@@ -576,6 +657,7 @@ def _anchor(data):
     data['writers'] = tuple(data.get('writers', ()))
     data['pairs'] = tuple(data.get('pairs', ()))
     data['alone'] = tuple(data.get('alone', ()))
+    data['fields'] = tuple(tuple(item) for item in data.get('fields', ()))
     return Anchor(**data)
 
 

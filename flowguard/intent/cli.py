@@ -330,6 +330,32 @@ def _observation_lines(cfg, graph, data, node):
     return ['source navigation: current Map identity; runtime readings are historical and available for declared anchors']
 
 
+def _silent_lines(cfg, index, rid, full, limit=10):
+    """The case classes a rule gives no result for, from the current rules (never the code). Where no rule
+    of its decision decides and a rule there says total=True, they are red."""
+    from .engine import Engine
+    from .loader import load
+    model = load(cfg, anchor_index=index)
+    if model.errors or rid not in model.rules:
+        return []           # the load errors are printed by show and the load item
+    rule = model.rules[rid]
+    key = Engine(model).check_key(rule.decides)
+    silent, gaps = key['silent'].get(rid, []), key['gaps'] or {}
+    if not silent:
+        return []
+    def listed(values):
+        shown = values if full else values[:limit]
+        return '；'.join(shown) + (f'；另 {len(values) - len(shown)} 类：show --full {rid} 列出全部' if len(shown) < len(values) else '')
+    lines = [f'没表态：规则 {rid} 对 {len(silent)} 类情况没有给出结果（共 {key["cells"]} 类）：{listed(silent)}']
+    undecided = [cell for cell in gaps.get('cells', ()) if cell in silent]
+    if undecided and gaps.get('total'):
+        lines.append(f'红：{"、".join(gaps["total"])} 写了 total=True，{len(undecided)} 类情况没有任何规则表态：{listed(undecided)}'
+                     f' -> 在规则里给出这些情况的结果，或去掉 total=True')
+    elif undecided and len(undecided) < len(silent):
+        lines.append(f'其中 {len(undecided)} 类也没有别的规则表态：{listed(undecided)}')
+    return lines
+
+
 def show(cfg, query=None, *, draft=None, gaps=None, full=False):
     query = draft or query
     if not gaps and query:
@@ -385,6 +411,8 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                     lines.extend(f'  site L{s["line"]}: {s["field"]} {s["op"]} {s["const"]}' for s in graph.sites(home))
             for result in data['results'].get(query, {}).get('items', {}).values():
                 lines.extend(result.get('red', []) + result.get('grey', []) + (result.get('info', []) if full else []))
+            if item.get('kind') == 'rule':
+                lines.extend(_silent_lines(cfg, index, query, full))
             anchors, pointers = _source_pointers(index, item.get('anchors', []), graph, full=full)
             lines.extend(pointers)
             if item.get('flows'):lines.append('via flow ' + ', '.join(dict.fromkeys(item['flows'])))
@@ -659,6 +687,13 @@ def _check_selection(cfg: Config, model: object, data: dict, everything: bool, s
                 key.startswith('node:') and key[5:] in dirty
                 or key.startswith(('file:', 'module:')) and key.partition(':')[2] in files
                 for key in saved.get('dependencies', {})))
+        # A `fields` anchor's rule is checked on the calls its tests reach: rerun the tests that reached
+        # it last time, every test while that is unknown.
+        for identifier in selected:
+            if any(getattr(home, 'anchor', None) and home.anchor.fields for home in model.rules[identifier].homes):
+                reached = {test.partition('::')[0] for value in data['results'].get(identifier, {}).get('items', {}).values()
+                           for test in value.get('tests', ())}
+                ordinary.update(file for file in records if ordinary_file(file) and (file in reached or not reached))
         guards = history._guards({cfg.rel(path): path.read_text(encoding='utf-8-sig')
                                  for path in (cfg.root / 'tests').rglob('*.py')})
         rule_markers = {ast.dump(ast.Constant(identifier), include_attributes=False) for identifier in model.rules}
@@ -1033,6 +1068,9 @@ def requests(cfg, options):
         item = store_request(cfg.root, raw, identifier=options.identifier, kind=options.kind,
                              supersedes=options.supersedes)
         print(f'stored {item["id"]} ({item["kind"]}, sha {item["sha256"][:12]}, {item["bytes"]} bytes)')
+        from .differences import display
+        display(f'这句话如果定下了一直成立的规矩，就写成 {cfg.rel(cfg.intent)}/ 里的规则，并以 {item["id"]} 为出处：'
+                f'source="owner {item["id"]}: <原话里的那一句>"')
     elif options.operation == 'retire':
         retire_request(cfg.root, options.identifier, note=options.note)
         print(f'retired {options.identifier}: not the owner\'s words')

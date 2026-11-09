@@ -1,0 +1,12 @@
+from datetime import date
+
+from shop.hires import Hire, may_borrow, open_db
+
+
+def test_may_borrow(tmp_path):
+    db = open_db(tmp_path / "shop.db")
+    db.execute("insert into customers values (1, 0), (2, 1)")
+    assert may_borrow(db, Hire(1, 1, date(2026, 1, 1)), date(2026, 1, 5))
+    assert not may_borrow(db, Hire(1, 1, date(2026, 1, 1)), date(2026, 1, 12))
+    assert may_borrow(db, Hire(2, 2, date(2026, 1, 1)), date(2026, 1, 12))
+    assert db.execute("select count(*) from customers").fetchone()[0] == 2

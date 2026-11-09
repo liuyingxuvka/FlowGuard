@@ -1,0 +1,10 @@
+from flowguard.intent import rule, row
+
+
+@rule("BORROW", decides="may borrow again", fields={"days": int, "member": bool},
+      source="owner R1: 逾期超过 10 天就不能再借，会员除外。", anchor="MAY_BORROW")
+def BORROW(days, member):
+    return days <= 10 or member
+
+
+BORROW.rows(row(days=11, member=False, expect=False, why="the eleventh day overdue blocks a non-member"))

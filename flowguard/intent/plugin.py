@@ -197,7 +197,8 @@ class Session:
             for binding in rule.homes:
                 if hasattr(binding, 'scenario'):
                     _prepare_scenario(self.cfg.root, binding)
-                elif getattr(binding, 'anchor', None) and binding.anchor.calibrated_by:
+                elif getattr(binding, 'anchor', None) and binding.anchor.calibrated_by and not binding.anchor.fields:
+                    # A `fields` anchor is checked on its tests' calls; its calibrated test is not rerun.
                     _prepare(self.cfg.root, binding.anchor)
 
     def get_map(self):
@@ -398,8 +399,10 @@ class Observations:
                     self.event_record.add_code(fn.__code__, point['name'])
                 continue
             try:
+                anchor = point['anchor']
                 original = self.scopes.enter_context(self.runtime.hook(fn, name=point['name'],
-                    axes=lambda original, bound, point=point: self._at_call(point, original, bound)))
+                    axes=lambda original, bound, point=point: self._at_call(point, original, bound),
+                    fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0))
                 point['original'] = original
             except (ValueError, TypeError, sites.NotMutable) as error:
                 self.grey.append(point['name'] + ': ' + str(error))
@@ -549,12 +552,14 @@ class Observations:
                 if not any(R.outcome_equal(value, prior) for prior in pool):
                     pool.append(value)
             self.request['partition_reasons'].extend(unknown + (part.reasons if part is not None else []))
+        fields = {name for name, _ in point['anchor'].fields} if point['anchor'] else set()
         for rule in self.rules.get(point['target'], ()):
-            if not set(rule.fields) <= axes.keys():
-                self.grey.append(rule.id + ': this real context does not expose all rule inputs')
+            if not set(rule.fields) <= axes.keys() | fields:
+                self.grey.append(rule.id + ': this real context does not expose all rule inputs'
+                                 + (f'（参数和 fields 里没有 {", ".join(sorted(set(rule.fields) - axes.keys() - fields))}）' if fields else ''))
                 continue
             values = self.state.engine.rr_space(rule.decides)[2]
-            for field in rule.fields:
+            for field in [name for name in rule.fields if name not in fields]:
                 pool = axes.setdefault(field, [])
                 additions = [*values.get(field, ()), *(row.inputs[field] for row in rule.live_rows if field in row.inputs)]
                 pool.extend(value for value in additions if not any(R.outcome_equal(value, prior) for prior in pool))
@@ -662,19 +667,61 @@ class Observations:
         else:
             self.grey.extend(item.nodeid + ': ' + reason for reason in result['reasons'])
 
+    @staticmethod
+    def _rule_rows(point, reading):
+        """(rule inputs, outcome) of each call one reading holds, and why a call's fields were not read.
+        The replayed rows when the replay is valid, else the real call: a refused replay still leaves the
+        real call's own inputs and outcome. A `fields` anchor's values join each call's parameters."""
+        replayed = reading.status == 'ok' and reading.rows
+        if not (point['anchor'] and point['anchor'].fields):
+            return (reading.rows if replayed else [reading.actual] if reading.actual else []), []
+        if replayed:
+            rows = [({**inputs, **values}, outcome) for (inputs, outcome), values in zip(reading.rows, reading.field_rows)
+                    if values is not None]
+        else:
+            rows = [({**reading.actual[0], **reading.fields}, reading.actual[1])] \
+                if reading.actual and reading.fields is not None else []
+        return rows, list(reading.field_reasons)
+
+    def rule_calls(self, rule, home):
+        """The calls of a `fields` anchor the tests reached in this session, as (rule inputs, outcome,
+        test), and why fields could not be read. `calibrated_by=` keeps the calls of that one test."""
+        calls, reasons = [], []
+        selector = home.anchor.calibrated_by
+        for index, point, part, unknown, cause in self.records:
+            if point['target'] != home.target or index >= len(self.runtime.readings):
+                continue
+            reading = self.runtime.readings[index]
+            if selector and not self._named_test(reading.test, selector):
+                continue
+            rows, why = self._rule_rows(point, reading)
+            calls.extend((inputs, outcome, reading.test) for inputs, outcome in rows)
+            reasons.extend(why)
+        return calls, list(dict.fromkeys(reasons))
+
+    def _named_test(self, nodeid, selector):
+        file, _, name = selector.partition('::')
+        test_file, _, test_name = nodeid.partition('::')
+        return test_name == name and (self.state.config.rootpath / test_file).resolve() == (self.cfg.root / file).resolve()
+
     def _rule_signals(self):
         """Check already observed values; partial pytest never invents full receipts."""
         from . import cells as C
         from .engine import CONFLICT, PredicateError, outcome_eq
+        from .loader import item_names
         from .sources import parse
         engine, checked, quoted = self.state.engine, {}, set()
         for index, point, part, unknown, cause in self.records:
             if index >= len(self.runtime.readings):
                 continue
             reading = self.runtime.readings[index]
-            # A refused replay leaves the real call: its own inputs and outcome are still a current reading.
-            rows = reading.rows if reading.status == 'ok' and reading.rows else [reading.actual] if reading.actual else []
+            rows, reasons = self._rule_rows(point, reading)
             for rule in self.rules.get(point['target'], ()):
+                if point['anchor'] and point['anchor'].fields and any(
+                        self.state.model.file_of[rule.id] + '::' + name in self.state.results
+                        for name in item_names(rule.id, [point['target']])[1:]):
+                    continue    # this session's own items of the rule on the anchor report its calls
+                self.grey.extend(rule.id + ': ' + reason for reason in reasons)
                 if not rows:
                     self.grey.append(rule.id + ': no verified current reading in this test context')
                     continue
@@ -1271,6 +1318,7 @@ def pytest_collection_finish(session):
         raise pytest.UsageError('another selection changed the full ordinary collection')
     state.get_model()
     state.observations = Observations(state)
+    state.engine.call_sites = state.observations.rule_calls
     state.source_items = tuple(item for item in session.items if not isinstance(item, IntentItem) and item.name != SENTINEL)
     session.items[:] = [*state.source_items, *(item for item in session.items if isinstance(item, IntentItem)),
                        *(item for item in session.items if item.name == SENTINEL)]
