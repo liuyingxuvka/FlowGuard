@@ -1915,6 +1915,7 @@ def finish_verified(session, exitstatus):
             from .cache import save_dependencies
             fresh = {result['rule'] for result in state.results.values() if result['rule'] is not None}
             records, now, found = {}, Now(state.cfg, mapping), {}     # one session's digests for all records
+            now.archive = state.engine.archive        # the owner words this session's rules already checked
             for rid in fresh:
                 declaration = (model.rules.get(rid) or model.states.get(rid) or model.structures.get(rid)
                                or model.flows.get(rid) or model.anchor_distincts.get(rid))
