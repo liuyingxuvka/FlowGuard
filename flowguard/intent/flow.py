@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import Counter, deque
 from contextlib import contextmanager
+from functools import lru_cache
 from dataclasses import dataclass, field as data_field
 import dis
 import inspect
@@ -942,9 +943,9 @@ _TRACE_SCOPES = []
 
 class _TraceScope:
     """Compatibility scope; the runtime owns the only monitoring/trace hook."""
-    def __init__(self, callback=None, *, ignored=(), ordinary=None, predicate=None):
-        self.callback, self.ignored, self.ordinary = callback, ignored, ordinary
-        self.predicate = predicate if predicate is not None else (lambda code: True) if callback is not None else None
+    def __init__(self, callback=None, *, ignored=(), ordinary=None, predicate=None, codes=None):
+        self.callback, self.ignored, self.ordinary, self.codes = callback, ignored, ordinary, codes
+        self.predicate = None if codes is not None else predicate if predicate is not None else (lambda code: True) if callback is not None else None
         self.active, self.paused, self.previous = False, False, None
         self._problems = []
 
@@ -957,7 +958,7 @@ class _TraceScope:
     def __enter__(self):
         from .runtime import Runtime
         self.previous = _TRACE_SCOPES[-1] if _TRACE_SCOPES else None
-        self._record = Runtime(Path.cwd()).record(predicate=self.predicate, callback=self.callback,
+        self._record = Runtime(Path.cwd()).record(self.codes or (), predicate=self.predicate, callback=self.callback,
                                                  ignored=self.ignored, private=not bool(self.ordinary))
         self._record.__enter__()
         if not self._record.active:
@@ -992,6 +993,31 @@ def _without_ordinary_observers():
                 scope._problems.append('trace hook changed during calibration probe')
 
 
+@lru_cache(maxsize=None)
+def _resolved(filename):
+    return str(Path(filename).resolve())
+
+
+_DIGESTS = {}
+
+
+def _source_digest(path):
+    """Content digest, recomputed whenever the file's status changes (ctime included).
+
+    Every ordinary test opens a capture that checks each anchored file before and
+    after the case; unchanged files are not hashed again for every test.
+    """
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return None
+    key = (stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    cached = _DIGESTS.get(str(path))
+    if cached is None or cached[0] != key:
+        cached = _DIGESTS[str(path)] = (key, content_digest(path))
+    return cached[1]
+
+
 class Capture:
     """Observe only indexed function frames; the caller owns one actual test case.
 
@@ -999,8 +1025,9 @@ class Capture:
     or turn an interrupted test into a pass. Values never survive this scope by
     themselves. Unsupported async/generator frames remain explicit unknowns.
     """
-    def __init__(self, root, index, case, *, models=None, _ordinary=False, on_event=None):
+    def __init__(self, root, index, case, *, models=None, _ordinary=False, on_event=None, discover=False):
         self.root, self.index, self.case = Path(root).resolve(), index, str(case)
+        self._discover = discover
         self.on_event, self.diagnostic_issues = on_event, []
         self._ordinary = _ordinary
         self._model_scopes = None
@@ -1021,15 +1048,36 @@ class Capture:
         for anchor in index.entries:
             if anchor.kind not in {'event','sensor'}: continue
             path = (self.root/anchor.file).resolve()
-            if anchor.source_digest and (not path.is_file() or content_digest(path) != anchor.source_digest):
+            if anchor.source_digest and _source_digest(path) != anchor.source_digest:
                 self.issues.append(f'{anchor.name}: anchor source changed; rebuild the map'); continue
             self._sites.setdefault((str(path),anchor.qual),[]).append(anchor)
+        self._by_file = {}
+        for site in self._sites:
+            self._by_file.setdefault(site[0], set()).add(site)
         self._trace = self._callback
         self._active = False
 
+    def _codes(self, module):
+        from .runtime import module_codes
+        filename = getattr(module, '__file__', None)
+        wanted = self._by_file.get(_resolved(filename)) if isinstance(filename, str) else None
+        return [(code, '') for code in module_codes(module, wanted)] if wanted else []
+
+    def loaded(self, module):
+        """A module imported during the case adds its anchored code objects."""
+        if self._active and self._scope.codes is not None:
+            for code, name in self._codes(module):
+                self._scope._record.add_code(code, name)
+
     def __enter__(self):
-        self._scope = _TraceScope(self._trace, ordinary=self if self._ordinary else None,
-                                  predicate=lambda code: (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in self._sites)
+        # Only the anchored functions' code objects are observed, with local events.
+        # `discover` keeps the process-wide search for code that is not a loaded
+        # module yet, such as a script that watch runs as __main__.
+        codes = None
+        if not self._discover:
+            codes = [pair for module in list(sys.modules.values()) for pair in self._codes(module)]
+        predicate = lambda code: (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in self._sites
+        self._scope = _TraceScope(self._trace, ordinary=self if self._ordinary else None, predicate=predicate, codes=codes)
         try:
             self._scope.__enter__()
         except _TraceUnavailable as error:
@@ -1045,7 +1093,7 @@ class Capture:
             self._active = False
         for anchor in self.index.entries:
             path=self.root/anchor.file
-            if anchor.source_digest and (not path.is_file() or content_digest(path)!=anchor.source_digest):
+            if anchor.source_digest and _source_digest(path)!=anchor.source_digest:
                 self.issues.append(f'{anchor.name}: source changed during anchor observation')
         self._frames.clear()
 

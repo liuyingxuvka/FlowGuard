@@ -774,22 +774,27 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     if revision is not None and executed:
         old = cache.scan(cfg, history._texts(cfg, revision, cfg.rel(cfg.intent)))['rules']
         current = data['summary']['rules']
-        with closing(build(cfg.root, roots=cfg.roots)) as graph:
-            for rid in sorted(executed):
-                rule = model.rules[rid]
-                parts = data['results'].get(rid, {}).get('items', {})
-                if not parts or any(value.get('verdict') == 'red' for value in parts.values()):
+        # history.proven builds and reads the same map. Every proof is finished
+        # before this function opens its write transaction, so it never waits on itself.
+        proofs = {}
+        for rid in sorted(executed):
+            rule = model.rules[rid]
+            parts = data['results'].get(rid, {}).get('items', {})
+            if not parts or any(value.get('verdict') == 'red' for value in parts.values()):
+                continue
+            prior = [(row['fields'], row['expect']) for row in old.get(rid, {}).get('row_records', []) if not row['retired']]
+            new_lines = {row['line'] for row in current[rid]['row_records']
+                         if not row['retired'] and (row['fields'], row['expect']) not in prior}
+            retained = {proof.get('signature') for value in parts.values() for proof in value.get('proven_rows', [])}
+            for row in rule.live_rows:
+                if row.line not in new_lines or history.current_row_signature(rule, row) in retained:
                     continue
-                prior = [(row['fields'], row['expect']) for row in old.get(rid, {}).get('row_records', []) if not row['retired']]
-                new_lines = {row['line'] for row in current[rid]['row_records']
-                             if not row['retired'] and (row['fields'], row['expect']) not in prior}
-                retained = {proof.get('signature') for value in parts.values() for proof in value.get('proven_rows', [])}
-                for row in rule.live_rows:
-                    if row.line not in new_lines or history.current_row_signature(rule, row) in retained:
-                        continue
-                    proof = history.proven(cfg, rule, row, revision)
-                    cache.save_proven(graph.con, rule, [proof])
-                    probes.append(f'{rid} row L{row.line}: {proof["status"]}' + (': ' + proof['reason'] if proof.get('reason') else ''))
+                proof = history.proven(cfg, rule, row, revision)
+                proofs.setdefault(rid, []).append(proof)
+                probes.append(f'{rid} row L{row.line}: {proof["status"]}' + (': ' + proof['reason'] if proof.get('reason') else ''))
+        with closing(build(cfg.root, roots=cfg.roots)) as graph:
+            for rid, found in proofs.items():
+                cache.save_proven(graph.con, model.rules[rid], found)
             graph.con.commit()
         data = cache.read(cfg)
     for group in data['results'].values():
@@ -886,17 +891,26 @@ def init(cfg):
 - run: python -m flowguard check --all --deep
 ''', encoding='utf-8')
     agents = cfg.root / 'AGENTS.md'
-    content = agents.read_text(encoding='utf-8') if agents.exists() else ''
+    # Bytes outside the replaced block are kept, including their line endings.
+    content = agents.read_bytes().decode('utf-8') if agents.exists() else ''
+    newline = '\r\n' if '\r\n' in content else '\n'
+    rules = PROJECT_RULES.replace('\n', newline)
+    # The owner's repositories carry a level-one block whose commands 4.x no longer has.
+    owner_block = re.compile(r'^# FlowGuard rules for the project agent[ \t]*\r?\n.*?(?=^#{1,6} |^<!-- flowguard:start -->|\Z)',
+                             re.M | re.S)
     if '<!-- flowguard:start -->' in content:
         before, _, rest = content.partition('<!-- flowguard:start -->')
         _, _, after = rest.partition('<!-- flowguard:end -->')
-        content = before + PROJECT_RULES + '\n' + after.lstrip('\n')
+        content = before + rules + (newline + after.lstrip('\r\n') if after.strip() else '')
+        content = owner_block.sub('', content, count=1)
     elif re.search(r'^## FlowGuard rules for the project agent\s*$', content, re.M):
-        content = re.sub(r'^## FlowGuard rules for the project agent\s*\n.*?(?=^## |\Z)', lambda _: PROJECT_RULES + '\n',
+        content = re.sub(r'^## FlowGuard rules for the project agent\s*\n.*?(?=^## |\Z)', lambda _: rules + newline,
                          content, count=1, flags=re.M | re.S)
+    elif owner_block.search(content):
+        content = owner_block.sub(lambda match: rules + (newline if match.end() < len(content) else ''), content, count=1)
     else:
-        content = content.rstrip() + '\n\n' + PROJECT_RULES
-    agents.write_text(content, encoding='utf-8')
+        content = content.rstrip() + newline + newline + rules
+    agents.write_bytes(content.encode('utf-8'))
     print('Initialized intent sentinel, pytest plugin, CI fragment and four project rules.')
     return 0
 

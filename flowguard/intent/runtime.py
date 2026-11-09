@@ -299,6 +299,7 @@ class Reading:
     baseline: str = ''
     comparison_status: str = 'ok'
     comparison_reasons: list = field(default_factory=list)
+    actual: tuple | None = None  # (simple inputs, outcome) of the real call; never a replay.
 
 
 class _ObserverHub:
@@ -309,6 +310,12 @@ class _ObserverHub:
         self.trace = self._trace
         self.previous = None
         self.foreign, self.lines = {}, {}
+        self.wanted, self.dynamic = set(), False
+
+    def index(self):
+        """The observed code objects; a dynamic predicate alone needs every call."""
+        self.wanted = {key for record in self.records for key in record.codes}
+        self.dynamic = any(record.predicate is not None for record in self.records)
 
     def add(self, record):
         current = sys.gettrace()
@@ -317,6 +324,7 @@ class _ObserverHub:
             record.issues.append('another debugger/trace hook is active; observation was not installed')
             return
         self.records.append(record)
+        self.index()
         try:
             if hasattr(sys, 'monitoring'):
                 mon = sys.monitoring
@@ -336,6 +344,7 @@ class _ObserverHub:
             record.active = True
         except Exception as error:
             self.records.remove(record)
+            self.index()
             if not self.records:
                 self.stop()
             record.issues.append('event observation unavailable: ' + type(error).__name__ + ': ' + str(error))
@@ -359,6 +368,7 @@ class _ObserverHub:
         if record.interrupted and not hasattr(sys, 'monitoring') and sys.gettrace() is None:
             sys.settrace(self.trace)  # CPython cleared our raising trace callback.
         self.records.remove(record)
+        self.index()
         record.active = False
         if not hasattr(sys, 'monitoring'):
             for key in tuple(record.frames):
@@ -436,6 +446,8 @@ class _ObserverHub:
         self.dispatch(frame, 'return', None)
 
     def _trace(self, frame, event, arg):
+        if event == 'call' and self.previous is None and not self.dynamic and id(frame.f_code) not in self.wanted:
+            return None  # Python 3.11: an unobserved frame costs one lookup and is not traced further.
         key = id(frame)
         prior = self.previous if event == 'call' else self.foreign.get(key)
         foreign = prior(frame, event, arg) if prior is not None else None
@@ -456,6 +468,57 @@ class _ObserverHub:
 
 
 _HUB = _ObserverHub()
+
+
+def _cells(function):
+    values = []
+    for cell in function.__closure__ or ():
+        try:
+            values.append(cell.cell_contents)
+        except ValueError:
+            continue  # An empty cell holds no function.
+    return values
+
+
+def module_codes(module, wanted):
+    """Code objects of `module` whose (co_filename, qualname without '<locals>') is in `wanted`.
+
+    Observation points are known functions; their code objects get local events,
+    so no process-wide call monitoring is needed to find them. Installed shims
+    are skipped for the original code they replaced.
+    """
+    found, seen = [], set()
+    def code_walk(code):
+        if id(code) in seen:
+            return
+        seen.add(id(code))
+        if (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in wanted:
+            found.append(code)
+        for constant in code.co_consts:
+            if isinstance(constant, types.CodeType):
+                code_walk(constant)
+    def value_walk(value, depth):
+        if isinstance(value, (staticmethod, classmethod)):
+            value = value.__func__
+        if isinstance(value, property):
+            for part in (value.fget, value.fset, value.fdel):
+                value_walk(part, depth)
+            return
+        chain = 0
+        while isinstance(value, types.FunctionType) and chain < 20:
+            for function in (value, *(cell for cell in _cells(value) if isinstance(cell, types.FunctionType))):
+                # Both the running code (an installed mutant) and the original under a shim.
+                code_walk(function.__code__)
+                if (origin := sites.installed_origin(function)) is not None:
+                    code_walk(origin)
+            value, chain = inspect.getattr_static(value, '__wrapped__', None), chain + 1
+        if isinstance(value, type) and depth < 6 and id(value) not in seen:
+            seen.add(id(value))
+            for part in list(vars(value).values()):
+                value_walk(part, depth + 1)
+    for value in list(vars(module).values()):
+        value_walk(value, 0)
+    return found
 
 
 class _Record:
@@ -493,6 +556,14 @@ class _Record:
                 self.interrupted = True
                 raise
         return interested and self.active
+
+    def add_code(self, code, name):
+        """Observe one more code object (a module imported later) with local events only."""
+        self.codes[id(code)] = (code, name)
+        if self.active:
+            _HUB.wanted.add(id(code))
+            if _HUB.tool is not None:
+                _HUB.local(code)
 
     def __enter__(self):
         self.ambient = sys.gettrace()
@@ -984,12 +1055,23 @@ class Runtime:
             return original(*bound.args, **bound.kwargs)
         token = _PRIVATE.set(True)
         observing = _OBSERVING.set(_OBSERVING.get() | {owner})
+        index = len(self.readings)
         try:
             self._replay_rows(original, bound, owner=owner, name=name, axes=axes)
         finally:
             _OBSERVING.reset(observing)
             _PRIVATE.reset(token)
-        return original(*bound.args, **bound.kwargs)
+        reading = self.readings[index] if index < len(self.readings) else None
+        inputs = {name: value for name, value in bound.arguments.items() if _simple(value)}
+        try:
+            outcome = original(*bound.args, **bound.kwargs)
+        except Exception as error:
+            if reading is not None:
+                reading.actual = (inputs, cells.Raised(error))
+            raise
+        if reading is not None:
+            reading.actual = (inputs, outcome)
+        return outcome
 
     def _replay_rows(self, original, bound, *, owner, name, axes):
         """No normal call here, including when metadata or a replay gate is grey."""

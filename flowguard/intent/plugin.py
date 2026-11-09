@@ -290,6 +290,7 @@ class Observations:
                        for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'}
         self.changed, self.records, self.pairs, self.red, self.grey, self.paths = bool(self.files), [], [], [], [], []
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
+        self.event_record = self.capture = None
         self.request, self.text = _TRY.get(), ''
         self.rules = {}
         for rule in state.model.rules.values():
@@ -301,8 +302,13 @@ class Observations:
             # The existing map supplies module ownership for unanchored changed functions.
             graph = state.get_map()
             views = {}
+            # The running FlowGuard never observes its own observation code: hooking the
+            # changed Runtime.observe (or a replay helper) re-enters itself without end.
+            tool = Path(__file__).resolve().parents[1]
             for row in graph.nodes():
                 if row['file'] not in self.files or row['kind'] not in ('function', 'method') or not state.is_project(str(self.cfg.root / row['file'])):
+                    continue
+                if (self.cfg.root / row['file']).resolve().is_relative_to(tool):
                     continue
                 if row['file'] not in views:
                     tree = ast.parse(read_source(self.cfg.root / row['file']))
@@ -334,6 +340,8 @@ class Observations:
         from .runtime import _PRIVATE
         token = _PRIVATE.set(True)
         try:
+            if self.capture is not None:
+                self.capture.loaded(module)
             return self._bind_module(module)
         finally:
             _PRIVATE.reset(token)
@@ -365,6 +373,8 @@ class Observations:
             self.bound[point['target']] = point
             if point['kind'] == 'event':
                 self.event_codes[id(fn.__code__)] = (fn.__code__, point['name'])
+                if self.event_record is not None:
+                    self.event_record.add_code(fn.__code__, point['name'])
                 continue
             try:
                 original = self.scopes.enter_context(self.runtime.hook(fn, name=point['name'],
@@ -578,7 +588,7 @@ class Observations:
     def scope(self, item):
         from .imports import observe_imports
         self.runtime.test = item.nodeid
-        self.event_codes = {}
+        self.event_codes, self.event_record = {}, None
         with ExitStack() as self.scopes:
             self.bound = {}
             with observe_imports(self.cfg.root, self._module):
@@ -591,11 +601,14 @@ class Observations:
                     if phase == 'call' and match and match[0] is frame.f_code:
                         path.append(match[1])
                     return None
-                record = self.runtime.record(predicate=lambda code: (match := self.event_codes.get(id(code)))
-                                              and match[0] is code, callback=event, entry_only=True)
                 if self.changed and any(point['kind'] == 'event' for point in self.points.values()):
-                    with record:
-                        yield
+                    # Event code objects only, with local events; later imports add theirs.
+                    self.event_record = self.runtime.record(list(self.event_codes.values()), callback=event, entry_only=True)
+                    try:
+                        with self.event_record:
+                            yield
+                    finally:
+                        self.event_record = None
                 else:
                     yield
                 self.actual_path = path
@@ -632,8 +645,10 @@ class Observations:
             if index >= len(self.runtime.readings):
                 continue
             reading = self.runtime.readings[index]
+            # A refused replay leaves the real call: its own inputs and outcome are still a current reading.
+            rows = reading.rows if reading.status == 'ok' and reading.rows else [reading.actual] if reading.actual else []
             for rule in self.rules.get(point['target'], ()):
-                if reading.status != 'ok' or not reading.rows:
+                if not rows:
                     self.grey.append(rule.id + ': no verified current reading in this test context')
                     continue
                 active = [other for other in self.state.model.active(rule.decides)
@@ -648,7 +663,7 @@ class Observations:
                     continue
                 self.red.extend(rule.id + ': ' + message for guard in guards for message in guard['red'])
                 required = {field for other in active for field in other.fields}
-                for inputs, actual in reading.rows:
+                for inputs, actual in rows:
                     if not required <= inputs.keys():
                         self.grey.append(rule.id + ': this reading does not expose all rule inputs')
                         continue
@@ -789,6 +804,9 @@ class Observations:
         for issue in self.index.issues:
             if issue.level == 'red':
                 self.red.append(issue.message)
+            elif issue.code == 'source-syntax':
+                self.grey.append(f'{issue.file}' + (f':{issue.line}' if issue.line else '')
+                                 + ': cannot be parsed, only this file is unverified: ' + issue.message)
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
         from . import ledger
@@ -1164,12 +1182,17 @@ def pytest_runtest_protocol(item, nextitem):
         if not isinstance(item, IntentItem) and item.name != SENTINEL and state.observations is not None:
             scopes.enter_context(state.observations.scope(item))
         from .calibration import probe_context
+        # Anchor events are always recorded (local events on anchored code only), so
+        # show NAME and model draft have data after a plain pytest run.
         if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
-                and state.model.anchor_index.entries and not probe_context(item.config)
-                and (state.model.flows or state.observations.changed or item.config.getoption('--flowguard-record-tests'))):
+                and state.model.anchor_index.entries and not probe_context(item.config)):
             from .flow import Capture
             capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
                                                    models=state.model.flows.values() if state.model.flows and not state.observations.changed else None, _ordinary=True))
+            if state.observations is not None:
+                # Modules imported during this test add their anchored code to the capture.
+                state.observations.capture = capture
+                scopes.callback(setattr, state.observations, 'capture', None)
         try:
             if (isinstance(item, IntentItem) or item.name == SENTINEL
                     or not any(item.iter_markers('rule'))):
@@ -1379,10 +1402,13 @@ def finish_verified(session, exitstatus):
     if not declared and not state.footprints and not observed:
         # Standalone pytest does not build a map, but must retire old traces
         # for a test it ran without recording. Never refresh them by implication.
+        # Recorded anchor events are kept even before the first map exists.
         path = state.cfg.cache / 'map.sqlite'
-        if path.is_file() and state.readings:
+        if (path.is_file() or state.events) and state.readings:
+            from flowguard.map.common import cache_dir
+            cache_dir(state.cfg.root)
             with closing(sqlite3.connect(path, timeout=30)) as con:
-                con.executescript(SCHEMA)
+                con.executescript(SCHEMA + 'CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);\n')
                 with con:
                     con.execute('BEGIN IMMEDIATE')
                     _meta(con, 'intent_attempt', attempt)

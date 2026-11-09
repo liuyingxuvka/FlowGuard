@@ -534,7 +534,9 @@ def collect(graph):
     """Read the single stored source index, including anchored project tests."""
     from ..structure.store import unpack
     entries, problems = [], []
-    for file, sha, blob in graph.con.execute('SELECT path,sha,data FROM file ORDER BY path'):
+    for file, sha, blob, error in graph.con.execute('SELECT path,sha,data,parse_error FROM file ORDER BY path'):
+        if error and file.endswith('.py'):
+            problems.append(Issue('grey', 'source-syntax', error, file))
         data = unpack(blob)
         for value in data.get('anchors', ()):
             anchor = _anchor(dict(value, source_digest=sha))
@@ -559,7 +561,8 @@ def collect_sources(root, files_with_modules):
         try:
             tree = ast.parse(text, str(root / file))
         except SyntaxError as error:
-            problems.append(Issue('red', 'source-syntax', str(error), file, error.lineno or 0))
+            # An unparsable file is unknown, not a verdict: only this file stays grey.
+            problems.append(Issue('grey', 'source-syntax', str(error), file, error.lineno or 0))
             continue
         data = source_facts(tree, text, module, file, source_digest=content_digest(root / file, data=raw), is_test=bool(role and role[0]))
         for value in data.get('anchors', ()):

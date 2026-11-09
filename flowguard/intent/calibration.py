@@ -25,6 +25,10 @@ class _Unavailable(ValueError):
     pass
 
 
+class _Stop(BaseException):
+    """The requested point replaced the named test's own anchor call; the private rerun ends there."""
+
+
 @dataclass
 class _Session:
     runtime: object
@@ -163,16 +167,23 @@ def _codes(index):
     return codes
 
 
-def _reports(result, *, refusal=None):
+def _reports(result, *, refusal=None, stop=None):
     if not result.get('reports'):
         return _unavailable('; '.join(result.get('reasons', ())) or 'the real test was not replayed')
     unsupported = [error for _, error in result.get('errors', ()) if isinstance(error, _Unavailable)]
     if unsupported:
         return _unavailable('; '.join(str(error) for error in unsupported))
     failures = [report for report in result['reports'] if not report.passed]
+    errors = result.get('errors', ())
+    if stop is not None:
+        if not any(error is stop for _, error in errors):
+            return _unavailable('the named test did not end at the replaced anchor call: it caught the controlled stop')
+        if len(errors) == 1 and errors[0][0] == 'call' and len(failures) == 1 and failures[0].when == 'call':
+            return None
+        return _unavailable('real calibration test had another failure besides the replaced anchor call: '
+                            + ', '.join(report.when + ' ' + report.outcome for report in failures), status='red')
     if not failures:
         return None
-    errors = result.get('errors', ())
     if (isinstance(refusal, Raised) and len(errors) == 1
             and errors[0][0] == 'call' and errors[0][1] is refusal.error
             and len(failures) == 1 and failures[0].when == 'call' and failures[0].failed):
@@ -193,7 +204,7 @@ def _sensor(root, anchor, values):
         if (not inspect.isfunction(function) or Path(function.__code__.co_filename).resolve() != (Path(root) / anchor.file).resolve()
                 or function.__qualname__.replace('.<locals>.', '.') != anchor.qual):
             return _unavailable('loaded function does not match the actual source anchor')
-        readings = []
+        readings, stop = [], _Stop()
         def observe(original, bound):
             axes = {}
             for parameter in anchor.parameters:
@@ -209,6 +220,22 @@ def _sensor(root, anchor, values):
                     axes[name] = [_value_in_context(anchor, original, name, values.get(name, actual), actual)]
                 elif name in values:
                     raise _Unavailable(name + ': actual test context cannot be replaced')
+            if gate := scope.runtime.safety(original, bound.arguments):
+                # A second call beside the test's own call needs a proof that it is inert.
+                # Without one, the requested point replaces the named test's own call: that
+                # is a same-session rerun of the test, as calibrated_by declares.
+                for name in values:
+                    bound.arguments[name] = axes[name][0]
+                try:
+                    outcome = original(*bound.args, **bound.kwargs)
+                except Exception as error:
+                    outcome = Raised(error)
+                readings.append((None, [outcome], gate))
+                if values:
+                    raise stop
+                if isinstance(outcome, Raised):
+                    raise outcome.error
+                return outcome
             position = len(scope.runtime.readings)
             try:
                 return scope.runtime.observe(original, bound, owner=function, name=anchor.name, axes=axes, private=True)
@@ -218,22 +245,25 @@ def _sensor(root, anchor, values):
                     requested = {name: grid[0] for name, grid in axes.items()}
                     rows = [value for inputs, value in reading.rows
                             if inputs.keys() == requested.keys() and all(outcome_equal(inputs[k], v) for k, v in requested.items())]
-                    readings.append((reading, rows))
+                    readings.append((reading, rows, ''))
         observe.__flowguard_transport__ = (type(scope.runtime).observe.__code__,)
         scope.runtime.register(function)
         with sites.intercepted(function, observe):
             replay = scope.runtime.replay(item, nextitem=scope.nextitem)
         if problems := scope.runtime.observer_issues():
             return _unavailable('; '.join(problems))
-        failed = _reports(replay)
+        replaced = bool(values) and any(gate for _, _, gate in readings)
+        failed = _reports(replay, stop=stop if replaced else None)
         if failed:
             return failed
         if len(readings) != 1:
             return _unavailable('test must reach the actual anchor exactly once; target may be absent or ambiguous')
-        reading, rows = readings[0]
-        if reading.status != 'ok' or len(rows) != 1:
-            return _unavailable('; '.join(reading.reasons) or 'requested reading is unavailable or ambiguous')
-        return dict(status='ok', outcome=rows[0])
+        reading, rows, gate = readings[0]
+        if reading is not None and reading.status != 'ok' or len(rows) != 1:
+            return _unavailable('; '.join(reading.reasons if reading else ()) or 'requested reading is unavailable or ambiguous')
+        if gate and rows[0] is None and anchor.qual.rsplit('.', 1)[-1] == '__init__':
+            return _unavailable('constructor None is not a judgment observation; ' + gate)
+        return dict(status='ok', outcome=rows[0], gate=gate)
     except (OSError, ValueError, TypeError, SyntaxError, AttributeError, sites.NotMutable) as error:
         return _unavailable(str(error))
 
@@ -268,17 +298,20 @@ def _prepare(root, anchor, *, _reuse=True):
         return dict(status=anchor.status, reasons=[issue.message for issue in anchor.issues])
     facts = _facts(root)
     key = _key(anchor)
-    if _reuse and facts is not None and key in facts:
+    if _reuse and facts is not None and key in facts and facts[key]['status'] == 'ok':
         return facts[key]
     if _instrumented((anchor.target,)):
         return _unavailable('calibration must be prepared before code instrumentation')
     baseline = _sensor(root, anchor, {})
     zero = _sensor(root, anchor, {}) if baseline['status'] == 'ok' else baseline
+    unstable = 'original-value recheck differs from the complete original test'
+    if baseline.get('gate'):
+        unstable += '; the named test call was used because a separate replay is refused: ' + baseline['gate']
     result = (dict(status='ok') if baseline['status'] == zero['status'] == 'ok'
               and outcome_equal(baseline['outcome'], zero['outcome']) else
-              _unavailable('original-value recheck differs from the complete original test')
-              if baseline['status'] == zero['status'] == 'ok' else zero)
-    if _reuse and facts is not None and result['status'] == 'ok':
+              _unavailable(unstable) if baseline['status'] == zero['status'] == 'ok' else zero)
+    # A red or grey preparation keeps its own verdict and reason for this session.
+    if _reuse and facts is not None:
         facts[key] = result
     return result
 
@@ -287,6 +320,14 @@ def _observe_current(root, anchor, values):
     facts = _FACTS.get()
     if facts is None or facts[0] != Path(root).resolve() or _key(anchor) not in facts[1]:
         return _observation('grey', anchor, reasons=('calibrated anchor must be prepared in the real pytest session',))
+    prepared = facts[1][_key(anchor)]
+    if prepared['status'] != 'ok':
+        from .anchors import _source
+        try:
+            _source(root, anchor)
+        except (OSError, ValueError, SyntaxError) as error:
+            return _result(anchor, _unavailable(str(error)))
+        return _result(anchor, prepared)
     return _result(anchor, _sensor(root, anchor, values))
 
 
@@ -394,7 +435,7 @@ def _scenario_key(binding):
 def _prepare_scenario(root, binding):
     facts = _facts(root)
     key = _scenario_key(binding)
-    if facts is not None and key in facts:
+    if facts is not None and key in facts and facts[key]['status'] == 'ok':
         return facts[key]
     if _instrumented(set(binding.targets) | set(binding.actual_targets)):
         return _unavailable('scenario must be prepared before code instrumentation')
@@ -406,7 +447,7 @@ def _prepare_scenario(root, binding):
                   _unavailable('original-value scenario readings differ from the complete original test'))
     else:
         result = zero
-    if facts is not None and result['status'] == 'ok':
+    if facts is not None:
         facts[key] = result
     return result
 
@@ -422,4 +463,7 @@ def _observe_scenario_current(root, binding, values):
     facts = _FACTS.get()
     if facts is None or facts[0] != Path(root).resolve() or _scenario_key(binding) not in facts[1]:
         return _observation('grey', binding.anchor, reasons=('scenario must be prepared in the real pytest session',))
+    prepared = facts[1][_scenario_key(binding)]
+    if prepared['status'] != 'ok':
+        return _result(binding.anchor, prepared, check_type=False)
     return _result(binding.anchor, _scenario(root, binding, values), check_type=False)

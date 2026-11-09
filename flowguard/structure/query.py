@@ -98,7 +98,18 @@ def exit_may_suppress(function):
             stack.extend(ast.iter_child_nodes(node))
     return any(value is not None and not (isinstance(value,ast.Constant) and value.value in (None,False)) for value in values)
 
+_CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+")
+
+
 def tokens(text):
-    words = {w for w in re.findall(r"[a-z0-9]+", text.lower()) if len(w) > 2}
+    """Query words: each ASCII run whole (as before) plus its camelCase parts.
+
+    Punctuation, '_' and '-' already separated words; `countWorkingDays` now also
+    gives `count`, `working`, `days`, so a phrase finds a camelCase name.
+    """
+    words = set(re.findall(r"[a-z0-9]+", text.lower()))
+    for run in re.findall(r"[A-Za-z0-9]+", text):
+        words.update(part.lower() for part in _CAMEL.findall(run))
+    words = {w for w in words if len(w) > 2}
     cjk = re.findall(r"[一-鿿]", text)
     return words | {a + b for a, b in zip(cjk, cjk[1:])}
