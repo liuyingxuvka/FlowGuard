@@ -491,6 +491,8 @@ def judge(cfg, data, records):
         compared = [row for row in collected if 'old' in row and not (isinstance(row['old'], dict) and '$missing' in row['old'])]
         changes = [row for row in compared if not _same(row['old'], row['now'])]
         classes = {row['label'] for row in collected}
+        if not changes and not reasons and {row['label'] for row in compared} == classes:
+            continue    # every replayed class compared and none changed: quiet, as on the pytest side
         items.append(dict(
             name=point['name'], file=point['rel'], line=point['target_line'], unanchored=not point['anchored'],
             status='ok', complete=False, total=len(classes), checked=len({row['label'] for row in compared}),

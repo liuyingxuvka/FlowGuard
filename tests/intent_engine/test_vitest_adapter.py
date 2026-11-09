@@ -353,6 +353,8 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     assert code == 1, text
     assert '变：LATE_FEE（src/fees/late-fee.ts:4）已比较 12 类（划分未完成），变 2 类：days=3，member=F 等 2 类；函数返回值 0 → 5' in text, text
     assert '红：FEE_WINDOW: days=3 member=F -> rule 0, code 5（src/fees/late-fee.ts:4 lateFee）' in text, text
+    # the unchanged copy compared on every replayed class prints nothing of its own
+    assert not [line for line in text.splitlines() if line.startswith('未验证') and 'fee-preview.ts' in line], text
 
 
 def test_a_replay_refuses_writes_and_database_clients_and_the_real_call_still_runs(vitest_home):
