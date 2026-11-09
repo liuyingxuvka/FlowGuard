@@ -283,6 +283,29 @@ def extract(root, rel, data, module, is_test):
             if item.type not in FUNCTIONS | CLASSES:
                 stack.extend(item.named_children)
 
+    def logged(statement):
+        """`console.error(...)`, `logger.warn(...)`, `this.logger.info(...)`: a statement that only logs."""
+        call = unwrap(statement.named_children[0]) if statement.type == 'expression_statement' and statement.named_children else None
+        callee = field(call, 'function') if call is not None and call.type == 'call_expression' else None
+        receiver = field(callee, 'object') if callee is not None and callee.type == 'member_expression' else None
+        last = text(receiver, source).rsplit('.', 1)[-1] if receiver is not None else ''
+        return last in LOG_OBJECTS or last.endswith(('Logger', 'logger'))
+
+    def ending(body, handed):
+        """How a catch body ends (common.ENDINGS): it raises or hands the error on somewhere, returns or assigns a
+        substitute, only logs, is empty, or does other work (reports it to the user, answers a request)."""
+        statements = [item for item in (body.named_children if body is not None else []) if item.type not in COMMENTS]
+        if handed:
+            return 'handed'
+        if not statements:
+            return 'empty'
+        if all(logged(item) for item in statements):
+            return 'log'
+        if any(item.type == 'return_statement' and item.named_children
+               or item.type in ('assignment_expression', 'augmented_assignment_expression') for item in own_nodes(body)):
+            return 'substitute'
+        return 'other'
+
     def catch(node, owner, scope):
         parameter, body = field(node, 'parameter'), field(node, 'body')
         error = text(parameter, source) if parameter is not None and parameter.type == 'identifier' else ''
@@ -300,6 +323,7 @@ def extract(root, rel, data, module, is_test):
                                         and text(unwrap(item.named_children[0]), source) == error for item in throws),
             non_raising=falls or leaves, propagates=sorted(handed) if not (falls or leaves) else [],
             hands_on=sorted(handed), function=function, key=f'{rel}:{function}:{caught}',
+            ends=ending(body, handed | ({'throw'} if any(item.type == 'throw_statement' for item in throws) else set())),
             body=text(body, source), **position(node, source)))
 
     # ---- string literals that decide or name a value -----------------------------------------

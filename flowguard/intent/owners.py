@@ -621,7 +621,11 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     if replay:
         found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
         found.extend(changed_alone(cfg, graph, index, change, excluded=excluded))
-    return health.assess(cfg, change, index, found, everything=everything)
+    found = health.assess(cfg, change, index, found, everything=everything)
+    if everything:
+        from .ledger import open_legacy
+        found.section.extend(open_legacy(cfg, graph))
+    return found
 
 
 # ---- replay of candidate functions (check only) ------------------------------------------------------

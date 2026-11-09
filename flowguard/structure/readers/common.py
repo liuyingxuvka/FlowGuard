@@ -6,6 +6,10 @@ import hashlib
 import importlib
 from importlib.metadata import version
 
+# How a handler's body ends (the `ends` of a handler fact): it raises or hands the error on on some path, returns
+# or assigns a substitute value, only logs, is empty, or does other work (tells the user, answers a request).
+ENDINGS = ('handed', 'substitute', 'log', 'empty', 'other')
+
 GRAMMARS = {
     'javascript': ('tree_sitter_javascript', 'tree-sitter-javascript', 'language'),
     'typescript': ('tree_sitter_typescript', 'tree-sitter-typescript', 'language_typescript'),

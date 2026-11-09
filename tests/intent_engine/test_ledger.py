@@ -432,9 +432,9 @@ def test_other_languages_supply_rows_through_the_same_fields(tmp_path):
 
         def handlers(self):
             return [dict(node='typescript/src/employee.service.ts:<anonymous@2178>', file='src/employee.service.ts',
-                         line=2180, kind='catch', type='any', function='syncEmployee', non_raising=True),
+                         line=2180, kind='catch', type='any', function='syncEmployee', non_raising=True, ends='log'),
                     dict(node='typescript/src/employee.service.ts:forward', file='src/employee.service.ts', line=9,
-                         kind='catch', type='any', function='forward', non_raising=False)]
+                         kind='catch', type='any', function='forward', non_raising=False, ends='handed')]
 
         def calls(self, *, language=None):
             return []
@@ -445,7 +445,7 @@ def test_other_languages_supply_rows_through_the_same_fields(tmp_path):
     found, unread = ledger.fallbacks(load_config(tmp_path), Rows())
     assert found == {'src/employee.service.ts:syncEmployee:any': [ledger.Fallback(
         'src/employee.service.ts:syncEmployee:any', 'src/employee.service.ts', 'syncEmployee', 'any', 2180, 'catch',
-        'typescript', '')]} and unread == {}
+        'typescript', '', 'log')]} and unread == {}
 
 
 def test_a_typescript_catch_that_ends_quietly_is_red_and_one_that_hands_the_error_on_is_not(tmp_path):
@@ -574,3 +574,91 @@ def test_junit_xml_has_the_ledger_red_once_with_or_without_the_sentinel(shop, tm
     partial = pytest_run(shop, 'tests/test_stock.py', f'--junitxml={tmp_path / "partial.xml"}')
     assert partial.returncode == 1 and '红：新增兜底未登记' in partial.stdout, partial.stdout + partial.stderr
     assert failed(tmp_path / 'partial.xml') == ('1', ['flowguard::session'])
+
+
+ENDINGS_TS = '''export function allowedRoles(code: string) {
+  try { return readRoles(code); } catch (error) { return DEFAULTS[code] ?? []; }
+}
+export function syncAll(items: string[]) {
+  for (const item of items) { try { sync(item); } catch { /* skip the item */ } }
+}
+export function notify(id: string) {
+  try { send(id); } catch (error) { console.error('notify failed', id); this.logger.warn('again'); }
+}
+export function load(setError: (text: string) => void) {
+  try { fetchAll(); } catch (error) { setError(String(error)); }
+}
+export function maybe(flag: boolean) {
+  try { work(); } catch (error) { if (flag) { throw error; } }
+}
+let cached: string[] = [];
+export function scopes() { try { cached = readScopes(); } catch { cached = defaultScopes(); } return cached; }
+'''
+ENDINGS_PY = '''def old_reader(values, key):
+    try:
+        return values[key]
+    except KeyError:
+        return None
+
+
+def quiet(work, log):
+    try:
+        work()
+    except ValueError:
+        log.warning('work failed')
+
+
+def nothing(work):
+    try:
+        work()
+    except OSError:
+        pass
+
+
+def told(work, show):
+    try:
+        work()
+    except LookupError as error:
+        show(str(error))
+'''
+
+
+def test_check_all_lists_unreviewed_legacy_fallbacks_of_production_code_by_how_they_end(tmp_path):
+    # Planning Tool 0.6.28 kept 232 legacy entries, all "旧账，未审", the permission read that falls back to the
+    # code's default table among test-script catches, with nothing that told them apart.
+    from flowguard.intent import anchors, owners
+    root = tmp_path / 'shop'
+    write(root, 'web/roles.ts', ENDINGS_TS)
+    write(root, 'src/shop/__init__.py', '')
+    write(root, 'src/shop/stock.py', ENDINGS_PY)
+    write(root, 'tests/roles.test.ts', "export function probe() { try { run(); } catch { } }\n")
+    write(root, 'docs/archive/old.ts', "export function old() { try { run(); } catch { } }\n")
+    write(root, 'AGENTS.md', '# Rules\n\n' + RULE + '\n')
+    write(root, 'pyproject.toml', '[tool.pytest.ini_options]\npythonpath = ["src"]\n')
+    git(root, 'init', '-q')
+    cfg = load_config(root)
+    with closing(build(root, workers=1)) as graph:
+        ends = sorted((row['file'], row['line'], row['ends']) for row in graph.handlers() if row['file'] != 'docs/archive/old.ts')
+        assert ends == [('src/shop/stock.py', 4, 'substitute'), ('src/shop/stock.py', 11, 'log'), ('src/shop/stock.py', 18, 'empty'),
+                        ('src/shop/stock.py', 25, 'other'), ('tests/roles.test.ts', 1, 'empty'),
+                        ('web/roles.ts', 2, 'substitute'), ('web/roles.ts', 5, 'empty'), ('web/roles.ts', 8, 'log'),
+                        ('web/roles.ts', 11, 'other'), ('web/roles.ts', 14, 'handed'), ('web/roles.ts', 17, 'substitute')], ends
+        ledger.init(cfg, graph)
+    # A reviewed entry (a real reason and rule) is no longer legacy and is not listed.
+    path = root / ledger.LEDGER
+    text = path.read_text(encoding='utf-8')
+    legacy = '\n'.join(ledger._entry_lines('src/shop/stock.py:quiet:ValueError', 1, reason=ledger.LEGACY_REASON, rule=ledger.LEGACY_RULE))
+    assert legacy in text
+    path.write_text(text.replace(legacy, entry('src/shop/stock.py:quiet:ValueError').strip()), encoding='utf-8')
+    expected = [
+        '旧账兜底 6 条在生产代码里没有把错误交出去（.flowguard/ledger.toml 里 rule = "旧账"、未审；按 catch 体分）：',
+        '   返回或改成替代值 3 条：src/shop/stock.py:4 old_reader、web/roles.ts:2 allowedRoles、web/roles.ts:17 scopes',
+        '   只记日志 1 条：web/roles.ts:8 notify',
+        '   空块 2 条：src/shop/stock.py:18 nothing、web/roles.ts:5 syncAll',
+        '   下一步：逐条看：错误该让调用方知道就改代码让它抛出或交出去；可以留就把这一条的 reason 写成它做了什么、为什么可以留，'
+        'rule 指向成文规矩']
+    with closing(build(root, workers=1)) as graph:
+        assert ledger.open_legacy(cfg, graph) == expected
+        index = anchors.collect(graph)
+        assert owners.static_findings(cfg, graph, index, None, everything=True).section[-len(expected):] == expected
+        assert owners.static_findings(cfg, graph, index, None).section == []
