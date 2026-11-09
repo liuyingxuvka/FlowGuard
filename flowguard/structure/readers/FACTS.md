@@ -134,6 +134,9 @@ describe nothing).
   `container`, `field`, `optional`; `typed_writes`: the literal values a class field initializer, `this.f = ...`
   in a class, or an object written as `const x: T = {...}`, `{...} satisfies T`, `{...} as T` give a member.
 - `numbers` (TS/JS): number literals in `===`/`<`/`>=`/... comparisons and `case` labels, in the literal row shape.
+- `const_tables` (TS/JS, module level): `const NAME = {key: literal, ...}`; `option_lists`: `const NAME =
+  [{ value: 'K', label: 'L' }, ...]` as {K: L} (key from `value`/`key`/`id`/`code`, text from
+  `label`/`title`/`text`/`name`). `MapHandle.label_tables()` compares the label tables of both.
 - `nodes[].raw.holder` (TS/JS methods): the class or `const x = {...}` object a method belongs to; calls are
   resolved by name through it, inside the caller's package (nearest `package.json`; `MapHandle.call_index()`).
 - Prisma fields carry `on_delete` (from `@relation(..., onDelete: X)`); SQL tables and ALTER changes carry `checks`

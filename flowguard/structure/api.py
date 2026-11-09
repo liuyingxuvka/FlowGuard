@@ -750,6 +750,81 @@ class MapHandle:
                   if isinstance(row['value'], (int, float)) and not isinstance(row['value'], bool)]
         return Rows(self._syntax('numbers') + folded)
 
+    def label_tables(self, tables=None):
+        """Label tables that disagree: module-level JS/TS tables of production code (`const_tables` and
+        `option_lists`, outside tests and `archived` files) with at least 3 keys and only non-empty string
+        values, an enum object (every value its key) aside. A label table shows text: at least half of its
+        values start with a capital and have a lower-case letter (a CSS class list, a variant name or a code is
+        no label). Two label tables are copies when they share at least 3 keys, at least half of the smaller
+        one's, and one of those keys has the same label in both; copies form a family. Each family row lists
+        its `tables` (name, file, line, values), `differ` ({key: {label: [table index]}} for keys with several
+        labels) and `lacking` ({table index: keys}): a table whose keys are all a family table's but for at
+        most a third of them, also a table that maps the keys to codes (`ORG_TYPE_TO_ROLE` without ENTITY).
+        `tables` replaces the map's rows (for example a baseline's)."""
+        import itertools
+        if tables is None:
+            tests = {path for (path,) in self.con.execute('SELECT path FROM file WHERE is_test = 1')}
+            tables = [dict(row, kind=kind) for _, _, facts in self._kinds('const_tables', 'option_lists')
+                      for kind in ('const_tables', 'option_lists') for row in facts.get(kind, ())
+                      if row['file'] not in tests and not self.archived(row['file'])]
+        # An option without a key ({ value: '', label: 'All' }) is a filter's "no choice", not a key.
+        tables = [dict(row, values={key: value for key, value in row['values'].items() if key}) for row in tables]
+        tables = [row for row in tables if len(row['values']) >= 3
+                  and all(isinstance(value, str) and value for value in row['values'].values())
+                  and any(key != value for key, value in row['values'].items())]
+        def shown(text):
+            return text[:1].isupper() and any(ch.islower() for ch in text)
+        labels = [i for i, row in enumerate(tables) if 2 * sum(map(shown, row['values'].values())) >= len(row['values'])]
+        def shares(a, b):
+            common = a.keys() & b.keys()
+            return len(common) >= 3 and 2 * len(common) >= min(len(a), len(b))
+        peers = {i: set() for i in labels}
+        for i, j in itertools.combinations(labels, 2):
+            a, b = tables[i]['values'], tables[j]['values']
+            if shares(a, b) and any(a[key] == b[key] for key in a.keys() & b.keys()):
+                peers[i].add(j)
+                peers[j].add(i)
+        out, seen = [], set()
+        for start in labels:
+            if start in seen or not peers[start]:
+                continue
+            family, todo = [], [start]
+            while todo:
+                item = todo.pop()
+                if item not in family:
+                    family.append(item)
+                    todo.extend(peers[item])
+            seen.update(family)
+            members = sorted(family, key=lambda i: (-len(tables[i]['values']), tables[i]['kind'] != 'const_tables',
+                                                    tables[i]['file'], tables[i]['line']))
+            keys = sorted({key for i in members for key in tables[i]['values']})
+            differ = {}
+            for key in keys:
+                spelled = {}
+                for position, i in enumerate(members):
+                    if key in tables[i]['values']:
+                        spelled.setdefault(tables[i]['values'][key], []).append(position)
+                # 'Code (required)' or 'Area / Expert group' is the label 'Code' or 'Area' with an addition.
+                plain = {label for label in spelled if not any(label != other and label.startswith(other)
+                                                                and not label[len(other):].strip()[:1].isalnum()
+                                                                for other in spelled)}
+                if len(plain) > 1:
+                    differ[key] = {label: spelled[label] for label in sorted(plain)}
+            shown_at, lacking = list(members), {}
+            for i, row in enumerate(tables):
+                if row['kind'] != 'const_tables' or i in labels and i not in family:
+                    continue                  # a dropdown offers a choice of keys; another label table has its family
+                for other in members:
+                    mine, theirs = row['values'].keys(), tables[other]['values'].keys()
+                    if mine < theirs and shares(row['values'], tables[other]['values']) and 3 * len(theirs - mine) <= len(theirs):
+                        if i not in shown_at:
+                            shown_at.append(i)
+                        lacking.setdefault(shown_at.index(i), set()).update(theirs - mine)
+            if differ or lacking:
+                out.append(dict(tables=[tables[i] for i in shown_at], differ=differ,
+                                lacking={i: sorted(keys) for i, keys in sorted(lacking.items())}))
+        return out
+
     def lookup_keys(self):
         """JS/TS lookups `TABLE[expression]` in a module object constant (`const LABELS = {...}`, also
         imported): one row per lookup with the table's `keys`, the strings that select a stored value."""

@@ -42,6 +42,8 @@ NESTED = {'create', 'createMany', 'connect', 'connectOrCreate', 'disconnect', 's
           'upsert', 'delete', 'deleteMany'}
 SCALAR_OPS = {'set', 'increment', 'decrement', 'multiply', 'divide', 'push', 'unset'}
 RAW_WRITES = {'$executeRaw', '$executeRawUnsafe'}
+OPTION_KEYS = ('value', 'key', 'id', 'code')            # the key of a `[{ value: 'K', label: 'L' }]` option
+OPTION_LABELS = ('label', 'title', 'text', 'name')      # the text it shows
 PRISMA_READS = {'count', 'findFirst', 'findFirstOrThrow', 'findMany', 'findUnique', 'findUniqueOrThrow', 'aggregate',
                 'groupBy'}
 QUERY_ARGS = {'where', 'select', 'include', 'orderBy', 'take', 'skip', 'distinct', 'cursor', 'by', '_count'}
@@ -87,7 +89,7 @@ def extract(root, rel, data, module, is_test):
     language = language_for(rel)
     out = blank(module, data, language)
     out.update(queries=[], value_sets=[], typed_fields=[], typed_writes=[], numbers=[], compared_names=[],
-               const_tables=[], table_lookups=[])
+               const_tables=[], table_lookups=[], option_lists=[])
     source, tree = parse(data, language)
     handed_on = set(propagate_names(root))
     if tree.root_node.has_error:
@@ -851,6 +853,31 @@ def extract(root, rel, data, module, is_test):
                 table[name] = item if known else None
         return table or None
 
+    def option_list(value):
+        """{key: label} of a module-level `const NAME = [{ value: 'K', label: 'L' }, ...]`: every element an object
+        that spells one of OPTION_KEYS and one of OPTION_LABELS as string literals (a dropdown's options)."""
+        value = unwrap(value)
+        if value is None or value.type != 'array' or not value.named_children:
+            return None
+        table = {}
+        for item in value.named_children:
+            item = unwrap(item)
+            if item is None or item.type != 'object':
+                return None
+            spelled = {}
+            for pair in item.named_children:
+                key = field(pair, 'key') if pair.type == 'pair' else None
+                if key is not None and key.type == 'property_identifier':
+                    known, found = literal(unwrap(field(pair, 'value')), source)
+                    if known and isinstance(found, str):
+                        spelled[text(key, source)] = found
+            key = next((spelled[name] for name in OPTION_KEYS if name in spelled), None)
+            label = next((spelled[name] for name in OPTION_LABELS if name in spelled), None)
+            if key is None or label is None:
+                return None
+            table[key] = label
+        return table
+
     def visit(node, scope='', cls='', parameters=(), shadows=frozenset()):
         if node.type in ('import_statement', 'export_statement'):
             imports(node, scope)
@@ -946,6 +973,10 @@ def extract(root, rel, data, module, is_test):
         if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
                 and field(node, 'name').type == 'identifier' and (table := const_table(field(node, 'value'))) is not None:
             out['const_tables'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table,
+                                            **position(node, source)))
+        if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
+                and field(node, 'name').type == 'identifier' and (table := option_list(field(node, 'value'))):
+            out['option_lists'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table,
                                             **position(node, source)))
         if node.type == 'number' and (found := number_context(node))[0]:
             out['numbers'].append(dict(node=owner, file=rel, value=found[1], context=found[0],

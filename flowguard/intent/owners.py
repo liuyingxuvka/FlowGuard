@@ -617,6 +617,7 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
         found.extend(literal_drift(change, everything=everything))
     found.extend(health.deletes(change, everything=everything)).extend(health.columns(change, everything=everything))
     found.extend(health.copies(change, index)).extend(health.writers(change, index)).extend(health.uncreated(change))
+    found.extend(health.labels(change))
     if replay:
         found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
         found.extend(changed_alone(cfg, graph, index, change, excluded=excluded))

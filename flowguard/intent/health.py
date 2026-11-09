@@ -1,8 +1,8 @@
 """Structure health: the map checks that need no test run, and the open structure problems they leave.
 
 Each check reads the one map (`MapHandle.writes()`, `value_sets()`, `queries()`, `children()`,
-`schema_gaps()`, `call_tree()`) and reports only what this change adds: red for a value outside its
-declared set, leads for a delete that leaves restricting children, a column one description of a table
+`schema_gaps()`, `label_tables()`, `call_tree()`) and reports only what this change adds: red for a value
+outside its declared set, leads for a delete that leaves restricting children, a column one description of a table
 lacks and two same-name functions whose bodies differ. Every problem, old ones too, is also an `Issue`
 with a stable name; `check --all` and `check --static --all` list them by severity, and a change that
 touches an open one gets a single lead. The owner's decision in the `[structure]` section of
@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from flowguard.map.common import is_test_file
 
-RANKS = {1: '取值', 2: '配对', 3: '缺列', 4: '删除', 5: '副本', 6: '写入', 7: '建行'}
+RANKS = {1: '取值', 2: '配对', 3: '缺列', 4: '删除', 5: '副本', 6: '写入', 7: '建行', 8: '标签'}
 BOOKKEEPING = {'id', 'createdat', 'updatedat', 'created_at', 'updated_at', 'createdbyid', 'updatedbyid',
                'created_by', 'updated_by', 'revision', 'version'}     # written by every writer on purpose
 WRITER_FILES = 3             # files writing one field without an owner before it is an issue
@@ -434,6 +434,44 @@ def uncreated(change):
                                   frozenset(row['file'] for items in verbs.values() for row in items),
                                   entry=tuple(_structure_lines(f'uncreated:{model}'))))
     return found
+
+
+# ---- label tables that disagree --------------------------------------------------------------------
+
+def labels(change):
+    """Label tables that disagree (`MapHandle.label_tables()`): copies of one table of labels that spell a
+    key's label differently, and lookup tables that lack a key their copies have. One issue per family
+    (`check --all`); a change that edits or adds one of its tables gets it as a lead."""
+    found = _findings()
+    for family in change.graph.label_tables():
+        tables = family['tables']
+        names = [table['name'] for table in tables]
+        def ref(i):
+            return names[i] if names.count(names[i]) == 1 else f'{names[i]}（{tables[i]["file"].rpartition("/")[2]}:{tables[i]["line"]}）'
+        parts = [f'{key} ' + ' 与 '.join(f'{label!r}（{"、".join(ref(i) for i in where)}）' for label, where in spelled.items())
+                 for key, spelled in family['differ'].items()]
+        parts += [f'{ref(i)} 缺 {"、".join(keys)}' for i, keys in family['lacking'].items()]
+        text = ('标签表不一致：' + '、'.join(f'{table["file"]}:{table["line"]} {table["name"]}' for table in tables)
+                + '：' + '；'.join(parts))
+        head = tables[0]
+        name = f'labels:{head["file"]}:{head["name"]}'
+        step = ('让这些表取自同一张表（一个负责人），或统一写法、补上缺的键；有意不同（缩写、另一种用途）就把决定记进 '
+                '.flowguard/ledger.toml：')
+        fresh = bool(change.baseline) and any(_table_changed(change, table) for table in tables)
+        if fresh:
+            found.leads.append(text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)))
+        found.issues.append(Issue(name, 8, f'标签 {head["name"]}', text, step, frozenset(),
+                                  frozenset(table['file'] for table in tables), new=fresh,
+                                  entry=tuple(_structure_lines(name))))
+    return found
+
+
+def _table_changed(change, table):
+    """Whether this change adds the table or changes its keys or labels."""
+    if table['file'] not in change.files:
+        return False
+    old = [row for row in change.old_facts(table['file']).get(table['kind'], ()) if row['name'] == table['name']]
+    return not old or {key: value for key, value in old[0]['values'].items() if key} != table['values']
 
 
 # ---- decisions, touched issues, the --all section and the brief ----------------------------------
