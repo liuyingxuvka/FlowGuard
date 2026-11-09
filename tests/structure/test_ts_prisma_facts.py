@@ -175,7 +175,6 @@ def test_named_typescript_functions_have_python_style_shapes(planning):
     owner = functions['typescript/backend/src/services/utilization/utilization-calculation.ts:countWorkingDays']
     copy = functions['typescript/backend/src/services/org-unit-summary.service.ts:countWorkingDaysLocal']
     other = functions['typescript/backend/src/services/utilization/utilization-calculation.ts:normalizeToUtcMidnight']
-    shape = lambda node: set(planning.con.execute('SELECT shape FROM node WHERE id=?', (node['id'],)).fetchone()[0])
     from flowguard.structure.store import shape_list
     sketch = lambda node: set(shape_list(planning.con.execute('SELECT shape FROM node WHERE id=?', (node['id'],)).fetchone()[0]))
     assert sketch(owner) and sketch(owner) == sketch(copy) and owner['fp'] == copy['fp']

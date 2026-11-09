@@ -90,6 +90,12 @@ export async function save(db, item, log) {
   return item.kind === 'id' ? 'ok' : 'Ok';
 }
 ''',
+        'view.tsx': '''type Tone = 'ok' | 'warn';
+export function Badge({ load }: { load: () => void }) {
+  try { load(); } catch { return <span/>; }
+  return <b/>;
+}
+''',
     })) as graph:
         writes = [(row['model'], row['field'], row['kind']) for row in graph.writes()]
         assert writes == [('Item', 'name', 'update'), ('Item', 'id', 'sql:insert'), ('Item', 'name', 'sql:insert')]
@@ -97,3 +103,7 @@ export async function save(db, item, log) {
         assert values == [('Ok', 'return'), ('id', 'compare'), ('ok', 'return')]
         groups = graph.literal_groups()
         assert [group['key'] for group in groups] == ['ok']          # 'id' / 'ID' as keys never group
+        assert set(groups[0]['spellings']) == {'ok', 'Ok'}
+        assert [(row['value'], row['context']) for row in graph.literals(language='tsx')] == [('ok', 'union'), ('warn', 'union')]
+        tsx = graph.handlers(language='tsx')
+        assert [(row['type'], row['non_raising'], row['key']) for row in tsx] == [('any', True, 'view.tsx:Badge:any')]
