@@ -931,7 +931,36 @@ def relation_observations(model, events, index, rule_id):
                 grey=list(dict.fromkeys(grey)),info=info,ignored_case_scopes=ignored)
 
 
-def check_flow(model, index, events=(), *, rules=None, contracts=None, engine=None, _context=None, _scopes=None):
+def static_check(model, report):
+    red, grey, info = [], list(report.unknown), []
+    edges = set(model.edges); supported_edges = set()
+    for path in report.paths:
+        local = []
+        prefix = []
+        for observation in path:
+            phase = ''
+            anchor = observation
+            if isinstance(observation, tuple) and len(observation) == 2 and observation[1] in {'call','return'}:
+                anchor, phase = observation
+            matches = [n for n in model.nodes if n.reference == anchor and (not phase or n.phase == phase)]
+            if not matches:
+                info.append(f'anchor not included in {model.id}: {anchor}')
+                if not local: prefix.append(anchor)
+                continue
+            if len(matches) != 1:
+                grey.append(f'{anchor}: static call path cannot choose phase/occurrence model node'); break
+            local.append(matches[0].name)
+        else:
+            if local and prefix and local[0] not in model.starts:
+                red.append(f'definite source bypass from new entry {prefix[0]} to {local[0]} outside declared entries')
+            for edge in zip(local, local[1:]):
+                if edge not in edges: red.append(f'definite source bypass {edge[0]} -> {edge[1]}')
+                else: supported_edges.add(edge)
+    grey.extend(f'model edge has no definite source path: {a} -> {b}' for a,b in sorted(edges-supported_edges))
+    return _result('flow-static',red,grey,info,files=list(report.files))
+
+
+def check_flow(model, index, events=(), *, rules=None, static=None, contracts=None, engine=None, _context=None, _scopes=None):
     rules = rules or (engine.m.rules if engine is not None and hasattr(engine, 'm') else {})
     _context = _context if _context is not None else dict(stack=[], proofs={}, children={})
     if model.id in _context['stack']:
@@ -944,9 +973,11 @@ def check_flow(model, index, events=(), *, rules=None, contracts=None, engine=No
     finally:
         _context['stack'].pop()
     parts = [finite,runtime]
+    if static is not None: parts.append(static_check(model,static))
     return _result('flow', [r for p in parts for r in p['red']], [r for p in parts for r in p['grey']],
                    [r for p in parts for r in p['info']], finite=finite,runtime=runtime,
-                   provisional=any(c.get('provisional') for c in (contracts or {}).values()))
+                   provisional=any(c.get('provisional') for c in (contracts or {}).values()),
+                   **({'static':parts[-1]} if static is not None else {}))
 
 
 @dataclass(frozen=True)
