@@ -354,28 +354,23 @@ def owner_word(root: Path, identifier: str) -> dict | None:
 
 def request_state(root: Path, identifier: str) -> dict | None:
     """owner_words' row for one stored request (None when there is none), checking only that request's
-    files and the sidecars of the requests that name it as superseded, not every stored request.
+    files and the requests whose sidecar may name it as superseded, not every stored request.
     `cited_by` is not read here (it is history, not a state)."""
     root = Path(root).resolve()
     identifiers = _identifiers(root)
     if identifier not in identifiers:
         return None
-    retired = {identifier: None} if identifier in _stems(root, RETIRED_DIR) else {}
-    row = _owner_row(root, identifier, retired, {}, git_common_directory(root))
+    common = git_common_directory(root)
+    row = _owner_row(root, identifier, {identifier: None} if identifier in _stems(root, RETIRED_DIR) else {}, {}, common)
     for other in identifiers:
-        meta = REQUEST_DIR / (other + '.json')
-        try:
-            item = _metadata(root / meta, other)
-        except (OSError, ValueError):
-            continue        # an unreadable or malformed sidecar supersedes nothing (its row is invalid)
-        if identifier not in item.get('supersedes', []):
-            continue
-        try:
-            if integrity_problem(root, meta):
-                continue    # an edited sidecar supersedes nothing (its row is invalid)
-        except Unverifiable:
-            pass            # owner_words checks such a sidecar against its own digest only
-        row['superseded_by'].append(other)
+        meta = root / REQUEST_DIR / (other + '.json')
+        if not meta.is_file() or not _readable(meta):
+            continue        # without a readable sidecar its row is invalid and supersedes nothing
+        raw = meta.read_bytes()
+        if identifier.encode() not in raw and b'\\u' not in raw:
+            continue        # its sidecar does not spell this id (even escaped), so it cannot list it
+        if identifier in _owner_row(root, other, {}, {}, common)['supersedes']:
+            row['superseded_by'].append(other)
     return row
 
 
