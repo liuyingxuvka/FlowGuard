@@ -1099,7 +1099,11 @@ def _npm_check(cfg, package):
     if target.exists() and not target.read_text(encoding='utf-8').startswith(NPM_HEADER):
         raise ValueError(f'{target}: an existing file has this name; rename it, then run init again')
     target.write_text(text, encoding='utf-8', newline='\n')
-    return f'Generated {cfg.rel(target)} ({runner}): npm test runs python -m flowguard check --static and fails on red.'
+    static = f'Generated {cfg.rel(target)} ({runner}): npm test runs python -m flowguard check --static and fails on red.'
+    if runner == 'jest':
+        return static + '\nThe execution side supports vitest only: this jest project runs check --static alone.'
+    from .vitest import wire
+    return static + '\n' + wire(cfg, package)
 
 
 def init(cfg):

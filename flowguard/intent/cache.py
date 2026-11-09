@@ -10,7 +10,7 @@ import sqlite3
 
 from .config import intent_files
 from .loader import api_aliases, api_call_name, distinct_identifier, literal_problems
-from flowguard.map.common import MapError, content_digest, git_common_directory, git_head
+from flowguard.map.common import MapError, content_digest, git_common_directory, git_head, literal_value as _literal
 
 
 # flowguard: owner meta.k writers=flowguard.intent.cache:put_meta
@@ -53,14 +53,6 @@ def session_baseline(cfg, *, remember=False):
 _TEMPLATES = {'precedes': ('first', 'then'), 'guarded_by': ('guard', 'action'), 'transitions': ('state',), 'checks': ('rule', 'case')}
 
 
-def _literal(node, default=None):
-    """The literal value of a syntax node, or `default` when it is none: the one literal reader of the
-    intent tools (the cache screen, the owners' constants, the dependency closure). A node too deep to read
-    is not a literal either."""
-    try:
-        return ast.literal_eval(node)
-    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-        return default
 
 
 def scan(cfg, texts=None):

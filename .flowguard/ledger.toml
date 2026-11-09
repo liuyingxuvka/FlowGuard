@@ -10,6 +10,16 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/adapters/vitest/runtime.mjs:call:any"]
+count = 1
+reason = "回放调用自己抛出的错误就是这次回放的结果：记成 $threw（名字和消息）拿去和基准比较；拦下的写操作记成 $refused，整次回放作废"
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/adapters/vitest/runtime.mjs:wrap.wrapped:any"]
+count = 1
+reason = "测试自己的真实调用出错时先记下这次调用的结果，然后在同一个函数里原样重新抛出给测试，错误不会被吞掉"
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/anchors.py:_accepts.union:ValueError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
@@ -169,11 +179,6 @@ rule = "旧账"
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
-
-["flowguard/intent/cache.py:_literal:(ValueError, TypeError, SyntaxError, MemoryError, RecursionError)"]
-count = 1
-reason = "读不出字面值（不是字面值，或嵌套太深）时返回调用方给的默认值；调用方把它当成不是字面值，报出自己的错误或不取这个值，不会当成通过"
-rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/cells.py:const_value:Exception"]
 count = 1
@@ -824,6 +829,16 @@ rule = "旧账"
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
+
+["flowguard/intent/vitest.py:judge:PredicateError"]
+count = 1
+reason = "规则谓词在一个观察到的情况上出错时，把错误原文记成这条规则的红行并停止核对这个点，和 pytest 一侧的做法相同"
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/map/common.py:literal_value:(ValueError, TypeError, SyntaxError, MemoryError, RecursionError)"]
+count = 1
+reason = "读不出字面值（不是字面值，或嵌套太深）时返回调用方给的默认值；调用方把它当成不是字面值，报出自己的错误或不取这个值，不会当成通过"
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/map/common.py:quiet_broken_pipe.run:BrokenPipeError"]
 count = 1
