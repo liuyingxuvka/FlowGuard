@@ -357,6 +357,25 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     assert not [line for line in text.splitlines() if line.startswith('未验证') and 'fee-preview.ts' in line], text
 
 
+def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_change(vitest_home):
+    root = _fees_project(vitest_home, 'again')
+    _sensor(root, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
+    _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
+    code, text = _vitest(root, vitest_home)
+    red = '红：同名锚点 LATE_FEE：days=3.01, member=T，5.01 ≠ 5.02'
+    assert code == 1 and red in text, text
+    _commit(root, message='sensors')            # nothing changed against the baseline any more
+    code, text = _vitest(root, vitest_home)
+    assert code == 1 and red in text, text      # the registered copies still disagree: still red
+    preview = root / 'src/preview/fee-preview.ts'
+    preview.write_text(preview.read_text(encoding='utf-8').replace('(days - 3) * 2', '(days - 3) * (member ? 1 : 2)'),
+                       encoding='utf-8', newline='\n')
+    _commit(root, message='the copies agree')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and '同名锚点' not in text, text
+    assert _prepare(root) == {'status': 'off', 'reason': '相对基准没有 TS/JS 改动：执行侧不准备'}   # compared, agreed: cleared
+
+
 def test_a_replay_refuses_writes_and_database_clients_and_the_real_call_still_runs(vitest_home):
     root = _fees_project(vitest_home, 'effects')
     _sensor(root, 'src/effects/audited.ts', 'export function auditedFee', 'AUDITED_FEE')

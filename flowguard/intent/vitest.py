@@ -1,7 +1,8 @@
 """The execution side for TS/JS projects tested with vitest (minimal: vitest and ESM only; jest stays static).
 
 `prepare` runs when vitest loads its config (`flowguard.vitest.mjs`, written by `init`). With no TS/JS change
-against the task baseline it answers `off` after one `git diff` and nothing is wrapped. Otherwise it plans,
+against the task baseline it answers `off` after one `git diff` and nothing is wrapped, unless same-name sensors
+disagreed in the last report (`DISAGREED`): those are compared again. Otherwise it plans,
 as the pytest side does, the anchored functions (`// flowguard: sensor NAME`) and the functions this change
 edited: their positional parameters, representative values from cells (the compared constants of the map's
 ecma facts, folded names and table keys included), same-name copies and the baseline sources. The plan is
@@ -31,6 +32,9 @@ STRING_CONTEXTS = frozenset({'compare', 'case', 'member', 'set'})
 DATABASE = re.compile(r'\b(?:prisma|PrismaClient|centralPrisma|knex|sequelize|mongoose|typeorm|drizzle|mssql|tedious|'
                       r'pg|mysql2?|sqlite3?|redis|ioredis)\b|\$transaction|\$queryRaw')
 WRAPPABLE = ('function_declaration', 'generator_function_declaration')
+# The map's meta key holding {sensor name: red line} of the same-name sensors whose last comparison disagreed:
+# `prepare` compares them again in a run without a TS/JS change, `report` keeps it current.
+DISAGREED = 'vitest_same_name_disagreed'
 
 
 # ---- prepare ----------------------------------------------------------------------------------------
@@ -261,6 +265,35 @@ def plan(cfg, commit, changed, key):
                 copy_files=copy_files, unplanned=unplanned)
 
 
+def disagreed(cfg):
+    """{sensor name: red line} of the same-name sensors whose last vitest comparison disagreed."""
+    from contextlib import closing
+    import sqlite3
+    path = cfg.cache / 'map.sqlite'
+    if not path.is_file():
+        return {}
+    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
+        if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
+            return {}
+        row = con.execute('SELECT v FROM meta WHERE k=?', (DISAGREED,)).fetchone()
+    return json.loads(row[0]) if row else {}
+
+
+def _remember_disagreed(cfg, data, same_name):
+    """Keep the record of disagreeing same-name sensors: this run's disagreements, and the earlier ones
+    this run did not compare while they are still planned (anchored)."""
+    from contextlib import closing
+    from .cache import put_meta
+    from ..structure.store import connect
+    before = disagreed(cfg)
+    planned = {point['name'] for entry in data['files'].values() for point in entry['points'] if point['anchored']}
+    now = {name: line for name, line in before.items() if name in planned and name not in same_name['compared']}
+    now.update(same_name['disagreed'])
+    if now != before:
+        with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
+            put_meta(con, DISAGREED, json.dumps(now, ensure_ascii=False, sort_keys=True))
+
+
 def prepare(root):
     """{'status': 'off', 'reason'} without a TS/JS change, else {'status': 'on', 'plan', 'adapter'}."""
     from . import cache
@@ -275,9 +308,12 @@ def prepare(root):
         return dict(status='off', reason='还没有提交：没有基准，执行侧不比较')
     commit = found.stdout.decode().strip()
     changed = _changed(cfg, commit)
-    if not changed:
+    again = sorted(disagreed(cfg)) if not changed else []
+    if not changed and not again:
         return dict(status='off', reason='相对基准没有 TS/JS 改动：执行侧不准备')
-    key = _key(cfg, commit, changed)
+    # Without a change, the same-name sensors that disagreed last time are compared again (every sensor is
+    # planned, as in a run with a change); the record clears once they agree or are no longer anchored.
+    key = _key(cfg, commit, changed or ['same-name:' + name for name in again])
     path = cfg.cache / 'vitest' / f'plan-{key}.json'
     if not path.is_file():
         data = plan(cfg, commit, changed, key)
@@ -502,7 +538,7 @@ def judge(cfg, data, records):
             reasons=['TS 的情况类来自比较里的常量，不证明划分完整'] + list(dict.fromkeys(reasons)),
             rows=[(row['in'], row['now']) for row in collected]))
     # same-name sensors: the copies ran on the same replayed inputs
-    reported = set()
+    reported, same_name = set(), dict(compared=set(), disagreed={})
     for ident, point in points.items():
         for copy in point['copies']:
             pair = frozenset((ident, copy['id']))
@@ -511,7 +547,10 @@ def judge(cfg, data, records):
             for row in sorted(rows.get(ident, ()), key=lambda row: [abs(value(item)) if isinstance(value(item), (int, float))
                                                                      and not isinstance(value(item), bool) else 0 for _, item in row['in']]):
                 theirs = row.get('copies', {}).get(copy['id'])
-                if theirs is None or '$unmatched' in json.dumps(theirs) or _same(theirs, row['now']):
+                if theirs is None or '$unmatched' in json.dumps(theirs):
+                    continue
+                same_name['compared'].add(point['name'])
+                if _same(theirs, row['now']):
                     continue
                 reported.add(pair)
                 other = points[copy['id']]
@@ -520,6 +559,7 @@ def judge(cfg, data, records):
                            f'{C.show(value(theirs))}（{point["rel"]}:{point["target_line"]} {point["fn"]} ≠ '
                            f'{other["rel"]}:{other["target_line"]} {other["fn"]}） -> 让 {point["fn"]} 和同名副本一致，'
                            f'或改用不同的锚点名并写 distinct')
+                same_name['disagreed'].setdefault(point['name'], red[-1])
                 break
     # rules on the observed calls and replayed classes, as the pytest side checks a reading
     model = load(cfg)
@@ -562,7 +602,7 @@ def judge(cfg, data, records):
                 break
     return dict(session=True, baseline=data['baseline'], baseline_kind=data.get('baseline_kind', 'task'),
                 source_changed=True, items=items, paths=[], leads=[], red=list(dict.fromkeys(red)), steps=steps,
-                unverified=unverified)
+                unverified=unverified, same_name_pairs=same_name)
 
 
 def report(root, plan_path, observations):
@@ -573,6 +613,7 @@ def report(root, plan_path, observations):
     data = json.loads(Path(plan_path).read_text(encoding='utf-8'))
     result = judge(cfg, data, _observations(observations))
     shutil.rmtree(observations)         # this run's records are read; the next run starts empty
+    _remember_disagreed(cfg, data, result['same_name_pairs'])
     text = render(result)
     if text:
         display(text)
