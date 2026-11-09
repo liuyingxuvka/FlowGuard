@@ -1,0 +1,8 @@
+"""FlowGuard fixture: Step2/step2_demand_library.py lines 6192-6195 of KWP 64479aa (old reference file), copied verbatim."""
+import math
+
+
+def _matlab_round_positive(value: float) -> int:
+    if not math.isfinite(value):
+        return 0
+    return int(math.floor(max(0.0, float(value)) + 0.5))

@@ -1,0 +1,35 @@
+"""Source-faithful preparation of central use, DHW, internal gains, and solar windows.
+
+Ports the pre-balance sections of runBuildingCalculationWithTRY (MATLAB
+lines 3103-3639) and its supporting local helpers (7185-8124).
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from math import asin, cos, degrees, isfinite, pi, sin, sqrt
+from numbers import Real
+from typing import Mapping, MutableMapping, Sequence
+
+# fixture: "from .result_models import ..." (line 13) left out
+# fixture: "from .source_config import ..." (line 14) left out
+
+
+def _number(value: object, default: float = float("nan")) -> float:
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and isfinite(float(value)) else default
+
+
+def _missing_m2_per_person(value: float) -> bool:
+    return not isfinite(value) or value <= 0 or value >= 65535.0
+
+
+def _matlab_round_nonnegative(value: float) -> int:
+    """Round a non-negative scalar with MATLAB's half-away-from-zero rule.
+
+    Python's built-in ``round`` uses ties-to-even (for example, ``round(2.5)``
+    is ``2``), while MATLAB's ``round`` returns ``3`` for the same input.
+    The resident-count result is used to select the single/duo/family DHW
+    profile, so this is an observable parity rule rather than presentation
+    detail.
+    """
+    return int(value + 0.5)
+

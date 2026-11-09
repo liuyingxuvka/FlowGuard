@@ -254,6 +254,22 @@ def _metadata_value(value):
     return None
 
 
+def _canonical(point, name):
+    """The declared name of a source parameter (`ELIGIBLE(days=overdue_days)` reads overdue_days as days)."""
+    anchor = point.get('anchor')
+    return next((p.name for p in anchor.parameters if p.alias == name), name) if anchor else name
+
+
+def _spelled(point, name):
+    """The source parameter spelling of a declared name."""
+    anchor = point.get('anchor')
+    return next((p.source for p in anchor.parameters if p.name == name), name) if anchor else name
+
+
+def _declared(point, inputs):
+    return {_canonical(point, name): value for name, value in inputs.items()}
+
+
 def _partition_copy(axes, part):
     from .differences import Partition, Region
     return ({name: list(pool) for name, pool in axes.items()},
@@ -423,6 +439,8 @@ class Observations:
                 file_data.update(identity=source_identity, tree=tree,
                                  old_tree=ast.parse(old_source) if patch else tree)
             current = _definition(original)
+            if any(getattr(parameter, 'alias', '') for parameter in parameters):
+                current = anchors._declared_names(current, parameters)[0]      # read under the declared names
             previous = patch.node if patch else current
             data.clear()
             data.update(identity=identity, code=code, old_code=old_code,
@@ -541,6 +559,7 @@ class Observations:
                 additions = [*values.get(field, ()), *(row.inputs[field] for row in rule.live_rows if field in row.inputs)]
                 pool.extend(value for value in additions if not any(R.outcome_equal(value, prior) for prior in pool))
         peers, measured = [], []
+        declared = {_canonical(point, name): value for name, value in bound.arguments.items()}
         if not self.runtime.safety(original, bound.arguments) and point['anchor']:
             for anchor in self.index.named(point['name'], 'sensor'):
                 other = self.bound.get(anchor.target)
@@ -557,7 +576,8 @@ class Observations:
                     continue
                 import inspect
                 try:
-                    arguments = inspect.signature(other['original']).bind(**bound.arguments)
+                    arguments = inspect.signature(other['original']).bind(
+                        **{_spelled(other, name): value for name, value in declared.items()})
                 except TypeError:
                     self.grey.append(point['name'] + ': copy signature does not accept this real context')
                     continue
@@ -579,16 +599,17 @@ class Observations:
             token = R._PRIVATE.set(True)
             index = len(self.runtime.readings)
             try:
-                self.runtime.observe(other['original'], arguments, owner=other['fn'], name=point['name'], axes=axes, private=True)
+                self.runtime.observe(other['original'], arguments, owner=other['fn'], name=point['name'],
+                                     axes={_spelled(other, name): values for name, values in axes.items()}, private=True)
             except Exception:
                 pass  # Raised rows, not the synthetic final call, decide agreement.
             finally:
                 R._PRIVATE.reset(token)
             if len(self.runtime.readings) > index:
-                peers.append(self.runtime.readings[index])
+                peers.append((self.runtime.readings[index], other))
         self.records.append((len(self.runtime.readings), point, part, unknown, self._cause(point, original)))
-        self.pairs.append((len(self.runtime.readings), peers))
-        return axes
+        self.pairs.append((len(self.runtime.readings), point, peers))
+        return {_spelled(point, name): values for name, values in axes.items()}
 
     @contextmanager
     def scope(self, item):
@@ -700,7 +721,10 @@ class Observations:
         for identifier, model in state.model.flows.items():
             if f'{state.model.file_of[identifier]}::{identifier}[flow]' in state.results:
                 continue  # The explicitly selected Flow item owns its complete check.
-            if not observed_anchors.intersection(node.reference for node in model.nodes):
+            if not model.nodes:      # a transitions template: any anchored call that read its state
+                if not any(t.state in event.states for event in state.events for t in model.transitions):
+                    continue
+            elif not observed_anchors.intersection(node.reference for node in model.nodes):
                 continue
             entries = _test_entry_references(model, self.index)
             if entries and not entries.intersection(observed_calls):
@@ -757,8 +781,8 @@ class Observations:
             reading = self.runtime.readings[index]
             if self.request and self.request['target'] == point['target']:
                 self.request['readings'].append(reading)
-            actual = {key(inputs): value for inputs, value in reading.rows}
-            changes = {key(inputs): old for inputs, old, new in reading.changed}
+            actual = {key(_declared(point, inputs)): value for inputs, value in reading.rows}
+            changes = {key(_declared(point, inputs)): old for inputs, old, new in reading.changed}
             if part is not None:
                 before, after = [], []
                 for region in part.regions:
@@ -781,25 +805,44 @@ class Observations:
                 result.update(complete=False, reasons=reading.reasons, status='grey', rows=[])
             if cause:
                 result['cause'] = cause
-                if isinstance(cause, dict):
-                    leads.append(signals.stale_copies(self.state.get_map(), [dict(cause, target=point['target'], fields=list(part.regions[0].inputs) if part and part.regions else [])], limit=5))
             items.append(result)
+        from .anchors import project
+        def projected(point, value):
+            try:
+                return True, project(point['anchor'], value) if point['anchor'] else value
+            except ValueError as error:
+                self.grey.append(point['name'] + ': ' + str(error))
+                return False, None
         reported = set()
-        for index, peers in self.pairs:
+        for index, point, peers in self.pairs:
             if index >= len(self.runtime.readings):
                 continue
             current = self.runtime.readings[index]
-            for peer in peers:
+            for peer, other_point in peers:
                 if frozenset((current.target, peer.target)) in reported:
                     continue  # The other copy's own observation already reported this pair.
-                now = {key(inputs): value for inputs, value in current.rows}
-                other = {key(inputs): value for inputs, value in peer.rows}
-                for signature in now.keys() & other.keys():
-                    if current.status == peer.status == 'ok' and not R.outcome_equal(now[signature], other[signature]):
+                now = {key(_declared(point, inputs)): value for inputs, value in current.rows}
+                other = {key(_declared(other_point, inputs)): value for inputs, value in peer.rows}
+                def nearest(signature):       # report the smallest differing input, whatever the set order
+                    def size(text):
+                        try:
+                            return 0, abs(float(text)), float(text)
+                        except ValueError:
+                            return 1, 0, text
+                    return [size(value) for _, _, value in signature]
+                for signature in sorted(now.keys() & other.keys(), key=nearest):
+                    if current.status != 'ok' or peer.status != 'ok':
+                        continue
+                    (mine_ok, mine), (theirs_ok, theirs) = projected(point, now[signature]), projected(other_point, other[signature])
+                    if mine_ok and theirs_ok and not R.outcome_equal(mine, theirs):
                         reported.add(frozenset((current.target, peer.target)))
-                        self._red(f'同名锚点 {current.name}', ', '.join(f'{name}={value}' for name, kind, value in signature) + '：'
-                                  f'{self._place(current.target)} 给 {C.show(now[signature])} ≠ {self._place(peer.target)} 给 {C.show(other[signature])}',
-                                  next=['让这几处一致；行为本来就该不同时，改用不同的锚点名'])
+                        owner = other_point if other_point['anchor'] and other_point['anchor'].owner else None
+                        where = (f'{point["file"]}:{getattr(point["anchor"], "target_line", 0)}' if owner else '')
+                        self.red.append(f'同名锚点 {current.name}：' + (where + ' ' if where else '') + ', '.join(f'{name}={value}' for name, kind, value in signature) + '，'
+                                        + (f'{C.show(mine)}（负责人 {owner["file"]}:{owner["anchor"].target_line} 给 {C.show(theirs)}）' if owner
+                                           else f'{C.show(mine)} ≠ {C.show(theirs)}（{self._place(current.target)} ≠ {self._place(peer.target)}）')
+                                        + f' -> 让 {point["qual"]} 和{"负责人" if owner else "同名副本"}一致，或改用不同的锚点名并写 distinct')
+                        break
                         break
         unverified = []
         for item, result in self.state.results.items():
@@ -829,6 +872,13 @@ class Observations:
             elif issue.code == 'source-syntax':
                 self.grey.append(f'{issue.file}' + (f':{issue.line}' if issue.line else '')
                                  + ': cannot be parsed, only this file is unverified: ' + issue.message)
+        if self.changed:
+            # Static leads and owner writes need no replay: an old value still elsewhere (rules too),
+            # a new spelling of a label, a new write outside a data owner's writers.
+            from . import owners
+            found = owners.static_findings(self.cfg, self.state.get_map(), self.index, self.runtime.baseline)
+            self.red.extend(found.red)
+            leads.extend(found.leads)
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
         fallbacks = self.state.ledger()

@@ -268,9 +268,14 @@ def bind_sql(rows, models: Models):
     for row in rows:
         base = {key: row[key] for key in ('node', 'function', 'file', 'line', 'column', 'call_line') if key in row}
         model = models.table_model(row.get('table'))
+        values = row.get('values', {})
         for name in row['columns']:
             field = models.column_field(model, name) if model and name != '*' else None
-            out.append(dict(base, how='sql', method=row['statement'], kind='sql:' + row['statement'], model=model,
+            if name in values:                       # the literal the statement writes, only when spelled
+                base_value = dict(base, value=values[name])
+            else:
+                base_value = base
+            out.append(dict(base_value, how='sql', method=row['statement'], kind='sql:' + row['statement'], model=model,
                             field=field['name'] if field else ('*' if name == '*' else None), table=row.get('table'),
                             db_column=name, nested=False, unclear=bool(row.get('unclear')) or name == '*' and row['statement'] != 'delete',
                             reason=row.get('reason') or ('' if model or not row.get('table') else

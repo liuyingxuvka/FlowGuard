@@ -622,8 +622,15 @@ def extract(root, rel, data, module, is_test):
         elif node.type == 'string' and (context := literal_context(node)):
             valid, value = literal(node, source)
             if valid and isinstance(value, str):
+                declared = {}
+                if context == 'union':          # the type alias a union member belongs to: type X = 'a' | 'b'
+                    holder = node.parent
+                    while holder is not None and holder.type not in ('type_alias_declaration', 'program'):
+                        holder = holder.parent
+                    if holder is not None and holder.type == 'type_alias_declaration' and field(holder, 'name') is not None:
+                        declared = {'declaration': text(field(holder, 'name'), source)}
                 out['literals'].append(dict(node=owner, file=rel, value=value, context=context,
-                                            function=named_scope(scope), **position(node, source)))
+                                            function=named_scope(scope), **declared, **position(node, source)))
         if node.type == 'call_expression':
             prisma_call(node, owner, scope)
         if node.type in ('call_expression', 'new_expression'):
@@ -686,4 +693,7 @@ def extract(root, rel, data, module, is_test):
 
     visit(tree.root_node,shadows=frozenset(scoped_names(tree.root_node)))
     out['bindings'] = [row for row in out['dependencies'] if row.get('alias') and row['kind'] == 'import']
+    if b'flowguard:' in data:
+        from flowguard.intent.anchors import foreign_owners
+        out.update(foreign_owners(source.decode('utf-8'), module, rel, is_test=is_test))
     return out

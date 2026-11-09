@@ -198,10 +198,36 @@ class MapHandle:
         return Rows(result)
 
     def assignments(self, *, include_unknown=False, language=None):
-        """Assignments to literal values; opt in to targets whose value is unknown."""
+        """Assignments to literal values; opt in to targets whose value is unknown. A Python right side
+        that names an enum member or a module constant (also through `a if c else b`) is folded as the
+        decision sites fold it, into `values` (and `value` when there is one)."""
         self._mark_query('assignments',language)
-        return self._language_rows([row for row in self._syntax('assignments')
+        return self._language_rows([self._folded(row) for row in self._syntax('assignments')
                 if include_unknown or row.get('literal',True)],language)
+
+    def _value_env(self, module):
+        """The module's folded constants for its own code: own constants and imported ones."""
+        from . import decide
+        envs = self.__dict__.setdefault('_value_envs', {})
+        if module not in envs:
+            envs[module] = {}
+            own = decide.own_env(self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line",
+                                                  (module,)).fetchall())
+            stored = self.con.execute('SELECT data FROM file WHERE module=? LIMIT 1', (module,)).fetchone()
+            imports = store.unpack(stored[0]).get('facts', {}).get('imports', {}) if stored else {}
+            def own_of(name):
+                return decide.own_env(self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line",
+                                                       (name,)).fetchall())
+            envs[module] = decide.module_env(own, imports, own_of)
+        return envs[module]
+
+    def _folded(self, row):
+        if not row.get('expr') or row.get('literal') or '(' in row['expr'] and ' if ' not in row['expr']:
+            return row                    # a call's result is not a constant this map can fold
+        values = _fold_values(row['expr'], self._value_env(row['node'].partition(':')[0]))
+        if values is None:
+            return row
+        return dict(row, values=values, **({'value': values[0]} if len(values) == 1 else {}))
 
     # ---- writes, string literals and schema descriptions ---------------------------------------
     def _schema_rows(self):
@@ -226,19 +252,21 @@ class MapHandle:
         from .readers.prisma import Models
         return Models([(path, schema) for path, schema in self._schema_rows() if schema.get('kind') == 'prisma'])
 
-    def writes(self, target=None, *, language=None, by_name=False):
+    def writes(self, target=None, *, language=None, by_name=False, facts=None):
         """Who writes what, statically: Prisma client writes bound to schema models (connect and nested
-        writes follow @relation), SQL write statements (TS/JS raw SQL and .sql files), and Python
-        attribute assignments bound to a class. `by_name=True` adds property assignments `obj.f = ...`
+        writes follow @relation), SQL write statements (TS/JS raw SQL, .sql files and Python string literals,
+        recorded for the function holding them), and Python attribute assignments bound to a class. A Python
+        row carries `value` when the assignment or statement spells the written literal. `by_name=True` adds property assignments `obj.f = ...`
         that only a field name ties to a target (how='name'). `target` is `Model.field`, `table.column`,
         a model or table, or a bare field/column name; rows whose fields are not visible (spread,
-        non-literal data) are kept for their model with `unclear=True`. Never execution evidence."""
+        non-literal data) are kept for their model with `unclear=True`. `facts` reads these file facts
+        (for example one file's facts at a baseline commit) instead of the map's. Never execution evidence."""
         from .readers.prisma import bind, bind_sql
         from .readers.registry import ECMA, language_for
         self._mark_query('writes', language)
         models = self._models()
         rows = []
-        for facts in self._syntax_files():
+        for facts in self._syntax_files() if facts is None else facts:
             kind = facts.get('language', 'python')
             if language is not None and kind != language:
                 continue
@@ -246,6 +274,7 @@ class MapHandle:
             rows += [dict(row, language=kind) for row in bind([w for w in writes if w.get('via') == 'prisma'], models)]
             rows += [dict(row, language=kind) for row in bind_sql([w for w in writes if w.get('via') == 'sql'], models)]
             for row in facts.get('assignments', []):
+                row = self._folded(row) if kind == 'python' else row
                 if kind in ECMA and row.get('form') == 'member' and by_name and row.get('field'):
                     rows.append(dict(node=row['node'], function=row['node'].partition(':')[2] or '<module>', file=row['file'],
                                      line=row['line'], column=row.get('column'), call_line=row['line'], how='name',
@@ -263,7 +292,8 @@ class MapHandle:
                                      model=None if row.get('unresolved') else cls, field=attr, table=None, db_column=None,
                                      nested=False, unclear=False, schema=None, receiver=cls,
                                      reason='attribute assignment matched by field name only' if row.get('unresolved') else '',
-                                     language=kind))
+                                     language=kind, **({'value': row['value']} if row.get('literal') else {}),
+                                     **({key: row[key] for key in ('value', 'values') if key in row} if row.get('values') else {})))
         if target is not None:
             rows = [row for row in rows if _writes_target(row, target, models)]
         return Rows(sorted(rows, key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
@@ -395,7 +425,7 @@ class MapHandle:
 
     # ---- other homes ---------------------------------------------------------------
     def other_homes(self, ident: str, k: int = 5, *, words: str = "", decides=None,
-                    not_same=(), weak: bool = False, sites=None) -> list[dict]:
+                    not_same=(), sites=None) -> list[dict]:
         """One static decision-site query. Candidates never execute.
 
         `sites` names the rule's realized sites as (node, line, text); without
@@ -403,10 +433,10 @@ class MapHandle:
         readable sites were found, so an empty list is not proof of no copies.
         """
         return self.search_homes(ident, k=k, words=words, decides=decides,
-                                 not_same=not_same, weak=weak, sites=sites)['candidates']
+                                 not_same=not_same, sites=sites)['candidates']
 
     def search_homes(self, ident, *, k=None, words='', decides=None,
-                     not_same=(), weak=True, sites=None, since=None):
+                     not_same=(), sites=None, since=None):
         """Static candidates and an explicit searched/not-searched fact, never a verdict."""
         requested = ident
         ident = self.canonical(ident) or ident
@@ -426,7 +456,7 @@ class MapHandle:
             groups, _ = homes.site_groups(self.con, target, sites)
             if groups:
                 searched.append(target)
-            for candidate in homes.other_homes(self.con, target, None, words, decides, excluded, weak, sites):
+            for candidate in homes.other_homes(self.con, target, None, words, decides, excluded, sites):
                 candidate.setdefault('anchors', []).append(target)
                 prior = found.get(candidate['id'])
                 if prior:
@@ -438,8 +468,6 @@ class MapHandle:
                 old = self._groups_at(target,since)
             historical += len(old)
             for candidate in homes.site_homes(self.con, target, words=words, exclude=excluded, groups=old):
-                if not weak and candidate['strength']=='weak':
-                    continue
                 row_sigs = [set(json.loads(raw)) for (raw,) in self.con.execute('SELECT sigs FROM site WHERE node=?',(candidate['id'],))]
                 matched = [g for g in old if any({s for s in g['sigs'] if s.startswith(('sg:n:','sg:t:','sg:m:','sg:s:','sg:set:','sg:v:','sg:f:'))} & own for own in row_sigs)]
                 if not matched:
@@ -722,6 +750,35 @@ class MapHandle:
                 elif old[i][0] != new[i][0]:
                     rows.append((i, "changed", old[i][0], new[i][0], old[i][1], new[i][1]))
         return rows
+
+
+def _fold_values(text, env):
+    """The constant values a right side can take: one folded constant, or each branch of `a if c else b`."""
+    import ast
+    from . import features as ff
+    node = _expression(text)
+    if node is None:
+        return None
+    branches, values = [node], []
+    while branches:
+        current = branches.pop(0)
+        if isinstance(current, ast.IfExp):
+            branches[:0] = [current.body, current.orelse]
+            continue
+        folded = ff.fold(current, env, {})
+        if not folded or folded[0] not in ('str', 'num'):
+            return None
+        values.append(folded[1])
+    return values
+
+
+@__import__('functools').lru_cache(maxsize=4096)
+def _expression(text):
+    import ast
+    try:
+        return ast.parse(text, mode='eval').body
+    except SyntaxError:
+        return None
 
 
 def literal_key(value: str) -> str:

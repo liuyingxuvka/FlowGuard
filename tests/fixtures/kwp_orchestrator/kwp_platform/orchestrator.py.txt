@@ -1,0 +1,695 @@
+"""One application-owned orchestration boundary for the unified KWP flow.
+
+The orchestrator is intentionally small: it plans and gates stage execution,
+but it does not contain MATLAB/Python calculation code, network clients, or
+filesystem deletion.  Domain adapters register one explicit stage owner and
+must return a verified :class:`~kwp_platform.artifacts.ArtifactRef`.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
+from enum import StrEnum
+from typing import Any
+
+from .artifacts import ArtifactKind, ArtifactRef, ArtifactState, ProjectManifest, validate_handoff
+from .pipeline import PipelinePlan, StageReadiness, StageSpec, build_default_pipeline_plan
+
+
+class RunStatus(StrEnum):
+    PLANNED = "planned"
+    RUNNING = "running"
+    WAITING_FOR_DATA = "waiting_for_data"
+    WAITING_FOR_USER = "waiting_for_user"
+    PARTIAL = "partial"
+    RECOVERING = "recovering"
+    STALE = "stale"
+    CANCELED = "canceled"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class StageBlockedError(RuntimeError):
+    """The requested stage is not admitted by the current artifact graph."""
+
+    def __init__(self, readiness: StageReadiness) -> None:
+        self.readiness = readiness
+        super().__init__("stage is not ready: " + "; ".join(readiness.blocked_reasons))
+
+
+class ApplicationStateError(RuntimeError):
+    """The application lifecycle state does not admit the requested action."""
+
+
+class AdapterNotRegisteredError(RuntimeError):
+    """No explicit domain adapter owns the requested stage."""
+
+
+@dataclass(frozen=True, slots=True)
+class StageContext:
+    project_id: str
+    stage: StageSpec
+    inputs: Mapping[ArtifactKind, ArtifactRef]
+    configuration: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class StageRunResult:
+    stage_id: str
+    status: RunStatus
+    output: ArtifactRef | None = None
+    reason: str | None = None
+    invocation_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AdapterInvocationReceipt:
+    """Secret-free evidence for one application-owned adapter invocation."""
+
+    invocation_id: str
+    project_id: str
+    stage_id: str
+    implementation_id: str
+    source_owner: str
+    entrypoint: str
+    input_artifact_ids: tuple[str, ...]
+    source_snapshot_ids: tuple[str, ...]
+    output_artifact_id: str | None
+    output_kind: str | None
+    status: RunStatus
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "entrypoint": self.entrypoint,
+            "implementation_id": self.implementation_id,
+            "input_artifact_ids": list(self.input_artifact_ids),
+            "invocation_id": self.invocation_id,
+            "output_artifact_id": self.output_artifact_id,
+            "output_kind": self.output_kind,
+            "project_id": self.project_id,
+            "reason": self.reason,
+            "source_owner": self.source_owner,
+            "source_snapshot_ids": list(self.source_snapshot_ids),
+            "stage_id": self.stage_id,
+            "status": self.status.value,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ApplicationSnapshot:
+    """A durable-UI-safe projection of one application lifecycle checkpoint."""
+
+    project_id: str
+    status: RunStatus
+    completed_stages: tuple[str, ...]
+    readiness: tuple[StageReadiness, ...]
+    results: tuple[StageRunResult, ...]
+    adapter_invocations: tuple[AdapterInvocationReceipt, ...] = ()
+    stale_artifact_ids: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "project_id": self.project_id,
+            "status": self.status.value,
+            "completed_stages": list(self.completed_stages),
+            "readiness": [item.to_dict() for item in self.readiness],
+            "results": [
+                {
+                    "invocation_id": item.invocation_id,
+                    "stage_id": item.stage_id,
+                    "status": item.status.value,
+                    "reason": item.reason,
+                    "artifact_id": item.output.artifact_id if item.output else None,
+                }
+                for item in self.results
+            ],
+            "adapter_invocations": [item.to_dict() for item in self.adapter_invocations],
+            "stale_artifact_ids": list(self.stale_artifact_ids),
+        }
+
+
+StageAdapter = Callable[[StageContext], ArtifactRef]
+
+
+class KwpApplication:
+    """The single application owner consumed by UI and CLI adapters."""
+
+    def __init__(
+        self,
+        manifest: ProjectManifest,
+        *,
+        plan: PipelinePlan | None = None,
+    ) -> None:
+        self.manifest = manifest
+        self.plan = plan or build_default_pipeline_plan(manifest)
+        if self.plan.project_id != manifest.project_id:
+            raise ValueError("pipeline plan project does not match project manifest")
+        self._artifacts: dict[ArtifactKind, ArtifactRef] = {
+            ArtifactKind.PROJECT_MANIFEST: manifest.to_ref()
+        }
+        self._completed: set[str] = set()
+        self._adapters: dict[str, StageAdapter] = {}
+        self._adapter_metadata: dict[str, Mapping[str, str]] = {}
+        self._results: dict[str, StageRunResult] = {}
+        self._adapter_invocations: list[AdapterInvocationReceipt] = []
+        # Stale outputs remain inspectable for audit/recovery, but are kept
+        # outside the active artifact map so a resumed run cannot accidentally
+        # consume them as verified inputs.
+        self._stale_artifacts: dict[ArtifactKind, ArtifactRef] = {}
+        self._stale_reason: str | None = None
+        self.status = RunStatus.PLANNED
+
+    @property
+    def artifacts(self) -> Mapping[ArtifactKind, ArtifactRef]:
+        return dict(self._artifacts)
+
+    @property
+    def completed_stages(self) -> tuple[str, ...]:
+        return tuple(sorted(self._completed))
+
+    @property
+    def results(self) -> tuple[StageRunResult, ...]:
+        return tuple(self._results[stage_id] for stage_id in sorted(self._results))
+
+    @property
+    def adapter_invocations(self) -> tuple[AdapterInvocationReceipt, ...]:
+        return tuple(self._adapter_invocations)
+
+    @property
+    def stale_artifacts(self) -> Mapping[ArtifactKind, ArtifactRef]:
+        """Return stale outputs retained for explicit audit/recovery only."""
+
+        return dict(self._stale_artifacts)
+
+    def snapshot(self) -> ApplicationSnapshot:
+        """Return the current state without exposing payloads or secrets."""
+
+        return ApplicationSnapshot(
+            project_id=self.manifest.project_id,
+            status=self.status,
+            completed_stages=self.completed_stages,
+            readiness=self.readiness(),
+            results=self.results,
+            adapter_invocations=self.adapter_invocations,
+            stale_artifact_ids=tuple(sorted(ref.artifact_id for ref in self._stale_artifacts.values())),
+        )
+
+    def cancel(self) -> ApplicationSnapshot:
+        """Cancel a planned/running/partial run without deleting artifacts."""
+
+        if self.status is RunStatus.COMPLETED:
+            raise ApplicationStateError("completed application cannot be canceled")
+        self.status = RunStatus.CANCELED
+        return self.snapshot()
+
+    def mark_stale(self, reason: str = "upstream_artifact_changed") -> ApplicationSnapshot:
+        """Mark the run stale; stale artifacts remain inspectable but not fresh."""
+
+        if not str(reason).strip():
+            raise ValueError("stale reason must not be empty")
+        for kind, artifact in tuple(self._artifacts.items()):
+            if kind is ArtifactKind.PROJECT_MANIFEST:
+                continue
+            self._stale_artifacts[kind] = artifact.with_state(ArtifactState.STALE)
+            del self._artifacts[kind]
+        for stage_id, result in tuple(self._results.items()):
+            if result.output is not None and result.output.kind is not ArtifactKind.PROJECT_MANIFEST:
+                self._results[stage_id] = replace(
+                    result,
+                    status=RunStatus.STALE,
+                    output=self._stale_artifacts.get(result.output.kind, result.output.with_state(ArtifactState.STALE)),
+                    reason=reason,
+                )
+        self._completed.clear()
+        self._stale_reason = reason
+        # A stale run is never executable until the caller explicitly resumes
+        # it.  This is intentionally true even when it was already canceled.
+        self.status = RunStatus.STALE
+        return self.snapshot()
+
+    def resume(self) -> ApplicationSnapshot:
+        """Resume a canceled/stale/partial run without inventing outputs."""
+
+        if self.status not in {
+            RunStatus.CANCELED,
+            RunStatus.STALE,
+            RunStatus.PARTIAL,
+            RunStatus.WAITING_FOR_DATA,
+            RunStatus.WAITING_FOR_USER,
+        }:
+            return self.snapshot()
+        self._stale_reason = None
+        self.status = RunStatus.RUNNING if self._completed else RunStatus.PLANNED
+        return self.snapshot()
+
+    def retry(self, stage_id: str | None = None) -> ApplicationSnapshot:
+        """Explicitly recover one failed stage and its downstream consumers.
+
+        Retry is deliberately a user/application action, never an automatic
+        response to a failed adapter.  Upstream verified artifacts remain
+        available; the failed stage and every dependent stage lose their
+        active outputs, while previous outputs are retained as stale audit
+        records.  The next :meth:`execute` or :meth:`execute_ready` call is the
+        only operation that may publish a replacement artifact.
+        """
+
+        if self.status not in {RunStatus.FAILED, RunStatus.PARTIAL}:
+            raise ApplicationStateError(
+                f"explicit retry is only available after a failed or partial run, got {self.status.value}"
+            )
+        failed = tuple(
+            result.stage_id
+            for result in self._results.values()
+            if result.status in {RunStatus.FAILED, RunStatus.PARTIAL}
+        )
+        if stage_id is None:
+            if len(failed) != 1:
+                raise ApplicationStateError(
+                    "retry requires an explicit stage_id when zero or multiple failed stages are recorded"
+                )
+            stage_id = failed[0]
+        stage = self.plan.stage_by_id.get(stage_id)
+        if stage is None:
+            raise KeyError(f"unknown stage: {stage_id}")
+        result = self._results.get(stage_id)
+        if result is None or result.status not in {RunStatus.FAILED, RunStatus.PARTIAL}:
+            raise ApplicationStateError(f"stage has no retryable failure: {stage_id}")
+
+        affected = self._dependent_stage_ids(stage_id)
+        affected_by_kind = {
+            candidate.output_kind: candidate
+            for candidate in self.plan.stages
+            if candidate.stage_id in affected
+        }
+        for kind, artifact in tuple(self._artifacts.items()):
+            if kind in affected_by_kind and kind is not ArtifactKind.PROJECT_MANIFEST:
+                self._stale_artifacts[kind] = artifact.with_state(ArtifactState.STALE)
+                del self._artifacts[kind]
+        for affected_id in affected:
+            if affected_id == stage_id:
+                # Preserve the failed result as the audit record until the
+                # replacement invocation succeeds.
+                continue
+            prior = self._results.get(affected_id)
+            if prior is not None:
+                self._results[affected_id] = replace(
+                    prior,
+                    status=RunStatus.STALE,
+                    reason=f"retry requested from {stage_id}",
+                    output=(
+                        self._stale_artifacts.get(prior.output.kind)
+                        if prior.output is not None
+                        else None
+                    ),
+                )
+        self._completed.difference_update(affected)
+        self._stale_reason = f"retry:{stage_id}"
+        self.status = RunStatus.RECOVERING
+        return self.snapshot()
+
+    def _dependent_stage_ids(self, stage_id: str) -> set[str]:
+        """Return a stage and all transitive consumers in deterministic form."""
+
+        affected = {stage_id}
+        changed = True
+        while changed:
+            changed = False
+            for stage in self.plan.stages:
+                if stage.stage_id not in affected and set(stage.dependencies) & affected:
+                    affected.add(stage.stage_id)
+                    changed = True
+        return affected
+
+    def _stage_inputs(self, stage: StageSpec) -> dict[ArtifactKind, ArtifactRef]:
+        """Return required inputs plus any currently available optional ones.
+
+        Optional inputs are part of the same application-owned handoff when
+        present.  They are deliberately not synthesized: an absent optional
+        artifact is simply omitted, while a present one is validated and
+        included in the adapter context and parent identity.
+        """
+
+        return {
+            kind: self._artifacts[kind]
+            for kind in (*stage.input_kinds, *stage.optional_input_kinds)
+            if kind in self._artifacts
+        }
+
+    def ready_batches(self) -> tuple[tuple[str, ...], ...]:
+        """Return deterministic parallel-group batches without executing them.
+
+        A batch is a scheduling projection only.  Adapters are still invoked
+        through :meth:`execute`, so application state is committed by one
+        owner and a partial/failed child cannot be mistaken for a completed
+        batch.
+        """
+
+        groups = self.ready_parallel_groups()
+        return tuple(
+            tuple(stage.stage_id for stage in stages)
+            for _, stages in sorted(groups.items(), key=lambda item: item[0])
+        )
+
+    def register_adapter(
+        self,
+        stage_id: str,
+        adapter: StageAdapter,
+        *,
+        metadata: Mapping[str, str] | None = None,
+    ) -> None:
+        if stage_id not in self.plan.stage_by_id:
+            raise KeyError(f"unknown stage: {stage_id}")
+        if stage_id in self._adapters:
+            raise ValueError(f"adapter already registered: {stage_id}")
+        self._adapters[stage_id] = adapter
+        self._adapter_metadata[stage_id] = dict(metadata or {})
+
+    def _record_adapter_invocation(
+        self,
+        *,
+        invocation_id: str,
+        stage: StageSpec,
+        inputs: Mapping[ArtifactKind, ArtifactRef],
+        output: ArtifactRef | None,
+        status: RunStatus,
+        reason: str | None = None,
+    ) -> AdapterInvocationReceipt:
+        metadata = self._adapter_metadata.get(stage.stage_id, {})
+        receipt = AdapterInvocationReceipt(
+            invocation_id=invocation_id,
+            project_id=self.manifest.project_id,
+            stage_id=stage.stage_id,
+            implementation_id=metadata.get("implementation_id", stage.implementation_id),
+            source_owner=metadata.get("source_owner", "application-adapter"),
+            entrypoint=metadata.get("entrypoint", stage.stage_id),
+            input_artifact_ids=tuple(ref.artifact_id for ref in inputs.values()),
+            source_snapshot_ids=tuple(sorted({ref.source_snapshot_id for ref in inputs.values()})),
+            output_artifact_id=output.artifact_id if output is not None else None,
+            output_kind=output.kind.value if output is not None else None,
+            status=status,
+            reason=reason,
+        )
+        self._adapter_invocations.append(receipt)
+        return receipt
+
+    def adopt_verified_artifact(self, artifact: ArtifactRef, *, stage_id: str | None = None) -> StageRunResult:
+        """Hydrate one verified output during an explicit resume operation.
+
+        Resumption may consume a durable artifact receipt, but it may not
+        bypass the plan's kind/project/schema/state/parent checks or invent a
+        completion marker.  A caller can provide ``stage_id`` when a kind is
+        intentionally produced by a custom plan; otherwise the output kind
+        must identify one stage unambiguously.
+        """
+
+        if self.status in {RunStatus.CANCELED, RunStatus.STALE, RunStatus.FAILED}:
+            raise ApplicationStateError(
+                f"application is {self.status.value}; call resume or retry before adopting an artifact"
+            )
+        matches = [stage for stage in self.plan.stages if stage.output_kind is artifact.kind]
+        if stage_id is not None:
+            stage = self.plan.stage_by_id.get(stage_id)
+            if stage is None:
+                raise KeyError(f"unknown stage: {stage_id}")
+            if stage.output_kind is not artifact.kind:
+                raise ValueError("stage_id output kind does not match artifact kind")
+        elif len(matches) != 1:
+            raise ValueError("artifact kind does not identify exactly one stage")
+        else:
+            stage = matches[0]
+
+        # Validate the durable reference before looking at current readiness so
+        # a wrong-project/schema artifact produces the precise handoff error,
+        # rather than being hidden behind a missing-input error for its stage.
+        adapter_metadata = self._adapter_metadata.get(stage.stage_id, {})
+        base_validation = validate_handoff(
+            artifact,
+            expected_kind=stage.output_kind,
+            expected_schema_version=self.plan.schema_version,
+            expected_project_id=self.manifest.project_id,
+            expected_producer_id=adapter_metadata.get("producer_id") or None,
+        )
+        if not base_validation.valid:
+            raise ValueError("cannot adopt an invalid artifact: " + "; ".join(base_validation.machine_reasons))
+
+        active = self._artifacts.get(artifact.kind)
+        if active is not None:
+            if (
+                active.artifact_id == artifact.artifact_id
+                and active.content_digest == artifact.content_digest
+                and active.schema_version == artifact.schema_version
+            ):
+                # Idempotent replay of the exact same durable reference is
+                # safe, but it still must not overwrite a different active
+                # payload under the same artifact kind.
+                return self._results.get(
+                    stage.stage_id,
+                    StageRunResult(stage.stage_id, RunStatus.COMPLETED, output=active),
+                )
+            raise ValueError(
+                f"active artifact already exists for {artifact.kind.value}; explicit stale/retry is required"
+            )
+
+        # The output may only be resumed after all of its declared inputs are
+        # currently admitted.  This prevents a parentless or stale cache file
+        # from becoming a completed stage merely because its own state says
+        # ``verified``.
+        readiness = self.stage_readiness(stage.stage_id)
+        if not readiness.ready:
+            raise StageBlockedError(readiness)
+        inputs = self._stage_inputs(stage)
+        input_snapshot_ids = {ref.source_snapshot_id for ref in inputs.values()}
+        input_snapshot_id = next(iter(input_snapshot_ids)) if len(input_snapshot_ids) == 1 else None
+        expected_output_snapshot_id = (
+            None if stage.output_kind is ArtifactKind.SOURCE_SNAPSHOT else input_snapshot_id
+        )
+        validation = validate_handoff(
+            artifact,
+            expected_source_snapshot_id=expected_output_snapshot_id,
+            expected_parent_artifact_ids=tuple(ref.artifact_id for ref in inputs.values()),
+        )
+        if not validation.valid:
+            raise ValueError("cannot adopt an invalid artifact: " + "; ".join(validation.machine_reasons))
+        self._artifacts[artifact.kind] = artifact
+        self._completed.add(stage.stage_id)
+        result = StageRunResult(stage.stage_id, RunStatus.COMPLETED, output=artifact)
+        self._results[stage.stage_id] = result
+        self.status = RunStatus.COMPLETED if self._all_stages_completed() else RunStatus.RUNNING
+        return result
+
+    def readiness(self) -> tuple[StageReadiness, ...]:
+        return self.plan.readiness(self._artifacts, completed_stages=self._completed)
+
+    def _all_stages_completed(self) -> bool:
+        """Return whether the active artifact graph satisfies the whole plan.
+
+        ``project_manifest`` is seeded as an application-owned verified
+        artifact, so it is intentionally not added to ``_completed`` until a
+        caller explicitly executes that built-in stage.  Completion therefore
+        follows the readiness graph rather than counting invocation markers.
+        """
+
+        return bool(self.plan.stages) and all(item.state == "completed" for item in self.readiness())
+
+    def ready_parallel_groups(self) -> Mapping[str, tuple[StageSpec, ...]]:
+        return self.plan.ready_parallel_groups(self._artifacts, completed_stages=self._completed)
+
+    def stage_readiness(self, stage_id: str) -> StageReadiness:
+        return self.plan.validate_inputs(
+            stage_id,
+            self._artifacts,
+            completed_stages=self._completed,
+        )
+
+    def execute(self, stage_id: str) -> StageRunResult:
+        if self.status in {RunStatus.CANCELED, RunStatus.STALE, RunStatus.FAILED}:
+            action = "retry" if self.status is RunStatus.FAILED else "resume"
+            raise ApplicationStateError(f"application is {self.status.value}; call {action} before executing")
+        stage = self.plan.stage_by_id.get(stage_id)
+        if stage is None:
+            raise KeyError(f"unknown stage: {stage_id}")
+        readiness = self.stage_readiness(stage_id)
+        if readiness.state == "completed":
+            output = self._artifacts.get(stage.output_kind)
+            self._completed.add(stage_id)
+            result = StageRunResult(stage_id, RunStatus.COMPLETED, output=output)
+            self._results.setdefault(stage_id, result)
+            if self._all_stages_completed():
+                self.status = RunStatus.COMPLETED
+            return result
+        if not readiness.ready:
+            self.status = RunStatus.WAITING_FOR_DATA if readiness.missing_artifacts else RunStatus.PARTIAL
+            raise StageBlockedError(readiness)
+        adapter = self._adapters.get(stage_id)
+        if adapter is None:
+            invocation_id = f"{self.manifest.project_id}:{stage.stage_id}:{len(self._adapter_invocations) + 1}"
+            reason = f"no adapter registered for stage: {stage_id}"
+            receipt = self._record_adapter_invocation(
+                invocation_id=invocation_id,
+                stage=stage,
+                inputs={},
+                output=None,
+                status=RunStatus.FAILED,
+                reason=reason,
+            )
+            self.status = RunStatus.FAILED
+            self._results[stage_id] = StageRunResult(
+                stage_id,
+                RunStatus.FAILED,
+                reason=reason,
+                invocation_id=receipt.invocation_id,
+            )
+            raise AdapterNotRegisteredError(reason)
+
+        inputs = self._stage_inputs(stage)
+        # Readiness checks availability and source-snapshot joins.  Repeat the
+        # complete handoff validation immediately before the runner so a
+        # caller cannot inject a wrong-project, stale, malformed, or
+        # unverified reference into the private artifact map and still reach a
+        # legacy calculation package.
+        input_snapshot_ids = {ref.source_snapshot_id for ref in inputs.values()}
+        input_snapshot_id = next(iter(input_snapshot_ids)) if len(input_snapshot_ids) == 1 else None
+        input_issues: list[str] = []
+        if len(input_snapshot_ids) > 1:
+            input_issues.append("source_snapshot_mismatch")
+        for kind, ref in inputs.items():
+            validation = validate_handoff(
+                ref,
+                expected_kind=kind,
+                expected_project_id=self.manifest.project_id,
+                expected_source_snapshot_id=input_snapshot_id,
+            )
+            if not validation.valid:
+                input_issues.extend(validation.machine_reasons)
+        if input_issues:
+            invocation_id = f"{self.manifest.project_id}:{stage.stage_id}:{len(self._adapter_invocations) + 1}"
+            reason = "adapter input rejected: " + "; ".join(dict.fromkeys(input_issues))
+            receipt = self._record_adapter_invocation(
+                invocation_id=invocation_id,
+                stage=stage,
+                inputs=inputs,
+                output=None,
+                status=RunStatus.FAILED,
+                reason=reason,
+            )
+            self.status = RunStatus.FAILED
+            self._results[stage_id] = StageRunResult(
+                stage_id,
+                RunStatus.FAILED,
+                reason=receipt.reason,
+                invocation_id=receipt.invocation_id,
+            )
+            raise ValueError(reason)
+        self.status = RunStatus.RUNNING
+        invocation_id = f"{self.manifest.project_id}:{stage.stage_id}:{len(self._adapter_invocations) + 1}"
+        context = StageContext(
+            project_id=self.manifest.project_id,
+            stage=stage,
+            inputs=inputs,
+            configuration=self.plan.configuration,
+        )
+        try:
+            output = adapter(context)
+        except Exception as exc:
+            receipt = self._record_adapter_invocation(
+                invocation_id=invocation_id,
+                stage=stage,
+                inputs=inputs,
+                output=None,
+                status=RunStatus.FAILED,
+                reason=type(exc).__name__ + ": " + str(exc),
+            )
+            self.status = RunStatus.FAILED
+            self._results[stage_id] = StageRunResult(
+                stage_id,
+                RunStatus.FAILED,
+                reason=receipt.reason,
+                invocation_id=receipt.invocation_id,
+            )
+            raise
+        expected_output_snapshot_id = (
+            None if stage.output_kind is ArtifactKind.SOURCE_SNAPSHOT else input_snapshot_id
+        )
+        adapter_metadata = self._adapter_metadata.get(stage.stage_id, {})
+        expected_producer_id = adapter_metadata.get("producer_id") or None
+        validation = validate_handoff(
+            output,
+            expected_kind=stage.output_kind,
+            expected_project_id=self.manifest.project_id,
+            expected_source_snapshot_id=expected_output_snapshot_id,
+            expected_producer_id=expected_producer_id,
+            expected_parent_artifact_ids=tuple(ref.artifact_id for ref in inputs.values()),
+        )
+        if not validation.valid:
+            receipt = self._record_adapter_invocation(
+                invocation_id=invocation_id,
+                stage=stage,
+                inputs=inputs,
+                output=output if isinstance(output, ArtifactRef) else None,
+                status=RunStatus.FAILED,
+                reason=validation.user_message,
+            )
+            self.status = RunStatus.FAILED
+            result = StageRunResult(
+                stage_id,
+                RunStatus.FAILED,
+                reason=validation.user_message,
+                invocation_id=receipt.invocation_id,
+            )
+            self._results[stage_id] = result
+            raise ValueError("adapter returned an invalid artifact: " + "; ".join(validation.machine_reasons))
+        self._artifacts[stage.output_kind] = output
+        self._completed.add(stage_id)
+        receipt = self._record_adapter_invocation(
+            invocation_id=invocation_id,
+            stage=stage,
+            inputs=inputs,
+            output=output,
+            status=RunStatus.COMPLETED,
+        )
+        result = StageRunResult(
+            stage_id,
+            RunStatus.COMPLETED,
+            output=output,
+            invocation_id=receipt.invocation_id,
+        )
+        self._results[stage_id] = result
+        self.status = RunStatus.COMPLETED if self._all_stages_completed() else RunStatus.RUNNING
+        return result
+
+    def execute_ready(self) -> tuple[StageRunResult, ...]:
+        """Execute one deterministic pass over all currently ready stages.
+
+        This is the production application surface used by an offline bridge
+        or a future desktop worker.  It never supplies missing inputs and it
+        does not retry failures.  Independent ready groups are visited in
+        plan order; a blocked sibling is reported while other ready siblings
+        may still complete in the same pass.
+        """
+
+        if self.status in {RunStatus.CANCELED, RunStatus.STALE, RunStatus.FAILED}:
+            action = "retry" if self.status is RunStatus.FAILED else "resume"
+            raise ApplicationStateError(f"application is {self.status.value}; call {action} before executing")
+        results: list[StageRunResult] = []
+        blocked = False
+        for stage in self.plan.topological_stages():
+            readiness = self.stage_readiness(stage.stage_id)
+            if readiness.state == "completed":
+                continue
+            if not readiness.ready:
+                blocked = True
+                continue
+            results.append(self.execute(stage.stage_id))
+        if self._all_stages_completed():
+            self.status = RunStatus.COMPLETED
+            return tuple(results)
+        if not results and blocked and self.status not in {RunStatus.COMPLETED, RunStatus.FAILED}:
+            readiness = self.readiness()
+            self.status = (
+                RunStatus.WAITING_FOR_DATA
+                if any(item.missing_artifacts for item in readiness if item.state == "blocked")
+                else RunStatus.PARTIAL
+            )
+        return tuple(results)

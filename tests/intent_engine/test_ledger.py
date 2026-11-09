@@ -14,6 +14,7 @@ from flowguard.intent import ledger
 from flowguard.intent.config import load_config
 from flowguard.structure import build
 from tests._pure_helpers import git, write
+from tests.intent_engine._cli_fixture import display_text
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 RULE = 'One route per function: when a step fails, the error reaches the caller or is reported with its text.'
@@ -467,16 +468,22 @@ def test_a_typescript_catch_that_ends_quietly_is_red_and_one_that_hands_the_erro
 # ---- ordinary pytest and the CLI --------------------------------------------------------------------------
 
 
+def shown(result):
+    """A console that cannot encode the text (Windows cp1252) gets the supported escaped display; read it back."""
+    result.stdout, result.stderr = display_text(result.stdout), display_text(result.stderr)
+    return result
+
+
 def pytest_run(root, *arguments):
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
-    return subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '-q', '-p', 'flowguard.intent.plugin', *arguments],
-                          cwd=root, capture_output=True, text=True, timeout=120)
+    return shown(subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '-q', '-p', 'flowguard.intent.plugin', *arguments],
+                                cwd=root, capture_output=True, text=True, timeout=120))
 
 
 def cli(root, *arguments):
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); from flowguard.__main__ import main; raise SystemExit(main(sys.argv[1:]))'
-    return subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '--root', str(root), *arguments],
-                          cwd=root, capture_output=True, text=True, timeout=120)
+    return shown(subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '--root', str(root), *arguments],
+                                cwd=root, capture_output=True, text=True, timeout=120))
 
 
 def sentinel(root):

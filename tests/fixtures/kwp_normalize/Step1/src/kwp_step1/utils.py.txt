@@ -1,0 +1,19 @@
+"""FlowGuard fixture: Step1/src/kwp_step1/utils.py lines 166-181 of KWP 64479aa, copied verbatim."""
+from typing import Any
+
+_TECH_ALIASES = {
+    "natural_gas": "gas", "gas_boiler": "gas", "erdgas": "gas", "gasheizung": "gas", "gastherme": "gas",
+    "oil": "oil", "oil_boiler": "oil", "heizoel": "oil", "heizöl": "oil", "heizÃ¶l": "oil", "oel": "oil", "öl": "oil", "Ã¶l": "oil", "oilheating": "oil",
+    "air_hp": "hp_air", "air_heat_pump": "hp_air", "luft_wp": "hp_air", "luftwaermepumpe": "hp_air", "luftwärmepumpe": "hp_air",
+    "brine_hp": "hp_sole", "sole_wp": "hp_sole", "erdsonde": "hp_sole", "solewaermepumpe": "hp_sole", "solewärmepumpe": "hp_sole",
+    "water_hp": "hp_water", "wasser_wp": "hp_water", "grundwasser_wp": "hp_water", "wasserwaermepumpe": "hp_water", "wasserwärmepumpe": "hp_water",
+    "pellets": "pellet", "pellet_boiler": "pellet", "pelletheizung": "pellet",
+    "woodchips": "chips", "hackschnitzel": "chips", "hackschnitzelheizung": "chips",
+    "district_heating": "district_heat", "district heat": "district_heat", "waermenetz": "district_heat", "wärmenetz": "district_heat", "waermenetze": "district_heat", "fernwaerme": "district_heat", "fernwärme": "district_heat",
+    "direct_electric": "dch", "directelectric": "dch", "stromdirekt": "dch", "direct_electric_heating": "dch",
+}
+
+
+def normalize_technology_name(value: Any) -> str:
+    raw = str(value).strip().lower()
+    return _TECH_ALIASES.get(raw, raw)

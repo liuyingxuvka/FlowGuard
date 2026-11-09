@@ -300,10 +300,12 @@ def _copy_pointers(graph, index, anchors, homes, summary, results, words, full, 
     for target in targets:
         live = next((result for result in results if result.get('target') == target and result.get('kind') == 'live'), None)
         scope = [(site.get('where') or target, site['line'], site['text']) for site in live.get('sites', []) if site.get('realized')] if live else None
-        found = graph.search_homes(target, sites=scope, not_same=excluded, words=words, k=None, weak=True)
+        found = graph.search_homes(target, sites=scope, not_same=excluded, words=words, k=None)
         if not found['searched']:
             lines.append('copy search unavailable: ' + found.get('reason', 'no readable decision sites'))
-        for candidate in found['candidates']:
+        from .owners import look_alikes      # static copy candidates, the same ones check runs for an owner
+        registered = {a.target for a in index.entries if a.kind == 'sensor'}
+        for candidate in [*found['candidates'], *look_alikes(load_config(graph.root), graph, target, excluded | registered)]:
             node = graph.node(candidate['id'])
             if node:
                 candidate = dict(candidate, file=node['file'], line=node['line'])
@@ -393,7 +395,8 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
             from .deps import Now, stale
             if data['results'].get(query) and (not data['deps'].get(query) or stale(data['deps'][query], Now(cfg, graph))):
                 lines.insert(1, 'cached results are stale or unverified -> run check')
-            print('\n'.join(line for line in lines if line))
+            from .differences import display      # copy pointers carry project names: escape what the console cannot show
+            display('\n'.join(line for line in lines if line))
             return int(bool(data['summary']['errors']))
         if data['summary']['errors'] and any(query in (cfg.root / e['file']).read_text(encoding='utf-8-sig') for e in data['summary']['errors']):
             for error in data['summary']['errors']:
@@ -403,6 +406,10 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
         if anchors:
             print('ANCHOR ' + query)
             print('\n'.join(pointers))
+            from .owners import show_lines     # an owner's old ledger: writes outside its writers, look-alikes
+            if owned := show_lines(cfg, graph, index, query):
+                from .differences import display
+                display('\n'.join(owned))
             from .debug import show_observation
             from types import SimpleNamespace
             model = SimpleNamespace(rules={rid: SimpleNamespace(id=rid, anchors=value.get('anchors', ()))
@@ -418,7 +425,8 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                         print('\n'.join(_observation_lines(cfg, graph, data, node)))
             unused = set(_unmodelled(index, data['summary'], root=cfg.root)) & {a.name for a in anchors}
             if unused:print('info: not referenced by a current model: ' + ', '.join(sorted(unused)))
-            print('\n'.join(_copy_pointers(graph, index, anchors, [], data['summary'], [], query, full)))
+            from .differences import display
+            display('\n'.join(_copy_pointers(graph, index, anchors, [], data['summary'], [], query, full)))
             return 0
         node = graph.node(graph.canonical(query) or query)
         if node:
@@ -432,7 +440,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
                 print('use anchor draft for a source comment; impure code needs an ordinary calibration test')
                 print('\n'.join(_observation_lines(cfg, graph, data, node)))
             else:
-                found = graph.search_homes(query, k=None, weak=True)
+                found = graph.search_homes(query, k=None)
                 if not found['searched']:
                     print('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
                 print('\n'.join(_candidate_lines(found, full, 'candidate ')))
@@ -485,14 +493,23 @@ def draft_anchor(cfg, target):
 
 def draft_model(cfg, name):
     from .debug import _events, _index
-    from .flow import draft_model as from_events
-    result = from_events(name, _index(cfg), _events(cache.observations(cfg).get('events', ())))
+    from .flow import draft_model as from_events, template_lines
+    events = _events(cache.observations(cfg).get('events', ()))
+    result = from_events(name, _index(cfg), events)
     for note in result.notes:
         print('# grey: ' + note)
     if result.model is not None:
         model = result.model
         print('from flowguard.intent import flow, Node')
         print(f'MODEL = flow({model.id!r}, source={model.source!r}, nodes={model.nodes!r}, edges={model.edges!r})')
+    lines = template_lines(events)
+    if lines:
+        print('# one-line templates from observed paths, grouped by flow; keep, tighten (guarded_by, checks) or delete each')
+        print('from flowguard.intent import precedes, transitions')
+        for flow in dict.fromkeys(row['flow'] for row in lines):
+            members = [row for row in lines if row['flow'] == flow]
+            print(f'# flow {flow} ({members[0]["tests"]} tests)')
+            print('\n'.join(row['text'] for row in members))
     return 0
 
 
@@ -540,7 +557,9 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
     # copies may use check's existing, source-verified pure-function exception.
     observed = {item.get('name') for part in reports for item in part.get('items', ()) if item.get('file')}
     for name in sorted({anchor.name for anchor in index.entries if anchor.kind == 'sensor'} - observed):
-        copies = [anchor for anchor in index.named(name, 'sensor') if anchor.source_role == 'production']
+        # A function owner is the reference its same-name copies are compared with.
+        copies = sorted((anchor for anchor in index.named(name, 'sensor') if anchor.source_role == 'production'),
+                        key=lambda anchor: not anchor.owner)
         if len(copies) < 2:
             continue
         compared = _compare_pairs(cfg.root, [(copies[0], other) for other in copies[1:]])
@@ -549,6 +568,10 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
                             items=[dict(item, comparison=True, same_name=True) for item in items],
                             red=compared['reasons'] if compared['status'] == 'red' and not compared['changes'] else []))
         status = status or int(compared['status'] == 'red')
+    found = _owner_findings(cfg, everything=everything, base=base)
+    if found.red or found.leads:
+        reports.append(dict(source_changed=True, red=found.red, leads=found.leads, items=[]))
+        status = status or int(bool(found.red))
     baseline = next((part for part in reports if part.get('baseline')), {})
     ledger_red = []
     for finding in (finding for part in reports for finding in part.get('ledger_red', ())):
@@ -582,6 +605,19 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
             except (OSError, ValueError):
                 pass
     return status or int(bool(issues))
+
+
+def _owner_findings(cfg, *, everything=False, base=None):
+    """Owners, copies and static leads of this change; copy discovery runs only here, in check."""
+    from . import anchors, owners
+    if not owners.baseline(cfg, base) and not everything:
+        return owners.Findings()            # nothing is new without a baseline; the old ledger is check --all
+    with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        index = anchors.collect(graph)
+        distincts = cache.read(cfg)['summary'].get('distincts', [])
+        excluded = {target for item in distincts for target in (item['a'], item['b']) if ':' in target}
+        excluded |= {anchor.target for item in distincts for name in (item['a'], item['b']) for anchor in index.named(name)}
+        return owners.check_findings(cfg, graph, index, base, everything=everything, excluded=excluded)
 
 
 def _check_selection(cfg: Config, model: object, data: dict, everything: bool, since: str | None, sentinel: Path):

@@ -91,3 +91,23 @@ ADD/DROP COLUMN and DROP TABLE changes. Schema files have no code, so code queri
 complete and empty. `MapHandle.writes()` binds write paths to models at query time (accessor
 `centralEmployee` -> model `CentralEmployee`, relation -> model, `connect` -> the foreign-key
 fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` compares descriptions.
+
+## Python writes and literals
+
+- `writes` (Python): SQL `INSERT`/`UPDATE`/`DELETE` statements in a function's string literals, read by
+  `readers/sql.py:statements` (also the written tables and columns of `analysis.sql_names`), recorded for
+  that function (`<module>` outside functions) with `values` for the columns a statement spells as a
+  literal. `MapHandle.writes()` adds attribute assignments (bound to a class, or `how='name'` with
+  `by_name=True`); a row carries `value` when the written literal is spelled. Test files contribute none.
+- `literals` (Python): strings in `==`/`!=`/`is` comparisons (compare), the containers of `in` tests
+  (member), `case` patterns (case), returned values through `?:`/and/or and lambda bodies (return), set
+  literals and `set()`/`frozenset()` arguments (set) and `Literal[...]` members (union). Dict keys,
+  `'key' in mapping`, logging/print calls, exception constructors and `raise` are never recorded; test
+  files contribute none. `literal_groups()` groups Python and TS/JS rows together.
+- Owner comments: `# flowguard: owner NAME` on a function is a sensor with `owner=True`; `owner T.c
+  writers=... with=M.f[=v] alone=f(why)` (and `// flowguard: owner ...` in TS/JS) is an anchor of kind `owner` with `writers`, `pairs`, `alone`.
+- `assignments` (Python): a computed right side keeps `expr`; `MapHandle.assignments()`/`writes()` fold it with the
+  decision sites' constant folding (enum members, module and imported constants, each branch of `?:`) into `values`.
+  `row['k'] = v` has `form='key'` and the field `receiver.k`; a class-body default is `module:Class.name`.
+- `field_types` (Python): `name: Type` in a class body, with the annotated class id (an enum is a declared value
+  set) and `optional`. TS/TSX `literals` in a union carry the `declaration` (type alias) name; Python `X = Literal[...]` too.

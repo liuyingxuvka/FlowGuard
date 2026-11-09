@@ -99,6 +99,12 @@ def _cause(cause):
             f'（{cause["file"]}:{cause["line"]}）')
 
 
+def _unknown(item):
+    status = item.get('comparison_status', item.get('status'))
+    return (not item.get('complete', False) or status not in (None, 'ok', 'red')
+            or bool(item.get('comparison_reasons') or item.get('reasons')))
+
+
 def _facts(item, *, comparison=False):
     """The parts every view of one observed point shares: name, place, counts, first change, cause."""
     changes = list(_changes(item))
@@ -358,64 +364,111 @@ def _render(report, limit, *, quiet=False):
     if len(red) > budget:
         lines[-1] = f'红：另 {len(red) - budget + 1} 处约束违反；完整结果保留在报告中'
     items = sorted(items, key=lambda item: item.get('status') != 'red')
-    for item in items:
-        if len(lines) >= budget:
-            break
-        lines.extend(_block(item, comparison=comparison or item.get('comparison', False),
-                            same_name=report.get('same_name', False) or item.get('same_name', False))[:budget - len(lines)])
+    # Design order: red, changes, leads, then what stayed unverified.
+    unverified = [item for item in items if item.get('status') != 'red' and _unknown(item)]
+    def blocks(selected):
+        for item in selected:
+            if len(lines) >= budget:
+                break
+            lines.extend(_block(item, comparison=comparison or item.get('comparison', False),
+                                same_name=report.get('same_name', False) or item.get('same_name', False))[:budget - len(lines)])
+    blocks([item for item in items if not any(item is other for other in unverified)])
     for path in report.get('paths', ()):
         if len(lines) >= budget:
             break
         if path['before'] != path['after']:
             lines.append(f'路径 {path["test"]}：' + ' → '.join(path['before'])
                          + ' 变成 ' + ' → '.join(path['after']))
-    for lead in report.get('leads', ())[:5]:
+    leads = list(report.get('leads', ()))
+    for lead in leads[:max(5, budget - len(lines))]:
         if len(lines) >= budget:
             break
         if isinstance(lead, dict):
-            locations = lead.get('locations', ())[:5]
+            locations = lead.get('locations', ())
             if not locations:
                 continue
             values = ','.join(dict.fromkeys(_shown(row['old']) for row in locations))
-            lines.append(f'线索：旧值 {values} 还出现在 {lead["total"]} 个判断里')
-            for row in locations:
-                if len(lines) >= budget:
-                    break
-                lines.append(f'线索：{row["file"]}:{row["line"]}')
+            lines.append(f'线索：旧值 {values} 还出现在 {lead["total"]} 个判断里：'
+                         + '  '.join(f'{row["file"]}:{row["line"]}' + ('（大函数中）' if row.get('big') else '') for row in locations)
+                         + ' → 需求变了就一起改；要锁定它们，在负责人上方写 # flowguard: owner 名，副本上方写 # flowguard: sensor 名')
         else:
             lines.append('线索：' + str(lead))
+    blocks(unverified)
     if not lines and quiet:
         return ''
     if not lines:
         lines.append(f'共 {report.get("total", 0)} 类，变 {report.get("changed", 0)} 类'
                      if report.get('complete') else '未比较：没有可用的观察结果')
-    return '\n'.join(_short(line) for line in lines)
+    # Red lines and leads carry full names, places and the next step to copy: never shortened.
+    return '\n'.join(line if line.startswith(('红', '线索')) else _short(line) for line in lines)
 
 
-def stale_copies(graph, changes, *, limit=3):
-    """Old-value sites from the existing map are leads, never equality evidence."""
-    from flowguard.structure.query import tokens
-    sites = graph.con.execute('SELECT node,line,field,const,value,identity,file FROM site ORDER BY file,line').fetchall()
+def stale_copies(graph, changes):
+    """Decision sites of the existing map that still spell an old value: the folded constant of a site,
+    a member of a tuple or set it tests, or a member of the tuple or dict constant it reads. Field names
+    are not required to share a word. A lead, never equality evidence."""
+    import ast
+    import json
+    from decimal import Decimal, InvalidOperation
+    sites = graph.con.execute('SELECT s.node,s.line,s.field,s.const,s.value,s.vkind,s.identity,s.file,n.line,n.end_line '
+                              'FROM site s LEFT JOIN node n ON n.id = s.node ORDER BY s.file,s.line').fetchall()
+    constants = {}
+    for ident, sig in graph.con.execute("SELECT id, sig FROM node WHERE kind = 'const'"):
+        try:
+            constants[ident] = ast.literal_eval(sig)
+        except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+            continue
+
+    def equal(old, value):
+        if type(old) is str or type(value) is str:
+            return type(old) is type(value) and old == value
+        if type(old) is bool or type(value) is bool or type(value) not in (int, float, Decimal):
+            return False
+        try:
+            return Decimal(str(old)) == Decimal(str(value))
+        except (InvalidOperation, ValueError):
+            return False
+
+    def members(value):
+        if type(value) in (tuple, list, set, frozenset):
+            return [item for part in value for item in members(part)]
+        if type(value) is dict:
+            return [item for part in value.values() for item in members(part)]
+        return [value]
+
+    def held(old, value, vkind, identity):
+        if value:
+            try:
+                folded = json.loads(value)
+            except ValueError:
+                folded = value
+            if any(equal(old, item) for item in members(folded)):
+                return True
+        base, bracket, key = (identity or '').partition('[')
+        if base in constants:
+            data = constants[base]
+            if bracket:
+                try:
+                    index = ast.literal_eval(key.removesuffix(']'))
+                    data = data[index]
+                except (ValueError, SyntaxError, KeyError, IndexError, TypeError):
+                    return False
+            return any(equal(old, item) for item in members(data))
+        return False
+
     found = {}
     for change in changes:
-        old = change['before']
-        for target, line, field, literal, value, identity, file in sites:
-            if target == change.get('target'):
+        old, own = change['before'], change.get('identity') or ''
+        for target, line, field, literal, value, vkind, identity, file, start, end in sites:
+            if target == change.get('target') or own and (identity or '').startswith(own):
+                continue                    # the changed function and the readers of the changed constant
+            if not held(old, value, vkind, identity):
                 continue
-            try:
-                matches = (type(old) in (int, float, Decimal) and Decimal(value) == Decimal(str(old)))
-            except (InvalidOperation, TypeError):
-                matches = False
-            if not matches and value != _shown(old):
-                continue
-            fields = change.get('fields', ())
-            shared_identity = bool(change.get('identity')) and identity == change['identity']
-            if fields and not tokens(' '.join(fields)) & tokens(field) and not shared_identity:
-                continue
-            found[(file, line)] = dict(file=file, line=line, target=target, field=field,
-                                      old=old, identity=identity, kind='lead')
+            big = bool(start and end and end - start >= 20 and line - start >= 3)
+            found[(file, line)] = dict(file=file, line=line, target=target, field=field, old=old,
+                                      identity=identity, big=big, kind='lead')
     rows = list(found.values())
-    return dict(total=len(rows), locations=rows[:min(5, max(0, limit))], kind='lead')
+    return dict(total=len(rows), locations=rows, kind='lead')
 
 
 def class_label(atoms, truth, kinds, witness):

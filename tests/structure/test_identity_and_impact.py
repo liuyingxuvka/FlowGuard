@@ -119,7 +119,7 @@ def test_constant_identity_and_readers_of_a_changed_constant(repo):
     assert ident(m, "c:c") == [("3", "3", None)]
     assert ident(m, "d:Desk.open") == [("self.GRACE", "3", "limits:Limits.GRACE")]   # through the base class
     assert ident(m, "d:d") == [("POLICY['cap']", "50", "limits:POLICY['cap']"), ("G", "3", "limits:GRACE_DAYS")]
-    home = m.other_homes("a:a", weak=True)
+    home = m.other_homes("a:a")
     assert "b:b" in [h["id"] for h in home]
     m.close()
     repo.write({"limits.py": CONST["limits.py"].replace("GRACE_DAYS = 3", "GRACE_DAYS = 7")})

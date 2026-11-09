@@ -1,0 +1,21 @@
+"""Read-only TRY index, parser, morphing, and weather-grid helpers.
+
+Ports MATLAB lines 2951-3071 and 4296-4696.  No TRY path is implicit.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from math import floor, isfinite, isnan
+from pathlib import Path
+import re
+from typing import Iterable, Mapping, Sequence
+
+
+def _matlab_round(value: float) -> int:
+    """Return MATLAB ``round`` semantics (half values away from zero)."""
+    value = float(value)
+    if not isfinite(value):
+        raise ValueError("MATLAB-compatible rounding requires a finite value.")
+    magnitude = floor(abs(value) + 0.5)
+    return int(magnitude if value >= 0 else -magnitude)

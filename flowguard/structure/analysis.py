@@ -42,17 +42,17 @@ def dotted(node) -> str | None:
 
 
 def sql_names(text: str) -> tuple[set, set, list]:
-    """Tables/columns read and written by one SQL string, plus `col op constant` comparisons."""
+    """Tables/columns read and written by one SQL string, plus `col op constant` comparisons. The written
+    tables and columns come from the one SQL statement reader (`readers.sql.statements`)."""
+    from .readers.sql import statements
     t = " ".join(text.split())
     reads, writes = set(), set()
     for m in re.finditer(r"\b(?:from|join)\s+([A-Za-z_][\w.]*)", t, re.I):
         reads.add("sql:" + m.group(1).lower())
-    w = r"\b(?:insert\s+(?:or\s+\w+\s+)?into|replace\s+into|update|create\s+table(?:\s+if\s+not\s+exists)?|delete\s+from)\s+([A-Za-z_][\w.]*)"
-    for m in re.finditer(w, t, re.I):
-        writes.add("sql:" + m.group(1).lower())
-    for m in re.finditer(r"\binto\s+[\w.]+\s*\(([^)]*)\)|\bset\s+(.*?)(?:\bwhere\b|$)|create\s+table[^(]*\((.*)\)", t, re.I):
-        chunk = next(g for g in m.groups() if g is not None)
-        writes |= {"col:" + c.split()[0].split("=")[0].strip().lower() for c in chunk.split(",") if c.strip()}
+    for row in statements(text):
+        if row["verb"] in ("insert", "update", "delete", "create"):
+            writes.add("sql:" + ((row["schema"] + ".") if row["schema"] else "").lower() + row["table"].lower())
+            writes |= {"col:" + column["name"].lower() for column in row["columns"]}
     sel = re.search(r"\bselect\s+(.*?)\s+from\b", t, re.I)
     names = re.findall(r"[A-Za-z_]\w*", sel.group(1)) if sel else []
     names += re.findall(r"([A-Za-z_]\w*)\s*(?:=|<|>|!=|\bin\b|\blike\b|\bis\b)", t, re.I)
