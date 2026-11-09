@@ -398,6 +398,86 @@ def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_ch
     assert _prepare(root) == {'status': 'off', 'reason': '相对基准没有 TS/JS 改动：执行侧不准备'}   # compared, agreed: cleared
 
 
+ISO_WEEK = '''
+    function isoWeek(date: Date): number {
+      const day = date.getUTCDay() || 7;
+      const thursday = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 4 - day));
+      const start = Date.UTC(thursday.getUTCFullYear(), 0, 1);
+      return Math.ceil(((thursday.getTime() - start) / 86400000 + 1) / 7);
+    }
+'''
+
+
+def test_a_same_name_red_names_an_input_next_to_the_one_the_test_used_and_fails_a_test_case(vitest_home):
+    root = vitest_home / 'weeks'
+    _commit(root, {
+        'package.json': '{"name": "weeks", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
+                        '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
+        'src/chart.ts': ISO_WEEK + '''
+            // flowguard: sensor ISO_WEEKS_IN_YEAR
+            export function weeksInYear(year: number): number {
+              return isoWeek(new Date(Date.UTC(year, 11, 28)));
+            }
+        ''',
+        'src/calendar.ts': ISO_WEEK + '''
+            // flowguard: sensor ISO_WEEKS_IN_YEAR
+            export function weekCount(year: number): number {
+              return isoWeek(new Date(Date.UTC(year, 11, 31)));
+            }
+        ''',
+        'tests/chart.test.ts': '''
+            import { expect, it } from 'vitest';
+            import { weeksInYear } from '../src/chart';
+
+            it('counts the weeks of this year', () => {
+              expect(weeksInYear(2026)).toBe(53);
+            });
+        ''',
+    })
+    code, text = _flowguard(root, 'init')
+    assert code == 0, text
+    run = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', '--reporter=default',
+                          '--reporter=json', '--outputFile.json=results.json'], cwd=root, capture_output=True, encoding='utf-8',
+                         timeout=600, env=_environment())
+    text = display_text(run.stdout + run.stderr)
+    # 2025 is next to the 2026 the test used (2026 itself agrees: both count 53); year=0 would be read as 1900
+    red = '红：同名锚点 ISO_WEEKS_IN_YEAR：year=2025，52 ≠ 1（src/chart.ts:9 weeksInYear ≠ src/calendar.ts:9 weekCount）'
+    assert run.returncode == 1 and red in text, text
+    results = json.loads((root / 'results.json').read_text(encoding='utf-8'))
+    cases = {case['title']: case for result in results['testResults'] for case in result['assertionResults']}
+    assert cases['counts the weeks of this year']['status'] == 'passed', cases
+    session = cases['FlowGuard execution side']             # the red is a failed test case in vitest's own results
+    assert session['status'] == 'failed' and red.removeprefix('红：') in display_text(''.join(session['failureMessages'])), session
+    assert red in text.split('Test Files')[-1], text          # the block still follows the summary
+    run = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', 'tests'], cwd=root,
+                         capture_output=True, encoding='utf-8', timeout=600, env=_environment())
+    text = display_text(run.stdout + run.stderr)            # a path filter leaves the session test out:
+    assert run.returncode == 1 and red in text and 'FlowGuard execution side' not in text, text   # the teardown judges
+
+
+def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest_home):
+    root = vitest_home / 'mono'
+    _commit(root, {
+        'web/package.json': '{"name": "web", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
+                            '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
+        'web/src/a.ts': '// flowguard: sensor A_LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'web/src/b.ts': '// flowguard: sensor B_LIMIT\nexport function under(x: number): boolean {\n  return x < 3;\n}\n',
+        'web/src/c.ts': '// flowguard: sensor B_LIMIT\nexport function below(x: number): boolean {\n  return x < 3;\n}\n',
+        'web/tests/a.test.ts': "import { expect, it } from 'vitest';\nimport { over } from '../src/a';\n\n"
+                               "it('over', () => { expect(over(4)).toBe(true); });\n",
+        'api/package.json': '{"name": "api", "private": true, "type": "module", "scripts": {"build": "tsc"}}\n',
+        'api/src/d.ts': '// flowguard: sensor API_LIMIT\nexport function limit(x: number): boolean {\n  return x > 9;\n}\n',
+    })
+    code, text = _flowguard(root, 'init')
+    assert code == 0, text
+    code, text = _vitest(root / 'web', vitest_home)
+    assert code == 0, text
+    unverified = [line for line in text.splitlines() if line.startswith('未验证')]
+    assert unverified[0].startswith('未验证 2 项（不是通过）'), unverified                   # two places, two items
+    assert '未验证：B_LIMIT（web/src/b.ts:2）：没有测试走到' in unverified and '未验证：B_LIMIT（web/src/c.ts:2）：没有测试走到' in unverified
+    assert 'API_LIMIT' not in text and 'api/src' not in text, text      # no web test can reach the api package
+
+
 def test_a_replay_refuses_writes_and_database_clients_and_the_real_call_still_runs(vitest_home):
     root = _fees_project(vitest_home, 'effects')
     _sensor(root, 'src/effects/audited.ts', 'export function auditedFee', 'AUDITED_FEE')

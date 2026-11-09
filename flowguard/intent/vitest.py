@@ -491,8 +491,43 @@ def _observations(directory):
     return records
 
 
-def judge(cfg, data, records):
-    """The session report signals.render prints: changes per case class, same-name and rule reds, grey."""
+def _counterexample(point, records):
+    """The order in which the rows of a same-name comparison are read for the input to print: the one closest
+    to an input a test actually used (the same booleans, strings and dates first, then the smallest numeric
+    distance; year=2025 next to the test's 2026, not a representative far away like year=0), then the smallest
+    magnitude, as before."""
+    from datetime import datetime
+    used = [dict(zip(point['params'], record['args'])) for record in records]
+    def number(item):
+        return isinstance(item, (int, float)) and not isinstance(item, bool)
+    def size(item):
+        return abs(item) if number(item) and math.isfinite(item) else math.inf if number(item) else 0
+    def apart(name, item, seen):
+        if name not in seen:
+            return 1, 0.0
+        mine, theirs = value(item), value(seen[name])
+        if number(mine) and number(theirs):
+            finite = math.isfinite(mine) and math.isfinite(theirs)
+            return 0, abs(mine - theirs) if finite else 0.0 if _same(item, seen[name]) else math.inf
+        if isinstance(mine, datetime) and isinstance(theirs, datetime):
+            return 0, abs((mine - theirs).total_seconds()) / 86400
+        return int(not _same(item, seen[name])), 0.0
+    def key(row):
+        nearest = min(((sum(apart(name, item, seen)[0] for name, item in row['in']),
+                        sum(apart(name, item, seen)[1] for name, item in row['in'])) for seen in used), default=(0, 0.0))
+        return nearest, [size(value(item)) for _, item in row['in']]
+    return key
+
+
+def _inside(cfg, rel, package):
+    """Whether a file belongs to the package whose vitest run this is (every file without one)."""
+    return package is None or (cfg.root / rel).resolve().is_relative_to(Path(package).resolve())
+
+
+def judge(cfg, data, records, package=None):
+    """The session report signals.render prints: changes per case class, same-name and rule reds, grey.
+    `package` is the folder of the vitest run: a point in another package cannot be reached by its tests
+    and is not listed as unreached. Each unverified point is one item, named with its place."""
     from . import cells as C
     from .engine import CONFLICT, Engine, PredicateError, outcome_eq
     from .loader import load
@@ -503,7 +538,8 @@ def judge(cfg, data, records):
         calls.setdefault(record['id'], []).append(record)
     items, red, steps, unverified = [], [], {}, []
     for item in data['unplanned']:
-        unverified.append(f'{item["name"]}：{item["reason"]}')
+        if _inside(cfg, item['rel'], package):
+            unverified.append(f'{item["name"]}（{item["rel"]}:{item["line"]}）：{item["reason"]}')
     for ident, point in points.items():
         where = f'{point["rel"]}:{point["target_line"]}'
         seen, collected, reasons = set(), [], []
@@ -523,8 +559,8 @@ def judge(cfg, data, records):
         copy_only = any(copy['id'] == ident for other in points.values() for copy in other['copies']
                         if calls.get(other['id']))
         if not calls.get(ident):
-            if point['anchored'] and not copy_only:
-                unverified.append(f'{point["name"]}：没有测试走到（{where}）')
+            if point['anchored'] and not copy_only and _inside(cfg, point['rel'], package):
+                unverified.append(f'{point["name"]}（{where}）：没有测试走到')
             continue
         if not collected:
             unverified.extend(f'{point["name"]}：{reason}' for reason in dict.fromkeys(reasons))
@@ -549,8 +585,7 @@ def judge(cfg, data, records):
             pair = frozenset((ident, copy['id']))
             if pair in reported:
                 continue
-            for row in sorted(rows.get(ident, ()), key=lambda row: [abs(value(item)) if isinstance(value(item), (int, float))
-                                                                     and not isinstance(value(item), bool) else 0 for _, item in row['in']]):
+            for row in sorted(rows.get(ident, ()), key=_counterexample(point, calls.get(ident, ()))):
                 theirs = row.get('copies', {}).get(copy['id'])
                 if theirs is None or '$unmatched' in json.dumps(theirs):
                     continue
@@ -610,19 +645,29 @@ def judge(cfg, data, records):
                 unverified=unverified, same_name_pairs=same_name)
 
 
-def report(root, plan_path, observations):
+SESSION = 'report.json'           # in the observations folder: what the session test judged, for the teardown
+
+
+def report(root, plan_path, observations, package=None, *, in_test=False):
+    """Judge this run's observations and print FlowGuard's lines; 1 on red. `in_test` is the session test
+    (session.test.mjs, run after the project's tests): it keeps the observations and saves the text and
+    status for the teardown, which then prints them after the summary instead of judging again."""
     from .config import load_config
     from .differences import display
     from .signals import render
     cfg = load_config(root)
     data = json.loads(Path(plan_path).read_text(encoding='utf-8'))
-    result = judge(cfg, data, _observations(observations))
-    shutil.rmtree(observations)         # this run's records are read; the next run starts empty
+    result = judge(cfg, data, _observations(observations), package)
     _remember_disagreed(cfg, data, result['same_name_pairs'])
     text = render(result)
+    status = 1 if result['red'] else 0
+    if in_test:
+        (Path(observations) / SESSION).write_text(json.dumps(dict(text=text, status=status), ensure_ascii=False), encoding='utf-8')
+    else:
+        shutil.rmtree(observations)     # this run's records are read; the next run starts empty
     if text:
         display(text)
-    return 1 if result['red'] else 0
+    return status
 
 
 def main(argv=None):
@@ -631,13 +676,15 @@ def main(argv=None):
     parser.add_argument('--root', required=True)
     parser.add_argument('--plan')
     parser.add_argument('--observations')
+    parser.add_argument('--package', help='The folder of the vitest run (its vite root)')
+    parser.add_argument('--in-test', action='store_true', help='Run by the session test: keep the observations')
     options = parser.parse_args(argv)
     if options.step == 'prepare':
         print(json.dumps(prepare(options.root), ensure_ascii=False))
         return 0
     if not options.plan or not options.observations:
         parser.error('report needs --plan and --observations')
-    return report(options.root, options.plan, options.observations)
+    return report(options.root, options.plan, options.observations, options.package, in_test=options.in_test)
 
 
 if __name__ == '__main__':
