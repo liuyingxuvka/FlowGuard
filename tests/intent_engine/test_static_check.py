@@ -346,6 +346,37 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
         '把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
 
 
+def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
+    # Planning Tool 0.6.28 (round 21, V3/G29): the plugin counted only .py files as changes, so the root
+    # pytest passed quietly while check --static had this task's pair reds.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Central {
+              id        String @id
+              orgUnitId String
+            }
+
+            model Local {
+              id     String @id
+              unitId String
+            }
+        ''',
+        'src/owners.ts': '// flowguard: owner Central.orgUnitId with=Local.unitId\nexport {};\n',
+        'tests/test_ok.py': 'def test_ok():\n    assert True\n',
+        'pyproject.toml': '[tool.pytest.ini_options]\ntestpaths = ["tests"]\n',
+    })
+    code, text = _pytest(tmp_path)
+    assert code == 0 and '配对没写' not in text, text
+    _write(tmp_path, {'src/admin.ts': '''
+        export async function editCentral(prisma: any, id: string, unit: string) {
+          await prisma.central.update({ where: { id }, data: { orgUnitId: unit } });
+        }
+    '''})
+    code, text = _pytest(tmp_path)
+    assert code == 1, text
+    assert '红：配对没写：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId' in text, text
+
+
 def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_helpers(tmp_path):
     files = {
         'shop/__init__.py': '',
