@@ -520,11 +520,27 @@ class MapHandle:
         names = ('child', 'relation', 'keys', 'on_delete', 'required', 'file', 'line')
         return [dict(zip(names, row)) for row in self._models().children(model)]
 
+    def package(self, file):
+        """The folder of the nearest package.json above a file ('' when none or at the root): one JS/TS
+        package (backend, frontend) of a repository that holds several."""
+        packages = self._derived.setdefault('packages', {})
+        folder, trail = posixpath.dirname(file), []
+        while folder not in packages:
+            trail.append(folder)
+            if not folder or (self.root / folder / 'package.json').is_file():
+                packages[folder] = folder
+                break
+            folder = posixpath.dirname(folder)
+        for item in trail:
+            packages[item] = packages[folder]
+        return packages[folder]
+
     def call_index(self):
         """({caller: {callee: how}}, {callee: {caller: how}}): the map's resolved call edges ('edge'), and JS/TS
-        member calls resolved by name ('name'): `this.m()` to the method of the same class or object literal,
-        `holder.m()` to the method of the class or `const holder = {...}` named so, and a callee name only
-        one function has. Prisma client calls (`x.model.update(...)`) are never resolved by name."""
+        member calls resolved by name ('name'), only to functions of the caller's own package (`package`):
+        `this.m()` to the method of the same class or object literal, `holder.m()` to the method of the class
+        or `const holder = {...}` named so, and a callee name only one function of the package has. Prisma
+        client calls (`x.model.update(...)`) are never resolved by name."""
         if 'calls' in self._derived:
             return self._derived['calls']
         from .readers.ecma import PRISMA_READS, PRISMA_WRITES
@@ -545,6 +561,7 @@ class MapHandle:
                 by_holder.setdefault((holder, name), []).append((ident, file))
                 owners[ident] = holder
         def one(candidates, file):
+            candidates = [(ident, where) for ident, where in candidates if self.package(where) == self.package(file)]
             local = [ident for ident, where in candidates if where == file]
             chosen = local if len(local) == 1 else [ident for ident, _ in candidates]
             return chosen[0] if len(chosen) == 1 else None
@@ -580,11 +597,16 @@ class MapHandle:
 
     def call_tree(self, node, depth=3, *, up=0):
         """{function: how} of `node` (with the functions nested in it) and what they call, `depth` levels down;
-        with `up`, first the callers `up` levels up, each with what it calls. how is 'edge', 'name' (some JS/TS
-        call on the way was resolved by name) or 'self'."""
+        with `up`, first the callers `up` levels up, each with what it calls; from production code the way up
+        does not enter test files (a test that calls a function is not part of its operation). how is 'edge',
+        'name' (some JS/TS call on the way was resolved by name) or 'self'."""
         import bisect
         down, upward = self.call_index()
         callers = self._derived.setdefault('callers', sorted(down))
+        if 'test_modules' not in self._derived:
+            self._derived['test_modules'] = {module for (module,) in self.con.execute('SELECT module FROM file WHERE is_test = 1')}
+        tests = self._derived['test_modules']
+        climb_tests = node.partition(':')[0] in tests
         def body(ident):
             found = [ident]
             index = bisect.bisect_left(callers, ident + '.')
@@ -599,6 +621,8 @@ class MapHandle:
             for ident, how in frontier.items():
                 for item in body(ident):
                     for caller, edge in upward.get(item, {}).items():
+                        if not climb_tests and caller.partition(':')[0] in tests:
+                            continue
                         named = caller.partition(':')[0] + ':' + '.'.join(part for part in caller.partition(':')[2].split('.')
                                                                           if not part.startswith('<anonymous'))
                         if named not in roots:

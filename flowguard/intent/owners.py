@@ -202,13 +202,15 @@ def _holds(row, value):
 def owner_pairs(change, index, *, everything=False):
     """`with=`: each write of a registered field also writes its partner in the same operation (`operation`:
     callers three levels up, then three levels down from them), unless its function is listed in `alone=`.
-    Red when this change adds the write or the rule."""
+    A test's fixture write is not held to the pair. Red when this change adds the write or the rule."""
     from .health import Issue
     found = Findings()
     def bound(row):         # a JS/TS `obj.f = ...` matched by field name alone is not a write of a model
         return not row.get('unclear') and not (row.get('how') == 'name' and row.get('language', 'python') != 'python')
+    tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
     for owner in (a for a in index.entries if a.kind == 'owner' and a.pairs):
-        rows = [row for row in change.graph.writes(owner.name, by_name=True) if bound(row)]
+        rows = [row for row in change.graph.writes(owner.name, by_name=True) if bound(row)
+                and row['file'] not in tests and not is_test_file(row['file'])]
         alone = [item.partition('(')[0] for item in owner.alone]
         new_rule = change.baseline and not _owner_at_baseline(change, owner)
         for pair in owner.pairs:

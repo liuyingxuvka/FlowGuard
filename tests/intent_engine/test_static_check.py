@@ -252,6 +252,66 @@ def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_he
         'hires.state=held → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 shop/store.py:1）'], text
 
 
+def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_path):
+    # Planning Tool 0.6.28 `removeRole` (round 21, G13/G15): a frontend page with the same method names and a
+    # backend test that calls both service methods satisfied the pair; a test's fixture write was a pair red.
+    _commit(tmp_path, {
+        'backend/package.json': '{"name": "backend"}\n',
+        'frontend/package.json': '{"name": "frontend"}\n',
+        'backend/prisma/schema.prisma': '''
+            model Unit {
+              id         String  @id
+              managerId  String?
+              managerSap Int?
+            }
+        ''',
+        'backend/src/unit.service.ts': '''
+            export const unitService = {
+              async setManager(prisma: any, id: string, sap: number) {
+                await prisma.unit.update({ where: { id }, data: { managerId: id, managerSap: sap } });
+              },
+              async moveManager(prisma: any, id: string, sap: number) {
+                await prisma.unit.update({ where: { id }, data: { managerId: id } });
+                await this.mirrorSap(prisma, id, sap);
+              },
+              async mirrorSap(prisma: any, id: string, sap: number) {
+                await prisma.unit.update({ where: { id }, data: { managerSap: sap } });
+              },
+              async removeManager(prisma: any, id: string) {
+                await prisma.unit.updateMany({ where: { managerId: id }, data: { managerId: null } });
+              },
+              async dropManager(prisma: any, id: string) {
+                await prisma.unit.updateMany({ where: { managerId: id }, data: { managerId: null } });
+              },
+            };
+        ''',
+        'frontend/src/UnitPage.tsx': '''
+            export function UnitPage(api: any) {
+              api.removeManager('u1');
+              api.setManager('u1', 7);
+              return null;
+            }
+        ''',
+        'backend/tests/unit.service.test.ts': '''
+            import { unitService } from '../src/unit.service';
+            await prisma.unit.create({ data: { id: 'u1', managerId: 'm1' } });
+            export async function roundTrip(prisma: any) {
+              await unitService.dropManager(prisma, 'u1');
+              await unitService.setManager(prisma, 'u1', 7);
+            }
+        ''',
+    })
+    _write(tmp_path, {'backend/src/owners.ts': '// flowguard: owner Unit.managerId with=Unit.managerSap\nexport {};\n'})
+    code, text = _static(tmp_path)
+    assert code == 1, text
+    # moveManager reaches mirrorSap through `this` in its own package; the page's calls are the frontend's own
+    # names, and the test that calls dropManager is not part of its operation; the test's fixture is no write to hold.
+    assert _lines(text, '红：配对没写') == [
+        '红：配对没写：backend/src/unit.service.ts:13 removeManager  backend/src/unit.service.ts:16 dropManager'
+        '（JS/TS 调用按名字解析） 写了 Unit.managerId，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 Unit.managerSap'
+        ' → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 backend/src/owners.ts:1）'], text
+
+
 # ---- deletes that leave restricting children ---------------------------------------------------------
 
 def test_a_new_hard_delete_names_the_children_it_leaves_once_per_function_and_parent(tmp_path):

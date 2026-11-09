@@ -128,6 +128,6 @@ fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` comp
   in a class, or an object written as `const x: T = {...}`, `{...} satisfies T`, `{...} as T` give a member.
 - `numbers` (TS/JS): number literals in `===`/`<`/`>=`/... comparisons and `case` labels, in the literal row shape.
 - `nodes[].raw.holder` (TS/JS methods): the class or `const x = {...}` object a method belongs to; calls are
-  resolved by name through it (`MapHandle.call_index()`).
+  resolved by name through it, inside the caller's package (nearest `package.json`; `MapHandle.call_index()`).
 - Prisma fields carry `on_delete` (from `@relation(..., onDelete: X)`); SQL tables and ALTER changes carry `checks`
   (`CHECK (col IN ('a', ...))` with string values, also inside `EXEC(N'...')`).
