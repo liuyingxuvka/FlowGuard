@@ -293,8 +293,11 @@ def extract(root, rel, data, module, is_test):
 
     def ending(body, handed):
         """How a catch body ends (common.ENDINGS): it raises or hands the error on somewhere, returns or assigns a
-        substitute, only logs, is empty, or does other work (reports it to the user, answers a request)."""
-        statements = [item for item in (body.named_children if body is not None else []) if item.type not in COMMENTS]
+        substitute, only logs, is empty (a bare `return;`, `continue;` or `break;` leaves without a value or a
+        word), or does other work (reports it to the user, answers a request)."""
+        statements = [item for item in (body.named_children if body is not None else []) if item.type not in COMMENTS
+                      and item.type not in ('continue_statement', 'break_statement')
+                      and not (item.type == 'return_statement' and not item.named_children)]
         if handed:
             return 'handed'
         if not statements:

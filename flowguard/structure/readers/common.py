@@ -7,7 +7,8 @@ import importlib
 from importlib.metadata import version
 
 # How a handler's body ends (the `ends` of a handler fact): it raises or hands the error on on some path, returns
-# or assigns a substitute value, only logs, is empty, or does other work (tells the user, answers a request).
+# or assigns a substitute value, only logs, is empty (a bare return, continue or break says nothing either), or does
+# other work (tells the user, answers a request).
 ENDINGS = ('handed', 'substitute', 'log', 'empty', 'other')
 
 GRAMMARS = {

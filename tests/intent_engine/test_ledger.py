@@ -662,3 +662,38 @@ def test_check_all_lists_unreviewed_legacy_fallbacks_of_production_code_by_how_t
         index = anchors.collect(graph)
         assert owners.static_findings(cfg, graph, index, None, everything=True).section[-len(expected):] == expected
         assert owners.static_findings(cfg, graph, index, None).section == []
+
+
+def test_a_catch_that_only_leaves_is_empty_and_one_that_logs_and_leaves_only_logs(tmp_path):
+    # Planning Tool 0.6.28's auth.routes.ts revokePrevious ends `catch { return; }`: a bare return, continue or break
+    # leaves without a value or a word, like an empty block, so check --all lists it with the empty ones.
+    root = tmp_path / 'shop'
+    write(root, 'web/leave.ts', '''export function revoke(token: string) {
+  try { verify(token); } catch { return; }
+  revokeAll(token);
+}
+export function each(items: string[]) {
+  for (const item of items) { try { sync(item); } catch (error) { console.warn('skipped', item); continue; } }
+  outer: for (const item of items) { try { sync(item); } catch { break outer; } }
+}
+''')
+    write(root, 'src/shop/__init__.py', '')
+    write(root, 'src/shop/leave.py', '''def each(items, log):
+    for item in items:
+        try:
+            item.sync()
+        except KeyError:
+            continue
+
+
+def first(items, log):
+    try:
+        items[0].sync()
+    except IndexError:
+        log.warning('nothing to sync')
+        return
+''')
+    with closing(build(root, workers=1)) as graph:
+        ends = sorted((row['file'], row['line'], row['ends']) for row in graph.handlers())
+    assert ends == [('src/shop/leave.py', 5, 'empty'), ('src/shop/leave.py', 12, 'log'),
+                    ('web/leave.ts', 2, 'empty'), ('web/leave.ts', 6, 'log'), ('web/leave.ts', 7, 'empty')], ends

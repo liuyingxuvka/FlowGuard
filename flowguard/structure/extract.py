@@ -913,10 +913,11 @@ MESSAGE_CALLS = {'debug', 'info', 'warning', 'warn', 'error', 'exception', 'crit
 
 def _ending(statements, nodes, raises) -> str:
     """How an except body ends (readers.common.ENDINGS): it raises somewhere, returns or assigns a substitute,
-    only logs, is empty (`pass`, `...`, a docstring) or does other work."""
+    only logs, is empty (`pass`, `...`, a docstring, a bare `return`, `continue` or `break`) or does other work."""
     if raises:
         return 'handed'
-    work = [node for node in statements if not isinstance(node, ast.Pass)
+    work = [node for node in statements if not isinstance(node, (ast.Pass, ast.Continue, ast.Break))
+            and not (isinstance(node, ast.Return) and node.value is None)
             and not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant))]
     if not work:
         return 'empty'
