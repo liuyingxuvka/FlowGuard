@@ -921,7 +921,7 @@ class Engine:
         result = check_flow(model, index, events, rules=self.m.rules, contracts=contracts, engine=self,
                             _context=_context, _scopes=_scopes)
         result['info'].append('scope: observed anchor paths and declared finite model; '
-                              'unexecuted source routes remain unverified (static path proof is frozen)')
+                              'unexecuted source routes remain unverified (there is no static path proof)')
         valid, reason = authority(parse_source(model.source), None, self.m.cfg, self.archive, None)
         if not valid:
             result['red' if 'quote gone' in reason else 'grey'].append(reason)

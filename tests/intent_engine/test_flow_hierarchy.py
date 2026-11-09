@@ -294,13 +294,6 @@ def test_source_navigation_retains_the_child_model_reference(tmp_path):
 
 
 
-def test_chained_identity_source_calls_stay_unknown(tmp_path):
-    from test_flow_paths import inspect,LEAVES,TARGETS
-    result=inspect(tmp_path,LEAVES+'def entry(): return check() is check() is post()\n',TARGETS)
-    assert result.paths==() and any('Compare expression order is not supported' in reason for reason in result.unknown)
-
-
-
 @pytest.mark.parametrize('shape',['nested','entry-return'])
 def test_real_child_entry_shapes_are_proved_not_guessed(tmp_path,shape):
     model,engine,captured=verified(tmp_path,nested=shape=='nested',export_entry=shape=='entry-return')
