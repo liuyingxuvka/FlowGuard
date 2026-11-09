@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import sqlite3
 import subprocess
+import sys
 
 import pytest
 
@@ -241,3 +242,93 @@ def test_brief_drops_failed_readings_of_folders_norecursedirs_keeps_pytest_out_o
     from flowguard.intent import deps
     scope = deps.test_scope(load_config(root))
     assert not scope('tests/legacy/test_old_binding.py') and scope('tests/test_current.py')
+
+
+SOURCE = str(Path(__file__).resolve().parents[2])
+
+
+def _run(root, *arguments, pytest_run=False):
+    """`python -m flowguard ...` or, with `pytest_run`, ordinary pytest in `root`, this checkout first on the path."""
+    from tests.intent_engine._cli_fixture import display_text
+    call = ('import pytest; raise SystemExit(pytest.main(sys.argv[1:]))' if pytest_run else
+            'from flowguard.__main__ import main; raise SystemExit(main(sys.argv[1:]))')
+    options = ('-q', '-p', 'no:cacheprovider') if pytest_run else ('--root', str(root))
+    result = subprocess.run([sys.executable, '-c', 'import sys; sys.path.insert(0, sys.argv.pop(1)); ' + call, SOURCE,
+                             *options, *arguments], cwd=root, capture_output=True, text=True, timeout=180)
+    return result.returncode, display_text(result)
+
+
+def _plain(tmp_path):
+    """A project as the README starts one: `flowguard init`, a commit, then ordinary pytest (no brief)."""
+    root = tmp_path / 'plain'
+    root.mkdir()
+    (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath = ["."]\ntestpaths = ["tests"]\n')
+    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 3\n')
+    (root / 'tests').mkdir()
+    (root / 'tests/test_app.py').write_text('from app import eligible\n\n\ndef test_limit():\n'
+                                           '    assert eligible(3) in (True, False) and eligible(4) in (True, False)\n')
+    (root / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n')
+    git(root, 'init', '--quiet', '-b', 'main')
+    git(root, 'config', 'user.name', 'FlowGuard test fixture')
+    git(root, 'config', 'user.email', 'flowguard-fixture@example.invalid')
+    code, text = _run(root, 'init')
+    assert code == 0, text
+    git(root, 'add', '.')
+    git(root, 'commit', '--quiet', '-m', 'fixture baseline')
+    return root, load_config(root)
+
+
+def test_the_first_pytest_run_records_the_task_baseline_and_commits_during_the_task_keep_it(tmp_path):
+    root, cfg = _plain(tmp_path)
+    start = git(root, 'rev-parse', 'HEAD')
+    code, text = _run(root, '--flowguard-base=HEAD', pytest_run=True)
+    assert code == 0 and cache.task_baseline(cfg) == (start, 'HEAD'), text    # an explicit baseline records nothing
+    code, text = _run(root, pytest_run=True)
+    # The first run, as in CI on a fresh clone: HEAD, nothing changed, nothing printed; HEAD is recorded.
+    assert code == 0 and 'FlowGuard（' not in text, text
+    assert cache.task_baseline(cfg) == (start, 'task')
+    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
+    git(root, 'commit', '--quiet', '-am', 'fixture change committed during the task')
+    code, text = _run(root, pytest_run=True)
+    assert code == 0, text
+    lines = text.splitlines()
+    assert f'FlowGuard（相对任务开始 {start[:7]}）' in lines, text       # not HEAD against HEAD
+    assert any(line.startswith('变：LIMIT（app.py:2）') and 'days=4；函数返回值 F → T' in line for line in lines), text
+    assert cache.task_baseline(cfg) == (start, 'task')
+    # The next task starts at HEAD: the committed change is no longer this task's.
+    code, text = _run(root, 'new-task')
+    assert code == 0, text
+    head = git(root, 'rev-parse', 'HEAD')
+    assert cache.task_baseline(cfg) == (head, 'task') and head != start
+    code, text = _run(root, pytest_run=True)
+    assert code == 0 and 'FlowGuard（' not in text, text
+    # A fresh clone (an empty cache, as in CI) compares with its HEAD on its first run and changes nothing.
+    clone = tmp_path / 'clone'
+    subprocess.run(['git', 'clone', '--quiet', str(root), str(clone)], check=True, capture_output=True, timeout=60)
+    assert cache.task_baseline(load_config(clone)) == (head, 'HEAD')
+    code, text = _run(clone, pytest_run=True)
+    assert code == 0 and 'FlowGuard（' not in text, text
+    assert cache.task_baseline(load_config(clone)) == (head, 'task')
+
+
+def _folder(tmp_path, name):
+    (tmp_path / name).mkdir()
+    return tmp_path / name
+
+
+def test_check_and_check_static_record_the_task_baseline_unless_base_names_one(tmp_path):
+    root, cfg = project(tmp_path, rules=0)
+    head = git(root, 'rev-parse', 'HEAD')
+    for command in (('check', '--static', '--base', 'HEAD'), ('check', '--base', 'HEAD')):
+        code, text = _run(root, *command)
+        assert code == 0 and cache.task_baseline(cfg) == (head, 'HEAD'), (command, text)     # --base records nothing
+    code, text = _run(root, 'check', '--static')
+    assert code == 0 and cache.task_baseline(cfg) == (head, 'task'), text
+    root, cfg = project(_folder(tmp_path, 'second'), rules=0)
+    code, text = _run(root, 'check')
+    assert code == 0 and cache.task_baseline(cfg) == (git(root, 'rev-parse', 'HEAD'), 'task'), text
+    # Without a commit there is no HEAD to record.
+    root, cfg = project(_folder(tmp_path, 'unborn'), versioned=False, rules=0)
+    git(root, 'init', '--quiet')
+    code, text = _run(root, 'check', '--static')
+    assert code == 0 and cache.task_baseline(cfg) == (None, None), text

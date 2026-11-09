@@ -329,8 +329,10 @@ class Observations:
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
         self.comparison_requested = bool(state.config.getoption('--flowguard-base', default=None))
-        task = cache.session_baseline(self.cfg, remember=False)
-        self.baseline_kind = 'base' if self.comparison_requested else 'task' if task else 'HEAD'
+        # The first session of a task records HEAD as its baseline, as the brief does, so commits made during
+        # the task keep what it changed reported; --flowguard-base names its own baseline and records nothing.
+        task, kind = (None, None) if self.comparison_requested else cache.task_baseline(self.cfg, remember=True)
+        self.baseline_kind = 'base' if self.comparison_requested else kind or 'HEAD'
         baseline = state.config.getoption('--flowguard-base', default=None) or task or 'HEAD'
         self.runtime = state.runtime = Runtime(self.cfg.root, baseline)
         if state.config.getoption('--flowguard-base', default=None) and self.runtime._baseline_error:

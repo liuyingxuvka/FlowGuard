@@ -21,14 +21,27 @@ def put_meta(con, name, text):
 
 
 def session_baseline(cfg, *, remember=False):
-    """One task-start commit in the existing SQLite meta; ordinary tests only read it. `remember` is the
-    brief's call (`remember_baseline`), which keeps a task's baseline while HEAD descends from it."""
+    """The comparison commit of `task_baseline`, without its kind."""
+    return task_baseline(cfg, remember=remember)[0]
+
+
+def task_baseline(cfg, *, remember=False):
+    """(commit, kind) of the task-start commit in the existing SQLite meta: kind 'task' for a recorded one,
+    'HEAD' when nothing is recorded and HEAD stands in; (None, None) outside Git or before the first commit.
+    `remember` is the call of the brief, of pytest with the plugin and of `check` and `check --static` without
+    an explicit baseline (`remember_baseline`): it records HEAD when nothing is recorded and keeps a task's
+    baseline while HEAD descends from it, so its commit is always a recorded task start. Other readers
+    (vitest, `ledger check`, `debug watch`) record nothing."""
     if remember:
-        return remember_baseline(cfg)[0]
+        commit = remember_baseline(cfg)[0]
+        return commit, 'task' if commit else None
     if git_common_directory(cfg.root) is None:
-        return None
+        return None, None
     recorded = _recorded_baseline(cfg)
-    return recorded if recorded is not None else git_head(cfg.root)
+    if recorded is not None:
+        return recorded, 'task'
+    head = git_head(cfg.root)
+    return head, 'HEAD' if head else None
 
 
 def _recorded_baseline(cfg):
@@ -52,11 +65,13 @@ def _recorded_baseline(cfg):
 
 
 def remember_baseline(cfg, *, new_task=False):
-    """(commit, note) of the brief. The task baseline is recorded at HEAD only when none is recorded, when
-    the recorded commit is not an ancestor of HEAD (another branch, rewritten history, a commit this clone
-    lacks) or when `new_task` starts the next task (`python -m flowguard new-task`). Commits made during a
-    task keep its baseline, so what the task changed stays reported. `note` says why the baseline is where
-    it is, '' when it was recorded at HEAD with nothing recorded before."""
+    """(commit, note) of the brief; pytest with the plugin, `check` and `check --static` call it too (without
+    `--flowguard-base` / `--base`), so a task that never runs the brief gets its baseline at its first run.
+    The task baseline is recorded at HEAD only when none is recorded, when the recorded commit is not an
+    ancestor of HEAD (another branch, rewritten history, a commit this clone lacks) or when `new_task` starts
+    the next task (`python -m flowguard new-task`). Commits made during a task keep its baseline, so what the
+    task changed stays reported. `note` says why the baseline is where it is, '' when it is HEAD and was
+    recorded there before or with nothing recorded before."""
     from flowguard.map.common import git_run
     if git_common_directory(cfg.root) is None:
         return None, ''
@@ -64,6 +79,8 @@ def remember_baseline(cfg, *, new_task=False):
     if head is None:
         return None, ''
     recorded = _recorded_baseline(cfg)
+    if recorded == head and not new_task:
+        return recorded, ''             # the common case of every test run: no git call to ask about ancestry
     if recorded is not None and not new_task:
         known = git_run(cfg.root, 'rev-parse', '-q', '--verify', recorded + '^{commit}', allowed=(0, 1)).returncode == 0
         if known and git_run(cfg.root, 'merge-base', '--is-ancestor', recorded, head, allowed=(0, 1)).returncode == 0:

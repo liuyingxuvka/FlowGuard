@@ -235,6 +235,20 @@ def test_prepare_is_off_without_a_ts_change_and_plans_anchored_and_changed_funct
     assert _prepare(tmp_path) == answer and Path(answer['plan']).stat().st_mtime_ns == stamp   # the cached plan
 
 
+def test_the_plan_says_head_until_a_task_baseline_is_recorded(tmp_path):
+    _commit(tmp_path, {'src/limits.ts': 'export function limit(days: number) { return days <= 3; }\n'})
+    head = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    (tmp_path / 'src/limits.ts').write_text('export function limit(days: number) { return days <= 4; }\n', encoding='utf-8')
+    answer = _prepare(tmp_path)
+    plan = json.loads(Path(answer['plan']).read_text(encoding='utf-8'))
+    assert (plan['baseline'], plan['baseline_kind']) == (head, 'HEAD'), plan     # nothing recorded: HEAD stands in
+    code, text = _flowguard(tmp_path, 'check', '--static')       # what flowguard.static.test.mjs runs records the task start
+    assert code == 0, text
+    again = _prepare(tmp_path)
+    plan = json.loads(Path(again['plan']).read_text(encoding='utf-8'))
+    assert again['plan'] != answer['plan'] and (plan['baseline'], plan['baseline_kind']) == (head, 'task'), plan
+
+
 def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tmp_path):
     _commit(tmp_path, {
         'src/limits.ts': "export const LIMIT = 3;\nexport const LABELS = { TEAM: 'Team', AREA: 'Area' };\n",
@@ -409,13 +423,16 @@ def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_ch
     code, text = _vitest(root, vitest_home)
     red = '红：同名锚点 LATE_FEE：days=3.01, member=T，5.01 ≠ 5.02'
     assert code == 1 and red in text, text
-    _commit(root, message='sensors')            # nothing changed against the baseline any more
+    _commit(root, message='sensors')
+    # The static test's check --static recorded the task baseline; a commit keeps it, the next task moves it.
+    assert _flowguard(root, 'new-task')[0] == 0      # nothing changed against the baseline any more
     code, text = _vitest(root, vitest_home)
     assert code == 1 and red in text, text      # the registered copies still disagree: still red
     preview = root / 'src/preview/fee-preview.ts'
     preview.write_text(preview.read_text(encoding='utf-8').replace('(days - 3) * 2', '(days - 3) * (member ? 1 : 2)'),
                        encoding='utf-8', newline='\n')
     _commit(root, message='the copies agree')
+    assert _flowguard(root, 'new-task')[0] == 0
     code, text = _vitest(root, vitest_home)
     assert code == 0 and '同名锚点' not in text, text
     assert _prepare(root) == {'status': 'off', 'reason': '相对基准没有 TS/JS 改动：执行侧不准备'}   # compared, agreed: cleared

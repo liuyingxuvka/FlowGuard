@@ -77,6 +77,19 @@ def test_crlf_file_keeps_its_line_endings_outside_the_block(tmp_path, capsys):
     assert result == expected
 
 
+def test_rule_one_starts_each_task_with_new_task_and_the_block_keeps_three_rules(tmp_path, capsys):
+    result = _init(tmp_path, '').lstrip('\n')
+    assert result.startswith('<!-- flowguard:start -->\n## FlowGuard rules for the project agent\n\n') \
+        and result.endswith('<!-- flowguard:end -->\n'), result
+    rules = [line for line in result.splitlines() if line[:1].isdigit()]
+    assert [line[:3] for line in rules] == ['1. ', '2. ', '3. '], rules
+    # How a task starts: its baseline is recorded, so a commit made during the task does not hide its changes.
+    assert rules[0] == ("1. Start each task with `python -m flowguard new-task` (it records the task's baseline; commits "
+                        "during the task keep it). Run the project's tests and read the FlowGuard lines; every red and "
+                        "lead ends with the next step: do it, and when it says to tell the owner, tell the owner before "
+                        "changing the structure."), rules[0]
+
+
 def test_other_level_one_headings_are_not_touched(tmp_path, capsys):
     text = '# FlowGuard rules for the release manager\n\nKeep this.\n'
     result = _init(tmp_path, text)
@@ -154,3 +167,4 @@ def test_a_sentence_about_0_70_is_listed_not_rewritten_and_the_projects_own_work
     number = result.splitlines().index(said.rstrip('\n')) + 1
     assert f'AGENTS.md:{number} still names FlowGuard 0.70 (' in out, out
     assert 'section "Release workflow"' not in out, out
+
