@@ -340,6 +340,128 @@ def test_init_wires_one_unit_suite_script_and_never_an_integration_suite(tmp_pat
         (tmp_path / 'api/package.json').write_text(start, encoding='utf-8')
         code, text = _flowguard(tmp_path, 'init')
         assert code == 0 and 'init added' not in text and (tmp_path / 'api/package.json').read_text(encoding='utf-8') == start, text
+        assert 'Generated api/flowguard.static.test.mjs (vitest): npm test runs python -m flowguard check --static' in text, text
+        # with no script naming the static test, the integration and end-to-end suites left alone are named
+        alone = 'api/package.json scripts "test:integration", "test:e2e" run vitest on integration, end-to-end or other suites'
+        assert (alone in text) == (start != wired.replace(', "test:unit": "vitest run tests/unit"', '')
+                                   .replace(', "test:api": "vitest run tests/api"', '')), text
+
+
+TEST_FILE = "import { it } from 'vitest';\nit('a', () => {});\n"
+
+
+def _script_packages(root, packages):
+    """Commit one package.json per folder, its scripts given, with a test file in each folder named after it."""
+    files = {}
+    for folder, (scripts, folders) in packages.items():
+        files[f'{folder}/package.json'] = scripts if isinstance(scripts, str) else \
+            json.dumps({'name': folder, 'scripts': scripts, 'devDependencies': {'vitest': VITEST}}) + '\n'
+        files.update({f'{folder}/{inner}/a.test.ts': TEST_FILE for inner in folders})
+    _commit(root, files)
+    return {folder: files[f'{folder}/package.json'] for folder in packages}
+
+
+def _scripts(root, folder):
+    return json.loads((root / folder / 'package.json').read_text(encoding='utf-8'))['scripts']
+
+
+def test_init_wires_a_filtered_test_script_first_and_names_the_script_that_runs_the_static_test(tmp_path):
+    # Round 23: "test": "vitest run src" beside test:unit got the static test in test:unit only, so npm test did not
+    # run it, and init still printed that npm test runs the check; so it did with only integration suites or no script.
+    start = _script_packages(tmp_path, {
+        'filtered': ({'test': 'vitest run src', 'test:unit': 'vitest run tests/unit'}, ['src', 'tests/unit']),
+        'unitonly': ({'test:unit': 'vitest run tests/unit'}, ['tests/unit']),
+        'suites': ({'test:integration': 'vitest run tests/integration', 'test:e2e': 'vitest run tests/e2e'},
+                   ['tests/integration', 'tests/e2e']),
+        'bare': ('{"name": "bare", "devDependencies": {"vitest": "4.1.11"}}\n', []),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0, text
+    assert _scripts(tmp_path, 'filtered') == {'test': 'vitest run src flowguard.static.test.mjs', 'test:unit': 'vitest run tests/unit'}
+    assert ('filtered/package.json script "test" runs vitest on named paths only; init added flowguard.static.test.mjs: '
+            'vitest run src flowguard.static.test.mjs') in text, text
+    assert _scripts(tmp_path, 'unitonly') == {'test:unit': 'vitest run tests/unit flowguard.static.test.mjs'}
+    for folder in ('suites', 'bare'):
+        assert (tmp_path / folder / 'package.json').read_text(encoding='utf-8') == start[folder], text
+    assert text.count('init added') == 2 and text.count('npm test runs') == 1, text
+    for again in (text, _flowguard(tmp_path, 'init')[1]):
+        assert 'Generated filtered/flowguard.static.test.mjs (vitest): npm test runs python -m flowguard check --static' in again
+        assert 'Generated unitonly/flowguard.static.test.mjs (vitest): npm run test:unit runs python -m flowguard check --static' \
+            in again, again
+        assert ('suites/package.json scripts "test:integration", "test:e2e" run vitest on integration, end-to-end or other '
+                'suites that reach real databases and services: init leaves them alone; to run the check with one of them, '
+                'add flowguard.static.test.mjs to its vitest command yourself') in again, again
+        for folder in ('suites', 'bare'):
+            assert (f'Generated {folder}/flowguard.static.test.mjs (vitest), but init finds no script in {folder}/package.json '
+                    'that runs it: add flowguard.static.test.mjs to the vitest command of the script your tests run, so it runs '
+                    'python -m flowguard check --static and fails on red (npx vitest run flowguard.static.test.mjs runs it '
+                    'alone).') in again, again
+    assert 'init added' not in again and _scripts(tmp_path, 'filtered')['test'] == 'vitest run src flowguard.static.test.mjs', again
+
+
+def test_init_tries_the_next_script_after_one_it_cannot_wire(tmp_path):
+    # Round 23: a unit script that names its own root, or that init cannot edit safely, ended the search.
+    _script_packages(tmp_path, {
+        'rooted': ({'test:unit': 'vitest run tests/unit --root .', 'test:api': 'vitest run tests/api'}, ['tests/unit', 'tests/api']),
+        'names': ({'test:unit': 'vitest run tests/unit -t fast', 'test:api': 'vitest run tests/api'}, ['tests/unit', 'tests/api']),
+        # the file spells the slash as \/ : the command JSON reads is not spelled as json.dumps writes it
+        'escaped': ('{"name": "escaped", "scripts": {"test:unit": "vitest run tests\\/unit", "test:api": "vitest run tests/api"}, '
+                    '"devDependencies": {"vitest": "4.1.11"}}\n', ['tests/unit', 'tests/api']),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0 and text.count('init added') == 3, text
+    for folder, command in (('rooted', 'vitest run tests/unit --root .'), ('names', 'vitest run tests/unit -t fast'),
+                            ('escaped', 'vitest run tests/unit')):
+        assert _scripts(tmp_path, folder) == {'test:unit': command, 'test:api': 'vitest run tests/api flowguard.static.test.mjs'}
+        assert f'Generated {folder}/flowguard.static.test.mjs (vitest): npm run test:api runs python -m flowguard check' in text, text
+    for folder, command in (('rooted', 'vitest run tests/unit --root .'), ('names', 'vitest run tests/unit -t fast')):
+        assert (f'{folder}/package.json script "test:unit" names its own root, folder or test names ({command}): '
+                'add flowguard.static.test.mjs to what it runs yourself') in text, text
+    assert ('escaped/package.json script "test:unit" runs vitest on named paths only: change it to vitest run tests/unit '
+            'flowguard.static.test.mjs so it runs flowguard.static.test.mjs too') in text, text
+    assert '"test:unit": "vitest run tests\\/unit"' in (tmp_path / 'escaped/package.json').read_text(encoding='utf-8')
+
+
+def test_init_wires_the_unit_script_and_leaves_other_suites_and_watch_scripts_alone(tmp_path):
+    # Round 23: the other-suite test was a word match on the name (test:int, test:db and a test:all that runs
+    # tests/integration got the static test), and among unit scripts the file order picked a watch variant.
+    _script_packages(tmp_path, {
+        'suites': ({'test:int': 'vitest run tests/int', 'test:integrations': 'vitest run tests/integrations',
+                    'test:db': 'vitest run tests/db', 'test:it': 'vitest run tests/it',
+                    'test:acceptance': 'vitest run tests/acceptance', 'test:all': 'vitest run tests/core tests/integration',
+                    'test': 'vitest run tests/integration', 'test:core': 'vitest run tests/core'},
+                   ['tests/int', 'tests/integrations', 'tests/db', 'tests/it', 'tests/acceptance', 'tests/integration',
+                    'tests/core']),
+        'ranked': ({'test:unit:watch': 'vitest watch tests/unit', 'test:quick': 'vitest --watch tests/unit',
+                    'test:unit-ci': 'vitest run tests/unit --reporter=junit', 'test:unit': 'vitest run tests/unit --reporter=dot'},
+                   ['tests/unit']),
+        'lengths': ({'test:units-all': 'vitest run tests/u', 'test:api': 'vitest run tests/api', 'test:units': 'vitest run tests/u'},
+                    ['tests/u', 'tests/api']),
+        'plain': ({'unit': 'vitest run tests/unit', 'test:smoke': 'vitest run tests/smoke'}, ['tests/unit', 'tests/smoke']),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0 and text.count('init added') == 4, text
+    for folder, script in (('suites', 'test:core'), ('ranked', 'test:unit'), ('lengths', 'test:units'), ('plain', 'unit')):
+        added = [name for name, command in _scripts(tmp_path, folder).items() if 'flowguard.static.test.mjs' in command]
+        assert added == [script], (folder, added, text)
+        assert f'Generated {folder}/flowguard.static.test.mjs (vitest): npm run {script} runs python -m flowguard check' in text, text
+    assert 'leaves them alone' not in text, text
+
+
+def test_init_finds_the_static_test_in_every_call_of_every_test_script(tmp_path):
+    # Round 23: only a bare word in a script's first runner call counted, so ./flowguard.static.test.mjs, a later
+    # && call or a run of the whole folder (.) got the static test a second time.
+    start = _script_packages(tmp_path, {
+        'dotted': ({'test:unit': 'vitest run tests/unit ./flowguard.static.test.mjs', 'test:api': 'vitest run tests/api'},
+                   ['tests/unit', 'tests/api']),
+        'later': ({'test:unit': 'vitest run tests/unit && vitest run tests/api flowguard.static.test.mjs'}, ['tests/unit', 'tests/api']),
+        'whole': ({'test': 'vitest run ./'}, []),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0 and 'init added' not in text, text
+    for folder, script in (('dotted', 'npm run test:unit'), ('later', 'npm run test:unit'), ('whole', 'npm test')):
+        assert (tmp_path / folder / 'package.json').read_text(encoding='utf-8') == start[folder], text
+        assert f'Generated {folder}/flowguard.static.test.mjs (vitest): {script} runs python -m flowguard check' in text, text
 
 
 # ---- real vitest -----------------------------------------------------------------------------------
