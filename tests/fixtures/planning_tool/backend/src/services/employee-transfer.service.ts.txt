@@ -1,0 +1,46 @@
+// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+// copied from planning-tool/backend/src/services/employee-transfer.service.ts lines 562-577
+/** Write paired synchronization markers through the transaction that owns the
+ * employee row lock. Never start a second Local transaction while holding it. */
+async function markCentralState(
+  tx: Prisma.TransactionClient,
+  transfer: Awaited<ReturnType<typeof getTransfer>>,
+  state: CentralTransferSyncState,
+  message: string | null,
+): Promise<void> {
+  const data = { centralSyncState: state, centralSyncError: message?.slice(0, TRANSFER_REASON_MAX_LENGTH) ?? null, centralSyncAttemptedAt: new Date() };
+  await tx.employeeTransfer.update({ where: { id: transfer.id }, data });
+  const updated = await tx.employee.updateMany({
+    where: { id: transfer.employeeId, organizationalUnitId: transfer.targetOrgUnitId, personnelCommandKey: transfer.lastCommandKey }, data,
+  });
+  if (updated.count !== 1) throw new ConflictError('A later personnel operation owns this employee. Reload the transfer status.', 'personnelCommandKey');
+}
+
+// copied from planning-tool/backend/src/services/employee-transfer.service.ts lines 827-852
+async function acceptTransferWithinTransaction(
+  tx: Prisma.TransactionClient,
+  transfer: Awaited<ReturnType<typeof getTransfer>>,
+  input: DecideEmployeeTransferInput,
+  now: Date,
+  approvalPlan: ReturnType<typeof planEmployeeTransferApproval>,
+  requestHash: string,
+) {
+  if (!approvalPlan.finalized) throw new ConflictError('Both organization sides must approve before the employee can move.', 'approval');
+  if (transfer.status !== 'PENDING' || transfer.revision !== input.expectedTransferRevision) throw new ConflictError('The transfer changed. Reload before accepting.', 'revision');
+  if (transfer.employee.authorityVersion !== input.expectedEmployeeAuthorityRevision) throw new ConflictError('The employee changed. Reload before accepting.', 'authorityVersion');
+  await assertAcceptableEmployee(transfer, now);
+  const employeeUpdated = await tx.employee.updateMany({
+    where: { id: transfer.employeeId, organizationalUnitId: transfer.fromOrgUnitId, authorityVersion: input.expectedEmployeeAuthorityRevision },
+    data: { organizationalUnitId: transfer.targetOrgUnitId, authorityVersion: { increment: 1 }, centralSyncState: transfer.employee.storageScope === 'CENTRAL' ? 'PENDING' : 'NOT_REQUIRED', centralSyncError: null, centralSyncAttemptedAt: now, personnelCommandKey: input.commandKey },
+  });
+  if (employeeUpdated.count !== 1) throw new ConflictError('The employee membership changed. Reload and try again.', 'authorityVersion');
+  const terminal = await tx.employeeTransfer.updateMany({
+    where: { id: transfer.id, status: 'PENDING', revision: input.expectedTransferRevision },
+    data: { status: 'ACCEPTED', revision: { increment: 1 }, sourceApprovalCommandKey: approvalPlan.sourceApprovalCommandKey, targetApprovalCommandKey: approvalPlan.targetApprovalCommandKey, decidedById: input.actor.employeeId, decidedAt: now, lastCommandKey: input.commandKey, lastCommandAction: 'ACCEPT', centralSyncState: transfer.employee.storageScope === 'CENTRAL' ? 'PENDING' : 'NOT_REQUIRED', centralSyncError: null, centralSyncAttemptedAt: now, reason: transfer.reason },
+  });
+  if (terminal.count !== 1) throw new ConflictError('The transfer changed. Reload and try again.', 'revision');
+  await reserveTransferCommand(tx, transfer.id, input.commandKey, 'ACCEPT', input.actor.employeeId, requestHash, approvalReceipt({ commandKey: input.commandKey, transferId: transfer.id, actorId: input.actor.employeeId, action: 'ACCEPT', approvedSides: approvalPlan.approvedSides, resultingTransferRevision: input.expectedTransferRevision + 1, businessStatus: 'ACCEPTED', finalized: true }));
+  await tx.auditEvent.create({ data: { domain: 'PERSONNEL', action: 'EMPLOYEE_TRANSFER_ACCEPTED', entityType: 'EMPLOYEE_TRANSFER', entityId: transfer.id, oldValue: JSON.stringify({ organizationalUnitId: transfer.fromOrgUnitId, status: 'PENDING' }), newValue: JSON.stringify({ organizationalUnitId: transfer.targetOrgUnitId, status: 'ACCEPTED' }), actorId: input.actor.employeeId, timestamp: now, contextId: input.commandKey, idempotencyKey: input.commandKey, severity: 'INFO' } });
+  await tx.notification.create({ data: { recipientId: transfer.employeeId, type: 'AUTHORITY_CHANGED', title: 'Organization transfer accepted', message: 'Your organization transfer has been accepted.', metadata: JSON.stringify({ transferId: transfer.id, targetOrgUnitId: transfer.targetOrgUnitId, correlationId: input.commandKey }) } });
+}

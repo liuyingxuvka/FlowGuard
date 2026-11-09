@@ -1,0 +1,87 @@
+-- FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+-- Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+-- copied from planning-tool/backend/prisma/central/init-azure-sql.sql lines 1-54
+-- =============================================================================
+-- Azure SQL Initialization Script — Central Database
+-- Purpose  : Create the complete central database schema on a fresh Azure SQL
+--            Database instance. Matches the Prisma central schema exactly.
+-- Author   : FEV Planning Tool Team
+-- Created  : 2026-04-07
+-- Modified : 2026-04-07
+--
+-- Target:
+--   Server  : sql-we-genaisys-test.database.windows.net
+--   Database: sqldb-we-oua-test-01
+--   Schema  : dbo
+--
+-- Usage:
+--   sqlcmd -S sql-we-genaisys-test.database.windows.net -d sqldb-we-oua-test-01 -G \
+--          -i backend/prisma/central/init-azure-sql.sql
+--
+-- Notes:
+--   - Idempotent: uses IF NOT EXISTS guards so re-running is safe.
+--   - Does NOT seed data. Admin user is created via the seed script.
+--   - Schema matches the Prisma model definitions in schema.prisma.
+--   - SQL Server self-references use NO ACTION to avoid multiple cascade path
+--     errors on Azure SQL Database.
+-- =============================================================================
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Table: central_org_units
+-- ─────────────────────────────────────────────────────────────────────────────
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'central_org_units' AND schema_id = SCHEMA_ID('dbo'))
+BEGIN
+    CREATE TABLE [dbo].[central_org_units] (
+        [id]                   NVARCHAR(1000) NOT NULL,
+        [type]                 NVARCHAR(1000) NOT NULL,
+        [name]                 NVARCHAR(1000) NOT NULL,
+        [code]                 NVARCHAR(1000),
+        [oe_key]               INT,
+        [parent_id]            NVARCHAR(1000),
+        [manager_sap_number]   INT,
+        [manager_employee_id]  NVARCHAR(1000),
+        [active]               BIT NOT NULL,
+        [created_at]           DATETIME2 NOT NULL CONSTRAINT [central_org_units_created_at_df] DEFAULT CURRENT_TIMESTAMP,
+        [updated_at]           DATETIME2 NOT NULL,
+        CONSTRAINT [central_org_units_pkey] PRIMARY KEY CLUSTERED ([id]),
+        CONSTRAINT [central_org_units_parent_id_fkey] FOREIGN KEY ([parent_id])
+            REFERENCES [dbo].[central_org_units]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'central_org_units_parent_id_idx' AND object_id = OBJECT_ID('dbo.central_org_units'))
+BEGIN
+    CREATE INDEX [central_org_units_parent_id_idx] ON [dbo].[central_org_units]([parent_id]);
+END;
+GO
+-- copied from planning-tool/backend/prisma/central/init-azure-sql.sql lines 80-108
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Table: central_employees
+-- ─────────────────────────────────────────────────────────────────────────────
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'central_employees' AND schema_id = SCHEMA_ID('dbo'))
+BEGIN
+    CREATE TABLE [dbo].[central_employees] (
+        [id]           NVARCHAR(1000) NOT NULL,
+        [sap_number]   INT NOT NULL,
+        [first_name]   NVARCHAR(1000),
+        [surname]      NVARCHAR(1000),
+        [name]         NVARCHAR(1000) NOT NULL,
+        [email]        NVARCHAR(1000),
+        [org_unit_id]  NVARCHAR(1000) NULL,
+        [active]       BIT NOT NULL,
+        [created_at]   DATETIME2 NOT NULL CONSTRAINT [central_employees_created_at_df] DEFAULT CURRENT_TIMESTAMP,
+        [updated_at]   DATETIME2 NOT NULL,
+        CONSTRAINT [central_employees_pkey] PRIMARY KEY CLUSTERED ([id]),
+        CONSTRAINT [central_employees_sap_number_key] UNIQUE ([sap_number]),
+        CONSTRAINT [central_employees_org_unit_id_fkey] FOREIGN KEY ([org_unit_id])
+            REFERENCES [dbo].[central_org_units]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'central_employees_org_unit_id_idx' AND object_id = OBJECT_ID('dbo.central_employees'))
+BEGIN
+    CREATE INDEX [central_employees_org_unit_id_idx] ON [dbo].[central_employees]([org_unit_id]);
+END;
+GO

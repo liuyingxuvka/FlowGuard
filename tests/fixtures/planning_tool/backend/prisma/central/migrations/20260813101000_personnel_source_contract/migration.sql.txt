@@ -1,0 +1,10 @@
+-- FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+-- Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+-- copied from planning-tool/backend/prisma/central/migrations/20260813101000_personnel_source_contract/migration.sql lines 1-7
+/* Canonical personnel source/storage contract for the central projection. */
+SET XACT_ABORT ON;
+
+IF COL_LENGTH(N'dbo.central_employees', N'external_type') IS NULL
+  EXEC(N'ALTER TABLE [dbo].[central_employees] ADD [external_type] NVARCHAR(32) NOT NULL CONSTRAINT [DF_central_employees_external_type] DEFAULT N''NONE'';');
+IF COL_LENGTH(N'dbo.central_employees', N'storage_scope') IS NULL
+  EXEC(N'ALTER TABLE [dbo].[central_employees] ADD [storage_scope] NVARCHAR(32) NOT NULL CONSTRAINT [DF_central_employees_storage_scope] DEFAULT N''CENTRAL'';');

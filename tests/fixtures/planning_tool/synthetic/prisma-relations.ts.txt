@@ -1,0 +1,51 @@
+// FlowGuard fixture: SYNTHETIC, not copied. Planning Tool has no Prisma connect, connectOrCreate,
+// disconnect or $executeRaw write; these calls are written only against the copied
+// backend/prisma/schema.prisma.txt models (Employee, UserRole, EmployeeTransfer).
+export async function requestTransfer(prisma: any, employeeId: string, actorId: string, target: string) {
+  return prisma.employeeTransfer.create({
+    data: {
+      targetOrgUnitId: target,
+      commandKey: 'transfer-key',
+      employee: { connect: { id: employeeId } },
+      requestedBy: { connect: { id: actorId } },
+    },
+  });
+}
+
+export async function clearDecision(prisma: any, id: string) {
+  await prisma.employeeTransfer.update({ where: { id }, data: { decidedBy: { disconnect: true }, status: 'PENDING' } });
+}
+
+export async function attachRole(prisma: any, employeeId: string, roleId: string) {
+  await prisma.employee.update({ where: { id: employeeId }, data: { roles: { connect: [{ id: roleId }] } } });
+}
+
+export async function ensureRole(prisma: any, employeeId: string) {
+  await prisma.userRole.upsert({
+    where: { id: 'role-id' },
+    update: { role: 'EMPLOYEE' },
+    create: {
+      role: 'EMPLOYEE',
+      employee: {
+        connectOrCreate: {
+          where: { id: employeeId },
+          create: { name: 'n', email: 'e', sapReference: 1, startDate: new Date(), employeeStatusId: 's', resourceTypeId: 'r' },
+        },
+      },
+    },
+  });
+}
+
+export async function moveRaw(prisma: any, id: string, unit: string) {
+  await prisma.$executeRaw`UPDATE [dbo].[employees] SET [organizational_unit_id] = ${unit} WHERE [id] = ${id}`;
+  await prisma.$executeRawUnsafe('DELETE FROM user_roles WHERE employee_id = @P1', id);
+}
+
+export async function patch(prisma: any, id: string, changes: Record<string, unknown>) {
+  await prisma.employee.update({ where: { id }, data: { ...changes } });
+}
+
+export function forget(cache: Map<string, number>, key: string) {
+  this.cache.delete(key);
+  cache.delete(key);
+}

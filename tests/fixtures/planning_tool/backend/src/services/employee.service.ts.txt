@@ -1,0 +1,202 @@
+// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+export async function releaseEmployeeFromUnit(target: any, input: any, tx: any, now: Date, expectedCentralOrganizationUnitId: string | null) { // fixture wrapper
+// copied from planning-tool/backend/src/services/employee.service.ts lines 251-276
+      try {
+        await syncEmployeeUpdateToCentral(
+          target.sapReference,
+          {
+            id: target.id,
+            sapReference: target.sapReference,
+            name: target.name,
+            firstName: target.firstName,
+            surname: target.surname,
+            email: target.email,
+            organizationalUnitId: null,
+          },
+          { organizationalUnitId: null, expectedOrganizationalUnitId: expectedCentralOrganizationUnitId },
+        );
+        await prisma.employee.update({
+          where: { id: target.id },
+          data: { centralSyncState: 'SYNCED', centralSyncError: null, centralSyncAttemptedAt: new Date() },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await prisma.employee.update({
+          where: { id: target.id },
+          data: { centralSyncState: 'CENTRAL_FAILED', centralSyncError: message.slice(0, 2000), centralSyncAttemptedAt: new Date() },
+        });
+        throw new AppError('The employee remains locally unassigned but central synchronization failed; retry the same command.', 503, 'CENTRAL_PERSISTENCE_FAILED');
+      }
+// copied from planning-tool/backend/src/services/employee.service.ts lines 344-354
+    const updated = await tx.employee.updateMany({
+      where: { id: target.id, organizationalUnitId: target.organizationalUnitId, authorityVersion: input.expectedAuthorityRevision },
+      data: {
+        organizationalUnitId: null,
+        authorityVersion: { increment: 1 },
+        centralSyncState: target.storageScope === 'CENTRAL' ? 'PENDING' : 'NOT_REQUIRED',
+        centralSyncError: null,
+        centralSyncAttemptedAt: now,
+        personnelCommandKey: input.idempotencyKey,
+      },
+    });
+} // fixture wrapper
+export const employeeService = { // fixture wrapper
+  async create(input: any, employeeId: string, sapReference: number, requestedRoles: string[]) { // fixture wrapper
+// copied from planning-tool/backend/src/services/employee.service.ts lines 1470-1506
+
+    let employee;
+    try {
+      employee = await prisma.employee.create({
+        data: {
+          id: employeeId,
+          name: composeDisplayName(input.firstName, input.surname),
+          firstName: input.firstName,
+          surname: input.surname,
+          email: input.email,
+          sapReference,
+          supervisorId: input.supervisorId ?? null,
+          organizationalUnitId: input.organizationalUnitId ?? null,
+          startDate: new Date(input.startDate),
+          endDate: input.endDate ? new Date(input.endDate) : null,
+          employeeStatusId: input.employeeStatusId,
+          resourceTypeId: input.resourceTypeId,
+          roles: { create: requestedRoles.map((role) => ({ role: role as any })) },
+        },
+        include: EMPLOYEE_INCLUDE,
+      });
+    } catch (err: unknown) {
+      if (
+        typeof err === 'object' && err !== null && 'code' in err
+        && (err as { code: string }).code === 'P2002'
+      ) {
+        const target = (err as { meta?: { target?: string[] } }).meta?.target;
+        if (target?.includes('email')) {
+          throw new ConflictError('An employee with this email already exists', 'email');
+        }
+        if (target?.includes('sap_reference')) {
+          throw new ConflictError('An employee with this SAP reference already exists', 'sapReference');
+        }
+        throw new ConflictError('A duplicate record already exists');
+      }
+      throw err;
+    }
+  }, // fixture wrapper
+  async update(id: string, input: any, existing: any, local: any, organizationAssignmentChanged: boolean, passwordHash: string | undefined, reactivating: boolean) { // fixture wrapper
+// copied from planning-tool/backend/src/services/employee.service.ts lines 1925-1953
+    const nameFields: Record<string, string> = {};
+    if (input.firstName !== undefined || input.surname !== undefined) {
+      const newFirstName = input.firstName ?? existing.firstName ?? '';
+      const newSurname = input.surname ?? existing.surname ?? '';
+      nameFields.name = composeDisplayName(newFirstName, newSurname);
+      nameFields.firstName = newFirstName;
+      nameFields.surname = newSurname;
+    }
+
+    let employee = await local.employee.update({
+      where: { id },
+      data: {
+        ...nameFields,
+        ...(input.email !== undefined && { email: input.email }),
+        ...(input.sapReference !== undefined && { sapReference: input.sapReference }),
+        ...(input.supervisorId !== undefined && { supervisorId: input.supervisorId }),
+        ...(organizationAssignmentChanged && { organizationalUnitId: input.organizationalUnitId }),
+        ...(input.startDate !== undefined && { startDate: new Date(input.startDate) }),
+        ...(input.endDate !== undefined && { endDate: input.endDate ? new Date(input.endDate) : null }),
+        ...(input.employeeStatusId !== undefined && { employeeStatusId: input.employeeStatusId }),
+        ...(input.resourceTypeId !== undefined && { resourceTypeId: input.resourceTypeId }),
+        ...(passwordHash !== undefined && { passwordHash }),
+        // Employee lifecycle is part of effective authority. Reactivation must
+        // invalidate stale sessions/capability projections just as
+        // deactivation and batch activation do.
+        ...(reactivating && { authorityVersion: { increment: 1 } }),
+      },
+      include: EMPLOYEE_INCLUDE,
+    });
+  }, // fixture wrapper
+  async createUserAsManager(input: any, employee: any, employeeId: string, sapReference: number, requiresCentral: boolean, passwordHash: string) { // fixture wrapper
+// copied from planning-tool/backend/src/services/employee.service.ts lines 2105-2186
+    if (!employee) {
+      const existingEmail = await prisma.employee.findUnique({ where: { email: input.email } });
+      if (existingEmail) throw new ConflictError('An employee with this email already exists', 'email');
+      try {
+        employee = await prisma.employee.create({
+          data: {
+            id: employeeId,
+            name: composeDisplayName(input.firstName, input.surname),
+            firstName: input.firstName,
+            surname: input.surname,
+            email: input.email,
+            sapReference,
+            organizationalUnitId: input.organizationalUnitId,
+            personnelSource: input.personnelSource,
+            externalType: input.externalType,
+            storageScope: input.storageScope,
+            personnelLifecycleState: requiresCentral ? 'PENDING' : 'ACTIVE',
+            centralSyncState: requiresCentral ? 'PENDING' : 'NOT_REQUIRED',
+            personnelCommandKey: input.idempotencyKey,
+            startDate: new Date(input.startDate),
+            endDate: input.endDate ? new Date(input.endDate) : null,
+            employeeStatusId: input.employeeStatusId,
+            resourceTypeId: input.resourceTypeId,
+            passwordHash,
+            roles: { create: [{ role: 'EMPLOYEE' as AppRole }] },
+          },
+          include: EMPLOYEE_INCLUDE,
+        });
+      } catch (err: unknown) {
+        if (typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === 'P2002') {
+          const target = (err as { meta?: { target?: string[] } }).meta?.target;
+          if (target?.includes('email')) throw new ConflictError('An employee with this email already exists', 'email');
+          if (target?.includes('sap_reference')) throw new ConflictError('An employee with this SAP reference already exists', 'sapReference');
+          throw new ConflictError('A duplicate personnel command already exists.');
+        }
+        throw err;
+      }
+    }
+
+    if (requiresCentral && employee) {
+      const attemptedAt = new Date();
+      try {
+        const existingCentral = await centralPrisma.centralEmployee.findUnique({ where: { sapNumber: sapReference }, select: { id: true, email: true } });
+        if (existingCentral && existingCentral.email && existingCentral.email !== employee.email) {
+          throw new ConflictError('A central employee with this SAP reference belongs to another person.');
+        }
+        const centralData = {
+          sapNumber: sapReference,
+          name: composeDisplayName(input.firstName, input.surname),
+          firstName: input.firstName,
+          surname: input.surname,
+          email: employee.email,
+          orgUnitId: input.organizationalUnitId,
+          active: true,
+          personnelSource: input.personnelSource,
+          externalType: input.externalType,
+          storageScope: 'CENTRAL',
+          personnelLifecycleState: 'ACTIVE',
+          centralSyncState: 'ACTIVE',
+          centralSyncError: null,
+          centralSyncAttemptedAt: attemptedAt,
+        };
+        if (existingCentral) {
+          await centralPrisma.centralEmployee.update({ where: { id: existingCentral.id }, data: centralData });
+        } else {
+          await centralPrisma.centralEmployee.create({ data: centralData });
+        }
+        employee = await prisma.employee.update({
+          where: { id: employee.id },
+          data: { personnelLifecycleState: 'ACTIVE', centralSyncState: 'SYNCED', centralSyncError: null, centralSyncAttemptedAt: attemptedAt },
+          include: EMPLOYEE_INCLUDE,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await prisma.employee.update({
+          where: { id: employee.id },
+          data: { personnelLifecycleState: 'CENTRAL_FAILED', centralSyncState: 'CENTRAL_FAILED', centralSyncError: message.slice(0, 2000), centralSyncAttemptedAt: attemptedAt },
+        });
+        if (error instanceof ConflictError) throw error;
+        throw new AppError('Central personnel persistence failed; the command remains retryable.', 503, 'CENTRAL_PERSISTENCE_FAILED');
+      }
+    }
+  }, // fixture wrapper
+}; // fixture wrapper

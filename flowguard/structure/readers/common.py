@@ -69,14 +69,16 @@ def fingerprint(node, source, name=''):
     return hashlib.sha256(repr(parts).encode('utf-8')).hexdigest()[:20]
 
 
-def blank(module, data, language):
+def blank(module, data, language, parser=None):
+    """Empty facts of one file; `parser` describes a reader that is not a tree-sitter grammar."""
     from flowguard.map.common import normalize_newlines
-    return dict(module=module, language=language, parser=dict(engine='tree-sitter',
-                version=version('tree-sitter'), grammar=GRAMMARS[language][1],
-                grammar_version=version(GRAMMARS[language][1])),
+    if parser is None:
+        parser = dict(engine='tree-sitter', version=version('tree-sitter'), grammar=GRAMMARS[language][1],
+                      grammar_version=version(GRAMMARS[language][1]))
+    return dict(module=module, language=language, parser=parser,
                 loc=len(data.splitlines()), source_lines=len(data.splitlines()), parse_error='',
                 imports=[], import_lines={}, import_reads={}, literal_dynamic_imports={},
                 unknown_dynamic_imports=[], lazy={}, bound=[], nodes=[], syspath=[], keys=[],
                 facts={}, optional=[], star=False, getattr=False, submodules=False,
                 dependencies=[], syntax_calls=[], assignments=[], symbol_reads=[],
-                handlers=[], literal_sets=[], locations={}, module_fp=hashlib.sha256(normalize_newlines(data).removeprefix(b'\xef\xbb\xbf')).hexdigest()[:20])
+                handlers=[], literal_sets=[], writes=[], literals=[], locations={}, module_fp=hashlib.sha256(normalize_newlines(data).removeprefix(b'\xef\xbb\xbf')).hexdigest()[:20])

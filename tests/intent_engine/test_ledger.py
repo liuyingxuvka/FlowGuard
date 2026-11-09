@@ -424,16 +424,16 @@ def test_an_unreadable_source_is_not_checked_rather_than_read_as_empty(tmp_path)
 
 def test_other_languages_supply_rows_through_the_same_fields(tmp_path):
     """A foreign reader's handler rows get the same key and their language; no Python-only refusal applies.
-    Today the TypeScript reader supplies no handlers, so its files are listed as not checked."""
+    A JS/TS row names its enclosing named function, so an anonymous callback's line never enters the key."""
     class Rows:
         def reset_query_coverage(self):
             pass
 
         def handlers(self):
-            return [dict(node='typescript/src/employee.service.ts:syncEmployee', file='src/employee.service.ts', line=2180,
-                         kind='catch', type='Error', non_raising=True),
+            return [dict(node='typescript/src/employee.service.ts:<anonymous@2178>', file='src/employee.service.ts',
+                         line=2180, kind='catch', type='any', function='syncEmployee', non_raising=True),
                     dict(node='typescript/src/employee.service.ts:forward', file='src/employee.service.ts', line=9,
-                         kind='catch', type='Error', non_raising=False)]
+                         kind='catch', type='any', function='forward', non_raising=False)]
 
         def calls(self, *, language=None):
             return []
@@ -442,13 +442,26 @@ def test_other_languages_supply_rows_through_the_same_fields(tmp_path):
             return dict(queried=['handlers'], complete=True, issues=[])
 
     found, unread = ledger.fallbacks(load_config(tmp_path), Rows())
-    assert found == {'src/employee.service.ts:syncEmployee:Error': [ledger.Fallback(
-        'src/employee.service.ts:syncEmployee:Error', 'src/employee.service.ts', 'syncEmployee', 'Error', 2180, 'catch',
+    assert found == {'src/employee.service.ts:syncEmployee:any': [ledger.Fallback(
+        'src/employee.service.ts:syncEmployee:any', 'src/employee.service.ts', 'syncEmployee', 'any', 2180, 'catch',
         'typescript', '')]} and unread == {}
+
+
+def test_a_typescript_catch_that_ends_quietly_is_red_and_one_that_hands_the_error_on_is_not(tmp_path):
     write(tmp_path, 'web/read.ts', 'function read(){ try { work(); } catch (error) { return 0; } }\n')
+    write(tmp_path, 'web/route.ts', 'function route(req, res, next){ try { work(); } catch (err) { next(err); } }\n'
+          'function load(){ return new Promise((resolve, reject) => { try { work(); } catch (e) { reject(e); } }); }\n'
+          'function again(){ try { work(); } catch (e) { throw e; } }\n')
     write(tmp_path, ledger.LEDGER, ledger.HEADER)
     result = evaluate(tmp_path)
-    assert result.red == [] and result.grey == ['web/read.ts 没有核对：handlers coverage is not implemented for typescript']
+    assert result.grey == []
+    reds = [finding for finding in result.red if 'web/' in finding.text]
+    assert len(reds) == 1 and 'web/read.ts:1' in reds[0].text
+    assert any('web/read.ts:read:any' in line for line in reds[0].fix)
+    add_entry(tmp_path, entry('web/read.ts:read:any', reason='a failed optional read shows zero and the page '
+                              'explains that the value could not be loaded'))
+    write(tmp_path, 'AGENTS.md', '# Rules\n\n' + RULE + '\n')
+    assert evaluate(tmp_path).red == []
 
 
 # ---- ordinary pytest and the CLI --------------------------------------------------------------------------

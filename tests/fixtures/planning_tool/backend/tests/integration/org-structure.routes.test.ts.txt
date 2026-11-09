@@ -1,0 +1,36 @@
+// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+async function seedAuthority(local: any, ids: any) { // fixture wrapper
+// copied from planning-tool/backend/tests/integration/org-structure.routes.test.ts lines 182-212
+  await local.authorityAssignment.createMany({
+    data: [
+      {
+        employeeId: ids.leaderA,
+        definitionCode: 'TEAM_LEADER',
+        domain: 'ORGANIZATION',
+        bindingKind: 'ORGANIZATION_UNIT',
+        bindingId: ids.teamA,
+        identityKey: `org-structure:test:team-leader:${ids.leaderA}`,
+        sourceRef: 'test:org-structure:team-leader',
+      },
+      {
+        employeeId: ids.departmentManager,
+        definitionCode: 'ORGANIZATION_MANAGER',
+        domain: 'ORGANIZATION',
+        bindingKind: 'ORGANIZATION_SUBTREE',
+        bindingRootId: ids.department,
+        bindingMembersJson: JSON.stringify([ids.department, ids.teamA, ids.teamB]),
+        identityKey: `org-structure:test:org-manager:${ids.departmentManager}`,
+        sourceRef: 'test:org-structure:org-manager',
+      },
+      {
+        employeeId: ids.sysAdmin,
+        definitionCode: 'SYSTEM_ADMIN',
+        domain: 'APPLICATION',
+        bindingKind: 'APPLICATION',
+        identityKey: `org-structure:test:system-admin:${ids.sysAdmin}`,
+        sourceRef: 'test:org-structure:system-admin',
+      },
+    ],
+  });
+} // fixture wrapper

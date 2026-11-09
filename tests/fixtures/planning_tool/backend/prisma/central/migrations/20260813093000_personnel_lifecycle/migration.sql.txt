@@ -1,0 +1,17 @@
+-- FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+-- Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+-- copied from planning-tool/backend/prisma/central/migrations/20260813093000_personnel_lifecycle/migration.sql lines 1-14
+/* SQL Server-only central personnel source and lifecycle projection. */
+SET XACT_ABORT ON;
+
+IF COL_LENGTH(N'dbo.central_employees', N'personnel_source') IS NULL
+  ALTER TABLE [dbo].[central_employees] ADD [personnel_source] NVARCHAR(32) NOT NULL CONSTRAINT [DF_central_employees_personnel_source] DEFAULT N'INTERNAL';
+IF COL_LENGTH(N'dbo.central_employees', N'personnel_lifecycle_state') IS NULL
+  ALTER TABLE [dbo].[central_employees] ADD [personnel_lifecycle_state] NVARCHAR(32) NOT NULL CONSTRAINT [DF_central_employees_personnel_lifecycle_state] DEFAULT N'ACTIVE';
+IF COL_LENGTH(N'dbo.central_employees', N'central_sync_state') IS NULL
+  ALTER TABLE [dbo].[central_employees] ADD [central_sync_state] NVARCHAR(32) NOT NULL CONSTRAINT [DF_central_employees_central_sync_state] DEFAULT N'ACTIVE';
+IF COL_LENGTH(N'dbo.central_employees', N'central_sync_error') IS NULL
+  ALTER TABLE [dbo].[central_employees] ADD [central_sync_error] NVARCHAR(2000) NULL;
+IF COL_LENGTH(N'dbo.central_employees', N'central_sync_attempted_at') IS NULL
+  ALTER TABLE [dbo].[central_employees] ADD [central_sync_attempted_at] DATETIME2 NULL;
+

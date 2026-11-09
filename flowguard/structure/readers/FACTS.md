@@ -24,10 +24,10 @@ cover only Python. Unsupported source files and parse failures remain issues whe
 source scope was queried. Normal Python behavior rules are not globally blocked.
 
 The initial foreign readers implement nodes/functions, explicit call sites, dependency
-declarations, assignments (including unknown values) and definite keys. They do not yet
-implement handler analysis, literal-set queries, native test discovery or full symbol-read
-coverage; available definite member reads are returned, but `include_reads=True` does not
-claim a complete symbol-read set. The matrix is public in `capabilities()['languages']` and
+declarations, assignments (including unknown values) and definite keys. C, C++ and C# do not
+implement handler analysis; no foreign reader implements literal-set queries, native test
+discovery or full symbol-read coverage; available definite member reads are returned, but
+`include_reads=True` does not claim a complete symbol-read set. The matrix is public in `capabilities()['languages']` and
 `['available']`. The structure engine consumes coverage issues as grey for that declaration;
 an empty unavailable result is not evidence of no violations. This is static syntax
 coverage, not a promise of full compiler semantics or runtime execution.
@@ -49,3 +49,45 @@ An unresolved binding remains in `binding_unknowns`; the existing query coverage
 reports it as a declaration-binding issue, separately from syntax errors. Both
 `binding_unknowns` and `syntax_recoveries` survive the existing file-fact store.
 This is finite source coverage, not full type or execution proof.
+
+
+## TS/JS facts beyond the first readers (round 20)
+
+- `nodes[].shape`: every named function or method (declaration, method, or a function/arrow bound
+  by `const f = ...` or `export default`) gets the Python map's sketch: sorted 3-gram hashes of
+  its body's node kinds in depth-first order, nested function and class bodies excluded,
+  operators kept, comments dropped, the smallest 64 kept (`analysis.kinds_shape`). Only anonymous
+  functions (`<anonymous@line,column>`: callbacks, object/class-field arrows) have an empty shape;
+  size never excludes a function. TS and Python shapes use different node kinds and are not compared.
+- `handlers`: one row per `catch` clause, in the Python row shape (`node,file,line,kind='catch',
+  type,name,raises,reraise,non_raising,body`) plus `propagates`, `hands_on`, `function` and `key`.
+  A catch is handed on (`non_raising=False`) when every path ends in `throw`, `return
+  Promise.reject(...)`, or a call that receives the caught identifier unchanged as its first
+  argument: `next(err)`, `reject(err)`, a parameter of an enclosing function (`callback(err)`), or
+  a name listed in `[tool.flowguard] propagate`. A path that finishes or leaves otherwise
+  (swallowed, logged, a default returned) is a fallback. `type` is the catch parameter's spelling,
+  or `any` without one; `function` is the nearest named function (anonymous callbacks and `@line`
+  suffixes drop out); `key` is `file:function:type`, the ledger key form.
+- `literals`: string literals in `===/!==/==/!=` (not against `typeof`), `case`, returned values
+  (through `?:`, `??`, `||`, `&&`, parentheses, `as`), union type members, `new Set([...])`,
+  array elements and `.includes()/.has()` arguments, each with `context`. Object keys, arguments
+  of `console.*`/`logger.*` calls, `new *Error(...)` and `throw` are never recorded.
+- `writes`: Prisma client calls `<client>.<accessor>.<create|createMany|update|updateMany|upsert|
+  delete|deleteMany|...AndReturn>(...)` as syntax paths `[field, op, field, ..., field|op]` from
+  `data`, `upsert` `create`/`update`, nested operations and `connect*`/`disconnect`/`set`;
+  `where`, `select`, `include`, `orderBy` never contribute. A local `const x = {...}` (block
+  scoped, with later `x.f = ...`), `cond && {...}`, `cond ? {...} : {...}` and `rows.map(r => ({...}))`
+  are followed; other spreads and values are `leaf='spread'|'opaque'` with a reason.
+  `$executeRaw`/`$executeRawUnsafe` SQL text is read by `readers/sql.py:statements`.
+- `assignments[].form`: `member` (`obj.f = ...`), `pair`, `declarator`, `class-field` or `identifier`.
+
+## Schema files
+
+`.prisma` (`readers/prisma.py`) and `.sql` (`readers/sql.py`) are read by FlowGuard's own text
+readers: no grammar package. Nodes are `model`/`enum` (Prisma) and `table` (SQL CREATE TABLE);
+keys `model`, `table`, `column`; the `schema` fact holds models with fields (`column` from
+`@map`, table from `@@map`, `relation` from `@relation(fields, references)`) or tables, ALTER
+ADD/DROP COLUMN and DROP TABLE changes. Schema files have no code, so code queries over them are
+complete and empty. `MapHandle.writes()` binds write paths to models at query time (accessor
+`centralEmployee` -> model `CentralEmployee`, relation -> model, `connect` -> the foreign-key
+fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` compares descriptions.

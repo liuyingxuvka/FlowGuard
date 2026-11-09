@@ -31,7 +31,7 @@ import re
 import tomllib
 
 from flowguard.map.common import MapError, git_blob, glob_match
-from flowguard.structure.readers.registry import language_for
+from flowguard.structure.readers.registry import ECMA, language_for
 
 LEDGER = '.flowguard/ledger.toml'
 INIT_RECORD = 'ledger-init.json'
@@ -140,7 +140,8 @@ def fallbacks(cfg, graph):
     for row in sorted(rows, key=lambda row: (row['file'], row['line'])):
         language = language_for(row['file'])
         caught = row['type'] or ('BARE' if language == 'python' else row['kind'])
-        function = row['node'].partition(':')[2] or '<module>'
+        # A JS/TS row names its enclosing named function, so an anonymous callback's line never enters the key.
+        function = row['function'] if language in ECMA else row['node'].partition(':')[2] or '<module>'
         key = f"{row['file']}:{function}:{caught}"
         refused = _python_refusal(row['kind'], caught) if language == 'python' else ''
         found.setdefault(key, []).append(Fallback(key, row['file'], function, caught, row['line'], row['kind'],

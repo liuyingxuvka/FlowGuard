@@ -1,0 +1,32 @@
+// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+// copied from planning-tool/frontend/src/utils/organization-navigation.ts lines 1-29
+/**
+ * The server session is the sole owner of the organization-entry label.
+ * This helper only protects the display layer from an incomplete test double
+ * or an older cached session; it never derives a label from roles or scope.
+ */
+export type OrganizationNavigationLabel =
+  | 'My Team'
+  | 'My Department'
+  | 'My Unit'
+  | 'My Area'
+  | 'My Group'
+  | 'My organization';
+
+const KNOWN_LABELS = new Set<OrganizationNavigationLabel>([
+  'My Team',
+  'My Department',
+  'My Unit',
+  'My Area',
+  'My Group',
+  'My organization',
+]);
+
+export function normalizeOrganizationNavigationLabel(
+  label: string | null | undefined,
+): OrganizationNavigationLabel {
+  return label && KNOWN_LABELS.has(label as OrganizationNavigationLabel)
+    ? (label as OrganizationNavigationLabel)
+    : 'My Unit';
+}

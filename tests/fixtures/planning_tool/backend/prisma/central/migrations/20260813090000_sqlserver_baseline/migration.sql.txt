@@ -1,0 +1,19 @@
+-- FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+-- Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
+-- copied from planning-tool/backend/prisma/central/migrations/20260813090000_sqlserver_baseline/migration.sql lines 34-49
+-- CreateTable
+CREATE TABLE [dbo].[central_employees] (
+    [id] NVARCHAR(1000) NOT NULL,
+    [sap_number] INT NOT NULL,
+    [first_name] NVARCHAR(1000),
+    [surname] NVARCHAR(1000),
+    [name] NVARCHAR(1000) NOT NULL,
+    [email] NVARCHAR(1000),
+    [org_unit_id] NVARCHAR(1000),
+    [active] BIT NOT NULL,
+    [created_at] DATETIME2 NOT NULL CONSTRAINT [central_employees_created_at_df] DEFAULT CURRENT_TIMESTAMP,
+    [updated_at] DATETIME2 NOT NULL,
+    CONSTRAINT [central_employees_pkey] PRIMARY KEY CLUSTERED ([id]),
+    CONSTRAINT [central_employees_sap_number_key] UNIQUE NONCLUSTERED ([sap_number])
+);
+
