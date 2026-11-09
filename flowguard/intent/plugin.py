@@ -1467,8 +1467,8 @@ def finish_verified(session, exitstatus):
                     if state.observations is not None and state.observations.payload is not None:
                         _meta(con, 'runtime_observations', state.observations.payload)
                     if state.observations is not None and state.observations.structure is not None:
-                        from .health import remember
-                        remember(con, state.observations.structure)
+                        from .cache import save_structure
+                        save_structure(con, state.observations.structure)
                     _save_readings(con, state)
                     _save_ordinary_collection(con, session, state)
         return
@@ -1480,8 +1480,8 @@ def finish_verified(session, exitstatus):
         if state.observations is not None and state.observations.payload is not None:
             _meta(con, 'runtime_observations', state.observations.payload)
         if state.observations is not None and state.observations.structure is not None:
-            from .health import remember
-            remember(con, state.observations.structure)
+            from .cache import save_structure
+            save_structure(con, state.observations.structure)
         if not missing and state.sentinel == 'ok' and not state.session_errors:
             _meta(con, 'intent_collection', attempt)
             if not model.deep:

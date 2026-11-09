@@ -520,3 +520,35 @@ def test_a_changed_typescript_constant_and_function_lead_to_the_places_left_behi
     alone = next(line for line in _lines(text, '线索：lateFee'))
     assert alone.startswith('线索：lateFee（src/fees.ts:1）改了，改前和它一模一样的 1 份没改：src/legacy/fees.ts:1'), alone
     assert '// flowguard: owner LATEFEE' in alone, alone
+
+
+# ---- the ledger's TS catch fallbacks and a TS data owner, without pytest -----------------------------
+
+def test_check_static_reports_a_new_typescript_fallback_and_a_write_outside_its_owner(tmp_path):
+    _planning(tmp_path)
+    _commit(tmp_path, {'backend/src/owners.ts': '// flowguard: owner Employee.organizationalUnitId writers=transferEmployee\nexport {};\n'})
+    code, text = _flowguard(tmp_path, 'ledger', 'init')
+    assert code == 0, text
+    _commit(tmp_path, message='ledger')
+    code, text = _static(tmp_path)
+    assert (code, text) == (0, ''), text
+    _write(tmp_path, {'backend/src/services/rogue.ts': '''
+        export async function moveEmployee(prisma: any, id: string, unit: string, next: any) {
+          try {
+            await prisma.employee.update({ where: { id }, data: { organizationalUnitId: unit } });
+          } catch (error) {
+            next(error);
+          }
+          try {
+            await prisma.auditEvent.create({ data: { entityId: id } });
+          } catch (error) {
+            console.warn('audit failed', error);
+          }
+        }
+    '''})
+    code, text = _static(tmp_path)
+    assert code == 1, text
+    assert '红：新增兜底未登记：backend/src/services/rogue.ts:9 catch any 之后能不抛出就结束' in text, text
+    assert '    ["backend/src/services/rogue.ts:moveEmployee:any"]' in text and 'rogue.ts:4' not in text, text
+    red = next(line for line in text.splitlines() if line.startswith('红：负责人以外新增写入'))
+    assert red.startswith('红：负责人以外新增写入 Employee.organizationalUnitId：backend/src/services/rogue.ts:3 moveEmployee（update）'), red

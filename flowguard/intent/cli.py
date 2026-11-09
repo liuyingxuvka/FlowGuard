@@ -624,7 +624,7 @@ def static_check(cfg, *, everything=False, base=None):
         result = fallbacks.evaluate(cfg, graph, baseline=baseline) if fallbacks.path(cfg).is_file() \
             else fallbacks.absent(cfg, baseline)
         with graph.con:
-            health.remember(graph.con, found.summary)
+            cache.save_structure(graph.con, found.summary)
     red = list(dict.fromkeys([*found.red, *(issue.message for issue in index.issues if issue.level == 'red')]))
     report = dict(source_changed=bool(red or found.leads or found.section), red=red, leads=found.leads, items=[],
                   ledger=[fallbacks.summary(result), *fallbacks.lines(result)] if result.red else [],
@@ -646,8 +646,7 @@ def _owner_findings(cfg, *, everything=False, base=None):
         excluded |= {anchor.target for item in distincts for name in (item['a'], item['b']) for anchor in index.named(name)}
         found = owners.check_findings(cfg, graph, index, base, everything=everything, excluded=excluded)
         with graph.con:
-            from . import health
-            health.remember(graph.con, found.summary)
+            cache.save_structure(graph.con, found.summary)
         return found
 
 

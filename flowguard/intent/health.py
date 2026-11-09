@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
-import json
 
 from flowguard.map.common import is_test_file
 
@@ -28,7 +27,6 @@ CREATING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'ups
 SHOWN_GROUPS = 3             # copies or unowned fields the --all listing shows one by one; more become one line
 DELETING = ('delete', 'deleteMany', 'nested:delete', 'nested:deleteMany', 'sql:delete')
 RESTRICTING = ('NoAction', 'Restrict')
-META = 'structure_issues'
 
 
 @dataclass(frozen=True)
@@ -426,26 +424,11 @@ def summary(issues):
     return dict(count=len(problems), writers=len(ordered) - len(problems), top=[issue.short for issue in ordered[:3]])
 
 
-def remember(con, value):
-    """Keep the summary in the map's meta table, in the caller's connection and transaction."""
-    con.execute('INSERT OR REPLACE INTO meta(k, v) VALUES(?, ?)', (META, json.dumps(value, ensure_ascii=False)))
-
-
 def brief_line(cfg):
-    """The brief's line from the last check, or '' when no check recorded one (the brief builds no map)."""
-    import sqlite3
-    from contextlib import closing
-    path = cfg.cache / 'map.sqlite'
-    if not path.is_file():
-        return ''
-    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
-        if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
-            return ''
-        row = con.execute('SELECT v FROM meta WHERE k = ?', (META,)).fetchone()
-    if row is None:
-        return ''
-    data = json.loads(row[0])
-    if not data['count'] and not data['writers']:
+    """The brief's line from the last check (`cache.structure_summary`), or '' when none recorded one."""
+    from . import cache
+    data = cache.structure_summary(cfg)
+    if not data or not data['count'] and not data['writers']:
         return ''
     return (f'未决结构问题 {data["count"]} 项' + (f'（另 {data["writers"]} 个字段多处写入、没有负责人）' if data['writers'] else '')
             + '，最重：' + '；'.join(data['top']) + '（上次检查；check --static --all 列出全部和下一步）')

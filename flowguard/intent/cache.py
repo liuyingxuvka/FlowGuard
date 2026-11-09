@@ -353,6 +353,26 @@ def save_test_collection(con, files, stamp):
     con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', ('ordinary_collection', json.dumps(current, sort_keys=True)))
 
 
+STRUCTURE = 'structure_issues'
+
+
+def save_structure(con, summary):
+    """The open structure problems' count and heaviest names (`health.summary`), for the session brief."""
+    con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', (STRUCTURE, json.dumps(summary, ensure_ascii=False)))
+
+
+def structure_summary(cfg):
+    """The last saved structure summary, read without building the map; None when no check saved one."""
+    path = cfg.cache / 'map.sqlite'
+    if not path.is_file():
+        return None
+    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
+        if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
+            return None
+        row = con.execute('SELECT v FROM meta WHERE k = ?', (STRUCTURE,)).fetchone()
+    return json.loads(row[0]) if row else None
+
+
 def save_dependencies(con, records):
     _write_transaction(con)
     row = con.execute("SELECT v FROM meta WHERE k='intent_dependencies'").fetchone()
