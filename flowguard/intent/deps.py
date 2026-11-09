@@ -38,9 +38,25 @@ def _patterns(options, name, default):
 NORECURSEDIRS = ['*.egg', '.*', '_darcs', 'build', 'CVS', 'dist', 'node_modules', 'venv', '{arch}']
 
 
+def kept_out(folder, patterns):
+    """Whether pytest's `norecursedirs` keeps it out of `folder` (an absolute path), as pytest's fnmatch_ex
+    matches: a pattern without a path separator matches the folder's name (`flowguard`), one with a
+    separator the folder's whole path (`tests/legacy` matches any path ending in it)."""
+    import os
+    for pattern in patterns:
+        if os.sep != '/' and os.sep not in pattern:
+            pattern = pattern.replace('/', os.sep)
+        if os.sep not in pattern:
+            if fnmatch.fnmatch(folder.name, pattern):
+                return True
+        elif fnmatch.fnmatch(str(folder), pattern if os.path.isabs(pattern) else f'*{os.sep}{pattern}'):
+            return True
+    return False
+
+
 def test_scope(cfg):
     """pytest's configured default file scope, never production testfile APIs: `testpaths`, `python_files`
-    and the folders `norecursedirs` keeps pytest out of (below a testpaths entry, matched by folder name)."""
+    and the folders `norecursedirs` keeps pytest out of (below a testpaths entry, `kept_out`)."""
     options, paths = _pytest_options(cfg), []
     for value in _patterns(options, 'testpaths', ['.']):
         path = Path(value)
@@ -54,7 +70,7 @@ def test_scope(cfg):
     skipped = _patterns(options, 'norecursedirs', NORECURSEDIRS)
     def recursed(path, base):
         return path == base or path.is_relative_to(base) and not any(
-            fnmatch.fnmatch(folder, pattern) for folder in path.relative_to(base).parts[:-1] for pattern in skipped)
+            kept_out(folder, skipped) for folder in path.parents if folder != base and folder.is_relative_to(base))
     def contains(relative):
         path = (cfg.root / relative).resolve()
         return (path.is_relative_to(cfg.root) and path.is_file() and path.suffix == '.py'

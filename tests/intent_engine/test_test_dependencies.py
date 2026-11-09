@@ -257,3 +257,23 @@ def test_other_file_failure_does_not_keep_an_obsolete_node_current(tmp_path):
     assert data['tests']['tests/test_other.py::test_current_failure']['outcome'] == 'failed'
     with sqlite3.connect(cfg.cache / 'map.sqlite') as con:
         assert con.execute("SELECT outcome FROM reading WHERE test='tests/test_ordinary.py::test_old'").fetchone()[0] == 'failed'
+
+
+@pytest.mark.parametrize('pattern', ['legacy', 'tests/legacy', 'leg*'])
+def test_the_default_scope_leaves_out_what_norecursedirs_keeps_pytest_out_of_as_pytest_matches_it(tmp_path, pattern):
+    # A pattern with a path separator matches the folder's whole path (pytest's fnmatch_ex), not a folder name:
+    # `tests/legacy` keeps pytest out of tests/legacy only; the scope must say what pytest itself collects.
+    import subprocess
+    import sys
+    root = tmp_path / 'scope'
+    root.mkdir()
+    (root / 'pyproject.toml').write_text(f'[tool.flowguard]\n\n[tool.pytest.ini_options]\nnorecursedirs = [".*", "{pattern}"]\n')
+    files = ['tests/legacy/test_old.py', 'tests/test_current.py', 'other/legacy/test_kept.py']
+    for name in files:
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text('def test_value():\n    pass\n')
+    run = subprocess.run([sys.executable, '-m', 'pytest', '--collect-only', '-q', '-p', 'no:cacheprovider'], cwd=root,
+                         capture_output=True, text=True)
+    collected = {line.partition('::')[0] for line in run.stdout.splitlines() if '::' in line}
+    scope = deps.test_scope(cli.load_config(root))
+    assert {name for name in files if scope(name)} == collected, (run.stdout, run.stderr)

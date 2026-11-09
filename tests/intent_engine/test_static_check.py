@@ -525,6 +525,33 @@ def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lis
     assert code == 0 and _lines(text, '线索：') == [leads[0]], text
 
 
+def test_the_overflow_of_a_run_against_base_names_that_base_in_the_command_that_lists_every_lead(tmp_path):
+    words = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima']
+    _commit(tmp_path, {'src/upper.ts': ''.join(f"export function is{word}(x: string) {{ return x === '{word} Label'; }}\n"
+                                               for word in words)})
+    _write(tmp_path, {'src/lower.ts': ''.join(f"export function was{word}(x: string) {{ return x === '{word.lower()} label'; }}\n"
+                                              for word in words)})
+    _commit(tmp_path, message='twelve new spellings')
+    # Against HEAD nothing is new; against HEAD~1 the twelve spellings are: the listing command keeps that base.
+    code, text = _static(tmp_path, '--base', 'HEAD~1')
+    leads = _lines(text, '线索：')
+    assert code == 0 and leads[-1].endswith('条：python -m flowguard check --static --base HEAD~1 --leads 列出全部线索'), leads
+    code, text = _static(tmp_path, '--base', 'HEAD~1', '--leads')
+    assert code == 0 and len(_lines(text, '线索：')) == 12, text
+
+
+def test_the_overflow_of_show_spells_a_phrase_query_so_cmd_exe_reads_it_too(tmp_path):
+    _commit(tmp_path, {
+        'pyproject.toml': '[tool.flowguard]\nscreen_lines = 3\n',
+        'src/unit.ts': ''.join(f'export function employeeUnit{name}(id: string) {{ return id; }}\n'
+                               for name in ('Label', 'Code', 'Name', 'Path')),
+    })
+    code, text = _flowguard(tmp_path, 'show', 'employee unit')
+    # single quotes ('employee unit') are no quotes in cmd.exe: the owner's Windows console would split the query
+    assert code == 0 and text.splitlines()[-1].endswith(
+        'more lines: python -m flowguard show "employee unit" --full lists them all'), text
+
+
 def test_init_writes_a_jest_test_for_a_jest_project_and_keeps_a_foreign_file(tmp_path):
     _commit(tmp_path, {'web/package.json': '{"name": "web", "scripts": {"test": "jest"}, "devDependencies": {"jest": "29.7.0"}}\n'})
     code, text = _flowguard(tmp_path, 'init')

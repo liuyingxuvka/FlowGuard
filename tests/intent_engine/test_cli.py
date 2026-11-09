@@ -107,6 +107,30 @@ def test_init_registers_the_plugin_once_and_removes_the_conftest_line_an_older_i
     assert cli_fixture.main(['--root', str(other), 'check']) == 0     # the plugin runs once from conftest.py
 
 
+def test_init_with_pytest_toml_registers_the_plugin_where_pytest_reads_it(tmp_path, capsys):
+    # pytest 9 reads pytest.toml before pyproject.toml: options in pyproject.toml are never read there, so the
+    # registration that loads the plugin is the conftest line, as with pytest.ini.
+    root, cfg = project(tmp_path)
+    (root / 'pytest.toml').write_text('[pytest]\ntestpaths = ["tests"]\n')
+    assert cli.init(cfg) == 0
+    assert 'ini_options' not in (root / 'pyproject.toml').read_text()
+    assert (root / 'tests/conftest.py').read_text().strip() == 'pytest_plugins = ["flowguard.intent.plugin"]'
+    assert cli_fixture.main(['--root', str(root), 'check']) == 0     # the sentinel finds the plugin loaded
+
+
+def test_init_prints_the_norecursedirs_line_in_the_format_of_pytest_ini(tmp_path, capsys):
+    root, cfg = project(tmp_path)
+    (root / 'pytest.ini').write_text('[pytest]\ntestpaths = tests\n')
+    (root / 'tests/flowguard').mkdir(parents=True)
+    (root / 'tests/flowguard/test_old.py').write_text('from flowguard.map.facts import load\n')
+    capsys.readouterr()
+    assert cli.init(cfg) == 0
+    line = next(line for line in capsys.readouterr().out.splitlines() if 'norecursedirs = ' in line)
+    # an INI file takes the patterns separated by spaces; a TOML list there would be one pattern
+    assert 'set in pytest.ini (' in line and line.endswith(
+        'norecursedirs = *.egg .* _darcs build CVS dist node_modules venv {arch} flowguard'), line
+
+
 def test_init_names_test_files_of_an_older_flowguard_and_the_norecursedirs_line(tmp_path, capsys):
     root, cfg = project(tmp_path)
     legacy = root / 'tests/flowguard'

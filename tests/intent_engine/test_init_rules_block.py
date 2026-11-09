@@ -140,3 +140,17 @@ def test_the_flowguard_0_70_workflow_gives_way_to_the_rules_and_the_project_rule
         assert f'AGENTS.md:{number} still names FlowGuard 0.70 (' in out, out          # listed to reword, not deleted
     again = _init(tmp_path, result)
     assert again == result, 'init is idempotent after the replacement'
+
+
+def test_a_sentence_about_0_70_is_listed_not_rewritten_and_the_projects_own_workflow_stays(tmp_path, capsys):
+    # Planning Tool: "FlowGuard 0.70.14's native test indexing ... does not parse TypeScript imports" is true of
+    # 0.70 and false of this version; rewriting its number would make a false rule and hide the line.
+    said = '- Product tests use TypeScript. FlowGuard 0.70.14\'s native test indexing does not parse TypeScript imports.\n'
+    release = '## Release workflow\n\nRun the Makefile target check before tagging; keep the current map tiles.\n\n'
+    result = _init(tmp_path, TEAM + WORKFLOW + release + LIMITS + said)
+    out = capsys.readouterr().out
+    assert said in result and release in result, result        # not rewritten, not deleted
+    assert f'Use FlowGuard **{cli.__version__}**' in result and 'Six-step workflow' not in result
+    number = result.splitlines().index(said.rstrip('\n')) + 1
+    assert f'AGENTS.md:{number} still names FlowGuard 0.70 (' in out, out
+    assert 'section "Release workflow"' not in out, out

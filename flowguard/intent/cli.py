@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import fnmatch
 from contextlib import closing
 import io
 import json
@@ -37,6 +36,13 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 3. A rule the owner set that must keep holding goes into `tests/intent/`, its source the owner's words stored once, byte for byte, with `python -m flowguard req add <file|-> --id <id>`.
 <!-- flowguard:end -->
 '''
+
+
+def _spelled(word):
+    """One word of a printed command: bare when every shell reads it as it is, else in double quotes, which
+    cmd.exe, PowerShell and POSIX shells all read (README: `show "what it decides"`); single quotes are not
+    quotes in cmd.exe."""
+    return word if re.fullmatch(r'[\w.:/@=,+%-]+', word) else json.dumps(word, ensure_ascii=False)
 
 
 def _limit(lines, budget, more='show RULE for the complete result'):
@@ -521,7 +527,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
         from .differences import display          # a structure line carries Chinese text: escape what the console cannot show
         lines = [f'show {query}'] + ([notice] if notice else []) + [line for _, line in ranked]
         display('\n'.join(lines if full else _limit(lines, cfg.screen_lines,
-                                                     f'python -m flowguard show {shlex.quote(query)} --full lists them all')))
+                                                     f'python -m flowguard show {_spelled(query)} --full lists them all')))
     return 0
 
 
@@ -593,6 +599,12 @@ def watch(cfg, command):
 
 
 
+def _more_leads(command, everything, base):
+    """The command that prints every lead of this run: the same options, `--leads` added (an explicit `--base`
+    too, or it would list the leads against the task baseline instead)."""
+    return f'python -m flowguard {command}' + ' --all' * everything + (f' --base {base}' if base else '') + ' --leads'
+
+
 def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
     """Run the one ordinary pytest route; source validation executes no code. `leads` prints every lead."""
     from .plugin import collect_signals
@@ -639,7 +651,7 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
             baseline = dict(baseline=owner_baseline(cfg, base), baseline_kind='base' if base else 'task')
     report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind', 'task'),
                   baseline_option='--base', source_changed=any(part.get('source_changed', True) for part in reports),
-                  all_leads=leads, more_leads='python -m flowguard check' + ' --all' * everything + ' --leads',
+                  all_leads=leads, more_leads=_more_leads('check', everything, base),
                   comparison_requested=any(part.get('comparison_requested') for part in reports),
                   items=[item for part in reports for item in part.get('items', ())],
                   paths=[path for part in reports for path in part.get('paths', ())],
@@ -687,7 +699,7 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     red = list(dict.fromkeys([*found.red, *(issue.message for issue in index.issues if issue.level == 'red')]))
     report = dict(session=True, baseline=baseline, baseline_kind='base' if base else 'task', baseline_option='--base',
                   source_changed=bool(red or found.leads or found.section or result.red), red=red, leads=found.leads,
-                  all_leads=leads, more_leads='python -m flowguard check --static' + ' --all' * everything + ' --leads',
+                  all_leads=leads, more_leads=_more_leads('check --static', everything, base),
                   items=[], ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in result.red],
                   structure=found.section)
     status = int(bool(red or result.red))
@@ -1186,9 +1198,10 @@ CONFTEST_PLUGIN = ('pytest_plugins = ["flowguard.intent.plugin"]\n',
 
 
 def _pytest_config(root, pyproject_text):
-    """The file pytest reads its options from when that is not pyproject.toml, else None: pytest.ini or
-    .pytest.ini, or tox.ini/setup.cfg with a pytest section while pyproject.toml has none (pytest's order)."""
-    for name in ('pytest.ini', '.pytest.ini'):
+    """The file pytest reads its options from when that is not pyproject.toml, else None: pytest.toml or
+    .pytest.toml (pytest 9), pytest.ini or .pytest.ini, or tox.ini/setup.cfg with a pytest section while
+    pyproject.toml has none (pytest's order)."""
+    for name in ('pytest.toml', '.pytest.toml', 'pytest.ini', '.pytest.ini'):
         if (root / name).is_file():
             return name
     if re.search(r'^\[tool\.pytest\.ini_options\]', pyproject_text, re.M):
@@ -1223,13 +1236,13 @@ def _legacy_bindings(cfg):
     """{folder: (files, modules)} of the Python test files that import a flowguard module this version does not
     have (FlowGuard 0.70's bindings import flowguard.map.facts): pytest cannot collect them."""
     import flowguard
-    from .deps import NORECURSEDIRS, _patterns, _pytest_options, test_scope
+    from .deps import NORECURSEDIRS, _patterns, _pytest_options, kept_out, test_scope
     package, scope = Path(flowguard.__file__).parent, test_scope(cfg)
     skipped = _patterns(_pytest_options(cfg), 'norecursedirs', NORECURSEDIRS)
     found = {}
     for folder, names, files in os.walk(cfg.root):
         names[:] = [name for name in names if name not in ('node_modules', '__pycache__')
-                    and not any(fnmatch.fnmatch(name, pattern) for pattern in skipped)]
+                    and not kept_out(Path(folder, name).resolve(), skipped)]
         for name in files:
             path = Path(folder) / name
             relative = cfg.rel(path)
@@ -1261,8 +1274,11 @@ def _legacy_binding_lines(cfg, pyproject_text):
     if folders:
         current = _patterns(_pytest_options(cfg), 'norecursedirs', NORECURSEDIRS)
         where = _pytest_config(cfg.root, pyproject_text) or 'pyproject.toml [tool.pytest.ini_options]'
+        wanted = [*current, *(f for f in folders if f not in current)]
+        # A TOML file takes a list; pytest.ini, tox.ini and setup.cfg take the patterns separated by spaces.
+        value = json.dumps(wanted) if where.partition(' ')[0].endswith('.toml') else ' '.join(wanted)
         lines.append(f'To keep pytest out of them, set in {where} (pytest\'s list plus the folder; a check refuses '
-                     f'--ignore): norecursedirs = {json.dumps([*current, *(f for f in folders if f not in current)])}')
+                     f'--ignore): norecursedirs = {value}')
     if len(folders) < len(found):
         lines.append('Files directly in a test root cannot be left out by folder: move or delete them.')
     return lines
@@ -1278,11 +1294,13 @@ LEGACY_WORDS = re.compile(r'\b0\.70\.\d+|flowguard (?:read|change)\b|\bmap (?:ch
 def _legacy_agents(content, rules, newline, languages):
     """(content, lines to print) for an AGENTS.md written for FlowGuard 0.70: its workflow sections ("Six-step
     workflow", the current-map exception) give way to the rules block, in the first one's place; the install
-    line and version it names become this version; the project's own rules stay byte for byte, and each
-    remaining line that still names 0.70 is listed to reword."""
+    line and the pinned version (`Use FlowGuard **0.70.14**`) become this version; the project's own rules
+    stay byte for byte. A sentence about what 0.70 did is not rewritten to claim it of this version: it is
+    listed to reword, as is every other remaining line that still names 0.70. A workflow section is FlowGuard's
+    only when its body names flowguard, so a project's own release or data workflow stays."""
     removed = []
     def section(match):
-        if not LEGACY_WORDS.search(match['body']):
+        if 'flowguard' not in match['body'].lower() or not LEGACY_WORDS.search(match['body']):
             return match.group(0)
         removed.append(match['title'].strip())
         return '' if len(removed) > 1 or '<!-- flowguard:start -->' in content else rules + newline
@@ -1290,7 +1308,8 @@ def _legacy_agents(content, rules, newline, languages):
     extra = '[languages]' if languages else ''
     content, installs = re.subn(r'flowguard(?:\[[\w,]+\])? @ (git\+\S+?)@v0\.70\.\d+',
                                 lambda match: f'flowguard{extra} @ {match[1]}@v{__version__}', content)
-    content, versions = re.subn(r'(FlowGuard\s+\**)0\.70\.\d+', lambda match: match[1] + __version__, content)
+    content, versions = re.subn(r'(\bUse\s+FlowGuard\s+\**|FlowGuard\s+\*\*)0\.70\.\d+',
+                                lambda match: match[1] + __version__, content)
     lines = [f'AGENTS.md: the FlowGuard 0.70 section "{title}" is replaced by the project rules block' for title in removed]
     if installs or versions:
         lines.append(f'AGENTS.md: the FlowGuard version and install line now name {__version__}')
