@@ -279,7 +279,7 @@ def watch(cfg, command, *, index=None, model=None):
             model = load(cfg, anchor_index=index)
         from .imports import prepare
         prepare(cfg.root)
-        with Capture(cfg.root, index, 'watch', _ordinary=True) as captured:
+        with Capture(cfg.root, index, 'watch', _ordinary=True, discover=True) as captured:
             if not captured._active:
                 return _result('grey', captured.issues, exit_code=2, events=[], executed=False)
             try:

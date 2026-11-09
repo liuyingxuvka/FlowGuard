@@ -267,6 +267,7 @@ class Observations:
                        for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'}
         self.changed, self.records, self.pairs, self.red, self.grey, self.paths = bool(self.files), [], [], [], [], []
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
+        self.event_record = self.capture = None
         self.request, self.text = _TRY.get(), ''
         self.rules = {}
         for rule in state.model.rules.values():
@@ -316,6 +317,8 @@ class Observations:
         from .runtime import _PRIVATE
         token = _PRIVATE.set(True)
         try:
+            if self.capture is not None:
+                self.capture.loaded(module)
             return self._bind_module(module)
         finally:
             _PRIVATE.reset(token)
@@ -347,6 +350,8 @@ class Observations:
             self.bound[point['target']] = point
             if point['kind'] == 'event':
                 self.event_codes[id(fn.__code__)] = (fn.__code__, point['name'])
+                if self.event_record is not None:
+                    self.event_record.add_code(fn.__code__, point['name'])
                 continue
             try:
                 original = self.scopes.enter_context(self.runtime.hook(fn, name=point['name'],
@@ -560,7 +565,7 @@ class Observations:
     def scope(self, item):
         from .imports import observe_imports
         self.runtime.test = item.nodeid
-        self.event_codes = {}
+        self.event_codes, self.event_record = {}, None
         with ExitStack() as self.scopes:
             self.bound = {}
             with observe_imports(self.cfg.root, self._module):
@@ -573,11 +578,14 @@ class Observations:
                     if phase == 'call' and match and match[0] is frame.f_code:
                         path.append(match[1])
                     return None
-                record = self.runtime.record(predicate=lambda code: (match := self.event_codes.get(id(code)))
-                                              and match[0] is code, callback=event, entry_only=True)
                 if self.changed and any(point['kind'] == 'event' for point in self.points.values()):
-                    with record:
-                        yield
+                    # Event code objects only, with local events; later imports add theirs.
+                    self.event_record = self.runtime.record(list(self.event_codes.values()), callback=event, entry_only=True)
+                    try:
+                        with self.event_record:
+                            yield
+                    finally:
+                        self.event_record = None
                 else:
                     yield
                 self.actual_path = path
@@ -1145,6 +1153,10 @@ def pytest_runtest_protocol(item, nextitem):
             from .flow import Capture
             capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
                                                    models=state.model.flows.values() if state.model.flows and not state.observations.changed else None, _ordinary=True))
+            if state.observations is not None:
+                # Modules imported during this test add their anchored code to the capture.
+                state.observations.capture = capture
+                scopes.callback(setattr, state.observations, 'capture', None)
         try:
             if (isinstance(item, IntentItem) or item.name == SENTINEL
                     or not any(item.iter_markers('rule'))):

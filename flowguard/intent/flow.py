@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import Counter, deque
 from contextlib import contextmanager
+from functools import lru_cache
 from dataclasses import dataclass, field as data_field
 import dis
 import inspect
@@ -942,9 +943,9 @@ _TRACE_SCOPES = []
 
 class _TraceScope:
     """Compatibility scope; the runtime owns the only monitoring/trace hook."""
-    def __init__(self, callback=None, *, ignored=(), ordinary=None, predicate=None):
-        self.callback, self.ignored, self.ordinary = callback, ignored, ordinary
-        self.predicate = predicate if predicate is not None else (lambda code: True) if callback is not None else None
+    def __init__(self, callback=None, *, ignored=(), ordinary=None, predicate=None, codes=None):
+        self.callback, self.ignored, self.ordinary, self.codes = callback, ignored, ordinary, codes
+        self.predicate = None if codes is not None else predicate if predicate is not None else (lambda code: True) if callback is not None else None
         self.active, self.paused, self.previous = False, False, None
         self._problems = []
 
@@ -957,7 +958,7 @@ class _TraceScope:
     def __enter__(self):
         from .runtime import Runtime
         self.previous = _TRACE_SCOPES[-1] if _TRACE_SCOPES else None
-        self._record = Runtime(Path.cwd()).record(predicate=self.predicate, callback=self.callback,
+        self._record = Runtime(Path.cwd()).record(self.codes or (), predicate=self.predicate, callback=self.callback,
                                                  ignored=self.ignored, private=not bool(self.ordinary))
         self._record.__enter__()
         if not self._record.active:
@@ -992,6 +993,11 @@ def _without_ordinary_observers():
                 scope._problems.append('trace hook changed during calibration probe')
 
 
+@lru_cache(maxsize=None)
+def _resolved(filename):
+    return str(Path(filename).resolve())
+
+
 class Capture:
     """Observe only indexed function frames; the caller owns one actual test case.
 
@@ -999,8 +1005,9 @@ class Capture:
     or turn an interrupted test into a pass. Values never survive this scope by
     themselves. Unsupported async/generator frames remain explicit unknowns.
     """
-    def __init__(self, root, index, case, *, models=None, _ordinary=False, on_event=None):
+    def __init__(self, root, index, case, *, models=None, _ordinary=False, on_event=None, discover=False):
         self.root, self.index, self.case = Path(root).resolve(), index, str(case)
+        self._discover = discover
         self.on_event, self.diagnostic_issues = on_event, []
         self._ordinary = _ordinary
         self._model_scopes = None
@@ -1027,9 +1034,28 @@ class Capture:
         self._trace = self._callback
         self._active = False
 
+    def _codes(self, module):
+        from .runtime import module_codes
+        filename = getattr(module, '__file__', None)
+        path = _resolved(filename) if isinstance(filename, str) else None
+        wanted = {site for site in self._sites if site[0] == path}
+        return [(code, '') for code in module_codes(module, wanted)] if wanted else []
+
+    def loaded(self, module):
+        """A module imported during the case adds its anchored code objects."""
+        if self._active and self._scope.codes is not None:
+            for code, name in self._codes(module):
+                self._scope._record.add_code(code, name)
+
     def __enter__(self):
-        self._scope = _TraceScope(self._trace, ordinary=self if self._ordinary else None,
-                                  predicate=lambda code: (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in self._sites)
+        # Only the anchored functions' code objects are observed, with local events.
+        # `discover` keeps the process-wide search for code that is not a loaded
+        # module yet, such as a script that watch runs as __main__.
+        codes = None
+        if not self._discover:
+            codes = [pair for module in list(sys.modules.values()) for pair in self._codes(module)]
+        predicate = lambda code: (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in self._sites
+        self._scope = _TraceScope(self._trace, ordinary=self if self._ordinary else None, predicate=predicate, codes=codes)
         try:
             self._scope.__enter__()
         except _TraceUnavailable as error:
