@@ -139,10 +139,12 @@ def render(report, limit=10):
     """Red constraints precede differences and leads; full facts remain in report.
 
     The fallback ledger's red lines come first, complete and untruncated, each with the entry to copy;
-    they do not count against the ten-line budget of the other signals."""
+    they do not count against the ten-line budget of the other signals. The `--all` listing of open
+    structure problems (`structure`) comes last, complete as well."""
     ledger = list(report.get('ledger', ()))
-    rest = _render(report, limit, quiet=bool(ledger))
-    return '\n'.join([*ledger, *([rest] if rest else [])])
+    structure = list(report.get('structure', ()))
+    rest = _render(report, limit, quiet=bool(ledger or structure))
+    return '\n'.join([*ledger, *([rest] if rest else []), *structure])
 
 
 def _render(report, limit, *, quiet=False):
@@ -202,8 +204,9 @@ def _render(report, limit, *, quiet=False):
 
 def stale_copies(graph, changes):
     """Decision sites of the existing map that still spell an old value: the folded constant of a site,
-    a member of a tuple or set it tests, or a member of the tuple or dict constant it reads. Field names
-    are not required to share a word. A lead, never equality evidence."""
+    a member of a tuple or set it tests, or a member of the tuple or dict constant it reads; in JS/TS
+    files the decision literals (comparisons, cases, returns, sets, unions). Field names are not required
+    to share a word. A lead, never equality evidence."""
     import ast
     import json
     from decimal import Decimal, InvalidOperation
@@ -253,6 +256,10 @@ def stale_copies(graph, changes):
             return any(equal(old, item) for item in members(data))
         return False
 
+    from flowguard.structure.readers.registry import ECMA, language_for
+    from .owners import named
+    # JS/TS decisions are literal facts (comparisons, cases, returns, sets, unions), not folded sites.
+    foreign = [row for row in [*graph.literals(), *graph.numbers()] if language_for(row['file']) in ECMA]
     found = {}
     for change in changes:
         old, own = change['before'], change.get('identity') or ''
@@ -264,7 +271,13 @@ def stale_copies(graph, changes):
             big = bool(start and end and end - start >= 20 and line - start >= 3)
             found[(file, line)] = dict(file=file, line=line, target=target, field=field, old=old,
                                       identity=identity, big=big, kind='lead')
-    rows = list(found.values())
+        for row in foreign:
+            if named(row['node']) == change.get('target') or (row['file'], row['line']) == (change['file'], change['line']) \
+                    or not equal(old, row['value']):
+                continue
+            found[(row['file'], row['line'])] = dict(file=row['file'], line=row['line'], target=named(row['node']),
+                                                    field=row['context'], old=old, identity='', big=False, kind='lead')
+    rows = sorted(found.values(), key=lambda row: (row['file'], row['line']))
     return dict(total=len(rows), locations=rows, kind='lead')
 
 

@@ -41,7 +41,8 @@ PLACEHOLDER_REASON = '换成真实的理由：这处做了什么、为什么可�
 PLACEHOLDER_RULE = dict(file='成文规矩所在的文件', text='该文件里必须出现的一句话')
 MIN_WORDS = 8
 FIELDS = {'count', 'reason', 'rule'}
-SECTIONS = frozenset()          # Named sections a later part of the ledger may add; none are read yet.
+STRUCTURE = 'structure'         # [structure."name"]: the owner's decision on one structure problem
+SECTIONS = frozenset({STRUCTURE})   # Named sections; the other top-level keys are fallback entries.
 WARNING_FILTERS = {'warnings.simplefilter', 'warnings.filterwarnings', 'warnings.catch_warnings',
                    'pytest.mark.filterwarnings'}
 BROAD = {'Exception', 'BaseException', 'builtins.Exception', 'builtins.BaseException'}
@@ -299,6 +300,7 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
     if not ledger.is_file():
         return absent(cfg, baseline)
     entries, red, malformed = parse(ledger.read_text(encoding='utf-8-sig'))
+    red += structure_decisions(cfg)[1]
     result = Result(present=True, entries=len(entries), legacy=sum(entry.legacy for entry in entries.values()), red=red)
     if malformed is None:
         return result                       # An unreadable ledger is compared with nothing until it is corrected.
@@ -362,6 +364,67 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
         if not any(key.partition(':')[0] == file for key in entries):
             result.grey.append(f'{file} 没有核对：{reason}')
     return result
+
+
+@dataclass(frozen=True)
+class Decision:
+    """The owner's decision on one structure problem, by its stable name (`writers:Model.field`)."""
+    name: str
+    decision: str
+    source: object      # 'R<n>' (stored owner words) or (file, sentence) like an entry's rule
+
+
+STRUCTURE_FIELDS = {'decision', 'source'}
+
+
+def structure_entry(name, decision='换成主人的决定：谁负责、为什么这样（不少于 8 个词）', source='R<n>'):
+    """The `[structure]` lines to copy for one problem."""
+    shown = _quote(source) if isinstance(source, str) else '{ file = ' + _quote(source[0]) + ', text = ' + _quote(source[1]) + ' }'
+    return [f'[{STRUCTURE}.' + _quote(name) + ']', 'decision = ' + _quote(decision), 'source = ' + shown]
+
+
+def structure_decisions(cfg):
+    """({name: Decision}, [Finding]): the `[structure]` section of the ledger. A decision has at least eight
+    words and a source: `R<n>`, owner words stored with `req add`, or a written rule `{ file, text }` whose
+    sentence the file still contains. A malformed decision is red and silences nothing."""
+    ledger = path(cfg)
+    if not ledger.is_file():
+        return {}, []
+    try:
+        data = tomllib.loads(ledger.read_text(encoding='utf-8-sig'))
+    except tomllib.TOMLDecodeError:
+        return {}, []          # parse() already reports the unreadable ledger as red with its error
+    section = data.get(STRUCTURE, {})
+    if not isinstance(section, dict):
+        return {}, [Finding(f'{LEDGER} 的 [{STRUCTURE}] 要写成一张表：[{STRUCTURE}."问题名"] 下面写 decision、source',
+                            ('改正这一段',))]
+    from flowguard.map.requests import owner_word
+    decisions, red, texts = {}, [], {}
+    for name, value in section.items():
+        if not isinstance(value, dict):
+            red.append(Finding(f'[{STRUCTURE}] 里的 {_quote(name)} 不是条目：值要是一张表', ('按 structure_entry 的写法改正',)))
+            continue
+        problems = [f'未知字段 {key}' for key in sorted(set(value) - STRUCTURE_FIELDS)]
+        problems += [f'缺少 {key}' for key in sorted(STRUCTURE_FIELDS - set(value))]
+        decision, source = value.get('decision'), value.get('source')
+        if 'decision' in value and (not isinstance(decision, str) or words(decision) < MIN_WORDS):
+            problems.append(f'decision 至少 {MIN_WORDS} 个词：写明主人定了什么、为什么')
+        if isinstance(source, str):
+            entry = owner_word(cfg.root, source) if re.fullmatch(r'R\d+', source) else None
+            if entry is None:
+                problems.append(f'source {_quote(source)} 不是已存的主人原话：先用 python -m flowguard req add 存下原话，再写它的 R 编号')
+            elif entry.get('edited') or entry.get('invalid') or entry.get('retired'):
+                problems.append(f'source {source} 的原话已改动或已撤回，不能作出处')
+        elif isinstance(source, dict) and set(source) == {'file', 'text'} and all(isinstance(source[k], str) and source[k].strip() for k in source):
+            if problem := _sentence_problem(cfg, (source['file'], source['text']), texts):
+                problems.append(problem.replace('rule', 'source'))
+        elif 'source' in value:
+            problems.append('source 要写 "R<n>"，或 { file = "文件", text = "该文件里必须出现的一句话" }')
+        if problems:
+            red.append(Finding(f'结构决定 [{STRUCTURE}.{_quote(name)}]：' + '；'.join(problems), ('按 ledger.toml 里的写法改正这一条',)))
+            continue
+        decisions[name] = Decision(name, decision, source if isinstance(source, str) else (source['file'], source['text']))
+    return decisions, red
 
 
 def lines(result) -> list[str]:

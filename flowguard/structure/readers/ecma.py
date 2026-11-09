@@ -37,6 +37,11 @@ NESTED = {'create', 'createMany', 'connect', 'connectOrCreate', 'disconnect', 's
           'upsert', 'delete', 'deleteMany'}
 SCALAR_OPS = {'set', 'increment', 'decrement', 'multiply', 'divide', 'push', 'unset'}
 RAW_WRITES = {'$executeRaw', '$executeRawUnsafe'}
+PRISMA_READS = {'count', 'findFirst', 'findFirstOrThrow', 'findMany', 'findUnique', 'findUniqueOrThrow', 'aggregate',
+                'groupBy'}
+QUERY_ARGS = {'where', 'select', 'include', 'orderBy', 'take', 'skip', 'distinct', 'cursor', 'by', '_count'}
+LOGIC = {'AND', 'OR', 'NOT'}
+ORDER = {'<', '<=', '>', '>='}
 
 
 def own_kinds(node):
@@ -76,6 +81,7 @@ def extract(root, rel, data, module, is_test):
     from .context import propagate_names
     language = language_for(rel)
     out = blank(module, data, language)
+    out.update(queries=[], value_sets=[], typed_fields=[], typed_writes=[], numbers=[])
     source, tree = parse(data, language)
     handed_on = set(propagate_names(root))
     if tree.root_node.has_error:
@@ -369,8 +375,33 @@ def extract(root, rel, data, module, is_test):
             item = item.parent
         return None, [], f'{name} is not declared in this file'
 
-    def add_write(rows, base, path, leaf, at, reason=''):
-        rows.append(dict(base, path=path, leaf=leaf, reason=reason, **position(at, source)))
+    def add_write(rows, base, path, leaf, at, reason='', written=None):
+        rows.append(dict(base, path=path, leaf=leaf, reason=reason, **(written or {}), **position(at, source)))
+
+    def value_parts(node):
+        """[('value', v) | ('ref', 'Name.KEY')] an expression can take: a literal, a member of a named
+        object (`Status.ACTIVE`), or each branch of `c ? a : b`; None when any part is not spelled."""
+        node = unwrap(node)
+        if node is None:
+            return None
+        if node.type == 'ternary_expression':
+            first, second = value_parts(field(node, 'consequence')), value_parts(field(node, 'alternative'))
+            return first + second if first is not None and second is not None else None
+        valid, value = literal(node, source)
+        if valid:
+            return [('value', value)]
+        if node.type == 'member_expression' and field(node, 'object') is not None and field(node, 'object').type == 'identifier' \
+                and field(node, 'property') is not None and field(node, 'property').type == 'property_identifier' \
+                and text(field(node, 'property'), source).replace('_', '').isupper():
+            return [('ref', text(node, source))]
+        return None
+
+    def written_of(node):
+        """`values` (literals) and `refs` (`Name.KEY` spellings) of a written expression, when every part is spelled."""
+        parts = value_parts(node)
+        if not parts:
+            return {}
+        return dict(values=[value for kind, value in parts if kind == 'value'], refs=[value for kind, value in parts if kind == 'ref'])
 
     def object_fields(value, base, prefix, rows, depth=0):
         """Write paths of one Prisma data value: fields, nested operations and what stays unclear."""
@@ -408,7 +439,8 @@ def extract(root, rel, data, module, is_test):
                 object_fields(found, base, prefix, rows, depth + 1)
                 for member in members:
                     prop = field(member, 'property')
-                    add_write(rows, base, prefix + [text(prop, source)], 'field', member)
+                    add_write(rows, base, prefix + [text(prop, source)], 'field', member,
+                              written=written_of(field(member.parent, 'right')) if member.parent is not None else None)
                 return
             add_write(rows, base, prefix + ['...'], 'spread', value, reason)
             return
@@ -449,10 +481,10 @@ def extract(root, rel, data, module, is_test):
                     keys = {}
                     break
         if not keys or not set(keys) <= NESTED | SCALAR_OPS or set(keys) <= SCALAR_OPS - {'set'}:
-            add_write(rows, base, prefix + [name], 'field', key)       # a value, or {increment: 1} on a scalar
+            add_write(rows, base, prefix + [name], 'field', key, written=written_of(value))   # a value, or {increment: 1}
             return
         if set(keys) == {'set'} and unwrap(keys['set']) is not None and unwrap(keys['set']).type != 'array':
-            add_write(rows, base, prefix + [name], 'field', key)       # scalar { set: value }
+            add_write(rows, base, prefix + [name], 'field', key, written=written_of(keys['set']))   # scalar { set: value }
             return
         for op, item in keys.items():
             here = prefix + [name, op]
@@ -528,6 +560,9 @@ def extract(root, rel, data, module, is_test):
                                               columns=[c['name'] for c in row['columns']] or ['*'], unclear=False,
                                               receiver=text(receiver, source), reason='', **position(node, source)))
             return
+        if method in PRISMA_READS and receiver is not None and receiver.type == 'member_expression':
+            prisma_query(node, method, receiver, args, base)
+            return
         if method not in PRISMA_WRITES or receiver is None or receiver.type != 'member_expression':
             return
         accessor = field(receiver, 'property')
@@ -561,6 +596,201 @@ def extract(root, rel, data, module, is_test):
                           base, [], rows)
         out['writes'].extend(rows)
 
+    def holder_of(node):
+        """The object literal (`const service = { m() {} }`) or class a method belongs to; '' otherwise."""
+        if node.type != 'method_definition' or node.parent is None:
+            return ''
+        body = node.parent
+        if body.type == 'class_body' and body.parent is not None and field(body.parent, 'name') is not None:
+            return text(field(body.parent, 'name'), source)
+        holder = body.parent
+        while holder is not None and holder.type in WRAPPERS:
+            holder = holder.parent
+        if body.type == 'object' and holder is not None and holder.type == 'variable_declarator' and field(holder, 'name') is not None:
+            return text(field(holder, 'name'), source)
+        return ''
+
+    def object_of(value):
+        """The object literal an argument is, also through one local `const x = {...}`."""
+        value = unwrap(value)
+        if value is not None and value.type == 'identifier':
+            found, _, _ = local_value(value)
+            value = unwrap(found) if found is not None else value
+        return value if value is not None and value.type == 'object' else None
+
+    def object_pairs(value):
+        found = object_of(value)
+        return {} if found is None else {text(field(x, 'key'), source) if field(x, 'key').type == 'property_identifier'
+                                         else string(field(x, 'key')): field(x, 'value')
+                                         for x in found.named_children if x.type == 'pair'}
+
+    def filter_keys(value, depth=0):
+        """Field names a Prisma `where` filters on, through AND/OR/NOT, arrays, spreads and one local const."""
+        found = unwrap(value)
+        if found is None or depth > 6:
+            return set()
+        if found.type == 'array':
+            return set().union(*(filter_keys(item, depth + 1) for item in found.named_children))
+        found = object_of(found)
+        keys = set()
+        for item in found.named_children if found is not None else ():
+            if item.type == 'shorthand_property_identifier':
+                keys.add(text(item, source))
+            elif item.type == 'spread_element' and item.named_children:
+                keys |= filter_keys(item.named_children[0], depth + 1)
+            elif item.type == 'pair':
+                key = field(item, 'key')
+                name = text(key, source) if key.type == 'property_identifier' else string(key)
+                if name in LOGIC:
+                    keys |= filter_keys(field(item, 'value'), depth + 1)
+                elif name:
+                    keys.add(name)
+        return keys
+
+    def prisma_query(node, method, receiver, args, base):
+        """A Prisma read (`count`, `findMany`, ...): the fields its `where` filters on, the relations its
+        `include`/`select` load and the relations its `_count` counts."""
+        accessor = field(receiver, 'property')
+        if accessor is None or accessor.type != 'property_identifier':
+            return
+        first = args.named_children[0] if args.named_children else None
+        pairs = object_pairs(first) if first is not None else {}
+        if first is not None and not set(pairs) & QUERY_ARGS or first is None and method not in ('count', 'findMany', 'findFirst'):
+            return
+        loads, counts = set(), set()
+        for part in ('include', 'select'):
+            for key, value in object_pairs(pairs.get(part)).items():
+                if key != '_count':
+                    loads.add(key)
+                    continue
+                selected = object_pairs(value).get('select')
+                counts |= set(object_pairs(selected)) if selected is not None else {'*'}
+        counts |= set(object_pairs(object_pairs(pairs.get('_count')).get('select'))) if '_count' in pairs else set()
+        out['queries'].append(dict(base, via='prisma', accessor=text(accessor, source), method=method,
+                                   receiver=text(field(receiver, 'object'), source), keys=sorted(filter_keys(pairs.get('where'))),
+                                   loads=sorted(loads), counts=sorted(counts), **position(node, source)))
+
+    # ---- declared value sets, annotated fields and the values typed objects give them -----------
+    def strings(items):
+        values = [string(item) for item in items if item.type not in COMMENTS]
+        return values if values and all(isinstance(value, str) for value in values) else None
+
+    def declared_set(value):
+        """(kind, values, members) of `[...] as const`, `{K: 'v'} as const` or `new Set([...])`."""
+        if value is None:
+            return None
+        if value.type == 'as_expression' and len(value.named_children) == 1 and text(value, source).rstrip().endswith('const'):
+            inner = unwrap(value.named_children[0])
+            if inner is not None and inner.type == 'array' and (values := strings(inner.named_children)):
+                return 'const-array', values, {}
+            if inner is not None and inner.type == 'object':
+                pairs = [x for x in inner.named_children if x.type not in COMMENTS]
+                members = {text(field(x, 'key'), source): string(field(x, 'value')) for x in pairs if x.type == 'pair'}
+                if members and len(members) == len(pairs) and all(isinstance(v, str) for v in members.values()):
+                    return 'const-object', list(dict.fromkeys(members.values())), members
+            return None
+        inner = unwrap(value)
+        if inner is not None and inner.type == 'new_expression' and text(field(inner, 'constructor'), source) in ('Set', 'ReadonlySet'):
+            arguments = field(inner, 'arguments')
+            first = unwrap(arguments.named_children[0]) if arguments is not None and arguments.named_children else None
+            if first is not None and first.type == 'array' and (values := strings(first.named_children)):
+                return 'set', values, {}
+        return None
+
+    def type_set(value):
+        """A closed union of string literals (null/undefined allowed), or an alias: `(typeof X)[number]`,
+        `(typeof X)[keyof typeof X]` or a plain type name; None for anything else."""
+        value = value.named_children[0] if value is not None and value.type == 'parenthesized_type' and value.named_children else value
+        if value is None:
+            return None
+        if value.type in ('union_type', 'literal_type'):
+            members, stack = [], [value]
+            while stack:
+                item = stack.pop(0)
+                if item.type == 'union_type':
+                    stack[:0] = [x for x in item.named_children if x.type not in COMMENTS]
+                elif item.type == 'literal_type' and item.named_children and item.named_children[0].type == 'string':
+                    members.append(string(item.named_children[0]))
+                elif item.type == 'literal_type' and item.named_children and item.named_children[0].type in ('null', 'undefined'):
+                    members.append(None)
+                else:
+                    return None
+            return dict(kind='union', values=[m for m in members if m is not None], optional=None in members) \
+                if any(isinstance(m, str) for m in members) else None
+        if value.type == 'lookup_type' and len(value.named_children) == 2:
+            query = value.named_children[0]
+            query = query.named_children[0] if query.type == 'parenthesized_type' and query.named_children else query
+            if query.type == 'type_query' and query.named_children and query.named_children[0].type == 'identifier':
+                return dict(kind='alias', of=text(query.named_children[0], source))
+        if value.type == 'type_identifier':
+            return dict(kind='alias', of=text(value, source))
+        return None
+
+    def container_of(node):
+        """The interface, class or object type alias whose own member `node` is."""
+        body = node.parent
+        holder = body.parent if body is not None else None
+        if body is None or holder is None:
+            return ''
+        if node.type == 'property_signature' and body.type in ('interface_body', 'object_type') \
+                and holder.type in ('interface_declaration', 'type_alias_declaration'):
+            return text(field(holder, 'name'), source)
+        if node.type == 'public_field_definition' and body.type == 'class_body' and holder.type in CLASSES:
+            return text(field(holder, 'name'), source)
+        return ''
+
+    def typed_field(node, scope):
+        container = container_of(node)
+        name, annotation = field(node, 'name'), field(node, 'type')
+        if not container or name is None or annotation is None or not annotation.named_children:
+            return
+        declared = type_set(annotation.named_children[0])
+        if declared is None:
+            return
+        nullable = bool(declared.pop('optional', False))
+        optional = nullable or any(not child.is_named and child.type == '?' for child in node.children)
+        out['typed_fields'].append(dict(container=container, field=text(name, source), file=rel, optional=optional,
+                                        **declared, **position(node, source)))
+
+    def typed_object(value, container, owner, scope):
+        """The literal values an object typed as `container` (`const x: T = {...}`, `{...} satisfies T`,
+        `{...} as T`) gives its fields."""
+        found = unwrap(value) if value is not None and value.type != 'satisfies_expression' else value
+        found = found.named_children[0] if found is not None and found.type == 'satisfies_expression' and found.named_children else found
+        if found is None or found.type != 'object' or not container:
+            return
+        for item in found.named_children:
+            if item.type == 'pair' and field(item, 'key').type == 'property_identifier' and (values := written_of(field(item, 'value'))):
+                out['typed_writes'].append(dict(node=owner, function=named_scope(scope), container=container,
+                                                field=text(field(item, 'key'), source), file=rel, **values, **position(item, source)))
+
+    def is_exported(node):
+        holder = node.parent
+        while holder is not None and holder.type in ('lexical_declaration', 'variable_declaration'):
+            holder = holder.parent
+        return holder is not None and holder.type == 'export_statement'
+
+    def type_name(node):
+        """`T` of a type annotation, `satisfies T` or `as T` that names a type; '' otherwise."""
+        node = node.named_children[0] if node is not None and node.type == 'type_annotation' and node.named_children else node
+        return text(node, source) if node is not None and node.type == 'type_identifier' else ''
+
+    def number_context(node):
+        child, parent = node, node.parent
+        while parent is not None and (parent.type in WRAPPERS or parent.type == 'unary_expression' and operator(parent) == '-'):
+            child, parent = parent, parent.parent
+        if parent is None:
+            return '', None
+        valid, value = literal(node, source)
+        if not valid or isinstance(value, bool) or not isinstance(value, (int, float)):
+            return '', None
+        value = -value if child is not node and text(child, source).lstrip('( ').startswith('-') else value
+        if parent.type == 'binary_expression' and operator(parent) in EQUALITY | ORDER:
+            return 'compare', value
+        if parent.type == 'switch_case' and child == field(parent, 'value'):
+            return 'case', value
+        return '', None
+
     def visit(node, scope='', cls='', parameters=(), shadows=frozenset()):
         if node.type in ('import_statement', 'export_statement'):
             imports(node, scope)
@@ -590,7 +820,7 @@ def extract(root, rel, data, module, is_test):
                        shape=[] if name.startswith('<anonymous') or is_class or body is None
                        else kinds_shape(own_kinds(body))[:SHAPE_K],
                        size=node.descendant_count, raw=dict(name=name, scope=scope, declared_qual=declared_qual, parameters=arg_names,
-                       shadows=sorted(own_shadows), declaration_kind=node.type),
+                       shadows=sorted(own_shadows), declaration_kind=node.type, holder=holder_of(node)),
                        column=position(node, source)['column'], end_column=position(node, source)['end_column'])
             out['nodes'].append(row)
             container = node.parent
@@ -617,8 +847,34 @@ def extract(root, rel, data, module, is_test):
                     column=at['column'],end_column=at['end_column'],sig=text(value,source),doc='',
                     fp=fingerprint(value,source),shape=[],size=0,raw=dict(name=name,scope=scope)))
                 out['keys'].append(('constant',name,at['line'],scope))
+        if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
+                and field(node, 'name').type == 'identifier' and (declared := declared_set(field(node, 'value'))):
+            kind, values, members = declared
+            out['value_sets'].append(dict(name=text(field(node, 'name'), source), kind=kind, values=values, members=members,
+                                          file=rel, exported=is_exported(node), **position(node, source)))
+        if node.type == 'type_alias_declaration' and not scope and (declared := type_set(field(node, 'value'))):
+            out['value_sets'].append(dict(name=text(field(node, 'name'), source), file=rel, exported=is_exported(node),
+                                          **declared, **position(node, source)))
+        if node.type in ('property_signature', 'public_field_definition'):
+            typed_field(node, scope)
+        if node.type == 'public_field_definition' and field(node, 'value') is not None and container_of(node) \
+                and field(node, 'name') is not None and (values := written_of(field(node, 'value'))):
+            out['typed_writes'].append(dict(node=owner, function=named_scope(scope), container=container_of(node),
+                                            field=text(field(node, 'name'), source), file=rel, **values, **position(node, source)))
+        if node.type == 'variable_declarator' and (container := type_name(field(node, 'type'))):
+            typed_object(field(node, 'value'), container, owner, scope)
+        if node.type in ('satisfies_expression', 'as_expression') and len(node.named_children) == 2:
+            typed_object(node.named_children[0], type_name(node.named_children[1]), owner, scope)
+        if node.type == 'assignment_expression' and cls and (left := field(node, 'left')) is not None \
+                and left.type == 'member_expression' and field(left, 'object') is not None and field(left, 'object').type == 'this' \
+                and (values := written_of(field(node, 'right'))):
+            out['typed_writes'].append(dict(node=owner, function=named_scope(scope), container=cls.rpartition('.')[2],
+                                            field=text(field(left, 'property'), source), file=rel, **values, **position(node, source)))
         if node.type == 'catch_clause':
             catch(node, owner, scope)
+        elif node.type == 'number' and (found := number_context(node))[0]:
+            out['numbers'].append(dict(node=owner, file=rel, value=found[1], context=found[0],
+                                       function=named_scope(scope), **position(node, source)))
         elif node.type == 'string' and (context := literal_context(node)):
             valid, value = literal(node, source)
             if valid and isinstance(value, str):

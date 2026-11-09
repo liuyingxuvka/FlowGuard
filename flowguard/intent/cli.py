@@ -232,9 +232,11 @@ def _brief(cfg, data, baseline):
 
 
 def screen(cfg):
+    from .health import brief_line
     baseline = cache.session_baseline(cfg, remember=True)
     data = cache.read(cfg)
-    print('\n'.join(_brief(cfg, data, baseline)))
+    structure = brief_line(cfg)         # one line from the last check; the brief builds no map
+    print('\n'.join([*_brief(cfg, data, baseline), *([structure] if structure else [])]))
     return int(bool(data['summary']['errors']))
 
 
@@ -448,11 +450,15 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
         words = tokens(query)
         ranked = []
         if re.fullmatch(r'[A-Za-z_]\w*\.[A-Za-z_]\w*', query):      # Model.field or table.column: who writes it
-            for row in graph.writes(query):
+            written = graph.writes(query)
+            for row in written:
                 where = f'{row["file"]}:{row["line"]}' + (f' (call line {row["call_line"]})' if row['call_line'] != row['line'] else '')
                 unclear = f'; unclear: {row["reason"]}' if row['unclear'] else ''
                 ranked.append((2000 - bool(row['unclear']), f'writes {row["model"] or row["table"]}.{row["field"]} '
                                f'{where} {row["function"]} ({row["kind"]}{unclear})'))
+            from . import health, owners as checks       # several files write it and nobody owns it: say so first
+            for issue in health.writers(checks.Change(cfg, graph, None), index, written).issues:
+                ranked.append((2001, f'structure: {issue.text} -> {issue.step} ' + ' '.join(issue.entry)))
         for rid, rule in rules.items():
             score = 1000 if query.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
             score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))
@@ -569,8 +575,8 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
                             red=compared['reasons'] if compared['status'] == 'red' and not compared['changes'] else []))
         status = status or int(compared['status'] == 'red')
     found = _owner_findings(cfg, everything=everything, base=base)
-    if found.red or found.leads:
-        reports.append(dict(source_changed=True, red=found.red, leads=found.leads, items=[]))
+    if found.red or found.leads or found.section:
+        reports.append(dict(source_changed=True, red=found.red, leads=found.leads, items=[], structure=found.section))
         status = status or int(bool(found.red))
     report = dict(source_changed=any(part.get('source_changed', True) for part in reports),
                   comparison_requested=any(part.get('comparison_requested') for part in reports),
@@ -579,9 +585,15 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
                   leads=[lead for part in reports for lead in part.get('leads', ())],
                   red=list(dict.fromkeys([*(message for part in reports for message in part.get('red', ())),
                        *(f'{issue.file}:{issue.line}: {issue.message}' for issue in issues)])),
-                  ledger=list(dict.fromkeys(line for part in reports for line in part.get('ledger', ()))))
+                  ledger=list(dict.fromkeys(line for part in reports for line in part.get('ledger', ()))),
+                  structure=[line for part in reports for line in part.get('structure', ())])
     report['red'] = list({message.replace('：', ': '): message for message in reversed(report['red'])}.values())[::-1]
-    text = render_signals(report)
+    _show_signals(render_signals(report), status)
+    return status or int(bool(issues))
+
+
+def _show_signals(text, status):
+    """The signal report on the console, as at the end of an ordinary test run."""
     if text:
         try:
             from .differences import display
@@ -593,7 +605,31 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
                 print(f'FlowGuard output unavailable: {type(error).__name__}; verification status {status}', file=sys.stderr)
             except (OSError, ValueError):
                 pass
-    return status or int(bool(issues))
+
+
+def static_check(cfg, *, everything=False, base=None):
+    """`check --static`: the map checks alone, without pytest: the fallback ledger, owner writes and pairs,
+    values outside declared sets, old values, new spellings, unchanged copies, deletes that leave children,
+    missing columns and touched structure problems. The report is rendered as at the end of an ordinary
+    test run; only what this change adds is reported unless `everything` (`--all`), which also lists every
+    open structure problem. Exit 1 when anything is red."""
+    from . import anchors, health, ledger as fallbacks, owners
+    from .signals import render as render_signals
+    with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        index = anchors.collect(graph)
+        found = owners.static_findings(cfg, graph, index, base, everything=everything)
+        baseline = owners.baseline(cfg, base)
+        result = fallbacks.evaluate(cfg, graph, baseline=baseline) if fallbacks.path(cfg).is_file() \
+            else fallbacks.absent(cfg, baseline)
+        with graph.con:
+            health.remember(graph.con, found.summary)
+    red = list(dict.fromkeys([*found.red, *(issue.message for issue in index.issues if issue.level == 'red')]))
+    report = dict(source_changed=bool(red or found.leads or found.section), red=red, leads=found.leads, items=[],
+                  ledger=[fallbacks.summary(result), *fallbacks.lines(result)] if result.red else [],
+                  structure=found.section)
+    status = int(bool(red or result.red))
+    _show_signals(render_signals(report), status)
+    return status
 
 
 def _owner_findings(cfg, *, everything=False, base=None):
@@ -606,7 +642,11 @@ def _owner_findings(cfg, *, everything=False, base=None):
         distincts = cache.read(cfg)['summary'].get('distincts', [])
         excluded = {target for item in distincts for target in (item['a'], item['b']) if ':' in target}
         excluded |= {anchor.target for item in distincts for name in (item['a'], item['b']) for anchor in index.named(name)}
-        return owners.check_findings(cfg, graph, index, base, everything=everything, excluded=excluded)
+        found = owners.check_findings(cfg, graph, index, base, everything=everything, excluded=excluded)
+        with graph.con:
+            from . import health
+            health.remember(graph.con, found.summary)
+        return found
 
 
 def _check_selection(cfg: Config, model: object, data: dict, everything: bool, since: str | None, sentinel: Path):
@@ -898,6 +938,89 @@ def _early_plugin(text):
     return text[:start] + body + text[end:]
 
 
+NPM_HEADER = '// Generated by `python -m flowguard init`: FlowGuard\'s map checks inside `npm test`.'
+NPM_CHECK = NPM_HEADER + '''
+// It does one thing: run `python -m flowguard check --static` at the project root, print what it reports,
+// and fail when anything is red (exit 1) or FlowGuard cannot run. Python is found in this order:
+//   1. the FLOWGUARD_PYTHON environment variable, when set (then only that one);
+//   2. the interpreter that ran `flowguard init`: RECORDED below;
+//   3. `python3`, `python` and, on Windows, `py -3` on PATH.
+// The first that can import flowguard runs the check; when none can, the test fails and lists what was tried.
+@IMPORTS@
+const ROOT = @ROOT@;
+const RECORDED = @RECORDED@;
+
+function interpreters() {
+  if (process.env.FLOWGUARD_PYTHON) return [[process.env.FLOWGUARD_PYTHON]];
+  const listed = [[RECORDED], ['python3'], ['python']];
+  if (process.platform === 'win32') listed.push(['py', '-3']);
+  return listed;
+}
+
+function findPython() {
+  const tried = [];
+  for (const [command, ...prefix] of interpreters()) {
+    const probe = spawnSync(command, [...prefix, '-c', 'import flowguard'], { cwd: ROOT, encoding: 'utf8' });
+    if (probe.status === 0) return { command, prefix, tried };
+    const why = probe.error ? probe.error.message : ((probe.stderr || '').trim().split('\\n').pop() || 'exit ' + probe.status);
+    tried.push([command, ...prefix].join(' ') + ': ' + why);
+  }
+  return { command: null, prefix: [], tried };
+}
+
+test('FlowGuard check --static', () => {
+  const python = findPython();
+  if (python.command === null) {
+    throw new Error('FlowGuard: no Python that can import flowguard was found; set FLOWGUARD_PYTHON to the interpreter '
+      + 'FlowGuard is installed in. Tried:\\n' + python.tried.join('\\n'));
+  }
+  const run = spawnSync(python.command, [...python.prefix, '-m', 'flowguard', 'check', '--static'], {
+    cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+  });
+  const output = ((run.stdout || '') + (run.stderr || '')).trimEnd();
+  if (output) console.log(output);
+  if (run.error) throw run.error;
+  if (run.status !== 0) {
+    throw new Error('FlowGuard check --static exit ' + run.status + (output ? ':\\n' + output : ''));
+  }
+}, 600000);
+'''
+
+
+def _packages(root):
+    """The package.json files `init` serves: the project root's, else those up to two folders down."""
+    if (root / 'package.json').is_file():
+        return [root / 'package.json']
+    return sorted(path for pattern in ('*/package.json', '*/*/package.json') for path in root.glob(pattern)
+                  if not any(part == 'node_modules' or part.startswith('.') for part in path.relative_to(root).parts[:-1]))
+
+
+def _npm_check(cfg, package):
+    """Write the vitest (or, for a jest project, jest) test that runs `check --static`; returns what it did."""
+    data = json.loads(package.read_text(encoding='utf-8-sig'))
+    if not isinstance(data, dict):
+        raise ValueError(f'{package}: package.json is not a JSON object')
+    named = {**(data.get('dependencies') or {}), **(data.get('devDependencies') or {})}
+    script = str((data.get('scripts') or {}).get('test', ''))
+    runner = 'jest' if ('jest' in named or 'jest' in script) and 'vitest' not in named and 'vitest' not in script else 'vitest'
+    module = runner == 'vitest' or data.get('type') == 'module'
+    target = package.parent / ('flowguard.static.test.mjs' if runner == 'vitest' else 'flowguard.static.test.js')
+    relative = os.path.relpath(cfg.root, package.parent).replace(os.sep, '/')
+    if module:
+        imports = ("import { test } from 'vitest';\n" if runner == 'vitest' else '') + \
+            "import { spawnSync } from 'node:child_process';\nimport path from 'node:path';\nimport { fileURLToPath } from 'node:url';"
+        root = f"path.resolve(path.dirname(fileURLToPath(import.meta.url)), {json.dumps(relative)})"
+    else:
+        imports = "const { spawnSync } = require('node:child_process');\nconst path = require('node:path');"
+        root = f'path.resolve(__dirname, {json.dumps(relative)})'
+    text = (NPM_CHECK.replace('@IMPORTS@', imports).replace('@ROOT@', root)
+            .replace('@RECORDED@', json.dumps(sys.executable)))
+    if target.exists() and not target.read_text(encoding='utf-8').startswith(NPM_HEADER):
+        raise ValueError(f'{target}: an existing file has this name; rename it, then run init again')
+    target.write_text(text, encoding='utf-8', newline='\n')
+    return f'Generated {cfg.rel(target)} ({runner}): npm test runs python -m flowguard check --static and fails on red.'
+
+
 def init(cfg):
     pyproject = cfg.root / 'pyproject.toml'
     text = pyproject.read_text(encoding='utf-8') if pyproject.is_file() else ''
@@ -948,6 +1071,8 @@ def init(cfg):
         content = content.rstrip() + newline + newline + rules
     agents.write_bytes(content.encode('utf-8'))
     print('Initialized intent sentinel, pytest plugin, CI fragment and four project rules.')
+    for package in _packages(cfg.root):
+        print(_npm_check(cfg, package))
     return 0
 
 
@@ -1044,6 +1169,8 @@ def main(argv=None):
     check_parser.add_argument('--deep', action='store_true', help='Run decision probes and mutation-survival checks')
     check_parser.add_argument('--since')
     check_parser.add_argument('--base', help='Compare behavior with this commit instead of the remembered session baseline')
+    check_parser.add_argument('--static', action='store_true',
+                              help='Map checks only, without pytest (any language FlowGuard reads, e.g. TS/JS, Prisma, SQL)')
     compare_parser = commands.add_parser('compare')
     compare_parser.add_argument('left')
     compare_parser.add_argument('right')
@@ -1082,6 +1209,10 @@ def main(argv=None):
             return int(result['status'] == 'red')
         if options.command == 'show':
             return show(cfg, options.query, draft=options.draft, gaps=options.gaps, full=options.full)
+        if options.command == 'check' and options.static:
+            if options.deep or options.since:
+                raise ValueError('check --static runs no tests: --deep and --since need the pytest check')
+            return static_check(cfg, everything=options.all, base=options.base)
         if options.command == 'check':
             return check(cfg, everything=options.all, since=options.since, deep=options.deep, base=options.base)
         if options.command == 'init':

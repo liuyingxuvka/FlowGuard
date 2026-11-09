@@ -306,6 +306,7 @@ class Observations:
                        for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'}
         self.changed, self.records, self.pairs, self.red, self.grey, self.paths = bool(self.files), [], [], [], [], []
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
+        self.structure = None
         self.event_record = self.capture = None
         self.request, self.text = _TRY.get(), ''
         self.rules = {}
@@ -857,6 +858,7 @@ class Observations:
             found = owners.static_findings(self.cfg, self.state.get_map(), self.index, self.runtime.baseline)
             self.red.extend(found.red)
             leads.extend(found.leads)
+            self.structure = found.summary         # the session brief's count of open structure problems
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
         from . import ledger
@@ -1464,6 +1466,9 @@ def finish_verified(session, exitstatus):
                     _meta(con, 'intent_attempt', attempt)
                     if state.observations is not None and state.observations.payload is not None:
                         _meta(con, 'runtime_observations', state.observations.payload)
+                    if state.observations is not None and state.observations.structure is not None:
+                        from .health import remember
+                        remember(con, state.observations.structure)
                     _save_readings(con, state)
                     _save_ordinary_collection(con, session, state)
         return
@@ -1474,6 +1479,9 @@ def finish_verified(session, exitstatus):
         _meta(con, 'intent_attempt', attempt)
         if state.observations is not None and state.observations.payload is not None:
             _meta(con, 'runtime_observations', state.observations.payload)
+        if state.observations is not None and state.observations.structure is not None:
+            from .health import remember
+            remember(con, state.observations.structure)
         if not missing and state.sentinel == 'ok' and not state.session_errors:
             _meta(con, 'intent_collection', attempt)
             if not model.deep:

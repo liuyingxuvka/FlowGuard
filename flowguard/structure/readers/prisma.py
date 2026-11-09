@@ -19,6 +19,7 @@ BLOCK = re.compile(r'^\s*(model|view|type|enum)\s+([A-Za-z_]\w*)\s*\{\s*$')
 FIELD = re.compile(r'^\s*([A-Za-z_]\w*)\s+([A-Za-z_]\w*(?:\([^)]*\))?)(\[\])?(\?)?(?:\s+(.*))?$')
 MAP = re.compile(r'@map\(\s*(?:name\s*:\s*)?"([^"]*)"')
 BLOCK_MAP = re.compile(r'@@map\(\s*(?:name\s*:\s*)?"([^"]*)"')
+ON_DELETE = re.compile(r'@relation\(.*\bonDelete\s*:\s*(\w+)')
 SCALARS = {'String', 'Boolean', 'Int', 'BigInt', 'Float', 'Decimal', 'DateTime', 'Json', 'Bytes'}
 CONNECTING = {'connect', 'connectOrCreate', 'disconnect', 'set'}
 
@@ -104,7 +105,8 @@ def read(text: str) -> dict:
         mapped = MAP.search(attributes)
         block['fields'].append(dict(name=name, type=kind, list=bool(many), optional=bool(optional), line=number,
                                     column=mapped.group(1) if mapped else name, mapped=bool(mapped),
-                                    relation=relation(attributes), attributes=attributes.strip()))
+                                    relation=relation(attributes), attributes=attributes.strip(),
+                                    on_delete=on_delete.group(1) if (on_delete := ON_DELETE.search(attributes)) else ''))
     if block is not None:
         errors.append(f"{block['kind']} {block['name']} (line {block['line']}) has no closing brace")
         close(len(text.splitlines()))
@@ -173,6 +175,20 @@ class Models:
                     return field, description
         return None, None
 
+    def children(self, parent: str):
+        """[(child model, relation field, key fields, onDelete, required)] of every relation whose foreign key
+        (on the child) references `parent`; one row per child relation, whichever schema describes it."""
+        found = {}
+        for name, descriptions in self.by_name.items():
+            for description in descriptions:
+                for field in description['fields']:
+                    rel = field.get('relation') or {}
+                    if field['type'] == parent and rel.get('fields'):
+                        found.setdefault((name, field['name']), (name, field['name'], tuple(rel['fields']),
+                                                                field.get('on_delete', ''), not field['optional'],
+                                                                description['file'], field['line']))
+        return [found[key] for key in sorted(found)]
+
     def is_relation(self, field) -> bool:
         return field is not None and (field['type'] in self.by_name or field.get('relation') is not None)
 
@@ -204,7 +220,8 @@ def bind(rows, models: Models):
                           kind=kind, nested=False, unclear=True, schema=None,
                           reason=f"accessor {row['accessor']!r} names no model in a mapped Prisma schema")]
         else:
-            found = _walk(base, models, model, row['path'], row['leaf'], kind, row.get('reason', ''))
+            written = {key: row[key] for key in ('values', 'refs') if key in row}
+            found = _walk(base, models, model, row['path'], row['leaf'], kind, row.get('reason', ''), written)
         for item in found:
             key = (item['file'], item.get('call_line'), item['model'], item['field'], item['kind'])
             if key not in seen:
@@ -213,20 +230,20 @@ def bind(rows, models: Models):
     return out
 
 
-def _write(base, models, model, field_name, kind, *, unclear=False, reason='', nested=False):
+def _write(base, models, model, field_name, kind, *, unclear=False, reason='', nested=False, written=None):
     field, description = models.field(model, field_name)
     table = (description or (models.by_name.get(model) or [{}])[0]).get('table')
     if field is None and field_name not in ('*', '?'):
         reason = reason or f'{model}.{field_name} is not a field of the mapped schema'
     return dict(base, model=model, field=field_name, db_column=field['column'] if field else None, table=table,
                 kind=kind, nested=nested, unclear=unclear, reason=reason,
-                schema=(description or {}).get('file'))
+                schema=(description or {}).get('file'), **(written or {}))
 
 
 CREATING = {'create', 'createMany', 'upsert', 'connectOrCreate'}
 
 
-def _walk(base, models, model, path, leaf, kind, reason):
+def _walk(base, models, model, path, leaf, kind, reason, written=None):
     """Follow [field, op, field, op, ..., field|op] through relations; '...' is a spread at that level."""
     out, nested, op, i = [], False, '', 0
     opaque = reason or 'written value is not an object literal'
@@ -236,11 +253,11 @@ def _walk(base, models, model, path, leaf, kind, reason):
             return out + [_write(base, models, model, '?', kind, unclear=True, nested=nested,
                                  reason=reason or 'spread object: written fields are not visible')]
         if i == len(path) - 1:
-            return out + [_write(base, models, model, name, kind, nested=nested)]
+            return out + [_write(base, models, model, name, kind, nested=nested, written=written)]
         op = path[i + 1]
         field, _ = models.field(model, name)
         if not models.is_relation(field):
-            return out + [_write(base, models, model, name, kind, nested=nested)]   # {increment: 1}, {set: v}
+            return out + [_write(base, models, model, name, kind, nested=nested, written=written)]   # {increment: 1}, {set: v}
         holder, keys = models.foreign_keys(model, field)
         if op in CONNECTING or op in CREATING:
             if holder is None:

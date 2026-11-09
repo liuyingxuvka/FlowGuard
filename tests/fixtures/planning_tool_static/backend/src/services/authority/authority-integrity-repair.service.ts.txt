@@ -1,0 +1,24 @@
+// Copied from backend/src/services/authority/authority-integrity-repair.service.ts lines 376-396 (Planning Tool)
+export async function repairOrganizationAuthority(clients: any, input: any, unit: any, orphanAssignments: any[]) { // fixture wrapper
+  await clients.local.$transaction(async (tx) => {
+    await tx.authorityAssignment.updateMany({
+      where: { id: { in: orphanAssignments.map((row) => row.id) } },
+      data: { active: false, revision: { increment: 1 } },
+    });
+    await tx.auditEvent.create({
+      data: {
+        domain: 'SYSTEM',
+        action: 'ORG_AUTHORITY_REPAIRED',
+        entityType: 'ORG_UNIT_AUTHORITY',
+        entityId: unit.id,
+        oldValue: JSON.stringify({ orphanAssignmentIds: orphanAssignments.map((row) => row.id) }),
+        newValue: JSON.stringify({ managerId: null, repaired: true }),
+        actorId: input.actor.employeeId,
+        timestamp: new Date(),
+        contextId: input.idempotencyKey,
+        idempotencyKey: input.idempotencyKey,
+        severity: 'WARN',
+      },
+    });
+  });
+} // fixture wrapper

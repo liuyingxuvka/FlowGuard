@@ -674,11 +674,12 @@ def collect(graph):
 _ENUM_BASES = {'Enum', 'StrEnum', 'IntEnum', 'Flag', 'IntFlag'}
 
 
-def declared_sets(entries, field_types=(), classes=None, constants=None):
+def declared_sets(entries, field_types=(), classes=None, constants=None, foreign=()):
     """The one table of declared value sets the value gate reads, keyed `module:Class.field`: each
     `# flowguard: states` anchor, and each class field annotated with an enum (`status: RunStatus`),
     whose members' folded values are its set. `classes` gives a class id's signature (its bases);
-    `constants(module)` the module's folded constants. Other languages add rows of the same shape."""
+    `constants(module)` the module's folded constants. `foreign` adds the rows other languages declare
+    (`MapHandle.value_sets()`), keyed `Model.field`."""
     from ..structure import decide
     table = {}
     for anchor in entries:
@@ -696,25 +697,39 @@ def declared_sets(entries, field_types=(), classes=None, constants=None):
             table.setdefault(row['field'], dict(name=row['field'].partition(':')[2],
                                                 values=values + ((None,) if row.get('optional') else ()),
                                                 where=f'enum {row["type"]} ({row["file"]}:{row["line"]})'))
+    for row in foreign:             # MapHandle.value_sets(): Prisma enums, SQL CHECK sets, JS/TS annotated members
+        table.setdefault(row['key'], dict(name=row['name'], values=tuple(row['values']), where=row['where'],
+                                          fold=row.get('fold', False), file=row.get('file', '')))
     return table
 
 
-def value_gate(table, writes):
-    """Every value written to a declared field must be in its declared set (red otherwise). A write
-    whose value cannot be read (a parameter, a call) is not judged here."""
-    issues = []
+def outside_sets(table, writes):
+    """(write, declared set, value) for every readable value written to a declared field that its set does
+    not hold. A write whose value cannot be read (a parameter, a call) is not judged; a set with
+    `fold` compares text without case (the database's collation does)."""
     for row in writes:
         declared = table.get(row['field'])
         values = row.get('values') or ([row['value']] if row.get('literal') else None)
         if declared is None or values is None:
             continue
         for value in values:
-            if not any(type(value) is type(allowed) and value == allowed for allowed in declared['values']):
-                issues.append(Issue('red', 'states-values',
-                                    f'code writes {declared["name"]}={value!r}; allowed: '
-                                    + ' | '.join(map(repr, declared['values'])) + f' ({row["file"]}:{row["line"]})'
-                                    f' -> write a declared value; to add one, change the declaration first ({declared["where"]})',
-                                    row['file'], row['line'], declared['name']))
+            if declared.get('fold') and isinstance(value, str):
+                held = any(isinstance(allowed, str) and allowed.casefold() == value.casefold() for allowed in declared['values'])
+            else:
+                held = any(type(value) is type(allowed) and value == allowed for allowed in declared['values'])
+            if not held:
+                yield row, declared, value
+
+
+def value_gate(table, writes):
+    """Every value written to a declared field must be in its declared set (red otherwise)."""
+    issues = []
+    for row, declared, value in outside_sets(table, writes):
+        issues.append(Issue('red', 'states-values',
+                            f'code writes {declared["name"]}={value!r}; allowed: '
+                            + ' | '.join(map(repr, declared['values'])) + f' ({row["file"]}:{row["line"]})'
+                            f' -> write a declared value; to add one, change the declaration first ({declared["where"]})',
+                            row['file'], row['line'], declared['name']))
     return issues
 
 
