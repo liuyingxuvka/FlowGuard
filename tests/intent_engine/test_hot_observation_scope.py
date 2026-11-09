@@ -61,15 +61,20 @@ from shop.hot import step, work
 
 
 def test_hot():
-    started = time.perf_counter()
+    started, used = time.perf_counter(), time.thread_time()
     assert work(400000) == 400000
-    elapsed = time.perf_counter() - started
+    elapsed, cpu = time.perf_counter() - started, time.thread_time() - used
+    warm = []                           # the same loop again: a load spike on a shared machine hits one run, not all
+    for _ in range(5):
+        again = time.thread_time()
+        work(400000)
+        warm.append(time.thread_time() - again)
     events, counting = [], [True]       # counted in a separate short loop, so counting costs the timing nothing
     sys.addaudithook(lambda event, args: events.append(event) if counting[0] else None)
     assert work(1000) == 1000
     counting[0] = False
     runtime = sys.modules.get('flowguard.intent.runtime')
-    state = dict(seconds=elapsed, audit_events=len(events), hooked=bool(runtime and runtime._HOOKED))
+    state = dict(seconds=elapsed, cpu=cpu, warm=min(warm), audit_events=len(events), hooked=bool(runtime and runtime._HOOKED))
     monitoring = getattr(sys, 'monitoring', None)
     if monitoring is not None:
         tool = next((n for n in range(6) if monitoring.get_tool(n) == 'flowguard-runtime'), None)
@@ -164,7 +169,9 @@ def test_unrelated_hot_loop_is_not_monitored_when_the_tree_has_a_change(tmp_path
 
 def measure(repeat=5):
     """Median call-phase seconds of the 400 000-call test: no plugin, no change, and one unrelated change
-    (with which an earlier test's replay has installed the audit hook before the loop runs)."""
+    (with which an earlier test's replay has installed the audit hook before the loop runs). The loop
+    takes about 0.02 s, so one wall-clock reading moves by tens of percent on a loaded machine: the
+    thread CPU time of the first loop and the fastest of five more loops are printed beside it."""
     with tempfile.TemporaryDirectory() as folder:
         root = project(Path(folder) / 'hot')
         numbers = {}
@@ -174,11 +181,16 @@ def measure(repeat=5):
                 change(root)
             states = [run(root, plugin=plugin)[0] for _ in range(repeat)]
             numbers[label] = round(statistics.median(state['seconds'] for state in states), 4)
+            numbers[label + ' (cpu, warm)'] = (round(statistics.median(state['cpu'] for state in states), 4),
+                                               round(statistics.median(state['warm'] for state in states), 4))
             if changed:
                 numbers['audit hook installed'] = all(state['hooked'] for state in states)
                 numbers['audit events in the loop'] = max(state['audit_events'] for state in states)
         base = numbers['without plugin']
         numbers['extra with the hook'] = f"{100 * (numbers['plugin, unrelated change, audit hook installed'] - base) / base:+.1f}%"
+        cpu, warm = numbers['without plugin (cpu, warm)']
+        hooked_cpu, hooked_warm = numbers['plugin, unrelated change, audit hook installed (cpu, warm)']
+        numbers['extra with the hook (cpu, warm)'] = f"{100 * (hooked_cpu - cpu) / cpu:+.1f}%, {100 * (hooked_warm - warm) / warm:+.1f}%"
         return numbers
 
 
