@@ -354,6 +354,50 @@ def writers(change, index, rows=None):
     return found
 
 
+# ---- fields written together with one field: with= candidates for show --------------------------
+
+PARTNER_SHARE = 0.5          # share of a field's writing functions that also write a field before it is a with= candidate
+PARTNERS_SHOWN = 5
+
+
+def co_written(change, name):
+    """Lines for `show Model.field`: other fields most of its production writers also write in the same
+    function, each with the writers that leave it out and the `owner ... with=` line to copy. Reference
+    only: writing two fields together often is no rule until the owner says so."""
+    from .owners import row_function
+    tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
+    def field_of(row):
+        holder, column = row.get('model') or row.get('table'), row.get('field') or row.get('db_column')
+        bound = not row.get('unclear') and not (row.get('how') == 'name' and row.get('language', 'python') != 'python')
+        if not bound or not holder or column in ('*', '?', None) or row['file'] in tests or is_test_file(row['file']) \
+                or row['function'] == '<module>':
+            return None
+        return f'{holder}.{column}'
+    by_function, places = {}, {}
+    for row in change.writes():
+        key = field_of(row)
+        if key is not None:
+            by_function.setdefault(row_function(row), set()).add(key)
+            if key.casefold() == name.casefold():
+                places.setdefault(row_function(row), f'{row["file"]}:{row["line"]} {row["function"]}')
+    writers = sorted(places)
+    if len(writers) < 2:
+        return []
+    shared = Counter(other for function in writers for other in by_function[function]
+                     if other.casefold() != name.casefold() and other.rpartition('.')[2].casefold() not in BOOKKEEPING)
+    target = next(key for function in writers for key in by_function[function] if key.casefold() == name.casefold())
+    comment = '//' if any(ident.startswith(('typescript/', 'tsx/', 'javascript/')) for ident in writers) else '#'
+    lines = []
+    for other, count in sorted(shared.items(), key=lambda item: (-item[1], item[0]))[:PARTNERS_SHOWN]:
+        if count < 2 or count < PARTNER_SHARE * len(writers):
+            break
+        alone = [places[function] for function in writers if other not in by_function[function]]
+        lines.append(f'with= candidate (reference only): {other} is written by {count} of the {len(writers)} functions '
+                     f'that write {target}' + (f'; not by {"  ".join(alone)}' if alone else '')
+                     + f' -> if the owner says they change together: {comment} flowguard: owner {target} with={other}')
+    return lines
+
+
 # ---- tables code reads or deletes but never makes rows in -----------------------------------------
 
 def uncreated(change):

@@ -470,6 +470,41 @@ def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_pa
         ' → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 backend/src/owners.ts:1）'], text
 
 
+def test_show_of_a_field_names_the_fields_its_writers_also_write_as_with_candidates(tmp_path):
+    # Planning Tool 0.6.28 (round 21, P51/P22): PspElement.move changes parentPspId without hierarchyLevel;
+    # registering the pair turns it red at once, but nothing pointed at the pair.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Node {
+              id        String  @id
+              parentId  String?
+              level     Int
+              title     String
+              createdAt DateTime
+            }
+        ''',
+        'src/nodes.ts': '''
+            export async function addRoot(prisma: any, id: string, title: string) {
+              await prisma.node.create({ data: { id, parentId: null, level: 0, title, createdAt: new Date() } });
+            }
+            export async function addChild(prisma: any, id: string, parent: any, title: string) {
+              await prisma.node.create({ data: { id, parentId: parent.id, level: parent.level + 1, title, createdAt: new Date() } });
+            }
+            export async function move(prisma: any, id: string, parentId: string) {
+              await prisma.node.update({ where: { id }, data: { parentId } });
+            }
+        ''',
+    })
+    code, text = _flowguard(tmp_path, 'show', 'Node.parentId')
+    assert code == 0, text
+    # id and createdAt are bookkeeping that every writer sets
+    assert _lines(text, 'with= candidate') == [
+        'with= candidate (reference only): Node.level is written by 2 of the 3 functions that write Node.parentId; not by '
+        'src/nodes.ts:8 move -> if the owner says they change together: // flowguard: owner Node.parentId with=Node.level',
+        'with= candidate (reference only): Node.title is written by 2 of the 3 functions that write Node.parentId; not by '
+        'src/nodes.ts:8 move -> if the owner says they change together: // flowguard: owner Node.parentId with=Node.title'], text
+
+
 # ---- deletes that leave restricting children ---------------------------------------------------------
 
 def test_a_new_hard_delete_names_the_children_it_leaves_once_per_function_and_parent(tmp_path):
