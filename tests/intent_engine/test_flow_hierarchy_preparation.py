@@ -14,7 +14,7 @@ def preparation(tmp_path, monkeypatch, *, probing=False):
     def make_rule(identifier, *, decides=None, uses=(), direct=False):
         item = Rule(identifier, decides or identifier, 'assumed: calibration order',
                     {'flag': bool}, lambda flag: flag, uses=uses)
-        anchor = SimpleNamespace(calibrated_by='tests/test_native.py::test_case', name=identifier)
+        anchor = SimpleNamespace(calibrated_by='tests/test_native.py::test_case', name=identifier, fields=())
         item.homes = [SimpleNamespace(anchor=anchor) if direct else SimpleNamespace(scenario=object(), name=identifier)]
         return item
 
