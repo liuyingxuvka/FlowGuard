@@ -549,7 +549,8 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
                   paths=[path for part in reports for path in part.get('paths', ())],
                   leads=[lead for part in reports for lead in part.get('leads', ())],
                   red=list(dict.fromkeys([*(message for part in reports for message in part.get('red', ())),
-                       *(f'{issue.file}:{issue.line}: {issue.message}' for issue in issues)])))
+                       *(f'{issue.file}:{issue.line}: {issue.message}' for issue in issues)])),
+                  ledger=list(dict.fromkeys(line for part in reports for line in part.get('ledger', ()))))
     report['red'] = list({message.replace('：', ': '): message for message in reversed(report['red'])}.values())[::-1]
     text = render_signals(report)
     if text:
@@ -677,8 +678,18 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     data = cache.read(cfg)
     retry_incomplete = bool((data.get('attempt') or {}).get('errors'))
     if not model.declared_items() and not everything and not retry_incomplete:
+        # No intent item runs, so the ledger the plugin would report is compared here without pytest.
+        from . import ledger as fallbacks
+        result = _ledger_result(cfg)
+        shown = [fallbacks.summary(result), *fallbacks.lines(result)] if result.red else []
+        if shown and reports is None:
+            print('\n'.join(shown))
+        elif shown:
+            reports.append(dict(source_changed=True, red=[], items=[], ledger=shown))
         if historical:
             report(['red ' + _action(message) for message in historical])
+            return 1
+        if shown:
             return 1
         print('FlowGuard check: no intent rules.')
         return 0
@@ -884,6 +895,43 @@ def init(cfg):
     return 0
 
 
+def _plugin_loaded(cfg, graph):
+    """Whether pytest's own configuration (pyproject.toml or a mapped conftest.py) loads the FlowGuard plugin."""
+    paths = [cfg.root / 'pyproject.toml'] + [cfg.root / node['file'] for node in graph.nodes(kind='module')
+                                             if node['file'] and node['file'].rpartition('/')[2] == 'conftest.py']
+    return any('flowguard.intent.plugin' in path.read_text(encoding='utf-8-sig') for path in paths if path.is_file())
+
+
+def ledger(cfg, operation):
+    """`ledger init` records the existing fallbacks as legacy; `ledger check` lists every difference."""
+    from . import ledger as fallbacks
+    if operation == 'init':
+        with closing(build(cfg.root, roots=cfg.roots)) as graph:
+            report = fallbacks.init(cfg, graph)
+            loaded = _plugin_loaded(cfg, graph)
+        if not loaded:
+            report.append('pytest does not load the FlowGuard plugin yet, so ordinary tests cannot report the ledger: '
+                          'run python -m flowguard init')
+        print('\n'.join(report))
+        return 0
+    result = _ledger_result(cfg)
+    if not result.present and not result.red:
+        print(f'FlowGuard ledger: no {fallbacks.LEDGER}; python -m flowguard ledger init starts one from the current code.')
+        return 0
+    print('\n'.join([fallbacks.summary(result), *fallbacks.lines(result), *('未核对：' + line for line in result.grey)]))
+    return int(bool(result.red))
+
+
+def _ledger_result(cfg):
+    """The ledger compared with the current map without running tests (only its deletion when there is none)."""
+    from . import ledger as fallbacks
+    baseline = cache.session_baseline(cfg)
+    if not fallbacks.path(cfg).is_file():
+        return fallbacks.absent(cfg, baseline)
+    with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        return fallbacks.evaluate(cfg, graph, baseline=baseline)
+
+
 def requests(cfg, options):
     if options.operation == 'add':
         raw = sys.stdin.buffer.read() if options.file == '-' else Path(options.file).read_bytes()
@@ -944,6 +992,10 @@ def main(argv=None):
     compare_parser.add_argument('left')
     compare_parser.add_argument('right')
     commands.add_parser('init')
+    ledger_parser = commands.add_parser('ledger', help='The fallback ledger: handlers that may end without raising')
+    ledger_operations = ledger_parser.add_subparsers(dest='operation', required=True)
+    ledger_operations.add_parser('init', help='Record every existing fallback as legacy')
+    ledger_operations.add_parser('check', help='List every difference between the ledger and the code')
     req_parser = commands.add_parser('req')
     operations = req_parser.add_subparsers(dest='operation', required=True)
     add = operations.add_parser('add')
@@ -978,6 +1030,8 @@ def main(argv=None):
             return check(cfg, everything=options.all, since=options.since, deep=options.deep, base=options.base)
         if options.command == 'init':
             return init(cfg)
+        if options.command == 'ledger':
+            return ledger(cfg, options.operation)
         if options.command == 'req':
             return requests(cfg, options)
         return screen(cfg)

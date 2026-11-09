@@ -130,7 +130,16 @@ def _block(item, *, comparison=False, same_name=False):
 
 
 def render(report, limit=10):
-    """Red constraints precede differences and leads; full facts remain in report."""
+    """Red constraints precede differences and leads; full facts remain in report.
+
+    The fallback ledger's red lines come first, complete and untruncated, each with the entry to copy;
+    they do not count against the ten-line budget of the other signals."""
+    ledger = list(report.get('ledger', ()))
+    rest = _render(report, limit, quiet=bool(ledger))
+    return '\n'.join([*ledger, *([rest] if rest else [])])
+
+
+def _render(report, limit, *, quiet=False):
     budget = min(10, max(1, limit))
     items = report.get('items')
     items = [report] if items is None else items
@@ -172,6 +181,8 @@ def render(report, limit=10):
                 lines.append(f'线索：{row["file"]}:{row["line"]}')
         else:
             lines.append('线索：' + str(lead))
+    if not lines and quiet:
+        return ''
     if not lines:
         lines.append(f'共 {report.get("total", 0)} 类，变 {report.get("changed", 0)} 类'
                      if report.get('complete') else '未比较：没有可用的观察结果')

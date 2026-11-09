@@ -22,6 +22,8 @@ class Config:
     screen_lines: int = 40
     check_lines: int = 20
     skip_policy: str = 'platform'
+    ledger_paths: list[str] = field(default_factory=lambda: ['**'])
+    ledger_exclude: list[str] = field(default_factory=list)
 
     @property
     def cache(self):
@@ -45,7 +47,7 @@ def load_config(root=None):
     path = root / 'pyproject.toml'
     data = tomllib.loads(path.read_text(encoding='utf-8-sig')) if path.is_file() else {}
     settings = data.get('tool', {}).get('flowguard', {})
-    allowed = {'roots', 'intent', 'exclude', 'authority_docs', 'screen_lines', 'check_lines', 'skip_policy'}
+    allowed = {'roots', 'intent', 'exclude', 'authority_docs', 'screen_lines', 'check_lines', 'skip_policy', 'ledger'}
     if set(settings) - allowed:
         raise ValueError('unknown [tool.flowguard] keys: ' + ', '.join(sorted(set(settings) - allowed)))
     cfg = Config(root, [root / value for value in settings.get('roots', [])],
@@ -59,6 +61,15 @@ def load_config(root=None):
             raise ValueError('screen_lines and check_lines must be positive whole numbers')
     if cfg.skip_policy not in ('platform', 'no_skip', 'forbid'):
         raise ValueError('skip_policy must be platform, no_skip or forbid')
+    if 'ledger' in settings:
+        ledger = settings['ledger']
+        if not isinstance(ledger, dict) or set(ledger) - {'paths', 'exclude'}:
+            raise ValueError('[tool.flowguard.ledger] takes only paths and exclude')
+        for name in ('paths', 'exclude'):
+            if name in ledger and (not isinstance(ledger[name], list) or not all(isinstance(item, str) and item for item in ledger[name])):
+                raise ValueError(f'[tool.flowguard.ledger] {name} must be a list of path patterns')
+        cfg.ledger_paths = list(ledger['paths']) if 'paths' in ledger else cfg.ledger_paths
+        cfg.ledger_exclude = list(ledger['exclude']) if 'exclude' in ledger else cfg.ledger_exclude
     return cfg
 
 
