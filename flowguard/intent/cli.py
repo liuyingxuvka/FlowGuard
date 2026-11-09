@@ -38,13 +38,15 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 '''
 
 
-def _limit(lines, budget):
+def _limit(lines, budget, more='show RULE for the complete result'):
+    """The first `budget` lines; the last says how many lines and red lines (a line that starts as one)
+    are left out and the command `more` that prints them."""
     if len(lines) <= budget:
         return lines
     kept = lines[:max(0, budget - 1)]
     hidden = lines[len(kept):]
-    reds = sum('red ' in line or line.startswith('red') for line in hidden)
-    return kept + [f'... {len(hidden)} more lines ({reds} red): show RULE for the complete result']
+    reds = sum(line.startswith(('red ', '红：')) for line in hidden)
+    return kept + [f'... {len(hidden)} more lines' + (f' ({reds} red)' if reds else '') + ': ' + more]
 
 
 def _kind(message):
@@ -516,8 +518,9 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
             ranked.extend((1000, f'{alias} -> {ident} {item["file"]}:{item["line"]}') for alias in aliases)
         ranked.sort(key=lambda row: (-row[0], row[1]))
         from .differences import display          # a structure line carries Chinese text: escape what the console cannot show
-        display('\n'.join(_limit([f'show {query}'] + ([notice] if notice else [])
-                                 + [line for _, line in ranked], cfg.screen_lines)))
+        lines = [f'show {query}'] + ([notice] if notice else []) + [line for _, line in ranked]
+        display('\n'.join(lines if full else _limit(lines, cfg.screen_lines,
+                                                     f'python -m flowguard show {shlex.quote(query)} --full lists them all')))
     return 0
 
 

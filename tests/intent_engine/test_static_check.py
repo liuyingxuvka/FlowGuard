@@ -252,6 +252,39 @@ def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_he
         'hires.state=held → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 shop/store.py:1）'], text
 
 
+def test_show_a_model_field_lists_sql_file_writes_and_counts_the_lines_it_leaves_out(tmp_path):
+    _commit(tmp_path, {
+        'pyproject.toml': '[tool.flowguard]\nscreen_lines = 6\n',
+        'prisma/schema.prisma': '''
+            model Employee {
+              id                   String @id
+              organizationalUnitId String @map("organizational_unit_id")
+              @@map("employees")
+            }
+        ''',
+        'prisma/setup.sql': "INSERT INTO employees (id, organizational_unit_id) VALUES ('e1', 'u1');\n",
+        'src/employee.ts': '''
+            export async function moveEmployee(prisma: any, id: string, unit: string) {
+              await prisma.employee.update({ where: { id }, data: { organizationalUnitId: unit } });
+            }
+            export function employeeDeferred(id: string) { return id; }
+            export function employeeUnitLabel(id: string) { return id; }
+            export function employeeUnitCode(id: string) { return id; }
+            export function employeeUnitName(id: string) { return id; }
+        ''',
+    })
+    code, text = _flowguard(tmp_path, 'show', 'Employee.organizationalUnitId')
+    assert code == 0, text                  # a .sql statement's write row has a call line too (no KeyError)
+    lines = text.splitlines()
+    assert 'writes Employee.organizationalUnitId prisma/setup.sql:1 <module> (sql:insert)' in lines, text
+    assert 'writes Employee.organizationalUnitId src/employee.ts:2 moveEmployee (update)' in lines, text
+    # "employeeDeferred" is no red line; the overflow names the command that prints the rest
+    assert len(lines) == 6 and lines[-1] == ('... 4 more lines: python -m flowguard show Employee.organizationalUnitId '
+                                             '--full lists them all'), text
+    code, full = _flowguard(tmp_path, 'show', 'Employee.organizationalUnitId', '--full')
+    assert code == 0 and len(full.splitlines()) == 9 and 'employeeDeferred' in full and 'more lines' not in full, full
+
+
 # ---- deletes that leave restricting children ---------------------------------------------------------
 
 def test_a_new_hard_delete_names_the_children_it_leaves_once_per_function_and_parent(tmp_path):
