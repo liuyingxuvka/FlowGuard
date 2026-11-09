@@ -773,6 +773,9 @@ class Observations:
         for issue in self.index.issues:
             if issue.level == 'red':
                 self.red.append(issue.message)
+            elif issue.code == 'source-syntax':
+                self.grey.append(f'{issue.file}' + (f':{issue.line}' if issue.line else '')
+                                 + ': cannot be parsed, only this file is unverified: ' + issue.message)
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
         report = dict(source_changed=self.changed, comparison_requested=self.comparison_requested, items=items, paths=self.paths,

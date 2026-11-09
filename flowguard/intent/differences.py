@@ -162,19 +162,32 @@ def _source_index(root, graph=None):
     from . import anchors
     if graph is not None:
         return anchors.collect(graph)
+    from flowguard.map.common import DEFAULT_IGNORE, matches_any
     from flowguard.map.inventory import list_files
     from flowguard.structure import roots
     from flowguard.structure.paths import project_code
-    files = list_files(root)
+    from flowguard.structure.store import project_config
+    # The same file selection as the map build: [tool.flowguard] exclude applies here too.
+    ignore = [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [
+        str(pattern) for pattern in project_config(Path(root)).get('exclude', [])]
+    files = [file for file in list_files(root) if not matches_any(file, ignore)]
     python = [file for file in files if file.endswith('.py') and project_code(str(root / file), root)]
     sources = {file: (root / file).read_bytes() for file in python}
-    syspath = {file: roots.syspath_entries(ast.parse(read_source(root / file, data=raw)), file)
-               for file, raw in sources.items() if b'sys.path' in raw or b'addsitedir' in raw}
+    syspath, unreadable = {}, []
+    for file, raw in sources.items():
+        if b'sys.path' in raw or b'addsitedir' in raw:
+            try:
+                syspath[file] = roots.syspath_entries(ast.parse(read_source(root / file, data=raw)), file)
+            except SyntaxError as error:
+                # Only this file is unknown; the map build reads it the same way.
+                unreadable.append(anchors.Issue('grey', 'source-syntax', str(error), file, error.lineno or 0))
     detected = roots.detect(root, files, python, syspath)
     names = roots.names(python, detected)[0]
     selected = [(file, names[file][0][0], '/tests/' in '/'+file or Path(file).name.startswith('test_'))
                 for file, raw in sources.items() if b'flowguard:' in raw]
-    return anchors.collect_sources(root, selected)
+    index = anchors.collect_sources(root, selected)
+    known = {issue.file for issue in index.issues if issue.code == 'source-syntax'}
+    return anchors.Index(index.entries, index.issues + tuple(issue for issue in unreadable if issue.file not in known))
 
 
 def _compare_pairs(root, pairs):
