@@ -1,0 +1,27 @@
+from shop.kiosk import kiosk_allows
+from shop.policy import booking_allowed, priority, renewal_allowed, standing_allows
+from shop.preview import preview_allows
+
+
+def test_standing_within_grace():
+    assert standing_allows(2, False, 10) is True
+
+
+def test_standing_copies_agree_on_a_late_member():
+    assert standing_allows(5, False, 0) is preview_allows(5, False, 0) is kiosk_allows(5, False, 0) is False
+
+
+def test_suspended_member_is_refused_everywhere():
+    assert not standing_allows(0, True, 0) and not preview_allows(0, True, 0) and not kiosk_allows(0, True, 0)
+
+
+def test_renewal():
+    assert renewal_allowed(10) and not renewal_allowed(20)
+
+
+def test_booking_for_vips():
+    assert booking_allowed(30, True) and not booking_allowed(30, False)
+
+
+def test_priority():
+    assert [priority(80, False), priority(30, True), priority(30, False)] == [2, 1, 3]

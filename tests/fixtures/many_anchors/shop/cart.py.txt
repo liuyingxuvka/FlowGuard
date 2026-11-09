@@ -1,0 +1,20 @@
+from shop.settings import FREE_SHIPPING_FROM
+
+
+# flowguard: sensor FREE_SHIPPING
+def free_shipping(subtotal: int) -> bool:
+    return subtotal > FREE_SHIPPING_FROM
+
+
+# flowguard: sensor SHIPPING_FEE
+def shipping_fee(subtotal: int, express: bool) -> int:
+    if express:
+        return 15
+    return 0 if subtotal > FREE_SHIPPING_FROM else 5
+
+
+# flowguard: sensor DISCOUNT
+def discount(subtotal: int, member: bool) -> int:
+    if member and subtotal >= 100:
+        return subtotal // 10
+    return 0

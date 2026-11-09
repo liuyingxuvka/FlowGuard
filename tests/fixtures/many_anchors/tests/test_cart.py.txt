@@ -1,0 +1,22 @@
+from shop.cart import discount, free_shipping, shipping_fee
+from shop.checkout import checkout_free_shipping, total
+
+
+def test_free_shipping_above_fifty():
+    assert free_shipping(60) and not free_shipping(50)
+
+
+def test_checkout_agrees():
+    assert checkout_free_shipping(60) is True
+
+
+def test_shipping_fee():
+    assert shipping_fee(10, False) == 5 and shipping_fee(10, True) == 15
+
+
+def test_member_discount():
+    assert discount(200, True) == 20 and discount(200, False) == 0
+
+
+def test_total():
+    assert total([(20, 2), (5, 1)], member=False, express=False) == 45 + 5 + 9

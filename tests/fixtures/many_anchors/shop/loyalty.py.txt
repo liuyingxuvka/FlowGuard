@@ -1,0 +1,12 @@
+# flowguard: sensor TIER
+def tier(points: int) -> str:
+    if points >= 1000:
+        return 'gold'
+    if points >= 300:
+        return 'silver'
+    return 'bronze'
+
+
+# flowguard: sensor POINTS
+def points_for(amount: int, member: bool) -> int:
+    return amount * 2 if member else amount

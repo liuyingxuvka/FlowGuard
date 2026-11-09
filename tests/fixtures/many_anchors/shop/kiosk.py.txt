@@ -1,0 +1,3 @@
+# flowguard: sensor STANDING(days_after_expiry=late, suspended=blocked, owed=debt)
+def kiosk_allows(late: int, blocked: bool, debt: int) -> bool:
+    return not blocked and late <= 3 and debt <= 20

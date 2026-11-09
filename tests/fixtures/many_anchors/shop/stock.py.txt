@@ -1,0 +1,18 @@
+import sqlite3
+
+
+def connect(path):
+    db = sqlite3.connect(path)
+    db.execute("create table if not exists items(id integer primary key, stock integer, reserved integer)")
+    return db
+
+
+# flowguard: sensor AVAILABLE
+def available(db: sqlite3.Connection, item_id: int) -> bool:
+    row = db.execute("select stock, reserved from items where id = ?", (item_id,)).fetchone()
+    return row is not None and row[0] > row[1]
+
+
+# flowguard: event RESERVED
+def reserve(db: sqlite3.Connection, item_id: int) -> None:
+    db.execute("update items set reserved = reserved + 1 where id = ?", (item_id,))

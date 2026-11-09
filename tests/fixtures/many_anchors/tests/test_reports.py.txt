@@ -1,0 +1,10 @@
+import pytest
+
+from shop.reports import nightly_summary, rows
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3, 4, 5, 6])
+def test_nightly_summary(seed):
+    top, flags = nightly_summary(rows(100000, seed))
+    assert len(top) == 10 and flags > 0
+    assert top == sorted(top, key=lambda item: (-item[1], item[0]))

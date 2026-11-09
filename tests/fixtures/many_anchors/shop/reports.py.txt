@@ -1,0 +1,26 @@
+"""The program's own work: summaries over many rows, no anchor."""
+
+
+def normalize(name):
+    return " ".join(part.capitalize() for part in name.strip().split())
+
+
+def nightly_summary(rows):
+    totals, flags = {}, 0
+    for row in rows:
+        name = normalize(row["name"])
+        amount = int(row["amount"])
+        if amount < 0:
+            flags += 1
+            continue
+        totals[name] = totals.get(name, 0) + amount
+    ranked = sorted(totals.items(), key=lambda item: (-item[1], item[0]))
+    return ranked[:10], flags
+
+
+def rows(count, seed=7):
+    state, out = seed, []
+    for index in range(count):
+        state = (state * 1103515245 + 12345) % 2147483648
+        out.append({"name": f"  member {state % 97}  ", "amount": (state % 300) - 20})
+    return out

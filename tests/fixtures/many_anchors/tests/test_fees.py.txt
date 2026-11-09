@@ -1,0 +1,17 @@
+from shop.fees import late_fee, needs_approval, overdraft_allowed
+
+
+def test_late_fee():
+    assert late_fee(5, False) == 9
+
+
+def test_member_late_fee():
+    assert late_fee(6, True) == 6
+
+
+def test_deposit_approval():
+    assert needs_approval(150, False) and not needs_approval(50, True)
+
+
+def test_overdraft():
+    assert overdraft_allowed(-50, 100) and not overdraft_allowed(-150, 100)

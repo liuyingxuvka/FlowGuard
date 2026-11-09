@@ -1,0 +1,5 @@
+# flowguard: sensor ROUND_HALF
+def report_round(tenths: int) -> int:
+    whole, rest = divmod(abs(tenths), 10)
+    value = whole + 1 if rest >= 5 else whole
+    return -value if tenths < 0 else value

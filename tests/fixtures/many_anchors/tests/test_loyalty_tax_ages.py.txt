@@ -1,0 +1,23 @@
+from shop.ages import adult, child_fare, senior
+from shop.loyalty import points_for, tier
+from shop.tax import tax_band, tax_free
+
+
+def test_tiers():
+    assert [tier(50), tier(400), tier(1500)] == ['bronze', 'silver', 'gold']
+
+
+def test_points():
+    assert points_for(10, True) == 20 and points_for(10, False) == 10
+
+
+def test_tax_bands():
+    assert [tax_band(10000), tax_band(30000), tax_band(90000)] == [0, 1, 2]
+
+
+def test_tax_free_students():
+    assert tax_free(14000, True) and not tax_free(14000, False)
+
+
+def test_ages():
+    assert adult(18) and not adult(17) and senior(70) and child_fare(8)

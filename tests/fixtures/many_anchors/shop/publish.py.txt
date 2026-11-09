@@ -1,0 +1,25 @@
+from pathlib import Path
+
+
+class Store:
+    def __init__(self, folder):
+        self.folder = Path(folder)
+
+    # flowguard: event SAVED
+    def save(self, artifact_id: str) -> None:
+        (self.folder / artifact_id).write_text("data")
+
+    # flowguard: event PUBLISHED
+    def publish(self, artifact_id: str) -> None:
+        (self.folder / ("pub-" + artifact_id)).write_text("published")
+
+
+def needs_save(artifact_id: str) -> bool:
+    return not artifact_id.startswith("tmp")
+
+
+# flowguard: event ENTRY
+def release(store, artifact_id: str) -> None:
+    if needs_save(artifact_id):
+        store.save(artifact_id)
+    store.publish(artifact_id)

@@ -1,0 +1,19 @@
+from shop.settings import LATE_FEE_PER_DAY
+
+
+# flowguard: sensor LATE_FEE
+def late_fee(days: int, member: bool) -> int:
+    if days <= 2:
+        return 0
+    fee = (days - 2) * LATE_FEE_PER_DAY
+    return fee // 2 if member else fee
+
+
+# flowguard: sensor APPROVAL
+def needs_approval(deposit: int, member: bool) -> bool:
+    return deposit > 100
+
+
+# flowguard: sensor OVERDRAFT
+def overdraft_allowed(balance: int, limit: int) -> bool:
+    return balance >= -limit

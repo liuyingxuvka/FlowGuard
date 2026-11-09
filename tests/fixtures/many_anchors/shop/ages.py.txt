@@ -1,0 +1,16 @@
+from shop.settings import SENIOR_FROM
+
+
+# flowguard: sensor ADULT
+def adult(age: int) -> bool:
+    return age >= 18
+
+
+# flowguard: sensor SENIOR
+def senior(age: int) -> bool:
+    return age >= SENIOR_FROM
+
+
+# flowguard: sensor CHILD_FARE
+def child_fare(age: int) -> bool:
+    return age < 12

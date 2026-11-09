@@ -1,0 +1,15 @@
+from shop.legacy_money import legacy_round
+from shop.money import round_half
+from shop.report_money import report_round
+
+
+def test_round_half_up():
+    assert round_half(25) == 3 and round_half(24) == 2
+
+
+def test_round_negative_half_away_from_zero():
+    assert round_half(-25) == -3
+
+
+def test_copies_round_the_same():
+    assert [legacy_round(value) for value in (-35, -4, 0, 15, 44)] == [report_round(value) for value in (-35, -4, 0, 15, 44)]

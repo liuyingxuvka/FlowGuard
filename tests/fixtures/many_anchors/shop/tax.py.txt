@@ -1,0 +1,12 @@
+# flowguard: sensor TAX_BAND
+def tax_band(income: int) -> int:
+    if income <= 12000:
+        return 0
+    if income <= 50000:
+        return 1
+    return 2
+
+
+# flowguard: sensor TAX_FREE
+def tax_free(income: int, student: bool) -> bool:
+    return income <= 12000 or student and income <= 15000

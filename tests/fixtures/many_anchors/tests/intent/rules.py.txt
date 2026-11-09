@@ -1,0 +1,72 @@
+from flowguard.intent import rule, row
+
+
+@rule("STANDING_RULE", decides="a member may borrow after expiry", anchor="STANDING",
+      fields={"days_after_expiry": int, "suspended": bool, "owed": int}, source="assumed: three grace days, owing at most 20")
+def STANDING_RULE(days_after_expiry, suspended, owed):
+    return days_after_expiry <= 3 and not suspended and owed <= 20
+
+
+STANDING_RULE.rows(row(days_after_expiry=4, suspended=False, owed=0, expect=False, why="the fourth day is late"))
+
+
+@rule("RENEWAL_RULE", decides="a renewal is allowed", anchor="RENEWAL", fields={"days_late": int},
+      source="assumed: renewals up to two weeks late")
+def RENEWAL_RULE(days_late):
+    return days_late <= 14
+
+
+@rule("BOOKING_RULE", decides="a booking is allowed", anchor="BOOKING", fields={"days_late": int, "vip": bool},
+      source="assumed: vips always book")
+def BOOKING_RULE(days_late, vip):
+    return vip or days_late <= 14
+
+
+@rule("ROUND_RULE", decides="rounding of tenths", anchor="ROUND_HALF", fields={"tenths": int},
+      source="assumed: half away from zero, as MATLAB")
+def ROUND_RULE(tenths):
+    whole = (abs(tenths) + 5) // 10
+    return whole if tenths >= 0 else -whole
+
+
+ROUND_RULE.rows(row(tenths=-25, expect=-3, why="negative halves go away from zero"))
+
+
+@rule("FREE_SHIPPING_RULE", decides="shipping is free", anchor="FREE_SHIPPING", fields={"subtotal": int},
+      source="assumed: free above 50")
+def FREE_SHIPPING_RULE(subtotal):
+    return subtotal > 50
+
+
+@rule("LATE_FEE_RULE", decides="the late fee", anchor="LATE_FEE", fields={"days": int, "member": bool},
+      source="assumed: 3 per day after two free days, members pay half")
+def LATE_FEE_RULE(days, member):
+    if days <= 2:
+        return 0
+    fee = (days - 2) * 3
+    return fee // 2 if member else fee
+
+
+@rule("DEPOSIT_REVIEW", decides="deposit needs manual approval", anchor="APPROVAL",
+      fields={"deposit": int, "member": bool}, source="owner R1: 会员也一样，不能例外。")
+def DEPOSIT_REVIEW(deposit, member):
+    return deposit > 100
+
+
+DEPOSIT_REVIEW.rows(row(deposit=150, member=True, expect=True, why="members are not exempt"))
+
+
+@rule("TIER_RULE", decides="the loyalty tier", anchor="TIER", fields={"points": int}, source="assumed: 300 silver, 1000 gold")
+def TIER_RULE(points):
+    return 'gold' if points >= 1000 else 'silver' if points >= 300 else 'bronze'
+
+
+@rule("TAX_BAND_RULE", decides="the tax band", anchor="TAX_BAND", fields={"income": int},
+      source="assumed: bands end at 12000 and 50000")
+def TAX_BAND_RULE(income):
+    return 0 if income <= 12000 else 1 if income <= 50000 else 2
+
+
+@rule("ADULT_RULE", decides="an adult", anchor="ADULT", fields={"age": int}, source="assumed: adults from 18")
+def ADULT_RULE(age):
+    return age >= 18

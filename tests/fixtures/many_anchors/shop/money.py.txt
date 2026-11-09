@@ -1,0 +1,6 @@
+# flowguard: owner ROUND_HALF
+def round_half(tenths: int) -> int:
+    """Round a value given in tenths half away from zero (MATLAB round)."""
+    whole, rest = divmod(abs(tenths), 10)
+    rounded = whole + (rest >= 5)
+    return rounded if tenths >= 0 else -rounded

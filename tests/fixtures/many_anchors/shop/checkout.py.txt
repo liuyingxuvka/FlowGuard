@@ -1,0 +1,13 @@
+from shop.cart import discount, shipping_fee
+from shop.money import round_half
+
+
+# flowguard: sensor FREE_SHIPPING
+def checkout_free_shipping(subtotal: int) -> bool:
+    return subtotal > 50
+
+
+def total(lines, member, express):
+    subtotal = sum(price * qty for price, qty in lines)
+    tax_tenths = subtotal * 19 // 10
+    return subtotal - discount(subtotal, member) + shipping_fee(subtotal, express) + round_half(tax_tenths)

@@ -1,0 +1,13 @@
+from shop.publish import Store, release
+
+
+def test_release(tmp_path):
+    store = Store(tmp_path)
+    release(store, "a1")
+    assert (tmp_path / "a1").exists() and (tmp_path / "pub-a1").exists()
+
+
+def test_temporary_release_skips_the_save(tmp_path):
+    store = Store(tmp_path)
+    release(store, "tmp1")
+    assert not (tmp_path / "tmp1").exists() and (tmp_path / "pub-tmp1").exists()

@@ -1,0 +1,10 @@
+from shop.stock import available, connect, reserve
+
+
+def test_available_and_reserve(tmp_path):
+    db = connect(tmp_path / "s.db")
+    db.execute("insert into items values(1, 2, 0)")
+    assert available(db, 1) is True
+    reserve(db, 1)
+    reserve(db, 1)
+    assert available(db, 1) is False

@@ -1,0 +1,13 @@
+from shop.members import may_borrow, open_db, over_debt_limit
+
+
+def test_member_without_debt_borrows(tmp_path):
+    db = open_db(tmp_path / "m.db")
+    assert may_borrow(db, 1, 10) is True
+
+
+def test_member_with_debt_is_limited(tmp_path):
+    db = open_db(tmp_path / "m.db")
+    db.execute("insert into debts values(2, 15)")
+    assert may_borrow(db, 2, 10) is False
+    assert over_debt_limit(db, 2, 10) is True and over_debt_limit(db, 1, 10) is False
