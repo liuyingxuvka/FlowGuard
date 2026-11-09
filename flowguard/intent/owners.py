@@ -230,7 +230,8 @@ def owner_pairs(change, index, *, everything=False):
             step = (f'补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 {owner.file}:{owner.line}）')
             shown = [row for row in missing if everything or new_rule or row['file'] in change.files]
             if shown:
-                found.red.append(f'配对没写：{where(shown)} 写了 {owner.name}，{OPERATION}里没写 {pair} → ' + step)
+                # One owner per red line: the subject names the owner, so two owners' pairs never merge into one.
+                found.red.append(f'配对没写 {owner.name}：{where(shown)} 写了 {owner.name}，{OPERATION}里没写 {pair} → ' + step)
             if missing:
                 found.issues.append(Issue(
                     f'pair:{owner.name}>{pair}', 2, f'配对 {owner.name}',

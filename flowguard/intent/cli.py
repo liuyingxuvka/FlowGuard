@@ -637,7 +637,7 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
         if owner_baseline(cfg, base):
             baseline = dict(baseline=owner_baseline(cfg, base), baseline_kind='base' if base else 'task')
     report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind', 'task'),
-                  source_changed=any(part.get('source_changed', True) for part in reports),
+                  baseline_option='--base', source_changed=any(part.get('source_changed', True) for part in reports),
                   comparison_requested=any(part.get('comparison_requested') for part in reports),
                   items=[item for part in reports for item in part.get('items', ())],
                   paths=[path for part in reports for path in part.get('paths', ())],
@@ -682,7 +682,7 @@ def static_check(cfg, *, everything=False, base=None):
         with graph.con:
             cache.save_structure(graph.con, found.summary)
     red = list(dict.fromkeys([*found.red, *(issue.message for issue in index.issues if issue.level == 'red')]))
-    report = dict(session=True, baseline=baseline, baseline_kind='base' if base else 'task',
+    report = dict(session=True, baseline=baseline, baseline_kind='base' if base else 'task', baseline_option='--base',
                   source_changed=bool(red or found.leads or found.section or result.red), red=red, leads=found.leads,
                   items=[], ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in result.red],
                   structure=found.section)

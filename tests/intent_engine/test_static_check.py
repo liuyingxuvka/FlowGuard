@@ -109,6 +109,20 @@ def test_check_static_reports_only_new_values_outside_a_check_and_lists_old_ones
     assert code == 2 and 'check --static runs no tests' in text, text
 
 
+def test_the_title_of_check_static_base_names_the_cli_option(tmp_path):
+    _commit(_planning(tmp_path, 'planning_tool_static'))
+    head = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    _write(tmp_path, {'backend/src/services/notice.service.ts': '''
+        export async function notice(prisma: any, id: string) {
+          await prisma.auditEvent.create({ data: { severity: 'NOTICE', entityId: id } });
+        }
+    '''})
+    code, text = _static(tmp_path, '--base', 'HEAD')
+    assert code == 1 and text.splitlines()[0] == 'FlowGuard（相对 --base HEAD）', text      # the option the CLI took
+    code, text = _static(tmp_path)
+    assert code == 1 and text.splitlines()[0] == f'FlowGuard（相对任务开始 {head[:7]}）', text
+
+
 def test_value_sets_come_from_prisma_enums_sql_checks_and_typescript_types(tmp_path):
     _write(tmp_path, {
         'prisma/schema.prisma': '''
@@ -214,9 +228,51 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
     code, text = _static(tmp_path)
     assert code == 1, text
     assert _lines(text, '红：配对没写') == [
-        '红：配对没写：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId，'
+        '红：配对没写 Central.orgUnitId：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId，'
         '同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 Local.unitId → 补写；有意只写一边，'
         '把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
+
+
+def test_the_pair_reds_of_two_owners_are_two_lines(tmp_path):
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Central {
+              id        String @id
+              orgUnitId String
+            }
+
+            model Local {
+              id     String @id
+              unitId String
+            }
+
+            model Project {
+              id       String @id
+              leaderId String
+            }
+
+            model Member {
+              id   String @id
+              role String
+            }
+        ''',
+        'src/owners.ts': '// flowguard: owner Central.orgUnitId with=Local.unitId\n// flowguard: owner Project.leaderId with=Member.*\nexport {};\n',
+    })
+    _write(tmp_path, {'src/admin.ts': '''
+        export async function editCentral(prisma: any, id: string, unit: string) {
+          await prisma.central.update({ where: { id }, data: { orgUnitId: unit } });
+        }
+
+        export async function lead(prisma: any, id: string, leaderId: string) {
+          await prisma.project.update({ where: { id }, data: { leaderId } });
+        }
+    '''})
+    code, text = _static(tmp_path)
+    assert code == 1, text
+    red = _lines(text, '红：配对没写')
+    assert [line.partition('：')[0] for line in red] == ['红', '红'] and len(red) == 2, text
+    assert red[0].startswith('红：配对没写 Central.orgUnitId：src/admin.ts:2 editCentral') and '；' not in red[0].partition(' → ')[0], red
+    assert red[1].startswith('红：配对没写 Project.leaderId：src/admin.ts:6 lead') and 'Central' not in red[1], red
 
 
 def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_helpers(tmp_path):
@@ -248,7 +304,7 @@ def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_he
     assert code == 1, text
     # _reserve_row writes reserved alone, but its caller reserve writes state='held' through _hold_row
     assert _lines(text, '红：配对没写') == [
-        '红：配对没写：shop/store.py:16 release 写了 hires.reserved，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 '
+        '红：配对没写 hires.reserved：shop/store.py:16 release 写了 hires.reserved，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 '
         'hires.state=held → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 shop/store.py:1）'], text
 
 

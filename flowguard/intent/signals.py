@@ -369,7 +369,10 @@ def _title(report):
     baseline, kind = report.get('baseline'), report.get('baseline_kind', 'task')
     if not baseline:
         return 'FlowGuard（没有基准提交：不比较改前改后）'
-    label = {'task': '相对任务开始', 'base': '相对 --flowguard-base', 'HEAD': '相对 HEAD'}.get(kind, '相对')
+    # An explicit baseline is named by the option that gave it: pytest's --flowguard-base, or `--base` of the
+    # CLI check (`baseline_option`).
+    option = report['baseline_option'] if 'baseline_option' in report else '--flowguard-base'
+    label = {'task': '相对任务开始', 'base': '相对 ' + option, 'HEAD': '相对 HEAD'}.get(kind, '相对')
     return f'FlowGuard（{label} {baseline[:7]}）'
 
 
