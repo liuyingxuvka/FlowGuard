@@ -6,8 +6,10 @@ boundaries produce unavailable observations, never evidence of agreement.
 """
 from __future__ import annotations
 
+import _thread
 import ast
 import builtins
+import collections
 import copy
 import dis
 from contextlib import contextmanager
@@ -16,16 +18,20 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 import enum
+import functools
+import gc
 import inspect
 import importlib.util
 import itertools
 import os
 from pathlib import Path
+import random
 import re
 import sqlite3
 import sys
 import textwrap
 import threading
+import time
 import types
 
 from . import cells, sites
@@ -106,13 +112,18 @@ def _neighbours(value):
 
 
 # ---- replay guard -------------------------------------------------------------------------------
-# A call-site replay (the current code, the baseline code swapped in, the original-value recheck)
-# runs its calls inside one guard: only in the replaying thread and only while a replayed call runs.
-# The audit hook refuses file writes, processes, threads and network access before they happen.
-# sqlite3 connections in the arguments (and their attributes, two levels deep) refuse writing
-# statements and return to a savepoint afterwards; connections opened during a call refuse them too.
-# Any refusal voids the whole replay, also when the replayed code catches it. Arguments the guard
-# cannot see into (a file open for writing, a socket, another database driver) are not replayed.
+# A call-site replay (the current code, the baseline code swapped in, the original-value recheck) runs its calls
+# inside one guard: only in the replaying thread and only while a replayed call runs. The audit hook refuses
+# file writes, directory changes, processes, signals, threads and network access before they happen. Calls
+# that raise no audit event (sqlite3.connect, threading.Thread.start, os.mkfifo, os.mknod, and
+# _thread.start_new_thread on Python 3.11) are wrapped while a replayed call runs, for the replaying thread.
+# sqlite3 connections in the arguments and in the module state the function reads (at any depth) hold a
+# savepoint and a read transaction (nothing can be backed up into them), are query_only and refuse writing
+# statements; they return to the savepoint afterwards. Connections opened during a call are protected the
+# same way. Logging records made in a replayed call are dropped and the random module's state is restored.
+# Any refusal voids the whole replay, also when the replayed code catches it. What the guard cannot copy or
+# see into (a generator, an open file, a function, a logger, a queue, another database driver ...) is not
+# replayed, and a replay that runs too long (the owners' watchdog) or recurses too deeply is void.
 
 class Refused(BaseException):
     """Raised in the audit hook, so the refused operation does not happen. A BaseException: an
@@ -124,16 +135,46 @@ _REFUSED_EVENTS = {
     'os.remove': '删除文件', 'os.rename': '改名或移动文件', 'os.rmdir': '删除目录', 'os.mkdir': '新建目录',
     'os.chmod': '改文件权限', 'os.chown': '改文件属主', 'os.utime': '改文件时间', 'os.truncate': '截断文件',
     'os.link': '新建链接', 'os.symlink': '新建链接', 'shutil.rmtree': '删除目录树',
+    'os.setxattr': '改文件扩展属性', 'os.removexattr': '删除文件扩展属性', 'os.chdir': '切换工作目录',
     'subprocess.Popen': '启动子进程', 'os.system': '执行 shell 命令', 'os.exec': '替换当前进程',
     'os.spawn': '启动子进程', 'os.posix_spawn': '启动子进程', 'os.fork': '复制当前进程', 'os.forkpty': '复制当前进程',
-    'os.kill': '给进程发信号', 'os.putenv': '改环境变量', 'os.unsetenv': '改环境变量',
+    'os.kill': '给进程发信号', 'os.killpg': '给进程组发信号', 'signal.pthread_kill': '给线程发信号',
+    'os.putenv': '改环境变量', 'os.unsetenv': '改环境变量',
     'socket.connect': '连接网络', 'socket.sendto': '发送网络数据', 'socket.sendmsg': '发送网络数据',
     'urllib.Request': '发起网络请求',
     '_thread.start_new_thread': '启动线程', '_thread.start_joinable_thread': '启动线程',
 }
 _MUTATORS = {'append', 'extend', 'insert', 'pop', 'remove', 'clear', 'update', 'setdefault', 'add', 'discard',
              'sort', 'reverse', 'popitem', 'appendleft', 'extendleft', 'popleft', 'write', 'writelines',
-             'put', 'put_nowait', '__setitem__', '__delitem__'}
+             'put', 'put_nowait', '__setitem__', '__delitem__', 'move_to_end', 'rotate'}
+
+
+def _mutating_functions():
+    """Standard functions that change the object given as their first argument."""
+    import bisect
+    import collections
+    import heapq
+    import operator
+    functions = [heapq.heappush, heapq.heappop, heapq.heapify, heapq.heapreplace, heapq.heappushpop,
+                 bisect.insort, bisect.insort_left, bisect.insort_right, random.shuffle, next,
+                 operator.setitem, operator.delitem,
+                 *(getattr(operator, name) for name in ('iadd', 'iand', 'iconcat', 'ifloordiv', 'ilshift', 'imatmul',
+                                                         'imod', 'imul', 'ior', 'ipow', 'irshift', 'isub', 'itruediv', 'ixor'))]
+    for kind in (list, dict, set, bytearray, collections.deque, collections.OrderedDict):
+        functions.extend(vars(kind)[name] for name in _MUTATORS if name in vars(kind))
+    return functions
+
+
+_MUTATING = _mutating_functions()       # kept alive, so their ids below stay theirs
+_MUTATING_IDS = frozenset(map(id, _MUTATING))
+# Methods that change a sqlite3 connection itself: on a connection the replay shares with the test, they
+# would change the test's own connection (it cannot be copied).
+_CONNECTION_CALLS = {'close', 'set_authorizer', 'set_progress_handler', 'set_trace_callback', 'create_function',
+                     'create_aggregate', 'create_window_function', 'create_collation', 'backup', 'blobopen',
+                     'enable_load_extension', 'load_extension', 'interrupt', 'setlimit', 'setconfig', 'deserialize'}
+# What a protected connection itself answers to a write that bypasses its authorizer: a backup into it (it
+# holds a read transaction) and a Blob write (it is query_only).
+_PROTECTED_ERRORS = {'destination database is in use', 'attempt to write a readonly database'}
 _SQL_READS = {sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION, 33}  # 33: SQLITE_RECURSIVE
 _SQL_TABLE_PRAGMAS = {'table_info', 'table_xinfo', 'index_list', 'index_info', 'index_xinfo', 'foreign_key_list'}
 _SQL_READ_PRAGMAS = _SQL_TABLE_PRAGMAS | {
@@ -147,10 +188,20 @@ _SQL_WRITES = {
     sqlite3.SQLITE_REINDEX: 'REINDEX', sqlite3.SQLITE_ANALYZE: 'ANALYZE', sqlite3.SQLITE_PRAGMA: 'PRAGMA',
     **{getattr(sqlite3, name): 'CREATE' for name in dir(sqlite3) if name.startswith('SQLITE_CREATE_')},
     **{getattr(sqlite3, name): 'DROP' for name in dir(sqlite3) if name.startswith('SQLITE_DROP_')}}
+_LOOK = 10000         # objects one visibility check looks at; a larger argument or module state is not replayed
+_PERF, _SLEEP = time.perf_counter, time.sleep      # the real ones: a test's patched time.time cannot stretch a wait
+_TICK_WAIT = max(0.05, 4 * max(time.get_clock_info(name).resolution for name in ('time', 'monotonic')))
+# Objects that are code, not state: a visibility check does not look into them.
+_CODE = (types.FunctionType, types.BuiltinFunctionType, types.MethodType, types.MethodDescriptorType,
+         types.WrapperDescriptorType, types.MethodWrapperType, types.ClassMethodDescriptorType,
+         types.GetSetDescriptorType, types.MemberDescriptorType, types.CodeType, types.FrameType,
+         types.ModuleType, classmethod, staticmethod, property, functools.partial)
+_PLAIN = (type(None), bool, int, float, str, bytes)
 
 
 class _Local(threading.local):
     guard = None
+    connecting = False      # inside the sqlite3.connect wrapper: the connection being opened is protected
 
 
 _LOCAL = _Local()
@@ -178,13 +229,13 @@ def _audit(event, args):
                 or type(flags) is int and flags & _WRITE_FLAGS):
             return
         what = '写文件 ' + (os.fsdecode(args[0]) if isinstance(args[0], (str, bytes, os.PathLike)) else f'（文件描述符 {args[0]}）')
-    elif event == 'sqlite3.connect/handle':
-        guard.opened.append(args[0])    # not initialised yet: the connect wrapper installs its authorizer
-        return
     elif event == 'sqlite3.connect':
-        if not _creates_database(args[0]):
+        if not _LOCAL.connecting:
+            what = '打开 sqlite3 连接没经过回放保护（例如 from sqlite3 import connect 在回放之前已经绑定）'
+        elif _creates_database(args[0]):
+            what = '新建数据库文件 ' + os.fsdecode(args[0])
+        else:
             return
-        what = '新建数据库文件 ' + os.fsdecode(args[0])
     elif event in _REFUSED_EVENTS:
         what = _REFUSED_EVENTS[event] + ''.join(' ' + os.fsdecode(value) for value in args[:1] if isinstance(value, (str, bytes)))
     else:
@@ -196,15 +247,57 @@ def _audit(event, args):
 
 
 def _connect(*args, **kwargs):
-    """sqlite3.connect while a replayed call runs: the new connection refuses writes like the arguments' ones."""
-    connection = _SQLITE_CONNECT(*args, **kwargs)
+    """sqlite3.connect while a replayed call runs: the new connection is protected like the arguments' ones."""
     guard = _LOCAL.guard
-    if guard is not None:
-        guard.adopt(connection)
+    if guard is None:
+        return _SQLITE_CONNECT(*args, **kwargs)
+    _LOCAL.connecting = True
+    try:
+        connection = _SQLITE_CONNECT(*args, **kwargs)
+    finally:
+        _LOCAL.connecting = False
+    guard.adopt(connection)
     return connection
 
 
 _SQLITE_CONNECT = sqlite3.connect
+
+
+def _refusing(function, what):
+    """`function` for every thread, refused in a replayed call: it raises no audit event of its own."""
+    def refusing(*args, **kwargs):
+        guard = _LOCAL.guard
+        if guard is not None:
+            path = args[0] if args and isinstance(args[0], (str, bytes, os.PathLike)) else None
+            raise Refused(guard.refuse(what + ('' if path is None else ' ' + os.fsdecode(path)), sys._getframe(1)))
+        return function(*args, **kwargs)
+    refusing.__wrapped__ = function
+    return refusing
+
+
+# (owner, name, original, wrapper): put in place while a replayed call runs. Thread.start is refused before it
+# registers the thread (the audit event comes later, from _thread); Python 3.11 has no thread audit event.
+_PATCHES = [(sqlite3, 'connect', _SQLITE_CONNECT, _connect),
+            (threading.Thread, 'start', vars(threading.Thread)['start'],
+             _refusing(vars(threading.Thread)['start'], '启动线程')),
+            *((os, name, getattr(os, name), _refusing(getattr(os, name), what))
+              for name, what in (('mkfifo', '新建命名管道'), ('mknod', '新建设备文件')) if hasattr(os, name)),
+            *(((_thread, 'start_new_thread', _thread.start_new_thread, _refusing(_thread.start_new_thread, '启动线程')),)
+              if sys.version_info < (3, 12) else ())]
+
+
+def _wrap():
+    """The wrappers, where the original is still in place (a test's own replacement stays)."""
+    for owner, name, original, wrapper in _PATCHES:
+        if getattr(owner, name, None) is original:
+            setattr(owner, name, wrapper)
+
+
+def _unwrap():
+    """The originals back, where a wrapper is in place; repeating it changes nothing."""
+    for owner, name, original, wrapper in _PATCHES:
+        if getattr(owner, name, None) is wrapper:
+            setattr(owner, name, original)
 
 
 def _creates_database(database):
@@ -225,6 +318,67 @@ def _bytecode_cache(frame):
             return True
         frame = frame.f_back
     return False
+
+
+def _quiet(record):
+    """A filter on every logging handler while a guard is active: a record made in a replayed call is dropped."""
+    return _LOCAL.guard is None
+
+
+def _handlers():
+    """The logging handlers of every logger, and the last-resort one; none when logging is not imported."""
+    logging = sys.modules.get('logging')
+    if logging is None:
+        return []
+    loggers = [logging.root, *(item for item in list(logging.Logger.manager.loggerDict.values())
+                                if isinstance(item, logging.Logger))]
+    found, seen = [], set()
+    for handler in [handler for logger in loggers for handler in list(logger.handlers)] + [logging.lastResort]:
+        if handler is not None and id(handler) not in seen:
+            seen.add(id(handler))
+            found.append(handler)
+    return found
+
+
+def _unquiet(handler):
+    for index, item in enumerate(handler.filters):
+        if item is _quiet:
+            del handler.filters[index]
+            return
+
+
+def _clocks():
+    return time.time(), time.monotonic()
+
+
+def _next_tick(before):
+    """Wait until the wall clock and the monotonic clock have both moved on from `before`, so that the
+    original-value recheck runs a clock tick later than the first call: on a coarse clock (1/64 s on
+    Windows) the two calls of a clock-reading function would otherwise often read the same value. The
+    wait is bounded by the real performance counter (a frozen clock never moves)."""
+    deadline = _PERF() + _TICK_WAIT
+    while _PERF() < deadline:
+        wall, steady = _clocks()
+        if wall != before[0] and steady != before[1]:
+            return
+        _SLEEP(0.0005)
+
+
+@contextmanager
+def _bounded(guard):
+    """The replay owners' watchdog (`owners.watchdog`, `owners.TIMEOUT` seconds) around the replayed calls of one
+    guard: a replay that runs longer is interrupted, and it is void."""
+    from . import owners
+    seconds = owners.TIMEOUT
+    try:
+        with owners.watchdog(seconds):
+            yield
+    except owners._Timeout:
+        # The interruption may have cut a replayed call's own restoring short: put the originals back.
+        if not _CALLING:
+            _unwrap()
+        guard.timed_out, guard.old = True, False     # the current reading is void, whichever code was running
+        guard._mark(f'超过 {seconds:g} 秒没有结束')
 
 
 @contextmanager
@@ -294,22 +448,21 @@ def _attributes(value):
     return {}
 
 
-def _children(value):
-    if type(value) is dict:
-        return [(f'[{key!r}]', item) for key, item in itertools.islice(value.items(), 1000)]
-    if type(value) in (list, tuple, set, frozenset):
-        return [(f'[{index}]', item) for index, item in enumerate(itertools.islice(value, 1000))]
-    return [('.' + str(name), item) for name, item in itertools.islice(_attributes(value).items(), 1000)]
+def _namespace(owner):
+    """A module's globals or another object's own attributes, read without running project code."""
+    return vars(owner) if type(owner) is types.ModuleType else _attributes(owner)
 
 
 def _callbacks(connection):
-    """True when the connection holds a Python callback (authorizer, progress, trace, collation,
-    function or row factory). No Python version can read an authorizer back, so the replay could not
-    restore it; the other callbacks would run again in every replayed statement."""
-    import functools
-    import gc
-    noise, cache = [sqlite3.Connection, connection.text_factory], False
-    if connection.row_factory is not None or not (connection.text_factory is str or connection.text_factory is bytes):
+    """True when the connection holds a Python authorizer, progress handler, trace callback or row factory
+    (sqlite3.Row is native; a text factory other than str and bytes counts as well), the callbacks a
+    connection refers to: no Python version
+    can read an authorizer back, so the replay could not restore it, and the others would run again in
+    every replayed statement. SQL functions, aggregates and collations are not seen here; the guard
+    refuses a Python SQL function or aggregate when a replayed statement calls it, while a collation
+    simply runs again."""
+    noise, cache = [sqlite3.Connection, connection.text_factory, connection.row_factory], False
+    if connection.row_factory not in (None, sqlite3.Row) or not (connection.text_factory is str or connection.text_factory is bytes):
         return True
     for ref in gc.get_referents(connection):
         if not callable(ref):
@@ -324,95 +477,270 @@ def _callbacks(connection):
     return False
 
 
-def _visible(arguments):
-    """(sqlite3 connections and cursors to keep shared, why the replay cannot see the arguments).
+def _callback_state(connection):
+    """What of a connection a replayed call could change without a statement: the callables it refers to,
+    its row and text factories, its Python SQL functions (name, kind, arguments) and its collations."""
+    return (frozenset(id(ref) for ref in gc.get_referents(connection) if callable(ref)),
+            connection.row_factory, connection.text_factory,
+            frozenset((row[0], row[2], row[4]) for row in connection.execute('PRAGMA function_list') if not row[1]),
+            frozenset(row[1] for row in connection.execute('PRAGMA collation_list')))
 
-    The arguments and their attributes or items, two levels deep: a file open for writing, a socket,
-    a database connection other than sqlite3, or a sqlite3 connection holding Python callbacks keeps
-    the replay from running."""
+
+def _unseen(value, kind, objects):
+    """Why a replay cannot copy or see into this one object, or ''. Read without running project code
+    (except an open file's own `closed` and `writable`). `objects`: an argument, where a function, a bound
+    method or a logger would run on the test's own objects too."""
     import io
-    sockets = sys.modules.get('socket')
-    shared, seen = [], set()
-
-    def problem(value, label, depth):
-        if id(value) in seen or _simple(value):
+    if kind in (types.GeneratorType, types.CoroutineType, types.AsyncGeneratorType):
+        return '是生成器或协程（回放会取走它的值）'
+    if issubclass(kind, io.IOBase):
+        if value.closed:
             return ''
-        seen.add(id(value))
+        return '是写模式打开的文件' if value.writable() else '是打开的文件（回放会读走它的内容）'
+    sockets = sys.modules.get('socket')
+    if sockets is not None and issubclass(kind, sockets.socket):
+        return '是套接字'
+    if kind is getattr(sqlite3, 'Blob', None):
+        return '是 sqlite3 的 Blob（它的写入不经过回放保护）'
+    tables = sys.modules.get('_csv')
+    if tables is not None and kind in (tables.Reader, tables.Writer):
+        return '是 csv 的读写器（回放会读走或写进它的文件）'
+    for module, names in (('queue', ('Queue', 'SimpleQueue')), ('asyncio', ('Queue',)),
+                          ('multiprocessing.queues', ('Queue', 'SimpleQueue')), ('concurrent.futures', ('Executor',))):
+        found = sys.modules.get(module)
+        if found is not None and issubclass(kind, tuple(vars(found)[name] for name in names if name in vars(found))):
+            return '是队列或线程池（回放的效果会落到别的线程里）'
+    if objects:
+        owner = value.__self__ if kind is types.BuiltinFunctionType else None
+        if kind in (types.FunctionType, types.MethodType, types.MethodWrapperType, functools.partial) or \
+                owner is not None and type(owner) is not types.ModuleType and not issubclass(type(owner), type) \
+                and not _simple(owner) and type(owner) not in _PLAIN:
+            return '是函数或绑定方法（回放会在测试自己的对象上运行它）'
+        logging = sys.modules.get('logging')
+        if logging is not None and issubclass(kind, (logging.Logger, logging.LoggerAdapter, logging.Handler)):
+            return '是 logging 的记录器（deepcopy 返回它本身）'
+    names = {name for name in ('cursor', 'commit', 'rollback', 'execute', 'fetchone')
+             if callable(inspect.getattr_static(kind, name, None))}
+    if {'cursor', 'commit', 'rollback'} <= names or {'execute', 'commit'} <= names or {'execute', 'fetchone'} <= names:
+        return f'是 sqlite3 以外的数据库连接（{kind.__module__}.{kind.__qualname__}）'
+    return ''
+
+
+def _parts(value, kind, label, top):
+    """(label, object) of what an object holds: items, keys, attributes and the other references the garbage
+    collector knows. A class is looked into only as an argument itself (its data attributes); other classes,
+    modules and code are not looked into."""
+    if issubclass(kind, type):
+        if top:
+            for name, item in _attributes(value).items():
+                if not (name.startswith('__') and name.endswith('__')) and type(item) not in _CODE:
+                    yield f'{label}.{name}', item
+        return
+    if kind in _CODE:
+        return
+    if issubclass(kind, dict):
+        for key, item in dict.items(value):
+            yield (f'{label}[{key!r}]' if type(key) in _PLAIN else f'{label}[…]'), item
+            yield f'{label}[…]', key
+    elif issubclass(kind, (list, tuple, set, frozenset)):
+        base = next(base for base in (list, tuple, set, frozenset) if issubclass(kind, base))
+        for index, item in enumerate(base.__iter__(value)):
+            yield (f'{label}[{index}]' if base in (list, tuple) else f'{label}[…]'), item
+    for name, item in _attributes(value).items():
+        yield f'{label}.{name}', item
+    if kind not in (dict, list, tuple, set, frozenset):
+        for item in gc.get_referents(value):
+            if item is not kind:
+                yield label + '…', item
+
+
+def _visible(values, what='参数', *, objects=True):
+    """(sqlite3 connections and cursors to keep shared, why the replay cannot see into `values`).
+
+    `values` maps a name to an argument (`objects`) or to module state a function reads. Everything they
+    hold is looked at, at any depth and without running project code, up to `_LOOK` objects (beyond that
+    the replay does not run): an open file, a socket, a database connection other than sqlite3, a sqlite3
+    connection holding Python callbacks or a Blob, a generator, a csv reader or writer, a queue or an
+    executor keeps the replay from running; for an argument a function, a bound method or a logger does
+    too. Module state may hold functions and loggers (a replayed call's log records are dropped)."""
+    logging = sys.modules.get('logging')
+    quiet = () if objects or logging is None else (logging.Logger, logging.LoggerAdapter, logging.Handler, logging.Manager)
+    shared, seen, pending = [], set(), collections.deque()
+
+    def push(value, label, top=False):
+        if type(value) not in _PLAIN and id(value) not in seen:
+            seen.add(id(value))
+            pending.append((value, label, top))
+
+    for name, value in values.items():
+        push(value, name, True)
+    looked = 0
+    while pending:
+        value, label, top = pending.popleft()
+        if _simple(value):
+            continue
+        looked += 1
+        if looked > _LOOK:
+            name = re.match(r'[^.\[…]*', label).group()
+            return shared, f'{what} {name} 太大：看了 {_LOOK} 个对象还没看完，不知道里面有没有打开的文件或连接'
         kind = type(value)
         if kind is sqlite3.Cursor:
             shared.append(value)
             value, kind = value.connection, sqlite3.Connection
         if kind is sqlite3.Connection:
-            if value not in shared:
+            if not any(value is other for other in shared):
                 shared.append(value)
-            return f'参数 {label} 的 sqlite3 连接带着 Python 回调（authorizer、progress、trace、函数或行工厂），回放后恢复不了' \
-                if _callbacks(value) else ''
-        if sockets is not None and isinstance(value, sockets.socket):
-            return f'参数 {label} 是套接字'
-        if isinstance(value, io.IOBase) and not value.closed and value.writable():
-            return f'参数 {label} 是写模式打开的文件'
-        names = {name for name in ('cursor', 'commit', 'rollback', 'execute', 'fetchone')
-                 if callable(inspect.getattr_static(kind, name, None))}
-        if {'cursor', 'commit', 'rollback'} <= names or {'execute', 'commit'} <= names or {'execute', 'fetchone'} <= names:
-            return f'参数 {label} 是 sqlite3 以外的数据库连接（{kind.__module__}.{kind.__qualname__}）'
-        if depth >= 2:
-            return ''
-        for name, item in _children(value):
-            if found := problem(item, label + name, depth + 1):
-                return found
-        return ''
-
-    for name, value in arguments.items():
-        if found := problem(value, name, 0):
-            return shared, found
+            if _callbacks(value):
+                return shared, f'{what} {label} 的 sqlite3 连接带着 Python 回调（authorizer、progress、trace 或行工厂），回放后恢复不了'
+            continue
+        if problem := _unseen(value, kind, objects):
+            return shared, f'{what} {label} {problem}'
+        if quiet and issubclass(kind, quiet):
+            continue
+        for name, item in _parts(value, kind, label, top):
+            push(item, name)
     return shared, ''
 
 
-def _snapshot(value):
-    """What a replay could change in an argument it could not copy: its own simple attributes and items."""
-    return [(name, item if _simple(item) else ('object', id(item))) for name, item in _children(value)]
+def _shareable(value):
+    """Arguments a replay uses as they are: classes and modules are module state (their writes are the
+    static check's), and the builtin functions of a module, the methods of builtin types and a few
+    immutable values run no project code and cannot change."""
+    kind = type(value)
+    return (issubclass(kind, type) or kind in (types.ModuleType, types.MethodDescriptorType, types.WrapperDescriptorType,
+                                                types.ClassMethodDescriptorType, range, complex, re.Pattern)
+            or kind is types.BuiltinFunctionType and (type(value.__self__) is types.ModuleType
+                                                      or issubclass(type(value.__self__), type)))
+
+
+def _unchanged(value, shared):
+    """deepcopy returned `value` itself: right for plain data, the shared connections and what a replay shares
+    (an immutable tuple of them); anything else returned as it is would be the test's own object."""
+    if type(value) in _PLAIN or _simple(value) or _shareable(value) or any(value is other for other in shared):
+        return True
+    return type(value) in (tuple, frozenset) and all(_unchanged(item, shared) for item in value)
+
+
+@dataclass
+class _Protected:
+    """One shared sqlite3 connection under a guard: what it was before, and which protections are in place."""
+    connection: object
+    changes: int = 0
+    callbacks: tuple = ()
+    query_only: int = 0
+    steps: list = field(default_factory=list)
 
 
 class _Guard:
-    """One guarded replay of one call site; `void` holds the first refusal of the current code."""
+    """One guarded replay of one call site; `void` holds the first refusal of the current code, `unseen` why
+    the arguments or module state cannot be copied or seen into (then nothing is replayed)."""
 
-    def __init__(self, runtime, arguments):
+    def __init__(self, runtime, arguments, functions=()):
         self.runtime = runtime
         self.shared, self.unseen = _visible(arguments)
+        state = {}
+        for function, historical in functions:
+            state.update(runtime.module_state(function, historical=historical))
+        if state and not self.unseen:
+            found, self.unseen = _visible(state, '模块全局', objects=False)
+            self.shared += [value for value in found if not any(value is other for other in self.shared)]
         self.connections = [value for value in self.shared if type(value) is sqlite3.Connection]
+        self.generators = [random, *(value for value in state.values() if type(value) is random.Random)]
         self.void = self.void_old = ''
-        self.adopted, self.opened, self.compared, self.saved = [], [], {}, []
+        self.timed_out = False
+        self.protected, self.adopted, self.handlers, self.seeds = [], [], [], []
         self.old = False
         self.functions = set()
+        self.authorizer = self._authorize   # one bound method: the connections refer to this very object
         self.code = _value.__code__     # the frame that calls the replayed function: where a location search stops
 
     def __enter__(self):
         _install()
+        self.seeds = [(source.setstate, source.getstate()) for source in self.generators]
+        self.handlers = _handlers()
+        for handler in self.handlers:
+            handler.filters.append(_quiet)
         for connection in self.connections:
-            before = connection.total_changes
-            # SQL functions defined in Python run project code on every statement that calls them.
-            self.functions |= {row[0].lower() for row in connection.execute('PRAGMA function_list') if not row[1]}
-            connection.execute('SAVEPOINT flowguard_replay')
-            connection.set_authorizer(self._authorize)
-            self.saved.append((connection, before))
+            if not self._protect(connection):
+                break
         return self
 
     def __exit__(self, *error):
-        for connection, before in reversed(self.saved):
-            connection.set_authorizer(None)
-            connection.execute('ROLLBACK TO flowguard_replay')
-            connection.execute('RELEASE flowguard_replay')
-            if connection.total_changes != before:
-                self._mark(f'回放被拦住：回放之后数据库仍有改动（total_changes {before} → {connection.total_changes}）')
-        for connection in self.adopted:
-            try:
-                connection.set_authorizer(None)
-            except sqlite3.ProgrammingError:
-                pass  # The replayed call closed the connection it opened; nothing is left to restore.
-        for name, (value, before) in self.compared.items():
-            if _snapshot(value) != before:
-                self._mark(f'回放改了参数 {name}：它复制不了，回放之后和原值不同')
+        for record in reversed(self.protected):
+            self._release(record)
+        for connection, keeper in self.adopted:
+            _forget(connection, keeper)
+        for handler in self.handlers:
+            _unquiet(handler)
+        for setstate, state in self.seeds:
+            setstate(state)
         return False
+
+    def _protect(self, connection):
+        """Savepoint, read transaction, query_only and authorizer on one shared connection; False (and the
+        replay void) when one of them cannot be set up."""
+        record = _Protected(connection)
+        self.protected.append(record)
+        try:
+            record.changes = connection.total_changes
+            record.callbacks = _callback_state(connection)
+            # SQL functions defined in Python run project code on every statement that calls them.
+            self.functions |= {name.lower() for name, kind, count in record.callbacks[3]}
+            record.query_only = connection.execute('PRAGMA query_only').fetchone()[0]
+            connection.execute('SAVEPOINT flowguard_replay')
+            record.steps.append('savepoint')
+            # A read transaction: nothing can be backed up into the connection. No function is called, so a
+            # Python function overriding a built-in one (count) does not run here.
+            connection.execute('SELECT 1 FROM sqlite_master LIMIT 1').fetchall()
+            connection.execute('PRAGMA query_only=1')
+            record.steps.append('query_only')
+            connection.set_authorizer(self.authorizer)
+            record.steps.append('authorizer')
+        except sqlite3.Error as error:
+            self._mark(f'回放没有运行：sqlite3 连接装不上回放保护：{type(error).__name__}: {error}')
+            return False
+        return True
+
+    def _release(self, record):
+        """Undo one connection's protection. Each step that fails (the replayed call closed the connection or
+        ended its transaction) is recorded, and the remaining steps and connections are still restored."""
+        connection = record.connection
+        if not record.steps:
+            return
+        if 'authorizer' in record.steps:
+            self._step('去掉回放的 authorizer', connection.set_authorizer, None)
+        if 'query_only' in record.steps:
+            self._step('恢复 query_only', connection.execute, f'PRAGMA query_only={int(record.query_only)}')
+        if self._step('回到 SAVEPOINT', connection.execute, 'ROLLBACK TO flowguard_replay') is not _MISSING:
+            self._step('结束 SAVEPOINT', connection.execute, 'RELEASE flowguard_replay')
+        changes = self._step('读 total_changes', getattr, connection, 'total_changes')
+        if changes is not _MISSING and changes != record.changes:
+            self._mark(f'回放被拦住：回放之后数据库仍有改动（total_changes {record.changes} → {changes}）')
+        if changes is not _MISSING:
+            self._step('恢复连接上的回调', self._callbacks_back, connection, record.callbacks)
+
+    def _step(self, what, action, *args):
+        """One step of undoing a connection's protection: its result, or _MISSING with the sqlite3 error
+        recorded (the replay is void; the other steps still run)."""
+        try:
+            return action(*args)
+        except sqlite3.Error as error:
+            self._mark(f'回放保护收尾出错：{what}：{type(error).__name__}: {error}')
+            return _MISSING
+
+    def _callbacks_back(self, connection, before):
+        """A replayed call that gave a shared connection a callback, an SQL function or a collation voids the
+        replay. Its factories, progress handler and trace callback are put back (the connection held no
+        progress or trace callback before, or it would not have been replayed); an SQL function or a
+        collation cannot be removed again (passing None leaves a broken entry), so it stays."""
+        after = _callback_state(connection)
+        if after == before:
+            return
+        self._mark('回放改了 sqlite3 连接上的回调、SQL 函数或排序规则')
+        callables, connection.row_factory, connection.text_factory = before[:3]
+        if after[0] != callables:
+            connection.set_progress_handler(None, 0)
+            connection.set_trace_callback(None)
 
     def _mark(self, reason):
         if self.old:
@@ -421,18 +749,17 @@ class _Guard:
             self.void = self.void or reason
 
     def adopt(self, connection):
-        """A connection opened during a replayed call refuses writes like the arguments' connections."""
-        connection.set_authorizer(self._authorize)
-        self.adopted.append(connection)
-
-    def _unadopted(self):
-        """A connection opened without the sqlite3.connect wrapper (an alias bound before the replay) had no
-        authorizer: whatever it did is not known, so the replay is void."""
-        for connection in self.opened:
-            if not any(connection is adopted for adopted in self.adopted):
-                self._mark('回放被拦不住：回放期间新建的 sqlite3 连接没经过 sqlite3.connect（例如 from sqlite3 import connect），'
-                           '它的写入看不见')
-        self.opened.clear()
+        """A connection opened during a replayed call is protected like a shared one, without a savepoint (its
+        `with` block or commit stays a no-op): an unfinished read keeps nothing from being backed up into it."""
+        try:
+            keeper = connection.execute('SELECT 1 FROM sqlite_master UNION ALL SELECT 1 UNION ALL SELECT 1')
+            connection.execute('PRAGMA query_only=1')
+            connection.set_authorizer(self.authorizer)
+        except sqlite3.Error as error:
+            connection.close()
+            raise Refused(self.refuse(f'新建的 sqlite3 连接装不上回放保护：{type(error).__name__}: {error}',
+                                      sys._getframe(1))) from error
+        self.adopted.append((connection, keeper))
 
     def refuse(self, what, frame):
         reason = '回放被拦住：' + self._where(frame) + what
@@ -472,41 +799,77 @@ class _Guard:
         return sqlite3.SQLITE_DENY
 
     def call(self, fn, bound, *, old=False):
-        """One replayed call: its outcome, with the arguments copied and every effect refused."""
+        """One replayed call: its outcome, with the arguments copied and every effect refused; None when an
+        argument cannot be copied (`unseen`), and then nothing ran."""
         global _CALLING
-        previous, _LOCAL.guard = _LOCAL.guard, self
+        previous = _LOCAL.guard
         self.old = old
-        sqlite = sys.modules.get('sqlite3')
-        patched = sqlite is not None and sqlite.connect is _SQLITE_CONNECT
-        if patched:
-            sqlite.connect = _connect    # other threads calling it meanwhile get the plain behaviour
-        _CALLING += 1
+        outcome = None
         try:
-            return _value(fn, self._copied(bound))
+            # No call between these two lines and the `finally` below, so an interruption (the watchdog)
+            # cannot leave the switch on: the restoring lines there come first, with no call either.
+            _CALLING += 1
+            _LOCAL.guard = self
+            _wrap()
+            arguments = self._copied(bound)
+            if arguments is not None:
+                outcome = _value(fn, arguments)
         except Refused as error:
-            return cells.Raised(error)  # The refusal is already recorded; this whole replay is void.
+            outcome = cells.Raised(error)  # The refusal is already recorded; this whole replay is void.
         finally:
             _CALLING -= 1
-            if patched:
-                sqlite.connect = _SQLITE_CONNECT
-            self._unadopted()
-            self.old = False
             _LOCAL.guard = previous
+            if not _CALLING:
+                _unwrap()
+        self._after(outcome)
+        self.old = False
+        return outcome
+
+    def _after(self, outcome):
+        """After one replayed call: a RecursionError, a write a protected connection refused by itself (a
+        backup into it, a Blob), or a shared connection without the guard's authorizer voids the replay."""
+        if isinstance(outcome, cells.Raised):
+            error = outcome.error
+            if isinstance(error, RecursionError):
+                self._mark('回放没有结束：递归太深（RecursionError）')
+            elif isinstance(error, sqlite3.OperationalError) and str(error) in _PROTECTED_ERRORS:
+                trace = error.__traceback__
+                while trace is not None and trace.tb_next is not None:
+                    trace = trace.tb_next
+                self.refuse('往回放保护着的 sqlite3 连接里写（不经过 authorizer 的写入，例如 backup 或 Blob）', trace.tb_frame if trace else None)
+        for record in self.protected:
+            if 'authorizer' in record.steps and not any(ref is self.authorizer for ref in gc.get_referents(record.connection)):
+                self._mark('回放之后 sqlite3 连接上的回放保护不在了（set_authorizer 换掉了它，或者连接被关掉了）')
 
     def _copied(self, bound):
-        """Replay on deep copies; what cannot be copied is compared with its original afterwards."""
+        """Deep copies of the arguments to replay on, one memo for all (shared objects stay shared); None, with
+        `unseen` set, when an argument cannot be copied or deepcopy returns the object itself."""
         memo = {id(value): value for value in self.shared}
         arguments = {}
         for name, value in bound.arguments.items():
-            if _simple(value) or id(value) in memo:
+            if _simple(value) or id(value) in memo and memo[id(value)] is value or _shareable(value):
                 arguments[name] = value
                 continue
             try:
-                arguments[name] = copy.deepcopy(value, dict(memo))
-            except (TypeError, ValueError, AttributeError, RecursionError, copy.Error):
-                arguments[name] = value  # Not copyable: the replay runs on the original and compares it afterwards.
-                self.compared.setdefault(name, (value, _snapshot(value)))
+                copied = copy.deepcopy(value, memo)
+            except (TypeError, ValueError, AttributeError, RecursionError, copy.Error) as error:
+                self.unseen = self.unseen or f'参数 {name} 复制不了（{type(error).__name__}: {error}）'
+                return None
+            if copied is value and not _unchanged(value, self.shared):
+                self.unseen = self.unseen or f'参数 {name} 复制不了（deepcopy 返回它本身：{type(value).__name__}）'
+                return None
+            arguments[name] = copied
         return _binding(bound.signature, arguments)
+
+
+def _forget(connection, keeper):
+    """A connection a replayed call opened gets its usual behaviour back, unless that call closed it."""
+    try:
+        connection.set_authorizer(None)     # first: the guard's authorizer refuses the PRAGMA below
+        keeper.close()
+        connection.execute('PRAGMA query_only=0')
+    except sqlite3.ProgrammingError:
+        pass  # The replayed call closed the connection it opened; nothing is left to restore.
 
 
 class _Field:
@@ -542,6 +905,34 @@ def _resolve(expression, env):
         if type(owner) in (types.ModuleType, type, enum.EnumType):
             return vars(owner).get(expression.attr, _MISSING)
     return _MISSING
+
+
+def _chain(expression):
+    """An attribute/subscript chain from a name, without calls (`CACHE`, `settings.LIMITS['a']`)."""
+    while isinstance(expression, (ast.Attribute, ast.Subscript)):
+        expression = expression.value
+    return isinstance(expression, ast.Name)
+
+
+def _written(targets):
+    """The attribute and subscript targets of an assignment or deletion, also inside tuples and starred names."""
+    for target in targets:
+        if isinstance(target, (ast.Tuple, ast.List)):
+            yield from _written(target.elts)
+        elif isinstance(target, ast.Starred):
+            yield from _written([target.value])
+        elif isinstance(target, (ast.Attribute, ast.Subscript)):
+            yield target
+
+
+def _module_data(value):
+    """Module state a replay could act on: not code, a class, a module or a simple value."""
+    return not (value is _MISSING or type(value) in _PLAIN or _simple(value) or type(value) in _CODE
+                or issubclass(type(value), type))
+
+
+def _read(owner, name):
+    return _namespace(owner).get(name, _MISSING)
 
 
 def _definition(fn):
@@ -963,6 +1354,7 @@ class Runtime:
         self.patches, self.constants, self.unavailable = {}, {}, {}
         self.current_constants = {}
         self._sources, self._registered = {}, set()
+        self._reads = {}     # (function, historical) → the module state its static check found it reads
         self.test = ''
 
     def _source(self, file):
@@ -1161,16 +1553,21 @@ class Runtime:
                 else:
                     target[0][target[1]] = value
 
-    def safety(self, function, arguments=None, seen=None, *, historical=False, node=None):
+    def safety(self, function, arguments=None, seen=None, *, historical=False, node=None, reads=None):
         """Why this call is not replayed, or ''. Only explicit writes stop a replay statically: a
-        `global`/`nonlocal` name the function assigns, an assignment, deletion or mutating method call
-        on module state, here and in the project helpers it calls. The arguments must be visible to the
-        replay guard. Reads, dates, properties and unresolved calls run under the guard instead.
+        `global`/`nonlocal` name the function assigns; an assignment, deletion or mutating method call on
+        module state (a module global, a module's or a class's attribute, also through a local name bound
+        to one); module state passed to a standard function that changes its first argument (`heapq`,
+        `bisect.insort`, `next`, `list.append(...)`); a call that changes a sqlite3 connection the replay
+        shares with the test (`close`, `create_function`, `backup` ...); here and in the project helpers it
+        calls. The arguments, and the module state the function and those helpers read, must be visible to
+        the replay guard. Reads, dates, properties and unresolved calls run under the guard instead.
         `node` checks another definition in the function's module instead (an anchor's `fields`
         expression, whose lines are the anchor comment's)."""
         fn = sites.unwrap(function)
         top = seen is None
         seen = set() if seen is None else seen
+        reads = {} if reads is None else reads
         if fn in seen and node is None:
             return ''
         seen.add(fn)
@@ -1197,46 +1594,153 @@ class Runtime:
         parts = list(sites.own_nodes(node))
         declared = {name for part in parts if isinstance(part, (ast.Global, ast.Nonlocal)) for name in part.names}
         stored = {part.id for part in parts if isinstance(part, ast.Name) and isinstance(part.ctx, (ast.Store, ast.Del))}
+        # Modules imported in the function body: `import a.b` binds `a`, `import a.b as c` binds `a.b`.
+        imported = {alias.asname or alias.name.partition('.')[0]: alias.name if alias.asname else alias.name.partition('.')[0]
+                    for part in parts if isinstance(part, ast.Import) for alias in part.names}
+        modules = {name: sys.modules[module] for name, module in imported.items() if module in sys.modules}
         local = ({arg.arg for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs,
-                                      *(x for x in (node.args.vararg, node.args.kwarg) if x))} | stored) - declared
+                                      *(x for x in (node.args.vararg, node.args.kwarg) if x))} | stored | set(imported)) - declared
         namespace = fn.__globals__
+        # A local name bound to an attribute/subscript chain (`cache = CACHE`, `m = settings`, `for row in ROWS`)
+        # names what that chain names; flow-insensitive, like `stored`.
+        aliases = {}
+        for part in parts:
+            if isinstance(part, (ast.Assign, ast.AnnAssign)) and part.value is not None and _chain(part.value):
+                targets = part.targets if isinstance(part, ast.Assign) else [part.target]
+                if len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id not in declared:
+                    aliases.setdefault(targets[0].id, part.value)
+            elif isinstance(part, (ast.For, ast.AsyncFor)) and isinstance(part.target, ast.Name) and _chain(part.iter):
+                aliases.setdefault(part.target.id, ast.Subscript(part.iter, ast.Constant(None), ast.Load()))
 
         def line(part):
             return part.lineno if historical or written else fn.__code__.co_firstlineno + part.lineno - 1
 
-        def shared(expression):
-            """The module-level object an attribute/subscript/method chain starts from, if it is module state."""
+        def origin(expression, depth=0):
+            """(global name, its value, whether the chain went through a call, whether it went through an
+            attribute or item) an attribute/subscript/call chain starts from, following local aliases; None
+            for a local value."""
+            called = inside = False
             while isinstance(expression, (ast.Attribute, ast.Subscript, ast.Call)):
+                called = called or isinstance(expression, ast.Call)
+                inside = inside or not isinstance(expression, ast.Call)
                 expression = expression.func if isinstance(expression, ast.Call) else expression.value
-            if not isinstance(expression, ast.Name) or expression.id in local:
+            if not isinstance(expression, ast.Name) or depth > 8:
                 return None
-            value = namespace.get(expression.id, _MISSING)
-            if value is _MISSING or callable(value) or type(value) is types.ModuleType or _simple(value):
+            name = expression.id
+            if name in modules:
+                return name, modules[name], called, inside
+            if name in aliases:
+                found = origin(aliases[name], depth + 1)
+                return found and (found[0], found[1], found[2] or called, found[3] or inside)
+            if name in local:
                 return None
-            return expression.id
+            value = namespace.get(name, _MISSING)
+            return None if value is _MISSING else (name, value, called, inside)
+
+        def shared(expression, owner=False):
+            """The module-level object a chain starts from, if it is module state: a global that is not a
+            function or a simple value, or (through attributes and items, without a call) a module or a class.
+            `owner`: the chain is the object whose attribute or item is written, so a module or a class itself
+            counts too (`settings.LIMIT = 4`); a call on a module or a class itself is no write (`os.remove`)."""
+            found = origin(expression)
+            if found is None or _simple(found[1]):
+                return None
+            name, value, called, inside = found
+            if type(value) is types.ModuleType or issubclass(type(value), type):
+                return None if called or not (owner or inside) else name
+            return None if callable(value) else name
+
+        def current(expression, depth=0):
+            """The object a chain names in this call (an argument or module state), read without running
+            project code; _MISSING when it is not known statically."""
+            if depth > 8:
+                return _MISSING
+            if isinstance(expression, ast.Name):
+                name = expression.id
+                if name in aliases:
+                    return current(aliases[name], depth + 1)
+                if arguments and name in arguments:
+                    return arguments[name]
+                if name in modules:
+                    return modules[name]
+                return _MISSING if name in local else namespace.get(name, _MISSING)
+            if isinstance(expression, ast.Attribute):
+                owner = current(expression.value, depth + 1)
+                return _MISSING if owner is _MISSING else _namespace(owner).get(expression.attr, _MISSING)
+            if isinstance(expression, ast.Subscript) and isinstance(expression.slice, ast.Constant):
+                owner = current(expression.value, depth + 1)
+                key = expression.slice.value
+                if type(owner) is dict and type(key) in _PLAIN:
+                    return owner.get(key, _MISSING)
+                if type(owner) in (list, tuple) and type(key) is int and -len(owner) <= key < len(owner):
+                    return owner[key]
+            return _MISSING
+
+        def connection(expression):
+            return type(current(expression)) in (sqlite3.Connection, sqlite3.Cursor)
 
         for part in parts:
             if isinstance(part, (ast.Global, ast.Nonlocal)) and set(part.names) & stored:
                 kind = '全局变量' if isinstance(part, ast.Global) else '外层变量'
                 return f'明确的写操作：第 {line(part)} 行给{kind} {", ".join(sorted(set(part.names) & stored))} 赋值'
+            if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load) and part.id not in local and part.id not in modules:
+                value = namespace.get(part.id, _MISSING)
+                if _module_data(value):
+                    reads.setdefault(part.id, functools.partial(namespace.get, part.id, _MISSING))
+            elif isinstance(part, ast.Attribute) and isinstance(part.ctx, ast.Load) and isinstance(part.value, ast.Name) \
+                    and (found := origin(part.value)) and not found[2] and not found[3] \
+                    and (type(found[1]) is types.ModuleType or issubclass(type(found[1]), type)):
+                if _module_data(_namespace(found[1]).get(part.attr, _MISSING)):
+                    reads.setdefault(f'{found[0]}.{part.attr}', functools.partial(_read, found[1], part.attr))
             targets = part.targets if isinstance(part, (ast.Assign, ast.Delete)) else [part.target] \
                 if isinstance(part, ast.AugAssign) or isinstance(part, ast.AnnAssign) and part.value is not None else []
-            for target in targets:
-                for item in ast.walk(target):
-                    if isinstance(item, (ast.Attribute, ast.Subscript)) and (name := shared(item.value)):
-                        return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{ast.unparse(item)}）'
+            for target in _written(targets):
+                if name := shared(target.value, owner=True):
+                    return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{ast.unparse(target)}）'
+                if isinstance(target, ast.Attribute) and connection(target.value):
+                    return (f'明确的写操作：第 {line(part)} 行改了 sqlite3 连接 {ast.unparse(target.value)} 的 {target.attr}'
+                            '（连接复制不了，回放会改到测试自己的连接）')
             if not isinstance(part, ast.Call):
                 continue
             if isinstance(part.func, ast.Attribute) and part.func.attr in _MUTATORS and (name := shared(part.func.value)):
                 return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{ast.unparse(part.func)}）'
             if isinstance(part.func, ast.Name) and part.func.id in ('setattr', 'delattr') and part.func.id not in local \
-                    and part.args and (name := shared(ast.Attribute(part.args[0], 'x', ast.Load()))):
+                    and part.args and (name := shared(part.args[0], owner=True)):
                 return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{part.func.id}）'
             target = _resolve(part.func, namespace)
+            if id(target) in _MUTATING_IDS and part.args and (name := shared(part.args[0])):
+                return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{ast.unparse(part.func)}）'
+            if isinstance(part.func, ast.Attribute) and part.func.attr in _CONNECTION_CALLS and connection(part.func.value) \
+                    and (part.func.attr == 'close' or type(current(part.func.value)) is sqlite3.Connection):
+                return (f'明确的写操作：第 {line(part)} 行在 sqlite3 连接 {ast.unparse(part.func.value)} 上调用 {part.func.attr}'
+                        '（连接复制不了，回放会作用在测试自己的连接上）')
             if type(target) is types.FunctionType and self._project(target):
-                if problem := self.safety(target, None, seen, historical=historical and target in self.patches):
+                # The helper's parameters name what this call passes it, as far as that is known statically.
+                passed = None
+                if not any(isinstance(item, ast.Starred) for item in part.args) and all(item.arg for item in part.keywords):
+                    code = target.__code__
+                    names = code.co_varnames[:code.co_argcount + code.co_kwonlyargcount]
+                    passed = {name: current(item) for name, item in zip(names[:code.co_argcount], part.args)}
+                    passed.update((item.arg, current(item.value)) for item in part.keywords if item.arg in names)
+                    passed = {name: value for name, value in passed.items() if value is not _MISSING} or None
+                if problem := self.safety(target, passed, seen, historical=historical and target in self.patches, reads=reads):
                     return problem
+        if top:
+            if not written:
+                self._reads[(fn, historical)] = dict(reads)
+            values = {label: value for label, read in reads.items() if (value := read()) is not _MISSING}
+            if values and (unseen := _visible(values, '模块全局', objects=False)[1]):
+                return '看不清：' + unseen
         return ''
+
+    def module_state(self, function, *, historical=False):
+        """The module state (non-simple globals, module and class attributes) the function and the project
+        helpers it calls read, as the static check found it: name → current value."""
+        fn = sites.unwrap(function)
+        if (fn, historical) not in self._reads:
+            self.safety(fn, historical=historical)
+        values = {label: read() for label, read in self._reads.get((fn, historical), {}).items()}
+        return {label: value for label, value in values.items() if value is not _MISSING}
 
     def field_values(self, original, bound, fields, line, reading):
         """An anchor's `fields` values, with the real call's arguments and with each replayed row's, in
@@ -1251,17 +1755,19 @@ class Runtime:
             if problem:
                 reading.field_reasons.append(f'字段 {evaluator.name}：{problem}')
                 return
-        guard = _Guard(self, bound.arguments)
+        guard = _Guard(self, bound.arguments, ((fn, False),))
         if guard.unseen:
             reading.field_reasons.append(f'字段 {", ".join(name for name, _ in fields)}：看不清：{guard.unseen}')
             return
         calls = [bound, *(_binding(bound.signature, {**bound.arguments, **inputs}) for inputs, _ in reading.rows)]
         found = []
-        with guard:
+        with guard, _bounded(guard):
             for arguments in calls:
                 values = {}
                 for evaluator in evaluators:
                     value = guard.call(evaluator, arguments)
+                    if guard.unseen:
+                        guard.void = guard.void or '看不清：' + guard.unseen
                     if guard.void:
                         reading.field_reasons.append(f'字段 {evaluator.name}：{guard.void}')
                         break
@@ -1287,11 +1793,14 @@ class Runtime:
 
     def guarded(self, fn, bound):
         """One guarded call that is not a test's own call: (outcome, why it was refused or '')."""
-        guard = _Guard(self, bound.arguments)
+        guard = _Guard(self, bound.arguments, ((fn, False),))
         if guard.unseen:
             return None, '看不清：' + guard.unseen
-        with guard:
+        outcome = None
+        with guard, _bounded(guard):
             outcome = guard.call(fn, bound)
+        if guard.unseen:
+            return None, '看不清：' + guard.unseen
         return outcome, guard.void
 
     def _lost(self, reading, owner, bound):
@@ -1300,12 +1809,13 @@ class Runtime:
         patch = self.register(owner)
         if patch is None or self.safety(owner, bound.arguments, historical=True):
             return
-        guard = _Guard(self, bound.arguments)
+        guard = _Guard(self, bound.arguments, ((owner, True),))
         if guard.unseen:
             return
-        with guard, self.old_code():
+        outcome = None
+        with guard, _bounded(guard), self.old_code():
             outcome = guard.call(patch.callable(), bound, old=True)
-        if not guard.void_old and _data(outcome):
+        if not (guard.void_old or guard.void or guard.unseen) and _data(outcome):
             reading.lost = reading.reasons[0]
 
     def axes(self, function, bound, explicit=None):
@@ -1375,9 +1885,10 @@ class Runtime:
 
     def _replay_rows(self, original, bound, *, owner, name, axes):
         """No normal call here, including when metadata or a replay gate is grey. Every replayed call
-        runs in one guard; a refused effect voids the reading."""
+        runs in one guard; a refused effect voids the reading. The reading is grey until the replay has
+        completely finished: an error of FlowGuard's own on the way leaves no green reading behind."""
         reading = Reading(name or owner.__qualname__, owner.__module__ + ':' + owner.__qualname__,
-                          test=self.test, baseline=self.baseline)
+                          test=self.test, baseline=self.baseline, status='grey', reasons=['回放没有完整结束'])
         self.readings.append(reading)
         problem = self.safety(original, bound.arguments)
         if problem:
@@ -1418,33 +1929,25 @@ class Runtime:
                 for value in _neighbours(actual[name]):
                     if not any(outcome_equal(value, prior) for prior in axes[name]):
                         neighbours.append({**actual, name: value})
-        opaque = ''
-        guard = _Guard(self, bound.arguments)
-        with guard:
-            baseline = guard.call(original, bound)
-            if not _data(baseline):
-                opaque = type(baseline).__name__
-            for inputs in itertools.chain(points, neighbours):
-                if guard.void or opaque:
-                    break
-                arguments = _binding(bound.signature, {**bound.arguments, **inputs})
-                now = guard.call(original, arguments)
-                old = None
-                if patch is not None and not guard.void_old:
-                    with self.old_code():
-                        old = guard.call(patch.callable(), arguments, old=True)
-                if not _data(now) or not _data(old):
-                    opaque = type(now if not _data(now) else old).__name__
-                    break
-                reading.rows.append((inputs, now))
-                if patch is not None and not guard.void_old and not outcome_equal(old, now):
-                    reading.changed.append((inputs, old, now))
-            again = None if guard.void or opaque else guard.call(original, bound)
+        guard = _Guard(self, bound.arguments, ((original, False), (owner, True)))
+        outcomes = None, None, ''
+        if not guard.unseen:
+            with guard, _bounded(guard):
+                outcomes = self._grid(guard, reading, original, bound, patch, itertools.chain(points, neighbours))
+        baseline, again, opaque = outcomes
+        if guard.unseen:
+            problem = '看不清：' + guard.unseen
+            reading.reasons = [problem]
+            reading.comparison_status, reading.comparison_reasons = 'grey', [problem]
+            reading.rows.clear()
+            reading.changed.clear()
+            return
         if guard.void:
             reading.status, reading.reasons = 'grey', [guard.void]
             reading.rows.clear()
             reading.changed.clear()
-            self._lost(reading, owner, bound)
+            if not guard.timed_out:     # a slow machine is no lost observation
+                self._lost(reading, owner, bound)
             return
         if opaque or not _data(again):
             reading.status, reading.reasons = 'grey', [f'回放结果不是可以比较的简单数据（{opaque or type(again).__name__}）：不运行它的比较运算']
@@ -1456,12 +1959,44 @@ class Runtime:
             reading.comparison_status = 'grey'
             reading.comparison_reasons.append('基准代码的' + guard.void_old)
             reading.changed.clear()
+        reading.status, reading.reasons = 'ok', []
         if not outcome_equal(baseline, again):
             reading.status, reading.reasons = 'grey', ['original-value recheck changed: possible side effect or unstable input']
             reading.rows.clear()
             reading.changed.clear()
         if not supplied_axes:
             reading.reasons.append('comparison grid is not a proof of partition completeness')
+
+    def _grid(self, guard, reading, original, bound, patch, inputs):
+        """The replayed calls of one reading: the original values, every grid point (the current and the
+        baseline code), then the original values again, at least one clock tick after the first call;
+        (first outcome, recheck outcome, the type of an outcome that cannot be compared)."""
+        if guard.void:
+            return None, None, ''
+        baseline = guard.call(original, bound)
+        if guard.unseen:
+            return None, None, ''
+        clocks = _clocks()
+        opaque = '' if _data(baseline) else type(baseline).__name__
+        for point in inputs:
+            if guard.void or opaque:
+                break
+            arguments = _binding(bound.signature, {**bound.arguments, **point})
+            now = guard.call(original, arguments)
+            old = None
+            if patch is not None and not guard.void_old:
+                with self.old_code():
+                    old = guard.call(patch.callable(), arguments, old=True)
+            if not _data(now) or not _data(old):
+                opaque = type(now if not _data(now) else old).__name__
+                break
+            reading.rows.append((point, now))
+            if patch is not None and not guard.void_old and not outcome_equal(old, now):
+                reading.changed.append((point, old, now))
+        if guard.void or opaque:
+            return baseline, None, opaque
+        _next_tick(clocks)
+        return baseline, guard.call(original, bound), opaque
 
     @contextmanager
     def hook(self, function, *, name='', axes=None, private=False, fields=(), line=0):

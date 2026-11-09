@@ -616,7 +616,10 @@ class _Timeout(BaseException):
 
 @contextmanager
 def watchdog(seconds):
-    """Interrupt this thread after `seconds` (Windows too: the interpreter's async exception, no signal)."""
+    """Interrupt this thread after `seconds` (Windows too: the interpreter's async exception, no signal).
+    The interruption is never withdrawn with a NULL exception: on Python 3.11 that leaves the eval breaker
+    set, and a traced frame then loops at its first instruction for ever. One sent but not yet raised when
+    the block ends is let through here and dropped."""
     target, lock, done = threading.get_ident(), threading.Lock(), threading.Event()
     state = dict(finished=False, fired=False)
     def watch():
@@ -628,14 +631,22 @@ def watchdog(seconds):
                 ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(target), ctypes.py_object(_Timeout))
     thread = threading.Thread(target=watch, name='flowguard-copy-watchdog', daemon=True)
     thread.start()
+    arrived = False
     try:
         yield
+    except _Timeout:
+        arrived = True
+        raise
     finally:
         with lock:
             state['finished'] = True
-            if state['fired']:     # delivered or still pending: clear a pending one before leaving
-                ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(target), None)
         done.set()
+        if state['fired'] and not arrived:
+            try:
+                for _ in range(1_000_000):
+                    pass        # the interpreter raises a pending interruption at this loop's jump back
+            except _Timeout:
+                pass  # Sent after the block ended (or caught inside it): the block is over, nothing to interrupt.
 
 
 def _load(cfg, module, qual):

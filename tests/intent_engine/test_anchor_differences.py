@@ -231,7 +231,7 @@ def test_unrelated_same_file_edit_does_not_create_a_runtime_behavior_change(tmp_
     assert reading.comparison_status == 'ok' and reading.rows and not reading.changed
 
 
-def test_unavailable_external_helper_stays_grey_without_guessing_or_archiving(tmp_path, monkeypatch):
+def test_external_helper_replays_as_the_same_object_without_guessing_or_archiving(tmp_path, monkeypatch):
     from types import ModuleType
     dependency = ModuleType('unknown_external_dependency')
     dependency.calculate = lambda active: active
