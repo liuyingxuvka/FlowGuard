@@ -97,17 +97,27 @@ class _Finder:
         self.active = False
         self.loaded = {}
         self.observers = []
+        # Modules already classified by prepare() for (root, host): name -> (module id, file).
+        self.verified, self.verified_for = {}, None
+        self.applications = {}
 
     def owns(self, filename):
         roots = (self.root,) if self.root == self.host else (self.root, self.host)
         return any(root is not None and project_code(filename, root) for root in roots)
 
     def application(self, path, root):
-        if isinstance(path, Path) and path.is_relative_to(_SDK):
-            return False
-        return project_code(str(path), root) and not path.is_relative_to(_SDK)
+        # project_code is fixed for a file within one process (see its docstring);
+        # prepare() asks this for every loaded project module on each call.
+        key = (path, root)
+        if key not in self.applications:
+            if isinstance(path, Path) and path.is_relative_to(_SDK):
+                self.applications[key] = False
+            else:
+                self.applications[key] = project_code(str(path), root) and not path.is_relative_to(_SDK)
+        return self.applications[key]
 
     def forget(self, root):
+        self.verified.clear()
         for name, (path, _, module, owner) in list(self.loaded.items()):
             if owner == root and self.application(path, root):
                 if sys.modules.get(name) is module:
@@ -210,6 +220,8 @@ def prepare(root, *, host=False):
     if _finder.root is not None and _finder.root not in (root, _finder.host):
         _finder.forget(_finder.root)
     _finder.root = root
+    if _finder.verified_for != (root, _finder.host):
+        _finder.verified, _finder.verified_for = {}, (root, _finder.host)
     # Pytest installs its rewrite hook after sitecustomize. Keep our delegating
     # finder ahead of it when the same process enters verification.
     if _finder in sys.meta_path:
@@ -236,19 +248,29 @@ def prepare(root, *, host=False):
                     and Path(expected.origin).resolve() != path and sys.modules.get(name) is module):
                 raise ValueError(f'{name} conflicts with the active pytest verifier; '
                                  'start a fresh verification process for this project')
+    # Classify each loaded module once per (root, host): a later preparation in the
+    # same session only looks at modules that are new since then. Changed sources
+    # are still found below by their content digests.
+    verified = _finder.verified
     for name, module in list(sys.modules.items()):
         filename = getattr(module, '__file__', None)
+        identity = (id(module), filename)
+        if verified.get(name) == identity:
+            continue
         if (not filename or not str(filename).endswith(tuple(machinery.SOURCE_SUFFIXES))
                 or not _finder.owns(str(filename))):
+            verified[name] = identity
             continue
         path = Path(filename).resolve()
         if not _finder.application(path, root):
+            verified[name] = identity
             continue
         previous = _finder.loaded.get(name)
         if previous is None or previous[0] != path or previous[2] is not module:
             raise ValueError(f'{name} was imported before source verification: {path}; '
                              'start a fresh verification process before importing project code '
                              '(python -m flowguard check --all)')
+        verified[name] = identity
     # Imported aliases can retain a changed function, so refresh the loaded
     # project cohort together. No directory scan or external module eviction.
     changed = {path for path, digest, _, owner in _finder.loaded.values()
