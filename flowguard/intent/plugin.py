@@ -766,15 +766,10 @@ class Observations:
                 for name in {point['module'] for point in self.points.values()}:
                     if (module := sys.modules.get(name)) is not None:
                         self._module(module)
-                path = []
-                def event(frame, phase, value):
-                    match = self.event_codes.get(id(frame.f_code))
-                    if phase == 'call' and match and match[0] is frame.f_code:
-                        path.append(match[1])
-                    return None
+                entered = []          # the runtime record's own entries of the event code objects
                 if self.changed and any(point['kind'] == 'event' for point in self.points.values()):
                     # Event code objects only, with local events; later imports add theirs.
-                    self.event_record = self.runtime.record(list(self.event_codes.values()), callback=event, entry_only=True)
+                    self.event_record = self.runtime.record(list(self.event_codes.values()), entry_only=True, events=entered)
                     try:
                         with self.event_record:
                             yield
@@ -782,7 +777,7 @@ class Observations:
                         self.event_record = None
                 else:
                     yield
-                self.actual_path = path
+                self.actual_path = [event['anchor'] for event in entered if event['phase'] == 'call']
 
     def old_path(self, item, nextitem):
         if not self.changed or not self.actual_path or not self.event_codes:
@@ -794,15 +789,11 @@ class Observations:
             if len(codes) != len(self.event_codes):
                 self.grey.append(item.nodeid + ': baseline event code is unavailable')
                 return
-            def event(frame, phase, value):
-                match = codes.get(id(frame.f_code))
-                if phase == 'call' and match and match[0] is frame.f_code:
-                    old.append(match[1])
-                return None
-            with self.runtime.record(codes=list(codes.values()), callback=event, private=True, entry_only=True):
+            with self.runtime.record(codes=list(codes.values()), private=True, entry_only=True, events=old):
                 result = self.runtime.replay(item, nextitem=nextitem)
         if result['status'] == 'ok':
-            self.paths.append(dict(test=item.nodeid, before=old, after=self.actual_path))
+            before = [event['anchor'] for event in old if event['phase'] == 'call']
+            self.paths.append(dict(test=item.nodeid, before=before, after=self.actual_path))
         else:
             self.grey.extend(item.nodeid + ': ' + reason for reason in result['reasons'])
 

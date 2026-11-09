@@ -1276,13 +1276,13 @@ def module_codes(module, wanted):
 
 
 class _Record:
-    def __init__(self, runtime, codes, predicate, callback, private, ignored, entry_only):
+    def __init__(self, runtime, codes, predicate, callback, private, ignored, entry_only, events=None):
         pairs = codes.items() if hasattr(codes, 'items') else codes
         self.runtime, self.codes = runtime, {id(code): (code, name) for code, name in pairs}
         self.predicate, self.callback, self.private = predicate, callback, private
         self.ignored, self.entry_only = ignored, entry_only
         self.issues, self.frames, self.pending = [], set(), {}
-        self.events = runtime.events
+        self.events = runtime.events if events is None else events
         self.active, self.failed, self.interrupted, self.ambient = False, False, False, None
 
     def emit(self, frame, event, arg):
@@ -2061,9 +2061,10 @@ class Runtime:
     def observer_issues():
         return [issue for record in _HUB.records for issue in record.issues]
 
-    def record(self, codes=(), *, predicate=None, callback=None, private=False, ignored=(), entry_only=False):
-        """One hub owns local anchor events and explicit dynamic footprints."""
-        return _Record(self, codes, predicate, callback, private, ignored, entry_only)
+    def record(self, codes=(), *, predicate=None, callback=None, private=False, ignored=(), entry_only=False, events=None):
+        """One hub owns local anchor events and explicit dynamic footprints. The record appends its events
+        (anchor, phase, values) to `events`, by default the runtime's own list."""
+        return _Record(self, codes, predicate, callback, private, ignored, entry_only, events)
 
     def replay(self, item, *, nextitem=None):
         """Called after the real protocol has torn down its function fixtures.
