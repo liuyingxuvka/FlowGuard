@@ -220,7 +220,7 @@ def bind(rows, models: Models):
                           kind=kind, nested=False, unclear=True, schema=None,
                           reason=f"accessor {row['accessor']!r} names no model in a mapped Prisma schema")]
         else:
-            written = {key: row[key] for key in ('values', 'refs') if key in row}
+            written = {key: row[key] for key in ('values', 'refs', 'partial') if key in row}
             found = _walk(base, models, model, row['path'], row['leaf'], kind, row.get('reason', ''), written)
         for item in found:
             key = (item['file'], item.get('call_line'), item['model'], item['field'], item['kind'])

@@ -192,6 +192,13 @@ def operation(graph, node):
     return _call_tree(graph, node, 3, up=3)
 
 
+def creates(row):
+    """Does a write row make a row (create, createMany, upsert's create branch, a nested create, SQL INSERT) rather
+    than change one that exists?"""
+    from .health import INSERTING
+    return row['kind'] in INSERTING or row['kind'].startswith(('nested:create', 'nested:upsert:create', 'nested:connectOrCreate'))
+
+
 def _holds(row, value):
     if value is None:
         return True
@@ -201,7 +208,8 @@ def _holds(row, value):
 
 def owner_pairs(change, index, *, everything=False):
     """`with=`: each write of a registered field also writes its partner in the same operation (`operation`:
-    callers three levels up, then three levels down from them), unless its function is listed in `alone=`.
+    callers three levels up, then three levels down from them), unless its function is listed in `alone=`;
+    `on=update` holds only the writes that change a row (`on=create` only those that make one, `creates`).
     A test's fixture write is not held to the pair. Red when this change adds the write or the rule."""
     from .health import Issue
     found = Findings()
@@ -210,7 +218,8 @@ def owner_pairs(change, index, *, everything=False):
     tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
     for owner in (a for a in index.entries if a.kind == 'owner' and a.pairs):
         rows = [row for row in change.graph.writes(owner.name, by_name=True) if bound(row)
-                and row['file'] not in tests and not is_test_file(row['file'])]
+                and row['file'] not in tests and not is_test_file(row['file'])
+                and (not owner.on or creates(row) == (owner.on == 'create'))]
         alone = [item.partition('(')[0] for item in owner.alone]
         new_rule = change.baseline and not _owner_at_baseline(change, owner)
         for pair in owner.pairs:
@@ -228,7 +237,8 @@ def owner_pairs(change, index, *, everything=False):
                     calls[id(row)] = 'name' in tree.values() or row.get('language', 'python') != 'python'
             def where(rows):
                 return '  '.join(f'{row["file"]}:{row["line"]} {row["function"]}' for row in rows) \
-                    + ('（JS/TS 调用按名字解析）' if any(calls[id(row)] for row in rows) else '')
+                    + ('（JS/TS 调用按名字解析）' if any(calls[id(row)] for row in rows) else '') \
+                    + {'update': '（只查修改）', 'create': '（只查新建）'}.get(owner.on, '')
             step = (f'补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 {owner.file}:{owner.line}）')
             shown = [row for row in missing if everything or new_rule or row['file'] in change.files]
             if shown:

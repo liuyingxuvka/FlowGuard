@@ -79,7 +79,9 @@ This is finite source coverage, not full type or execution proof.
   scoped, with later `x.f = ...`), `cond && {...}`, `cond ? {...} : {...}` and `rows.map(r => ({...}))`
   are followed; other spreads and values are `leaf='spread'|'opaque'` with a reason.
   `$executeRaw`/`$executeRawUnsafe` SQL text is read by `readers/sql.py:statements`. A `delete`/`deleteMany`
-  inside a loop of its function (a for/while/do body, a `.forEach`/`.map` callback) carries `loop: true`.
+  inside a loop of its function (a for/while/do body, a `.forEach`/`.map` callback) carries `loop: true`. A
+  written value keeps `values` for a literal, each branch of `c ? a : b` and the fallback of `x ?? 'v'`; when only
+  that fallback is spelled the row also carries `partial: true`.
 - `assignments[].form`: `member` (`obj.f = ...`), `pair`, `declarator`, `class-field` or `identifier`.
 
 ## Schema files

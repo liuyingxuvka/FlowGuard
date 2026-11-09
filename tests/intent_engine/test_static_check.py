@@ -377,6 +377,80 @@ def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
     assert '红：配对没写：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId' in text, text
 
 
+def test_the_value_gate_reads_the_fallback_of_a_nullish_default(tmp_path):
+    # Planning Tool 0.6.28 (round 21, G16): `sourceType: input.sourceType ?? 'CSV_IMPORT'` was not judged,
+    # `sourceType: 'CSV_IMPORT'` was red.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Project {
+              id         String @id
+              sourceType String
+              @@map("projects")
+            }
+        ''',
+        'prisma/migrations/001/migration.sql': '''
+            CREATE TABLE projects (id TEXT, sourceType TEXT CHECK (sourceType IN ('MANUAL', 'IMPORT')));
+        ''',
+    })
+    _write(tmp_path, {'src/projects.ts': '''
+        export async function create(prisma: any, input: any) {
+          await prisma.project.create({ data: { sourceType: input.sourceType ?? 'MANUAL' } });
+          await prisma.project.create({ data: { sourceType: input.sourceType ?? 'CSV_IMPORT' } });
+          await prisma.project.create({ data: { sourceType: input.sourceType ?? input.fallback } });
+        }
+    '''})
+    code, text = _static(tmp_path)
+    assert code == 1, text
+    assert [line.partition(' → ')[0] for line in _lines(text, '红：取值')] == [
+        "红：取值不在声明集合里：src/projects.ts:3 Project.sourceType='CSV_IMPORT'，允许 MANUAL|IMPORT"
+        "（CHECK prisma/migrations/001/migration.sql:1）"], text
+
+
+def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_path):
+    # Planning Tool 0.6.28 (round 21, V4): the business references follow a SAP number when it changes; with
+    # with= alone every function that creates an employee was red.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Employee {
+              id     String @id
+              sapRef Int
+            }
+
+            model Opportunity {
+              id            String @id
+              responsibleNo Int
+            }
+        ''',
+        'src/employees.ts': '''
+            export async function hire(prisma: any, id: string, sap: number) {
+              await prisma.employee.create({ data: { id, sapRef: sap } });
+            }
+            export async function renumber(prisma: any, id: string, old: number, sap: number) {
+              await prisma.employee.update({ where: { id }, data: { sapRef: sap } });
+              await prisma.opportunity.updateMany({ where: { responsibleNo: old }, data: { responsibleNo: sap } });
+            }
+            export async function fixNumber(prisma: any, id: string, sap: number) {
+              await prisma.employee.update({ where: { id }, data: { sapRef: sap } });
+            }
+        ''',
+    })
+    owner = '// flowguard: owner Employee.sapRef with=Opportunity.responsibleNo on=update\nexport {};\n'
+    _write(tmp_path, {'src/owners.ts': owner})
+    code, text = _static(tmp_path)
+    assert code == 1, text
+    assert _lines(text, '红：配对没写') == [
+        '红：配对没写：src/employees.ts:9 fixNumber（JS/TS 调用按名字解析）（只查修改） 写了 Employee.sapRef，同一操作'
+        '（调用方向上 3 层、再从那里向下 3 层）里没写 Opportunity.responsibleNo → 补写；有意只写一边，把函数加进 owner 行的 '
+        'alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
+    _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=create')})
+    code, text = _static(tmp_path)
+    assert code == 1 and [line.partition('（JS/TS')[0] for line in _lines(text, '红：配对没写')] == [
+        '红：配对没写：src/employees.ts:2 hire'], text
+    _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=later')})
+    code, text = _static(tmp_path)
+    assert code == 1 and 'on= is update or create and limits with=: owner Model.field with=Other.field on=update' in text, text
+
+
 def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_helpers(tmp_path):
     files = {
         'shop/__init__.py': '',

@@ -79,6 +79,7 @@ class Anchor:
     writers: tuple = ()      # a data owner `owner Table.column writers=module:function,...`
     pairs: tuple = ()        # `with=Model.field[=value],...`: fields every write of this one also writes
     alone: tuple = ()        # `alone=function(reason),...`: writers that may write it alone, with why
+    on: str = ''             # `on=update` / `on=create`: the pairs hold only for writes that change a row / make one
     projection: str = ''     # `-> result[0]` / `-> result.ok`: copies are compared on this part of the result
     fields: tuple = ()       # `fields days=(today - hire.due).days`: rule fields read from each call's own arguments
 
@@ -613,24 +614,28 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
 
 
 _DATA_OWNER = re.compile(r'(?P<name>' + _NAME + r')(?:\s+writers=(?P<writers>\S+))?(?:\s+with=(?P<with>\S+))?'
-                         r'(?:\s+alone=(?P<alone>(?:[\w.:]+\([^()]*\),?)+))?\s*')
+                         r'(?:\s+on=(?P<on>\S+))?(?:\s+alone=(?P<alone>(?:[\w.:]+\([^()]*\),?)+))?\s*')
 
 
 def _data_owner(body, file, module, line, is_test):
-    """`Table.column writers=f,... with=Model.field[=value],... alone=f(reason),...` as an owner anchor
-    (a dict), a syntax Issue, or None for a function owner (a bare name above a function)."""
+    """`Table.column writers=f,... with=Model.field[=value],... on=update alone=f(reason),...` as an owner
+    anchor (a dict), a syntax Issue, or None for a function owner (a bare name above a function)."""
     listed = _DATA_OWNER.fullmatch(body.strip())
-    if listed and not (listed['writers'] or listed['with'] or listed['alone']):
+    if listed and not (listed['writers'] or listed['with'] or listed['alone'] or listed['on']):
         return None
     writers = tuple(dict.fromkeys(part for part in (listed['writers'] or '').split(',') if part)) if listed else ()
     pairs = tuple(dict.fromkeys(part for part in (listed['with'] or '').split(',') if part)) if listed else ()
     alone = tuple(re.findall(r'[\w.:]+\([^()]*\)', listed['alone'] or '')) if listed else ()
+    on = (listed['on'] or '') if listed else ''
     if not listed or '.' not in listed['name'].strip('.') or not (writers or pairs) \
             or any('.' not in pair.partition('=')[0].strip('.') for pair in pairs) or alone and not pairs:
         return Issue('red', 'syntax', 'a data owner needs Table.column (or Model.field) with writers=function,... '
                      'and/or with=Model.field[=value],...; alone=function(reason) needs with=', file, line)
+    if on not in ('', 'update', 'create') or on and not pairs:
+        return Issue('red', 'syntax', 'on= is update or create and limits with=: owner Model.field with=Other.field on=update '
+                     '(alone=function(reason) after it)', file, line)
     return asdict(Anchor('owner', listed['name'], file, module, '', line, line, writers=writers, pairs=pairs, alone=alone,
-                         source_role='test' if is_test else 'production'))
+                         on=on, source_role='test' if is_test else 'production'))
 
 
 def foreign_owners(text, module, file, *, is_test=False, functions=()):

@@ -130,7 +130,8 @@ def _handled(child, parent, rows, queries, back):
     keys = set(child['keys']) | {child['relation']}
     for row in rows:
         if row.get('model') == child['child'] and (row['kind'] in DELETING or row['field'] in child['keys']
-                                                   and None in (row.get('values') or ()) or row['kind'] == 'disconnect'):
+                                                   and None in (row.get('values') or ()) and not row.get('partial')
+                                                   or row['kind'] == 'disconnect'):
             return True
     for row in queries:
         if row.get('model') == child['child'] and set(row['keys']) & keys:
@@ -172,7 +173,7 @@ def deletes(change, *, everything=False):
     trees = {(row['model'], row['field']) for row in rows if row['file'] not in tests and not is_test_file(row['file'])
              and (row['kind'] in CREATING or row['kind'] == 'connect' or row['kind'].startswith(('nested:create', 'nested:upsert',
                                                                                                   'nested:connect')))
-             and not (row.get('values') and all(value is None for value in row['values']))}
+             and not (row.get('values') and not row.get('partial') and all(value is None for value in row['values']))}
     for (file, function, parent, ident), calls in sorted(groups.items()):
         # An optional self relation (a tree's parent) is read only for a delete of one row, outside a loop, of a
         # table whose rows code links into a tree: a deleteMany or a loop in hierarchy order removes children

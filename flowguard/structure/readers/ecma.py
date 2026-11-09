@@ -401,13 +401,17 @@ def extract(root, rel, data, module, is_test):
 
     def value_parts(node):
         """[('value', v) | ('ref', 'Name.KEY')] an expression can take: a literal, a member of a named
-        object (`Status.ACTIVE`), or each branch of `c ? a : b`; None when any part is not spelled."""
+        object (`Status.ACTIVE`), or each branch of `c ? a : b`; None when any part is not spelled. The
+        fallback of `x ?? 'v'` is a part, with ('partial', None) when `x` is not spelled."""
         node = unwrap(node)
         if node is None:
             return None
         if node.type == 'ternary_expression':
             first, second = value_parts(field(node, 'consequence')), value_parts(field(node, 'alternative'))
             return first + second if first is not None and second is not None else None
+        if node.type == 'binary_expression' and operator(node) == '??':
+            first, second = value_parts(field(node, 'left')), value_parts(field(node, 'right'))
+            return None if second is None else (first if first is not None else [('partial', None)]) + second
         valid, value = literal(node, source)
         if valid:
             return [('value', value)]
@@ -418,11 +422,13 @@ def extract(root, rel, data, module, is_test):
         return None
 
     def written_of(node):
-        """`values` (literals) and `refs` (`Name.KEY` spellings) of a written expression, when every part is spelled."""
+        """`values` (literals) and `refs` (`Name.KEY` spellings) of a written expression, when every part is spelled;
+        `partial` when only the fallback of `x ?? 'v'` is (the value may also be what `x` holds)."""
         parts = value_parts(node)
         if not parts:
             return {}
-        return dict(values=[value for kind, value in parts if kind == 'value'], refs=[value for kind, value in parts if kind == 'ref'])
+        return dict(values=[value for kind, value in parts if kind == 'value'], refs=[value for kind, value in parts if kind == 'ref'],
+                    **({'partial': True} if ('partial', None) in parts else {}))
 
     def object_fields(value, base, prefix, rows, depth=0):
         """Write paths of one Prisma data value: fields, nested operations and what stays unclear."""
