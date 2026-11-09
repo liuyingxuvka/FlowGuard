@@ -16,7 +16,7 @@ import posixpath
 import sqlite3
 from pathlib import Path
 
-from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_run
+from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_run, glob_match
 from . import homes, store
 from .extract import extract
 from .store import shape_list
@@ -24,6 +24,7 @@ from .query import Rows, may_share, tokens
 
 NODE_COLS = ("id", "file", "module", "qual", "kind", "cls", "line", "end_line", "sig", "doc", "fp", "size", "effects", "build")
 SIMILAR = 0.85
+ARCHIVES = ('**/docs/**',)        # files no code runs against: database histories, release snapshots
 
 
 def build(root, store_path=None, *, roots=None, force=False, workers=None) -> "MapHandle":
@@ -496,11 +497,17 @@ class MapHandle:
         self._derived['value_sets'] = sorted(rows, key=lambda row: (row['key'], row['field']))
         return self._derived['value_sets']
 
-    @staticmethod
-    def archived(path):
-        """Is this SQL file kept under a `docs` folder (a database history or release snapshot), a description
-        no code runs against?"""
-        return 'docs' in path.split('/')[:-1]
+    def archived(self, path):
+        """Is this file an archive (a database history or release snapshot kept under a `docs` folder), a
+        description no code runs against? `[tool.flowguard] archives`, a list of path patterns (`**` crosses
+        folders, a folder covers what is in it), replaces the default `ARCHIVES`; `archives = []` makes every
+        file live."""
+        if 'archives' not in self._derived:
+            patterns = store.project_config(self.root).get('archives', list(ARCHIVES))
+            if not isinstance(patterns, list) or not all(isinstance(item, str) and item.strip('/') for item in patterns):
+                raise ValueError('[tool.flowguard] archives must be a list of path patterns')
+            self._derived['archives'] = tuple(item.strip('/') for item in patterns)
+        return any(glob_match(path, pattern) or glob_match(path, pattern + '/**') for pattern in self._derived['archives'])
 
     def _check_sets(self):
         """{Model.field: (per description {description: (values, file, line)}, the gate's set)} of SQL
@@ -808,14 +815,18 @@ class MapHandle:
         return [dict(key=key, spellings={value: found for value, found in sorted(spellings.items())})
                 for key, spellings in sorted(groups.items()) if len(spellings) >= min_spellings]
 
-    def schema_gaps(self):
-        """Columns one description of a table has and another lacks. A Prisma schema (models, @map,
-        @@map) is compared with every SQL description of its tables (one .sql file, or one Prisma
-        `migrations/` folder applied in order) and with other Prisma schemas that describe the same
-        tables. Only tables a description creates are compared; a description that creates at least
-        half of a schema's tables also reports the tables it lacks."""
+    def schema_gaps(self, schemas=None):
+        """Columns one description of a table has and another lacks. Each SQL description of tables (one
+        .sql file, or one Prisma `migrations/` folder applied in order) and each Prisma schema (models, @map,
+        @@map) is compared once, with the schema it describes: one in use (`prisma_schemas_in_use`) when one
+        shares its tables, else the schema sharing the most tables and columns, then the nearest folder. A
+        schema whose tables and columns all occur in a schema of another package (`package`) is a projection
+        and lacks nothing. Archived files (`archived`) describe nothing. Only tables a description creates
+        are compared; a description that creates at least half of a schema's tables also reports the tables
+        it lacks. `schemas` replaces the map's descriptions (for example with a baseline's)."""
         from .readers.prisma import gaps
-        return gaps(self.schemas())
+        rows = self.schemas() if schemas is None else schemas
+        return gaps([row for row in rows if not self.archived(row['file'])], self.prisma_schemas_in_use(), self.package)
 
     def calls(self, *, include_reads=False, language=None):
         """Syntactic calls; optionally include symbol reads, never execution evidence."""

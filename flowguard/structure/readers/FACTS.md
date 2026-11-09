@@ -90,10 +90,14 @@ This is finite source coverage, not full type or execution proof.
 readers: no grammar package. Nodes are `model`/`enum` (Prisma) and `table` (SQL CREATE TABLE);
 keys `model`, `table`, `column`; the `schema` fact holds models with fields (`column` from
 `@map`, table from `@@map`, `relation` from `@relation(fields, references)`) or tables, ALTER
-ADD/DROP COLUMN and DROP TABLE changes. Schema files have no code, so code queries over them are
+ADD/DROP/RENAME COLUMN, ALTER ... RENAME TO (`rename`, SQLite's table rebuild) and DROP TABLE changes, and
+the lines of CREATE TABLE statements whose table or columns are not spelled (`unread`: `AS SELECT`, a
+name built at run time). Schema files have no code, so code queries over them are
 complete and empty. `MapHandle.writes()` binds write paths to models at query time (accessor
 `centralEmployee` -> model `CentralEmployee`, relation -> model, `connect` -> the foreign-key
-fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` compares descriptions.
+fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` compares each live description
+once with the schema it describes (`archived()` files under `docs/` by default, `[tool.flowguard] archives`,
+describe nothing).
 
 ## Python writes and literals
 

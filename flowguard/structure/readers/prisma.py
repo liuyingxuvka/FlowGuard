@@ -320,16 +320,22 @@ def prisma_tables(schema, model_names) -> dict:
     return out
 
 
-def gaps(schemas) -> list[dict]:
-    """Missing columns (and, for a near-complete description, missing tables) between descriptions."""
+def gaps(schemas, in_use=frozenset(), package=None) -> list[dict]:
+    """Missing columns (and, for a near-complete description, missing tables) between descriptions. Each
+    description is compared once, with the Prisma schema it describes (`reference`): a SQL description and a
+    schema not `in_use` (a provider template) with one in use when one shares their tables, two schemas in
+    use with each other. A schema whose tables and columns all occur in a schema of another `package` (a
+    client that reads part of the database) is a projection: what it leaves out is no gap. A SQL description
+    with a CREATE TABLE the reader cannot read (`partial`) lacks no table, only columns of the tables it shows."""
     from .sql import describe
     prisma = [schema for schema in schemas if schema.get('kind') == 'prisma']
     names = {model['name'] for schema in prisma for model in schema.get('models', [])}
-    described = [(schema['file'], prisma_tables(schema, names)) for schema in prisma]
-    sql = [(item['description'], item['tables']) for item in describe(schemas)]
+    described = sorted((schema['file'], prisma_tables(schema, names)) for schema in prisma)
+    sql = [(item['description'], item['tables'], item['partial']) for item in describe(schemas)]
+    package = package or (lambda file: '')
     out = []
 
-    def compare(left_id, left, right_id, right, kind):
+    def compare(left_id, left, right_id, right, kind, partial=False):
         common = set(left) & set(right)
         for key in sorted(common):
             a, b = left[key], right[key]
@@ -338,23 +344,45 @@ def gaps(schemas) -> list[dict]:
             if missing or extra:
                 out.append(dict(kind=kind, table=a['name'], model=a.get('model'), schema=left_id, description=right_id,
                                 file=b['file'], line=b['line'], missing=missing, extra=extra))
-        if 2 * len(common) >= len(left) and common:
+        if 2 * len(common) >= len(left) and common and not partial:
             for key in sorted(set(left) - set(right)):
                 out.append(dict(kind=kind + '-table', table=left[key]['name'], model=left[key].get('model'), schema=left_id,
                                 description=right_id, file=None, line=None, missing=['<table>'], extra=[]))
 
-    for ident, tables in sql:
-        # The schema sharing the most tables; on a tie, the one describing those tables with the most columns
-        # (a projection that names fewer of them is not what the SQL describes).
-        overlap = [(len(set(tables) & set(model_tables)),
-                    sum(len(model_tables[key]['columns']) for key in set(tables) & set(model_tables)), file, model_tables)
-                   for file, model_tables in described]
-        best = max(((count, width) for count, width, _, _ in overlap), default=(0, 0))
-        for count, width, file, model_tables in overlap:
-            if count and (count, width) == best:
-                compare(file, model_tables, ident, tables, 'sql')
-    for i, (file, tables) in enumerate(described):
-        for other, other_tables in described[i + 1:]:
-            if set(tables) & set(other_tables):
-                compare(file, tables, other, other_tables, 'prisma')
+    def near(ident, file):
+        mine, theirs = ident.rstrip('/').split('/')[:-1], file.split('/')[:-1]
+        return next((i for i, (a, b) in enumerate(zip(mine, theirs)) if a != b), min(len(mine), len(theirs)))
+
+    def reference(ident, tables, candidates):
+        """The schema a description is a copy of: of the schemas sharing its tables, one in use when one is;
+        then the most shared tables, the most columns in them (a projection names fewer), the nearest folder
+        and the name."""
+        shared = [(file, model_tables) for file, model_tables in candidates if file != ident and set(tables) & set(model_tables)]
+        shared = [item for item in shared if item[0] in in_use] or shared
+        def rank(item):
+            common = set(tables) & set(item[1])
+            return len(common), sum(len(item[1][key]['columns']) for key in common), near(ident, item[0])
+        return max(shared, key=rank, default=None)
+
+    def within(small, large):
+        return all(key in large and set(table['columns']) <= set(large[key]['columns']) for key, table in small.items())
+
+    for ident, tables, partial in sql:
+        chosen = reference(ident, tables, described)
+        if chosen:
+            compare(chosen[0], chosen[1], ident, tables, 'sql', partial)
+    def weight(item):                            # the schema a pair is read against: in use, then the larger
+        return item[0] in in_use, len(item[1]), sum(len(table['columns']) for table in item[1].values())
+
+    pairs = {}
+    for file, tables in described:
+        others = [item for item in described if item[0] in in_use] if file in in_use else described
+        chosen = reference(file, tables, others)
+        if chosen:
+            pairs.setdefault(frozenset((file, chosen[0])), sorted([chosen, (file, tables)], key=lambda item: item[0]))
+    for left, right in (pairs[key] for key in sorted(pairs, key=sorted)):
+        left, right = (right, left) if weight(right) > weight(left) else (left, right)
+        if package(left[0]) != package(right[0]) and within(right[1], left[1]):
+            continue                            # a projection in another package
+        compare(*left, *right, 'prisma')
     return out

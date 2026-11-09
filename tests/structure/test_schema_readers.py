@@ -1,6 +1,8 @@
 """Prisma schema and SQL text readers, and string-literal facts that must stay quiet."""
 from contextlib import closing
 
+import pytest
+
 from flowguard.structure import build
 from flowguard.structure.readers.sql import statements
 
@@ -107,3 +109,90 @@ export function Badge({ load }: { load: () => void }) {
         assert [(row['value'], row['context']) for row in graph.literals(language='tsx')] == [('ok', 'union'), ('warn', 'union')]
         tsx = graph.handlers(language='tsx')
         assert [(row['type'], row['non_raising'], row['key']) for row in tsx] == [('any', True, 'view.tsx:Badge:any')]
+
+
+SCHEMA = '''datasource db {
+  provider = "%s"
+  url      = env("DATABASE_URL")
+}
+model Item {
+  id    String @id
+  name  String
+  note  String?
+  @@map("items")
+}
+model Order {
+  id     String @id
+  itemId String @map("item_id")
+  @@map("orders")
+}
+model Log {
+  id String @id
+  @@map("logs")
+}
+'''
+
+
+def test_schema_gaps_follow_rebuilds_skip_archives_and_compare_each_description_once(tmp_path):
+    # Planning Tool 0.6.28 had 33 such lines and 2 real ones: a SQLite rebuild read as a missing table, archived
+    # SQL under docs/, every description reported once per provider template, and a read-only client schema.
+    files = {
+        'backend/package.json': '{"name": "backend"}',
+        'backend/prisma/schema.prisma': SCHEMA % 'sqlserver',
+        'backend/prisma/schema.sqlite.prisma': SCHEMA % 'sqlite',
+        'backend/prisma/migrations/1_init/migration.sql':
+            'CREATE TABLE "items" ("id" TEXT NOT NULL, "name" TEXT NOT NULL);\n'
+            'CREATE TABLE "orders" ("id" TEXT NOT NULL, "item_id" TEXT NOT NULL);\n'
+            'CREATE TABLE "logs" ("id" TEXT NOT NULL);\n',
+        'backend/prisma/migrations/2_note/migration.sql':
+            'CREATE TABLE "new_items" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "note" TEXT);\n'
+            'INSERT INTO "new_items" ("id", "name") SELECT "id", "name" FROM "items";\n'
+            'DROP TABLE "items";\n'
+            'ALTER TABLE "new_items" RENAME TO "items";\n',
+        'backend/prisma/setup.sql':
+            'CREATE TABLE [dbo].[items] ([id] NVARCHAR(36) NOT NULL, [name] NVARCHAR(100) NOT NULL);\n'
+            'CREATE TABLE [dbo].[orders] ([id] NVARCHAR(36) NOT NULL, [item_id] NVARCHAR(36) NOT NULL);\n',
+        'backend/prisma/staged.sql':
+            "CREATE TABLE [dbo].[items] ([id] NVARCHAR(36) NOT NULL, [name] NVARCHAR(100) NOT NULL, [note] NVARCHAR(10));\n"
+            "SELECT @sql = N'CREATE TABLE [dbo].' + QUOTENAME(@table) + N' (' + @columns + N')';\n",
+        'docs/releases/2026/setup.sql': 'CREATE TABLE [dbo].[items] ([id] NVARCHAR(36) NOT NULL);\n',
+        'client/package.json': '{"name": "client"}',
+        'client/prisma/schema.prisma': '''model Item {
+  id   String @id
+  name String
+  @@map("items")
+}
+''',
+    }
+    with closing(project(tmp_path, files)) as graph:
+        found = sorted((gap['description'], gap['schema'], gap['kind'], gap['table'], tuple(gap['missing']), tuple(gap['extra']))
+                       for gap in graph.schema_gaps())
+        # Once, with the schema in use; the rebuilt items table has its note; the CREATE TABLE built at run time in
+        # staged.sql may create orders and logs; the archive and the client's projection lack nothing.
+        assert found == [
+            ('backend/prisma/setup.sql', 'backend/prisma/schema.prisma', 'sql', 'items', ('note',), ()),
+            ('backend/prisma/setup.sql', 'backend/prisma/schema.prisma', 'sql-table', 'logs', ('<table>',), ()),
+        ], found
+        staged = next(row for row in graph.schemas() if row['file'] == 'backend/prisma/staged.sql')
+        assert staged['unread'] == [2]
+    # A client schema with a column the database lacks is no projection; a template that drifted is compared
+    # with the schema in use, not with the other templates.
+    (tmp_path / 'client/prisma/schema.prisma').write_text(files['client/prisma/schema.prisma'].replace(
+        '  name String\n', '  name String\n  colour String\n'), encoding='utf-8')
+    (tmp_path / 'backend/prisma/schema.sqlite.prisma').write_text((SCHEMA % 'sqlite').replace('  note  String?\n', ''),
+                                                                   encoding='utf-8')
+    (tmp_path / 'backend/prisma/schema.mysql.prisma').write_text(SCHEMA % 'mysql', encoding='utf-8')
+    (tmp_path / 'pyproject.toml').write_text('[tool.flowguard]\narchives = []\n', encoding='utf-8')
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        found = sorted((gap['description'], gap['schema'], gap['table'], tuple(gap['missing']), tuple(gap['extra']))
+                       for gap in graph.schema_gaps() if gap['kind'] in ('sql', 'prisma'))
+        assert found == [
+            ('backend/prisma/schema.sqlite.prisma', 'backend/prisma/schema.prisma', 'items', ('note',), ()),
+            ('backend/prisma/setup.sql', 'backend/prisma/schema.prisma', 'items', ('note',), ()),
+            ('client/prisma/schema.prisma', 'backend/prisma/schema.prisma', 'items', ('note',), ('colour',)),
+            ('docs/releases/2026/setup.sql', 'backend/prisma/schema.prisma', 'items', ('name', 'note'), ()),
+        ], found
+    (tmp_path / 'pyproject.toml').write_text('[tool.flowguard]\narchives = "docs"\n', encoding='utf-8')
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        with pytest.raises(ValueError, match='archives must be a list of path patterns'):
+            graph.schema_gaps()

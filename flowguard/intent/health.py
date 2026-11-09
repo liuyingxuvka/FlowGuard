@@ -249,7 +249,6 @@ def columns(change, *, everything=False):
     before = None
     changed = {item for item in change.files if item.endswith(('.prisma', '.sql'))}
     if change.baseline and changed:
-        from flowguard.structure.readers.prisma import gaps as compare
         schemas = []
         for row in change.graph.schemas():
             if row['file'] in changed:
@@ -258,7 +257,8 @@ def columns(change, *, everything=False):
                     schemas.append(dict(facts['schema'], file=row['file']))
             else:
                 schemas.append(row)
-        before = {(_gap_key(item), name) for item in compare(schemas) for name in [*item['missing'], *item['extra']]}
+        before = {(_gap_key(item), name) for item in change.graph.schema_gaps(schemas)
+                  for name in [*item['missing'], *item['extra']]}
     pairs = {}
     for item in gaps:
         pairs.setdefault((item['description'], item['schema']), []).append(item)
