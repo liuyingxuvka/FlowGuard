@@ -434,15 +434,27 @@ class Observations:
                 else '生成器' if inspect.isgeneratorfunction(fn) else '')
         if not kind or not self.changed or not self._losable(point):
             return False
+        import dis
         entered = []
 
         def entry(frame, event, arg):
-            if event == 'call' and not entered:
+            # Python 3.11's trace also reports the call that only creates the generator (RETURN_GENERATOR):
+            # its body has not started, so that is not an entry.
+            created = frame.f_lasti >= 0 and dis.opname[frame.f_code.co_code[frame.f_lasti]] == 'RETURN_GENERATOR'
+            if event == 'call' and not created and not entered:
                 entered.append(True)
                 self._unhookable_call(point, fn, kind, frame.f_locals)
 
-        self.scopes.enter_context(self.runtime.record(codes=[(fn.__code__, point['name'])], callback=entry, entry_only=True))
-        self.scopes.callback(lambda: entered or self.grey.append(point['name'] + ': ' + reason))
+        record = self.runtime.record(codes=[(fn.__code__, point['name'])], callback=entry, entry_only=True)
+        self.scopes.enter_context(record)
+
+        def closed():
+            if not entered:
+                self.grey.append(point['name'] + ': ' + reason)
+            # The recorder keeps a failed callback's error as an issue; it is this point's grey, with its text.
+            self.grey.extend(point['name'] + ': ' + issue for issue in record.issues)
+
+        self.scopes.callback(closed)
         return True
 
     def _unhookable_call(self, point, fn, kind, values):
