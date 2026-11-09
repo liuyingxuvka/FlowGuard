@@ -253,10 +253,32 @@ def _data(value, trail=frozenset()):
                   types.ClassMethodDescriptorType, types.GetSetDescriptorType, types.BuiltinFunctionType)
         return all(inspect.getattr_static(type(value), name, None) is inspect.getattr_static(enum.Enum, name, None)
                    or type(inspect.getattr_static(type(value), name, None)) in native for name in hooks)
-    if type(value) not in (tuple, list, dict, set, frozenset) or id(value) in trail:
+    if id(value) in trail:
         return False
-    children = [*value.keys(), *value.values()] if type(value) is dict else value
+    if type(value) in (tuple, list, dict, set, frozenset):
+        children = [*value.keys(), *value.values()] if type(value) is dict else value
+    elif (fields := _record_fields(value)) is not None:
+        children = fields
+    else:
+        return False
     return all(_data(item, trail | {id(value)}) for item in children)
+
+
+def _record_fields(value):
+    """The field values of a plain record result (a NamedTuple, or a dataclass whose equality is the
+    generated one), so comparing two of them runs no project operator; None for anything else."""
+    import dataclasses
+    kind = type(value)
+    if isinstance(value, tuple) and type(inspect.getattr_static(kind, '_fields', None)) is tuple:
+        return list(value) if inspect.getattr_static(kind, '__eq__') is tuple.__eq__ else None
+    if not dataclasses.is_dataclass(kind) or not kind.__dataclass_params__.eq:
+        return None
+    equality = inspect.getattr_static(kind, '__eq__')
+    if getattr(getattr(equality, '__code__', None), 'co_filename', None) != '<string>':
+        return None     # a hand-written __eq__ is project code
+    state = _attributes(value)
+    names = [field.name for field in dataclasses.fields(kind)]
+    return [state[name] for name in names] if all(name in state for name in names) else None
 
 
 def _attributes(value):

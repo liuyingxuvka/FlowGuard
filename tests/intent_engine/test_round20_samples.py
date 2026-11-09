@@ -149,7 +149,7 @@ def test_sample_3_a_helper_constant_shows_its_whole_interval_and_cause(shop):
     assert result.returncode == 1, text
     red = next(index for index, line in enumerate(block) if line.startswith('红：同名锚点 STANDING：'))
     assert 'shop/policy.py:10' in block[red] and 'shop/preview.py:2' in block[red] and '≠' in block[red], block
-    assert block[red + 1].startswith('    '), block
+    assert ' -> 让 standing_allows 和同名副本一致' in block[red], block      # its next step
 
 
 def test_sample_4_unanchored_late_fee_reports_the_member_classes(shop):

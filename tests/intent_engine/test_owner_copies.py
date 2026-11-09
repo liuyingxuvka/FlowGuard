@@ -459,7 +459,9 @@ def test_copy_discovery_replays_through_the_runtime_and_lists_what_it_cannot_run
     unclear = next(line for line in _lines(text) if line.startswith('线索：看不清'))
     assert 'rules.py:10（超过 0.5 秒没有结束）' in unclear, unclear
     assert "vendor_copy.py:4（导入出错：ModuleNotFoundError: No module named 'not_installed_anywhere'）" in unclear, unclear
-    assert 'rules.py:16（possible side effect' in unclear, unclear
+    # `broken` imports json inside its body: that import now runs under the replay guard, and the copy's
+    # TypeError for every representative is a behaviour to compare, not something left unseen.
+    assert 'rules.py:16' not in unclear, unclear
 
 
 def test_a_new_copy_of_a_registered_owner_is_red(tmp_path):

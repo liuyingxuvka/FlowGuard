@@ -202,17 +202,17 @@ def _red_entry(message):
 
 
 def _red_lines(report, items):
-    entries, order = {}, []
+    entries, order, compared = {}, [], []
     steps = dict(report.get('steps', {}))
     messages = [*report.get('red', ()), *(message for item in items for message in item.get('red', ()))]
     for item in items:
         if item.get('comparison') and _facts(item, comparison=True)['count']:
+            # A source comparison keeps its block title: `红 同名锚点 NAME（left ↔ right）：counts：first change`.
             facts = _facts(item, comparison=True)
-            kind = '同名锚点 ' if item.get('same_name') or report.get('same_name') else '对比 '
-            message, step = red(kind + facts['name'], facts['location'].strip('（）') + '：' + facts['change'],
-                                next=['让这几处一致；行为本来就该不同时，改用不同的锚点名'] if kind == '同名锚点 ' else ())
-            messages.append(message)
-            steps = {**step, **steps}
+            same = item.get('same_name') or report.get('same_name')
+            compared.append(('红 同名锚点 ' if same else '红 对比 ') + f'{facts["name"]}{facts["location"]}：{facts["summary"]}：{facts["overall"]}')
+            if same:
+                compared.append('    让这几处一致；行为本来就该不同时，改用不同的锚点名并写 distinct')
     for message in messages:
         entry = _red_entry(message)
         key = entry['subject'] or ('', len(order))
@@ -235,7 +235,7 @@ def _red_lines(report, items):
     for finding in report.get('ledger_red', ()):
         lines.append('红：' + finding['text'])
         lines.extend('    ' + step for step in finding['fix'])
-    return lines
+    return lines + compared
 
 
 def _lead_line(lead):
