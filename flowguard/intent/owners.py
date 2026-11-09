@@ -23,6 +23,7 @@ import time
 from flowguard.map.common import git_blob, is_test_file, read_source
 
 SIMILAR_SHAPE = 0.5          # 3-gram Jaccard of two function bodies that counts as a similar structure
+SIMILAR_FOREIGN = 0.8        # the same for JS/TS, whose copies are found by structure alone (no replay)
 TRIVIAL = {0, 1, -1, 2}      # numbers too common to tie two functions together
 TIMEOUT = 2.0                # seconds for one function's replay before it is listed as unclear
 PEERS = 40                   # look-alikes of one changed function replayed at most, the most similar first
@@ -34,10 +35,14 @@ class Findings:
     red: list = field(default_factory=list)
     leads: list = field(default_factory=list)
     stats: dict = field(default_factory=dict)
+    issues: list = field(default_factory=list)      # health.Issue: open structure problems, old ones too
+    section: list = field(default_factory=list)     # the --all listing of open structure problems
+    summary: dict | None = None                     # count and heaviest names for the session brief
 
     def extend(self, other):
         self.red.extend(other.red)
         self.leads.extend(other.leads)
+        self.issues.extend(other.issues)
         for key, value in other.stats.items():
             self.stats[key] = self.stats.get(key, 0) + value
         return self
@@ -57,8 +62,22 @@ class Change:
     def impact(self):
         """The map's changed, added and removed ids against the baseline (read once)."""
         if self._impact is None:
-            self._impact = self.graph.impact(since=self.baseline)
+            self._impact = self.graph.impact(since=self.baseline) if self.baseline else dict(changed=[], added=[], removed=[])
         return self._impact
+
+    def touched(self):
+        """Functions (named, nested callbacks folded into them) this change edits or adds."""
+        if not hasattr(self, '_touched'):
+            impact = self.impact()
+            self._touched = {named(ident) for ident in [*impact.get('changed', ()), *impact.get('added', ())]}
+        return self._touched
+
+    def writes(self):
+        """Every write row of the map, read once per check; Python right sides are not folded (the structure
+        checks ask who writes; a JS/TS or SQL row keeps the literal values its source spells)."""
+        if not hasattr(self, '_writes'):
+            self._writes = self.graph.writes(by_name=True, fold=False)
+        return self._writes
 
     def old_text(self, file):
         if file not in self._texts:
@@ -78,6 +97,19 @@ class Change:
     def changed_python(self):
         return sorted(file for file in self.files if file.endswith('.py') and file in self._modules
                       and not is_test_file(file) and not (self.cfg.root / file).resolve().is_relative_to(self.cfg.intent))
+
+
+def named(ident):
+    """A function id without its anonymous callback parts: a callback's writes and calls are its function's."""
+    module, _, qual = ident.partition(':')
+    return module + (':' + '.'.join(part for part in qual.split('.') if not part.startswith('<anonymous')) if qual else '')
+
+
+def row_function(row):
+    """The named function id of a write or query row (`module:function`)."""
+    module = row['node'].partition(':')[0]
+    return named(row['node']) if row.get('language', 'python') == 'python' else \
+        module + (':' + row['function'] if row.get('function') and row['function'] != '<module>' else '')
 
 
 def baseline(cfg, base=None):
@@ -140,14 +172,14 @@ def owner_writes(change, index, *, everything=False):
     return found
 
 
-def _call_tree(graph, node, depth=3):
-    """The function and what it calls, down `depth` levels of the map's call edges."""
-    seen, frontier = {node}, {node}
-    for _ in range(depth):
-        frontier = {dst for src in frontier for (dst,) in graph.con.execute(
-            "SELECT dst FROM edge WHERE src = ? AND kind = 'calls'", (src,))} - seen
-        seen |= frontier
-    return seen
+def _call_tree(graph, node, depth=3, up=0):
+    """{named function: how}: the function and what it calls, down `depth` levels (first `up` levels of
+    callers, with `up`); JS/TS member calls are resolved by name ('name')."""
+    tree = {}
+    for ident, how in graph.call_tree(node, depth, up=up).items():
+        key = named(ident)
+        tree[key] = 'name' if 'name' in (how, tree.get(key)) else how
+    return tree
 
 
 def _holds(row, value):
@@ -160,21 +192,40 @@ def _holds(row, value):
 def owner_pairs(change, index, *, everything=False):
     """`with=`: each write of a registered field also writes its partner in its call tree (down three
     levels), unless its function is listed in `alone=`. Red when this change adds the write or the rule."""
+    from .health import Issue
     found = Findings()
+    def bound(row):         # a JS/TS `obj.f = ...` matched by field name alone is not a write of a model
+        return not row.get('unclear') and not (row.get('how') == 'name' and row.get('language', 'python') != 'python')
     for owner in (a for a in index.entries if a.kind == 'owner' and a.pairs):
-        rows = [row for row in change.graph.writes(owner.name, by_name=True) if not row.get('unclear')]
+        rows = [row for row in change.graph.writes(owner.name, by_name=True) if bound(row)]
         alone = [item.partition('(')[0] for item in owner.alone]
         new_rule = change.baseline and not _owner_at_baseline(change, owner)
         for pair in owner.pairs:
             target, _, value = pair.partition('=')
-            partners = {row['node'] for row in change.graph.writes(target, by_name=True)
-                        if not row.get('unclear') and _holds(row, value or None)}
-            missing = [row for row in rows if not _allowed(row, alone) and not _call_tree(change.graph, row['node']) & partners]
+            model, _, column = target.rpartition('.')
+            partners = {row_function(row) for row in change.graph.writes(model if column == '*' else target, by_name=True)
+                        if bound(row) and _holds(row, value or None)}
+            missing, calls = [], {}
+            for row in rows:
+                if _allowed(row, alone):
+                    continue
+                tree = _call_tree(change.graph, row_function(row))
+                if not tree.keys() & partners:
+                    missing.append(row)
+                    calls[id(row)] = 'name' in tree.values() or row.get('language', 'python') != 'python'
+            def where(rows):
+                return '  '.join(f'{row["file"]}:{row["line"]} {row["function"]}' for row in rows) \
+                    + ('（JS/TS 调用按名字解析）' if any(calls[id(row)] for row in rows) else '')
+            step = (f'补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 {owner.file}:{owner.line}）')
             shown = [row for row in missing if everything or new_rule or row['file'] in change.files]
             if shown:
-                found.red.append(f'配对没写：' + '  '.join(f'{row["file"]}:{row["line"]} {row["function"]}' for row in shown)
-                                 + f' 写了 {owner.name}，调用树（向下 3 层）里没写 {pair} → 补写；有意只写一边，'
-                                   f'把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 {owner.file}:{owner.line}）')
+                found.red.append(f'配对没写：{where(shown)} 写了 {owner.name}，调用树（向下 3 层）里没写 {pair} → ' + step)
+            if missing:
+                found.issues.append(Issue(
+                    f'pair:{owner.name}>{pair}', 2, f'配对 {owner.name}',
+                    f'配对没写：{where(missing)} 写了 {owner.name}，调用树（向下 3 层）里没写 {pair}',
+                    step, frozenset(row_function(row) for row in missing), frozenset(row['file'] for row in missing),
+                    new=bool(shown)))
     return found
 
 
@@ -214,11 +265,65 @@ def _module_literals(tree):
     return found
 
 
+def _foreign_constant_changes(change):
+    """The same for JS/TS files, from the map's facts: `const NAME = literal` constants and the decision
+    literals (comparisons, cases, returns, sets, unions) of a function whose shape is otherwise unchanged."""
+    from flowguard.structure.readers.registry import ECMA, language_for
+    current = {path: facts for path, _, facts in change.graph._files()}
+    out = []
+    for file in sorted(change.files):
+        if language_for(file) not in ECMA or is_test_file(file) or file not in current:
+            continue
+        old, new = change.old_facts(file), current[file]
+        if not old:
+            continue
+        from flowguard.structure.store import shape_list
+        module = change._modules[file]
+        nodes = [dict(qual=qual, kind=kind, sig=sig, line=line, shape=shape_list(blob) if isinstance(blob, bytes) else list(blob or ()))
+                 for qual, kind, sig, line, blob in change.graph.con.execute(
+                     'SELECT qual, kind, sig, line, shape FROM node WHERE file = ?', (file,))]
+        before = {node['qual']: node for node in old['nodes'] if node['kind'] == 'const'}
+        for node in nodes:
+            previous = before.get(node['qual'])
+            if node['kind'] != 'const' or previous is None:
+                continue
+            (a, first), (b, second) = _literal_text(previous['sig']), _literal_text(node['sig'])
+            for old_value, new_value in _differences(first, second) if a and b else ():
+                out.append(dict(name=node['qual'], before=old_value, after=new_value, file=file, line=node['line'],
+                                identity=module + ':' + node['qual'], target=''))
+        shapes = {node['qual']: list(node.get('shape') or ()) for node in old['nodes']}
+        now_shapes = {node['qual']: node['shape'] for node in nodes}
+        def by_function(facts):
+            rows = {}
+            for row in sorted([*facts.get('literals', ()), *facts.get('numbers', ())], key=lambda row: (row['line'], row['column'])):
+                rows.setdefault(named(row['node']), []).append(row)
+            return rows
+        old_rows, new_rows = by_function(old), by_function(new)
+        for ident in old_rows.keys() & new_rows.keys():
+            qual = ident.partition(':')[2]
+            first, second = old_rows[ident], new_rows[ident]
+            if not qual or len(first) != len(second) or shapes.get(qual) != now_shapes.get(qual):
+                continue
+            for x, y in zip(first, second):
+                for old_value, new_value in _differences(x['value'], y['value']):
+                    out.append(dict(name=qual + ' 的常量', before=old_value, after=new_value, file=file, line=y['line'],
+                                    identity='', target=ident))
+    return out
+
+
+def _literal_text(text):
+    try:
+        return True, ast.literal_eval(text)
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        return False, None        # a JS/TS constant that is no literal takes no part in old-value leads
+
+
 def constant_changes(change):
     """Literal values this change replaced: module constants (also inside tuples and dicts) and the
-    constants of a function whose structure is otherwise unchanged. Read from source, never run."""
+    constants of a function whose structure is otherwise unchanged, in Python and JS/TS files. Read from
+    source, never run."""
     from .runtime import _functions
-    out = []
+    out = _foreign_constant_changes(change)
     for file in change.changed_python():
         old = change.old_text(file)
         if old is None:
@@ -310,9 +415,12 @@ def _declarations(graph):
     Python enums; {name: [(file, line, values)]}."""
     from flowguard.structure import decide
     from . import anchors
+    from flowguard.structure.readers.registry import ECMA, language_for
     found, sets = {}, {}
+    for row in graph.declarations():          # JS/TS: unions, `as const` arrays and objects, `new Set`, aliases
+        found.setdefault(row['name'], []).append((row['file'], row['line'], frozenset(row['values'])))
     for row in graph.literals(contexts={'union'}):
-        if row.get('declaration'):
+        if row.get('declaration') and language_for(row['file']) not in ECMA:
             item = sets.setdefault((row['declaration'], row['file']), [row['line'], set()])
             item[0] = min(item[0], row['line'])
             item[1].add(row['value'])
@@ -374,36 +482,73 @@ def literal_drift(change, *, everything=False):
 def changed_once(change):
     """A changed function whose baseline body (the fingerprint without name and docstring) an unchanged
     function still has: the copy this edit probably also needed. Static; `check` compares behavior."""
+    from flowguard.structure.readers.registry import ECMA, language_for
+    from flowguard.structure.store import shape_list
     found = Findings()
-    files = change.changed_python()
+    foreign = sorted(file for file in change.files if language_for(file) in ECMA and not is_test_file(file)
+                     and file in change._modules)
+    files = change.changed_python() + foreign
     if not files:
         return found
     delta = change.graph._delta_against(change.baseline, files)
     touched = {row[0] for row in delta}
+    shapes = None
     for ident, kind, old_fp, new_fp, _, _ in delta:
-        if kind != 'changed' or not old_fp:
+        if kind != 'changed' or not old_fp or '<anonymous' in ident:
             continue
         twins = [(other, file, line) for other, file, line in change.graph.con.execute(
             "SELECT id, file, line FROM node WHERE fp = ? AND kind IN ('function', 'method') ORDER BY id", (old_fp,))
             if other not in touched]
-        if twins:
-            node = change.graph.node(ident) or {}
+        node = change.graph.node(ident) or {}
+        similar = []
+        if language_for(node.get('file') or '') in ECMA:
+            # JS/TS functions cannot be run here: structure alone (the 3-gram shape before the edit) finds them.
+            if shapes is None:
+                shapes = [(other, file, line, set(shape_list(blob) if isinstance(blob, bytes) else blob or ()))
+                          for other, file, line, blob in change.graph.con.execute(
+                              "SELECT id, file, line, shape FROM node WHERE kind IN ('function', 'method') AND shape IS NOT NULL")
+                          if language_for(file or '') in ECMA and not is_test_file(file or '')]
+            qual = ident.partition(':')[2]
+            old_shape = set(next((item.get('shape') or () for item in change.old_facts(node['file']).get('nodes', ())
+                                  if item['qual'] == qual), ()))
+            known = {other for other, _, _ in twins}
+            similar = [(other, file, line) for other, file, line, shape in shapes
+                       if other not in touched and other not in known and old_shape and shape
+                       and len(old_shape & shape) / len(old_shape | shape) >= SIMILAR_FOREIGN]
+        if twins or similar:
             name = ident.partition(':')[2].rpartition('.')[2].strip('_').upper()
-            found.leads.append(f'{ident.partition(":")[2]}（{node.get("file")}:{node.get("line")}）改了，改前和它一模一样的 '
-                               f'{len(twins)} 份没改：' + '  '.join(f'{file}:{line}' for _, file, line in twins)
-                               + f'（要一起改就一起改；要锁定：在负责人上方加 # flowguard: owner {name}，'
-                                 f'副本上方加 # flowguard: sensor {name}）')
+            comment = '//' if similar or language_for(node.get('file') or '') in ECMA else '#'
+            parts = ([f'改前和它一模一样的 {len(twins)} 份没改：' + '  '.join(f'{file}:{line}' for _, file, line in twins)] if twins else []) \
+                + ([f'结构相近（形状相似度不低于 {SIMILAR_FOREIGN:g}）的 {len(similar)} 份也没改：'
+                    + '  '.join(f'{file}:{line}' for _, file, line in similar)] if similar else [])
+            found.leads.append(f'{ident.partition(":")[2]}（{node.get("file")}:{node.get("line")}）改了，' + '；'.join(parts)
+                               + f'（要一起改就一起改；要锁定：在负责人上方加 {comment} flowguard: owner {name}，'
+                                 f'副本上方加 {comment} flowguard: sensor {name}）')
     return found
 
 
-def static_findings(cfg, graph, index, base=None, *, everything=False):
-    """What any run can report without replay: owner writes, old values, rules, new spellings and
-    unchanged copies of a changed function's old body."""
+def static_findings(cfg, graph, index, base=None, *, everything=False, replay=False, excluded=()):
+    """The one assembly of owner and structure findings. Without replay (pytest, `check --static`): owner
+    writes and pairs, values outside declared sets, old values (rules too), new spellings, unchanged copies
+    of a changed function's old body, deletes that leave children, missing columns and the open structure
+    problems (`health`). `replay` (`check`) runs copy discovery and the changed-alone comparison instead
+    of the static copy lead. `everything` adds the old ledger and the `--all` structure listing."""
+    from . import health
     change = Change(cfg, graph, baseline(cfg, base))
     found = owner_writes(change, index, everything=everything).extend(owner_pairs(change, index, everything=everything))
+    found.extend(health.values(change, everything=everything))
     if change.baseline:
-        found.extend(old_value_leads(change)).extend(literal_drift(change)).extend(changed_once(change))
-    return found
+        found.extend(old_value_leads(change))
+        if not replay:
+            found.extend(changed_once(change))
+    if change.baseline or everything:
+        found.extend(literal_drift(change, everything=everything))
+    found.extend(health.deletes(change, everything=everything)).extend(health.columns(change, everything=everything))
+    found.extend(health.copies(change, index)).extend(health.writers(change, index))
+    if replay:
+        found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
+        found.extend(changed_alone(cfg, graph, index, change, excluded=excluded))
+    return health.assess(cfg, change, index, found, everything=everything)
 
 
 # ---- replay of candidate functions (check only) ------------------------------------------------------
@@ -758,6 +903,13 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
                 found.red.append(f'负责人 {label} 之外新起了一份：' + '  '.join(f'{row["file"]}:{row["line"]}' for row in fresh)
                                  + f'（{category}）→ 改成调用 {owner.qual}，或在它上方写 # flowguard: sensor {owner.name}')
             found.leads.append(('旧账 ' if everything and not new_owner and not fresh else '') + text)
+            if category == '分叉的副本':
+                from .health import Issue
+                found.issues.append(Issue(f'copies:{owner.name}', 5, f'副本 {owner.name}', f'负责人 {label} 的{text}',
+                                          f'每份选一样：改成调用 {owner.qual}；或在副本上方写 # flowguard: sensor {owner.name} 并让它一致；'
+                                          f'或写 distinct("{owner.name}", "<副本的锚点名>", why="...", source="...")',
+                                          frozenset({owner.target, *(row['id'] for row in members)}),
+                                          frozenset({owner.file, *(row['file'] for row in members)})))
         if unclear:
             found.leads.append(f'看不清 {len(unclear)} 份：' + '  '.join(unclear))
     found.stats.update(copy_candidates=candidates_seen, copy_seconds=time.perf_counter() - started)
@@ -890,16 +1042,8 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
 
 
 def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=()):
-    """`check`: the static findings plus copy discovery and the changed-alone comparison."""
-    change = Change(cfg, graph, baseline(cfg, base))
-    found = owner_writes(change, index, everything=everything).extend(owner_pairs(change, index, everything=everything))
-    if change.baseline:
-        found.extend(old_value_leads(change))
-    if change.baseline or everything:
-        found.extend(literal_drift(change, everything=everything))
-    found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
-    found.extend(changed_alone(cfg, graph, index, change, excluded=excluded))
-    return found
+    """`check`: the static findings with copy discovery and the changed-alone comparison."""
+    return static_findings(cfg, graph, index, base, everything=everything, replay=True, excluded=excluded)
 
 
 def show_lines(cfg, graph, index, name):

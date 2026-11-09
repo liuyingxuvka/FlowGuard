@@ -43,6 +43,7 @@ class MapHandle:
         self.con = sqlite3.connect(path, timeout=30)
         self._syntax_cache = None
         self._file_cache = {}
+        self._derived = {}
         self._queried = set()
 
     def refresh(self) -> dict:
@@ -51,6 +52,7 @@ class MapHandle:
         self.con = sqlite3.connect(self.path, timeout=30)
         self._syntax_cache = None
         self._file_cache = {}
+        self._derived = {}
         self._queried = set()
         return self.stats
 
@@ -231,6 +233,12 @@ class MapHandle:
 
     # ---- writes, string literals and schema descriptions ---------------------------------------
     def _schema_rows(self):
+        """(path, schema facts) of every Prisma/SQL file, read once per handle and build."""
+        if 'schema_rows' not in self._derived:
+            self._derived['schema_rows'] = self._read_schema_rows()
+        return self._derived['schema_rows']
+
+    def _read_schema_rows(self):
         from .readers.registry import SCHEMA_LANGUAGES, SUFFIXES
         suffixes = [suffix for suffix, language in SUFFIXES.items() if language in SCHEMA_LANGUAGES]
         rows = []
@@ -249,10 +257,12 @@ class MapHandle:
         return [dict(schema, file=path) for path, schema in rows]
 
     def _models(self):
-        from .readers.prisma import Models
-        return Models([(path, schema) for path, schema in self._schema_rows() if schema.get('kind') == 'prisma'])
+        if 'models' not in self._derived:
+            from .readers.prisma import Models
+            self._derived['models'] = Models([(path, schema) for path, schema in self._schema_rows() if schema.get('kind') == 'prisma'])
+        return self._derived['models']
 
-    def writes(self, target=None, *, language=None, by_name=False, facts=None):
+    def writes(self, target=None, *, language=None, by_name=False, facts=None, fold=True):
         """Who writes what, statically: Prisma client writes bound to schema models (connect and nested
         writes follow @relation), SQL write statements (TS/JS raw SQL, .sql files and Python string literals,
         recorded for the function holding them), and Python attribute assignments bound to a class. A Python
@@ -260,7 +270,8 @@ class MapHandle:
         that only a field name ties to a target (how='name'). `target` is `Model.field`, `table.column`,
         a model or table, or a bare field/column name; rows whose fields are not visible (spread,
         non-literal data) are kept for their model with `unclear=True`. `facts` reads these file facts
-        (for example one file's facts at a baseline commit) instead of the map's. Never execution evidence."""
+        (for example one file's facts at a baseline commit) instead of the map's; `fold=False` skips folding Python
+        right sides into `values` (who writes, not what). Never execution evidence."""
         from .readers.prisma import bind, bind_sql
         from .readers.registry import ECMA, language_for
         self._mark_query('writes', language)
@@ -271,10 +282,10 @@ class MapHandle:
             if language is not None and kind != language:
                 continue
             writes = facts.get('writes', [])
-            rows += [dict(row, language=kind) for row in bind([w for w in writes if w.get('via') == 'prisma'], models)]
+            rows += [self._resolved(dict(row, language=kind)) for row in bind([w for w in writes if w.get('via') == 'prisma'], models)]
             rows += [dict(row, language=kind) for row in bind_sql([w for w in writes if w.get('via') == 'sql'], models)]
             for row in facts.get('assignments', []):
-                row = self._folded(row) if kind == 'python' else row
+                row = self._folded(row) if kind == 'python' and fold else row
                 if kind in ECMA and row.get('form') == 'member' and by_name and row.get('field'):
                     rows.append(dict(node=row['node'], function=row['node'].partition(':')[2] or '<module>', file=row['file'],
                                      line=row['line'], column=row.get('column'), call_line=row['line'], how='name',
@@ -301,6 +312,272 @@ class MapHandle:
     def _syntax_files(self):
         return [facts for _, _, facts in self._files()]
 
+    # ---- declared value sets, typed values, Prisma reads, relations and calls by name ----------
+    def _ts_sets(self):
+        """{name: [row]} of the JS/TS value sets (`as const` arrays and objects, `new Set([...])`, closed
+        string unions and aliases of them), read once per handle."""
+        if 'ts_sets' not in self._derived:
+            found = {}
+            for facts in self._syntax_files():
+                for row in facts.get('value_sets', ()):
+                    found.setdefault(row['name'], []).append(row)
+            self._derived['ts_sets'] = found
+        return self._derived['ts_sets']
+
+    def _ts_values(self, name, file=None, seen=frozenset()):
+        """(values, row) a JS/TS set name stands for, following aliases (`(typeof X)[number]`); a name
+        defined more than once with different values resolves only in the file that defines it."""
+        rows = self._ts_sets().get(name, [])
+        local = [row for row in rows if row['file'] == file]
+        rows = local or rows
+        resolved = []
+        for row in rows:
+            if row['kind'] == 'alias':
+                if row['of'] in seen | {name}:
+                    continue
+                values, origin = self._ts_values(row['of'], row['file'], seen | {name})
+                if values is not None:
+                    resolved.append((tuple(values), dict(origin, line=row['line'], file=row['file'], name=name)))
+            else:
+                resolved.append((tuple(row['values']), row))
+        if len({values for values, _ in resolved}) != 1:
+            return None, None
+        return list(resolved[0][0]), resolved[0][1]
+
+    def _resolved(self, row):
+        """A write's `values` with its `Name.KEY` spellings read from `{KEY: 'v'} as const` objects; a row
+        with a spelling no object resolves keeps no values (the value is not visible)."""
+        refs = row.pop('refs', None)
+        if not refs:
+            return row if row.get('values') else {key: value for key, value in row.items() if key != 'values'}
+        values = list(row.get('values') or ())
+        for ref in refs:
+            name, _, key = ref.partition('.')
+            members = [found for found in self._ts_sets().get(name, []) if found['kind'] == 'const-object' and key in found['members']]
+            if len({found['members'][key] for found in members}) != 1:
+                return {key: value for key, value in row.items() if key != 'values'}
+            values.append(members[0]['members'][key])
+        return dict(row, values=values)
+
+    def declarations(self, *, exported=True):
+        """Named JS/TS value sets with their resolved values: [{name, file, line, values, kind}] (an alias
+        appears with the values of the set it names). Only exported declarations by default: a module's
+        own local type of one name is not a second declaration of another module's. A `{K: 'v'} as const`
+        object counts only when its values are codes (no white space), not texts or class lists."""
+        out = []
+        for name, rows in sorted(self._ts_sets().items()):
+            for row in rows:
+                if exported and not row.get('exported'):
+                    continue
+                values, origin = self._ts_values(name, row['file']) if row['kind'] == 'alias' else (row['values'], row)
+                if values and (origin or row)['kind'] == 'const-object' and any(len(value.split()) != 1 for value in values):
+                    continue
+                if values:
+                    out.append(dict(name=name, file=row['file'], line=row['line'], values=tuple(values), kind=row['kind']))
+        return out
+
+    def value_sets(self):
+        """The declared value sets of fields that code outside Python declares, keyed `Model.field`: a Prisma
+        field typed with a Prisma enum, a SQL `CHECK (column IN ('a', ...))` on a model's table (the latest
+        one in a migrations folder; several descriptions add up), and a JS/TS interface, class or object
+        type member annotated with a closed string union or an alias of `as const`/`new Set` values.
+        Each row: key, name, values, where (file:line), kind, fold (the database compares text without
+        case: SQL Server and MySQL default collations)."""
+        if 'value_sets' in self._derived:
+            return self._derived['value_sets']
+        from .readers.sql import MIGRATION
+        models, out = self._models(), {}
+        schemas = self.schemas()
+        providers = {}
+        for schema in schemas:
+            if schema.get('kind') != 'prisma':
+                continue
+            enums = {enum['name']: [member['name'] for member in enum['fields']] for enum in schema.get('enums', ())}
+            for model in schema.get('models', ()):
+                providers.setdefault(model['name'], schema.get('provider', ''))
+                for field in model['fields']:
+                    if field['type'] in enums and enums[field['type']]:
+                        enum = next(item for item in schema['enums'] if item['name'] == field['type'])
+                        out.setdefault(f"{model['name']}.{field['name']}", dict(
+                            key=f"{model['name']}.{field['name']}", name=f"{model['name']}.{field['name']}",
+                            values=tuple(enums[field['type']]), where=f"enum {field['type']} ({schema['file']}:{enum['line']})",
+                            kind='prisma-enum', fold=False, file=schema['file']))
+        groups = {}
+        for schema in sorted((item for item in schemas if item.get('kind') == 'sql'), key=lambda item: item['file']):
+            found = MIGRATION.match(schema['file'])
+            group = groups.setdefault(found.group('folder') if found else schema['file'], {})
+            for item in [*schema.get('tables', ()), *schema.get('changes', ())]:
+                for check in item.get('checks', ()):
+                    group[(item.get('name') or item['table']).casefold(), check['column'].casefold()] = \
+                        (item.get('name') or item['table'], dict(check, file=schema['file']))
+        # A migrations folder (applied in order) is the description a CHECK is cited from when it has one.
+        for _, group in sorted(groups.items(), key=lambda item: (not item[0].endswith('migrations'), item[0])):
+            for (table, column), (spelled, check) in group.items():
+                model = models.table_model(spelled)
+                field = models.column_field(model, check['column']) if model else None
+                if field is None:
+                    continue
+                key = f"{model}.{field['name']}"
+                provider = providers.get(model, '')
+                previous = out.get(key)
+                values = tuple(check['values'])
+                where, file = f"CHECK {check['file']}:{check['line']}", check['file']
+                if previous and previous['kind'] == 'sql-check':
+                    values = tuple(dict.fromkeys([*previous['values'], *values]))
+                    where, file = previous['where'], previous['file']
+                elif previous:
+                    continue                 # a Prisma enum already declares the field's values
+                out[key] = dict(key=key, name=key, values=values, where=where, kind='sql-check',
+                                fold=provider in ('sqlserver', 'mysql'), file=file)
+        for facts in self._syntax_files():
+            for row in facts.get('typed_fields', ()):
+                key = f"{row['container']}.{row['field']}"
+                if row['kind'] == 'union':
+                    values, where, file = row['values'], f"{row['file']}:{row['line']}", row['file']
+                else:
+                    values, origin = self._ts_values(row['of'], row['file'])
+                    if not values:
+                        continue
+                    where, file = f"{row['of']} ({origin['file']}:{origin['line']})", origin['file']
+                out.setdefault(key, dict(key=key, name=key, values=tuple(values), where=where, kind='ts-type', fold=False,
+                                         file=file))
+        self._derived['value_sets'] = sorted(out.values(), key=lambda row: row['key'])
+        return self._derived['value_sets']
+
+    def typed_writes(self, facts=None):
+        """Values JS/TS code gives a typed member: a class field initializer, `this.f = 'v'` in a class, and
+        the literal fields of an object written as `const x: T = {...}`, `{...} satisfies T` or `{...} as T`.
+        Not database writes: they feed the value gate only. `facts` reads these file facts instead."""
+        rows, seen = [], set()
+        for facts in self._syntax_files() if facts is None else facts:
+            for row in facts.get('typed_writes', ()):
+                key = (row['file'], row['line'], row.get('column'), row['container'], row['field'])
+                if key not in seen:
+                    seen.add(key)
+                    rows.append(self._resolved(dict(row, model=row['container'], language=facts.get('language'))))
+        return Rows(rows)
+
+    def queries(self, model=None):
+        """Prisma reads (`count`, `findMany`, `findFirst`, `aggregate`, ...), bound to their model by
+        accessor: `keys` the fields its `where` filters on (through AND/OR/NOT), `loads` the relations its
+        `include`/`select` load, `counts` the relations its `_count` counts ('*' for all)."""
+        models = self._models()
+        rows = []
+        for facts in self._syntax_files():
+            for row in facts.get('queries', ()):
+                bound = models.by_accessor.get(row['accessor'])
+                if model is None or bound == model:
+                    rows.append(dict(row, model=bound, language=facts.get('language')))
+        return Rows(rows)
+
+    def children(self, model):
+        """Relations whose foreign key references `model`: [{child, relation, keys, on_delete, required,
+        file, line}] from the mapped Prisma schemas."""
+        names = ('child', 'relation', 'keys', 'on_delete', 'required', 'file', 'line')
+        return [dict(zip(names, row)) for row in self._models().children(model)]
+
+    def call_index(self):
+        """({caller: {callee: how}}, {callee: {caller: how}}): the map's resolved call edges ('edge'), and JS/TS
+        member calls resolved by name ('name'): `this.m()` to the method of the same class or object literal,
+        `holder.m()` to the method of the class or `const holder = {...}` named so, and a callee name only
+        one function has. Prisma client calls (`x.model.update(...)`) are never resolved by name."""
+        if 'calls' in self._derived:
+            return self._derived['calls']
+        from .readers.ecma import PRISMA_READS, PRISMA_WRITES
+        from .readers.registry import ECMA
+        down = {}
+        for src, dst in self.con.execute("SELECT src, dst FROM edge WHERE kind = 'calls' AND dst NOT LIKE 'unknown-%'"):
+            down.setdefault(src, {})[dst] = 'edge'
+        by_name, by_holder, owners = {}, {}, {}
+        for ident, file, qual, raw in self.con.execute(
+                "SELECT n.id, n.file, n.qual, n.raw FROM node n WHERE n.kind IN ('function', 'method')"):
+            if not file or language_of(file) not in ECMA or '<anonymous' in qual:
+                continue
+            data = store.unpack(raw) if raw else {}
+            name = data.get('name') or qual.rpartition('.')[2]
+            by_name.setdefault(name, []).append((ident, file))
+            holder = data.get('holder') or (qual.rpartition('.')[0] if '.' in qual else '')
+            if holder:
+                by_holder.setdefault((holder, name), []).append((ident, file))
+                owners[ident] = holder
+        def one(candidates, file):
+            local = [ident for ident, where in candidates if where == file]
+            chosen = local if len(local) == 1 else [ident for ident, _ in candidates]
+            return chosen[0] if len(chosen) == 1 else None
+        for facts in self._syntax_files():
+            if facts.get('language') not in ECMA:
+                continue
+            for call in facts.get('syntax_calls', ()):
+                if call.get('resolved') or call.get('kind') == 'jsx-element':
+                    continue
+                parts = call['text'].split('.')
+                name = parts[-1]
+                if not name.isidentifier() or len(parts) >= 3 and name in PRISMA_WRITES | PRISMA_READS:
+                    continue
+                receiver = parts[-2] if len(parts) >= 2 else ''
+                caller = call['node']
+                if receiver == 'this':
+                    named = caller.partition(':')[0] + ':' + '.'.join(part for part in caller.partition(':')[2].split('.')
+                                                                      if not part.startswith('<anonymous'))
+                    holder = owners.get(named) or next((owners[ident] for ident in owners if named.startswith(ident + '.')), '')
+                    target = one(by_holder.get((holder, name), []), call['file']) if holder else None
+                elif receiver:
+                    target = one(by_holder.get((receiver, name), []) or by_name.get(name, []), call['file'])
+                else:
+                    target = one(by_name.get(name, []), call['file'])
+                if target and target != caller:
+                    down.setdefault(caller, {}).setdefault(target, 'name')
+        up = {}
+        for src, targets in down.items():
+            for dst, how in targets.items():
+                up.setdefault(dst, {})[src] = how
+        self._derived['calls'] = down, up
+        return down, up
+
+    def call_tree(self, node, depth=3, *, up=0):
+        """{function: how} of `node` (with the functions nested in it) and what they call, `depth` levels down;
+        with `up`, first the callers `up` levels up, each with what it calls. how is 'edge', 'name' (some JS/TS
+        call on the way was resolved by name) or 'self'."""
+        import bisect
+        down, upward = self.call_index()
+        callers = self._derived.setdefault('callers', sorted(down))
+        def body(ident):
+            found = [ident]
+            index = bisect.bisect_left(callers, ident + '.')
+            while index < len(callers) and callers[index].startswith(ident + '.'):
+                found.append(callers[index])
+                index += 1
+            return found
+        roots = {node: 'self'}
+        frontier = {node: 'self'}
+        for _ in range(up):
+            nxt = {}
+            for ident, how in frontier.items():
+                for item in body(ident):
+                    for caller, edge in upward.get(item, {}).items():
+                        named = caller.partition(':')[0] + ':' + '.'.join(part for part in caller.partition(':')[2].split('.')
+                                                                          if not part.startswith('<anonymous'))
+                        if named not in roots:
+                            nxt[named] = 'name' if 'name' in (how, edge) else 'edge'
+            roots.update(nxt)
+            frontier = nxt
+        seen = dict(roots)
+        frontier = dict(roots)
+        for _ in range(depth):
+            nxt = {}
+            for ident, how in frontier.items():
+                for item in body(ident):
+                    seen.setdefault(item, how)
+                    for callee, edge in down.get(item, {}).items():
+                        if callee not in seen:
+                            nxt[callee] = 'name' if 'name' in (how, edge) else 'edge'
+            seen.update(nxt)
+            frontier = nxt
+        for ident, how in list(frontier.items()):
+            for item in body(ident):
+                seen.setdefault(item, how)
+        return seen
+
     def literals(self, *, language=None, contexts=None):
         """String literals used to decide or name a value: comparisons (compare), switch cases (case),
         returned values (return), union type members (union), `new Set([...])` (set), array elements
@@ -310,11 +587,18 @@ class MapHandle:
         rows = self._language_rows(self._syntax('literals'), language)
         return Rows(row for row in rows if contexts is None or row['context'] in contexts)
 
+    def numbers(self):
+        """JS/TS number literals in comparisons (`===`, `<`, `>=`, ...) and `case` labels, in the literal
+        row shape: what an old-value lead looks for after a numeric constant changes."""
+        return Rows(self._syntax('numbers'))
+
     def literal_groups(self, *, language=None, contexts=None, min_spellings=2):
         """String literals grouped ignoring case, whitespace and punctuation; a group with several spellings
         ('My Organization' / 'My organization') is a clue of drift, not a verdict."""
         groups = {}
         for row in self.literals(language=language, contexts=contexts):
+            if not isinstance(row['value'], str):
+                continue                    # numbers in comparisons serve old-value leads, not spellings
             key = literal_key(row['value'])
             if key:
                 groups.setdefault(key, {}).setdefault(row['value'], []).append(row)
@@ -779,6 +1063,11 @@ def _expression(text):
         return ast.parse(text, mode='eval').body
     except SyntaxError:
         return None
+
+
+def language_of(path):
+    from .readers.registry import language_for
+    return language_for(path)
 
 
 def literal_key(value: str) -> str:

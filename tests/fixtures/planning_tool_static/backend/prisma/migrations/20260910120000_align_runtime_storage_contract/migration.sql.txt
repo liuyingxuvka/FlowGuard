@@ -1,0 +1,12 @@
+-- Copied from backend/prisma/migrations/20260910120000_align_runtime_storage_contract/migration.sql lines 558-568 (Planning Tool)
+  IF EXISTS (
+    SELECT 1 FROM sys.check_constraints
+    WHERE parent_object_id = OBJECT_ID(N'dbo.audit_events')
+      AND name = N'chk_audit_severity'
+  )
+    EXEC sys.sp_executesql N'ALTER TABLE dbo.audit_events DROP CONSTRAINT chk_audit_severity;';
+  ALTER TABLE dbo.audit_events WITH CHECK
+    ADD CONSTRAINT chk_audit_severity CHECK (
+      severity IN (N'INFO', N'WARNING', N'ERROR', N'CRITICAL')
+    );
+  ALTER TABLE dbo.audit_events WITH CHECK CHECK CONSTRAINT chk_audit_severity;

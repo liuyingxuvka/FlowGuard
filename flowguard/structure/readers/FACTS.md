@@ -111,3 +111,23 @@ fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` comp
   `row['k'] = v` has `form='key'` and the field `receiver.k`; a class-body default is `module:Class.name`.
 - `field_types` (Python): `name: Type` in a class body, with the annotated class id (an enum is a declared value
   set) and `optional`. TS/TSX `literals` in a union carry the `declaration` (type alias) name; Python `X = Literal[...]` too.
+
+## Facts for the static checks (round 20, stage 7b)
+
+- `writes[].values` / `writes[].refs` (TS/JS): the literals a Prisma `data` field writes (each branch of `c ? a : b`)
+  and `Name.KEY` spellings of a member; `MapHandle.writes()` reads a `Name.KEY` from a `{KEY: 'v'} as const` object
+  of that name and keeps no `values` when a spelling does not resolve.
+- `queries` (TS/JS): Prisma reads (`count`, `findMany`, `findFirst`, `findUnique`, `aggregate`, `groupBy`, ...) with
+  `keys` (fields their `where` filters on, through AND/OR/NOT, arrays, spreads and one local const), `loads`
+  (relations `include`/`select` load) and `counts` (relations `_count` counts, `*` for all).
+- `value_sets` (TS/JS, module level): `[...] as const` (`const-array`), `{K: 'v'} as const` (`const-object`, with
+  `members`), `new Set([...])` (`set`), closed string unions (`union`) and aliases `(typeof X)[number]`,
+  `(typeof X)[keyof typeof X]` or a plain type name (`alias`, with `of`); `exported` says whether it is exported.
+- `typed_fields` (TS/JS): interface, class and object-type members annotated with a union or an alias, as
+  `container`, `field`, `optional`; `typed_writes`: the literal values a class field initializer, `this.f = ...`
+  in a class, or an object written as `const x: T = {...}`, `{...} satisfies T`, `{...} as T` give a member.
+- `numbers` (TS/JS): number literals in `===`/`<`/`>=`/... comparisons and `case` labels, in the literal row shape.
+- `nodes[].raw.holder` (TS/JS methods): the class or `const x = {...}` object a method belongs to; calls are
+  resolved by name through it (`MapHandle.call_index()`).
+- Prisma fields carry `on_delete` (from `@relation(..., onDelete: X)`); SQL tables and ALTER changes carry `checks`
+  (`CHECK (col IN ('a', ...))` with string values, also inside `EXEC(N'...')`).

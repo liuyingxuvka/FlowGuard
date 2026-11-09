@@ -126,6 +126,31 @@ def literal(text: str):
     return True, int(text) if re.fullmatch(r'[+-]?\d+', text) else number
 
 
+CHECK = re.compile(r'\bcheck\s*\(', re.I)
+QUOTED = re.compile(r"N?'((?:[^']|'')*)'", re.I)
+
+
+def checks(source: str, start: int, end: int) -> list[dict]:
+    """`CHECK (col IN ('a', 'b'))` groups that open between `start` and `end`: the column and its closed
+    set of string values. A check on anything else (a range, a relation between columns) is not a set.
+    Inside `EXEC(N'...')` the doubled quotes of the string are read as single ones."""
+    found = []
+    for match in CHECK.finditer(source, start, end):
+        closing = balanced(source, match.end() - 1)
+        if closing < 0:
+            continue
+        body = source[match.end():closing - 1].replace("''", "'").strip()
+        while body.startswith('(') and balanced(body, 0) == len(body):
+            body = body[1:-1].strip()
+        listed = re.fullmatch(rf'({NAME})\s+in\s*\((.*)\)', body, re.I | re.S)
+        if not listed:
+            continue
+        values = [value.replace("''", "'") for value in QUOTED.findall(listed.group(2))]
+        if values and not QUOTED.sub('', listed.group(2)).replace(',', '').strip():
+            found.append(dict(column=unquote(listed.group(1)), values=values, offset=match.start()))
+    return found
+
+
 def _column(part: str, at: int):
     match = re.match(NAME, part)
     if not match or match.group(0).lower() in CONSTRAINTS:
@@ -153,6 +178,7 @@ def statements(text: str) -> list[dict]:
                 continue
             row['columns'] = [c for part, at in top_level(source[opening + 1:closing - 1], opening + 1)
                               if (c := _column(part, at))]
+            row['checks'] = checks(source, opening, closing)
             row['end'] = closing
         elif verb.startswith('alter'):
             row['verb'] = 'alter'
@@ -179,6 +205,7 @@ def statements(text: str) -> list[dict]:
                         row['columns'].append(dict(name=unquote(found.group(2)), offset=at, type=''))
                 elif row['columns'] and head not in CONSTRAINTS | CLAUSES and (c := _column(part, at)):
                     row['columns'].append(c)            # T-SQL: ALTER TABLE t ADD a INT, b INT
+            row['checks'] = checks(source, after, end)
             row['end'] = end
         elif verb.startswith('drop'):
             row['verb'] = 'drop'
@@ -246,7 +273,9 @@ def extract(root, rel, data, module, is_test):
             used.add(qual)
             end = line_of(text, row['end'])
             body = text[row['offset']:row['end']]
-            tables.append(dict(name=row['table'], schema=row['schema'], line=line, end=end, columns=columns))
+            tables.append(dict(name=row['table'], schema=row['schema'], line=line, end=end, columns=columns,
+                               checks=[dict(column=c['column'], values=c['values'], line=line_of(text, c['offset']))
+                                       for c in row.get('checks', ())]))
             out['nodes'].append(dict(qual=qual, kind='table', cls='', line=line, end=end, column=1, end_column=1,
                                      sig=' '.join(body.split())[:160], doc='',
                                      fp=hashlib.sha256(' '.join(body.lower().split()).encode()).hexdigest()[:20],
@@ -255,7 +284,9 @@ def extract(root, rel, data, module, is_test):
             out['keys'] += [('column', row['table'] + '.' + c['name'], c['line'], '') for c in columns]
         elif row['verb'] in ('alter', 'drop'):
             changes.append(dict(verb=row['verb'], table=row['table'], schema=row['schema'], line=line,
-                                add=columns, drop=row['drop']))
+                                add=columns, drop=row['drop'],
+                                checks=[dict(column=c['column'], values=c['values'], line=line_of(text, c['offset']))
+                                        for c in row.get('checks', ())]))
             out['keys'] += [('column', row['table'] + '.' + c['name'], c['line'], '') for c in columns]
         else:
             out['writes'].append(dict(node=module, file=rel, line=line, via='sql', statement=row['verb'], function='<module>',
@@ -287,7 +318,7 @@ def describe(schemas) -> list[dict]:
                 key = item.get('name', item.get('table', '')).casefold()
                 if verb == 'create':
                     tables[key] = dict(name=item['name'], file=schema['file'], line=item['line'],
-                                       columns={c['name'].casefold(): c['name'] for c in item['columns']})
+                                       columns={c['name'].casefold(): c['name'] for c in item['columns']}, checks={})
                 elif verb == 'drop':
                     tables.pop(item['table'].casefold(), None)
                 elif key in tables:
@@ -295,5 +326,8 @@ def describe(schemas) -> list[dict]:
                     for name in item['drop']:
                         columns.pop(name.casefold(), None)
                     columns.update((c['name'].casefold(), c['name']) for c in item['add'])
+                if key in tables:                   # a later CHECK on a column replaces an earlier one
+                    tables[key]['checks'].update((c['column'].casefold(), dict(c, file=schema['file']))
+                                                 for c in item.get('checks', ()))
         out.append(dict(description=ident, files=sorted(item['file'] for item in members), tables=tables))
     return out
