@@ -532,8 +532,10 @@ def standard_keys(record):
             for key, value in record.items() if key != '<unresolved>'}
 
 
-def record(cfg, model, rule, results, graph):
-    """One coarse source/word identity; a grey/failed result never becomes reusable."""
+def record(cfg, model, rule, results, graph, now=None, found=None):
+    """One coarse source/word identity; a grey/failed result never becomes reusable. The records of one
+    session may share `now` (its digests) and `found` (seed files -> their dependencies): most rules have
+    the same seeds, every declaration's files."""
     seeds = {model.file_of[rule.id], 'pyproject.toml'}
     nodes, authorities = set(), set()
     entries = list(results.values()) if isinstance(results, dict) else list(results)
@@ -564,12 +566,15 @@ def record(cfg, model, rule, results, graph):
             node = graph.node(identifier)
             if node and node['file']:
                 seeds.add(node['file'])
-    dependencies = _file_dependencies(cfg, graph, seeds, Now(cfg, graph))
+    now = Now(cfg, graph) if now is None else now
+    found = {} if found is None else found
+    if frozenset(seeds) not in found:
+        found[frozenset(seeds)] = _file_dependencies(cfg, graph, seeds, now)
+    dependencies = found[frozenset(seeds)]
     keys = standard_keys(dependencies)
-    now = Now(cfg, graph)
     keys['listing:'] = now('listing:')
     keys.update(('authority:' + rid, now('authority:' + rid)) for rid in authorities)
-    return dict(dependencies=keys, reasons=dependencies.get('<unresolved>', []), own_nodes=sorted(nodes),
+    return dict(dependencies=keys, reasons=list(dependencies.get('<unresolved>', [])), own_nodes=sorted(nodes),
                 contracts={child: value for result in entries for child, value in result.get('contracts', {}).items()})
 
 

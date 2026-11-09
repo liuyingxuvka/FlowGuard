@@ -100,7 +100,7 @@ class _Finder:
         # Modules already classified by prepare() for (root, host): name -> (module id, file).
         self.verified, self.verified_for = {}, None
         self.applications = {}
-        self.projects = {}
+        self.projects, self.hashes = {}, {}
 
     def project(self, filename, root):
         """project_code(filename, root) for the observers, decided once per process: the source tree is fixed
@@ -110,6 +110,15 @@ class _Finder:
             self.projects[key] = project_code(filename, root)
         return self.projects[key]
 
+    def source_hash(self, path):
+        """util.source_hash of the file's bytes, read again only when its status (inode, size, mtime, ctime)
+        changed: every preparation checks every loaded project file, and a rule session prepares often."""
+        stat = path.stat()
+        key = stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+        if self.hashes.get(path, (None,))[0] != key:
+            self.hashes[path] = key, util.source_hash(path.read_bytes())
+        return self.hashes[path][1]
+
     def owns(self, filename):
         roots = (self.root,) if self.root == self.host else (self.root, self.host)
         return any(root is not None and project_code(filename, root) for root in roots)
@@ -117,7 +126,7 @@ class _Finder:
     def application(self, path, root):
         # project_code is fixed for a file within one process (see its docstring);
         # prepare() asks this for every loaded project module on each call.
-        key = (path, root)
+        key = (os.fspath(path), os.fspath(root))     # text keys: comparing Path objects costs more than the lookup
         if key not in self.applications:
             if isinstance(path, Path) and path.is_relative_to(_SDK):
                 self.applications[key] = False
@@ -219,6 +228,8 @@ def prepare(root, *, host=False):
     application are not hot-reloaded; use the CLI for an independent process.
     """
     root = Path(root).resolve()
+    # The same object as the stored root or host: the per-module comparisons below then end at identity.
+    root = next((known for known in (_finder.root, _finder.host) if known is not None and known == root), root)
     if _finder.active and root != _finder.root:
         raise ValueError('another nested pytest verification is active; start a fresh verification process')
     claimed = host and _finder.host is None
@@ -283,8 +294,8 @@ def prepare(root, *, host=False):
     # Imported aliases can retain a changed function, so refresh the loaded
     # project cohort together. No directory scan or external module eviction.
     changed = {path for path, digest, _, owner in _finder.loaded.values()
-               if owner == root and _finder.application(path, root)
-               and (not path.is_file() or util.source_hash(path.read_bytes()) != digest)}
+               if (owner is root or owner == root) and _finder.application(path, root)
+               and (not path.is_file() or _finder.source_hash(path) != digest)}
     if changed:
         for path in changed:
             linecache.cache.pop(str(path), None)

@@ -369,7 +369,7 @@ def request_state(root: Path, identifier: str) -> dict | None:
         raw = meta.read_bytes()
         if identifier.encode() not in raw and b'\\u' not in raw:
             continue        # its sidecar does not spell this id (even escaped), so it cannot list it
-        if identifier in _owner_row(root, other, {}, {}, common)['supersedes']:
+        if identifier in (row if other == identifier else _owner_row(root, other, {}, {}, common))['supersedes']:
             row['superseded_by'].append(other)
     return row
 

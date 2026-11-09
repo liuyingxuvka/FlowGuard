@@ -154,6 +154,9 @@ _NAME = r'[^\W\d][\w.-]*'
 _HEAD = re.compile(r'#\s*flowguard:\s*(sensor|states|event|owner)\b\s*(.*)')
 _PROJECTION = r'result(?:\[[^\]]*\]|\.[^\W\d]\w*)+'
 _SESSION = ContextVar('flowguard_anchor_session', default=None)
+# What one verified session already read about a source anchor before calling it: the project's sources,
+# configuration and import path are fixed for the session (imports.prepare refuses a change).
+_SESSION_FACTS = ContextVar('flowguard_anchor_session_facts', default=None)
 _TYPES = {'bool': bool, 'int': int, 'float': float, 'str': str, 'None': type(None),
           'Decimal': Decimal, 'date': date, 'datetime': datetime, 'timedelta': timedelta}
 
@@ -1045,16 +1048,29 @@ def draft(graph, target):
 
 
 @contextmanager
-def _execution_session(root):
-    """Only the verified execution worker/pytest integration opens this session."""
+def _execution_session(root, facts=None):
+    """Only the verified execution worker/pytest integration opens this session. `facts` keeps what its
+    observations read about a source anchor (a pytest session passes one record for all its items)."""
     token = _SESSION.set(Path(root).resolve())
+    facts_token = _SESSION_FACTS.set({} if facts is None else facts)
     try:
         # The backend owns calibration facts in the same worker lifetime.
         from .calibration import _execution_session as backend_session
         with backend_session(root):
             yield
     finally:
+        _SESSION_FACTS.reset(facts_token)
         _SESSION.reset(token)
+
+
+def _session_fact(key, compute):
+    """compute() once per verified session for `key`; outside a session (no record) every call computes."""
+    facts = _SESSION_FACTS.get()
+    if facts is None:
+        return compute()
+    if key not in facts:
+        facts[key] = compute()
+    return facts[key]
 
 
 def observe(root, anchor, values):
@@ -1081,7 +1097,9 @@ def _observe_verified(root, anchor, values):
     if anchor.kind == 'states':
         return Observation('grey', reasons=('state fields are read by their existing project lifecycle check',), anchor=anchor.target)
     try:
-        path, tree, function = _source(root, anchor)
+        # The digest is checked on every call; the parse and the comment check once per session and digest.
+        digest = content_digest(Path(root) / anchor.file)
+        path, tree, function = _session_fact(('source', str(root), anchor, digest), lambda: _source(root, anchor))
     except (ValueError, SyntaxError, OSError) as error:
         return Observation('red', reasons=(str(error),), anchor=anchor.target)
     if anchor.calibrated_by:
@@ -1102,12 +1120,17 @@ def _observe_verified(root, anchor, values):
             return Observation('grey', reasons=(f'{parameter.name}: simple source type is not known',), anchor=anchor.target)
         if not accepted:
             return Observation('red', reasons=(f'{parameter.name}: input does not have source type {parameter.source_type}',), anchor=anchor.target)
-    from .config import load_config, setup_path
+    from .config import load_config, search_paths, setup_path
     from .imports import prepare
-    cfg = load_config(root)
-    setup_path(cfg)
+    cfg = _session_fact(('config', str(root)), lambda: load_config(root))
+    setup_path(cfg, _session_fact(('search paths', str(root)), lambda: search_paths(cfg)))
     try:
-        reasons = _import_reasons(cfg, anchor, tree, function)
+        # The same anchor source, import path and loaded standard modules give the same reasons.
+        loaded = tuple((name, getattr(sys.modules.get(name), '__file__', None),
+                        getattr(getattr(sys.modules.get(name), '__spec__', None), 'origin', None))
+                       for name in sorted(_PURE_MODULES | _TYPE_IMPORTS.keys()))
+        reasons = list(_session_fact(('imports', anchor, digest, tuple(sys.path), loaded),
+                                     lambda: tuple(_import_reasons(cfg, anchor, tree, function))))
     except (ValueError, SyntaxError, OSError, ImportError) as error:
         return Observation('red', reasons=(f'source verification: {type(error).__name__}: {error}',), anchor=anchor.target)
     if reasons:

@@ -75,12 +75,9 @@ def load_config(root=None):
     return cfg
 
 
-def setup_path(cfg):
-    """Match pytest's configured pythonpath and prepend import mode for intent helpers."""
-    for text in _INSERTED_PATHS:
-        if text in sys.path:
-            sys.path.remove(text)
-    _INSERTED_PATHS.clear()
+def search_paths(cfg):
+    """The folders setup_path puts first on sys.path: the root, its roots, pytest's configured pythonpath and
+    the import base of each intent file."""
     path = cfg.root / 'pyproject.toml'
     ini = tomllib.loads(path.read_text(encoding='utf-8-sig')).get('tool', {}).get('pytest', {}).get('ini_options', {}) if path.is_file() else {}
     extras = ini.get('pythonpath', [])
@@ -91,6 +88,17 @@ def setup_path(cfg):
         while (base / '__init__.py').is_file():
             base = base.parent
         paths.append(base)
+    return paths
+
+
+def setup_path(cfg, paths=None):
+    """Match pytest's configured pythonpath and prepend import mode for intent helpers. `paths` is what
+    search_paths(cfg) gave, when the caller already read it for this session."""
+    for text in _INSERTED_PATHS:
+        if text in sys.path:
+            sys.path.remove(text)
+    _INSERTED_PATHS.clear()
+    paths = search_paths(cfg) if paths is None else paths
     for folder in dict.fromkeys(reversed(paths)):
         text = str(folder)
         if text in sys.path:

@@ -97,7 +97,7 @@ class Session:
         self.main_thread = threading.get_ident()
         self.started = time.time()
         self.events, self.anchor_issues = [], []
-        self.calibration_facts = {}
+        self.calibration_facts, self.anchor_facts = {}, {}
         self._runtime = None
         self.observations = None
         self.source_items = ()
@@ -123,7 +123,8 @@ class Session:
     def verification(self):
         from .anchors import _execution_session
         from .calibration import _execution_session as calibrated_session
-        with calibrated_session(self.cfg.root, facts=self.calibration_facts), _execution_session(self.cfg.root):
+        with calibrated_session(self.cfg.root, facts=self.calibration_facts), \
+                _execution_session(self.cfg.root, facts=self.anchor_facts):
             yield
 
     def close(self):
@@ -1910,15 +1911,15 @@ def finish_verified(session, exitstatus):
                 con.execute("DELETE FROM result WHERE item LIKE '%:live]'")
             for item, result in state.results.items():
                 con.execute('INSERT OR REPLACE INTO result VALUES(?,?,?,?,?)', (item, result['rule'], result['verdict'], _json(result), state.started))
-            from .deps import record
+            from .deps import Now, record
             from .cache import save_dependencies
             fresh = {result['rule'] for result in state.results.values() if result['rule'] is not None}
-            records = {}
+            records, now, found = {}, Now(state.cfg, mapping), {}     # one session's digests for all records
             for rid in fresh:
                 declaration = (model.rules.get(rid) or model.states.get(rid) or model.structures.get(rid)
                                or model.flows.get(rid) or model.anchor_distincts.get(rid))
                 records[rid] = record(state.cfg, model, declaration,
-                                      [r for r in state.results.values() if r['rule'] == rid], mapping)
+                                      [r for r in state.results.values() if r['rule'] == rid], mapping, now, found)
             save_dependencies(con, records)
         _save_readings(con, state)
         _save_ordinary_collection(con, session, state)
