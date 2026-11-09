@@ -177,7 +177,8 @@ class Models:
 
     def children(self, parent: str):
         """[(child model, relation field, key fields, onDelete, required)] of every relation whose foreign key
-        (on the child) references `parent`; one row per child relation, whichever schema describes it."""
+        (on the child) references `parent`; one row per child relation, whichever schema describes it.
+        `required`: the key can never be null (`key_required`), so Prisma's default refuses the delete."""
         found = {}
         for name, descriptions in self.by_name.items():
             for description in descriptions:
@@ -185,7 +186,7 @@ class Models:
                     rel = field.get('relation') or {}
                     if field['type'] == parent and rel.get('fields'):
                         found.setdefault((name, field['name']), (name, field['name'], tuple(rel['fields']),
-                                                                field.get('on_delete', ''), not field['optional'],
+                                                                field.get('on_delete', ''), key_required(field, description),
                                                                 description['file'], field['line']))
         return [found[key] for key in sorted(found)]
 

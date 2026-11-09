@@ -124,8 +124,9 @@ def values(change, *, everything=False):
 # ---- deletes that leave restricting children (Prisma) --------------------------------------------
 
 def _restricts(child):
-    """NoAction/Restrict, or no onDelete on a required relation (Prisma's default Restrict; an optional
-    relation defaults to SetNull and does not block the delete)."""
+    """NoAction/Restrict, or no onDelete on a relation whose key can never be null (Prisma's default
+    Restrict, also under an optional relation field; a relation whose key fields are all optional defaults
+    to SetNull and does not block the delete)."""
     return child['on_delete'] in RESTRICTING or not child['on_delete'] and child['required']
 
 

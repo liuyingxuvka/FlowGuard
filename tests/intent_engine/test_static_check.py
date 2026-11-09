@@ -819,6 +819,48 @@ def test_a_new_hard_delete_names_the_children_it_leaves_once_per_function_and_pa
     assert '[structure."delete:backend/src/services/hard-delete.service.ts:removeEmployeeRow:Employee"]' in text, text
 
 
+def test_an_optional_relation_over_a_required_key_restricts_the_delete(tmp_path):
+    # Round 23 review: Prisma gives `unit Unit?` over `unitId String` ON DELETE RESTRICT (6.19 `migrate diff`);
+    # only a relation whose key fields are all optional defaults to SetNull.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Unit {
+              id    String @id
+              rooms Room[]
+              desks Desk[]
+            }
+
+            model Room {
+              id     String @id
+              unitId String
+              unit   Unit?  @relation(fields: [unitId], references: [id])
+            }
+
+            model Desk {
+              id     String  @id
+              unitId String?
+              unit   Unit?   @relation(fields: [unitId], references: [id])
+            }
+        ''',
+        'src/build.ts': '''
+            export async function furnish(prisma: any, unitId: string) {
+              await prisma.room.create({ data: { id: 'r', unitId } });
+              await prisma.desk.create({ data: { id: 'd', unitId } });
+            }
+        ''',
+    })
+    _write(tmp_path, {'src/remove.ts': '''
+        export async function removeUnit(prisma: any, id: string) {
+          await prisma.unit.delete({ where: { id } });
+        }
+    '''})
+    code, text = _static(tmp_path)
+    assert code == 0 and _lines(text, '线索：删除没处理子表') == [
+        '线索：删除没处理子表：src/remove.ts:2 removeUnit 删 Unit，Restrict 子表 Room 在同一操作里没删、没置空、没计数'
+        '（调用按名字解析） → 删除前先删或置空这些子表的行，或先计数并拒绝删除；有意交给数据库拒绝，就把决定记进 '
+        '.flowguard/ledger.toml：'], text
+
+
 def test_a_one_row_delete_of_a_tree_the_code_builds_names_its_children(tmp_path):
     # Planning Tool 0.6.28 `demand.service.ts remove` (round 21, P12): a demand with forwarded child demands
     # (`parentDemandId`, NoAction) was deleted by id; optional self relations were skipped wholesale.
