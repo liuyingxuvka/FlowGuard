@@ -280,6 +280,33 @@ def test_a_guessed_schema_fills_only_models_no_schema_in_use_defines_and_each_of
     assert names == ['values:Note.tone:admin/prisma/schema.sqlite.prisma'], names
 
 
+def test_archived_prisma_files_are_neither_in_use_nor_guessed(tmp_path):
+    # 4.2 review: a release snapshot under docs/ took part in the schemas in use and in the guess; one named
+    # schema.prisma even made its package look decided, so the live file stopped gating and the snapshot gated.
+    def schema(*kinds):
+        return 'enum Kind {\n' + ''.join(f'  {name}\n' for name in kinds) + '}\n\nmodel Item {\n  id   String @id\n  kind Kind\n}\n'
+    _commit(tmp_path, {'prisma/main.prisma': schema('A', 'B'), 'docs/release-1.0/schema.prisma': schema('A', 'B', 'C'),
+                       'docs/history/old.prisma': schema('A', 'B', 'C', 'D')})
+    _write(tmp_path, {'src/items.ts': """
+        export async function add(prisma: any, id: string) {
+          await prisma.item.create({ data: { id, kind: 'C' } });
+        }
+    """})
+    with closing(build(tmp_path)) as graph:
+        assert graph.prisma_schemas_in_use() == graph.prisma_schemas_guessed() == {'prisma/main.prisma'}
+        assert [(row['field'], row['values'], row['file']) for row in graph.value_sets()] == \
+            [('Item.kind', ('A', 'B'), 'prisma/main.prisma')], graph.value_sets()
+    code, text = _static(tmp_path)
+    assert code == 1 and _lines(text, '红：取值') == [
+        "红：取值不在声明集合里：src/items.ts:2 Item.kind='C'，允许 A|B（enum Kind (prisma/main.prisma:1，没找到生成器在用的 schema，"
+        "按这个包的全部 schema 判)） → 改用集合里的值；集合真要加值，先改那条声明（enum Kind (prisma/main.prisma:1，没找到生成器在用的 "
+        "schema，按这个包的全部 schema 判)）"], text
+    # `archives = []` makes every file live: the snapshot named schema.prisma is then the schema in use
+    _write(tmp_path, {'pyproject.toml': '[tool.flowguard]\narchives = []\n'})
+    with closing(build(tmp_path)) as graph:
+        assert graph.prisma_schemas_in_use() == {'docs/release-1.0/schema.prisma'} and not graph.prisma_schemas_guessed()
+
+
 def test_a_package_json_that_is_not_json_names_its_file(tmp_path):
     _commit(tmp_path, {'web/package.json': '{"name": "web",\n', 'web/prisma/main.prisma': 'model Item {\n  id String @id\n}\n'})
     code, text = _static(tmp_path)

@@ -430,11 +430,12 @@ class MapHandle:
         the `schema:` of a `prisma.config.ts` (`.mts`, `.js`, `.mjs`, `.cjs`) beside it. Other `.prisma`
         files (`schema.sqlite.prisma` templates, fragments) only describe. A package whose Prisma files name
         none of these (the generated `schema.prisma` git-ignored, a schema set up in CI) uses them all:
-        `prisma_schemas_guessed` lists those files, and the value gate says so."""
+        `prisma_schemas_guessed` lists those files, and the value gate says so. `archived` files (a release
+        snapshot under `docs/`) are neither in use nor guessed."""
         if 'schemas_in_use' in self._derived:
             return self._derived['schemas_in_use']
         import re
-        files = [path for path, schema in self._schema_rows() if schema.get('kind') == 'prisma']
+        files = [path for path, schema in self._schema_rows() if schema.get('kind') == 'prisma' and not self.archived(path)]
         named, guessed = set(), set()
         for package in sorted({self.package(path) for path in files}):
             listed = []
