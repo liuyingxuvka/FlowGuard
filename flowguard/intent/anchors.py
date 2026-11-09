@@ -627,13 +627,14 @@ def _data_owner(body, file, module, line, is_test):
     pairs = tuple(dict.fromkeys(part for part in (listed['with'] or '').split(',') if part)) if listed else ()
     alone = tuple(re.findall(r'[\w.:]+\([^()]*\)', listed['alone'] or '')) if listed else ()
     on = (listed['on'] or '') if listed else ''
+    # an on= the line spells (also one after alone=, which the form does not read) gets the on= form
+    if on not in ('', 'update', 'create') or on and not pairs or not listed and re.search(r'(?:^|\s)on=', body):
+        return Issue('red', 'syntax', 'on= is update or create and limits with=: owner Model.field with=Other.field on=update '
+                     '(alone=function(reason) after it)', file, line)
     if not listed or '.' not in listed['name'].strip('.') or not (writers or pairs) \
             or any('.' not in pair.partition('=')[0].strip('.') for pair in pairs) or alone and not pairs:
         return Issue('red', 'syntax', 'a data owner needs Table.column (or Model.field) with writers=function,... '
                      'and/or with=Model.field[=value],...; alone=function(reason) needs with=', file, line)
-    if on not in ('', 'update', 'create') or on and not pairs:
-        return Issue('red', 'syntax', 'on= is update or create and limits with=: owner Model.field with=Other.field on=update '
-                     '(alone=function(reason) after it)', file, line)
     return asdict(Anchor('owner', listed['name'], file, module, '', line, line, writers=writers, pairs=pairs, alone=alone,
                          on=on, source_role='test' if is_test else 'production'))
 
