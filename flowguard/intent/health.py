@@ -404,13 +404,14 @@ def co_written(change, name):
 def uncreated(change):
     """A Prisma model production code reads or deletes (also updates) while no production code or live SQL
     makes its rows (create, createMany, upsert, a nested create, INSERT): the rows come from elsewhere or the
-    reads are dead. One issue per model (`check --all`, `show`); a change that edits one of its readers
-    gets the touched lead."""
+    reads are dead. A Prisma `view` has no rows to make. One issue per model (`check --all`, `show`); a change
+    that edits one of its readers gets the touched lead."""
     from .owners import row_function
     found = _findings()
     graph = change.graph
     if not graph._models().by_name:
         return found
+    views = {name for name, items in graph._models().by_name.items() if all(item['kind'] == 'view' for item in items)}
     tests = {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
     def live(row):
         return row['file'] not in tests and not is_test_file(row['file']) and not graph.archived(row['file'])
@@ -419,7 +420,7 @@ def uncreated(change):
             or row['kind'].startswith(('nested:create', 'nested:upsert', 'nested:connectOrCreate'))}
     uses = {}
     for row in [*rows, *(row for row in graph.queries() if row.get('model') and live(row))]:
-        if row['model'] in made:
+        if row['model'] in made or row['model'] in views:
             continue
         verb = '删' if 'kind' in row and row['kind'] in DELETING else '改' if 'kind' in row else '读'
         uses.setdefault(row['model'], {}).setdefault(verb, []).append(row)

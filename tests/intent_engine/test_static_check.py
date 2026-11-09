@@ -451,6 +451,20 @@ def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_
     assert code == 1 and 'on= is update or create and limits with=: owner Model.field with=Other.field on=update' in text, text
 
 
+def test_an_owner_line_with_on_out_of_place_names_the_on_form():
+    # Round 21 verification of V4: on= after alone=, or on= without with=, got only the general owner form,
+    # which says nothing about on= and claims with= is missing.
+    message = ('on= is update or create and limits with=: owner Model.field with=Other.field on=update '
+               '(alone=function(reason) after it)')
+    for line in ('// flowguard: owner A.b with=C.d alone=f(why) on=update\n', '// flowguard: owner A.b on=update\n',
+                 '// flowguard: owner A.b writers=f on=create\n'):
+        facts = anchors.foreign_owners(line, 'typescript/a.ts', 'a.ts')
+        assert [issue['message'] for issue in facts['anchor_issues']] == [message], (line, facts)
+    facts = anchors.foreign_owners('// flowguard: owner A.b with=C.d on=update alone=f(why)\n', 'typescript/a.ts', 'a.ts')
+    assert [(row['on'], tuple(row['pairs']), tuple(row['alone'])) for row in facts['anchors']] == [
+        ('update', ('C.d',), ('f(why)',))], facts
+
+
 def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_helpers(tmp_path):
     files = {
         'shop/__init__.py': '',
@@ -759,6 +773,37 @@ def test_a_table_the_code_reads_or_deletes_but_never_fills_is_a_structure_proble
     assert _lines(text, '线索：未决结构问题：代码从不建行的表') == [
         '线索：未决结构问题：代码从不建行的表：Deputy 读 src/deputies.ts:2，删 src/deputies.ts:5，没有一处 create/upsert/INSERT'
         ' → 先告诉主人：这些行从哪里来（种子、迁移、外部系统）；没有来源就删掉这些读和删，有意如此就把决定记进 .flowguard/ledger.toml：'], text
+
+
+def test_a_prisma_view_the_code_reads_is_not_a_table_without_rows(tmp_path):
+    # Round 21 verification of P18: a Prisma `view` is read by design; no code makes its rows.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model User {
+              id   String @id
+              name String
+            }
+
+            view UserSummary {
+              id    String @unique
+              total Int
+            }
+
+            model Audit {
+              id String @id
+            }
+        ''',
+        'src/users.ts': '''
+            export async function add(prisma: any) {
+              await prisma.user.create({ data: { id: 'u', name: 'n' } });
+              await prisma.audit.findMany({ where: { id: 'a' } });
+              return prisma.userSummary.findMany({ where: { id: 'u' } });
+            }
+        ''',
+    })
+    code, text = _static(tmp_path, '--all')
+    assert [line for line in text.splitlines() if '建行：' in line] == [
+        '1. 建行：代码从不建行的表：Audit 读 src/users.ts:3，没有一处 create/upsert/INSERT'], text
 
 
 # ---- fixed example 17: columns one description lacks -------------------------------------------------
