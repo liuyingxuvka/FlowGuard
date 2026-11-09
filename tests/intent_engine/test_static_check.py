@@ -596,6 +596,26 @@ def test_a_change_that_touches_an_open_structure_problem_gets_one_lead(tmp_path)
     assert '1. 写入：Job.status 有 3 个文件在写，没有登记负责人' in text, text
 
 
+def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_problem(tmp_path):
+    def writer(name, status):
+        return (f"export async function {name}(prisma: any, ids: string[]) {{\n"
+                f"  await Promise.all(ids.map(async (id) => {{\n"
+                f"    await prisma.job.update({{ where: {{ id }}, data: {{ status: '{status}' }} }});\n"
+                f"  }}));\n}}\n")
+    _commit(tmp_path, {
+        'prisma/schema.prisma': 'model Job {\n  id     String @id\n  status String\n}\n',
+        'src/close.ts': writer('closeJobs', 'closed'), 'src/hold.ts': writer('holdJobs', 'held'),
+        'src/reopen.ts': writer('reopenJobs', 'open'),
+    })
+    hold = tmp_path / 'src/hold.ts'
+    hold.write_text('// flowguard: sensor HOLD_JOBS\n' + hold.read_text(encoding='utf-8'), encoding='utf-8')
+    code, text = _static(tmp_path)
+    assert code == 0 and '未决结构问题' not in text, text      # the callback only moved one line down
+    hold.write_text(hold.read_text(encoding='utf-8').replace("'held'", "'paused'"), encoding='utf-8')
+    code, text = _static(tmp_path)
+    assert code == 0 and '线索：未决结构问题：Job.status 有 3 个文件在写' in text, text      # an edit inside it does
+
+
 def test_a_structure_decision_closes_its_problem_and_a_decided_owner_needs_its_anchor(tmp_path):
     _commit(tmp_path, WRITERS)
     (tmp_path / 'owner.txt').write_text('Job.status belongs to the close workflow; the other writers must call it.\n')
