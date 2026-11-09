@@ -278,8 +278,13 @@ class Observations:
             # The existing map supplies module ownership for unanchored changed functions.
             graph = state.get_map()
             views = {}
+            # The running FlowGuard never observes its own observation code: hooking the
+            # changed Runtime.observe (or a replay helper) re-enters itself without end.
+            tool = Path(__file__).resolve().parents[1]
             for row in graph.nodes():
                 if row['file'] not in self.files or row['kind'] not in ('function', 'method') or not state.is_project(str(self.cfg.root / row['file'])):
+                    continue
+                if (self.cfg.root / row['file']).resolve().is_relative_to(tool):
                     continue
                 if row['file'] not in views:
                     tree = ast.parse(read_source(self.cfg.root / row['file']))
