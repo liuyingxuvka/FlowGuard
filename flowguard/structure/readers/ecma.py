@@ -25,6 +25,11 @@ def literal(node, source):
     return False, None
 
 
+def constant_like(name):
+    """A name spelled as a constant (`LIMIT`, `MAX_DAYS`), as decide.named_constant reads Python names."""
+    return name.strip('_').isupper()
+
+
 COMMENTS = {'comment', 'line_comment', 'block_comment', 'html_comment'}
 WRAPPERS = {'parenthesized_expression', 'as_expression', 'satisfies_expression', 'non_null_expression',
             'type_assertion', 'await_expression'}
@@ -81,7 +86,8 @@ def extract(root, rel, data, module, is_test):
     from .context import propagate_names
     language = language_for(rel)
     out = blank(module, data, language)
-    out.update(queries=[], value_sets=[], typed_fields=[], typed_writes=[], numbers=[])
+    out.update(queries=[], value_sets=[], typed_fields=[], typed_writes=[], numbers=[], compared_names=[],
+               const_tables=[], table_lookups=[])
     source, tree = parse(data, language)
     handed_on = set(propagate_names(root))
     if tree.root_node.has_error:
@@ -791,6 +797,39 @@ def extract(root, rel, data, module, is_test):
             return 'case', value
         return '', None
 
+    # ---- names a decision compares with, and the module tables it looks values up in -----------------
+    # A comparison with `LIMIT` or `Kind.ACTIVE` and a lookup `LABELS[type]` are recorded by name here;
+    # the map folds them to values (`MapHandle.numbers()`, `literals()`, `lookup_keys()`), also through imports.
+    def compared_name(operand, owner, scope):
+        operand = unwrap(operand)
+        if operand is None or operand.type not in ('identifier', 'member_expression'):
+            return
+        spelled = text(operand, source)
+        parts = spelled.split('.')
+        if operand.type == 'member_expression' and (len(parts) != 2 or not all(part.isidentifier() for part in parts)):
+            return
+        if not any(constant_like(part) for part in parts):
+            return
+        out['compared_names'].append(dict(node=owner, file=rel, name=spelled, function=named_scope(scope),
+                                          **position(operand, source)))
+
+    def const_table(value):
+        """{key: literal or None} of a module-level `const NAME = {...}` (also `as const`/`satisfies`)."""
+        value = unwrap(value)
+        if value is None or value.type != 'object':
+            return None
+        table = {}
+        for pair in value.named_children:
+            if pair.type != 'pair':
+                continue
+            key = field(pair, 'key')
+            known, spelled = literal(key, source)
+            name = str(spelled) if known else text(key, source) if key is not None and key.type == 'property_identifier' else None
+            if name is not None:
+                known, item = literal(unwrap(field(pair, 'value')), source)
+                table[name] = item if known else None
+        return table or None
+
     def visit(node, scope='', cls='', parameters=(), shadows=frozenset()):
         if node.type in ('import_statement', 'export_statement'):
             imports(node, scope)
@@ -872,7 +911,22 @@ def extract(root, rel, data, module, is_test):
                                             field=text(field(left, 'property'), source), file=rel, **values, **position(node, source)))
         if node.type == 'catch_clause':
             catch(node, owner, scope)
-        elif node.type == 'number' and (found := number_context(node))[0]:
+        if node.type == 'binary_expression' and operator(node) in EQUALITY | ORDER:
+            for side in ('left', 'right'):
+                compared_name(field(node, side), owner, scope)
+        elif node.type == 'switch_case' and field(node, 'value') is not None:
+            compared_name(field(node, 'value'), owner, scope)
+        elif node.type == 'subscript_expression':
+            table, index = unwrap(field(node, 'object')), unwrap(field(node, 'index'))
+            if table is not None and table.type == 'identifier' and constant_like(text(table, source)) \
+                    and index is not None and not literal(index, source)[0]:
+                out['table_lookups'].append(dict(node=owner, file=rel, name=text(table, source),
+                                                 function=named_scope(scope), **position(node, source)))
+        if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
+                and field(node, 'name').type == 'identifier' and (table := const_table(field(node, 'value'))) is not None:
+            out['const_tables'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table,
+                                            **position(node, source)))
+        if node.type == 'number' and (found := number_context(node))[0]:
             out['numbers'].append(dict(node=owner, file=rel, value=found[1], context=found[0],
                                        function=named_scope(scope), **position(node, source)))
         elif node.type == 'string' and (context := literal_context(node)):
@@ -951,5 +1005,5 @@ def extract(root, rel, data, module, is_test):
     out['bindings'] = [row for row in out['dependencies'] if row.get('alias') and row['kind'] == 'import']
     if b'flowguard:' in data:
         from flowguard.intent.anchors import foreign_owners
-        out.update(foreign_owners(source.decode('utf-8'), module, rel, is_test=is_test))
+        out.update(foreign_owners(source.decode('utf-8'), module, rel, is_test=is_test, functions=out['nodes']))
     return out

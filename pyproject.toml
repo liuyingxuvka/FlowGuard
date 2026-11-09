@@ -24,6 +24,9 @@ flowguard = "flowguard.__main__:main"
 [tool.setuptools]
 include-package-data = false
 
+[tool.setuptools.package-data]
+"flowguard.adapters.vitest" = ["*.mjs"]
+
 [tool.setuptools.packages.find]
 include = ["flowguard*"]
 exclude = ["flowguard.flow", "flowguard.flow.*", "flowguard.native", "flowguard.native.*",
