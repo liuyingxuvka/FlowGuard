@@ -344,10 +344,14 @@ def gaps(schemas) -> list[dict]:
                                 description=right_id, file=None, line=None, missing=['<table>'], extra=[]))
 
     for ident, tables in sql:
-        overlap = [(len(set(tables) & set(model_tables)), file, model_tables) for file, model_tables in described]
-        best = max((count for count, _, _ in overlap), default=0)
-        for count, file, model_tables in overlap:
-            if count and count == best:
+        # The schema sharing the most tables; on a tie, the one describing those tables with the most columns
+        # (a projection that names fewer of them is not what the SQL describes).
+        overlap = [(len(set(tables) & set(model_tables)),
+                    sum(len(model_tables[key]['columns']) for key in set(tables) & set(model_tables)), file, model_tables)
+                   for file, model_tables in described]
+        best = max(((count, width) for count, width, _, _ in overlap), default=(0, 0))
+        for count, width, file, model_tables in overlap:
+            if count and (count, width) == best:
                 compare(file, model_tables, ident, tables, 'sql')
     for i, (file, tables) in enumerate(described):
         for other, other_tables in described[i + 1:]:
