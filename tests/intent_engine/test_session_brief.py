@@ -61,7 +61,36 @@ def test_baseline_read_does_not_create_storage_and_start_records_actual_head(tmp
     (root / 'app.py').write_text('def eligible(days: int): return days <= 4\n')
     git(root,'add','app.py'); git(root,'commit','--quiet','-m','fixture change')
     assert cache.session_baseline(cfg) == head
-    assert cache.session_baseline(cfg, remember=True) == git(root,'rev-parse','HEAD') != head
+    # A commit made during the task keeps the task's baseline; only new-task moves it to HEAD.
+    assert cache.session_baseline(cfg, remember=True) == head
+    assert cache.remember_baseline(cfg, new_task=True) == (git(root,'rev-parse','HEAD'),
+                                                           f'baseline: new task from HEAD {git(root,"rev-parse","HEAD")[:12]} (was {head[:12]})')
+    assert cache.session_baseline(cfg) == git(root,'rev-parse','HEAD') != head
+
+
+def test_brief_keeps_the_task_baseline_across_commits_and_new_task_starts_the_next(tmp_path, capsys):
+    root, cfg = project(tmp_path)
+    start = git(root, 'rev-parse', 'HEAD')
+    assert cli.screen(cfg) == 0 and f'baseline {start[:12]}' in capsys.readouterr().out
+    for days in (4, 5):
+        (root / 'app.py').write_text(f'def eligible(days: int): return days <= {days}\n')
+        git(root, 'commit', '--quiet', '-am', f'fixture change {days}')
+    assert cli.screen(cfg) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert f'baseline {start[:12]}' in lines[0], lines
+    assert lines[1] == 'baseline: task start, 2 commits before HEAD; next task: python -m flowguard new-task', lines
+    assert cache.session_baseline(cfg) == start             # what the task changed stays reported
+    assert cli.main(['--root', str(root), 'new-task']) == 0
+    head = git(root, 'rev-parse', 'HEAD')
+    lines = capsys.readouterr().out.splitlines()
+    assert f'baseline {head[:12]}' in lines[0] and lines[1] == f'baseline: new task from HEAD {head[:12]} (was {start[:12]})', lines
+    assert cache.session_baseline(cfg) == head
+    # A recorded commit HEAD does not descend from (another branch, rewritten history) is not this task's start.
+    git(root, 'checkout', '--quiet', '-b', 'other', start)
+    assert cli.screen(cfg) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[1] == f'baseline: recorded {head[:12]} is not an ancestor of HEAD; the task starts at HEAD', lines
+    assert cache.session_baseline(cfg) == start
 
 
 def test_baseline_schema_is_compatible_with_first_and_warm_map_builds(tmp_path):
@@ -187,3 +216,28 @@ def test_interrupted_last_attempt_remains_an_unfinished_item(tmp_path, capsys):
         con.execute('INSERT INTO meta VALUES(?,?)', ('intent_attempt',json.dumps({'exit':2})))
     cli.screen(cfg)
     assert 'last check exit 2' in capsys.readouterr().out
+
+
+def test_brief_drops_failed_readings_of_folders_norecursedirs_keeps_pytest_out_of(tmp_path, capsys):
+    root, cfg = project(tmp_path)
+    cache.session_baseline(cfg, remember=True)
+    with closing(sqlite3.connect(cfg.cache / 'map.sqlite')) as con, con:
+        con.execute('CREATE TABLE IF NOT EXISTS reading(test TEXT PRIMARY KEY, outcome TEXT, kind TEXT, reason TEXT, '
+                    'phase TEXT, seconds REAL, stamp REAL)')
+        for test in ('tests/legacy/test_old_binding.py', 'tests/test_current.py'):
+            con.execute('INSERT INTO reading VALUES(?,?,?,?,?,?,?)', (test, 'failed', 'test', 'collection', 'collect', 0.0, 1.0))
+    for test in ('tests/legacy/test_old_binding.py', 'tests/test_current.py'):
+        (root / test).parent.mkdir(parents=True, exist_ok=True)
+        (root / test).write_text('def test_value(): pass\n')
+    cli.screen(cfg)
+    output = capsys.readouterr().out
+    assert 'tests/legacy/test_old_binding.py' in output and 'tests/test_current.py' in output, output
+    # The legacy folder is added to pytest's own list: pytest no longer collects it, so its old failure is gone.
+    (root / 'pyproject.toml').write_text((root / 'pyproject.toml').read_text()
+                                         + '\n[tool.pytest.ini_options]\nnorecursedirs = [".*", "node_modules", "legacy"]\n')
+    cli.screen(cfg)
+    output = capsys.readouterr().out
+    assert 'tests/legacy/test_old_binding.py' not in output and 'red last check test tests/test_current.py' in output, output
+    from flowguard.intent import deps
+    scope = deps.test_scope(load_config(root))
+    assert not scope('tests/legacy/test_old_binding.py') and scope('tests/test_current.py')

@@ -242,7 +242,8 @@ def owner_pairs(change, index, *, everything=False):
             step = (f'补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 {owner.file}:{owner.line}）')
             shown = [row for row in missing if everything or new_rule or row['file'] in change.files]
             if shown:
-                found.red.append(f'配对没写：{where(shown)} 写了 {owner.name}，{OPERATION}里没写 {pair} → ' + step)
+                # One owner per red line: the subject names the owner, so two owners' pairs never merge into one.
+                found.red.append(f'配对没写 {owner.name}：{where(shown)} 写了 {owner.name}，{OPERATION}里没写 {pair} → ' + step)
             if missing:
                 found.issues.append(Issue(
                     f'pair:{owner.name}>{pair}', 2, f'配对 {owner.name}',
@@ -530,7 +531,7 @@ def literal_drift(change, *, everything=False):
     found = declarations_differ(change, everything=everything)
     if not change.files and not everything:
         return found
-    groups = change.graph.literal_groups()
+    groups = _project_spellings(change, change.graph.literal_groups())
     if not groups:
         return found
     before = {row['value'] for file in change.files for row in change.old_facts(file).get('literals', ())}
@@ -548,6 +549,25 @@ def literal_drift(change, *, everything=False):
         found.leads.append(('' if fresh else '旧账 ') + '标签写法不一致：' + ' 与 '.join(parts)
                            + ' → 统一成一种写法，或让它们取自同一个负责人')
     return found
+
+
+def _project_spellings(change, groups):
+    """The label groups without the spellings of FlowGuard's own generated files (`init` writes '-3', '-c',
+    '--root' into them), keeping the groups that still have two spellings."""
+    from .config import init_generated
+    own = {}
+    def project(row):
+        if row['file'] not in own:
+            path = change.cfg.root / row['file']
+            own[row['file']] = not (path.is_file() and init_generated(path))
+        return own[row['file']]
+    kept = []
+    for group in groups:
+        spellings = {value: [row for row in rows if project(row)] for value, rows in group['spellings'].items()}
+        spellings = {value: rows for value, rows in spellings.items() if rows}
+        if len(spellings) >= 2:
+            kept.append(dict(group, spellings=spellings))
+    return kept
 
 
 def changed_once(change):

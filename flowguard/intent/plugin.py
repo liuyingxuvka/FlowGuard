@@ -1,4 +1,8 @@
-"""Ordinary pytest owns execution; this plugin adds intent items and source footprints."""
+"""Ordinary pytest owns execution; this plugin adds intent items and source footprints.
+
+PYTEST_DONT_REWRITE: `python -m flowguard check` imports this module before its pytest session loads it
+with `-p`; the plugin is no test module, so pytest skips rewriting it instead of warning that it came late.
+"""
 from __future__ import annotations
 
 import fnmatch

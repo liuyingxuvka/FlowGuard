@@ -19,7 +19,7 @@ from flowguard.map.requests import owner_word, owner_words, retire_request, stor
 from flowguard.structure import build
 from flowguard.structure.query import may_share, tokens
 from . import cache
-from .config import find_root, load_config
+from .config import INIT_MARK, RECORDED_PYTHON, find_root, load_config
 
 
 SENTINEL = '''"""Fail when declared FlowGuard intent was not collected."""
@@ -38,13 +38,22 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 '''
 
 
-def _limit(lines, budget):
+def _spelled(word):
+    """One word of a printed command: bare when every shell reads it as it is, else in double quotes, which
+    cmd.exe, PowerShell and POSIX shells all read (README: `show "what it decides"`); single quotes are not
+    quotes in cmd.exe."""
+    return word if re.fullmatch(r'[\w.:/@=,+%-]+', word) else json.dumps(word, ensure_ascii=False)
+
+
+def _limit(lines, budget, more='show RULE for the complete result'):
+    """The first `budget` lines; the last says how many lines and red lines (a line that starts as one)
+    are left out and the command `more` that prints them."""
     if len(lines) <= budget:
         return lines
     kept = lines[:max(0, budget - 1)]
     hidden = lines[len(kept):]
-    reds = sum('red ' in line or line.startswith('red') for line in hidden)
-    return kept + [f'... {len(hidden)} more lines ({reds} red): show RULE for the complete result']
+    reds = sum(line.startswith(('red ', '红：')) for line in hidden)
+    return kept + [f'... {len(hidden)} more lines' + (f' ({reds} red)' if reds else '') + ': ' + more]
 
 
 def _kind(message):
@@ -184,7 +193,7 @@ def _brief_source(cfg, item):
     return source.kind + ' / unconfirmed'
 
 
-def _brief(cfg, data, baseline):
+def _brief(cfg, data, baseline, note=''):
     summary, candidates = data['summary'], []
     active = {rid: item for rid, item in summary['rules'].items() if not item.get('superseded_by')}
     for error in summary['errors']:
@@ -219,9 +228,10 @@ def _brief(cfg, data, baseline):
     reds = sum(line.startswith('red ') for line in candidates)
     header = f'FlowGuard: {len(active)} rules; {reds} red (parse / last check); baseline {baseline[:12] if baseline else "none (no Git commit)"}'
     if not active and not candidates:
-        return [f'FlowGuard: no intent rules; baseline {baseline[:12] if baseline else "none (no Git commit)"}.']
+        return [f'FlowGuard: no intent rules; baseline {baseline[:12] if baseline else "none (no Git commit)"}.',
+                *([note] if note else [])]
     # A cached green is not a new verification. The brief reads no source map.
-    lines = [header] + sorted(candidates, key=lambda line: not line.startswith('red '))
+    lines = [header, *([note] if note else [])] + sorted(candidates, key=lambda line: not line.startswith('red '))
     lines = [line if len(line) <= 100 else line[:75] + '... (excerpt; show RULE)' for line in lines]
     budget = min(10, cfg.screen_lines)
     if len(lines) <= budget:
@@ -230,13 +240,15 @@ def _brief(cfg, data, baseline):
     return lines[:budget - 1] + [f'... {len(hidden)} more lines ({sum(line.startswith("red ") for line in hidden)} red): show RULE for details']
 
 
-def screen(cfg):
+def screen(cfg, *, new_task=False):
+    """The brief. It keeps the task baseline while HEAD descends from it; `new_task` (`new-task`) starts the
+    next task at HEAD."""
     from .health import brief_line
-    baseline = cache.session_baseline(cfg, remember=True)
+    baseline, note = cache.remember_baseline(cfg, new_task=new_task)
     data = cache.read(cfg)
     from .differences import display
     structure = brief_line(cfg)         # one line from the last check; the brief builds no map
-    display('\n'.join([*_brief(cfg, data, baseline), *([structure] if structure else [])]))
+    display('\n'.join([*_brief(cfg, data, baseline, note), *([structure] if structure else [])]))
     return int(bool(data['summary']['errors']))
 
 
@@ -515,8 +527,9 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
             ranked.extend((1000, f'{alias} -> {ident} {item["file"]}:{item["line"]}') for alias in aliases)
         ranked.sort(key=lambda row: (-row[0], row[1]))
         from .differences import display          # a structure line carries Chinese text: escape what the console cannot show
-        display('\n'.join(_limit([f'show {query}'] + ([notice] if notice else [])
-                                 + [line for _, line in ranked], cfg.screen_lines)))
+        lines = [f'show {query}'] + ([notice] if notice else []) + [line for _, line in ranked]
+        display('\n'.join(lines if full else _limit(lines, cfg.screen_lines,
+                                                     f'python -m flowguard show {_spelled(query)} --full lists them all')))
     return 0
 
 
@@ -588,8 +601,14 @@ def watch(cfg, command):
 
 
 
-def check(cfg, *, everything=False, since=None, deep=False, base=None):
-    """Run the one ordinary pytest route; source validation executes no code."""
+def _more_leads(command, everything, base):
+    """The command that prints every lead of this run: the same options, `--leads` added (an explicit `--base`
+    too, or it would list the leads against the task baseline instead)."""
+    return f'python -m flowguard {command}' + ' --all' * everything + (f' --base {base}' if base else '') + ' --leads'
+
+
+def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
+    """Run the one ordinary pytest route; source validation executes no code. `leads` prints every lead."""
     from .plugin import collect_signals
     from .signals import render as render_signals
     with collect_signals() as reports:
@@ -633,7 +652,8 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None):
         if owner_baseline(cfg, base):
             baseline = dict(baseline=owner_baseline(cfg, base), baseline_kind='base' if base else 'task')
     report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind', 'task'),
-                  source_changed=any(part.get('source_changed', True) for part in reports),
+                  baseline_option='--base', source_changed=any(part.get('source_changed', True) for part in reports),
+                  all_leads=leads, more_leads=_more_leads('check', everything, base),
                   comparison_requested=any(part.get('comparison_requested') for part in reports),
                   items=[item for part in reports for item in part.get('items', ())],
                   paths=[path for part in reports for path in part.get('paths', ())],
@@ -661,12 +681,13 @@ def _show_signals(text, status):
                 pass
 
 
-def static_check(cfg, *, everything=False, base=None):
+def static_check(cfg, *, everything=False, base=None, leads=False):
     """`check --static`: the map checks alone, without pytest: the fallback ledger, owner writes and pairs,
     values outside declared sets, old values, new spellings, unchanged copies, deletes that leave children,
     missing columns and touched structure problems. The report is rendered as at the end of an ordinary
     test run; only what this change adds is reported unless `everything` (`--all`), which also lists every
-    open structure problem. Exit 1 when anything is red."""
+    open structure problem. `leads` (`--leads`) prints every lead instead of the first ones. Exit 1 when
+    anything is red."""
     from . import anchors, health, ledger as fallbacks, owners
     from .signals import render as render_signals
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
@@ -678,8 +699,9 @@ def static_check(cfg, *, everything=False, base=None):
         with graph.con:
             cache.save_structure(graph.con, found.summary)
     red = list(dict.fromkeys([*found.red, *(issue.message for issue in index.issues if issue.level == 'red')]))
-    report = dict(session=True, baseline=baseline, baseline_kind='base' if base else 'task',
+    report = dict(session=True, baseline=baseline, baseline_kind='base' if base else 'task', baseline_option='--base',
                   source_changed=bool(red or found.leads or found.section or result.red), red=red, leads=found.leads,
+                  all_leads=leads, more_leads=_more_leads('check --static', everything, base),
                   items=[], ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in result.red],
                   structure=found.section)
     status = int(bool(red or result.red))
@@ -1031,21 +1053,22 @@ def _early_plugin(text):
     return text[:start] + body + text[end:]
 
 
-NPM_HEADER = '// Generated by `python -m flowguard init`: FlowGuard\'s map checks inside `npm test`.'
+NPM_HEADER = INIT_MARK + ': FlowGuard\'s map checks inside `npm test`.'
 NPM_CHECK = NPM_HEADER + '''
 // It does one thing: run `python -m flowguard check --static` at the project root, print what it reports,
 // and fail when anything is red (exit 1) or FlowGuard cannot run. Python is found in this order:
 //   1. the FLOWGUARD_PYTHON environment variable, when set (then only that one);
-//   2. the interpreter that ran `flowguard init`: RECORDED below;
+//   2. the interpreter that ran `flowguard init` on this machine, recorded in @RECORDED@ (git-ignored);
 //   3. `python3`, `python` and, on Windows, `py -3` on PATH.
 // The first that can import flowguard runs the check; when none can, the test fails and lists what was tried.
 @IMPORTS@
 const ROOT = @ROOT@;
-const RECORDED = @RECORDED@;
+const RECORDED = path.join(ROOT, ...@RECORDED@.split('/'));
 
 function interpreters() {
   if (process.env.FLOWGUARD_PYTHON) return [[process.env.FLOWGUARD_PYTHON]];
-  const listed = [[RECORDED], ['python3'], ['python']];
+  const listed = fs.existsSync(RECORDED) ? [[fs.readFileSync(RECORDED, 'utf8').trim()]] : [];
+  listed.push(['python3'], ['python']);
   if (process.platform === 'win32') listed.push(['py', '-3']);
   return listed;
 }
@@ -1088,34 +1111,216 @@ def _packages(root):
                   if not any(part == 'node_modules' or part.startswith('.') for part in path.relative_to(root).parts[:-1]))
 
 
+# Options of vitest and jest whose value is the next word; the others are flags.
+_VALUED = {'-c', '--config', '-r', '--root', '--dir', '--project', '-t', '--testNamePattern', '--reporter', '--outputFile',
+           '--environment', '--pool', '--shard', '--mode', '--exclude', '--testPathPattern', '--selectProjects', '--rootDir'}
+
+
+def _filtered_scripts(cfg, package, runner, name):
+    """Lines saying what init did to the test suite scripts (`test`, `test:unit`, ...) that run the runner on
+    named folders only (`vitest run tests/unit`): such a script skips a test at the package root, so `name`
+    is added to it. A script that runs single files is a check of its own and stays as it is. The file keeps
+    its own formatting; a script init cannot edit safely is named with the edit to make."""
+    text = package.read_text(encoding='utf-8-sig')
+    scripts = json.loads(text).get('scripts') or {}
+    lines = []
+    for script, command in scripts.items():
+        if not isinstance(command, str) or not re.fullmatch(r'test(?:[:_-].+)?', script):
+            continue
+        for segment in re.split(r'&&|\|\||;', command):
+            words = segment.split()
+            at = next((index for index, word in enumerate(words) if word.rpartition('/')[2] == runner), None)
+            if at is None:
+                continue
+            rest, paths, valued = words[at + 1:], [], False
+            for word in rest[1:] if rest[:1] in (['run'], ['watch']) else rest:
+                if valued:
+                    valued = False
+                elif word.startswith('-'):
+                    valued = word in _VALUED
+                else:
+                    paths.append(word)
+            if not paths or name in paths or rest[:1] == ['related'] or not all((package.parent / path).is_dir() for path in paths):
+                continue
+            new = command.replace(segment, segment.rstrip() + ' ' + name + segment[len(segment.rstrip()):], 1)
+            where = f'{cfg.rel(package)} script "{script}"'
+            if any(word in ('-r', '--root', '--dir', '--rootDir') for word in rest):
+                lines.append(f'{where} names its own root or folder ({command}): add {name} to what it runs yourself')
+                continue
+            spelled = re.compile(r'(' + re.escape(json.dumps(script)) + r'\s*:\s*)' + re.escape(json.dumps(command)))
+            if len(spelled.findall(text)) != 1:
+                lines.append(f'{where} runs {runner} on named paths only: change it to {new} so it runs {name} too')
+                continue
+            text = spelled.sub(lambda match: match.group(1) + json.dumps(new), text)
+            package.write_text(text, encoding='utf-8')
+            lines.append(f'{where} runs {runner} on named paths only; init added {name}: {new}')
+            break
+    return lines
+
+
 def _npm_check(cfg, package):
     """Write the vitest (or, for a jest project, jest) test that runs `check --static`; returns what it did."""
     data = json.loads(package.read_text(encoding='utf-8-sig'))
     if not isinstance(data, dict):
         raise ValueError(f'{package}: package.json is not a JSON object')
     named = {**(data.get('dependencies') or {}), **(data.get('devDependencies') or {})}
-    script = str((data.get('scripts') or {}).get('test', ''))
+    scripts = {name: str(command) for name, command in (data.get('scripts') or {}).items()}
+    script = scripts.get('test', '')
+    if not {'vitest', 'jest'} & set(named) and not any(re.search(r'\b(?:vitest|jest)\b', command) for command in scripts.values()):
+        return (f'{cfg.rel(package)} names no test runner (vitest or jest in its dependencies or scripts): no FlowGuard '
+                'test is written there; the check of another package covers the whole repository.')
     runner = 'jest' if ('jest' in named or 'jest' in script) and 'vitest' not in named and 'vitest' not in script else 'vitest'
     module = runner == 'vitest' or data.get('type') == 'module'
     target = package.parent / ('flowguard.static.test.mjs' if runner == 'vitest' else 'flowguard.static.test.js')
     relative = os.path.relpath(cfg.root, package.parent).replace(os.sep, '/')
     if module:
         imports = ("import { test } from 'vitest';\n" if runner == 'vitest' else '') + \
-            "import { spawnSync } from 'node:child_process';\nimport path from 'node:path';\nimport { fileURLToPath } from 'node:url';"
+            ("import { spawnSync } from 'node:child_process';\nimport fs from 'node:fs';\nimport path from 'node:path';\n"
+             "import { fileURLToPath } from 'node:url';")
         root = f"path.resolve(path.dirname(fileURLToPath(import.meta.url)), {json.dumps(relative)})"
     else:
-        imports = "const { spawnSync } = require('node:child_process');\nconst path = require('node:path');"
+        imports = "const { spawnSync } = require('node:child_process');\nconst fs = require('node:fs');\nconst path = require('node:path');"
         root = f'path.resolve(__dirname, {json.dumps(relative)})'
     text = (NPM_CHECK.replace('@IMPORTS@', imports).replace('@ROOT@', root)
-            .replace('@RECORDED@', json.dumps(sys.executable)))
+            .replace('@RECORDED@', json.dumps(RECORDED_PYTHON)))
     if target.exists() and not target.read_text(encoding='utf-8').startswith(NPM_HEADER):
         raise ValueError(f'{target}: an existing file has this name; rename it, then run init again')
     target.write_text(text, encoding='utf-8', newline='\n')
     static = f'Generated {cfg.rel(target)} ({runner}): npm test runs python -m flowguard check --static and fails on red.'
+    static += ''.join('\n' + line for line in _filtered_scripts(cfg, package, runner, target.name))
     if runner == 'jest':
         return static + '\nThe execution side supports vitest only: this jest project runs check --static alone.'
     from .vitest import wire
     return static + '\n' + wire(cfg, package)
+
+
+# The conftest lines init wrote before 4.2, when it registered the plugin a second time beside addopts.
+CONFTEST_PLUGIN = ('pytest_plugins = ["flowguard.intent.plugin"]\n',
+                   'pytest_plugins = ([pytest_plugins] if isinstance(pytest_plugins, str) else list(pytest_plugins)) + ["flowguard.intent.plugin"]\n')
+
+
+def _pytest_config(root, pyproject_text):
+    """The file pytest reads its options from when that is not pyproject.toml, else None: pytest.toml or
+    .pytest.toml (pytest 9), pytest.ini or .pytest.ini, or tox.ini/setup.cfg with a pytest section while
+    pyproject.toml has none (pytest's order)."""
+    for name in ('pytest.toml', '.pytest.toml', 'pytest.ini', '.pytest.ini'):
+        if (root / name).is_file():
+            return name
+    if re.search(r'^\[tool\.pytest\.ini_options\]', pyproject_text, re.M):
+        return None
+    for name, section in (('tox.ini', 'pytest'), ('setup.cfg', 'tool:pytest')):
+        path = root / name
+        if path.is_file() and re.search(r'^\[' + re.escape(section) + r'\]', path.read_text(encoding='utf-8-sig'), re.M):
+            return name
+    return None
+
+
+def _register_plugin(cfg, conftest, text):
+    """The pyproject.toml text with the plugin registered once: in pytest's addopts when pyproject.toml is
+    pytest's configuration (it loads before any conftest), else in the sentinel's conftest.py. A conftest
+    line an earlier init wrote beside addopts is removed."""
+    content = conftest.read_text(encoding='utf-8') if conftest.exists() else ''
+    if _pytest_config(cfg.root, text) is None:
+        kept = content
+        for line in CONFTEST_PLUGIN:
+            kept = kept.replace('\n\n' + line, '\n').replace(line, '')
+        if kept != content and kept.strip():
+            conftest.write_text(kept.rstrip('\n') + '\n', encoding='utf-8')
+        elif kept != content:
+            conftest.unlink()           # it held nothing but init's own registration
+        return _early_plugin(text)
+    if 'flowguard.intent.plugin' not in content:
+        conftest.write_text(content.rstrip() + '\n\n' + CONFTEST_PLUGIN['pytest_plugins' in content], encoding='utf-8')
+    return text
+
+
+def _legacy_bindings(cfg):
+    """{folder: (files, modules)} of the Python test files that import a flowguard module this version does not
+    have (FlowGuard 0.70's bindings import flowguard.map.facts): pytest cannot collect them."""
+    import flowguard
+    from .deps import NORECURSEDIRS, _patterns, _pytest_options, kept_out, test_scope
+    package, scope = Path(flowguard.__file__).parent, test_scope(cfg)
+    skipped = _patterns(_pytest_options(cfg), 'norecursedirs', NORECURSEDIRS)
+    found = {}
+    for folder, names, files in os.walk(cfg.root):
+        names[:] = [name for name in names if name not in ('node_modules', '__pycache__')
+                    and not kept_out(Path(folder, name).resolve(), skipped)]
+        for name in files:
+            path = Path(folder) / name
+            relative = cfg.rel(path)
+            if not name.endswith('.py') or not scope(relative):
+                continue
+            missing = sorted({module for module in re.findall(r'^\s*(?:from|import)\s+(flowguard(?:\.\w+)+)',
+                                                              path.read_text(encoding='utf-8-sig', errors='replace'), re.M)
+                              if not (package.joinpath(*module.split('.')[1:]).with_suffix('.py').is_file()
+                                      or package.joinpath(*module.split('.')[1:], '__init__.py').is_file())})
+            if missing:
+                files_, modules = found.setdefault(Path(relative).parent.as_posix(), ([], set()))
+                files_.append(relative)
+                modules.update(missing)
+    return found
+
+
+def _legacy_binding_lines(cfg, pyproject_text):
+    """What init prints about legacy bindings: the folders and the norecursedirs line that keeps pytest out."""
+    from .deps import NORECURSEDIRS, _patterns, _pytest_options
+    found = _legacy_bindings(cfg)
+    if not found:
+        return []
+    roots = {cfg.rel(cfg.root / value) for value in _patterns(_pytest_options(cfg), 'testpaths', ['.'])}
+    folders = sorted({folder.rpartition('/')[2] for folder in found if folder not in roots | {'.'}})
+    lines = []
+    for folder, (files, modules) in sorted(found.items()):
+        lines.append(f'{folder}/ holds {len(files)} test files that import {", ".join(sorted(modules))}, which this '
+                     'FlowGuard does not have (bindings of an older FlowGuard): pytest cannot collect them.')
+    if folders:
+        current = _patterns(_pytest_options(cfg), 'norecursedirs', NORECURSEDIRS)
+        where = _pytest_config(cfg.root, pyproject_text) or 'pyproject.toml [tool.pytest.ini_options]'
+        wanted = [*current, *(f for f in folders if f not in current)]
+        # A TOML file takes a list; pytest.ini, tox.ini and setup.cfg take the patterns separated by spaces.
+        value = json.dumps(wanted) if where.partition(' ')[0].endswith('.toml') else ' '.join(wanted)
+        lines.append(f'To keep pytest out of them, set in {where} (pytest\'s list plus the folder; a check refuses '
+                     f'--ignore): norecursedirs = {value}')
+    if len(folders) < len(found):
+        lines.append('Files directly in a test root cannot be left out by folder: move or delete them.')
+    return lines
+
+
+# FlowGuard 0.70 wrote its workflow into AGENTS.md (read, map check/confirm, target ..., models); 4.x has none of it.
+LEGACY_SECTION = re.compile(r'^##[ \t]+(?P<title>[^\r\n]*?(?:workflow|current-map exception)[^\r\n]*)\r?\n'
+                            r'(?P<body>.*?)(?=^#{1,2}[ \t]|^<!-- flowguard:start -->|\Z)', re.M | re.S | re.I)
+LEGACY_WORDS = re.compile(r'\b0\.70\.\d+|flowguard (?:read|change)\b|\bmap (?:check|confirm)\b|'
+                          r'\btarget (?:start|add|check|promote)\b|flowguard_unit_runner|current[- ]map', re.I)
+
+
+def _legacy_agents(content, rules, newline, languages):
+    """(content, lines to print) for an AGENTS.md written for FlowGuard 0.70: its workflow sections ("Six-step
+    workflow", the current-map exception) give way to the rules block, in the first one's place; the install
+    line and the pinned version (`Use FlowGuard **0.70.14**`) become this version; the project's own rules
+    stay byte for byte. A sentence about what 0.70 did is not rewritten to claim it of this version: it is
+    listed to reword, as is every other remaining line that still names 0.70. A workflow section is FlowGuard's
+    only when its body names flowguard, so a project's own release or data workflow stays."""
+    removed = []
+    def section(match):
+        if 'flowguard' not in match['body'].lower() or not LEGACY_WORDS.search(match['body']):
+            return match.group(0)
+        removed.append(match['title'].strip())
+        return '' if len(removed) > 1 or '<!-- flowguard:start -->' in content else rules + newline
+    content = LEGACY_SECTION.sub(section, content)
+    extra = '[languages]' if languages else ''
+    content, installs = re.subn(r'flowguard(?:\[[\w,]+\])? @ (git\+\S+?)@v0\.70\.\d+',
+                                lambda match: f'flowguard{extra} @ {match[1]}@v{__version__}', content)
+    content, versions = re.subn(r'(\bUse\s+FlowGuard\s+\**|FlowGuard\s+\*\*)0\.70\.\d+',
+                                lambda match: match[1] + __version__, content)
+    lines = [f'AGENTS.md: the FlowGuard 0.70 section "{title}" is replaced by the project rules block' for title in removed]
+    if installs or versions:
+        lines.append(f'AGENTS.md: the FlowGuard version and install line now name {__version__}')
+    block = content.partition('<!-- flowguard:start -->')[2].partition('<!-- flowguard:end -->')[0]
+    for number, line in enumerate(content.splitlines(), 1):
+        if LEGACY_WORDS.search(line) and line not in block:
+            lines.append(f'AGENTS.md:{number} still names FlowGuard 0.70 ({line.strip()[:70]}): reword or delete it; '
+                         '4.x has no map, targets or models')
+    return content, lines
 
 
 def init(cfg):
@@ -1123,21 +1328,13 @@ def init(cfg):
     text = pyproject.read_text(encoding='utf-8') if pyproject.is_file() else ''
     if '[tool.flowguard]' not in text:
         text = text.rstrip() + '\n\n[tool.flowguard]\n'
-    pyproject.write_text(_early_plugin(text), encoding='utf-8')
-    cfg.intent.mkdir(parents=True, exist_ok=True)
     sentinel = cfg.root / 'tests/test_flowguard_intent.py'
     if sentinel.exists() and sentinel.read_text(encoding='utf-8') != SENTINEL:
         raise ValueError(f'{sentinel}: an existing test needs merging with the intent sentinel')
+    pyproject.write_text(_register_plugin(cfg, sentinel.parent / 'conftest.py', text), encoding='utf-8')
+    cfg.intent.mkdir(parents=True, exist_ok=True)
     sentinel.parent.mkdir(parents=True, exist_ok=True)
     sentinel.write_text(SENTINEL, encoding='utf-8')
-    conftest = sentinel.parent / 'conftest.py'
-    content = conftest.read_text(encoding='utf-8') if conftest.exists() else ''
-    if 'flowguard.intent.plugin' not in content:
-        if 'pytest_plugins' in content:
-            extra = 'pytest_plugins = ([pytest_plugins] if isinstance(pytest_plugins, str) else list(pytest_plugins)) + ["flowguard.intent.plugin"]\n'
-        else:
-            extra = 'pytest_plugins = ["flowguard.intent.plugin"]\n'
-        conftest.write_text(content.rstrip() + '\n\n' + extra, encoding='utf-8')
     fragment = cfg.root / '.flowguard/ci.yml'
     fragment.parent.mkdir(parents=True, exist_ok=True)
     fragment.write_text('''# Merge these steps into the project CI after installing FlowGuard.
@@ -1151,6 +1348,8 @@ def init(cfg):
     content = agents.read_bytes().decode('utf-8') if agents.exists() else ''
     newline = '\r\n' if '\r\n' in content else '\n'
     rules = PROJECT_RULES.replace('\n', newline)
+    packages = _packages(cfg.root)
+    content, notes = _legacy_agents(content, rules, newline, bool(packages))
     # The owner's repositories carry a level-one block whose commands 4.x no longer has.
     owner_block = re.compile(r'^# FlowGuard rules for the project agent[ \t]*\r?\n.*?(?=^#{1,6} |^<!-- flowguard:start -->|\Z)',
                              re.M | re.S)
@@ -1167,8 +1366,15 @@ def init(cfg):
     else:
         content = content.rstrip() + newline + newline + rules
     agents.write_bytes(content.encode('utf-8'))
-    print('Initialized intent sentinel, pytest plugin, CI fragment and four project rules.')
-    for package in _packages(cfg.root):
+    print('Initialized intent sentinel, pytest plugin, CI fragment and three project rules.')
+    for line in [*notes, *_legacy_binding_lines(cfg, text)]:
+        print(line)
+    if packages:
+        # The generated npm files find this interpreter here; the cache is git-ignored and stays on this machine.
+        from flowguard.map.common import cache_dir
+        cache_dir(cfg.root)
+        (cfg.root / RECORDED_PYTHON).write_text(sys.executable, encoding='utf-8')
+    for package in packages:
         print(_npm_check(cfg, package))
     return 0
 
@@ -1271,10 +1477,12 @@ def main(argv=None):
     check_parser.add_argument('--base', help='Compare behavior with this commit instead of the remembered session baseline')
     check_parser.add_argument('--static', action='store_true',
                               help='Map checks only, without pytest (any language FlowGuard reads, e.g. TS/JS, Prisma, SQL)')
+    check_parser.add_argument('--leads', action='store_true', help='Print every lead, not only the first ones')
     compare_parser = commands.add_parser('compare')
     compare_parser.add_argument('left')
     compare_parser.add_argument('right')
     commands.add_parser('init')
+    commands.add_parser('new-task', help='Start the next task: record HEAD as the task baseline, then print the brief')
     ledger_parser = commands.add_parser('ledger', help='The fallback ledger: handlers that may end without raising')
     ledger_operations = ledger_parser.add_subparsers(dest='operation', required=True)
     ledger_operations.add_parser('init', help='Record every existing fallback as legacy')
@@ -1312,16 +1520,17 @@ def main(argv=None):
         if options.command == 'check' and options.static:
             if options.deep or options.since:
                 raise ValueError('check --static runs no tests: --deep and --since need the pytest check')
-            return static_check(cfg, everything=options.all, base=options.base)
+            return static_check(cfg, everything=options.all, base=options.base, leads=options.leads)
         if options.command == 'check':
-            return check(cfg, everything=options.all, since=options.since, deep=options.deep, base=options.base)
+            return check(cfg, everything=options.all, since=options.since, deep=options.deep, base=options.base,
+                         leads=options.leads)
         if options.command == 'init':
             return init(cfg)
         if options.command == 'ledger':
             return ledger(cfg, options.operation)
         if options.command == 'req':
             return requests(cfg, options)
-        return screen(cfg)
+        return screen(cfg, new_task=options.command == 'new-task')
     except BrokenPipeError:
         raise               # The command entry exits quietly when the consumer closes stdout.
     except (ValueError, MapError, OSError) as error:

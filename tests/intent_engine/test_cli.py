@@ -80,11 +80,77 @@ def test_init_is_idempotent_and_merges_existing_plugin_and_project_rules(tmp_pat
     assert cli.init(cfg) == 0
     assert first == {name: (root / name).read_bytes() for name in first}
     assert 'pytester' in (root / 'tests/conftest.py').read_text()
-    assert 'flowguard.intent.plugin' in (root / 'tests/conftest.py').read_text()
+    # registered once, in pytest's addopts (it loads before any conftest), not a second time in conftest.py
+    assert 'flowguard.intent.plugin' not in (root / 'tests/conftest.py').read_text()
+    assert '-p flowguard.intent.plugin' in tomllib.loads((root / 'pyproject.toml').read_text())['tool']['pytest']['ini_options']['addopts']
     agents = (root / 'AGENTS.md').read_text()
     assert 'Old model workflow' not in agents
     assert 'Keep this project rule' in agents and 'Keep these too' in agents
     assert 'fetch-depth: 0' in (root / '.flowguard/ci.yml').read_text()
+
+
+def test_init_registers_the_plugin_once_and_removes_the_conftest_line_an_older_init_wrote(tmp_path, capsys):
+    root, cfg = project(tmp_path)
+    (root / 'tests').mkdir(exist_ok=True)
+    (root / 'tests/conftest.py').write_text('\n\npytest_plugins = ["flowguard.intent.plugin"]\n')
+    assert cli.init(cfg) == 0
+    assert not (root / 'tests/conftest.py').exists()            # it held nothing but that line
+    (root / 'tests/conftest.py').write_text('import os\n\npytest_plugins = ["flowguard.intent.plugin"]\n')
+    assert cli.init(cfg) == 0
+    assert (root / 'tests/conftest.py').read_text() == 'import os\n'
+    # With pytest.ini, pytest never reads pyproject.toml's options: the conftest registration is the one.
+    other, other_cfg = project(tmp_path)
+    (other / 'pytest.ini').write_text('[pytest]\ntestpaths = tests\n')
+    assert cli.init(other_cfg) == 0
+    assert 'ini_options' not in (other / 'pyproject.toml').read_text()
+    assert (other / 'tests/conftest.py').read_text().strip() == 'pytest_plugins = ["flowguard.intent.plugin"]'
+    assert cli_fixture.main(['--root', str(other), 'check']) == 0     # the plugin runs once from conftest.py
+
+
+def test_init_with_pytest_toml_registers_the_plugin_where_pytest_reads_it(tmp_path, capsys):
+    # pytest 9 reads pytest.toml before pyproject.toml: options in pyproject.toml are never read there, so the
+    # registration that loads the plugin is the conftest line, as with pytest.ini.
+    root, cfg = project(tmp_path)
+    (root / 'pytest.toml').write_text('[pytest]\ntestpaths = ["tests"]\n')
+    assert cli.init(cfg) == 0
+    assert 'ini_options' not in (root / 'pyproject.toml').read_text()
+    assert (root / 'tests/conftest.py').read_text().strip() == 'pytest_plugins = ["flowguard.intent.plugin"]'
+    assert cli_fixture.main(['--root', str(root), 'check']) == 0     # the sentinel finds the plugin loaded
+
+
+def test_init_prints_the_norecursedirs_line_in_the_format_of_pytest_ini(tmp_path, capsys):
+    root, cfg = project(tmp_path)
+    (root / 'pytest.ini').write_text('[pytest]\ntestpaths = tests\n')
+    (root / 'tests/flowguard').mkdir(parents=True)
+    (root / 'tests/flowguard/test_old.py').write_text('from flowguard.map.facts import load\n')
+    capsys.readouterr()
+    assert cli.init(cfg) == 0
+    line = next(line for line in capsys.readouterr().out.splitlines() if 'norecursedirs = ' in line)
+    # an INI file takes the patterns separated by spaces; a TOML list there would be one pattern
+    assert 'set in pytest.ini (' in line and line.endswith(
+        'norecursedirs = *.egg .* _darcs build CVS dist node_modules venv {arch} flowguard'), line
+
+
+def test_init_names_test_files_of_an_older_flowguard_and_the_norecursedirs_line(tmp_path, capsys):
+    root, cfg = project(tmp_path)
+    legacy = root / 'tests/flowguard'
+    legacy.mkdir(parents=True)
+    for name in ('test_one.py', 'test_two.py'):
+        (legacy / name).write_text('from flowguard.map.facts import load\n\ndef test_bound():\n    load()\n')
+    (root / 'tests/test_ordinary.py').write_text('from flowguard.intent import rule\n\ndef test_value():\n    assert rule\n')
+    capsys.readouterr()
+    assert cli.init(cfg) == 0
+    out = capsys.readouterr().out
+    assert ('tests/flowguard/ holds 2 test files that import flowguard.map.facts, which this FlowGuard does not have '
+            '(bindings of an older FlowGuard): pytest cannot collect them.') in out, out
+    line = next(line for line in out.splitlines() if 'norecursedirs = ' in line)
+    assert line.endswith('norecursedirs = ["*.egg", ".*", "_darcs", "build", "CVS", "dist", "node_modules", "venv", "{arch}", '
+                         '"flowguard"]'), line
+    assert 'test_ordinary.py' not in out                         # flowguard.intent exists
+    path = root / 'pyproject.toml'
+    path.write_text(path.read_text().replace('[tool.pytest.ini_options]\n', '[tool.pytest.ini_options]\n' + line.partition(': ')[2] + '\n'))
+    assert cli.init(cfg) == 0
+    assert 'tests/flowguard/' not in capsys.readouterr().out     # pytest no longer goes there
 
 
 @pytest.mark.parametrize('setting,expected', [

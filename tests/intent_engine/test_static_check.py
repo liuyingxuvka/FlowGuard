@@ -341,9 +341,51 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
     code, text = _static(tmp_path)
     assert code == 1, text
     assert _lines(text, '红：配对没写') == [
-        '红：配对没写：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId，'
+        '红：配对没写 Central.orgUnitId：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId，'
         '同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 Local.unitId → 补写；有意只写一边，'
         '把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
+
+
+def test_the_pair_reds_of_two_owners_are_two_lines(tmp_path):
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Central {
+              id        String @id
+              orgUnitId String
+            }
+
+            model Local {
+              id     String @id
+              unitId String
+            }
+
+            model Project {
+              id       String @id
+              leaderId String
+            }
+
+            model Member {
+              id   String @id
+              role String
+            }
+        ''',
+        'src/owners.ts': '// flowguard: owner Central.orgUnitId with=Local.unitId\n// flowguard: owner Project.leaderId with=Member.*\nexport {};\n',
+    })
+    _write(tmp_path, {'src/admin.ts': '''
+        export async function editCentral(prisma: any, id: string, unit: string) {
+          await prisma.central.update({ where: { id }, data: { orgUnitId: unit } });
+        }
+
+        export async function lead(prisma: any, id: string, leaderId: string) {
+          await prisma.project.update({ where: { id }, data: { leaderId } });
+        }
+    '''})
+    code, text = _static(tmp_path)
+    assert code == 1, text
+    red = _lines(text, '红：配对没写')
+    assert [line.partition('：')[0] for line in red] == ['红', '红'] and len(red) == 2, text
+    assert red[0].startswith('红：配对没写 Central.orgUnitId：src/admin.ts:2 editCentral') and '；' not in red[0].partition(' → ')[0], red
+    assert red[1].startswith('红：配对没写 Project.leaderId：src/admin.ts:6 lead') and 'Central' not in red[1], red
 
 
 def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
@@ -374,7 +416,7 @@ def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
     '''})
     code, text = _pytest(tmp_path)
     assert code == 1, text
-    assert '红：配对没写：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId' in text, text
+    assert '红：配对没写 Central.orgUnitId：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId' in text, text
 
 
 def test_the_value_gate_reads_the_fallback_of_a_nullish_default(tmp_path):
@@ -439,13 +481,13 @@ def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_
     code, text = _static(tmp_path)
     assert code == 1, text
     assert _lines(text, '红：配对没写') == [
-        '红：配对没写：src/employees.ts:9 fixNumber（JS/TS 调用按名字解析）（只查修改） 写了 Employee.sapRef，同一操作'
+        '红：配对没写 Employee.sapRef：src/employees.ts:9 fixNumber（JS/TS 调用按名字解析）（只查修改） 写了 Employee.sapRef，同一操作'
         '（调用方向上 3 层、再从那里向下 3 层）里没写 Opportunity.responsibleNo → 补写；有意只写一边，把函数加进 owner 行的 '
         'alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
     _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=create')})
     code, text = _static(tmp_path)
     assert code == 1 and [line.partition('（JS/TS')[0] for line in _lines(text, '红：配对没写')] == [
-        '红：配对没写：src/employees.ts:2 hire'], text
+        '红：配对没写 Employee.sapRef：src/employees.ts:2 hire'], text
     _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=later')})
     code, text = _static(tmp_path)
     assert code == 1 and 'on= is update or create and limits with=: owner Model.field with=Other.field on=update' in text, text
@@ -494,8 +536,41 @@ def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_he
     assert code == 1, text
     # _reserve_row writes reserved alone, but its caller reserve writes state='held' through _hold_row
     assert _lines(text, '红：配对没写') == [
-        '红：配对没写：shop/store.py:16 release 写了 hires.reserved，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 '
+        '红：配对没写 hires.reserved：shop/store.py:16 release 写了 hires.reserved，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 '
         'hires.state=held → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 shop/store.py:1）'], text
+
+
+def test_show_a_model_field_lists_sql_file_writes_and_counts_the_lines_it_leaves_out(tmp_path):
+    _commit(tmp_path, {
+        'pyproject.toml': '[tool.flowguard]\nscreen_lines = 6\n',
+        'prisma/schema.prisma': '''
+            model Employee {
+              id                   String @id
+              organizationalUnitId String @map("organizational_unit_id")
+              @@map("employees")
+            }
+        ''',
+        'prisma/setup.sql': "INSERT INTO employees (id, organizational_unit_id) VALUES ('e1', 'u1');\n",
+        'src/employee.ts': '''
+            export async function moveEmployee(prisma: any, id: string, unit: string) {
+              await prisma.employee.update({ where: { id }, data: { organizationalUnitId: unit } });
+            }
+            export function employeeDeferred(id: string) { return id; }
+            export function employeeUnitLabel(id: string) { return id; }
+            export function employeeUnitCode(id: string) { return id; }
+            export function employeeUnitName(id: string) { return id; }
+        ''',
+    })
+    code, text = _flowguard(tmp_path, 'show', 'Employee.organizationalUnitId')
+    assert code == 0, text                  # a .sql statement's write row has a call line too (no KeyError)
+    lines = text.splitlines()
+    assert 'writes Employee.organizationalUnitId prisma/setup.sql:1 <module> (sql:insert)' in lines, text
+    assert 'writes Employee.organizationalUnitId src/employee.ts:2 moveEmployee (update)' in lines, text
+    # "employeeDeferred" is no red line; the overflow names the command that prints the rest
+    assert len(lines) == 6 and lines[-1] == ('... 4 more lines: python -m flowguard show Employee.organizationalUnitId '
+                                             '--full lists them all'), text
+    code, full = _flowguard(tmp_path, 'show', 'Employee.organizationalUnitId', '--full')
+    assert code == 0 and len(full.splitlines()) == 9 and 'employeeDeferred' in full and 'more lines' not in full, full
 
 
 def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_path):
@@ -553,7 +628,7 @@ def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_pa
     # moveManager reaches mirrorSap through `this` in its own package; the page's calls are the frontend's own
     # names, and the test that calls dropManager is not part of its operation; the test's fixture is no write to hold.
     assert _lines(text, '红：配对没写') == [
-        '红：配对没写：backend/src/unit.service.ts:13 removeManager  backend/src/unit.service.ts:16 dropManager'
+        '红：配对没写 Unit.managerId：backend/src/unit.service.ts:13 removeManager  backend/src/unit.service.ts:16 dropManager'
         '（JS/TS 调用按名字解析） 写了 Unit.managerId，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 Unit.managerSap'
         ' → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 backend/src/owners.ts:1）'], text
 

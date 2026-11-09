@@ -34,8 +34,29 @@ def _patterns(options, name, default):
     return value.split() if isinstance(value, str) else value
 
 
+# pytest's own default; a project's `norecursedirs` replaces it.
+NORECURSEDIRS = ['*.egg', '.*', '_darcs', 'build', 'CVS', 'dist', 'node_modules', 'venv', '{arch}']
+
+
+def kept_out(folder, patterns):
+    """Whether pytest's `norecursedirs` keeps it out of `folder` (an absolute path), as pytest's fnmatch_ex
+    matches: a pattern without a path separator matches the folder's name (`flowguard`), one with a
+    separator the folder's whole path (`tests/legacy` matches any path ending in it)."""
+    import os
+    for pattern in patterns:
+        if os.sep != '/' and os.sep not in pattern:
+            pattern = pattern.replace('/', os.sep)
+        if os.sep not in pattern:
+            if fnmatch.fnmatch(folder.name, pattern):
+                return True
+        elif fnmatch.fnmatch(str(folder), pattern if os.path.isabs(pattern) else f'*{os.sep}{pattern}'):
+            return True
+    return False
+
+
 def test_scope(cfg):
-    """pytest's configured default file scope, never production testfile APIs."""
+    """pytest's configured default file scope, never production testfile APIs: `testpaths`, `python_files`
+    and the folders `norecursedirs` keeps pytest out of (below a testpaths entry, `kept_out`)."""
     options, paths = _pytest_options(cfg), []
     for value in _patterns(options, 'testpaths', ['.']):
         path = Path(value)
@@ -46,10 +67,14 @@ def test_scope(cfg):
             paths.extend(path.resolve() for path in cfg.root.glob(value))
     paths = paths or [cfg.root]
     patterns = _patterns(options, 'python_files', ['test_*.py', '*_test.py'])
+    skipped = _patterns(options, 'norecursedirs', NORECURSEDIRS)
+    def recursed(path, base):
+        return path == base or path.is_relative_to(base) and not any(
+            kept_out(folder, skipped) for folder in path.parents if folder != base and folder.is_relative_to(base))
     def contains(relative):
         path = (cfg.root / relative).resolve()
         return (path.is_relative_to(cfg.root) and path.is_file() and path.suffix == '.py'
-                and any(path == base or path.is_relative_to(base) for base in paths)
+                and any(recursed(path, base) for base in paths)
                 and any(fnmatch.fnmatchcase(path.name, pattern) for pattern in patterns))
     return contains
 

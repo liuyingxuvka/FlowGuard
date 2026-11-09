@@ -21,32 +21,64 @@ def put_meta(con, name, text):
 
 
 def session_baseline(cfg, *, remember=False):
-    """One task-start commit in the existing SQLite meta; ordinary tests only read it."""
+    """One task-start commit in the existing SQLite meta; ordinary tests only read it. `remember` is the
+    brief's call (`remember_baseline`), which keeps a task's baseline while HEAD descends from it."""
+    if remember:
+        return remember_baseline(cfg)[0]
     if git_common_directory(cfg.root) is None:
         return None
+    recorded = _recorded_baseline(cfg)
+    return recorded if recorded is not None else git_head(cfg.root)
+
+
+def _recorded_baseline(cfg):
+    """The recorded task-start commit, or None when nothing is recorded; an unreadable record raises."""
     path = cfg.cache / 'map.sqlite'
-    if remember:
-        commit = git_head(cfg.root)
-        if commit is None:
-            return None
-        from ..structure.store import connect
-        with closing(connect(path)) as con, con:
-            put_meta(con, 'task_baseline', json.dumps({'commit': commit}))
-        return commit
-    if path.is_file():
-        try:
-            with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
-                table = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone()
-                row = con.execute("SELECT v FROM meta WHERE k='task_baseline'").fetchone() if table else None
-                if row:
-                    data = json.loads(row[0])
-                    commit = data.get('commit') if isinstance(data, dict) else None
-                    if not isinstance(commit, str) or not re.fullmatch(r'[0-9a-f]{40}', commit):
-                        raise ValueError('task_baseline needs a full 40-character commit')
-                    return commit
-        except (sqlite3.DatabaseError, ValueError, TypeError) as error:
-            raise MapError(f'{path}: task baseline could not be read: {error}') from error
-    return git_head(cfg.root)
+    if not path.is_file():
+        return None
+    try:
+        with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
+            table = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone()
+            row = con.execute("SELECT v FROM meta WHERE k='task_baseline'").fetchone() if table else None
+            if not row:
+                return None
+            data = json.loads(row[0])
+            commit = data.get('commit') if isinstance(data, dict) else None
+            if not isinstance(commit, str) or not re.fullmatch(r'[0-9a-f]{40}', commit):
+                raise ValueError('task_baseline needs a full 40-character commit')
+            return commit
+    except (sqlite3.DatabaseError, ValueError, TypeError) as error:
+        raise MapError(f'{path}: task baseline could not be read: {error}') from error
+
+
+def remember_baseline(cfg, *, new_task=False):
+    """(commit, note) of the brief. The task baseline is recorded at HEAD only when none is recorded, when
+    the recorded commit is not an ancestor of HEAD (another branch, rewritten history, a commit this clone
+    lacks) or when `new_task` starts the next task (`python -m flowguard new-task`). Commits made during a
+    task keep its baseline, so what the task changed stays reported. `note` says why the baseline is where
+    it is, '' when it was recorded at HEAD with nothing recorded before."""
+    from flowguard.map.common import git_run
+    if git_common_directory(cfg.root) is None:
+        return None, ''
+    head = git_head(cfg.root)
+    if head is None:
+        return None, ''
+    recorded = _recorded_baseline(cfg)
+    if recorded is not None and not new_task:
+        known = git_run(cfg.root, 'rev-parse', '-q', '--verify', recorded + '^{commit}', allowed=(0, 1)).returncode == 0
+        if known and git_run(cfg.root, 'merge-base', '--is-ancestor', recorded, head, allowed=(0, 1)).returncode == 0:
+            ahead = int(git_run(cfg.root, 'rev-list', '--count', f'{recorded}..{head}').stdout.decode().strip())
+            note = (f'baseline: task start, {ahead} commit{"s" * (ahead != 1)} before HEAD; next task: python -m flowguard new-task'
+                    if ahead else '')
+            return recorded, note
+    from ..structure.store import connect
+    with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
+        put_meta(con, 'task_baseline', json.dumps({'commit': head}))
+    if new_task:
+        return head, f'baseline: new task from HEAD {head[:12]}' + (f' (was {recorded[:12]})' if recorded else '')
+    if recorded is not None and recorded != head:
+        return head, f'baseline: recorded {recorded[:12]} is not an ancestor of HEAD; the task starts at HEAD'
+    return head, ''
 
 
 # The one-line relation templates and their name parameters (flowguard/intent/api.py).

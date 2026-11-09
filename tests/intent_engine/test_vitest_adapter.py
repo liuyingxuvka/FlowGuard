@@ -287,7 +287,10 @@ def test_init_wires_the_vitest_config_readably_and_says_jest_is_static_only(tmp_
     assert 'The execution side supports vitest only: this jest project runs check --static alone.' in text, text
     assert not (tmp_path / 'job/flowguard.vitest.mjs').exists()
     generated = (tmp_path / 'web/flowguard.vitest.mjs').read_text(encoding='utf-8')
-    assert "'-m', 'flowguard.intent.vitest', 'prepare'" in generated and json.dumps(sys.executable) in generated
+    # No machine path in a committed file: the interpreter that ran init is read from the git-ignored cache.
+    assert "'-m', 'flowguard.intent.vitest', 'prepare'" in generated and sys.executable not in generated
+    assert '".flowguard/cache/python"' in generated and sys.executable not in (tmp_path / 'web/flowguard.static.test.mjs').read_text(encoding='utf-8')
+    assert (tmp_path / '.flowguard/cache/python').read_text(encoding='utf-8') == sys.executable
     code, again = _flowguard(tmp_path, 'init')
     assert code == 0 and 'web/vitest.config.ts already lists flowguard().' in again, again
     assert (tmp_path / 'web/vitest.config.ts').read_text(encoding='utf-8') == web          # run twice, wired once
@@ -295,6 +298,25 @@ def test_init_wires_the_vitest_config_readably_and_says_jest_is_static_only(tmp_
     assert undone.replace('flowguard() /* flowguard: vitest */, ', '') + '\n' == \
         "import react from '@vitejs/plugin-react';\nimport { defineConfig } from 'vitest/config';\n\n" \
         "export default defineConfig({\n  plugins: [react()],\n  test: { environment: 'jsdom' },\n});\n"
+
+
+def test_init_adds_its_test_to_suite_scripts_on_named_folders_and_skips_a_package_without_a_runner(tmp_path):
+    package = ('{\n  "name": "api",\n  "type": "module",\n  "scripts": {\n    "test": "vitest run",\n'
+               '    "test:unit": "prisma generate && vitest run tests/unit --reporter=dot",\n'
+               '    "test:one": "vitest run tests/unit/a.test.ts",\n    "check:schema": "vitest run tests/unit"\n  },\n'
+               '  "devDependencies": {\n    "vitest": "4.1.11"\n  }\n}\n')
+    _commit(tmp_path, {'api/package.json': package, 'api/tests/unit/a.test.ts': "import { it } from 'vitest';\nit('a', () => {});\n",
+                       'lib/package.json': '{"name": "lib", "scripts": {"build": "tsc"}, "devDependencies": {"typescript": "5.6.0"}}\n'})
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0, text
+    after = package.replace('vitest run tests/unit --reporter=dot', 'vitest run tests/unit --reporter=dot flowguard.static.test.mjs')
+    assert (tmp_path / 'api/package.json').read_text(encoding='utf-8') == after       # its own formatting kept
+    assert ('api/package.json script "test:unit" runs vitest on named paths only; init added flowguard.static.test.mjs: '
+            'prisma generate && vitest run tests/unit --reporter=dot flowguard.static.test.mjs') in text, text
+    assert not (tmp_path / 'lib/flowguard.static.test.mjs').exists()
+    assert 'lib/package.json names no test runner (vitest or jest in its dependencies or scripts): no FlowGuard test' in text, text
+    code, again = _flowguard(tmp_path, 'init')
+    assert code == 0 and (tmp_path / 'api/package.json').read_text(encoding='utf-8') == after and 'init added' not in again, again
 
 
 # ---- real vitest -----------------------------------------------------------------------------------
@@ -355,6 +377,105 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     assert '红：FEE_WINDOW: days=3 member=F -> rule 0, code 5（src/fees/late-fee.ts:4 lateFee）' in text, text
     # the unchanged copy compared on every replayed class prints nothing of its own
     assert not [line for line in text.splitlines() if line.startswith('未验证') and 'fee-preview.ts' in line], text
+
+
+def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_change(vitest_home):
+    root = _fees_project(vitest_home, 'again')
+    _sensor(root, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
+    _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
+    code, text = _vitest(root, vitest_home)
+    red = '红：同名锚点 LATE_FEE：days=3.01, member=T，5.01 ≠ 5.02'
+    assert code == 1 and red in text, text
+    _commit(root, message='sensors')            # nothing changed against the baseline any more
+    code, text = _vitest(root, vitest_home)
+    assert code == 1 and red in text, text      # the registered copies still disagree: still red
+    preview = root / 'src/preview/fee-preview.ts'
+    preview.write_text(preview.read_text(encoding='utf-8').replace('(days - 3) * 2', '(days - 3) * (member ? 1 : 2)'),
+                       encoding='utf-8', newline='\n')
+    _commit(root, message='the copies agree')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and '同名锚点' not in text, text
+    assert _prepare(root) == {'status': 'off', 'reason': '相对基准没有 TS/JS 改动：执行侧不准备'}   # compared, agreed: cleared
+
+
+ISO_WEEK = '''
+    function isoWeek(date: Date): number {
+      const day = date.getUTCDay() || 7;
+      const thursday = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 4 - day));
+      const start = Date.UTC(thursday.getUTCFullYear(), 0, 1);
+      return Math.ceil(((thursday.getTime() - start) / 86400000 + 1) / 7);
+    }
+'''
+
+
+def test_a_same_name_red_names_an_input_next_to_the_one_the_test_used_and_fails_a_test_case(vitest_home):
+    root = vitest_home / 'weeks'
+    _commit(root, {
+        'package.json': '{"name": "weeks", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
+                        '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
+        'src/chart.ts': ISO_WEEK + '''
+            // flowguard: sensor ISO_WEEKS_IN_YEAR
+            export function weeksInYear(year: number): number {
+              return isoWeek(new Date(Date.UTC(year, 11, 28)));
+            }
+        ''',
+        'src/calendar.ts': ISO_WEEK + '''
+            // flowguard: sensor ISO_WEEKS_IN_YEAR
+            export function weekCount(year: number): number {
+              return isoWeek(new Date(Date.UTC(year, 11, 31)));
+            }
+        ''',
+        'tests/chart.test.ts': '''
+            import { expect, it } from 'vitest';
+            import { weeksInYear } from '../src/chart';
+
+            it('counts the weeks of this year', () => {
+              expect(weeksInYear(2026)).toBe(53);
+            });
+        ''',
+    })
+    code, text = _flowguard(root, 'init')
+    assert code == 0, text
+    run = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', '--reporter=default',
+                          '--reporter=json', '--outputFile.json=results.json'], cwd=root, capture_output=True, encoding='utf-8',
+                         timeout=600, env=_environment())
+    text = display_text(run.stdout + run.stderr)
+    # 2025 is next to the 2026 the test used (2026 itself agrees: both count 53); year=0 would be read as 1900
+    red = '红：同名锚点 ISO_WEEKS_IN_YEAR：year=2025，52 ≠ 1（src/chart.ts:9 weeksInYear ≠ src/calendar.ts:9 weekCount）'
+    assert run.returncode == 1 and red in text, text
+    results = json.loads((root / 'results.json').read_text(encoding='utf-8'))
+    cases = {case['title']: case for result in results['testResults'] for case in result['assertionResults']}
+    assert cases['counts the weeks of this year']['status'] == 'passed', cases
+    session = cases['FlowGuard execution side']             # the red is a failed test case in vitest's own results
+    assert session['status'] == 'failed' and red.removeprefix('红：') in display_text(''.join(session['failureMessages'])), session
+    assert red in text.split('Test Files')[-1], text          # the block still follows the summary
+    run = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', 'tests'], cwd=root,
+                         capture_output=True, encoding='utf-8', timeout=600, env=_environment())
+    text = display_text(run.stdout + run.stderr)            # a path filter leaves the session test out:
+    assert run.returncode == 1 and red in text and 'FlowGuard execution side' not in text, text   # the teardown judges
+
+
+def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest_home):
+    root = vitest_home / 'mono'
+    _commit(root, {
+        'web/package.json': '{"name": "web", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
+                            '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
+        'web/src/a.ts': '// flowguard: sensor A_LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'web/src/b.ts': '// flowguard: sensor B_LIMIT\nexport function under(x: number): boolean {\n  return x < 3;\n}\n',
+        'web/src/c.ts': '// flowguard: sensor B_LIMIT\nexport function below(x: number): boolean {\n  return x < 3;\n}\n',
+        'web/tests/a.test.ts': "import { expect, it } from 'vitest';\nimport { over } from '../src/a';\n\n"
+                               "it('over', () => { expect(over(4)).toBe(true); });\n",
+        'api/package.json': '{"name": "api", "private": true, "type": "module", "scripts": {"build": "tsc"}}\n',
+        'api/src/d.ts': '// flowguard: sensor API_LIMIT\nexport function limit(x: number): boolean {\n  return x > 9;\n}\n',
+    })
+    code, text = _flowguard(root, 'init')
+    assert code == 0, text
+    code, text = _vitest(root / 'web', vitest_home)
+    assert code == 0, text
+    unverified = [line for line in text.splitlines() if line.startswith('未验证')]
+    assert unverified[0].startswith('未验证 2 项（不是通过）'), unverified                   # two places, two items
+    assert '未验证：B_LIMIT（web/src/b.ts:2）：没有测试走到' in unverified and '未验证：B_LIMIT（web/src/c.ts:2）：没有测试走到' in unverified
+    assert 'API_LIMIT' not in text and 'api/src' not in text, text      # no web test can reach the api package
 
 
 def test_a_replay_refuses_writes_and_database_clients_and_the_real_call_still_runs(vitest_home):

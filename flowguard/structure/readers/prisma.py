@@ -280,10 +280,12 @@ def _walk(base, models, model, path, leaf, kind, reason, written=None):
 
 def bind_sql(rows, models: Models):
     """SQL write statements as writes: the table names a model through @@map or its name, a column a
-    field through @map or its name; unknown names stay as written, with no model."""
+    field through @map or its name; unknown names stay as written, with no model. A statement in a .sql
+    file is not called from anywhere: its call line is its own line, as every write row has one."""
     out = []
     for row in rows:
-        base = {key: row[key] for key in ('node', 'function', 'file', 'line', 'column', 'call_line') if key in row}
+        base = {key: row[key] for key in ('node', 'function', 'file', 'line', 'column') if key in row}
+        base['call_line'] = row['call_line'] if 'call_line' in row else row['line']
         model = models.table_model(row.get('table'))
         values = row.get('values', {})
         for name in row['columns']:

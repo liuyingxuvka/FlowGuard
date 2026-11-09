@@ -1234,6 +1234,7 @@ class MapHandle:
         else:
             files = list(changed_files) if changed_files is not None else self._git_changed(since)
             delta = self._delta_against(since, files)
+        delta = _without_moves(delta)
         changed = sorted({i for i, c, *_ in delta if c == "changed"})
         added = sorted({i for i, c, *_ in delta if c == "added"})
         removed = sorted({i for i, c, *_ in delta if c == "removed"})
@@ -1337,6 +1338,33 @@ class MapHandle:
                 elif old[i][0] != new[i][0]:
                     rows.append((i, "changed", old[i][0], new[i][0], old[i][1], new[i][1]))
         return rows
+
+
+def _without_moves(delta):
+    """Delta rows without nested callbacks that only moved. A callback is named by where it starts
+    (`<anonymous@LINE,COL>`), so a line added above it (a comment, an owner anchor) gives the same code
+    another id: one id is removed and one added, or an id now names the next callback ("changed"). With
+    positions aside, a callback whose old and new code (fingerprint) both occur again at the same place of
+    the same function only moved; its row is dropped. A row with a part that occurs only on one side stays."""
+    import re
+    from collections import Counter
+    position = re.compile(r"<anonymous@\d+,\d+>")
+    def key(ident, fp):
+        return position.sub("<anonymous>", ident), fp
+    rows = [row for row in delta if position.search(row[0])]
+    common = Counter(key(row[0], row[2]) for row in rows if row[2] is not None) \
+        & Counter(key(row[0], row[3]) for row in rows if row[3] is not None)
+    before, after, kept = Counter(common), Counter(common), []
+    for row in delta:
+        old, new = key(row[0], row[2]), key(row[0], row[3])
+        if position.search(row[0]) and (row[2] is None or before[old] > 0) and (row[3] is None or after[new] > 0):
+            if row[2] is not None:
+                before[old] -= 1
+            if row[3] is not None:
+                after[new] -= 1
+            continue
+        kept.append(row)
+    return kept
 
 
 def _fold_values(text, env):

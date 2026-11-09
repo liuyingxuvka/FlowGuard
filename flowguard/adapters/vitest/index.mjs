@@ -3,6 +3,8 @@
 // and the baseline sources. This plugin only edits text: after each planned function it adds
 // `f = wrap(f)` (a `const f = ...` becomes `let`), and it loads a baseline source as the virtual module
 // `<file>?flowguard-baseline`, so relative imports resolve from the same folder. The judgments are Python's.
+// It also adds FlowGuard's own test project (session.test.mjs), run after the project's tests
+// (sequence.groupOrder): its one test case fails on a red, so the red is in vitest's results (JSON, junit) too.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -11,6 +13,8 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RUNTIME = path.join(HERE, 'runtime.mjs');
 const GLOBAL_SETUP = path.join(HERE, 'global-setup.mjs');
+const SESSION = 'session.test.mjs';
+const LAST = 1000;               // the session project's group comes after the others (vitest spreads its groups: keep it small)
 const BASELINE = '?flowguard-baseline';
 const PREFIX = 'virtual:flowguard/';
 
@@ -49,12 +53,19 @@ export function flowguardPlugin({ plan: planFile, python, root }) {
     },
     configResolved(config) {
       viteRoot = config.root;
+      // the package whose tests run: a planned point in another package is not "not reached" by them
+      process.env.FLOWGUARD_VITEST_PACKAGE = config.root;
     },
     // vitest 5 caches transforms on disk keyed by the source text: the plan belongs to that key
     configureVitest(context) {
       context.defineCacheKeyGenerator?.(({ id }) => {
         const entry = lookup(id);
         return entry ? digest([entry, plan.key]) : id.includes(BASELINE) ? digest(plan.key) : '';
+      });
+      // vitest 3.2 and later; an older vitest reports the red after the summary and in the exit status only
+      return context.injectTestProjects?.({
+        test: { name: 'flowguard', root: HERE, include: [SESSION], globals: true, environment: 'node',
+          sequence: { groupOrder: LAST } },
       });
     },
     async resolveId(id, importer) {
