@@ -201,3 +201,24 @@ def test_missing_plugin_counts_direct_anchors_without_executing_intent(tmp_path)
     assert len([name for name in declared if name.startswith('GRACE[')])==7
     assert unresolved==[]
     assert 'GRACE[app.owner:cells]' in declared and 'GRACE[app.declared_copy:live]' in declared
+
+
+def test_show_never_marks_a_look_alike_of_another_field_or_boundary_as_the_same_decision(tmp_path, capsys):
+    # `strong` means the same decision sites; a look-alike was neither run nor matched by site.
+    import json
+    root = tmp_path / 'grace'
+    root.mkdir()
+    (root / 'pyproject.toml').write_text('[tool.flowguard]\n', encoding='utf-8')
+    (root / 'app.py').write_text('# flowguard: sensor GRACE\n'
+                                 'def owner(days: int) -> bool: return days <= 3\n'
+                                 'def copy(days): return days <= 3\n'
+                                 'def other_field(hours): return hours <= 72\n'
+                                 'def next_boundary(days): return days <= 4\n', encoding='utf-8')
+    assert cli.show(load_config(root), 'GRACE', full=True) == 0
+    rows = {row['id']: row for row in (json.loads(line.partition('unbound candidate ')[2])
+                                        for line in capsys.readouterr().out.splitlines() if 'unbound candidate ' in line)}
+    assert {'app:other_field', 'app:next_boundary'} <= rows.keys(), rows
+    for name in ('app:other_field', 'app:next_boundary'):
+        assert rows[name]['strength'] == 'look-alike' and rows[name]['how'] == 'look-alike', rows[name]
+        assert rows[name]['reason'].startswith('look-alike, not run: '), rows[name]
+    assert all(row['strength'] != 'strong' or row['how'] != 'look-alike' for row in rows.values()), rows

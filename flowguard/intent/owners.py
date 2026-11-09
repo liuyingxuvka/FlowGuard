@@ -844,7 +844,9 @@ def look_alikes(cfg, graph, target, excluded=()):
         shape, shared = _similarity(row['shape'], home['shape']), sorted(row['constants'] & home['constants'])
         reasons = ([f'similar body {shape:.2f}'] if shape >= SIMILAR_SHAPE else []) + \
                   ([f'shared number {", ".join(map(repr, shared))}'] if shared else [])
-        out.append(dict(id=row['id'], file=row['file'], line=row['line'], how='look-alike', strength='strong',
+        # Its own strength: `strong` means the same decision sites (structure/homes.py); a look-alike was
+        # neither run nor matched by site, so a different field or boundary may share its shape.
+        out.append(dict(id=row['id'], file=row['file'], line=row['line'], how='look-alike', strength='look-alike',
                         score=round(shape, 2), reason='look-alike, not run: ' + '; '.join(reasons)))
     return sorted(out, key=lambda row: (-row['score'], row['id']))
 

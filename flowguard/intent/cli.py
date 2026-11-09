@@ -313,7 +313,8 @@ def _copy_pointers(graph, index, anchors, homes, summary, results, words, full, 
             if node:
                 candidate = dict(candidate, file=node['file'], line=node['line'])
             old = candidates.get(candidate['id'])
-            if old is None or candidate.get('score', 0) > old.get('score', 0):
+            rank = lambda row: (row.get('strength') == 'strong', row.get('score', 0))   # a site match over a look-alike
+            if old is None or rank(candidate) > rank(old):
                 candidates[candidate['id']] = candidate
     found = dict(candidates=sorted(candidates.values(), key=lambda row: (-row.get('score', 0), row['id'])))
     return list(dict.fromkeys(lines)) + _candidate_lines(found, full, '线索 unbound candidate ')
