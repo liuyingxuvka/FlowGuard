@@ -27,6 +27,7 @@ Ordinary edits do not need an intent model or a separate task record.
 - Save only actual owner words, byte for byte. Never edit `.flowguard/requests/` or invent attribution.
 - Change code and tests together. Record the actual command, result and any unfinished boundary.
 - Tests never hide errors behind skips. Effective platform/version `skipif` or `xfail` markers retain their meaning.
+- One route per function: when a step fails, the error reaches the caller or is reported with its text; never a quiet default, a skipped check or a second path. `.flowguard/ledger.toml` lists every exception handler that can end without raising, per function with its count, what it does and why it may stay, and the written rule it serves; ordinary pytest fails on a new, changed or vanished one.
 - Source equivalence uses `flowguard/map/common.py:normalize_newlines`; binary resources keep exact bytes.
 - Keep generated maps, pytest caches and execution records out of git.
 - Commit in your own words. Add `Request: R<id>` for the stored words the change answers.

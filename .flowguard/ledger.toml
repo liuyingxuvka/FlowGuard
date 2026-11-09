@@ -1,0 +1,1076 @@
+# FlowGuard 兜底账本：每条记一个函数里能不抛出就结束的异常处理，键是"文件:函数:捕获的类型"。
+# count 是这个函数里这种处理的处数；reason 写它做了什么、为什么可以留（不少于 8 个词）；
+# rule 指向成文规矩：{ file = "文件", text = "该文件里必须出现的一句话" }，每次测试都核对这句话还在。
+# 新增、数量变化、代码消失、那句话找不到，都会让 pytest 失败。rule = "旧账" 的条目由 ledger init 记下，只能减少。
+# 裸 except、except Exception/BaseException、contextlib.suppress、警告过滤、finally 里的 return/break/continue
+# 和可能返回真值的 __exit__ 不能新增登记：改代码。
+
+["flowguard/__main__.py:main:KeyboardInterrupt"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_accepts.union:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_base_type:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_import_reasons.definition_safe:(ValueError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_import_reasons.statements:(ValueError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_import_reasons.statements:ImportError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_literal_globals:(ValueError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_literal_globals:(ValueError, TypeError, SyntaxError, ArithmeticError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_observe_verified:(ValueError, SyntaxError, OSError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_observe_verified:(ValueError, SyntaxError, OSError, ImportError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_observe_verified:(ValueError, SyntaxError, TypeError, AttributeError)"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_observe_verified:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_observe_verified:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_parameter_role:(ValueError, SyntaxError, TypeError, AttributeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_projection_path:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_read_decision:(SyntaxError, ValueError, TypeError, AttributeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_type_id:(ValueError, SyntaxError, TypeError, AttributeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:_unit:(SyntaxError, AttributeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:collect_sources:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:parameter_kind:(ValueError, SyntaxError, TypeError, AttributeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:source_facts:(ValueError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:source_facts:(ValueError, tokenize.TokenError)"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/anchors.py:source_facts:tokenize.TokenError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/cache.py:_literal:(ValueError, TypeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/cache.py:scan:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/calibration.py:_codes:(AttributeError, sites.NotMutable)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/calibration.py:_instrumented:(AttributeError, sites.NotMutable)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/calibration.py:_observation:(ValueError, SyntaxError, TypeError, AttributeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/calibration.py:_observe_current:(OSError, ValueError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/calibration.py:_scenario:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/calibration.py:_sensor.observe:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/calibration.py:_sensor:(OSError, ValueError, TypeError, SyntaxError, AttributeError, sites.NotMutable)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/calibration.py:_value_in_context:TypeError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/calibration.py:_values:(ValueError, SyntaxError, TypeError, AttributeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/cells.py:const_value:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/cells.py:points:(ValueError, OverflowError)"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/cli.py:_brief_source:IntentError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/cli.py:_early_plugin:tomllib.TOMLDecodeError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/cli.py:_owner_rules_unverified:IntentError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/cli.py:_show_signals:(OSError, ValueError)"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/cli.py:main:(ValueError, MapError, OSError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/debug.py:show_observation:Unverified"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/debug.py:try_anchor:(OSError, ValueError, TypeError, ImportError, AttributeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/debug.py:try_anchor:(ValueError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/debug.py:try_anchor:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/debug.py:watch:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/debug.py:watch:SystemExit"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/deps.py:_file_dependencies:(OSError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/deps.py:_file_dependencies:(TypeError, ValueError)"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/deps.py:_file_dependencies:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/deps.py:_literal_reads.literal:(TypeError, ValueError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/deps.py:test_files:(OSError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/differences.py:_source_index:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/differences.py:anchor_distinct:sources.IntentError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/differences.py:display:UnicodeEncodeError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/differences.py:joint_partition:(NameError, TypeError, ValueError, AttributeError, ZeroDivisionError, OverflowError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/differences.py:joint_partition:TypeError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/differences.py:joint_partition:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine._answers:PredicateError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine._at_calls:PredicateError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine._imported_from_project:(OSError, SyntaxError, ValueError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine._project_imports:(ImportError, ValueError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine._project_imports:OSError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.borrowed:(OSError, TypeError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.call:Exception"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.call:WitnessUnavailable"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.check_key:PredicateError"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.code_space:(OSError, TypeError, ValueError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.contract_summary:WitnessUnavailable"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.home_sites:(ImportError, AttributeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.home_sites:(OSError, TypeError, S.NotMutable)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.perturbed.moved:(AttributeError, TypeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.probe:(ImportError, AttributeError, OSError, TypeError, SyntaxError, S.NotMutable)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.probe:(S.NotMutable, SyntaxError, OSError, TypeError, NameError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.probe:PredicateError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.probe:WitnessUnavailable"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.probe_cells:PredicateError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.rr_space:PredicateError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.run_home:PredicateError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.run_home:WitnessUnavailable"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.run_live.suite:PredicateError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.run_live.suite:WitnessUnavailable"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:Engine.run_live:(S.NotMutable, SyntaxError, OSError, TypeError, NameError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/engine.py:_bump:OverflowError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:Capture.__enter__:_TraceUnavailable"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:Capture._append:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:Capture._callback:(AttributeError, ValueError, TypeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:_engine_contracts:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:_engine_contracts:Unverified"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:_source_digest:FileNotFoundError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:draft_model:Unverified"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:finite_check:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:finite_check:Unverified"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:relation_observations:Unverified"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:runtime_check:Exception"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:runtime_check:Unverified"]
+count = 3
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/flow.py:runtime_check:_DomainError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/history.py:_probe:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/history.py:proven:MapError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/imports.py:_Source.get_code:OSError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/imports.py:_root_names:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/imports.py:prepare:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/ledger.py:_baseline_ledger:MapError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/ledger.py:parse:tomllib.TOMLDecodeError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/ledger.py:structure_decisions:tomllib.TOMLDecodeError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/ledger.py:unverified:tomllib.TOMLDecodeError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/linear.py:from_num:(ValueError, OverflowError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/loader.py:_bind_scenarios:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/loader.py:_validate:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/loader.py:_validate:IntentError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/loader.py:_validate:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/loader.py:load:BaseException"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/loader.py:load:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:_classes:(ValueError, SyntaxError, OSError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:_functions:(SyntaxError, OSError, UnicodeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:_literal:(ValueError, TypeError, SyntaxError, MemoryError, RecursionError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:_literal_text:(ValueError, TypeError, SyntaxError, MemoryError, RecursionError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:_load:(ImportError, SyntaxError, OSError, ArithmeticError, LookupError, ValueError, TypeError, AttributeError, NameError, RuntimeError, AssertionError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:_owner_at_baseline:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:_replay:TypeError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:_replay:_Timeout"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:_rule_declarations:(SyntaxError, UnicodeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:changed_alone:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:changed_alone:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:constant_changes:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/owners.py:watchdog:_Timeout"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations.__init__:MapError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._bind_module:(ValueError, TypeError, sites.NotMutable)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._cause:MapError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._classes_at_call:(KeyError, ValueError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._classes_at_call:(ValueError, TypeError, OSError, SyntaxError, AttributeError)"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._classes_at_call:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._classes_at_call:TypeError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._classes_at_call:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._flow_signals:Unverified"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._partition:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._rule_signals:PredicateError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations._widen:(OSError, TypeError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations.report.nearest.size:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations.report.projected:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Session.ledger:(MapError, OSError, UnicodeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:Session.prepare_declaration:Unverified"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:pytest_runtest_protocol:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:pytest_sessionfinish:(OSError, ValueError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/plugin.py:pytest_sessionfinish:sqlite3.Error"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/probe.py:out:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:Runtime.__init__:(MapError, TypeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:Runtime._constants:(ValueError, TypeError, SyntaxError, ArithmeticError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:Runtime.axes:(OSError, ValueError, TypeError, sites.NotMutable)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:Runtime.register:(ValueError, TypeError, OSError, SyntaxError, ImportError, MapError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:Runtime.replay:BaseException"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:Runtime.safety:(OSError, TypeError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_Guard._copied:(TypeError, ValueError, AttributeError, RecursionError, copy.Error)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_Guard._protect:sqlite3.Error"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_Guard._step:sqlite3.Error"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_Guard.call:Refused"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_ObserverHub.add:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_Record.emit:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_bounded:owners._Timeout"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_cells:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_forget:sqlite3.ProgrammingError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_neighbours:ArithmeticError"]
+count = 2
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/runtime.py:_value:Exception"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/signals.py:stale_copies.equal:(InvalidOperation, ValueError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/signals.py:stale_copies.held:(ValueError, SyntaxError, KeyError, IndexError, TypeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/signals.py:stale_copies.held:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/intent/signals.py:stale_copies:(ValueError, TypeError, SyntaxError, MemoryError, RecursionError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/common.py:quiet_broken_pipe.run:BrokenPipeError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/common.py:read_source:LookupError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/common.py:read_source:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/common.py:safe_stdio:(AttributeError, ValueError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/discovery_syntax.py:_annotation_class:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/inventory.py:parse_python:OSError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/inventory.py:parse_python:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/requests.py:_readable:OSError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/requests.py:_request_problems.problem_of:Unverifiable"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/requests.py:_request_problems:(OSError, ValueError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/requests.py:_retire_record:(OSError, ValueError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/requests.py:_retire_record:Unverifiable"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/requests.py:_retire_states:OSError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/requests.py:_retire_states:Unverifiable"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/map/requests.py:_retire_states:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/api.py:MapHandle.moved:MapError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/api.py:_expression:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/decide.py:_expr:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/decide.py:_field_names:(SyntaxError, RecursionError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/decide.py:site_signatures:(SyntaxError, RecursionError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/extract.py:syntax_records.Reader.literal:(ValueError, TypeError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/extract.py:syntax_records.annotation_class:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/features.py:fold:(ValueError, ZeroDivisionError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/homes.py:site_homes.strong:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/query.py:numeric_atoms.read:(ValueError, TypeError, ArithmeticError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/readers/context.py:context_digest:PackageNotFoundError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/readers/context.py:propagate_names:FileNotFoundError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/readers/context.py:typescript_paths:(ValueError, OSError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/readers/csharp.py:_literal:(ValueError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/readers/csharp.py:_literal:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/readers/ecma.py:literal:(ValueError, SyntaxError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/readers/registry.py:available:PackageNotFoundError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/roots.py:_toml:(OSError, tomllib.TOMLDecodeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/roots.py:config_roots:(OSError, configparser.Error)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/roots.py:installed_tops:(ImportError, ValueError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/store.py:_build:SyntaxError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/store.py:_resolve_call:RecursionError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["flowguard/structure/store.py:project_config:(OSError, tomllib.TOMLDecodeError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["scripts/install_skill.py:differences:OSError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["tests/intent_engine/_calibration_helper.py:decision:finally exits"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["tests/intent_engine/test_flow_request_bytes.py:run_cases:(AssertionError, OSError)"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["tests/intent_engine/test_footprint_live_code.py:intercepted_sequence.once:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["tests/intent_engine/test_nested_sentinel_verification.py:test_a_different_thread_cannot_borrow_the_active_parent_session.worker:pytest.UsageError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["tests/structure/_legacy_features.py:focus_of:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["tests/structure/_similarity_reference.py:covered:ValueError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["tests/test_request_byte_anchors.py:test_record_anchor_case:MapError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
+
+["tests/test_request_byte_anchors.py:test_request_anchor_case:MapError"]
+count = 1
+reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
+rule = "旧账"
