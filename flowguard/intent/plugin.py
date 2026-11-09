@@ -279,6 +279,19 @@ def _partition_copy(axes, part):
                       part.complete, list(part.reasons), part.representative_points), [])
 
 
+_UNHOOKABLE = '函数：调用处的结果不能比较'      # the end of a lost reading's reason when the call became a generator or coroutine
+_OPAQUE = '回放结果不是可以比较的简单数据'
+
+
+def _restore_step(lost):
+    """The first way out of a lost observation, for what made it grey."""
+    if lost.startswith(_OPAQUE):
+        return '恢复可观察：让这次调用像基准代码那样返回可以比较的简单数据（数字、字符串、布尔、None，或由它们组成的列表、元组、字典）；'
+    if lost.endswith(_UNHOOKABLE):
+        return '恢复可观察：让它像基准代码那样直接返回结果，不改成生成器或协程函数；'
+    return '恢复可观察：改掉上面那一处，让这次调用不再写文件、数据库、进程或网络；'
+
+
 class Observations:
     """Connect loaded source points to the one runtime during ordinary tests."""
     def __init__(self, state):
@@ -408,7 +421,51 @@ class Observations:
                     fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0))
                 point['original'] = original
             except (ValueError, TypeError, sites.NotMutable) as error:
-                self.grey.append(point['name'] + ': ' + str(error))
+                if not self._watch_unhookable(point, fn, str(error)):
+                    self.grey.append(point['name'] + ': ' + str(error))
+
+    def _watch_unhookable(self, point, fn, reason):
+        """A generator or coroutine function cannot be hooked, so its result is never compared. When the
+        baseline code of an anchored or ruled point is a plain function, the first entry of a test's call
+        replays that baseline with the same arguments; a clean replay makes the grey a lost observation.
+        A test that never enters it lists the hook's reason as before."""
+        import inspect
+        kind = ('协程' if inspect.iscoroutinefunction(fn) else '异步生成器' if inspect.isasyncgenfunction(fn)
+                else '生成器' if inspect.isgeneratorfunction(fn) else '')
+        if not kind or not self.changed or point['anchor'] is None and not self.rules.get(point['target']):
+            return False
+        entered = []
+
+        def entry(frame, event, arg):
+            if event == 'call' and not entered:
+                entered.append(True)
+                self._unhookable_call(point, fn, kind, frame.f_locals)
+
+        self.scopes.enter_context(self.runtime.record(codes=[(fn.__code__, point['name'])], callback=entry, entry_only=True))
+        self.scopes.callback(lambda: entered or self.grey.append(point['name'] + ': ' + reason))
+        return True
+
+    def _unhookable_call(self, point, fn, kind, values):
+        import inspect
+        from .runtime import Reading
+        signature = inspect.signature(fn)
+        args, kwargs = [], {}
+        for parameter in signature.parameters.values():
+            value = values[parameter.name]
+            if parameter.kind is parameter.POSITIONAL_ONLY:
+                args.append(value)
+            elif parameter.kind is parameter.VAR_POSITIONAL:
+                args.extend(value)
+            elif parameter.kind is parameter.VAR_KEYWORD:
+                kwargs.update(value)
+            else:
+                kwargs[parameter.name] = value
+        reading = Reading(point['name'], fn.__module__ + ':' + fn.__qualname__, test=self.runtime.test,
+                          baseline=self.runtime.baseline, status='grey',
+                          reasons=[f'{fn.__qualname__} 现在是{kind}' + _UNHOOKABLE])
+        self.records.append((len(self.runtime.readings), point, None, [], None))
+        self.runtime.readings.append(reading)
+        self.runtime._lost(reading, fn, signature.bind(*args, **kwargs))
 
     def _partition(self, point, original, bound):
         import ast
@@ -996,7 +1053,7 @@ class Observations:
                 continue
             self._red('观察丢失 ' + '、'.join(subjects),
                       f'{self._place(point["target"])} 在 {reading.test or "这个测试"} 里，基准代码能比较，现在是灰：{reading.lost}',
-                      next=['恢复可观察：改掉上面那一处，让这次调用不再写文件、数据库、进程或网络；',
+                      next=[_restore_step(reading.lost),
                             f'或者确实不再回放：在 {ledger.LEDGER} 的 [unverified] 段写一句理由（不少于 {ledger.MIN_WORDS} 个词）'
                             + ('' if ledger.path(self.cfg).is_file() else '；还没有这个文件时先运行 python -m flowguard ledger init') + '：',
                             '[unverified]', f'{subjects[0]} = ' + ledger._quote(ledger.PLACEHOLDER_UNVERIFIED)])

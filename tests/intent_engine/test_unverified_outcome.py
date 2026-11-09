@@ -345,3 +345,70 @@ def test_a_flow_item_shows_the_verdict_of_the_events_it_was_judged_on(tmp_path):
     # The red is the Flow test's own failure; the session adds no second testcase for it.
     assert suite.get('failures') == '1' and cases['tests.intent.flows::PRECEDES_STORED_SHIPPED[flow]'].find('failure') is not None, cases
 
+
+GATE = {
+    'gate.py': '''
+        class Answer:
+            def __init__(self, ok):
+                self.ok = ok
+            def __bool__(self):
+                return self.ok
+
+        # flowguard: sensor GATE
+        def gate(age: int):
+            return age >= 18
+    ''',
+    'tests/test_gate.py': '''
+        from gate import gate
+        def test_gate():
+            assert gate(30)
+    ''',
+}
+
+
+def _change(root, name, old, new):
+    path = root / name
+    text = path.read_text(encoding='utf-8')
+    assert old in text, (name, old)
+    path.write_text(text.replace(old, new), encoding='utf-8')
+
+
+def test_a_result_that_can_no_longer_be_compared_is_a_lost_observation(tmp_path):
+    root = _project(tmp_path / 'opaque', GATE)
+    _change(root, 'gate.py', '    return age >= 18', '    return Answer(age >= 18)')
+    result, text = _pytest(root, '-q')
+    assert result.returncode == 1 and '2 passed' in text and '未验证' not in text, text
+    lines = text.splitlines()
+    index = next(i for i, line in enumerate(lines) if line.startswith('红：观察丢失 GATE：'))
+    assert 'gate.py:8 在 tests/test_gate.py::test_gate 里，基准代码能比较，现在是灰：回放结果不是可以比较的简单数据（Answer）' in lines[index], lines[index]
+    assert lines[index + 1].startswith('    恢复可观察：让这次调用像基准代码那样返回可以比较的简单数据'), lines
+    # The baseline already returned the object: nothing was lost, the point stays unverified.
+    shared = _project(tmp_path / 'shared', dict(GATE, **{'gate.py': textwrap.dedent(GATE['gate.py']).replace(
+        '    return age >= 18', '    return Answer(age >= 18)')}))
+    _change(shared, 'gate.py', 'age >= 18', 'age >= 21')
+    result, text = _pytest(shared, '-q')
+    assert result.returncode == 0 and '观察丢失' not in text, text
+    assert '未验证：GATE（gate.py:8）：回放结果不是可以比较的简单数据（Answer）' in text, text
+
+
+def test_a_call_that_became_a_generator_or_coroutine_is_a_lost_observation(tmp_path):
+    for name, function, call in (('generator', '    yield age >= 18', 'next(gate(30))'),
+                                 ('coroutine', None, '__import__("asyncio").run(gate(30))')):
+        root = _project(tmp_path / name, GATE)
+        if function:
+            _change(root, 'gate.py', '    return age >= 18', function)
+        else:
+            _change(root, 'gate.py', 'def gate(age: int):', 'async def gate(age: int):')
+        _change(root, 'tests/test_gate.py', 'assert gate(30)', 'assert ' + call)
+        result, text = _pytest(root, '-q')
+        assert result.returncode == 1 and '2 passed' in text, (name, text)
+        line = next(line for line in text.splitlines() if line.startswith('红：观察丢失 GATE：'))
+        kind = '生成器' if name == 'generator' else '协程'
+        assert f'gate.py:8 在 tests/test_gate.py::test_gate 里，基准代码能比较，现在是灰：gate 现在是{kind}函数：调用处的结果不能比较' in line, line
+        assert '    恢复可观察：让它像基准代码那样直接返回结果，不改成生成器或协程函数；' in text, text
+    # A test that never enters the generator has no context to replay: it stays unverified.
+    root = _project(tmp_path / 'unentered', GATE)
+    _change(root, 'gate.py', '    return age >= 18', '    yield age >= 18')
+    result, text = _pytest(root, '-q')
+    assert result.returncode == 0 and '观察丢失' not in text, text
+    assert '未验证：GATE：calibration async/generator is unsupported' in text, text

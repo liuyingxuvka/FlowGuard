@@ -1178,7 +1178,7 @@ class Runtime:
             unseen = _visible(arguments)[1]
             if unseen:
                 return '看不清：' + unseen
-        if node is None and (inspect.isgeneratorfunction(fn) or inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)):
+        if node is None and not historical and (inspect.isgeneratorfunction(fn) or inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)):
             return '看不清：生成器或协程函数的函数体在回放里不运行'
         written = node is not None       # the given definition carries its own source lines
         if not written:
@@ -1187,6 +1187,9 @@ class Runtime:
                     if fn not in self.patches:
                         return 'baseline function is unavailable: ' + self.unavailable.get(fn, fn.__qualname__)
                     node = self.patches[fn].node
+                    # The baseline definition, not the current function object, decides what it was.
+                    if isinstance(node, ast.AsyncFunctionDef) or any(isinstance(part, (ast.Yield, ast.YieldFrom)) for part in sites.own_nodes(node)):
+                        return '看不清：生成器或协程函数的函数体在回放里不运行'
                 else:
                     node = _definition(fn)
             except (OSError, TypeError, SyntaxError):
@@ -1447,6 +1450,7 @@ class Runtime:
             reading.status, reading.reasons = 'grey', [f'回放结果不是可以比较的简单数据（{opaque or type(again).__name__}）：不运行它的比较运算']
             reading.rows.clear()
             reading.changed.clear()
+            self._lost(reading, owner, bound)
             return
         if guard.void_old:
             reading.comparison_status = 'grey'
