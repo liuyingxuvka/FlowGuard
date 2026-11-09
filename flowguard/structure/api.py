@@ -87,8 +87,7 @@ class MapHandle:
         """Coverage of queries this handle actually served; no cache or new record store."""
         from .readers.registry import query_support
         grouped = {}
-        rows = [(file, error, store.unpack(blob))
-                for file,error,blob in self.con.execute('SELECT path,parse_error,data FROM file')]
+        rows = self._files()
         for query, language, files in self._queried:
             for file,error,facts in rows:
                 actual = facts.get('language','python')
@@ -161,10 +160,15 @@ class MapHandle:
         """Functions and methods by id (what fg2.mapiface.MapView.functions returns from fgmap)."""
         return {n["id"]: n for n in self.nodes(language=language) if n["kind"] in ("function", "method")}
 
-    def _syntax(self, kind):
+    def _files(self):
+        """(path, parse error, facts) of every mapped file, unpacked once per handle and build."""
         if self._syntax_cache is None:
-            self._syntax_cache = [store.unpack(data) for (data,) in self.con.execute("SELECT data FROM file ORDER BY path")]
-        return [fact for data in self._syntax_cache for fact in data.get(kind, [])]
+            self._syntax_cache = [(path, error, store.unpack(data)) for path, error, data in
+                                  self.con.execute("SELECT path, parse_error, data FROM file ORDER BY path")]
+        return self._syntax_cache
+
+    def _syntax(self, kind):
+        return [fact for _, _, data in self._files() for fact in data.get(kind, [])]
 
     def handlers(self, *, language=None):
         self._mark_query("handlers",language)

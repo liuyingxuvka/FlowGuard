@@ -102,6 +102,8 @@ class Session:
         self.observations = None
         self.source_items = ()
         self.complete_collection = None
+        self.ledger_result = None
+        self.sentinel_ledger = False
 
     @contextmanager
     def verification(self):
@@ -204,6 +206,25 @@ class Session:
             self.map = build(self.cfg.root, roots=self.cfg.roots)
         return self.map
 
+    def ledger(self):
+        """The fallback ledger compared with the map once per session; a failed comparison is red with its error."""
+        if self.ledger_result is None:
+            from . import cache, ledger
+            from ..map.common import MapError
+            if not ledger.path(self.cfg).is_file():
+                # Without a ledger only its deletion is checked, from the baseline diff the session already read.
+                observed = self.observations
+                gone = observed is not None and ledger.LEDGER in observed.differs
+                self.ledger_result = ledger.removed(observed.runtime.baseline or 'HEAD') if gone else ledger.Result(present=False)
+                return self.ledger_result
+            try:
+                baseline = self.config.getoption('--flowguard-base', default=None) or cache.session_baseline(self.cfg)
+                self.ledger_result = ledger.evaluate(self.cfg, self.get_map(), baseline=baseline)
+            except (MapError, OSError, UnicodeError) as error:
+                self.ledger_result = ledger.Result(present=True, red=[ledger.Finding(
+                    f'兜底账本没有核对完：{type(error).__name__}: {error}', ('改正这个错误后重新运行测试',))])
+        return self.ledger_result
+
 
 def _metadata_value(value):
     """Hash only exact inert data; unknown objects never run cache-key hooks."""
@@ -260,8 +281,10 @@ class Observations:
             added = git_run(self.cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
             self.files = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                           if value and value.endswith(b'.py') and state.is_project(str(self.cfg.root / os.fsdecode(value)))}
+            self.differs = {os.fsdecode(value) for value in changed.split(b'\0') if value}
         except MapError:
             self.files = set()
+            self.differs = set()
         self.points = {a.target: dict(anchor=a, target=a.target, file=a.file, module=a.module, qual=a.qual,
                                      name=a.name, kind=a.kind, node=None)
                        for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'}
@@ -768,8 +791,11 @@ class Observations:
                 self.red.append(issue.message)
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
+        from . import ledger
+        fallbacks = self.state.ledger()
         report = dict(source_changed=self.changed, comparison_requested=self.comparison_requested, items=items, paths=self.paths,
-                      leads=leads, red=list(dict.fromkeys(self.red)), partial_flows=partial_flows)
+                      leads=leads, red=list(dict.fromkeys(self.red)), partial_flows=partial_flows,
+                      ledger=[ledger.summary(fallbacks), *ledger.lines(fallbacks)] if fallbacks.red else [])
         from dataclasses import fields
         from .flow import Event
         self.payload = observation_payload(dict(stamp=self.state.started, baseline=self.runtime.baseline, items=report, paths=self.paths,
@@ -780,7 +806,7 @@ class Observations:
             collector.append(report)
         else:
             self.text = signals.render(report)
-        return bool(self.red)
+        return bool(self.red or fallbacks.red)
 
     def _cause(self, point, original=None):
         import ast
@@ -1065,8 +1091,17 @@ def sentinel(config: pytest.Config):
     declared = set(state.get_model().declared_items())
     missing = _missing(state, declared)
     state.sentinel = 'failed' if missing else 'ok'
+    from .calibration import probe_context
+    from . import ledger
+    fallbacks = ledger.Result(present=False) if probe_context(config) else state.ledger()
+    red = ('\n' + ledger.summary(fallbacks) + ' -> 运行 python -m flowguard ledger check 列出全部差异和可照抄的条目\n'
+           + '\n'.join('红：' + finding.text for finding in fallbacks.red)) if fallbacks.red else ''
     if missing:
-        raise AssertionError(f'only {len(declared) - len(missing)} of {len(declared)} intent items collected or reusable; missing ' + ', '.join(missing[:3]) + ' -> run the complete declared collection')
+        raise AssertionError(f'only {len(declared) - len(missing)} of {len(declared)} intent items collected or reusable; missing ' + ', '.join(missing[:3]) + ' -> run the complete declared collection' + red)
+    if red:
+        # The intent collection is complete; only the ledger fails this sentinel.
+        state.sentinel_ledger = True
+        pytest.fail(red.lstrip('\n'), pytrace=False)
 
 
 def _skip_violation(item, call, report):
@@ -1166,7 +1201,7 @@ def pytest_runtest_makereport(item, call):
     _skip_violation(item, call, report)
     state.durations[item.nodeid] = state.durations.get(item.nodeid, 0.0) + report.duration
     if item.name == SENTINEL and report.when == 'call':
-        state.sentinel = 'ok' if report.passed else 'failed'
+        state.sentinel = 'ok' if report.passed or state.sentinel_ledger else 'failed'
     if isinstance(item, IntentItem) or item.name == SENTINEL:
         return
     if report.when == 'call' and report.passed:
