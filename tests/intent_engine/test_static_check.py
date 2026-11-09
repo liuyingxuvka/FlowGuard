@@ -212,6 +212,8 @@ def test_a_package_whose_prisma_files_name_no_schema_in_use_is_judged_by_all_of_
         red = _lines(text, '红：取值')
         assert code == 1 and len(red) == 1 and "src/items.ts:2 Item.kind='C'，允许 A|B" in red[0], text
         assert '没找到生成器在用的 schema，按这个包的全部 schema 判' in red[0], red
+        # each guessed file's enum is its own set, named in the red
+        assert [file for file in sorted(files) if f'（enum Kind ({file}:1，没找到' in red[0]] == sorted(files), red
     # prisma.config.ts names the schema in use: the template beside it only describes, and nothing is guessed
     root = tmp_path / 'config'
     _commit(root, {'prisma/schema.sqlite.prisma': schema.replace('  B\n', '  B\n          C\n'),
@@ -222,6 +224,60 @@ def test_a_package_whose_prisma_files_name_no_schema_in_use_is_judged_by_all_of_
     code, text = _static(root)
     red = _lines(text, '红：取值')
     assert code == 1 and len(red) == 1 and '（enum Kind (prisma/schema.postgres.prisma:1)）' in red[0], text
+
+
+def test_a_guessed_schema_fills_only_models_no_schema_in_use_defines_and_each_of_its_enums_is_a_set(tmp_path):
+    # 4.2 review: the guessed templates of one package gated another package's writes to the models of its own
+    # schema in use (a false red), and of two guessed templates only the first by path judged, although the
+    # line says all of them do.
+    def schema(kinds, tones=None):
+        text = 'enum Kind {\n' + ''.join(f'  {name}\n' for name in kinds) + '}\n\nmodel Item {\n  id   String @id\n  kind Kind\n}\n'
+        if tones:
+            text += '\nenum Tone {\n' + ''.join(f'  {name}\n' for name in tones) + '}\n\nmodel Note {\n  id   String @id\n  tone Tone\n}\n'
+        return text
+    _commit(tmp_path, {
+        'admin/package.json': '{"name": "admin"}\n',
+        'admin/prisma/schema.postgres.prisma': schema('AB', 'XY'),
+        'admin/prisma/schema.sqlite.prisma': schema('AD', 'X'),
+        'server/package.json': '{"name": "server"}\n',
+        'server/prisma/schema.prisma': schema('ABC'),
+    })
+    items = """
+        export async function add(prisma: any, id: string) {
+          await prisma.item.create({ data: { id, kind: 'C' } });
+        }
+    """
+    _write(tmp_path, {'server/src/items.ts': items, 'admin/src/items.ts': items, 'admin/src/notes.ts': """
+        export async function note(prisma: any, id: string) {
+          await prisma.note.create({ data: { id, tone: 'Y' } });
+          await prisma.note.create({ data: { id, tone: 'Z' } });
+        }
+    """})
+    with closing(build(tmp_path)) as graph:
+        sets = [(row['field'], row['values'], row['file']) for row in graph.value_sets()]
+        from flowguard.intent import health, owners
+        names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
+    # Item is the server schema's model: the admin templates do not gate it, in either package
+    assert sets == [('Item.kind', ('A', 'B', 'C'), 'server/prisma/schema.prisma'),
+                    ('Note.tone', ('X', 'Y'), 'admin/prisma/schema.postgres.prisma'),
+                    ('Note.tone', ('X',), 'admin/prisma/schema.sqlite.prisma')], sets
+    assert names == ['values:Note.tone', 'values:Note.tone:admin/prisma/schema.sqlite.prisma'], names
+    code, text = _static(tmp_path)
+    guessed = '，没找到生成器在用的 schema，按这个包的全部 schema 判'
+    postgres, sqlite = (f'enum Tone (admin/prisma/schema.{name}.prisma:11{guessed})' for name in ('postgres', 'sqlite'))
+    assert code == 1 and _lines(text, '红：取值') == [
+        f"红：取值不在声明集合里：admin/src/notes.ts:3 Note.tone='Z'，允许 X|Y（{postgres}） → 改用集合里的值；集合真要加值，"
+        f"先改那条声明（{postgres}）；admin/src/notes.ts:2 Note.tone='Y'  admin/src/notes.ts:3 Note.tone='Z'，允许 X（{sqlite}）"
+        f" → 改用集合里的值；集合真要加值，先改那条声明（{sqlite}）"], text
+    # A further set keeps its name when it is the only one broken and when its lines move.
+    _write(tmp_path, {'admin/src/notes.ts': """
+        export async function note(prisma: any, id: string) {
+          await prisma.note.create({ data: { id, tone: 'Y' } });
+        }
+    """, 'admin/prisma/schema.sqlite.prisma': '// moved\n\n' + schema('AD', 'X')})
+    with closing(build(tmp_path)) as graph:
+        names = [issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues]
+    assert names == ['values:Note.tone:admin/prisma/schema.sqlite.prisma'], names
 
 
 def test_a_package_json_that_is_not_json_names_its_file(tmp_path):

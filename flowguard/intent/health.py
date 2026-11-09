@@ -94,14 +94,20 @@ def values(change, *, everything=False):
             before.update(key(row, declared, value) for row, declared, value
                           in outside_sets(table, _foreign_writes(change, [facts])))
     now = Counter(key(row, declared, value) for row, declared, value in outside)
-    by_field, names = {}, set()
+    # Each set is its own issue. A field's further sets (a CHECK beside its enum, each guessed schema's enum,
+    # a TS type of a model's name) are named by their file, in the table's order, whichever sets this run
+    # breaks: a name stays put across runs and when lines move.
+    issue_names, taken = {}, set()
+    for gate, first in table.items():
+        for declared in (first, *first.get('also', ())):
+            plain = f'values:{declared["name"]}'
+            issue_names[gate, declared['where']] = plain if plain not in taken else f'{plain}:{declared["file"]}'
+            taken.add(issue_names[gate, declared['where']])
+    by_field = {}
     for row, declared, value in outside:
         by_field.setdefault((row.get('gate', row['field']), declared['where']), (declared, []))[1].append((row, value))
-    for (_, where), (declared, items) in sorted(by_field.items()):
-        name = declared['name']
-        # a field's second set (a CHECK beside its enum, a TS type of a model's name) is its own issue
-        issue_name = f'values:{name}' if f'values:{name}' not in names else f'values:{name}:{where}'
-        names.add(issue_name)
+    for (gate, where), (declared, items) in sorted(by_field.items()):
+        name, issue_name = declared['name'], issue_names[gate, where]
         changed_set = declared.get('file') in change.files
         fresh = [(row, value) for row, value in items if changed_set or row['file'] in change.files
                  and now[key(row, declared, value)] > before[key(row, declared, value)]]
