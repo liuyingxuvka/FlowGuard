@@ -272,6 +272,7 @@ def _session(report, limit):
     if not reds and not report.get('source_changed') and not requested:
         return ''
     changes, names, unverified, calls = [], [], [], {}
+    compared, compared_names = [], []      # an explicit comparison's unchanged points, after every change
     for item in items:
         if item.get('comparison'):
             continue
@@ -301,8 +302,8 @@ def _session(report, limit):
             prefix = '' if item.get('status') == 'grey' else '比较未完成：'
             unverified.extend((subject, prefix + reason, bool(item.get('cause'))) for reason in facts['reasons'] or ['原因没有记下'])
         elif requested:
-            changes.append(f'比较：{subject}{"" if subject.endswith("）") else " "}{facts["summary"]}')
-            names.append(facts['name'])
+            compared.append(f'比较：{subject}{"" if subject.endswith("）") else " "}{facts["summary"]}')
+            compared_names.append(facts['name'])
     for position, number in calls.values():
         if number > 1:
             changes[position] += f'（{number} 次调用相同）'
@@ -310,7 +311,8 @@ def _session(report, limit):
         if path['before'] != path['after']:
             changes.append(f'变：路径 {path["test"]}：' + ' → '.join(path['before']) + ' 变成 ' + ' → '.join(path['after']))
             names.append('路径 ' + path['test'])
-    changes = list(dict.fromkeys(changes))
+    changes, names = _unique(changes, names)
+    compared, compared_names = _unique(compared, compared_names)
     leads = [line for line in dict.fromkeys(_lead_line(lead) for lead in report.get('leads', ())) if line]
     unverified.extend((*_grey(str(reason)), False) for reason in report.get('unverified', ()))
     counted, causes = {}, {}
@@ -318,11 +320,14 @@ def _session(report, limit):
         counted[(subject, reason)] = counted.get((subject, reason), 0) + 1
         cause = re.sub(r'^(比较未完成：)?[A-Za-z_][\w.]*: ', r'\1', reason)
         causes.setdefault(cause, set()).add(subject or reason)
-    if not (reds or changes or leads or counted):
+    if not (reds or changes or compared or leads or counted):
         return ''
     room = budget
+    # Changes come first and keep their room; an unchanged comparison never pushes a change into the overflow.
     shown = _fit(changes, room - bool(leads) - bool(counted),
                  lambda rest: f'变：另 {rest} 项变化：' + '、'.join(dict.fromkeys(names[len(changes) - rest:])))
+    shown += _fit(compared, room - len(shown) - bool(leads) - bool(counted),
+                  lambda rest: f'比较：另 {rest} 项没有变化：' + '、'.join(dict.fromkeys(compared_names[len(compared) - rest:])))
     room -= len(shown)
     shown_leads = _fit(leads, room - bool(counted), lambda rest: f'线索：另 {rest} 条：python -m flowguard check 列出全部线索')
     room -= len(shown_leads)
@@ -337,6 +342,13 @@ def _session(report, limit):
         lines.extend(_fit(details, min(3, room - 1),
                           lambda rest: f'未验证：另 {rest} 项：python -m flowguard show 名字 看它的原因'))
     return '\n'.join(lines)
+
+
+def _unique(lines, names):
+    """Each line once, with the name it was written for."""
+    kept = dict(zip(reversed(lines), reversed(names)))
+    ordered = list(dict.fromkeys(lines))
+    return ordered, [kept[line] for line in ordered]
 
 
 def _grey(text):

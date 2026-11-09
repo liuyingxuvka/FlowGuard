@@ -145,3 +145,27 @@ def test_readable_labels_do_not_mutate_the_source_constant_environment():
     kinds = {'days': C.kind_of(int)}
     assert signals.class_label([('days <= GRACE', None, env)], [True], kinds, {'days': 4}) == 'days≤7'
     assert env == {'GRACE': 7}
+
+
+def _compared(number, changed=None):
+    item = dict(name=f'K{number}', file='knobs.py', line=2 + 4 * number, status='ok', comparison_status='ok',
+                complete=True, total=2, changed=0, changes=[])
+    if changed:
+        item.update(total=3, changed=1, changes=[dict(region='n=2–16', inputs={'n': 2}, before='T', after='F')],
+                    cause=dict(name=f'K{number} 的常量', before=17, after=2, file='knobs.py', line=3 + 4 * number))
+    return item
+
+
+def test_an_explicit_comparison_lists_changes_first_and_counts_unchanged_points_apart():
+    session = dict(session=True, baseline='a' * 40, baseline_kind='base', source_changed=True, comparison_requested=True)
+    lines = signals.render(dict(session, items=[_compared(number) for number in range(13)])).splitlines()
+    assert lines[0] == 'FlowGuard（相对 --flowguard-base aaaaaaa）' and len(lines) == 11, lines
+    assert lines[1] == '比较：K0（knobs.py:2）共 2 类，变 0 类' and all(line.startswith('比较：') for line in lines[1:]), lines
+    assert lines[-1] == '比较：另 4 项没有变化：K9、K10、K11、K12', lines
+    # One change among unchanged points: its line is printed whole, before them, never in an overflow.
+    lines = signals.render(dict(session, items=[*(_compared(number) for number in range(12)), _compared(12, True)])).splitlines()
+    assert lines[1] == ('变：K12（knobs.py:50）共 3 类，变 1 类：n=2–16；函数返回值 T → F（例：n=2）'
+                        '  原因：K12 的常量 17 → 2（knobs.py:51）'), lines
+    assert not any(line.startswith('变：另') for line in lines) and len(lines) == 11, lines
+    assert lines[2:-1] == [f'比较：K{number}（knobs.py:{2 + 4 * number}）共 2 类，变 0 类' for number in range(8)], lines
+    assert lines[-1] == '比较：另 4 项没有变化：K8、K9、K10、K11', lines
