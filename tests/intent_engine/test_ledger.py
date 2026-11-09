@@ -554,3 +554,23 @@ def test_ledger_init_says_when_pytest_does_not_load_the_plugin(tmp_path):
     write(tmp_path / 'other', 'tests/conftest.py', 'pytest_plugins = ["flowguard.intent.plugin"]\n')
     started = cli(tmp_path / 'other', 'ledger', 'init')
     assert 'pytest does not load' not in started.stdout, started.stdout + started.stderr
+
+
+def test_junit_xml_has_the_ledger_red_once_with_or_without_the_sentinel(shop, tmp_path):
+    import xml.etree.ElementTree as ET
+
+    def failed(path):
+        suite = ET.parse(path).getroot().find('testsuite')
+        return suite.get('failures'), sorted(case.get('classname') + '::' + case.get('name')
+                                             for case in suite.iter('testcase') if case.find('failure') is not None)
+    sentinel(shop)
+    git(shop, 'add', '-A')
+    git(shop, 'commit', '-qm', 'sentinel')
+    append(shop, LOOKUP)
+    whole = pytest_run(shop, f'--junitxml={tmp_path / "whole.xml"}')
+    assert whole.returncode == 1 and '红：新增兜底未登记' in whole.stdout, whole.stdout + whole.stderr
+    # The sentinel test fails on the ledger: the session adds no second failure for the same red.
+    assert failed(tmp_path / 'whole.xml') == ('1', ['tests.test_flowguard_intent::test_flowguard_intent'])
+    partial = pytest_run(shop, 'tests/test_stock.py', f'--junitxml={tmp_path / "partial.xml"}')
+    assert partial.returncode == 1 and '红：新增兜底未登记' in partial.stdout, partial.stdout + partial.stderr
+    assert failed(tmp_path / 'partial.xml') == ('1', ['flowguard::session'])

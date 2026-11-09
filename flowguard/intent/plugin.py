@@ -1008,9 +1008,10 @@ class Observations:
             collector.append(report)
         else:
             self.text = signals.render(report)
-        # The reds no failed test carries: a lost observation, a copy, a static finding, the ledger.
+        # The reds no failed test carries: a lost observation, a copy, a static finding; the ledger's
+        # unless the sentinel test already failed on it.
         self.session_red = [*(line for line in report['red'] if line not in failed_items),
-                            *(finding['text'] for finding in report['ledger_red'])]
+                            *([] if self.state.sentinel_ledger else [finding['text'] for finding in report['ledger_red']])]
         return bool(self.red or fallbacks.red)
 
     def _red(self, subject, *texts, next=()):
