@@ -41,7 +41,8 @@ def list_files(root: Path) -> list[str]:
     found = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in {".git", "node_modules", "__pycache__", ".venv"}]
-        found += [norm(str(Path(dirpath, n).relative_to(root))) for n in filenames]
+        folder = Path(dirpath).relative_to(root)      # once per directory, not once per file
+        found += [norm(str(folder / n)) for n in filenames]
     return sorted(found)
 
 

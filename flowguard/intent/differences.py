@@ -184,13 +184,14 @@ def _source_index(root, graph=None):
     from flowguard.map.common import DEFAULT_IGNORE, matches_any
     from flowguard.map.inventory import list_files
     from flowguard.structure import roots
-    from flowguard.structure.paths import project_code
+    from flowguard.structure.paths import project_files
     from flowguard.structure.store import project_config
     # The same file selection as the map build: [tool.flowguard] exclude applies here too.
     ignore = [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [
         str(pattern) for pattern in project_config(Path(root)).get('exclude', [])]
     files = [file for file in list_files(root) if not matches_any(file, ignore)]
-    python = [file for file in files if file.endswith('.py') and project_code(str(root / file), root)]
+    python = [file for file in files if file.endswith('.py')]
+    python = [file for file, owned in zip(python, project_files([str(root / file) for file in python], root)) if owned]
     sources = {file: (root / file).read_bytes() for file in python}
     syspath, unreadable = {}, []
     for file, raw in sources.items():

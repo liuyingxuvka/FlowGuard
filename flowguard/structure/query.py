@@ -113,3 +113,19 @@ def tokens(text):
     words = {w for w in words if len(w) > 2}
     cjk = re.findall(r"[一-鿿]", text)
     return words | {a + b for a, b in zip(cjk, cjk[1:])}
+
+
+def may_share(words, text):
+    """False only when tokens(text) has none of `words`, decided without splitting `text`.
+
+    Every ASCII word of tokens(text) is a piece of text.lower(), and every other word is a pair of
+    CJK characters that both occur in text: a text without such a piece or pair cannot give one."""
+    lowered = None
+    for word in words:
+        if word.isascii():
+            lowered = text.lower() if lowered is None else lowered
+            if word in lowered:
+                return True
+        elif all(character in text for character in word):
+            return True
+    return False

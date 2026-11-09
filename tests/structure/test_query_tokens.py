@@ -62,3 +62,20 @@ def test_show_finds_camel_case_functions_by_words_and_by_kebab_name(tmp_path, ca
     ranked = results['employee-lifecycle']
     assert any('people:assessEmployeeLifecycle' in line for line in ranked[1:6]), ranked
     assert 'people:assessEmployeeLifecycle people.py:1' in results['assessEmployeeLifecycle'][1], results
+
+
+def test_a_text_that_may_share_no_word_shares_none():
+    """may_share lets show skip splitting a text: it is False only when tokens(text) has no query word."""
+    import random
+    from flowguard.structure.query import may_share
+    pieces = list('abcXYZ019_-.:/ ') + ['取', '整', '员', '工', '在', '职', 'İ', 'K', 'Working', 'Days', 'HTTP']
+    chooser = random.Random(20)
+    for _ in range(20000):
+        text = ''.join(chooser.choice(pieces) for _ in range(chooser.randint(0, 12)))
+        query = ''.join(chooser.choice(pieces) for _ in range(chooser.randint(0, 6)))
+        words = tokens(query)
+        if words & tokens(text):
+            assert may_share(words, text), (query, text)
+    assert not may_share(tokens('count working days'), 'utils/payroll.ts:sumHours')
+    assert not may_share(tokens('取整'), '员工在职')
+    assert may_share(tokens('取整'), '取 的 整')       # CJK pairs ignore what stands between the characters

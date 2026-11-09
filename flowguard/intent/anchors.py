@@ -752,23 +752,23 @@ def _index(entries, problems):
 
 def collect(graph):
     """Read the single stored source index, including anchored project tests."""
-    from ..structure.store import unpack
-    entries, problems, field_types, assignments = [], [], [], []
-    for file, sha, blob, error in graph.con.execute('SELECT path,sha,data,parse_error FROM file ORDER BY path'):
+    entries, problems, field_types = [], [], []
+    shas = dict(graph.con.execute('SELECT path, sha FROM file'))
+    # Only the kinds the index reads; assignments only when a declared set needs the value gate.
+    for file, error, data in graph._kinds('anchors', 'anchor_issues', 'field_types'):
         if error and file.endswith('.py'):
             problems.append(Issue('grey', 'source-syntax', error, file))
-        data = unpack(blob)
         for value in data.get('anchors', ()):
-            anchor = _anchor(dict(value, source_digest=sha))
+            anchor = _anchor(dict(value, source_digest=shas[file]))
             entries.append(anchor)
             problems.extend(anchor.issues)
         problems.extend(Issue(**value) for value in data.get('anchor_issues', ()))
         field_types.extend(data.get('field_types', ()))
-        assignments.append(data.get('assignments', ()))
     classes = dict(graph.con.execute("SELECT id, sig FROM node WHERE kind='class'"))
     table = declared_sets(entries, field_types, classes, graph._value_env)
-    if table:      # one value gate over the same unpacked facts
-        problems.extend(value_gate(table, [graph._folded(row) for rows in assignments for row in rows if row['field'] in table]))
+    if table:      # one value gate over the assignment facts of the files that assign a declared field
+        problems.extend(value_gate(table, [graph._folded(row) for row in graph.assignments_to(table)
+                                           if row['field'] in table]))
     return _index(entries, problems)
 
 

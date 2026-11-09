@@ -5,7 +5,7 @@ from .context import typescript_paths
 
 
 def link(con, lk, file, data):
-    from ..store import pack, _tid
+    from ..store import _tid
     from ..query import tokens
     module = lk.primary[file]
     files = set(lk.primary)
@@ -137,4 +137,5 @@ def link(con, lk, file, data):
     for ident,qual,kind,raw in declarations:
         for token in tokens(qual):
             con.execute('INSERT OR IGNORE INTO post VALUES(?,(SELECT nid FROM node WHERE id=?))',(_tid(con,lk.tids,token),ident))
-    con.execute('UPDATE file SET data=? WHERE path=?',(pack(data),file))
+    from ..store import save_facts
+    save_facts(con, file, data)

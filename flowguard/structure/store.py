@@ -26,7 +26,7 @@ from . import analysis as fgs
 from . import decide, roots as rootmod
 from .extract import extract, syntax_tree
 from .roots import syspath_entries
-from .paths import project_code
+from .paths import project_files
 from .readers.registry import language_for, module_name, OTHER_SOURCE
 
 FORMAT = "flowguard-map-1"
@@ -69,6 +69,7 @@ CREATE INDEX IF NOT EXISTS gone_id ON gone(id);
 CREATE TABLE IF NOT EXISTS delta(build INT, id TEXT, change TEXT, old_fp TEXT, new_fp TEXT, old_sig TEXT,
   new_sig TEXT, file TEXT);
 CREATE INDEX IF NOT EXISTS delta_file ON delta(file, build);
+CREATE TABLE IF NOT EXISTS part(kind TEXT, path TEXT, data BLOB, PRIMARY KEY(kind, path)) WITHOUT ROWID;
 """
 GUESS_MIN = 4                                       # fgmap: a short name of more than 3 letters, not COMMON
 SKETCH = 4                                          # shape postings per node (the smallest 3-gram hashes)
@@ -80,6 +81,33 @@ def pack(obj) -> bytes:
 
 def unpack(blob):
     return json.loads(zlib.decompress(blob)) if blob else {}
+
+
+def save_facts(con, path: str, facts: dict) -> None:
+    """A file's stored facts: the whole record in `file.data`, and each kind once more in `part`.
+
+    A query that needs one or two kinds of every file (languages, anchors, writes) reads those parts
+    instead of unpacking every file's whole record. Two derived parts index the record: `facts.imports`
+    is the `imports` of the `facts` kind, `assignments.fields` the fields its assignments write."""
+    con.execute("UPDATE file SET data=? WHERE path=?", (pack(facts), path))
+    con.execute("DELETE FROM part WHERE path=?", (path,))
+    rows = [(kind, path, pack(value)) for kind, value in facts.items()]
+    if isinstance(facts.get("facts"), dict) and "imports" in facts["facts"]:
+        rows.append(("facts.imports", path, pack(facts["facts"]["imports"])))
+    if facts.get("assignments"):
+        fields = {row.get("field") for row in facts["assignments"]}
+        rows.append(("assignments.fields", path, pack(sorted(fields - {None}) + ([None] if None in fields else []))))
+    con.executemany("INSERT INTO part VALUES(?,?,?)", rows)
+
+
+def parts(con, kinds) -> dict:
+    """{kind: {path: value}} of the stored parts of these kinds; a file without a kind has no entry."""
+    found = {kind: {} for kind in kinds}
+    if found:
+        for kind, path, blob in con.execute(f"SELECT kind, path, data FROM part WHERE kind IN ({','.join('?' * len(found))})",
+                                            list(found)):
+            found[kind][path] = unpack(blob)
+    return found
 
 
 def shape_blob(values: list[int]) -> bytes:
@@ -392,7 +420,8 @@ def _build(con, root, roots, force, workers, t0):
     # is decided by project_code, including pyvenv.cfg, rather than that name.
     ignore = [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [str(p) for p in cfg.get("exclude", [])]
     files = [f for f in list_files(root) if not matches_any(f, ignore)]
-    py = [f for f in files if language_for(f) and project_code(str(root / f), root)]
+    sources = [f for f in files if language_for(f)]
+    py = [f for f, owned in zip(sources, project_files([str(root / f) for f in sources], root)) if owned]
     python_files = [f for f in py if language_for(f) == 'python']
     blobs = {f: (root / f).read_bytes() for f in py}
     shas = {f: content_digest(root / f, data=b) for f, b in blobs.items()}
@@ -485,6 +514,7 @@ def _build(con, root, roots, force, workers, t0):
     t_extract = time.perf_counter()
     for f in removed:
         con.execute("DELETE FROM file WHERE path=?", (f,))
+        con.execute("DELETE FROM part WHERE path=?", (f,))
     new_modules = {ns[0][0] for f in redo for ns in [file_names[f]]}
     added_names = new_modules - old_modules
     if added_names or removed:
@@ -541,6 +571,7 @@ def _delete_file(con, f: str, keep_file: bool) -> None:
     con.execute("DELETE FROM node WHERE file=? AND kind NOT IN ('missing')", (f,))
     if not keep_file:
         con.execute("DELETE FROM file WHERE path=?", (f,))
+        con.execute("DELETE FROM part WHERE path=?", (f,))
 
 
 def _unlink_file(con, f: str) -> None:
@@ -609,7 +640,8 @@ def _store_file(con, f, facts, sha, names, is_test, build_no) -> None:
                                   "table_lookups") if k in facts}
     con.execute("INSERT OR REPLACE INTO file VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (f, sha, module, json.dumps(names), int(is_test), facts["parse_error"], facts["loc"], build_no,
-                 json.dumps(facts["syspath"]), pack(keep), facts.get('source_lines',0)))
+                 json.dumps(facts["syspath"]), None, facts.get('source_lines',0)))
+    save_facts(con, f, keep)
     rows = [(module, f, module, "", "", "module", "", 1, None, "", facts.get("doc", ""), facts.get("module_fp", sha[:20]),
              b"", 0, "", b"", build_no)]
     for alias, _root in names[1:]:
@@ -906,13 +938,13 @@ def _record_delta(con, snapshot: dict, readers: dict, build_no: int, redo=()) ->
 def _capabilities(con, files):
     """Inventory semantics are explicit: parsing never promises foreign execution."""
     languages = {}
-    for path, error, blob in con.execute('SELECT path,parse_error,data FROM file'):
-        facts = unpack(blob)
-        language = facts.get('language', 'python')
+    stored = parts(con, ('language', 'parser'))
+    for path, error in con.execute('SELECT path,parse_error FROM file'):
+        language = stored['language'].get(path, 'python')
         from .readers.registry import query_support
         record = languages.setdefault(language, dict(files=0, parsed=0, errors=0, native_home=language == 'python',
                     queries=query_support(language),
-                    parser=facts.get('parser', {'engine':'stdlib ast'})))
+                    parser=stored['parser'].get(path, {'engine':'stdlib ast'})))
         record['files'] += 1
         record['errors' if error else 'parsed'] += 1
     unsupported = [path for path in files if Path(path).suffix.lower() in OTHER_SOURCE]

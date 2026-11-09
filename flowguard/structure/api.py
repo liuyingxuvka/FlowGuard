@@ -20,7 +20,7 @@ from flowguard.map.common import MapError, cache_dir, git_blob, git_common_direc
 from . import homes, store
 from .extract import extract
 from .store import shape_list
-from .query import Rows, tokens
+from .query import Rows, may_share, tokens
 
 NODE_COLS = ("id", "file", "module", "qual", "kind", "cls", "line", "end_line", "sig", "doc", "fp", "size", "effects", "build")
 SIMILAR = 0.85
@@ -90,7 +90,7 @@ class MapHandle:
         """Coverage of queries this handle actually served; no cache or new record store."""
         from .readers.registry import query_support
         grouped = {}
-        rows = self._files()
+        rows = self._kinds('language', 'binding_unknowns')
         for query, language, files in self._queried:
             for file,error,facts in rows:
                 actual = facts.get('language','python')
@@ -118,8 +118,8 @@ class MapHandle:
         if row is None:
             return None
         if row['file'] not in self._file_cache:
-            data = self.con.execute('SELECT data FROM file WHERE path=?',(row['file'],)).fetchone()
-            self._file_cache[row['file']] = store.unpack(data[0]) if data else {}
+            self._file_cache[row['file']] = {kind: store.unpack(blob) for kind, blob in self.con.execute(
+                "SELECT kind, data FROM part WHERE path=? AND kind IN ('language', 'locations')", (row['file'],))}
         facts = self._file_cache[row['file']]
         return dict(row, language=facts.get('language','python'),
                     **facts.get('locations',{}).get(row['qual'],{}))
@@ -157,7 +157,20 @@ class MapHandle:
                 where.append(f"{col} = ?")
                 args.append(value)
         sql = f"SELECT {', '.join(NODE_COLS)} FROM node" + (" WHERE " + " AND ".join(where) if where else "") + " ORDER BY id"
+        if file is None and module is None and 'details' not in self._derived:
+            # Every file's language and locations in one read, not one read per file.
+            for path, _, facts in self._kinds('language', 'locations'):
+                self._file_cache.setdefault(path, facts)
+            self._derived['details'] = True
         return self._language_rows([self._details(dict(zip(NODE_COLS, r))) for r in self.con.execute(sql, args)],language)
+
+    def outline(self, kinds=('function', 'method', 'class')) -> dict[str, dict]:
+        """{id: {id, qual, doc, file, line, kind}} of the nodes of these kinds: the columns a search ranks
+        on, without the per-file details that nodes() adds to every row."""
+        self._mark_query('nodes')
+        names = ('id', 'qual', 'doc', 'file', 'line', 'kind')
+        return {row[0]: dict(zip(names, row)) for row in self.con.execute(
+            f"SELECT {', '.join(names)} FROM node WHERE kind IN ({','.join('?' * len(kinds))}) ORDER BY id", list(kinds))}
 
     def functions(self, *, language=None) -> dict[str, dict]:
         """Functions and methods by id (what fg2.mapiface.MapView.functions returns from fgmap)."""
@@ -170,8 +183,32 @@ class MapHandle:
                                   self.con.execute("SELECT path, parse_error, data FROM file ORDER BY path")]
         return self._syntax_cache
 
+    def _kinds(self, *kinds):
+        """(path, parse error, facts) of every mapped file in path order, like `_files()`, with only these
+        kinds of facts: each kind's parts are read and unpacked once per handle and build."""
+        held = self._derived.setdefault('parts', {})
+        held.update(store.parts(self.con, [kind for kind in dict.fromkeys(kinds) if kind not in held]))
+        if 'paths' not in self._derived:
+            self._derived['paths'] = self.con.execute('SELECT path, parse_error FROM file ORDER BY path').fetchall()
+        return [(path, error, {kind: held[kind][path] for kind in kinds if path in held[kind]})
+                for path, error in self._derived['paths']]
+
+    def assignments_to(self, fields):
+        """The assignment facts of the files that assign one of `fields` (or a row without a field), in
+        path order: the `assignments.fields` index part decides which files are unpacked."""
+        fields = set(fields)
+        wanted = [path for path, _, data in self._kinds('assignments.fields')
+                  if fields.intersection(data.get('assignments.fields', ())) or None in data.get('assignments.fields', ())]
+        rows = []
+        for start in range(0, len(wanted), 500):
+            chunk = wanted[start:start + 500]
+            found = dict(self.con.execute(f"SELECT path, data FROM part WHERE kind='assignments' AND path IN "
+                                          f"({','.join('?' * len(chunk))})", chunk))
+            rows.extend(row for path in chunk for row in store.unpack(found.get(path)) or ())
+        return rows
+
     def _syntax(self, kind):
-        return [fact for _, _, data in self._files() for fact in data.get(kind, [])]
+        return [fact for _, _, data in self._kinds(kind) for fact in data.get(kind, [])]
 
     def handlers(self, *, language=None):
         self._mark_query("handlers",language)
@@ -216,8 +253,9 @@ class MapHandle:
             envs[module] = {}
             own = decide.own_env(self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line",
                                                   (module,)).fetchall())
-            stored = self.con.execute('SELECT data FROM file WHERE module=? LIMIT 1', (module,)).fetchone()
-            imports = store.unpack(stored[0]).get('facts', {}).get('imports', {}) if stored else {}
+            stored = self.con.execute('SELECT path FROM file WHERE module=? LIMIT 1', (module,)).fetchone()
+            stored = stored and self.con.execute("SELECT data FROM part WHERE kind='facts.imports' AND path=?", stored).fetchone()
+            imports = store.unpack(stored[0]) if stored else {}
             def own_of(name):
                 return decide.own_env(self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line",
                                                        (name,)).fetchall())
@@ -243,10 +281,8 @@ class MapHandle:
         from .readers.registry import SCHEMA_LANGUAGES, SUFFIXES
         suffixes = [suffix for suffix, language in SUFFIXES.items() if language in SCHEMA_LANGUAGES]
         rows = []
-        for path, blob in self.con.execute("SELECT path, data FROM file WHERE " + ' OR '.join(['lower(path) LIKE ?'] * len(suffixes))
-                                           + " ORDER BY path", ['%' + suffix for suffix in suffixes]):
-            facts = store.unpack(blob)
-            if facts.get('language') in SCHEMA_LANGUAGES:
+        for path, _, facts in self._kinds('language', 'schema'):
+            if path.lower().endswith(tuple(suffixes)) and facts.get('language') in SCHEMA_LANGUAGES:
                 rows.append((path, facts.get('schema', {})))
         return rows
 
@@ -278,7 +314,12 @@ class MapHandle:
         self._mark_query('writes', language)
         models = self._models()
         rows = []
-        for facts in self._syntax_files() if facts is None else facts:
+        if facts is None:
+            listed = self._kinds('language', 'writes')
+            if by_name or any(data.get('language', 'python') == 'python' for _, _, data in listed):
+                listed = self._kinds('language', 'writes', 'assignments')     # only these rows read assignments
+            facts = [data for _, _, data in listed]
+        for facts in list(facts):
             kind = facts.get('language', 'python')
             if language is not None and kind != language:
                 continue
@@ -310,8 +351,10 @@ class MapHandle:
             rows = [row for row in rows if _writes_target(row, target, models)]
         return Rows(sorted(rows, key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
 
-    def _syntax_files(self):
-        return [facts for _, _, facts in self._files()]
+    def file_facts(self, path):
+        """The whole stored fact record of one mapped file, or None when the file is not on the map."""
+        row = self.con.execute('SELECT data FROM file WHERE path=?', (path,)).fetchone()
+        return store.unpack(row[0]) if row else None
 
     # ---- declared value sets, typed values, Prisma reads, relations and calls by name ----------
     def _ts_sets(self):
@@ -319,7 +362,7 @@ class MapHandle:
         string unions and aliases of them), read once per handle."""
         if 'ts_sets' not in self._derived:
             found = {}
-            for facts in self._syntax_files():
+            for _, _, facts in self._kinds('value_sets'):
                 for row in facts.get('value_sets', ()):
                     found.setdefault(row['name'], []).append(row)
             self._derived['ts_sets'] = found
@@ -430,7 +473,7 @@ class MapHandle:
                     continue                 # a Prisma enum already declares the field's values
                 out[key] = dict(key=key, name=key, values=values, where=where, kind='sql-check',
                                 fold=provider in ('sqlserver', 'mysql'), file=file)
-        for facts in self._syntax_files():
+        for _, _, facts in self._kinds('typed_fields'):
             for row in facts.get('typed_fields', ()):
                 key = f"{row['container']}.{row['field']}"
                 if row['kind'] == 'union':
@@ -450,7 +493,7 @@ class MapHandle:
         the literal fields of an object written as `const x: T = {...}`, `{...} satisfies T` or `{...} as T`.
         Not database writes: they feed the value gate only. `facts` reads these file facts instead."""
         rows, seen = [], set()
-        for facts in self._syntax_files() if facts is None else facts:
+        for facts in [data for _, _, data in self._kinds('language', 'typed_writes')] if facts is None else facts:
             for row in facts.get('typed_writes', ()):
                 key = (row['file'], row['line'], row.get('column'), row['container'], row['field'])
                 if key not in seen:
@@ -464,7 +507,7 @@ class MapHandle:
         `include`/`select` load, `counts` the relations its `_count` counts ('*' for all)."""
         models = self._models()
         rows = []
-        for facts in self._syntax_files():
+        for _, _, facts in self._kinds('language', 'queries'):
             for row in facts.get('queries', ()):
                 bound = models.by_accessor.get(row['accessor'])
                 if model is None or bound == model:
@@ -505,7 +548,7 @@ class MapHandle:
             local = [ident for ident, where in candidates if where == file]
             chosen = local if len(local) == 1 else [ident for ident, _ in candidates]
             return chosen[0] if len(chosen) == 1 else None
-        for facts in self._syntax_files():
+        for _, _, facts in self._kinds('language', 'syntax_calls'):
             if facts.get('language') not in ECMA:
                 continue
             for call in facts.get('syntax_calls', ()):
@@ -627,7 +670,8 @@ class MapHandle:
         head, _, member = name.partition('.')
         tables = self._derived.setdefault('ts_files', {})
         if file not in tables:
-            facts = next((data for path, _, data in self._files() if path == file), {})
+            facts = {kind: store.unpack(blob) for kind, blob in self.con.execute(
+                "SELECT kind, data FROM part WHERE path=? AND kind IN ('const_tables', 'dependencies')", (file,))}
             consts = {qual: _js_literal(sig) for qual, sig in self.con.execute(
                 "SELECT qual, sig FROM node WHERE file=? AND kind='const'", (file,))}
             consts.update({row['name']: row['values'] for row in facts.get('const_tables', ())})
@@ -866,19 +910,29 @@ class MapHandle:
                 result.append(dict(node=target,line=row['line'],field=row['field'],text=homes.site_text(row['field'],row['op'],row['const']),sigs=sigs,value=row['value'],identity=row['identity']))
         return result
 
+    def import_aliases(self, words):
+        """{map id: ['module:name (file)']}: the names an import binds that share a word with `words`."""
+        wanted = tokens(words)
+        aliases, known = {}, {}
+        modules = self.con.execute('SELECT path, module FROM file').fetchall()
+        imports = store.parts(self.con, ('facts.imports',))['facts.imports']
+        for file, module in modules:
+            for name, target in imports.get(file, {}).items():
+                if may_share(wanted, name) and wanted & tokens(name):
+                    if target not in known:
+                        known[target] = self.canonical(target)
+                    canonical = known[target]
+                    if canonical:
+                        aliases.setdefault(canonical, []).append(f'{module}:{name} ({file})')
+        return aliases
+
     def search(self, words):
         """Rank generated sites before bare name matches; intent ranking belongs to the caller."""
         wanted = tokens(words)
         sites = {}
         for ident, field, constant, identity in self.con.execute('SELECT node, field, const, identity FROM site'):
             sites.setdefault(ident, set()).update(tokens(' '.join(value or '' for value in (field,constant,identity))))
-        aliases = {}
-        for file, module, data in self.con.execute('SELECT path,module,data FROM file'):
-            for name, target in store.unpack(data).get('facts', {}).get('imports', {}).items():
-                if wanted & tokens(name):
-                    canonical = self.canonical(target)
-                    if canonical:
-                        aliases.setdefault(canonical, []).append(f'{module}:{name} ({file})')
+        aliases = self.import_aliases(words)
         result = []
         for node in self.nodes():
             hits = {'sites': sorted(wanted & sites.get(node['id'],set())),

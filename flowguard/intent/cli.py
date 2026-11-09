@@ -17,7 +17,7 @@ from flowguard import __version__
 from flowguard.map.common import MapError
 from flowguard.map.requests import owner_word, owner_words, retire_request, store_request
 from flowguard.structure import build
-from flowguard.structure.query import tokens
+from flowguard.structure.query import may_share, tokens
 from . import cache
 from .config import find_root, load_config
 
@@ -494,18 +494,24 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False):
             score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))
             if score:
                 ranked.append((score, f'rule {rid}: {rule["decides"]} {rule.get("doc", "")}'))
-        owners = {**graph.functions(), **{node['id']: node for node in graph.nodes(kind='class')}}
+        owners = graph.outline(('function', 'method', 'class'))
+        decided = {}
+        for node, field, identity in graph.con.execute('SELECT node, field, identity FROM site'):
+            decided.setdefault(node, []).append((field or '') + ' ' + (identity or ''))
         for ident, item in owners.items():
-            sites = graph.sites(ident)
             names = {ident.casefold(), item['qual'].casefold(), item['qual'].rsplit('.', 1)[-1].casefold()}
             score = 1000 if query.casefold() in names else 0
-            score += 2 * len(words & tokens(' '.join(s['field'] + ' ' + (s['identity'] or '') for s in sites)))
-            score += len(words & tokens(ident + ' ' + item['doc']))
+            # Only an owner whose text can hold a query word is split into words (may_share is exact).
+            if any(may_share(words, text) for text in decided.get(ident, ())):
+                sites = graph.sites(ident)
+                score += 2 * len(words & tokens(' '.join(s['field'] + ' ' + (s['identity'] or '') for s in sites)))
+            if may_share(words, ident + ' ' + item['doc']):
+                score += len(words & tokens(ident + ' ' + item['doc']))
             if score:
                 ranked.append((score, f'{ident} {item["file"]}:{item["line"]}'))
-        for item in graph.search(query):
-            for alias in item['matches'].get('aliases', []):
-                ranked.append((1000, f'{alias} -> {item["id"]} {item["file"]}:{item["line"]}'))
+        for ident, aliases in graph.import_aliases(query).items():       # the names an import binds to an owner
+            item = graph.node(ident)
+            ranked.extend((1000, f'{alias} -> {ident} {item["file"]}:{item["line"]}') for alias in aliases)
         ranked.sort(key=lambda row: (-row[0], row[1]))
         from .differences import display          # a structure line carries Chinese text: escape what the console cannot show
         display('\n'.join(_limit([f'show {query}'] + ([notice] if notice else [])

@@ -280,12 +280,11 @@ def _foreign_constant_changes(change):
     """The same for JS/TS files, from the map's facts: `const NAME = literal` constants and the decision
     literals (comparisons, cases, returns, sets, unions) of a function whose shape is otherwise unchanged."""
     from flowguard.structure.readers.registry import ECMA, language_for
-    current = {path: facts for path, _, facts in change.graph._files()}
     out = []
     for file in sorted(change.files):
-        if language_for(file) not in ECMA or is_test_file(file) or file not in current:
+        if language_for(file) not in ECMA or is_test_file(file) or (new := change.graph.file_facts(file)) is None:
             continue
-        old, new = change.old_facts(file), current[file]
+        old = change.old_facts(file)
         if not old:
             continue
         from flowguard.structure.store import shape_list
