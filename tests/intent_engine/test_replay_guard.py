@@ -372,3 +372,20 @@ def test_views_temp_tables_generated_columns_and_text_storage_are_read_without_w
         ''', lambda fn: fn(db, 7), axes={'x': [0, 7]})
         assert db.total_changes == before
     assert reading.status == 'ok' and reading.rows, reading.reasons
+
+
+def test_a_class_passed_as_an_argument_is_looked_into_through_its_own_namespace(tmp_path):
+    # A classmethod's `cls`: the instance `__dict__` descriptor does not apply to the class itself.
+    class Policy:
+        limit = 3
+
+        @classmethod
+        def accept(cls, days):
+            return days <= cls.limit
+
+    assert R._attributes(Policy)['limit'] == 3 and R._attributes(Policy()) == {}
+    assert R._visible({'cls': Policy, 'days': 2})[1] == ''
+    with open(tmp_path / 'log.txt', 'w') as log:
+        class Holder:
+            output = log
+        assert R._visible({'cls': Holder})[1] == '参数 cls.output 是写模式打开的文件'

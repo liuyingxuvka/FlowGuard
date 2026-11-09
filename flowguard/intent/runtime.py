@@ -282,11 +282,15 @@ def _record_fields(value):
 
 
 def _attributes(value):
-    """An object's own attribute dictionary, read without running project code."""
-    descriptor = inspect.getattr_static(value, '__dict__', None)
+    """An object's own attribute dictionary, read without running project code. The `__dict__` descriptor is
+    taken from the object's type, so a class passed as an argument (a classmethod's `cls`) reads its own
+    namespace instead of the descriptor its instances use."""
+    namespace = type.__dict__['__dict__'].__get__
+    descriptor = next((namespace(klass)['__dict__'] for klass in type(value).__mro__ if '__dict__' in namespace(klass)),
+                      None)
     if type(descriptor) is types.GetSetDescriptorType:
         found = descriptor.__get__(value)
-        return found if type(found) is dict else {}
+        return dict(found) if type(found) in (dict, types.MappingProxyType) else {}
     return {}
 
 
