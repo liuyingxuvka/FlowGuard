@@ -292,7 +292,9 @@ def _session(report, limit):
                            + (f'  {facts["cause"]}' if facts['cause'] else ''))
             names.append(facts['name'])
         elif item.get('lost'):
-            continue    # A lost observation is red, or listed under [unverified] with its reason.
+            # Set only for an anchored or ruled point: its loss is red, or listed under [unverified]
+            # with its reason. A grey unanchored point has no `lost` and is listed below.
+            continue
         elif facts['unknown'] or facts['status'] == 'grey':
             # A point whose own code changed is listed before the others. An observed point whose
             # comparison with the baseline did not finish says so; a point not observed gives its reason.

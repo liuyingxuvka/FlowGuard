@@ -412,3 +412,25 @@ def test_a_call_that_became_a_generator_or_coroutine_is_a_lost_observation(tmp_p
     result, text = _pytest(root, '-q')
     assert result.returncode == 0 and '观察丢失' not in text, text
     assert '未验证：GATE：calibration async/generator is unsupported' in text, text
+
+
+def test_an_unanchored_changed_function_whose_replay_is_refused_is_listed_unverified(tmp_path):
+    files = {
+        'policy.py': '''
+            def limit(days: int) -> bool:
+                return days <= 3
+        ''',
+        'tests/test_policy.py': '''
+            from policy import limit
+            def test_limit(tmp_path, monkeypatch):
+                monkeypatch.chdir(tmp_path)
+                assert limit(2) is True
+        ''',
+    }
+    root = _project(tmp_path / 'p', files)
+    _change(root, 'policy.py', '    return days <= 3', '    open("audit.log", "a").close()\n    return days <= 3')
+    result, text = _pytest(root, '-q')
+    # Not an anchor or a rule: nothing is lost and nothing is red, but the grey is never quiet.
+    assert result.returncode == 0 and '观察丢失' not in text and '红：' not in text, text
+    assert '未验证 1 项（不是通过）' in text, text
+    assert '未验证：limit（未挂锚点，自动）（policy.py:1）：回放被拦住：policy.py:2 open("audit.log", "a").close()：写文件 audit.log' in text, text

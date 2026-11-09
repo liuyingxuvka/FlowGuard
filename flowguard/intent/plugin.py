@@ -432,7 +432,7 @@ class Observations:
         import inspect
         kind = ('协程' if inspect.iscoroutinefunction(fn) else '异步生成器' if inspect.isasyncgenfunction(fn)
                 else '生成器' if inspect.isgeneratorfunction(fn) else '')
-        if not kind or not self.changed or point['anchor'] is None and not self.rules.get(point['target']):
+        if not kind or not self.changed or not self._losable(point):
             return False
         entered = []
 
@@ -906,8 +906,10 @@ class Observations:
                 result = asdict(reading)
                 result['reasons'] += unknown
                 result['complete'] = False
+            # `lost` marks a point whose loss is red or listed under [unverified]; an unanchored point
+            # without a rule is never red, so its grey stays listed as unverified.
             result.update(name=point['name'], file=point['file'], line=getattr(point['anchor'], 'target_line', 0) or point['node'].lineno,
-                          unanchored=point['anchor'] is None, lost=reading.lost)
+                          unanchored=point['anchor'] is None, lost=reading.lost if self._losable(point) else '')
             if reading.status != 'ok':
                 result.update(complete=False, reasons=reading.reasons, status='grey', rows=[])
             if cause:
@@ -1036,7 +1038,7 @@ class Observations:
             self._red(f'[unverified] 里的 {name}', f'不是锚点或规则的名字，从 {ledger.LEDGER} 的 [unverified] 段删掉它')
         kept, seen = [], set()
         for index, point, part, unknown, cause in self.records:
-            if index >= len(self.runtime.readings) or point['anchor'] is None and not self.rules.get(point['target']):
+            if index >= len(self.runtime.readings) or not self._losable(point):
                 continue
             reading = self.runtime.readings[index]
             if not reading.lost:
@@ -1058,6 +1060,10 @@ class Observations:
                             + ('' if ledger.path(self.cfg).is_file() else '；还没有这个文件时先运行 python -m flowguard ledger init') + '：',
                             '[unverified]', f'{subjects[0]} = ' + ledger._quote(ledger.PLACEHOLDER_UNVERIFIED)])
         return kept
+
+    def _losable(self, point):
+        """Only an anchor, or a function a rule is bound to, can lose its observation."""
+        return point['anchor'] is not None or bool(self.rules.get(point['target']))
 
     def _reachable(self, fn):
         """The function and the project helpers it calls, as the runtime registered them."""
