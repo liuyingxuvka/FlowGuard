@@ -1162,9 +1162,19 @@ E1_WRONG_FIXES = {
         }
     ''',
 }
-# Prisma's `{ set: undefined }` leaves the field as it is too.
-E1_WRONG_FIXES['PspElement.parentPspId { set }'] = E1_WRONG_FIXES['PspElement.parentPspId'].replace(
-    'hierarchyLevel: undefined', 'hierarchyLevel: { set: undefined }')
+# Prisma's `{ set: undefined }` leaves the field as it is too, and so does undefined as the operand of the four
+# number operations (round 22 E1 review: `{ increment: undefined }`, `void 0` and `data.x = undefined` were writes).
+for op in ('set', 'increment', 'decrement', 'multiply', 'divide'):
+    E1_WRONG_FIXES[f'PspElement.parentPspId {{ {op} }}'] = E1_WRONG_FIXES['PspElement.parentPspId'].replace(
+        'hierarchyLevel: undefined', f'hierarchyLevel: {{ {op}: undefined }}')
+E1_WRONG_FIXES['PspElement.parentPspId void'] = E1_WRONG_FIXES['PspElement.parentPspId'].replace('undefined', 'void 0')
+E1_WRONG_FIXES['PspElement.parentPspId member'] = '''
+        export async function reparentLeafElement(prisma: any, elementId: number, newParentId: number) {
+          const data: any = { parentPspId: newParentId };
+          data.hierarchyLevel = undefined;
+          await prisma.pspElement.update({ where: { id: elementId }, data });
+        }
+    '''
 
 
 @pytest.mark.parametrize('case', sorted(E1_WRONG_FIXES))
@@ -1175,7 +1185,7 @@ def test_a_partner_field_written_as_undefined_is_not_written(tmp_path, case):
     code, text = _static(tmp_path)
     assert code == 1 and [line.partition('：')[0] for line in _lines(text, '红：配对没写 ' + owner + '：src/change.ts:')] == ['红'], text
     # null is a value Prisma writes: the same change with null holds the pair.
-    _write(tmp_path, {'src/change.ts': E1_WRONG_FIXES[case].replace('undefined', 'null')})
+    _write(tmp_path, {'src/change.ts': E1_WRONG_FIXES[case].replace('undefined', 'null').replace('void 0', 'null')})
     code, text = _static(tmp_path)
     assert code == 0 and '配对没写' not in text, text
 

@@ -530,6 +530,9 @@ def extract(root, rel, data, module, is_test):
                 object_fields(found, base, prefix, rows, depth + 1)
                 for member in members:
                     prop = field(member, 'property')
+                    if member.parent is not None and member.parent.type == 'assignment_expression' \
+                            and unset(field(member.parent, 'right')):
+                        continue                    # `data.x = undefined`: no write, as in the literal
                     add_write(rows, base, prefix + [text(prop, source)], 'field', member,
                               written=written_of(field(member.parent, 'right')) if member.parent is not None else None)
                 return
@@ -562,12 +565,16 @@ def extract(root, rel, data, module, is_test):
                 continue
 
     def unset(value):
-        """`undefined` (also `{ set: undefined }`): Prisma leaves the field as it is, so it is no write; null is one."""
+        """`undefined` or `void <expression>`, also as the one operand of `{ set | increment | decrement | multiply |
+        divide: ... }`: Prisma leaves the field as it is, so it is no write; null is one. A name that holds undefined
+        (`const x = undefined; { x }`) stays a write: that needs the value the name holds."""
         inner = unwrap(value)
         if inner is not None and inner.type == 'object' and len(inner.named_children) == 1 \
-                and inner.named_children[0].type == 'pair' and text(field(inner.named_children[0], 'key'), source) == 'set':
+                and inner.named_children[0].type == 'pair' \
+                and text(field(inner.named_children[0], 'key'), source) in SCALAR_OPS - {'push', 'unset'}:
             inner = unwrap(field(inner.named_children[0], 'value'))
-        return inner is not None and (inner.type == 'undefined' or inner.type == 'identifier' and text(inner, source) == 'undefined')
+        return inner is not None and (inner.type == 'undefined' or inner.type == 'identifier' and text(inner, source) == 'undefined'
+                                      or inner.type == 'unary_expression' and operator(inner) == 'void')
 
     def nested_value(name, value, base, prefix, rows, key, depth):
         if unset(value):
