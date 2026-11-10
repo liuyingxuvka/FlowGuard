@@ -51,6 +51,23 @@ def task_baseline(cfg, *, record=False):
     return head, 'HEAD'
 
 
+def _position(cfg, recorded):
+    """(known, ahead) of a recorded commit in one git call: `known` is False when this repository lacks it;
+    `ahead` is the number of commits HEAD lies after it when HEAD descends from it, else None."""
+    from flowguard.map.common import git_run
+    found = git_run(cfg.root, 'rev-list', '--left-right', '--count', f'{recorded}...HEAD', allowed=(0, 128))
+    if not found.returncode:
+        behind, ahead = (int(number) for number in found.stdout.split())
+        return True, None if behind else ahead
+    # Git refuses the range for a commit it lacks, and for a HEAD without a commit (an orphan branch).
+    if git_run(cfg.root, 'rev-parse', '-q', '--verify', recorded + '^{commit}', allowed=(0, 1)).returncode:
+        return False, None
+    if git_head(cfg.root) is None:
+        return True, None
+    raise MapError(f'git rev-list failed in {cfg.root}: '
+                   + (found.stderr.decode(errors='replace').strip() or f'exit status {found.returncode}'))
+
+
 def _on_branch(cfg):
     """Is HEAD a branch (not detached)?"""
     from flowguard.map.common import git_run
@@ -84,32 +101,46 @@ def _record_baseline(cfg, commit):
         put_meta(con, 'task_baseline', json.dumps({'commit': commit}))
 
 
+def _commits(number):
+    return f'{number} commit{"s" * (number != 1)}'
+
+
 def remember_baseline(cfg, *, new_task=False):
     """(commit, note) of the brief. The task baseline is recorded at HEAD only when none is recorded, when
-    the recorded commit is not an ancestor of HEAD (another branch, rewritten history, a commit this clone
-    lacks) or when `new_task` starts the next task (`python -m flowguard new-task`). Commits made during a
-    task keep its baseline, so what the task changed stays reported. `note` says why the baseline is where
-    it is, '' when it was recorded at HEAD with nothing recorded before. Test runs only record a missing
-    baseline (`task_baseline(record=True)`); moving one is this call's alone, as it says why."""
-    from flowguard.map.common import git_run
+    the recorded commit is not an ancestor of HEAD (another branch, rewritten history) or this repository lacks
+    it, or when `new_task` starts the next task (`python -m flowguard new-task`). Commits made during a task keep
+    its baseline, so what the task changed stays reported. On a detached HEAD (a tag or an older commit checked
+    out, a bisect step) the brief neither moves nor records it, as test runs do not: back on the branch the task's
+    commits are still reported; new-task records HEAD there too. `note` says why the baseline is where it is, ''
+    when it was recorded at HEAD with nothing recorded before. When new-task replaces a start HEAD descends from,
+    the note says those commits are no longer compared and how to compare them once. Test runs only record a
+    baseline when none is recorded (`task_baseline(record=True)`); moving one is this call's alone, as it says why."""
     if git_common_directory(cfg.root) is None:
         return None, ''
     head = git_head(cfg.root)
     if head is None:
         return None, ''
     recorded = _recorded_baseline(cfg)
-    if recorded is not None and not new_task:
-        known = git_run(cfg.root, 'rev-parse', '-q', '--verify', recorded + '^{commit}', allowed=(0, 1)).returncode == 0
-        if known and git_run(cfg.root, 'merge-base', '--is-ancestor', recorded, head, allowed=(0, 1)).returncode == 0:
-            ahead = int(git_run(cfg.root, 'rev-list', '--count', f'{recorded}..{head}').stdout.decode().strip())
-            note = (f'baseline: task start, {ahead} commit{"s" * (ahead != 1)} before HEAD; next task: python -m flowguard new-task'
-                    if ahead else '')
-            return recorded, note
-    _record_baseline(cfg, head)
+    known, ahead = _position(cfg, recorded) if recorded is not None else (False, None)
     if new_task:
-        return head, f'baseline: new task from HEAD {head[:12]}' + (f' (was {recorded[:12]})' if recorded else '')
-    if recorded is not None and recorded != head:
-        return head, f'baseline: recorded {recorded[:12]} is not an ancestor of HEAD; the task starts at HEAD'
+        _record_baseline(cfg, head)
+        if recorded is None or recorded == head:
+            return head, f'baseline: new task from HEAD {head[:12]}'
+        if not ahead:
+            return head, f'baseline: new task from HEAD {head[:12]} (was {recorded[:12]}' + ('' if known else ', not in this repository') + ')'
+        return head, (f'baseline: new task from HEAD {head[:12]} (was {recorded[:12]}, {_commits(ahead)} before HEAD: those changes '
+                      f'are no longer compared; compare them once with python -m flowguard check --base {recorded[:12]})')
+    if not _on_branch(cfg):
+        state = ('HEAD stands in' if recorded is None else
+                 f'the recorded {recorded[:12]} is not in this repository, so nothing is compared' if not known else
+                 f'the task baseline stays at {recorded[:12]}, which HEAD does not descend from' if ahead is None else
+                 f'the task baseline stays at {recorded[:12]}' + (f', {_commits(ahead)} before HEAD' if ahead else ''))
+        return recorded or head, f'baseline: HEAD is detached, so the brief records nothing ({state}); python -m flowguard new-task starts a task here'
+    if known and ahead is not None:
+        return recorded, f'baseline: task start, {_commits(ahead)} before HEAD; next task: python -m flowguard new-task' if ahead else ''
+    _record_baseline(cfg, head)
+    if recorded is not None:
+        return head, f'baseline: recorded {recorded[:12]} is ' + ('not an ancestor of HEAD' if known else 'not in this repository') + '; the task starts at HEAD'
     return head, ''
 
 

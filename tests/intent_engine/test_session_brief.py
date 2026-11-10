@@ -64,8 +64,10 @@ def test_baseline_read_does_not_create_storage_and_start_records_actual_head(tmp
     assert cache.session_baseline(cfg) == head
     # A commit made during the task keeps the task's baseline; only new-task moves it to HEAD.
     assert cache.session_baseline(cfg, remember=True) == head
-    assert cache.remember_baseline(cfg, new_task=True) == (git(root,'rev-parse','HEAD'),
-                                                           f'baseline: new task from HEAD {git(root,"rev-parse","HEAD")[:12]} (was {head[:12]})')
+    now = git(root, 'rev-parse', 'HEAD')
+    assert cache.remember_baseline(cfg, new_task=True) == (now, (
+        f'baseline: new task from HEAD {now[:12]} (was {head[:12]}, 1 commit before HEAD: those changes are no longer '
+        f'compared; compare them once with python -m flowguard check --base {head[:12]})'))
     assert cache.session_baseline(cfg) == git(root,'rev-parse','HEAD') != head
 
 
@@ -84,8 +86,13 @@ def test_brief_keeps_the_task_baseline_across_commits_and_new_task_starts_the_ne
     assert cli.main(['--root', str(root), 'new-task']) == 0
     head = git(root, 'rev-parse', 'HEAD')
     lines = capsys.readouterr().out.splitlines()
-    assert f'baseline {head[:12]}' in lines[0] and lines[1] == f'baseline: new task from HEAD {head[:12]} (was {start[:12]})', lines
+    assert f'baseline {head[:12]}' in lines[0] and lines[1] == (
+        f'baseline: new task from HEAD {head[:12]} (was {start[:12]}, 2 commits before HEAD: those changes are no longer '
+        f'compared; compare them once with python -m flowguard check --base {start[:12]})'), lines
     assert cache.session_baseline(cfg) == head
+    # Run again at the same commit (after a loss of context), it replaces nothing.
+    assert cli.main(['--root', str(root), 'new-task']) == 0
+    assert capsys.readouterr().out.splitlines()[1] == f'baseline: new task from HEAD {head[:12]}'
     # A recorded commit HEAD does not descend from (another branch, rewritten history) is not this task's start.
     git(root, 'checkout', '--quiet', '-b', 'other', start)
     assert cli.screen(cfg) == 0
@@ -395,3 +402,33 @@ def test_runs_on_a_commit_outside_the_task_never_move_its_baseline(tmp_path):
     code, text = _run(root)
     assert code == 0 and 'is not an ancestor of HEAD; the task starts at HEAD' in text, text
     assert cache.task_baseline(cfg) == (git(root, 'rev-parse', 'HEAD'), 'task')
+
+
+def test_the_brief_on_a_detached_head_neither_moves_nor_records_the_task_baseline(tmp_path, capsys):
+    """A tag or an older commit looked at during a task is no task's start; new-task stays the explicit way there."""
+    root, cfg = project(tmp_path)
+    branch, first = git(root, 'symbolic-ref', '--short', 'HEAD'), git(root, 'rev-parse', 'HEAD')
+
+    def brief(**options):
+        assert cli.screen(cfg, **options) == 0
+        return capsys.readouterr().out.splitlines()[1]
+
+    detached = 'baseline: HEAD is detached, so the brief records nothing ({}); python -m flowguard new-task starts a task here'
+    git(root, 'checkout', '--quiet', '--detach')
+    assert brief() == detached.format('HEAD stands in') and cache.task_baseline(cfg) == (first, 'HEAD')
+    assert brief(new_task=True) == f'baseline: new task from HEAD {first[:12]}' and cache.task_baseline(cfg) == (first, 'task')
+    git(root, 'checkout', '--quiet', branch)
+    for days in (4, 5):
+        (root / 'app.py').write_text(f'def eligible(days: int): return days <= {days}\n')
+        git(root, 'commit', '--quiet', '-am', f'fixture change {days}')
+    start = git(root, 'rev-parse', 'HEAD~1')
+    git(root, 'checkout', '--quiet', '--detach', 'HEAD~1')
+    brief(new_task=True)                                    # the task starts at the first change
+    git(root, 'checkout', '--quiet', '--detach', first)     # HEAD does not descend from the start here
+    assert brief() == detached.format(f'the task baseline stays at {start[:12]}, which HEAD does not descend from'), start
+    assert cache.task_baseline(cfg) == (start, 'task')
+    git(root, 'checkout', '--quiet', '--detach', branch)
+    assert brief() == detached.format(f'the task baseline stays at {start[:12]}, 1 commit before HEAD')
+    git(root, 'checkout', '--quiet', branch)
+    assert brief() == 'baseline: task start, 1 commit before HEAD; next task: python -m flowguard new-task'
+    assert cache.task_baseline(cfg) == (start, 'task')

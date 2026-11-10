@@ -230,9 +230,10 @@ def _brief(cfg, data, baseline, note=''):
     if not active and not candidates:
         return [f'FlowGuard: no intent rules; baseline {baseline[:12] if baseline else "none (no Git commit)"}.',
                 *([note] if note else [])]
-    # A cached green is not a new verification. The brief reads no source map.
-    lines = [header, *([note] if note else [])] + sorted(candidates, key=lambda line: not line.startswith('red '))
-    lines = [line if len(line) <= 100 else line[:75] + '... (excerpt; show RULE)' for line in lines]
+    # A cached green is not a new verification. The brief reads no source map. A rule's line is an excerpt
+    # beyond 100 characters; the baseline note is whole, as it ends with the command to run.
+    lines = [header, *([note] if note else [])] + [line if len(line) <= 100 else line[:75] + '... (excerpt; show RULE)'
+                                                   for line in sorted(candidates, key=lambda line: not line.startswith('red '))]
     budget = min(10, cfg.screen_lines)
     if len(lines) <= budget:
         return lines
@@ -241,8 +242,8 @@ def _brief(cfg, data, baseline, note=''):
 
 
 def screen(cfg, *, new_task=False):
-    """The brief. It keeps the task baseline while HEAD descends from it; `new_task` (`new-task`) starts the
-    next task at HEAD."""
+    """The brief. It keeps the task baseline while HEAD descends from it, and on a detached HEAD moves or records
+    none; `new_task` (`new-task`) starts the next task at HEAD, a detached one too."""
     from .health import brief_line
     baseline, note = cache.remember_baseline(cfg, new_task=new_task)
     data = cache.read(cfg)
