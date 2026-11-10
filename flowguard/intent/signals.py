@@ -275,9 +275,10 @@ def rule_steps(rule_id, homes, where, messages=()):
     its own: correct the rule's source, binding or rows. When the need changed, the owner's new words are stored
     first, then the rule changes."""
     kinds, conflicts = set(), []
-    # A row the rule itself contradicts also fails against the code that agrees with the rule (`(row L6)`):
-    # that is the row's red, not the code's.
-    wrong_rows = set(re.findall(r'^self: .*? on its own row (L\d+) ', '\n'.join(map(str, messages)), re.M))
+    # A row the rule itself contradicts (`self:`), or the rule that decides over it (`row X L6 ... the decision of`),
+    # also fails against the code that agrees with what decides (`(row L6)`): that is the row's red, not the code's.
+    said = '\n'.join(map(str, messages))
+    wrong_rows = set(re.findall(r'^self: .*? on its own row (L\d+) ', said, re.M)) | set(re.findall(r'^row \S+ (L\d+) ', said, re.M))
     for message in messages or ('-> rule',):
         text = str(message)
         pair = re.match(r'conflict (\S+) vs (\S+) at ', text)

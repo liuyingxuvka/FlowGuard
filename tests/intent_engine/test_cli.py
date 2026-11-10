@@ -308,9 +308,15 @@ LONGER = """@rule('LONGER',decides='acceptance',fields={'days':int},source='doc 
 def LONGER(days):
     return days <= 4
 """
+# A rule that decides the fourth day over LIMIT, against LIMIT's own row there (`the decision of ... is`).
+FOURTH = """@rule('FOURTH',decides='acceptance',fields={'days':int},overrides=('LIMIT',),source='doc policy.txt "At most three days."')
+def FOURTH(days):
+    return True if days == 4 else None
+"""
 
 
-@pytest.mark.parametrize('kind', ['code', 'own row', 'conflict'])
+# Round 22 F2, second review: `gap in` and `row X ... the decision of Y is ...` were sorted by reading the code only.
+@pytest.mark.parametrize('kind', ['code', 'own row', 'conflict', 'gap', 'decision of'])
 def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check(tmp_path, capsys, kind):
     # Round 22 F2: pytest said "改代码……；需求确实变了：先 req add……再改规则", while check added its own English
     # step to a red without one ("-> show the rule and correct its source, binding or regression rows"): on
@@ -325,10 +331,19 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
         policy.write_text(policy.read_text().replace('row(days=4,expect=False', 'row(days=2,expect=False'))
     if kind == 'conflict':
         policy.write_text(policy.read_text() + LONGER)
+    if kind == 'gap':          # a total rule that decides no negative day
+        policy.write_text(policy.read_text().replace('"At most three days."\')', '"At most three days."\',total=True)')
+                          .replace('    return days <= 3\n', '    return days <= 3 if days >= 0 else None\n'))
+    if kind == 'decision of':  # the code agrees with what decides: only LIMIT's row is red
+        policy.write_text(policy.read_text() + FOURTH)
+        code = root / (root.name + '.py')
+        code.write_text(code.read_text().replace('return days <= 3', 'return days <= 3 or days == 4'))
     steps = {'code': [f'    改代码，让 {root.name}.py:2 符合规则 LIMIT；', REQ_ADD],
              'own row': ['    改回归行或规则 tests/intent/policy.py:2，让规则和它的回归行一致；', REQ_ADD],
              'conflict': ['    规则 LIMIT 和 LONGER 冲突，两条定一条：要问主人；',
-                          '    主人定了：先用 python -m flowguard req add 存下主人的原话，再改规则 tests/intent/policy.py:2']}[kind]
+                          '    主人定了：先用 python -m flowguard req add 存下主人的原话，再改规则 tests/intent/policy.py:2'],
+             'gap': ['    补规则或回归行 tests/intent/policy.py:2，让没有规则判定的格也有判定；', REQ_ADD],
+             'decision of': ['    改回归行或规则 tests/intent/policy.py:2，让规则和它的回归行一致；', REQ_ADD]}[kind]
     cli.init(cfg)
     capsys.readouterr()
     def block(text):
@@ -341,6 +356,8 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
     assert ran.returncode == 1, ran.stdout + ran.stderr
     line, after = block(ran.stdout)
     assert after == steps, ran.stdout
+    assert kind not in ('gap', 'decision of') or ('gap in acceptance (total=True)' if kind == 'gap' else
+                                                  'the decision of an overriding rule is T') in line, line
     for run in ('check reuses the result pytest saved', 'check again', 'check --all reruns the rule'):
         assert cli_fixture.check(cfg, everything=run.startswith('check --all')) == 1
         text = capsys.readouterr().out
