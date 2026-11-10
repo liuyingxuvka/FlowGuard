@@ -249,6 +249,36 @@ def test_the_plan_says_head_until_a_task_baseline_is_recorded(tmp_path):
     assert again['plan'] != answer['plan'] and (plan['baseline'], plan['baseline_kind']) == (head, 'task'), plan
 
 
+
+def _report(root, plan):
+    """What the vitest plugin prints after the tests, here for a run whose tests reached none of the plan's points."""
+    observations = root / '.observations'
+    observations.mkdir()
+    run = subprocess.run([sys.executable, '-m', 'flowguard.intent.vitest', 'report', '--root', str(root), '--plan', plan,
+                          '--observations', str(observations)], cwd=root, capture_output=True, encoding='utf-8',
+                         timeout=180, env=_environment())
+    return run.returncode, display_text(run)
+
+
+def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_does(tmp_path):
+    """An agent that never runs new-task: in a vitest project the execution side's block can be FlowGuard's only
+    output, so it too names the commits since the task start and the next step."""
+    limit = '// flowguard: sensor LIMIT\nexport function limit(days: number) {{ return days <= {}; }}\n'
+    _commit(tmp_path, {'src/limits.ts': limit.format(3)})
+    start = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    assert _flowguard(tmp_path, 'check', '--static')[0] == 0      # records the task start
+    for days in (4, 5):
+        _commit(tmp_path, {'src/limits.ts': limit.format(days)}, message=f'task {days}')
+    code, text = _report(tmp_path, _prepare(tmp_path)['plan'])
+    assert code == 0 and f'FlowGuard（相对任务开始 {start[:7]}，HEAD 之前 2 个提交；新任务先运行 python -m flowguard new-task）' \
+        in text.splitlines() and '未验证：LIMIT（src/limits.ts:2）：没有测试走到' in text, text
+    assert _flowguard(tmp_path, 'new-task')[0] == 0
+    head = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    (tmp_path / 'src/limits.ts').write_text(limit.format(6), encoding='utf-8')
+    code, text = _report(tmp_path, _prepare(tmp_path)['plan'])
+    assert code == 0 and f'FlowGuard（相对任务开始 {head[:7]}）' in text.splitlines(), text
+
+
 def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tmp_path):
     _commit(tmp_path, {
         'src/limits.ts': "export const LIMIT = 3;\nexport const LABELS = { TEAM: 'Team', AREA: 'Area' };\n",

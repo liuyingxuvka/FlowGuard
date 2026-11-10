@@ -535,7 +535,7 @@ def judge(cfg, data, records, package=None):
     """The session report signals.render prints: changes per case class, same-name and rule reds, grey.
     `package` is the folder of the vitest run: a point in another package cannot be reached by its tests
     and is not listed as unreached. Each unverified point is one item, named with its place."""
-    from . import cells as C
+    from . import cache, cells as C
     from .engine import CONFLICT, Engine, PredicateError, outcome_eq
     from .loader import load
     from .sources import parse
@@ -647,7 +647,12 @@ def judge(cfg, data, records, package=None):
                         f'改代码，让 {point["rel"]}:{point["target_line"]} {point["fn"]} 符合规则 {rule.id}；',
                         f'需求确实变了：先用 python -m flowguard req add 存下新的原话，再改规则 {model.file_of[rule.id]}:{rule.line}'])
                 break
-    return dict(session=True, baseline=data['baseline'], baseline_kind=data.get('baseline_kind', 'task'),
+    # How far HEAD lies after a recorded task start is read now, by the one git call of pytest's title, and not
+    # kept in the plan, whose key is the commit and its kind: the title says it as pytest's does.
+    kind = data.get('baseline_kind', 'task')
+    start = cache.task_start(cfg) if kind == 'task' else (None, None, None)
+    return dict(session=True, baseline=data['baseline'], baseline_kind=kind,
+                baseline_ahead=start[2] if start[:2] == (data['baseline'], 'task') else None,
                 source_changed=True, items=items, paths=[], leads=[], red=list(dict.fromkeys(red)), steps=steps,
                 unverified=unverified, same_name_pairs=same_name)
 
