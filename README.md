@@ -27,7 +27,7 @@ python -m flowguard new-task
 python -m pytest
 ```
 
-`init` enables the pytest plugin, adds the collection sentinel, a CI fragment and three project rules. In a project with `package.json` it adds a vitest (or jest) test that runs `python -m flowguard check --static`, adds it to a unit test script that runs named folders only, and says which npm script runs it, or what to add when none does; for vitest it also wires the execution side. `new-task` records the task's baseline commit; commits made during the task keep it, so what the task changed stays reported (a task's first test run records one too when none is). Without rules, a check is quiet:
+`init` enables the pytest plugin, adds the collection sentinel, a CI fragment and three project rules. In a project whose `package.json` names vitest or jest it adds a test that runs `python -m flowguard check --static`, adds it to one test script that runs named folders only when needed (`test` first, then a unit script), and says which npm script runs it, or what to add when none does; for vitest it also wires the execution side. `new-task` records the task's baseline commit; commits made during the task keep it, so what the task changed stays reported (a task's first test run records one too when none is). Without rules, a check is quiet:
 
 ```text
 FlowGuard check: no intent rules.
