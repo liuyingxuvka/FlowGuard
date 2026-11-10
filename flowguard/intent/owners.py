@@ -574,8 +574,9 @@ def changed_once(change, decided=()):
     """A changed function whose baseline body (the fingerprint without name and docstring) an unchanged
     function still has: the copy this edit probably also needed. Static; `check` compares behavior. A member
     of a copies family the owner decided (`[structure."copies:a+b"]`; `decided` holds the member functions of
-    each such health.copies issue) does not count the other members of that family; a function of the same
-    name outside it (a method, an exact copy the family leaves out) still counts."""
+    each such health.copies issue as it stood at the baseline, the code the owner decided on) does not count
+    the other members of that family; a function of the same name outside it (a method, an exact copy the
+    family leaves out) still counts."""
     from flowguard.structure.readers.registry import ECMA, language_for
     from flowguard.structure.store import shape_list
     found = Findings()
@@ -641,7 +642,9 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
         found.extend(copies_without_rule(change, index))
         if not replay:
             decisions, _ = structure_decisions(cfg)
-            found.extend(changed_once(change, [issue.nodes for issue in copies.issues if issue.name in decisions]))
+            decided = [issue.nodes for issue in health.copies(change, index, before=True).issues if issue.name in decisions] \
+                if any(name.startswith('copies:') for name in decisions) else []
+            found.extend(changed_once(change, decided))
     if change.baseline or everything:
         found.extend(literal_drift(change, everything=everything))
     found.extend(health.deletes(change, everything=everything)).extend(health.columns(change, everything=everything))

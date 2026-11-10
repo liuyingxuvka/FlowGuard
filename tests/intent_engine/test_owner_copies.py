@@ -751,6 +751,55 @@ def test_a_copies_decision_silences_only_the_members_of_its_family(tmp_path):
     assert code == 0 and not any(line.startswith('线索：save（') for line in _lines(text)), text
 
 
+def test_a_copies_decision_holds_for_the_family_the_owner_decided_on(tmp_path):
+    # Round 25 check of ondelete-1: the decided family was read from the edited code, so an edit that moved a member
+    # away from the other brought back the lead the decision had closed, while an exact copy the decided problem
+    # left out joined the family once its twin was edited and lost the lead the guide promises it.
+    body = ("export function save(items: number[], rate: number): number {{\n  let sum = 0;\n"
+            "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
+            "  return Math.round(sum * 100) / 100;\n}}\n")
+    decided = {'.flowguard/ledger.toml': '[structure."copies:save"]\n' + DECIDED, RULE_FILE[0]: RULE_FILE[1]}
+    moved = tmp_path / 'moved'
+    _project(moved, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), **decided})
+    edited = (body.format(limit=10)
+              .replace('sum += item * rate; }', 'sum += item * rate; } else if (item < 0) { throw new Error("negative " + item); }')
+              .replace('  return Math.round', '  if (sum > 1e9) { return -1; }\n  return Math.round'))
+    (moved / 'src/a.ts').write_text(edited, encoding='utf-8')
+    code, text = _check(moved, '--static')
+    assert code == 0 and not any(line.startswith('线索：save（') for line in _lines(text)), text
+    # an exact copy of a member that the decided problem does not list (src/c.ts beside src/a.ts) keeps its lead
+    exact = tmp_path / 'exact'
+    _project(exact, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), 'src/c.ts': body.format(limit=10)})
+    code, text = _check(exact, '--static', '--all')
+    assert '副本：同名函数、函数体不同（结构相似度不低于 0.8）：save src/a.ts:1  src/b.ts:1' in text, text
+    for name, content in decided.items():
+        (exact / name).parent.mkdir(exist_ok=True)
+        (exact / name).write_text(content, encoding='utf-8')
+    _git(exact, 'add', '.')
+    _git(exact, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'decided')
+    (exact / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
+    code, text = _check(exact, '--static')
+    assert code == 0, text
+    assert [line for line in _lines(text) if line.startswith('线索：save（')] == [
+        '线索：save（src/a.ts:1）改了，改前和它一模一样的 1 份没改：src/c.ts:1（要一起改就一起改；要锁定：在负责人上方加 '
+        '// flowguard: owner SAVE，副本上方加 // flowguard: sensor SAVE）'], text
+
+
+def test_a_copies_problem_lists_the_same_functions_after_a_file_is_mapped_again(tmp_path):
+    # Round 25 check: the problem compared its members with whichever function the map returned first, so a comment
+    # added to src/a.ts (mapped again, now last) made it list src/b.ts, src/c.ts and src/a.ts instead of a and b.
+    body = ("export function save(items: number[], rate: number): number {{\n  let sum = 0;\n"
+            "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
+            "  return Math.round(sum * 100) / 100;\n}}\n")
+    _project(tmp_path, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), 'src/c.ts': body.format(limit=10)})
+    listed = lambda text: [line for line in text.splitlines() if '同名函数、函数体不同' in line]
+    code, text = _check(tmp_path, '--static', '--all')
+    assert listed(text) == ['1. 副本：同名函数、函数体不同（结构相似度不低于 0.8）：save src/a.ts:1  src/b.ts:1'], text
+    (tmp_path / 'src/a.ts').write_text('// rounded to cents\n' + body.format(limit=10), encoding='utf-8')
+    code, text = _check(tmp_path, '--static', '--all')
+    assert listed(text) == ['1. 副本：同名函数、函数体不同（结构相似度不低于 0.8）：save src/a.ts:2  src/b.ts:1'], text
+
+
 def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path):
     _project(tmp_path, {'a/contracts.py': '''
         from enum import StrEnum
