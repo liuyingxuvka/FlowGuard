@@ -545,6 +545,29 @@ def _red_values(text):
     return out
 
 
+def test_a_schema_that_lacks_the_field_or_a_template_that_types_it_as_text_keeps_the_enum_judging(tmp_path):
+    # Final check of r25-gate: a second schema in use of the package whose model lacks the field (a reporting
+    # client) or types it as String (a SQLite template pushed with --schema) turned the enum gate off.
+    write = ("import type { User } from '@prisma/client';\n"
+             "export async function add(prisma: any, id: string) {\n  await prisma.user.create({ data: { id, role: 'Z' } });\n}\n"
+             "export const u: User = { id: '1', role: 'Z' };\n")
+    for name, files in (
+            ('reporting', {'package.json': '{"name": "app", "scripts": {"gen": "prisma generate --schema prisma/reporting.prisma"}}',
+                           'prisma/schema.prisma': _role_schema('AB'),
+                           'prisma/reporting.prisma': 'generator reporting {\n  provider = "prisma-client-js"\n  output   = '
+                                                      '"../src/generated/reporting"\n}\n\nmodel User {\n  id   String @id\n  name String\n}\n'}),
+            ('template', {'package.json': '{"name": "app", "scripts": {"dev": "prisma db push --schema prisma/schema.sqlite.prisma"}}',
+                          'prisma/schema.prisma': _role_schema('AB', source='postgresql'),
+                          'prisma/schema.sqlite.prisma': _role_schema(None, source='sqlite')})):
+        root = tmp_path / name
+        _commit(root, files)
+        _write(root, {'src/w.ts': write})
+        code, text = _static(root)
+        assert code == 1 and _red_values(text) == [
+            "src/w.ts:3 User.role='Z'  src/w.ts:5 User.role='Z'，允许 A|B（enum Role (prisma/schema.prisma:%d)）"
+            % (1 if name == 'reporting' else 6)], (name, text)
+
+
 def test_a_schema_folder_is_one_schema_for_its_enums_and_its_datasource(tmp_path):
     # r24 review (gate-3): a schema folder was read file by file, so an enum another file declares gated
     # nothing (a false green) and the folder's SQL Server datasource did not make a CHECK compare without case.

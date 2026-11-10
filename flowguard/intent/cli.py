@@ -1183,6 +1183,22 @@ def _alone(prefix, name):
     return f'{prefix} {name}'
 
 
+def _vm_scripts(scripts):
+    """The scripts that run under node's --experimental-vm-modules: those whose command names the flag
+    anywhere (`NODE_OPTIONS=... jest`, `export NODE_OPTIONS=... && jest`, Windows' `set NODE_OPTIONS=... &&
+    jest`), and the scripts such a command runs (`npm run test:jest`, `pnpm run x`, `yarn x`), which inherit its
+    environment."""
+    found = {name for name, command in scripts.items() if isinstance(command, str) and _VM in command}
+    pending = list(found)
+    while pending:
+        command = scripts[pending.pop()]
+        for other in re.findall(r'\b(?:npm|pnpm|yarn)(?:\s+run(?:-script)?)?\s+([\w:.-]+)', command):
+            if other in scripts and other not in found:
+                found.add(other)
+                pending.append(other)
+    return found
+
+
 def _vm_launch(prefix):
     """How a line for another script starts jest with node's --experimental-vm-modules, from a call's `prefix`
     (its words up to the runner): its `cross-env`, its NODE_OPTIONS setting reduced to that flag, `node` with
@@ -1296,7 +1312,7 @@ def _runner_calls(command, runner):
     return calls
 
 
-def _filtered_scripts(cfg, package, runner, name, launch, vm):
+def _filtered_scripts(cfg, package, runner, name, launch, vm, vm_scripts=frozenset()):
     """What init did to the test suite scripts (`test`, `test:unit`, `unit`, ...) so one of them runs `name`;
     the script that runs it (None when init can tell of none); and the watch scripts or other suites that run it.
     init reads a call only when every option it has is one it knows to leave the files alone (`_SAFE`:
@@ -1322,7 +1338,7 @@ def _filtered_scripts(cfg, package, runner, name, launch, vm):
     scripts = json.loads(text).get('scripts') or {}
     named, runners, excluded, others, tried, unread = False, [], [], [], [], []
     for index, (script, command) in enumerate(scripts.items()):
-        calls = [call for call in _runner_calls(command, runner) if not vm or _VM in call.prefix] \
+        calls = [call for call in _runner_calls(command, runner) if not vm or script in vm_scripts or _VM in call.prefix] \
             if isinstance(command, str) and _TEST_SCRIPT.fullmatch(script) else []
         if not calls:
             continue
@@ -1396,9 +1412,13 @@ def _npm_check(cfg, package):
     runner = 'jest' if ('jest' in named or 'jest' in script) and 'vitest' not in named and 'vitest' not in script else 'vitest'
     # jest loads a test as an ES module only under node's --experimental-vm-modules, and every test as CommonJS
     # without it, whatever the package's type: the test of a "type": "module" package is an ES module when a script
-    # runs jest with that flag, or none runs jest at all; when its scripts run jest only without it, CommonJS.
+    # runs jest with that flag (in its own call, an earlier `export`/`set NODE_OPTIONS=` of the script, or a script
+    # that runs it: `_vm_scripts`), or none runs jest at all; when its scripts run jest only without it, CommonJS.
+    under_vm = _vm_scripts(scripts)
     calls = [call for command in scripts.values() for call in _runner_calls(command, runner)]
-    vm = runner == 'jest' and data.get('type') == 'module' and (not calls or any(_VM in call.prefix for call in calls))
+    vm_calls = [call for script_name, command in scripts.items() for call in _runner_calls(command, runner)
+                if script_name in under_vm or _VM in call.prefix]
+    vm = runner == 'jest' and data.get('type') == 'module' and (not calls or bool(vm_calls))
     module = runner == 'vitest' or vm
     target = package.parent / ('flowguard.static.test.mjs' if runner == 'vitest' else 'flowguard.static.test.js')
     relative = os.path.relpath(cfg.root, package.parent).replace(os.sep, '/')
@@ -1419,8 +1439,8 @@ def _npm_check(cfg, package):
     # way the first script that does so starts it (`_vm_launch`), else as jest's own documentation spells it.
     launch = 'vitest run' if runner == 'vitest' else 'jest'
     if vm:
-        launch = next((_vm_launch(call.prefix) for call in calls if _VM in call.prefix), _JEST_ESM)
-    lines, runs, excluded = _filtered_scripts(cfg, package, runner, target.name, launch, vm)
+        launch = next((_vm_launch(call.prefix) for call in vm_calls if _VM in call.prefix), _JEST_ESM)
+    lines, runs, excluded = _filtered_scripts(cfg, package, runner, target.name, launch, vm, under_vm)
     # The line names the script that runs the file: npm test only when the "test" script itself runs it, and never
     # a watch script or a suite that reaches real databases and services.
     if runs is None:

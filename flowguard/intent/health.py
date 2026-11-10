@@ -77,18 +77,23 @@ def _foreign_writes(change, facts=None):
 
     def schema_of(row, key, client):
         """A typed object of one schema's client output: that schema; any other write: the schema in use of
-        its own package that defines the model (the nearest package with one), unless that package has several
-        that type the field differently (which client wrote it is unknown); a package with none: the first schema
-        in use by path whose enum types the field. A schema whose field is no enum judges by no enum."""
+        its own package that types the field with an enum (the nearest package defining the model), unless the
+        package's clients disagree (which client wrote it is unknown): two schemas type it with different enums,
+        or one with a client of its own (a generator `output`, another database) types it as text. A schema that
+        lacks the field, or a template without a client of its own that types it as text (SQLite has no enums),
+        neither judges nor stands in the way; when no schema of the package types it with an enum, no enum
+        judges it. A package with none: the first schema in use by path whose enum types the field."""
         model, _, field = key.partition('.')
-        found = [(schema, package, fields.get(field)) for schema, package, fields in models.get(model, ())]
-        if client in {schema for schema, _, _ in found}:
+        found = [(schema, package, fields, client_of) for schema, package, fields, client_of in models.get(model, ())]
+        if client in {schema for schema, _, _, _ in found}:
             return client
         for package in graph._packages_up(row['file']):
-            own = [(schema, values) for schema, owner, values in found if owner == package]
+            own = [(schema, fields, client_of) for schema, owner, fields, client_of in found if owner == package]
             if own:
-                return own[0][0] if len({values for _, values in own}) == 1 else None
-        return next((schema for schema, _, values in found if values), None)
+                enums = [(schema, fields[field]) for schema, fields, _ in own if fields.get(field)]
+                apart = any(field in fields and not fields[field] and client_of for _, fields, client_of in own)
+                return enums[0][0] if enums and len({values for _, values in enums}) == 1 and not apart else None
+        return next((schema for schema, _, fields, _ in found if fields.get(field)), None)
 
     def file_of(row, gate):
         """The file whose declaration of a TS type judges a typed object: its own file when that declares the

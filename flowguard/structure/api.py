@@ -613,11 +613,11 @@ class MapHandle:
         return self._derived['value_sets']
 
     def prisma_fields_in_use(self):
-        """{model name: [(schema, package, {field: enum values})]}: each schema in use that defines the model (a
-        schema folder is one schema; guessed schemas left out), in path order, with its package and the values of
-        each field it types with an enum that has members (a field typed otherwise is not in the dict). The value
-        gate gives a Prisma write the schema of its client or of its own package from these
-        (`health._foreign_writes`), so a schema whose field is no enum leaves its writes to no enum."""
+        """{model name: [(schema, package, {field: enum values or None}, own client)]}: each schema in use that
+        defines the model (a schema folder is one schema; guessed schemas left out), in path order, with its
+        package, each scalar field it declares (the values of an enum that has members, None for any other type)
+        and whether it writes a client of its own (a generator `output`). The value gate gives a Prisma write the
+        schema of its client or of its own package from these (`health._foreign_writes`)."""
         if 'fields_in_use' not in self._derived:
             from .readers.prisma import schema_folders
             in_use, guessed, out = self.prisma_schemas_in_use(), self.prisma_schemas_guessed(), {}
@@ -625,9 +625,12 @@ class MapHandle:
                 if schema['files'][0] not in in_use or schema['files'][0] in guessed:
                     continue
                 enums = {enum['name']: tuple(member['name'] for member in enum['fields']) for enum in schema['enums'] if enum['fields']}
+                names = {model['name'] for model in schema['models']}
                 for model in schema['models']:
                     out.setdefault(model['name'], []).append((schema['file'], self.package(schema['files'][0]), {
-                        field['name']: enums[field['type']] for field in model['fields'] if field['type'] in enums}))
+                        field['name']: enums.get(field['type']) for field in model['fields']
+                        if field['type'] not in names and not field.get('relation') and not field['list']},
+                        bool(schema.get('outputs'))))
             self._derived['fields_in_use'] = out
         return self._derived['fields_in_use']
 

@@ -793,6 +793,26 @@ def test_init_reads_a_runner_started_through_node_and_spells_each_edit_the_way_j
 
 
 
+def test_an_es_module_jest_package_whose_script_sets_the_vm_flag_outside_jests_own_call_gets_an_es_module_test(tmp_path):
+    # Final check of r25-init: `export NODE_OPTIONS=--experimental-vm-modules && jest`, Windows' `set NODE_OPTIONS=... &&
+    # npx jest` and a script that runs jest through `npm run` under the flag got the CommonJS test, which jest under
+    # the flag loads as an ES module of a "type": "module" package and fails (`require is not defined`).
+    _script_packages(tmp_path, {
+        'export': (_jest('export', {'test': 'export NODE_OPTIONS=--experimental-vm-modules && jest'}, type='module'), []),
+        'winset': (_jest('winset', {'test': 'set NODE_OPTIONS=--experimental-vm-modules && npx jest'}, type='module'), []),
+        'chain': (_jest('chain', {'test': 'NODE_OPTIONS=--experimental-vm-modules npm run test:jest', 'test:jest': 'jest'},
+                        type='module'), []),
+        'plain': (_jest('plain', {'test': 'jest'}, type='module'), []),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0, text
+    for folder in ('export', 'winset', 'chain'):
+        generated = (tmp_path / folder / 'flowguard.static.test.js').read_text(encoding='utf-8')
+        assert "from 'node:" in generated and 'require(' not in generated, (folder, generated)
+    generated = (tmp_path / 'plain/flowguard.static.test.js').read_text(encoding='utf-8')
+    assert "require('node:child_process')" in generated, generated       # jest without the flag loads CommonJS
+
+
 def test_init_starts_jest_for_an_es_module_package_without_another_script_s_settings_or_debugger(tmp_path):
     # Round 25 check: the advice for other scripts copied the whole start of any call with --experimental-vm-modules,
     # a debugger that waits (--inspect-brk) or an integration suite's database URL with its password included; and
