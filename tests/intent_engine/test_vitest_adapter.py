@@ -355,10 +355,8 @@ def test_init_wires_one_unit_suite_script_and_never_an_integration_suite(tmp_pat
         code, text = _flowguard(tmp_path, 'init')
         assert code == 0 and 'init added' not in text and (tmp_path / 'api/package.json').read_text(encoding='utf-8') == start, text
         assert 'Generated api/flowguard.static.test.mjs (vitest): npm test runs python -m flowguard check --static' in text, text
-        # with no script naming the static test, the integration and end-to-end suites left alone are named
-        alone = 'api/package.json scripts "test:integration", "test:e2e" run vitest on integration, end-to-end or other suites'
-        assert (alone in text) == (start != wired.replace(', "test:unit": "vitest run tests/unit"', '')
-                                   .replace(', "test:api": "vitest run tests/api"', '')), text
+        # npm test runs every file, so the integration and end-to-end suites left alone are not worth a line
+        assert 'run vitest on integration, end-to-end or other suites' not in text, text
 
 
 TEST_FILE = "import { it } from 'vitest';\nit('a', () => {});\n"
@@ -430,8 +428,8 @@ def test_init_tries_the_next_script_after_one_it_cannot_wire(tmp_path):
         assert f'Generated {folder}/flowguard.static.test.mjs (vitest): npm run test:api runs python -m flowguard check' in text, text
     for folder, option, command in (('rooted', '--root', 'vitest run tests/unit --root .'),
                                     ('names', '-t', 'vitest run tests/unit -t fast')):
-        assert (f'{folder}/package.json script "test:unit" chooses what it runs through {option} ({command}): init cannot '
-                'tell whether it runs flowguard.static.test.mjs; if it does not, add "&& vitest run flowguard.static.test.mjs" '
+        assert (f'{folder}/package.json script "test:unit" runs vitest with {option}, which init does not read ({command}): '
+                'init cannot tell whether it runs flowguard.static.test.mjs; if it does not, add "&& vitest run flowguard.static.test.mjs" '
                 'to it yourself') in text, text
     assert ('escaped/package.json script "test:unit" runs vitest on named paths only: change it to vitest run tests/unit '
             'flowguard.static.test.mjs so it runs flowguard.static.test.mjs too') in text, text
@@ -490,6 +488,36 @@ def _says(text, folder, runs):
     return None
 
 
+def test_init_reads_only_calls_whose_options_it_knows_and_never_turns_the_static_test_into_an_option_value(tmp_path):
+    # Round 23 final check of r23-init: jest's --testPathIgnorePatterns made the wired file an ignore pattern; an
+    # option init does not know made a test script "run nothing"; -t with the file named still counted as running
+    # it; vitest's -w (watch) was wired; jest's -w (workers) is harmless.
+    jest = lambda scripts: json.dumps({'name': 'j', 'scripts': scripts, 'devDependencies': {'jest': '29.7.0'}}) + '\n'
+    start = _script_packages(tmp_path, {
+        'ignore': (jest({'test': 'jest', 'test:unit': 'jest tests/unit --testPathIgnorePatterns fixtures'}), ['tests/unit']),
+        'workers': (jest({'test:unit': 'jest tests/unit -w 2 --ci'}), ['tests/unit']),
+        'unknown': ({'test': 'vitest run --typecheck'}, []),
+        'named': ({'test': 'vitest run flowguard.static.test.mjs -t fast'}, []),
+        'watch': ({'test:unit': 'vitest -w tests/unit'}, ['tests/unit']),
+        'known': ({'test:unit': 'vitest run tests/unit --reporter dot --coverage --maxWorkers=2'}, ['tests/unit']),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0, text
+    for folder in ('ignore', 'unknown', 'named', 'watch'):
+        assert (tmp_path / folder / 'package.json').read_text(encoding='utf-8') == start[folder], (folder, text)
+    assert _scripts(tmp_path, 'workers') == {'test:unit': 'jest tests/unit -w 2 --ci flowguard.static.test.js'}, text
+    assert _scripts(tmp_path, 'known') == {
+        'test:unit': 'vitest run tests/unit --reporter dot --coverage --maxWorkers=2 flowguard.static.test.mjs'}, text
+    for folder, runs in (('ignore', 'npm test'), ('workers', 'npm run test:unit'), ('unknown', None), ('named', None),
+                         ('watch', None), ('known', 'npm run test:unit')):
+        assert _says(text, folder, runs) == runs, (folder, text)
+    assert ('ignore/package.json script "test:unit" runs jest with --testPathIgnorePatterns, which init does not read '
+            '(jest tests/unit --testPathIgnorePatterns fixtures)') in text, text
+    assert ('unknown/package.json script "test" runs vitest with --typecheck, which init does not read (vitest run --typecheck): '
+            'init cannot tell whether it runs flowguard.static.test.mjs') in text, text
+    assert 'named/package.json script "test" runs vitest with -t, which init does not read' in text, text
+
+
 def test_init_never_counts_a_call_that_picks_its_files_elsewhere_as_running_the_static_test(tmp_path):
     # Round 23 check: -c, --project, --shard and --changed counted as running every file, so init printed "npm test runs"
     # for a test script that runs one config's files only; --dir without paths got no line and advice that broke it.
@@ -512,8 +540,8 @@ def test_init_never_counts_a_call_that_picks_its_files_elsewhere_as_running_the_
     for folder, option, command in (('config', '-c', 'vitest run -c vitest.unit.config.ts'),
                                     ('project', '--project', 'vitest run --project unit'),
                                     ('folder', '--dir', 'vitest run --dir src'), ('shard', '--shard', 'vitest run --shard=1/2')):
-        assert (f'{folder}/package.json script "test" chooses what it runs through {option} ({command}): init cannot tell '
-                'whether it runs flowguard.static.test.mjs; if it does not, add "&& vitest run flowguard.static.test.mjs" '
+        assert (f'{folder}/package.json script "test" runs vitest with {option}, which init does not read ({command}): '
+                'init cannot tell whether it runs flowguard.static.test.mjs; if it does not, add "&& vitest run flowguard.static.test.mjs" '
                 'to it yourself') in text, text
     assert ('config/package.json script "test:e2e" runs vitest on an integration, end-to-end or other suite that reaches '
             'real databases and services: init leaves it alone') in text, text
@@ -545,7 +573,7 @@ def test_init_never_names_a_watch_script_or_another_suite_as_the_script_that_run
     assert f'Generated configs/flowguard.static.test.mjs (vitest), but init finds no script in configs/package.json that runs it: {edit}' \
         in text, text
     assert ('configs/package.json script "test:integration" runs vitest on an integration, end-to-end or other suite') in text, text
-    assert 'configs/package.json script "test:unit" chooses what it runs through -c (vitest run -c vitest.unit.config.ts)' in text, text
+    assert 'configs/package.json script "test:unit" runs vitest with -c, which init does not read (vitest run -c vitest.unit.config.ts)' in text, text
     for folder, left in (('database', '"test:integration" runs'), ('both', '"test:watch", "test:integration" run'),
                          ('named', '"test:watch" runs')):
         assert (f'Generated {folder}/flowguard.static.test.mjs (vitest), but in {folder}/package.json only {left} it, and init '

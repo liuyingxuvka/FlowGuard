@@ -1139,6 +1139,19 @@ _ELSEWHERE = {'-r', '--root', '--dir', '--rootDir', '--roots', '-c', '--config',
               '-o', '--onlyChanged', '--changedSince', '--lastCommit', '--findRelatedTests', '-f', '--onlyFailures',
               '--testPathPattern', '--testPathPatterns', '--testMatch', '--testRegex'}
 _WATCH = {'--watch', '--watchAll'}
+# Options init knows to leave the files a call runs as they are: reporting, workers, timeouts, coverage, caching.
+# A call with any other option is one init cannot read: it neither wires nor names it as running a file.
+_SAFE = {'--run', '--passWithNoTests', '--silent', '--coverage', '--no-coverage', '--globals', '--isolate', '--no-isolate',
+         '--no-file-parallelism', '--fileParallelism', '--ci', '--runInBand', '-i', '--verbose', '--colors', '--no-colors',
+         '--json', '--detectOpenHandles', '--forceExit', '-u', '--update', '--no-cache', '--logHeapUsage', '--allowOnly',
+         '--hideSkippedTests', '--clearMocks', '--reporter', '--outputFile', '--pool', '--environment', '--maxWorkers',
+         '--minWorkers', '--testTimeout', '--hookTimeout', '--bail', '--mode', '--maxConcurrency', '--retry', '--logLevel'}
+_SAFE_PREFIXES = ('--coverage.', '--reporter.', '--outputFile.', '--sequence.', '--poolOptions.')
+# Safe options whose value is the next word unless written `--option=value`; `--bail` and `--coverage` take one only
+# when it is a number or a boolean.
+_SAFE_VALUED = {'--reporter', '--outputFile', '--pool', '--environment', '--maxWorkers', '--minWorkers', '--testTimeout',
+                '--hookTimeout', '--mode', '--maxConcurrency', '--retry', '--logLevel'}
+_OPTIONAL_VALUE = {'--bail', '--coverage', '--silent'}
 
 
 def _alone(runner, name):
@@ -1148,8 +1161,13 @@ def _alone(runner, name):
 
 def _runner_calls(command, runner):
     """Each call of `runner` in a script (`a && b`, `a; b` and `a || b` are calls of their own): its text,
-    whether it watches, its options and its paths, `./` taken off (`.` is the package folder, spelled '').
-    `--watch=false` and `--watchAll false` turn watching off; `vitest watch` and `vitest dev` watch."""
+    whether it watches, its options, its paths (`./` taken off; `.` is the package folder, spelled '') and
+    whether init can read it (`clear`: every option is one of `_SAFE` or a watch option). `--watch=false` and
+    `--watchAll false` turn watching off; `vitest watch`, `vitest dev` and vitest's `-w` watch (jest's `-w` is
+    its worker count)."""
+    watch = _WATCH | ({'-w'} if runner == 'vitest' else set())
+    safe = _SAFE | ({'-w'} if runner == 'jest' else set())
+    valued_safe = _SAFE_VALUED | ({'-w'} if runner == 'jest' else set())
     calls = []
     for segment in re.split(r'&&|\|\||;', command):
         words = segment.split()
@@ -1160,58 +1178,65 @@ def _runner_calls(command, runner):
         verb = rest[0] if rest[:1] in (['run'], ['watch'], ['dev']) else ''
         options, paths, valued, watches = set(), [], None, verb in ('watch', 'dev')
         for word in rest[1:] if verb else rest:
-            if valued in _WATCH:
-                valued = None
-                if word in ('true', 'false'):
-                    watches = word == 'true'
+            if valued in watch or valued in _OPTIONAL_VALUE:
+                optional, valued = valued, None
+                if word in ('true', 'false') or optional in _OPTIONAL_VALUE and re.fullmatch(r'\d+%?', word):
+                    if optional in watch:
+                        watches = word == 'true'
                     continue
             if valued:
                 valued = None
             elif word.startswith('-'):
                 option, equals, value = word.partition('=')
                 options.add(option)
-                if option in _WATCH:
+                if option in watch:
                     watches = value != 'false' if equals else True
-                valued = option if (option in _VALUED or option in _WATCH) and not equals else None
+                valued = option if (option in _VALUED or option in watch or option in valued_safe
+                                    or option in _OPTIONAL_VALUE) and not equals else None
             else:
                 while word.startswith('./'):
                     word = word[2:]
                 paths.append('' if word in ('.', '') else word.rstrip('/'))
-        calls.append((segment, watches, options, paths))
+        clear = all(option in safe or option in watch or option.startswith(_SAFE_PREFIXES) for option in options)
+        calls.append((segment, watches, options, paths, clear))
     return calls
 
 
 def _filtered_scripts(cfg, package, runner, name):
     """What init did to the test suite scripts (`test`, `test:unit`, `unit`, ...) so one of them runs `name`;
-    the script that runs it (None when init finds none); and the watch scripts or other suites that run it.
-    A script runs `name` when a call names it, or runs every file: no path (or the package folder) and no option
-    that chooses its files elsewhere (`_ELSEWHERE`). Watch scripts (a name part `watch`, `--watch`, `vitest
-    watch`) and integration, end-to-end, database, smoke, acceptance, performance, load or benchmark suites (real
-    databases and services; by a part of the name or a folder they run) are never wired and never named as the
-    script that runs it. A script that runs the runner on named folders only (`vitest run tests/unit`) skips a
-    test at the package root, so `name` is added to one such script: `test` (what npm test runs) first, then
-    `test:unit`, `test-unit`, `test_unit` and `unit`, then other unit names, then shorter names, then the order
-    of the file. The check covers the whole repository, so one script is enough: nothing is added when any call
-    of a test script already names `name`. A script whose call chooses its files elsewhere, or that init cannot
-    edit without touching the rest of the file, is named with the edit to make and the next one is tried; one
-    with no path is tried only while no script runs `name`. When nothing runs it, a line names the other suites
-    init left alone. A script that runs single files is a check of its own and stays as it is."""
+    the script that runs it (None when init can tell of none); and the watch scripts or other suites that run it.
+    init reads a call only when every option it has is one it knows to leave the files alone (`_SAFE`:
+    reporters, workers, timeouts, coverage; `_runner_calls` `clear`); a call with any other option (its own
+    root or config, a project, test names, ignore patterns, an option init does not know) may run any files, so
+    init neither wires it nor names it as running `name`. A script runs `name` when a call init reads names it
+    or runs every file (no path, or the package folder). Watch scripts (a name part `watch`, `--watch`, vitest's
+    `-w`, `vitest watch`) and integration, end-to-end, database, smoke, acceptance, performance, load or
+    benchmark suites (real databases and services; by a part of the name or a folder they run) are never wired
+    and never named as the script that runs it. A script that runs the runner on named folders only (`vitest
+    run tests/unit`) skips a test at the package root, so `name` is added to one such script: `test` (what npm
+    test runs) first, then `test:unit`, `test-unit`, `test_unit` and `unit`, then other unit names, then shorter
+    names, then the order of the file. The check covers the whole repository, so one script is enough: nothing
+    is added when a call init reads already names `name`. A script init cannot edit without touching the rest of
+    the file is named with the edit to make, and the next one is tried. A script init cannot read is named with
+    the edit to make when it is `test`, runs named paths, or when nothing runs `name`; the other suites init left alone are
+    named when nothing runs it. A script that runs single files is a check of its own and stays as it is."""
     text = package.read_text(encoding='utf-8-sig')
     scripts = json.loads(text).get('scripts') or {}
-    named, runners, excluded, others, tried = False, [], [], [], []
+    named, runners, excluded, others, tried, unread = False, [], [], [], [], []
     for index, (script, command) in enumerate(scripts.items()):
         calls = _runner_calls(command, runner) if isinstance(command, str) and _TEST_SCRIPT.fullmatch(script) else []
         if not calls:
             continue
         words = re.split(r'[:_-]', script.lower())
-        folders = [folder for _, _, _, paths in calls for path in paths for folder in path.lower().split('/')]
-        names = any(name in paths for _, _, _, paths in calls)
+        folders = [folder for call in calls for path in call[3] for folder in path.lower().split('/')]
+        clear = [call for call in calls if call[4]]
+        names = any(name in paths for _, _, _, paths, _ in clear)
         named = named or names
-        runs = names or any(not options & _ELSEWHERE and (not paths or '' in paths) for _, _, options, paths in calls)
+        runs = names or any(not paths or '' in paths for _, _, _, paths, _ in clear)
         if any(part.startswith('integration') or part in _OTHER_SUITES for part in words + folders):
             (excluded if runs else others).append(script)
             continue
-        if 'watch' in words or any(watches for _, watches, _, _ in calls):
+        if 'watch' in words or any(call[1] for call in calls):
             if runs:
                 excluded.append(script)
             continue
@@ -1220,20 +1245,18 @@ def _filtered_scripts(cfg, package, runner, name):
         if runs:
             runners.append((rank, script))
             continue
-        segment = next((segment for segment, _, options, paths in calls
-                        if paths and not options & _ELSEWHERE and all((package.parent / path).is_dir() for path in paths)), None)
-        elsewhere = sorted({option for _, _, options, _ in calls for option in options & _ELSEWHERE})
-        if segment is not None or elsewhere:
-            tried.append((rank, script, command, segment, elsewhere, any(paths for _, _, _, paths in calls)))
+        segment = next((segment for segment, _, _, paths, _ in clear
+                        if paths and all((package.parent / path).is_dir() for path in paths)), None)
+        if segment is not None:
+            tried.append((rank, script, command, segment))
+        if len(clear) < len(calls):
+            options = sorted({option for call in calls if not call[4] for option in call[2]
+                              if option not in _SAFE and not option.startswith(_SAFE_PREFIXES)})
+            unread.append((rank, script, command, options, any(call[3] for call in calls)))
     call = _alone(runner, name)
     lines, wired = [], None
-    for rank, script, command, segment, elsewhere, has_paths in [] if named else sorted(tried):
+    for rank, script, command, segment in [] if named else sorted(tried):
         where = f'{cfg.rel(package)} script "{script}"'
-        if segment is None:
-            if has_paths or not runners:
-                lines.append(f'{where} chooses what it runs through {", ".join(elsewhere)} ({command}): init cannot tell '
-                             f'whether it runs {name}; if it does not, add "&& {call}" to it yourself')
-            continue
         new = command.replace(segment, segment.rstrip() + ' ' + name + segment[len(segment.rstrip()):], 1)
         spelled = re.compile(r'(' + re.escape(json.dumps(script)) + r'\s*:\s*)' + re.escape(json.dumps(command)))
         if len(spelled.findall(text)) != 1:
@@ -1244,7 +1267,12 @@ def _filtered_scripts(cfg, package, runner, name):
         runners.append((rank, script))
         wired = script
         break
-    if not named and wired is None and others:
+    for _, script, command, options, has_paths in [] if named else sorted(unread):
+        if has_paths or not runners or script == 'test':           # npm test's own script is always worth the line
+            lines.append(f'{cfg.rel(package)} script "{script}" runs {runner} with {", ".join(options)}, which init does not '
+                         f'read ({command}): init cannot tell whether it runs {name}; if it does not, add "&& {call}" to it '
+                         'yourself')
+    if not runners and others:
         left = ', '.join('"' + script + '"' for script in others)
         lines.append(f'{cfg.rel(package)} script {left} runs {runner} on an integration, end-to-end or other suite that '
                      'reaches real databases and services: init leaves it alone; to run the check with it, '
