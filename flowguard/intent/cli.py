@@ -1118,59 +1118,141 @@ def _packages(root):
                   if not any(part == 'node_modules' or part.startswith('.') for part in path.relative_to(root).parts[:-1]))
 
 
-# Suites that reach real databases and services: init leaves their scripts as they are.
-_OTHER_SUITES = {'integration', 'e2e', 'smoke', 'perf', 'performance', 'load', 'bench', 'benchmark'}
-# Options of vitest and jest whose value is the next word; the others are flags.
+# The scripts init reads as test suites, and the unit suite names it wires before any other (`test:unit`, `unit`).
+_TEST_SCRIPT = re.compile(r'test(?:[:_-].+)?|unit')
+_UNIT_SCRIPT = re.compile(r'(?:test[:_-])?unit')
+# Suites that reach real databases and services: init leaves their scripts as they are. A script is one when a
+# part of its name (split on : _ -) or a folder of a path it runs (split on /) is one of these words or starts
+# with `integration`.
+_OTHER_SUITES = {'int', 'it', 'e2e', 'db', 'database', 'smoke', 'acceptance', 'perf', 'performance', 'load', 'bench',
+                 'benchmark'}
+# Options of vitest and jest whose value is the next word (unless written `--option=value`); the others are flags.
 _VALUED = {'-c', '--config', '-r', '--root', '--dir', '--project', '-t', '--testNamePattern', '--reporter', '--outputFile',
-           '--environment', '--pool', '--shard', '--mode', '--exclude', '--testPathPattern', '--selectProjects', '--rootDir'}
+           '--environment', '--pool', '--shard', '--mode', '--exclude', '--testPathPattern', '--testPathPatterns',
+           '--selectProjects', '--rootDir', '--roots', '--projects', '--ignoreProjects', '--workspace', '--changedSince',
+           '--testMatch', '--testRegex', '--testPathIgnorePatterns'}
+# Options that choose the files or tests a call runs from something init does not read (its own root or folder, a
+# config, a project, test names, a shard, changed or related files): init cannot tell whether such a call runs a
+# file at the package root, and a file named on it may still not run.
+_ELSEWHERE = {'-r', '--root', '--dir', '--rootDir', '--roots', '-c', '--config', '--project', '--projects',
+              '--selectProjects', '--ignoreProjects', '--workspace', '-t', '--testNamePattern', '--shard', '--changed',
+              '-o', '--onlyChanged', '--changedSince', '--lastCommit', '--findRelatedTests', '-f', '--onlyFailures',
+              '--testPathPattern', '--testPathPatterns', '--testMatch', '--testRegex'}
+_WATCH = {'--watch', '--watchAll'}
+
+
+def _alone(runner, name):
+    """The call that runs the generated test file `name` alone."""
+    return f'{runner} run {name}' if runner == 'vitest' else f'{runner} {name}'
+
+
+def _runner_calls(command, runner):
+    """Each call of `runner` in a script (`a && b`, `a; b` and `a || b` are calls of their own): its text,
+    whether it watches, its options and its paths, `./` taken off (`.` is the package folder, spelled '').
+    `--watch=false` and `--watchAll false` turn watching off; `vitest watch` and `vitest dev` watch."""
+    calls = []
+    for segment in re.split(r'&&|\|\||;', command):
+        words = segment.split()
+        at = next((index for index, word in enumerate(words) if word.rpartition('/')[2] == runner), None)
+        if at is None or words[at + 1:at + 2] == ['related']:
+            continue
+        rest = words[at + 1:]
+        verb = rest[0] if rest[:1] in (['run'], ['watch'], ['dev']) else ''
+        options, paths, valued, watches = set(), [], None, verb in ('watch', 'dev')
+        for word in rest[1:] if verb else rest:
+            if valued in _WATCH:
+                valued = None
+                if word in ('true', 'false'):
+                    watches = word == 'true'
+                    continue
+            if valued:
+                valued = None
+            elif word.startswith('-'):
+                option, equals, value = word.partition('=')
+                options.add(option)
+                if option in _WATCH:
+                    watches = value != 'false' if equals else True
+                valued = option if (option in _VALUED or option in _WATCH) and not equals else None
+            else:
+                while word.startswith('./'):
+                    word = word[2:]
+                paths.append('' if word in ('.', '') else word.rstrip('/'))
+        calls.append((segment, watches, options, paths))
+    return calls
 
 
 def _filtered_scripts(cfg, package, runner, name):
-    """Lines saying what init did to a test suite script (`test:unit`, ...) that runs the runner on named
-    folders only (`vitest run tests/unit`): such a script skips a test at the package root, so `name` is
-    added to one of them, a `unit` script first. The check covers the whole repository, so one script is
-    enough: nothing is added when a script already runs `name`, and an integration, end-to-end, smoke,
-    performance or benchmark suite (real databases and services) is never the one. A script that runs
-    single files is a check of its own and stays as it is. The file keeps its own formatting; a script init
-    cannot edit safely is named with the edit to make."""
+    """What init did to the test suite scripts (`test`, `test:unit`, `unit`, ...) so one of them runs `name`;
+    the script that runs it (None when init finds none); and the watch scripts or other suites that run it.
+    A script runs `name` when a call names it, or runs every file: no path (or the package folder) and no option
+    that chooses its files elsewhere (`_ELSEWHERE`). Watch scripts (a name part `watch`, `--watch`, `vitest
+    watch`) and integration, end-to-end, database, smoke, acceptance, performance, load or benchmark suites (real
+    databases and services; by a part of the name or a folder they run) are never wired and never named as the
+    script that runs it. A script that runs the runner on named folders only (`vitest run tests/unit`) skips a
+    test at the package root, so `name` is added to one such script: `test` (what npm test runs) first, then
+    `test:unit`, `test-unit`, `test_unit` and `unit`, then other unit names, then shorter names, then the order
+    of the file. The check covers the whole repository, so one script is enough: nothing is added when any call
+    of a test script already names `name`. A script whose call chooses its files elsewhere, or that init cannot
+    edit without touching the rest of the file, is named with the edit to make and the next one is tried; one
+    with no path is tried only while no script runs `name`. When nothing runs it, a line names the other suites
+    init left alone. A script that runs single files is a check of its own and stays as it is."""
     text = package.read_text(encoding='utf-8-sig')
     scripts = json.loads(text).get('scripts') or {}
-    candidates = []
-    for script, command in scripts.items():
-        if not isinstance(command, str) or not re.fullmatch(r'test(?:[:_-].+)?', script):
+    named, runners, excluded, others, tried = False, [], [], [], []
+    for index, (script, command) in enumerate(scripts.items()):
+        calls = _runner_calls(command, runner) if isinstance(command, str) and _TEST_SCRIPT.fullmatch(script) else []
+        if not calls:
             continue
-        for segment in re.split(r'&&|\|\||;', command):
-            words = segment.split()
-            at = next((index for index, word in enumerate(words) if word.rpartition('/')[2] == runner), None)
-            if at is None:
-                continue
-            rest, paths, valued = words[at + 1:], [], False
-            for word in rest[1:] if rest[:1] in (['run'], ['watch']) else rest:
-                if valued:
-                    valued = False
-                elif word.startswith('-'):
-                    valued = word in _VALUED
-                else:
-                    paths.append(word)
-            if name in paths:
-                return []
-            if not paths or rest[:1] == ['related'] or not all((package.parent / path).is_dir() for path in paths):
-                continue
-            if set(re.split(r'[:_-]', script.lower())) & _OTHER_SUITES:
-                continue
-            candidates.append((script, command, segment, rest))
-            break
-    for script, command, segment, rest in sorted(candidates, key=lambda item: 'unit' not in item[0].lower()):
-        new = command.replace(segment, segment.rstrip() + ' ' + name + segment[len(segment.rstrip()):], 1)
+        words = re.split(r'[:_-]', script.lower())
+        folders = [folder for _, _, _, paths in calls for path in paths for folder in path.lower().split('/')]
+        names = any(name in paths for _, _, _, paths in calls)
+        named = named or names
+        runs = names or any(not options & _ELSEWHERE and (not paths or '' in paths) for _, _, options, paths in calls)
+        if any(part.startswith('integration') or part in _OTHER_SUITES for part in words + folders):
+            (excluded if runs else others).append(script)
+            continue
+        if 'watch' in words or any(watches for _, watches, _, _ in calls):
+            if runs:
+                excluded.append(script)
+            continue
+        rank = (script != 'test', not _UNIT_SCRIPT.fullmatch(script.lower()),
+                not any(word.startswith('unit') for word in words), len(script), index)
+        if runs:
+            runners.append((rank, script))
+            continue
+        segment = next((segment for segment, _, options, paths in calls
+                        if paths and not options & _ELSEWHERE and all((package.parent / path).is_dir() for path in paths)), None)
+        elsewhere = sorted({option for _, _, options, _ in calls for option in options & _ELSEWHERE})
+        if segment is not None or elsewhere:
+            tried.append((rank, script, command, segment, elsewhere, any(paths for _, _, _, paths in calls)))
+    call = _alone(runner, name)
+    lines, wired = [], None
+    for rank, script, command, segment, elsewhere, has_paths in [] if named else sorted(tried):
         where = f'{cfg.rel(package)} script "{script}"'
-        if any(word in ('-r', '--root', '--dir', '--rootDir') for word in rest):
-            return [f'{where} names its own root or folder ({command}): add {name} to what it runs yourself']
+        if segment is None:
+            if has_paths or not runners:
+                lines.append(f'{where} chooses what it runs through {", ".join(elsewhere)} ({command}): init cannot tell '
+                             f'whether it runs {name}; if it does not, add "&& {call}" to it yourself')
+            continue
+        new = command.replace(segment, segment.rstrip() + ' ' + name + segment[len(segment.rstrip()):], 1)
         spelled = re.compile(r'(' + re.escape(json.dumps(script)) + r'\s*:\s*)' + re.escape(json.dumps(command)))
         if len(spelled.findall(text)) != 1:
-            return [f'{where} runs {runner} on named paths only: change it to {new} so it runs {name} too']
+            lines.append(f'{where} runs {runner} on named paths only: change it to {new} so it runs {name} too')
+            continue
         package.write_text(spelled.sub(lambda match: match.group(1) + json.dumps(new), text), encoding='utf-8')
-        return [f'{where} runs {runner} on named paths only; init added {name}: {new}']
-    return []
+        lines.append(f'{where} runs {runner} on named paths only; init added {name}: {new}')
+        runners.append((rank, script))
+        wired = script
+        break
+    if not named and wired is None and others:
+        left = ', '.join('"' + script + '"' for script in others)
+        lines.append(f'{cfg.rel(package)} script {left} runs {runner} on an integration, end-to-end or other suite that '
+                     'reaches real databases and services: init leaves it alone; to run the check with it, '
+                     f'add "&& {call}" to it yourself' if len(others) == 1 else
+                     f'{cfg.rel(package)} scripts {left} run {runner} on integration, end-to-end or other suites that '
+                     'reach real databases and services: init leaves them alone; to run the check with one of them, '
+                     f'add "&& {call}" to it yourself')
+    return lines, min(runners)[1] if runners else None, excluded
 
 
 def _npm_check(cfg, package):
@@ -1201,8 +1283,21 @@ def _npm_check(cfg, package):
     if target.exists() and not target.read_text(encoding='utf-8').startswith(NPM_HEADER):
         raise ValueError(f'{target}: an existing file has this name; rename it, then run init again')
     target.write_text(text, encoding='utf-8', newline='\n')
-    static = f'Generated {cfg.rel(target)} ({runner}): npm test runs python -m flowguard check --static and fails on red.'
-    static += ''.join('\n' + line for line in _filtered_scripts(cfg, package, runner, target.name))
+    lines, runs, excluded = _filtered_scripts(cfg, package, runner, target.name)
+    # The line names the script that runs the file: npm test only when the "test" script itself runs it, and never
+    # a watch script or a suite that reaches real databases and services.
+    if runs is None:
+        left = ', '.join('"' + script + '"' for script in excluded)
+        found = (f'in {cfg.rel(package)} only {left} {"runs" if len(excluded) == 1 else "run"} it, and init names no watch '
+                 'script or suite that reaches real databases and services' if excluded else
+                 f'init finds no script in {cfg.rel(package)} that runs it')
+        call = _alone(runner, target.name)
+        static = (f'Generated {cfg.rel(target)} ({runner}), but {found}: add "&& {call}" to the script you run your tests '
+                  f'with, so it runs python -m flowguard check --static and fails on red (npx {call} runs it alone).')
+    else:
+        static = (f'Generated {cfg.rel(target)} ({runner}): {"npm test" if runs == "test" else "npm run " + runs} runs '
+                  'python -m flowguard check --static and fails on red.')
+    static += ''.join('\n' + line for line in lines)
     if runner == 'jest':
         return static + '\nThe execution side supports vitest only: this jest project runs check --static alone.'
     from .vitest import wire
