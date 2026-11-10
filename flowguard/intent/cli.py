@@ -609,11 +609,12 @@ def _more_leads(command, everything, base):
 
 def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
     """Run the one ordinary pytest route; source validation executes no code. `leads` prints every lead.
-    Without `base` the first check of a task records HEAD as its baseline, as the brief does."""
+    Without `base` the first check of a task records HEAD as its baseline when none is recorded; a recorded
+    one stays, as in pytest (`cache.task_baseline`)."""
     from .plugin import collect_signals
     from .signals import render as render_signals
     if base is None:
-        cache.remember_baseline(cfg)
+        cache.task_baseline(cfg, record=True)
     with collect_signals() as reports:
         status = _check(cfg, everything=everything, since=since, deep=deep, base=base, reports=reports)
     from .differences import _source_index, _compare_pairs
@@ -690,11 +691,12 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     missing columns and touched structure problems. The report is rendered as at the end of an ordinary
     test run; only what this change adds is reported unless `everything` (`--all`), which also lists every
     open structure problem. `leads` (`--leads`) prints every lead instead of the first ones. Exit 1 when
-    anything is red. Without `base` the first run of a task records HEAD as its baseline, as the brief does."""
+    anything is red. Without `base` the first run of a task records HEAD as its baseline when none is recorded;
+    a recorded one stays, as in pytest (`cache.task_baseline`)."""
     from . import anchors, health, ledger as fallbacks, owners
     from .signals import render as render_signals
     if base is None:
-        cache.remember_baseline(cfg)
+        cache.task_baseline(cfg, record=True)
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
         found = owners.static_findings(cfg, graph, index, base, everything=everything)

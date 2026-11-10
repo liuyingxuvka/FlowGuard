@@ -332,3 +332,45 @@ def test_check_and_check_static_record_the_task_baseline_unless_base_names_one(t
     git(root, 'init', '--quiet')
     code, text = _run(root, 'check', '--static')
     assert code == 0 and cache.task_baseline(cfg) == (None, None), text
+
+
+def test_runs_on_a_commit_outside_the_task_never_move_its_baseline(tmp_path):
+    """IDE test discovery, the tests or a check on a release branch or an older commit compare with the task start
+    and leave it recorded: back on the task's branch its committed change is reported, against the task start."""
+    root, cfg = _plain(tmp_path)
+    older = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '--quiet', '-b', 'release')
+    (root / 'RELEASE.txt').write_text('a release branch forked before the task\n')
+    git(root, 'add', 'RELEASE.txt')
+    git(root, 'commit', '--quiet', '-m', 'fixture release commit')
+    git(root, 'checkout', '--quiet', 'main')
+    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 5\n')
+    git(root, 'commit', '--quiet', '-am', 'fixture change of the previous task')
+    code, text = _run(root, 'new-task')
+    assert code == 0, text
+    start = git(root, 'rev-parse', 'HEAD')
+    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
+    git(root, 'commit', '--quiet', '-am', 'fixture change committed during the task')
+
+    def reported_against_the_task_start():
+        code, text = _run(root, pytest_run=True)
+        lines = text.splitlines()
+        assert code == 0 and f'FlowGuard（相对任务开始 {start[:7]}）' in lines, text
+        changed, = [line for line in lines if line.startswith('变：LIMIT（app.py:2）')]
+        assert '常量 5 → 4' in changed, text            # this task's change, not the previous task's 3 → 5
+        assert cache.task_baseline(cfg) == (start, 'task')
+
+    reported_against_the_task_start()
+    runs = {'release': [('--collect-only',), (), ('check', '--static'), ('check',)], older: [()]}
+    for commit, arguments in runs.items():
+        git(root, 'checkout', '--quiet', commit)        # the start is not an ancestor of HEAD here
+        for argument in arguments:
+            code, text = _run(root, *argument, pytest_run=argument[:1] != ('check',))
+            assert code == 0 and cache.task_baseline(cfg) == (start, 'task'), (commit, argument, text)
+        git(root, 'checkout', '--quiet', 'main')
+        reported_against_the_task_start()
+    # The brief moves it there and says why; the next task starts with new-task.
+    git(root, 'checkout', '--quiet', 'release')
+    code, text = _run(root)
+    assert code == 0 and 'is not an ancestor of HEAD; the task starts at HEAD' in text, text
+    assert cache.task_baseline(cfg) == (git(root, 'rev-parse', 'HEAD'), 'task')
