@@ -639,16 +639,20 @@ def watch(cfg, command):
 
 
 
-def _same_name_red(name, witness, answers, total):
-    """The red of same-name copies that differ on `witness`, worded as pytest words it (`signals.copy_answers`)."""
+def _same_name_red(name, answers, copies):
+    """The red of same-name `copies` where they differ, worded as pytest words it (`signals.copy_red`): what they
+    answer on each input in `answers` [(input, [(anchor, value)])] that first shows a copy differing; and the pairs
+    of copies (their targets) it shows to differ."""
     from . import cells as C
     from .calibration import outcome_equal
-    from .signals import copy_answers
-    places = [(f'{anchor.file}:{anchor.target_line} {anchor.qual}', value) for anchor, value in answers]
-    owner = next((place for (place, _), (anchor, _) in zip(places, answers) if anchor.owner), None)
-    text, step = copy_answers(places, outcome_equal, C.show, owner=owner, total=total)
-    return (f'同名锚点 {name}：' + ', '.join(f'{key}={value}' for key, value in witness.items())
-            + f'，{text} -> {step}；有意不同，就改用不同的锚点名并写 distinct')
+    from .signals import copy_lines, copy_red
+    places = {f'{anchor.file}:{anchor.target_line} {anchor.qual}': anchor for anchor in copies}
+    place = {anchor.target: text for text, anchor in places.items()}
+    owner = next((text for text, anchor in places.items() if anchor.owner), None)
+    lines = copy_lines([(where, [(place[anchor.target], value) for anchor, value in seen]) for where, seen in answers],
+                       outcome_equal, C.show, owner=owner, total=len(copies))
+    return ([copy_red(name, lines)] if lines else [],
+            {frozenset(places[text].target for text in pair) for *_, pairs in lines for pair in pairs})
 
 
 def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
@@ -675,10 +679,13 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
         compared = _compare_pairs(cfg.root, [(copies[0], other) for other in copies[1:]], answers=True)
         items = compared['items'] or [dict(name=name, status=compared['status'], reasons=compared['reasons'], complete=False)]
         red = compared['reasons'] if compared['status'] == 'red' and not compared['changes'] else []
-        if len(compared.get('answers', ())) > 1:
-            # Where the copies differ, the red pytest gives: what each one answers, the owner the reference.
-            red = [_same_name_red(name, compared['witness'], compared['answers'], len(copies))]
-            items = [item for item in items if not item['changes']]
+        lines, shown = _same_name_red(name, compared['answers'], copies)
+        if lines:
+            # Where the copies differ, the red pytest gives: what each one answers, the owner the reference. A pair
+            # the lines show needs no block of its own.
+            red = lines
+            items = [item for item in compared['items'] if not item['changes']
+                     or frozenset((item['before_target'], item['after_target'])) not in shown]
         reports.append(dict(source_changed=compared['status'] != 'ok',
                             items=[dict(item, comparison=True, same_name=True) for item in items], red=red))
         status = status or int(compared['status'] == 'red')

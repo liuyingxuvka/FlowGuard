@@ -58,6 +58,12 @@ def _key(value):
     return type(value).__module__, type(value).__qualname__, repr(value)
 
 
+def _smallest(region):
+    """The order pytest reports same-name inputs in (`Observations.report`): numbers nearest 0 first, then the rest."""
+    return [(0, abs(value), value) if isinstance(value, (int, float)) and not isinstance(value, bool) else (1, 0, C.show(value))
+            for _, value in sorted(region.inputs.items())]
+
+
 def _label(rows, witness, kinds, consts, atoms, truth, points):
     from .signals import class_label
     return class_label(atoms, truth, kinds, witness) if atoms else C.show_cell(witness)
@@ -213,7 +219,7 @@ def _source_index(root, graph=None):
 def _compare_pairs(root, pairs, *, answers=False):
     """Compare current source anchors; historical replay is Runtime's job. With `answers` (same-name copies, the
     reference first in every pair) the result also holds what every compared copy answers on the first input
-    where a pair differs, run once more: `answers` [(anchor, value)] and `witness` {name: shown value}."""
+    where each pair differs, run once more: `answers` [(input shown, [(anchor, value)])]."""
     from .anchors import decision_reading
     from .calibration import execute_many
     prepared_at = time.perf_counter()
@@ -255,15 +261,24 @@ def _compare_pairs(root, pairs, *, answers=False):
         reasons.extend(item['reasons'])
         offset += size * 2
     extra = {}
-    changed = next(((left, right, partition, item) for (left, right, partition), item in zip(selected, items)
-                    if item['changes']), None)
-    if answers and changed:
-        left, right, partition, item = changed
-        region = next(region for region in partition.regions if region.label == item['changes'][0]['region'])
+    if answers:
+        # Each pair's smallest input that differs, once per input, smallest first; every copy runs on each.
+        regions = {}
+        for (left, right, partition), item in zip(selected, items):
+            labels = {change['region'] for change in item['changes']}
+            if labels:
+                region = min((region for region in partition.regions if region.label in labels), key=_smallest)
+                regions.setdefault(', '.join(f'{key}={C.show(value)}' for key, value in region.inputs.items()), region)
+        regions = dict(sorted(regions.items(), key=lambda entry: _smallest(entry[1])))
         copies = list({anchor.target: anchor for pair in selected for anchor in pair[:2]}.values())
-        observed = execute_many(root, [(anchor, region.inputs) for anchor in copies])
-        extra = dict(answers=[(anchor, seen.value) for anchor, seen in zip(copies, observed) if seen.status == 'ok'],
-                     witness={key: C.show(value) for key, value in region.inputs.items()})
+        rerun = [(anchor, region.inputs) for region in regions.values() for anchor in copies]
+        observed = execute_many(root, rerun) if rerun else []
+        if len(observed) != len(rerun):
+            raise ValueError('anchor executor returned the wrong number of observations')
+        extra = dict(answers=[(where, [(anchor, seen.value) for anchor, seen in
+                                       zip(copies, observed[number * len(copies):(number + 1) * len(copies)])
+                                       if seen.status == 'ok'])
+                              for number, where in enumerate(regions)])
     return dict(**extra, status='red' if conflict or any(item['changed'] for item in items) else 'grey' if reasons else 'ok',
                 total=sum(item['total'] for item in items),
                 checked=sum(item['checked'] for item in items), unknown=sum(item['unknown'] for item in items),

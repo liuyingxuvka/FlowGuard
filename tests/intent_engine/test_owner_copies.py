@@ -312,6 +312,35 @@ def test_check_leaves_the_choice_between_copies_when_none_is_the_owner(tmp_path)
                    ' → 先定哪份对：这次是有意改的，就一起改，或改成调用 report；不是，就让 report 回到原来的行为'], text
 
 
+# Round 22 F1, second review: chart is the owner, report already differs from it at days=3 (`days < 3`), and this
+# task changes calendar only (`days <= 4`). The red named the first copy that differs and listed report with the
+# owner on that input (`2 份得 F（负责人 limits.py:2 chart、limits.py:12 report）`); 4.2.0 named both.
+def _split_copies(calendar):
+    """`_copies(3, calendar, 3, owner=True)` with report at `days < 3`."""
+    source = _copies(3, calendar, 3, owner=True)
+    return source[:source.rindex('days <= 3')] + 'days < 3\n'
+
+
+SPLIT_RED = ('红：同名锚点 LIMIT：days=3，3 份：1 份得 T（负责人 limits.py:2 chart），1 份得 F（limits.py:12 report），'
+             '另 1 份在别的输入上和负责人不同：limits.py:7 calendar（days=4） -> 让 limits.py:12 report 和负责人一致；'
+             'days=4，3 份：1 份得 F（负责人 limits.py:2 chart），1 份得 T（limits.py:7 calendar），'
+             '另 1 份在别的输入上和负责人不同：limits.py:12 report（days=3） -> 让 limits.py:7 calendar 和负责人一致；'
+             '有意不同，就改用不同的锚点名并写 distinct')
+
+
+def test_check_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp_path):
+    _project(tmp_path, {'limits.py': _split_copies(3)})
+    red, text = _checked_red(tmp_path, _split_copies(4))
+    assert [line for line in red if '同名锚点' in line] == [SPLIT_RED], text
+    assert '红 同名锚点' not in text, text          # no pair is left to a block of its own
+
+
+def test_pytest_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp_path):
+    _project(tmp_path, {'limits.py': _split_copies(3), **REACHES_CHART})
+    red, text = _same_name_red(tmp_path, _split_copies(4))
+    assert red == [SPLIT_RED], text
+
+
 # ---- fixed examples 10 and 11: the KWP rounding copies ---------------------------------------------------
 
 def test_fixed_10_a_registered_owner_lists_the_other_six_kwp_copies_by_behavior(tmp_path):

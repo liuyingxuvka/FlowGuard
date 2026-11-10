@@ -194,15 +194,20 @@ def red(subject, *texts, next=()):
     return (subject + '：' if subject else '') + '；'.join(texts), {subject: list(next)} if subject and next else {}
 
 
-def copy_answers(answers, same, show, owner=None, total=None):
+def copy_answers(answers, same, show, owner=None, total=None, apart=()):
     """What same-name copies answered one input, and the next step, without choosing which copy is right.
 
     `answers` is [(place, value)] in plan order; equal values (`same`) form one group, listed by its size
     (the owner's group first when `owner`, the owner's place, is one of them): `3 份：2 份得 52（a、b），1 份得 1（c）`.
-    `total` counts the copies, also those without an answer on this input. Without an owner the step leaves the
+    `total` counts the copies, also those without an answer on this input. `apart` [(place, input)] are copies
+    that answer this input as the owner does but differ from it on another input, named on that input's line:
+    they are listed after the groups, never counted with the owner. Without an owner the step leaves the
     choice to the reader, also for one answer each; with one, the owner is the reference its copies follow."""
+    aside = dict(apart)
     groups = []
     for place, value in answers:
+        if place in aside:
+            continue
         group = next((group for group in groups if same(group[0], value)), None)
         if group is None:
             groups.append((value, [place]))
@@ -212,11 +217,53 @@ def copy_answers(answers, same, show, owner=None, total=None):
     shown = lambda place: ('负责人 ' if place == owner else '') + place
     missing = (total or len(answers)) - len(answers)
     text = (f'{len(answers)} 份' + (f'（另 {missing} 份在这个输入上没有结果）' if missing else '') + '：'
-            + '，'.join(f'{len(places)} 份得 {show(value)}（{"、".join(map(shown, places))}）' for value, places in groups))
+            + '，'.join(f'{len(places)} 份得 {show(value)}（{"、".join(map(shown, places))}）' for value, places in groups)
+            + (f'，另 {len(aside)} 份在别的输入上和负责人不同：' + '、'.join(f'{place}（{where}）' for place, where in aside.items())
+               if aside else ''))
     if owner is not None:
         others = [place for value, places in groups if owner not in places for place in places]
         return text, f'让 {"、".join(others)} 和负责人一致'
     return text, '先定哪份对，再让' + ('另一份' if len(answers) == 2 else '其余几份') + '和它一致'
+
+
+def copy_lines(inputs, same, show, owner=None, total=None):
+    """The lines of one same-name red, in the same words in pytest and `check`: [(input, text, step, pairs)].
+
+    `inputs` [(input, [(place, value)])] is what the copies answered each input, in the order to report. A line
+    is kept on an input where it first shows a copy that differs from the owner (`owner`, its place), so each
+    such copy is named, with its step, on its own first input that differs; without an owner that answers, where
+    it first shows two copies that differ. `pairs` holds the pairs of places the line shows to differ. On another
+    line a copy that answers as the owner but differs from it elsewhere is set apart (`copy_answers`)."""
+    owned = owner is not None and any(place == owner for _, answers in inputs for place, _ in answers)
+    kept, seen = [], set()
+    for where, answers in inputs:
+        values = dict(answers)
+        if owned:
+            if owner not in values:
+                continue
+            pairs = {frozenset((owner, place)) for place, value in answers if not same(values[owner], value)}
+        else:
+            pairs = {frozenset((place, other)) for number, (place, value) in enumerate(answers)
+                     for other, theirs in answers[number + 1:] if not same(value, theirs)}
+        if pairs - seen:
+            kept.append((where, answers, pairs))
+        seen |= pairs
+    lines = []
+    for where, answers, pairs in kept:
+        values = dict(answers)
+        apart = [(place, next(other for other, _, theirs in kept if frozenset((owner, place)) in theirs))
+                 for place, value in answers
+                 if owned and place != owner and same(values[owner], value)
+                 and any(frozenset((owner, place)) in theirs for _, _, theirs in kept)]
+        text, step = copy_answers(answers, same, show, owner=owner if owned else None, total=total, apart=apart)
+        lines.append((where, text, step, pairs))
+    return lines
+
+
+def copy_red(name, lines):
+    """The one red of same-name copies `name` from its `copy_lines`: each input with its step, then the way out."""
+    return (f'同名锚点 {name}：' + '；'.join(f'{where}，{text} -> {step}' for where, text, step, _ in lines)
+            + '；有意不同，就改用不同的锚点名并写 distinct')
 
 
 def rule_steps(rule_id, homes, where, messages=()):

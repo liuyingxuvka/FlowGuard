@@ -1014,8 +1014,9 @@ class Observations:
             except ValueError as error:
                 self.grey.append(point['name'] + ': ' + str(error))
                 return False, None
-        # Same-name copies ran on the same inputs. One red per name: what every copy answered on the smallest
-        # input where they differ; the owner, when one is registered, is the reference, else no copy is chosen.
+        # Same-name copies ran on the same inputs. What every copy answered on the smallest input where one
+        # differs, and again on the first input of each other copy that differs elsewhere (`signals.copy_lines`);
+        # the owner, when one is registered, is the reference, else no copy is chosen.
         reported = set()
         def nearest(signature):       # report the smallest differing input, whatever the set order
             def size(text):
@@ -1032,8 +1033,9 @@ class Observations:
                 continue
             tables = [(reading, member, {key(_declared(member, inputs)): value for inputs, value in reading.rows})
                       for reading, member in [(current, point), *peers] if reading.status == 'ok']
+            inputs, owner = [], None
             for signature in sorted(tables[0][2], key=nearest):
-                answers, owner = [], None
+                answers = []
                 for reading, member, table in tables:
                     if signature not in table:
                         continue
@@ -1042,13 +1044,12 @@ class Observations:
                         place = f'{self._place(reading.target)} {member["qual"]}'
                         owner = place if member['anchor'] and member['anchor'].owner else owner
                         answers.append((place, answer))
-                if len(answers) < 2 or all(R.outcome_equal(answers[0][1], answer) for _, answer in answers[1:]):
-                    continue
-                text, step = signals.copy_answers(answers, R.outcome_equal, C.show, owner=owner, total=len(peers) + 1)
-                self.red.append(f'同名锚点 {current.name}：' + ', '.join(f'{name}={value}' for name, kind, value in signature)
-                                + f'，{text} -> {step}；有意不同，就改用不同的锚点名并写 distinct')
+                if len(answers) > 1:
+                    inputs.append((', '.join(f'{name}={value}' for name, kind, value in signature), answers))
+            lines = signals.copy_lines(inputs, R.outcome_equal, C.show, owner=owner, total=len(peers) + 1)
+            if lines:
+                self.red.append(signals.copy_red(current.name, lines))
                 reported.add(point['name'])
-                break
         unverified, failed_items = [], set()      # an intent item's red is already a failed test
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':

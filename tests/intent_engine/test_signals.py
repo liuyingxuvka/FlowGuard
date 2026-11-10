@@ -81,6 +81,29 @@ def test_same_name_disagreement_is_red_but_source_copies_are_only_leads():
     assert len(text.splitlines()) <= 3
 
 
+def test_same_name_lines_name_each_copy_where_it_first_differs_and_keep_it_apart_from_the_owner():
+    # Round 22 F1, second review: only the first input where a copy differed was reported.
+    inputs = [('days=3', [('a', True), ('b', True), ('c', False)]),
+              ('days=4', [('a', False), ('b', True), ('c', False)]),
+              ('days=5', [('a', False), ('b', True), ('c', False)]),
+              ('days=6', [('b', True), ('c', True)])]                 # the owner has no answer here
+    lines = signals.copy_lines(inputs, lambda x, y: x == y, str, owner='a', total=3)
+    assert [(where, text, step) for where, text, step, _ in lines] == [
+        ('days=3', '3 份：1 份得 True（负责人 a），1 份得 False（c），另 1 份在别的输入上和负责人不同：b（days=4）', '让 c 和负责人一致'),
+        ('days=4', '3 份：1 份得 False（负责人 a），1 份得 True（b），另 1 份在别的输入上和负责人不同：c（days=3）', '让 b 和负责人一致')]
+    assert signals.copy_red('LIMIT', lines[:1]) == ('同名锚点 LIMIT：days=3，3 份：1 份得 True（负责人 a），1 份得 False（c），'
+                                                   '另 1 份在别的输入上和负责人不同：b（days=4） -> 让 c 和负责人一致；'
+                                                   '有意不同，就改用不同的锚点名并写 distinct')
+    # Without an owner no copy is the reference: a line is kept where it first shows two copies that differ.
+    lines = signals.copy_lines(inputs, lambda x, y: x == y, str, total=3)
+    assert [(where, text, step) for where, text, step, _ in lines] == [
+        ('days=3', '3 份：2 份得 True（a、b），1 份得 False（c）', '先定哪份对，再让其余几份和它一致'),
+        ('days=4', '3 份：2 份得 False（a、c），1 份得 True（b）', '先定哪份对，再让其余几份和它一致')]
+    assert lines[1][3] == {frozenset('ab'), frozenset('bc')}
+    assert signals.copy_lines(inputs[2:3], lambda x, y: x == y, str, owner='a', total=3)[0][1] == \
+        '3 份：2 份得 False（负责人 a、c），1 份得 True（b）'
+
+
 def test_demo_eight_lists_every_old_value_site_whatever_its_field_name(tmp_path):
     """Round 20 removed the shared-field-word filter and the five-location cap of this lead."""
     source = '''GRACE_DAYS=21
