@@ -117,6 +117,16 @@ raise SystemExit(status)
         assert phase['no_site']['trace'] is None and phase['normal']['trace'] is None
 
 
+def test_an_empty_flowguard_base_is_refused_like_an_empty_check_base(sample):
+    # Round 22 F3, second review: `--flowguard-base ""` (a failed `$(git merge-base ...)`) went back to the task
+    # baseline without a word ("相对任务开始 …"), where `check --base ""` stops with exit 2.
+    for option in (['--flowguard-base', ''], ['--flowguard-base= ']):
+        result = run(sample, *option)
+        assert result.returncode == 4 and '--flowguard-base' in result.stderr and 'needs a commit' in result.stderr, \
+            result.stdout + result.stderr
+        assert '相对任务开始' not in result.stdout, result.stdout
+
+
 def test_unmarked_ordinary_test_keeps_its_result_but_has_no_function_ledger(sample):
     (sample / 'tests/test_plain.py').write_text('''import os
 from sample.policy import accept

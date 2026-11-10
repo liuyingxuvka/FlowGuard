@@ -1836,13 +1836,6 @@ def requests(cfg, options):
     return 0
 
 
-def _commit(value):
-    """`check --base`: a commit. An empty one (a failed `$(git merge-base ...)`) is refused, never read as no base."""
-    if not value.strip():
-        raise argparse.ArgumentTypeError('needs a commit; it is empty (did the command that gives it fail?)')
-    return value
-
-
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     root = None
@@ -1879,7 +1872,7 @@ def main(argv=None):
     check_parser.add_argument('--all', action='store_true')
     check_parser.add_argument('--deep', action='store_true', help='Run decision probes and mutation-survival checks')
     check_parser.add_argument('--since')
-    check_parser.add_argument('--base', type=_commit,
+    check_parser.add_argument('--base', type=cache.base_commit,
                               help='Compare behavior with this commit instead of the remembered session baseline')
     check_parser.add_argument('--static', action='store_true',
                               help='Map checks only, without pytest (any language FlowGuard reads, e.g. TS/JS, Prisma, SQL)')

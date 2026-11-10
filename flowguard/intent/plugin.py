@@ -1314,8 +1314,9 @@ class Observations:
         return None
 
 def pytest_addoption(parser):
+    from .cache import base_commit
     group = parser.getgroup('flowguard')
-    group.addoption('--flowguard-base', default=None, help='Compare with this baseline commit')
+    group.addoption('--flowguard-base', default=None, type=base_commit, help='Compare with this baseline commit')
     group.addoption('--flowguard-deep', action='store_true', help='Include explicit decision probes and mutation-survival checks')
     group.addoption('--flowguard-complete', action='store_true', help='Require the complete ordinary collection without filters')
     group.addoption('--flowguard-rules', default=None, help='Run these changed rules; other fully collected rules are deferred to the cache')

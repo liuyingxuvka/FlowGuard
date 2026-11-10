@@ -20,6 +20,15 @@ def put_meta(con, name, text):
     con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', (name, text))
 
 
+def base_commit(value):
+    """`check --base` and pytest's `--flowguard-base`: a commit. An empty one (a failed `$(git merge-base ...)`) is
+    refused, never read as no base."""
+    import argparse
+    if not value.strip():
+        raise argparse.ArgumentTypeError('needs a commit; it is empty (did the command that gives it fail?)')
+    return value
+
+
 def session_baseline(cfg, *, remember=False):
     """The comparison commit: `task_baseline`'s, recording nothing; None where nothing can be compared: outside
     Git, before the first commit, and for a recorded commit this repository lacks (kind 'missing', which pytest,
