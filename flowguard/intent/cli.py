@@ -1668,7 +1668,9 @@ def _legacy_agents(content, rules, newline, languages):
 
 # The CI fragment init writes. A project pytest has tests of runs everything; one whose tests npm runs (TS/JS) runs the
 # map checks, which pytest would not, against where its branch left the default branch: a CI checkout is a detached
-# HEAD, whose task start is HEAD itself, so without --base it would compare nothing.
+# HEAD, whose task start is HEAD itself, so without --base it would compare nothing. The base is set on a line of its
+# own: GitHub runs a bash step under -e, so a merge-base that fails (no origin/main) fails the step instead of
+# giving check an empty --base.
 CI_PYTEST = '''# Merge these steps into the project CI after installing FlowGuard.
 - uses: actions/checkout@v5
   with:
@@ -1680,7 +1682,9 @@ CI_STATIC = '''# Merge these steps into the project CI after installing FlowGuar
 - uses: actions/checkout@v5
   with:
     fetch-depth: 0
-- run: python -m flowguard check --static --base "$(git merge-base HEAD origin/${GITHUB_BASE_REF:-main})"
+- run: |
+    base=$(git merge-base HEAD "origin/${GITHUB_BASE_REF:-main}")
+    python -m flowguard check --static --base "$base"
   shell: bash
 '''
 
@@ -1803,6 +1807,13 @@ def requests(cfg, options):
     return 0
 
 
+def _commit(value):
+    """`check --base`: a commit. An empty one (a failed `$(git merge-base ...)`) is refused, never read as no base."""
+    if not value.strip():
+        raise argparse.ArgumentTypeError('needs a commit; it is empty (did the command that gives it fail?)')
+    return value
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     root = None
@@ -1839,7 +1850,8 @@ def main(argv=None):
     check_parser.add_argument('--all', action='store_true')
     check_parser.add_argument('--deep', action='store_true', help='Run decision probes and mutation-survival checks')
     check_parser.add_argument('--since')
-    check_parser.add_argument('--base', help='Compare behavior with this commit instead of the remembered session baseline')
+    check_parser.add_argument('--base', type=_commit,
+                              help='Compare behavior with this commit instead of the remembered session baseline')
     check_parser.add_argument('--static', action='store_true',
                               help='Map checks only, without pytest (any language FlowGuard reads, e.g. TS/JS, Prisma, SQL)')
     check_parser.add_argument('--leads', action='store_true', help='Print every lead, not only the first ones')

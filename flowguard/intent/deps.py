@@ -92,11 +92,14 @@ def npm_packages(root):
 
 def own_python_tests(cfg):
     """Whether pytest's default scope (`test_scope`) holds a test file of the project's own, other than
-    FlowGuard's sentinel. Folders pytest does not enter (`norecursedirs`, node_modules) are not read."""
+    FlowGuard's sentinel. Folders pytest does not enter (`norecursedirs`, a virtual environment: one holding
+    pyvenv.cfg, as pytest's `_in_venv` reads it) are not read, nor node_modules or a version control folder,
+    whatever the project's norecursedirs says."""
     import os
     scope, skipped = test_scope(cfg), _patterns(_pytest_options(cfg), 'norecursedirs', NORECURSEDIRS)
     for folder, names, files in os.walk(cfg.root):
-        names[:] = [name for name in names if name not in ('node_modules', '__pycache__')
+        names[:] = [name for name in names if name not in ('node_modules', '__pycache__', '.git', '.hg', '.svn')
+                    and not (Path(folder, name) / 'pyvenv.cfg').is_file()
                     and not kept_out(Path(folder, name).resolve(), skipped)]
         for name in files:
             relative = (Path(folder) / name).relative_to(cfg.root).as_posix()

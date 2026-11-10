@@ -1,5 +1,6 @@
 """The ordinary AI path stays short, honest and executable on a fresh project."""
 import ast
+import os
 from pathlib import Path
 import uuid
 import tomllib
@@ -110,6 +111,40 @@ PYTHON_CI = '''# Merge these steps into the project CI after installing FlowGuar
 '''
 
 
+# The base on a line of its own: under GitHub's `bash -eo pipefail` a failed merge-base fails the step (round 22
+# F3 review: inside "$(...)" it gave `--base ""`, and the step passed without comparing anything).
+STATIC_RUN = '''- run: |
+    base=$(git merge-base HEAD "origin/${GITHUB_BASE_REF:-main}")
+    python -m flowguard check --static --base "$base"
+  shell: bash
+'''
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='GitHub runs the step in bash; a POSIX bash stands in for it')
+def test_the_static_ci_step_fails_where_the_default_branch_cannot_be_found(tmp_path):
+    import subprocess
+    import sys
+    root = tmp_path / 'web'
+    root.mkdir()
+    for command in (['init', '-q', '-b', 'master'], ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid',
+                                                     'commit', '-q', '--allow-empty', '-m', 'base']):
+        subprocess.run(['git', '-C', str(root), *command], check=True, capture_output=True)
+    step = cli.CI_STATIC.partition('- run: ')[2].partition('  shell: bash')[0]      # the step init writes
+    script = '\n'.join(line[4:] for line in step.splitlines()[1:]) if step.startswith('|') else step
+    path = os.pathsep.join([str(Path(sys.executable).parent), os.environ['PATH']])   # `python` is this one
+    ran = subprocess.run(['bash', '--noprofile', '--norc', '-eo', 'pipefail', '-c', script], cwd=root,
+                         capture_output=True, text=True, timeout=60, env=dict(os.environ, GITHUB_BASE_REF='', PATH=path))
+    assert ran.returncode != 0 and 'origin/main' in ran.stderr and 'FlowGuard' not in ran.stdout, ran
+
+
+def test_check_refuses_an_empty_base(tmp_path, capsys):
+    root, cfg = project(tmp_path)
+    for options in (['--static'], []):
+        assert cli_fixture.main(['--root', str(root), 'check', *options, '--base', '']) == 2
+        err = capsys.readouterr().err
+        assert '--base' in err and 'commit' in err, err
+
+
 def test_init_writes_a_ci_fragment_that_runs_the_checks_the_project_can_run(tmp_path, capsys):
     # Round 22 F3: a TS project got `check --all --deep`, which runs pytest (nothing of the project's there), and
     # in CI compared nothing: a detached checkout's task start is HEAD. Its fragment runs check --static against
@@ -124,14 +159,27 @@ def test_init_writes_a_ci_fragment_that_runs_the_checks_the_project_can_run(tmp_
     assert cli.init(load_config(web)) == 0
     fragment = (web / '.flowguard/ci.yml').read_text()
     assert 'fetch-depth: 0' in fragment and 'check --all' not in fragment and '--deep' not in fragment, fragment
-    assert ('- run: python -m flowguard check --static --base "$(git merge-base HEAD origin/${GITHUB_BASE_REF:-main})"\n'
-            '  shell: bash\n') in fragment, fragment
+    assert fragment.endswith(STATIC_RUN), fragment
     assert 'not called main' in fragment, fragment          # the comment says what to change
     assert cli.init(load_config(web)) == 0 and (web / '.flowguard/ci.yml').read_text() == fragment
     # Python tests of the project's own beside package.json: pytest runs them, the Python fragment stays.
     (web / 'tests').mkdir(exist_ok=True)
     (web / 'tests/test_limit.py').write_text('def test_limit():\n    assert True\n')
     assert cli.init(load_config(web)) == 0 and (web / '.flowguard/ci.yml').read_text() == PYTHON_CI
+
+
+def test_a_virtual_environment_beside_package_json_holds_no_test_of_the_project(tmp_path):
+    # Round 22 F3 review: a venv folder (pyvenv.cfg) with a package's tests made a TS project look like one with
+    # Python tests of its own, so init wrote the pytest fragment; pytest itself never enters a venv (`_in_venv`).
+    # The project's own norecursedirs replaces pytest's list, which would have kept a folder named venv out.
+    web = tmp_path / 'web'
+    (web / 'env/lib/python3.12/site-packages/somepkg/tests').mkdir(parents=True)
+    (web / 'env/pyvenv.cfg').write_text('home = /usr/bin\n')
+    (web / 'env/lib/python3.12/site-packages/somepkg/tests/test_x.py').write_text('def test_x():\n    assert True\n')
+    (web / 'package.json').write_text('{"name": "web", "scripts": {"test": "vitest run"}, "devDependencies": {"vitest": "4.1.11"}}\n')
+    (web / 'pyproject.toml').write_text('[tool.pytest.ini_options]\nnorecursedirs = ["build"]\n')
+    assert cli.init(load_config(web)) == 0
+    assert (web / '.flowguard/ci.yml').read_text().endswith(STATIC_RUN)
 
 
 def test_init_registers_the_plugin_once_and_removes_the_conftest_line_an_older_init_wrote(tmp_path, capsys):
