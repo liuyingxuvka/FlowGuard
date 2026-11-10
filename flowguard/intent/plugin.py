@@ -1014,37 +1014,41 @@ class Observations:
             except ValueError as error:
                 self.grey.append(point['name'] + ': ' + str(error))
                 return False, None
+        # Same-name copies ran on the same inputs. One red per name: what every copy answered on the smallest
+        # input where they differ; the owner, when one is registered, is the reference, else no copy is chosen.
         reported = set()
+        def nearest(signature):       # report the smallest differing input, whatever the set order
+            def size(text):
+                try:
+                    return 0, abs(float(text)), float(text)
+                except ValueError:
+                    return 1, 0, text
+            return [size(value) for _, _, value in signature]
         for index, point, peers in self.pairs:
-            if index >= len(self.runtime.readings):
+            if index >= len(self.runtime.readings) or not peers or point['name'] in reported:
                 continue
             current = self.runtime.readings[index]
-            for peer, other_point in peers:
-                if frozenset((current.target, peer.target)) in reported:
-                    continue  # The other copy's own observation already reported this pair.
-                now = {key(_declared(point, inputs)): value for inputs, value in current.rows}
-                other = {key(_declared(other_point, inputs)): value for inputs, value in peer.rows}
-                def nearest(signature):       # report the smallest differing input, whatever the set order
-                    def size(text):
-                        try:
-                            return 0, abs(float(text)), float(text)
-                        except ValueError:
-                            return 1, 0, text
-                    return [size(value) for _, _, value in signature]
-                for signature in sorted(now.keys() & other.keys(), key=nearest):
-                    if current.status != 'ok' or peer.status != 'ok':
+            if current.status != 'ok':
+                continue
+            tables = [(reading, member, {key(_declared(member, inputs)): value for inputs, value in reading.rows})
+                      for reading, member in [(current, point), *peers] if reading.status == 'ok']
+            for signature in sorted(tables[0][2], key=nearest):
+                answers, owner = [], None
+                for reading, member, table in tables:
+                    if signature not in table:
                         continue
-                    (mine_ok, mine), (theirs_ok, theirs) = projected(point, now[signature]), projected(other_point, other[signature])
-                    if mine_ok and theirs_ok and not R.outcome_equal(mine, theirs):
-                        reported.add(frozenset((current.target, peer.target)))
-                        owner = other_point if other_point['anchor'] and other_point['anchor'].owner else None
-                        where = (f'{point["file"]}:{getattr(point["anchor"], "target_line", 0)}' if owner else '')
-                        self.red.append(f'同名锚点 {current.name}：' + (where + ' ' if where else '') + ', '.join(f'{name}={value}' for name, kind, value in signature) + '，'
-                                        + (f'{C.show(mine)}（负责人 {owner["file"]}:{owner["anchor"].target_line} 给 {C.show(theirs)}）' if owner
-                                           else f'{C.show(mine)} ≠ {C.show(theirs)}（{self._place(current.target)} ≠ {self._place(peer.target)}）')
-                                        + f' -> 让 {point["qual"]} 和{"负责人" if owner else "同名副本"}一致，或改用不同的锚点名并写 distinct')
-                        break
-                        break
+                    ok, answer = projected(member, table[signature])
+                    if ok:
+                        place = f'{self._place(reading.target)} {member["qual"]}'
+                        owner = place if member['anchor'] and member['anchor'].owner else owner
+                        answers.append((place, answer))
+                if len(answers) < 2 or all(R.outcome_equal(answers[0][1], answer) for _, answer in answers[1:]):
+                    continue
+                text, step = signals.copy_answers(answers, R.outcome_equal, C.show, owner=owner, total=len(peers) + 1)
+                self.red.append(f'同名锚点 {current.name}：' + ', '.join(f'{name}={value}' for name, kind, value in signature)
+                                + f'，{text} -> {step}；有意不同，就改用不同的锚点名并写 distinct')
+                reported.add(point['name'])
+                break
         unverified, failed_items = [], set()      # an intent item's red is already a failed test
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':

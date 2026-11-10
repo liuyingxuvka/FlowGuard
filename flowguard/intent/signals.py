@@ -194,6 +194,31 @@ def red(subject, *texts, next=()):
     return (subject + '：' if subject else '') + '；'.join(texts), {subject: list(next)} if subject and next else {}
 
 
+def copy_answers(answers, same, show, owner=None, total=None):
+    """What same-name copies answered one input, and the next step, without choosing which copy is right.
+
+    `answers` is [(place, value)] in plan order; equal values (`same`) form one group, listed by its size
+    (the owner's group first when `owner`, the owner's place, is one of them): `3 份：2 份得 52（a、b），1 份得 1（c）`.
+    `total` counts the copies, also those without an answer on this input. Without an owner the step leaves the
+    choice to the reader, also for one answer each; with one, the owner is the reference its copies follow."""
+    groups = []
+    for place, value in answers:
+        group = next((group for group in groups if same(group[0], value)), None)
+        if group is None:
+            groups.append((value, [place]))
+        else:
+            group[1].append(place)
+    groups.sort(key=lambda group: (owner not in group[1], -len(group[1])))
+    shown = lambda place: ('负责人 ' if place == owner else '') + place
+    missing = (total or len(answers)) - len(answers)
+    text = (f'{len(answers)} 份' + (f'（另 {missing} 份在这个输入上没有结果）' if missing else '') + '：'
+            + '，'.join(f'{len(places)} 份得 {show(value)}（{"、".join(map(shown, places))}）' for value, places in groups))
+    if owner is not None:
+        others = [place for value, places in groups if owner not in places for place in places]
+        return text, f'让 {"、".join(others)} 和负责人一致'
+    return text, '先定哪份对，再让' + ('另一份' if len(answers) == 2 else '其余几份') + '和它一致'
+
+
 def _red_entry(message):
     text = str(message)
     subject, marker, quote = text.partition(' 出处：')

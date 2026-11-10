@@ -939,7 +939,9 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     code, text = _vitest(root, vitest_home)
     assert code == 1, text
     # the smallest differing input, as the pytest side picks it; the copies differ for members after day 3
-    assert '红：同名锚点 LATE_FEE：days=3.01, member=T，5.01 ≠ 5.02（src/fees/late-fee.ts:4 lateFee ≠ src/preview/fee-preview.ts:3 lateFee）' in text, text
+    assert ('红：同名锚点 LATE_FEE：days=3.01, member=T，2 份：1 份得 5.01（src/fees/late-fee.ts:4 lateFee），'
+            '1 份得 5.02（src/preview/fee-preview.ts:3 lateFee） -> 先定哪份对，再让另一份和它一致；'
+            '有意不同，就给它们起不同的名字') in text, text     # TS has no distinct
     assert '红：FEE_WINDOW: days=6 member=T -> rule 8, code 11（src/preview/fee-preview.ts:3 lateFee）' in text, text
     assert 'FEE_WINDOW 出处：assumed: three free days, then 5 plus 1 a day for members and 2 a day for others' in text, text
     _commit(root, message='sensors')
@@ -958,7 +960,7 @@ def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_ch
     _sensor(root, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
     _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
     code, text = _vitest(root, vitest_home)
-    red = '红：同名锚点 LATE_FEE：days=3.01, member=T，5.01 ≠ 5.02'
+    red = '红：同名锚点 LATE_FEE：days=3.01, member=T，2 份：1 份得 5.01'
     assert code == 1 and red in text, text
     _commit(root, message='sensors')
     # The static test's check --static recorded the task baseline; a commit keeps it, the next task moves it.
@@ -1018,7 +1020,8 @@ def test_a_same_name_red_names_an_input_next_to_the_one_the_test_used_and_fails_
                          timeout=600, env=_environment())
     text = display_text(run.stdout + run.stderr)
     # 2025 is next to the 2026 the test used (2026 itself agrees: both count 53); year=0 would be read as 1900
-    red = '红：同名锚点 ISO_WEEKS_IN_YEAR：year=2025，52 ≠ 1（src/chart.ts:9 weeksInYear ≠ src/calendar.ts:9 weekCount）'
+    red = ('红：同名锚点 ISO_WEEKS_IN_YEAR：year=2025，2 份：1 份得 52（src/chart.ts:9 weeksInYear），'
+           '1 份得 1（src/calendar.ts:9 weekCount） -> 先定哪份对，再让另一份和它一致；有意不同，就给它们起不同的名字')
     assert run.returncode == 1 and red in text, text
     results = json.loads((root / 'results.json').read_text(encoding='utf-8'))
     cases = {case['title']: case for result in results['testResults'] for case in result['assertionResults']}
@@ -1030,6 +1033,40 @@ def test_a_same_name_red_names_an_input_next_to_the_one_the_test_used_and_fails_
                          capture_output=True, encoding='utf-8', timeout=600, env=_environment())
     text = display_text(run.stdout + run.stderr)            # a path filter leaves the session test out:
     assert run.returncode == 1 and red in text and 'FlowGuard execution side' not in text, text   # the teardown judges
+
+
+def test_three_same_name_copies_are_counted_by_answer_and_the_red_leaves_the_choice(vitest_home):
+    # Round 22 F1 (the Planning Tool's ISO weeks): two copies count 52 weeks in 2025, one counts 1. 4.2 told the
+    # AI to change the copy the test reached, one of the two that agree, and to write a `distinct` TS cannot write.
+    root = vitest_home / 'three-weeks'
+    copy = '''
+        // flowguard: sensor ISO_WEEKS_IN_YEAR
+        export function %s(year: number): number {
+          return isoWeek(new Date(Date.UTC(year, 11, %d)));
+        }
+    '''
+    _commit(root, {
+        'package.json': '{"name": "three-weeks", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
+                        '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
+        'src/chart.ts': ISO_WEEK + copy % ('weeksInYear', 28),
+        'src/planner.ts': ISO_WEEK + copy % ('isoWeeks', 28),
+        'src/calendar.ts': ISO_WEEK + copy % ('weekCount', 31),
+        'tests/chart.test.ts': '''
+            import { expect, it } from 'vitest';
+            import { weeksInYear } from '../src/chart';
+
+            it('counts the weeks of this year', () => {
+              expect(weeksInYear(2026)).toBe(53);
+            });
+        ''',
+    })
+    code, text = _flowguard(root, 'init')
+    assert code == 0, text
+    code, text = _vitest(root, vitest_home)
+    red = list(dict.fromkeys(line for line in text.splitlines() if line.startswith('红：同名锚点')))   # block and failed case
+    assert code == 1 and red == [
+        '红：同名锚点 ISO_WEEKS_IN_YEAR：year=2025，3 份：2 份得 52（src/chart.ts:9 weeksInYear、src/planner.ts:9 isoWeeks），'
+        '1 份得 1（src/calendar.ts:9 weekCount） -> 先定哪份对，再让其余几份和它一致；有意不同，就给它们起不同的名字'], text
 
 
 def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest_home):

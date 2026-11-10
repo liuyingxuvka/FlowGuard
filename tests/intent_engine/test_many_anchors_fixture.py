@@ -107,6 +107,8 @@ def test_a_copy_that_drifts_from_its_owner_is_red_at_both_places(shop):
     result, text = _pytest(shop)
     assert result.returncode == 1, text
     red = next(line for line in text.splitlines() if line.startswith('红：同名锚点 STANDING'))
-    assert 'shop/policy.py:5 ≠ shop/preview.py:2' in red, red
+    # the owner is the reference: the copy that left it is the one to change
+    assert ('3 份：2 份得 F（负责人 shop/policy.py:5 standing_allows、shop/kiosk.py:2 kiosk_allows），'
+            '1 份得 T（shop/preview.py:2 preview_allows） -> 让 shop/preview.py:2 preview_allows 和负责人一致') in red, red
     assert any(line.startswith('线索：旧值 3 还出现在') and 'shop/kiosk.py:3' in line for line in text.splitlines()), text
     assert 'FAILED tests/intent/rules.py::STANDING_RULE[shop.preview.preview_allows:rows]' in text, text

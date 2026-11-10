@@ -148,8 +148,9 @@ def test_sample_3_a_helper_constant_shows_its_whole_interval_and_cause(shop):
     # The copy in preview.py still says 3: the same-name anchors now disagree, red with its next step.
     assert result.returncode == 1, text
     red = next(index for index, line in enumerate(block) if line.startswith('红：同名锚点 STANDING：'))
-    assert 'shop/policy.py:10' in block[red] and 'shop/preview.py:2' in block[red] and '≠' in block[red], block
-    assert ' -> 让 standing_allows 和同名副本一致' in block[red], block      # its next step
+    assert '2 份：1 份得 T（shop/policy.py:10 standing_allows），1 份得 F（shop/preview.py:2 preview_allows）' in block[red], block
+    # its next step chooses neither copy: the changed one may be the right one
+    assert block[red].endswith(' -> 先定哪份对，再让另一份和它一致；有意不同，就改用不同的锚点名并写 distinct'), block
 
 
 def test_sample_4_unanchored_late_fee_reports_the_member_classes(shop):

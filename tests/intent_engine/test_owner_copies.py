@@ -225,7 +225,55 @@ def test_fixed_6_copies_with_different_return_forms_are_compared_through_their_p
     result = _pytest(tmp_path)
     text = _text(result)
     assert result.returncode == 1 and '1 passed' in result.stdout, text
-    assert re.search(r'红：同名锚点 ELIGIBLE：days=4，F ≠ T', text), text
+    assert '红：同名锚点 ELIGIBLE：days=4，2 份：1 份得 F（policy.py:11 eligible），1 份得 T（policy.py:16 preview）' in text, text
+
+
+# ---- round 22 F1: a same-name red names every copy's answer and chooses none -------------------------------
+
+def _copies(*bounds, owner=False):
+    """limits.py: one LIMIT copy per bound (`days <= bound`), at lines 2, 7, 12, ...; the first is the owner."""
+    names = ('chart', 'calendar', 'report')
+    return '\n\n'.join(f'# flowguard: {"owner" if owner and not index else "sensor"} LIMIT\n'
+                       f'def {names[index]}(days: int) -> bool:\n    return days <= {bound}\n'
+                       for index, bound in enumerate(bounds))
+
+
+REACHES_CHART = {'tests/test_limits.py': '''
+    from limits import chart
+    def test_chart():
+        assert chart(1)
+'''}
+
+
+def _same_name_red(root, source):
+    (root / 'limits.py').write_text(source, encoding='utf-8')
+    result = _pytest(root)
+    text = _text(result)
+    assert result.returncode == 1, text
+    return [line for line in text.splitlines() if line.startswith('红：同名锚点 LIMIT')], text
+
+
+def test_three_same_name_copies_are_counted_by_answer_and_the_red_does_not_choose_the_right_one(tmp_path):
+    # 4.2 told the AI to change the copy the test reached (`让 chart 和同名副本一致`), here one of the two that
+    # agree: done as written, it copies the odd one's answer. The red counts the answers and leaves the choice.
+    _project(tmp_path, {'limits.py': _copies(3, 3, 3), **REACHES_CHART})
+    red, text = _same_name_red(tmp_path, _copies(3, 3, 4))
+    assert red == ['红：同名锚点 LIMIT：days=4，3 份：2 份得 F（limits.py:2 chart、limits.py:7 calendar），'
+                   '1 份得 T（limits.py:12 report） -> 先定哪份对，再让其余几份和它一致；'
+                   '有意不同，就改用不同的锚点名并写 distinct'], text
+
+
+def test_two_same_name_copies_are_one_answer_each_and_an_owner_stays_the_reference(tmp_path):
+    _project(tmp_path, {'limits.py': _copies(3, 3), **REACHES_CHART})
+    red, text = _same_name_red(tmp_path, _copies(4, 3))
+    # one each: no side is the larger one, and the step names no copy to change
+    assert red == ['红：同名锚点 LIMIT：days=4，2 份：1 份得 T（limits.py:2 chart），1 份得 F（limits.py:7 calendar）'
+                   ' -> 先定哪份对，再让另一份和它一致；有意不同，就改用不同的锚点名并写 distinct'], text
+    # The owner is the reference its copies follow: the copy changes, also when the test reaches the owner
+    # (4.2 then said `让 chart 和同名副本一致`, the owner after its copy).
+    red, text = _same_name_red(tmp_path, _copies(3, 4, owner=True))
+    assert red == ['红：同名锚点 LIMIT：days=4，2 份：1 份得 F（负责人 limits.py:2 chart），1 份得 T（limits.py:7 calendar）'
+                   ' -> 让 limits.py:7 calendar 和负责人一致；有意不同，就改用不同的锚点名并写 distinct'], text
 
 
 # ---- fixed examples 10 and 11: the KWP rounding copies ---------------------------------------------------

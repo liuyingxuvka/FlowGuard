@@ -585,29 +585,30 @@ def judge(cfg, data, records, package=None):
                           before=C.show(value(row['old'])), after=C.show(value(row['now']))) for row in changes],
             reasons=['TS 的情况类来自比较里的常量，不证明划分完整'] + list(dict.fromkeys(reasons)),
             rows=[(row['in'], row['now']) for row in collected]))
-    # same-name sensors: the copies ran on the same replayed inputs
-    reported, same_name = set(), dict(compared=set(), disagreed={})
+    # same-name sensors: the copies ran on the same replayed inputs. One red per name: what every copy answered
+    # on the first input where they differ, never which one to follow (TS has no `distinct`: a different name).
+    same_name = dict(compared=set(), disagreed={})
+    from .signals import copy_answers
     for ident, point in points.items():
-        for copy in point['copies']:
-            pair = frozenset((ident, copy['id']))
-            if pair in reported:
-                continue
-            for row in sorted(rows.get(ident, ()), key=_counterexample(point, calls.get(ident, ()))):
+        if not point['copies'] or point['name'] in same_name['disagreed']:
+            continue
+        for row in sorted(rows.get(ident, ()), key=_counterexample(point, calls.get(ident, ()))):
+            answers = [(f'{point["rel"]}:{point["target_line"]} {point["fn"]}', row['now'])]
+            for copy in point['copies']:
                 theirs = row.get('copies', {}).get(copy['id'])
-                if theirs is None or '$unmatched' in json.dumps(theirs):
-                    continue
-                same_name['compared'].add(point['name'])
-                if _same(theirs, row['now']):
-                    continue
-                reported.add(pair)
-                other = points[copy['id']]
-                inputs = ', '.join(f'{name}={C.show(value(item))}' for name, item in row['in'])
-                red.append(f'同名锚点 {point["name"]}：{inputs}，{C.show(value(row["now"]))} ≠ '
-                           f'{C.show(value(theirs))}（{point["rel"]}:{point["target_line"]} {point["fn"]} ≠ '
-                           f'{other["rel"]}:{other["target_line"]} {other["fn"]}） -> 让 {point["fn"]} 和同名副本一致，'
-                           f'或改用不同的锚点名并写 distinct')
-                same_name['disagreed'].setdefault(point['name'], red[-1])
-                break
+                if theirs is not None and '$unmatched' not in json.dumps(theirs):
+                    other = points[copy['id']]
+                    answers.append((f'{other["rel"]}:{other["target_line"]} {other["fn"]}', theirs))
+            if len(answers) < 2:
+                continue
+            same_name['compared'].add(point['name'])
+            if all(_same(theirs, row['now']) for _, theirs in answers[1:]):
+                continue
+            inputs = ', '.join(f'{name}={C.show(value(item))}' for name, item in row['in'])
+            text, step = copy_answers(answers, _same, lambda item: C.show(value(item)), total=len(point['copies']) + 1)
+            red.append(f'同名锚点 {point["name"]}：{inputs}，{text} -> {step}；有意不同，就给它们起不同的名字')
+            same_name['disagreed'][point['name']] = red[-1]
+            break
     # rules on the observed calls and replayed classes, as the pytest side checks a reading
     model = load(cfg)
     engine = Engine(model)

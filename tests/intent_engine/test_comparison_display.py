@@ -76,8 +76,8 @@ def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path)
             assert r'\u2194'in shown and r'\u2192'in shown,(name,shown)
             assert r'\u5171 3 \u7c7b'in shown,(name,shown)
         else:
-            # The three-signal view reports the actual same-name contradiction.
-            assert r'\u540c\u540d\u951a\u70b9'in shown and r'\u2260'in shown,(name,shown)
+            # The three-signal view reports the actual same-name contradiction: what each copy answered (`2 份：1 份得 …`).
+            assert r'\u540c\u540d\u951a\u70b9'in shown and r'\u4efd\u5f97'in shown,(name,shown)
         assert 'UnicodeEncodeError'not in shown,(name,shown)
     # Retain literals and a final LF, including a backslash that looks like an
     # escape and non-LF separators. The fallback must be reversible display.
