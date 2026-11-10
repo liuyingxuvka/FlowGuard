@@ -9,6 +9,7 @@ SHAPE_K = 64                       # the same bottom-k sketch as the Python map 
 FUNCTIONS = {'function_declaration', 'function_expression', 'generator_function_declaration',
              'generator_function', 'arrow_function', 'method_definition', 'function_signature', 'method_signature'}
 CLASSES = {'class_declaration', 'abstract_class_declaration', 'interface_declaration', 'enum_declaration'}
+TYPE_DECLARATIONS = ('class_declaration', 'abstract_class_declaration', 'interface_declaration', 'type_alias_declaration')
 
 
 def literal(node, source):
@@ -100,7 +101,7 @@ def extract(root, rel, data, module, is_test):
     language = language_for(rel)
     out = blank(module, data, language)
     out.update(queries=[], value_sets=[], typed_fields=[], typed_writes=[], numbers=[], compared_names=[],
-               const_tables=[], table_lookups=[], option_lists=[])
+               const_tables=[], table_lookups=[], option_lists=[], type_names=[])
     source, tree = parse(data, language)
     handed_on = set(propagate_names(root))
     if tree.root_node.has_error:
@@ -946,6 +947,9 @@ def extract(root, rel, data, module, is_test):
     def visit(node, scope='', cls='', parameters=(), shadows=frozenset()):
         if node.type in ('import_statement', 'export_statement'):
             imports(node, scope)
+        if node.type in TYPE_DECLARATIONS and not scope and field(node, 'name') is not None:
+            # the file declares a type of this name: its typed objects are of its own type (`MapHandle.ts_type_files`)
+            out['type_names'].append(dict(name=text(field(node, 'name'), source), file=rel, line=node.start_point.row + 1))
         if node.type in FUNCTIONS | CLASSES:
             name = name_of(node)
             qual = scope + ('.' if scope else '') + name

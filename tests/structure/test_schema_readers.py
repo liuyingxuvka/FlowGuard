@@ -603,3 +603,88 @@ model Room {
         rules = graph.schema_delete_rules()
     # a template of another database (SQLite) that lacks the relation still has no foreign key there
     assert [relation[:3] for item in rules for relation in item['relations']] == [('Room.manager', 'NoAction/Restrict', None)], rules
+
+
+FOLDER_SOURCE = 'datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n'
+FOLDER_USERS = '''
+model User {
+  id       String    @id
+  sessions Session[]
+  posts    Post[]
+}
+
+model Session {
+  id     String @id
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: %s)
+}
+'''
+FOLDER_POSTS = '''
+model Post {
+  id       String    @id
+  authorId String
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments Comment[]
+}
+
+model Comment {
+  id     String @id
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+'''
+
+
+def test_a_schema_folder_is_one_schema_in_the_ondelete_and_column_checks(tmp_path):
+    # r24 review (ondelete-0): a template beside a schema folder was paired with one file of the folder, whose
+    # own foreign keys were the only ones read, so a relation another file declares read as 没有外键; and the
+    # folder's fragments were compared with each other as descriptions of one database.
+    files = {
+        'package.json': '{"name": "app", "prisma": {"schema": "prisma/schema"}}',
+        'prisma/schema/main.prisma': FOLDER_SOURCE,
+        'prisma/schema/user.prisma': FOLDER_USERS % 'Cascade',
+        'prisma/schema/post.prisma': FOLDER_POSTS,
+        'prisma/schema.sqlite.prisma': FOLDER_SOURCE.replace('postgresql', 'sqlite') + FOLDER_USERS % 'Cascade' + FOLDER_POSTS,
+    }
+    with closing(project(tmp_path / 'same', files)) as graph:
+        assert graph.schema_delete_rules() == [] and graph.schema_gaps() == [], (graph.schema_delete_rules(), graph.schema_gaps())
+        assert graph.prisma_schemas_in_use() == {'prisma/schema/main.prisma', 'prisma/schema/user.prisma', 'prisma/schema/post.prisma'}
+    # nothing names a schema: every file is guessed, and the template was compared with one fragment, which
+    # lacked the tables of the others (没有表 Post, Comment)
+    with closing(project(tmp_path / 'guessed', {name: text for name, text in files.items() if name != 'package.json'})) as graph:
+        assert graph.schema_delete_rules() == [] and graph.schema_gaps() == [], (graph.schema_delete_rules(), graph.schema_gaps())
+    files['prisma/schema.sqlite.prisma'] = files['prisma/schema.sqlite.prisma'].replace('onDelete: Cascade)\n}\n\nmodel Post', 'onDelete: SetNull)\n}\n\nmodel Post')
+    with closing(project(tmp_path / 'differ', files)) as graph:
+        rules = graph.schema_delete_rules()
+    # the folder is one schema, named by the folder
+    assert rules == [dict(schema='prisma/schema/', description='prisma/schema.sqlite.prisma',
+                          relations=[('Session.user', 'Cascade', 'SetNull', 'session(userid)->user')])], rules
+
+
+def test_a_prisma_7_datasource_url_in_prisma_config_makes_a_same_database_client(tmp_path):
+    # r24 review (ondelete-4): Prisma 7 keeps the url in prisma.config.ts, so no schema had one and a second
+    # client of the same database that leaves a relation out always read as 没有外键.
+    source = 'datasource db {\n  provider = "postgresql"\n}\n'
+    unit = 'model Unit {\n  id    String @id\n  rooms Room[]\n}\n\nmodel Room {\n  id     String @id\n  unitId String\n' \
+           '  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)\n}\n'
+    reporting = source + 'generator reporting {\n  provider = "prisma-client-js"\n  output   = "../generated/reporting"\n}\n\n' \
+        'model Unit {\n  id String @id\n}\n\nmodel Room {\n  id     String @id\n  unitId String\n}\n'
+    files = {
+        'package.json': '{"name": "app", "scripts": {"generate": "prisma generate && prisma generate --schema prisma/reporting.prisma"}}',
+        'prisma/schema.prisma': source + unit,
+        'prisma/reporting.prisma': reporting,
+    }
+    configs = {
+        'named': "import { defineConfig, env } from 'prisma/config';\n"
+                 "export default defineConfig({ schema: 'prisma/schema.prisma', datasource: { url: env('DATABASE_URL') } });\n",
+        # no `schema:`: Prisma reads prisma/schema.prisma, and the --schema script names the other one
+        'default': "export default { datasource: { url: process.env.DATABASE_URL } };\n",
+    }
+    for name, config in configs.items():
+        with closing(project(tmp_path / name, {**files, 'prisma.config.ts': config})) as graph:
+            assert graph.schema_delete_rules() == [], (name, graph.schema_delete_rules())
+    # a url the config does not spell (a variable) gives none: the missing key is reported as before
+    with closing(project(tmp_path / 'variable', {**files, 'prisma.config.ts': "const url = process.env.DATABASE_URL;\n"
+                                                 "export default { datasource: { url } };\n"})) as graph:
+        assert [relation[:3] for item in graph.schema_delete_rules() for relation in item['relations']] == \
+            [('Room.unit', None, 'Cascade')], graph.schema_delete_rules()

@@ -263,7 +263,8 @@ def test_a_guessed_schema_fills_only_models_no_schema_in_use_defines_and_each_of
     assert sets == [('Item.kind', ('A', 'B', 'C'), 'server/prisma/schema.prisma'),
                     ('Note.tone', ('X', 'Y'), 'admin/prisma/schema.postgres.prisma'),
                     ('Note.tone', ('X',), 'admin/prisma/schema.sqlite.prisma')], sets
-    assert names == ['values:Note.tone:admin/prisma/schema.postgres.prisma', 'values:Note.tone:admin/prisma/schema.sqlite.prisma'], names
+    # 4.1 named the field's one problem values:Note.tone: the first guessed set keeps that name (r25, docs-0)
+    assert names == ['values:Note.tone', 'values:Note.tone:admin/prisma/schema.sqlite.prisma'], names
     code, text = _static(tmp_path)
     guessed = '，没找到生成器在用的 schema，按这个包的全部 schema 判'
     postgres, sqlite = (f'enum Tone (admin/prisma/schema.{name}.prisma:11{guessed})' for name in ('postgres', 'sqlite'))
@@ -333,7 +334,7 @@ def test_a_guessed_schema_judges_the_writes_of_its_own_package_and_of_a_package_
     with closing(build(tmp_path)) as graph:
         from flowguard.intent import health, owners
         names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
-    assert names == ['values:Note.tone:admin/prisma/schema.postgres.prisma', 'values:Note.tone:web/prisma/schema.sqlite.prisma'], names
+    assert names == ['values:Note.tone', 'values:Note.tone:web/prisma/schema.sqlite.prisma'], names
     code, text = _static(tmp_path)
     guessed = '，没找到生成器在用的 schema，按这个包的全部 schema 判'
     admin, web = f'enum Tone (admin/prisma/schema.postgres.prisma:1{guessed})', f'enum Tone (web/prisma/schema.sqlite.prisma:1{guessed})'
@@ -363,21 +364,23 @@ def test_guessed_templates_with_the_same_enum_share_one_set_that_names_every_fil
         names = [issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues]
     assert sets == [(('X',), ('prisma/schema.mysql.prisma',)),
                     (('X', 'Y'), ('prisma/schema.postgres.prisma', 'prisma/schema.sqlite.prisma', 'prisma/schema.sqlserver.prisma'))], sets
-    assert names == ['values:Note.tone:prisma/schema.mysql.prisma', 'values:Note.tone:prisma/schema.postgres.prisma'], names
+    assert names == ['values:Note.tone', 'values:Note.tone:prisma/schema.postgres.prisma'], names
 
 
-def test_a_value_set_problem_keeps_its_name_when_the_field_gets_another_declaration(tmp_path):
+def test_a_value_set_problem_takes_the_name_4_1_gave_its_field_and_a_further_set_adds_its_place(tmp_path):
     # 4.2 review: a field's plain problem name went to whichever of its sets sorted first, so a decision
-    # recorded on a TS type's or a CHECK's problem moved to a Prisma enum added later. Only the enum of a
-    # schema in use is `values:Model.field`; a CHECK, a TS type and a guessed file add their file.
+    # recorded on a TS type's or a CHECK's problem moved to a Prisma enum added later. r24 review (gate-6,
+    # gate-7, docs-0): 4.1 named the one value problem of every field `values:Model.field`, so a 4.1 decision on
+    # a CHECK-only or TS-only field stopped matching once those sets added their file, and a later migration
+    # that declares the same CHECK again renamed the problem. The plain name goes to the set 4.1 named so: the
+    # enum of a schema in use, else the CHECK, else the TS type, else a guessed enum; each further set adds its
+    # place, a CHECK its description (the migrations folder).
     schema = ('model Note {\n  id   String @id\n  tone String\n}\n\n'
               'model Account {\n  id     String @id\n  status String\n  @@map("accounts")\n}\n')
     _commit(tmp_path, {
         'prisma/schema.prisma': schema,
         'prisma/migrations/001/migration.sql': "CREATE TABLE accounts (id TEXT, status TEXT CHECK (status IN ('open', 'closed')));\n",
         'web/types.ts': "export interface Note { tone: 'X' | 'W'; }\n",
-    })
-    _write(tmp_path, {
         'web/n.ts': "import type { Note } from './types';\nexport const n: Note = { tone: 'V' };\n",
         'src/a.ts': """
             export async function add(prisma: any, id: string) {
@@ -391,11 +394,26 @@ def test_a_value_set_problem_keeps_its_name_when_the_field_gets_another_declarat
         from flowguard.intent import health, owners
         with closing(build(tmp_path)) as graph:
             return sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
-    check, ts = 'values:Account.status:prisma/migrations/001/migration.sql', 'values:Note.tone:web/types.ts'
-    assert names() == [check, ts], names()
+    assert names() == ['values:Account.status', 'values:Note.tone'], names()
+    # 002 drops and adds the same CHECK again (as altering the column needs): the problem keeps its name
+    _write(tmp_path, {'prisma/migrations/002/migration.sql': "ALTER TABLE accounts DROP CONSTRAINT ck_status;\n"
+                                                           "ALTER TABLE accounts ADD CONSTRAINT ck_status CHECK (status IN ('open', 'closed'));\n"})
+    _commit(tmp_path, message='declare the CHECK again')
+    assert names() == ['values:Account.status', 'values:Note.tone'], names()
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and "Account.status='gone'，允许 open|closed（CHECK prisma/migrations/002/migration.sql:2）" in text, text
+    # the decision a 4.1 project recorded on that field still closes it
+    sentence = 'Old accounts keep the status gone until the cleanup job removes them.'
+    _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
+        '[structure."values:Account.status"]\ndecision = "old accounts keep the status gone until the cleanup job removes them"\n'
+        f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and 'Account.status' not in text and "Note.tone='V'" in text, text
+    # an enum of the schema in use takes the plain name; the CHECK and the TS type add their place
     _write(tmp_path, {'prisma/schema.prisma': 'enum Tone {\n  X\n  Y\n}\n\nenum Status {\n  open\n  closed\n}\n\n'
                                               + schema.replace('tone String', 'tone Tone').replace('status String', 'status Status')})
-    assert names() == ['values:Account.status', check, 'values:Note.tone', ts], names()
+    assert names() == ['values:Account.status', 'values:Account.status:prisma/migrations/', 'values:Note.tone',
+                       'values:Note.tone:web/types.ts'], names()
 
 
 def test_a_generator_output_under_node_modules_is_the_client_by_its_package_name(tmp_path):
@@ -505,6 +523,305 @@ def test_a_type_from_one_schemas_client_output_is_judged_by_that_schema_and_a_gu
     red = [line.partition(' → ')[0] for line in _lines(text, '红：取值')]
     # api defines no Note: db's guessed template still judges it; web defines Note itself and is not judged by db
     assert code == 1 and len(red) == 1 and "api/src/a.ts:2 Note.tone='Q'" in red[0] and 'web/src' not in red[0], text
+
+
+def _role_schema(values, output=None, source=None):
+    """A schema of `User.role`, typed by `enum Role` of these values, or `String` when `values` is None."""
+    return ((f'datasource db {{\n  provider = "{source}"\n  url      = env("DATABASE_URL")\n}}\n\n' if source else '')
+            + (f'generator client {{\n  provider = "prisma-client-js"\n  output   = "{output}"\n}}\n\n' if output else '')
+            + ('model User {\n  id   String @id\n  role String\n}\n' if values is None else
+               'enum Role {\n' + ''.join(f'  {value}\n' for value in values) + '}\n\nmodel User {\n  id   String @id\n  role Role\n}\n'))
+
+
+def _red_values(text):
+    """Each set's part of the value red line, `places，允许 values（where）`, without the step after it."""
+    head, step, out = '红：取值不在声明集合里：', ' → 改用集合里的值；集合真要加值，先改那条声明（', []
+    for line in _lines(text, head):
+        rest = line[len(head):]
+        while rest:
+            part, _, rest = rest.partition(step)
+            out.append(part)
+            rest = rest.partition('）')[2].removeprefix('；')
+    return out
+
+
+def test_a_schema_folder_is_one_schema_for_its_enums_and_its_datasource(tmp_path):
+    # r24 review (gate-3): a schema folder was read file by file, so an enum another file declares gated
+    # nothing (a false green) and the folder's SQL Server datasource did not make a CHECK compare without case.
+    folder = {
+        'prisma/schema/schema.prisma': 'datasource db {\n  provider = "sqlserver"\n  url      = env("DATABASE_URL")\n}\n',
+        'prisma/schema/enums.prisma': 'enum Role {\n  A\n  B\n}\n',
+        'prisma/schema/user.prisma': 'model User {\n  id   String @id\n  role Role\n}\n',
+        'prisma/schema/account.prisma': 'model Account {\n  id     String @id\n  status String\n  @@map("accounts")\n}\n',
+        'prisma/migrations/001/migration.sql': "CREATE TABLE accounts (id NVARCHAR(36), status NVARCHAR(10) CHECK (status IN ('open', 'closed')));\n",
+    }
+    writes = {'src/a.ts': """
+        export async function add(prisma: any, id: string) {
+          await prisma.user.create({ data: { id, role: 'C' } });
+          await prisma.account.create({ data: { id, status: 'OPEN' } });
+          await prisma.account.create({ data: { id, status: 'gone' } });
+        }
+    """}
+    for name, files in (('named', {'package.json': '{"name": "app", "prisma": {"schema": "prisma/schema"}}\n', **folder}),
+                        ('default', folder)):
+        root = tmp_path / name
+        _commit(root, files)
+        _write(root, writes)
+        code, text = _static(root)
+        # 'OPEN' passes: SQL Server compares without case
+        assert code == 1 and _red_values(text) == [
+            "src/a.ts:4 Account.status='gone'，允许 open|closed（CHECK prisma/migrations/001/migration.sql:1）",
+            "src/a.ts:2 User.role='C'，允许 A|B（enum Role (prisma/schema/enums.prisma:1)）"], (name, text)
+
+
+def test_a_prisma_write_is_judged_by_the_schema_in_use_of_its_own_package(tmp_path):
+    # r24 review (gate-5): two services, each with its own schema.prisma, and one service's writes were judged
+    # by the other's enum, the first schema in use by path.
+    _commit(tmp_path, {
+        'apps/api/package.json': '{"name": "api"}', 'apps/api/prisma/schema.prisma': _role_schema('AB'),
+        'apps/worker/package.json': '{"name": "worker"}', 'apps/worker/prisma/schema.prisma': _role_schema('AC'),
+    })
+    write = "export async function add(prisma: any, id: string) {\n  await prisma.user.create({ data: { id, role: '%s' } });\n}\n"
+    _write(tmp_path, {
+        'apps/worker/src/w.ts': write % 'C',
+        'apps/worker/src/t.ts': "import type { User } from '@prisma/client';\nexport const u: User = { id: '1', role: 'C' };\n",
+        'apps/worker/src/bad.ts': write % 'B',
+        'apps/api/src/a.ts': write % 'C',
+        # the root package has no schema of its own: the first schema in use by path judges it, as before
+        'scripts/seed.ts': write % 'C',
+    })
+    code, text = _static(tmp_path)
+    assert code == 1 and _red_values(text) == [
+        "apps/api/src/a.ts:2 User.role='C'  scripts/seed.ts:2 User.role='C'，允许 A|B（enum Role (apps/api/prisma/schema.prisma:1)）",
+        "apps/worker/src/bad.ts:2 User.role='B'，允许 A|C（enum Role (apps/worker/prisma/schema.prisma:1)）"], text
+
+
+def test_a_write_through_a_client_of_two_differing_schemas_is_left_unjudged_and_a_typed_object_keeps_its_schema(tmp_path):
+    # r24 review (gate-4, gate-8): with two schemas in use of one package declaring User.role differently, a
+    # `db2.user.create` through the second client was judged by the first schema; and a provider template with
+    # the second schema's generator block took its output folder, so an object typed from that client was
+    # judged by the first schema too.
+    _commit(tmp_path, {
+        'backend/package.json': '{"name": "backend"}',
+        'backend/prisma/db1/schema.prisma': _role_schema('AB', '../../node_modules/@prisma-db-1/client'),
+        'backend/prisma/db2/schema.prisma': _role_schema('AC', '../../node_modules/@prisma-db-2/client'),
+        'backend/prisma/db2/schema.sqlite.prisma': _role_schema('AD', '../../node_modules/@prisma-db-2/client', 'sqlite'),
+    })
+    _write(tmp_path, {'backend/src/a.ts': """
+        import { PrismaClient } from '@prisma-db-2/client';
+        import type { User } from '@prisma-db-2/client';
+        const db2 = new PrismaClient();
+        export async function add(id: string) {
+          await db2.user.create({ data: { id, role: 'C' } });
+          await db2.user.create({ data: { id, role: 'Z' } });
+        }
+        export const a: User = { id: '1', role: 'C' };
+        export const b: User = { id: '2', role: 'B' };
+    """})
+    code, text = _static(tmp_path)
+    # which client a `user.create` goes through is not read: neither enum judges it
+    assert code == 1 and _red_values(text) == [
+        "backend/src/a.ts:9 User.role='B'，允许 A|C（enum Role (backend/prisma/db2/schema.prisma:6)）"], text
+
+
+def test_an_import_of_a_generated_prisma_output_is_judged_by_its_own_schema(tmp_path):
+    # r24 review (gate-2): Prisma 7's default output `generated/prisma` matched the generic client spelling
+    # before the generator outputs were read, so the import never reached its own schema's set.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': _role_schema('AB', '../src/generated/prisma'),
+        'prisma/analytics/schema.prisma': _role_schema('AC', '../../src/generated/analytics'),
+    })
+    _write(tmp_path, {'src/a.ts': """
+        import type { User } from './generated/prisma/client';
+        import type { User as Event } from './generated/analytics';
+        export const a: User = { id: '1', role: 'B' };
+        export const b: User = { id: '2', role: 'C' };
+        export const c: Event = { id: '3', role: 'B' };
+    """})
+    code, text = _static(tmp_path)
+    assert code == 1 and _red_values(text) == [
+        "src/a.ts:5 User.role='B'，允许 A|C（enum Role (prisma/analytics/schema.prisma:6)）",
+        "src/a.ts:4 User.role='C'，允许 A|B（enum Role (prisma/schema.prisma:6)）"], text
+
+
+def test_a_typescript_type_declared_with_different_sets_in_several_files_is_judged_by_its_own_declaration(tmp_path):
+    # r24 review (gate-1): every `interface Props` of the project was judged by the first one by path.
+    _commit(tmp_path, {
+        'src/Badge.tsx': "export interface Props { variant: 'info' | 'warning' }\nexport const badge: Props = { variant: 'warning' };\n",
+        'src/Button.tsx': "interface Props { variant: 'primary' | 'secondary' }\nexport const button: Props = { variant: 'primary' };\n",
+        'src/Card.tsx': "interface Props { tone: 'flat' | 'raised' }\n",
+    })
+    _write(tmp_path, {
+        'src/Button.tsx': "interface Props { variant: 'primary' | 'secondary' }\nexport const button: Props = { variant: 'primary' };\n"
+                          "export const odd: Props = { variant: 'info' };\n",
+        'src/Panel.tsx': "import type { Props } from './Badge';\nexport const panel: Props = { variant: 'primary' };\n",
+        # no declaration in the file and none imported: which Props it is is unknown
+        'src/Loose.tsx': "export const loose: Props = { variant: 'other' };\n",
+        # a name declared once (or alike everywhere) judges every file, as before
+        'src/Tile.tsx': "export const tile: Props = { tone: 'sunk' };\n",
+    })
+    code, text = _static(tmp_path)
+    assert code == 1 and _red_values(text) == [
+        "src/Tile.tsx:1 Props.tone='sunk'，允许 flat|raised（src/Card.tsx:1）",
+        "src/Panel.tsx:2 Props.variant='primary'，允许 info|warning（src/Badge.tsx:1）",
+        "src/Button.tsx:3 Props.variant='info'，允许 primary|secondary（src/Button.tsx:1）"], text
+    with closing(build(tmp_path)) as graph:
+        from flowguard.intent import health, owners
+        names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
+    assert names == ['values:Props.tone', 'values:Props.variant', 'values:Props.variant:src/Button.tsx'], names
+
+
+def test_a_schema_in_use_whose_field_is_no_enum_leaves_its_own_writes_to_no_enum(tmp_path):
+    # r25 check of the gate-5/gate-4 fix: only the schemas whose enum types the field took part, so a package
+    # whose own schema in use types User.role as a String, and an object typed from that schema's client, were
+    # still judged by another schema's enum.
+    write = "export async function add(prisma: any, id: string) {\n  await prisma.user.create({ data: { id, role: '%s' } });\n}\n"
+    root = tmp_path / 'packages'
+    _commit(root, {
+        'apps/api/package.json': '{"name": "api"}', 'apps/api/prisma/schema.prisma': _role_schema('AB'),
+        'apps/worker/package.json': '{"name": "worker"}', 'apps/worker/prisma/schema.prisma': _role_schema(None),
+    })
+    _write(root, {
+        'apps/worker/src/w.ts': write % 'Z',
+        'apps/worker/src/t.ts': "import type { User } from '@prisma/client';\nexport const u: User = { id: '1', role: 'Z' };\n",
+        'apps/api/src/a.ts': write % 'Z',
+        # a package without a schema of its own: the first schema in use whose enum types the field, as before
+        'scripts/seed.ts': write % 'Z',
+    })
+    code, text = _static(root)
+    assert code == 1 and _red_values(text) == [
+        "apps/api/src/a.ts:2 User.role='Z'  scripts/seed.ts:2 User.role='Z'，允许 A|B（enum Role (apps/api/prisma/schema.prisma:1)）"], text
+    root = tmp_path / 'clients'
+    _commit(root, {
+        'backend/package.json': '{"name": "backend"}',
+        'backend/prisma/db1/schema.prisma': _role_schema('AB', '../../node_modules/@prisma-db-1/client'),
+        'backend/prisma/db2/schema.prisma': _role_schema(None, '../../node_modules/@prisma-db-2/client'),
+    })
+    _write(root, {'backend/src/a.ts': """
+        import type { User } from '@prisma-db-2/client';
+        import type { User as Account } from '@prisma-db-1/client';
+        export const a: User = { id: '1', role: 'Z' };
+        export const b: Account = { id: '2', role: 'Z' };
+        export async function add(prisma: any, id: string) {
+          await prisma.user.create({ data: { id, role: 'Z' } });
+        }
+    """})
+    code, text = _static(root)
+    # db2's String judges its own client's object by no enum; which client `prisma.user.create` goes through is
+    # unknown while the package's two schemas type the field differently
+    assert code == 1 and _red_values(text) == [
+        "backend/src/a.ts:4 User.role='Z'，允许 A|B（enum Role (backend/prisma/db1/schema.prisma:6)）"], text
+
+
+def test_a_typed_object_in_a_file_that_declares_its_type_without_a_set_is_not_judged_by_another_files_set(tmp_path):
+    # r25 check of the gate-1 fix: only the declarations with a set of a member counted, so Card's own
+    # `interface Props { variant: string }` object was judged by Badge's `variant: 'info' | 'warning'`.
+    _commit(tmp_path, {
+        'src/Badge.tsx': "export interface Props { variant: 'info' | 'warning' }\nexport const badge: Props = { variant: 'info' };\n",
+    })
+    _write(tmp_path, {
+        'src/Card.tsx': "export interface Props { variant: string; size?: number }\n\nexport const cardDefaults: Props = { variant: 'outline' };\n",
+        'src/Alert.tsx': "type Props = { variant: string };\nexport const alert: Props = { variant: 'filled' };\n",
+        'src/Form.tsx': "class Props { variant = 'plain'; }\nexport const form: Props = { variant: 'boxed' };\n",
+        'src/Deck.tsx': "import type { Props } from './Card';\nexport const deck: Props = { variant: 'stacked' };\n",
+        'src/Panel.tsx': "import type { Props } from './Badge';\nexport const panel: Props = { variant: 'error' };\n",
+        # no declaration in the file and none imported: the member's only set judges it, as before
+        'src/Loose.tsx': "export const loose: Props = { variant: 'other' };\n",
+        # a type declared inside a function is no declaration of the file
+        'src/Inner.tsx': "export function make() {\n  type Props = { variant: string };\n  return 1;\n}\n",
+    })
+    with closing(build(tmp_path)) as graph:
+        assert graph.ts_type_files()['Props'] == {'src/Alert.tsx', 'src/Badge.tsx', 'src/Card.tsx', 'src/Form.tsx'}
+    code, text = _static(tmp_path)
+    assert code == 1 and _red_values(text) == [
+        "src/Loose.tsx:1 Props.variant='other'  src/Panel.tsx:2 Props.variant='error'，允许 info|warning（src/Badge.tsx:1）"], text
+
+
+def test_typescript_sets_of_one_name_from_aliases_of_one_file_keep_apart_names(tmp_path):
+    # r25 check of the gate-6 fix: a TS set's further name added the file its alias came from, so three
+    # components' `interface Props { variant: XVariant }` of one variants.ts got two equal names and one
+    # decision closed both.
+    _commit(tmp_path, {
+        'src/variants.ts': "export type BadgeVariant = 'info' | 'warning';\nexport type ButtonVariant = 'primary' | 'secondary';\n"
+                           "export type LinkVariant = 'plain' | 'underline';\n",
+        **{f'src/{name}.tsx': f"import type {{ {name}Variant }} from './variants';\ninterface Props {{ variant: {name}Variant }}\n"
+                              f"export const {name.lower()}: Props = {{ variant: 'nope' }};\n" for name in ('Badge', 'Button', 'Link')},
+    })
+    with closing(build(tmp_path)) as graph:
+        from flowguard.intent import health, owners
+        names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
+    assert names == ['values:Props.variant', 'values:Props.variant:src/Button.tsx', 'values:Props.variant:src/Link.tsx'], names
+    sentence = 'The link component keeps the nope variant until the design review ends.'
+    _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
+        '[structure."values:Props.variant:src/Link.tsx"]\ndecision = "the link component keeps the nope variant until the design review ends"\n'
+        f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and "src/Badge.tsx:3 Props.variant='nope'" in text and "src/Button.tsx:3 Props.variant='nope'" in text \
+        and 'src/Link.tsx:3' not in text, text
+
+
+def test_a_guessed_schemas_enum_keeps_the_plain_name_beside_a_check_as_4_1_named_it(tmp_path):
+    # r25 check of the gate-6 fix: 4.1 read every Prisma enum, a guessed template's too, before a CHECK, so its
+    # one problem of the field was the enum's; the RC gave the plain name to the CHECK, and the problem a 4.1
+    # decision had closed came back under the enum's file.
+    schema = ('model Account {\n  id     String @id\n  status %s\n  @@map("accounts")\n}\n')
+    _commit(tmp_path, {
+        'prisma/schema.postgres.prisma': 'datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\n'
+                                         'enum Status {\n  open\n  closed\n  gone\n}\n\n' + schema % 'Status',
+        'prisma/schema.sqlite.prisma': 'datasource db {\n  provider = "sqlite"\n  url      = env("DATABASE_URL")\n}\n\n' + schema % 'String',
+        'prisma/migrations/001/migration.sql': "CREATE TABLE accounts (id TEXT, status TEXT CHECK (status IN ('open', 'closed')));\n",
+        'src/a.ts': """
+            export async function add(prisma: any, id: string) {
+              await prisma.account.create({ data: { id, status: 'gone' } });
+              await prisma.account.create({ data: { id, status: 'zzz' } });
+            }
+        """,
+    })
+    with closing(build(tmp_path)) as graph:
+        from flowguard.intent import health, owners
+        names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
+    assert names == ['values:Account.status', 'values:Account.status:prisma/migrations/'], names
+    sentence = 'Imported accounts keep the status zzz until the migration job maps them.'
+    _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
+        '[structure."values:Account.status"]\ndecision = "imported accounts keep the status zzz until the migration job maps them"\n'
+        f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
+    code, text = _static(tmp_path, '--all')
+    # the 4.1 decision closes the enum's problem, as in 4.1; the CHECK, which 4.1 did not read beside it, is open
+    assert code == 0 and 'open|closed|gone' not in text and \
+        "src/a.ts:2 Account.status='gone'  src/a.ts:3 Account.status='zzz'，允许 open|closed（CHECK prisma/migrations/001/migration.sql:1）" in text, text
+
+
+def test_a_schema_folder_at_the_repository_root_keeps_its_name_in_the_brief(tmp_path):
+    # r25 check: a schema folder is named by its folder, the repository root's `./`, and the session brief's
+    # short names of its column and onDelete problems read `缺列 .` and `onDelete .`.
+    source = 'datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n'
+    user = ('model User {\n  id       String  @id\n  name     String\n  parentId String?\n'
+            '  parent   User?   @relation("tree", fields: [parentId], references: [id], onDelete: Cascade)\n'
+            '  children User[]  @relation("tree")\n}\n')
+    _commit(tmp_path, {'package.json': '{"name": "app", "prisma": {"schema": "db/schema.prisma"}}\n',
+                       'db/schema.prisma': source + '\n' + user, 'a.prisma': source,
+                       'b.prisma': user.replace('  name     String\n', '').replace('Cascade', 'Restrict')})
+    with closing(build(tmp_path)) as graph:
+        from flowguard.intent import health, owners
+        change = owners.Change(_config(tmp_path), graph, None)
+        found = [(issue.name, issue.short) for issue in [*health.columns(change).issues, *health.delete_rules(change).issues]]
+    assert found == [('columns:./~db/schema.prisma', '缺列 ./'), ('ondelete:./~db/schema.prisma', 'onDelete ./')], found
+
+
+def test_archived_prisma_files_take_no_part_in_two_declarations_differ(tmp_path):
+    # r24 review (gate-9): a release snapshot under docs/ was compared with the live enum and the lead advised
+    # adding the new value to it.
+    item = 'enum Kind {\n%s}\n\nmodel Item {\n  id   String @id\n  kind Kind\n  @@map("items")\n}\n'
+    _commit(tmp_path, {
+        'prisma/schema.prisma': item % '  A\n  B\n  C\n',
+        'docs/release-1.0/schema.prisma': item % '  A\n  B\n',
+        'docs/history/001.sql': "CREATE TABLE items (id TEXT, kind TEXT CHECK (kind IN ('A', 'B')));\n",
+        'src/kinds.ts': "export const KINDS = ['A', 'B', 'C'] as const;\nexport type Kind = (typeof KINDS)[number];\n",
+    })
+    _write(tmp_path, {'prisma/schema.prisma': item % '  A\n  B\n  C\n  D\n'})
+    code, text = _flowguard(tmp_path, 'check', '--static', '--leads')
+    differ = [line for line in text.splitlines() if '两份声明不同' in line]
+    assert code == 0 and len(differ) == 1 and 'docs/' not in differ[0] and "src/kinds.ts:2（'A' | 'B' | 'C'；少 'D'）" in differ[0], text
 
 
 def test_a_prisma_client_type_under_an_alias_a_namespace_or_a_generator_output_is_gated_by_its_model(tmp_path):
@@ -1211,6 +1528,42 @@ def test_a_one_row_delete_of_a_tree_the_code_builds_names_its_children(tmp_path)
         '线索：删除没处理子表：src/remove.ts:2 removeDemand 删 Demand，NoAction 子表 Demand 在同一操作里没删、没置空、没计数'
         '（调用按名字解析） → 删除前先删或置空这些子表的行，或先计数并拒绝删除；有意交给数据库拒绝，就把决定记进 '
         '.flowguard/ledger.toml：'], text
+
+
+def test_a_tree_whose_parent_key_can_be_null_is_left_to_a_delete_of_many_rows_also_over_a_required_tenant_key(tmp_path):
+    # r24 review (ondelete-3): a tree keyed by (tenantId, parentId), tenantId required, restricts by Prisma's
+    # default; the tree exemption read that flag too, so `deleteMany` of a whole tenant's tree got a lead.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Node {
+              id       String  @id
+              tenantId String
+              parentId String?
+              parent   Node?   @relation("tree", fields: [tenantId, parentId], references: [tenantId, id])
+              children Node[]  @relation("tree")
+              @@unique([tenantId, id])
+            }
+        ''',
+        'src/build.ts': '''
+            export async function add(prisma: any, tenantId: string, id: string, parentId: string) {
+              await prisma.node.create({ data: { id, tenantId, parentId } });
+            }
+        ''',
+    })
+    _write(tmp_path, {'src/clear.ts': '''
+        export async function clearTenant(prisma: any, tenantId: string) {
+          await prisma.node.deleteMany({ where: { tenantId } });
+        }
+        export async function removeNode(prisma: any, id: string) {
+          await prisma.node.delete({ where: { id } });
+        }
+    '''})
+    code, text = _static(tmp_path)
+    # the one-row delete of a tree the code builds still names its children
+    assert code == 0 and _lines(text, '线索：删除没处理子表') == [
+        '线索：删除没处理子表：src/clear.ts:5 removeNode 删 Node，Restrict 子表 Node（2 个外键：tenantId、parentId） '
+        '在同一操作里没删、没置空、没计数（调用按名字解析） → 删除前先删或置空这些子表的行，或先计数并拒绝删除；有意交给数据库拒绝，'
+        '就把决定记进 .flowguard/ledger.toml：'], text
 
 
 def test_a_table_the_code_reads_or_deletes_but_never_fills_is_a_structure_problem(tmp_path):
