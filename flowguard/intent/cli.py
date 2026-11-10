@@ -39,6 +39,22 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 '''
 
 
+# The commands and the line `--help` gives each; LEGACY_INSTRUCTION reads any other `flowguard WORD` as FlowGuard 0.70's.
+COMMANDS = {
+    'anchor': 'Draft the source comment of a function: anchor draft module:function',
+    'show': 'Find the owner, writers, readers, copies and rules of a name or of "what it decides"',
+    'try': 'Run an anchor on given inputs (days=4) in its real test context',
+    'watch': 'Run a Python command normally, record its anchors and check the loaded models',
+    'model': 'Draft a small flow from recorded paths: model draft NAME',
+    'check': 'Recheck the affected rules and tests with pytest; --static runs the map checks without tests',
+    'compare': 'Compare two sensors class by class on the same inputs',
+    'init': 'Wire FlowGuard into this project: pytest plugin, sentinel, CI fragment, rules block, npm test files',
+    'new-task': 'Start the next task: record HEAD as the task baseline, then print the brief',
+    'ledger': 'The fallback ledger: handlers that may end without raising',
+    'req': "Store, list or retire the owner's own words, byte for byte",
+}
+
+
 def _spelled(word):
     """One word of a printed command: bare when every shell reads it as it is, else in double quotes, which
     cmd.exe, PowerShell and POSIX shells all read (README: `show "what it decides"`); single quotes are not
@@ -1566,6 +1582,13 @@ LEGACY_SECTION = re.compile(r'^##[ \t]+(?P<title>[^\r\n]*?(?:workflow|current-ma
                             r'(?P<body>.*?)(?=^#{1,2}[ \t]|^<!-- flowguard:start -->|\Z)', re.M | re.S | re.I)
 LEGACY_WORDS = re.compile(r'\b0\.70\.\d+|flowguard (?:read|change)\b|\bmap (?:check|confirm)\b|'
                           r'\btarget (?:start|add|check|promote)\b|flowguard_unit_runner|current[- ]map', re.I)
+# A line that still asks for 0.70: a `flowguard WORD` command this version does not have (python -m flowguard status,
+# `flowguard change`), 0.70's `map check` and `target ...` steps, its test launcher, or a 0.70 install. A line that only
+# names 0.70 or its files (`.flowguard/models/**`, `flowguard_unit_runner.py` "belong to the earlier 0.70.x workflow")
+# explains them and asks for nothing.
+LEGACY_INSTRUCTION = re.compile(
+    r'(?:python3?\s+-m\s+|`)flowguard\s+(?!(?:' + '|'.join(re.escape(name) for name in COMMANDS) + r')\b)[a-z][\w-]*'
+    r'|`(?:map\s+(?:check|confirm)|target\s+(?:start|add|check|promote))\b|-m\s+flowguard_unit_runner\b|@v0\.70\.\d+', re.I)
 
 
 def _legacy_agents(content, rules, newline, languages):
@@ -1573,8 +1596,9 @@ def _legacy_agents(content, rules, newline, languages):
     workflow", the current-map exception) give way to the rules block, in the first one's place; the install
     line and the pinned version (`Use FlowGuard **0.70.14**`) become this version; the project's own rules
     stay byte for byte. A sentence about what 0.70 did is not rewritten to claim it of this version: it is
-    listed to reword, as is every other remaining line that still names 0.70. A workflow section is FlowGuard's
-    only when its body names flowguard, so a project's own release or data workflow stays."""
+    kept as it is. A remaining line that still asks for 0.70 (`LEGACY_INSTRUCTION`) is listed to reword or delete;
+    one that only explains 0.70 or its legacy files is not. A workflow section is FlowGuard's only when its body
+    names flowguard, so a project's own release or data workflow stays."""
     removed = []
     def section(match):
         if 'flowguard' not in match['body'].lower() or not LEGACY_WORDS.search(match['body']):
@@ -1585,16 +1609,18 @@ def _legacy_agents(content, rules, newline, languages):
     extra = '[languages]' if languages else ''
     content, installs = re.subn(r'flowguard(?:\[[\w,]+\])? @ (git\+\S+?)@v0\.70\.\d+',
                                 lambda match: f'flowguard{extra} @ {match[1]}@v{__version__}', content)
-    # Only the pinned statement; any other bold 'FlowGuard **0.70.x**' says what 0.70 was and is listed below.
+    # Only the pinned statement; any other bold 'FlowGuard **0.70.x**' says what 0.70 was and stays as it is.
     content, versions = re.subn(r'(\bUse\s+FlowGuard\s+\**)0\.70\.\d+', lambda match: match[1] + __version__, content)
     lines = [f'AGENTS.md: the FlowGuard 0.70 section "{title}" is replaced by the project rules block' for title in removed]
     if installs or versions:
         lines.append(f'AGENTS.md: the FlowGuard version and install line now name {__version__}')
     block = content.partition('<!-- flowguard:start -->')[2].partition('<!-- flowguard:end -->')[0]
     for number, line in enumerate(content.splitlines(), 1):
-        if LEGACY_WORDS.search(line) and line not in block:
-            lines.append(f'AGENTS.md:{number} still names FlowGuard 0.70 ({line.strip()[:70]}): reword or delete it; '
-                         '4.x has no map, targets or models')
+        asked = LEGACY_INSTRUCTION.search(line)
+        if asked and line not in block:
+            what = 'install' if asked[0].startswith('@') else 'command'
+            lines.append(f'AGENTS.md:{number} still asks for `{asked[0].strip("`")}`, a FlowGuard 0.70 {what} 4.x does not have '
+                         f'({line.strip()[:70]}): reword or delete it')
     return content, lines
 
 
@@ -1746,26 +1772,27 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog='flowguard')
     parser.add_argument('--version', action='version', version=__version__)
     commands = parser.add_subparsers(dest='command')
-    anchor_parser = commands.add_parser('anchor')
+    add_parser = lambda name: commands.add_parser(name, help=COMMANDS[name])
+    anchor_parser = add_parser('anchor')
     anchor_operations = anchor_parser.add_subparsers(dest='operation', required=True)
     anchor_draft = anchor_operations.add_parser('draft')
     anchor_draft.add_argument('target')
-    show_parser = commands.add_parser('show')
+    show_parser = add_parser('show')
     show_parser.add_argument('query', nargs='?')
     show_parser.add_argument('--draft')
     show_parser.add_argument('--gaps')
     show_parser.add_argument('--full', action='store_true', help='Include decision sites and full candidate metadata')
-    try_parser = commands.add_parser('try')
+    try_parser = add_parser('try')
     try_parser.add_argument('anchor')
     try_parser.add_argument('inputs', nargs='*')
     try_parser.add_argument('--grid', action='store_true')
-    watch_parser = commands.add_parser('watch')
+    watch_parser = add_parser('watch')
     watch_parser.add_argument('arguments', nargs=argparse.REMAINDER)
-    model_parser = commands.add_parser('model')
+    model_parser = add_parser('model')
     model_operations = model_parser.add_subparsers(dest='operation', required=True)
     model_draft = model_operations.add_parser('draft')
     model_draft.add_argument('name')
-    check_parser = commands.add_parser('check')
+    check_parser = add_parser('check')
     check_parser.add_argument('--all', action='store_true')
     check_parser.add_argument('--deep', action='store_true', help='Run decision probes and mutation-survival checks')
     check_parser.add_argument('--since')
@@ -1773,16 +1800,16 @@ def main(argv=None):
     check_parser.add_argument('--static', action='store_true',
                               help='Map checks only, without pytest (any language FlowGuard reads, e.g. TS/JS, Prisma, SQL)')
     check_parser.add_argument('--leads', action='store_true', help='Print every lead, not only the first ones')
-    compare_parser = commands.add_parser('compare')
+    compare_parser = add_parser('compare')
     compare_parser.add_argument('left')
     compare_parser.add_argument('right')
-    commands.add_parser('init')
-    commands.add_parser('new-task', help='Start the next task: record HEAD as the task baseline, then print the brief')
-    ledger_parser = commands.add_parser('ledger', help='The fallback ledger: handlers that may end without raising')
+    add_parser('init')
+    add_parser('new-task')
+    ledger_parser = add_parser('ledger')
     ledger_operations = ledger_parser.add_subparsers(dest='operation', required=True)
     ledger_operations.add_parser('init', help='Record every existing fallback as legacy')
     ledger_operations.add_parser('check', help='List every difference between the ledger and the code')
-    req_parser = commands.add_parser('req')
+    req_parser = add_parser('req')
     operations = req_parser.add_subparsers(dest='operation', required=True)
     add = operations.add_parser('add')
     add.add_argument('file')

@@ -71,6 +71,19 @@ def test_output_limit_keeps_whole_decisive_red_lines_and_counts_the_rest(tmp_pat
     assert 'more lines' in output[-1] and 'red' in output[-1]
 
 
+def test_every_command_has_a_description_in_the_help(capsys):
+    # Round 22 F4: `--help` described only new-task and ledger; the other nine were bare names in the choice list.
+    import re
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(['--help'])
+    text = capsys.readouterr().out
+    assert stopped.value.code == 0
+    commands = re.search(r'^  \{([\w,-]+)\}$', text, re.M)[1].split(',')
+    assert len(commands) == 11 and {'check', 'show', 'init', 'req'} <= set(commands), text
+    for command in commands:
+        assert re.search(rf'^    {re.escape(command)} +\w', text, re.M), (command, text)
+
+
 def test_init_is_idempotent_and_merges_existing_plugin_and_project_rules(tmp_path, capsys):
     root, cfg = project(tmp_path)
     (root / 'tests/conftest.py').write_text('pytest_plugins = ["pytester"]\n')

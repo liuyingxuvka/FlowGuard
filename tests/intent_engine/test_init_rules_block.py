@@ -148,16 +148,19 @@ def test_the_flowguard_0_70_workflow_gives_way_to_the_rules_and_the_project_rule
     assert 'AGENTS.md: the FlowGuard 0.70 section "Owner-authorized current-map exception (2026-10-29)" is replaced' in out, out
     assert f'AGENTS.md: the FlowGuard version and install line now name {cli.__version__}' in out, out
     lines = result.splitlines()
-    for text in ('are preserved 0.70.2 models', 'Do not run `flowguard change`'):
-        number = next(index for index, line in enumerate(lines, 1) if text in line)
-        assert f'AGENTS.md:{number} still names FlowGuard 0.70 (' in out, out          # listed to reword, not deleted
+    number = next(index for index, line in enumerate(lines, 1) if 'Do not run `flowguard change`' in line)
+    assert (f'AGENTS.md:{number} still asks for `flowguard change`, a FlowGuard 0.70 command 4.x does not have ('
+            in out), out                                                            # listed to reword, not deleted
+    number = next(index for index, line in enumerate(lines, 1) if 'are preserved 0.70.2 models' in line)
+    assert f'AGENTS.md:{number} ' not in out, out           # it says what the files are and asks for nothing
     again = _init(tmp_path, result)
     assert again == result, 'init is idempotent after the replacement'
 
 
-def test_a_sentence_about_0_70_is_listed_not_rewritten_and_the_projects_own_workflow_stays(tmp_path, capsys):
+def test_a_sentence_about_0_70_is_not_rewritten_and_the_projects_own_workflow_stays(tmp_path, capsys):
     # Planning Tool: "FlowGuard 0.70.14's native test indexing ... does not parse TypeScript imports" is true of
-    # 0.70 and false of this version; rewriting its number would make a false rule and hide the line.
+    # 0.70 and false of this version; rewriting its number would make a false rule. It asks for no 0.70 command,
+    # so it is not listed either (round 22 F4).
     said = '- Product tests use TypeScript. FlowGuard 0.70.14\'s native test indexing does not parse TypeScript imports.\n'
     release = '## Release workflow\n\nRun the Makefile target check before tagging; keep the current map tiles.\n\n'
     result = _init(tmp_path, TEAM + WORKFLOW + release + LIMITS + said)
@@ -165,7 +168,7 @@ def test_a_sentence_about_0_70_is_listed_not_rewritten_and_the_projects_own_work
     assert said in result and release in result, result        # not rewritten, not deleted
     assert f'Use FlowGuard **{cli.__version__}**' in result and 'Six-step workflow' not in result
     number = result.splitlines().index(said.rstrip('\n')) + 1
-    assert f'AGENTS.md:{number} still names FlowGuard 0.70 (' in out, out
+    assert f'AGENTS.md:{number} ' not in out, out
     assert 'section "Release workflow"' not in out, out
 
 
@@ -176,4 +179,31 @@ def test_only_the_pinned_statement_and_the_install_line_change_and_another_bold_
     assert f'Use FlowGuard **{cli.__version__}**' in result and f'FlowGuard.git@v{cli.__version__}"' in result, result
     assert result.endswith(archived), result                               # byte for byte
     number = result.splitlines().index(archived.rstrip('\n')) + 1
-    assert f'AGENTS.md:{number} still names FlowGuard 0.70 (' in out, out   # listed to reword
+    assert f'AGENTS.md:{number} ' not in out, out         # it says what the archive holds and asks for nothing
+
+
+# The Planning Tool's AGENTS.md as 4.2's init left it: a note that explains the legacy files, an instruction to no one.
+PT_LEGACY_NOTE = """- Legacy FlowGuard 0.70 files: `.flowguard/models/**`, `.flowguard/map.json`,
+  `.flowguard/owner_ledger.*`, `.flowguard/verification/**`, `.flowguard/README.md`,
+  `flowguard_unit_runner.py` and `tests/flowguard/**` belong to the earlier 0.70.x
+  workflow (map, targets, models, the native-binding launcher). FlowGuard 4.x does not
+  read them and they need no upkeep: leave them unchanged. `tests/flowguard/` needs the
+  removed 0.70 API, so pytest ignores it (`pyproject.toml`).
+"""
+
+
+def test_only_lines_that_ask_for_a_0_70_command_are_listed_and_a_note_on_the_legacy_files_is_not(tmp_path, capsys):
+    # Round 22 F4: 4.2 listed the Planning Tool's note above ("still names FlowGuard 0.70 ... reword or delete it"),
+    # though it only says which files are 0.70's and asks nothing; rewording it would lose the explanation.
+    asks = ['- After every edit run `python -m flowguard map check` and fix what it reports.',
+            '- Find code with `python -m flowguard where NAME` before you change it.',
+            '- Install it with `pip install git+https://example.invalid/FlowGuard.git@v0.70.9`.']     # not init\'s own form
+    result = _init(tmp_path, '## Project-specific limits\n\n' + PT_LEGACY_NOTE + '\n'.join(asks) + '\n')
+    out = capsys.readouterr().out
+    lines = result.splitlines()
+    assert PT_LEGACY_NOTE in result, result                       # kept byte for byte
+    for line in PT_LEGACY_NOTE.splitlines():
+        assert f'AGENTS.md:{lines.index(line) + 1} ' not in out, out
+    for line, asked in zip(asks, ('`python -m flowguard map`, a FlowGuard 0.70 command', '`python -m flowguard where`, a FlowGuard 0.70 command',
+                                  '`@v0.70.9`, a FlowGuard 0.70 install')):
+        assert f'AGENTS.md:{lines.index(line) + 1} still asks for {asked} 4.x does not have (' in out, out
