@@ -247,7 +247,7 @@ rule = "旧账"
 
 ["flowguard/intent/deps.py:_environment:OSError"]
 count = 1
-reason = "目录里的 pyvenv.cfg 或 conda-meta/history 看不了（没有权限进入这个目录）时，把它当作 pytest 不会从中收集项目测试的目录，不往里走；pytest 的 _in_venv 也把读不了当作不是虚拟环境，这里只决定 init 写哪种 CI 片段和 new-task 的提示，不会把任何检查算成通过"
+reason = "目录里的 pyvenv.cfg 或 conda-meta/history 看不了（没有权限进入这个目录）时，这里看不到里面有没有项目测试，就不往里走，按没有项目测试处理；pytest 自己进这个目录时会在收集阶段报错，不会悄悄跳过。这里只决定 init 写哪种 CI 片段和 new-task 的提示，不会把任何检查算成通过"
 rule = { file = "README.md", text = "in a project whose tests npm runs and pytest has none of its own" }
 
 ["flowguard/intent/deps.py:_file_dependencies:(OSError, SyntaxError)"]

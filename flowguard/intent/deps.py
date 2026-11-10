@@ -92,8 +92,8 @@ def npm_packages(root):
 
 def _environment(folder):
     """Whether `folder` is a virtual environment as pytest's `_in_venv` reads one: it holds pyvenv.cfg, or conda's
-    conda-meta/history. A folder whose files cannot be looked at (no permission to enter it) is no environment to
-    pytest, and nothing in it can be read here: it is left out as one."""
+    conda-meta/history. A folder whose files cannot be looked at (no permission to enter it) is left out too: no
+    project test in it can be seen here (pytest itself stops with a collection error when it enters one)."""
     try:
         return (folder / 'pyvenv.cfg').is_file() or (folder / 'conda-meta' / 'history').is_file()
     except OSError:

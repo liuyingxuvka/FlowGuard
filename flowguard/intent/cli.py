@@ -1620,12 +1620,15 @@ LEGACY_WORDS = re.compile(r'\b0\.70\.\d+|flowguard (?:read|change)\b|\bmap (?:ch
 # words are prose after the name ("a FlowGuard release alone", "after each flowguard release", "python -m flowguard
 # before each task"). 0.70's `map check` and `map confirm` are read in any case ("Map check must pass"), also in
 # prose ("the site map check"), which cannot be told from them. A required version (`requires FlowGuard 0.70.14`,
-# `FlowGuard 0.70.x is required`, `flowguard==0.70.14`) and the install tag are 0.70's. A line that only names 0.70
+# `FlowGuard 0.70.x is required`, `flowguard==0.70.14`) and the install tag are 0.70's; a minimum that 4.x meets
+# ("requires FlowGuard 0.70.14 or newer") asks for nothing 4.x lacks and is not listed. A launcher may carry the
+# interpreter's own options (`py -3.11 -m`, `python -X utf8 -m`, `python3 -I -m`). A capitalized `FlowGuard map` in
+# backquotes with no subcommand is the map's name ("the `FlowGuard map` shows the owners"). A line that only names 0.70
 # or its files (`.flowguard/models/**`, `flowguard_unit_runner.py` "belong to the earlier 0.70.x workflow") explains
 # them and asks for nothing.
 ERAS = {**dict.fromkeys(('read', 'change', 'map', 'target'), '0.70–0.75'), 'template': '0.70–1.4', 'release': '0.70–1.4',
         'status': '0.71–1.4', 'where': '0.71–1.4', 'decide': '0.75–1.4', 'draft': '1.2–1.4'}
-LAUNCHER = r'\b(?:py|python[\d.]*)(?:\.exe)?\s+'
+LAUNCHER = r'\b(?:py|python[\d.]*)(?:\.exe)?\s+(?:-(?!m\b)[\w.]+(?:\s+(?!-)[\w.=]+)?\s+)*'
 MAP_SUB = r'(?:scan|discover|show|find|digest|check|lint|impact|deps|confirm|models|verify)\b'
 TARGET_SUB = r'(?:start|add|drop|check|promote)\b'
 LEGACY_INSTRUCTION = re.compile(
@@ -1635,8 +1638,9 @@ LEGACY_INSTRUCTION = re.compile(
     rf'|`target\s+{TARGET_SUB})'
     rf'|(?P<launcher>{LAUNCHER}(?:-m\s+)?(?:[\w.-]+[/\\])*flowguard_unit_runner(?:\.py)?\b)'
     r'|(?P<install>@v0\.70\.\d+)'
-    r'|(?P<requirement>\b(?i:requires?|needs?)\s+(?i:flowguard)\s+\**v?0\.70(?:\.\d+)?'
-    r'|\b(?i:flowguard)\s+\**v?0\.70(?:\.\d+|\.x)?\**\s+(?i:(?:or\s+newer\s+)?is\s+required)'
+    r'|(?P<requirement>\b(?i:requires?|needs?)\s+(?i:flowguard)\s+\**v?0\.70(?:\.\d+|\.x)?(?!\.\d)(?!\w)\**'
+    r'(?!\s*(?:\+|(?i:or\s+(?:newer|later|higher|above))))'
+    r'|\b(?i:flowguard)\s+\**v?0\.70(?:\.\d+|\.x)?\**\s+(?i:is\s+required)'
     r'|\b(?i:flowguard)(?:\[[\w,-]+\])?\s*[=~]=\s*v?0\.70(?:\.\d+)?)'
     r'|(?P<exception>\b(?i:current[- ]map\s+exception)\b)')
 
@@ -1662,6 +1666,8 @@ def _legacy_instructions(content):
             continue
         eras = {}
         for match in LEGACY_INSTRUCTION.finditer(line):
+            if match['command'] and re.fullmatch(r'`FlowGuard\s+map', match[0]):
+                continue        # "the `FlowGuard map`": the name of the map, a noun, not 0.70's map command
             eras.setdefault(_era(match), {}).setdefault(match[0].strip('`'), None)
         if eras:
             named = ' and '.join(', '.join(f'`{name}`' for name in names) + f' from FlowGuard {era}' for era, names in eras.items())
