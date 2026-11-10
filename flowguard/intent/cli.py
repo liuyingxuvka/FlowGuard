@@ -605,11 +605,10 @@ def watch(cfg, command):
 def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
     """Run the one ordinary pytest route; source validation executes no code. `leads` prints every lead.
     Without `base` the first check of a task records HEAD as its baseline when none is recorded; a recorded
-    one stays, as in pytest (`cache.task_baseline`)."""
+    one stays, as in pytest (`cache.task_start`)."""
     from .plugin import collect_signals
     from .signals import more_leads, render as render_signals
-    if base is None:
-        cache.task_baseline(cfg, record=True)
+    start = cache.task_start(cfg, record=True) if base is None else (base, 'base', None)
     with collect_signals() as reports:
         status = _check(cfg, everything=everything, since=since, deep=deep, base=base, reports=reports)
     from .differences import _source_index, _compare_pairs
@@ -646,11 +645,11 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
         if not any(message.replace('：', ': ') == seen.replace('：', ': ') for seen in red):
             red.append(message)
     if not baseline.get('baseline'):
-        # Without a pytest batch (no rules) the owner findings still compared with the remembered baseline.
-        from .owners import baseline as owner_baseline
-        if owner_baseline(cfg, base):
-            baseline = dict(baseline=owner_baseline(cfg, base), baseline_kind='base' if base else 'task')
-    report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind', 'task'),
+        # Without a pytest batch (no rules) the owner findings still compared with the task baseline (or HEAD
+        # standing in, or `base`), and the title names it as a pytest session would.
+        baseline = dict(baseline=start[0], baseline_kind=start[1], baseline_ahead=start[2])
+    report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind'),
+                  baseline_ahead=baseline.get('baseline_ahead'),
                   baseline_option='--base', source_changed=any(part.get('source_changed', True) for part in reports),
                   all_leads=leads, more_leads=more_leads('check', everything, base),
                   comparison_requested=any(part.get('comparison_requested') for part in reports),
@@ -687,11 +686,10 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     test run; only what this change adds is reported unless `everything` (`--all`), which also lists every
     open structure problem. `leads` (`--leads`) prints every lead instead of the first ones. Exit 1 when
     anything is red. Without `base` the first run of a task records HEAD as its baseline when none is recorded;
-    a recorded one stays, as in pytest (`cache.task_baseline`)."""
+    a recorded one stays, as in pytest (`cache.task_start`); the title names it as pytest does."""
     from . import anchors, health, ledger as fallbacks, owners
     from .signals import more_leads, render as render_signals
-    if base is None:
-        cache.task_baseline(cfg, record=True)
+    start = cache.task_start(cfg, record=True) if base is None else (base, 'base', None)
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
         found = owners.static_findings(cfg, graph, index, base, everything=everything)
@@ -701,7 +699,7 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
         with graph.con:
             cache.save_structure(graph.con, found.summary)
     red = list(dict.fromkeys([*found.red, *(issue.message for issue in index.issues if issue.level == 'red')]))
-    report = dict(session=True, baseline=baseline, baseline_kind='base' if base else 'task', baseline_option='--base',
+    report = dict(session=True, baseline=start[0], baseline_kind=start[1], baseline_ahead=start[2], baseline_option='--base',
                   source_changed=bool(red or found.leads or found.section or result.red), red=red, leads=found.leads,
                   all_leads=leads, more_leads=more_leads('check --static', everything, base),
                   items=[], ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in result.red],

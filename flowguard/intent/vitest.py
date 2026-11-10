@@ -310,6 +310,8 @@ def prepare(root):
     # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
     # stands in, and the title says so.
     baseline, kind = cache.task_baseline(cfg)
+    if kind == 'missing':
+        return dict(status='off', reason=f'记下的任务开始 {baseline[:7]} 不在这个仓库里：执行侧不比较；先运行 python -m flowguard new-task')
     found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (baseline or 'HEAD') + '^{commit}', allowed=(0, 1))
     if found.returncode:
         return dict(status='off', reason='还没有提交：没有基准，执行侧不比较')

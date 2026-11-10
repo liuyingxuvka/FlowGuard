@@ -333,10 +333,13 @@ class Observations:
         # The first session of a task records HEAD as its baseline when none is recorded, so commits made during
         # the task keep what it changed reported; a recorded one is never moved here (only the brief and new-task
         # move it, and say why). --flowguard-base names its own baseline and records nothing, and so does a session
-        # that only collects tests (IDE discovery), which is no task's first run.
+        # that only collects tests (IDE discovery), which is no task's first run. The title says how far HEAD
+        # lies after a recorded start, and names one this repository lacks (kind 'missing': nothing is compared).
         collect_only = bool(state.config.getoption('collectonly', default=False))
-        task, kind = (None, None) if self.comparison_requested else cache.task_baseline(self.cfg, record=not collect_only)
+        task, kind, self.baseline_ahead = ((None, None, None) if self.comparison_requested
+                                           else cache.task_start(self.cfg, record=not collect_only))
         self.baseline_kind = 'base' if self.comparison_requested else kind or 'HEAD'
+        self.missing = task if kind == 'missing' else None
         baseline = self.requested_base or task or 'HEAD'
         self.runtime = state.runtime = Runtime(self.cfg.root, baseline)
         if self.requested_base and self.runtime._baseline_error:
@@ -1084,7 +1087,8 @@ class Observations:
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
         fallbacks = self.state.ledger()
-        report = dict(session=True, baseline=self.runtime.baseline, baseline_kind=self.baseline_kind,
+        report = dict(session=True, baseline=self.missing or self.runtime.baseline, baseline_kind=self.baseline_kind,
+                      baseline_ahead=self.baseline_ahead,
                       # the overflow's command keeps --flowguard-base, as `--base`, so it lists these leads
                       more_leads=signals.more_leads('check --static', base=self.requested_base),
                       source_changed=self.changed or bool(self.mapped), comparison_requested=self.comparison_requested,

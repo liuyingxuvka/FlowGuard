@@ -21,34 +21,49 @@ def put_meta(con, name, text):
 
 
 def session_baseline(cfg, *, remember=False):
-    """The comparison commit: `task_baseline`'s, recording nothing. `remember` is the brief's call
+    """The comparison commit: `task_baseline`'s, recording nothing; None where nothing can be compared: outside
+    Git, before the first commit, and for a recorded commit this repository lacks (kind 'missing', which pytest,
+    `check` and `check --static` name in their title with the next step). `remember` is the brief's call
     (`remember_baseline`), which keeps a task's baseline while HEAD descends from it."""
-    return remember_baseline(cfg)[0] if remember else task_baseline(cfg)[0]
+    if remember:
+        return remember_baseline(cfg)[0]
+    commit, kind = task_baseline(cfg)
+    return None if kind == 'missing' else commit
 
 
 def task_baseline(cfg, *, record=False):
-    """(commit, kind) of the task-start commit in the existing SQLite meta: kind 'task' for a recorded one,
-    'HEAD' when nothing is recorded and HEAD stands in; (None, None) outside Git or before the first commit.
-    `record` is the call of pytest with the plugin and of `check` and `check --static` without an explicit
-    baseline: when nothing is recorded it records HEAD, so a task that never runs the brief gets its baseline
-    at its first run. It never moves a recorded baseline, not even one HEAD does not descend from (a run on
-    another branch, an older commit, a bisect step, IDE test discovery after a branch switch): only the brief
-    and new-task move it (`remember_baseline`), and they say why, so a run elsewhere neither hides what the
-    task committed nor blames an older commit's changes on it. A detached HEAD (a tag or an older commit
-    checked out, a bisect step, a CI checkout) records nothing either: a test run there would otherwise fix
-    the next task's start on that commit. Other readers (vitest, `ledger check`, `debug watch`) record nothing."""
+    """(commit, kind) of `task_start`, without the distance from HEAD."""
+    return task_start(cfg, record=record)[:2]
+
+
+def task_start(cfg, *, record=False):
+    """(commit, kind, ahead) of the task-start commit in the existing SQLite meta: kind 'task' for a recorded one,
+    `ahead` the number of commits HEAD lies after it (None when HEAD does not descend from it); 'missing' for a
+    recorded commit this repository does not have (a shallow clone, history rewritten and collected, a cache from
+    another clone), which compares nothing until the brief or new-task records HEAD; 'HEAD' when nothing is
+    recorded and HEAD stands in; (None, None, None) outside Git or before the first commit. A recorded commit
+    costs one git call (`_position`). `record` is the call of pytest with the plugin and of `check` and
+    `check --static` without an explicit baseline: when nothing is recorded it records HEAD, so a task that never
+    runs the brief gets its baseline at its first run. It never moves a recorded baseline, not even one HEAD does
+    not descend from (a run on another branch, an older commit, a bisect step, IDE test discovery after a branch
+    switch) or one that is missing: only the brief and new-task move it (`remember_baseline`), and they say why, so
+    a run elsewhere neither hides what the task committed nor blames an older commit's changes on it. A detached
+    HEAD (a tag or an older commit checked out, a bisect step, a CI checkout) records nothing either: a test run
+    there would otherwise fix the next task's start on that commit. Other readers (vitest, `ledger check`,
+    `debug watch`) record nothing."""
     if git_common_directory(cfg.root) is None:
-        return None, None
+        return None, None, None
     recorded = _recorded_baseline(cfg)
     if recorded is not None:
-        return recorded, 'task'
+        known, ahead = _position(cfg, recorded)
+        return (recorded, 'task', ahead) if known else (recorded, 'missing', None)
     head = git_head(cfg.root)
     if head is None:
-        return None, None
+        return None, None, None
     if record and _on_branch(cfg):
         _record_baseline(cfg, head)
-        return head, 'task'
-    return head, 'HEAD'
+        return head, 'task', 0
+    return head, 'HEAD', 0
 
 
 def _position(cfg, recorded):
@@ -114,7 +129,7 @@ def remember_baseline(cfg, *, new_task=False):
     commits are still reported; new-task records HEAD there too. `note` says why the baseline is where it is, ''
     when it was recorded at HEAD with nothing recorded before. When new-task replaces a start HEAD descends from,
     the note says those commits are no longer compared and how to compare them once. Test runs only record a
-    baseline when none is recorded (`task_baseline(record=True)`); moving one is this call's alone, as it says why."""
+    baseline when none is recorded (`task_start(record=True)`); moving one is this call's alone, as it says why."""
     if git_common_directory(cfg.root) is None:
         return None, ''
     head = git_head(cfg.root)

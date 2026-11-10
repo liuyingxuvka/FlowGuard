@@ -299,7 +299,8 @@ def test_the_first_pytest_run_records_the_task_baseline_and_commits_during_the_t
     code, text = _run(root, pytest_run=True)
     assert code == 0, text
     lines = text.splitlines()
-    assert f'FlowGuard（相对任务开始 {start[:7]}）' in lines, text       # not HEAD against HEAD
+    # not HEAD against HEAD; the commit since the start is named, with the next task's step
+    assert f'FlowGuard（相对任务开始 {start[:7]}，HEAD 之前 1 个提交；新任务先运行 python -m flowguard new-task）' in lines, text
     assert any(line.startswith('变：LIMIT（app.py:2）') and 'days=4；函数返回值 F → T' in line for line in lines), text
     assert cache.task_baseline(cfg) == (start, 'task')
     # The next task starts at HEAD: the committed change is no longer this task's.
@@ -383,7 +384,7 @@ def test_runs_on_a_commit_outside_the_task_never_move_its_baseline(tmp_path):
     def reported_against_the_task_start():
         code, text = _run(root, pytest_run=True)
         lines = text.splitlines()
-        assert code == 0 and f'FlowGuard（相对任务开始 {start[:7]}）' in lines, text
+        assert code == 0 and f'FlowGuard（相对任务开始 {start[:7]}，HEAD 之前 1 个提交；新任务先运行 python -m flowguard new-task）' in lines, text
         changed, = [line for line in lines if line.startswith('变：LIMIT（app.py:2）')]
         assert '常量 5 → 4' in changed, text            # this task's change, not the previous task's 3 → 5
         assert cache.task_baseline(cfg) == (start, 'task')
@@ -432,3 +433,78 @@ def test_the_brief_on_a_detached_head_neither_moves_nor_records_the_task_baselin
     git(root, 'checkout', '--quiet', branch)
     assert brief() == 'baseline: task start, 1 commit before HEAD; next task: python -m flowguard new-task'
     assert cache.task_baseline(cfg) == (start, 'task')
+
+
+_HANDLER = 'def parse(text):\n    try:\n        return int(text)\n    except ValueError:\n        return 0\n'
+
+
+def _ledgered(tmp_path):
+    """`_plain` with a fallback ledger, so a new handler is red in pytest, `check` and `check --static` alike."""
+    root, cfg = _plain(tmp_path)
+    code, text = _run(root, 'ledger', 'init')
+    assert code == 0, text
+    git(root, 'add', '.')
+    git(root, 'commit', '--quiet', '-m', 'fixture ledger')
+    return root, cfg
+
+
+_RUNS = (((), True), (('check', '--static'), False), (('check',), False))
+
+
+def test_the_title_of_every_run_says_how_far_the_task_start_lies_before_head(tmp_path):
+    """A task start that commits have moved past (an agent that never runs new-task, a 4.1 rules block) is named
+    with its distance and the next task's step, so earlier tasks' changes are not taken for this one's."""
+    root, cfg = _ledgered(tmp_path)
+    start = git(root, 'rev-parse', 'HEAD')
+    code, text = _run(root, 'check', '--static')
+    assert code == 0 and cache.task_baseline(cfg) == (start, 'task'), text
+    for days in (4, 5):
+        (root / 'app.py').write_text(f'# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= {days}\n')
+        git(root, 'commit', '--quiet', '-am', f'fixture task {days}')
+    (root / 'parse.py').write_text(_HANDLER)
+    title = f'FlowGuard（相对任务开始 {start[:7]}，HEAD 之前 2 个提交；新任务先运行 python -m flowguard new-task）'
+    for arguments, pytest_run in _RUNS:
+        code, text = _run(root, *arguments, pytest_run=pytest_run)
+        assert code == 1 and title in text.splitlines(), (arguments, text)
+    code, text = _run(root, 'new-task')
+    head = git(root, 'rev-parse', 'HEAD')
+    assert code == 0 and cache.task_baseline(cfg) == (head, 'task'), text
+    for arguments, pytest_run in _RUNS:
+        code, text = _run(root, *arguments, pytest_run=pytest_run)
+        assert code == 1 and f'FlowGuard（相对任务开始 {head[:7]}）' in text.splitlines(), (arguments, text)
+
+
+def test_check_and_check_static_title_head_standing_in_on_a_detached_head_as_pytest_does(tmp_path):
+    root, cfg = _ledgered(tmp_path)
+    head = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '--quiet', '--detach')
+    (root / 'parse.py').write_text(_HANDLER)
+    for arguments, pytest_run in _RUNS:
+        code, text = _run(root, *arguments, pytest_run=pytest_run)
+        assert code == 1 and f'FlowGuard（相对 HEAD {head[:7]}）' in text.splitlines(), (arguments, text)
+        assert cache.task_baseline(cfg) == (head, 'HEAD'), arguments          # nothing recorded: HEAD stands in
+
+
+def test_a_recorded_task_start_this_repository_lacks_is_named_and_compares_nothing(tmp_path):
+    """A shallow clone, history rewritten and collected, or a cache another clone left: no run compares silently
+    with nothing, nor stops on Git's error; the brief or new-task starts the task at HEAD."""
+    from flowguard.intent import vitest
+    root, cfg = _plain(tmp_path)
+    code, text = _run(root, pytest_run=True)
+    assert code == 0 and cache.task_baseline(cfg)[1] == 'task', text
+    gone = 'b' * 40
+    cache._record_baseline(cfg, gone)
+    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
+    title = f'FlowGuard（记下的任务开始 {gone[:7]} 不在这个仓库里：不比较改前改后；先运行 python -m flowguard new-task）'
+    for arguments, pytest_run in _RUNS:
+        code, text = _run(root, *arguments, pytest_run=pytest_run)
+        assert code == 0 and title in text.splitlines() and '变：' not in text, (arguments, text)
+        assert cache.task_baseline(cfg) == (gone, 'missing') and cache.session_baseline(cfg) is None, arguments
+    assert vitest.prepare(root) == dict(status='off', reason=f'记下的任务开始 {gone[:7]} 不在这个仓库里：执行侧不比较；'
+                                                             '先运行 python -m flowguard new-task')
+    code, text = _run(root)
+    assert code == 0 and f'baseline: recorded {gone[:12]} is not in this repository; the task starts at HEAD' in text, text
+    head = git(root, 'rev-parse', 'HEAD')
+    assert cache.task_baseline(cfg) == (head, 'task')
+    code, text = _run(root, pytest_run=True)
+    assert code == 0 and f'FlowGuard（相对任务开始 {head[:7]}）' in text.splitlines() and '变：LIMIT（app.py:2）' in text, text
