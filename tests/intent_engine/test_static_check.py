@@ -1088,11 +1088,15 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
 def test_the_files_init_writes_bring_no_label_spellings_of_their_own(tmp_path):
     _commit(tmp_path, {
         'package.json': '{"name": "app", "type": "module", "scripts": {"test": "vitest run"}, "devDependencies": {"vitest": "4.1.11"}}\n',
-        'src/flags.ts': "export function known(x: string): boolean {\n  return x === '3' || x === 'c' || x === 'ROOT';\n}\n",
+        # Each spelling has the key and the kind (literal_shape) of one only init's files hold: 'python', '--root'
+        # and 'win32'. Without the exclusion each pair would be a new label lead.
+        'src/flags.ts': "export function known(x: string): boolean {\n  return x === 'Python' || x === '--Root' || x === 'Win32';\n}\n",
     })
     code, text = _flowguard(tmp_path, 'init')
     assert code == 0 and 'Generated flowguard.static.test.mjs (vitest)' in text, text
-    code, text = _static(tmp_path)          # init's '-3', '-c' and '--root' are FlowGuard's, not the project's labels
+    generated = (tmp_path / 'flowguard.vitest.mjs').read_text(encoding='utf-8')
+    assert all(f"'{spelling}'" in generated for spelling in ('python', '--root', 'win32')), generated   # else the test says nothing
+    code, text = _static(tmp_path)          # init's 'python', '--root' and 'win32' are FlowGuard's, not the project's labels
     assert code == 0 and not _lines(text, '线索：标签写法不一致'), text
     code, text = _static(tmp_path, '--all')
     assert 'flowguard.static.test.mjs' not in text and 'flowguard.vitest.mjs' not in text, text

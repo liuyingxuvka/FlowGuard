@@ -8,7 +8,10 @@ from importlib.metadata import version
 
 # How a handler's body ends (the `ends` of a handler fact): it raises or hands the error on on some path, returns
 # or assigns a substitute value, only logs, is empty (a bare return, continue or break says nothing either), or does
-# other work (tells the user, answers a request).
+# other work without returning or assigning a value (tells the user, answers a request). A JS/TS return that answers
+# through a `res`/`reply`/`response`/`ctx` parameter of an enclosing function (`return res.status(500).json(...)`,
+# ecma answers) is such work; every other returned value, a response value or any Python return included, is a
+# substitute.
 ENDINGS = ('handed', 'substitute', 'log', 'empty', 'other')
 
 GRAMMARS = {
