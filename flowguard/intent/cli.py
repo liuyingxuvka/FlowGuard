@@ -1611,39 +1611,61 @@ LEGACY_SECTION = re.compile(r'^##[ \t]+(?P<title>[^\r\n]*?(?:workflow|current-ma
                             r'(?P<body>.*?)(?=^#{1,2}[ \t]|^<!-- flowguard:start -->|\Z)', re.M | re.S | re.I)
 LEGACY_WORDS = re.compile(r'\b0\.70\.\d+|flowguard (?:read|change)\b|\bmap (?:check|confirm)\b|'
                           r'\btarget (?:start|add|check|promote)\b|flowguard_unit_runner|current[- ]map', re.I)
-# A line that still names a command of an earlier FlowGuard, which 4.x does not have. The commands are the ones the git
-# tags give: 0.70.14's read, change, template, target, map and release; status and where came with 0.71 and stayed
-# to 1.4 (the subcommands of map and target are 0.70.14's). A command is written lowercase after a launcher (python,
-# python3.11, py, python.exe), in backquotes or bare, so prose ("a FlowGuard release alone", "python -m flowguard
-# before each task") is not one. A line that only names 0.70 or its files (`.flowguard/models/**`,
-# `flowguard_unit_runner.py` "belong to the earlier 0.70.x workflow") explains them and asks for nothing.
+# A line that still names a command of an earlier FlowGuard, which 4.x does not have. The top-level commands and the
+# releases that had them, as the git tags' flowguard/__main__.py gives them (`ERAS`): read, change, map (0.70.2) and
+# target (0.70.11) up to 0.75; template and release from 0.70.2 to 1.4; status (0.71.0) and where (0.71.1) to 1.4;
+# decide from 0.75 and draft from 1.2, both to 1.4 (4.x drafts with `anchor draft` and `model draft`). The subcommands
+# of map and target are 0.70.14's. After a launcher (python, python3.11, py, python.exe) or a backquote any of them is
+# a command; written bare, only flowguard read, change, `map SUB` and `target SUB` are, all lowercase: the other
+# words are prose after the name ("a FlowGuard release alone", "after each flowguard release", "python -m flowguard
+# before each task"). 0.70's `map check` and `map confirm` are read in any case ("Map check must pass"), also in
+# prose ("the site map check"), which cannot be told from them. A required version (`requires FlowGuard 0.70.14`,
+# `FlowGuard 0.70.x is required`, `flowguard==0.70.14`) and the install tag are 0.70's. A line that only names 0.70
+# or its files (`.flowguard/models/**`, `flowguard_unit_runner.py` "belong to the earlier 0.70.x workflow") explains
+# them and asks for nothing.
+ERAS = {**dict.fromkeys(('read', 'change', 'map', 'target'), '0.70–0.75'), 'template': '0.70–1.4', 'release': '0.70–1.4',
+        'status': '0.71–1.4', 'where': '0.71–1.4', 'decide': '0.75–1.4', 'draft': '1.2–1.4'}
 LAUNCHER = r'\b(?:py|python[\d.]*)(?:\.exe)?\s+'
+MAP_SUB = r'(?:scan|discover|show|find|digest|check|lint|impact|deps|confirm|models|verify)\b'
+TARGET_SUB = r'(?:start|add|drop|check|promote)\b'
 LEGACY_INSTRUCTION = re.compile(
-    rf'(?P<command>(?:{LAUNCHER}-m\s+)?\bflowguard\s+(?:read|change|template|release|status|where'
-    r'|map(?:\s+(?:scan|discover|show|find|digest|check|lint|impact|deps|confirm|models|verify)\b)?'
-    r'|target(?:\s+(?:start|add|drop|check|promote)\b)?)\b'
-    r'|\bmap\s+(?:check|confirm)\b|`target\s+(?:start|add|drop|check|promote)\b)'
+    rf'(?P<command>(?:{LAUNCHER}-m\s+|`)(?i:flowguard)\s+(?:read|change|template|release|status|where|decide|draft'
+    rf'|map(?:\s+{MAP_SUB})?|target(?:\s+{TARGET_SUB})?)\b'
+    rf'|\bflowguard\s+(?:read|change|map\s+{MAP_SUB}|target\s+{TARGET_SUB})\b|\b(?i:map\s+(?:check|confirm))\b'
+    rf'|`target\s+{TARGET_SUB})'
     rf'|(?P<launcher>{LAUNCHER}(?:-m\s+)?(?:[\w.-]+[/\\])*flowguard_unit_runner(?:\.py)?\b)'
     r'|(?P<install>@v0\.70\.\d+)'
-    r'|(?P<requirement>\b(?i:requires?|needs?)\s+(?i:flowguard)\s+\**v?0\.70(?:\.\d+)?)'
+    r'|(?P<requirement>\b(?i:requires?|needs?)\s+(?i:flowguard)\s+\**v?0\.70(?:\.\d+)?'
+    r'|\b(?i:flowguard)\s+\**v?0\.70(?:\.\d+|\.x)?\**\s+(?i:(?:or\s+newer\s+)?is\s+required)'
+    r'|\b(?i:flowguard)(?:\[[\w,-]+\])?\s*[=~]=\s*v?0\.70(?:\.\d+)?)'
     r'|(?P<exception>\b(?i:current[- ]map\s+exception)\b)')
+
+
+def _era(match):
+    """The releases of FlowGuard that had what a `LEGACY_INSTRUCTION` match names: a command's (`ERAS`), else 0.70."""
+    if not match['command']:
+        return '0.70'
+    after = re.search(r'(?i:flowguard)\s+(\w+)', match[0])
+    return ERAS[(after[1] if after else match[0].strip('`').split()[0]).lower()]
 
 
 def _legacy_instructions(content):
     """The lines of the AGENTS.md init writes (`content`, numbered as written) that name an earlier FlowGuard's command,
-    launcher, install or required version (`LEGACY_INSTRUCTION`), each named in full; the rules block init wrote is
-    FlowGuard's own and is not read. A ban ("Do not run `flowguard change`") names the command too."""
+    launcher, install or required version (`LEGACY_INSTRUCTION`), each named in full with the releases that had it;
+    the rules block init wrote is FlowGuard's own and is not read. A ban ("Do not run `flowguard change`") names the
+    command too."""
     lines = []
     inside = False
     for number, line in enumerate(content.splitlines(), 1):
         inside = (inside or line.strip() == '<!-- flowguard:start -->') and line.strip() != '<!-- flowguard:end -->'
         if inside or line.strip() == '<!-- flowguard:end -->':
             continue
-        named = list(dict.fromkeys(match[0].strip('`') for match in LEGACY_INSTRUCTION.finditer(line)))
-        if named:
-            era = ' and '.join(sorted({'1.x' if re.search(r'\b(?:status|where)$', name) else '0.70' for name in named}))
-            lines.append(f'AGENTS.md:{number} names {", ".join(f"`{name}`" for name in named)} from FlowGuard {era}, which '
-                         f'4.x does not have ({line.strip()[:70]}): reword or delete it')
+        eras = {}
+        for match in LEGACY_INSTRUCTION.finditer(line):
+            eras.setdefault(_era(match), {}).setdefault(match[0].strip('`'), None)
+        if eras:
+            named = ' and '.join(', '.join(f'`{name}`' for name in names) + f' from FlowGuard {era}' for era, names in eras.items())
+            lines.append(f'AGENTS.md:{number} names {named}, which 4.x does not have ({line.strip()[:70]}): reword or delete it')
     return lines
 
 
