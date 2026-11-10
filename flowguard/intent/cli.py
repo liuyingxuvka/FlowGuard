@@ -1175,6 +1175,11 @@ _PREFIXED_VERSIONED = re.compile(r'--coverage\.(?:all|thresholds\.(?:autoUpdate|
 _RUNNER_FILES = {'jest': 'jest.js', 'vitest': 'vitest.mjs'}
 # Commands a shell finds without npx: node and the package managers; npx runs any other word of a call.
 _LAUNCHERS = {'node', 'npx', 'pnpm', 'pnpx', 'yarn', 'bun', 'bunx'}
+# node's flag jest needs to load ES module tests, and jest's documented call with it.
+_VM = '--experimental-vm-modules'
+_JEST_ESM = f'node {_VM} node_modules/jest/bin/jest.js'
+# Options that make a call wait for a debugger before it runs (node's, also in NODE_OPTIONS, and vitest's).
+_DEBUGGER = re.compile(r'--inspect-(?:brk|wait)\b|--inspectBrk\b')
 
 
 def _alone(prefix, name):
@@ -1182,6 +1187,17 @@ def _alone(prefix, name):
     words of a script's call up to the runner, and vitest's `run`: `vitest run`, `node --experimental-vm-modules
     node_modules/jest/bin/jest.js`)."""
     return f'{prefix} {name}'
+
+
+def _vm_launch(prefix):
+    """How a line for another script starts jest with node's --experimental-vm-modules, from a call's `prefix`
+    (its words up to the runner): its `cross-env`, its NODE_OPTIONS setting reduced to that flag, `node` with
+    that flag alone, and the runner. The call's other settings (a database URL) and node flags (a debugger that
+    waits, a heap size) belong to it alone. A call that passes the flag another way gives jest's documented call."""
+    words = re.findall(r'(?:[^\s"\']+|"[^"]*"|\'[^\']*\')+', prefix)
+    kept = [f'NODE_OPTIONS={_VM}' if word.startswith('NODE_OPTIONS=') else word for word in words[:-1]
+            if word in ('cross-env', 'node', _VM) or word.startswith('NODE_OPTIONS=') and _VM in word]
+    return ' '.join([*kept, words[-1]]) if any(_VM in word for word in kept) else _JEST_ESM
 
 
 def _from_shell(call):
@@ -1286,7 +1302,7 @@ def _runner_calls(command, runner):
     return calls
 
 
-def _filtered_scripts(cfg, package, runner, name, launch):
+def _filtered_scripts(cfg, package, runner, name, launch, vm):
     """What init did to the test suite scripts (`test`, `test:unit`, `unit`, ...) so one of them runs `name`;
     the script that runs it (None when init can tell of none); and the watch scripts or other suites that run it.
     init reads a call only when every option it has is one it knows to leave the files alone (`_SAFE`:
@@ -1296,7 +1312,9 @@ def _filtered_scripts(cfg, package, runner, name, launch):
     or runs every file (no path, or the package folder). Watch scripts (a name part `watch`, `--watch`, vitest's
     `-w`, `vitest watch`) and integration, end-to-end, database, smoke, acceptance, performance, load or
     benchmark suites (real databases and services; by a part of the name or a folder they run) are never wired
-    and never named as the script that runs it. A script that runs the runner on named folders only (`vitest
+    and never named as the script that runs it, nor are debug scripts (a name part `debug`, or a call that waits
+    for a debugger: `--inspect-brk`). With `vm` (jest loads `name`, an ES module, only under node's
+    --experimental-vm-modules) a call without that flag cannot run it and counts as no call. A script that runs the runner on named folders only (`vitest
     run tests/unit`) skips a test at the package root, so `name` is added to one such script: `test` (what npm
     test runs) first, then `test:unit`, `test-unit`, `test_unit` and `unit`, then other unit names, then shorter
     names, then the order of the file. The check covers the whole repository, so one script is enough: nothing
@@ -1310,7 +1328,8 @@ def _filtered_scripts(cfg, package, runner, name, launch):
     scripts = json.loads(text).get('scripts') or {}
     named, runners, excluded, others, tried, unread = False, [], [], [], [], []
     for index, (script, command) in enumerate(scripts.items()):
-        calls = _runner_calls(command, runner) if isinstance(command, str) and _TEST_SCRIPT.fullmatch(script) else []
+        calls = [call for call in _runner_calls(command, runner) if not vm or _VM in call.prefix] \
+            if isinstance(command, str) and _TEST_SCRIPT.fullmatch(script) else []
         if not calls:
             continue
         words = re.split(r'[:_-]', script.lower())
@@ -1322,7 +1341,7 @@ def _filtered_scripts(cfg, package, runner, name, launch):
         if any(part.startswith('integration') or part in _OTHER_SUITES for part in words + folders):
             (excluded if runs else others).append(script)
             continue
-        if 'watch' in words or any(call.watches for call in calls):
+        if 'watch' in words or 'debug' in words or any(call.watches or _DEBUGGER.search(call.text) for call in calls):
             if runs:
                 excluded.append(script)
             continue
@@ -1381,7 +1400,12 @@ def _npm_check(cfg, package):
         return (f'{cfg.rel(package)} names no test runner (vitest or jest in its dependencies or scripts): no FlowGuard '
                 'test is written there; the check of another package covers the whole repository.')
     runner = 'jest' if ('jest' in named or 'jest' in script) and 'vitest' not in named and 'vitest' not in script else 'vitest'
-    module = runner == 'vitest' or data.get('type') == 'module'
+    # jest loads a test as an ES module only under node's --experimental-vm-modules, and every test as CommonJS
+    # without it, whatever the package's type: the test of a "type": "module" package is an ES module when a script
+    # runs jest with that flag, or none runs jest at all; when its scripts run jest only without it, CommonJS.
+    calls = [call for command in scripts.values() for call in _runner_calls(command, runner)]
+    vm = runner == 'jest' and data.get('type') == 'module' and (not calls or any(_VM in call.prefix for call in calls))
+    module = runner == 'vitest' or vm
     target = package.parent / ('flowguard.static.test.mjs' if runner == 'vitest' else 'flowguard.static.test.js')
     relative = os.path.relpath(cfg.root, package.parent).replace(os.sep, '/')
     if module:
@@ -1397,21 +1421,18 @@ def _npm_check(cfg, package):
     if target.exists() and not target.read_text(encoding='utf-8').startswith(NPM_HEADER):
         raise ValueError(f'{target}: an existing file has this name; rename it, then run init again')
     target.write_text(text, encoding='utf-8', newline='\n')
-    # How the advice starts the runner: as is, but jest runs an ES module test only under node's
-    # --experimental-vm-modules, so in a "type": "module" package the way a script already does it, else as jest's
-    # own documentation spells it.
+    # How the advice starts the runner: as is, but an ES module test of jest under --experimental-vm-modules, the
+    # way the first script that does so starts it (`_vm_launch`), else as jest's own documentation spells it.
     launch = 'vitest run' if runner == 'vitest' else 'jest'
-    if runner == 'jest' and module:
-        launch = next((call.prefix for command in scripts.values() for call in _runner_calls(command, runner)
-                       if '--experimental-vm-modules' in call.prefix),
-                      'node --experimental-vm-modules node_modules/jest/bin/jest.js')
-    lines, runs, excluded = _filtered_scripts(cfg, package, runner, target.name, launch)
+    if vm:
+        launch = next((_vm_launch(call.prefix) for call in calls if _VM in call.prefix), _JEST_ESM)
+    lines, runs, excluded = _filtered_scripts(cfg, package, runner, target.name, launch, vm)
     # The line names the script that runs the file: npm test only when the "test" script itself runs it, and never
     # a watch script or a suite that reaches real databases and services.
     if runs is None:
         left = ', '.join('"' + script + '"' for script in excluded)
         found = (f'in {cfg.rel(package)} only {left} {"runs" if len(excluded) == 1 else "run"} it, and init names no watch '
-                 'script or suite that reaches real databases and services' if excluded else
+                 'or debug script, nor a suite that reaches real databases and services' if excluded else
                  f'init finds no script in {cfg.rel(package)} that runs it')
         call = _alone(launch, target.name)
         static = (f'Generated {cfg.rel(target)} ({runner}), but {found}: add "&& {call}" to the script you run your tests '

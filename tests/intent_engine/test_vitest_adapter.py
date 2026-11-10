@@ -577,7 +577,7 @@ def test_init_never_names_a_watch_script_or_another_suite_as_the_script_that_run
     for folder, left in (('database', '"test:integration" runs'), ('both', '"test:watch", "test:integration" run'),
                          ('named', '"test:watch" runs')):
         assert (f'Generated {folder}/flowguard.static.test.mjs (vitest), but in {folder}/package.json only {left} it, and init '
-                f'names no watch script or suite that reaches real databases and services: {edit}') in text, text
+                f'names no watch or debug script, nor a suite that reaches real databases and services: {edit}') in text, text
 
 
 def test_init_reads_only_whole_folders_as_other_suites(tmp_path):
@@ -761,6 +761,87 @@ def test_init_reads_a_runner_started_through_node_and_spells_each_edit_the_way_j
                 f'({json.loads(start[folder])["scripts"]["test"]}): init cannot tell whether it runs '
                 f'flowguard.static.test.js; if it does not, add "&& {call}" to it yourself') in text, (folder, text)
 
+
+
+def test_init_starts_jest_for_an_es_module_package_without_another_script_s_settings_or_debugger(tmp_path):
+    # Round 25 check: the advice for other scripts copied the whole start of any call with --experimental-vm-modules,
+    # a debugger that waits (--inspect-brk) or an integration suite's database URL with its password included; and
+    # jest's documented debug script counted as the suite that runs the check.
+    node = 'node --experimental-vm-modules node_modules/jest/bin/jest.js'
+    start = _script_packages(tmp_path, {
+        'debugname': (_jest('debugname', {'debug': f'node --inspect-brk --experimental-vm-modules node_modules/jest/bin/jest.js '
+                                                   '--runInBand', 'test': 'echo no tests yet'}, type='module'), []),
+        'debugonly': (_jest('debugonly', {'test:debug': 'node --inspect-brk --experimental-vm-modules '
+                                                        'node_modules/jest/bin/jest.js --runInBand', 'test': 'echo none'},
+                            type='module'), []),
+        'envfirst': (_jest('envfirst', {'test:integration': 'DATABASE_URL=postgres://u:secret@localhost/t '
+                                                            'NODE_OPTIONS=--experimental-vm-modules jest tests/integration',
+                                        'test': 'echo none'}, type='module'), ['tests/integration']),
+        'heap': (_jest('heap', {'test': 'node --max-old-space-size=4096 --experimental-vm-modules node_modules/.bin/jest -t fast'},
+                       type='module'), []),
+        'crossenv': (_jest('crossenv', {'test': 'cross-env NODE_OPTIONS="--experimental-vm-modules --no-warnings" jest -t a'},
+                           type='module'), []),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0 and 'secret' not in text and '--inspect-brk' not in text.replace(start['debugname'], ''), text
+    for folder in start:
+        assert (tmp_path / folder / 'package.json').read_text(encoding='utf-8') == start[folder], (folder, text)
+        assert _says(text, folder, None) is None, (folder, text)
+    advice = lambda folder, call, alone, found=None: (
+        f'Generated {folder}/flowguard.static.test.js (jest), but {found or f"init finds no script in {folder}/package.json that runs it"}: '
+        f'add "&& {call} flowguard.static.test.js" to the script you run your tests with, so it runs python -m flowguard '
+        f'check --static and fails on red ({alone} flowguard.static.test.js runs it alone).')
+    vm = 'NODE_OPTIONS=--experimental-vm-modules jest'
+    for line in (advice('debugname', node, node),
+                 advice('debugonly', node, node, 'in debugonly/package.json only "test:debug" runs it, and init names no '
+                                                 'watch or debug script, nor a suite that reaches real databases and services'),
+                 advice('envfirst', vm, 'NODE_OPTIONS=--experimental-vm-modules npx jest'),
+                 'envfirst/package.json script "test:integration" runs jest on an integration, end-to-end or other suite that '
+                 f'reaches real databases and services: init leaves it alone; to run the check with it, add "&& {vm} '
+                 'flowguard.static.test.js" to it yourself',
+                 advice('heap', 'node --experimental-vm-modules node_modules/.bin/jest',
+                        'node --experimental-vm-modules node_modules/.bin/jest'),
+                 # the edit named for a script still starts jest the way that script does
+                 'heap/package.json script "test" runs jest with -t, which init does not read (node --max-old-space-size=4096 '
+                 '--experimental-vm-modules node_modules/.bin/jest -t fast): init cannot tell whether it runs '
+                 'flowguard.static.test.js; if it does not, add "&& node --max-old-space-size=4096 --experimental-vm-modules '
+                 'node_modules/.bin/jest flowguard.static.test.js" to it yourself',
+                 advice('crossenv', f'cross-env {vm}', f'npx cross-env {vm}')):
+        assert line in text, (line, text)
+
+
+def test_init_writes_a_commonjs_test_for_an_es_module_package_whose_scripts_run_plain_jest(tmp_path):
+    # Round 25 check: a "type": "module" package whose scripts run jest without --experimental-vm-modules loads every
+    # test as CommonJS, so the generated ES module test failed ("Cannot use import statement outside a module") in the
+    # script init had added it to, and the advice spelled two different calls in one output.
+    start = _script_packages(tmp_path, {
+        'plain': (_jest('plain', {'test': 'jest --ci -t one', 'test:unit': 'jest tests/unit'}, type='module'), ['tests/unit']),
+        'bare': (_jest('bare', {'test': 'jest -t fast'}, type='module'), []),
+        'mixed': (_jest('mixed', {'test:legacy': 'jest tests/legacy', 'test': 'NODE_OPTIONS=--experimental-vm-modules jest -t a'},
+                        type='module'), ['tests/legacy']),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0, text
+    for folder in ('plain', 'bare'):
+        generated = (tmp_path / folder / 'flowguard.static.test.js').read_text(encoding='utf-8')
+        assert "require('node:child_process')" in generated and "from 'node:" not in generated, (folder, generated)
+    assert _scripts(tmp_path, 'plain') == {'test': 'jest --ci -t one', 'test:unit': 'jest tests/unit flowguard.static.test.js'}
+    assert _says(text, 'plain', 'npm run test:unit') == 'npm run test:unit', text
+    assert ('plain/package.json script "test" runs jest with -t, which init does not read (jest --ci -t one): init cannot tell '
+            'whether it runs flowguard.static.test.js; if it does not, add "&& jest flowguard.static.test.js" to it yourself'
+            ) in text, text
+    assert ('Generated bare/flowguard.static.test.js (jest), but init finds no script in bare/package.json that runs it: add '
+            '"&& jest flowguard.static.test.js" to the script you run your tests with') in text, text
+    assert '"&& jest flowguard.static.test.js" to it yourself' in text.partition('bare/package.json script "test"')[2], text
+    # a package that runs jest under --experimental-vm-modules keeps the ES module test, and a call without the flag
+    # cannot load it: init neither adds it there nor names that call's way of starting jest
+    generated = (tmp_path / 'mixed/flowguard.static.test.js').read_text(encoding='utf-8')
+    assert "import { spawnSync } from 'node:child_process';" in generated, generated
+    assert (tmp_path / 'mixed/package.json').read_text(encoding='utf-8') == start['mixed'], text
+    assert _says(text, 'mixed', None) is None, text
+    assert ('Generated mixed/flowguard.static.test.js (jest), but init finds no script in mixed/package.json that runs it: add '
+            '"&& NODE_OPTIONS=--experimental-vm-modules jest flowguard.static.test.js"') in text, text
+    assert '&& jest flowguard.static.test.js' not in text.partition('Generated mixed/')[2].partition('Generated ')[0], text
 
 # ---- real vitest -----------------------------------------------------------------------------------
 
