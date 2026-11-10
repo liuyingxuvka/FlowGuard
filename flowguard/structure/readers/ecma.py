@@ -561,7 +561,17 @@ def extract(root, rel, data, module, is_test):
             elif item.type == 'method_definition':
                 continue
 
+    def unset(value):
+        """`undefined` (also `{ set: undefined }`): Prisma leaves the field as it is, so it is no write; null is one."""
+        inner = unwrap(value)
+        if inner is not None and inner.type == 'object' and len(inner.named_children) == 1 \
+                and inner.named_children[0].type == 'pair' and text(field(inner.named_children[0], 'key'), source) == 'set':
+            inner = unwrap(field(inner.named_children[0], 'value'))
+        return inner is not None and (inner.type == 'undefined' or inner.type == 'identifier' and text(inner, source) == 'undefined')
+
     def nested_value(name, value, base, prefix, rows, key, depth):
+        if unset(value):
+            return
         inner = unwrap(value)
         keys = {}
         if inner is not None and inner.type == 'object':

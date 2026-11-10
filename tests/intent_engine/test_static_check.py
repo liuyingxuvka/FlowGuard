@@ -1088,6 +1088,98 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
         '把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
 
 
+# Round 22 E1, hole 1: the four `w1` wrong fixes of the Planning Tool's registered pairs write the partner field as
+# `undefined`, which Prisma leaves as it is. Each passed check --static as if the partner were written.
+E1_SCHEMA = '''
+    model CentralEmployee {
+      id        String @id
+      orgUnitId String
+    }
+
+    model Employee {
+      id                   String @id
+      sapReference         String
+      organizationalUnitId String?
+    }
+
+    model Project {
+      id       String @id
+      leaderId String
+    }
+
+    model ProjectMember {
+      id         String @id
+      projectId  String
+      employeeId String
+      role       String
+    }
+
+    model CentralOrgUnit {
+      id                String @id
+      managerEmployeeId String?
+      managerSapNumber  String?
+    }
+
+    model PspElement {
+      id             Int  @id
+      parentPspId    Int?
+      hierarchyLevel Int
+    }
+'''
+E1_OWNERS = ('// flowguard: owner CentralEmployee.orgUnitId with=Employee.organizationalUnitId\n'
+             '// flowguard: owner Project.leaderId with=ProjectMember.*\n'
+             '// flowguard: owner CentralOrgUnit.managerEmployeeId with=CentralOrgUnit.managerSapNumber\n'
+             '// flowguard: owner PspElement.parentPspId with=PspElement.hierarchyLevel\nexport {};\n')
+E1_WRONG_FIXES = {
+    'CentralEmployee.orgUnitId': '''
+        export async function reassignHomeUnit(prisma: any, id: string, orgUnitId: string) {
+          await prisma.centralEmployee.update({ where: { id }, data: { orgUnitId } });
+          await prisma.employee.updateMany({ where: { sapReference: id }, data: { organizationalUnitId: undefined } });
+        }
+    ''',
+    'Project.leaderId': '''
+        export async function changeProjectLeader(prisma: any, projectId: string, employeeId: string) {
+          return prisma.$transaction(async (tx: any) => {
+            await tx.projectMember.updateMany({ where: { projectId, employeeId }, data: { role: undefined } });
+            await tx.project.update({ where: { id: projectId }, data: { leaderId: employeeId } });
+          });
+        }
+    ''',
+    'CentralOrgUnit.managerEmployeeId': '''
+        export async function setUnitManager(prisma: any, orgUnitId: string, employeeId: string) {
+          await prisma.centralOrgUnit.update({
+            where: { id: orgUnitId },
+            data: { managerEmployeeId: employeeId, managerSapNumber: undefined },
+          });
+        }
+    ''',
+    'PspElement.parentPspId': '''
+        export async function reparentLeafElement(prisma: any, elementId: number, newParentId: number) {
+          await prisma.pspElement.update({
+            where: { id: elementId },
+            data: { parentPspId: newParentId, hierarchyLevel: undefined },
+          });
+        }
+    ''',
+}
+# Prisma's `{ set: undefined }` leaves the field as it is too.
+E1_WRONG_FIXES['PspElement.parentPspId { set }'] = E1_WRONG_FIXES['PspElement.parentPspId'].replace(
+    'hierarchyLevel: undefined', 'hierarchyLevel: { set: undefined }')
+
+
+@pytest.mark.parametrize('case', sorted(E1_WRONG_FIXES))
+def test_a_partner_field_written_as_undefined_is_not_written(tmp_path, case):
+    owner = case.partition(' ')[0]
+    _commit(tmp_path, {'prisma/schema.prisma': E1_SCHEMA, 'src/owners.ts': E1_OWNERS})
+    _write(tmp_path, {'src/change.ts': E1_WRONG_FIXES[case]})
+    code, text = _static(tmp_path)
+    assert code == 1 and [line.partition('：')[0] for line in _lines(text, '红：配对没写 ' + owner + '：src/change.ts:')] == ['红'], text
+    # null is a value Prisma writes: the same change with null holds the pair.
+    _write(tmp_path, {'src/change.ts': E1_WRONG_FIXES[case].replace('undefined', 'null')})
+    code, text = _static(tmp_path)
+    assert code == 0 and '配对没写' not in text, text
+
+
 def test_the_pair_reds_of_two_owners_are_two_lines(tmp_path):
     _commit(tmp_path, {
         'prisma/schema.prisma': '''
