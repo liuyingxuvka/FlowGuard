@@ -470,12 +470,24 @@ def structure_entry(name, decision='换成主人的决定：谁负责、为什�
     return [f'[{STRUCTURE}.' + _quote(name) + ']', 'decision = ' + _quote(decision), 'source = ' + shown]
 
 
+def _near(word, known):
+    """Whether `word` is `known` with one or two letters wrong, missing or extra (`decison`, `sorce`)."""
+    previous = list(range(len(known) + 1))
+    for index, letter in enumerate(word, 1):
+        current = [index]
+        for position, other in enumerate(known, 1):
+            current.append(min(previous[position] + 1, current[-1] + 1, previous[position - 1] + (letter != other)))
+        previous = current
+    return previous[-1] <= 2
+
+
 def structure_decisions(cfg):
     """({name: Decision}, [Finding], [str]): the `[structure]` section of the ledger. A decision has at least eight
     words and a source: `R<n>`, owner words stored with `req add`, or a written rule `{ file, text }` whose
-    sentence the file still contains. A malformed decision is red and silences nothing. An entry with a field this
-    version does not know (a later FlowGuard writes `status`, `sites`, `why`, ...) is not judged: it is one
-    unverified line (the third list), not red, and closes nothing either."""
+    sentence the file still contains. A malformed decision is red and silences nothing, and so is a field one or
+    two letters from decision or source (`decison`). An entry with another field this version does not know (a
+    later FlowGuard writes `status`, `sites`, `why`, ...) is not judged: it is one unverified line (the third
+    list), not red, which also says what is wrong with its decision or source, and it closes nothing either."""
     ledger = path(cfg)
     if not ledger.is_file():
         return {}, [], []
@@ -493,11 +505,13 @@ def structure_decisions(cfg):
         if not isinstance(value, dict):
             red.append(Finding(f'[{STRUCTURE}] 里的 {_quote(name)} 不是条目：值要是一张表', ('按 structure_entry 的写法改正',)))
             continue
-        if unknown := sorted(set(value) - STRUCTURE_FIELDS):
-            later.append(f'结构条目 [{STRUCTURE}.{_quote(name)}] 有这个版本不认识的字段 {"、".join(unknown)}：'
-                         '这个字段需要更新版本的 FlowGuard，升级后再看；这一条现在不关闭任何问题（拼错了就改正）')
-            continue
-        problems = [f'缺少 {key}' for key in sorted(STRUCTURE_FIELDS - set(value))]
+        unknown = sorted(set(value) - STRUCTURE_FIELDS)
+        # A field one or two letters from decision or source is misspelt: the entry is judged as written.
+        misspelt = {key: known for key in unknown for known in sorted(STRUCTURE_FIELDS) if _near(key, known)}
+        newer = [key for key in unknown if key not in misspelt and not misspelt]
+        problems = [f'未知字段 {key}（是 {known} 拼错了？）' for key, known in misspelt.items()]
+        problems += [f'未知字段 {key}' for key in unknown if key not in misspelt and misspelt]
+        problems += [f'缺少 {key}' for key in sorted(STRUCTURE_FIELDS - set(value)) if not newer]
         decision, source = value.get('decision'), value.get('source')
         if 'decision' in value and (not isinstance(decision, str) or words(decision) < MIN_WORDS):
             problems.append(f'decision 至少 {MIN_WORDS} 个词：写明主人定了什么、为什么')
@@ -512,6 +526,13 @@ def structure_decisions(cfg):
                 problems.append(problem.replace('rule', 'source'))
         elif 'source' in value:
             problems.append('source 要写 "R<n>"，或 { file = "文件", text = "该文件里必须出现的一句话" }')
+        if newer:
+            # Fields of a later FlowGuard: the entry is not judged and closes nothing; what is wrong with the fields
+            # this version knows is said on its unverified line.
+            later.append(f'结构条目 [{STRUCTURE}.{_quote(name)}] 有这个版本不认识的字段 {"、".join(newer)}：'
+                         '这个字段需要更新版本的 FlowGuard，升级后再看；这一条现在不关闭任何问题'
+                         + ''.join('；' + problem for problem in problems))
+            continue
         if problems:
             red.append(Finding(f'结构决定 [{STRUCTURE}.{_quote(name)}]：' + '；'.join(problems), ('按 ledger.toml 里的写法改正这一条',)))
             continue

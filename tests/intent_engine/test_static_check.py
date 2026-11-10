@@ -2246,6 +2246,31 @@ def test_a_structure_entry_with_fields_of_a_later_flowguard_is_unverified_and_cl
     assert '写入：Job.status' in text and 'owner 锚点' not in text, text
 
 
+def test_a_later_field_leaves_the_known_fields_checked_and_a_misspelt_field_stays_red(tmp_path):
+    # Round 22 F5 review: an entry with any field this version does not know was set aside unread, so a misspelt
+    # `decison` was no longer red (exit 0) and the unstored source beside it was not shown at all.
+    _commit(tmp_path, WRITERS)
+    ledger = tmp_path / '.flowguard/ledger.toml'
+    ledger.parent.mkdir(exist_ok=True)
+    entry = '[structure."writers:Job.status"]\n'
+    decision = 'decision = "close owns the status; hold and reopen will call close later"\n'
+    ledger.write_text(entry + decision.replace('decision', 'decison', 1) + 'source = "R1"\n', encoding='utf-8')
+    _commit(tmp_path, message='a misspelt entry')
+    code, text = _flowguard(tmp_path, 'ledger', 'check')
+    assert code == 1 and ('红：结构决定 [structure."writers:Job.status"]：未知字段 decison（是 decision 拼错了？）；缺少 decision；'
+                          'source "R1" 不是已存的主人原话') in text, text
+    ledger.write_text(entry + decision + 'sorce = "R1"\n', encoding='utf-8')
+    code, text = _flowguard(tmp_path, 'ledger', 'check')
+    assert code == 1 and '：未知字段 sorce（是 source 拼错了？）；缺少 source' in text, text
+    # A field of a later FlowGuard beside an unstored source: unverified, the source's error on the same line.
+    ledger.write_text(entry + decision + 'source = "R1"\nevidence = "the owner said so in the review"\n', encoding='utf-8')
+    code, text = _flowguard(tmp_path, 'ledger', 'check')
+    line = next(line for line in text.splitlines() if 'evidence' in line)
+    assert code == 0 and '红：' not in text and line.startswith('未核对：结构条目 [structure."writers:Job.status"] 有这个版本不认识的字段 '
+                                                              'evidence：' + LATER), text
+    assert 'source "R1" 不是已存的主人原话' in line, line
+
+
 def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_line(tmp_path):
     _commit(tmp_path, WRITERS)
     code, before = _flowguard(tmp_path)
