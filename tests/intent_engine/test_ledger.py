@@ -740,3 +740,58 @@ export async function body(res: Response) { try { return await res.json(); } cat
                     ('web/routes.ts', 2, 'other'), ('web/routes.ts', 5, 'other'), ('web/routes.ts', 8, 'other'),
                     ('web/routes.ts', 14, 'other'), ('web/routes.ts', 15, 'other'), ('web/routes.ts', 17, 'substitute'),
                     ('web/routes.ts', 19, 'substitute')], ends
+
+
+def test_a_returned_read_through_a_response_name_or_a_response_value_stays_a_substitute(tmp_path):
+    # Only method calls made one on another directly on a parameter named res, reply, response or ctx, the last one
+    # sending the answer, answer the request. A query result or a fetched response kept under such a name, a
+    # property on the way, a read (a header, a context value), a status without an answer, and a returned or assigned
+    # response value return a stand-in: check --all lists them with the substitutes.
+    root = tmp_path / 'shop'
+    write(root, 'web/data.ts', '''export async function loadRows(db: any) {
+  const res = await db.query('SELECT * FROM item');
+  try { return res.rows.map(toItem); } catch (error) { return res.rows.filter(Boolean); }
+}
+export async function fetchConfig(url: string) {
+  const response = await fetch(url);
+  try { return await response.json(); } catch { return response.headers.get('x-default-config'); }
+}
+export async function user(ctx: any) { try { return await load(ctx); } catch { return ctx.get('cachedUser'); } }
+export async function kind(req: any, res: any) { try { await save(req.body); } catch { return res.get('Content-Type'); } }
+export async function page(req: any, res: any) { try { await save(req.body); } catch (error) { return res.app.render('error', { error }); } }
+export async function hold(req: any, res: any) { try { await save(req.body); } catch { return res.status(500); } }
+export async function stale(key: string) { const res = cache.read(key); try { return decode(res); } catch { return res.json({ stale: true }); } }
+export async function hono(c: any) { try { return await work(); } catch (error) { return c.json({ error: 'FAILED' }, 500); } }
+export async function GET(request: Request) { try { return Response.json(await load()); } catch { return Response.json({ error: 'FAILED' }, { status: 500 }); } }
+export async function koa(ctx: any, next: any) { try { await next(); } catch (err: any) { ctx.status = 500; ctx.body = { error: 'FAILED' }; } }
+export async function list(req: any, res: any) { try { res.json(await all()); } catch { return res.status(500).json({ error: 'LIST_FAILED' }); } }
+''')
+    write(root, 'pyproject.toml', '[tool.pytest.ini_options]\n')
+    git(root, 'init', '-q')
+    cfg = load_config(root)
+    with closing(build(root, workers=1)) as graph:
+        ends = sorted((row['line'], row['ends']) for row in graph.handlers())
+        assert ends == [(3, 'substitute'), (7, 'substitute'), (9, 'substitute'), (10, 'substitute'), (11, 'substitute'),
+                        (12, 'substitute'), (13, 'substitute'), (14, 'substitute'), (15, 'substitute'), (16, 'substitute'),
+                        (17, 'other')], ends
+        ledger.init(cfg, graph)
+    with closing(build(root, workers=1)) as graph:
+        listed = ledger.open_legacy(cfg, graph)
+    assert listed[1] == ('   返回或改成替代值 10 条：web/data.ts:15 GET、web/data.ts:7 fetchConfig、web/data.ts:12 hold、'
+                         'web/data.ts:14 hono、web/data.ts:10 kind、web/data.ts:16 koa、web/data.ts:3 loadRows、'
+                         'web/data.ts:11 page、web/data.ts:13 stale、web/data.ts:9 user'), listed
+
+
+def test_a_comment_before_the_returned_or_thrown_value_or_the_handed_error_is_not_that_value(tmp_path):
+    # `return /* to the error middleware */ next(error)` hands the error on like `return next(error)`; a comment
+    # inside the call or before a rethrown error does not hide it either.
+    root = tmp_path / 'shop'
+    write(root, 'web/forward.ts', '''export async function plain(req: any, res: any, next: any) { try { await work(); } catch (error) { return next(error); } }
+export async function noted(req: any, res: any, next: any) { try { await work(); } catch (error) { return /* to the error middleware */ next(error); } }
+export async function inside(req: any, res: any, next: any) { try { await work(); } catch (error) { next(/* to the error middleware */ error); } }
+export async function again() { try { await work(); } catch (error) { throw /* as it came */ error; } }
+''')
+    with closing(build(root, workers=1)) as graph:
+        rows = sorted((row['line'], row['ends'], row['non_raising'], row['hands_on'], row['reraise']) for row in graph.handlers())
+    assert rows == [(1, 'handed', False, ['next'], False), (2, 'handed', False, ['next'], False),
+                    (3, 'handed', False, ['next'], False), (4, 'handed', False, ['throw'], True)], rows

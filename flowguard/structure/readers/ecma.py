@@ -35,8 +35,11 @@ WRAPPERS = {'parenthesized_expression', 'as_expression', 'satisfies_expression',
             'type_assertion', 'await_expression'}
 EQUALITY = {'===', '!==', '==', '!='}
 LOG_OBJECTS = {'console', 'logger', 'log', 'logging'}
-# The response object a request handler answers through (Express `res`, Fastify `reply`, Koa/Hono `ctx`).
+# The parameter names of the object a request handler answers through (Express `res`, Fastify `reply`, Koa `ctx`;
+# a Hono context counts under these names, not under its usual `c`), and the methods that send the answer.
 RESPONSE_OBJECTS = {'res', 'reply', 'response', 'ctx'}
+ANSWER_METHODS = {'json', 'jsonp', 'send', 'sendStatus', 'sendFile', 'download', 'end', 'redirect', 'render', 'text',
+                  'html'}
 PRISMA_WRITES = {'create', 'createMany', 'createManyAndReturn', 'update', 'updateMany', 'updateManyAndReturn',
                  'upsert', 'delete', 'deleteMany'}
 PRISMA_ARGS = {'data', 'where', 'create', 'update', 'select', 'include', 'omit'}
@@ -72,6 +75,12 @@ def unwrap(node):
     while node is not None and node.type in WRAPPERS and node.named_children:
         node = node.named_children[0]
     return node
+
+
+def value_of(statement):
+    """The value a `return`, `throw` or expression statement carries: its first named child that is not a comment
+    (`return /* to the error middleware */ next(error)` returns `next(error)`)."""
+    return next((child for child in statement.named_children if child.type not in COMMENTS), None)
 
 
 def operator(node):
@@ -213,7 +222,7 @@ def extract(root, rel, data, module, is_test):
             return ''
         callee, args = field(call, 'function'), field(call, 'arguments')
         name = text(callee, source)
-        first = args.named_children[0] if args is not None and args.named_children else None
+        first = value_of(args) if args is not None else None
         if name == 'Promise.reject':
             return 'Promise.reject'
         if error and first is not None and first.type == 'identifier' and text(first, source) == error \
@@ -235,13 +244,13 @@ def extract(root, rel, data, module, is_test):
                 handed.add('throw')
                 falls = False
             elif kind == 'return_statement':
-                value = item.named_children[0] if item.named_children else None
+                value = value_of(item)
                 how = hands_on(value, error, callbacks) if value is not None else ''
                 falls, leaves = False, leaves or not how
                 if how:
                     handed.add(how)
             elif kind == 'expression_statement':
-                how = hands_on(item.named_children[0], error, callbacks) if item.named_children else ''
+                how = hands_on(value_of(item), error, callbacks) if value_of(item) is not None else ''
                 if how:
                     handed.add(how)
                     falls = False
@@ -293,41 +302,39 @@ def extract(root, rel, data, module, is_test):
         last = text(receiver, source).rsplit('.', 1)[-1] if receiver is not None else ''
         return last in LOG_OBJECTS or last.endswith(('Logger', 'logger'))
 
-    def answers(value):
-        """`res.status(500).json({...})`, `reply.code(500).send(...)`, `res.end()`: a call chain on a response
-        object (RESPONSE_OBJECTS) answers the request. A chain of calls without arguments that ends in neither
-        `end()` nor `send()` (`res.text()`, `response.json()`) reads a fetched response instead."""
-        node, passed, method = unwrap(value), False, ''
-        if node is None or node.type != 'call_expression':
-            return False
-        while node is not None and node.type in ('call_expression', 'member_expression'):
-            if node.type == 'call_expression':
-                arguments = field(node, 'arguments')
-                passed = passed or any(item.type not in COMMENTS for item in (arguments.named_children if arguments else []))
-                node = unwrap(field(node, 'function'))
-            else:
-                method = method or text(field(node, 'property'), source)
-                node = unwrap(field(node, 'object'))
-        return (node is not None and node.type == 'identifier' and text(node, source) in RESPONSE_OBJECTS
-                and (passed or method in ('end', 'send')))
+    def answers(value, parameters):
+        """`res.status(500).json({...})`, `reply.code(500).send(...)`, `res.end()`: method calls made one on another
+        directly on a parameter of an enclosing function named as a response object (RESPONSE_OBJECTS), the last of
+        them an answer method (ANSWER_METHODS), answer the request. Not an answer: a property on the way
+        (`res.rows.map(f)`, `response.headers.get(name)`), another last method (`ctx.get('user')`,
+        `res.get('Content-Type')`), a local of that name (`const res = await db.query(...)`), or a chain without an
+        argument that ends in neither `end()` nor `send()` (`res.text()`, `response.json()` read a fetched response)."""
+        node, passed, last = unwrap(value), False, None
+        while node is not None and node.type == 'call_expression':
+            callee, arguments = unwrap(field(node, 'function')), field(node, 'arguments')
+            if callee is None or callee.type != 'member_expression':
+                return False
+            passed = passed or any(item.type not in COMMENTS for item in (arguments.named_children if arguments else []))
+            last = text(field(callee, 'property'), source) if last is None else last
+            node = unwrap(field(callee, 'object'))
+        return (last in ANSWER_METHODS and node is not None and node.type == 'identifier'
+                and text(node, source) in RESPONSE_OBJECTS & parameters and (passed or last in ('end', 'send')))
 
-    def ending(body, handed):
+    def ending(body, handed, parameters):
         """How a catch body ends (common.ENDINGS): it raises or hands the error on somewhere, returns or assigns a
         substitute, only logs, is empty (a bare `return;`, `continue;` or `break;` leaves without a value or a
         word), or does other work (reports it to the user, answers a request, also by returning the answer:
-        `return res.status(500).json(...)`)."""
-        def returned(item):
-            return next((child for child in item.named_children if child.type not in COMMENTS), None)
+        `return res.status(500).json(...)`, see answers)."""
         statements = [item for item in (body.named_children if body is not None else []) if item.type not in COMMENTS
                       and item.type not in ('continue_statement', 'break_statement')
-                      and not (item.type == 'return_statement' and returned(item) is None)]
+                      and not (item.type == 'return_statement' and value_of(item) is None)]
         if handed:
             return 'handed'
         if not statements:
             return 'empty'
         if all(logged(item) for item in statements):
             return 'log'
-        if any(item.type == 'return_statement' and returned(item) is not None and not answers(returned(item))
+        if any(item.type == 'return_statement' and value_of(item) is not None and not answers(value_of(item), parameters)
                or item.type in ('assignment_expression', 'augmented_assignment_expression') for item in own_nodes(body)):
             return 'substitute'
         return 'other'
@@ -337,19 +344,19 @@ def extract(root, rel, data, module, is_test):
         error = text(parameter, source) if parameter is not None and parameter.type == 'identifier' else ''
         caught = 'any'            # A JS/TS catch takes every thrown value; the parameter name is not a type.
         annotation = field(node, 'type')
-        handed = set()
-        falls, leaves = outcome(body.named_children if body else [], error, enclosing_parameters(node), handed)
+        handed, parameters = set(), enclosing_parameters(node)
+        falls, leaves = outcome(body.named_children if body else [], error, parameters, handed)
         throws = [item for item in own_nodes(body)] if body is not None else []
         function = named_scope(scope)
         out['handlers'].append(dict(node=owner, file=rel, kind='catch', type=caught, name=error or None,
             annotation=text(annotation.named_children[0], source) if annotation is not None and annotation.named_children else '',
             raises=any(item.type == 'throw_statement' for item in throws),
-            reraise=bool(error) and any(item.type == 'throw_statement' and item.named_children
-                                        and unwrap(item.named_children[0]) is not None
-                                        and text(unwrap(item.named_children[0]), source) == error for item in throws),
+            reraise=bool(error) and any(item.type == 'throw_statement' and unwrap(value_of(item)) is not None
+                                        and text(unwrap(value_of(item)), source) == error for item in throws),
             non_raising=falls or leaves, propagates=sorted(handed) if not (falls or leaves) else [],
             hands_on=sorted(handed), function=function, key=f'{rel}:{function}:{caught}',
-            ends=ending(body, handed | ({'throw'} if any(item.type == 'throw_statement' for item in throws) else set())),
+            ends=ending(body, handed | ({'throw'} if any(item.type == 'throw_statement' for item in throws) else set()),
+                        parameters),
             body=text(body, source), **position(node, source)))
 
     # ---- string literals that decide or name a value -----------------------------------------
