@@ -961,6 +961,52 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     assert not [line for line in text.splitlines() if line.startswith('未验证') and 'fee-preview.ts' in line], text
 
 
+def test_a_test_that_mocks_node_fs_promises_still_runs_a_changed_function(vitest_home):
+    # Round 22 E3: in the Planning Tool, three tests mock node:fs/promises with a factory that has no default
+    # export. Once a function their modules load was changed, FlowGuard wrapped it, its runtime imported the
+    # default export of node:fs/promises inside the test's module graph, and vitest failed the whole file:
+    # 'No "default" export is defined on the "node:fs/promises" mock'. The runtime reads Node's own modules now.
+    root = vitest_home / 'mocked-fs'
+    _commit(root, {
+        'package.json': '{"name": "mocked-fs", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
+                        '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
+        'src/store.ts': """
+            import { writeFile } from 'node:fs/promises';
+
+            export function fileName(id: number): string {
+              return `item-${id}.json`;
+            }
+
+            export async function save(id: number, body: string): Promise<void> {
+              await writeFile(fileName(id), body);
+            }
+        """,
+        'tests/store.test.ts': """
+            import { expect, it, vi } from 'vitest';
+
+            const io = vi.hoisted(() => ({ writeFile: vi.fn() }));
+            vi.mock('node:fs/promises', () => io);
+
+            import { fileName, save } from '../src/store';
+
+            it('names and saves an item', async () => {
+              expect(fileName(3)).toBe('item-3.json');
+              await save(3, '{}');
+              expect(io.writeFile).toHaveBeenCalledWith('item-3.json', '{}');
+            });
+        """,
+    })
+    code, text = _flowguard(root, 'init')
+    assert code == 0, text
+    _commit(root, message='flowguard init')
+    store = root / 'src/store.ts'      # the same answers, written differently: FlowGuard wraps the edited function
+    store.write_text(store.read_text(encoding='utf-8').replace('return `item-${id}.json`;', "return 'item-' + id + '.json';"),
+                     encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)
+    assert 'No "default" export' not in text and code == 0, text
+    assert '1 passed' in text.split('Test Files')[-1] or 'passed' in text, text
+
+
 def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_change(vitest_home):
     root = _fees_project(vitest_home, 'again')
     _sensor(root, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
@@ -1108,6 +1154,41 @@ def test_a_replay_refuses_writes_and_database_clients_and_the_real_call_still_ru
     assert '未验证 2 项（不是通过）' in text, text
     assert '未验证：AUDITED_FEE：看不清：回放中碰到 fs.appendFileSync，回放作废' in text, text
     assert '未验证：ACTIVE_COUNT：看不清：函数里用到数据库客户端，不回放' in text, text
+
+
+def test_a_replay_refuses_an_fs_promises_write_through_the_modules_node_itself_loads(vitest_home):
+    # The runtime takes Node's modules from require (round 22 E3); the guard must still refuse a write that the
+    # project makes through its own ESM import of node:fs/promises.
+    root = vitest_home / 'promised-write'
+    _commit(root, {
+        'package.json': '{"name": "promised-write", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
+                        '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
+        'src/noted.ts': """
+            import { appendFile } from 'node:fs/promises';
+
+            export function notedFee(days: number): number {
+              void appendFile('notes.log', `fee ${days}\\n`);
+              return days * 2;
+            }
+        """,
+        'tests/noted.test.ts': """
+            import { expect, it } from 'vitest';
+            import { notedFee } from '../src/noted';
+
+            it('notes a fee', async () => {
+              expect(notedFee(4)).toBe(8);
+              await new Promise((done) => setTimeout(done, 50));
+            });
+        """,
+    })
+    code, text = _flowguard(root, 'init')
+    assert code == 0, text
+    _commit(root, message='flowguard init')
+    _sensor(root, 'src/noted.ts', 'export function notedFee', 'NOTED_FEE')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0, text
+    assert (root / 'notes.log').read_text(encoding='utf-8') == 'fee 4\n', text       # only the test's own call wrote
+    assert '未验证：NOTED_FEE：看不清：回放中碰到 fs.promises.appendFile，回放作废' in text, text
 
 
 def test_the_adapter_spells_windows_and_vite_ids_as_one_file(tmp_path):
