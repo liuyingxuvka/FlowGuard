@@ -31,7 +31,7 @@ def test_flowguard_intent(request):
 PROJECT_RULES = '''<!-- flowguard:start -->
 ## FlowGuard rules for the project agent
 
-1. Run the project's tests and read the FlowGuard lines; every red and lead ends with the next step: do it, and when it says to tell the owner, tell the owner before changing the structure.
+1. Start each task with `python -m flowguard new-task` (it records the task's baseline; commits during the task keep it). Run the project's tests and read the FlowGuard lines; every red and lead ends with the next step: do it, and when it says to tell the owner, tell the owner before changing the structure.
 2. A judgment or a field that must agree everywhere has one owner: `# flowguard: owner NAME` above it, `# flowguard: sensor NAME` above each copy, `writers=` on a data owner.
 3. A rule the owner set that must keep holding goes into `tests/intent/`, its source the owner's words stored once, byte for byte, with `python -m flowguard req add <file|-> --id <id>`.
 <!-- flowguard:end -->
@@ -608,9 +608,13 @@ def _more_leads(command, everything, base):
 
 
 def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
-    """Run the one ordinary pytest route; source validation executes no code. `leads` prints every lead."""
+    """Run the one ordinary pytest route; source validation executes no code. `leads` prints every lead.
+    Without `base` the first check of a task records HEAD as its baseline when none is recorded; a recorded
+    one stays, as in pytest (`cache.task_baseline`)."""
     from .plugin import collect_signals
     from .signals import render as render_signals
+    if base is None:
+        cache.task_baseline(cfg, record=True)
     with collect_signals() as reports:
         status = _check(cfg, everything=everything, since=since, deep=deep, base=base, reports=reports)
     from .differences import _source_index, _compare_pairs
@@ -687,9 +691,12 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     missing columns and touched structure problems. The report is rendered as at the end of an ordinary
     test run; only what this change adds is reported unless `everything` (`--all`), which also lists every
     open structure problem. `leads` (`--leads`) prints every lead instead of the first ones. Exit 1 when
-    anything is red."""
+    anything is red. Without `base` the first run of a task records HEAD as its baseline when none is recorded;
+    a recorded one stays, as in pytest (`cache.task_baseline`)."""
     from . import anchors, health, ledger as fallbacks, owners
     from .signals import render as render_signals
+    if base is None:
+        cache.task_baseline(cfg, record=True)
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
         found = owners.static_findings(cfg, graph, index, base, everything=everything)
@@ -1318,8 +1325,8 @@ def _legacy_agents(content, rules, newline, languages):
     extra = '[languages]' if languages else ''
     content, installs = re.subn(r'flowguard(?:\[[\w,]+\])? @ (git\+\S+?)@v0\.70\.\d+',
                                 lambda match: f'flowguard{extra} @ {match[1]}@v{__version__}', content)
-    content, versions = re.subn(r'(\bUse\s+FlowGuard\s+\**|FlowGuard\s+\*\*)0\.70\.\d+',
-                                lambda match: match[1] + __version__, content)
+    # Only the pinned statement; any other bold 'FlowGuard **0.70.x**' says what 0.70 was and is listed below.
+    content, versions = re.subn(r'(\bUse\s+FlowGuard\s+\**)0\.70\.\d+', lambda match: match[1] + __version__, content)
     lines = [f'AGENTS.md: the FlowGuard 0.70 section "{title}" is replaced by the project rules block' for title in removed]
     if installs or versions:
         lines.append(f'AGENTS.md: the FlowGuard version and install line now name {__version__}')

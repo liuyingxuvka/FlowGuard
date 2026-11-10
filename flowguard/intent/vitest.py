@@ -6,7 +6,8 @@ disagreed in the last report (`DISAGREED`): those are compared again. Otherwise 
 as the pytest side does, the anchored functions (`// flowguard: sensor NAME`) and the functions this change
 edited: their positional parameters, representative values from cells (the compared constants of the map's
 ecma facts, folded names and table keys included), same-name copies and the baseline sources. The plan is
-cached by a fingerprint of the baseline commit, the changed files and the reader.
+cached by a fingerprint of the baseline commit (and whether it is a recorded task start or HEAD standing in),
+the changed files and the reader.
 
 `report` runs after the tests. It reads what the Node adapter recorded and makes every judgment the way the
 pytest side does: what changed against the baseline per case class, which same-name sensors disagree, which
@@ -60,10 +61,12 @@ def _digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def _key(cfg, commit, changed):
+def _key(cfg, commit, changed, kind):
+    """The plan's fingerprint; `kind` is part of it, as the plan's title says whether its commit is a recorded
+    task start or HEAD."""
     from ..structure.store import reader_digest
     own = [Path(__file__), *sorted(ADAPTER.glob('*.mjs'))]
-    parts = [commit, reader_digest(), *(_digest(path.read_bytes()) for path in own)]
+    parts = [commit, kind, reader_digest(), *(_digest(path.read_bytes()) for path in own)]
     for rel in changed:
         path = cfg.root / rel
         parts.append(rel + ':' + (_digest(path.read_bytes()) if path.is_file() else 'deleted'))
@@ -304,8 +307,10 @@ def prepare(root):
     cfg = load_config(root)
     if git_common_directory(cfg.root) is None:
         return dict(status='off', reason='不是 git 仓库：没有基准提交，执行侧不比较')
-    baseline = cache.session_baseline(cfg) or 'HEAD'
-    found = git_run(cfg.root, 'rev-parse', '-q', '--verify', baseline + '^{commit}', allowed=(0, 1))
+    # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
+    # stands in, and the title says so.
+    baseline, kind = cache.task_baseline(cfg)
+    found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (baseline or 'HEAD') + '^{commit}', allowed=(0, 1))
     if found.returncode:
         return dict(status='off', reason='还没有提交：没有基准，执行侧不比较')
     commit = found.stdout.decode().strip()
@@ -315,11 +320,11 @@ def prepare(root):
         return dict(status='off', reason='相对基准没有 TS/JS 改动：执行侧不准备')
     # Without a change, the same-name sensors that disagreed last time are compared again (every sensor is
     # planned, as in a run with a change); the record clears once they agree or are no longer anchored.
-    key = _key(cfg, commit, changed or ['same-name:' + name for name in again])
+    key = _key(cfg, commit, changed or ['same-name:' + name for name in again], kind)
     path = cfg.cache / 'vitest' / f'plan-{key}.json'
     if not path.is_file():
         data = plan(cfg, commit, changed, key)
-        data['baseline_kind'] = 'task' if baseline != 'HEAD' else 'HEAD'
+        data['baseline_kind'] = kind
         path.parent.mkdir(parents=True, exist_ok=True)
         for old in path.parent.glob('plan-*.json'):
             old.unlink()                # one current plan; an older one belongs to another change

@@ -158,6 +158,11 @@ def test_a_new_baseline_drops_the_stored_comparisons(tmp_path):
     assert pytest_run(root)[0].returncode == 0
     (old, baseline), = stored(root)
     _git(root, 'commit', '-qam', 'accept the change')
+    # The first run recorded the task baseline and a commit keeps it; the next task's baseline is HEAD.
+    bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); from flowguard.__main__ import main; raise SystemExit(main(sys.argv[1:]))'
+    started = subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '--root', str(root), 'new-task'],
+                             cwd=root, capture_output=True, text=True, timeout=120)
+    assert started.returncode == 0, started.stdout + started.stderr
     table = root / 'shop/table.py'
     table.write_text(table.read_text().replace('(a and not b)', '(not b and a)'))
     result, text = pytest_run(root)

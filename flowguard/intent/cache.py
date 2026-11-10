@@ -21,14 +21,33 @@ def put_meta(con, name, text):
 
 
 def session_baseline(cfg, *, remember=False):
-    """One task-start commit in the existing SQLite meta; ordinary tests only read it. `remember` is the
-    brief's call (`remember_baseline`), which keeps a task's baseline while HEAD descends from it."""
-    if remember:
-        return remember_baseline(cfg)[0]
+    """The comparison commit: `task_baseline`'s, recording nothing. `remember` is the brief's call
+    (`remember_baseline`), which keeps a task's baseline while HEAD descends from it."""
+    return remember_baseline(cfg)[0] if remember else task_baseline(cfg)[0]
+
+
+def task_baseline(cfg, *, record=False):
+    """(commit, kind) of the task-start commit in the existing SQLite meta: kind 'task' for a recorded one,
+    'HEAD' when nothing is recorded and HEAD stands in; (None, None) outside Git or before the first commit.
+    `record` is the call of pytest with the plugin and of `check` and `check --static` without an explicit
+    baseline: when nothing is recorded it records HEAD, so a task that never runs the brief gets its baseline
+    at its first run. It never moves a recorded baseline, not even one HEAD does not descend from (a run on
+    another branch, an older commit, a bisect step, IDE test discovery after a branch switch): only the brief
+    and new-task move it (`remember_baseline`), and they say why, so a run elsewhere neither hides what the
+    task committed nor blames an older commit's changes on it. Other readers (vitest, `ledger check`,
+    `debug watch`) record nothing."""
     if git_common_directory(cfg.root) is None:
-        return None
+        return None, None
     recorded = _recorded_baseline(cfg)
-    return recorded if recorded is not None else git_head(cfg.root)
+    if recorded is not None:
+        return recorded, 'task'
+    head = git_head(cfg.root)
+    if head is None:
+        return None, None
+    if record:
+        _record_baseline(cfg, head)
+        return head, 'task'
+    return head, 'HEAD'
 
 
 def _recorded_baseline(cfg):
@@ -51,12 +70,20 @@ def _recorded_baseline(cfg):
         raise MapError(f'{path}: task baseline could not be read: {error}') from error
 
 
+def _record_baseline(cfg, commit):
+    """The one write of the task baseline."""
+    from ..structure.store import connect
+    with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
+        put_meta(con, 'task_baseline', json.dumps({'commit': commit}))
+
+
 def remember_baseline(cfg, *, new_task=False):
     """(commit, note) of the brief. The task baseline is recorded at HEAD only when none is recorded, when
     the recorded commit is not an ancestor of HEAD (another branch, rewritten history, a commit this clone
     lacks) or when `new_task` starts the next task (`python -m flowguard new-task`). Commits made during a
     task keep its baseline, so what the task changed stays reported. `note` says why the baseline is where
-    it is, '' when it was recorded at HEAD with nothing recorded before."""
+    it is, '' when it was recorded at HEAD with nothing recorded before. Test runs only record a missing
+    baseline (`task_baseline(record=True)`); moving one is this call's alone, as it says why."""
     from flowguard.map.common import git_run
     if git_common_directory(cfg.root) is None:
         return None, ''
@@ -71,9 +98,7 @@ def remember_baseline(cfg, *, new_task=False):
             note = (f'baseline: task start, {ahead} commit{"s" * (ahead != 1)} before HEAD; next task: python -m flowguard new-task'
                     if ahead else '')
             return recorded, note
-    from ..structure.store import connect
-    with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
-        put_meta(con, 'task_baseline', json.dumps({'commit': head}))
+    _record_baseline(cfg, head)
     if new_task:
         return head, f'baseline: new task from HEAD {head[:12]}' + (f' (was {recorded[:12]})' if recorded else '')
     if recorded is not None and recorded != head:
