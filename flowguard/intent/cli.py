@@ -635,6 +635,18 @@ def watch(cfg, command):
 
 
 
+def _same_name_red(name, witness, answers, total):
+    """The red of same-name copies that differ on `witness`, worded as pytest words it (`signals.copy_answers`)."""
+    from . import cells as C
+    from .calibration import outcome_equal
+    from .signals import copy_answers
+    places = [(f'{anchor.file}:{anchor.target_line} {anchor.qual}', value) for anchor, value in answers]
+    owner = next((place for (place, _), (anchor, _) in zip(places, answers) if anchor.owner), None)
+    text, step = copy_answers(places, outcome_equal, C.show, owner=owner, total=total)
+    return (f'同名锚点 {name}：' + ', '.join(f'{key}={value}' for key, value in witness.items())
+            + f'，{text} -> {step}；有意不同，就改用不同的锚点名并写 distinct')
+
+
 def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
     """Run the one ordinary pytest route; source validation executes no code. `leads` prints every lead.
     Without `base` the first check of a task records HEAD as its baseline when none is recorded; a recorded
@@ -656,11 +668,15 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
                         key=lambda anchor: not anchor.owner)
         if len(copies) < 2:
             continue
-        compared = _compare_pairs(cfg.root, [(copies[0], other) for other in copies[1:]])
+        compared = _compare_pairs(cfg.root, [(copies[0], other) for other in copies[1:]], answers=True)
         items = compared['items'] or [dict(name=name, status=compared['status'], reasons=compared['reasons'], complete=False)]
+        red = compared['reasons'] if compared['status'] == 'red' and not compared['changes'] else []
+        if len(compared.get('answers', ())) > 1:
+            # Where the copies differ, the red pytest gives: what each one answers, the owner the reference.
+            red = [_same_name_red(name, compared['witness'], compared['answers'], len(copies))]
+            items = [item for item in items if not item['changes']]
         reports.append(dict(source_changed=compared['status'] != 'ok',
-                            items=[dict(item, comparison=True, same_name=True) for item in items],
-                            red=compared['reasons'] if compared['status'] == 'red' and not compared['changes'] else []))
+                            items=[dict(item, comparison=True, same_name=True) for item in items], red=red))
         status = status or int(compared['status'] == 'red')
     found = _owner_findings(cfg, everything=everything, base=base)
     if found.red or found.leads or found.section:

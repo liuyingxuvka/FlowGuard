@@ -210,8 +210,10 @@ def _source_index(root, graph=None):
     return anchors.Index(index.entries, index.issues + tuple(issue for issue in unreadable if issue.file not in known))
 
 
-def _compare_pairs(root, pairs):
-    """Compare current source anchors; historical replay is Runtime's job."""
+def _compare_pairs(root, pairs, *, answers=False):
+    """Compare current source anchors; historical replay is Runtime's job. With `answers` (same-name copies, the
+    reference first in every pair) the result also holds what every compared copy answers on the first input
+    where a pair differs, run once more: `answers` [(anchor, value)] and `witness` {name: shown value}."""
     from .anchors import decision_reading
     from .calibration import execute_many
     prepared_at = time.perf_counter()
@@ -252,7 +254,17 @@ def _compare_pairs(root, pairs):
         items.append(item)
         reasons.extend(item['reasons'])
         offset += size * 2
-    return dict(status='red' if conflict or any(item['changed'] for item in items) else 'grey' if reasons else 'ok',
+    extra = {}
+    changed = next(((left, right, partition, item) for (left, right, partition), item in zip(selected, items)
+                    if item['changes']), None)
+    if answers and changed:
+        left, right, partition, item = changed
+        region = next(region for region in partition.regions if region.label == item['changes'][0]['region'])
+        copies = list({anchor.target: anchor for pair in selected for anchor in pair[:2]}.values())
+        observed = execute_many(root, [(anchor, region.inputs) for anchor in copies])
+        extra = dict(answers=[(anchor, seen.value) for anchor, seen in zip(copies, observed) if seen.status == 'ok'],
+                     witness={key: C.show(value) for key, value in region.inputs.items()})
+    return dict(**extra, status='red' if conflict or any(item['changed'] for item in items) else 'grey' if reasons else 'ok',
                 total=sum(item['total'] for item in items),
                 checked=sum(item['checked'] for item in items), unknown=sum(item['unknown'] for item in items),
                 changed=sum(item['changed'] for item in items),

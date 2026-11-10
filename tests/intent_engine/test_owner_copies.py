@@ -161,7 +161,8 @@ def test_parameters_correspond_only_by_name_unless_the_copy_writes_its_mapping(t
     _project(tmp_path, {'policy.py': mapped})
     code, text = _check(tmp_path)
     assert code == 1, text
-    assert re.search(r'红 同名锚点 ELIGIBLE（policy:owner ↔ policy:copy）', text) and 'days=4' in text, text
+    assert ('红：同名锚点 ELIGIBLE：days=4，2 份：1 份得 F（负责人 policy.py:2 owner），1 份得 T（policy.py:5 copy） -> '
+            '让 policy.py:5 copy 和负责人一致；') in text, text
 
 
 def test_math_is_not_grey_and_representatives_include_halves_and_non_finite_values(tmp_path):
@@ -185,7 +186,8 @@ def test_math_is_not_grey_and_representatives_include_halves_and_non_finite_valu
     '''})
     code, text = _check(tmp_path)
     assert code == 1, text
-    assert '红 同名锚点 ROUND（rounding:away ↔ rounding:up）' in text, text
+    assert ('红：同名锚点 ROUND：value=-0.5，2 份：1 份得 -1（负责人 rounding.py:6 away），1 份得 0（rounding.py:13 up） -> '
+            '让 rounding.py:13 up 和负责人一致；') in text, text
     assert 'not proved pure' not in text and 'import is unresolved' not in text, text
     from flowguard.intent import cells
     assert {-2.5, -0.5, 0.5, 2.5}.issubset(cells.representatives(cells.Kind('float')))
@@ -274,6 +276,40 @@ def test_two_same_name_copies_are_one_answer_each_and_an_owner_stays_the_referen
     red, text = _same_name_red(tmp_path, _copies(3, 4, owner=True))
     assert red == ['红：同名锚点 LIMIT：days=4，2 份：1 份得 F（负责人 limits.py:2 chart），1 份得 T（limits.py:7 calendar）'
                    ' -> 让 limits.py:7 calendar 和负责人一致；有意不同，就改用不同的锚点名并写 distinct'], text
+
+
+def _checked_red(root, source):
+    (root / 'limits.py').write_text(source, encoding='utf-8')
+    code, text = _check(root)
+    assert code == 1, text
+    return sorted(line for line in text.splitlines() if line.startswith('红')), text
+
+
+def test_check_sends_a_changed_copy_back_to_the_owner_and_counts_every_copys_answer(tmp_path):
+    # Round 22 F1 review: with the owner chart among the copies left as they were, check said `→ 一起改，或改成调用
+    # report`, the owner after its copy; its comparison listed chart ↔ report only, `F → T` read as the change, and
+    # named no owner.
+    _project(tmp_path, {'limits.py': _copies(3, 3, 3, owner=True)})
+    red, text = _checked_red(tmp_path, _copies(3, 3, 4, owner=True))
+    assert red == ['红：同名锚点 LIMIT：days=4，3 份：2 份得 F（负责人 limits.py:2 chart、limits.py:7 calendar），'
+                   '1 份得 T（limits.py:12 report） -> 让 limits.py:12 report 和负责人一致；有意不同，就改用不同的锚点名并写 distinct',
+                   '红：锚点 LIMIT：report（limits.py:12）改了行为；原来和它行为相同的 2 份没改：limits.py:7  limits.py:2'
+                   ' → 让 report 回到负责人 chart（limits.py:2）的行为'], text
+    # The owner changed: its copies follow it.
+    red, text = _checked_red(tmp_path, _copies(4, 3, 3, owner=True))
+    assert red == ['红：同名锚点 LIMIT：days=4，3 份：1 份得 T（负责人 limits.py:2 chart），2 份得 F（limits.py:7 calendar、'
+                   'limits.py:12 report） -> 让 limits.py:7 calendar、limits.py:12 report 和负责人一致；有意不同，就改用不同的锚点名并写 distinct',
+                   '红：负责人 LIMIT：chart（limits.py:2）改了行为；原来和它行为相同的 2 份没改：limits.py:7  limits.py:12'
+                   ' → 一起改，或改成调用 chart'], text
+
+
+def test_check_leaves_the_choice_between_copies_when_none_is_the_owner(tmp_path):
+    _project(tmp_path, {'limits.py': _copies(3, 3, 3)})
+    red, text = _checked_red(tmp_path, _copies(3, 3, 4))
+    assert red == ['红：同名锚点 LIMIT：days=4，3 份：2 份得 F（limits.py:2 chart、limits.py:7 calendar），'
+                   '1 份得 T（limits.py:12 report） -> 先定哪份对，再让其余几份和它一致；有意不同，就改用不同的锚点名并写 distinct',
+                   '红：锚点 LIMIT：report（limits.py:12）改了行为；原来和它行为相同的 2 份没改：limits.py:7  limits.py:2'
+                   ' → 先定哪份对：这次是有意改的，就一起改，或改成调用 report；不是，就让 report 回到原来的行为'], text
 
 
 # ---- fixed examples 10 and 11: the KWP rounding copies ---------------------------------------------------

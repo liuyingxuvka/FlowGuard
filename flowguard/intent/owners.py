@@ -1169,7 +1169,18 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         text = ('、'.join(f'{item["qual"]}（{item["file"]}:{item["line"]}）' for item in changed)
                 + (f' 这 {len(changed)} 处' if len(changed) > 1 else '') + '改了行为；' + '；'.join(parts))
         if anchor and twins:
-            found.red.append(f'{"负责人" if anchor.owner else "锚点"} {anchor.name}：' + text + f' → 一起改，或改成调用 {row["qual"]}')
+            # The owner is the reference: its copies follow it, and a copy that left it goes back to it. Without
+            # one among them no copy is chosen: an intended change goes to every copy, any other is undone.
+            owner = next((peer for peer in twins if peer['id'] in anchored and anchored[peer['id']].owner
+                          and anchored[peer['id']].name == anchor.name), None)
+            quals = '、'.join(item['qual'] for item in changed)
+            if anchor.owner:
+                step = f'一起改，或改成调用 {row["qual"]}'
+            elif owner:
+                step = f'让 {quals} 回到负责人 {owner["qual"]}（{owner["file"]}:{owner["line"]}）的行为'
+            else:
+                step = f'先定哪份对：这次是有意改的，就一起改，或改成调用 {row["qual"]}；不是，就让 {quals} 回到原来的行为'
+            found.red.append(f'{"负责人" if anchor.owner else "锚点"} {anchor.name}：' + text + ' → ' + step)
         else:
             found.leads.append(text + f'（要一起改就一起改；要锁定：在负责人上方加 # flowguard: owner {name}，'
                                       f'副本上方加 # flowguard: sensor {name}）')
