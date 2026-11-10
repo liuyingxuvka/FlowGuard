@@ -1094,6 +1094,8 @@ def test_the_files_init_writes_bring_no_label_spellings_of_their_own(tmp_path):
     })
     code, text = _flowguard(tmp_path, 'init')
     assert code == 0 and 'Generated flowguard.static.test.mjs (vitest)' in text, text
+    generated = (tmp_path / 'flowguard.vitest.mjs').read_text(encoding='utf-8')
+    assert all(f"'{spelling}'" in generated for spelling in ('python', '--root', 'win32')), generated   # else the test says nothing
     code, text = _static(tmp_path)          # init's 'python', '--root' and 'win32' are FlowGuard's, not the project's labels
     assert code == 0 and not _lines(text, '线索：标签写法不一致'), text
     code, text = _static(tmp_path, '--all')
