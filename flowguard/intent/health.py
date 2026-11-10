@@ -65,41 +65,43 @@ def _places(rows):
 def _foreign_writes(change, facts=None):
     """Write rows outside Python with a readable value, keyed for the gate by `Model.field`, each with its
     file's `package` (a guessed schema's set judges only some packages) and its `scope`: the schema in use
-    whose enum judges it, or the file whose declaration of an ambiguous TS type judges it (None: none)."""
+    whose enum judges it, or the file whose declaration of a TS type judges it (None: none)."""
     from flowguard.structure.api import _module_stem
     graph = change.graph
-    # The schemas in use whose enums declare a field (schema, its package, the set), in path order, and the
-    # files that declare a TS type name with different sets.
-    schemas, declaring = {}, {}
+    # The schemas in use that define a model (schema, its package, {field: enum values}), in path order; the
+    # files that declare each TS type name, and those declaring a member with each of its sets.
+    models, type_files, declaring = graph.prisma_fields_in_use(), graph.ts_type_files(), {}
     for row in graph.value_sets():
-        if row['kind'] == 'prisma-enum' and not row['guessed']:
-            schemas.setdefault(row['key'], []).extend((schema, package, row['values'])
-                                                     for schema, package in zip(row['scope'], row['packages']))
-        elif row['kind'] == 'ts-type' and row['scope']:
-            declaring.setdefault(row['field'], set()).update(row['scope'])
-    for found in schemas.values():
-        found.sort()
+        if row['kind'] == 'ts-type':
+            declaring.setdefault(row['field'], []).append(row['scope'])
 
     def schema_of(row, key, client):
         """A typed object of one schema's client output: that schema; any other write: the schema in use of
-        its own package (the nearest package with one), unless that package has several that differ (which
-        client wrote it is unknown); a package with none: the first schema in use by path."""
-        found = schemas.get(key, ())
+        its own package that defines the model (the nearest package with one), unless that package has several
+        that type the field differently (which client wrote it is unknown); a package with none: the first schema
+        in use by path whose enum types the field. A schema whose field is no enum judges by no enum."""
+        model, _, field = key.partition('.')
+        found = [(schema, package, fields.get(field)) for schema, package, fields in models.get(model, ())]
         if client in {schema for schema, _, _ in found}:
             return client
         for package in graph._packages_up(row['file']):
             own = [(schema, values) for schema, owner, values in found if owner == package]
             if own:
                 return own[0][0] if len({values for _, values in own}) == 1 else None
-        return found[0][0] if found else None
+        return next((schema for schema, _, values in found if values), None)
 
     def file_of(row, gate):
-        """The declaration of an ambiguous TS type a typed write is judged by: its own file's, else the one
-        in the module it imports the type from; None when neither declares it."""
-        files = declaring[gate]
+        """The file whose declaration of a TS type judges a typed object: its own file when that declares the
+        type's name, else the module it imports the type from by a relative path when that one does, judged only
+        by a set that file declares the member with; neither: the member's only set, none when it has several."""
+        sets = declaring[gate]
+        files = type_files.get(row['container'], frozenset()).union(*sets)
         if row['file'] in files:
             return row['file']
-        return next((file for file in sorted(files) if row['type_from'] and _module_stem(file) == row['type_from']), None)
+        imported = next((file for file in sorted(files) if row['type_from'] and _module_stem(file) == row['type_from']), None)
+        if imported is not None:
+            return imported
+        return sets[0][0] if len(sets) == 1 else None
 
     rows = graph.writes(facts=facts) if facts is not None else change.writes()
     out = [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None],
@@ -121,25 +123,30 @@ def _foreign_writes(change, facts=None):
     return [dict(row, package=graph.package(row['file'])) for row in out if row['values']]
 
 
-# The kinds of set in the order that takes a field's plain problem name, `values:NAME` (the name 4.1 gave
-# the one problem of each field); a guessed schema's enum comes after them.
+# The kinds of set in the order that takes a field's plain problem name, `values:NAME`, the name 4.1 gave the
+# one problem of each field: 4.1 read every Prisma enum first (a guessed schema's too), a CHECK only for a field
+# without one, and a TS type only for a name with neither.
 PLAIN_FIRST = ('prisma-enum', 'sql-check', 'ts-type')
 
 
 def _issue_names(sets):
     """{(gate key, where): problem name} of every declared set: one problem per set, named without line
-    numbers, so a name stays put across runs and when lines move. Of the sets of one name, the enum of a
-    schema in use, else the CHECK, else the TS type, else a guessed schema's enum is `values:NAME` (the first
-    by where it is declared among sets of one kind); each further set adds its `place`: the schema, the
-    CHECK's description (a migrations folder, `prisma/migrations/`, or the .sql file), the TS file, the
-    first file of a guessed set."""
+    numbers, so a name stays put across runs and when lines move. Of the sets of one name, an enum (of a
+    schema in use before a guessed one), else the CHECK, else the TS type is `values:NAME` (the first by where
+    it is declared among sets of one kind); each further set adds its `place`: the schema, the CHECK's
+    description (a migrations folder, `prisma/migrations/`, or the .sql file), the first TS file declaring the
+    member with it, the first file of a guessed set; and its values when one file declares two sets."""
     by_name, out = {}, {}
     for row in sets:
         by_name.setdefault(row['name'], []).append(row)
     for name, rows in by_name.items():
-        rows = sorted(rows, key=lambda row: (row['guessed'], PLAIN_FIRST.index(row['kind']), row['place']))
+        rows, taken = sorted(rows, key=lambda row: (PLAIN_FIRST.index(row['kind']), row['guessed'], row['place'])), set()
         for index, row in enumerate(rows):
-            out[row['field'], row['where']] = f'values:{name}' + (f':{row["place"]}' if index else '')
+            issue = f'values:{name}' + (f':{row["place"]}' if index else '')
+            if issue in taken:
+                issue += ':' + '|'.join(map(str, row['values']))
+            taken.add(issue)
+            out[row['field'], row['where']] = issue
     return out
 
 
@@ -315,6 +322,13 @@ def _schema_files(graph, *names):
                      | {row['file'] for row in graph.schemas() if row.get('kind') == 'prisma' and posixpath.dirname(row['file']) in folders})
 
 
+def _short_path(path):
+    """A description's last path part for the session brief: a file's name, a folder's name (`migrations`,
+    `schema` of `prisma/schema/`); the repository root's schema folder stays `./`."""
+    name = path.rstrip('/').rpartition('/')[2]
+    return path if name in ('', '.') else name
+
+
 def _gap_key(item):
     return item['table'].casefold(), item['description'], item['schema']
 
@@ -358,7 +372,7 @@ def columns(change, *, everything=False):
         lead = text + ' → ' + step if fresh else ''
         if fresh:
             found.leads.append(lead)
-        found.issues.append(Issue(f'columns:{description}~{schema}', 3, f'缺列 {description.rstrip("/").rpartition("/")[2]}',
+        found.issues.append(Issue(f'columns:{description}~{schema}', 3, f'缺列 {_short_path(description)}',
                                   text, step, frozenset(), _schema_files(change.graph, schema, description),
                                   new=fresh, lead=lead))
     return found
@@ -415,7 +429,7 @@ def delete_rules(change):
                 + ' → ' + step + ' ' + ' '.join(entry)) if fresh else ''
         if fresh:
             found.leads.append(lead)
-        found.issues.append(Issue(name, 4, f'onDelete {description.rstrip("/").rpartition("/")[2]}', text, step, frozenset(),
+        found.issues.append(Issue(name, 4, f'onDelete {_short_path(description)}', text, step, frozenset(),
                                   _schema_files(change.graph, schema, description), new=bool(fresh), entry=entry, lead=lead))
     return found
 

@@ -525,16 +525,17 @@ class MapHandle:
         alias of `as const`/`new Set` values, keyed `Type.field` and gated `ts:Type.field` (a TS type is not the
         Prisma model of the same name). The enum of a schema in use judges only the writes `scope` gives that
         schema (`scope`: the schemas in use that declare that set, `packages` their packages; the gate gives a
-        write the schema of its client or of its package, `health._foreign_writes`). A TS type name declared with
-        different sets in several files judges only the writes `scope` gives one of its declaring files. A
+        write the schema of its client or of its package, `health._foreign_writes`). A TS set judges only the
+        typed objects the gate gives one of the files declaring the member with it (`scope`; a file declaring the
+        type's name types its own objects, `ts_type_files`). A
         guessed schema (`prisma_schemas_guessed`) gates only the models no schema in use defines and only the
         writes of its own package and of packages without a Prisma file defining that model
         (`excluded_packages`); each guessed enum of a field is its own set (a value must be in each, as beside
         a CHECK), shared by the package's files that spell the same enum alike (`files`). Each row: key, name,
         field (the gate's key), values, where (file:line), kind, guessed, file (the first of `files`), files (the
-        files that declare it), place (where the set is declared: the schema, the CHECK's description, the TS
-        file, the first guessed file), scope, packages, excluded_packages, fold (the database compares text
-        without case: SQL Server and MySQL default collations)."""
+        files that declare it), place (where the set is declared: the schema, the CHECK's description, the first TS
+        file declaring the member with it, the first guessed file), scope, packages, excluded_packages, fold (the
+        database compares text without case: SQL Server and MySQL default collations)."""
         if 'value_sets' in self._derived:
             return self._derived['value_sets']
         from .readers.prisma import schema_folders
@@ -603,13 +604,43 @@ class MapHandle:
         for key, sets in types.items():
             for values, places in sets.items():
                 files = tuple(dict.fromkeys(file for _, _, file in places))
-                # one name declared with different sets in several files: each judges the writes of its own files
+                declaring = tuple(dict.fromkeys(place for place, _, _ in places))
+                # each set judges the typed objects the gate gives one of the files declaring it
                 rows.append(dict(key=key, name=key, field='ts:' + key, values=values, where=places[0][1], kind='ts-type',
-                                 guessed=False, fold=False, file=files[0], files=files, place=files[0], packages=(),
-                                 scope=tuple(dict.fromkeys(place for place, _, _ in places)) if len(sets) > 1 else (),
-                                 excluded_packages=frozenset()))
+                                 guessed=False, fold=False, file=files[0], files=files, place=declaring[0], packages=(),
+                                 scope=declaring, excluded_packages=frozenset()))
         self._derived['value_sets'] = sorted(rows, key=lambda row: (row['key'], row['field'], row['place']))
         return self._derived['value_sets']
+
+    def prisma_fields_in_use(self):
+        """{model name: [(schema, package, {field: enum values})]}: each schema in use that defines the model (a
+        schema folder is one schema; guessed schemas left out), in path order, with its package and the values of
+        each field it types with an enum that has members (a field typed otherwise is not in the dict). The value
+        gate gives a Prisma write the schema of its client or of its own package from these
+        (`health._foreign_writes`), so a schema whose field is no enum leaves its writes to no enum."""
+        if 'fields_in_use' not in self._derived:
+            from .readers.prisma import schema_folders
+            in_use, guessed, out = self.prisma_schemas_in_use(), self.prisma_schemas_guessed(), {}
+            for schema in sorted(schema_folders(self._live_prisma()), key=lambda schema: schema['file']):
+                if schema['files'][0] not in in_use or schema['files'][0] in guessed:
+                    continue
+                enums = {enum['name']: tuple(member['name'] for member in enum['fields']) for enum in schema['enums'] if enum['fields']}
+                for model in schema['models']:
+                    out.setdefault(model['name'], []).append((schema['file'], self.package(schema['files'][0]), {
+                        field['name']: enums[field['type']] for field in model['fields'] if field['type'] in enums}))
+            self._derived['fields_in_use'] = out
+        return self._derived['fields_in_use']
+
+    def ts_type_files(self):
+        """{type name: the files declaring it}: each top-level JS/TS interface, class and type alias. A typed object
+        in one of these files is of that file's own type (`health._foreign_writes`)."""
+        if 'ts_type_files' not in self._derived:
+            out = {}
+            for _, _, facts in self._kinds('type_names'):
+                for row in facts.get('type_names', ()):
+                    out.setdefault(row['name'], set()).add(row['file'])
+            self._derived['ts_type_files'] = {name: frozenset(files) for name, files in out.items()}
+        return self._derived['ts_type_files']
 
     def archived(self, path):
         """Is this file an archive (a database history or release snapshot kept under a `docs` folder), a
