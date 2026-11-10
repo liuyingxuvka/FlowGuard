@@ -384,7 +384,8 @@ def anchor_distinct(root, declaration, *, graph=None, index=None, cfg=None, arch
     result['distinct_holds'] = bool(report['items']) and not broken and all(item['changed'] for item in report['items'])
     if broken:
         result.update(status='red', reasons=list(dict.fromkeys(result['reasons'] + [
-            f'distinct broken: {declaration.a} and {declaration.b} agree on every class; {declaration.why}'])))
+            f'distinct broken: {declaration.a} and {declaration.b} agree on every class; {declaration.why} -> '
+            f'照这条 distinct 让两份分开；它们本来就该一样，先问主人，再删掉这条 distinct'])))
     elif unresolved or not source_ready or not report['items']:
         result.update(status='grey', complete=False,
                       reasons=list(dict.fromkeys(result['reasons'] + ([reason] if not source_ready else []))))

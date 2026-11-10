@@ -219,11 +219,45 @@ def copy_answers(answers, same, show, owner=None, total=None):
     return text, '先定哪份对，再让' + ('另一份' if len(answers) == 2 else '其余几份') + '和它一致'
 
 
-def rule_steps(rule_id, homes, where):
-    """The next step of a violated rule, in the same words in pytest, `check` and the vitest report: correct the
-    code at `homes`; when the need changed, store the owner's new words first, then change the rule at `where`."""
-    return [f'改代码，让 {homes} 符合规则 {rule_id}；',
-            f'需求确实变了：先用 python -m flowguard req add 存下新的原话，再改规则 {where}']
+def rule_steps(rule_id, homes, where, messages=()):
+    """The next step of a violated rule by what its red `messages` say, in the same words in pytest, `check` and
+    the vitest report (no messages: the code disagrees). The code disagrees with the rule (`-> rule X, code Y`):
+    correct the code at `homes`. The rule disagrees with its own regression rows (`self:`, `row`): correct the rows
+    or the rule at `where`; it leaves cells undecided (`gap in`): add the rule or rows. Two rules decide a cell
+    differently (`conflict A vs B`): one of them stays, which the owner decides. Any other red without a step of
+    its own: correct the rule's source, binding or rows. When the need changed, the owner's new words are stored
+    first, then the rule changes."""
+    kinds, conflicts = set(), []
+    # A row the rule itself contradicts also fails against the code that agrees with the rule (`(row L6)`):
+    # that is the row's red, not the code's.
+    wrong_rows = set(re.findall(r'^self: .*? on its own row (L\d+) ', '\n'.join(map(str, messages)), re.M))
+    for message in messages or ('-> rule',):
+        text = str(message)
+        pair = re.match(r'conflict (\S+) vs (\S+) at ', text)
+        row = re.search(r'\(row (L\d+)\)', text)
+        if '-> rule ' in text and row and row[1] in wrong_rows:
+            continue
+        if pair:
+            conflicts.append(f'规则 {pair[1]} 和 {pair[2]} 冲突，两条定一条：要问主人；')
+        elif text.startswith(('self: ', 'row ')):
+            kinds.add('rows')
+        elif text.startswith('gap in '):
+            kinds.add('gap')
+        elif '-> rule ' in text:
+            kinds.add('code')
+        elif ' -> ' not in text:
+            kinds.add('other')
+    steps = list(dict.fromkeys(conflicts))
+    steps += [step for kind, step in (
+        ('code', f'改代码，让 {homes} 符合规则 {rule_id}；'),
+        ('rows', f'改回归行或规则 {where}，让规则和它的回归行一致；'),
+        ('gap', f'补规则或回归行 {where}，让没有规则判定的格也有判定；'),
+        ('other', f'看规则 {where}，改正它的出处、绑定或回归行；')) if kind in kinds]
+    if conflicts:
+        steps.append(f'主人定了：先用 python -m flowguard req add 存下主人的原话，再改规则 {where}')
+    elif steps:
+        steps.append(f'需求确实变了：先用 python -m flowguard req add 存下新的原话，再改规则 {where}')
+    return steps
 
 
 def _red_entry(message):

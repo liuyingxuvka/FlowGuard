@@ -78,7 +78,8 @@ def _kind(message):
 
 
 def _action(message):
-    """A history or grey message with its next step. A rule's red takes the step pytest prints (`_rule_steps`)."""
+    """A message with its next step: history, grey, and a red that is no rule's (a broken distinct, a state, a flow,
+    a structure rule). A rule's red takes the step pytest prints (`_rule_steps`)."""
     if '->' in message:
         return message
     if _kind(message) == 'tool':
@@ -116,7 +117,9 @@ def _map_notice(graph):
     return 'Map: ' + '; '.join(parts) + '; static facts, foreign native-home execution not verified.'
 
 
-def render(cfg, data, *, check=False, graph=None):
+def render(cfg, data, *, check=False, graph=None, stepped=()):
+    """The check or screen view of the last results. A red of a rule in `stepped` is printed bare: the steps pytest
+    prints for it follow (`_rule_steps`); any other red ends with its step (`_action`)."""
     summary = data['summary']
     rules = summary['rules']
     errors = summary['errors']
@@ -157,7 +160,7 @@ def render(cfg, data, *, check=False, graph=None):
         if not result.get('items'):
             grey.append(f'grey {rid}: no results yet -> run check')
         for value in result.get('items', {}).values():
-            red.extend(f'red {rid}: {message}' for message in value.get('red', []))     # its step: _rule_steps
+            red.extend(f'red {rid}: {message if rid in stepped else _action(message)}' for message in value.get('red', []))
             for message in value.get('grey', []):
                 if _kind(message) == 'tool':
                     cause = message.split(':', 1)[0]
@@ -193,11 +196,12 @@ def _rule_steps(model, data):
     steps = {}
     for rid, group in data['results'].items():
         rule = model.rules.get(rid)
-        if rule is None or not any(value.get('red') for value in group.get('items', {}).values()):
+        messages = [message for value in group.get('items', {}).values() for message in value.get('red', [])]
+        if rule is None or not messages:
             continue
         homes = '、'.join(f'{home.anchor.file}:{home.anchor.target_line}' if getattr(home, 'anchor', None) else home.target
                          for home in rule.homes if not hasattr(home, 'scenario')) or rid + ' 的绑定'
-        steps[rid] = rule_steps(rid, homes, f'{model.file_of[rid]}:{rule.line}')
+        steps[rid] = rule_steps(rid, homes, f'{model.file_of[rid]}:{rule.line}', messages)
     return steps
 
 
@@ -1018,7 +1022,8 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     if opaque_tests and not everything:
         data['check_scope'] += f'; {len(opaque_tests)} test files rerun for unresolved imports/data/children'
     owner_grey = _owner_rules_unverified(cfg, data) if stream_all else []
-    report(render(cfg, data, check=True) + owner_grey, _rule_steps(model, data))
+    steps = _rule_steps(model, data)
+    report(render(cfg, data, check=True, stepped=steps) + owner_grey, steps)
     red = owner_grey or historical or data['summary']['errors'] or (data.get('attempt') or {}).get('errors') or any(
         value.get('verdict') == 'red' for rid, group in data['results'].items()
         if rid in data['summary']['rules'] and not data['summary']['rules'][rid].get('superseded_by') or rid is None
