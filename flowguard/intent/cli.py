@@ -12,6 +12,7 @@ import shlex
 import sys
 import time
 import tomllib
+import typing
 
 from flowguard import __version__
 from flowguard.map.common import MapError
@@ -1143,66 +1144,126 @@ _WATCH = {'--watch', '--watchAll'}
 # A call with any other option is one init cannot read: it neither wires nor names it as running a file.
 _SAFE = {'--run', '--passWithNoTests', '--silent', '--coverage', '--no-coverage', '--globals', '--isolate', '--no-isolate',
          '--no-file-parallelism', '--fileParallelism', '--ci', '--runInBand', '-i', '--verbose', '--colors', '--no-colors',
-         '--json', '--detectOpenHandles', '--forceExit', '-u', '--update', '--no-cache', '--logHeapUsage', '--allowOnly',
-         '--hideSkippedTests', '--clearMocks', '--reporter', '--outputFile', '--pool', '--environment', '--maxWorkers',
-         '--minWorkers', '--testTimeout', '--hookTimeout', '--bail', '--mode', '--maxConcurrency', '--retry', '--logLevel'}
+         '--color', '--no-color', '--json', '--detectOpenHandles', '--forceExit', '-u', '--update', '--no-cache',
+         '--logHeapUsage', '--allowOnly', '--hideSkippedTests', '--clearMocks', '--reporter', '--reporters', '--outputFile',
+         '--coverageReporters', '--coverageDirectory', '--watchman', '--no-watchman', '--pool', '--environment',
+         '--maxWorkers', '--minWorkers', '--testTimeout', '--hookTimeout', '--bail', '--mode', '--maxConcurrency', '--retry',
+         '--logLevel'}
 _SAFE_PREFIXES = ('--coverage.', '--reporter.', '--outputFile.', '--sequence.', '--poolOptions.')
-# Safe options whose value is the next word unless written `--option=value`; `--bail` and `--coverage` take one only
-# when it is a number or a boolean.
-_SAFE_VALUED = {'--reporter', '--outputFile', '--pool', '--environment', '--maxWorkers', '--minWorkers', '--testTimeout',
-                '--hookTimeout', '--mode', '--maxConcurrency', '--retry', '--logLevel'}
-_OPTIONAL_VALUE = {'--bail', '--coverage', '--silent'}
+# Safe options whose value is the next word unless written `--option=value`.
+_SAFE_VALUED = {'--reporter', '--outputFile', '--coverageDirectory', '--pool', '--environment', '--maxWorkers',
+                '--minWorkers', '--testTimeout', '--hookTimeout', '--mode', '--maxConcurrency', '--retry', '--logLevel'}
+# jest's array options (yargs): every word after one, up to the next option, is a value, also after `--reporters=x`.
+_JEST_ARRAYS = {'--reporters', '--coverageReporters'}
+# vitest's options with an optional value (`-u [type]`, `--silent [value]`): the next word, unless it is an option.
+_VITEST_OPTIONAL = {'-u', '--update', '--silent'}
+# The prefixed options vitest reads as booleans; every other prefixed option (`--coverage.include src`) has a value.
+_PREFIXED_FLAGS = re.compile(r'--coverage\.(?:enabled|clean|cleanOnRerun|reportOnFailure|allowExternal|skipFull'
+                             r'|thresholds\.(?:100|perFile))|--sequence\.(?:shuffle(?:\.files|\.tests)?|concurrent)'
+                             r'|--poolOptions\.\w+\.(?:isolate|singleThread|singleFork|useAtomics)')
+# The file a runner's package starts it from when a script calls it through node (`node node_modules/jest/bin/jest.js`).
+_RUNNER_FILES = {'jest': 'jest.js', 'vitest': 'vitest.mjs'}
+# Commands a shell finds without npx: node and the package managers; npx runs any other word of a call.
+_LAUNCHERS = {'node', 'npx', 'pnpm', 'pnpx', 'yarn', 'bun', 'bunx'}
 
 
-def _alone(runner, name):
-    """The call that runs the generated test file `name` alone."""
-    return f'{runner} run {name}' if runner == 'vitest' else f'{runner} {name}'
+def _alone(prefix, name):
+    """The call that runs the generated test file `name` alone, started the way `prefix` starts the runner (the
+    words of a script's call up to the runner, and vitest's `run`: `vitest run`, `node --experimental-vm-modules
+    node_modules/jest/bin/jest.js`)."""
+    return f'{prefix} {name}'
+
+
+def _from_shell(call):
+    """`call` as a shell outside npm runs it: npm puts node_modules/.bin on PATH, so the first word after the
+    leading `NAME=value` settings goes through npx unless it is node or a package manager."""
+    for word in re.finditer(r'(?:[^\s"\']+|"[^"]*"|\'[^\']*\')+', call):
+        if re.match(r'[A-Za-z_]\w*=', word.group()):
+            continue
+        return call if word.group() in _LAUNCHERS else call[:word.start()] + 'npx ' + call[word.start():]
+    return call
+
+
+def _takes(option, runner):
+    """How `option` of `runner` takes the word after it (unless written `--option=value`): 'next' always as its
+    value, 'word' unless it is an option, 'every' with each word after it up to the next option (also after
+    `--option=value`), 'flag' only `true` or `false` (a `--no-` option none; `--bail` also a number)."""
+    if runner == 'jest' and option in _JEST_ARRAYS:
+        return 'every'
+    if option in _VALUED or option in _SAFE_VALUED or runner == 'jest' and option == '-w':
+        return 'next'
+    if runner == 'vitest' and option in _VITEST_OPTIONAL or option.startswith(_SAFE_PREFIXES) \
+            and not _PREFIXED_FLAGS.fullmatch(option):
+        return 'word'
+    return 'flag'
+
+
+class _Call(typing.NamedTuple):
+    """A call of the runner in a script (see _runner_calls)."""
+    text: str
+    watches: bool
+    options: set
+    paths: list
+    clear: bool
+    prefix: str
+    end: int
 
 
 def _runner_calls(command, runner):
-    """Each call of `runner` in a script (`a && b`, `a; b` and `a || b` are calls of their own): its text,
-    whether it watches, its options, its paths (`./` taken off; `.` is the package folder, spelled '') and
-    whether init can read it (`clear`: every option is one of `_SAFE` or a watch option). `--watch=false` and
-    `--watchAll false` turn watching off; `vitest watch`, `vitest dev` and vitest's `-w` watch (jest's `-w` is
-    its worker count)."""
+    """Each call of `runner` in a script (`a && b`, `a; b` and `a || b` are calls of their own; the runner is a
+    word named `runner` or its package's start file, `node_modules/jest/bin/jest.js`): its text, whether it
+    watches, its options, its paths (`./` taken off; `.` is the package folder, spelled ''), whether init can
+    read it (`clear`: every option is one of `_SAFE` or a watch option), its prefix (its words up to the runner,
+    then vitest's `run`) and where in its text a file added to it goes: at its end, or after its last path when
+    its last option would take that file as its value (`vitest run tests -u`, `jest tests --reporters=default`).
+    An option's value (`_takes`) is never a path: `--coverage.include src`, `-u tests` and vitest's `--silent
+    passed-only` run every file. `--watch=false` and `--watchAll false` turn watching off; `vitest watch`,
+    `vitest dev` and vitest's `-w` watch (jest's `-w` is its worker count)."""
     watch = _WATCH | ({'-w'} if runner == 'vitest' else set())
     safe = _SAFE | ({'-w'} if runner == 'jest' else set())
-    valued_safe = _SAFE_VALUED | ({'-w'} if runner == 'jest' else set())
     calls = []
     for segment in re.split(r'&&|\|\||;', command):
-        words = segment.split()
-        at = next((index for index, word in enumerate(words) if word.rpartition('/')[2] == runner), None)
-        if at is None or words[at + 1:at + 2] == ['related']:
+        words = list(re.finditer(r'\S+', segment))
+        at = next((index for index, word in enumerate(words)
+                   if word.group().rpartition('/')[2] in (runner, _RUNNER_FILES[runner])), None)
+        if at is None or [word.group() for word in words[at + 1:at + 2]] == ['related']:
             continue
         rest = words[at + 1:]
-        verb = rest[0] if rest[:1] in (['run'], ['watch'], ['dev']) else ''
-        options, paths, valued, watches = set(), [], None, verb in ('watch', 'dev')
-        for word in rest[1:] if verb else rest:
-            if valued in watch or valued in _OPTIONAL_VALUE:
-                optional, valued = valued, None
-                if word in ('true', 'false') or optional in _OPTIONAL_VALUE and re.fullmatch(r'\d+%?', word):
-                    if optional in watch:
+        verb = rest[0].group() if rest and rest[0].group() in ('run', 'watch', 'dev') else ''
+        options, paths, pending, watches, last = set(), [], None, verb in ('watch', 'dev'), None
+        for match in rest[1:] if verb else rest:
+            word = match.group()
+            if pending is not None:
+                option, takes = pending
+                pending = pending if takes == 'every' else None
+                if takes == 'next' or takes in ('word', 'every') and not word.startswith('-') or takes == 'flag' and (
+                        word in ('true', 'false') and not option.startswith('--no-')
+                        or option == '--bail' and word.isdigit()):
+                    if option in watch:
                         watches = word == 'true'
                     continue
-            if valued:
-                valued = None
-            elif word.startswith('-'):
+                pending = None
+            if word.startswith('-'):
                 option, equals, value = word.partition('=')
                 options.add(option)
                 if option in watch:
                     watches = value != 'false' if equals else True
-                valued = option if (option in _VALUED or option in watch or option in valued_safe
-                                    or option in _OPTIONAL_VALUE) and not equals else None
+                takes = _takes(option, runner)
+                pending = (option, takes) if takes == 'every' or not equals else None
             else:
+                last = match
                 while word.startswith('./'):
                     word = word[2:]
                 paths.append('' if word in ('.', '') else word.rstrip('/'))
         clear = all(option in safe or option in watch or option.startswith(_SAFE_PREFIXES) for option in options)
-        calls.append((segment, watches, options, paths, clear))
+        prefix = segment[words[0].start():words[at].end()] + (' run' if runner == 'vitest' else '')
+        opened = pending is not None and pending[1] != 'flag' and last is not None
+        calls.append(_Call(segment, watches, options, paths, clear, prefix,
+                           last.end() if opened else len(segment.rstrip())))
     return calls
 
 
-def _filtered_scripts(cfg, package, runner, name):
+def _filtered_scripts(cfg, package, runner, name, launch):
     """What init did to the test suite scripts (`test`, `test:unit`, `unit`, ...) so one of them runs `name`;
     the script that runs it (None when init can tell of none); and the watch scripts or other suites that run it.
     init reads a call only when every option it has is one it knows to leave the files alone (`_SAFE`:
@@ -1219,7 +1280,9 @@ def _filtered_scripts(cfg, package, runner, name):
     is added when a call init reads already names `name`. A script init cannot edit without touching the rest of
     the file is named with the edit to make, and the next one is tried. A script init cannot read is named with
     the edit to make when it is `test`, runs named paths, or when nothing runs `name`; the other suites init left alone are
-    named when nothing runs it. A script that runs single files is a check of its own and stays as it is."""
+    named when nothing runs it. A script that runs single files is a check of its own and stays as it is. `name`
+    goes where `_runner_calls` says, so no option takes it as its value. The edit named for a script starts the
+    runner the way that script's call does (its prefix); the other lines start it with `launch`."""
     text = package.read_text(encoding='utf-8-sig')
     scripts = json.loads(text).get('scripts') or {}
     named, runners, excluded, others, tried, unread = False, [], [], [], [], []
@@ -1228,15 +1291,15 @@ def _filtered_scripts(cfg, package, runner, name):
         if not calls:
             continue
         words = re.split(r'[:_-]', script.lower())
-        folders = [folder for call in calls for path in call[3] for folder in path.lower().split('/')]
-        clear = [call for call in calls if call[4]]
-        names = any(name in paths for _, _, _, paths, _ in clear)
+        folders = [folder for call in calls for path in call.paths for folder in path.lower().split('/')]
+        clear = [call for call in calls if call.clear]
+        names = any(name in call.paths for call in clear)
         named = named or names
-        runs = names or any(not paths or '' in paths for _, _, _, paths, _ in clear)
+        runs = names or any(not call.paths or '' in call.paths for call in clear)
         if any(part.startswith('integration') or part in _OTHER_SUITES for part in words + folders):
             (excluded if runs else others).append(script)
             continue
-        if 'watch' in words or any(call[1] for call in calls):
+        if 'watch' in words or any(call.watches for call in calls):
             if runs:
                 excluded.append(script)
             continue
@@ -1245,19 +1308,20 @@ def _filtered_scripts(cfg, package, runner, name):
         if runs:
             runners.append((rank, script))
             continue
-        segment = next((segment for segment, _, _, paths, _ in clear
-                        if paths and all((package.parent / path).is_dir() for path in paths)), None)
-        if segment is not None:
-            tried.append((rank, script, command, segment))
+        wire = next((call for call in clear if call.paths and all((package.parent / path).is_dir() for path in call.paths)),
+                    None)
+        if wire is not None:
+            tried.append((rank, script, command, wire.text, wire.end))
         if len(clear) < len(calls):
-            options = sorted({option for call in calls if not call[4] for option in call[2]
+            options = sorted({option for call in calls if not call.clear for option in call.options
                               if option not in _SAFE and not option.startswith(_SAFE_PREFIXES)})
-            unread.append((rank, script, command, options, any(call[3] for call in calls)))
-    call = _alone(runner, name)
+            prefix = next(call.prefix for call in calls if not call.clear)
+            unread.append((rank, script, command, options, any(call.paths for call in calls), prefix))
+    call = _alone(launch, name)
     lines, wired = [], None
-    for rank, script, command, segment in [] if named else sorted(tried):
+    for rank, script, command, segment, end in [] if named else sorted(tried):
         where = f'{cfg.rel(package)} script "{script}"'
-        new = command.replace(segment, segment.rstrip() + ' ' + name + segment[len(segment.rstrip()):], 1)
+        new = command.replace(segment, segment[:end] + ' ' + name + segment[end:], 1)
         spelled = re.compile(r'(' + re.escape(json.dumps(script)) + r'\s*:\s*)' + re.escape(json.dumps(command)))
         if len(spelled.findall(text)) != 1:
             lines.append(f'{where} runs {runner} on named paths only: change it to {new} so it runs {name} too')
@@ -1267,11 +1331,11 @@ def _filtered_scripts(cfg, package, runner, name):
         runners.append((rank, script))
         wired = script
         break
-    for _, script, command, options, has_paths in [] if named else sorted(unread):
+    for _, script, command, options, has_paths, prefix in [] if named else sorted(unread):
         if has_paths or not runners or script == 'test':           # npm test's own script is always worth the line
             lines.append(f'{cfg.rel(package)} script "{script}" runs {runner} with {", ".join(options)}, which init does not '
-                         f'read ({command}): init cannot tell whether it runs {name}; if it does not, add "&& {call}" to it '
-                         'yourself')
+                         f'read ({command}): init cannot tell whether it runs {name}; if it does not, add '
+                         f'"&& {_alone(prefix, name)}" to it yourself')
     if not runners and others:
         left = ', '.join('"' + script + '"' for script in others)
         lines.append(f'{cfg.rel(package)} script {left} runs {runner} on an integration, end-to-end or other suite that '
@@ -1311,7 +1375,15 @@ def _npm_check(cfg, package):
     if target.exists() and not target.read_text(encoding='utf-8').startswith(NPM_HEADER):
         raise ValueError(f'{target}: an existing file has this name; rename it, then run init again')
     target.write_text(text, encoding='utf-8', newline='\n')
-    lines, runs, excluded = _filtered_scripts(cfg, package, runner, target.name)
+    # How the advice starts the runner: as is, but jest runs an ES module test only under node's
+    # --experimental-vm-modules, so in a "type": "module" package the way a script already does it, else as jest's
+    # own documentation spells it.
+    launch = 'vitest run' if runner == 'vitest' else 'jest'
+    if runner == 'jest' and module:
+        launch = next((call.prefix for command in scripts.values() for call in _runner_calls(command, runner)
+                       if '--experimental-vm-modules' in call.prefix),
+                      'node --experimental-vm-modules node_modules/jest/bin/jest.js')
+    lines, runs, excluded = _filtered_scripts(cfg, package, runner, target.name, launch)
     # The line names the script that runs the file: npm test only when the "test" script itself runs it, and never
     # a watch script or a suite that reaches real databases and services.
     if runs is None:
@@ -1319,9 +1391,9 @@ def _npm_check(cfg, package):
         found = (f'in {cfg.rel(package)} only {left} {"runs" if len(excluded) == 1 else "run"} it, and init names no watch '
                  'script or suite that reaches real databases and services' if excluded else
                  f'init finds no script in {cfg.rel(package)} that runs it')
-        call = _alone(runner, target.name)
+        call = _alone(launch, target.name)
         static = (f'Generated {cfg.rel(target)} ({runner}), but {found}: add "&& {call}" to the script you run your tests '
-                  f'with, so it runs python -m flowguard check --static and fails on red (npx {call} runs it alone).')
+                  f'with, so it runs python -m flowguard check --static and fails on red ({_from_shell(call)} runs it alone).')
     else:
         static = (f'Generated {cfg.rel(target)} ({runner}): {"npm test" if runs == "test" else "npm run " + runs} runs '
                   'python -m flowguard check --static and fails on red.')

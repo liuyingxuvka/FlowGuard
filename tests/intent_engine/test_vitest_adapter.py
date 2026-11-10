@@ -626,6 +626,103 @@ def test_init_reads_watch_turned_off_as_no_watch(tmp_path):
         assert _says(text, folder, runs) == runs, text
 
 
+def _jest(folder, scripts, **fields):
+    return json.dumps({'name': folder, **fields, 'scripts': scripts, 'devDependencies': {'jest': '29.7.0'}}) + '\n'
+
+
+def test_init_never_reads_an_option_value_as_a_path_nor_adds_its_test_where_an_option_would_take_it(tmp_path):
+    # Round 24 review: the value of --coverage.include or of vitest's -u / --update read as a folder, so init added
+    # the static test to a script that runs every file, and vitest then ran that file alone (vitest 4 reads
+    # "vitest run -u tests" as update "tests" and no filter); added after a trailing -u or --silent, the file
+    # became that option's value (vitest refuses "--silent flowguard.static.test.mjs").
+    start = _script_packages(tmp_path, {
+        'included': ({'test': 'vitest run --coverage --coverage.include src'}, ['src']),
+        'update': ({'test': 'vitest run', 'test:update': 'vitest run -u tests'}, ['tests']),
+        'spelled': ({'test': 'vitest run --update tests --coverage.reporter text'}, ['tests', 'text']),
+        'trailing': ({'test:unit': 'vitest run tests/unit -u'}, ['tests/unit']),
+        'silent': ({'test:unit': 'vitest run tests/unit --silent'}, ['tests/unit']),
+        'given': ({'test:unit': 'vitest run tests/unit --update=new'}, ['tests/unit']),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0, text
+    for folder in ('included', 'update', 'spelled'):
+        assert (tmp_path / folder / 'package.json').read_text(encoding='utf-8') == start[folder], (folder, text)
+        assert _says(text, folder, 'npm test') == 'npm test', (folder, text)
+    for folder, command in (('trailing', 'vitest run tests/unit flowguard.static.test.mjs -u'),
+                            ('silent', 'vitest run tests/unit flowguard.static.test.mjs --silent'),
+                            ('given', 'vitest run tests/unit --update=new flowguard.static.test.mjs')):
+        assert _scripts(tmp_path, folder) == {'test:unit': command}, (folder, text)
+        assert (f'{folder}/package.json script "test:unit" runs vitest on named paths only; init added '
+                f'flowguard.static.test.mjs: {command}') in text, text
+        assert _says(text, folder, 'npm run test:unit') == 'npm run test:unit', (folder, text)
+
+
+def test_init_reads_the_reporting_options_and_boolean_values_of_plain_test_scripts(tmp_path):
+    # Round 24 review: jest's --reporters, --coverageReporters and --no-watchman and vitest's --no-color made a
+    # plain test script one init cannot read, and --coverage.enabled true or --silent passed-only read the value
+    # as a path, so a script that runs every file counted as running nothing. jest's arrays take every word after
+    # them up to the next option, so the static test goes before a trailing --reporters.
+    start = _script_packages(tmp_path, {
+        'reporters': (_jest('reporters', {'test': 'jest --ci --reporters=default --reporters=jest-junit'}), []),
+        'summary': (_jest('summary', {'test': 'jest --coverage --coverageReporters=text-summary --coverageDirectory out'}),
+                    []),
+        'watchman': (_jest('watchman', {'test:unit': 'jest --runInBand --no-watchman tests/unit'}), ['tests/unit']),
+        'arrays': (_jest('arrays', {'test:unit': 'jest tests/unit --coverageReporters text lcov'}), ['tests/unit']),
+        'color': ({'test:unit': 'vitest run --no-color tests/unit'}, ['tests/unit']),
+        'enabled': ({'test': 'vitest run --coverage.enabled true'}, []),
+        'shuffled': ({'test:unit': 'vitest run --sequence.shuffle tests/unit'}, ['tests/unit']),
+        'passed': ({'test': 'vitest run --silent passed-only'}, []),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0 and 'which init does not read' not in text, text
+    for folder in ('reporters', 'summary', 'enabled', 'passed'):
+        assert (tmp_path / folder / 'package.json').read_text(encoding='utf-8') == start[folder], (folder, text)
+        assert _says(text, folder, 'npm test') == 'npm test', (folder, text)
+    for folder, command in (('watchman', 'jest --runInBand --no-watchman tests/unit flowguard.static.test.js'),
+                            ('arrays', 'jest tests/unit flowguard.static.test.js --coverageReporters text lcov'),
+                            ('color', 'vitest run --no-color tests/unit flowguard.static.test.mjs'),
+                            ('shuffled', 'vitest run --sequence.shuffle tests/unit flowguard.static.test.mjs')):
+        assert _scripts(tmp_path, folder) == {'test:unit': command}, (folder, text)
+        assert _says(text, folder, 'npm run test:unit') == 'npm run test:unit', (folder, text)
+
+
+def test_init_reads_a_runner_started_through_node_and_spells_each_edit_the_way_jest_runs_an_es_module(tmp_path):
+    # Round 24 review: "node --experimental-vm-modules node_modules/jest/bin/jest.js", jest's own way to run ES
+    # module tests, was no call of jest, and the advice "&& jest flowguard.static.test.js" fails to parse the
+    # generated ES module test (jest runs it only under --experimental-vm-modules).
+    node = 'node --experimental-vm-modules node_modules/jest/bin/jest.js'
+    start = _script_packages(tmp_path, {
+        'whole': (_jest('whole', {'test': node}, type='module'), []),
+        'unit': (_jest('unit', {'test': f'{node} tests/unit'}, type='module'), ['tests/unit']),
+        'started': ({'test:unit': 'node node_modules/vitest/vitest.mjs run tests/unit'}, ['tests/unit']),
+        'named': (_jest('named', {'test': f'{node} --testNamePattern=fast'}, type='module'), []),
+        'options': (_jest('options', {'test': 'NODE_OPTIONS=--experimental-vm-modules jest -t fast'}, type='module'), []),
+        'none': (_jest('none', {'test': 'echo none'}, type='module'), []),
+        'commonjs': (_jest('commonjs', {'test': 'echo none'}), []),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0, text
+    assert (tmp_path / 'whole/package.json').read_text(encoding='utf-8') == start['whole'], text
+    assert _says(text, 'whole', 'npm test') == 'npm test', text
+    assert _scripts(tmp_path, 'unit') == {'test': f'{node} tests/unit flowguard.static.test.js'}, text
+    assert _scripts(tmp_path, 'started') == {'test:unit': 'node node_modules/vitest/vitest.mjs run tests/unit '
+                                                          'flowguard.static.test.mjs'}, text
+    for folder, call, alone in (('named', f'{node} flowguard.static.test.js', f'{node} flowguard.static.test.js'),
+                                ('options', 'NODE_OPTIONS=--experimental-vm-modules jest flowguard.static.test.js',
+                                 'NODE_OPTIONS=--experimental-vm-modules npx jest flowguard.static.test.js'),
+                                ('none', f'{node} flowguard.static.test.js', f'{node} flowguard.static.test.js'),
+                                ('commonjs', 'jest flowguard.static.test.js', 'npx jest flowguard.static.test.js')):
+        assert (tmp_path / folder / 'package.json').read_text(encoding='utf-8') == start[folder], (folder, text)
+        assert (f'Generated {folder}/flowguard.static.test.js (jest), but init finds no script in {folder}/package.json '
+                f'that runs it: add "&& {call}" to the script you run your tests with, so it runs python -m flowguard '
+                f'check --static and fails on red ({alone} runs it alone).') in text, (folder, text)
+    for folder, option, call in (('named', '--testNamePattern', f'{node} flowguard.static.test.js'),
+                                 ('options', '-t', 'NODE_OPTIONS=--experimental-vm-modules jest flowguard.static.test.js')):
+        assert (f'{folder}/package.json script "test" runs jest with {option}, which init does not read '
+                f'({json.loads(start[folder])["scripts"]["test"]}): init cannot tell whether it runs '
+                f'flowguard.static.test.js; if it does not, add "&& {call}" to it yourself') in text, (folder, text)
+
+
 # ---- real vitest -----------------------------------------------------------------------------------
 
 def _tool(name):
