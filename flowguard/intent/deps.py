@@ -79,6 +79,38 @@ def test_scope(cfg):
     return contains
 
 
+SENTINEL_FILE = 'tests/test_flowguard_intent.py'      # FlowGuard's own collection test, which init writes
+
+
+def npm_packages(root):
+    """The package.json files `init` serves: the project root's, else those up to two folders down."""
+    if (root / 'package.json').is_file():
+        return [root / 'package.json']
+    return sorted(path for pattern in ('*/package.json', '*/*/package.json') for path in root.glob(pattern)
+                  if not any(part == 'node_modules' or part.startswith('.') for part in path.relative_to(root).parts[:-1]))
+
+
+def own_python_tests(cfg):
+    """Whether pytest's default scope (`test_scope`) holds a test file of the project's own, other than
+    FlowGuard's sentinel. Folders pytest does not enter (`norecursedirs`, node_modules) are not read."""
+    import os
+    scope, skipped = test_scope(cfg), _patterns(_pytest_options(cfg), 'norecursedirs', NORECURSEDIRS)
+    for folder, names, files in os.walk(cfg.root):
+        names[:] = [name for name in names if name not in ('node_modules', '__pycache__')
+                    and not kept_out(Path(folder, name).resolve(), skipped)]
+        for name in files:
+            relative = (Path(folder) / name).relative_to(cfg.root).as_posix()
+            if name.endswith('.py') and relative != SENTINEL_FILE and scope(relative):
+                return True
+    return False
+
+
+def static_only(cfg):
+    """A project whose tests npm runs and pytest has none of its own (a TS/JS project): FlowGuard's checks there
+    are `check --static` and the npm test it is wired into, never a pytest run."""
+    return bool(npm_packages(cfg.root)) and not own_python_tests(cfg)
+
+
 def test_files(cfg, graph):
     """Potential default Python test files; imports and fixtures never execute."""
     options, contains = _pytest_options(cfg), test_scope(cfg)

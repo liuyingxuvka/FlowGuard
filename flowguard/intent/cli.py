@@ -1121,14 +1121,6 @@ test('FlowGuard check --static', () => {
 '''
 
 
-def _packages(root):
-    """The package.json files `init` serves: the project root's, else those up to two folders down."""
-    if (root / 'package.json').is_file():
-        return [root / 'package.json']
-    return sorted(path for pattern in ('*/package.json', '*/*/package.json') for path in root.glob(pattern)
-                  if not any(part == 'node_modules' or part.startswith('.') for part in path.relative_to(root).parts[:-1]))
-
-
 # The scripts init reads as test suites, and the unit suite names it wires before any other (`test:unit`, `unit`).
 _TEST_SCRIPT = re.compile(r'test(?:[:_-].+)?|unit')
 _UNIT_SCRIPT = re.compile(r'(?:test[:_-])?unit')
@@ -1606,6 +1598,25 @@ def _legacy_agents(content, rules, newline, languages):
     return content, lines
 
 
+# The CI fragment init writes. A project pytest has tests of runs everything; one whose tests npm runs (TS/JS) runs the
+# map checks, which pytest would not, against where its branch left the default branch: a CI checkout is a detached
+# HEAD, whose task start is HEAD itself, so without --base it would compare nothing.
+CI_PYTEST = '''# Merge these steps into the project CI after installing FlowGuard.
+- uses: actions/checkout@v5
+  with:
+    fetch-depth: 0
+- run: python -m flowguard check --all --deep
+'''
+CI_STATIC = '''# Merge these steps into the project CI after installing FlowGuard.
+# The base is where this branch left the default branch. If the default branch is not called main, replace main below.
+- uses: actions/checkout@v5
+  with:
+    fetch-depth: 0
+- run: python -m flowguard check --static --base "$(git merge-base HEAD origin/${GITHUB_BASE_REF:-main})"
+  shell: bash
+'''
+
+
 def init(cfg):
     pyproject = cfg.root / 'pyproject.toml'
     text = pyproject.read_text(encoding='utf-8') if pyproject.is_file() else ''
@@ -1618,20 +1629,16 @@ def init(cfg):
     cfg.intent.mkdir(parents=True, exist_ok=True)
     sentinel.parent.mkdir(parents=True, exist_ok=True)
     sentinel.write_text(SENTINEL, encoding='utf-8')
+    from .deps import npm_packages, static_only
     fragment = cfg.root / '.flowguard/ci.yml'
     fragment.parent.mkdir(parents=True, exist_ok=True)
-    fragment.write_text('''# Merge these steps into the project CI after installing FlowGuard.
-- uses: actions/checkout@v5
-  with:
-    fetch-depth: 0
-- run: python -m flowguard check --all --deep
-''', encoding='utf-8')
+    fragment.write_text(CI_STATIC if static_only(cfg) else CI_PYTEST, encoding='utf-8')
     agents = cfg.root / 'AGENTS.md'
     # Bytes outside the replaced block are kept, including their line endings.
     content = agents.read_bytes().decode('utf-8') if agents.exists() else ''
     newline = '\r\n' if '\r\n' in content else '\n'
     rules = PROJECT_RULES.replace('\n', newline)
-    packages = _packages(cfg.root)
+    packages = npm_packages(cfg.root)
     content, notes = _legacy_agents(content, rules, newline, bool(packages))
     # The owner's repositories carry a level-one block whose commands 4.x no longer has.
     owner_block = re.compile(r'^# FlowGuard rules for the project agent[ \t]*\r?\n.*?(?=^#{1,6} |^<!-- flowguard:start -->|\Z)',

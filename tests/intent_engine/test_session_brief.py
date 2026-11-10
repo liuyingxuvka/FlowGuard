@@ -536,3 +536,38 @@ def test_ledger_check_names_a_recorded_task_start_this_repository_lacks(tmp_path
     assert _run(root, 'new-task')[0] == 0           # the task starts at HEAD, whose ledger vouches for the old entry
     code, text = _run(root, 'ledger', 'check')
     assert code == 0 and text.splitlines() == ['FlowGuard 兜底账本：1 条（旧账 1 条），代码里 1 处兜底；红 0，未核对 0'], text
+
+
+def test_new_task_says_to_compare_the_dropped_commits_with_the_command_the_project_runs(tmp_path, capsys):
+    # Round 22 F3: in a TS project (its tests run with npm, pytest finds no test of its own) new-task told the AI
+    # to compare the commits it stops comparing with pytest, which runs nothing there; check --static does.
+    root = tmp_path / 'web'
+    files = {'package.json': '{"name": "web", "scripts": {"test": "vitest run"}, "devDependencies": {"vitest": "4.1.11"}}\n',
+             'src/limit.ts': 'export function limit(days: number) { return days <= 3; }\n', '.gitignore': '.flowguard/cache/\n',
+             # init writes FlowGuard's own sentinel into every project; it is not a test of the project
+             'tests/test_flowguard_intent.py': cli.SENTINEL}
+    for name, text in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text)
+    git(root, 'init', '--quiet')
+    git(root, 'add', '.')
+    git(root, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '--quiet', '-m', 'start')
+    cfg = load_config(root)
+    start = git(root, 'rev-parse', 'HEAD')
+    assert cli.main(['--root', str(root), 'new-task']) == 0
+    (root / 'src/limit.ts').write_text('export function limit(days: number) { return days <= 4; }\n')
+    git(root, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '--quiet', '-am', 'change')
+    capsys.readouterr()
+    assert cli.main(['--root', str(root), 'new-task']) == 0
+    assert capsys.readouterr().out.splitlines()[1].endswith(
+        f'compare them once with python -m flowguard check --static --base {start[:12]})')
+    # A project that also has Python tests of its own runs pytest: the comparison stays pytest's.
+    (root / 'tests/test_limit.py').write_text('def test_limit():\n    assert True\n')
+    git(root, 'add', '.')
+    git(root, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '--quiet', '-m', 'python test')
+    head = git(root, 'rev-parse', 'HEAD')
+    assert cli.main(['--root', str(root), 'new-task']) == 0 and cache.session_baseline(cfg) == head
+    git(root, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '--quiet', '--allow-empty', '-m', 'next')
+    capsys.readouterr()
+    assert cli.main(['--root', str(root), 'new-task']) == 0
+    assert capsys.readouterr().out.splitlines()[1].endswith(f'compare them once with python -m pytest --flowguard-base {head[:12]})')

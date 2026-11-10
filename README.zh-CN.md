@@ -27,7 +27,7 @@ python -m flowguard new-task
 python -m pytest
 ```
 
-`init` 启用 pytest 插件，添加采集哨兵、CI 片段和三条项目规矩。`package.json` 里用了 vitest 或 jest 的项目，它再加一个测试，执行 `python -m flowguard check --static`；需要时把它加进一个只跑指定文件夹的测试脚本（先看 `test`，再看单元测试脚本），并说明哪个 npm 脚本会跑它，没有时说明该加什么；vitest 项目还会接上执行侧。`new-task` 记下这次任务的基准提交；任务中途的提交不会挪动它，所以这次任务改了什么会一直报出来（还没记下基准时，任务的第一次测试也会记）。没有规则时，检查保持安静：
+`init` 启用 pytest 插件，添加采集哨兵、CI 片段和三条项目规矩；测试由 npm 跑、pytest 没有项目自己的测试时，CI 片段跑 `check --static`，基准是这个分支离开 `main` 的那个提交。`package.json` 里用了 vitest 或 jest 的项目，它再加一个测试，执行 `python -m flowguard check --static`；需要时把它加进一个只跑指定文件夹的测试脚本（先看 `test`，再看单元测试脚本），并说明哪个 npm 脚本会跑它，没有时说明该加什么；vitest 项目还会接上执行侧。`new-task` 记下这次任务的基准提交；任务中途的提交不会挪动它，所以这次任务改了什么会一直报出来（还没记下基准时，任务的第一次测试也会记）。没有规则时，检查保持安静：
 
 ```text
 FlowGuard check: no intent rules.

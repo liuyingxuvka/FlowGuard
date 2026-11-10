@@ -89,6 +89,38 @@ def test_init_is_idempotent_and_merges_existing_plugin_and_project_rules(tmp_pat
     assert 'fetch-depth: 0' in (root / '.flowguard/ci.yml').read_text()
 
 
+PYTHON_CI = '''# Merge these steps into the project CI after installing FlowGuard.
+- uses: actions/checkout@v5
+  with:
+    fetch-depth: 0
+- run: python -m flowguard check --all --deep
+'''
+
+
+def test_init_writes_a_ci_fragment_that_runs_the_checks_the_project_can_run(tmp_path, capsys):
+    # Round 22 F3: a TS project got `check --all --deep`, which runs pytest (nothing of the project's there), and
+    # in CI compared nothing: a detached checkout's task start is HEAD. Its fragment runs check --static against
+    # where the branch left the default branch.
+    root, cfg = project(tmp_path)
+    assert cli.init(cfg) == 0
+    assert (root / '.flowguard/ci.yml').read_text() == PYTHON_CI          # a Python project: as before
+    web = tmp_path / 'web'
+    (web / 'src').mkdir(parents=True)
+    (web / 'package.json').write_text('{"name": "web", "scripts": {"test": "vitest run"}, "devDependencies": {"vitest": "4.1.11"}}\n')
+    (web / 'src/limit.ts').write_text('export function limit(days: number) { return days <= 3; }\n')
+    assert cli.init(load_config(web)) == 0
+    fragment = (web / '.flowguard/ci.yml').read_text()
+    assert 'fetch-depth: 0' in fragment and 'check --all' not in fragment and '--deep' not in fragment, fragment
+    assert ('- run: python -m flowguard check --static --base "$(git merge-base HEAD origin/${GITHUB_BASE_REF:-main})"\n'
+            '  shell: bash\n') in fragment, fragment
+    assert 'not called main' in fragment, fragment          # the comment says what to change
+    assert cli.init(load_config(web)) == 0 and (web / '.flowguard/ci.yml').read_text() == fragment
+    # Python tests of the project's own beside package.json: pytest runs them, the Python fragment stays.
+    (web / 'tests').mkdir(exist_ok=True)
+    (web / 'tests/test_limit.py').write_text('def test_limit():\n    assert True\n')
+    assert cli.init(load_config(web)) == 0 and (web / '.flowguard/ci.yml').read_text() == PYTHON_CI
+
+
 def test_init_registers_the_plugin_once_and_removes_the_conftest_line_an_older_init_wrote(tmp_path, capsys):
     root, cfg = project(tmp_path)
     (root / 'tests').mkdir(exist_ok=True)

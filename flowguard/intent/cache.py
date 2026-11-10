@@ -128,7 +128,8 @@ def remember_baseline(cfg, *, new_task=False):
     out, a bisect step) the brief neither moves nor records it, as test runs do not: back on the branch the task's
     commits are still reported; new-task records HEAD there too. `note` says why the baseline is where it is, ''
     when it was recorded at HEAD with nothing recorded before. When new-task replaces a start HEAD descends from,
-    the note says those commits are no longer compared and how to compare them once. Test runs only record a
+    the note says those commits are no longer compared and how to compare them once (pytest, or `check --static` in
+    a project whose tests npm runs, `deps.static_only`). Test runs only record a
     baseline when none is recorded (`task_start(record=True)`); moving one is this call's alone, as it says why."""
     if git_common_directory(cfg.root) is None:
         return None, ''
@@ -143,8 +144,11 @@ def remember_baseline(cfg, *, new_task=False):
             return head, f'baseline: new task from HEAD {head[:12]}'
         if not ahead:
             return head, f'baseline: new task from HEAD {head[:12]} (was {recorded[:12]}' + ('' if known else ', not in this repository') + ')'
+        from .deps import static_only       # a TS/JS project has no pytest run to compare with: its map checks do
+        once = (f'python -m flowguard check --static --base {recorded[:12]}' if static_only(cfg)
+                else f'python -m pytest --flowguard-base {recorded[:12]}')
         return head, (f'baseline: new task from HEAD {head[:12]} (was {recorded[:12]}, {_commits(ahead)} before HEAD: those changes '
-                      f'are no longer compared; compare them once with python -m pytest --flowguard-base {recorded[:12]})')
+                      f'are no longer compared; compare them once with {once})')
     if not _on_branch(cfg):
         state = ('HEAD stands in' if recorded is None else
                  f'the recorded {recorded[:12]} is not in this repository, so nothing is compared' if not known else
