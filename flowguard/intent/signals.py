@@ -410,8 +410,9 @@ def _session(report, limit):
     if counted and room > 0:
         subjects = {subject or reason for subject, reason in counted}
         common = max(causes, key=lambda cause: (len(causes[cause]), -list(causes).index(cause)))
-        lines.append(f'未验证 {len(subjects)} 项（不是通过）：最常见的原因是"{common}"'
-                     + (f'（{len(causes[common])} 项）' if len(causes[common]) > 1 else ''))
+        # One point, its line right below: the count says no reason, which that line gives.
+        lines.append(f'未验证 {len(subjects)} 项（不是通过）' + ('' if len(counted) == 1 and room > 1 else
+                     f'：最常见的原因是"{common}"' + (f'（{len(causes[common])} 项）' if len(causes[common]) > 1 else '')))
         details = [f'未验证：{subject + "：" if subject else ""}{reason}' + (f'（{number} 次）' if number > 1 else '')
                    for (subject, reason), number in counted.items()]
         keys = list(counted)

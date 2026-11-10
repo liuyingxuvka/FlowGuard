@@ -181,6 +181,13 @@ def test_an_explicit_comparison_lists_changes_first_and_counts_unchanged_points_
     assert lines[-1] == '比较：另 4 项没有变化：K8、K9、K10、K11', lines
 
 
+def test_one_unverified_point_is_said_once():
+    # Round 22 review: with one point unverified the count line repeated its only reason, which the next line gives.
+    report = dict(session=True, baseline='a' * 40, baseline_kind='task', source_changed=True, items=[],
+                  unverified=['N1: reason 1 needs a test'])
+    assert signals.render(report).splitlines()[1:] == ['未验证 1 项（不是通过）', '未验证：N1：reason 1 needs a test']
+
+
 def test_the_unverified_overflow_counts_lines_and_names_every_point_it_leaves_out():
     report = dict(session=True, baseline='a' * 40, baseline_kind='task', source_changed=True, items=[],
                   unverified=[f'N{number}: reason {number} needs a test' for number in range(1, 7)])
