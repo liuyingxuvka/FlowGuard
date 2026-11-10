@@ -588,7 +588,7 @@ def judge(cfg, data, records, package=None):
     # same-name sensors: the copies ran on the same replayed inputs. One red per name: what every copy answered
     # on the first input where they differ, never which one to follow (TS has no `distinct`: a different name).
     same_name = dict(compared=set(), disagreed={})
-    from .signals import copy_answers
+    from .signals import copy_answers, rule_steps
     for ident, point in points.items():
         if not point['copies'] or point['name'] in same_name['disagreed']:
             continue
@@ -644,9 +644,8 @@ def judge(cfg, data, records, package=None):
                     source = parse(rule.source)
                     red.append(rule.id + ' 出处：' + (source.quote or source.text))
                     quoted.add(rule.id)
-                    steps.setdefault(rule.id, [
-                        f'改代码，让 {point["rel"]}:{point["target_line"]} {point["fn"]} 符合规则 {rule.id}；',
-                        f'需求确实变了：先用 python -m flowguard req add 存下新的原话，再改规则 {model.file_of[rule.id]}:{rule.line}'])
+                    steps.setdefault(rule.id, rule_steps(rule.id, f'{point["rel"]}:{point["target_line"]} {point["fn"]}',
+                                                         f'{model.file_of[rule.id]}:{rule.line}'))
                 break
     # How far HEAD lies after a recorded task start is read now, by the one git call of pytest's title, and not
     # kept in the plan, whose key is the commit and its kind: the title says it as pytest's does.

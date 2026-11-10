@@ -182,6 +182,36 @@ def test_init_can_extend_a_final_pytest_table_without_a_trailing_newline(tmp_pat
     assert path.read_bytes() == first
 
 
+def test_a_violated_rule_has_the_next_step_of_pytest_in_every_check(tmp_path, capsys):
+    # Round 22 F2: pytest said "改代码……；需求确实变了：先 req add……再改规则", while check added its own English
+    # step to a red without one ("-> show the rule and correct its source, binding or regression rows"): on
+    # the same line as pytest's step, and alone when check reused the rule's last result.
+    import subprocess
+    import sys
+    root, cfg = project(tmp_path)
+    policy = cfg.intent / 'policy.py'
+    policy.write_text(policy.read_text().replace('row(days=4,expect=False', 'row(days=2,expect=False'))   # contradicts the rule
+    cli.init(cfg)
+    capsys.readouterr()
+    steps = [f'    改代码，让 {root.name}.py:2 符合规则 LIMIT；',
+             '    需求确实变了：先用 python -m flowguard req add 存下新的原话，再改规则 tests/intent/policy.py:2']
+    def block(text):
+        lines = text.splitlines()
+        red = [index for index, line in enumerate(lines) if line.startswith('红：LIMIT：')]
+        assert len(red) == 1 and 'show the rule' not in text and 'correct its source' not in text, text
+        return lines[red[0]], lines[red[0] + 1:red[0] + 3]
+    bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
+    ran = subprocess.run([sys.executable, '-c', bootstrap, cli_fixture.SOURCE, '-q'], cwd=root, capture_output=True, text=True, timeout=120)
+    assert ran.returncode == 1, ran.stdout + ran.stderr
+    line, after = block(ran.stdout)
+    assert after == steps, ran.stdout
+    for run in ('check reuses the result pytest saved', 'check again', 'check --all reruns the rule'):
+        assert cli_fixture.check(cfg, everything=run.startswith('check --all')) == 1
+        text = capsys.readouterr().out
+        assert block(text)[1] == steps, (run, text)
+    assert block(text)[0] == line, text            # pytest's finding, once, without a second step on it
+
+
 def test_check_uses_real_pytest_items_and_finds_the_regression(tmp_path, capsys):
     _, cfg = project(tmp_path, wrong=True)
     cli.init(cfg)

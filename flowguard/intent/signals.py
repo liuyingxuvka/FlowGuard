@@ -219,6 +219,13 @@ def copy_answers(answers, same, show, owner=None, total=None):
     return text, '先定哪份对，再让' + ('另一份' if len(answers) == 2 else '其余几份') + '和它一致'
 
 
+def rule_steps(rule_id, homes, where):
+    """The next step of a violated rule, in the same words in pytest, `check` and the vitest report: correct the
+    code at `homes`; when the need changed, store the owner's new words first, then change the rule at `where`."""
+    return [f'改代码，让 {homes} 符合规则 {rule_id}；',
+            f'需求确实变了：先用 python -m flowguard req add 存下新的原话，再改规则 {where}']
+
+
 def _red_entry(message):
     text = str(message)
     subject, marker, quote = text.partition(' 出处：')

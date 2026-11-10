@@ -62,6 +62,7 @@ def _kind(message):
 
 
 def _action(message):
+    """A history or grey message with its next step. A rule's red takes the step pytest prints (`_rule_steps`)."""
     if '->' in message:
         return message
     if _kind(message) == 'tool':
@@ -140,7 +141,7 @@ def render(cfg, data, *, check=False, graph=None):
         if not result.get('items'):
             grey.append(f'grey {rid}: no results yet -> run check')
         for value in result.get('items', {}).values():
-            red.extend(f'red {rid}: {_action(message)}' for message in value.get('red', []))
+            red.extend(f'red {rid}: {message}' for message in value.get('red', []))     # its step: _rule_steps
             for message in value.get('grey', []):
                 if _kind(message) == 'tool':
                     cause = message.split(':', 1)[0]
@@ -167,6 +168,21 @@ def render(cfg, data, *, check=False, graph=None):
     if not red and not grey:
         lines.append('No disagreement found in the checked rules and source anchors.')
     return _limit(lines, cfg.check_lines if check else cfg.screen_lines)
+
+
+def _rule_steps(model, data):
+    """{rule id: next steps} of the rules the last check found red, in the words pytest prints under them
+    (`signals.rule_steps`), also for a rule whose result this check reused without running it."""
+    from .signals import rule_steps
+    steps = {}
+    for rid, group in data['results'].items():
+        rule = model.rules.get(rid)
+        if rule is None or not any(value.get('red') for value in group.get('items', {}).values()):
+            continue
+        homes = '、'.join(f'{home.anchor.file}:{home.anchor.target_line}' if getattr(home, 'anchor', None) else home.target
+                         for home in rule.homes if not hasattr(home, 'scenario')) or rid + ' 的绑定'
+        steps[rid] = rule_steps(rid, homes, f'{model.file_of[rid]}:{rule.line}')
+    return steps
 
 
 def _brief_source(cfg, item):
@@ -831,14 +847,14 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     stream_all = everything
     model = load(cfg)
     model.deep = deep
-    def report(lines):
+    def report(lines, steps=None):
         if reports is None:
             print('\n'.join(lines))
         else:
             from .signals import constraint
             red = [constraint(line.removeprefix('red ')) for line in lines if line.startswith('red ')]
             grey = [line.removeprefix('grey ') for line in lines if line.startswith(('grey ', 'OPEN '))]
-            reports.append(dict(source_changed=bool(red or grey), red=red, items=[dict(
+            reports.append(dict(source_changed=bool(red or grey), red=red, steps=steps or {}, items=[dict(
                 name='未覆盖', status='grey', complete=False, changes=[], reasons=grey)] if grey else []))
     historical = history.check(cfg, since)
     data = cache.read(cfg)
@@ -969,7 +985,7 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     if opaque_tests and not everything:
         data['check_scope'] += f'; {len(opaque_tests)} test files rerun for unresolved imports/data/children'
     owner_grey = _owner_rules_unverified(cfg, data) if stream_all else []
-    report(render(cfg, data, check=True) + owner_grey)
+    report(render(cfg, data, check=True) + owner_grey, _rule_steps(model, data))
     red = owner_grey or historical or data['summary']['errors'] or (data.get('attempt') or {}).get('errors') or any(
         value.get('verdict') == 'red' for rid, group in data['results'].items()
         if rid in data['summary']['rules'] and not data['summary']['rules'][rid].get('superseded_by') or rid is None

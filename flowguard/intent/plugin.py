@@ -1070,9 +1070,7 @@ class Observations:
         for rule in self.state.model.rules.values():
             if any(str(message).partition('：')[0].partition(': ')[0].partition(' 出处')[0] == rule.id for message in self.red):
                 homes = '、'.join(self._place(home.target) for home in rule.homes if not hasattr(home, 'scenario')) or rule.id + ' 的绑定'
-                self.steps.setdefault(rule.id, [
-                    f'改代码，让 {homes} 符合规则 {rule.id}；',
-                    f'需求确实变了：先用 python -m flowguard req add 存下新的原话，再改规则 {self.state.model.file_of[rule.id]}:{rule.line}'])
+                self.steps.setdefault(rule.id, signals.rule_steps(rule.id, homes, f'{self.state.model.file_of[rule.id]}:{rule.line}'))
         for issue in self.index.issues:
             if issue.level == 'red':
                 self.red.append(issue.message)
