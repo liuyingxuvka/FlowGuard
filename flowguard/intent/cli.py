@@ -1155,12 +1155,22 @@ _SAFE_VALUED = {'--reporter', '--outputFile', '--coverageDirectory', '--pool', '
                 '--minWorkers', '--testTimeout', '--hookTimeout', '--mode', '--maxConcurrency', '--retry', '--logLevel'}
 # jest's array options (yargs): every word after one, up to the next option, is a value, also after `--reporters=x`.
 _JEST_ARRAYS = {'--reporters', '--coverageReporters'}
-# vitest's options with an optional value (`-u [type]`, `--silent [value]`): the next word, unless it is an option.
-_VITEST_OPTIONAL = {'-u', '--update', '--silent'}
-# The prefixed options vitest reads as booleans; every other prefixed option (`--coverage.include src`) has a value.
+# vitest's options with an optional value (`-u [type]`): the next word, unless it is an option.
+_VITEST_OPTIONAL = {'-u', '--update'}
+# The words vitest's --silent takes (vitest 3.1 on refuse any other word after it, `--silent tests/unit`, where vitest
+# 3.0 and earlier read a flag and then a path): the next word only when it is one of them.
+_SILENT = ('true', 'yes', 'false', 'no', 'passed-only')
+# The prefixed options vitest 2 to 5 all read as booleans; every other prefixed option (`--coverage.include src`) has a
+# value, except the ones below.
 _PREFIXED_FLAGS = re.compile(r'--coverage\.(?:enabled|clean|cleanOnRerun|reportOnFailure|allowExternal|skipFull'
-                             r'|thresholds\.(?:100|perFile))|--sequence\.(?:shuffle(?:\.files|\.tests)?|concurrent)'
-                             r'|--poolOptions\.\w+\.(?:isolate|singleThread|singleFork|useAtomics)')
+                             r'|thresholds\.100)|--sequence\.(?:shuffle(?:\.files|\.tests)?|concurrent)')
+# Prefixed options vitest versions read differently, a boolean in some (the next word is a path) and a value in others
+# (the next word is that value): vitest 3's --coverage.all and poolOptions booleans, which vitest 4 dropped (an option
+# vitest does not know takes the next word), --coverage.thresholds.autoUpdate (a value from vitest 4),
+# --coverage.thresholds.perFile (from vitest 5) and vitest 5's new booleans. They take true, yes, false or no; a call
+# that gives one another word is one init cannot read.
+_PREFIXED_VERSIONED = re.compile(r'--coverage\.(?:all|thresholds\.(?:autoUpdate|perFile)|excludeAfterRemap'
+                                 r'|autoAttachSubprocess)|--poolOptions\.\w+\.(?:isolate|singleThread|singleFork|useAtomics)')
 # The file a runner's package starts it from when a script calls it through node (`node node_modules/jest/bin/jest.js`).
 _RUNNER_FILES = {'jest': 'jest.js', 'vitest': 'vitest.mjs'}
 # Commands a shell finds without npx: node and the package managers; npx runs any other word of a call.
@@ -1187,9 +1197,15 @@ def _from_shell(call):
 def _takes(option, runner):
     """How `option` of `runner` takes the word after it (unless written `--option=value`): 'next' always as its
     value, 'word' unless it is an option, 'every' with each word after it up to the next option (also after
-    `--option=value`), 'flag' only `true` or `false` (a `--no-` option none; `--bail` also a number)."""
+    `--option=value`), 'silent' only one of `_SILENT`, 'versioned' only true, yes, false or no (another word
+    leaves the call unread, `_PREFIXED_VERSIONED`), 'flag' only `true` or `false` (a `--no-` option none;
+    `--bail` also a number)."""
     if runner == 'jest' and option in _JEST_ARRAYS:
         return 'every'
+    if runner == 'vitest' and option == '--silent':
+        return 'silent'
+    if _PREFIXED_VERSIONED.fullmatch(option):
+        return 'versioned'
     if option in _VALUED or option in _SAFE_VALUED or runner == 'jest' and option == '-w':
         return 'next'
     if runner == 'vitest' and option in _VITEST_OPTIONAL or option.startswith(_SAFE_PREFIXES) \
@@ -1205,6 +1221,7 @@ class _Call(typing.NamedTuple):
     options: set
     paths: list
     clear: bool
+    unread: set
     prefix: str
     end: int
 
@@ -1213,12 +1230,14 @@ def _runner_calls(command, runner):
     """Each call of `runner` in a script (`a && b`, `a; b` and `a || b` are calls of their own; the runner is a
     word named `runner` or its package's start file, `node_modules/jest/bin/jest.js`): its text, whether it
     watches, its options, its paths (`./` taken off; `.` is the package folder, spelled ''), whether init can
-    read it (`clear`: every option is one of `_SAFE` or a watch option), its prefix (its words up to the runner,
-    then vitest's `run`) and where in its text a file added to it goes: at its end, or after its last path when
-    its last option would take that file as its value (`vitest run tests -u`, `jest tests --reporters=default`).
-    An option's value (`_takes`) is never a path: `--coverage.include src`, `-u tests` and vitest's `--silent
-    passed-only` run every file. `--watch=false` and `--watchAll false` turn watching off; `vitest watch`,
-    `vitest dev` and vitest's `-w` watch (jest's `-w` is its worker count)."""
+    read it (`clear`: every option is one of `_SAFE` or a watch option, and no option vitest versions read
+    differently is given a word they read differently), the options it cannot read (`unread`), its prefix (its
+    words up to the runner, then vitest's `run`) and where in its text a file added to it goes: at its end, or
+    after its last path when its last option could take that file as its value (`vitest run tests -u`, `vitest
+    run tests --silent`, `jest tests --reporters=default`). An option's value (`_takes`) is never a path:
+    `--coverage.include src`, `-u tests` and vitest's `--silent passed-only` run every file, `--silent tests/unit`
+    runs tests/unit. `--watch=false` and `--watchAll false` turn watching off; `vitest watch`, `vitest dev` and
+    vitest's `-w` watch (jest's `-w` is its worker count)."""
     watch = _WATCH | ({'-w'} if runner == 'vitest' else set())
     safe = _SAFE | ({'-w'} if runner == 'jest' else set())
     calls = []
@@ -1230,7 +1249,7 @@ def _runner_calls(command, runner):
             continue
         rest = words[at + 1:]
         verb = rest[0].group() if rest and rest[0].group() in ('run', 'watch', 'dev') else ''
-        options, paths, pending, watches, last = set(), [], None, verb in ('watch', 'dev'), None
+        options, paths, pending, watches, last, unsure = set(), [], None, verb in ('watch', 'dev'), None, set()
         for match in rest[1:] if verb else rest:
             word = match.group()
             if pending is not None:
@@ -1238,10 +1257,13 @@ def _runner_calls(command, runner):
                 pending = pending if takes == 'every' else None
                 if takes == 'next' or takes in ('word', 'every') and not word.startswith('-') or takes == 'flag' and (
                         word in ('true', 'false') and not option.startswith('--no-')
-                        or option == '--bail' and word.isdigit()):
+                        or option == '--bail' and word.isdigit()) or takes == 'silent' and word in _SILENT \
+                        or takes == 'versioned' and word in ('true', 'yes', 'false', 'no'):
                     if option in watch:
                         watches = word == 'true'
                     continue
+                if takes == 'versioned' and not word.startswith('-'):
+                    unsure.add(option)
                 pending = None
             if word.startswith('-'):
                 option, equals, value = word.partition('=')
@@ -1255,10 +1277,11 @@ def _runner_calls(command, runner):
                 while word.startswith('./'):
                     word = word[2:]
                 paths.append('' if word in ('.', '') else word.rstrip('/'))
-        clear = all(option in safe or option in watch or option.startswith(_SAFE_PREFIXES) for option in options)
+        clear = not unsure and all(option in safe or option in watch or option.startswith(_SAFE_PREFIXES) for option in options)
+        unread = unsure | {option for option in options if option not in _SAFE and not option.startswith(_SAFE_PREFIXES)}
         prefix = segment[words[0].start():words[at].end()] + (' run' if runner == 'vitest' else '')
         opened = pending is not None and pending[1] != 'flag' and last is not None
-        calls.append(_Call(segment, watches, options, paths, clear, prefix,
+        calls.append(_Call(segment, watches, options, paths, clear, unread, prefix,
                            last.end() if opened else len(segment.rstrip())))
     return calls
 
@@ -1313,8 +1336,7 @@ def _filtered_scripts(cfg, package, runner, name, launch):
         if wire is not None:
             tried.append((rank, script, command, wire.text, wire.end))
         if len(clear) < len(calls):
-            options = sorted({option for call in calls if not call.clear for option in call.options
-                              if option not in _SAFE and not option.startswith(_SAFE_PREFIXES)})
+            options = sorted({option for call in calls if not call.clear for option in call.unread})
             prefix = next(call.prefix for call in calls if not call.clear)
             unread.append((rank, script, command, options, any(call.paths for call in calls), prefix))
     call = _alone(launch, name)

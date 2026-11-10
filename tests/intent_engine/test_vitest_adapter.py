@@ -686,6 +686,45 @@ def test_init_reads_the_reporting_options_and_boolean_values_of_plain_test_scrip
         assert _says(text, folder, 'npm run test:unit') == 'npm run test:unit', (folder, text)
 
 
+def test_init_reads_a_vitest_option_that_takes_only_a_few_words_by_those_words(tmp_path):
+    # Round 25 check: --silent took any word, so vitest 2's "vitest run --silent tests/unit" (a flag and a folder; vitest
+    # 3.1 on take only true, yes, false, no or passed-only and refuse a path) counted as running every file and was
+    # left without the static test. vitest 3 reads --coverage.all, --coverage.thresholds.autoUpdate and the poolOptions
+    # booleans as flags, vitest 4 the word after them as their value (all: "tests/unit", and every file runs): a call
+    # that gives one another word than true, yes, false or no is one init cannot read; before, init either left it
+    # as running every file or added the static test, which vitest 4 then ran alone.
+    vitest = lambda folder, scripts, version: json.dumps({'name': folder, 'scripts': scripts,
+                                                          'devDependencies': {'vitest': version}}) + '\n'
+    start = _script_packages(tmp_path, {
+        'silent': (vitest('silent', {'test': 'vitest run --silent tests/unit'}, '^2.1.9'), ['tests/unit']),
+        'yes': ({'test': 'vitest run --silent yes'}, []),
+        'all': (vitest('all', {'test': 'vitest run --coverage --coverage.all tests/unit'}, '^3.2.4'), ['tests/unit']),
+        'auto': (vitest('auto', {'test:unit': 'vitest run --coverage.thresholds.autoUpdate tests/unit'}, '^3.2.4'),
+                 ['tests/unit']),
+        'pool': ({'test:unit': 'vitest run --poolOptions.forks.singleFork tests/unit'}, ['tests/unit']),
+        'alltrue': ({'test:unit': 'vitest run --coverage.all true tests/unit'}, ['tests/unit']),
+        'autolast': ({'test:unit': 'vitest run tests/unit --coverage.thresholds.autoUpdate'}, ['tests/unit']),
+    })
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0, text
+    for folder, script, command in (
+            ('silent', 'test', 'vitest run --silent tests/unit flowguard.static.test.mjs'),
+            ('alltrue', 'test:unit', 'vitest run --coverage.all true tests/unit flowguard.static.test.mjs'),
+            ('autolast', 'test:unit', 'vitest run tests/unit flowguard.static.test.mjs --coverage.thresholds.autoUpdate')):
+        assert _scripts(tmp_path, folder) == {script: command}, (folder, text)
+        runs = 'npm test' if script == 'test' else 'npm run ' + script
+        assert _says(text, folder, runs) == runs, (folder, text)
+    assert (tmp_path / 'yes/package.json').read_text(encoding='utf-8') == start['yes'], text
+    assert _says(text, 'yes', 'npm test') == 'npm test', text
+    for folder, script, option in (('all', 'test', '--coverage.all'), ('auto', 'test:unit', '--coverage.thresholds.autoUpdate'),
+                                   ('pool', 'test:unit', '--poolOptions.forks.singleFork')):
+        assert (tmp_path / folder / 'package.json').read_text(encoding='utf-8') == start[folder], (folder, text)
+        assert _says(text, folder, None) is None, (folder, text)
+        assert (f'{folder}/package.json script "{script}" runs vitest with {option}, which init does not read '
+                f'({json.loads(start[folder])["scripts"][script]}): init cannot tell whether it runs '
+                'flowguard.static.test.mjs; if it does not, add "&& vitest run flowguard.static.test.mjs" to it yourself'
+                ) in text, (folder, text)
+
 def test_init_reads_a_runner_started_through_node_and_spells_each_edit_the_way_jest_runs_an_es_module(tmp_path):
     # Round 24 review: "node --experimental-vm-modules node_modules/jest/bin/jest.js", jest's own way to run ES
     # module tests, was no call of jest, and the advice "&& jest flowguard.static.test.js" fails to parse the
