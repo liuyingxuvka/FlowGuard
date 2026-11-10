@@ -1663,6 +1663,21 @@ def test_the_overflow_of_a_run_against_base_names_that_base_in_the_command_that_
     assert code == 0 and len(_lines(text, '线索：')) == 12, text
 
 
+def test_the_overflow_of_a_pytest_session_against_flowguard_base_keeps_that_base_as_base(tmp_path):
+    words = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima']
+    _commit(tmp_path, {'src/upper.ts': ''.join(f"export function is{word}(x: string) {{ return x === '{word} Label'; }}\n"
+                                               for word in words),
+                       'pyproject.toml': '[tool.pytest.ini_options]\npythonpath = ["."]\ntestpaths = ["tests"]\n',
+                       'tests/test_ok.py': 'def test_ok():\n    pass\n'})
+    _write(tmp_path, {'src/lower.ts': ''.join(f"export function was{word}(x: string) {{ return x === '{word.lower()} label'; }}\n"
+                                              for word in words)})
+    _commit(tmp_path, message='twelve new spellings')
+    # The session's leads are against HEAD~1; the command that lists them all must be too.
+    code, text = _pytest(tmp_path, '--flowguard-base', 'HEAD~1')
+    leads = _lines(text, '线索：')
+    assert code == 0 and leads[-1].endswith('条：python -m flowguard check --static --base HEAD~1 --leads 列出全部线索'), text
+
+
 def test_the_overflow_of_show_spells_a_phrase_query_so_cmd_exe_reads_it_too(tmp_path):
     _commit(tmp_path, {
         'pyproject.toml': '[tool.flowguard]\nscreen_lines = 3\n',
@@ -1733,10 +1748,10 @@ WRITERS = {
 }
 
 
-def _pytest(root):
+def _pytest(root, *options):
     bootstrap = ('import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; '
                  'raise SystemExit(pytest.main(sys.argv[1:]))')
-    result = subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '-q', '-p', 'flowguard.intent.plugin'], cwd=root,
+    result = subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '-q', '-p', 'flowguard.intent.plugin', *options], cwd=root,
                             capture_output=True, text=True, timeout=120, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'))
     return result.returncode, _text(result)
 

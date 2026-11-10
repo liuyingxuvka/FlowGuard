@@ -230,9 +230,10 @@ def _brief(cfg, data, baseline, note=''):
     if not active and not candidates:
         return [f'FlowGuard: no intent rules; baseline {baseline[:12] if baseline else "none (no Git commit)"}.',
                 *([note] if note else [])]
-    # A cached green is not a new verification. The brief reads no source map.
-    lines = [header, *([note] if note else [])] + sorted(candidates, key=lambda line: not line.startswith('red '))
-    lines = [line if len(line) <= 100 else line[:75] + '... (excerpt; show RULE)' for line in lines]
+    # A cached green is not a new verification. The brief reads no source map. A rule's line is an excerpt
+    # beyond 100 characters; the baseline note is whole, as it ends with the command to run.
+    lines = [header, *([note] if note else [])] + [line if len(line) <= 100 else line[:75] + '... (excerpt; show RULE)'
+                                                   for line in sorted(candidates, key=lambda line: not line.startswith('red '))]
     budget = min(10, cfg.screen_lines)
     if len(lines) <= budget:
         return lines
@@ -241,8 +242,8 @@ def _brief(cfg, data, baseline, note=''):
 
 
 def screen(cfg, *, new_task=False):
-    """The brief. It keeps the task baseline while HEAD descends from it; `new_task` (`new-task`) starts the
-    next task at HEAD."""
+    """The brief. It keeps the task baseline while HEAD descends from it, and on a detached HEAD moves or records
+    none; `new_task` (`new-task`) starts the next task at HEAD, a detached one too."""
     from .health import brief_line
     baseline, note = cache.remember_baseline(cfg, new_task=new_task)
     data = cache.read(cfg)
@@ -601,20 +602,13 @@ def watch(cfg, command):
 
 
 
-def _more_leads(command, everything, base):
-    """The command that prints every lead of this run: the same options, `--leads` added (an explicit `--base`
-    too, or it would list the leads against the task baseline instead)."""
-    return f'python -m flowguard {command}' + ' --all' * everything + (f' --base {base}' if base else '') + ' --leads'
-
-
 def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
     """Run the one ordinary pytest route; source validation executes no code. `leads` prints every lead.
     Without `base` the first check of a task records HEAD as its baseline when none is recorded; a recorded
-    one stays, as in pytest (`cache.task_baseline`)."""
+    one stays, as in pytest (`cache.task_start`)."""
     from .plugin import collect_signals
-    from .signals import render as render_signals
-    if base is None:
-        cache.task_baseline(cfg, record=True)
+    from .signals import more_leads, render as render_signals
+    start = cache.task_start(cfg, record=True) if base is None else (base, 'base', None)
     with collect_signals() as reports:
         status = _check(cfg, everything=everything, since=since, deep=deep, base=base, reports=reports)
     from .differences import _source_index, _compare_pairs
@@ -651,13 +645,13 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
         if not any(message.replace('：', ': ') == seen.replace('：', ': ') for seen in red):
             red.append(message)
     if not baseline.get('baseline'):
-        # Without a pytest batch (no rules) the owner findings still compared with the remembered baseline.
-        from .owners import baseline as owner_baseline
-        if owner_baseline(cfg, base):
-            baseline = dict(baseline=owner_baseline(cfg, base), baseline_kind='base' if base else 'task')
-    report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind', 'task'),
+        # Without a pytest batch (no rules) the owner findings still compared with the task baseline (or HEAD
+        # standing in, or `base`), and the title names it as a pytest session would.
+        baseline = dict(baseline=start[0], baseline_kind=start[1], baseline_ahead=start[2])
+    report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind'),
+                  baseline_ahead=baseline.get('baseline_ahead'),
                   baseline_option='--base', source_changed=any(part.get('source_changed', True) for part in reports),
-                  all_leads=leads, more_leads=_more_leads('check', everything, base),
+                  all_leads=leads, more_leads=more_leads('check', everything, base),
                   comparison_requested=any(part.get('comparison_requested') for part in reports),
                   items=[item for part in reports for item in part.get('items', ())],
                   paths=[path for part in reports for path in part.get('paths', ())],
@@ -692,11 +686,10 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     test run; only what this change adds is reported unless `everything` (`--all`), which also lists every
     open structure problem. `leads` (`--leads`) prints every lead instead of the first ones. Exit 1 when
     anything is red. Without `base` the first run of a task records HEAD as its baseline when none is recorded;
-    a recorded one stays, as in pytest (`cache.task_baseline`)."""
+    a recorded one stays, as in pytest (`cache.task_start`); the title names it as pytest does."""
     from . import anchors, health, ledger as fallbacks, owners
-    from .signals import render as render_signals
-    if base is None:
-        cache.task_baseline(cfg, record=True)
+    from .signals import more_leads, render as render_signals
+    start = cache.task_start(cfg, record=True) if base is None else (base, 'base', None)
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
         found = owners.static_findings(cfg, graph, index, base, everything=everything)
@@ -706,9 +699,9 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
         with graph.con:
             cache.save_structure(graph.con, found.summary)
     red = list(dict.fromkeys([*found.red, *(issue.message for issue in index.issues if issue.level == 'red')]))
-    report = dict(session=True, baseline=baseline, baseline_kind='base' if base else 'task', baseline_option='--base',
+    report = dict(session=True, baseline=start[0], baseline_kind=start[1], baseline_ahead=start[2], baseline_option='--base',
                   source_changed=bool(red or found.leads or found.section or result.red), red=red, leads=found.leads,
-                  all_leads=leads, more_leads=_more_leads('check --static', everything, base),
+                  all_leads=leads, more_leads=more_leads('check --static', everything, base),
                   items=[], ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in result.red],
                   structure=found.section)
     status = int(bool(red or result.red))
@@ -852,7 +845,8 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     if not model.declared_items() and not everything and not retry_incomplete:
         # No intent item runs, so the ledger the plugin would report is compared here without pytest.
         from . import ledger as fallbacks
-        result = _ledger_result(cfg, base)
+        from .owners import baseline as owner_baseline
+        result = _ledger_result(cfg, owner_baseline(cfg, base))
         shown = [fallbacks.summary(result), *fallbacks.lines(result)] if result.red else []
         if shown and reports is None:
             print('\n'.join(shown))
@@ -1536,19 +1530,23 @@ def ledger(cfg, operation):
                           'run python -m flowguard init')
         print('\n'.join(report))
         return 0
-    result = _ledger_result(cfg)
+    from .signals import missing_start
+    # A recorded task start this repository lacks compares nothing (`cache.task_start`); the check says so first,
+    # with the next step, as the title of pytest, `check` and `check --static` does.
+    commit, kind = cache.task_baseline(cfg)
+    missing = [missing_start(commit)] if kind == 'missing' else []
+    result = _ledger_result(cfg, None if missing else commit)
     if not result.present and not result.red:
-        print(f'FlowGuard ledger: no {fallbacks.LEDGER}; python -m flowguard ledger init starts one from the current code.')
+        print('\n'.join([*missing, f'FlowGuard ledger: no {fallbacks.LEDGER}; python -m flowguard ledger init starts one from the current code.']))
         return 0
-    print('\n'.join([fallbacks.summary(result), *fallbacks.lines(result), *('未核对：' + line for line in result.grey)]))
+    print('\n'.join([*missing, fallbacks.summary(result), *fallbacks.lines(result), *('未核对：' + line for line in result.grey)]))
     return int(bool(result.red))
 
 
-def _ledger_result(cfg, base=None):
+def _ledger_result(cfg, baseline):
     """The ledger compared with the current map without running tests (only its deletion when there is none),
-    against `base` when one is named, else the task baseline."""
-    from . import ledger as fallbacks, owners
-    baseline = owners.baseline(cfg, base)
+    against `baseline` (`owners.baseline`: an explicit `--base`, else the task baseline)."""
+    from . import ledger as fallbacks
     if not fallbacks.path(cfg).is_file():
         return fallbacks.absent(cfg, baseline)
     with closing(build(cfg.root, roots=cfg.roots)) as graph:

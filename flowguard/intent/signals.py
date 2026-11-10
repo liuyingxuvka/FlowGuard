@@ -269,8 +269,10 @@ def _session(report, limit):
     items = list(report.get('items', ()))
     reds = _red_lines(report, items)
     requested = bool(report.get('comparison_requested'))
+    # A missing task start compares nothing, and the title alone says so with the next step.
+    alone = _title(report) if report.get('baseline_kind') == 'missing' else ''
     if not reds and not report.get('source_changed') and not requested:
-        return ''
+        return alone
     changes, names, unverified, calls = [], [], [], {}
     compared, compared_names = [], []      # an explicit comparison's unchanged points, after every change
     for item in items:
@@ -323,7 +325,7 @@ def _session(report, limit):
         cause = re.sub(r'^(比较未完成：)?[A-Za-z_][\w.]*: ', r'\1', reason)
         causes.setdefault(cause, set()).add(subject or reason)
     if not (reds or changes or compared or leads or counted):
-        return ''
+        return alone
     room = budget
     # Changes come first and keep their room; an unchanged comparison never pushes a change into the overflow.
     shown = _fit(changes, room - bool(leads) - bool(counted),
@@ -332,7 +334,7 @@ def _session(report, limit):
                   lambda rest: f'比较：另 {rest} 项没有变化：' + '、'.join(dict.fromkeys(compared_names[len(compared) - rest:])))
     room -= len(shown)
     # `all_leads` (check --leads) prints every lead outside the budget; otherwise the overflow names that command.
-    more = report['more_leads'] if 'more_leads' in report else 'python -m flowguard check --static --leads'
+    more = report['more_leads'] if 'more_leads' in report else more_leads('check --static')
     if report.get('all_leads'):
         shown_leads = leads
     else:
@@ -372,14 +374,32 @@ def _grey(text):
     return '', text
 
 
+def more_leads(command, everything=False, base=None):
+    """The command that prints every lead of a run: the same options, `--leads` added (an explicit baseline as
+    `--base`, also pytest's `--flowguard-base`, or it would list the leads against the task baseline instead)."""
+    return f'python -m flowguard {command}' + ' --all' * everything + (f' --base {base}' if base else '') + ' --leads'
+
+
+def missing_start(commit):
+    """The one line of a run whose recorded task start this repository lacks (a shallow clone, collected history,
+    another clone's cache): it compares nothing, and new-task records HEAD."""
+    return f'FlowGuard（记下的任务开始 {commit[:7]} 不在这个仓库里：不比较改前改后；先运行 python -m flowguard new-task）'
+
+
 def _title(report):
     baseline, kind = report.get('baseline'), report.get('baseline_kind', 'task')
     if not baseline:
         return 'FlowGuard（没有基准提交：不比较改前改后）'
+    if kind == 'missing':
+        return missing_start(baseline)
     # An explicit baseline is named by the option that gave it: pytest's --flowguard-base, or `--base` of the
     # CLI check (`baseline_option`).
     option = report['baseline_option'] if 'baseline_option' in report else '--flowguard-base'
     label = {'task': '相对任务开始', 'base': '相对 ' + option, 'HEAD': '相对 HEAD'}.get(kind, '相对')
+    ahead = report.get('baseline_ahead')
+    if kind == 'task' and ahead:
+        # A task start HEAD has moved past: the commits since are this task's, or an earlier task's without new-task.
+        return f'FlowGuard（{label} {baseline[:7]}，HEAD 之前 {ahead} 个提交；新任务先运行 python -m flowguard new-task）'
     return f'FlowGuard（{label} {baseline[:7]}）'
 
 
