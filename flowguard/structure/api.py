@@ -654,19 +654,29 @@ class MapHandle:
 
     def _prisma_client(self, file, module):
         """Does `file` import the Prisma client by this spelling: `@prisma/client`, `.prisma/client`, a
-        `generated/prisma` folder, or a relative path into the `output` folder of a mapped schema's
-        generator (`generator client { output = "../generated/db" }`, resolved from the schema's folder)."""
+        `generated/prisma` folder, or the `output` folder of a mapped schema's generator (`generator client
+        { output = "../generated/db" }`, resolved from the schema's folder): by a relative path into it, or,
+        for a folder inside `node_modules` (`../node_modules/@prisma-db-1/client`), by the package name after
+        it from a file under the folder that holds that `node_modules`, as Node resolves a bare import."""
         if PRISMA_CLIENT.search(module):
             return True
-        if not module.startswith('.'):
-            return False
         if 'prisma_outputs' not in self._derived:
             self._derived['prisma_outputs'] = frozenset(
                 posixpath.normpath(posixpath.join(posixpath.dirname(path), re.sub(r'\\+', '/', output)))
                 for path, schema in self._schema_rows() if schema.get('kind') == 'prisma' and not self.archived(path)
                 for output in schema.get('outputs', ()) if output.strip())
-        target = posixpath.normpath(posixpath.join(posixpath.dirname(file), module))
-        return any(target == folder or target.startswith(folder + '/') for folder in self._derived['prisma_outputs'])
+        if module in ('.', '..') or module.startswith(('./', '../')):
+            target = posixpath.normpath(posixpath.join(posixpath.dirname(file), module))
+            return any(target == folder or target.startswith(folder + '/') for folder in self._derived['prisma_outputs'])
+        for folder in self._derived['prisma_outputs']:
+            parts = folder.split('/')
+            at = max((index for index, part in enumerate(parts[:-1]) if part == 'node_modules'), default=None)
+            if at is None:
+                continue
+            holder, name = '/'.join(parts[:at]), '/'.join(parts[at + 1:])
+            if (module == name or module.startswith(name + '/')) and (not holder or file.startswith(holder + '/')):
+                return True
+        return False
 
     def queries(self, model=None):
         """Prisma reads (`count`, `findMany`, `findFirst`, `aggregate`, ...), bound to their model by

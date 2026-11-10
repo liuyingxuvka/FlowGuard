@@ -307,6 +307,36 @@ def test_archived_prisma_files_are_neither_in_use_nor_guessed(tmp_path):
         assert graph.prisma_schemas_in_use() == {'docs/release-1.0/schema.prisma'} and not graph.prisma_schemas_guessed()
 
 
+def test_a_generator_output_under_node_modules_is_the_client_by_its_package_name(tmp_path):
+    # 4.2 review: Prisma's setup for several databases writes each client into node_modules and imports it by
+    # its package name; only a relative import of that folder counted as the client. The Planning Tool
+    # imports `.prisma/central-client` so.
+    def schema(output, enum, model, values):
+        return (f'generator client {{\n  provider = "prisma-client-js"\n  output   = "{output}"\n}}\n\nenum {enum} {{\n'
+                + ''.join(f'  {value}\n' for value in values) + f'}}\n\nmodel {model} {{\n  id   String @id\n  role {enum}\n}}\n')
+    _commit(tmp_path, {
+        'backend/package.json': '{"name": "backend"}\n',
+        'backend/prisma/schema.prisma': schema('../node_modules/@prisma-db-1/client', 'Role', 'User', 'AB'),
+        'backend/prisma/central/schema.prisma': schema('../../node_modules/.prisma/central-client', 'Tier', 'Person', 'XY'),
+        'web/package.json': '{"name": "web"}\n',
+    })
+    _write(tmp_path, {
+        'backend/src/a.ts': "import type { User } from '@prisma-db-1/client';\nexport const a: User = { id: '1', role: 'N1' };\n",
+        'backend/src/b.ts': "import type { Prisma as CentralPrisma } from '.prisma/central-client';\n"
+                            "export const b: CentralPrisma.Person = { id: '2', role: 'N2' };\n",
+        'backend/src/c.ts': "import type { User } from '../node_modules/@prisma-db-1/client';\n"
+                            "export const c: User = { id: '3', role: 'N3' };\n",
+        # outside backend/ the package name resolves to another node_modules folder: not this client
+        'web/src/d.ts': "import type { User } from '@prisma-db-1/client';\nexport const d: User = { id: '4', role: 'N4' };\n",
+    })
+    code, text = _static(tmp_path)
+    role, tier = 'enum Role (backend/prisma/schema.prisma:6)', 'enum Tier (backend/prisma/central/schema.prisma:6)'
+    assert code == 1 and _lines(text, '红：取值') == [
+        f"红：取值不在声明集合里：backend/src/b.ts:2 Person.role='N2'，允许 X|Y（{tier}） → 改用集合里的值；集合真要加值，"
+        f"先改那条声明（{tier}）；backend/src/a.ts:2 User.role='N1'  backend/src/c.ts:2 User.role='N3'，允许 A|B（{role}） → "
+        f"改用集合里的值；集合真要加值，先改那条声明（{role}）"], text
+
+
 def test_a_package_json_that_is_not_json_names_its_file(tmp_path):
     _commit(tmp_path, {'web/package.json': '{"name": "web",\n', 'web/prisma/main.prisma': 'model Item {\n  id String @id\n}\n'})
     code, text = _static(tmp_path)
