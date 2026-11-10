@@ -5,6 +5,7 @@ If either is missing or the install fails, the test fails with the reason; nothi
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -916,7 +917,12 @@ def vitest_home(tmp_path_factory):
 def _vitest(project, home):
     run = subprocess.run([_tool('node'), str(home / 'node_modules/vitest/vitest.mjs'), 'run'], cwd=project,
                          capture_output=True, encoding='utf-8', timeout=600, env=_environment())
-    return run.returncode, display_text(run.stdout + run.stderr)
+    # vitest colours its output where it detects CI; a failed case's message then ends with a colour reset (`\x1b[39m`)
+    # that splits one red into two lines that differ. The tests read the text a reader sees, without the colours.
+    return run.returncode, display_text(ANSI.sub('', run.stdout + run.stderr))
+
+
+ANSI = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
 
 
 def _fees_project(home, name):
