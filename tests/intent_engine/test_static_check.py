@@ -2214,6 +2214,38 @@ def test_a_structure_decision_closes_its_problem_and_a_decided_owner_needs_its_a
     assert code == 0 and '结构决定' not in text and '写入：Job.status' not in text, text
 
 
+LATER = '这个字段需要更新版本的 FlowGuard，升级后再看'
+
+
+def test_a_structure_entry_with_fields_of_a_later_flowguard_is_unverified_and_closes_nothing(tmp_path):
+    # Round 22 F5: FlowGuard 4.3 adds `status`, `sites`, `why`, `fix`, `ask` and `evidence` to [structure] entries.
+    # 4.2 read a ledger written so as red ("未知字段 status"): a project on 4.3 and a clone still on 4.2 disagreed.
+    _commit(tmp_path, WRITERS)
+    ledger = tmp_path / '.flowguard/ledger.toml'
+    ledger.parent.mkdir(exist_ok=True)
+    ledger.write_text('[structure."writers:Job.status"]\nstatus = "known"\nsites = ["shop/hold.py:hold"]\n'
+                      'why = "hold and reopen write the status beside close; the owner has not decided who owns it"\n'
+                      'fix = "let hold and reopen call close"\n', encoding='utf-8')
+    _commit(tmp_path, message='a 4.3 entry')
+    grey = '结构条目 [structure."writers:Job.status"] 有这个版本不认识的字段 fix、sites、status、why：' + LATER
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and grey in text and '结构决定' not in text and '红' not in text, text
+    assert '1. 写入：Job.status 有 3 个文件在写，没有登记负责人' in text, text      # the entry closes no problem
+    code, text = _flowguard(tmp_path, 'ledger', 'check')
+    assert code == 0 and '未核对：' + grey in text, text
+    for run in (lambda: _static(tmp_path), lambda: _pytest(tmp_path), lambda: _flowguard(tmp_path, 'check')):
+        code, text = run()
+        assert code == 0 and '红' not in text and grey in text, text
+    # A decision with a field of a later FlowGuard beside it does not close its problem either.
+    (tmp_path / 'owner.txt').write_text('Job.status belongs to the close workflow; the other writers must call it.\n')
+    assert _flowguard(tmp_path, 'req', 'add', str(tmp_path / 'owner.txt'), '--id', 'R1')[0] == 0
+    ledger.write_text('[structure."writers:Job.status"]\ndecision = "close owns the status; hold and reopen will call close later"\n'
+                      'source = "R1"\nevidence = "the owner said so in the review"\n', encoding='utf-8')
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and '有这个版本不认识的字段 evidence：' + LATER in text, text
+    assert '写入：Job.status' in text and 'owner 锚点' not in text, text
+
+
 def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_line(tmp_path):
     _commit(tmp_path, WRITERS)
     code, before = _flowguard(tmp_path)

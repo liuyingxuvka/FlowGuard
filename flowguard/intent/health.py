@@ -656,7 +656,7 @@ def decided(cfg, index, issues):
     """(open issues, red findings): issues the `[structure]` section decides are closed; a decision on who
     writes a field without its owner anchor is red, with the anchor line to copy."""
     from .ledger import structure_decisions
-    decisions, _ = structure_decisions(cfg)        # malformed decisions are the ledger's red lines
+    decisions = structure_decisions(cfg)[0]        # malformed decisions are the ledger's red lines
     owned = {anchor.name.casefold() for anchor in index.entries if anchor.kind == 'owner'}
     red = []
     for name in sorted(decisions):

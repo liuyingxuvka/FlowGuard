@@ -99,6 +99,8 @@ class Result:
     fallbacks: int = 0
     red: list[Finding] = field(default_factory=list)
     grey: list[str] = field(default_factory=list)
+    # [structure] entries with fields of a later FlowGuard: unverified in a test run, also among `grey`
+    later: list[str] = field(default_factory=list)
 
 
 def path(cfg) -> Path:
@@ -384,8 +386,9 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
     if not ledger.is_file():
         return absent(cfg, baseline)
     entries, red, malformed = parse(ledger.read_text(encoding='utf-8-sig'))
-    red += structure_decisions(cfg)[1]
-    result = Result(present=True, entries=len(entries), legacy=sum(entry.legacy for entry in entries.values()), red=red)
+    _, structure_red, later = structure_decisions(cfg)
+    result = Result(present=True, entries=len(entries), legacy=sum(entry.legacy for entry in entries.values()),
+                    red=red + structure_red, grey=list(later), later=later)
     if malformed is None:
         return result                       # An unreadable ledger is compared with nothing until it is corrected.
     found, unread = fallbacks(cfg, graph)
@@ -468,28 +471,33 @@ def structure_entry(name, decision='换成主人的决定：谁负责、为什�
 
 
 def structure_decisions(cfg):
-    """({name: Decision}, [Finding]): the `[structure]` section of the ledger. A decision has at least eight
+    """({name: Decision}, [Finding], [str]): the `[structure]` section of the ledger. A decision has at least eight
     words and a source: `R<n>`, owner words stored with `req add`, or a written rule `{ file, text }` whose
-    sentence the file still contains. A malformed decision is red and silences nothing."""
+    sentence the file still contains. A malformed decision is red and silences nothing. An entry with a field this
+    version does not know (a later FlowGuard writes `status`, `sites`, `why`, ...) is not judged: it is one
+    unverified line (the third list), not red, and closes nothing either."""
     ledger = path(cfg)
     if not ledger.is_file():
-        return {}, []
+        return {}, [], []
     try:
         data = tomllib.loads(ledger.read_text(encoding='utf-8-sig'))
     except tomllib.TOMLDecodeError:
-        return {}, []          # parse() already reports the unreadable ledger as red with its error
+        return {}, [], []      # parse() already reports the unreadable ledger as red with its error
     section = data.get(STRUCTURE, {})
     if not isinstance(section, dict):
         return {}, [Finding(f'{LEDGER} 的 [{STRUCTURE}] 要写成一张表：[{STRUCTURE}."问题名"] 下面写 decision、source',
-                            ('改正这一段',))]
+                            ('改正这一段',))], []
     from flowguard.map.requests import owner_word
-    decisions, red, texts = {}, [], {}
+    decisions, red, later, texts = {}, [], [], {}
     for name, value in section.items():
         if not isinstance(value, dict):
             red.append(Finding(f'[{STRUCTURE}] 里的 {_quote(name)} 不是条目：值要是一张表', ('按 structure_entry 的写法改正',)))
             continue
-        problems = [f'未知字段 {key}' for key in sorted(set(value) - STRUCTURE_FIELDS)]
-        problems += [f'缺少 {key}' for key in sorted(STRUCTURE_FIELDS - set(value))]
+        if unknown := sorted(set(value) - STRUCTURE_FIELDS):
+            later.append(f'结构条目 [{STRUCTURE}.{_quote(name)}] 有这个版本不认识的字段 {"、".join(unknown)}：'
+                         '这个字段需要更新版本的 FlowGuard，升级后再看；这一条现在不关闭任何问题（拼错了就改正）')
+            continue
+        problems = [f'缺少 {key}' for key in sorted(STRUCTURE_FIELDS - set(value))]
         decision, source = value.get('decision'), value.get('source')
         if 'decision' in value and (not isinstance(decision, str) or words(decision) < MIN_WORDS):
             problems.append(f'decision 至少 {MIN_WORDS} 个词：写明主人定了什么、为什么')
@@ -508,7 +516,7 @@ def structure_decisions(cfg):
             red.append(Finding(f'结构决定 [{STRUCTURE}.{_quote(name)}]：' + '；'.join(problems), ('按 ledger.toml 里的写法改正这一条',)))
             continue
         decisions[name] = Decision(name, decision, source if isinstance(source, str) else (source['file'], source['text']))
-    return decisions, red
+    return decisions, red, later
 
 
 def lines(result) -> list[str]:

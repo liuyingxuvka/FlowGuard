@@ -1089,12 +1089,14 @@ class Observations:
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
         fallbacks = self.state.ledger()
+        # a [structure] entry of a later FlowGuard is unverified, never red, also in a run without a source change
+        unverified.extend(fallbacks.later)
         report = dict(session=True, baseline=self.missing or self.runtime.baseline, baseline_kind=self.baseline_kind,
                       baseline_ahead=self.baseline_ahead,
                       # the overflow's command keeps --flowguard-base, as `--base`, so it lists these leads
                       more_leads=signals.more_leads('check --static', base=self.requested_base),
-                      source_changed=self.changed or bool(self.mapped), comparison_requested=self.comparison_requested,
-                      items=items, paths=self.paths,
+                      source_changed=self.changed or bool(self.mapped) or bool(fallbacks.later),
+                      comparison_requested=self.comparison_requested, items=items, paths=self.paths,
                       leads=leads, red=list(dict.fromkeys(self.red)), steps=self.steps, partial_flows=partial_flows, unverified=unverified,
                       ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in fallbacks.red])
         from dataclasses import fields

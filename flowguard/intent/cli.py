@@ -733,9 +733,10 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
             cache.save_structure(graph.con, found.summary)
     red = list(dict.fromkeys([*found.red, *(issue.message for issue in index.issues if issue.level == 'red')]))
     report = dict(session=True, baseline=start[0], baseline_kind=start[1], baseline_ahead=start[2], baseline_option='--base',
-                  source_changed=bool(red or found.leads or found.section or result.red), red=red, leads=found.leads,
-                  all_leads=leads, more_leads=more_leads('check --static', everything, base),
+                  source_changed=bool(red or found.leads or found.section or result.red or result.later), red=red,
+                  leads=found.leads, all_leads=leads, more_leads=more_leads('check --static', everything, base),
                   items=[], ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in result.red],
+                  unverified=list(result.later),       # a [structure] entry of a later FlowGuard: never red
                   structure=found.section)
     status = int(bool(red or result.red))
     _show_signals(render_signals(report), status)
@@ -883,8 +884,8 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
         shown = [fallbacks.summary(result), *fallbacks.lines(result)] if result.red else []
         if shown and reports is None:
             print('\n'.join(shown))
-        elif shown:
-            reports.append(dict(source_changed=True, red=[], items=[],
+        elif shown or result.later:       # a [structure] entry of a later FlowGuard: unverified, as in pytest
+            reports.append(dict(source_changed=True, red=[], items=[], unverified=list(result.later),
                                 ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in result.red]))
         if historical:
             report(['red ' + _action(message) for message in historical])

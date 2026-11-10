@@ -641,7 +641,7 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
         found.extend(old_value_leads(change))
         found.extend(copies_without_rule(change, index))
         if not replay:
-            decisions, _ = structure_decisions(cfg)
+            decisions = structure_decisions(cfg)[0]
             # A decided family as it stood at the baseline; one this task made (no problem of that name then) as it
             # stands now, so the owner's decision on the problem the change just raised holds too.
             decided = []
@@ -962,7 +962,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
     from .ledger import structure_decisions
     from .runtime import Runtime
     found = Findings()
-    decisions, _ = structure_decisions(cfg)
+    decisions = structure_decisions(cfg)[0]
     owners = [a for a in index.entries if a.kind == 'sensor' and a.owner and a.source_role == 'production' and not a.issues]
     if not owners:
         return found
