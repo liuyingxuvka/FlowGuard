@@ -64,36 +64,83 @@ def _places(rows):
 
 def _foreign_writes(change, facts=None):
     """Write rows outside Python with a readable value, keyed for the gate by `Model.field`, each with its
-    file's `package` (a guessed schema's set judges only some packages)."""
+    file's `package` (a guessed schema's set judges only some packages) and its `scope`: the schema in use
+    whose enum judges it, or the file whose declaration of an ambiguous TS type judges it (None: none)."""
+    from flowguard.structure.api import _module_stem
     graph = change.graph
+    # The schemas in use whose enums declare a field (schema, its package, the set), in path order, and the
+    # files that declare a TS type name with different sets.
+    schemas, declaring = {}, {}
+    for row in graph.value_sets():
+        if row['kind'] == 'prisma-enum' and not row['guessed']:
+            schemas.setdefault(row['key'], []).extend((schema, package, row['values'])
+                                                     for schema, package in zip(row['scope'], row['packages']))
+        elif row['kind'] == 'ts-type' and row['scope']:
+            declaring.setdefault(row['field'], set()).update(row['scope'])
+    for found in schemas.values():
+        found.sort()
+
+    def schema_of(row, key, client):
+        """A typed object of one schema's client output: that schema; any other write: the schema in use of
+        its own package (the nearest package with one), unless that package has several that differ (which
+        client wrote it is unknown); a package with none: the first schema in use by path."""
+        found = schemas.get(key, ())
+        if client in {schema for schema, _, _ in found}:
+            return client
+        for package in graph._packages_up(row['file']):
+            own = [(schema, values) for schema, owner, values in found if owner == package]
+            if own:
+                return own[0][0] if len({values for _, values in own}) == 1 else None
+        return found[0][0] if found else None
+
+    def file_of(row, gate):
+        """The declaration of an ambiguous TS type a typed write is judged by: its own file's, else the one
+        in the module it imports the type from; None when neither declares it."""
+        files = declaring[gate]
+        if row['file'] in files:
+            return row['file']
+        return next((file for file in sorted(files) if row['type_from'] and _module_stem(file) == row['type_from']), None)
+
     rows = graph.writes(facts=facts) if facts is not None else change.writes()
-    out = [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None])
+    out = [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None],
+                scope=schema_of(row, f'{row["model"]}.{row["field"]}', None))
            for row in rows if row.get('model') and not row.get('unclear') and row.get('language', 'python') != 'python'
            and row.get('values')]
     # gated by the TS type's own sets; a type the file imports from the Prisma client by its model's sets
-    # (`model`: the imported model's name, also under an alias or a namespace), and one imported from a schema's
-    # own client output by that schema's set when two schemas in use declare the field differently
-    scoped = {row['field'] for row in graph.value_sets() if row.get('scoped')}
-
-    def gate(row):
-        if not row.get('prisma'):
-            return {'gate': f'ts:{row["container"]}.{row["field"]}'}
-        own = f'{row["model"]}.{row["field"]}@{row.get("schema") or ""}'
-        return {'gate': own} if own in scoped else {}
-    out += [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None],
-                 **gate(row))
-            for row in graph.typed_writes(facts=facts) if row.get('values')]
+    # (`model`: the imported model's name, also under an alias or a namespace)
+    for row in graph.typed_writes(facts=facts):
+        if not row.get('values'):
+            continue
+        key = f'{row["model"]}.{row["field"]}'
+        if row['prisma']:
+            extra = dict(scope=schema_of(row, key, row['schema']))
+        else:
+            gate = f'ts:{row["container"]}.{row["field"]}'
+            extra = dict(gate=gate, scope=file_of(row, gate) if gate in declaring else None)
+        out.append(dict(row, field=key, values=[v for v in row['values'] if v is not None], **extra))
     return [dict(row, package=graph.package(row['file'])) for row in out if row['values']]
 
 
-def _issue_name(declared):
-    """Each set is its own issue, and a name means one declaration whatever other sets the field gets: the
-    enum of a schema in use is `values:Model.field`; a CHECK, a TS type and a guessed schema's enum add the
-    file they are declared in (a guessed set shared by several files, the first). No line numbers: a name
-    stays put across runs and when lines move."""
-    plain = f'values:{declared["name"]}'
-    return plain if declared['kind'] == 'prisma-enum' and not declared['guessed'] and not declared.get('scoped') \
-        else f'{plain}:{declared["file"]}'
+# The kinds of set in the order that takes a field's plain problem name, `values:NAME` (the name 4.1 gave
+# the one problem of each field); a guessed schema's enum comes after them.
+PLAIN_FIRST = ('prisma-enum', 'sql-check', 'ts-type')
+
+
+def _issue_names(sets):
+    """{(gate key, where): problem name} of every declared set: one problem per set, named without line
+    numbers, so a name stays put across runs and when lines move. Of the sets of one name, the enum of a
+    schema in use, else the CHECK, else the TS type, else a guessed schema's enum is `values:NAME` (the first
+    by where it is declared among sets of one kind); each further set adds its `place`: the schema, the
+    CHECK's description (a migrations folder, `prisma/migrations/`, or the .sql file), the TS file, the
+    first file of a guessed set."""
+    by_name, out = {}, {}
+    for row in sets:
+        by_name.setdefault(row['name'], []).append(row)
+    for name, rows in by_name.items():
+        rows = sorted(rows, key=lambda row: (row['guessed'], PLAIN_FIRST.index(row['kind']), row['place']))
+        for index, row in enumerate(rows):
+            out[row['field'], row['where']] = f'values:{name}' + (f':{row["place"]}' if index else '')
+    return out
 
 
 def values(change, *, everything=False):
@@ -105,6 +152,7 @@ def values(change, *, everything=False):
     sets = change.graph.value_sets()
     if not sets:
         return found
+    names = _issue_names(sets)
     table = declared_sets((), foreign=sets)
     outside = list(outside_sets(table, _foreign_writes(change)))
     if not outside:
@@ -121,7 +169,7 @@ def values(change, *, everything=False):
     for row, declared, value in outside:
         by_field.setdefault((row.get('gate', row['field']), declared['where']), (declared, []))[1].append((row, value))
     for (gate, where), (declared, items) in sorted(by_field.items()):
-        name, issue_name = declared['name'], _issue_name(declared)
+        name, issue_name = declared['name'], names[gate, where]
         changed_set = bool(change.files.intersection(declared['files']))
         fresh = [(row, value) for row, value in items if changed_set or row['file'] in change.files
                  and now[key(row, declared, value)] > before[key(row, declared, value)]]
@@ -167,8 +215,8 @@ def deletes(change, *, everything=False):
     """A Prisma delete of a parent whose restricting children (NoAction/Restrict) are not deleted, nulled
     or counted anywhere in the same operation: the function's callers three levels up and what they call
     three levels down (JS/TS calls resolved by name). Tables the code never creates rows in are left out, and
-    an optional self relation unless one row is deleted and code creates rows with that self reference.
-    One lead per (function, parent); a lead only when this change adds it."""
+    so is a self relation whose parent key can be null (a tree) unless one row is deleted and code creates rows
+    with that self reference. One lead per (function, parent); a lead only when this change adds it."""
     from .owners import named, operation, row_function
     found = _findings()
     graph = change.graph
@@ -197,12 +245,12 @@ def deletes(change, *, everything=False):
                                                                                                   'nested:connect')))
              and not (row.get('values') and not row.get('partial') and all(value is None for value in row['values']))}
     for (file, function, parent, ident), calls in sorted(groups.items()):
-        # An optional self relation (a tree's parent) is read only for a delete of one row, outside a loop, of a
-        # table whose rows code links into a tree: a deleteMany or a loop in hierarchy order removes children
-        # with their parents in ways this reading does not follow.
+        # A self relation whose parent key can be null (a tree's parent: the root has none) is read only for a
+        # delete of one row, outside a loop, of a table whose rows code links into a tree: a deleteMany or a
+        # loop in hierarchy order removes children with their parents in ways this reading does not follow.
         one_row = any(row['kind'] in ('delete', 'nested:delete') and not row.get('loop') for row in calls)
         children = [child for child in graph.children(parent) if _restricts(child) and child['child'] in created
-                    and not (child['child'] == parent and not child['required']
+                    and not (child['child'] == parent and child['nullable']
                              and not (one_row and any((parent, key) in trees for key in child['keys'])))]
         if not children:
             continue
@@ -258,6 +306,15 @@ def _structure_lines(name):
 
 # ---- columns one description of a table lacks -----------------------------------------------------
 
+def _schema_files(graph, *names):
+    """The files of these descriptions: a file is itself, a Prisma schema folder (`prisma/schema/`, `./` at
+    the root; `readers.prisma.schema_folders`) its Prisma files; a migrations folder has none."""
+    import posixpath
+    folders = {'' if name == './' else name[:-1] for name in names if name.endswith('/')}
+    return frozenset({name for name in names if not name.endswith('/')}
+                     | {row['file'] for row in graph.schemas() if row.get('kind') == 'prisma' and posixpath.dirname(row['file']) in folders})
+
+
 def _gap_key(item):
     return item['table'].casefold(), item['description'], item['schema']
 
@@ -302,16 +359,18 @@ def columns(change, *, everything=False):
         if fresh:
             found.leads.append(lead)
         found.issues.append(Issue(f'columns:{description}~{schema}', 3, f'缺列 {description.rstrip("/").rpartition("/")[2]}',
-                                  text, step, frozenset(), frozenset({schema, description.rstrip('/')}), new=fresh, lead=lead))
+                                  text, step, frozenset(), _schema_files(change.graph, schema, description),
+                                  new=fresh, lead=lead))
     return found
 
 
 def delete_rules(change):
     """Relations whose delete rule differs between two Prisma schemas of one database, a side without the
     foreign key included (`MapHandle.schema_delete_rules()`): code tested against one deletes rows the other
-    refuses to delete, or nulls what the other keeps. One issue per pair, named by its two files in path
-    order (whichever the pair is read against), listing every relation (`check --all`); a lead naming the
-    relations this change adds, and the touched lead when it edits either file."""
+    refuses to delete, or nulls what the other keeps. One issue per pair, named by its two schemas (a file, or
+    a schema folder `prisma/schema/`) in path order (whichever the pair is read against), listing every
+    relation (`check --all`); a lead naming the relations this change adds, and the touched lead when it
+    edits a file of either schema."""
     found = _findings()
     rules = change.graph.schema_delete_rules()
     if not rules:
@@ -356,8 +415,8 @@ def delete_rules(change):
                 + ' → ' + step + ' ' + ' '.join(entry)) if fresh else ''
         if fresh:
             found.leads.append(lead)
-        found.issues.append(Issue(name, 4, f'onDelete {description.rpartition("/")[2]}', text, step, frozenset(),
-                                  frozenset({schema, description}), new=bool(fresh), entry=entry, lead=lead))
+        found.issues.append(Issue(name, 4, f'onDelete {description.rstrip("/").rpartition("/")[2]}', text, step, frozenset(),
+                                  _schema_files(change.graph, schema, description), new=bool(fresh), entry=entry, lead=lead))
     return found
 
 
