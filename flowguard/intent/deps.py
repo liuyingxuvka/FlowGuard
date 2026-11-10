@@ -90,16 +90,25 @@ def npm_packages(root):
                   if not any(part == 'node_modules' or part.startswith('.') for part in path.relative_to(root).parts[:-1]))
 
 
+def _environment(folder):
+    """Whether `folder` is a virtual environment as pytest's `_in_venv` reads one: it holds pyvenv.cfg, or conda's
+    conda-meta/history. A folder whose files cannot be looked at (no permission to enter it) is no environment to
+    pytest, and nothing in it can be read here: it is left out as one."""
+    try:
+        return (folder / 'pyvenv.cfg').is_file() or (folder / 'conda-meta' / 'history').is_file()
+    except OSError:
+        return True
+
+
 def own_python_tests(cfg):
     """Whether pytest's default scope (`test_scope`) holds a test file of the project's own, other than
-    FlowGuard's sentinel. Folders pytest does not enter (`norecursedirs`, a virtual environment: one holding
-    pyvenv.cfg, as pytest's `_in_venv` reads it) are not read, nor node_modules or a version control folder,
-    whatever the project's norecursedirs says."""
+    FlowGuard's sentinel. Folders pytest does not enter (`norecursedirs`, a virtual environment: `_environment`)
+    are not read, nor node_modules or a version control folder, whatever the project's norecursedirs says."""
     import os
     scope, skipped = test_scope(cfg), _patterns(_pytest_options(cfg), 'norecursedirs', NORECURSEDIRS)
     for folder, names, files in os.walk(cfg.root):
         names[:] = [name for name in names if name not in ('node_modules', '__pycache__', '.git', '.hg', '.svn')
-                    and not (Path(folder, name) / 'pyvenv.cfg').is_file()
+                    and not _environment(Path(folder, name))
                     and not kept_out(Path(folder, name).resolve(), skipped)]
         for name in files:
             relative = (Path(folder) / name).relative_to(cfg.root).as_posix()

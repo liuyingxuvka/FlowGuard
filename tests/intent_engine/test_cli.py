@@ -183,6 +183,33 @@ def test_a_virtual_environment_beside_package_json_holds_no_test_of_the_project(
     assert (web / '.flowguard/ci.yml').read_text().endswith(STATIC_RUN)
 
 
+def test_a_conda_environment_or_a_folder_that_cannot_be_entered_holds_no_test_of_the_project(tmp_path, monkeypatch):
+    # Round 22 F3, second review: a folder init may not enter (a database volume of another user) made
+    # own_python_tests raise PermissionError, and init stopped; a conda environment (conda-meta/history, no
+    # pyvenv.cfg) was walked into. pytest's `_in_venv` takes the first for no environment and reads the second as one.
+    from flowguard.intent import deps
+    web = tmp_path / 'web'
+    for folder in ('conda', 'locked'):
+        (web / folder / 'pkgs/tests').mkdir(parents=True)
+        (web / folder / 'pkgs/tests/test_x.py').write_text('def test_x():\n    assert True\n')
+    (web / 'conda/conda-meta').mkdir()
+    (web / 'conda/conda-meta/history').write_text('==> 2024-05-01 12:00:00 <==\n')
+    (web / 'package.json').write_text('{"name": "web", "scripts": {"test": "vitest run"}, "devDependencies": {"vitest": "4.1.11"}}\n')
+    (web / 'pyproject.toml').write_text('[tool.pytest.ini_options]\nnorecursedirs = ["build", "locked"]\n')
+    assert cli.init(load_config(web)) == 0
+    assert (web / '.flowguard/ci.yml').read_text().endswith(STATIC_RUN)
+    # What a user without access to locked/ meets (root reads past a mode of 000): looking inside it is refused.
+    (web / 'pyproject.toml').write_text('[tool.pytest.ini_options]\nnorecursedirs = ["build"]\n')
+    cfg = load_config(web)
+    is_file = Path.is_file
+    def refused(path):
+        if 'locked' in path.parts[len(web.parts):]:
+            raise PermissionError(13, 'Permission denied', str(path))
+        return is_file(path)
+    monkeypatch.setattr(Path, 'is_file', refused)
+    assert deps.own_python_tests(cfg) is False
+
+
 def test_init_registers_the_plugin_once_and_removes_the_conftest_line_an_older_init_wrote(tmp_path, capsys):
     root, cfg = project(tmp_path)
     (root / 'tests').mkdir(exist_ok=True)
