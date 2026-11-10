@@ -26,7 +26,7 @@ python -m flowguard init
 python -m pytest
 ```
 
-`init` 启用 pytest 插件，添加采集哨兵、CI 片段和三条项目规矩。项目里有 `package.json` 时，它再加一个 vitest（或 jest）测试，执行 `python -m flowguard check --static`，结果就出现在 `npm test` 里；vitest 项目还会接上执行侧。没有规则时，检查保持安静：
+`init` 启用 pytest 插件，添加采集哨兵、CI 片段和三条项目规矩。项目里有 `package.json` 时，它再加一个 vitest（或 jest）测试，执行 `python -m flowguard check --static`，把它加进只跑指定文件夹的单元测试脚本，并说明哪个 npm 脚本会跑它，没有时说明该加什么；vitest 项目还会接上执行侧。没有规则时，检查保持安静：
 
 ```text
 FlowGuard check: no intent rules.

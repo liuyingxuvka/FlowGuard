@@ -26,7 +26,7 @@ python -m flowguard init
 python -m pytest
 ```
 
-`init` enables the pytest plugin, adds the collection sentinel, a CI fragment and three project rules. In a project with `package.json` it adds a vitest (or jest) test that runs `python -m flowguard check --static`, so the results appear in `npm test`; for vitest it also wires the execution side. Without rules, a check is quiet:
+`init` enables the pytest plugin, adds the collection sentinel, a CI fragment and three project rules. In a project with `package.json` it adds a vitest (or jest) test that runs `python -m flowguard check --static`, adds it to a unit test script that runs named folders only, and says which npm script runs it, or what to add when none does; for vitest it also wires the execution side. Without rules, a check is quiet:
 
 ```text
 FlowGuard check: no intent rules.
