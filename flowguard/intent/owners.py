@@ -1157,8 +1157,10 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         key = (tuple(peer['id'] for peer in twins), tuple(peer['id'] for peer, _ in similar))
         merged.setdefault(key, (twins, similar, []))[2].append(row)
     for twins, similar, changed in merged.values():
-        row = min(changed, key=lambda item: (len(item['qual']), item['qual']))
-        anchor = next((anchored[item['id']] for item in changed if item['id'] in anchored), None)
+        # The owner among the changed is the one named: its copies follow it, as the same-name red says.
+        owned = [item for item in changed if item['id'] in anchored and anchored[item['id']].owner]
+        row = owned[0] if owned else min(changed, key=lambda item: (len(item['qual']), item['qual']))
+        anchor = anchored[row['id']] if owned else next((anchored[item['id']] for item in changed if item['id'] in anchored), None)
         name = anchor.name if anchor else row['qual'].strip('_').upper()
         parts = []
         if twins:

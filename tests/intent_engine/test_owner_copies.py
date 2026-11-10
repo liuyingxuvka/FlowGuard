@@ -303,6 +303,18 @@ def test_check_sends_a_changed_copy_back_to_the_owner_and_counts_every_copys_ans
                    ' → 一起改，或改成调用 chart'], text
 
 
+def test_check_names_the_owner_when_it_changed_with_a_copy_and_a_third_copy_stayed(tmp_path):
+    # Round 22 F1, second review: chart (the owner) and calendar changed, report did not. The red took the first
+    # anchored function, calendar, and sent both back ("让 calendar、chart 回到原来的行为"), while the same-name red of
+    # the same check sent report to the owner.
+    _project(tmp_path, {'limits.py': _copies(3, 3, 3, owner=True)})
+    red, text = _checked_red(tmp_path, _copies(4, 4, 3, owner=True))
+    assert red == ['红：同名锚点 LIMIT：days=4，3 份：2 份得 T（负责人 limits.py:2 chart、limits.py:7 calendar），'
+                   '1 份得 F（limits.py:12 report） -> 让 limits.py:12 report 和负责人一致；有意不同，就改用不同的锚点名并写 distinct',
+                   '红：负责人 LIMIT：calendar（limits.py:7）、chart（limits.py:2） 这 2 处改了行为；原来和它们行为相同的 1 份没改：'
+                   'limits.py:12 → 一起改，或改成调用 chart'], text
+
+
 def test_check_leaves_the_choice_between_copies_when_none_is_the_owner(tmp_path):
     _project(tmp_path, {'limits.py': _copies(3, 3, 3)})
     red, text = _checked_red(tmp_path, _copies(3, 3, 4))
