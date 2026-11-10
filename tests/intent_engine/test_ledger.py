@@ -756,6 +756,22 @@ export async function body(res: Response) { try { return await res.json(); } cat
                     ('web/routes.ts', 19, 'substitute')], ends
 
 
+def test_a_catch_that_returns_its_answer_under_void_answers_the_request(tmp_path):
+    # Round 24 review: `return void res.status(500).json(...)`, the Express 5 + TypeScript way to keep a handler's
+    # Promise<void> type, was listed with the substitutes, while the same answer without `void` was not. Under `void`
+    # a status without an answer, or a local named res, still returns a stand-in.
+    root = tmp_path / 'shop'
+    write(root, 'web/r.ts', '''export async function a(req: any, res: any) { try { await x(); } catch (e) { return void res.status(500).json({ error: 'X' }); } }
+export async function b(req: any, res: any) { try { await x(); } catch (e) { return void (res.status(500).json({ error: 'X' })); } }
+export async function c(request: any, reply: any) { try { await x(); } catch (e) { return void await reply.code(500).send({ error: 'X' }); } }
+export async function d(req: any, res: any) { try { await x(); } catch (e) { return void res.status(500); } }
+export async function e(db: any) { const res = await db.query('q'); try { return res.rows; } catch { return void res.json({}); } }
+''')
+    with closing(build(root, workers=1)) as graph:
+        ends = sorted((row['line'], row['ends']) for row in graph.handlers())
+    assert ends == [(1, 'other'), (2, 'other'), (3, 'other'), (4, 'substitute'), (5, 'substitute')], ends
+
+
 def test_a_returned_read_through_a_response_name_or_a_response_value_stays_a_substitute(tmp_path):
     # Only method calls made one on another directly on a parameter named res, reply, response or ctx, the last one
     # sending the answer, answer the request. A query result or a fetched response kept under such a name, a

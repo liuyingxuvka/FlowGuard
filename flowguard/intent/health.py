@@ -363,18 +363,35 @@ def delete_rules(change):
 
 # ---- same-name functions whose bodies differ ------------------------------------------------------
 
-def copies(change, index):
+def _module_functions(change, *, before=False):
+    """The module-level production functions `copies` compares, in path and line order: (id, file, qual,
+    fp, line, shape). `before` reads each file this change edits from its baseline bytes, as the code stood
+    when the owner decided on its problems; a file the change adds has none then, and one it deletes is
+    left out (its functions are no one's copy any more)."""
+    rows = [row for row in change.graph.con.execute(
+        "SELECT n.id, n.file, n.qual, n.fp, n.line, n.shape FROM node n JOIN file f ON f.path = n.file "
+        "WHERE n.kind = 'function' AND f.is_test = 0 AND n.qual NOT LIKE '%.%' AND n.qual NOT LIKE '<%'")
+        if not (before and row[1] in change.files)]
+    if before:
+        edited = sorted(file for (file,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 0')
+                        if file in change.files)
+        rows += [(f'{change._modules[file]}:{node["qual"]}', file, node['qual'], node['fp'], node['line'], node['shape'])
+                 for file in edited for node in change.old_facts(file).get('nodes', ())
+                 if node['kind'] == 'function' and '.' not in node['qual'] and not node['qual'].startswith('<')]
+    return sorted(rows, key=lambda row: (row[1], row[4], row[0]))
+
+
+def copies(change, index, *, before=False):
     """Module-level functions with one name in different files, almost the same structure (3-gram shape
     similarity SIMILAR_COPY or more) but different bodies: copies that drifted apart. One issue per set of
-    files (two files that share several such functions are one issue). Issues only: a change gets the
-    leads of `owners.changed_once`. A registered sensor is not listed."""
+    files (two files that share several such functions are one issue), its members compared with the one
+    in the first file by path. Issues only: a change gets the leads of `owners.changed_once`. A registered
+    sensor is not listed. `before`: the problems as they stood at the change's baseline (`_module_functions`)."""
     from flowguard.structure.store import shape_list
     found = _findings()
     registered = {anchor.target for anchor in index.entries if anchor.kind == 'sensor'}
     groups = {}
-    for ident, file, qual, fp, line, blob in change.graph.con.execute(
-            "SELECT n.id, n.file, n.qual, n.fp, n.line, n.shape FROM node n JOIN file f ON f.path = n.file "
-            "WHERE n.kind = 'function' AND f.is_test = 0 AND n.qual NOT LIKE '%.%' AND n.qual NOT LIKE '<%'"):
+    for ident, file, qual, fp, line, blob in _module_functions(change, before=before):
         if ident in registered or is_test_file(file):
             continue
         shape = set(shape_list(blob) if isinstance(blob, bytes) else blob or ())

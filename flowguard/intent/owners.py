@@ -570,10 +570,13 @@ def _project_spellings(change, groups):
     return kept
 
 
-def changed_once(change):
+def changed_once(change, decided=()):
     """A changed function whose baseline body (the fingerprint without name and docstring) an unchanged
-    function still has: the copy this edit probably also needed. Static; `check` compares behavior. Copies
-    of a function name the owner decided (`[structure."copies:a+b"]`) are not counted."""
+    function still has: the copy this edit probably also needed. Static; `check` compares behavior. A member
+    of a copies family the owner decided (`[structure."copies:a+b"]`; `decided` holds the member functions of
+    each such health.copies issue as it stood at the baseline, the code the owner decided on) does not count
+    the other members of that family; a function of the same name outside it (a method, an exact copy the
+    family leaves out) still counts."""
     from flowguard.structure.readers.registry import ECMA, language_for
     from flowguard.structure.store import shape_list
     found = Findings()
@@ -584,10 +587,6 @@ def changed_once(change):
         return found
     delta = change.graph._delta_against(change.baseline, files)
     touched = {row[0] for row in delta}
-    decided = _decided_copies(change.cfg)
-
-    def short(ident):
-        return ident.partition(':')[2].rpartition('.')[2]
     shapes = None
     for ident, kind, old_fp, new_fp, _, _ in delta:
         if kind != 'changed' or not old_fp or '<anonymous' in ident:
@@ -611,9 +610,9 @@ def changed_once(change):
             similar = [(other, file, line) for other, file, line, shape in shapes
                        if other not in touched and other not in known and old_shape and shape
                        and len(old_shape & shape) / len(old_shape | shape) >= SIMILAR_FOREIGN]
-        if short(ident) in decided:             # the owner decided this name's copies: others of the name stay quiet
-            twins = [item for item in twins if short(item[0]) != short(ident)]
-            similar = [item for item in similar if short(item[0]) != short(ident)]
+        fellows = set().union(*(members for members in decided if ident in members))
+        twins = [item for item in twins if item[0] not in fellows]          # the owner decided this family
+        similar = [item for item in similar if item[0] not in fellows]
         if twins or similar:
             name = ident.partition(':')[2].rpartition('.')[2].strip('_').upper()
             comment = '//' if similar or language_for(node.get('file') or '') in ECMA else '#'
@@ -633,19 +632,24 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     problems (`health`). `replay` (`check`) runs copy discovery and the changed-alone comparison instead
     of the static copy lead. `everything` adds the old ledger and the `--all` structure listing."""
     from . import health
+    from .ledger import structure_decisions
     change = Change(cfg, graph, baseline(cfg, base))
+    copies = health.copies(change, index)
     found = owner_writes(change, index, everything=everything).extend(owner_pairs(change, index, everything=everything))
     found.extend(health.values(change, everything=everything))
     if change.baseline:
         found.extend(old_value_leads(change))
         found.extend(copies_without_rule(change, index))
         if not replay:
-            found.extend(changed_once(change))
+            decisions, _ = structure_decisions(cfg)
+            decided = [issue.nodes for issue in health.copies(change, index, before=True).issues if issue.name in decisions] \
+                if any(name.startswith('copies:') for name in decisions) else []
+            found.extend(changed_once(change, decided))
     if change.baseline or everything:
         found.extend(literal_drift(change, everything=everything))
     found.extend(health.deletes(change, everything=everything)).extend(health.columns(change, everything=everything))
     found.extend(health.delete_rules(change))
-    found.extend(health.copies(change, index)).extend(health.writers(change, index)).extend(health.uncreated(change))
+    found.extend(copies).extend(health.writers(change, index)).extend(health.uncreated(change))
     found.extend(health.labels(change))
     if replay:
         found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
@@ -944,21 +948,14 @@ def _category(same, total, shape, shared):
     return '相似' if shared else None
 
 
-def _decided_copies(cfg):
-    """The names a `[structure."copies:..."]` decision covers: an owner's anchor name (copy discovery's
-    `copies:NAME`) and the function names of a same-name family (`copies:a+b`)."""
-    from .ledger import structure_decisions
-    decisions, _ = structure_decisions(cfg)
-    return {part for name in decisions if name.startswith('copies:') for part in name.partition(':')[2].split('+')}
-
-
 def discover(cfg, graph, index, change, *, everything=False, excluded=()):
     """Unregistered look-alikes of each function owner, grouped by their results on its classes. An owner
-    whose copies the owner decided (`[structure."copies:NAME"]`) gets no leads; a copy this change adds
-    beside it is still red."""
+    whose copies the owner decided (`[structure."copies:NAME"]`, NAME its anchor name) gets no leads; a copy
+    this change adds beside it is still red."""
+    from .ledger import structure_decisions
     from .runtime import Runtime
     found = Findings()
-    decided = _decided_copies(cfg)
+    decisions, _ = structure_decisions(cfg)
     owners = [a for a in index.entries if a.kind == 'sensor' and a.owner and a.source_role == 'production' and not a.issues]
     if not owners:
         return found
@@ -1014,7 +1011,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         total = sum(len(group) for group in groups.values()) + len(unclear)
         if not total:
             continue
-        quiet = owner.name in decided
+        quiet = f'copies:{owner.name}' in decisions
         lead = found.leads.append if not quiet else (lambda text: None)
         lead(f'负责人 {label} 的疑似副本 {total} 份（候选 {len(candidates)} 个，用时 {seconds:.2f} 秒，'
                            f'{len(rows)} 个代表值；这是在负责人的全部代表值上比较的结果，调用点是否走到负数、非有限值等没有核对）'
