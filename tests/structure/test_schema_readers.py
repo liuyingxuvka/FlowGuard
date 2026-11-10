@@ -272,46 +272,6 @@ def test_label_groups_keep_codes_routes_and_test_spellings_apart(tmp_path):
         assert groups == [('active', ['Active', 'active']), ('maindepartment', ['Main Department', 'Main department'])], groups
 
 
-def test_a_provider_template_whose_delete_rules_differ_from_the_schema_in_use_is_listed(tmp_path):
-    # Planning Tool 0.6.28 (round 22, P02): the SQLite template nulls the children of 27 relations whose
-    # parents the SQL Server schema in use refuses to delete; tests on SQLite pass where production fails.
-    schema = '''
-datasource db {
-  provider = "%s"
-  url      = env("DATABASE_URL")
-}
-
-model Unit {
-  id     String  @id
-  people Person[]
-  rooms  Room[]
-}
-
-model Person {
-  id     String  @id
-  unitId String?
-  unit   Unit?   @relation(fields: [unitId], references: [id]%s)
-}
-
-model Room {
-  id     String @id
-  unitId String
-  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: %s)
-}
-'''
-    with closing(project(tmp_path, {
-        'prisma/schema.prisma': schema % ('sqlserver', ', onDelete: NoAction', 'Restrict'),
-        'prisma/schema.sqlite.prisma': schema % ('sqlite', '', 'Cascade'),
-        'prisma/schema.sqlserver.prisma': schema % ('sqlserver', ', onDelete: NoAction', 'NoAction'),
-    })) as graph:
-        rules = graph.schema_delete_rules()
-    # Person.unit: NoAction against the optional relation's default SetNull; Room.unit: Restrict against
-    # Cascade; NoAction and Restrict both refuse the delete, so the sqlserver template agrees.
-    assert rules == [dict(schema='prisma/schema.prisma', description='prisma/schema.sqlite.prisma',
-                          relations=[('Person.unit', 'NoAction/Restrict', 'SetNull', 'person(unitid)'),
-                                     ('Room.unit', 'NoAction/Restrict', 'Cascade', 'room(unitid)')])]
-
-
 def test_delete_rules_follow_the_key_fields_and_match_relations_by_their_foreign_key(tmp_path):
     # Round 23 review of the onDelete pairs: an optional relation over a required key restricts (Prisma 6.19
     # `migrate diff` writes ON DELETE RESTRICT; only optional keys give SET NULL); a model or relation renamed
@@ -417,7 +377,95 @@ model Door {
     # template's Chair.owner is the in-use Seat.unit (table seats, column unit_id); its Lamp has the key column
     # but no relation; its Door has the relation the schema in use lacks, shown by the template's name.
     assert rules == [dict(schema='prisma/schema.prisma', description='prisma/schema.sqlite.prisma', relations=[
-        ('Desk.unit', 'NoAction/Restrict', 'Cascade', 'desk(unitcode,unitid)'),
-        ('Door.unit', None, 'NoAction/Restrict', 'door(unitid)'),
-        ('Lamp.unit', 'NoAction/Restrict', None, 'lamp(unitid)'),
-        ('Seat.unit', 'NoAction/Restrict', 'Cascade', 'seats(unit_id)')])], rules
+        ('Desk.unit', 'NoAction/Restrict', 'Cascade', 'desk(unitcode,unitid)->unit'),
+        ('Door.unit', None, 'NoAction/Restrict', 'door(unitid)->unit'),
+        ('Lamp.unit', 'NoAction/Restrict', None, 'lamp(unitid)->unit'),
+        ('Seat.unit', 'NoAction/Restrict', 'Cascade', 'seats(unit_id)->unit')])], rules
+
+
+UNIT_SCHEMA = """
+datasource db {
+  provider = "%s"
+  url      = env("DATABASE_URL")
+}
+"""
+UNIT = 'model Unit {\n  id   String @id\n  code String\n  rooms Room[]\n  @@unique([id, code])\n}\n'
+HALL = 'model Hall {\n  id String @id\n  rooms Room[]\n}\n'
+# case: (in use, template, the relations reported)
+ROOM_KEYS = {
+    # Round 23 review: the template lacks the parent table, the child table or a key column: no foreign key
+    # could be there, and the column check lists what it lacks; the template is another client's view of Room.
+    'no parent table': (UNIT + 'model Room {\n  id String @id\n  unitId String\n  unit Unit @relation(fields: [unitId], references: [id])\n}\n',
+                        'model Room {\n  id String @id\n  unitId String\n  unitCode String\n}\n', []),
+    'no child table': (UNIT + 'model Room {\n  id String @id\n  unitId String\n  unit Unit @relation(fields: [unitId], references: [id])\n}\n',
+                       'model Unit {\n  id   String @id\n  code String\n}\n', []),
+    'no key column': (UNIT + 'model Room {\n  id String @id\n  unitId String\n  unit Unit @relation(fields: [unitId], references: [id])\n}\n',
+                      'model Unit {\n  id   String @id\n  code String\n}\n\nmodel Room {\n  id String @id\n}\n', []),
+    # the key columns differ: one foreign key from Room to Unit on each side, compared by its delete rule
+    'other key columns': (UNIT + 'model Room {\n  id String @id\n  unitId String\n  unitCode String\n'
+                          '  unit Unit @relation(fields: [unitId, unitCode], references: [id, code])\n}\n',
+                          UNIT + 'model Room {\n  id String @id\n  unitId String\n  unitCode String\n'
+                          '  unit Unit @relation(fields: [unitId], references: [id])\n}\n', []),
+    'other key columns and rule': (UNIT + 'model Room {\n  id String @id\n  unitId String\n  unitCode String\n'
+                                   '  unit Unit @relation(fields: [unitId, unitCode], references: [id, code])\n}\n',
+                                   UNIT + 'model Room {\n  id String @id\n  unitId String\n  unitCode String\n'
+                                   '  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)\n}\n',
+                                   [('Room.unit', 'NoAction/Restrict', 'Cascade', 'room(unitcode,unitid)->unit')]),
+    # the same column references another parent table: two foreign keys, each missing on the other side
+    'other parent table': (UNIT + HALL.replace('  rooms Room[]\n', '') + 'model Room {\n  id String @id\n  unitId String\n'
+                           '  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)\n}\n',
+                           UNIT.replace('  rooms Room[]\n', '') + HALL + 'model Room {\n  id String @id\n  unitId String\n'
+                           '  hall Hall @relation(fields: [unitId], references: [id])\n}\n',
+                           [('Room.hall', None, 'NoAction/Restrict', 'room(unitid)->hall'),
+                            ('Room.unit', 'Cascade', None, 'room(unitid)->unit')]),
+}
+
+
+@pytest.mark.parametrize('case', sorted(ROOM_KEYS))
+def test_a_foreign_key_is_missing_only_where_its_table_columns_and_parent_exist(tmp_path, case):
+    in_use, template, relations = ROOM_KEYS[case]
+    with closing(project(tmp_path, {'prisma/schema.prisma': UNIT_SCHEMA % 'sqlserver' + in_use,
+                                    'prisma/schema.sqlite.prisma': UNIT_SCHEMA % 'sqlite' + template})) as graph:
+        rules = graph.schema_delete_rules()
+    assert rules == ([dict(schema='prisma/schema.prisma', description='prisma/schema.sqlite.prisma', relations=relations)]
+                     if relations else []), (case, rules)
+
+
+def test_a_provider_template_whose_delete_rules_differ_from_the_schema_in_use_is_listed(tmp_path):
+    # Planning Tool 0.6.28 (round 22, P02): the SQLite template nulls the children of 27 relations whose
+    # parents the SQL Server schema in use refuses to delete; tests on SQLite pass where production fails.
+    schema = '''
+datasource db {
+  provider = "%s"
+  url      = env("DATABASE_URL")
+}
+
+model Unit {
+  id     String  @id
+  people Person[]
+  rooms  Room[]
+}
+
+model Person {
+  id     String  @id
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id]%s)
+}
+
+model Room {
+  id     String @id
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: %s)
+}
+'''
+    with closing(project(tmp_path, {
+        'prisma/schema.prisma': schema % ('sqlserver', ', onDelete: NoAction', 'Restrict'),
+        'prisma/schema.sqlite.prisma': schema % ('sqlite', '', 'Cascade'),
+        'prisma/schema.sqlserver.prisma': schema % ('sqlserver', ', onDelete: NoAction', 'NoAction'),
+    })) as graph:
+        rules = graph.schema_delete_rules()
+    # Person.unit: NoAction against the optional relation's default SetNull; Room.unit: Restrict against
+    # Cascade; NoAction and Restrict both refuse the delete, so the sqlserver template agrees.
+    rules = [dict(item, relations=[relation[:3] for relation in item['relations']]) for item in rules]   # keys: tests above
+    assert rules == [dict(schema='prisma/schema.prisma', description='prisma/schema.sqlite.prisma',
+                          relations=[('Person.unit', 'NoAction/Restrict', 'SetNull'), ('Room.unit', 'NoAction/Restrict', 'Cascade')])]

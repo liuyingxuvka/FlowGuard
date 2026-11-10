@@ -1134,6 +1134,44 @@ def test_a_change_to_either_schema_of_an_open_ondelete_pair_gets_the_touched_lea
         path.write_text(saved, encoding='utf-8')
 
 
+def _mapped(schema, how):
+    return schema.replace('unitId String\n', 'unitId String @map("unit_id")\n') if how == '@map' else \
+        schema.replace('onDelete: NoAction)\n}\n', 'onDelete: NoAction)\n  @@map("rooms")\n}\n').replace(
+            'onDelete: Cascade)\n}\n', 'onDelete: Cascade)\n  @@map("rooms")\n}\n')
+
+
+@pytest.mark.parametrize('how', ['@map', '@@map'])
+def test_a_mapping_added_to_both_schemas_adds_no_ondelete_difference(tmp_path, how):
+    # Round 23 check: renaming the key column or the table in both schemas left the difference as it was, yet the
+    # lead called Room.unit newly added; the change only touches the open problem.
+    old, template = _rooms('sqlserver', [('Room', 'NoAction')]), _rooms('sqlite', [('Room', 'Cascade')])
+    _commit(tmp_path, {'prisma/schema.prisma': old, 'prisma/schema.sqlite.prisma': template})
+    _write(tmp_path, {'prisma/schema.prisma': _mapped(old, how), 'prisma/schema.sqlite.prisma': _mapped(template, how)})
+    assert _mapped(old, how) != old and _mapped(template, how) != template
+    code, text = _static(tmp_path)
+    leads = [lead for lead in _lines(text, '线索：') if 'onDelete' in lead]
+    assert code == 0 and len(leads) == 1 and leads[0].startswith(
+        '线索：未决结构问题：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：1 条关系'), text
+
+
+def test_a_schema_that_drops_a_relation_but_keeps_its_key_column_has_no_foreign_key(tmp_path):
+    # Round 23 check: the side without the foreign key was shown by no test; its table, key column and parent
+    # stay, so deleting a Unit there leaves the rooms pointing nowhere.
+    _commit(tmp_path, {'prisma/schema.prisma': _rooms('sqlserver', [('Room', 'NoAction')]),
+                       'prisma/schema.sqlite.prisma': _rooms('sqlite', [('Room', 'NoAction')])})
+    template = _rooms('sqlite', [('Room', 'NoAction')]).replace(
+        '  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: NoAction)\n', '').replace('rooms Room[]', '')
+    _write(tmp_path, {'prisma/schema.sqlite.prisma': template})
+    code, text = _static(tmp_path)
+    assert code == 0 and [lead.partition(' → ')[0] for lead in _lines(text, '线索：onDelete 不同')] == [
+        '线索：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：这次新增 1 条关系（共 1 条；括号里先是 '
+        'prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / 没有外键）'], text
+    code, text = _static(tmp_path, '--all')
+    assert next(line for line in text.splitlines() if '. 删除：onDelete 不同' in line).endswith(
+        '：1 条关系（括号里先是 prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / 没有外键）'), text
+    assert '缺列' not in text, text                    # the table and its key column are there
+
+
 UNITS = '''
     datasource db {
       provider = "%s"

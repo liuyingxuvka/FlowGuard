@@ -419,14 +419,15 @@ def key_required(field, model) -> bool:
 
 
 def _foreign_keys(schema):
-    """{(table, key columns): [(Model.field, delete rule)]} of one Prisma schema's relations that hold a
-    foreign key (`@relation(fields: [...])` on a `model`): the table and the key columns as mapped (`@@map`,
-    `@map`; case folded, columns sorted), the way the database names the key, so a model or relation renamed
-    under the same mapping is the same key. The rule is the relation's `onDelete`, else Prisma's default
-    (`key_required`); NoAction and Restrict both refuse the delete and read as one. A key field the model
-    does not declare reads as its own column. Two relations on one key (Prisma requires a `map:` name for
-    the second) stay in schema order."""
-    out = {}
+    """[(table, key columns, parent table, Model.field, delete rule)] of one Prisma schema's relations that
+    hold a foreign key (`@relation(fields: [...])` on a `model`), in schema order: the tables and the key
+    columns as mapped (`@@map`, `@map`; case folded, columns sorted), the way the database names the key, so
+    a model or relation renamed under the same mapping is the same key. The rule is the relation's
+    `onDelete`, else Prisma's default (`key_required`); NoAction and Restrict both refuse the delete and read
+    as one. A key field or a related model the schema does not declare (Prisma refuses that schema) reads as
+    its own column or table."""
+    tables = {model['name']: model['table'] for model in schema.get('models', [])}
+    out = []
     for model in schema.get('models', []):
         if model['kind'] != 'model':
             continue
@@ -436,39 +437,60 @@ def _foreign_keys(schema):
                 rule = field.get('on_delete') or ('Restrict' if key_required(field, model) else 'SetNull')
                 columns = tuple(sorted((fields[name]['column'] if name in fields else name).casefold()
                                        for name in field['relation']['fields']))
-                out.setdefault((model['table'].casefold(), columns), []).append(
-                    (f"{model['name']}.{field['name']}", 'NoAction/Restrict' if rule in ('NoAction', 'Restrict') else rule))
+                parent = tables[field['type']] if field['type'] in tables else field['type']
+                out.append((model['table'].casefold(), columns, parent.casefold(), f"{model['name']}.{field['name']}",
+                            'NoAction/Restrict' if rule in ('NoAction', 'Restrict') else rule))
     return out
+
+
+def _matched(mine, theirs):
+    """[(foreign key, foreign key)] of two schemas' `_foreign_keys`, None where one schema has none: the same
+    table, key columns and parent table first (in schema order); then one from the same table to the same
+    parent table over some of the same columns, whose key columns differ between the two."""
+    rest, pairs, left = list(theirs), [], []
+    for key in mine:
+        same = next((other for other in rest if other[:3] == key[:3]), None)
+        if same is None:
+            left.append(key)
+        else:
+            rest.remove(same)
+            pairs.append((key, same))
+    for key in left:
+        near = next((other for other in rest if other[0] == key[0] and other[2] == key[2] and set(other[1]) & set(key[1])), None)
+        if near is not None:
+            rest.remove(near)
+        pairs.append((key, near))
+    return pairs + [(None, other) for other in rest]
 
 
 def delete_rules(schemas, in_use=frozenset(), package=None) -> list[dict]:
     """Relations whose delete rule differs between two Prisma schemas of one database (the pairs `gaps`
     compares): {schema, description, relations: [(Model.field, rule in schema, rule in description, key)]}
-    by name. Relations are matched by their foreign key (`_foreign_keys`; `key` is `table(columns)`) and
-    named as the schema names them, as the description does when only it has the key. A side whose table
-    has the key's columns but no relation on them has no foreign key (rule None): deleting the parent there
-    leaves the rows pointing nowhere. A table or column one side lacks is the column check's (`gaps`)."""
-    from itertools import zip_longest
+    by name. Relations are matched by their foreign key (`_matched`; `key` is `table(columns)->parent`, the
+    schema's when both have one) and named as the schema names them, as the description does when only it
+    has the key. A side whose table has the key's columns and whose parent table exists, but that has no
+    relation from that table to that parent over them, has no foreign key (rule None): deleting the parent
+    there leaves the rows pointing nowhere. A table, column or parent table one side lacks is the column
+    check's (`gaps`): no foreign key could be there."""
     prisma = [schema for schema in schemas if schema.get('kind') == 'prisma']
     names = {model['name'] for schema in prisma for model in schema.get('models', [])}
     described = sorted((schema['file'], prisma_tables(schema, names)) for schema in prisma)
     by_file = {schema['file']: schema for schema in prisma}
 
     def holds(tables, key):
-        table, columns = key
-        return table in tables and all(column in tables[table]['columns'] for column in columns)
+        table, columns, parent = key[:3]
+        return table in tables and parent in tables and all(column in tables[table]['columns'] for column in columns)
 
     out = []
     for (left, left_tables), (right, right_tables) in _schema_pairs(described, in_use, package or (lambda file: '')):
-        a, b = _foreign_keys(by_file[left]), _foreign_keys(by_file[right])
         differ = []
-        for key in set(a) | set(b):
-            for mine, theirs in zip_longest(a.get(key, ()), b.get(key, ())):
-                if mine is None and not holds(left_tables, key) or theirs is None and not holds(right_tables, key):
-                    continue
-                rule, other = mine[1] if mine else None, theirs[1] if theirs else None
-                if rule != other:
-                    differ.append(((mine or theirs)[0], rule, other, f'{key[0]}({",".join(key[1])})'))
+        for mine, theirs in _matched(_foreign_keys(by_file[left]), _foreign_keys(by_file[right])):
+            if mine is None and not holds(left_tables, theirs) or theirs is None and not holds(right_tables, mine):
+                continue
+            rule, other = mine[4] if mine else None, theirs[4] if theirs else None
+            if rule != other:
+                table, columns, parent, name, _ = mine or theirs
+                differ.append((name, rule, other, f'{table}({",".join(columns)})->{parent}'))
         if differ:
             out.append(dict(schema=left, description=right, relations=sorted(differ, key=lambda item: (item[0], item[3]))))
     return out

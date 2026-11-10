@@ -300,10 +300,14 @@ def delete_rules(change):
     if not rules:
         return found
 
-    def ident(item, relation):      # one relation of one pair, whichever file the pair is read against
-        _, rule, other, key = relation
-        return frozenset((item['schema'], item['description'])), key, \
-            frozenset({(item['schema'], rule), (item['description'], other)})
+    def idents(item, relation):
+        """One relation of one pair by its foreign key and by its name, whichever file the pair is read
+        against: a relation is new only when neither was there with the same rules (a `@map` or `@@map`
+        added to both schemas changes the key and keeps the name; a model renamed under its `@@map` keeps
+        the key)."""
+        name, rule, other, key = relation
+        pair, rules = frozenset((item['schema'], item['description'])), frozenset({(item['schema'], rule), (item['description'], other)})
+        return {(pair, 'key', key, rules), (pair, 'name', name, rules)}
 
     def listed(relations):
         return '、'.join(f'{name}（{NO_KEY if rule is None else rule} / {NO_KEY if other is None else other}）'
@@ -319,7 +323,8 @@ def delete_rules(change):
                 schemas.append(row)
             elif facts.get('schema'):
                 schemas.append(dict(facts['schema'], file=row['file']))
-        before = {ident(item, relation) for item in change.graph.schema_delete_rules(schemas) for relation in item['relations']}
+        before = set().union(*(idents(item, relation) for item in change.graph.schema_delete_rules(schemas)
+                               for relation in item['relations']))
     for item in rules:
         schema, description, relations = item['schema'], item['description'], item['relations']
         head = f'onDelete 不同：{description} 对照 {schema}：'
@@ -329,7 +334,7 @@ def delete_rules(change):
         step = ('让两份 schema 的删除规则一致，或让测试用的那份也照在用的那份删；有意不同（例如 SQL Server 不允许多条级联路径），'
                 '就把决定记进 .flowguard/ledger.toml：')
         entry = tuple(_structure_lines(name))
-        fresh = [relation for relation in relations if before is not None and ident(item, relation) not in before]
+        fresh = [relation for relation in relations if before is not None and before.isdisjoint(idents(item, relation))]
         lead = (head + f'这次新增 {len(fresh)} 条关系（共 {len(relations)} 条；{legend}）：' + listed(fresh)
                 + ' → ' + step + ' ' + ' '.join(entry)) if fresh else ''
         if fresh:
