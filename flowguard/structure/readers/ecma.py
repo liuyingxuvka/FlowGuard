@@ -308,8 +308,12 @@ def extract(root, rel, data, module, is_test):
         them an answer method (ANSWER_METHODS), answer the request. Not an answer: a property on the way
         (`res.rows.map(f)`, `response.headers.get(name)`), another last method (`ctx.get('user')`,
         `res.get('Content-Type')`), a local of that name (`const res = await db.query(...)`), or a chain without an
-        argument that ends in neither `end()` nor `send()` (`res.text()`, `response.json()` read a fetched response)."""
+        argument that ends in neither `end()` nor `send()` (`res.text()`, `response.json()` read a fetched response).
+        The chain is read through `await` and `void` (`return void res.status(500).json(...)` keeps a handler's
+        Promise<void> type and answers the same way)."""
         node, passed, last = unwrap(value), False, None
+        while node is not None and node.type == 'unary_expression' and operator(node) == 'void':
+            node = unwrap(field(node, 'argument'))
         while node is not None and node.type == 'call_expression':
             callee, arguments = unwrap(field(node, 'function')), field(node, 'arguments')
             if callee is None or callee.type != 'member_expression':
