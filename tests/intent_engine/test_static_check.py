@@ -13,6 +13,8 @@ import subprocess
 import sys
 import textwrap
 
+import pytest
+
 from tests.intent_engine import _cli_fixture
 from tests.intent_engine._cli_fixture import display_text as _text
 
@@ -1068,6 +1070,48 @@ def test_a_new_hard_delete_names_the_children_it_leaves_once_per_function_and_pa
     assert '[structure."delete:backend/src/services/hard-delete.service.ts:removeEmployeeRow:Employee"]' in text, text
 
 
+def test_an_optional_relation_over_a_required_key_restricts_the_delete(tmp_path):
+    # Round 23 review: Prisma gives `unit Unit?` over `unitId String` ON DELETE RESTRICT (6.19 `migrate diff`);
+    # only a relation whose key fields are all optional defaults to SetNull.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': '''
+            model Unit {
+              id    String @id
+              rooms Room[]
+              desks Desk[]
+            }
+
+            model Room {
+              id     String @id
+              unitId String
+              unit   Unit?  @relation(fields: [unitId], references: [id])
+            }
+
+            model Desk {
+              id     String  @id
+              unitId String?
+              unit   Unit?   @relation(fields: [unitId], references: [id])
+            }
+        ''',
+        'src/build.ts': '''
+            export async function furnish(prisma: any, unitId: string) {
+              await prisma.room.create({ data: { id: 'r', unitId } });
+              await prisma.desk.create({ data: { id: 'd', unitId } });
+            }
+        ''',
+    })
+    _write(tmp_path, {'src/remove.ts': '''
+        export async function removeUnit(prisma: any, id: string) {
+          await prisma.unit.delete({ where: { id } });
+        }
+    '''})
+    code, text = _static(tmp_path)
+    assert code == 0 and _lines(text, '线索：删除没处理子表') == [
+        '线索：删除没处理子表：src/remove.ts:2 removeUnit 删 Unit，Restrict 子表 Room 在同一操作里没删、没置空、没计数'
+        '（调用按名字解析） → 删除前先删或置空这些子表的行，或先计数并拒绝删除；有意交给数据库拒绝，就把决定记进 '
+        '.flowguard/ledger.toml：'], text
+
+
 def test_a_one_row_delete_of_a_tree_the_code_builds_names_its_children(tmp_path):
     # Planning Tool 0.6.28 `demand.service.ts remove` (round 21, P12): a demand with forwarded child demands
     # (`parentDemandId`, NoAction) was deleted by id; optional self relations were skipped wholesale.
@@ -1249,13 +1293,188 @@ def test_delete_rules_that_differ_between_two_schemas_are_one_structure_problem_
     code, text = _static(tmp_path)
     leads = _lines(text, '线索：onDelete 不同')
     assert code == 0 and leads == [
-        '线索：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：1 条关系'
-        '（括号里先是 prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / Cascade） → 让两份 schema 的删除规则一致，或让测试用的那份也照在用的那份删；'
+        '线索：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：这次新增 1 条关系（共 1 条；'
+        '括号里先是 prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / Cascade） → 让两份 schema 的删除规则一致，或让测试用的那份也照在用的那份删；'
         '有意不同（例如 SQL Server 不允许多条级联路径），就把决定记进 .flowguard/ledger.toml： '
-        '[structure."ondelete:prisma/schema.sqlite.prisma~prisma/schema.prisma"] '
+        '[structure."ondelete:prisma/schema.prisma~prisma/schema.sqlite.prisma"] '
         'decision = "换成主人的决定：谁负责、为什么这样（不少于 8 个词）" source = "R<n>"'], text
     code, text = _static(tmp_path, '--all')
     assert '. 删除：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma' in text, text
+
+
+ROOMS = '''
+    datasource db {
+      provider = "%s"
+      url      = env("DATABASE_URL")
+    }
+
+    model Unit {
+      id    String @id
+      %s
+    }
+'''
+ROOM = '''
+    model %s {
+      id     String @id
+      unitId String
+      unit   Unit   @relation(fields: [unitId], references: [id], onDelete: %s)
+    }
+'''
+
+
+def _rooms(provider, rules, extra=''):
+    """A schema whose Unit has one child model per (name, onDelete) of `rules`."""
+    back = '\n      '.join(f'{name.lower()}s {name}[]' for name, _ in rules)
+    return textwrap.dedent(ROOMS % (provider, back)) + ''.join(textwrap.dedent(ROOM % item) for item in rules) + extra
+
+
+def test_the_ondelete_lead_names_the_relations_the_change_added_and_the_listing_names_all(tmp_path):
+    # Round 23 review: the lead printed the first six relations by name, not the one the change added, and
+    # --all cut the pair to six with no way to see the rest.
+    old = [(name, 'NoAction') for name in ('Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf')]
+    _commit(tmp_path, {'prisma/schema.prisma': _rooms('sqlserver', [*old, ('Zulu', 'NoAction')]),
+                       'prisma/schema.sqlite.prisma': _rooms('sqlite', [(name, 'Cascade') for name, _ in old] + [('Zulu', 'NoAction')])})
+    _write(tmp_path, {'prisma/schema.sqlite.prisma': _rooms('sqlite', [(name, 'Cascade') for name, _ in old] + [('Zulu', 'SetNull')])})
+    code, text = _static(tmp_path)
+    leads = _lines(text, '线索：onDelete 不同')
+    assert code == 0 and len(leads) == 1, text
+    assert leads[0].startswith('线索：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：这次新增 1 条关系'
+                               '（共 8 条；括号里先是 prisma/schema.prisma 的规则，再是这份的）：Zulu.unit（NoAction/Restrict / SetNull） → '), leads
+    code, text = _static(tmp_path, '--all')
+    listed = next(line for line in text.splitlines() if '. 删除：onDelete 不同' in line)
+    assert listed.endswith('：8 条关系（括号里先是 prisma/schema.prisma 的规则，再是这份的）：'
+                           + '、'.join(f'{name}.unit（NoAction/Restrict / Cascade）' for name, _ in old)
+                           + '、Zulu.unit（NoAction/Restrict / SetNull）'), listed
+
+
+def test_an_ondelete_pair_keeps_its_name_and_its_decision_when_the_other_schema_becomes_the_larger(tmp_path):
+    # Round 23 review: the pair is read against the larger of two schemas in use; tables added to the smaller
+    # one turned the pair round, renamed the problem and voided the owner's decision.
+    a = _rooms('sqlserver', [('Room', 'NoAction')], 'model Hall {\n  id String @id\n}\n')
+    b = _rooms('sqlserver', [('Room', 'Cascade')])
+    _commit(tmp_path, {'prisma/a.prisma': a, 'prisma/b.prisma': b})
+    code, text = _static(tmp_path, '--all')
+    assert '. 删除：onDelete 不同：prisma/b.prisma 对照 prisma/a.prisma：1 条关系' in text, text
+    name = next(line.strip() for line in text.splitlines() if line.strip().startswith('[structure."ondelete:'))
+    assert name == '[structure."ondelete:prisma/a.prisma~prisma/b.prisma"]', text
+    _write(tmp_path, {'prisma/b.prisma': b + 'model Shed {\n  id String @id\n}\n\nmodel Barn {\n  id String @id\n}\n'})
+    code, text = _static(tmp_path, '--all')
+    assert '. 删除：onDelete 不同：prisma/a.prisma 对照 prisma/b.prisma：1 条关系' in text, text
+    assert '[structure."ondelete:prisma/a.prisma~prisma/b.prisma"]' in text, text
+    code, text = _static(tmp_path)
+    assert not _lines(text, '线索：onDelete 不同'), text             # the change added no difference
+    _write(tmp_path, {'docs/decisions.md': 'The SQL Server schema keeps NoAction because of multiple cascade paths.\n',
+                      '.flowguard/ledger.toml': name + '\ndecision = "the second schema cascades on purpose, the owner keeps both"\n'
+                      'source = { file = "docs/decisions.md", text = "The SQL Server schema keeps NoAction because of multiple cascade paths." }\n'})
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and 'onDelete 不同' not in text, text
+
+
+def test_a_change_to_either_schema_of_an_open_ondelete_pair_gets_the_touched_lead(tmp_path):
+    _commit(tmp_path, {'prisma/schema.prisma': _rooms('sqlserver', [('Room', 'NoAction')]),
+                       'prisma/schema.sqlite.prisma': _rooms('sqlite', [('Room', 'Cascade')])})
+    for file in ('prisma/schema.sqlite.prisma', 'prisma/schema.prisma'):
+        path = tmp_path / file
+        saved = path.read_text(encoding='utf-8')
+        path.write_text(saved + '// reviewed\n', encoding='utf-8')
+        code, text = _static(tmp_path)
+        assert code == 0 and _lines(text, '线索：未决结构问题：onDelete 不同') == [
+            '线索：未决结构问题：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：1 条关系（括号里先是 '
+            'prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / Cascade） → 让两份 schema 的删除规则一致，'
+            '或让测试用的那份也照在用的那份删；有意不同（例如 SQL Server 不允许多条级联路径），就把决定记进 .flowguard/ledger.toml：'], (file, text)
+        path.write_text(saved, encoding='utf-8')
+
+
+def _mapped(schema, how):
+    return schema.replace('unitId String\n', 'unitId String @map("unit_id")\n') if how == '@map' else \
+        schema.replace('onDelete: NoAction)\n}\n', 'onDelete: NoAction)\n  @@map("rooms")\n}\n').replace(
+            'onDelete: Cascade)\n}\n', 'onDelete: Cascade)\n  @@map("rooms")\n}\n')
+
+
+@pytest.mark.parametrize('how', ['@map', '@@map'])
+def test_a_mapping_added_to_both_schemas_adds_no_ondelete_difference(tmp_path, how):
+    # Round 23 check: renaming the key column or the table in both schemas left the difference as it was, yet the
+    # lead called Room.unit newly added; the change only touches the open problem.
+    old, template = _rooms('sqlserver', [('Room', 'NoAction')]), _rooms('sqlite', [('Room', 'Cascade')])
+    _commit(tmp_path, {'prisma/schema.prisma': old, 'prisma/schema.sqlite.prisma': template})
+    _write(tmp_path, {'prisma/schema.prisma': _mapped(old, how), 'prisma/schema.sqlite.prisma': _mapped(template, how)})
+    assert _mapped(old, how) != old and _mapped(template, how) != template
+    code, text = _static(tmp_path)
+    leads = [lead for lead in _lines(text, '线索：') if 'onDelete' in lead]
+    assert code == 0 and len(leads) == 1 and leads[0].startswith(
+        '线索：未决结构问题：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：1 条关系'), text
+
+
+def test_a_schema_that_drops_a_relation_but_keeps_its_key_column_has_no_foreign_key(tmp_path):
+    # Round 23 check: the side without the foreign key was shown by no test; its table, key column and parent
+    # stay, so deleting a Unit there leaves the rooms pointing nowhere.
+    _commit(tmp_path, {'prisma/schema.prisma': _rooms('sqlserver', [('Room', 'NoAction')]),
+                       'prisma/schema.sqlite.prisma': _rooms('sqlite', [('Room', 'NoAction')])})
+    template = _rooms('sqlite', [('Room', 'NoAction')]).replace(
+        '  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: NoAction)\n', '').replace('rooms Room[]', '')
+    _write(tmp_path, {'prisma/schema.sqlite.prisma': template})
+    code, text = _static(tmp_path)
+    assert code == 0 and [lead.partition(' → ')[0] for lead in _lines(text, '线索：onDelete 不同')] == [
+        '线索：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：这次新增 1 条关系（共 1 条；括号里先是 '
+        'prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / 没有外键）'], text
+    code, text = _static(tmp_path, '--all')
+    assert next(line for line in text.splitlines() if '. 删除：onDelete 不同' in line).endswith(
+        '：1 条关系（括号里先是 prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / 没有外键）'), text
+    assert '缺列' not in text, text                    # the table and its key column are there
+
+
+UNITS = '''
+    datasource db {
+      provider = "%s"
+      url      = env("DATABASE_URL")
+    }
+
+    model Unit {
+      id   String @id
+      name String%s
+    }
+'''
+LABELS = "export const %s = { BU: 'Business Unit', TEAM: 'Team', AREA: '%s' };\n"
+# kind: (baseline, the change that adds the problem, the lead's start, the problem's name)
+ADDED = {
+    'deletes': ({'prisma/schema.prisma': _rooms('sqlserver', [('Room', 'NoAction')]),
+                 'src/rooms.ts': "export async function addRoom(prisma: any, unitId: string) {\n"
+                                 "  await prisma.room.create({ data: { id: 'r', unitId } });\n}\n"},
+                {'src/remove.ts': "export async function removeUnit(prisma: any, id: string) {\n"
+                                  "  await prisma.unit.delete({ where: { id } });\n}\n"},
+                '删除没处理子表', 'delete:src/remove.ts:removeUnit:Unit'),
+    'columns': ({'prisma/schema.prisma': UNITS % ('sqlserver', ''), 'prisma/schema.sqlite.prisma': UNITS % ('sqlite', '')},
+                {'prisma/schema.prisma': UNITS % ('sqlserver', '\n      code String')},
+                '几份描述之间缺的列', 'columns:prisma/schema.sqlite.prisma~prisma/schema.prisma'),
+    'ondelete': ({'prisma/schema.prisma': _rooms('sqlserver', [('Room', 'NoAction')]),
+                  'prisma/schema.sqlite.prisma': _rooms('sqlite', [('Room', 'NoAction')])},
+                 {'prisma/schema.sqlite.prisma': _rooms('sqlite', [('Room', 'Cascade')])},
+                 'onDelete 不同', 'ondelete:prisma/schema.prisma~prisma/schema.sqlite.prisma'),
+    'labels': ({'src/a.ts': LABELS % ('TYPE_LABELS', 'Area'), 'src/b.ts': LABELS % ('KIND_LABELS', 'Area')},
+               {'src/b.ts': LABELS % ('KIND_LABELS', 'Areas')},
+               '标签表不一致', 'labels:src/a.ts:TYPE_LABELS'),
+}
+
+
+@pytest.mark.parametrize('kind', sorted(ADDED))
+def test_a_structure_problem_the_owner_decided_gets_no_lead_when_a_change_adds_it(tmp_path, kind):
+    # Round 23 review: a decision in [structure] closed the problem in --all, but a change that added to it
+    # still got the lead with a ledger entry to copy, which would have duplicated the decided table.
+    before, change, start, name = ADDED[kind]
+    _commit(tmp_path, before)
+    base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    _write(tmp_path, change)
+    def leads():
+        from flowguard.intent import owners
+        cfg = _config(tmp_path)
+        with closing(build(cfg.root, roots=cfg.roots)) as graph:
+            return [lead for lead in owners.static_findings(cfg, graph, anchors.collect(graph), base).leads if lead.startswith(start)]
+    assert len(leads()) == 1, kind
+    sentence = 'The owner keeps this difference on purpose and reviews it every release.'
+    _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
+        f'[structure."{name}"]\ndecision = "the owner keeps this difference on purpose and reviews it every release"\n'
+        f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
+    assert leads() == [], kind
 
 
 def test_fixed_17_missing_columns_between_prisma_and_init_sql_are_listed_one_by_one(tmp_path):

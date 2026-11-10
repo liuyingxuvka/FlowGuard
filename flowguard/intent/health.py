@@ -7,13 +7,14 @@ lacks and two same-name functions whose bodies differ. Every problem, old ones t
 with a stable name; `check --all` and `check --static --all` list them by severity, and a change that
 touches an open one gets a single lead. The owner's decision in the `[structure]` section of
 `.flowguard/ledger.toml` (eight words or more, sourced from stored owner words or a written rule)
-closes an issue; a decision on who writes a field also needs its `owner ... writers=` anchor.
+closes an issue and the lead a change that adds to it would get; a decision on who writes a field also
+needs its `owner ... writers=` anchor.
 Fields that several files write without an owner are issues only (`--all`, `show`).
 """
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from flowguard.map.common import is_test_file
 
@@ -28,6 +29,7 @@ SHOWN_GROUPS = 3             # copies or unowned fields the --all listing shows 
 DELETING = ('delete', 'deleteMany', 'nested:delete', 'nested:deleteMany', 'sql:delete')
 INSERTING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'sql:insert')      # code that makes rows
 RESTRICTING = ('NoAction', 'Restrict')
+NO_KEY = '没有外键'           # a schema whose table has a relation's key columns but no @relation on them
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,7 @@ class Issue:
     files: frozenset = frozenset()
     new: bool = False            # this change added it: it is already a red line or a lead
     entry: tuple = ()            # lines to copy (a ledger entry), shown indented under the step
+    lead: str = ''               # the lead this change got for it (also in Findings.leads; `assess` drops it once decided)
 
     def next_step(self):
         return '\n'.join([self.step, *('    ' + line for line in self.entry)])
@@ -129,8 +132,9 @@ def values(change, *, everything=False):
 # ---- deletes that leave restricting children (Prisma) --------------------------------------------
 
 def _restricts(child):
-    """NoAction/Restrict, or no onDelete on a required relation (Prisma's default Restrict; an optional
-    relation defaults to SetNull and does not block the delete)."""
+    """NoAction/Restrict, or no onDelete on a relation whose key can never be null (Prisma's default
+    Restrict, also under an optional relation field; a relation whose key fields are all optional defaults
+    to SetNull and does not block the delete)."""
     return child['on_delete'] in RESTRICTING or not child['on_delete'] and child['required']
 
 
@@ -222,7 +226,8 @@ def deletes(change, *, everything=False):
         issue = Issue(f'delete:{file}:{function}:{parent}', 4, f'删除 {parent}（{function}）', text, step,
                       frozenset({named(ident)}), frozenset({file}), new=fresh, entry=entry)
         if fresh:
-            found.leads.append(text + ' → ' + issue.next_step())
+            issue = replace(issue, lead=text + ' → ' + issue.next_step())
+            found.leads.append(issue.lead)
         found.issues.append(issue)
     return found
 
@@ -284,21 +289,38 @@ def columns(change, *, everything=False):
                                                          for name in [*item['missing'], *item['extra']])
         text = f'几份描述之间缺的列：{description} 对照 {schema}：' + '；'.join(parts)
         step = f'补上缺的列和表；那份描述过时了，就写明它不再使用或删掉它（{description}）'
+        lead = text + ' → ' + step if fresh else ''
         if fresh:
-            found.leads.append(text + ' → ' + step)
+            found.leads.append(lead)
         found.issues.append(Issue(f'columns:{description}~{schema}', 3, f'缺列 {description.rstrip("/").rpartition("/")[2]}',
-                                  text, step, frozenset(), frozenset({schema, description.rstrip('/')}), new=fresh))
+                                  text, step, frozenset(), frozenset({schema, description.rstrip('/')}), new=fresh, lead=lead))
     return found
 
 
 def delete_rules(change):
-    """Relations whose delete rule differs between two Prisma schemas of one database
-    (`MapHandle.schema_delete_rules()`): code tested against one deletes rows the other refuses to delete,
-    or nulls what the other keeps. One issue per pair (`check --all`); a lead when this change adds one."""
+    """Relations whose delete rule differs between two Prisma schemas of one database, a side without the
+    foreign key included (`MapHandle.schema_delete_rules()`): code tested against one deletes rows the other
+    refuses to delete, or nulls what the other keeps. One issue per pair, named by its two files in path
+    order (whichever the pair is read against), listing every relation (`check --all`); a lead naming the
+    relations this change adds, and the touched lead when it edits either file."""
     found = _findings()
     rules = change.graph.schema_delete_rules()
     if not rules:
         return found
+
+    def idents(item, relation):
+        """One relation of one pair by its foreign key and by its name, whichever file the pair is read
+        against: a relation is new only when neither was there with the same rules (a `@map` or `@@map`
+        added to both schemas changes the key and keeps the name; a model renamed under its `@@map` keeps
+        the key)."""
+        name, rule, other, key = relation
+        pair, rules = frozenset((item['schema'], item['description'])), frozenset({(item['schema'], rule), (item['description'], other)})
+        return {(pair, 'key', key, rules), (pair, 'name', name, rules)}
+
+    def listed(relations):
+        return '、'.join(f'{name}（{NO_KEY if rule is None else rule} / {NO_KEY if other is None else other}）'
+                        for name, rule, other, _ in relations)
+
     before = None
     changed = {item for item in change.files if item.endswith('.prisma')}
     if change.baseline and changed:
@@ -309,21 +331,24 @@ def delete_rules(change):
                 schemas.append(row)
             elif facts.get('schema'):
                 schemas.append(dict(facts['schema'], file=row['file']))
-        before = {(item['schema'], item['description'], relation) for item in change.graph.schema_delete_rules(schemas)
-                  for relation in item['relations']}
+        before = set().union(*(idents(item, relation) for item in change.graph.schema_delete_rules(schemas)
+                               for relation in item['relations']))
     for item in rules:
-        schema, description = item['schema'], item['description']
-        shown = [f'{key}（{left} / {right}）' for key, left, right in item['relations']]
-        text = (f'onDelete 不同：{description} 对照 {schema}：{len(shown)} 条关系（括号里先是 {schema} 的规则，再是这份的）：'
-                + '、'.join(shown[:6]) + (f' 等 {len(shown)} 条' if len(shown) > 6 else ''))
-        name = f'ondelete:{description}~{schema}'
+        schema, description, relations = item['schema'], item['description'], item['relations']
+        head = f'onDelete 不同：{description} 对照 {schema}：'
+        legend = f'括号里先是 {schema} 的规则，再是这份的'
+        text = head + f'{len(relations)} 条关系（{legend}）：' + listed(relations)
+        name = 'ondelete:' + '~'.join(sorted((schema, description)))
         step = ('让两份 schema 的删除规则一致，或让测试用的那份也照在用的那份删；有意不同（例如 SQL Server 不允许多条级联路径），'
                 '就把决定记进 .flowguard/ledger.toml：')
-        fresh = before is not None and any((schema, description, relation) not in before for relation in item['relations'])
+        entry = tuple(_structure_lines(name))
+        fresh = [relation for relation in relations if before is not None and before.isdisjoint(idents(item, relation))]
+        lead = (head + f'这次新增 {len(fresh)} 条关系（共 {len(relations)} 条；{legend}）：' + listed(fresh)
+                + ' → ' + step + ' ' + ' '.join(entry)) if fresh else ''
         if fresh:
-            found.leads.append(text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)))
+            found.leads.append(lead)
         found.issues.append(Issue(name, 4, f'onDelete {description.rpartition("/")[2]}', text, step, frozenset(),
-                                  frozenset({schema, description}), new=fresh, entry=tuple(_structure_lines(name))))
+                                  frozenset({schema, description}), new=bool(fresh), entry=entry, lead=lead))
     return found
 
 
@@ -504,11 +529,12 @@ def labels(change):
         step = ('让这些表取自同一张表（一个负责人），或统一写法、补上缺的键；有意不同（缩写、另一种用途）就把决定记进 '
                 '.flowguard/ledger.toml：')
         fresh = bool(change.baseline) and any(_table_changed(change, table) for table in tables)
+        lead = text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)) if fresh else ''
         if fresh:
-            found.leads.append(text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)))
+            found.leads.append(lead)
         found.issues.append(Issue(name, 8, f'标签 {head["name"]}', text, step, frozenset(),
                                   frozenset(table['file'] for table in tables), new=fresh,
-                                  entry=tuple(_structure_lines(name))))
+                                  entry=tuple(_structure_lines(name)), lead=lead))
     return found
 
 
@@ -550,6 +576,7 @@ def touched(change, issues):
         if issue.new:
             continue
         hit = issue.nodes & edited or issue.rank == 3 and issue.files & change.files \
+            or issue.name.startswith('ondelete:') and issue.files & change.files \
             or issue.rank == 1 and any(file in change.files for file in issue.files if file.endswith(('.prisma', '.sql')))
         if hit:
             out.append(f'未决结构问题：{issue.text} → {issue.next_step()}')
@@ -616,9 +643,14 @@ def brief_line(cfg):
 
 
 def assess(cfg, change, index, found, *, everything=False):
-    """Close decided issues and add the touched leads and decision reds to `found`; `found.summary` is for
-    the session brief, `found.section` the `--all` listing."""
+    """Close decided issues, with the leads their checks gave them (the owner already chose), and add the
+    touched leads and decision reds to `found`; `found.summary` is for the session brief, `found.section`
+    the `--all` listing."""
     issues, red = decided(cfg, index, found.issues)
+    still = {issue.name for issue in issues}
+    for issue in found.issues:
+        if issue.lead and issue.name not in still:
+            found.leads.remove(issue.lead)
     found.red.extend(red)
     found.leads.extend(touched(change, issues))
     found.summary = summary(issues)
