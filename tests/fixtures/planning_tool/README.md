@@ -1,6 +1,6 @@
 # Planning Tool fragments (TS/Prisma/SQL map facts)
 
-Fragments copied from the working tree of the owner's Planning Tool project (`/home/user/planning-tool`,
+Fragments copied from the working tree of the owner's Planning Tool project (at
 HEAD `eaef893`) for `tests/structure/test_ts_prisma_facts.py`. Only the needed line ranges were copied;
 each fragment starts with a comment naming its source file and line range. Lines ending in
 `fixture wrapper` were added so a fragment parses on its own (an enclosing function or object);

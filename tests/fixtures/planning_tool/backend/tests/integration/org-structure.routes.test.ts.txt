@@ -1,4 +1,4 @@
-// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// FlowGuard fixture: snippets copied from the owner's Planning Tool repository (HEAD eaef893, working tree).
 // Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
 async function seedAuthority(local: any, ids: any) { // fixture wrapper
 // copied from planning-tool/backend/tests/integration/org-structure.routes.test.ts lines 182-212

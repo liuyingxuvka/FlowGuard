@@ -1,4 +1,4 @@
-// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// FlowGuard fixture: snippets copied from the owner's Planning Tool repository (HEAD eaef893, working tree).
 // Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
 export class SyncService { // fixture wrapper
   async commitSync(localToCentralWrites: any[], localToCentralRows: any[], centralToLocalWrites: any[], centralToLocalRows: any[], phases: any, unappliedFields: any[], defaultStatus: any, defaultResource: any) { // fixture wrapper

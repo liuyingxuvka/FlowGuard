@@ -1,6 +1,6 @@
 # Planning Tool fragments for `check --static` (round 20, stage 7b)
 
-Copied from the Planning Tool working copy (`/home/user/planning-tool`, through the scratch copy used for the
+Copied from the Planning Tool working copy (the owner's repository, through the scratch copy used for the
 round-20 survey; no Git command ran there). Each fragment starts with a comment naming its source file and line
 range; lines ending in `fixture wrapper` were added so the fragment parses on its own. The `.txt` suffix keeps
 the fragments out of FlowGuard's own map; `tests/intent_engine/test_static_check.py` writes them, together

@@ -1,4 +1,4 @@
-// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// FlowGuard fixture: snippets copied from the owner's Planning Tool repository (HEAD eaef893, working tree).
 // Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
 // copied from planning-tool/frontend/src/utils/organization-navigation.ts lines 1-29
 /**

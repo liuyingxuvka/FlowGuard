@@ -1,4 +1,4 @@
--- FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+-- FlowGuard fixture: snippets copied from the owner's Planning Tool repository (HEAD eaef893, working tree).
 -- Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
 -- copied from planning-tool/backend/prisma/central/migrations/20260813101000_personnel_source_contract/migration.sql lines 1-7
 /* Canonical personnel source/storage contract for the central projection. */

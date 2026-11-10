@@ -1,4 +1,4 @@
-// FlowGuard fixture: snippets copied from /home/user/planning-tool (HEAD eaef893, working tree).
+// FlowGuard fixture: snippets copied from the owner's Planning Tool repository (HEAD eaef893, working tree).
 // Lines marked "fixture wrapper" are added so each snippet parses; every other line is verbatim.
 // copied from planning-tool/backend/src/api/routes/absence.routes.ts lines 89-99
 router.get('/commands/:commandKey/status', validateParams(absenceCommandKeyParamSchema), async (req, res, next) => {
