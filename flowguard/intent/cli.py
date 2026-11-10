@@ -39,7 +39,7 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 '''
 
 
-# The commands and the line `--help` gives each; LEGACY_INSTRUCTION reads any other `flowguard WORD` as FlowGuard 0.70's.
+# The commands and the line `--help` gives each.
 COMMANDS = {
     'anchor': 'Draft the source comment of a function: anchor draft module:function',
     'show': 'Find the owner, writers, readers, copies and rules of a name or of "what it decides"',
@@ -1583,13 +1583,40 @@ LEGACY_SECTION = re.compile(r'^##[ \t]+(?P<title>[^\r\n]*?(?:workflow|current-ma
                             r'(?P<body>.*?)(?=^#{1,2}[ \t]|^<!-- flowguard:start -->|\Z)', re.M | re.S | re.I)
 LEGACY_WORDS = re.compile(r'\b0\.70\.\d+|flowguard (?:read|change)\b|\bmap (?:check|confirm)\b|'
                           r'\btarget (?:start|add|check|promote)\b|flowguard_unit_runner|current[- ]map', re.I)
-# A line that still asks for 0.70: a `flowguard WORD` command this version does not have (python -m flowguard status,
-# `flowguard change`), 0.70's `map check` and `target ...` steps, its test launcher, or a 0.70 install. A line that only
-# names 0.70 or its files (`.flowguard/models/**`, `flowguard_unit_runner.py` "belong to the earlier 0.70.x workflow")
-# explains them and asks for nothing.
+# A line that still names a command of an earlier FlowGuard, which 4.x does not have. The commands are the ones the git
+# tags give: 0.70.14's read, change, template, target, map and release; status and where came with 0.71 and stayed
+# to 1.4 (the subcommands of map and target are 0.70.14's). A command is written lowercase after a launcher (python,
+# python3.11, py, python.exe), in backquotes or bare, so prose ("a FlowGuard release alone", "python -m flowguard
+# before each task") is not one. A line that only names 0.70 or its files (`.flowguard/models/**`,
+# `flowguard_unit_runner.py` "belong to the earlier 0.70.x workflow") explains them and asks for nothing.
+LAUNCHER = r'\b(?:py|python[\d.]*)(?:\.exe)?\s+'
 LEGACY_INSTRUCTION = re.compile(
-    r'(?:python3?\s+-m\s+|`)flowguard\s+(?!(?:' + '|'.join(re.escape(name) for name in COMMANDS) + r')\b)[a-z][\w-]*'
-    r'|`(?:map\s+(?:check|confirm)|target\s+(?:start|add|check|promote))\b|-m\s+flowguard_unit_runner\b|@v0\.70\.\d+', re.I)
+    rf'(?P<command>(?:{LAUNCHER}-m\s+)?\bflowguard\s+(?:read|change|template|release|status|where'
+    r'|map(?:\s+(?:scan|discover|show|find|digest|check|lint|impact|deps|confirm|models|verify)\b)?'
+    r'|target(?:\s+(?:start|add|drop|check|promote)\b)?)\b'
+    r'|\bmap\s+(?:check|confirm)\b|`target\s+(?:start|add|drop|check|promote)\b)'
+    rf'|(?P<launcher>{LAUNCHER}(?:-m\s+)?(?:[\w.-]+[/\\])*flowguard_unit_runner(?:\.py)?\b)'
+    r'|(?P<install>@v0\.70\.\d+)'
+    r'|(?P<requirement>\b(?i:requires?|needs?)\s+(?i:flowguard)\s+\**v?0\.70(?:\.\d+)?)'
+    r'|(?P<exception>\b(?i:current[- ]map\s+exception)\b)')
+
+
+def _legacy_instructions(content):
+    """The lines of the AGENTS.md init writes (`content`, numbered as written) that name an earlier FlowGuard's command,
+    launcher, install or required version (`LEGACY_INSTRUCTION`), each named in full; the rules block init wrote is
+    FlowGuard's own and is not read. A ban ("Do not run `flowguard change`") names the command too."""
+    lines = []
+    inside = False
+    for number, line in enumerate(content.splitlines(), 1):
+        inside = (inside or line.strip() == '<!-- flowguard:start -->') and line.strip() != '<!-- flowguard:end -->'
+        if inside or line.strip() == '<!-- flowguard:end -->':
+            continue
+        named = list(dict.fromkeys(match[0].strip('`') for match in LEGACY_INSTRUCTION.finditer(line)))
+        if named:
+            era = ' and '.join(sorted({'1.x' if re.search(r'\b(?:status|where)$', name) else '0.70' for name in named}))
+            lines.append(f'AGENTS.md:{number} names {", ".join(f"`{name}`" for name in named)} from FlowGuard {era}, which '
+                         f'4.x does not have ({line.strip()[:70]}): reword or delete it')
+    return lines
 
 
 def _legacy_agents(content, rules, newline, languages):
@@ -1597,8 +1624,8 @@ def _legacy_agents(content, rules, newline, languages):
     workflow", the current-map exception) give way to the rules block, in the first one's place; the install
     line and the pinned version (`Use FlowGuard **0.70.14**`) become this version; the project's own rules
     stay byte for byte. A sentence about what 0.70 did is not rewritten to claim it of this version: it is
-    kept as it is. A remaining line that still asks for 0.70 (`LEGACY_INSTRUCTION`) is listed to reword or delete;
-    one that only explains 0.70 or its legacy files is not. A workflow section is FlowGuard's only when its body
+    kept as it is. `init` lists afterwards, in the file it wrote, each remaining line that still names an earlier
+    command (`_legacy_instructions`). A workflow section is FlowGuard's only when its body
     names flowguard, so a project's own release or data workflow stays."""
     removed = []
     def section(match):
@@ -1615,13 +1642,6 @@ def _legacy_agents(content, rules, newline, languages):
     lines = [f'AGENTS.md: the FlowGuard 0.70 section "{title}" is replaced by the project rules block' for title in removed]
     if installs or versions:
         lines.append(f'AGENTS.md: the FlowGuard version and install line now name {__version__}')
-    block = content.partition('<!-- flowguard:start -->')[2].partition('<!-- flowguard:end -->')[0]
-    for number, line in enumerate(content.splitlines(), 1):
-        asked = LEGACY_INSTRUCTION.search(line)
-        if asked and line not in block:
-            what = 'install' if asked[0].startswith('@') else 'command'
-            lines.append(f'AGENTS.md:{number} still asks for `{asked[0].strip("`")}`, a FlowGuard 0.70 {what} 4.x does not have '
-                         f'({line.strip()[:70]}): reword or delete it')
     return content, lines
 
 
@@ -1683,6 +1703,7 @@ def init(cfg):
     else:
         content = content.rstrip() + newline + newline + rules
     agents.write_bytes(content.encode('utf-8'))
+    notes += _legacy_instructions(content)
     print('Initialized intent sentinel, pytest plugin, CI fragment and three project rules.')
     for line in [*notes, *_legacy_binding_lines(cfg, text)]:
         print(line)

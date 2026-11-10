@@ -5,6 +5,8 @@ level-one heading) with commands 4.x no longer has (``status``, ``where``).
 4.0 init only knew the level-two block, so it appended a second set of rules.
 Only that block is replaced; every other byte of AGENTS.md is kept.
 """
+import re
+
 import pytest
 
 from flowguard.intent import cli
@@ -149,8 +151,8 @@ def test_the_flowguard_0_70_workflow_gives_way_to_the_rules_and_the_project_rule
     assert f'AGENTS.md: the FlowGuard version and install line now name {cli.__version__}' in out, out
     lines = result.splitlines()
     number = next(index for index, line in enumerate(lines, 1) if 'Do not run `flowguard change`' in line)
-    assert (f'AGENTS.md:{number} still asks for `flowguard change`, a FlowGuard 0.70 command 4.x does not have ('
-            in out), out                                                            # listed to reword, not deleted
+    # A ban names the command and asks for nothing: the line is listed as naming it, to reword, not deleted.
+    assert f'AGENTS.md:{number} names `flowguard change` from FlowGuard 0.70, which 4.x does not have (' in out, out
     number = next(index for index, line in enumerate(lines, 1) if 'are preserved 0.70.2 models' in line)
     assert f'AGENTS.md:{number} ' not in out, out           # it says what the files are and asks for nothing
     again = _init(tmp_path, result)
@@ -204,6 +206,77 @@ def test_only_lines_that_ask_for_a_0_70_command_are_listed_and_a_note_on_the_leg
     assert PT_LEGACY_NOTE in result, result                       # kept byte for byte
     for line in PT_LEGACY_NOTE.splitlines():
         assert f'AGENTS.md:{lines.index(line) + 1} ' not in out, out
-    for line, asked in zip(asks, ('`python -m flowguard map`, a FlowGuard 0.70 command', '`python -m flowguard where`, a FlowGuard 0.70 command',
-                                  '`@v0.70.9`, a FlowGuard 0.70 install')):
-        assert f'AGENTS.md:{lines.index(line) + 1} still asks for {asked} 4.x does not have (' in out, out
+    for line, asked in zip(asks, ('`python -m flowguard map check` from FlowGuard 0.70', '`python -m flowguard where` from FlowGuard 1.x',
+                                  '`@v0.70.9` from FlowGuard 0.70')):
+        assert f'AGENTS.md:{lines.index(line) + 1} names {asked}, which 4.x does not have (' in out, out
+
+
+# Fragments of the owner's four AGENTS.md files around their FlowGuard block: a release rule that says "a FlowGuard
+# release alone" and asks for no command, and two CI rules that name commands of FlowGuard 0.70.
+RELEASE_RULE = ('- Maintenance needs FlowGuard at or above the tag in the `test` extra of `pyproject.toml` (install with '
+                '`python -m pip install -e ".[test]"`; the PyPI package named `flowguard` is a different project). Raise '
+                'that tag only when this repository starts using a newer FlowGuard feature; a FlowGuard release alone is '
+                'no reason to change it or to release this repository.\n')
+WORLD_CI = ("The project's test command is `python -m pytest -q`; the whole suite takes seconds, so run all of it before "
+            'each commit. CI runs it again on Python 3.11 and 3.13, plus `python -m flowguard map check --root . --strict`, '
+            '`python -m flowguard release` and the skill install check.\n')
+LOGIC_CI = ('- Run the affected tests while developing. CI (`.github/workflows/ci.yml`) runs the full pytest suite, fiction '
+            'and travel regressions, `python -m flowguard map check`, `python -m flowguard release`, and an installed '
+            'skill byte check on every push and pull request.\n')
+OWNER_FILES = {
+    'worldguard': ('# WorldGuard project rules\n\n' + OLD_BLOCK + '\n## This repository\n\n' + RELEASE_RULE[2:] + '\n'
+                   + WORLD_CI, WORLD_CI),
+    'researchguard': ('# ResearchGuard maintenance\n\nReleases:\n\n' + RELEASE_RULE + '\n' + OLD_BLOCK, None),
+    'logicwriting': ('# LogicWriting repository instructions\n\n## Validation\n\n' + LOGIC_CI + '\n' + RELEASE_RULE + '\n'
+                     + OLD_BLOCK, LOGIC_CI),
+    'physicsguard': ('## PhysicsGuard Core Repository Rules\n\nReleases:\n\n' + RELEASE_RULE + '\n' + OLD_BLOCK, None),
+}
+
+
+@pytest.mark.parametrize('name', sorted(OWNER_FILES))
+def test_init_lists_lines_of_the_file_it_wrote_and_none_of_the_block_it_replaced(tmp_path, capsys, name):
+    # Round 22 F4 review: 4.2.1's first fix listed the replaced block's `python -m flowguard status` and `where` lines
+    # as still asking for them, numbered as lines of the new rules block; following it would delete FlowGuard's rules.
+    text, ci = OWNER_FILES[name]
+    result = _init(tmp_path, text)
+    out = capsys.readouterr().out
+    lines = result.splitlines()
+    listed = dict(re.findall(r'^AGENTS\.md:(\d+) (.*)$', out, re.M))
+    assert 'flowguard status' not in out and 'flowguard where' not in out, out
+    assert list(listed) == ([str(lines.index(ci.rstrip('\n')) + 1)] if ci else []), out
+    if ci:
+        assert next(iter(listed.values())).startswith(
+            'names `python -m flowguard map check`, `python -m flowguard release` from FlowGuard 0.70, which 4.x does '
+            'not have ('), out
+
+
+# Round 22 F4 review: one line per case, with what init names, or None for a line that asks for no earlier command.
+BATTERY = {
+    '- Before editing, run flowguard read and follow its owner list.': '`flowguard read` from FlowGuard 0.70',
+    '- After each change run map check and fix what it reports.': '`map check` from FlowGuard 0.70',
+    '- Use `target start` before a structural change.': '`target start` from FlowGuard 0.70',
+    '- This project requires FlowGuard 0.70.14 or newer.': '`requires FlowGuard 0.70.14` from FlowGuard 0.70',
+    '- Run the tests with `python flowguard_unit_runner.py tests/`.': '`python flowguard_unit_runner.py` from FlowGuard 0.70',
+    '- On Windows run `py -m flowguard read --find x`.': '`py -m flowguard read` from FlowGuard 0.70',
+    '- Or run `python.exe -m flowguard change` there.': '`python.exe -m flowguard change` from FlowGuard 0.70',
+    '- Run `python3.11 -m flowguard read` first.': '`python3.11 -m flowguard read` from FlowGuard 0.70',
+    '- Follow the current-map exception above for migrations.': '`current-map exception` from FlowGuard 0.70',
+    '- Run `.venv/bin/python -m flowguard status` first.': '`python -m flowguard status` from FlowGuard 1.x',
+    '- Start with python -m flowguard to see the brief.': None,
+    '- Run python -m flowguard before each task, then pytest.': None,
+    "- The block `FlowGuard rules for the project agent` is FlowGuard's own.": None,
+    '- Run `python -m flowguard check --static` and `python -m flowguard new-task`.': None,
+    '- Reports written by FlowGuard **0.70.14** stay in docs/archive/.': None,
+}
+
+
+def test_init_names_each_earlier_command_in_full_and_no_word_that_only_follows_flowguard(tmp_path, capsys):
+    result = _init(tmp_path, '## Project-specific limits\n\n' + '\n'.join(BATTERY) + '\n')
+    out = capsys.readouterr().out
+    lines = result.splitlines()
+    for line, named in BATTERY.items():
+        number = lines.index(line) + 1
+        if named:
+            assert f'AGENTS.md:{number} names {named}, which 4.x does not have (' in out, (line, out)
+        else:
+            assert f'AGENTS.md:{number} ' not in out, (line, out)
