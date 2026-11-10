@@ -642,8 +642,15 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
         found.extend(copies_without_rule(change, index))
         if not replay:
             decisions, _ = structure_decisions(cfg)
-            decided = [issue.nodes for issue in health.copies(change, index, before=True).issues if issue.name in decisions] \
-                if any(name.startswith('copies:') for name in decisions) else []
+            # A decided family as it stood at the baseline; one this task made (no problem of that name then) as it
+            # stands now, so the owner's decision on the problem the change just raised holds too.
+            decided = []
+            if any(name.startswith('copies:') for name in decisions):
+                then = health.copies(change, index, before=True).issues
+                named = {issue.name for issue in then}
+                decided = [issue.nodes for issue in then if issue.name in decisions] + [
+                    issue.nodes for issue in health.copies(change, index).issues
+                    if issue.name in decisions and issue.name not in named]
             found.extend(changed_once(change, decided))
     if change.baseline or everything:
         found.extend(literal_drift(change, everything=everything))

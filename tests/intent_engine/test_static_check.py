@@ -568,6 +568,22 @@ def test_a_schema_that_lacks_the_field_or_a_template_that_types_it_as_text_keeps
             % (1 if name == 'reporting' else 6)], (name, text)
 
 
+def test_a_member_typed_with_an_imported_alias_is_judged_by_the_alias_the_file_imports(tmp_path):
+    # Final check of r25-gate, seen on Planning Tool: Granularity is declared in several files, one test file with
+    # other values, so an interface member typed with the imported Granularity resolved to no set and its objects
+    # went unjudged.
+    _commit(tmp_path, {
+        'src/types/units.ts': "export type Granularity = 'WEEK' | 'MONTH';\n",
+        'src/other/units.ts': "export type Granularity = 'WEEK' | 'MONTH';\n",
+        'tests/units.test.ts': "export type Granularity = 'DAY' | 'WEEK' | 'MONTH';\n",
+        'src/types/grid.ts': "import type { Granularity } from './units';\nexport interface Grid { granularity: Granularity }\n",
+    })
+    _write(tmp_path, {'src/page.ts': "import type { Grid } from './types/grid';\nexport const g: Grid = { granularity: 'MONTHLY' };\n"})
+    code, text = _static(tmp_path)
+    red = _red_values(text)
+    assert code == 1 and len(red) == 1 and red[0].startswith("src/page.ts:2 Grid.granularity='MONTHLY'，允许 WEEK|MONTH"), text
+
+
 def test_a_schema_folder_is_one_schema_for_its_enums_and_its_datasource(tmp_path):
     # r24 review (gate-3): a schema folder was read file by file, so an enum another file declares gated
     # nothing (a false green) and the folder's SQL Server datasource did not make a CHECK compare without case.

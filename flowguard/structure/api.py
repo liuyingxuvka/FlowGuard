@@ -17,7 +17,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_run, glob_match
+from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_run, glob_match, is_test_file
 from . import homes, store
 from .extract import extract
 from .store import shape_list
@@ -373,9 +373,19 @@ class MapHandle:
 
     def _ts_values(self, name, file=None, seen=frozenset()):
         """(values, row) a JS/TS set name stands for, following aliases (`(typeof X)[number]`); a name
-        defined more than once with different values resolves only in the file that defines it."""
+        defined more than once with different values resolves only in the file that defines it, or through the
+        file's own import of it (`import type { Granularity } from './types'`); otherwise test files' definitions
+        do not stand in the way of the production ones."""
         rows = self._ts_sets().get(name, [])
         local = [row for row in rows if row['file'] == file]
+        if not local and file is not None and len(rows) > 1 and len(seen) < 4:
+            imported = self._ts_import(file, name)
+            if imported is not None and imported[0] != file:
+                values, origin = self._ts_values(imported[1], imported[0], seen | {name})
+                if values is not None:
+                    return values, origin
+            production = [row for row in rows if not is_test_file(row['file'])]
+            rows = production or rows
         rows = local or rows
         resolved = []
         for row in rows:
@@ -390,6 +400,20 @@ class MapHandle:
         if len({values for values, _ in resolved}) != 1:
             return None, None
         return list(resolved[0][0]), resolved[0][1]
+
+    def _ts_import(self, file, name):
+        """(file, imported name) that `file` imports `name` from, when it imports it from a mapped file."""
+        imports = self._derived.setdefault('ts_imports', {})
+        if file not in imports:
+            facts = {kind: store.unpack(blob) for kind, blob in self.con.execute(
+                "SELECT kind, data FROM part WHERE path=? AND kind = 'dependencies'", (file,))}
+            imports[file] = {row['alias']: (row['resolved'], row['name']) for row in facts.get('dependencies', ())
+                             if row.get('kind') == 'import' and row.get('alias') and row.get('resolved')}
+        found = imports[file].get(name)
+        if found is None or found[1] in ('default', '*'):
+            return None
+        target = self.con.execute('SELECT path FROM file WHERE module=?', (found[0],)).fetchone()
+        return (target[0], found[1]) if target else None
 
     def _resolved(self, row):
         """A write's `values` with its `Name.KEY` spellings read from `{KEY: 'v'} as const` objects; a row

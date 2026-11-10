@@ -800,6 +800,22 @@ def test_a_copies_problem_lists_the_same_functions_after_a_file_is_mapped_again(
     assert listed(text) == ['1. 副本：同名函数、函数体不同（结构相似度不低于 0.8）：save src/a.ts:2  src/b.ts:1'], text
 
 
+def test_a_copies_decision_on_a_problem_this_task_made_quiets_its_changed_alone_lead(tmp_path):
+    # Final check of r25-init: two identical save functions at the baseline are no copies problem; the task edits
+    # one, the owner decides the copies problem that appears, and the changed-alone lead about the pair stayed.
+    body = ("export function save(items: number[], rate: number): number {{\n  let sum = 0;\n"
+            "  for (const item of items) {{\n    if (item > 10) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
+            "  return Math.round(sum * {scale}) / {scale};\n}}\n")
+    _project(tmp_path, {'src/a.ts': body.format(scale=100), 'src/b.ts': body.format(scale=100), RULE_FILE[0]: RULE_FILE[1]})
+    (tmp_path / 'src/a.ts').write_text(body.format(scale=1000), encoding='utf-8')
+    code, text = _check(tmp_path, '--static')
+    assert code == 0 and any(line.startswith('线索：save（src/a.ts:1）改了') for line in _lines(text)), text
+    (tmp_path / '.flowguard').mkdir(exist_ok=True)
+    (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:save"]\n' + DECIDED, encoding='utf-8')
+    code, text = _check(tmp_path, '--static')
+    assert code == 0 and not any(line.startswith('线索：save（') for line in _lines(text)), text
+
+
 def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path):
     _project(tmp_path, {'a/contracts.py': '''
         from enum import StrEnum

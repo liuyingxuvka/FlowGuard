@@ -144,7 +144,7 @@ def remember_baseline(cfg, *, new_task=False):
         if not ahead:
             return head, f'baseline: new task from HEAD {head[:12]} (was {recorded[:12]}' + ('' if known else ', not in this repository') + ')'
         return head, (f'baseline: new task from HEAD {head[:12]} (was {recorded[:12]}, {_commits(ahead)} before HEAD: those changes '
-                      f'are no longer compared; compare them once with python -m flowguard check --base {recorded[:12]})')
+                      f'are no longer compared; compare them once with python -m pytest --flowguard-base {recorded[:12]})')
     if not _on_branch(cfg):
         state = ('HEAD stands in' if recorded is None else
                  f'the recorded {recorded[:12]} is not in this repository, so nothing is compared' if not known else

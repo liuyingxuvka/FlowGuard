@@ -67,7 +67,7 @@ def test_baseline_read_does_not_create_storage_and_start_records_actual_head(tmp
     now = git(root, 'rev-parse', 'HEAD')
     assert cache.remember_baseline(cfg, new_task=True) == (now, (
         f'baseline: new task from HEAD {now[:12]} (was {head[:12]}, 1 commit before HEAD: those changes are no longer '
-        f'compared; compare them once with python -m flowguard check --base {head[:12]})'))
+        f'compared; compare them once with python -m pytest --flowguard-base {head[:12]})'))
     assert cache.session_baseline(cfg) == git(root,'rev-parse','HEAD') != head
 
 
@@ -88,7 +88,7 @@ def test_brief_keeps_the_task_baseline_across_commits_and_new_task_starts_the_ne
     lines = capsys.readouterr().out.splitlines()
     assert f'baseline {head[:12]}' in lines[0] and lines[1] == (
         f'baseline: new task from HEAD {head[:12]} (was {start[:12]}, 2 commits before HEAD: those changes are no longer '
-        f'compared; compare them once with python -m flowguard check --base {start[:12]})'), lines
+        f'compared; compare them once with python -m pytest --flowguard-base {start[:12]})'), lines
     assert cache.session_baseline(cfg) == head
     # Run again at the same commit (after a loss of context), it replaces nothing.
     assert cli.main(['--root', str(root), 'new-task']) == 0
