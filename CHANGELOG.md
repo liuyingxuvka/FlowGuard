@@ -1,5 +1,18 @@
 # Changelog
 
+## v4.2.1 - 2026-11-10 - Next steps that do not mislead
+
+Corrections from maintaining Planning Tool with 4.2.0 and from three rounds of adversarial review. Saved inputs keep their meaning; nothing needs migrating.
+
+- Same-name copies: a red says what each copy answered (`3 份：2 份得 52（…），1 份得 1（…）`) and no longer picks the copy to change: without an owner the next step is to decide which answer is right; with an owner the other copies follow it. Every copy that differs from the owner is named on its own nearest input, in pytest and `check` alike, and `check`'s "one copy changed, its former equals did not" red follows the owner too. On the TS side the step says to give copies that are meant to differ different names, since TS has no `distinct`.
+- A violated rule's next step follows the kind of red, the same in pytest, `check` and vitest: code that differs from the rule → change the code (a changed requirement: store the owner's words first); a rule against its own row or a gap → fix the row or the rule; two rules that conflict → decide one, asking the owner. Reds that are not a rule's keep their own step.
+- TS/JS projects whose tests npm runs and pytest has none of its own: `new-task` says to compare dropped commits with `python -m flowguard check --static --base X`, and `init` writes a CI fragment that runs `check --static` against the merge-base with the default branch, failing when that base cannot be found. Python projects keep their fragment. Virtual environments, conda environments and folders that cannot be read are not searched for the project's own tests. An empty `--base` or `--flowguard-base` is refused.
+- `--help` describes every command.
+- `init` lists, in the AGENTS.md it wrote and outside its own rules block, only lines that name a command, launcher, install or required version of an earlier FlowGuard, each with the releases that had it (`python -m flowguard status` from FlowGuard 0.71–1.4), numbered as written. A line that explains 0.70's files, or a minimum 4.x meets, is not listed.
+- Ledger: a `[structure]` entry with fields of a later FlowGuard is unverified instead of red and closes nothing; its `decision` and `source` are still checked, and a near spelling of either while it is missing stays red.
+- A Prisma write of `undefined` (also `void …`, `data.x = undefined` and `{ set: undefined }` or an arithmetic update of `undefined`) writes nothing, so it no longer satisfies a pair rule.
+- An unverified count line no longer repeats the reason of its only item.
+
 ## v4.2.0 - 2026-11-10 - Lessons from maintaining a TypeScript monorepo
 
 A feature release from applying 4.1 to Planning Tool 0.6.28 (TypeScript, Prisma, SQL Server) and from four rounds of adversarial review of the result. Saved inputs keep their meaning; see [the 4.2 notes](docs/upgrade-4.2.md), which also list the problem names that change for a schema folder. The README and the skill now say how FlowGuard is meant to work: review finds a problem, registration keeps it from coming back, and the registrations grow with the software.
