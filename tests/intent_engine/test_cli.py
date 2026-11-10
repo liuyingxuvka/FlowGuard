@@ -347,7 +347,7 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
     cli.init(cfg)
     capsys.readouterr()
     def block(text):
-        lines = text.splitlines()
+        lines = cli_fixture.display_text(text).splitlines()    # a console that cannot encode Chinese shows \uXXXX
         red = [index for index, line in enumerate(lines) if line.startswith('红：LIMIT：')]
         assert len(red) == 1 and 'show the rule' not in text and 'correct its source' not in text, text
         return lines[red[0]], lines[red[0] + 1:red[0] + 3]
@@ -355,7 +355,7 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
     ran = subprocess.run([sys.executable, '-c', bootstrap, cli_fixture.SOURCE, '-q'], cwd=root, capture_output=True, text=True, timeout=120)
     assert ran.returncode == 1, ran.stdout + ran.stderr
     line, after = block(ran.stdout)
-    assert after == steps, ran.stdout
+    assert after == steps, cli_fixture.display_text(ran.stdout)
     assert kind not in ('gap', 'decision of') or ('gap in acceptance (total=True)' if kind == 'gap' else
                                                   'the decision of an overriding rule is T') in line, line
     for run in ('check reuses the result pytest saved', 'check again', 'check --all reruns the rule'):
