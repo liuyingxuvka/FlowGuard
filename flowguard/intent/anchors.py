@@ -812,7 +812,7 @@ def declared_sets(entries, field_types=(), classes=None, constants=None, foreign
     for row in foreign:             # MapHandle.value_sets(): Prisma enums, SQL CHECK sets, JS/TS annotated members
         declared = dict(name=row['name'], values=tuple(row['values']), where=row['where'], fold=row['fold'],
                         file=row['file'], files=row['files'], kind=row['kind'], guessed=row['guessed'],
-                        excluded_packages=row['excluded_packages'])
+                        excluded_packages=row['excluded_packages'], scoped=row.get('scoped', False))
         key = row.get('field', row['key'])
         if key in table:
             table[key].setdefault('also', []).append(declared)

@@ -497,7 +497,11 @@ class MapHandle:
         (`prisma_schemas_guessed`) gates only the models no schema in use defines and only the writes of its
         own package and of packages without a Prisma file (`excluded_packages` lists the others); each
         guessed enum of a field is its own set (a value must be in each, as beside a CHECK), shared by the
-        package's files that spell the same enum alike (`files`). Each row: key, name, field (the gate's key),
+        package's files that spell the same enum alike (`files`). When two schemas in use declare one field with
+        different enums, the first by path gates and each other one adds a set gated `Model.field@schema file`
+        (`scoped`), which judges the typed objects of that schema's own client output (`typed_writes` `schema`).
+        `excluded_packages` lists the packages whose own Prisma files define the model. Each row: key, name,
+        field (the gate's key),
         values, where (file:line), kind, guessed, file (the first of `files`), fold (the database compares
         text without case: SQL Server and MySQL default collations)."""
         if 'value_sets' in self._derived:
@@ -508,9 +512,12 @@ class MapHandle:
         schemas = sorted((item for item in self.schemas() if item.get('kind') == 'prisma' and item['file'] in in_use),
                          key=lambda item: (item['file'] in guessed, item['file']))
         defined = {model['name'] for schema in schemas if schema['file'] not in guessed for model in schema.get('models', ())}
-        prisma_packages = frozenset(self.package(path) for path, schema in self._schema_rows()
-                                    if schema.get('kind') == 'prisma' and not self.archived(path))
-        providers = {}
+        model_packages = {}
+        for path, schema in self._schema_rows():
+            if schema.get('kind') == 'prisma' and not self.archived(path):
+                for model in schema.get('models', ()):
+                    model_packages.setdefault(model['name'], set()).add(self.package(path))
+        providers, scoped = {}, {}
         for schema in schemas:
             guess = schema['file'] in guessed
             enums = {enum['name']: enum for enum in schema.get('enums', ())}
@@ -526,19 +533,24 @@ class MapHandle:
                     if guess:
                         guesses.setdefault((key, self.package(schema['file']), enum['name'], values), []).append(
                             (schema['file'], enum['line']))
-                    elif key not in enums_out:          # two schemas in use: the first by path gates
-                        enums_out[key] = [dict(key=key, name=key, field=key, values=values,
-                                               where=f"enum {enum['name']} ({schema['file']}:{enum['line']})",
-                                               kind='prisma-enum', guessed=False, fold=False, file=schema['file'],
-                                               files=(schema['file'],), excluded_packages=frozenset())]
+                        continue
+                    row = dict(key=key, name=key, field=key, values=values,
+                               where=f"enum {enum['name']} ({schema['file']}:{enum['line']})",
+                               kind='prisma-enum', guessed=False, fold=False, file=schema['file'],
+                               files=(schema['file'],), excluded_packages=frozenset(), scoped=False)
+                    if key not in enums_out:            # two schemas in use: the first by path gates
+                        enums_out[key] = [row]
+                    elif values != enums_out[key][0]['values']:
+                        # a typed object imported from this schema's own client output is judged by this one
+                        scoped[(key, schema['file'])] = dict(row, field=f"{key}@{schema['file']}", scoped=True)
         for (key, package, enum, values), places in guesses.items():
             files = tuple(file for file, _ in places)
             enums_out.setdefault(key, []).append(dict(
                 key=key, name=key, field=key, values=values,
                 where=f"enum {enum} ({', '.join(f'{file}:{line}' for file, line in places)}"
                       "，没找到生成器在用的 schema，按这个包的全部 schema 判)",
-                kind='prisma-enum', guessed=True, fold=False, file=files[0], files=files,
-                excluded_packages=prisma_packages - {package}))
+                kind='prisma-enum', guessed=True, fold=False, file=files[0], files=files, scoped=False,
+                excluded_packages=frozenset(model_packages.get(key.partition('.')[0], set()) - {package})))
         for key, (_, check) in self._check_sets().items():
             model = key.partition('.')[0]
             checks_out[key] = dict(key=key, name=key, field=key, values=check['values'], where=check['where'],
@@ -557,7 +569,8 @@ class MapHandle:
                 types_out.setdefault(key, dict(key=key, name=key, field='ts:' + key, values=tuple(values), where=where,
                                                kind='ts-type', guessed=False, fold=False, file=file, files=(file,),
                                                excluded_packages=frozenset()))
-        rows = [*(row for items in enums_out.values() for row in items), *checks_out.values(), *types_out.values()]
+        rows = [*(row for items in enums_out.values() for row in items), *scoped.values(), *checks_out.values(),
+                *types_out.values()]
         self._derived['value_sets'] = sorted(rows, key=lambda row: (row['key'], row['field']))
         return self._derived['value_sets']
 
@@ -643,16 +656,21 @@ class MapHandle:
         Not database writes: they feed the value gate only; `prisma` marks a `T` the file imports from the
         Prisma client (`_prisma_client`), also under another local name (`{ Item as Row }`), and an `NS.T`
         whose `NS` is a namespace or named import of the client and `T` a mapped model: a model's type,
-        gated by `model`, the imported model's name. A module that re-exports the client's types is not
-        followed. `facts` reads these file facts instead."""
+        gated by `model`, the imported model's name; `schema` is the schema whose client output the import
+        names ('' for `@prisma/client`). A module that re-exports the client's types is not followed. `facts`
+        reads these file facts instead."""
         rows, seen = [], set()
         models = self._models().by_name
         for facts in [data for _, _, data in self._kinds('language', 'typed_writes', 'dependencies')] if facts is None else facts:
             written = facts.get('typed_writes', ())
             if not written:
                 continue
-            client = {row['alias']: row['name'] for row in facts.get('dependencies', ())
-                      if row.get('kind') == 'import' and row.get('alias') and self._prisma_client(written[0]['file'], row.get('module') or '')}
+            client, origin = {}, {}
+            for row in facts.get('dependencies', ()):
+                if row.get('kind') == 'import' and row.get('alias'):
+                    schema = self._client_schema(written[0]['file'], row.get('module') or '')
+                    if schema is not None:
+                        client[row['alias']], origin[row['alias']] = row['name'], schema
             for row in written:
                 key = (row['file'], row['line'], row['column'], row['container'], row['field'])
                 if key in seen:
@@ -664,7 +682,7 @@ class MapHandle:
                 else:
                     model = client[space] if client.get(space) not in (None, '*', 'default') else None
                 rows.append(self._resolved(dict(row, model=model or row['container'], language=facts.get('language'),
-                                                prisma=model is not None)))
+                                                prisma=model is not None, schema=origin.get(space, '') if model else '')))
         return Rows(rows)
 
     def _prisma_client(self, file, module):
@@ -673,25 +691,32 @@ class MapHandle:
         { output = "../generated/db" }`, resolved from the schema's folder): by a relative path into it, or,
         for a folder inside `node_modules` (`../node_modules/@prisma-db-1/client`), by the package name after
         it from a file under the folder that holds that `node_modules`, as Node resolves a bare import."""
+        return self._client_schema(file, module) is not None
+
+    def _client_schema(self, file, module):
+        """The schema whose client `file` imports by this spelling (`_prisma_client`): the schema file whose
+        generator `output` the import names, '' for a client spelling that names no schema (`@prisma/client`),
+        None when it is no Prisma client."""
         if PRISMA_CLIENT.search(module):
-            return True
+            return ''
         if 'prisma_outputs' not in self._derived:
-            self._derived['prisma_outputs'] = frozenset(
-                posixpath.normpath(posixpath.join(posixpath.dirname(path), re.sub(r'\\+', '/', output)))
-                for path, schema in self._schema_rows() if schema.get('kind') == 'prisma' and not self.archived(path)
-                for output in schema.get('outputs', ()) if output.strip())
+            self._derived['prisma_outputs'] = {
+                posixpath.normpath(posixpath.join(posixpath.dirname(path), re.sub(r'\\+', '/', output))): path
+                for path, schema in sorted(self._schema_rows()) if schema.get('kind') == 'prisma' and not self.archived(path)
+                for output in schema.get('outputs', ()) if output.strip()}
+        outputs = self._derived['prisma_outputs']
         if module in ('.', '..') or module.startswith(('./', '../')):
             target = posixpath.normpath(posixpath.join(posixpath.dirname(file), module))
-            return any(target == folder or target.startswith(folder + '/') for folder in self._derived['prisma_outputs'])
-        for folder in self._derived['prisma_outputs']:
+            return next((schema for folder, schema in outputs.items() if target == folder or target.startswith(folder + '/')), None)
+        for folder, schema in outputs.items():
             parts = folder.split('/')
             at = max((index for index, part in enumerate(parts[:-1]) if part == 'node_modules'), default=None)
             if at is None:
                 continue
             holder, name = '/'.join(parts[:at]), '/'.join(parts[at + 1:])
             if (module == name or module.startswith(name + '/')) and (not holder or file.startswith(holder + '/')):
-                return True
-        return False
+                return schema
+        return None
 
     def queries(self, model=None):
         """Prisma reads (`count`, `findMany`, `findFirst`, `aggregate`, ...), bound to their model by

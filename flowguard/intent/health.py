@@ -71,9 +71,17 @@ def _foreign_writes(change, facts=None):
            for row in rows if row.get('model') and not row.get('unclear') and row.get('language', 'python') != 'python'
            and row.get('values')]
     # gated by the TS type's own sets; a type the file imports from the Prisma client by its model's sets
-    # (`model`: the imported model's name, also under an alias or a namespace)
+    # (`model`: the imported model's name, also under an alias or a namespace), and one imported from a schema's
+    # own client output by that schema's set when two schemas in use declare the field differently
+    scoped = {row['field'] for row in graph.value_sets() if row.get('scoped')}
+
+    def gate(row):
+        if not row.get('prisma'):
+            return {'gate': f'ts:{row["container"]}.{row["field"]}'}
+        own = f'{row["model"]}.{row["field"]}@{row.get("schema") or ""}'
+        return {'gate': own} if own in scoped else {}
     out += [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None],
-                 **({} if row.get('prisma') else {'gate': f'ts:{row["container"]}.{row["field"]}'}))
+                 **gate(row))
             for row in graph.typed_writes(facts=facts) if row.get('values')]
     return [dict(row, package=graph.package(row['file'])) for row in out if row['values']]
 
@@ -84,7 +92,8 @@ def _issue_name(declared):
     file they are declared in (a guessed set shared by several files, the first). No line numbers: a name
     stays put across runs and when lines move."""
     plain = f'values:{declared["name"]}'
-    return plain if declared['kind'] == 'prisma-enum' and not declared['guessed'] else f'{plain}:{declared["file"]}'
+    return plain if declared['kind'] == 'prisma-enum' and not declared['guessed'] and not declared.get('scoped') \
+        else f'{plain}:{declared["file"]}'
 
 
 def values(change, *, everything=False):

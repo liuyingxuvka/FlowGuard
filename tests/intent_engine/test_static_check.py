@@ -463,6 +463,50 @@ def test_an_object_typed_with_a_prisma_client_type_is_gated_by_its_model(tmp_pat
     assert code == 1 and len(red) == 1 and red[0].startswith("红：取值不在声明集合里：src/sample.ts:2 Item.kind='C'，允许 A|B"), text
 
 
+def test_a_type_from_one_schemas_client_output_is_judged_by_that_schema_and_a_guess_reaches_packages_without_its_model(tmp_path):
+    # Round 23 check of r23-gate: with two schemas in use declaring User.role differently, a typed object imported
+    # from the second schema's client output was judged by the first; and a guessed schema stopped judging a
+    # package that has a Prisma file of its own but does not define the guessed model.
+    def schema(output, values):
+        return (f'generator client {{\n  provider = "prisma-client-js"\n  output   = "{output}"\n}}\n\n'
+                f'enum Role {{\n' + ''.join(f'  {value}\n' for value in values) + '}\n\n'
+                'model User {\n  id   String @id\n  role Role\n}\n')
+    root = tmp_path / 'outputs'
+    _commit(root, {
+        'backend/package.json': '{"name": "backend"}',
+        'backend/prisma/db1/schema.prisma': schema('../../node_modules/@prisma-db-1/client', 'AB'),
+        'backend/prisma/db2/schema.prisma': schema('../../node_modules/@prisma-db-2/client', 'AC'),
+    })
+    _write(root, {'backend/src/a.ts': """
+        import type { User } from '@prisma-db-2/client';
+        import type { User as Other } from '@prisma-db-1/client';
+        export const a: User = { id: '1', role: 'C' };
+        export const b: User = { id: '2', role: 'B' };
+        export const c: Other = { id: '3', role: 'C' };
+    """})
+    code, text = _static(root)
+    red = '\n'.join(_lines(text, '红：取值'))
+    assert code == 1, text
+    assert "backend/src/a.ts:4 User.role='B'，允许 A|C（enum Role (backend/prisma/db2/schema.prisma:6)）" in red, red
+    assert "backend/src/a.ts:5 User.role='C'，允许 A|B（enum Role (backend/prisma/db1/schema.prisma:6)）" in red, red
+    assert 'a.ts:3' not in red, red                 # 'C' is db2's own value
+    root = tmp_path / 'guess'
+    note = 'enum Tone {\n  X\n  Y\n}\n\nmodel Note {\n  id   String @id\n  tone Tone\n}\n'
+    _commit(root, {
+        'db/package.json': '{"name": "db"}', 'db/prisma/schema.postgres.prisma': note,
+        'api/package.json': '{"name": "api"}', 'api/prisma/schema.prisma': 'model Extra {\n  id String @id\n}\n',
+        'web/package.json': '{"name": "web"}', 'web/prisma/schema.prisma': note.replace('  Y\n', '  Z\n'),
+    })
+    _write(root, {
+        'api/src/a.ts': "export async function add(prisma: any, id: string) {\n  await prisma.note.create({ data: { id, tone: 'Q' } });\n}\n",
+        'web/src/n.ts': "export async function add(prisma: any, id: string) {\n  await prisma.note.create({ data: { id, tone: 'Z' } });\n}\n",
+    })
+    code, text = _static(root)
+    red = [line.partition(' → ')[0] for line in _lines(text, '红：取值')]
+    # api defines no Note: db's guessed template still judges it; web defines Note itself and is not judged by db
+    assert code == 1 and len(red) == 1 and "api/src/a.ts:2 Note.tone='Q'" in red[0] and 'web/src' not in red[0], text
+
+
 def test_a_prisma_client_type_under_an_alias_a_namespace_or_a_generator_output_is_gated_by_its_model(tmp_path):
     # 4.2 review: `{ Item as Row }` was marked a client type but gated as Row.kind, so never; `P.Item` of a
     # namespace import and a type imported from the generator's own output folder were not client types.
