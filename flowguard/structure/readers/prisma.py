@@ -20,6 +20,7 @@ FIELD = re.compile(r'^\s*([A-Za-z_]\w*)\s+([A-Za-z_]\w*(?:\([^)]*\))?)(\[\])?(\?
 MAP = re.compile(r'@map\(\s*(?:name\s*:\s*)?"([^"]*)"')
 BLOCK_MAP = re.compile(r'@@map\(\s*(?:name\s*:\s*)?"([^"]*)"')
 ON_DELETE = re.compile(r'@relation\(.*\bonDelete\s*:\s*(\w+)')
+OUTPUT = re.compile(r'\boutput\s*=\s*"([^"]*)"')
 SCALARS = {'String', 'Boolean', 'Int', 'BigInt', 'Float', 'Decimal', 'DateTime', 'Json', 'Bytes'}
 CONNECTING = {'connect', 'connectOrCreate', 'disconnect', 'set'}
 
@@ -51,9 +52,10 @@ def relation(attributes: str):
 
 
 def read(text: str) -> dict:
-    """Models (with fields), enums and the datasource provider of one schema text."""
-    models, enums, provider, block, errors = [], [], '', None, []
-    datasource = False
+    """Models (with fields), enums, the datasource provider and the generators' `output` folders (as
+    written, relative to the schema's folder) of one schema text."""
+    models, enums, provider, block, errors, outputs = [], [], '', None, [], []
+    datasource = generator = False
 
     def close(end):
         body = '\n'.join(block.pop('text'))
@@ -70,6 +72,14 @@ def read(text: str) -> dict:
         if block is None:
             if re.match(r'^\s*datasource\s+\w+\s*\{', line):
                 datasource = True
+                continue
+            if (found := re.match(r'^\s*generator\s+\w+\s*\{(.*)$', line)):
+                outputs += OUTPUT.findall(found.group(1))
+                generator = '}' not in found.group(1)
+                continue
+            if generator:
+                outputs += OUTPUT.findall(line)
+                generator = '}' not in line
                 continue
             if datasource:
                 if (found := re.match(r'^\s*provider\s*=\s*"([^"]*)"', line)):
@@ -110,7 +120,7 @@ def read(text: str) -> dict:
     if block is not None:
         errors.append(f"{block['kind']} {block['name']} (line {block['line']}) has no closing brace")
         close(len(text.splitlines()))
-    return dict(kind='prisma', provider=provider, models=models, enums=enums, errors=errors)
+    return dict(kind='prisma', provider=provider, models=models, enums=enums, errors=errors, outputs=outputs)
 
 
 def extract(root, rel, data, module, is_test):

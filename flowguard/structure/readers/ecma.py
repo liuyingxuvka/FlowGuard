@@ -857,8 +857,12 @@ def extract(root, rel, data, module, is_test):
         return holder is not None and holder.type == 'export_statement'
 
     def type_name(node):
-        """`T` of a type annotation, `satisfies T` or `as T` that names a type; '' otherwise."""
+        """`T` of a type annotation, `satisfies T` or `as T` that names a type, or `NS.T` (a type of an
+        imported namespace); '' otherwise."""
         node = node.named_children[0] if node is not None and node.type == 'type_annotation' and node.named_children else node
+        if node is not None and node.type == 'nested_type_identifier' and (module := field(node, 'module')) is not None \
+                and module.type == 'identifier' and field(node, 'name') is not None:
+            return text(module, source) + '.' + text(field(node, 'name'), source)
         return text(node, source) if node is not None and node.type == 'type_identifier' else ''
 
     def number_context(node):

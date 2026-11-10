@@ -60,17 +60,28 @@ def _places(rows):
 # ---- values outside a declared set (Prisma enums, SQL CHECK, JS/TS annotated members) --------------
 
 def _foreign_writes(change, facts=None):
-    """Write rows outside Python with a readable value, keyed for the gate by `Model.field`."""
+    """Write rows outside Python with a readable value, keyed for the gate by `Model.field`, each with its
+    file's `package` (a guessed schema's set judges only some packages)."""
     graph = change.graph
     rows = graph.writes(facts=facts) if facts is not None else change.writes()
     out = [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None])
            for row in rows if row.get('model') and not row.get('unclear') and row.get('language', 'python') != 'python'
            and row.get('values')]
     # gated by the TS type's own sets; a type the file imports from the Prisma client by its model's sets
-    out += [dict(row, field=f'{row["container"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None],
+    # (`model`: the imported model's name, also under an alias or a namespace)
+    out += [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None],
                  **({} if row.get('prisma') else {'gate': f'ts:{row["container"]}.{row["field"]}'}))
             for row in graph.typed_writes(facts=facts) if row.get('values')]
-    return [row for row in out if row['values']]
+    return [dict(row, package=graph.package(row['file'])) for row in out if row['values']]
+
+
+def _issue_name(declared):
+    """Each set is its own issue, and a name means one declaration whatever other sets the field gets: the
+    enum of a schema in use is `values:Model.field`; a CHECK, a TS type and a guessed schema's enum add the
+    file they are declared in (a guessed set shared by several files, the first). No line numbers: a name
+    stays put across runs and when lines move."""
+    plain = f'values:{declared["name"]}'
+    return plain if declared['kind'] == 'prisma-enum' and not declared['guessed'] else f'{plain}:{declared["file"]}'
 
 
 def values(change, *, everything=False):
@@ -94,15 +105,12 @@ def values(change, *, everything=False):
             before.update(key(row, declared, value) for row, declared, value
                           in outside_sets(table, _foreign_writes(change, [facts])))
     now = Counter(key(row, declared, value) for row, declared, value in outside)
-    by_field, names = {}, set()
+    by_field = {}
     for row, declared, value in outside:
         by_field.setdefault((row.get('gate', row['field']), declared['where']), (declared, []))[1].append((row, value))
-    for (_, where), (declared, items) in sorted(by_field.items()):
-        name = declared['name']
-        # a field's second set (a CHECK beside its enum, a TS type of a model's name) is its own issue
-        issue_name = f'values:{name}' if f'values:{name}' not in names else f'values:{name}:{where}'
-        names.add(issue_name)
-        changed_set = declared.get('file') in change.files
+    for (gate, where), (declared, items) in sorted(by_field.items()):
+        name, issue_name = declared['name'], _issue_name(declared)
+        changed_set = bool(change.files.intersection(declared['files']))
         fresh = [(row, value) for row, value in items if changed_set or row['file'] in change.files
                  and now[key(row, declared, value)] > before[key(row, declared, value)]]
         allowed = '|'.join(map(str, declared['values']))
