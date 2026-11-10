@@ -331,8 +331,10 @@ class Observations:
         self.comparison_requested = bool(state.config.getoption('--flowguard-base', default=None))
         # The first session of a task records HEAD as its baseline when none is recorded, so commits made during
         # the task keep what it changed reported; a recorded one is never moved here (only the brief and new-task
-        # move it, and say why). --flowguard-base names its own baseline and records nothing.
-        task, kind = (None, None) if self.comparison_requested else cache.task_baseline(self.cfg, record=True)
+        # move it, and say why). --flowguard-base names its own baseline and records nothing, and so does a session
+        # that only collects tests (IDE discovery), which is no task's first run.
+        collect_only = bool(state.config.getoption('collectonly', default=False))
+        task, kind = (None, None) if self.comparison_requested else cache.task_baseline(self.cfg, record=not collect_only)
         self.baseline_kind = 'base' if self.comparison_requested else kind or 'HEAD'
         baseline = state.config.getoption('--flowguard-base', default=None) or task or 'HEAD'
         self.runtime = state.runtime = Runtime(self.cfg.root, baseline)

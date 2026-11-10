@@ -357,6 +357,8 @@ def test_deleting_the_ledger_is_red_while_the_baseline_commit_still_has_it(shop)
     result = evaluate(shop, head(shop))
     assert not result.present and texts(result) == [
         '兜底账本 .flowguard/ledger.toml 在基准提交里还在，现在没有了：删掉账本不能让兜底变绿']
+    # Commits keep a task's baseline, so the step names the command that starts the next task there.
+    assert result.red[0].fix[0].endswith('确实不再用账本时，提交删除后运行 python -m flowguard new-task 从这里开始新任务')
     git(shop, 'commit', '-qam', 'stop using the ledger')
     assert evaluate(shop, head(shop)).red == []           # Once the deletion is the baseline, nothing is checked.
 
@@ -543,6 +545,18 @@ def test_ledger_check_and_check_list_the_differences_without_running_tests(shop)
     (shop / ledger.LEDGER).unlink()
     deleted = cli(shop, 'ledger', 'check')
     assert deleted.returncode == 1 and '现在没有了' in deleted.stdout, deleted.stdout + deleted.stderr
+
+
+def test_check_base_compares_the_ledger_with_the_named_commit_in_a_project_without_rules(shop):
+    """check --base X without intent rules reads the ledger against X, like check --static --base X, not against the
+    task baseline: a ledger deleted after X stays red."""
+    (shop / ledger.LEDGER).unlink()
+    git(shop, 'commit', '-qam', 'stop using the ledger')
+    cli(shop, 'new-task')                                   # the task baseline is the commit without a ledger
+    assert cli(shop, 'check').returncode == 0
+    for command in (('check', '--base', 'HEAD~1'), ('check', '--static', '--base', 'HEAD~1')):
+        run = cli(shop, *command)
+        assert run.returncode == 1 and '现在没有了' in run.stdout, (command, run.stdout + run.stderr)
 
 
 def test_ledger_init_says_when_pytest_does_not_load_the_plugin(tmp_path):

@@ -34,8 +34,9 @@ def task_baseline(cfg, *, record=False):
     at its first run. It never moves a recorded baseline, not even one HEAD does not descend from (a run on
     another branch, an older commit, a bisect step, IDE test discovery after a branch switch): only the brief
     and new-task move it (`remember_baseline`), and they say why, so a run elsewhere neither hides what the
-    task committed nor blames an older commit's changes on it. Other readers (vitest, `ledger check`,
-    `debug watch`) record nothing."""
+    task committed nor blames an older commit's changes on it. A detached HEAD (a tag or an older commit
+    checked out, a bisect step, a CI checkout) records nothing either: a test run there would otherwise fix
+    the next task's start on that commit. Other readers (vitest, `ledger check`, `debug watch`) record nothing."""
     if git_common_directory(cfg.root) is None:
         return None, None
     recorded = _recorded_baseline(cfg)
@@ -44,10 +45,16 @@ def task_baseline(cfg, *, record=False):
     head = git_head(cfg.root)
     if head is None:
         return None, None
-    if record:
+    if record and _on_branch(cfg):
         _record_baseline(cfg, head)
         return head, 'task'
     return head, 'HEAD'
+
+
+def _on_branch(cfg):
+    """Is HEAD a branch (not detached)?"""
+    from flowguard.map.common import git_run
+    return git_run(cfg.root, 'symbolic-ref', '-q', 'HEAD', allowed=(0, 1)).returncode == 0
 
 
 def _recorded_baseline(cfg):

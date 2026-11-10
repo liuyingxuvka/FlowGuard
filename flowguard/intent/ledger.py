@@ -351,7 +351,7 @@ def removed(baseline) -> Result:
     return Result(present=False, red=[Finding(
         f'兜底账本 {LEDGER} 在基准提交里还在，现在没有了：删掉账本不能让兜底变绿',
         (f'恢复它：git checkout {baseline[:12]} -- {LEDGER}，再按红行改代码或条目；'
-         '确实不再用账本时，提交删除后运行 python -m flowguard 记下新的基准',))])
+         '确实不再用账本时，提交删除后运行 python -m flowguard new-task 从这里开始新任务',))])
 
 
 def _legacy_reference(cfg, baseline, notes):

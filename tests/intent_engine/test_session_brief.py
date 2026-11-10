@@ -334,6 +334,27 @@ def test_check_and_check_static_record_the_task_baseline_unless_base_names_one(t
     assert code == 0 and cache.task_baseline(cfg) == (None, None), text
 
 
+def test_a_detached_head_or_a_collect_only_session_records_no_task_baseline(tmp_path):
+    """A tag or an older commit checked out (a bisect step, a CI checkout) and IDE test discovery are no task's first
+    run: recording there would make every later commit on the branch this task's change."""
+    root, cfg = _plain(tmp_path)
+    older = git(root, 'rev-parse', 'HEAD')
+    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
+    git(root, 'commit', '--quiet', '-am', 'fixture change on main')
+    head = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '--quiet', '--detach', older)
+    for arguments in ((), ('--collect-only',)):
+        code, text = _run(root, *arguments, pytest_run=True)
+        assert code == 0 and cache.task_baseline(cfg) == (older, 'HEAD'), (arguments, text)
+    code, text = _run(root, 'check', '--static')
+    assert code == 0 and cache.task_baseline(cfg) == (older, 'HEAD'), text
+    git(root, 'checkout', '--quiet', 'main')
+    code, text = _run(root, '--collect-only', pytest_run=True)
+    assert code == 0 and cache.task_baseline(cfg) == (head, 'HEAD'), text        # discovery on the branch neither
+    code, text = _run(root, pytest_run=True)
+    assert code == 0 and 'FlowGuard（' not in text and cache.task_baseline(cfg) == (head, 'task'), text
+
+
 def test_runs_on_a_commit_outside_the_task_never_move_its_baseline(tmp_path):
     """IDE test discovery, the tests or a check on a release branch or an older commit compare with the task start
     and leave it recorded: back on the task's branch its committed change is reported, against the task start."""

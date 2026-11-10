@@ -852,7 +852,7 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     if not model.declared_items() and not everything and not retry_incomplete:
         # No intent item runs, so the ledger the plugin would report is compared here without pytest.
         from . import ledger as fallbacks
-        result = _ledger_result(cfg)
+        result = _ledger_result(cfg, base)
         shown = [fallbacks.summary(result), *fallbacks.lines(result)] if result.red else []
         if shown and reports is None:
             print('\n'.join(shown))
@@ -1516,10 +1516,11 @@ def ledger(cfg, operation):
     return int(bool(result.red))
 
 
-def _ledger_result(cfg):
-    """The ledger compared with the current map without running tests (only its deletion when there is none)."""
-    from . import ledger as fallbacks
-    baseline = cache.session_baseline(cfg)
+def _ledger_result(cfg, base=None):
+    """The ledger compared with the current map without running tests (only its deletion when there is none),
+    against `base` when one is named, else the task baseline."""
+    from . import ledger as fallbacks, owners
+    baseline = owners.baseline(cfg, base)
     if not fallbacks.path(cfg).is_file():
         return fallbacks.absent(cfg, baseline)
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
