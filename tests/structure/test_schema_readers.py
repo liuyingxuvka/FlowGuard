@@ -521,3 +521,85 @@ def test_prisma_generators_record_their_output_folders():
                   'generator docs { provider = "x" output = "../docs/erd" }\n'
                   'model Item {\n  id String @id\n}\n')
     assert schema['outputs'] == ['../generated/db', '../docs/erd'] and [model['name'] for model in schema['models']] == ['Item']
+
+
+def test_a_schema_folder_maps_a_parent_another_file_declares_and_a_same_database_client_lacks_no_key(tmp_path):
+    # Round 23 check of r23-ondelete: a parent model with @@map in another file of a Prisma schema folder hid the
+    # relation, and a second client schema of the same database that leaves the relation out read as 没有外键.
+    source = '''
+datasource db {
+  provider = "%s"
+  url      = env("DATABASE_URL")
+}
+'''
+    hr = '''
+model Employee {
+  id    String @id
+  rooms Room[]
+  @@map("employees")
+}
+'''
+    planning = source % 'sqlserver' + '''
+model Room {
+  id        String   @id
+  managerId String   @map("manager_id")
+  manager   Employee @relation(fields: [managerId], references: [id], onDelete: NoAction)
+  @@map("rooms")
+}
+'''
+    template = source % 'sqlite' + '''
+model Employee {
+  id    String @id
+  rooms Room[]
+  @@map("employees")
+}
+
+model Room {
+  id        String   @id
+  managerId String   @map("manager_id")
+  manager   Employee @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  @@map("rooms")
+}
+'''
+    client = source % 'sqlserver' + '''
+generator reporting {
+  provider = "prisma-client-js"
+  output   = "../generated/reporting"
+}
+
+model Employee {
+  id String @id
+  @@map("employees")
+}
+
+model Room {
+  id        String @id
+  managerId String @map("manager_id")
+  @@map("rooms")
+}
+'''
+    with closing(project(tmp_path / 'folder', {
+        'package.json': '{"name": "app", "prisma": {"schema": "prisma/schema"}}',
+        'prisma/schema/main.prisma': source % 'sqlserver',
+        'prisma/schema/hr.prisma': hr,
+        'prisma/schema/planning.prisma': planning.replace(source % 'sqlserver', ''),
+        'prisma/schema.sqlite.prisma': template,
+    })) as graph:
+        rules = graph.schema_delete_rules()
+    assert [(item['description'], [relation[:3] for relation in item['relations']]) for item in rules] == [
+        ('prisma/schema.sqlite.prisma', [('Room.manager', 'NoAction/Restrict', 'Cascade')])], rules
+    with closing(project(tmp_path / 'client', {
+        'package.json': '{"name": "app", "scripts": {"generate": "prisma generate && prisma generate --schema prisma/reporting.prisma"}}',
+        'prisma/schema.prisma': source % 'sqlserver' + hr + planning.replace(source % 'sqlserver', ''),
+        'prisma/reporting.prisma': client,
+    })) as graph:
+        assert graph.schema_delete_rules() == []            # the reporting client reads the database the schema made
+    template_without = template.replace(', onDelete: Cascade', '').replace(
+        '  manager   Employee @relation(fields: [managerId], references: [id])\n', '').replace('  rooms Room[]\n', '')
+    with closing(project(tmp_path / 'template', {
+        'prisma/schema.prisma': source % 'sqlserver' + hr + planning.replace(source % 'sqlserver', ''),
+        'prisma/schema.sqlite.prisma': template_without,
+    })) as graph:
+        rules = graph.schema_delete_rules()
+    # a template of another database (SQLite) that lacks the relation still has no foreign key there
+    assert [relation[:3] for item in rules for relation in item['relations']] == [('Room.manager', 'NoAction/Restrict', None)], rules

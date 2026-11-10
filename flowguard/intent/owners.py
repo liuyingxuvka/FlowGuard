@@ -572,7 +572,8 @@ def _project_spellings(change, groups):
 
 def changed_once(change):
     """A changed function whose baseline body (the fingerprint without name and docstring) an unchanged
-    function still has: the copy this edit probably also needed. Static; `check` compares behavior."""
+    function still has: the copy this edit probably also needed. Static; `check` compares behavior. Copies
+    of a function name the owner decided (`[structure."copies:a+b"]`) are not counted."""
     from flowguard.structure.readers.registry import ECMA, language_for
     from flowguard.structure.store import shape_list
     found = Findings()
@@ -583,6 +584,10 @@ def changed_once(change):
         return found
     delta = change.graph._delta_against(change.baseline, files)
     touched = {row[0] for row in delta}
+    decided = _decided_copies(change.cfg)
+
+    def short(ident):
+        return ident.partition(':')[2].rpartition('.')[2]
     shapes = None
     for ident, kind, old_fp, new_fp, _, _ in delta:
         if kind != 'changed' or not old_fp or '<anonymous' in ident:
@@ -606,6 +611,9 @@ def changed_once(change):
             similar = [(other, file, line) for other, file, line, shape in shapes
                        if other not in touched and other not in known and old_shape and shape
                        and len(old_shape & shape) / len(old_shape | shape) >= SIMILAR_FOREIGN]
+        if short(ident) in decided:             # the owner decided this name's copies: others of the name stay quiet
+            twins = [item for item in twins if short(item[0]) != short(ident)]
+            similar = [item for item in similar if short(item[0]) != short(ident)]
         if twins or similar:
             name = ident.partition(':')[2].rpartition('.')[2].strip('_').upper()
             comment = '//' if similar or language_for(node.get('file') or '') in ECMA else '#'
@@ -936,10 +944,21 @@ def _category(same, total, shape, shared):
     return '相似' if shared else None
 
 
+def _decided_copies(cfg):
+    """The names a `[structure."copies:..."]` decision covers: an owner's anchor name (copy discovery's
+    `copies:NAME`) and the function names of a same-name family (`copies:a+b`)."""
+    from .ledger import structure_decisions
+    decisions, _ = structure_decisions(cfg)
+    return {part for name in decisions if name.startswith('copies:') for part in name.partition(':')[2].split('+')}
+
+
 def discover(cfg, graph, index, change, *, everything=False, excluded=()):
-    """Unregistered look-alikes of each function owner, grouped by their results on its classes."""
+    """Unregistered look-alikes of each function owner, grouped by their results on its classes. An owner
+    whose copies the owner decided (`[structure."copies:NAME"]`) gets no leads; a copy this change adds
+    beside it is still red."""
     from .runtime import Runtime
     found = Findings()
+    decided = _decided_copies(cfg)
     owners = [a for a in index.entries if a.kind == 'sensor' and a.owner and a.source_role == 'production' and not a.issues]
     if not owners:
         return found
@@ -995,7 +1014,9 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         total = sum(len(group) for group in groups.values()) + len(unclear)
         if not total:
             continue
-        found.leads.append(f'负责人 {label} 的疑似副本 {total} 份（候选 {len(candidates)} 个，用时 {seconds:.2f} 秒，'
+        quiet = owner.name in decided
+        lead = found.leads.append if not quiet else (lambda text: None)
+        lead(f'负责人 {label} 的疑似副本 {total} 份（候选 {len(candidates)} 个，用时 {seconds:.2f} 秒，'
                            f'{len(rows)} 个代表值；这是在负责人的全部代表值上比较的结果，调用点是否走到负数、非有限值等没有核对）'
                            f'→ 每份选一样：改成调用负责人；或在副本上方写 # flowguard: sensor {owner.name}；'
                            f'或写 distinct("{owner.name}", "<副本的锚点名>", why="...", source="...")')
@@ -1013,7 +1034,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
             if fresh and old_owner and category != '相似':
                 found.red.append(f'负责人 {label} 之外新起了一份：' + '  '.join(f'{row["file"]}:{row["line"]}' for row in fresh)
                                  + f'（{category}）→ 改成调用 {owner.qual}，或在它上方写 # flowguard: sensor {owner.name}')
-            found.leads.append(('旧账 ' if everything and not new_owner and not fresh else '') + text)
+            lead(('旧账 ' if everything and not new_owner and not fresh else '') + text)
             if category == '分叉的副本':
                 from .health import Issue
                 found.issues.append(Issue(f'copies:{owner.name}', 5, f'副本 {owner.name}', f'负责人 {label} 的{text}',
@@ -1022,7 +1043,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
                                           frozenset({owner.target, *(row['id'] for row in members)}),
                                           frozenset({owner.file, *(row['file'] for row in members)})))
         if unclear:
-            found.leads.append(f'看不清 {len(unclear)} 份：' + '  '.join(unclear))
+            lead(f'看不清 {len(unclear)} 份：' + '  '.join(unclear))
     found.stats.update(copy_candidates=candidates_seen, copy_seconds=time.perf_counter() - started)
     return found
 

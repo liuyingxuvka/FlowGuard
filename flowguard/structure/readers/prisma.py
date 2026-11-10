@@ -21,6 +21,8 @@ MAP = re.compile(r'@map\(\s*(?:name\s*:\s*)?"([^"]*)"')
 BLOCK_MAP = re.compile(r'@@map\(\s*(?:name\s*:\s*)?"([^"]*)"')
 ON_DELETE = re.compile(r'@relation\(.*\bonDelete\s*:\s*(\w+)')
 OUTPUT = re.compile(r'\boutput\s*=\s*"([^"]*)"')
+# The datasource's url: env("NAME") or a literal string.
+URL = re.compile(r'^\s*url\s*=\s*(?:env\(\s*"([^"]*)"\s*\)|"([^"]*)")')
 SCALARS = {'String', 'Boolean', 'Int', 'BigInt', 'Float', 'Decimal', 'DateTime', 'Json', 'Bytes'}
 CONNECTING = {'connect', 'connectOrCreate', 'disconnect', 'set'}
 
@@ -52,9 +54,9 @@ def relation(attributes: str):
 
 
 def read(text: str) -> dict:
-    """Models (with fields), enums, the datasource provider and the generators' `output` folders (as
-    written, relative to the schema's folder) of one schema text."""
-    models, enums, provider, block, errors, outputs = [], [], '', None, [], []
+    """Models (with fields), enums, the datasource provider and url (`env:NAME` or the literal) and the
+    generators' `output` folders (as written, relative to the schema's folder) of one schema text."""
+    models, enums, provider, block, errors, outputs, url = [], [], '', None, [], [], ''
     datasource = generator = False
 
     def close(end):
@@ -84,6 +86,8 @@ def read(text: str) -> dict:
             if datasource:
                 if (found := re.match(r'^\s*provider\s*=\s*"([^"]*)"', line)):
                     provider = found.group(1)
+                if (found := URL.match(line)):
+                    url = f'env:{found.group(1)}' if found.group(1) is not None else found.group(2)
                 if line.strip() == '}':
                     datasource = False
                 continue
@@ -120,7 +124,7 @@ def read(text: str) -> dict:
     if block is not None:
         errors.append(f"{block['kind']} {block['name']} (line {block['line']}) has no closing brace")
         close(len(text.splitlines()))
-    return dict(kind='prisma', provider=provider, models=models, enums=enums, errors=errors, outputs=outputs)
+    return dict(kind='prisma', provider=provider, url=url, models=models, enums=enums, errors=errors, outputs=outputs)
 
 
 def extract(root, rel, data, module, is_test):
@@ -428,15 +432,16 @@ def key_required(field, model) -> bool:
     return not field['optional'] or not all(name in fields and fields[name]['optional'] for name in field['relation']['fields'])
 
 
-def _foreign_keys(schema):
+def _foreign_keys(schema, models=None):
     """[(table, key columns, parent table, Model.field, delete rule)] of one Prisma schema's relations that
     hold a foreign key (`@relation(fields: [...])` on a `model`), in schema order: the tables and the key
     columns as mapped (`@@map`, `@map`; case folded, columns sorted), the way the database names the key, so
     a model or relation renamed under the same mapping is the same key. The rule is the relation's
     `onDelete`, else Prisma's default (`key_required`); NoAction and Restrict both refuse the delete and read
-    as one. A key field or a related model the schema does not declare (Prisma refuses that schema) reads as
-    its own column or table."""
-    tables = {model['name']: model['table'] for model in schema.get('models', [])}
+    as one. A related model another file of the schema's folder declares (a schema folder splits one schema
+    into files) maps through `models`, {model: table} of that folder; a key field or a related model no file
+    declares (Prisma refuses that schema) reads as its own column or table."""
+    tables = {**(models or {}), **{model['name']: model['table'] for model in schema.get('models', [])}}
     out = []
     for model in schema.get('models', []):
         if model['kind'] != 'model':
@@ -481,21 +486,59 @@ def delete_rules(schemas, in_use=frozenset(), package=None) -> list[dict]:
     has the key. A side whose table has the key's columns and whose parent table exists, but that has no
     relation from that table to that parent over them, has no foreign key (rule None): deleting the parent
     there leaves the rows pointing nowhere. A table, column or parent table one side lacks is the column
-    check's (`gaps`): no foreign key could be there."""
+    check's (`gaps`): no foreign key could be there. In a schema folder (several Prisma files in one folder,
+    at most one of them with a datasource: one schema split into files) the tables, models and datasource of
+    the other files count as each file's; schema files and provider templates side by side, each with its own
+    datasource, stay apart. A missing foreign key is reported only between two databases: a second client
+    schema with the same provider and datasource url reads the database the other one made, and its leaving
+    the relation out is no missing key."""
+    import posixpath
     prisma = [schema for schema in schemas if schema.get('kind') == 'prisma']
     names = {model['name'] for schema in prisma for model in schema.get('models', [])}
     described = sorted((schema['file'], prisma_tables(schema, names)) for schema in prisma)
     by_file = {schema['file']: schema for schema in prisma}
+    own_tables = dict(described)
+    folders = {}
+    for file in sorted(by_file):
+        folders.setdefault(posixpath.dirname(file), []).append(file)
+    folder_models, folder_tables, folder_source = {}, {}, {}
+    for folder, files in folders.items():
+        sources = [by_file[file] for file in files if by_file[file].get('provider')]
+        if len(files) < 2 or len(sources) > 1:
+            continue
+        for file in files:
+            for model in by_file[file].get('models', []):
+                folder_models.setdefault(folder, {}).setdefault(model['name'], model['table'])
+            for key, table in own_tables[file].items():
+                folder_tables.setdefault(folder, {}).setdefault(key, table)
+        if sources:
+            folder_source[folder] = (sources[0].get('provider'), sources[0].get('url'))
+
+    def tables_of(file):
+        return {**folder_tables.get(posixpath.dirname(file), {}), **own_tables[file]}
+
+    def keys_of(file):
+        return _foreign_keys(by_file[file], folder_models.get(posixpath.dirname(file), {}))
+
+    def source(file):
+        schema = by_file[file]
+        return (schema.get('provider'), schema.get('url')) if schema.get('provider') else \
+            folder_source.get(posixpath.dirname(file), ('', ''))
+
+    def one_database(a, b):
+        (provider, url), (other, other_url) = source(a), source(b)
+        return bool(provider) and provider == other and bool(url) and url == other_url
 
     def holds(tables, key):
         table, columns, parent = key[:3]
         return table in tables and parent in tables and all(column in tables[table]['columns'] for column in columns)
 
     out = []
-    for (left, left_tables), (right, right_tables) in _schema_pairs(described, in_use, package or (lambda file: '')):
-        differ = []
-        for mine, theirs in _matched(_foreign_keys(by_file[left]), _foreign_keys(by_file[right])):
-            if mine is None and not holds(left_tables, theirs) or theirs is None and not holds(right_tables, mine):
+    for (left, _), (right, _) in _schema_pairs(described, in_use, package or (lambda file: '')):
+        differ, same = [], one_database(left, right)
+        left_tables, right_tables = tables_of(left), tables_of(right)
+        for mine, theirs in _matched(keys_of(left), keys_of(right)):
+            if mine is None and (same or not holds(left_tables, theirs)) or theirs is None and (same or not holds(right_tables, mine)):
                 continue
             rule, other = mine[4] if mine else None, theirs[4] if theirs else None
             if rule != other:

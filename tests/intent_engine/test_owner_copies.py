@@ -680,6 +680,43 @@ def test_copy_discovery_compares_on_the_codes_own_literals(tmp_path):
     assert 'Step1/src/kwp_step1/utils.py:' in forked and "→ 'district_heat'（负责人给 'waermenetze'）" in forked, forked
 
 
+RULE_FILE = ('AGENTS.md', 'The two normalizers stay apart until the step 1 importer is retired next year.\n')
+DECIDED = ('decision = "the step 1 copy stays as it is until the old importer is retired"\n'
+           'source = { file = "AGENTS.md", text = "The two normalizers stay apart until the step 1 importer is retired next year." }\n')
+
+
+def test_an_owner_whose_copies_the_owner_decided_gets_no_discovery_leads(tmp_path):
+    # Round 23 check of r23-ondelete: [structure."copies:TECHNOLOGY"] closed the --all entry, but check still printed
+    # the owner's look-alike leads.
+    _copy_fixture(tmp_path, 'kwp_normalize')
+    _project(tmp_path, {RULE_FILE[0]: RULE_FILE[1]}, pyproject='[tool.pytest.ini_options]\npythonpath = ["Step1/src", "Step3/src"]\n')
+    technology = tmp_path / 'Step3/src/kwp_step3/technology.py'
+    technology.write_text(technology.read_text(encoding='utf-8').replace('def normalize_technology_name(value: object)',
+                                                          '# flowguard: owner TECHNOLOGY\ndef normalize_technology_name(value: object)'), encoding='utf-8')
+    code, text = _check(tmp_path)
+    assert code == 0 and any(line.startswith('线索：分叉的副本 1 份') for line in _lines(text)), text
+    (tmp_path / '.flowguard').mkdir(exist_ok=True)
+    (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:TECHNOLOGY"]\n' + DECIDED, encoding='utf-8')
+    code, text = _check(tmp_path)
+    assert code == 0, text
+    assert not [line for line in _lines(text) if 'TECHNOLOGY' in line or line.startswith(('线索：分叉的副本', '线索：副本 '))], text
+
+
+def test_a_function_whose_copies_the_owner_decided_gets_no_changed_alone_lead(tmp_path):
+    body = ("export function total(items: number[], rate: number): number {{\n  let sum = 0;\n"
+            "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
+            "  return Math.round(sum * 100) / 100;\n}}\n")
+    _project(tmp_path, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), RULE_FILE[0]: RULE_FILE[1]})
+    (tmp_path / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
+    static = lambda: _check(tmp_path, '--static')
+    code, text = static()
+    assert code == 0 and any(line.startswith('线索：total（src/a.ts:1）改了') for line in _lines(text)), text
+    (tmp_path / '.flowguard').mkdir(exist_ok=True)
+    (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:total"]\n' + DECIDED, encoding='utf-8')
+    code, text = static()
+    assert code == 0 and not any(line.startswith('线索：total（') for line in _lines(text)), text
+
+
 def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path):
     _project(tmp_path, {'a/contracts.py': '''
         from enum import StrEnum
