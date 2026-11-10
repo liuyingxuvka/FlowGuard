@@ -2371,6 +2371,18 @@ def test_a_later_field_leaves_the_known_fields_checked_and_a_misspelt_field_stay
     assert code == 0 and '红：' not in text and line.startswith('未核对：结构条目 [structure."writers:Job.status"] 有这个版本不认识的字段 '
                                                               'evidence：' + LATER), text
     assert 'source "R1" 不是已存的主人原话' in line, line
+    # Second review: a field near decision or source beside that very field is no misspelling of it but another
+    # field (`sources` beside `source`, `revision` beside `decision`): unverified, not red.
+    for extra in ('sources = ["R1"]\n', 'revision = 2\n'):
+        ledger.write_text(entry + decision + 'source = "R1"\n' + extra, encoding='utf-8')
+        code, text = _flowguard(tmp_path, 'ledger', 'check')
+        name = extra.partition(' ')[0]
+        line = next((line for line in text.splitlines() if '不认识的字段 ' + name in line), None)
+        assert code == 0 and '红：' not in text and line and line.startswith('未核对：'), text
+    # Without the field it is near, it is that field misspelt, as before.
+    ledger.write_text(entry + decision + 'sources = "R1"\n', encoding='utf-8')
+    code, text = _flowguard(tmp_path, 'ledger', 'check')
+    assert code == 1 and '：未知字段 sources（是 source 拼错了？）；缺少 source' in text, text
 
 
 def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_line(tmp_path):

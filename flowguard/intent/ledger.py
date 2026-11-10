@@ -485,9 +485,10 @@ def structure_decisions(cfg):
     """({name: Decision}, [Finding], [str]): the `[structure]` section of the ledger. A decision has at least eight
     words and a source: `R<n>`, owner words stored with `req add`, or a written rule `{ file, text }` whose
     sentence the file still contains. A malformed decision is red and silences nothing, and so is a field one or
-    two letters from decision or source (`decison`). An entry with another field this version does not know (a
-    later FlowGuard writes `status`, `sites`, `why`, ...) is not judged: it is one unverified line (the third
-    list), not red, which also says what is wrong with its decision or source, and it closes nothing either."""
+    two letters from decision or source when that one is missing (`decison`). An entry with another field this
+    version does not know (a later FlowGuard writes `status`, `sites`, `why`, ...; `sources` beside `source`) is not
+    judged: it is one unverified line (the third list), not red, which also says what is wrong with its decision or
+    source, and it closes nothing either."""
     ledger = path(cfg)
     if not ledger.is_file():
         return {}, [], []
@@ -506,8 +507,9 @@ def structure_decisions(cfg):
             red.append(Finding(f'[{STRUCTURE}] 里的 {_quote(name)} 不是条目：值要是一张表', ('按 structure_entry 的写法改正',)))
             continue
         unknown = sorted(set(value) - STRUCTURE_FIELDS)
-        # A field one or two letters from decision or source is misspelt: the entry is judged as written.
-        misspelt = {key: known for key in unknown for known in sorted(STRUCTURE_FIELDS) if _near(key, known)}
+        # A field one or two letters from decision or source, while that field is missing, is misspelt: the entry is
+        # judged as written. Beside the field it is near (`sources` beside `source`) it is another field.
+        misspelt = {key: known for key in unknown for known in sorted(STRUCTURE_FIELDS - set(value)) if _near(key, known)}
         newer = [key for key in unknown if key not in misspelt and not misspelt]
         problems = [f'未知字段 {key}（是 {known} 拼错了？）' for key, known in misspelt.items()]
         problems += [f'未知字段 {key}' for key in unknown if key not in misspelt and misspelt]
