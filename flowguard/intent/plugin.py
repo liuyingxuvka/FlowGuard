@@ -328,7 +328,8 @@ class Observations:
         from ..map.common import MapError, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
-        self.comparison_requested = bool(state.config.getoption('--flowguard-base', default=None))
+        self.requested_base = state.config.getoption('--flowguard-base', default=None)
+        self.comparison_requested = bool(self.requested_base)
         # The first session of a task records HEAD as its baseline when none is recorded, so commits made during
         # the task keep what it changed reported; a recorded one is never moved here (only the brief and new-task
         # move it, and say why). --flowguard-base names its own baseline and records nothing, and so does a session
@@ -336,9 +337,9 @@ class Observations:
         collect_only = bool(state.config.getoption('collectonly', default=False))
         task, kind = (None, None) if self.comparison_requested else cache.task_baseline(self.cfg, record=not collect_only)
         self.baseline_kind = 'base' if self.comparison_requested else kind or 'HEAD'
-        baseline = state.config.getoption('--flowguard-base', default=None) or task or 'HEAD'
+        baseline = self.requested_base or task or 'HEAD'
         self.runtime = state.runtime = Runtime(self.cfg.root, baseline)
-        if state.config.getoption('--flowguard-base', default=None) and self.runtime._baseline_error:
+        if self.requested_base and self.runtime._baseline_error:
             raise pytest.UsageError(self.runtime._baseline_error)
         self.index = state.model.anchor_index or differences._source_index(self.cfg.root)
         state.model.anchor_index = self.index
@@ -1084,6 +1085,8 @@ class Observations:
         items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
         fallbacks = self.state.ledger()
         report = dict(session=True, baseline=self.runtime.baseline, baseline_kind=self.baseline_kind,
+                      # the overflow's command keeps --flowguard-base, as `--base`, so it lists these leads
+                      more_leads=signals.more_leads('check --static', base=self.requested_base),
                       source_changed=self.changed or bool(self.mapped), comparison_requested=self.comparison_requested,
                       items=items, paths=self.paths,
                       leads=leads, red=list(dict.fromkeys(self.red)), steps=self.steps, partial_flows=partial_flows, unverified=unverified,

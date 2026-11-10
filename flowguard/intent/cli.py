@@ -601,18 +601,12 @@ def watch(cfg, command):
 
 
 
-def _more_leads(command, everything, base):
-    """The command that prints every lead of this run: the same options, `--leads` added (an explicit `--base`
-    too, or it would list the leads against the task baseline instead)."""
-    return f'python -m flowguard {command}' + ' --all' * everything + (f' --base {base}' if base else '') + ' --leads'
-
-
 def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
     """Run the one ordinary pytest route; source validation executes no code. `leads` prints every lead.
     Without `base` the first check of a task records HEAD as its baseline when none is recorded; a recorded
     one stays, as in pytest (`cache.task_baseline`)."""
     from .plugin import collect_signals
-    from .signals import render as render_signals
+    from .signals import more_leads, render as render_signals
     if base is None:
         cache.task_baseline(cfg, record=True)
     with collect_signals() as reports:
@@ -657,7 +651,7 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
             baseline = dict(baseline=owner_baseline(cfg, base), baseline_kind='base' if base else 'task')
     report = dict(session=True, baseline=baseline.get('baseline'), baseline_kind=baseline.get('baseline_kind', 'task'),
                   baseline_option='--base', source_changed=any(part.get('source_changed', True) for part in reports),
-                  all_leads=leads, more_leads=_more_leads('check', everything, base),
+                  all_leads=leads, more_leads=more_leads('check', everything, base),
                   comparison_requested=any(part.get('comparison_requested') for part in reports),
                   items=[item for part in reports for item in part.get('items', ())],
                   paths=[path for part in reports for path in part.get('paths', ())],
@@ -694,7 +688,7 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     anything is red. Without `base` the first run of a task records HEAD as its baseline when none is recorded;
     a recorded one stays, as in pytest (`cache.task_baseline`)."""
     from . import anchors, health, ledger as fallbacks, owners
-    from .signals import render as render_signals
+    from .signals import more_leads, render as render_signals
     if base is None:
         cache.task_baseline(cfg, record=True)
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
@@ -708,7 +702,7 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     red = list(dict.fromkeys([*found.red, *(issue.message for issue in index.issues if issue.level == 'red')]))
     report = dict(session=True, baseline=baseline, baseline_kind='base' if base else 'task', baseline_option='--base',
                   source_changed=bool(red or found.leads or found.section or result.red), red=red, leads=found.leads,
-                  all_leads=leads, more_leads=_more_leads('check --static', everything, base),
+                  all_leads=leads, more_leads=more_leads('check --static', everything, base),
                   items=[], ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in result.red],
                   structure=found.section)
     status = int(bool(red or result.red))

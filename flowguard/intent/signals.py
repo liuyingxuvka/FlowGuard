@@ -332,7 +332,7 @@ def _session(report, limit):
                   lambda rest: f'比较：另 {rest} 项没有变化：' + '、'.join(dict.fromkeys(compared_names[len(compared) - rest:])))
     room -= len(shown)
     # `all_leads` (check --leads) prints every lead outside the budget; otherwise the overflow names that command.
-    more = report['more_leads'] if 'more_leads' in report else 'python -m flowguard check --static --leads'
+    more = report['more_leads'] if 'more_leads' in report else more_leads('check --static')
     if report.get('all_leads'):
         shown_leads = leads
     else:
@@ -370,6 +370,12 @@ def _grey(text):
         if found and head and len(head) <= 80 and '=' not in head and ' ' not in head.strip('[]:.'):
             return head, rest
     return '', text
+
+
+def more_leads(command, everything=False, base=None):
+    """The command that prints every lead of a run: the same options, `--leads` added (an explicit baseline as
+    `--base`, also pytest's `--flowguard-base`, or it would list the leads against the task baseline instead)."""
+    return f'python -m flowguard {command}' + ' --all' * everything + (f' --base {base}' if base else '') + ' --leads'
 
 
 def _title(report):
