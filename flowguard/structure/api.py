@@ -494,18 +494,22 @@ class MapHandle:
         `Model.field`, both kept when a field has both; and a JS/TS interface, class or object type member
         annotated with a closed string union or an alias of `as const`/`new Set` values, keyed `Type.field`
         and gated `ts:Type.field` (a TS type is not the Prisma model of the same name). A guessed schema
-        (`prisma_schemas_guessed`) gates only the models no schema in use defines, and each guessed file's
-        enum of a field is its own set (a value must be in each, as beside a CHECK). Each row: key, name,
-        field (the gate's key), values, where (file:line), kind, fold (the database compares text without
-        case: SQL Server and MySQL default collations)."""
+        (`prisma_schemas_guessed`) gates only the models no schema in use defines and only the writes of its
+        own package and of packages without a Prisma file (`excluded_packages` lists the others); each
+        guessed enum of a field is its own set (a value must be in each, as beside a CHECK), shared by the
+        package's files that spell the same enum alike (`files`). Each row: key, name, field (the gate's key),
+        values, where (file:line), kind, guessed, file (the first of `files`), fold (the database compares
+        text without case: SQL Server and MySQL default collations)."""
         if 'value_sets' in self._derived:
             return self._derived['value_sets']
-        enums_out, checks_out, types_out = {}, {}, {}
+        enums_out, checks_out, types_out, guesses = {}, {}, {}, {}
         in_use, guessed = self.prisma_schemas_in_use(), self.prisma_schemas_guessed()
         # The schemas in use first: a guessed file only fills the models none of them defines.
         schemas = sorted((item for item in self.schemas() if item.get('kind') == 'prisma' and item['file'] in in_use),
                          key=lambda item: (item['file'] in guessed, item['file']))
         defined = {model['name'] for schema in schemas if schema['file'] not in guessed for model in schema.get('models', ())}
+        prisma_packages = frozenset(self.package(path) for path, schema in self._schema_rows()
+                                    if schema.get('kind') == 'prisma' and not self.archived(path))
         providers = {}
         for schema in schemas:
             guess = schema['file'] in guessed
@@ -518,18 +522,28 @@ class MapHandle:
                     enum = enums.get(field['type'])
                     if not enum or not enum['fields']:
                         continue
-                    key = f"{model['name']}.{field['name']}"
-                    if not guess and key in enums_out:
-                        continue           # two schemas in use: the first by path gates
-                    enums_out.setdefault(key, []).append(dict(
-                        key=key, name=key, field=key, values=tuple(member['name'] for member in enum['fields']),
-                        where=f"enum {field['type']} ({schema['file']}:{enum['line']}"
-                              + ('，没找到生成器在用的 schema，按这个包的全部 schema 判' if guess else '') + ')',
-                        kind='prisma-enum', fold=False, file=schema['file']))
+                    key, values = f"{model['name']}.{field['name']}", tuple(member['name'] for member in enum['fields'])
+                    if guess:
+                        guesses.setdefault((key, self.package(schema['file']), enum['name'], values), []).append(
+                            (schema['file'], enum['line']))
+                    elif key not in enums_out:          # two schemas in use: the first by path gates
+                        enums_out[key] = [dict(key=key, name=key, field=key, values=values,
+                                               where=f"enum {enum['name']} ({schema['file']}:{enum['line']})",
+                                               kind='prisma-enum', guessed=False, fold=False, file=schema['file'],
+                                               files=(schema['file'],), excluded_packages=frozenset())]
+        for (key, package, enum, values), places in guesses.items():
+            files = tuple(file for file, _ in places)
+            enums_out.setdefault(key, []).append(dict(
+                key=key, name=key, field=key, values=values,
+                where=f"enum {enum} ({', '.join(f'{file}:{line}' for file, line in places)}"
+                      "，没找到生成器在用的 schema，按这个包的全部 schema 判)",
+                kind='prisma-enum', guessed=True, fold=False, file=files[0], files=files,
+                excluded_packages=prisma_packages - {package}))
         for key, (_, check) in self._check_sets().items():
             model = key.partition('.')[0]
             checks_out[key] = dict(key=key, name=key, field=key, values=check['values'], where=check['where'],
-                                   kind='sql-check', fold=providers.get(model, '') in ('sqlserver', 'mysql'), file=check['file'])
+                                   kind='sql-check', guessed=False, fold=providers.get(model, '') in ('sqlserver', 'mysql'),
+                                   file=check['file'], files=(check['file'],), excluded_packages=frozenset())
         for _, _, facts in self._kinds('typed_fields'):
             for row in facts.get('typed_fields', ()):
                 key = f"{row['container']}.{row['field']}"
@@ -541,7 +555,8 @@ class MapHandle:
                         continue
                     where, file = f"{row['of']} ({origin['file']}:{origin['line']})", origin['file']
                 types_out.setdefault(key, dict(key=key, name=key, field='ts:' + key, values=tuple(values), where=where,
-                                               kind='ts-type', fold=False, file=file))
+                                               kind='ts-type', guessed=False, fold=False, file=file, files=(file,),
+                                               excluded_packages=frozenset()))
         rows = [*(row for items in enums_out.values() for row in items), *checks_out.values(), *types_out.values()]
         self._derived['value_sets'] = sorted(rows, key=lambda row: (row['key'], row['field']))
         return self._derived['value_sets']

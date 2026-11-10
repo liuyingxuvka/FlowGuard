@@ -790,7 +790,8 @@ def declared_sets(entries, field_types=(), classes=None, constants=None, foreign
     whose members' folded values are its set. `classes` gives a class id's signature (its bases);
     `constants(module)` the module's folded constants. `foreign` adds the rows other languages declare
     (`MapHandle.value_sets()`), keyed by their `field` (`Model.field`, `ts:Type.field`); a second set of one
-    field (a Prisma enum and a SQL CHECK) is kept in `also`, and a value must be in each."""
+    field (a Prisma enum and a SQL CHECK) is kept in `also`, and a value must be in each. A foreign set keeps
+    its `kind`, `guessed`, `files` and `excluded_packages` (the packages whose writes it does not judge)."""
     from ..structure import decide
     table = {}
     for anchor in entries:
@@ -809,8 +810,9 @@ def declared_sets(entries, field_types=(), classes=None, constants=None, foreign
                                                 values=values + ((None,) if row.get('optional') else ()),
                                                 where=f'enum {row["type"]} ({row["file"]}:{row["line"]})'))
     for row in foreign:             # MapHandle.value_sets(): Prisma enums, SQL CHECK sets, JS/TS annotated members
-        declared = dict(name=row['name'], values=tuple(row['values']), where=row['where'], fold=row.get('fold', False),
-                        file=row.get('file', ''))
+        declared = dict(name=row['name'], values=tuple(row['values']), where=row['where'], fold=row['fold'],
+                        file=row['file'], files=row['files'], kind=row['kind'], guessed=row['guessed'],
+                        excluded_packages=row['excluded_packages'])
         key = row.get('field', row['key'])
         if key in table:
             table[key].setdefault('also', []).append(declared)
@@ -822,13 +824,16 @@ def declared_sets(entries, field_types=(), classes=None, constants=None, foreign
 def outside_sets(table, writes):
     """(write, declared set, value) for every readable value written to a declared field that its set (or
     one of its sets) does not hold. A write whose value cannot be read (a parameter, a call) is not judged;
-    a set with `fold` compares text without case (the database's collation does)."""
+    a set with `fold` compares text without case (the database's collation does); a set does not judge the
+    writes of a package (the write's `package`) in its `excluded_packages`."""
     for row in writes:
         first = table.get(row.get('gate', row['field']))       # a write's `gate` key, when its field name is not it
         values = row.get('values') or ([row['value']] if row.get('literal') else None)
         if first is None or values is None:
             continue
         for declared in (first, *first.get('also', ())):
+            if declared.get('excluded_packages') and row['package'] in declared['excluded_packages']:
+                continue
             for value in values:
                 if declared.get('fold') and isinstance(value, str):
                     held = any(isinstance(allowed, str) and allowed.casefold() == value.casefold() for allowed in declared['values'])

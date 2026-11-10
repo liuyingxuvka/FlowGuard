@@ -60,7 +60,8 @@ def _places(rows):
 # ---- values outside a declared set (Prisma enums, SQL CHECK, JS/TS annotated members) --------------
 
 def _foreign_writes(change, facts=None):
-    """Write rows outside Python with a readable value, keyed for the gate by `Model.field`."""
+    """Write rows outside Python with a readable value, keyed for the gate by `Model.field`, each with its
+    file's `package` (a guessed schema's set judges only some packages)."""
     graph = change.graph
     rows = graph.writes(facts=facts) if facts is not None else change.writes()
     out = [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None])
@@ -71,7 +72,16 @@ def _foreign_writes(change, facts=None):
     out += [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None],
                  **({} if row.get('prisma') else {'gate': f'ts:{row["container"]}.{row["field"]}'}))
             for row in graph.typed_writes(facts=facts) if row.get('values')]
-    return [row for row in out if row['values']]
+    return [dict(row, package=graph.package(row['file'])) for row in out if row['values']]
+
+
+def _issue_name(declared):
+    """Each set is its own issue, and a name means one declaration whatever other sets the field gets: the
+    enum of a schema in use is `values:Model.field`; a CHECK, a TS type and a guessed schema's enum add the
+    file they are declared in (a guessed set shared by several files, the first). No line numbers: a name
+    stays put across runs and when lines move."""
+    plain = f'values:{declared["name"]}'
+    return plain if declared['kind'] == 'prisma-enum' and not declared['guessed'] else f'{plain}:{declared["file"]}'
 
 
 def values(change, *, everything=False):
@@ -95,21 +105,12 @@ def values(change, *, everything=False):
             before.update(key(row, declared, value) for row, declared, value
                           in outside_sets(table, _foreign_writes(change, [facts])))
     now = Counter(key(row, declared, value) for row, declared, value in outside)
-    # Each set is its own issue. A field's further sets (a CHECK beside its enum, each guessed schema's enum,
-    # a TS type of a model's name) are named by their file, in the table's order, whichever sets this run
-    # breaks: a name stays put across runs and when lines move.
-    issue_names, taken = {}, set()
-    for gate, first in table.items():
-        for declared in (first, *first.get('also', ())):
-            plain = f'values:{declared["name"]}'
-            issue_names[gate, declared['where']] = plain if plain not in taken else f'{plain}:{declared["file"]}'
-            taken.add(issue_names[gate, declared['where']])
     by_field = {}
     for row, declared, value in outside:
         by_field.setdefault((row.get('gate', row['field']), declared['where']), (declared, []))[1].append((row, value))
     for (gate, where), (declared, items) in sorted(by_field.items()):
-        name, issue_name = declared['name'], issue_names[gate, where]
-        changed_set = declared.get('file') in change.files
+        name, issue_name = declared['name'], _issue_name(declared)
+        changed_set = bool(change.files.intersection(declared['files']))
         fresh = [(row, value) for row, value in items if changed_set or row['file'] in change.files
                  and now[key(row, declared, value)] > before[key(row, declared, value)]]
         allowed = '|'.join(map(str, declared['values']))

@@ -212,8 +212,8 @@ def test_a_package_whose_prisma_files_name_no_schema_in_use_is_judged_by_all_of_
         red = _lines(text, '红：取值')
         assert code == 1 and len(red) == 1 and "src/items.ts:2 Item.kind='C'，允许 A|B" in red[0], text
         assert '没找到生成器在用的 schema，按这个包的全部 schema 判' in red[0], red
-        # each guessed file's enum is its own set, named in the red
-        assert [file for file in sorted(files) if f'（enum Kind ({file}:1，没找到' in red[0]] == sorted(files), red
+        # the files that spell the enum alike share one set, which names each of them
+        assert '（enum Kind (' + ', '.join(f'{file}:1' for file in sorted(files)) + '，没找到' in red[0], red
     # prisma.config.ts names the schema in use: the template beside it only describes, and nothing is guessed
     root = tmp_path / 'config'
     _commit(root, {'prisma/schema.sqlite.prisma': schema.replace('  B\n', '  B\n          C\n'),
@@ -261,7 +261,7 @@ def test_a_guessed_schema_fills_only_models_no_schema_in_use_defines_and_each_of
     assert sets == [('Item.kind', ('A', 'B', 'C'), 'server/prisma/schema.prisma'),
                     ('Note.tone', ('X', 'Y'), 'admin/prisma/schema.postgres.prisma'),
                     ('Note.tone', ('X',), 'admin/prisma/schema.sqlite.prisma')], sets
-    assert names == ['values:Note.tone', 'values:Note.tone:admin/prisma/schema.sqlite.prisma'], names
+    assert names == ['values:Note.tone:admin/prisma/schema.postgres.prisma', 'values:Note.tone:admin/prisma/schema.sqlite.prisma'], names
     code, text = _static(tmp_path)
     guessed = '，没找到生成器在用的 schema，按这个包的全部 schema 判'
     postgres, sqlite = (f'enum Tone (admin/prisma/schema.{name}.prisma:11{guessed})' for name in ('postgres', 'sqlite'))
@@ -305,6 +305,95 @@ def test_archived_prisma_files_are_neither_in_use_nor_guessed(tmp_path):
     _write(tmp_path, {'pyproject.toml': '[tool.flowguard]\narchives = []\n'})
     with closing(build(tmp_path)) as graph:
         assert graph.prisma_schemas_in_use() == {'docs/release-1.0/schema.prisma'} and not graph.prisma_schemas_guessed()
+
+
+def _tone_schema(*tones):
+    return 'enum Tone {\n' + ''.join(f'  {name}\n' for name in tones) + '}\n\nmodel Note {\n  id   String @id\n  tone Tone\n}\n'
+
+
+def _tone_writes(*tones):
+    return ('export async function note(prisma: any, id: string) {\n'
+            + ''.join(f"  await prisma.note.create({{ data: {{ id, tone: '{tone}' }} }});\n" for tone in tones) + '}\n')
+
+
+def test_a_guessed_schema_judges_the_writes_of_its_own_package_and_of_a_package_without_prisma_files(tmp_path):
+    # 4.2 review: two packages whose templates are both guessed judged each other's writes (a false red in
+    # both directions), while the red says it judges by this package's schemas.
+    _commit(tmp_path, {
+        'admin/package.json': '{"name": "admin"}\n',
+        'admin/prisma/schema.postgres.prisma': _tone_schema('X', 'Y'),
+        'web/package.json': '{"name": "web"}\n',
+        'web/prisma/schema.sqlite.prisma': _tone_schema('X', 'Z'),
+    })
+    _write(tmp_path, {'admin/src/a.ts': _tone_writes('Y', 'Z'), 'web/src/b.ts': _tone_writes('Z'),
+                      # the root package has no Prisma file of its own: each guessed set judges it
+                      'scripts/seed.ts': _tone_writes('W')})
+    with closing(build(tmp_path)) as graph:
+        from flowguard.intent import health, owners
+        names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
+    assert names == ['values:Note.tone:admin/prisma/schema.postgres.prisma', 'values:Note.tone:web/prisma/schema.sqlite.prisma'], names
+    code, text = _static(tmp_path)
+    guessed = '，没找到生成器在用的 schema，按这个包的全部 schema 判'
+    admin, web = f'enum Tone (admin/prisma/schema.postgres.prisma:1{guessed})', f'enum Tone (web/prisma/schema.sqlite.prisma:1{guessed})'
+    assert code == 1 and _lines(text, '红：取值') == [
+        f"红：取值不在声明集合里：admin/src/a.ts:3 Note.tone='Z'  scripts/seed.ts:2 Note.tone='W'，允许 X|Y（{admin}） → "
+        f"改用集合里的值；集合真要加值，先改那条声明（{admin}）；scripts/seed.ts:2 Note.tone='W'，允许 X|Z（{web}） → "
+        f"改用集合里的值；集合真要加值，先改那条声明（{web}）"], text
+
+
+def test_guessed_templates_with_the_same_enum_share_one_set_that_names_every_file(tmp_path):
+    # 4.2 review: three provider templates with one enum repeated the same red segment and the same problem
+    # three times, so `--all` and the brief counted it three times.
+    _commit(tmp_path, {'prisma/schema.sqlite.prisma': _tone_schema('X', 'Y'), 'prisma/schema.postgres.prisma': _tone_schema('X', 'Y'),
+                       'prisma/schema.sqlserver.prisma': _tone_schema('X', 'Y'), 'prisma/schema.mysql.prisma': _tone_schema('X')})
+    _write(tmp_path, {'src/notes.ts': _tone_writes('Y', 'Z')})
+    code, text = _static(tmp_path)
+    guessed = '，没找到生成器在用的 schema，按这个包的全部 schema 判'
+    one = f'enum Tone (prisma/schema.mysql.prisma:1{guessed})'
+    three = f'enum Tone (prisma/schema.postgres.prisma:1, prisma/schema.sqlite.prisma:1, prisma/schema.sqlserver.prisma:1{guessed})'
+    assert code == 1 and _lines(text, '红：取值') == [
+        f"红：取值不在声明集合里：src/notes.ts:2 Note.tone='Y'  src/notes.ts:3 Note.tone='Z'，允许 X（{one}） → 改用集合里的值；"
+        f"集合真要加值，先改那条声明（{one}）；src/notes.ts:3 Note.tone='Z'，允许 X|Y（{three}） → 改用集合里的值；"
+        f"集合真要加值，先改那条声明（{three}）"], text
+    with closing(build(tmp_path)) as graph:
+        sets = [(row['values'], row['files']) for row in graph.value_sets()]
+        from flowguard.intent import health, owners
+        names = [issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues]
+    assert sets == [(('X',), ('prisma/schema.mysql.prisma',)),
+                    (('X', 'Y'), ('prisma/schema.postgres.prisma', 'prisma/schema.sqlite.prisma', 'prisma/schema.sqlserver.prisma'))], sets
+    assert names == ['values:Note.tone:prisma/schema.mysql.prisma', 'values:Note.tone:prisma/schema.postgres.prisma'], names
+
+
+def test_a_value_set_problem_keeps_its_name_when_the_field_gets_another_declaration(tmp_path):
+    # 4.2 review: a field's plain problem name went to whichever of its sets sorted first, so a decision
+    # recorded on a TS type's or a CHECK's problem moved to a Prisma enum added later. Only the enum of a
+    # schema in use is `values:Model.field`; a CHECK, a TS type and a guessed file add their file.
+    schema = ('model Note {\n  id   String @id\n  tone String\n}\n\n'
+              'model Account {\n  id     String @id\n  status String\n  @@map("accounts")\n}\n')
+    _commit(tmp_path, {
+        'prisma/schema.prisma': schema,
+        'prisma/migrations/001/migration.sql': "CREATE TABLE accounts (id TEXT, status TEXT CHECK (status IN ('open', 'closed')));\n",
+        'web/types.ts': "export interface Note { tone: 'X' | 'W'; }\n",
+    })
+    _write(tmp_path, {
+        'web/n.ts': "import type { Note } from './types';\nexport const n: Note = { tone: 'V' };\n",
+        'src/a.ts': """
+            export async function add(prisma: any, id: string) {
+              await prisma.note.create({ data: { id, tone: 'Z' } });
+              await prisma.account.create({ data: { id, status: 'gone' } });
+            }
+        """,
+    })
+
+    def names():
+        from flowguard.intent import health, owners
+        with closing(build(tmp_path)) as graph:
+            return sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
+    check, ts = 'values:Account.status:prisma/migrations/001/migration.sql', 'values:Note.tone:web/types.ts'
+    assert names() == [check, ts], names()
+    _write(tmp_path, {'prisma/schema.prisma': 'enum Tone {\n  X\n  Y\n}\n\nenum Status {\n  open\n  closed\n}\n\n'
+                                              + schema.replace('tone String', 'tone Tone').replace('status String', 'status Status')})
+    assert names() == ['values:Account.status', check, 'values:Note.tone', ts], names()
 
 
 def test_a_generator_output_under_node_modules_is_the_client_by_its_package_name(tmp_path):
