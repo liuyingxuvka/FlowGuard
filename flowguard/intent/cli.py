@@ -845,7 +845,8 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     if not model.declared_items() and not everything and not retry_incomplete:
         # No intent item runs, so the ledger the plugin would report is compared here without pytest.
         from . import ledger as fallbacks
-        result = _ledger_result(cfg, base)
+        from .owners import baseline as owner_baseline
+        result = _ledger_result(cfg, owner_baseline(cfg, base))
         shown = [fallbacks.summary(result), *fallbacks.lines(result)] if result.red else []
         if shown and reports is None:
             print('\n'.join(shown))
@@ -1529,19 +1530,23 @@ def ledger(cfg, operation):
                           'run python -m flowguard init')
         print('\n'.join(report))
         return 0
-    result = _ledger_result(cfg)
+    from .signals import missing_start
+    # A recorded task start this repository lacks compares nothing (`cache.task_start`); the check says so first,
+    # with the next step, as the title of pytest, `check` and `check --static` does.
+    commit, kind = cache.task_baseline(cfg)
+    missing = [missing_start(commit)] if kind == 'missing' else []
+    result = _ledger_result(cfg, None if missing else commit)
     if not result.present and not result.red:
-        print(f'FlowGuard ledger: no {fallbacks.LEDGER}; python -m flowguard ledger init starts one from the current code.')
+        print('\n'.join([*missing, f'FlowGuard ledger: no {fallbacks.LEDGER}; python -m flowguard ledger init starts one from the current code.']))
         return 0
-    print('\n'.join([fallbacks.summary(result), *fallbacks.lines(result), *('未核对：' + line for line in result.grey)]))
+    print('\n'.join([*missing, fallbacks.summary(result), *fallbacks.lines(result), *('未核对：' + line for line in result.grey)]))
     return int(bool(result.red))
 
 
-def _ledger_result(cfg, base=None):
+def _ledger_result(cfg, baseline):
     """The ledger compared with the current map without running tests (only its deletion when there is none),
-    against `base` when one is named, else the task baseline."""
-    from . import ledger as fallbacks, owners
-    baseline = owners.baseline(cfg, base)
+    against `baseline` (`owners.baseline`: an explicit `--base`, else the task baseline)."""
+    from . import ledger as fallbacks
     if not fallbacks.path(cfg).is_file():
         return fallbacks.absent(cfg, baseline)
     with closing(build(cfg.root, roots=cfg.roots)) as graph:

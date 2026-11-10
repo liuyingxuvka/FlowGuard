@@ -508,3 +508,31 @@ def test_a_recorded_task_start_this_repository_lacks_is_named_and_compares_nothi
     assert cache.task_baseline(cfg) == (head, 'task')
     code, text = _run(root, pytest_run=True)
     assert code == 0 and f'FlowGuard（相对任务开始 {head[:7]}）' in text.splitlines() and '变：LIMIT（app.py:2）' in text, text
+
+
+def test_ledger_check_names_a_recorded_task_start_this_repository_lacks(tmp_path):
+    """Old ledger entries are vouched for by `ledger init`'s record or the task start's ledger. A clone without the
+    record (a teammate ran `ledger init`) and without the start commit says which commit it lacks and the next step,
+    as the title of pytest, `check` and `check --static` does, instead of only "the baseline has no ledger"."""
+    from flowguard.intent import ledger
+    root, cfg = _plain(tmp_path)
+    (root / 'parse.py').write_text(_HANDLER)
+    code, text = _run(root, 'ledger', 'init')
+    assert code == 0, text
+    git(root, 'add', '.')
+    git(root, 'commit', '--quiet', '-m', 'fixture ledger')
+    (cfg.cache / ledger.INIT_RECORD).unlink()
+    gone = 'b' * 40
+    cache._record_baseline(cfg, gone)
+    title = f'FlowGuard（记下的任务开始 {gone[:7]} 不在这个仓库里：不比较改前改后；先运行 python -m flowguard new-task）'
+    code, text = _run(root, 'ledger', 'check')
+    assert code == 0 and text.splitlines() == [
+        title, 'FlowGuard 兜底账本：1 条（旧账 1 条），代码里 1 处兜底；红 0，未核对 1',
+        '未核对：1 条旧账没有核对：基准提交里没有账本，也没有 ledger init 的记录'], text
+    (root / ledger.LEDGER).unlink()                 # whether the start had a ledger is not known either
+    code, text = _run(root, 'ledger', 'check')
+    assert code == 0 and text.splitlines()[0] == title and 'no .flowguard/ledger.toml' in text, text
+    git(root, 'checkout', '--quiet', '--', ledger.LEDGER)
+    assert _run(root, 'new-task')[0] == 0           # the task starts at HEAD, whose ledger vouches for the old entry
+    code, text = _run(root, 'ledger', 'check')
+    assert code == 0 and text.splitlines() == ['FlowGuard 兜底账本：1 条（旧账 1 条），代码里 1 处兜底；红 0，未核对 0'], text

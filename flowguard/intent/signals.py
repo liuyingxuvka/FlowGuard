@@ -380,13 +380,18 @@ def more_leads(command, everything=False, base=None):
     return f'python -m flowguard {command}' + ' --all' * everything + (f' --base {base}' if base else '') + ' --leads'
 
 
+def missing_start(commit):
+    """The one line of a run whose recorded task start this repository lacks (a shallow clone, collected history,
+    another clone's cache): it compares nothing, and new-task records HEAD."""
+    return f'FlowGuard（记下的任务开始 {commit[:7]} 不在这个仓库里：不比较改前改后；先运行 python -m flowguard new-task）'
+
+
 def _title(report):
     baseline, kind = report.get('baseline'), report.get('baseline_kind', 'task')
     if not baseline:
         return 'FlowGuard（没有基准提交：不比较改前改后）'
     if kind == 'missing':
-        # A recorded task start this repository lacks (a shallow clone, collected history, another clone's cache).
-        return f'FlowGuard（记下的任务开始 {baseline[:7]} 不在这个仓库里：不比较改前改后；先运行 python -m flowguard new-task）'
+        return missing_start(baseline)
     # An explicit baseline is named by the option that gave it: pytest's --flowguard-base, or `--base` of the
     # CLI check (`baseline_option`).
     option = report['baseline_option'] if 'baseline_option' in report else '--flowguard-base'
