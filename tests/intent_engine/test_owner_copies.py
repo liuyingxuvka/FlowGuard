@@ -696,6 +696,10 @@ def test_an_owner_whose_copies_the_owner_decided_gets_no_discovery_leads(tmp_pat
     code, text = _check(tmp_path)
     assert code == 0 and any(line.startswith('线索：分叉的副本 1 份') for line in _lines(text)), text
     (tmp_path / '.flowguard').mkdir(exist_ok=True)
+    # Round 24 review: a decision on a same-name family whose names merely include the anchor name is not this one
+    (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:helper+TECHNOLOGY"]\n' + DECIDED, encoding='utf-8')
+    code, text = _check(tmp_path)
+    assert code == 0 and any(line.startswith('线索：分叉的副本 1 份') for line in _lines(text)), text
     (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:TECHNOLOGY"]\n' + DECIDED, encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0, text
@@ -715,6 +719,36 @@ def test_a_function_whose_copies_the_owner_decided_gets_no_changed_alone_lead(tm
     (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:total"]\n' + DECIDED, encoding='utf-8')
     code, text = static()
     assert code == 0 and not any(line.startswith('线索：total（') for line in _lines(text)), text
+
+
+def test_a_copies_decision_silences_only_the_members_of_its_family(tmp_path):
+    # Round 24 review: [structure."copies:save"] for two drifted module-level `save` functions also silenced the
+    # changed-alone lead of every function or method named save anywhere, such as two identical repository methods.
+    body = ("export function save(items: number[], rate: number): number {{\n  let sum = 0;\n"
+            "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
+            "  return Math.round(sum * 100) / 100;\n}}\n")
+    method = ("export class {name}Repo {{\n  save(row: any, db: any): any {{\n    const data = {{ ...row, updatedAt: new Date() }};\n"
+              "    if (!data.id) {{ throw new Error('no id'); }}\n    return db.{table}.update({{ where: {{ id: data.id }}, data }});\n"
+              "  }}\n}}\n")
+    _project(tmp_path, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), RULE_FILE[0]: RULE_FILE[1],
+                        'src/repo/user.ts': method.format(name='User', table='row'),
+                        'src/repo/order.ts': method.format(name='Order', table='row')})
+    (tmp_path / '.flowguard').mkdir(exist_ok=True)
+    (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:save"]\n' + DECIDED, encoding='utf-8')
+    _git(tmp_path, 'add', '.')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'decided')
+    user = tmp_path / 'src/repo/user.ts'
+    user.write_text(user.read_text(encoding='utf-8').replace("throw new Error('no id')", "throw new Error('no user id')"),
+                    encoding='utf-8')
+    code, text = _check(tmp_path, '--static')
+    assert code == 0, text
+    assert any(line.startswith('线索：UserRepo.save（src/repo/user.ts:2）改了，改前和它一模一样的 1 份没改：src/repo/order.ts:2')
+               for line in _lines(text)), text
+    # the decided family itself stays quiet: a changed member does not list the other member
+    _git(tmp_path, 'checkout', '-q', '--', 'src/repo/user.ts')
+    (tmp_path / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
+    code, text = _check(tmp_path, '--static')
+    assert code == 0 and not any(line.startswith('线索：save（') for line in _lines(text)), text
 
 
 def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path):
