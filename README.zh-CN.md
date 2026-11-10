@@ -23,10 +23,11 @@ FlowGuard 在 AI 改代码时守住整个项目的一致。类型检查、lint �
 python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git"
 cd your-project
 python -m flowguard init
+python -m flowguard new-task
 python -m pytest
 ```
 
-`init` 启用 pytest 插件，添加采集哨兵、CI 片段和三条项目规矩。项目里有 `package.json` 时，它再加一个 vitest（或 jest）测试，执行 `python -m flowguard check --static`，把它加进只跑指定文件夹的单元测试脚本，并说明哪个 npm 脚本会跑它，没有时说明该加什么；vitest 项目还会接上执行侧。没有规则时，检查保持安静：
+`init` 启用 pytest 插件，添加采集哨兵、CI 片段和三条项目规矩。项目里有 `package.json` 时，它再加一个 vitest（或 jest）测试，执行 `python -m flowguard check --static`，把它加进只跑指定文件夹的单元测试脚本，并说明哪个 npm 脚本会跑它，没有时说明该加什么；vitest 项目还会接上执行侧。`new-task` 记下这次任务的基准提交；任务中途的提交不会挪动它，所以这次任务改了什么会一直报出来（还没记下基准时，任务的第一次测试也会记）。没有规则时，检查保持安静：
 
 ```text
 FlowGuard check: no intent rules.
