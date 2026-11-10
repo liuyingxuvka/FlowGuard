@@ -72,9 +72,10 @@ def test_output_limit_keeps_whole_decisive_red_lines_and_counts_the_rest(tmp_pat
     assert 'more lines' in output[-1] and 'red' in output[-1]
 
 
-def test_every_command_has_a_description_in_the_help(capsys):
+def test_every_command_has_a_description_in_the_help(capsys, monkeypatch):
     # Round 22 F4: `--help` described only new-task and ledger; the other nine were bare names in the choice list.
     import re
+    monkeypatch.setenv('COLUMNS', '100')        # argparse wraps at the terminal's width: the same lines in any terminal
     with pytest.raises(SystemExit) as stopped:
         cli.main(['--help'])
     text = capsys.readouterr().out
