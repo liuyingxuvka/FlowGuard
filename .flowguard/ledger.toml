@@ -1030,11 +1030,6 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/structure/store.py:project_config:(OSError, tomllib.TOMLDecodeError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["scripts/install_skill.py:differences:OSError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"

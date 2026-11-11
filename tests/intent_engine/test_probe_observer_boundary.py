@@ -72,7 +72,7 @@ def test_probe_is_private_while_existing_ordinary_frame_completes(tmp_path, valu
     result = {}
 
     def runner():
-        actual=calibration.execute_scenario(tmp_path,binding,{'x':value})
+        actual=calibration._observe_scenario_current(tmp_path,binding,{'x':value})
         result.update(status=actual.status,value=actual.value,reasons=actual.reasons)
         return result['status'] == 'ok'
 
@@ -107,7 +107,7 @@ def test_explicit_user_capture_models_retains_its_probe_observations(tmp_path):
     binding,_ = native_scenario(tmp_path,anchor)
     ambient = sys.gettrace()
     with Capture(tmp_path, index, 'explicit', models=[model]) as explicit:
-        result = calibration.execute_scenario(tmp_path,binding,{'x':4})
+        result = calibration._observe_scenario_current(tmp_path,binding,{'x':4})
     assert sys.gettrace() is ambient
     assert result.status == 'ok' and result.value is False, result
     assert [(e.phase, e.values['x']) for e in explicit.events] == [('call', 4), ('return', 4)]
@@ -125,7 +125,7 @@ def test_external_debugger_is_not_removed_by_the_probe_boundary(tmp_path):
     sys.settrace(debugger)
     try:
         with Capture(tmp_path, index, 'ordinary', models=[model], _ordinary=True) as ordinary:
-            result = calibration.execute_scenario(tmp_path,binding,{'x':4})
+            result = calibration._observe_scenario_current(tmp_path,binding,{'x':4})
         assert sys.gettrace() is debugger
     finally:
         sys.settrace(ambient)

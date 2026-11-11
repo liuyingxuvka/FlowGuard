@@ -44,7 +44,7 @@ def test_mixed_return_does_not_waive_unknown_call_effects(tmp_path, monkeypatch)
     with session(root):
         actual = A.observe(root, index.entries[0], {'expected': 'W', 'observed': 'W'})
     # The unknown call runs under the replay guard, which refuses its write before it happens.
-    assert actual.status == 'grey' and any('回放被拦住' in reason and '写文件 WW' in reason for reason in actual.reasons), actual.reasons
+    assert actual.status == 'grey' and any('replay refused' in reason and 'write file WW' in reason for reason in actual.reasons), actual.reasons
     assert actual.value is None and not (root / 'WW').exists()
     loaded = sys.modules[index.entries[0].module]
     assert Path(loaded.__file__).resolve() == root / index.entries[0].file
@@ -65,7 +65,7 @@ def opaque(expected, observed):
         actual = A.observe(root, index.entries[0], {'expected': 'W', 'observed': 'W'})
     # A known helper is inspected; its write remains forbidden even though the
     # declared return permits several kinds and no result is guessed.
-    assert actual.status == 'grey' and any('明确的写操作' in reason and 'CALLS' in reason for reason in actual.reasons), actual.reasons
+    assert actual.status == 'grey' and any('explicit write' in reason and 'CALLS' in reason for reason in actual.reasons), actual.reasons
     assert actual.value is None
     loaded = sys.modules[index.entries[0].module]
     assert Path(loaded.__file__).resolve() == root / index.entries[0].file

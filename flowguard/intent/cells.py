@@ -504,19 +504,6 @@ def linked_groups(links, kinds: dict) -> list[set]:
     return groups
 
 
-def field_points(kinds: dict, consts: dict, links) -> tuple[dict, bool]:
-    """Points per field; linked fields share each other's constants (dense), so equality and both
-    orders occur. Complete only if no linked group has more than three fields. (The engine reads
-    numeric links as planes, build_space; this stays for literal fields and callers of the old form.)"""
-    consts = {f: list(v) for f, v in consts.items()}
-    groups = linked_groups(links, kinds)
-    for g in groups:
-        shared = [coerce(v, kinds[f]) for f in g for v in consts[f]]
-        for f in g:
-            consts[f] = [coerce(v, kinds[f]) for v in shared]
-    linked = set().union(*groups) if groups else set()
-    pts = {f: points(k, consts[f], dense=f in linked) for f, k in kinds.items()}
-    return pts, all(len(g) <= 3 for g in groups)
 
 
 # ---------------------------------------------------------------- the space of a key

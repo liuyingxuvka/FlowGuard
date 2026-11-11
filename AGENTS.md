@@ -7,7 +7,7 @@ Ordinary edits do not need an intent model or a separate task record.
 ## FlowGuard rules for the project agent
 
 1. Start each task with `python -m flowguard new-task` (it records the task's baseline; commits during the task keep it). Run the project's tests and read the FlowGuard lines; every red and lead ends with the next step: do it, and when it says to tell the owner, tell the owner before changing the structure.
-2. A judgment or a field that must agree everywhere has one owner: `# flowguard: owner NAME` above it, `# flowguard: sensor NAME` above each copy, `writers=` on a data owner.
+2. Mark copies of a judgment with `flowguard: same NAME`, its reference with `same NAME ref`; record field agreements with `together A B,C` and permitted writers with `writers A f,g`.
 3. A rule the owner set that must keep holding goes into `tests/intent/`, its source the owner's words stored once, byte for byte, with `python -m flowguard req add <file|-> --id <id>`.
 <!-- flowguard:end -->
 

@@ -30,18 +30,18 @@ def _broken_index_repo(tmp_path):
 
 def test_an_invalid_legacy_snapshot_is_one_error_not_edited_requests(tmp_path):
     from flowguard.map import records
-    from flowguard.map.requests import request_findings
+    from flowguard.map.requests import owner_words
     root = _plain_folder_request(tmp_path)
     path = root / '.flowguard/release-base/records.json'
     path.parent.mkdir(parents=True)
     path.write_text('{', encoding='utf-8')
     with pytest.raises(MapError, match='release_snapshot_invalid'):
-        request_findings(root)
+        owner_words(root)
     with pytest.raises(MapError, match='release_snapshot_invalid'):
         records._release_records(root)
 
 def test_a_missing_git_executable_is_an_error_not_a_copy_without_git(tmp_path, monkeypatch):
-    from flowguard.map.requests import request_findings, store_request
+    from flowguard.map.requests import owner_words, store_request
     root = tmp_path / 'repo'
     (root / '.flowguard').mkdir(parents=True)
     _git(root, 'init', '-q')
@@ -50,19 +50,19 @@ def test_a_missing_git_executable_is_an_error_not_a_copy_without_git(tmp_path, m
     _git(root, 'commit', '-qm', 'r1')
     monkeypatch.setenv('PATH', str(tmp_path / 'no-bin'))
     with pytest.raises(MapError, match='git executable not found'):
-        request_findings(root)
+        owner_words(root)
 
-def test_an_unreadable_request_is_named_by_its_reader_and_refuses_a_quote(tmp_path):
-    from flowguard.map.requests import request_findings, owner_quote
+def test_an_unreadable_request_is_named_by_its_reader_and_refuses_a_link(tmp_path):
+    from flowguard.map.requests import owner_words, validate_request_links
     root = _plain_folder_request(tmp_path)
     sidecar = root / '.flowguard/requests/R1.json'
     sidecar.write_bytes(b'{')
-    findings = request_findings(root)
-    assert [(item.level, item.code, item.component) for item in findings] == [('error', 'request_meta_edited', 'R1')]
-    assert str(sidecar) in findings[0].message
-    assert 'copy, archive or backup' in findings[0].message and 'map check' not in findings[0].message
+    row = owner_words(root)['rows'][0]
+    problem = row['edited'] or row['invalid']
+    assert row['id'] == 'R1' and sidecar.name in problem and row['first_line'] == ''
+    assert 'copy, archive or backup' in problem and 'map check' not in problem
     with pytest.raises(MapError, match='request_meta_edited'):
-        owner_quote(root, 'Keep the limit at 3.', ['limit'], request='R1')
+        validate_request_links(root, [dict(id='R1', part=False)])
 
 
 def test_sidecar_validator_names_every_original_malformed_shape(tmp_path):
@@ -92,12 +92,12 @@ def test_commit_citations_in_a_repository_without_commits_are_known_to_be_none(t
     _git(root, 'init', '-q')
     assert request_citations(root) == ({}, True)
 
-def test_a_malformed_stored_glossary_stops_the_lookup_with_its_error(tmp_path):
-    from flowguard.map.requests import confirmed_glossaries as _glossaries
-    (tmp_path / '.flowguard/requests').mkdir(parents=True)
-    (tmp_path / '.flowguard/requests/G1.json').write_text('{', encoding='utf-8')
-    with pytest.raises(MapError, match='G1'):
-        _glossaries(tmp_path)
+def test_a_malformed_glossary_is_rejected_before_storage(tmp_path):
+    from flowguard.map.requests import store_request
+    with pytest.raises(MapError, match='glossary_syntax'):
+        store_request(tmp_path, b'owner word without a mapping', identifier='G1', kind='glossary')
+    assert not (tmp_path / '.flowguard/requests/G1.json').exists()
+    assert not (tmp_path / '.flowguard/requests/G1.md').exists()
 
 
 
@@ -121,7 +121,7 @@ def _edit_one_byte(path):
 @pytest.mark.skipif(os.name == 'nt', reason='a POSIX shell script stands in for a failing git')
 @pytest.mark.parametrize('checkout', ['fresh_clone', 'original'])
 def test_a_failing_git_log_stops_the_request_check_instead_of_reading_no_history(tmp_path, monkeypatch, checkout):
-    from flowguard.map.requests import request_findings, store_request
+    from flowguard.map.requests import owner_words, store_request
     origin = tmp_path / 'origin'
     origin.mkdir()
     _git(origin, 'init', '-q')
@@ -135,11 +135,11 @@ def test_a_failing_git_log_stops_the_request_check_instead_of_reading_no_history
     _edit_one_byte(root / '.flowguard/requests/R1.md')
     _failing_git(tmp_path, monkeypatch, 'log')
     with pytest.raises(MapError, match='simulated log failure'):
-        request_findings(root)
+        owner_words(root)
 
 @pytest.mark.skipif(os.name == 'nt', reason='a POSIX shell script stands in for a failing git')
 def test_a_failing_git_listing_stops_the_request_check_instead_of_reading_no_files(tmp_path, monkeypatch):
-    from flowguard.map.requests import request_findings, store_request
+    from flowguard.map.requests import owner_words, store_request
     root = tmp_path / 'repo'
     (root / '.flowguard').mkdir(parents=True)
     _git(root, 'init', '-q')
@@ -148,21 +148,20 @@ def test_a_failing_git_listing_stops_the_request_check_instead_of_reading_no_fil
     _git(root, 'commit', '-qm', 'r1')
     _failing_git(tmp_path, monkeypatch, 'ls-files')
     with pytest.raises(MapError, match='simulated ls-files failure'):
-        request_findings(root)
+        owner_words(root)
 
 
 @pytest.mark.parametrize('kind', ['request', 'sidecar'])
 def test_fix_advice_in_a_folder_without_git_suggests_no_git_command(tmp_path, kind):
-    from flowguard.map.requests import request_findings
+    from flowguard.map.requests import owner_words
     root = _plain_folder_request(tmp_path)
     suffix = 'md' if kind == 'request' else 'json'
     path = root / ('.flowguard/requests/R1.' + suffix)
     path.write_bytes(path.read_bytes() + b'edited')
-    findings = request_findings(root)
-    errors = [finding.message for finding in findings if finding.level == 'error']
-    assert errors, findings
-    for message in errors:
-        assert 'git -C' not in message and 'checkout --' not in message, message
+    row = owner_words(root)['rows'][0]
+    message = row['edited'] or row['invalid']
+    assert message and path.name in message
+    assert 'git -C' not in message and 'checkout --' not in message
 
 def test_a_repository_git_refuses_to_open_is_an_error_not_a_folder_without_git(tmp_path, monkeypatch, capsys):
     """Git exits 128 both outside any repository and for a repository it refuses (dubious ownership)."""

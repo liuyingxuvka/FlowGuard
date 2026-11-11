@@ -64,7 +64,7 @@ def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path)
     report=D.compare(root, 'app:accept', 'app:other')
     assert report['status']=='red'and report['changed']==1
     rendered=D.render(report)
-    assert 'GRACE'in rendered and '↔'in rendered and '→'in rendered and '共 3 类'in rendered
+    assert 'GRACE'in rendered and '↔'in rendered and '→'in rendered and 'total 3 classes'in rendered
     original_json=json.dumps(report,ensure_ascii=False,sort_keys=True).encode('utf-8')
     for name in ('pytest','check','compare'):
         result=run_public_entry(root,name)

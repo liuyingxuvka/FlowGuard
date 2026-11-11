@@ -452,11 +452,6 @@ def _prepare_scenario(root, binding):
     return result
 
 
-def execute_scenario(root, binding, values):
-    with _execution_session(root):
-        prepared = _prepare_scenario(root, binding)
-        result = _scenario(root, binding, values) if prepared['status'] == 'ok' else prepared
-        return _result(binding.anchor, result, check_type=False)
 
 
 def _observe_scenario_current(root, binding, values):

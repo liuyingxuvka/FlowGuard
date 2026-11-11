@@ -45,7 +45,7 @@ def test_declared_tuple_points_use_actual_native_tests_without_creating_a_kind(t
     parameter=binding.scenario.parameters[0]
     assert anchors.parameter_kind(parameter, ()) is None
     for point,expected in [((),False),(('red',),True)]:
-        actual=calibration.execute_scenario(tmp_path,binding,{'values':point})
+        actual=calibration._observe_scenario_current(tmp_path,binding,{'values':point})
         assert actual.status=='ok' and actual.value is expected,actual.reasons
     with pytest.raises(ValueError):
         anchors._kind('tuple')
@@ -56,7 +56,7 @@ def test_declared_tuple_points_use_actual_native_tests_without_creating_a_kind(t
 ])
 def test_tuple_point_cannot_replace_explicit_unmapped_or_mutable_context(tmp_path,explicit_context,mapped,point):
     binding=tuple_case(tmp_path,explicit_context=explicit_context,mapped=mapped)
-    actual=calibration.execute_scenario(tmp_path,binding,{'values':point})
+    actual=calibration._observe_scenario_current(tmp_path,binding,{'values':point})
     assert actual.status in {'red','grey'} and actual.value is None,actual
     assert 'context' in ' '.join(actual.reasons)
 

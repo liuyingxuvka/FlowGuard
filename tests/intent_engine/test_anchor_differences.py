@@ -93,13 +93,13 @@ def test_union_boundary_runs_one_representative_for_four_to_seven():
     assert result['changed'] == 1
     assert result['changes'] == [dict(anchor='grace', region='days=4–7',
                                       witness={'days': '4'}, before='F', after='T')]
-    assert D.render(result) == 'grace：共 3 类，变 1 类\ndays=4–7；函数返回值 F → T（例：days=4）'
+    assert D.render(result) == 'grace：total 3 classes，changed 1 classes\ndays=4–7; function result F → T(example: days=4）'
 
 
 def test_pure_refactor_has_zero_behavior_changes():
     _, result = compare(before, refactored, {'days': int})
     assert result['complete'] and result['changed'] == 0
-    assert D.render(result) == '共 2 类，变 0 类'
+    assert D.render(result) == 'total 2 classes，changed 0 classes'
 
 
 def test_old_numeric_truth_test_is_part_of_the_joint_partition():
@@ -158,8 +158,8 @@ def test_observation_unknown_does_not_turn_into_zero_verified_changes():
     assert result['changed'] == 0
     assert result['checked'] == 0 and result['unknown'] == 3
     assert 'test never entered' in D.render(result)
-    assert '比较未完成，已证变化 0 类' in D.render(result)
-    assert '共 3 类，变 0 类' not in D.render(result)
+    assert 'comparison incomplete; proven changed classes: 0' in D.render(result)
+    assert 'total 3 classes，changed 0 classes' not in D.render(result)
 
 
 def test_partial_observations_keep_a_proven_change_and_unknown_classes():
@@ -169,14 +169,14 @@ def test_partial_observations_keep_a_proven_change_and_unknown_classes():
                        [observation(True), observation(True), observation(True)])
     assert result['status'] == 'grey' and not result['complete']
     assert (result['total'], result['checked'], result['unknown'], result['changed']) == (3, 2, 1, 1)
-    assert '候选 3 类，已比较 2 类；比较未完成，已证变化 1 类' in D.render(result)
+    assert 'candidate classes: 3; compared: 2; comparison incomplete; proven changed classes: 1' in D.render(result)
 
 
 def test_short_output_caps_changed_lines_without_losing_the_total():
     report = dict(changes=[dict(anchor='point', region=f'n={i}', before='F', after='T') for i in range(30)],
                   total=31, changed=30, complete=True, reasons=[])
     lines = D.render(report, limit=100).splitlines()
-    assert len(lines) <= 10 and '共 31 类，变 30 类' in lines[0]
+    assert len(lines) <= 10 and 'total 31 classes，changed 30 classes' in lines[0]
     assert all(len(line) <= 100 for line in lines)
 
 

@@ -81,9 +81,45 @@ def test_every_command_has_a_description_in_the_help(capsys, monkeypatch):
     text = capsys.readouterr().out
     assert stopped.value.code == 0
     commands = re.search(r'^  \{([\w,-]+)\}$', text, re.M)[1].split(',')
-    assert len(commands) == 11 and {'check', 'show', 'init', 'req'} <= set(commands), text
+    assert set(commands) == {'new-task', 'check', 'show', 'req', 'ledger', 'init'}, text
     for command in commands:
         assert re.search(rf'^    {re.escape(command)} +\w', text, re.M), (command, text)
+
+
+@pytest.mark.parametrize('command', ['anchor', 'model', 'try', 'watch', 'compare'])
+def test_deprecated_commands_stay_callable_but_out_of_the_top_level_help(command, capsys):
+    with pytest.raises(SystemExit) as stopped:
+        cli.main([command, '--help'])
+    text = capsys.readouterr()
+    assert stopped.value.code == 0
+    assert 'usage: flowguard ' + command in text.out
+    assert 'deprecated:' in text.err and '5.0' in text.err
+
+
+@pytest.mark.parametrize('command', ['status', 'where'])
+def test_old_project_commands_only_point_to_the_current_task_entry(command, capsys):
+    assert cli.main([command]) == 0
+    assert capsys.readouterr().out == 'this is a FlowGuard 0.7x command; here run python -m flowguard new-task\n'
+
+
+def test_full_check_assembles_static_findings_once_across_pytest_and_cli(tmp_path):
+    _, cfg = project(tmp_path)
+    cli.init(cfg)
+    assert cli_fixture.check(cfg, everything=True, before_main='''
+from flowguard.intent import owners
+_static = owners.static_findings
+_calls = []
+def counted(*args, **kwargs):
+    _calls.append(1)
+    return _static(*args, **kwargs)
+owners.static_findings = counted
+_main = cli.main
+def checked_main(*args, **kwargs):
+    result = _main(*args, **kwargs)
+    assert len(_calls) == 1, f'static findings computed {len(_calls)} times'
+    return result
+cli.main = checked_main
+''') == 0
 
 
 def test_init_is_idempotent_and_merges_existing_plugin_and_project_rules(tmp_path, capsys):
@@ -348,7 +384,7 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
     capsys.readouterr()
     def block(text):
         lines = cli_fixture.display_text(text).splitlines()    # a console that cannot encode Chinese shows \uXXXX
-        red = [index for index, line in enumerate(lines) if line.startswith('红：LIMIT：')]
+        red = [index for index, line in enumerate(lines) if line.startswith('red: LIMIT：')]
         assert len(red) == 1 and 'show the rule' not in text and 'correct its source' not in text, text
         return lines[red[0]], lines[red[0] + 1:red[0] + 3]
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'

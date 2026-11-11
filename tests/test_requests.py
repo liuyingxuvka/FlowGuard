@@ -45,8 +45,9 @@ def test_req_add_stores_bytes_and_digest(tmp_path, capsys):
     blob = subprocess.run(['git', '-C', str(root), 'hash-object', '-w', '--stdin'], input=raw.replace(b'\r\n', b'\n'), check=True, capture_output=True).stdout.strip().decode()
     _git(root, 'update-index', '--cacheinfo', '100644', blob, '.flowguard/requests/R9.md')
     code, output, _ = _integrity(root)
-    assert code == 1 and 'owner_text_edited' in output and (body.read_bytes() == raw)
+    assert code == 1 and 'R9.md' in output and (body.read_bytes() == raw)
     _git(root, 'add', '.flowguard/requests')
+
 
 @pytest.mark.parametrize('has_git', [False, True])
 def test_owner_text_edited_with_and_without_git(tmp_path, capsys, has_git):
@@ -61,20 +62,20 @@ def test_owner_text_edited_with_and_without_git(tmp_path, capsys, has_git):
     original = (body.read_bytes(), metadata.read_bytes())
     body.write_bytes(original[0] + b'edited')
     code, output, _ = _integrity(root)
-    assert code == 1 and 'owner_text_edited' in output
+    assert code == 1 and 'R1.md' in output
     item = json.loads(original[1])
     item['sha256'] = hashlib.sha256(body.read_bytes()).hexdigest()
     item['bytes'] = len(body.read_bytes())
     metadata.write_bytes(json.dumps(item).encode())
     code, output, _ = _integrity(root)
-    assert code == 1 and 'owner_text_edited' in output and ('request_meta_edited' in output)
+    assert code == 1 and 'R1.md' in output and ('R1.json' in output)
     body.write_bytes(original[0])
     metadata.write_bytes(original[1])
     assert _integrity(root)[0] == 0
     body.unlink()
     metadata.unlink()
     code, output, _ = _integrity(root)
-    assert code == 1 and 'owner_text_edited' in output and ('request_meta_edited' in output)
+    assert code == 1 and 'R1.md' in output and ('R1.json' in output)
     body.write_bytes(original[0])
     metadata.write_bytes(original[1])
     if has_git:
@@ -85,7 +86,8 @@ def test_owner_text_edited_with_and_without_git(tmp_path, capsys, has_git):
         changed = clone / '.flowguard/requests/R1.md'
         assert changed.read_bytes() == original[0]
         changed.write_bytes(original[0] + b'changed after clone')
-        assert 'owner_text_edited' in _integrity(clone)[1]
+        assert 'R1.md' in _integrity(clone)[1]
+
 
 def test_request_after_git_init_is_checked_against_its_first_commit(tmp_path, capsys):
     root = _project(tmp_path / 'project', capsys)
@@ -98,15 +100,15 @@ def test_request_after_git_init_is_checked_against_its_first_commit(tmp_path, ca
     assert _integrity(root)[0] == 0
     _git(root, 'init', '-q')
     code, output, _ = _integrity(root)
-    assert code == 0 and 'immutable_unverified' in output and ('owner_text_edited' not in output), output
+    assert code == 0 and 'unverified' in output and ('RTransition.md' not in output), output
     body.write_bytes(original[0] + b'edited')
     code, output, _ = _integrity(root)
-    assert code == 1 and 'owner_text_edited' in output and ('immutable sidecar' in output), output
+    assert code == 1 and 'RTransition.md' in output and ('immutable sidecar' in output), output
     body.write_bytes(original[0])
     _git(root, 'add', '--', '.flowguard/requests')
     _git(root, 'commit', '-qm', 'original request')
     code, output, _ = _integrity(root)
-    assert code == 0 and 'immutable_unverified' not in output, output
+    assert code == 0 and 'unverified' not in output, output
     from flowguard.map.records import _written_path
     common = Path(_git(root, 'rev-parse', '--git-common-dir').decode().strip())
     if not common.is_absolute():
@@ -121,14 +123,15 @@ def test_request_after_git_init_is_checked_against_its_first_commit(tmp_path, ca
     item.update(sha256=hashlib.sha256(body.read_bytes()).hexdigest(), bytes=len(body.read_bytes()))
     meta.write_bytes(json.dumps(item).encode())
     code, output, _ = _integrity(root)
-    assert code == 1 and 'owner_text_edited' in output and ('request_meta_edited' in output)
+    assert code == 1 and 'RTransition.md' in output and ('RTransition.json' in output)
     body.unlink()
     meta.unlink()
     code, output, _ = _integrity(root)
-    assert code == 1 and 'owner_text_edited' in output and ('request_meta_edited' in output)
+    assert code == 1 and 'RTransition.md' in output and ('RTransition.json' in output)
     code, _, errors = _call(root, capsys, 'req', 'add', str(source), '--id', 'RTransition')
     assert code == 2 and 'request_exists' in errors
     assert not body.exists() and (not meta.exists())
+
 
 def test_unclaimed_owner_words_are_listed_by_req_list(tmp_path, capsys):
     root = _project(tmp_path / 'project', capsys)
@@ -191,15 +194,16 @@ def test_written_protection_distinguishes_linked_worktrees(tmp_path, capsys):
     original = (body.read_bytes(), metadata.read_bytes())
     body.unlink()
     metadata.unlink()
-    assert 'owner_text_edited' in _integrity(root)[1]
+    assert 'R9.md' in _integrity(root)[1]
     body.write_bytes(original[0])
     metadata.write_bytes(original[1])
     body.write_bytes(body.read_bytes() + b'changed')
-    assert 'owner_text_edited' in _integrity(root)[1]
+    assert 'R9.md' in _integrity(root)[1]
     assert _integrity(peer)[0] == 0
     _git(peer, 'checkout', '-qb', 'without-request', seed)
     assert not (peer / '.flowguard/requests/R9.md').exists()
     assert _integrity(peer)[0] == 0
+
 
 def test_sidecar_attribute_conflict_leaves_no_half_request(tmp_path, capsys):
     root = _project(tmp_path / 'project', capsys)
@@ -212,30 +216,16 @@ def test_sidecar_attribute_conflict_leaves_no_half_request(tmp_path, capsys):
     assert not (root / '.flowguard/requests/R9.md').exists()
     assert not (root / '.flowguard/requests/R9.json').exists()
 
-def test_changes_quote_needs_shared_term(tmp_path):
-    from flowguard.map.requests import store_request, owner_quote
-    from flowguard.map.common import MapError
-    raw = 'Renewals keep the limit 3.\nThe ceiling remains 1.\nThe desk opens at nine.\n续借的 limit 仍然是 3\n续借次数保持为3。\nThe state is visible.\n'
-    store_request(tmp_path, raw.encode(), identifier='RQuote')
-    for quote, accepted in [('Renewals keep the limit 3.', True), ('The ceiling remains 1.', True), ('The desk opens at nine.', False), ('续借的 limit 仍然是 3', True), ('The state is visible.', False)]:
-        if accepted:
-            assert owner_quote(tmp_path, quote, ['limit', 'ceiling'], request='RQuote')['id'] == 'RQuote'
-        else:
-            with pytest.raises(MapError, match='quote_subject_mismatch'):
-                owner_quote(tmp_path, quote, ['limit', 'ceiling'], request='RQuote')
-    with pytest.raises(MapError, match='quote_subject_mismatch'):
-        owner_quote(tmp_path, '续借次数保持为3。', ['limit'], request='RQuote')
-    store_request(tmp_path, '续借次数 = limit\n'.encode(), identifier='RGloss', kind='glossary')
-    assert owner_quote(tmp_path, '续借次数保持为3。', ['limit'], request='RQuote')['glossaries'][0]['id'] == 'RGloss'
 
-def test_owner_quote_preserves_stored_request_and_glossary(tmp_path):
-    from flowguard.map.requests import store_request, owner_quote
+def test_request_and_glossary_readers_preserve_stored_bytes_and_digests(tmp_path):
+    from flowguard.map.requests import store_request, read_request_bytes, glossary_entries
     raw = '续借次数保持为1。\nOwner original second line.\n'.encode()
     request = store_request(tmp_path, raw, identifier='RDuring')
     glossary = store_request(tmp_path, '续借次数 = availability_ceiling\n'.encode(), identifier='GDuring', kind='glossary')
-    quote = owner_quote(tmp_path, '续借次数保持为1。', ['availability_ceiling'], request='RDuring')
-    assert quote['id'] == 'RDuring' and quote['sha256'] == request['sha256']
-    assert quote['glossaries'][0]['id'] == 'GDuring' and quote['glossaries'][0]['sha256'] == glossary['sha256']
+    assert hashlib.sha256(read_request_bytes(tmp_path, 'RDuring')).hexdigest() == request['sha256']
+    glossary_raw = read_request_bytes(tmp_path, 'GDuring')
+    assert hashlib.sha256(glossary_raw).hexdigest() == glossary['sha256']
+    assert glossary_entries(glossary_raw) == [('续借次数', ('availability_ceiling',))]
     assert (tmp_path / '.flowguard/requests/RDuring.md').read_bytes() == raw
 
 @pytest.mark.parametrize('partial', [False, True])
@@ -254,20 +244,18 @@ def test_legacy_change_files_never_become_live_citations_or_completion_state(tmp
     assert _citations(root) == {'R1': [], 'R2': []}
     assert {p.name: p.read_bytes() for p in (root / '.flowguard/requests').glob('R*.*')} == originals
 
-def test_request_links_refuse_unknown_duplicate_and_edited_requests(tmp_path):
-    from flowguard.map.requests import store_request, request_links
+def test_stored_links_refuse_unknown_and_edited_requests(tmp_path):
+    from flowguard.map.requests import store_request, validate_request_links
     from flowguard.map.common import MapError
     root = _project(tmp_path / 'project')
     with pytest.raises(MapError, match='request_unknown: R9 is not stored'):
-        request_links(root, ['R9'])
+        validate_request_links(root, [dict(id='R9', part=False)])
     store_request(root, b'complete this request\n', identifier='R1')
-    with pytest.raises(MapError, match='duplicate request R1'):
-        request_links(root, ['R1', 'R1:part'])
-    assert request_links(root, ['R1:part']) == [dict(id='R1', part=True)]
+    assert validate_request_links(root, [dict(id='R1', part=True)]) is None
     body = root / '.flowguard/requests/R1.md'
     body.write_bytes(body.read_bytes() + b'edited')
     with pytest.raises(MapError, match='owner_text_edited'):
-        request_links(root, ['R1'])
+        validate_request_links(root, [dict(id='R1', part=False)])
     assert not (root / '.flowguard/changes').exists()
 
 

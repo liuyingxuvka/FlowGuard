@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import re
 
-from .common import MapError, Finding, git_common_directory, git_head, git_run, sha256_bytes
+from .common import MapError, git_common_directory, git_head, git_run, sha256_bytes
 from .records import (NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, restore_advice,
                       validate_new_files, write_once, read_original_bytes)
 
@@ -190,8 +190,7 @@ def retired_requests(root: Path) -> dict:
     """Every retire record as written, by request ID, with its integrity problem (None when verified here).
 
     A retire record applies for display in every checkout; whether its bytes can be verified is a separate
-    fact that status names and request_findings reports (request_retire_missing, request_retire_unreadable,
-    request_retire_edited, immutable_unverified)."""
+    fact that owner_words reports in retire_problems."""
     return {identifier: problem for identifier, (_, problem) in _retire_states(Path(root).resolve()).items()}
 
 
@@ -241,36 +240,6 @@ def _request_problems(root: Path, identifier: str, unverified: list):
     return body_problem, meta_problem, item
 
 
-def request_findings(root: Path) -> list[Finding]:
-    """Integrity is a fresh byte comparison, including before the first commit."""
-    root = Path(root).resolve()
-    common = git_common_directory(root)
-    findings = []
-    unverified = []
-    for identifier in _identifiers(root):
-        body = REQUEST_DIR / (identifier + '.md')
-        meta = body.with_suffix('.json')
-        body_problem, meta_problem, _ = _request_problems(root, identifier, unverified)
-        for path, problem, code in ((body, body_problem, 'owner_text_edited'),
-                                    (meta, meta_problem, 'request_meta_edited')):
-            if problem:
-                findings.append(Finding('error', code, identifier,
-                    f'{root / path} differs from the stored request: {problem}; '
-                    f'{restore_advice(root, [path.as_posix()], common)}; a correction from the owner is a new request'))
-    for identifier, (kind, problem) in _retire_states(root).items():
-        path = RETIRED_DIR / (identifier + '.json')
-        if kind == 'unverified':
-            unverified.append(path)
-        elif kind is not None:
-            findings.append(Finding('error', 'request_retire_' + kind, identifier,
-                f'retire record {identifier} {problem}; it still hides {identifier} from the owner\'s words; '
-                f'retire records are written once; {restore_advice(root, [path.as_posix()], common)}'))
-    if unverified:
-        findings.append(Finding('info', 'immutable_unverified', '',
-            f'{len(unverified)} request file(s) cannot be checked against their original bytes here '
-            f'(first: {unverified[0].as_posix()}): {NO_ORIGINAL_FACT}; owner text is still checked against its '
-            'sidecar digest; check the rest in a checkout that holds one'))
-    return findings
 
 
 def request_commits(root: Path) -> dict:
@@ -395,18 +364,6 @@ def owner_words(root: Path) -> dict:
     return dict(rows=rows, commit_links_known=commits_known, retire_problems=problems)
 
 
-def request_links(root: Path, values) -> list[dict]:
-    """Parse CLI links once; request sidecars never store target or done state."""
-    links = []
-    for value in values:
-        identifier, separator, suffix = value.partition(':')
-        if not REQUEST_ID.fullmatch(identifier) or separator and suffix != 'part':
-            raise MapError(f'request_link_invalid: {value!r}; use ID or ID:part')
-        if any(link['id'] == identifier for link in links):
-            raise MapError(f'request_link_invalid: duplicate request {identifier}')
-        links.append(dict(id=identifier, part=bool(separator)))
-    validate_request_links(root, links)
-    return links
 
 
 def validate_request_links(root: Path, links) -> None:
@@ -460,78 +417,3 @@ def quote_matches(text: str, quote: str) -> bool:
             return False
         position = found + len(fragment)
     return bool(quote.strip())
-
-
-def confirmed_glossaries(root):
-    """The owner's confirmed glossaries; a stored file that cannot be read stops the lookup with its error.
-
-    A retired text is not the owner's words and is never used as a glossary."""
-    found = []
-    retired = set(_stems(root, RETIRED_DIR))
-    for path in sorted((root / REQUEST_DIR).glob('*.json')):
-        if path.stem in retired:
-            continue
-        try:
-            item = _metadata(path, path.stem)
-        except ValueError as error:
-            raise MapError(f'request_meta_edited: {path.stem}: {error}; glossaries cannot be read') from error
-        if item['kind'] != 'glossary':
-            continue
-        validate_request_links(root, [dict(id=path.stem, part=True)])
-        for word, terms in glossary_entries(path.with_suffix('.md').read_bytes()):
-            found.append(dict(id=path.stem, word=word, terms=list(terms)))
-    return found
-
-
-def literal_subject_match(quote: str, terms, glossaries=()):
-    """Match actual field/value/action/rule names, never a similar-looking topic."""
-    def contains(text, term):
-        if re.search(r'[\u4e00-\u9fff]', term):
-            return term.casefold() in text.casefold()
-        return re.search(r'(?<!\w)' + re.escape(term) + r'(?!\w)', text, re.I) is not None
-
-    if any(contains(quote, term) for term in terms):
-        return True, []
-    used = [item for item in glossaries if contains(quote, item['word'])
-            and any(term.casefold() == target.casefold() for term in terms for target in item['terms'])]
-    return bool(used), used
-
-
-def owner_quote(root: Path, quote: str, terms, *, request: str | None = None) -> dict:
-    """Validate one unambiguous live owner quotation and its literal subject."""
-    root = Path(root).resolve()
-    if not isinstance(quote, str) or not quote.strip() or not terms or any(not isinstance(t, str) or not t.strip() for t in terms):
-        raise MapError('owner_quote_invalid: quote and actual subject terms are required')
-    if request is not None and not REQUEST_ID.fullmatch(request):
-        raise MapError('request_id_invalid: name a stored request')
-    identifiers = [request] if request is not None else _identifiers(root)
-    matches = []
-    for identifier in identifiers:
-        if request is None and identifier in _stems(root, RETIRED_DIR):
-            continue
-        validate_request_links(root, [dict(id=identifier, part=False)])
-        meta = _metadata(root / REQUEST_DIR / (identifier + '.json'), identifier)
-        if meta['kind'] != 'request':
-            if request is not None:
-                raise MapError('owner_quote_kind: quote a request, not a glossary or adoption record')
-            continue
-        raw = read_request_bytes(root, identifier)
-        try:
-            text = raw.decode('utf-8-sig')
-        except UnicodeError as error:
-            raise MapError(f'owner_quote_invalid: {identifier} is not UTF-8') from error
-        if quote_matches(text, quote):
-            matches.append(dict(id=identifier, sha256=meta['sha256'], quote=quote))
-    if not matches:
-        raise MapError('quote_not_in_request: quote the stored owner words verbatim (... elides)')
-    direct, used = literal_subject_match(quote, terms)
-    if not direct:
-        direct, used = literal_subject_match(quote, terms, confirmed_glossaries(root))
-    if not direct:
-        raise MapError('quote_subject_mismatch: quote must name the actual conflict subject or a confirmed glossary term')
-    if len(matches) != 1:
-        raise MapError('owner_quote_ambiguous: give --request for the intended stored request')
-    out = matches[0]
-    out['glossaries'] = [{**item, 'sha256': _metadata(root / REQUEST_DIR / (item['id'] + '.json'), item['id'])['sha256']}
-                         for item in used]
-    return out

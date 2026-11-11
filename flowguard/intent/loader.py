@@ -141,8 +141,6 @@ class Model:
     def distinct_pair(self, first, second):
         return next((d for d in self.distincts if {d.a, d.b} == {first, second}), None)
 
-    def rules_in(self, rel):
-        return [r for r in self.rules.values() if self.file_of[r.id] == rel]
 
     def items_of(self, rule):
         return item_names(rule.id, [h.target for h in rule.homes], deep=self.deep)

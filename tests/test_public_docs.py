@@ -70,8 +70,8 @@ def test_skill_limits_modeling_and_points_to_one_local_guide():
     assert not re.search(r'python -m flowguard (?:status|where|draft|decide|release)\b', text)
     assert 'show "what it decides"' in text
     assert 'not success' in text and 'No source change stays quiet unless a constraint fails.' in text
-    guide = SKILL / 'references/rules.md'
-    assert re.search(r'\[[^\]]+\]\(references/rules.md\)', text) and guide.is_file()
+    guide = SKILL / 'reference.md'
+    assert re.search(r'\[[^\]]+\]\(reference.md\)', text) and guide.is_file()
     assert 'def WINDOW(days):' in guide.read_text(encoding='utf-8')
     # The executable API example has one owner instead of copied manuals.
     for path in (ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'docs/intent-guide.md', SKILL / 'SKILL.md'):
@@ -92,7 +92,7 @@ def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
     installed = subprocess.run([sys.executable, 'scripts/install_skill.py', '--target', str(target)],
                                cwd=ROOT, capture_output=True, text=True)
     assert installed.returncode == 0, installed.stdout + installed.stderr
-    guide = (target / 'flowguard/references/rules.md').read_text(encoding='utf-8')
+    guide = (target / 'flowguard/reference.md').read_text(encoding='utf-8')
     (tmp_path / 'policy.txt').write_text(re.search(r'```text\n(.*?)\n```', guide, re.S)[1] + '\n', encoding='utf-8')
     (tmp_path / 'pyproject.toml').write_text(re.search(r'```toml\n(.*?)\n```', guide, re.S)[1] + '\n', encoding='utf-8')
     implementation, rule = re.findall(r'```python\n(.*?)\n```', guide, re.S)[:2]
@@ -125,7 +125,7 @@ def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch):
         monkeypatch.setattr(cli, name, lambda *args, **kwargs: 0)
     docs = [ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'AGENTS.md', SKILL / 'SKILL.md',
             ROOT / 'docs/intent-guide.md', ROOT / 'docs/upgrade-2.0.md', ROOT / 'docs/upgrade-4.0.md', ROOT / 'docs/upgrade-4.1.md', ROOT / 'docs/upgrade-4.2.md',
-            SKILL / 'references/rules.md']
+            SKILL / 'reference.md']
     for path in docs:
         text = path.read_text(encoding='utf-8')
         commands = re.findall(r'`python -m flowguard([^`\n]*)`', text)

@@ -90,7 +90,7 @@ def test_body_import_is_rejected_before_it_can_load_a_dependency(tmp_path, monke
     monkeypatch.chdir(root)
     observed = anchors.observe(root, index.entries[0], {'x': 1})
     # The import runs under the replay guard: the dependency's write is refused before it happens.
-    assert observed.status == 'grey' and any('回放被拦住' in reason and 'dependency.marker' in reason for reason in observed.reasons)
+    assert observed.status == 'grey' and any('replay refused' in reason and 'dependency.marker' in reason for reason in observed.reasons)
     assert 'r19_side_effect' not in sys.modules and not (root / 'dependency.marker').exists()
 
 

@@ -34,7 +34,7 @@ def constraint(message, rule=None):
 def _example(row):
     if 'witness' in row:
         return ', '.join(f'{name}={value}' for name, value in row['witness'].items())
-    return ', '.join(f'{name}={_shown(value)}' for name, value in row.get('inputs', {}).items()) or '无记录'
+    return ', '.join(f'{name}={_shown(value)}' for name, value in row.get('inputs', {}).items()) or 'no record'
 
 
 def _changes(item):
@@ -66,7 +66,7 @@ def _points(values):
 def _region(rows):
     if rows[0].get('region'):
         labels = list(dict.fromkeys(row.get('region', '') for row in rows))
-        return labels[0] + (f' 等 {len(labels)} 类' if len(labels) > 1 else '')
+        return labels[0] + (f' and {len(labels)} classes' if len(labels) > 1 else '')
     names = tuple(rows[0].get('inputs', {}))
     values = {name: list(dict.fromkeys(row['inputs'][name] for row in rows)) for name in names}
     combinations = 1
@@ -94,8 +94,8 @@ def _cause(cause):
     if not cause:
         return ''
     if isinstance(cause, str):
-        return '原因：' + cause
-    return (f'原因：{cause.get("name", "代码")} {_shown(cause.get("before"))} → {_shown(cause.get("after"))}'
+        return 'cause: ' + cause
+    return (f'cause: {cause.get("name", "code")} {_shown(cause.get("before"))} → {_shown(cause.get("after"))}'
             f'（{cause["file"]}:{cause["line"]}）')
 
 
@@ -113,7 +113,7 @@ def _facts(item, *, comparison=False):
     count = len(count) if isinstance(count, (list, tuple)) else count
     name = item.get('name', item.get('anchor', changes[0].get('anchor', '') if changes else ''))
     if item.get('unanchored'):
-        name += '（未挂锚点，自动）'
+        name += '(unanchored, automatic)'
     location = f'（{item["file"]}:{item["line"]}）' if item.get('file') and item.get('line') else ''
     if comparison:
         first = changes[0] if changes else item
@@ -123,8 +123,8 @@ def _facts(item, *, comparison=False):
     reasons = list(dict.fromkeys([*item.get('comparison_reasons', ()), *item.get('reasons', ())]))
     unknown = not item.get('complete', False) or status not in (None, 'ok', 'red') or bool(reasons)
     checked = item.get('checked', len(item.get('rows', ())) if status == 'ok' else len(changes))
-    summary = (f'候选 {total} 类，已比较 {checked} 类；比较未完成，已证变化 {count} 类' if unknown
-               else f'共 {total} 类，变 {count} 类')
+    summary = (f'candidate classes: {total}; compared: {checked}; comparison incomplete; proven changed classes: {count}' if unknown
+               else f'total {total} classes，changed {count} classes')
     change = overall = ''
     if changes:
         groups = defaultdict(list)
@@ -140,12 +140,12 @@ def _facts(item, *, comparison=False):
             return row
         members = next(iter(groups.values()))
         row = smallest(members)
-        change = (f'{_region(members)}；函数返回值 {row["before"]} → {row["after"]}（例：{_example(row)}）'
-                  + (f'；另 {len(groups) - 1} 组结果变化' if len(groups) > 1 else ''))
+        change = (f'{_region(members)}; function result {row["before"]} → {row["after"]}(example: {_example(row)}）'
+                  + (f'; plus {len(groups) - 1} outcome-change groups' if len(groups) > 1 else ''))
         overall = change
         if len(groups) > 1:
             row = smallest(changes)
-            overall = (f'{_region(changes)}；函数返回值有 {len(groups)} 种变化（例：{_example(row)}：'
+            overall = (f'{_region(changes)}; function result has {len(groups)} kinds of change (example: {_example(row)}: '
                        f'{row["before"]} → {row["after"]}）')
     return dict(name=name, location=location, count=count, total=total, checked=checked, unknown=unknown,
                 summary=summary, change=change, overall=overall, cause=_cause(item.get('cause')), reasons=reasons, status=status)
@@ -155,14 +155,14 @@ def _block(item, *, comparison=False, same_name=False):
     facts = _facts(item, comparison=comparison)
     title = f'{facts["name"]}{facts["location"]}：' if facts['name'] or facts['location'] else ''
     if comparison and facts['count']:
-        title = ('红 同名锚点 ' if same_name else '红 对比 ') + title
+        title = ('red same-name anchor ' if same_name else 'red comparison ') + title
     lines = [title + facts['summary']]
     if facts['change']:
         lines.append(facts['change'])
     if facts['cause']:
         lines.append(facts['cause'])
     if facts['reasons'] and len(lines) < 3:
-        lines.append('未覆盖：' + '; '.join(facts['reasons']))
+        lines.append('uncovered: ' + '; '.join(facts['reasons']))
     return lines[:3]
 
 
@@ -183,8 +183,8 @@ def render(report, limit=10):
 
 
 # ---- the end-of-test view ------------------------------------------------------------------------
-# Four kinds, in this order: 红 (every red, the places of one rule or owner on one line, each followed
-# by the next step to copy), 变 (changed outcomes and paths), 线索 (leads) and 未验证 (grey, merged
+# Four kinds, in this order: red (every red, the places of one rule or owner on one line, each followed
+# by the next step to copy), changed (changed outcomes and paths), lead (leads) and unverified (grey, merged
 # and counted). The last three share ten lines; names and places are never shortened.
 
 def red(subject, *texts, next=()):
@@ -198,7 +198,7 @@ def copy_answers(answers, same, show, owner=None, total=None, apart=()):
     """What same-name copies answered one input, and the next step, without choosing which copy is right.
 
     `answers` is [(place, value)] in plan order; equal values (`same`) form one group, listed by its size
-    (the owner's group first when `owner`, the owner's place, is one of them): `3 份：2 份得 52（a、b），1 份得 1（c）`.
+    (the reference group first when `owner`, the reference location, is one of them): `3 copies: 2 return 52 (a, b), 1 returns 1 (c)`.
     `total` counts the copies, also those without an answer on this input. `apart` [(place, input)] are copies
     that answer this input as the owner does but differ from it on another input, named on that input's line:
     they are listed after the groups, never counted with the owner. Without an owner the step leaves the
@@ -214,16 +214,16 @@ def copy_answers(answers, same, show, owner=None, total=None, apart=()):
         else:
             group[1].append(place)
     groups.sort(key=lambda group: (owner not in group[1], -len(group[1])))
-    shown = lambda place: ('负责人 ' if place == owner else '') + place
+    shown = lambda place: ('reference ' if place == owner else '') + place
     missing = (total or len(answers)) - len(answers)
-    text = (f'{len(answers)} 份' + (f'（另 {missing} 份在这个输入上没有结果）' if missing else '') + '：'
-            + '，'.join(f'{len(places)} 份得 {show(value)}（{"、".join(map(shown, places))}）' for value, places in groups)
-            + (f'，另 {len(aside)} 份在别的输入上和负责人不同：' + '、'.join(f'{place}（{where}）' for place, where in aside.items())
+    text = (f'{len(answers)} copies' + (f' (plus {missing} copies without a result for this input)' if missing else '') + ': '
+            + ', '.join(f'{len(places)} copies return {show(value)} ({", ".join(map(shown, places))})' for value, places in groups)
+            + (f', plus {len(aside)} copies differ from the reference on other inputs: ' + ', '.join(f'{place} ({where})' for place, where in aside.items())
                if aside else ''))
     if owner is not None:
         others = [place for value, places in groups if owner not in places for place in places]
-        return text, f'让 {"、".join(others)} 和负责人一致'
-    return text, '先定哪份对，再让' + ('另一份' if len(answers) == 2 else '其余几份') + '和它一致'
+        return text, f'make {"、".join(others)} agree with the reference'
+    return text, 'first decide which copy is correct, then make ' + ('the other copy' if len(answers) == 2 else 'the remaining copies') + ' agree with it'
 
 
 def copy_lines(inputs, same, show, owner=None, total=None):
@@ -262,8 +262,8 @@ def copy_lines(inputs, same, show, owner=None, total=None):
 
 def copy_red(name, lines):
     """The one red of same-name copies `name` from its `copy_lines`: each input with its step, then the way out."""
-    return (f'同名锚点 {name}：' + '；'.join(f'{where}，{text} -> {step}' for where, text, step, _ in lines)
-            + '；有意不同，就改用不同的锚点名并写 distinct')
+    return (f'same-name anchor {name}：' + '；'.join(f'{where}，{text} -> {step}' for where, text, step, _ in lines)
+            + '; if intentionally different, use different anchor names and declare distinct')
 
 
 def rule_steps(rule_id, homes, where, messages=()):
@@ -286,7 +286,7 @@ def rule_steps(rule_id, homes, where, messages=()):
         if '-> rule ' in text and row and row[1] in wrong_rows:
             continue
         if pair:
-            conflicts.append(f'规则 {pair[1]} 和 {pair[2]} 冲突，两条定一条：要问主人；')
+            conflicts.append(f'rules {pair[1]} and {pair[2]} conflict; choose one by asking the owner; ')
         elif text.startswith(('self: ', 'row ')):
             kinds.add('rows')
         elif text.startswith('gap in '):
@@ -297,22 +297,23 @@ def rule_steps(rule_id, homes, where, messages=()):
             kinds.add('other')
     steps = list(dict.fromkeys(conflicts))
     steps += [step for kind, step in (
-        ('code', f'改代码，让 {homes} 符合规则 {rule_id}；'),
-        ('rows', f'改回归行或规则 {where}，让规则和它的回归行一致；'),
-        ('gap', f'补规则或回归行 {where}，让没有规则判定的格也有判定；'),
-        ('other', f'看规则 {where}，改正它的出处、绑定或回归行；')) if kind in kinds]
+        ('code', f'change the code so {homes} follows rule {rule_id}; '),
+        ('rows', f'correct regression rows or rule {where} so the rule and its regression rows agree; '),
+        ('gap', f'add rules or regression rows at {where} so undecided cells have a rule result; '),
+        ('other', f'inspect rule {where} and correct its source, binding or regression rows; ')) if kind in kinds]
     if conflicts:
-        steps.append(f'主人定了：先用 python -m flowguard req add 存下主人的原话，再改规则 {where}')
+        steps.append(f'when the owner decides, first store the exact owner words with python -m flowguard req add, then update rule {where}')
     elif steps:
-        steps.append(f'需求确实变了：先用 python -m flowguard req add 存下新的原话，再改规则 {where}')
+        steps.append(f'if requirements changed, first store the new owner words with python -m flowguard req add, then update rule {where}')
     return steps
 
 
 def _red_entry(message):
     text = str(message)
-    subject, marker, quote = text.partition(' 出处：')
-    if marker and subject and '：' not in subject and ': ' not in subject:
-        return dict(subject=subject, separator='：', texts=[], quote=quote)
+    for source_marker in (' source: ', ' 出处：'):
+        subject, marker, quote = text.partition(source_marker)
+        if marker and subject and '：' not in subject and ': ' not in subject:
+            return dict(subject=subject, separator='：', texts=[], quote=quote)
     for separator in ('：', ': '):
         head, found, rest = text.partition(separator)
         if found and head and len(head) <= 60 and '=' not in head and '\n' not in head:
@@ -327,12 +328,12 @@ def _red_lines(report, items):
     messages = [*report.get('red', ()), *(message for item in items for message in item.get('red', ()))]
     for item in items:
         if item.get('comparison') and _facts(item, comparison=True)['count']:
-            # A source comparison keeps its block title: `红 同名锚点 NAME（left ↔ right）：counts：first change`.
+            # A source comparison keeps its block title: `red same-name anchor NAME（left ↔ right）：counts：first change`.
             facts = _facts(item, comparison=True)
             same = item.get('same_name') or report.get('same_name')
-            compared.append(('红 同名锚点 ' if same else '红 对比 ') + f'{facts["name"]}{facts["location"]}：{facts["summary"]}：{facts["overall"]}')
+            compared.append(('red same-name anchor ' if same else 'red comparison ') + f'{facts["name"]}{facts["location"]}：{facts["summary"]}：{facts["overall"]}')
             if same:
-                compared.append('    让这几处一致；行为本来就该不同时，改用不同的锚点名并写 distinct')
+                compared.append('    make these locations agree; if behavior should differ, use different anchor names and declare distinct')
     for message in messages:
         entry = _red_entry(message)
         key = entry['subject'] or ('', len(order))
@@ -347,27 +348,27 @@ def _red_lines(report, items):
     for key in order:
         entry = entries[key]
         body = '；'.join(dict.fromkeys(entry['texts']))
-        line = '红：' + (entry['subject'] + (entry['separator'] + body if body else '') if entry['subject'] else body)
+        line = 'red: ' + (entry['subject'] + (entry['separator'] + body if body else '') if entry['subject'] else body)
         if entry['quote']:
-            line += f'  {entry["subject"]} 出处：{entry["quote"]}'
+            line += f'  {entry["subject"]} source: {entry["quote"]}'
         lines.append(line)
         lines.extend('    ' + step for step in steps.get(entry['subject'], ()) if entry['subject'])
     for finding in report.get('ledger_red', ()):
-        lines.append('红：' + finding['text'])
+        lines.append('red: ' + finding['text'])
         lines.extend('    ' + step for step in finding['fix'])
     return lines + compared
 
 
 def _lead_line(lead):
     if not isinstance(lead, dict):
-        return '线索：' + str(lead)
+        return 'lead: ' + str(lead)
     locations = lead.get('locations', ())
     if not locations:
         return ''
     values = ','.join(dict.fromkeys(_shown(row['old']) for row in locations))
-    return (f'线索：旧值 {values} 还出现在 {lead["total"]} 个判断里：'
-            + '  '.join(f'{row["file"]}:{row["line"]}' + ('（大函数中）' if row.get('big') else '') for row in locations)
-            + ' → 需求变了就一起改；要锁定它们，在负责人上方写 # flowguard: owner 名，副本上方写 # flowguard: sensor 名')
+    return (f'lead: old values {values} remain in {lead["total"]} decisions: '
+            + '  '.join(f'{row["file"]}:{row["line"]}' + ('(in a large function)' if row.get('big') else '') for row in locations)
+            + ' -> if requirements changed, update together; to lock them, write # flowguard: same NAME ref above the reference and # flowguard: same NAME above the copies')
 
 
 def _fit(lines, room, overflow):
@@ -392,7 +393,7 @@ def _session(report, limit):
     for item in items:
         if item.get('comparison'):
             continue
-        if item.get('name') == '未覆盖' and not item.get('file'):
+        if item.get('name') in ('uncovered', '未覆盖') and not item.get('file'):
             unverified.extend((*_grey(str(reason)), False) for reason in item.get('reasons', ()))
             continue
         facts = _facts(item)
@@ -403,9 +404,9 @@ def _session(report, limit):
             if key in calls:
                 calls[key][1] += 1
                 continue
-            counted = facts['summary'] if not facts['unknown'] else f'已比较 {facts["checked"]} 类（划分未完成），变 {facts["count"]} 类'
+            counted = facts['summary'] if not facts['unknown'] else f'compared {facts["checked"]} classes (partition incomplete); changed {facts["count"]} classes'
             calls[key] = [len(changes), 1]
-            changes.append(f'变：{subject}{"" if subject.endswith("）") else " "}{counted}：{facts["overall"]}'
+            changes.append(f'changed: {subject}{"" if subject.endswith("）") else " "}{counted}：{facts["overall"]}'
                            + (f'  {facts["cause"]}' if facts['cause'] else ''))
             names.append(facts['name'])
         elif item.get('lost'):
@@ -415,60 +416,60 @@ def _session(report, limit):
         elif facts['unknown'] or facts['status'] == 'grey':
             # A point whose own code changed is listed before the others. An observed point whose
             # comparison with the baseline did not finish says so; a point not observed gives its reason.
-            prefix = '' if item.get('status') == 'grey' else '比较未完成：'
-            unverified.extend((subject, prefix + reason, bool(item.get('cause'))) for reason in facts['reasons'] or ['原因没有记下'])
+            prefix = '' if item.get('status') == 'grey' else 'comparison incomplete: '
+            unverified.extend((subject, prefix + reason, bool(item.get('cause'))) for reason in facts['reasons'] or ['reason not recorded'])
         elif requested:
-            compared.append(f'比较：{subject}{"" if subject.endswith("）") else " "}{facts["summary"]}')
+            compared.append(f'compared: {subject}{"" if subject.endswith("）") else " "}{facts["summary"]}')
             compared_names.append(facts['name'])
     for position, number in calls.values():
         if number > 1:
-            changes[position] += f'（{number} 次调用相同）'
+            changes[position] += f'（{number} identical calls)'
     for path in report.get('paths', ()):
         if path['before'] != path['after']:
-            changes.append(f'变：路径 {path["test"]}：' + ' → '.join(path['before']) + ' 变成 ' + ' → '.join(path['after']))
-            names.append('路径 ' + path['test'])
+            changes.append(f'changed: path {path["test"]}：' + ' → '.join(path['before']) + ' became ' + ' → '.join(path['after']))
+            names.append('path ' + path['test'])
     changes, names = _unique(changes, names)
     compared, compared_names = _unique(compared, compared_names)
     leads = [line for line in dict.fromkeys(_lead_line(lead) for lead in report.get('leads', ())) if line]
     # What this change adds comes before the old ledger (`--all`): the budget never hides a new lead behind old ones.
-    leads.sort(key=lambda line: line.startswith('线索：旧账'))
+    leads.sort(key=lambda line: line.startswith(('lead: before', '线索：旧账')))
     unverified.extend((*_grey(str(reason)), False) for reason in report.get('unverified', ()))
     counted, causes = {}, {}
     for subject, reason, changed in sorted(unverified, key=lambda entry: not entry[2]):
         counted[(subject, reason)] = counted.get((subject, reason), 0) + 1
-        cause = re.sub(r'^(比较未完成：)?[A-Za-z_][\w.]*: ', r'\1', reason)
+        cause = re.sub(r'^(comparison incomplete: )?[A-Za-z_][\w.]*: ', r'\1', reason)
         causes.setdefault(cause, set()).add(subject or reason)
     if not (reds or changes or compared or leads or counted):
         return alone
     room = budget
     # Changes come first and keep their room; an unchanged comparison never pushes a change into the overflow.
     shown = _fit(changes, room - bool(leads) - bool(counted),
-                 lambda rest: f'变：另 {rest} 项变化：' + '、'.join(dict.fromkeys(names[len(changes) - rest:])))
+                 lambda rest: f'changed: plus {rest} changes: ' + '、'.join(dict.fromkeys(names[len(changes) - rest:])))
     shown += _fit(compared, room - len(shown) - bool(leads) - bool(counted),
-                  lambda rest: f'比较：另 {rest} 项没有变化：' + '、'.join(dict.fromkeys(compared_names[len(compared) - rest:])))
+                  lambda rest: f'compared: plus {rest} unchanged items: ' + '、'.join(dict.fromkeys(compared_names[len(compared) - rest:])))
     room -= len(shown)
     # `all_leads` (check --leads) prints every lead outside the budget; otherwise the overflow names that command.
     more = report['more_leads'] if 'more_leads' in report else more_leads('check --static')
     if report.get('all_leads'):
         shown_leads = leads
     else:
-        shown_leads = _fit(leads, room - bool(counted), lambda rest: f'线索：另 {rest} 条：{more} 列出全部线索')
+        shown_leads = _fit(leads, room - bool(counted), lambda rest: f'lead: plus {rest} entries: {more} lists all leads')
         room -= len(shown_leads)
     lines = [_title(report), *reds, *shown, *shown_leads]
     if counted and room > 0:
         subjects = {subject or reason for subject, reason in counted}
         common = max(causes, key=lambda cause: (len(causes[cause]), -list(causes).index(cause)))
         # One point, its line right below: the count says no reason, which that line gives.
-        lines.append(f'未验证 {len(subjects)} 项（不是通过）' + ('' if len(counted) == 1 and room > 1 else
-                     f'：最常见的原因是"{common}"' + (f'（{len(causes[common])} 项）' if len(causes[common]) > 1 else '')))
-        details = [f'未验证：{subject + "：" if subject else ""}{reason}' + (f'（{number} 次）' if number > 1 else '')
+        lines.append(f'unverified {len(subjects)} items (not passed)' + ('' if len(counted) == 1 and room > 1 else
+                     f': most common reason is "{common}"' + (f'（{len(causes[common])} items)' if len(causes[common]) > 1 else '')))
+        details = [f'unverified: {subject + "：" if subject else ""}{reason}' + (f'（{number} times)' if number > 1 else '')
                    for (subject, reason), number in counted.items()]
         keys = list(counted)
 
         def hidden(rest):
             # The detail lines left out are counted as lines, and the names they cover are listed in full.
             names = '、'.join(dict.fromkeys(subject for subject, _ in keys[len(keys) - rest:] if subject))
-            return f'未验证：另 {rest} 条' + (f'（{names}）' if names else '') + '：python -m flowguard show 名字 看它的原因'
+            return f'unverified: plus {rest} entries' + (f'（{names}）' if names else '') + ': python -m flowguard show NAME explains why'
         lines.extend(_fit(details, min(3, room - 1), hidden))
     return '\n'.join(lines)
 
@@ -498,23 +499,23 @@ def more_leads(command, everything=False, base=None):
 def missing_start(commit):
     """The one line of a run whose recorded task start this repository lacks (a shallow clone, collected history,
     another clone's cache): it compares nothing, and new-task records HEAD."""
-    return f'FlowGuard（记下的任务开始 {commit[:7]} 不在这个仓库里：不比较改前改后；先运行 python -m flowguard new-task）'
+    return f'FlowGuard(recorded task baseline {commit[:7]} is not in this repository: old/new comparison is off; first run python -m flowguard new-task)'
 
 
 def _title(report):
     baseline, kind = report.get('baseline'), report.get('baseline_kind', 'task')
     if not baseline:
-        return 'FlowGuard（没有基准提交：不比较改前改后）'
+        return 'FlowGuard(no baseline commit: old/new comparison is off)'
     if kind == 'missing':
         return missing_start(baseline)
     # An explicit baseline is named by the option that gave it: pytest's --flowguard-base, or `--base` of the
     # CLI check (`baseline_option`).
     option = report['baseline_option'] if 'baseline_option' in report else '--flowguard-base'
-    label = {'task': '相对任务开始', 'base': '相对 ' + option, 'HEAD': '相对 HEAD'}.get(kind, '相对')
+    label = {'task': 'since task start', 'base': 'since ' + option, 'HEAD': 'since HEAD'}.get(kind, 'since')
     ahead = report.get('baseline_ahead')
     if kind == 'task' and ahead:
         # A task start HEAD has moved past: the commits since are this task's, or an earlier task's without new-task.
-        return f'FlowGuard（{label} {baseline[:7]}，HEAD 之前 {ahead} 个提交；新任务先运行 python -m flowguard new-task）'
+        return f'FlowGuard（{label} {baseline[:7]}, commits before HEAD: {ahead}; first run python -m flowguard new-task for a new task)'
     return f'FlowGuard（{label} {baseline[:7]}）'
 
 
@@ -530,9 +531,9 @@ def _render(report, limit, *, quiet=False):
     if not red and report.get('status') != 'red' and not any(item.get('status') == 'red' for item in items) and not report.get('comparison_requested') and (report.get('source_changed') is False
                     or report.get('snapshot', {}).get('kind') == 'no-source-change'):
         return ''
-    lines = ['红：' + str(message) for message in red[:budget]]
+    lines = ['red: ' + str(message) for message in red[:budget]]
     if len(red) > budget:
-        lines[-1] = f'红：另 {len(red) - budget + 1} 处约束违反；完整结果保留在报告中'
+        lines[-1] = f'red: plus {len(red) - budget + 1} constraint violations; complete results retained in the report'
     items = sorted(items, key=lambda item: item.get('status') != 'red')
     # Design order: red, changes, leads, then what stayed unverified.
     unverified = [item for item in items if item.get('status') != 'red' and _unknown(item)]
@@ -547,8 +548,8 @@ def _render(report, limit, *, quiet=False):
         if len(lines) >= budget:
             break
         if path['before'] != path['after']:
-            lines.append(f'路径 {path["test"]}：' + ' → '.join(path['before'])
-                         + ' 变成 ' + ' → '.join(path['after']))
+            lines.append(f'path {path["test"]}：' + ' → '.join(path['before'])
+                         + ' became ' + ' → '.join(path['after']))
     leads = list(report.get('leads', ()))
     for lead in leads[:max(5, budget - len(lines))]:
         if len(lines) >= budget:
@@ -558,19 +559,19 @@ def _render(report, limit, *, quiet=False):
             if not locations:
                 continue
             values = ','.join(dict.fromkeys(_shown(row['old']) for row in locations))
-            lines.append(f'线索：旧值 {values} 还出现在 {lead["total"]} 个判断里：'
-                         + '  '.join(f'{row["file"]}:{row["line"]}' + ('（大函数中）' if row.get('big') else '') for row in locations)
-                         + ' → 需求变了就一起改；要锁定它们，在负责人上方写 # flowguard: owner 名，副本上方写 # flowguard: sensor 名')
+            lines.append(f'lead: old values {values} remain in {lead["total"]} decisions: '
+                         + '  '.join(f'{row["file"]}:{row["line"]}' + ('(in a large function)' if row.get('big') else '') for row in locations)
+                         + ' -> if requirements changed, update together; to lock them, write # flowguard: same NAME ref above the reference and # flowguard: same NAME above the copies')
         else:
-            lines.append('线索：' + str(lead))
+            lines.append('lead: ' + str(lead))
     blocks(unverified)
     if not lines and quiet:
         return ''
     if not lines:
-        lines.append(f'共 {report.get("total", 0)} 类，变 {report.get("changed", 0)} 类'
-                     if report.get('complete') else '未比较：没有可用的观察结果')
+        lines.append(f'total {report.get("total", 0)} classes，changed {report.get("changed", 0)} classes'
+                     if report.get('complete') else 'not compared: no observations available')
     # Red lines and leads carry full names, places and the next step to copy: never shortened.
-    return '\n'.join(line if line.startswith(('红', '线索')) else _short(line) for line in lines)
+    return '\n'.join(line if line.startswith(('red', 'lead')) else _short(line) for line in lines)
 
 
 def stale_copies(graph, changes):

@@ -135,7 +135,7 @@ def _write_key(row):
 
 
 def _write_text(row):
-    value = f'，值 {row["value"]!r}' if 'value' in row else ''
+    value = f', value {row["value"]!r}' if 'value' in row else ''
     return f'{row["file"]}:{row["line"]} {row["function"]}（{row["kind"]}{value}）'
 
 
@@ -163,12 +163,12 @@ def owner_writes(change, index, *, everything=False):
         if new:
             functions = '、'.join(dict.fromkeys(row['node'] if row.get('language', 'python') == 'python' else row['function']
                                                 for row in new))     # TS/JS writers are function names
-            found.red.append(f'负责人以外新增写入 {owner.name}：' + '  '.join(_write_text(row) for row in new)
-                             + f'；只允许 {allowed} → 改成调用 {allowed}，或确有必要时把 {functions} 加进 '
-                               f'writers=（owner 注释在 {where}）')
+            found.red.append(f'new write outside the declared writer for {owner.name}：' + '  '.join(_write_text(row) for row in new)
+                             + f'; allowed only: {allowed} -> call {allowed}, or, if necessary, add {functions} to '
+                               f'the writers agreement (comment at {where}）')
         if old and everything:
-            found.leads.append(f'旧账 {owner.name} 负责人以外的写入：' + '  '.join(_write_text(row) for row in old)
-                               + f'；只允许 {allowed}（owner 注释在 {where}）')
+            found.leads.append(f'before: {owner.name} writes outside the declared writer: ' + '  '.join(_write_text(row) for row in old)
+                               + f'; allowed only: {allowed}(agreement at {where}）')
     return found
 
 
@@ -182,7 +182,7 @@ def _call_tree(graph, node, depth=3, up=0):
     return tree
 
 
-OPERATION = '同一操作（调用方向上 3 层、再从那里向下 3 层）'
+OPERATION = 'the same operation (3 caller levels, then 3 callee levels)'
 
 
 def operation(graph, node):
@@ -237,17 +237,17 @@ def owner_pairs(change, index, *, everything=False):
                     calls[id(row)] = 'name' in tree.values() or row.get('language', 'python') != 'python'
             def where(rows):
                 return '  '.join(f'{row["file"]}:{row["line"]} {row["function"]}' for row in rows) \
-                    + ('（JS/TS 调用按名字解析）' if any(calls[id(row)] for row in rows) else '') \
-                    + {'update': '（只查修改）', 'create': '（只查新建）'}.get(owner.on, '')
-            step = (f'补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 {owner.file}:{owner.line}）')
+                    + ('(JS/TS calls resolved by name)' if any(calls[id(row)] for row in rows) else '') \
+                    + {'update': '(updates only)', 'create': '(creates only)'}.get(owner.on, '')
+            step = (f'write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at {owner.file}:{owner.line})')
             shown = [row for row in missing if everything or new_rule or row['file'] in change.files]
             if shown:
                 # One owner per red line: the subject names the owner, so two owners' pairs never merge into one.
-                found.red.append(f'配对没写 {owner.name}：{where(shown)} 写了 {owner.name}，{OPERATION}里没写 {pair} → ' + step)
+                found.red.append(f'missing paired write for {owner.name}：{where(shown)} writes {owner.name}, {OPERATION} does not write {pair} → ' + step)
             if missing:
                 found.issues.append(Issue(
-                    f'pair:{owner.name}>{pair}', 2, f'配对 {owner.name}',
-                    f'配对没写：{where(missing)} 写了 {owner.name}，{OPERATION}里没写 {pair}',
+                    f'pair:{owner.name}>{pair}', 2, f'pair {owner.name}',
+                    f'missing paired write: {where(missing)} writes {owner.name}; {OPERATION} does not write {pair}',
                     step, frozenset(row_function(row) for row in missing), frozenset(row['file'] for row in missing),
                     new=bool(shown)))
     return found
@@ -326,7 +326,7 @@ def _foreign_constant_changes(change):
                 continue
             for x, y in zip(first, second):
                 for old_value, new_value in _differences(x['value'], y['value']):
-                    out.append(dict(name=qual + ' 的常量', before=old_value, after=new_value, file=file, line=y['line'],
+                    out.append(dict(name=qual + ' constant', before=old_value, after=new_value, file=file, line=y['line'],
                                     identity='', target=ident))
     return out
 
@@ -368,7 +368,7 @@ def constant_changes(change):
                 continue
             for x, y in zip(first, second):
                 for old_value, new_value in _differences(x.value, y.value):
-                    out.append(dict(name=qual + ' 的常量', before=old_value, after=new_value, file=file, line=y.lineno,
+                    out.append(dict(name=qual + ' constant', before=old_value, after=new_value, file=file, line=y.lineno,
                                     identity='', target=module + ':' + qual))
     return out
 
@@ -432,9 +432,9 @@ def rule_old_values(cfg, old):
             judged = sorted({n.lineno for s in body for n in ast.walk(s) if holds(n)})
             rows = sorted({n.lineno for call in item['rows'] for n in ast.walk(call) if holds(n)})
             if judged or rows:
-                parts = ([f'判断第 {"、".join(map(str, judged))} 行'] if judged else []) + \
-                        ([f'回归行第 {"、".join(map(str, rows))} 行'] if rows else [])
-                found.append(f'规则 {item["id"]} 里还写着旧值 {old!r}（{cfg.rel(path)} {"、".join(parts)}）：需求变了就先改规则')
+                parts = ([f'decision line {"、".join(map(str, judged))}'] if judged else []) + \
+                        ([f'regression row line {"、".join(map(str, rows))}'] if rows else [])
+                found.append(f'rule {item["id"]} still uses old value {old!r}({cfg.rel(path)} {"、".join(parts)}): if requirements changed, update the rule first')
     return found
 
 
@@ -459,8 +459,8 @@ def copies_without_rule(change, index):
             continue
         names = '、'.join(dict.fromkeys(anchor.name for anchor in changed))
         places = '、'.join(dict.fromkeys(f'{anchor.file}:{anchor.qual}' for anchor in changed))
-        found.leads.append(f'{names} 的副本 {places} 改了，规则 {item["id"]} 没改 → 需求变了：先用 python -m flowguard req add '
-                           f'存下新的原话，再改规则 {file}:{item["line"]}；需求没变：确认这次代码改动是对的')
+        found.leads.append(f'{names} copies at {places} changed; rule {item["id"]} is unchanged -> if requirements changed, first use python -m flowguard req add to '
+                           f'store the new owner words, then update rule {file}:{item["line"]}; otherwise confirm that this code change is correct')
     return found
 
 
@@ -473,6 +473,9 @@ def old_value_leads(change):
         if lead['total']:
             found.leads.append(lead)
         found.leads.extend(rule_old_values(change.cfg, item['before']))
+    if found.leads:
+        from .deprecation import warn
+        warn('old-value leads')
     return found
 
 
@@ -508,8 +511,8 @@ def declarations_differ(change, *, everything=False):
     declaration of the enum's name) with different values: a lead, reported when this change touches one
     of them (`check --all` lists all)."""
     found = Findings()
-    named = [(name, items, ' → 留一份，别处引用它；有意不同就改成不同的名字') for name, items in _declarations(change.graph).items()]
-    fields = [(name, items, ' → 补上缺的值；那份描述不再使用，就写明或删掉它') for name, items in change.graph.field_declarations().items()]
+    named = [(name, items, ' -> keep one definition and reference it elsewhere; use different names if intentionally different') for name, items in _declarations(change.graph).items()]
+    fields = [(name, items, ' -> add missing values; mark an unused description or remove it') for name, items in change.graph.field_declarations().items()]
     for name, items, step in sorted(named + fields):
         if len(items) < 2 or len({values for _, _, values in items}) < 2:
             continue
@@ -517,10 +520,10 @@ def declarations_differ(change, *, everything=False):
             continue
         union = set().union(*(values for _, _, values in items))
         parts = [f'{file}:{line}（{" | ".join(map(repr, sorted(values, key=repr)))}'
-                 + (f'；少 {", ".join(map(repr, sorted(union - values, key=repr)))}' if union - values else '') + '）'
+                 + (f'; missing {", ".join(map(repr, sorted(union - values, key=repr)))}' if union - values else '') + '）'
                  for file, line, values in sorted(items)]
-        found.leads.append(('旧账 ' if everything and not any(file in change.files for file, _, _ in items) else '')
-                           + f'两份声明不同：{name} ' + '  '.join(parts) + step)
+        found.leads.append(('before: ' if everything and not any(file in change.files for file, _, _ in items) else '')
+                           + f'declarations differ: {name} ' + '  '.join(parts) + step)
     return found
 
 
@@ -537,6 +540,7 @@ def literal_drift(change, *, everything=False):
     before = {row['value'] for file in change.files for row in change.old_facts(file).get('literals', ())}
     before |= {row['value'] for group in groups for rows in group['spellings'].values() for row in rows
                if row['file'] not in change.files}
+    reported = False
     for group in groups:
         fresh = [value for value in group['spellings'] if value not in before]
         if not fresh and not everything:
@@ -544,10 +548,14 @@ def literal_drift(change, *, everything=False):
         parts = []
         for value, rows in group['spellings'].items():
             places = '、'.join(f'{row["file"]}:{row["line"]}' for row in rows)
-            parts.append(f'{value!r}（{places}' + ('，这次新增的写法' if value in fresh else '') + '）')
+            parts.append(f'{value!r}({places}' + (', spelling added in this task' if value in fresh else '') + ')')
         # --all also lists the spellings the baseline already had, as the old ledger.
-        found.leads.append(('' if fresh else '旧账 ') + '标签写法不一致：' + ' 与 '.join(parts)
-                           + ' → 统一成一种写法，或让它们取自同一个负责人')
+        found.leads.append(('' if fresh else 'before: ') + 'label spellings differ: ' + ' and '.join(parts)
+                           + ' -> use one spelling, or read both from one reference')
+        reported = True
+    if reported:
+        from .deprecation import warn
+        warn('label-spelling leads')
     return found
 
 
@@ -616,12 +624,15 @@ def changed_once(change, decided=()):
         if twins or similar:
             name = ident.partition(':')[2].rpartition('.')[2].strip('_').upper()
             comment = '//' if similar or language_for(node.get('file') or '') in ECMA else '#'
-            parts = ([f'改前和它一模一样的 {len(twins)} 份没改：' + '  '.join(f'{file}:{line}' for _, file, line in twins)] if twins else []) \
-                + ([f'结构相近（形状相似度不低于 {SIMILAR_FOREIGN:g}）的 {len(similar)} 份也没改：'
+            parts = ([f'previously identical copies: {len(twins)} unchanged: ' + '  '.join(f'{file}:{line}' for _, file, line in twins)] if twins else []) \
+                + ([f'similar structure (shape similarity at least {SIMILAR_FOREIGN:g}): {len(similar)} also unchanged: '
                     + '  '.join(f'{file}:{line}' for _, file, line in similar)] if similar else [])
-            found.leads.append(f'{ident.partition(":")[2]}（{node.get("file")}:{node.get("line")}）改了，' + '；'.join(parts)
-                               + f'（要一起改就一起改；要锁定：在负责人上方加 {comment} flowguard: owner {name}，'
-                                 f'副本上方加 {comment} flowguard: sensor {name}）')
+            found.leads.append(f'{ident.partition(":")[2]}({node.get("file")}:{node.get("line")}) changed; ' + '; '.join(parts)
+                               + f'(update them together when required; to lock them, write above the reference: {comment} flowguard: same {name} ref, '
+                                 f'above the copy: {comment} flowguard: same {name})')
+    if found.leads:
+        from .deprecation import warn
+        warn('similar-implementation leads')
     return found
 
 
@@ -721,9 +732,9 @@ def _load(cfg, module, qual):
             value = getattr(value, part)
     except (ImportError, SyntaxError, OSError, ArithmeticError, LookupError, ValueError, TypeError,
             AttributeError, NameError, RuntimeError, AssertionError) as error:
-        return None, f'导入出错：{type(error).__name__}: {error}'
+        return None, f'import failed: {type(error).__name__}: {error}'
     if not inspect.isfunction(value):
-        return None, f'{module}:{qual} 不是普通函数'
+        return None, f'{module}:{qual} is not an ordinary function'
     return value, ''
 
 
@@ -737,11 +748,11 @@ def _replay(runtime, function, rows, names, label, seconds=None):
     parameters = [p for p in signature.parameters.values()
                   if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
     if len(parameters) != len(names) or len(parameters) != len(signature.parameters):
-        return None, '参数个数不同'
+        return None, 'parameter counts differ'
     try:
         bound = signature.bind(*(rows[0][name] for name in names))
     except TypeError as error:
-        return None, f'参数绑定不了：{error}'
+        return None, f'arguments cannot be bound: {error}'
     axes = {}
     for parameter, name in zip(parameters, names):
         pool = axes.setdefault(parameter.name, [])
@@ -754,7 +765,7 @@ def _replay(runtime, function, rows, names, label, seconds=None):
         with watchdog(seconds):
             runtime._replay_rows(fn, bound, owner=fn, name=label, axes=axes)
     except _Timeout:
-        return None, f'超过 {seconds:g} 秒没有结束'
+        return None, f'exceeded {seconds:g} seconds without completion'
     finally:
         _PRIVATE.reset(token)
     reading = runtime.readings[start] if len(runtime.readings) > start else None
@@ -802,7 +813,7 @@ def _order(rows, names):
     return sorted(range(len(rows)), key=rank)
 
 
-def _example(rows, names, mine, reference, label='负责人'):
+def _example(rows, names, mine, reference, label='reference'):
     """The first differing finite value and the first differing non-finite one, in the fixed
     representative order (halves, negatives, zero, then boundaries), and how many more differ."""
     import math
@@ -810,9 +821,9 @@ def _example(rows, names, mine, reference, label='负责人'):
                  if not _same(mine[index], reference[index])]
     finite = [item for item in differing if all(not (type(item[0][n]) is float and not math.isfinite(item[0][n])) for n in names)]
     chosen = finite[:1] + [item for item in differing if item not in finite][:1]
-    text = '；'.join(', '.join(f'{name}={_show(row[name])}' for name in names) + f' → {_show(a)}（{label}给 {_show(b)}）'
+    text = '；'.join(', '.join(f'{name}={_show(row[name])}' for name in names) + f' → {_show(a)}({label} returns {_show(b)}）'
                     for row, a, b in chosen)
-    return text + (f'；另 {len(differing) - len(chosen)} 处不同' if len(differing) > len(chosen) else '')
+    return text + (f'; plus {len(differing) - len(chosen)} other differences' if len(differing) > len(chosen) else '')
 
 
 def _kind_of(value):
@@ -927,17 +938,17 @@ def _classes(cfg, anchor, literals=()):
     one row set for every candidate; (rows, kinds, reason)."""
     from . import anchors, cells as C, differences as D
     if any(p.role == 'context' and p.source_type not in LOOSE for p in anchor.parameters):
-        return None, {}, '负责人需要测试里的上下文参数，没有可单独运行的情况类'
+        return None, {}, 'reference needs test-context arguments; no cases can run independently'
     try:
         view = anchors.decision_reading(cfg.root, anchor)
     except (ValueError, SyntaxError, OSError) as error:
-        return None, {}, f'负责人读不了：{error}'
+        return None, {}, f'reference is unavailable: {error}'
     kinds = dict(view.kinds)
     for parameter in anchor.parameters:
         if parameter.name not in kinds and (kind := _inferred(literals)) is not None:
             kinds[parameter.name] = kind
     if not kinds or set(kinds) != {p.name for p in anchor.parameters}:
-        return None, {}, '负责人的输入不是简单类型'
+        return None, {}, 'reference inputs are not simple types'
     if set(view.kinds) == set(kinds):
         rows = [dict(region.inputs) for region in D.joint_partition(view, view).regions]
     else:
@@ -949,10 +960,10 @@ def _classes(cfg, anchor, literals=()):
 
 def _category(same, total, shape, shared):
     if same == total:
-        return '副本'
+        return 'copy'
     if 2 * same >= total and shape >= SIMILAR_SHAPE:
-        return '分叉的副本'
-    return '相似' if shared else None
+        return 'diverged copy'
+    return 'similar' if shared else None
 
 
 def discover(cfg, graph, index, change, *, everything=False, excluded=()):
@@ -991,12 +1002,12 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
             value for row in (home, *shown) for value in row['literals'])))
         label = f'{owner.name}（{owner.file}:{owner.target_line}）'
         if reason:
-            found.leads.append(f'负责人 {label} 的疑似副本 {len(shown)} 份没有比较：{reason}')
+            found.leads.append(f'reference {label} suspected copy {len(shown)} copies were not compared: {reason}')
             continue
         fn, why = _load(cfg, owner.module, owner.qual)
         reference, why = _replay(runtime, fn, rows, names, owner.name) if fn else (None, why)
         if reference is None:
-            found.leads.append(f'负责人 {label} 自己运行不了，副本没有比较：{why}')
+            found.leads.append(f'reference {label} cannot run itself; copies were not compared: {why}')
             continue
         groups, unclear = {}, []
         for row in shown:
@@ -1020,34 +1031,34 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
             continue
         quiet = f'copies:{owner.name}' in decisions
         lead = found.leads.append if not quiet else (lambda text: None)
-        lead(f'负责人 {label} 的疑似副本 {total} 份（候选 {len(candidates)} 个，用时 {seconds:.2f} 秒，'
-                           f'{len(rows)} 个代表值；这是在负责人的全部代表值上比较的结果，调用点是否走到负数、非有限值等没有核对）'
-                           f'→ 每份选一样：改成调用负责人；或在副本上方写 # flowguard: sensor {owner.name}；'
-                           f'或写 distinct("{owner.name}", "<副本的锚点名>", why="...", source="...")')
-        order = {'副本': 0, '分叉的副本': 1, '相似': 2}
+        lead(f'reference {label} has {total} suspected copies (candidates: {len(candidates)}; time: {seconds:.2f} seconds; '
+                           f'{len(rows)} representative values; compared on all reference values; call-site reachability of negative, non-finite and other values was not checked)'
+                           f'-> choose one for each copy: call the reference; or write above the copy: # flowguard: same {owner.name}；'
+                           f'or declare distinct("{owner.name}", "<copy-anchor-name>", why="...", source="...")')
+        order = {'copy': 0, 'diverged copy': 1, 'similar': 2}
         for (category, _), group in sorted(groups.items(), key=lambda item: (order[item[0][0]], item[1][0][0]['id'])):
             members = [row for row, _ in group]
             places = '  '.join(f'{row["file"]}:{row["line"]}' for row in members)
-            if category == '副本':
-                text = f'{category} {len(members)} 份（在 {len(rows)} 个代表值上与负责人相同，不是证明）：{places}'
+            if category == 'copy':
+                text = f'{category}: {len(members)} copies (match the reference on {len(rows)} representative values; not a proof): {places}'
             else:
                 apart = len({tuple(_show(value) for value in outcomes) for _, outcomes in group}) > 1
-                text = (f'{category} {len(members)} 份：{_example(rows, names, group[0][1], reference["now"])}：{places}'
-                        + ('（第一处不同相同；这几份在别的代表值上也互不相同）' if apart else ''))
+                text = (f'{category} {len(members)} copies: {_example(rows, names, group[0][1], reference["now"])}：{places}'
+                        + ('(same first difference; these copies also differ on other representative values)' if apart else ''))
             fresh = [row for row in members if row['id'] in added]
-            if fresh and old_owner and category != '相似':
-                found.red.append(f'负责人 {label} 之外新起了一份：' + '  '.join(f'{row["file"]}:{row["line"]}' for row in fresh)
-                                 + f'（{category}）→ 改成调用 {owner.qual}，或在它上方写 # flowguard: sensor {owner.name}')
-            lead(('旧账 ' if everything and not new_owner and not fresh else '') + text)
-            if category == '分叉的副本':
+            if fresh and old_owner and category != 'similar':
+                found.red.append(f'reference {label} has a new copy outside it: ' + '  '.join(f'{row["file"]}:{row["line"]}' for row in fresh)
+                                 + f'({category}) -> call {owner.qual}, or write above it: # flowguard: same {owner.name}')
+            lead(('before: ' if everything and not new_owner and not fresh else '') + text)
+            if category == 'diverged copy':
                 from .health import Issue
-                found.issues.append(Issue(f'copies:{owner.name}', 5, f'副本 {owner.name}', f'负责人 {label} 的{text}',
-                                          f'每份选一样：改成调用 {owner.qual}；或在副本上方写 # flowguard: sensor {owner.name} 并让它一致；'
-                                          f'或写 distinct("{owner.name}", "<副本的锚点名>", why="...", source="...")',
+                found.issues.append(Issue(f'copies:{owner.name}', 5, f'copy {owner.name}', f'reference {label}: {text}',
+                                          f'choose one for each copy: call {owner.qual}; or write # flowguard: same {owner.name} above the copy and make it agree; '
+                                          f'or declare distinct("{owner.name}", "<copy-anchor-name>", why="...", source="...")',
                                           frozenset({owner.target, *(row['id'] for row in members)}),
                                           frozenset({owner.file, *(row['file'] for row in members)})))
         if unclear:
-            lead(f'看不清 {len(unclear)} 份：' + '  '.join(unclear))
+            lead(f'unavailable copies: {len(unclear)} copies: ' + '  '.join(unclear))
     found.stats.update(copy_candidates=candidates_seen, copy_seconds=time.perf_counter() - started)
     return found
 
@@ -1164,12 +1175,12 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         name = anchor.name if anchor else row['qual'].strip('_').upper()
         parts = []
         if twins:
-            parts.append(f'原来和{"它们" if len(changed) > 1 else "它"}行为相同的 {len(twins)} 份没改：' + '  '.join(f'{peer["file"]}:{peer["line"]}' for peer in twins))
+            parts.append(f'{len(twins)} previously equivalent copies are unchanged: ' + '  '.join(f'{peer["file"]}:{peer["line"]}' for peer in twins))
         if similar:
-            parts.append(f'相似（结构相近或用同一个常量）的 {len(similar)} 份也没改：'
-                         + '  '.join(f'{peer["file"]}:{peer["line"]}' + (f'（看不清：{why}）' if why else '') for peer, why in similar))
+            parts.append(f'similar (structure or shared constant): {len(similar)} copies also unchanged: '
+                         + '  '.join(f'{peer["file"]}:{peer["line"]}' + (f'(unavailable: {why})' if why else '') for peer, why in similar))
         text = ('、'.join(f'{item["qual"]}（{item["file"]}:{item["line"]}）' for item in changed)
-                + (f' 这 {len(changed)} 处' if len(changed) > 1 else '') + '改了行为；' + '；'.join(parts))
+                + (f' ({len(changed)} locations)' if len(changed) > 1 else '') + ' changed behavior; ' + '；'.join(parts))
         if anchor and twins:
             # The owner is the reference: its copies follow it, and a copy that left it goes back to it. Without
             # one among them no copy is chosen: an intended change goes to every copy, any other is undone.
@@ -1177,22 +1188,39 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
                           and anchored[peer['id']].name == anchor.name), None)
             quals = '、'.join(item['qual'] for item in changed)
             if anchor.owner:
-                step = f'一起改，或改成调用 {row["qual"]}'
+                step = f'update together, or call {row["qual"]}'
             elif owner:
-                step = f'让 {quals} 回到负责人 {owner["qual"]}（{owner["file"]}:{owner["line"]}）的行为'
+                step = f'make {quals} match reference {owner["qual"]}({owner["file"]}:{owner["line"]})'
             else:
-                step = f'先定哪份对：这次是有意改的，就一起改，或改成调用 {row["qual"]}；不是，就让 {quals} 回到原来的行为'
-            found.red.append(f'{"负责人" if anchor.owner else "锚点"} {anchor.name}：' + text + ' → ' + step)
+                step = f'first decide which copy is correct: for an intended change, update together or call {row["qual"]}; otherwise make {quals} return to the original behavior'
+            found.red.append(f'{"reference" if anchor.owner else "anchor"} {anchor.name}：' + text + ' → ' + step)
         else:
-            found.leads.append(text + f'（要一起改就一起改；要锁定：在负责人上方加 # flowguard: owner {name}，'
-                                      f'副本上方加 # flowguard: sensor {name}）')
+            found.leads.append(text + f'(update them together when required; to lock them, write above the reference: # flowguard: same {name} ref, '
+                                      f'above the copy: # flowguard: same {name})')
     found.stats.update(changed_examined=examined, changed_seconds=time.perf_counter() - started)
+    if found.leads:
+        from .deprecation import warn
+        warn('similar-implementation leads')
     return found
 
 
-def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=()):
+def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=(), static=None):
     """`check`: the static findings with copy discovery and the changed-alone comparison."""
-    return static_findings(cfg, graph, index, base, everything=everything, replay=True, excluded=excluded)
+    if static is None:
+        return static_findings(cfg, graph, index, base, everything=everything, replay=True, excluded=excluded)
+    # Pytest already assembled the static facts. Replay remains outside its session and can add
+    # copy issues; assess those and refresh the combined summary without running the static checks twice.
+    from . import health
+    change = Change(cfg, graph, baseline(cfg, base))
+    found = discover(cfg, graph, index, change, everything=everything, excluded=excluded).extend(
+        changed_alone(cfg, graph, index, change, excluded=excluded))
+    found = health.assess(cfg, change, index, found)
+    opened, _ = health.decided(cfg, index, [*static.issues, *found.issues])
+    found.summary = health.summary(opened)
+    if everything:
+        from .ledger import open_legacy
+        found.section = health.section(opened) + open_legacy(cfg, graph)
+    return found
 
 
 def show_lines(cfg, graph, index, name):

@@ -4,16 +4,9 @@
 
 [中文说明](./README.zh-CN.md)
 
-FlowGuard keeps a project consistent while a coding AI changes it. Type checkers, linters and tests check that one place is written correctly; FlowGuard checks what they cannot see across the project. It guards four things:
+FlowGuard keeps recorded agreements consistent while a coding AI changes a project. Register the copies that must agree, the fields that must be written together, and the functions allowed to write a field. Ordinary tests check those agreements, independent intent rules and the fallback ledger.
 
-1. **One owner per decision or field.** A judgment or a piece of data has one owner. Other places call it, are registered copies locked to it, or are pointed out.
-2. **The owner's rules run.** A rule written from the owner's own words is red when the code breaks it, and a lead appears when the requirement changed but the rule did not.
-3. **New structural problems show up.** New fallback branches, values outside a declared set, writes outside an owner, a field written without its partner, deletes that leave children, diverging copies and new spellings of a label. Only what this change adds is reported; old problems stay in a listing you can read.
-4. **Surprising behavior changes are told.** Where a call can be replayed safely, the old and new code are compared class by class.
-
-It does not catch everything: requirements nobody wrote down, visual style, concurrency and external services are out of scope. Grey means unverified, never passed.
-
-**How it is meant to work.** Finding a problem takes careful review: an AI reading the code, a probe, the owner's words. Once found, it is registered as an owner, a pair, a value set, a rule or a ledger entry, and from then on FlowGuard keeps it from coming back. The structure listing (`check --all`) points review at the places worth reading first. The registrations grow with the software: from the first requirement on, each problem found and each rule the owner sets adds one, so the model grows from small to large together with the code.
+Finding a problem still takes careful review. Once found, register the agreement in the same change so later work cannot quietly break it. FlowGuard does not supply missing business decisions; the owner makes those decisions.
 
 ## Start
 
@@ -27,79 +20,67 @@ python -m flowguard new-task
 python -m pytest
 ```
 
-`init` enables the pytest plugin, adds the collection sentinel, a CI fragment and three project rules; in a project whose tests npm runs and pytest has none of its own, the fragment runs `check --static` against the commit where the branch left `main`. In a project whose `package.json` names vitest or jest it adds a test that runs `python -m flowguard check --static`, adds it to one test script that runs named folders only when needed (`test` first, then a unit script), and says which npm script runs it, or what to add when none does; for vitest it also wires the execution side. `new-task` records the task's baseline commit; commits made during the task keep it, so what the task changed stays reported (a task's first test run records one too when none is). Without rules, a check is quiet:
+`init` connects the project's tests, writes its FlowGuard rules block and adds a CI fragment. For a Vitest or Jest project, it also writes a static check test and reports which npm script runs it; Vitest gets the execution adapter. Use the project's ordinary test command after setup.
+
+`new-task` records the task's baseline commit. Commits during the task keep that baseline. A first test run records it too when none exists. Without intent rules, a check prints:
 
 ```text
 FlowGuard check: no intent rules.
 ```
 
-## What a test run ends with
+## Daily use
 
-After the tests, FlowGuard prints one block. Its title names the baseline commit of the task. Four kinds of lines follow, in this order: red, changes, leads, unverified. Every red is printed; changes, leads and unverified share at most ten lines; names and places are never shortened. Each red and each lead ends with the next step to copy: an owner comment, a ledger entry, the rule line to change, or a question for the owner. A grey test item is shown as `U` (`UNVERIFIED` with `-v`) and counted as `N unverified`, not as passed; the exit status is unchanged. A replay that the baseline code could still observe but the new code cannot is a lost observation and fails the run.
+1. Start the task with `python -m flowguard new-task` and read the brief.
+2. Run the project's ordinary tests and read the FlowGuard block after the runner's summary. Red findings fail the run; changes, leads and unverified observations explain what was checked. Follow the next step, and tell the owner when the output asks you to. Grey is unverified, not success.
+3. Use `python -m flowguard show "what it decides"` to inspect a named function, field or agreement before changing another copy.
 
-## The four things
+## Record an agreement
 
-### One owner, locked copies
-
-Put `# flowguard: owner NAME` above the owner and `# flowguard: sensor NAME` above every copy that must agree; differing copies are red. A data owner lists who may write it and what must change with it:
+Use `#` in Python and `//` in TS/JS. Mark every necessary copy with `same NAME`; add `ref` to the reference copy when one has been chosen:
 
 ```python
-# flowguard: owner hires.reserved writers=shop.store:reserve with=hires.updated_at
+# flowguard: same ROUND ref
+def round_amount(value: float) -> int:
+    return round(value)
+
+# flowguard: same ROUND
+def preview_amount(value: float) -> int:
+    return round(value)
 ```
 
-`check` also runs look-alikes of each owner on its classes and groups them as copies, forked copies or similar code. Without any registration, a function this change touched that used to behave like others still unchanged gives a lead. `show "what it decides"` finds the existing owner before another one is written.
+Data agreements have separate comments:
 
-### Rules from the owner's words
+```python
+# flowguard: together Booking.employee_id Booking.unit_id on=update
+# flowguard: writers Booking.employee_id reserve,release
+```
 
-A rule in `tests/intent/` states the expected answer independently of the code, keeps literal regression rows and cites its source: the owner's words, stored once and byte for byte with `python -m flowguard req add <file|-> --id R1`. Fields hidden in the context are read on the anchor with `fields name=expression`. When a constant changes from 14 to 21, a lead lists the rules and decisions still holding 14.
+`together A B,C` is directional: an operation writing A must also write B and C. `on=` limits it to `create` or `update`; `B=value` requires that value. Bare writer names refer only to the comment's file; another file uses a repository-relative position such as `src/store.py:reserve`. Exceptions use `except=path:function(reason)` and need the owner's agreement. Do not weaken an agreement to clear a finding.
 
-### New structural problems
+The old comment spellings remain accepted with a deprecation notice. The internal registration and saved inputs keep their existing meaning.
 
-`.flowguard/ledger.toml` lists every exception handler that can end without raising, with its count, its reason and the written rule it serves; `python -m flowguard ledger init` records the existing ones as legacy. A bare `except`, `except Exception`, `contextlib.suppress`, warning filters, an exit from `finally` and a truthy `__exit__` cannot be listed. Values written outside a declared set (`states`, enums, Prisma enums, SQL `CHECK`), writes outside a data owner and pair violations are red; deletes that leave children, columns one schema description lacks and new label spellings are leads. When a change touches an open structure problem, the output says to tell the owner; the owner's decision is recorded under `[structure]` and stops the reminder.
+## Rules and fallback reasons
 
-### Before and after
+An independent rule in `tests/intent/` states an expected answer and cites its source. Store the owner's actual words once, byte for byte, with `python -m flowguard req add <file|-> --id R1`. A document source quotes an exact sentence from a file listed in `authority_docs`. Never store an AI plan as the owner's words.
 
-A changed function and every anchored point are replayed on their case classes with the baseline code swapped in. A guard refuses file, process, network and database writes before they happen; a refused, uncopyable or unseen call stays grey with its reason. A changed anchor whose fingerprint did not change reuses its last comparison.
+`.flowguard/ledger.toml` records exception handlers that can finish without raising, with their count, reason and written rule. `python -m flowguard ledger init` records existing handlers; `python -m flowguard ledger check` checks the ledger. A finding names the forms that cannot be listed.
 
-## Languages
+The executable two-copy rule example and supported context annotations are in the [local reference](./.agents/skills/flowguard/reference.md).
 
-The base installation maps Python. Install `flowguard[languages]` for the other readers.
+## Other checks and languages
 
-| source | what FlowGuard does |
-| --- | --- |
-| Python | Everything above, inside ordinary pytest |
-| TS/TSX, JS/JSX | Static checks (map queries, Prisma writes, `catch` fallbacks, literals, declared sets, shapes) in `check --static` and `npm test`; with vitest (ESM) also the before/after comparison and same-name copies; jest runs the static part only |
-| Prisma schema, SQL files | Models, tables, columns (`@map`, `@@map`, `[bracketed]`), relations with `onDelete`, `CHECK` sets |
-| C, C++, C# | Frozen map readers: declarations, calls, assignments |
+Use `python -m flowguard check --static` for checks without running tests, or add `--all` to inspect the complete structure listing. `python -m flowguard check` runs affected rules and tests. Existing deep checks and finite flows are frozen; they are not part of the ordinary setup above.
 
-FlowGuard's core stays in Python; another language gets only the thin interface it needs.
+The base installation reads Python. Install `flowguard[languages]` for TS/JS, Prisma, SQL and the frozen C/C++/C# readers. Vitest with ESM supports execution observations; Jest runs static checks. Unavailable or unsupported observations stay unverified. Agreement on tested inputs does not prove the intended business answer.
 
-## Daily commands
+## Compatibility and repository
 
-| command | purpose |
-| --- | --- |
-| `python -m pytest` | Run the tests and read the FlowGuard block. |
-| `python -m flowguard` | A short brief that remembers this task's baseline commit; commits during the task keep it. |
-| `python -m flowguard new-task` | Start the next task: HEAD becomes the baseline, then the brief. |
-| `python -m flowguard show "what it decides"` | Find the owner, writers, readers, copies and rules. |
-| `python -m flowguard check` | Recheck affected rules and tests; copy discovery runs here. |
-| `python -m flowguard check --static` | Map checks without tests; exit 1 on red. |
-| `python -m flowguard check --all --deep` | Everything, with probes and mutation checks, in CI. |
-| `python -m flowguard ledger check` | List every difference between the ledger and the code. |
-| `python -m flowguard try ACCEPT days=4` | Explore one input of an anchor in its real test context. |
-| `python -m flowguard model draft PUBLISH` | Draft a small flow from recorded paths. |
-| `python -m flowguard req list` | List the owner's stored words. |
+Retained older inputs and APIs continue to work; deprecated features give a removal notice rather than silently changing their meaning. See the [4.1 notes](./docs/upgrade-4.1.md), [4.2 notes](./docs/upgrade-4.2.md) and [intent guide](./docs/intent-guide.md) for existing contracts.
 
-## Boundaries and migration
-
-Behavior is compared only in the contexts the tests reach, and the output names the test. Similar code and new spellings are leads, not proof. Consistent copies do not prove the intended answer; a rule with a source does. Versions 4.1 and 4.2 keep every 4.0 comment, rule and saved input; see [the 4.1 notes](./docs/upgrade-4.1.md), [the 4.2 notes](./docs/upgrade-4.2.md) and the [intent guide](./docs/intent-guide.md).
-
-## Repository
-
-- `flowguard/structure/`: the code map and its fixed queries.
-- `flowguard/intent/`: rules, anchors, the ledger, owners, the pytest plugin and the vitest side.
-- `flowguard/map/`: shared readers and immutable owner records.
-- `.agents/skills/flowguard/`: the single public skill.
+- `flowguard/structure/`: source facts and fixed queries.
+- `flowguard/intent/`: agreements, intent rules, the ledger and test adapters.
+- `flowguard/map/`: shared readers and immutable owner-word archives.
+- `.agents/skills/flowguard/`: the single public skill and its local reference.
 - `tests/`: ordinary tests and the project's own rules.
 
 License: MIT

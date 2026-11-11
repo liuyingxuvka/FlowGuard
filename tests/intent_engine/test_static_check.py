@@ -90,10 +90,8 @@ def test_check_static_reports_only_new_values_outside_a_check_and_lists_old_ones
     assert (code, text) == (0, ''), text                      # nothing changed: not one line
     code, text = _static(tmp_path, '--all')
     assert code == 0, text
-    old = next(line for line in text.splitlines() if line.startswith('1. 取值：'))
-    assert old == ("1. 取值：取值不在声明集合里：backend/src/services/authority/authority-integrity-repair.service.ts:20 "
-                   "AuditEvent.severity='WARN'，允许 INFO|WARNING|ERROR|CRITICAL（CHECK backend/prisma/migrations/"
-                   "20260910120000_align_runtime_storage_contract/migration.sql:9）"), old
+    old = next(line for line in text.splitlines() if line.startswith('1. value：'))
+    assert old == ("1. value：Value outside the declared set: backend/src/services/authority/authority-integrity-repair.service.ts:20 AuditEvent.severity='WARN'; allowed INFO|WARNING|ERROR|CRITICAL (CHECK backend/prisma/migrations/20260910120000_align_runtime_storage_contract/migration.sql:9)"), old
     _write(tmp_path, {'backend/src/services/notice.service.ts': '''
         export async function notice(prisma: any, id: string) {
           await prisma.auditEvent.create({ data: { severity: 'WARNING', entityId: id } });
@@ -102,11 +100,8 @@ def test_check_static_reports_only_new_values_outside_a_check_and_lists_old_ones
     '''})
     code, text = _static(tmp_path)
     assert code == 1, text
-    red = _lines(text, '红：')
-    assert red == ["红：取值不在声明集合里：backend/src/services/notice.service.ts:3 AuditEvent.severity='NOTICE'，允许 "
-                   "INFO|WARNING|ERROR|CRITICAL（CHECK backend/prisma/migrations/20260910120000_align_runtime_storage_contract/"
-                   "migration.sql:9） → 改用集合里的值；集合真要加值，先改那条声明（CHECK backend/prisma/migrations/"
-                   "20260910120000_align_runtime_storage_contract/migration.sql:9）"], text
+    red = _lines(text, 'red: ')
+    assert red == ["red: Value outside the declared set: backend/src/services/notice.service.ts:3 AuditEvent.severity='NOTICE'; allowed INFO|WARNING|ERROR|CRITICAL (CHECK backend/prisma/migrations/20260910120000_align_runtime_storage_contract/migration.sql:9) → use a value from the declared set; to add a value, change its declaration first (CHECK backend/prisma/migrations/20260910120000_align_runtime_storage_contract/migration.sql:9）"], text
     code, text = _flowguard(tmp_path, 'check', '--static', '--deep')
     assert code == 2 and 'check --static runs no tests' in text, text
 
@@ -120,9 +115,9 @@ def test_the_title_of_check_static_base_names_the_cli_option(tmp_path):
         }
     '''})
     code, text = _static(tmp_path, '--base', 'HEAD')
-    assert code == 1 and text.splitlines()[0] == 'FlowGuard（相对 --base HEAD）', text      # the option the CLI took
+    assert code == 1 and text.splitlines()[0] == 'FlowGuard（since --base HEAD）', text      # the option the CLI took
     code, text = _static(tmp_path)
-    assert code == 1 and text.splitlines()[0] == f'FlowGuard（相对任务开始 {head[:7]}）', text
+    assert code == 1 and text.splitlines()[0] == f'FlowGuard（since task start {head[:7]}）', text
 
 
 def test_value_sets_come_from_prisma_enums_sql_checks_and_typescript_types(tmp_path):
@@ -211,11 +206,11 @@ def test_a_package_whose_prisma_files_name_no_schema_in_use_is_judged_by_all_of_
         _commit(root, files)
         _write(root, write)
         code, text = _static(root)
-        red = _lines(text, '红：取值')
-        assert code == 1 and len(red) == 1 and "src/items.ts:2 Item.kind='C'，允许 A|B" in red[0], text
-        assert '没找到生成器在用的 schema，按这个包的全部 schema 判' in red[0], red
+        red = _lines(text, 'red: Value')
+        assert code == 1 and len(red) == 1 and "src/items.ts:2 Item.kind='C'; allowed A|B" in red[0], text
+        assert 'generator schema not found; checked against all schemas in this package' in red[0], red
         # the files that spell the enum alike share one set, which names each of them
-        assert '（enum Kind (' + ', '.join(f'{file}:1' for file in sorted(files)) + '，没找到' in red[0], red
+        assert ' (enum Kind (' + ', '.join(f'{file}:1' for file in sorted(files)) + ', generator schema not found' in red[0], red
     # prisma.config.ts names the schema in use: the template beside it only describes, and nothing is guessed
     root = tmp_path / 'config'
     _commit(root, {'prisma/schema.sqlite.prisma': schema.replace('  B\n', '  B\n          C\n'),
@@ -224,7 +219,7 @@ def test_a_package_whose_prisma_files_name_no_schema_in_use_is_judged_by_all_of_
                                        "export default defineConfig({ schema: 'prisma/schema.postgres.prisma' });\n"})
     _write(root, write)
     code, text = _static(root)
-    red = _lines(text, '红：取值')
+    red = _lines(text, 'red: Value')
     assert code == 1 and len(red) == 1 and '（enum Kind (prisma/schema.postgres.prisma:1)）' in red[0], text
 
 
@@ -266,12 +261,10 @@ def test_a_guessed_schema_fills_only_models_no_schema_in_use_defines_and_each_of
     # 4.1 named the field's one problem values:Note.tone: the first guessed set keeps that name (r25, docs-0)
     assert names == ['values:Note.tone', 'values:Note.tone:admin/prisma/schema.sqlite.prisma'], names
     code, text = _static(tmp_path)
-    guessed = '，没找到生成器在用的 schema，按这个包的全部 schema 判'
+    guessed = ', generator schema not found; checked against all schemas in this package'
     postgres, sqlite = (f'enum Tone (admin/prisma/schema.{name}.prisma:11{guessed})' for name in ('postgres', 'sqlite'))
-    assert code == 1 and _lines(text, '红：取值') == [
-        f"红：取值不在声明集合里：admin/src/notes.ts:3 Note.tone='Z'，允许 X|Y（{postgres}） → 改用集合里的值；集合真要加值，"
-        f"先改那条声明（{postgres}）；admin/src/notes.ts:2 Note.tone='Y'  admin/src/notes.ts:3 Note.tone='Z'，允许 X（{sqlite}）"
-        f" → 改用集合里的值；集合真要加值，先改那条声明（{sqlite}）"], text
+    assert code == 1 and _lines(text, 'red: Value') == [
+        f"red: Value outside the declared set: admin/src/notes.ts:3 Note.tone='Z'; allowed X|Y ({postgres}) → use a value from the declared set; to add a value, change its declaration first ({postgres}）；admin/src/notes.ts:2 Note.tone='Y'  admin/src/notes.ts:3 Note.tone='Z'; allowed X ({sqlite}) → use a value from the declared set; to add a value, change its declaration first ({sqlite}）"], text
     # A further set keeps its name when it is the only one broken and when its lines move.
     _write(tmp_path, {'admin/src/notes.ts': """
         export async function note(prisma: any, id: string) {
@@ -300,10 +293,8 @@ def test_archived_prisma_files_are_neither_in_use_nor_guessed(tmp_path):
         assert [(row['field'], row['values'], row['file']) for row in graph.value_sets()] == \
             [('Item.kind', ('A', 'B'), 'prisma/main.prisma')], graph.value_sets()
     code, text = _static(tmp_path)
-    assert code == 1 and _lines(text, '红：取值') == [
-        "红：取值不在声明集合里：src/items.ts:2 Item.kind='C'，允许 A|B（enum Kind (prisma/main.prisma:1，没找到生成器在用的 schema，"
-        "按这个包的全部 schema 判)） → 改用集合里的值；集合真要加值，先改那条声明（enum Kind (prisma/main.prisma:1，没找到生成器在用的 "
-        "schema，按这个包的全部 schema 判)）"], text
+    assert code == 1 and _lines(text, 'red: Value') == [
+        "red: Value outside the declared set: src/items.ts:2 Item.kind='C'; allowed A|B (enum Kind (prisma/main.prisma:1, generator schema not found; checked against all schemas in this package)) → use a value from the declared set; to add a value, change its declaration first (enum Kind (prisma/main.prisma:1, generator schema not found; checked against all schemas in this package)）"], text
     # `archives = []` makes every file live: the snapshot named schema.prisma is then the schema in use
     _write(tmp_path, {'pyproject.toml': '[tool.flowguard]\narchives = []\n'})
     with closing(build(tmp_path)) as graph:
@@ -336,12 +327,10 @@ def test_a_guessed_schema_judges_the_writes_of_its_own_package_and_of_a_package_
         names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
     assert names == ['values:Note.tone', 'values:Note.tone:web/prisma/schema.sqlite.prisma'], names
     code, text = _static(tmp_path)
-    guessed = '，没找到生成器在用的 schema，按这个包的全部 schema 判'
+    guessed = ', generator schema not found; checked against all schemas in this package'
     admin, web = f'enum Tone (admin/prisma/schema.postgres.prisma:1{guessed})', f'enum Tone (web/prisma/schema.sqlite.prisma:1{guessed})'
-    assert code == 1 and _lines(text, '红：取值') == [
-        f"红：取值不在声明集合里：admin/src/a.ts:3 Note.tone='Z'  scripts/seed.ts:2 Note.tone='W'，允许 X|Y（{admin}） → "
-        f"改用集合里的值；集合真要加值，先改那条声明（{admin}）；scripts/seed.ts:2 Note.tone='W'，允许 X|Z（{web}） → "
-        f"改用集合里的值；集合真要加值，先改那条声明（{web}）"], text
+    assert code == 1 and _lines(text, 'red: Value') == [
+        f"red: Value outside the declared set: admin/src/a.ts:3 Note.tone='Z'  scripts/seed.ts:2 Note.tone='W'; allowed X|Y ({admin}) → use a value from the declared set; to add a value, change its declaration first ({admin}）；scripts/seed.ts:2 Note.tone='W'; allowed X|Z ({web}) → use a value from the declared set; to add a value, change its declaration first ({web}）"], text
 
 
 def test_guessed_templates_with_the_same_enum_share_one_set_that_names_every_file(tmp_path):
@@ -351,13 +340,11 @@ def test_guessed_templates_with_the_same_enum_share_one_set_that_names_every_fil
                        'prisma/schema.sqlserver.prisma': _tone_schema('X', 'Y'), 'prisma/schema.mysql.prisma': _tone_schema('X')})
     _write(tmp_path, {'src/notes.ts': _tone_writes('Y', 'Z')})
     code, text = _static(tmp_path)
-    guessed = '，没找到生成器在用的 schema，按这个包的全部 schema 判'
+    guessed = ', generator schema not found; checked against all schemas in this package'
     one = f'enum Tone (prisma/schema.mysql.prisma:1{guessed})'
     three = f'enum Tone (prisma/schema.postgres.prisma:1, prisma/schema.sqlite.prisma:1, prisma/schema.sqlserver.prisma:1{guessed})'
-    assert code == 1 and _lines(text, '红：取值') == [
-        f"红：取值不在声明集合里：src/notes.ts:2 Note.tone='Y'  src/notes.ts:3 Note.tone='Z'，允许 X（{one}） → 改用集合里的值；"
-        f"集合真要加值，先改那条声明（{one}）；src/notes.ts:3 Note.tone='Z'，允许 X|Y（{three}） → 改用集合里的值；"
-        f"集合真要加值，先改那条声明（{three}）"], text
+    assert code == 1 and _lines(text, 'red: Value') == [
+        f"red: Value outside the declared set: src/notes.ts:2 Note.tone='Y'  src/notes.ts:3 Note.tone='Z'; allowed X ({one}) → use a value from the declared set; to add a value, change its declaration first ({one}）；src/notes.ts:3 Note.tone='Z'; allowed X|Y ({three}) → use a value from the declared set; to add a value, change its declaration first ({three}）"], text
     with closing(build(tmp_path)) as graph:
         sets = [(row['values'], row['files']) for row in graph.value_sets()]
         from flowguard.intent import health, owners
@@ -401,7 +388,7 @@ def test_a_value_set_problem_takes_the_name_4_1_gave_its_field_and_a_further_set
     _commit(tmp_path, message='declare the CHECK again')
     assert names() == ['values:Account.status', 'values:Note.tone'], names()
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and "Account.status='gone'，允许 open|closed（CHECK prisma/migrations/002/migration.sql:2）" in text, text
+    assert code == 0 and "Account.status='gone'; allowed open|closed (CHECK prisma/migrations/002/migration.sql:2)" in text, text
     # the decision a 4.1 project recorded on that field still closes it
     sentence = 'Old accounts keep the status gone until the cleanup job removes them.'
     _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
@@ -440,10 +427,8 @@ def test_a_generator_output_under_node_modules_is_the_client_by_its_package_name
     })
     code, text = _static(tmp_path)
     role, tier = 'enum Role (backend/prisma/schema.prisma:6)', 'enum Tier (backend/prisma/central/schema.prisma:6)'
-    assert code == 1 and _lines(text, '红：取值') == [
-        f"红：取值不在声明集合里：backend/src/b.ts:2 Person.role='N2'，允许 X|Y（{tier}） → 改用集合里的值；集合真要加值，"
-        f"先改那条声明（{tier}）；backend/src/a.ts:2 User.role='N1'  backend/src/c.ts:2 User.role='N3'，允许 A|B（{role}） → "
-        f"改用集合里的值；集合真要加值，先改那条声明（{role}）"], text
+    assert code == 1 and _lines(text, 'red: Value') == [
+        f"red: Value outside the declared set: backend/src/b.ts:2 Person.role='N2'; allowed X|Y ({tier}) → use a value from the declared set; to add a value, change its declaration first ({tier}）；backend/src/a.ts:2 User.role='N1'  backend/src/c.ts:2 User.role='N3'; allowed A|B ({role}) → use a value from the declared set; to add a value, change its declaration first ({role}）"], text
 
 
 def test_a_package_json_that_is_not_json_names_its_file(tmp_path):
@@ -477,8 +462,8 @@ def test_an_object_typed_with_a_prisma_client_type_is_gated_by_its_model(tmp_pat
         """,
     })
     code, text = _static(tmp_path)
-    red = _lines(text, '红：取值')
-    assert code == 1 and len(red) == 1 and red[0].startswith("红：取值不在声明集合里：src/sample.ts:2 Item.kind='C'，允许 A|B"), text
+    red = _lines(text, 'red: Value')
+    assert code == 1 and len(red) == 1 and red[0].startswith("red: Value outside the declared set: src/sample.ts:2 Item.kind='C'; allowed A|B"), text
 
 
 def test_a_type_from_one_schemas_client_output_is_judged_by_that_schema_and_a_guess_reaches_packages_without_its_model(tmp_path):
@@ -503,10 +488,10 @@ def test_a_type_from_one_schemas_client_output_is_judged_by_that_schema_and_a_gu
         export const c: Other = { id: '3', role: 'C' };
     """})
     code, text = _static(root)
-    red = '\n'.join(_lines(text, '红：取值'))
+    red = '\n'.join(_lines(text, 'red: Value'))
     assert code == 1, text
-    assert "backend/src/a.ts:4 User.role='B'，允许 A|C（enum Role (backend/prisma/db2/schema.prisma:6)）" in red, red
-    assert "backend/src/a.ts:5 User.role='C'，允许 A|B（enum Role (backend/prisma/db1/schema.prisma:6)）" in red, red
+    assert "backend/src/a.ts:4 User.role='B'; allowed A|C (enum Role (backend/prisma/db2/schema.prisma:6))" in red, red
+    assert "backend/src/a.ts:5 User.role='C'; allowed A|B (enum Role (backend/prisma/db1/schema.prisma:6))" in red, red
     assert 'a.ts:3' not in red, red                 # 'C' is db2's own value
     root = tmp_path / 'guess'
     note = 'enum Tone {\n  X\n  Y\n}\n\nmodel Note {\n  id   String @id\n  tone Tone\n}\n'
@@ -520,7 +505,7 @@ def test_a_type_from_one_schemas_client_output_is_judged_by_that_schema_and_a_gu
         'web/src/n.ts': "export async function add(prisma: any, id: string) {\n  await prisma.note.create({ data: { id, tone: 'Z' } });\n}\n",
     })
     code, text = _static(root)
-    red = [line.partition(' → ')[0] for line in _lines(text, '红：取值')]
+    red = [line.partition(' → ')[0] for line in _lines(text, 'red: Value')]
     # api defines no Note: db's guessed template still judges it; web defines Note itself and is not judged by db
     assert code == 1 and len(red) == 1 and "api/src/a.ts:2 Note.tone='Q'" in red[0] and 'web/src' not in red[0], text
 
@@ -534,8 +519,8 @@ def _role_schema(values, output=None, source=None):
 
 
 def _red_values(text):
-    """Each set's part of the value red line, `places，允许 values（where）`, without the step after it."""
-    head, step, out = '红：取值不在声明集合里：', ' → 改用集合里的值；集合真要加值，先改那条声明（', []
+    "Each set's part of the value red line, `places; allowed values (where)`, without the step after it."
+    head, step, out = 'red: Value outside the declared set: ', ' → use a value from the declared set; to add a value, change its declaration first (', []
     for line in _lines(text, head):
         rest = line[len(head):]
         while rest:
@@ -564,7 +549,7 @@ def test_a_schema_that_lacks_the_field_or_a_template_that_types_it_as_text_keeps
         _write(root, {'src/w.ts': write})
         code, text = _static(root)
         assert code == 1 and _red_values(text) == [
-            "src/w.ts:3 User.role='Z'  src/w.ts:5 User.role='Z'，允许 A|B（enum Role (prisma/schema.prisma:%d)）"
+            "src/w.ts:3 User.role='Z'  src/w.ts:5 User.role='Z'; allowed A|B (enum Role (prisma/schema.prisma:%d))"
             % (1 if name == 'reporting' else 6)], (name, text)
 
 
@@ -581,7 +566,7 @@ def test_a_member_typed_with_an_imported_alias_is_judged_by_the_alias_the_file_i
     _write(tmp_path, {'src/page.ts': "import type { Grid } from './types/grid';\nexport const g: Grid = { granularity: 'MONTHLY' };\n"})
     code, text = _static(tmp_path)
     red = _red_values(text)
-    assert code == 1 and len(red) == 1 and red[0].startswith("src/page.ts:2 Grid.granularity='MONTHLY'，允许 WEEK|MONTH"), text
+    assert code == 1 and len(red) == 1 and red[0].startswith("src/page.ts:2 Grid.granularity='MONTHLY'; allowed WEEK|MONTH"), text
 
 
 def test_a_schema_folder_is_one_schema_for_its_enums_and_its_datasource(tmp_path):
@@ -609,8 +594,8 @@ def test_a_schema_folder_is_one_schema_for_its_enums_and_its_datasource(tmp_path
         code, text = _static(root)
         # 'OPEN' passes: SQL Server compares without case
         assert code == 1 and _red_values(text) == [
-            "src/a.ts:4 Account.status='gone'，允许 open|closed（CHECK prisma/migrations/001/migration.sql:1）",
-            "src/a.ts:2 User.role='C'，允许 A|B（enum Role (prisma/schema/enums.prisma:1)）"], (name, text)
+            "src/a.ts:4 Account.status='gone'; allowed open|closed (CHECK prisma/migrations/001/migration.sql:1)",
+            "src/a.ts:2 User.role='C'; allowed A|B (enum Role (prisma/schema/enums.prisma:1))"], (name, text)
 
 
 def test_a_prisma_write_is_judged_by_the_schema_in_use_of_its_own_package(tmp_path):
@@ -631,8 +616,8 @@ def test_a_prisma_write_is_judged_by_the_schema_in_use_of_its_own_package(tmp_pa
     })
     code, text = _static(tmp_path)
     assert code == 1 and _red_values(text) == [
-        "apps/api/src/a.ts:2 User.role='C'  scripts/seed.ts:2 User.role='C'，允许 A|B（enum Role (apps/api/prisma/schema.prisma:1)）",
-        "apps/worker/src/bad.ts:2 User.role='B'，允许 A|C（enum Role (apps/worker/prisma/schema.prisma:1)）"], text
+        "apps/api/src/a.ts:2 User.role='C'  scripts/seed.ts:2 User.role='C'; allowed A|B (enum Role (apps/api/prisma/schema.prisma:1))",
+        "apps/worker/src/bad.ts:2 User.role='B'; allowed A|C (enum Role (apps/worker/prisma/schema.prisma:1))"], text
 
 
 def test_a_write_through_a_client_of_two_differing_schemas_is_left_unjudged_and_a_typed_object_keeps_its_schema(tmp_path):
@@ -660,7 +645,7 @@ def test_a_write_through_a_client_of_two_differing_schemas_is_left_unjudged_and_
     code, text = _static(tmp_path)
     # which client a `user.create` goes through is not read: neither enum judges it
     assert code == 1 and _red_values(text) == [
-        "backend/src/a.ts:9 User.role='B'，允许 A|C（enum Role (backend/prisma/db2/schema.prisma:6)）"], text
+        "backend/src/a.ts:9 User.role='B'; allowed A|C (enum Role (backend/prisma/db2/schema.prisma:6))"], text
 
 
 def test_an_import_of_a_generated_prisma_output_is_judged_by_its_own_schema(tmp_path):
@@ -679,8 +664,8 @@ def test_an_import_of_a_generated_prisma_output_is_judged_by_its_own_schema(tmp_
     """})
     code, text = _static(tmp_path)
     assert code == 1 and _red_values(text) == [
-        "src/a.ts:5 User.role='B'，允许 A|C（enum Role (prisma/analytics/schema.prisma:6)）",
-        "src/a.ts:4 User.role='C'，允许 A|B（enum Role (prisma/schema.prisma:6)）"], text
+        "src/a.ts:5 User.role='B'; allowed A|C (enum Role (prisma/analytics/schema.prisma:6))",
+        "src/a.ts:4 User.role='C'; allowed A|B (enum Role (prisma/schema.prisma:6))"], text
 
 
 def test_a_typescript_type_declared_with_different_sets_in_several_files_is_judged_by_its_own_declaration(tmp_path):
@@ -701,9 +686,9 @@ def test_a_typescript_type_declared_with_different_sets_in_several_files_is_judg
     })
     code, text = _static(tmp_path)
     assert code == 1 and _red_values(text) == [
-        "src/Tile.tsx:1 Props.tone='sunk'，允许 flat|raised（src/Card.tsx:1）",
-        "src/Panel.tsx:2 Props.variant='primary'，允许 info|warning（src/Badge.tsx:1）",
-        "src/Button.tsx:3 Props.variant='info'，允许 primary|secondary（src/Button.tsx:1）"], text
+        "src/Tile.tsx:1 Props.tone='sunk'; allowed flat|raised (src/Card.tsx:1)",
+        "src/Panel.tsx:2 Props.variant='primary'; allowed info|warning (src/Badge.tsx:1)",
+        "src/Button.tsx:3 Props.variant='info'; allowed primary|secondary (src/Button.tsx:1)"], text
     with closing(build(tmp_path)) as graph:
         from flowguard.intent import health, owners
         names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
@@ -729,7 +714,7 @@ def test_a_schema_in_use_whose_field_is_no_enum_leaves_its_own_writes_to_no_enum
     })
     code, text = _static(root)
     assert code == 1 and _red_values(text) == [
-        "apps/api/src/a.ts:2 User.role='Z'  scripts/seed.ts:2 User.role='Z'，允许 A|B（enum Role (apps/api/prisma/schema.prisma:1)）"], text
+        "apps/api/src/a.ts:2 User.role='Z'  scripts/seed.ts:2 User.role='Z'; allowed A|B (enum Role (apps/api/prisma/schema.prisma:1))"], text
     root = tmp_path / 'clients'
     _commit(root, {
         'backend/package.json': '{"name": "backend"}',
@@ -749,7 +734,7 @@ def test_a_schema_in_use_whose_field_is_no_enum_leaves_its_own_writes_to_no_enum
     # db2's String judges its own client's object by no enum; which client `prisma.user.create` goes through is
     # unknown while the package's two schemas type the field differently
     assert code == 1 and _red_values(text) == [
-        "backend/src/a.ts:4 User.role='Z'，允许 A|B（enum Role (backend/prisma/db1/schema.prisma:6)）"], text
+        "backend/src/a.ts:4 User.role='Z'; allowed A|B (enum Role (backend/prisma/db1/schema.prisma:6))"], text
 
 
 def test_a_typed_object_in_a_file_that_declares_its_type_without_a_set_is_not_judged_by_another_files_set(tmp_path):
@@ -773,7 +758,7 @@ def test_a_typed_object_in_a_file_that_declares_its_type_without_a_set_is_not_ju
         assert graph.ts_type_files()['Props'] == {'src/Alert.tsx', 'src/Badge.tsx', 'src/Card.tsx', 'src/Form.tsx'}
     code, text = _static(tmp_path)
     assert code == 1 and _red_values(text) == [
-        "src/Loose.tsx:1 Props.variant='other'  src/Panel.tsx:2 Props.variant='error'，允许 info|warning（src/Badge.tsx:1）"], text
+        "src/Loose.tsx:1 Props.variant='other'  src/Panel.tsx:2 Props.variant='error'; allowed info|warning (src/Badge.tsx:1)"], text
 
 
 def test_typescript_sets_of_one_name_from_aliases_of_one_file_keep_apart_names(tmp_path):
@@ -827,7 +812,7 @@ def test_a_guessed_schemas_enum_keeps_the_plain_name_beside_a_check_as_4_1_named
     code, text = _static(tmp_path, '--all')
     # the 4.1 decision closes the enum's problem, as in 4.1; the CHECK, which 4.1 did not read beside it, is open
     assert code == 0 and 'open|closed|gone' not in text and \
-        "src/a.ts:2 Account.status='gone'  src/a.ts:3 Account.status='zzz'，允许 open|closed（CHECK prisma/migrations/001/migration.sql:1）" in text, text
+        "src/a.ts:2 Account.status='gone'  src/a.ts:3 Account.status='zzz'; allowed open|closed (CHECK prisma/migrations/001/migration.sql:1)" in text, text
 
 
 def test_a_schema_folder_at_the_repository_root_keeps_its_name_in_the_brief(tmp_path):
@@ -844,7 +829,7 @@ def test_a_schema_folder_at_the_repository_root_keeps_its_name_in_the_brief(tmp_
         from flowguard.intent import health, owners
         change = owners.Change(_config(tmp_path), graph, None)
         found = [(issue.name, issue.short) for issue in [*health.columns(change).issues, *health.delete_rules(change).issues]]
-    assert found == [('columns:./~db/schema.prisma', '缺列 ./'), ('ondelete:./~db/schema.prisma', 'onDelete ./')], found
+    assert found == [('columns:./~db/schema.prisma', 'missing columns ./'), ('ondelete:./~db/schema.prisma', 'onDelete ./')], found
 
 
 def test_archived_prisma_files_take_no_part_in_two_declarations_differ(tmp_path):
@@ -859,8 +844,8 @@ def test_archived_prisma_files_take_no_part_in_two_declarations_differ(tmp_path)
     })
     _write(tmp_path, {'prisma/schema.prisma': item % '  A\n  B\n  C\n  D\n'})
     code, text = _flowguard(tmp_path, 'check', '--static', '--leads')
-    differ = [line for line in text.splitlines() if '两份声明不同' in line]
-    assert code == 0 and len(differ) == 1 and 'docs/' not in differ[0] and "src/kinds.ts:2（'A' | 'B' | 'C'；少 'D'）" in differ[0], text
+    differ = [line for line in text.splitlines() if 'declarations differ' in line]
+    assert code == 0 and len(differ) == 1 and 'docs/' not in differ[0] and "src/kinds.ts:2（'A' | 'B' | 'C'; missing 'D'）" in differ[0], text
 
 
 def test_a_prisma_client_type_under_an_alias_a_namespace_or_a_generator_output_is_gated_by_its_model(tmp_path):
@@ -906,10 +891,8 @@ def test_a_prisma_client_type_under_an_alias_a_namespace_or_a_generator_output_i
         """,
     })
     code, text = _static(tmp_path)
-    assert code == 1 and _lines(text, '红：取值') == [
-        "红：取值不在声明集合里：src/alias.ts:2 Item.kind='C'  src/output.ts:2 Item.kind='G'  src/space.ts:3 Item.kind='D'  "
-        "src/space.ts:4 Item.kind='E'，允许 A|B（enum Kind (prisma/schema.prisma:6)） → 改用集合里的值；集合真要加值，"
-        "先改那条声明（enum Kind (prisma/schema.prisma:6)）"], text
+    assert code == 1 and _lines(text, 'red: Value') == [
+        "red: Value outside the declared set: src/alias.ts:2 Item.kind='C'  src/output.ts:2 Item.kind='G'  src/space.ts:3 Item.kind='D'  src/space.ts:4 Item.kind='E'; allowed A|B (enum Kind (prisma/schema.prisma:6)) → use a value from the declared set; to add a value, change its declaration first (enum Kind (prisma/schema.prisma:6)）"], text
 
 
 def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript_types_apart(tmp_path):
@@ -1020,23 +1003,18 @@ def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript
                         ('Gauge.level', 'Gauge.level', ('LOW', 'HIGH', 'MID'), 'sql-check'),
                         ('Notice.kind', 'Notice.kind', ('CREATED', 'UPDATED'), 'sql-check')], sets
     code, text = _static(tmp_path, '--all')
-    values = [line for line in text.splitlines() if '取值：' in line]
+    values = [line for line in text.splitlines() if 'value：' in line]
     # 'UPDATED' is in the CHECK the database runs (the template enum lacks it); the archived description under
     # docs/ does not add 'ARCHIVED'; 'MID' passes the CHECK but not the enum of the schema in use; the frontend
     # Demand is judged by its own union only.
     assert values == [
-        "1. 取值：取值不在声明集合里：frontend/src/demand.ts:3 Demand.unit='DAYS'，允许 FTE|HOURS（frontend/src/types.ts:1）",
-        "2. 取值：取值不在声明集合里：backend/src/notice.service.ts:4 Gauge.level='MID'，允许 LOW|HIGH"
-        "（enum Level (backend/prisma/central/central.prisma:6)）",
-        "3. 取值：取值不在声明集合里：backend/src/notice.service.ts:3 Notice.kind='ARCHIVED'，允许 CREATED|UPDATED"
-        "（CHECK backend/prisma/migrations/001/migration.sql:1）"], text
-    differ = sorted(line for line in _lines(text, '线索：旧账 两份声明不同：'))
+        "1. value：Value outside the declared set: frontend/src/demand.ts:3 Demand.unit='DAYS'; allowed FTE|HOURS (frontend/src/types.ts:1)",
+        "2. value：Value outside the declared set: backend/src/notice.service.ts:4 Gauge.level='MID'; allowed LOW|HIGH (enum Level (backend/prisma/central/central.prisma:6))",
+        "3. value：Value outside the declared set: backend/src/notice.service.ts:3 Notice.kind='ARCHIVED'; allowed CREATED|UPDATED (CHECK backend/prisma/migrations/001/migration.sql:1)"], text
+    differ = sorted(line for line in _lines(text, 'lead: before: declarations differ: '))
     assert differ == [
-        "线索：旧账 两份声明不同：Gauge.level backend/prisma/central/central.prisma:6（'HIGH' | 'LOW'；少 'MID'）  "
-        "backend/prisma/central/migrations/001/migration.sql:1（'HIGH' | 'LOW' | 'MID'） → 补上缺的值；那份描述不再使用，就写明或删掉它",
-        "线索：旧账 两份声明不同：Notice.kind backend/prisma/migrations/001/migration.sql:1（'CREATED' | 'UPDATED'；少 'DELETED'）  "
-        "backend/prisma/schema.sqlite.prisma:6（'CREATED'；少 'DELETED', 'UPDATED'）  backend/src/types/notice.ts:1"
-        "（'CREATED' | 'DELETED' | 'UPDATED'） → 补上缺的值；那份描述不再使用，就写明或删掉它"], text
+        "lead: before: declarations differ: Gauge.level backend/prisma/central/central.prisma:6（'HIGH' | 'LOW'; missing 'MID'）  backend/prisma/central/migrations/001/migration.sql:1（'HIGH' | 'LOW' | 'MID'） → add missing values; mark an unused description or remove it",
+        "lead: before: declarations differ: Notice.kind backend/prisma/migrations/001/migration.sql:1（'CREATED' | 'UPDATED'; missing 'DELETED'）  backend/prisma/schema.sqlite.prisma:6（'CREATED'; missing 'DELETED', 'UPDATED'）  backend/src/types/notice.ts:1（'CREATED' | 'DELETED' | 'UPDATED'） → add missing values; mark an unused description or remove it"], text
 
 
 def _config(root):
@@ -1074,7 +1052,7 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
     _commit(tmp_path, files)
     _write(tmp_path, {'src/owners.ts': '// flowguard: owner Central.orgUnitId with=Local.unitId\nexport {};\n'})
     code, text = _static(tmp_path)
-    assert code == 0 and '配对没写' not in text, text            # move writes Local.unitId through this.mirror()
+    assert code == 0 and 'missing paired write' not in text, text            # move writes Local.unitId through this.mirror()
     _write(tmp_path, {'src/admin.ts': '''
         export async function editCentral(prisma: any, id: string, unit: string) {
           await prisma.central.update({ where: { id }, data: { orgUnitId: unit } });
@@ -1082,10 +1060,8 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
     '''})
     code, text = _static(tmp_path)
     assert code == 1, text
-    assert _lines(text, '红：配对没写') == [
-        '红：配对没写 Central.orgUnitId：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId，'
-        '同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 Local.unitId → 补写；有意只写一边，'
-        '把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
+    assert _lines(text, 'red: missing paired write') == [
+        'red: missing paired write for Central.orgUnitId：src/admin.ts:2 editCentral(JS/TS calls resolved by name) writes Central.orgUnitId, the same operation (3 caller levels, then 3 callee levels) does not write Local.unitId → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at src/owners.ts:1）'], text
 
 
 # Round 22 E1, hole 1: the four `w1` wrong fixes of the Planning Tool's registered pairs write the partner field as
@@ -1183,11 +1159,11 @@ def test_a_partner_field_written_as_undefined_is_not_written(tmp_path, case):
     _commit(tmp_path, {'prisma/schema.prisma': E1_SCHEMA, 'src/owners.ts': E1_OWNERS})
     _write(tmp_path, {'src/change.ts': E1_WRONG_FIXES[case]})
     code, text = _static(tmp_path)
-    assert code == 1 and [line.partition('：')[0] for line in _lines(text, '红：配对没写 ' + owner + '：src/change.ts:')] == ['红'], text
+    assert code == 1 and [line.partition(': ')[0] for line in _lines(text, 'red: missing paired write for ' + owner + '：src/change.ts:')] == ['red'], text
     # null is a value Prisma writes: the same change with null holds the pair.
     _write(tmp_path, {'src/change.ts': E1_WRONG_FIXES[case].replace('undefined', 'null').replace('void 0', 'null')})
     code, text = _static(tmp_path)
-    assert code == 0 and '配对没写' not in text, text
+    assert code == 0 and 'missing paired write' not in text, text
 
 
 def test_the_pair_reds_of_two_owners_are_two_lines(tmp_path):
@@ -1226,10 +1202,10 @@ def test_the_pair_reds_of_two_owners_are_two_lines(tmp_path):
     '''})
     code, text = _static(tmp_path)
     assert code == 1, text
-    red = _lines(text, '红：配对没写')
-    assert [line.partition('：')[0] for line in red] == ['红', '红'] and len(red) == 2, text
-    assert red[0].startswith('红：配对没写 Central.orgUnitId：src/admin.ts:2 editCentral') and '；' not in red[0].partition(' → ')[0], red
-    assert red[1].startswith('红：配对没写 Project.leaderId：src/admin.ts:6 lead') and 'Central' not in red[1], red
+    red = _lines(text, 'red: missing paired write')
+    assert [line.partition(': ')[0] for line in red] == ['red', 'red'] and len(red) == 2, text
+    assert red[0].startswith('red: missing paired write for Central.orgUnitId：src/admin.ts:2 editCentral') and '；' not in red[0].partition(' → ')[0], red
+    assert red[1].startswith('red: missing paired write for Project.leaderId：src/admin.ts:6 lead') and 'Central' not in red[1], red
 
 
 def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
@@ -1252,7 +1228,7 @@ def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
         'pyproject.toml': '[tool.pytest.ini_options]\ntestpaths = ["tests"]\n',
     })
     code, text = _pytest(tmp_path)
-    assert code == 0 and '配对没写' not in text, text
+    assert code == 0 and 'missing paired write' not in text, text
     _write(tmp_path, {'src/admin.ts': '''
         export async function editCentral(prisma: any, id: string, unit: string) {
           await prisma.central.update({ where: { id }, data: { orgUnitId: unit } });
@@ -1260,7 +1236,7 @@ def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
     '''})
     code, text = _pytest(tmp_path)
     assert code == 1, text
-    assert '红：配对没写 Central.orgUnitId：src/admin.ts:2 editCentral（JS/TS 调用按名字解析） 写了 Central.orgUnitId' in text, text
+    assert 'red: missing paired write for Central.orgUnitId：src/admin.ts:2 editCentral(JS/TS calls resolved by name) writes Central.orgUnitId' in text, text
 
 
 def test_the_value_gate_reads_the_fallback_of_a_nullish_default(tmp_path):
@@ -1287,9 +1263,8 @@ def test_the_value_gate_reads_the_fallback_of_a_nullish_default(tmp_path):
     '''})
     code, text = _static(tmp_path)
     assert code == 1, text
-    assert [line.partition(' → ')[0] for line in _lines(text, '红：取值')] == [
-        "红：取值不在声明集合里：src/projects.ts:3 Project.sourceType='CSV_IMPORT'，允许 MANUAL|IMPORT"
-        "（CHECK prisma/migrations/001/migration.sql:1）"], text
+    assert [line.partition(' → ')[0] for line in _lines(text, 'red: Value')] == [
+        "red: Value outside the declared set: src/projects.ts:3 Project.sourceType='CSV_IMPORT'; allowed MANUAL|IMPORT (CHECK prisma/migrations/001/migration.sql:1)"], text
 
 
 def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_path):
@@ -1324,14 +1299,12 @@ def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_
     _write(tmp_path, {'src/owners.ts': owner})
     code, text = _static(tmp_path)
     assert code == 1, text
-    assert _lines(text, '红：配对没写') == [
-        '红：配对没写 Employee.sapRef：src/employees.ts:9 fixNumber（JS/TS 调用按名字解析）（只查修改） 写了 Employee.sapRef，同一操作'
-        '（调用方向上 3 层、再从那里向下 3 层）里没写 Opportunity.responsibleNo → 补写；有意只写一边，把函数加进 owner 行的 '
-        'alone=函数名(理由)（owner 注释在 src/owners.ts:1）'], text
+    assert _lines(text, 'red: missing paired write') == [
+        'red: missing paired write for Employee.sapRef：src/employees.ts:9 fixNumber(JS/TS calls resolved by name)(updates only) writes Employee.sapRef, the same operation (3 caller levels, then 3 callee levels) does not write Opportunity.responsibleNo → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at src/owners.ts:1）'], text
     _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=create')})
     code, text = _static(tmp_path)
-    assert code == 1 and [line.partition('（JS/TS')[0] for line in _lines(text, '红：配对没写')] == [
-        '红：配对没写 Employee.sapRef：src/employees.ts:2 hire'], text
+    assert code == 1 and [line.partition('(JS/TS')[0] for line in _lines(text, 'red: missing paired write')] == [
+        'red: missing paired write for Employee.sapRef：src/employees.ts:2 hire'], text
     _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=later')})
     code, text = _static(tmp_path)
     assert code == 1 and 'on= is update or create and limits with=: owner Model.field with=Other.field on=update' in text, text
@@ -1379,9 +1352,8 @@ def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_he
     code, text = _static(tmp_path)
     assert code == 1, text
     # _reserve_row writes reserved alone, but its caller reserve writes state='held' through _hold_row
-    assert _lines(text, '红：配对没写') == [
-        '红：配对没写 hires.reserved：shop/store.py:16 release 写了 hires.reserved，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 '
-        'hires.state=held → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 shop/store.py:1）'], text
+    assert _lines(text, 'red: missing paired write') == [
+        'red: missing paired write for hires.reserved：shop/store.py:16 release writes hires.reserved, the same operation (3 caller levels, then 3 callee levels) does not write hires.state=held → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at shop/store.py:1）'], text
 
 
 def test_show_a_model_field_lists_sql_file_writes_and_counts_the_lines_it_leaves_out(tmp_path):
@@ -1471,10 +1443,8 @@ def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_pa
     assert code == 1, text
     # moveManager reaches mirrorSap through `this` in its own package; the page's calls are the frontend's own
     # names, and the test that calls dropManager is not part of its operation; the test's fixture is no write to hold.
-    assert _lines(text, '红：配对没写') == [
-        '红：配对没写 Unit.managerId：backend/src/unit.service.ts:13 removeManager  backend/src/unit.service.ts:16 dropManager'
-        '（JS/TS 调用按名字解析） 写了 Unit.managerId，同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 Unit.managerSap'
-        ' → 补写；有意只写一边，把函数加进 owner 行的 alone=函数名(理由)（owner 注释在 backend/src/owners.ts:1）'], text
+    assert _lines(text, 'red: missing paired write') == [
+        'red: missing paired write for Unit.managerId：backend/src/unit.service.ts:13 removeManager  backend/src/unit.service.ts:16 dropManager(JS/TS calls resolved by name) writes Unit.managerId, the same operation (3 caller levels, then 3 callee levels) does not write Unit.managerSap → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at backend/src/owners.ts:1）'], text
 
 
 def test_show_of_a_field_names_the_fields_its_writers_also_write_as_with_candidates(tmp_path):
@@ -1560,15 +1530,14 @@ def test_a_new_hard_delete_names_the_children_it_leaves_once_per_function_and_pa
     '''})
     code, text = _static(tmp_path)
     assert code == 0, text
-    leads = _lines(text, '线索：删除没处理子表')
+    leads = _lines(text, 'lead: Delete leaves child rows')
     assert len(leads) == 1, text
-    assert leads[0].startswith('线索：删除没处理子表：backend/src/services/hard-delete.service.ts:9  '
-                               'backend/src/services/hard-delete.service.ts:10 removeEmployeeRow 删 Employee，NoAction 子表 '), leads
-    listed = leads[0].partition('NoAction 子表 ')[2].partition(' 在同一操作里')[0]
+    assert leads[0].startswith('lead: Delete leaves child rows: backend/src/services/hard-delete.service.ts:9  backend/src/services/hard-delete.service.ts:10 removeEmployeeRow deletes Employee; NoAction child tables '), leads
+    listed = leads[0].partition('NoAction child tables ')[2].partition(' are not ')[0]
     # deleted (UserRole), counted inside OR (AuthorityAssignment), nulled (AuditEvent), Cascade (EmployeeLog) and a
     # table no code creates or updates rows in (EmployeeBadge) are not listed; the optional self relation
     # Employee.supervisor is (round 21, P12): one employee row is deleted and the copied create writes supervisorId.
-    assert listed == 'Employee、EmployeeNote、EmployeeTransfer（3 个外键：decidedById、employeeId、requestedById）、Notification', listed
+    assert listed == 'Employee, EmployeeNote, EmployeeTransfer (3 foreign keys: decidedById, employeeId, requestedById), Notification', listed
     assert '[structure."delete:backend/src/services/hard-delete.service.ts:removeEmployeeRow:Employee"]' in text, text
 
 
@@ -1608,10 +1577,8 @@ def test_an_optional_relation_over_a_required_key_restricts_the_delete(tmp_path)
         }
     '''})
     code, text = _static(tmp_path)
-    assert code == 0 and _lines(text, '线索：删除没处理子表') == [
-        '线索：删除没处理子表：src/remove.ts:2 removeUnit 删 Unit，Restrict 子表 Room 在同一操作里没删、没置空、没计数'
-        '（调用按名字解析） → 删除前先删或置空这些子表的行，或先计数并拒绝删除；有意交给数据库拒绝，就把决定记进 '
-        '.flowguard/ledger.toml：'], text
+    assert code == 0 and _lines(text, 'lead: Delete leaves child rows') == [
+        'lead: Delete leaves child rows: src/remove.ts:2 removeUnit deletes Unit; Restrict child tables Room are not deleted, cleared or counted in the same operation (calls resolved by name) → delete or clear these child rows first, or count them and reject deletion; if database rejection is intentional, record the decision in .flowguard/ledger.toml:'], text
 
 
 def test_a_one_row_delete_of_a_tree_the_code_builds_names_its_children(tmp_path):
@@ -1665,10 +1632,8 @@ def test_a_one_row_delete_of_a_tree_the_code_builds_names_its_children(tmp_path)
     code, text = _static(tmp_path)
     assert code == 0, text
     # Folder rows go in a loop (hierarchy order) or all at once; no code links Tag rows into a tree.
-    assert _lines(text, '线索：删除没处理子表') == [
-        '线索：删除没处理子表：src/remove.ts:2 removeDemand 删 Demand，NoAction 子表 Demand 在同一操作里没删、没置空、没计数'
-        '（调用按名字解析） → 删除前先删或置空这些子表的行，或先计数并拒绝删除；有意交给数据库拒绝，就把决定记进 '
-        '.flowguard/ledger.toml：'], text
+    assert _lines(text, 'lead: Delete leaves child rows') == [
+        'lead: Delete leaves child rows: src/remove.ts:2 removeDemand deletes Demand; NoAction child tables Demand are not deleted, cleared or counted in the same operation (calls resolved by name) → delete or clear these child rows first, or count them and reject deletion; if database rejection is intentional, record the decision in .flowguard/ledger.toml:'], text
 
 
 def test_a_tree_whose_parent_key_can_be_null_is_left_to_a_delete_of_many_rows_also_over_a_required_tenant_key(tmp_path):
@@ -1701,10 +1666,8 @@ def test_a_tree_whose_parent_key_can_be_null_is_left_to_a_delete_of_many_rows_al
     '''})
     code, text = _static(tmp_path)
     # the one-row delete of a tree the code builds still names its children
-    assert code == 0 and _lines(text, '线索：删除没处理子表') == [
-        '线索：删除没处理子表：src/clear.ts:5 removeNode 删 Node，Restrict 子表 Node（2 个外键：tenantId、parentId） '
-        '在同一操作里没删、没置空、没计数（调用按名字解析） → 删除前先删或置空这些子表的行，或先计数并拒绝删除；有意交给数据库拒绝，'
-        '就把决定记进 .flowguard/ledger.toml：'], text
+    assert code == 0 and _lines(text, 'lead: Delete leaves child rows') == [
+        'lead: Delete leaves child rows: src/clear.ts:5 removeNode deletes Node; Restrict child tables Node (2 foreign keys: tenantId, parentId) are not deleted, cleared or counted in the same operation (calls resolved by name) → delete or clear these child rows first, or count them and reject deletion; if database rejection is intentional, record the decision in .flowguard/ledger.toml:'], text
 
 
 def test_a_table_the_code_reads_or_deletes_but_never_fills_is_a_structure_problem(tmp_path):
@@ -1757,19 +1720,18 @@ def test_a_table_the_code_reads_or_deletes_but_never_fills_is_a_structure_proble
         ''',
     })
     code, text = _static(tmp_path, '--all')
-    found = [line for line in text.splitlines() if '建行：' in line]
+    found = [line for line in text.splitlines() if 'row creation：' in line]
     # Level rows come from a migration's INSERT, Note rows from code; a test fixture and an archived SQL file
     # under docs/ make no rows the application has.
     assert found == [
-        '1. 建行：代码从不建行的表：Deputy 读 src/deputies.ts:2，删 src/deputies.ts:5，没有一处 create/upsert/INSERT',
-        '2. 建行：代码从不建行的表：Request 读 src/deputies.ts:7，改 src/deputies.ts:6，没有一处 create/upsert/INSERT'], text
+        '1. row creation：Table whose rows are never created by this code: Deputy read src/deputies.ts:2，delete src/deputies.ts:5; no create/upsert/INSERT exists',
+        '2. row creation：Table whose rows are never created by this code: Request read src/deputies.ts:7，update src/deputies.ts:6; no create/upsert/INSERT exists'], text
     assert '       [structure."uncreated:Deputy"]' in text, text
     source = tmp_path / 'src/deputies.ts'
     source.write_text(source.read_text().replace('where: { id } }', 'where: { id }, take: 5 }'))
     code, text = _static(tmp_path)
-    assert _lines(text, '线索：未决结构问题：代码从不建行的表') == [
-        '线索：未决结构问题：代码从不建行的表：Deputy 读 src/deputies.ts:2，删 src/deputies.ts:5，没有一处 create/upsert/INSERT'
-        ' → 先告诉主人：这些行从哪里来（种子、迁移、外部系统）；没有来源就删掉这些读和删，有意如此就把决定记进 .flowguard/ledger.toml：'], text
+    assert _lines(text, 'lead: Open structure issue: Table whose rows are never created by this code') == [
+        'lead: Open structure issue: Table whose rows are never created by this code: Deputy read src/deputies.ts:2，delete src/deputies.ts:5; no create/upsert/INSERT exists → ask the owner where these rows come from (seeds, migrations or external systems); if there is no source, remove these reads and deletes; if intentional, record the decision in .flowguard/ledger.toml:'], text
 
 
 def test_a_prisma_view_the_code_reads_is_not_a_table_without_rows(tmp_path):
@@ -1799,8 +1761,8 @@ def test_a_prisma_view_the_code_reads_is_not_a_table_without_rows(tmp_path):
         ''',
     })
     code, text = _static(tmp_path, '--all')
-    assert [line for line in text.splitlines() if '建行：' in line] == [
-        '1. 建行：代码从不建行的表：Audit 读 src/users.ts:3，没有一处 create/upsert/INSERT'], text
+    assert [line for line in text.splitlines() if 'row creation：' in line] == [
+        '1. row creation：Table whose rows are never created by this code: Audit read src/users.ts:3; no create/upsert/INSERT exists'], text
 
 
 # ---- fixed example 17: columns one description lacks -------------------------------------------------
@@ -1826,18 +1788,14 @@ def test_delete_rules_that_differ_between_two_schemas_are_one_structure_problem_
     _commit(tmp_path, {'prisma/schema.prisma': schema % ('sqlserver', 'NoAction'),
                        'prisma/schema.sqlite.prisma': schema % ('sqlite', 'NoAction')})
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and 'onDelete 不同' not in text, text
+    assert code == 0 and 'onDelete differs' not in text, text
     _write(tmp_path, {'prisma/schema.sqlite.prisma': schema % ('sqlite', 'Cascade')})
     code, text = _static(tmp_path)
-    leads = _lines(text, '线索：onDelete 不同')
+    leads = _lines(text, 'lead: onDelete differs')
     assert code == 0 and leads == [
-        '线索：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：这次新增 1 条关系（共 1 条；'
-        '括号里先是 prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / Cascade） → 让两份 schema 的删除规则一致，或让测试用的那份也照在用的那份删；'
-        '有意不同（例如 SQL Server 不允许多条级联路径），就把决定记进 .flowguard/ledger.toml： '
-        '[structure."ondelete:prisma/schema.prisma~prisma/schema.sqlite.prisma"] '
-        'decision = "换成主人的决定：谁负责、为什么这样（不少于 8 个词）" source = "R<n>"'], text
+        'lead: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations added in this change (1 total; parentheses show prisma/schema.prisma\'s rule first, then this description\'s rule): Room.unit（NoAction/Restrict / Cascade） → align deletion rules in both schemas, including the test schema; if differences are intentional (for example, SQL Server disallows multiple cascade paths), record the decision in .flowguard/ledger.toml: [structure."ondelete:prisma/schema.prisma~prisma/schema.sqlite.prisma"] decision = "Replace with the owner\'s decision: who owns this and why (at least 8 words)" source = "R<n>"'], text
     code, text = _static(tmp_path, '--all')
-    assert '. 删除：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma' in text, text
+    assert '. delete：onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma' in text, text
 
 
 ROOMS = '''
@@ -1874,13 +1832,12 @@ def test_the_ondelete_lead_names_the_relations_the_change_added_and_the_listing_
                        'prisma/schema.sqlite.prisma': _rooms('sqlite', [(name, 'Cascade') for name, _ in old] + [('Zulu', 'NoAction')])})
     _write(tmp_path, {'prisma/schema.sqlite.prisma': _rooms('sqlite', [(name, 'Cascade') for name, _ in old] + [('Zulu', 'SetNull')])})
     code, text = _static(tmp_path)
-    leads = _lines(text, '线索：onDelete 不同')
+    leads = _lines(text, 'lead: onDelete differs')
     assert code == 0 and len(leads) == 1, text
-    assert leads[0].startswith('线索：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：这次新增 1 条关系'
-                               '（共 8 条；括号里先是 prisma/schema.prisma 的规则，再是这份的）：Zulu.unit（NoAction/Restrict / SetNull） → '), leads
+    assert leads[0].startswith("lead: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations added in this change (8 total; parentheses show prisma/schema.prisma's rule first, then this description's rule): Zulu.unit（NoAction/Restrict / SetNull） → "), leads
     code, text = _static(tmp_path, '--all')
-    listed = next(line for line in text.splitlines() if '. 删除：onDelete 不同' in line)
-    assert listed.endswith('：8 条关系（括号里先是 prisma/schema.prisma 的规则，再是这份的）：'
+    listed = next(line for line in text.splitlines() if '. delete：onDelete differs' in line)
+    assert listed.endswith(": 8 relations (parentheses show prisma/schema.prisma's rule first, then this description's rule): "
                            + '、'.join(f'{name}.unit（NoAction/Restrict / Cascade）' for name, _ in old)
                            + '、Zulu.unit（NoAction/Restrict / SetNull）'), listed
 
@@ -1892,20 +1849,20 @@ def test_an_ondelete_pair_keeps_its_name_and_its_decision_when_the_other_schema_
     b = _rooms('sqlserver', [('Room', 'Cascade')])
     _commit(tmp_path, {'prisma/a.prisma': a, 'prisma/b.prisma': b})
     code, text = _static(tmp_path, '--all')
-    assert '. 删除：onDelete 不同：prisma/b.prisma 对照 prisma/a.prisma：1 条关系' in text, text
+    assert '. delete：onDelete differs: prisma/b.prisma against prisma/a.prisma: 1 relations' in text, text
     name = next(line.strip() for line in text.splitlines() if line.strip().startswith('[structure."ondelete:'))
     assert name == '[structure."ondelete:prisma/a.prisma~prisma/b.prisma"]', text
     _write(tmp_path, {'prisma/b.prisma': b + 'model Shed {\n  id String @id\n}\n\nmodel Barn {\n  id String @id\n}\n'})
     code, text = _static(tmp_path, '--all')
-    assert '. 删除：onDelete 不同：prisma/a.prisma 对照 prisma/b.prisma：1 条关系' in text, text
+    assert '. delete：onDelete differs: prisma/a.prisma against prisma/b.prisma: 1 relations' in text, text
     assert '[structure."ondelete:prisma/a.prisma~prisma/b.prisma"]' in text, text
     code, text = _static(tmp_path)
-    assert not _lines(text, '线索：onDelete 不同'), text             # the change added no difference
+    assert not _lines(text, 'lead: onDelete differs'), text             # the change added no difference
     _write(tmp_path, {'docs/decisions.md': 'The SQL Server schema keeps NoAction because of multiple cascade paths.\n',
                       '.flowguard/ledger.toml': name + '\ndecision = "the second schema cascades on purpose, the owner keeps both"\n'
                       'source = { file = "docs/decisions.md", text = "The SQL Server schema keeps NoAction because of multiple cascade paths." }\n'})
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and 'onDelete 不同' not in text, text
+    assert code == 0 and 'onDelete differs' not in text, text
 
 
 def test_a_change_to_either_schema_of_an_open_ondelete_pair_gets_the_touched_lead(tmp_path):
@@ -1916,10 +1873,8 @@ def test_a_change_to_either_schema_of_an_open_ondelete_pair_gets_the_touched_lea
         saved = path.read_text(encoding='utf-8')
         path.write_text(saved + '// reviewed\n', encoding='utf-8')
         code, text = _static(tmp_path)
-        assert code == 0 and _lines(text, '线索：未决结构问题：onDelete 不同') == [
-            '线索：未决结构问题：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：1 条关系（括号里先是 '
-            'prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / Cascade） → 让两份 schema 的删除规则一致，'
-            '或让测试用的那份也照在用的那份删；有意不同（例如 SQL Server 不允许多条级联路径），就把决定记进 .flowguard/ledger.toml：'], (file, text)
+        assert code == 0 and _lines(text, 'lead: Open structure issue: onDelete differs') == [
+            "lead: Open structure issue: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations (parentheses show prisma/schema.prisma's rule first, then this description's rule): Room.unit（NoAction/Restrict / Cascade） → align deletion rules in both schemas, including the test schema; if differences are intentional (for example, SQL Server disallows multiple cascade paths), record the decision in .flowguard/ledger.toml:"], (file, text)
         path.write_text(saved, encoding='utf-8')
 
 
@@ -1938,9 +1893,9 @@ def test_a_mapping_added_to_both_schemas_adds_no_ondelete_difference(tmp_path, h
     _write(tmp_path, {'prisma/schema.prisma': _mapped(old, how), 'prisma/schema.sqlite.prisma': _mapped(template, how)})
     assert _mapped(old, how) != old and _mapped(template, how) != template
     code, text = _static(tmp_path)
-    leads = [lead for lead in _lines(text, '线索：') if 'onDelete' in lead]
+    leads = [lead for lead in _lines(text, 'lead: ') if 'onDelete' in lead]
     assert code == 0 and len(leads) == 1 and leads[0].startswith(
-        '线索：未决结构问题：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：1 条关系'), text
+        'lead: Open structure issue: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations'), text
 
 
 def test_a_schema_that_drops_a_relation_but_keeps_its_key_column_has_no_foreign_key(tmp_path):
@@ -1952,13 +1907,12 @@ def test_a_schema_that_drops_a_relation_but_keeps_its_key_column_has_no_foreign_
         '  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: NoAction)\n', '').replace('rooms Room[]', '')
     _write(tmp_path, {'prisma/schema.sqlite.prisma': template})
     code, text = _static(tmp_path)
-    assert code == 0 and [lead.partition(' → ')[0] for lead in _lines(text, '线索：onDelete 不同')] == [
-        '线索：onDelete 不同：prisma/schema.sqlite.prisma 对照 prisma/schema.prisma：这次新增 1 条关系（共 1 条；括号里先是 '
-        'prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / 没有外键）'], text
+    assert code == 0 and [lead.partition(' → ')[0] for lead in _lines(text, 'lead: onDelete differs')] == [
+        "lead: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations added in this change (1 total; parentheses show prisma/schema.prisma's rule first, then this description's rule): Room.unit（NoAction/Restrict / no foreign key）"], text
     code, text = _static(tmp_path, '--all')
-    assert next(line for line in text.splitlines() if '. 删除：onDelete 不同' in line).endswith(
-        '：1 条关系（括号里先是 prisma/schema.prisma 的规则，再是这份的）：Room.unit（NoAction/Restrict / 没有外键）'), text
-    assert '缺列' not in text, text                    # the table and its key column are there
+    assert next(line for line in text.splitlines() if '. delete：onDelete differs' in line).endswith(
+        ": 1 relations (parentheses show prisma/schema.prisma's rule first, then this description's rule): Room.unit（NoAction/Restrict / no foreign key）"), text
+    assert 'missing columns' not in text, text                    # the table and its key column are there
 
 
 UNITS = '''
@@ -1980,17 +1934,17 @@ ADDED = {
                                  "  await prisma.room.create({ data: { id: 'r', unitId } });\n}\n"},
                 {'src/remove.ts': "export async function removeUnit(prisma: any, id: string) {\n"
                                   "  await prisma.unit.delete({ where: { id } });\n}\n"},
-                '删除没处理子表', 'delete:src/remove.ts:removeUnit:Unit'),
+                'Delete leaves child rows', 'delete:src/remove.ts:removeUnit:Unit'),
     'columns': ({'prisma/schema.prisma': UNITS % ('sqlserver', ''), 'prisma/schema.sqlite.prisma': UNITS % ('sqlite', '')},
                 {'prisma/schema.prisma': UNITS % ('sqlserver', '\n      code String')},
-                '几份描述之间缺的列', 'columns:prisma/schema.sqlite.prisma~prisma/schema.prisma'),
+                'Columns missing between descriptions', 'columns:prisma/schema.sqlite.prisma~prisma/schema.prisma'),
     'ondelete': ({'prisma/schema.prisma': _rooms('sqlserver', [('Room', 'NoAction')]),
                   'prisma/schema.sqlite.prisma': _rooms('sqlite', [('Room', 'NoAction')])},
                  {'prisma/schema.sqlite.prisma': _rooms('sqlite', [('Room', 'Cascade')])},
-                 'onDelete 不同', 'ondelete:prisma/schema.prisma~prisma/schema.sqlite.prisma'),
+                 'onDelete differs', 'ondelete:prisma/schema.prisma~prisma/schema.sqlite.prisma'),
     'labels': ({'src/a.ts': LABELS % ('TYPE_LABELS', 'Area'), 'src/b.ts': LABELS % ('KIND_LABELS', 'Area')},
                {'src/b.ts': LABELS % ('KIND_LABELS', 'Areas')},
-               '标签表不一致', 'labels:src/a.ts:TYPE_LABELS'),
+               'Label tables disagree', 'labels:src/a.ts:TYPE_LABELS'),
 }
 
 
@@ -2024,15 +1978,14 @@ def test_fixed_17_missing_columns_between_prisma_and_init_sql_are_listed_one_by_
     init.write_bytes(saved)
     code, text = _static(tmp_path)
     assert code == 0, text
-    lead = next(line for line in _lines(text, '线索：几份描述之间缺的列') if 'central/schema.prisma' in line)
-    assert lead.startswith('线索：几份描述之间缺的列：backend/prisma/central/init-azure-sql.sql 对照 '
-                           'backend/prisma/central/schema.prisma：'), lead
+    lead = next(line for line in _lines(text, 'lead: Columns missing between descriptions') if 'central/schema.prisma' in line)
+    assert lead.startswith('lead: Columns missing between descriptions: backend/prisma/central/init-azure-sql.sql against backend/prisma/central/schema.prisma：'), lead
     for column in ('central_sync_attempted_at', 'central_sync_error', 'central_sync_state', 'external_type',
                    'personnel_lifecycle_state', 'personnel_source', 'storage_scope'):
         assert column in lead, (column, lead)
-    assert '没有表 central_lending_assignments' in lead, lead
+    assert 'missing table central_lending_assignments' in lead, lead
     code, text = _static(tmp_path, '--all')
-    assert any(line.startswith('线索：') is False and '缺列：几份描述之间缺的列：backend/prisma/central/init-azure-sql.sql' in line
+    assert any(line.startswith('lead: ') is False and 'missing columns：Columns missing between descriptions: backend/prisma/central/init-azure-sql.sql' in line
                for line in text.splitlines()), text
 
 
@@ -2066,9 +2019,9 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     frontend.write_bytes(saved)
     code, text = _static(root)
     assert code == 0, text
-    drift = next(line for line in _lines(text, '线索：标签写法不一致') if 'My Organization' in line)
+    drift = next(line for line in _lines(text, 'lead: label spellings differ') if 'My Organization' in line)
     assert "'My Organization'（backend/src/services/authority/organization-navigation.ts:" in drift, drift
-    assert "'My organization'（frontend/src/utils/organization-navigation.ts:" in drift and '这次新增的写法' in drift, drift
+    assert "'My organization'（frontend/src/utils/organization-navigation.ts:" in drift and 'spelling added in this task' in drift, drift
     code, text = _flowguard(root, 'init')
     assert code == 0 and 'Generated flowguard.static.test.mjs (vitest)' in text, text
     generated = root / 'flowguard.static.test.mjs'
@@ -2086,7 +2039,7 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     run = _run_generated(root, generated)
     output = _text(run.stdout + run.stderr)
     assert run.returncode == 1 and 'FAIL FlowGuard check --static: FlowGuard check --static exit 1' in output, output
-    assert "backend/src/services/notice.service.ts:2 AuditEvent.severity='WARN'，允许 INFO|WARNING|ERROR|CRITICAL" in output, output
+    assert "backend/src/services/notice.service.ts:2 AuditEvent.severity='WARN'; allowed INFO|WARNING|ERROR|CRITICAL" in output, output
     run = _run_generated(root, generated, env=dict(FLOWGUARD_PYTHON=str(tmp_path / 'no-such-python')))
     output = _text(run.stdout + run.stderr)
     assert run.returncode == 1 and 'no Python that can import flowguard was found' in output, output
@@ -2105,7 +2058,7 @@ def test_the_files_init_writes_bring_no_label_spellings_of_their_own(tmp_path):
     generated = (tmp_path / 'flowguard.vitest.mjs').read_text(encoding='utf-8')
     assert all(f"'{spelling}'" in generated for spelling in ('python', '--root', 'win32')), generated   # else the test says nothing
     code, text = _static(tmp_path)          # init's 'python', '--root' and 'win32' are FlowGuard's, not the project's labels
-    assert code == 0 and not _lines(text, '线索：标签写法不一致'), text
+    assert code == 0 and not _lines(text, 'lead: label spellings differ'), text
     code, text = _static(tmp_path, '--all')
     assert 'flowguard.static.test.mjs' not in text and 'flowguard.vitest.mjs' not in text, text
 
@@ -2114,10 +2067,10 @@ def test_check_static_all_lists_label_spellings_the_baseline_already_had(tmp_pat
     root = _planning(tmp_path / 'pt')
     _commit(root, {})                          # both spellings are old: nothing new to report
     code, text = _static(root)
-    assert code == 0 and not _lines(text, '线索：标签写法不一致'), text
+    assert code == 0 and not _lines(text, 'lead: label spellings differ'), text
     code, text = _static(root, '--all')
-    old = next(line for line in _lines(text, '线索：旧账 标签写法不一致') if 'My Organization' in line)
-    assert "'My organization'（frontend/src/utils/organization-navigation.ts:" in old and '这次新增的写法' not in old, old
+    old = next(line for line in _lines(text, 'lead: before: label spellings differ') if 'My Organization' in line)
+    assert "'My organization'（frontend/src/utils/organization-navigation.ts:" in old and 'spelling added in this task' not in old, old
 
 
 def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lists_every_lead(tmp_path):
@@ -2130,16 +2083,16 @@ def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lis
     # a label spelled another way ('Gamma ray'), not a key ('gamma-ray' is of another kind: literal_shape)
     _write(tmp_path, {'src/ray.ts': "export function isRay(x: string) { return x === 'Gamma ray'; }\n"})
     code, text = _static(tmp_path, '--all')
-    leads = _lines(text, '线索：')
-    assert code == 0 and leads[0].startswith("线索：标签写法不一致：'Gamma Ray'"), text       # the new one first
-    assert "'Gamma ray'（src/ray.ts:1，这次新增的写法）" in leads[0], leads
-    assert leads[-1].startswith('线索：另 ') and leads[-1].endswith('条：python -m flowguard check --static --all --leads 列出全部线索'), leads
+    leads = _lines(text, 'lead: ')
+    assert code == 0 and leads[0].startswith("lead: label spellings differ: 'Gamma Ray'"), text       # the new one first
+    assert "'Gamma ray'（src/ray.ts:1, spelling added in this task）" in leads[0], leads
+    assert leads[-1].startswith('lead: plus ') and leads[-1].endswith('entries: python -m flowguard check --static --all --leads lists all leads'), leads
     code, text = _static(tmp_path, '--all', '--leads')
-    every = _lines(text, '线索：')
-    assert code == 0 and len(every) == 13 and every[0] == leads[0] and not any(line.startswith('线索：另 ') for line in every), text
-    assert all(line.startswith('线索：旧账 标签写法不一致') for line in every[1:]), every
+    every = _lines(text, 'lead: ')
+    assert code == 0 and len(every) == 13 and every[0] == leads[0] and not any(line.startswith('lead: plus ') for line in every), text
+    assert all(line.startswith('lead: before: label spellings differ') for line in every[1:]), every
     code, text = _static(tmp_path)
-    assert code == 0 and _lines(text, '线索：') == [leads[0]], text
+    assert code == 0 and _lines(text, 'lead: ') == [leads[0]], text
 
 
 def test_the_overflow_of_a_run_against_base_names_that_base_in_the_command_that_lists_every_lead(tmp_path):
@@ -2151,10 +2104,10 @@ def test_the_overflow_of_a_run_against_base_names_that_base_in_the_command_that_
     _commit(tmp_path, message='twelve new spellings')
     # Against HEAD nothing is new; against HEAD~1 the twelve spellings are: the listing command keeps that base.
     code, text = _static(tmp_path, '--base', 'HEAD~1')
-    leads = _lines(text, '线索：')
-    assert code == 0 and leads[-1].endswith('条：python -m flowguard check --static --base HEAD~1 --leads 列出全部线索'), leads
+    leads = _lines(text, 'lead: ')
+    assert code == 0 and leads[-1].endswith('entries: python -m flowguard check --static --base HEAD~1 --leads lists all leads'), leads
     code, text = _static(tmp_path, '--base', 'HEAD~1', '--leads')
-    assert code == 0 and len(_lines(text, '线索：')) == 12, text
+    assert code == 0 and len(_lines(text, 'lead: ')) == 12, text
 
 
 def test_the_overflow_of_a_pytest_session_against_flowguard_base_keeps_that_base_as_base(tmp_path):
@@ -2168,8 +2121,8 @@ def test_the_overflow_of_a_pytest_session_against_flowguard_base_keeps_that_base
     _commit(tmp_path, message='twelve new spellings')
     # The session's leads are against HEAD~1; the command that lists them all must be too.
     code, text = _pytest(tmp_path, '--flowguard-base', 'HEAD~1')
-    leads = _lines(text, '线索：')
-    assert code == 0 and leads[-1].endswith('条：python -m flowguard check --static --base HEAD~1 --leads 列出全部线索'), text
+    leads = _lines(text, 'lead: ')
+    assert code == 0 and leads[-1].endswith('entries: python -m flowguard check --static --base HEAD~1 --leads lists all leads'), text
 
 
 def test_the_overflow_of_show_spells_a_phrase_query_so_cmd_exe_reads_it_too(tmp_path):
@@ -2253,21 +2206,19 @@ def _pytest(root, *options):
 def test_a_change_that_touches_an_open_structure_problem_gets_one_lead(tmp_path):
     _commit(tmp_path, WRITERS)
     code, text = _pytest(tmp_path)
-    assert code == 0 and '未决结构问题' not in text, text
+    assert code == 0 and 'Open structure issue' not in text, text
     code, text = _static(tmp_path)
     assert (code, text) == (0, ''), text
     hold = tmp_path / 'shop/hold.py'
     hold.write_text(hold.read_text().replace("'held'", "'paused'"))
-    lead = ('线索：未决结构问题：Job.status 有 3 个文件在写，没有登记负责人：shop/close.py:5  shop/hold.py:5  shop/reopen.py:5'
-            ' → 先告诉主人，问谁负责；定下来后在负责的函数旁写 # flowguard: owner Job.status writers=close,hold,reopen'
-            '（只留主人认可的写入者），并在 .flowguard/ledger.toml 记下决定：')
+    lead = ('lead: Open structure issue: Job.status is written by 3 files without a registered writer agreement：shop/close.py:5  shop/hold.py:5  shop/reopen.py:5 → ask the owner who is responsible; then write # flowguard: writers Job.status shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen (retain only writers the owner approves), and record the decision in .flowguard/ledger.toml:')
     code, text = _pytest(tmp_path)
     assert code == 0 and lead in text, text
     assert '    [structure."writers:Job.status"]' in text, text
     code, text = _static(tmp_path)
     assert code == 0 and lead in text, text
     code, text = _static(tmp_path, '--all')
-    assert '1. 写入：Job.status 有 3 个文件在写，没有登记负责人' in text, text
+    assert '1. write：Job.status is written by 3 files without a registered writer agreement' in text, text
 
 
 def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_problem(tmp_path):
@@ -2284,10 +2235,10 @@ def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_
     hold = tmp_path / 'src/hold.ts'
     hold.write_text('// flowguard: sensor HOLD_JOBS\n' + hold.read_text(encoding='utf-8'), encoding='utf-8')
     code, text = _static(tmp_path)
-    assert code == 0 and '未决结构问题' not in text, text      # the callback only moved one line down
+    assert code == 0 and 'Open structure issue' not in text, text      # the callback only moved one line down
     hold.write_text(hold.read_text(encoding='utf-8').replace("'held'", "'paused'"), encoding='utf-8')
     code, text = _static(tmp_path)
-    assert code == 0 and '线索：未决结构问题：Job.status 有 3 个文件在写' in text, text      # an edit inside it does
+    assert code == 0 and 'lead: Open structure issue: Job.status is written by 3 files' in text, text      # an edit inside it does
 
 
 def test_a_structure_decision_closes_its_problem_and_a_decided_owner_needs_its_anchor(tmp_path):
@@ -2298,25 +2249,24 @@ def test_a_structure_decision_closes_its_problem_and_a_decided_owner_needs_its_a
     ledger = tmp_path / '.flowguard/ledger.toml'
     ledger.write_text('[structure."writers:Job.status"]\ndecision = "too short"\nsource = "R1"\n', encoding='utf-8')
     code, text = _static(tmp_path, '--all')
-    assert code == 1 and '结构决定 [structure."writers:Job.status"]：decision 至少 8 个词' in text, text
+    assert code == 1 and 'Structure decision [structure."writers:Job.status"]: decision needs at least 8 words' in text, text
     ledger.write_text('[structure."writers:Job.status"]\ndecision = "close owns the status; hold and reopen will call close later"\n'
                       'source = "R9"\n', encoding='utf-8')
     code, text = _static(tmp_path, '--all')
-    assert code == 1 and 'source "R9" 不是已存的主人原话' in text, text
+    assert code == 1 and 'source "R9" is not stored owner wording' in text, text
     ledger.write_text('[structure."writers:Job.status"]\ndecision = "close owns the status; hold and reopen will call close later"\n'
                       'source = "R1"\n', encoding='utf-8')
     code, text = _static(tmp_path, '--all')
     assert code == 1, text
-    assert ('红：结构决定 [structure."writers:Job.status"] 记下了谁负责，但没有 owner 锚点 → 在负责的函数旁加一行：'
-            '# flowguard: owner Job.status writers=close,hold,reopen\n') in text, text
-    assert '写入：Job.status' not in text, text               # decided: no longer listed
+    assert ('red: Structure decision [structure."writers:Job.status"] records responsibility but has no writers agreement -> add beside the responsible function: # flowguard: writers Job.status shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen\n') in text, text
+    assert 'write：Job.status' not in text, text               # decided: no longer listed
     close = tmp_path / 'shop/close.py'
     close.write_text('# flowguard: owner Job.status writers=close,hold,reopen\n' + close.read_text())
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and '结构决定' not in text and '写入：Job.status' not in text, text
+    assert code == 0 and 'Structure decision' not in text and 'write：Job.status' not in text, text
 
 
-LATER = '这个字段需要更新版本的 FlowGuard，升级后再看'
+LATER = 'these fields require a newer FlowGuard; upgrade before reviewing them'
 
 
 def test_a_structure_entry_with_fields_of_a_later_flowguard_is_unverified_and_closes_nothing(tmp_path):
@@ -2329,23 +2279,23 @@ def test_a_structure_entry_with_fields_of_a_later_flowguard_is_unverified_and_cl
                       'why = "hold and reopen write the status beside close; the owner has not decided who owns it"\n'
                       'fix = "let hold and reopen call close"\n', encoding='utf-8')
     _commit(tmp_path, message='a 4.3 entry')
-    grey = '结构条目 [structure."writers:Job.status"] 有这个版本不认识的字段 fix、sites、status、why：' + LATER
+    grey = 'Structure entry [structure."writers:Job.status"] has fields this version does not recognize: fix, sites, status, why; ' + LATER
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and grey in text and '结构决定' not in text and '红' not in text, text
-    assert '1. 写入：Job.status 有 3 个文件在写，没有登记负责人' in text, text      # the entry closes no problem
+    assert code == 0 and grey in text and 'Structure decision' not in text and 'red: ' not in text, text
+    assert '1. write：Job.status is written by 3 files without a registered writer agreement' in text, text      # the entry closes no problem
     code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 0 and '未核对：' + grey in text, text
+    assert code == 0 and 'not checked: ' + grey in text, text
     for run in (lambda: _static(tmp_path), lambda: _pytest(tmp_path), lambda: _flowguard(tmp_path, 'check')):
         code, text = run()
-        assert code == 0 and '红' not in text and grey in text, text
+        assert code == 0 and 'red: ' not in text and grey in text, text
     # A decision with a field of a later FlowGuard beside it does not close its problem either.
     (tmp_path / 'owner.txt').write_text('Job.status belongs to the close workflow; the other writers must call it.\n')
     assert _flowguard(tmp_path, 'req', 'add', str(tmp_path / 'owner.txt'), '--id', 'R1')[0] == 0
     ledger.write_text('[structure."writers:Job.status"]\ndecision = "close owns the status; hold and reopen will call close later"\n'
                       'source = "R1"\nevidence = "the owner said so in the review"\n', encoding='utf-8')
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and '有这个版本不认识的字段 evidence：' + LATER in text, text
-    assert '写入：Job.status' in text and 'owner 锚点' not in text, text
+    assert code == 0 and 'has fields this version does not recognize: evidence; ' + LATER in text, text
+    assert 'write：Job.status' in text and 'has no writers agreement' not in text, text
 
 
 def test_a_later_field_leaves_the_known_fields_checked_and_a_misspelt_field_stays_red(tmp_path):
@@ -2359,30 +2309,28 @@ def test_a_later_field_leaves_the_known_fields_checked_and_a_misspelt_field_stay
     ledger.write_text(entry + decision.replace('decision', 'decison', 1) + 'source = "R1"\n', encoding='utf-8')
     _commit(tmp_path, message='a misspelt entry')
     code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 1 and ('红：结构决定 [structure."writers:Job.status"]：未知字段 decison（是 decision 拼错了？）；缺少 decision；'
-                          'source "R1" 不是已存的主人原话') in text, text
+    assert code == 1 and ('red: Structure decision [structure."writers:Job.status"]: unknown field decison (did you mean decision?)；missing decision；source "R1" is not stored owner wording') in text, text
     ledger.write_text(entry + decision + 'sorce = "R1"\n', encoding='utf-8')
     code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 1 and '：未知字段 sorce（是 source 拼错了？）；缺少 source' in text, text
+    assert code == 1 and ': unknown field sorce (did you mean source?)；missing source' in text, text
     # A field of a later FlowGuard beside an unstored source: unverified, the source's error on the same line.
     ledger.write_text(entry + decision + 'source = "R1"\nevidence = "the owner said so in the review"\n', encoding='utf-8')
     code, text = _flowguard(tmp_path, 'ledger', 'check')
     line = next(line for line in text.splitlines() if 'evidence' in line)
-    assert code == 0 and '红：' not in text and line.startswith('未核对：结构条目 [structure."writers:Job.status"] 有这个版本不认识的字段 '
-                                                              'evidence：' + LATER), text
-    assert 'source "R1" 不是已存的主人原话' in line, line
+    assert code == 0 and 'red: ' not in text and line.startswith('not checked: Structure entry [structure."writers:Job.status"] has fields this version does not recognize: evidence; ' + LATER), text
+    assert 'source "R1" is not stored owner wording' in line, line
     # Second review: a field near decision or source beside that very field is no misspelling of it but another
     # field (`sources` beside `source`, `revision` beside `decision`): unverified, not red.
     for extra in ('sources = ["R1"]\n', 'revision = 2\n'):
         ledger.write_text(entry + decision + 'source = "R1"\n' + extra, encoding='utf-8')
         code, text = _flowguard(tmp_path, 'ledger', 'check')
         name = extra.partition(' ')[0]
-        line = next((line for line in text.splitlines() if '不认识的字段 ' + name in line), None)
-        assert code == 0 and '红：' not in text and line and line.startswith('未核对：'), text
+        line = next((line for line in text.splitlines() if 'does not recognize: ' + name in line), None)
+        assert code == 0 and 'red: ' not in text and line and line.startswith('not checked: '), text
     # Without the field it is near, it is that field misspelt, as before.
     ledger.write_text(entry + decision + 'sources = "R1"\n', encoding='utf-8')
     code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 1 and '：未知字段 sources（是 source 拼错了？）；缺少 source' in text, text
+    assert code == 1 and ': unknown field sources (did you mean source?)；missing source' in text, text
 
 
 def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_line(tmp_path):
@@ -2393,8 +2341,7 @@ def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_lin
     assert code == 0, text
     code, after = _flowguard(tmp_path)
     assert code == 0 and len(after.splitlines()) - len(before.splitlines()) == 1, (before, after)
-    assert after.splitlines()[-1] == ('未决结构问题 0 项（另 1 个字段多处写入、没有负责人），最重：写入 Job.status'
-                                      '（上次检查；check --static --all 列出全部和下一步）'), after
+    assert after.splitlines()[-1] == ('0 open structure issues (1 other fields have multiple writers and no writer agreement); highest severity: write Job.status (last check; check --static --all lists every issue and next step)'), after
 
 
 # ---- R61: TS old values and unchanged look-alikes ----------------------------------------------------
@@ -2432,11 +2379,10 @@ def test_a_changed_typescript_constant_and_function_lead_to_the_places_left_behi
     fees.write_text(fees.read_text().replace('days > 3 ? days - 3', 'days > 5 ? days - 5'))
     code, text = _static(tmp_path)
     assert code == 0, text
-    assert _lines(text, '线索：旧值 14') == [
-        '线索：旧值 14 还出现在 1 个判断里：src/reminders.ts:2 → 需求变了就一起改；要锁定它们，在负责人上方写 '
-        '# flowguard: owner 名，副本上方写 # flowguard: sensor 名'], text
-    alone = next(line for line in _lines(text, '线索：lateFee'))
-    assert alone.startswith('线索：lateFee（src/fees.ts:1）改了，改前和它一模一样的 1 份没改：src/legacy/fees.ts:1'), alone
+    assert _lines(text, 'lead: old values 14') == [
+        'lead: old values 14 remain in 1 decisions: src/reminders.ts:2 → if requirements changed, update together; to lock them, write # flowguard: same NAME ref above the reference and # flowguard: same NAME above the copies'], text
+    alone = next(line for line in _lines(text, 'lead: lateFee'))
+    assert alone.startswith('lead: lateFee(src/fees.ts:1) changed; previously identical copies: 1 unchanged: src/legacy/fees.ts:1'), alone
     assert '// flowguard: owner LATEFEE' in alone, alone
 
 
@@ -2466,7 +2412,7 @@ def test_check_static_reports_a_new_typescript_fallback_and_a_write_outside_its_
     '''})
     code, text = _static(tmp_path)
     assert code == 1, text
-    assert '红：新增兜底未登记：backend/src/services/rogue.ts:9 catch any 之后能不抛出就结束' in text, text
+    assert 'red: New unlisted fallback: backend/src/services/rogue.ts:9 catch any can end without raising' in text, text
     assert '    ["backend/src/services/rogue.ts:moveEmployee:any"]' in text and 'rogue.ts:4' not in text, text
-    red = next(line for line in text.splitlines() if line.startswith('红：负责人以外新增写入'))
-    assert red.startswith('红：负责人以外新增写入 Employee.organizationalUnitId：backend/src/services/rogue.ts:3 moveEmployee（update）'), red
+    red = next(line for line in text.splitlines() if line.startswith('red: new write outside the declared writer'))
+    assert red.startswith('red: new write outside the declared writer for Employee.organizationalUnitId：backend/src/services/rogue.ts:3 moveEmployee（update）'), red

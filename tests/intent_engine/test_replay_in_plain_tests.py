@@ -125,4 +125,4 @@ def test_changed_code_leaves_ordinary_tests_as_their_real_calls_leave_them(tmp_p
         assert result.returncode == 0, text
         assert '7 passed' in text and 'failed' not in text, text
     # With the plugin the changed points are reported as unverified, never as agreement.
-    assert 'FlowGuard（相对任务开始' in outputs['plugin'] and '未验证' in outputs['plugin'], outputs['plugin']
+    assert 'FlowGuard（since task start' in outputs['plugin'] and 'unverified' in outputs['plugin'], outputs['plugin']

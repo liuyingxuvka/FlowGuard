@@ -51,7 +51,7 @@ def test_side_effect_gate_does_not_replay_database_writes(tmp_path):
         assert db.execute('SELECT n FROM count').fetchone()[0] == 1
     assert runtime.readings[0].status == 'grey'
     assert runtime.readings[0].rows == []
-    assert runtime.readings[0].reasons[0].startswith('回放被拦住：r19_candidate.py:2 ') and 'UPDATE count' in runtime.readings[0].reasons[0]
+    assert runtime.readings[0].reasons[0].startswith('replay refused: r19_candidate.py:2 ') and 'UPDATE count' in runtime.readings[0].reasons[0]
 
 
 def test_old_helper_and_old_constant_are_swapped_then_restored(tmp_path):
@@ -210,7 +210,7 @@ def test_old_side_effect_is_rejected_before_it_can_write(tmp_path):
     reading = runtime.readings[0]
     assert reading.status == 'ok' and reading.rows
     assert reading.comparison_status == 'grey'
-    assert '写数据库 UPDATE count' in reading.comparison_reasons[0]
+    assert 'write database UPDATE count' in reading.comparison_reasons[0]
 
 
 def test_private_constraint_observation_reuses_the_same_replay_gate(tmp_path):

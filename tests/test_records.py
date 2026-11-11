@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib, json, shutil
 import pytest
 from _pure_helpers import call as _call, git as _git, project as _project, integrity_result as _integrity
-from flowguard.map.requests import store_request, request_findings
+from flowguard.map.requests import store_request
 
 def _seed_git(root):
     _git(root, 'init', '-q')
@@ -34,19 +34,19 @@ def test_request_is_write_once_before_commit_and_after_clone(tmp_path):
         with pytest.raises(MapError, match='immutable file'):
             records.write_once(root, path.relative_to(root), raw)
         path.write_bytes(raw + b'edited before first commit')
-        assert any(item.level == 'error' for item in request_findings(root))
+        assert _integrity(root)[0] == 1
         path.write_bytes(raw)
     _git(root, 'add', '--', '.flowguard/requests')
     _git(root, 'commit', '-qm', 'original request')
     clone = tmp_path / 'clone'
     _git(tmp_path, 'clone', '-q', str(root), str(clone))
     assert not (clone / '.git/flowguard/written').exists()
-    assert request_findings(clone) == []
+    assert _integrity(clone)[0] == 0
     for name, raw in originals.items():
         path = clone / '.flowguard/requests' / name
         assert path.read_bytes() == raw
         path.write_bytes(raw + b'edited after fresh clone')
-        assert any(item.level == 'error' for item in request_findings(clone))
+        assert _integrity(clone)[0] == 1
         path.write_bytes(raw)
 
 
@@ -65,24 +65,25 @@ def test_legacy_original_snapshot_survives_cache_loss_and_never_learns_edited_by
     boundary.parent.mkdir(); boundary.write_bytes(snapshot)
     (tmp_path / '.flowguard/cache').mkdir()
     shutil.rmtree(tmp_path / '.flowguard/cache')
-    assert request_findings(tmp_path) == []
+    assert _integrity(tmp_path)[0] == 0
     body.write_bytes(raw + b'edited')
-    assert any(item.code == 'owner_text_edited' for item in request_findings(tmp_path))
+    assert _integrity(tmp_path)[0] == 1 and 'R1.md' in _integrity(tmp_path)[1]
     assert boundary.read_bytes() == snapshot
     body.write_bytes(raw)
-    assert request_findings(tmp_path) == []
+    assert _integrity(tmp_path)[0] == 0
     _git(tmp_path, 'init', '-q')
     code, output, _ = _integrity(tmp_path)
-    assert code == 0 and 'immutable_unverified' in output and 'owner_text_edited' not in output
+    assert code == 0 and 'unverified' in output and 'R1.md' not in output
     _git(tmp_path, 'add', '--', '.flowguard/requests', '.flowguard/release-base')
     _git(tmp_path, 'commit', '-qm', 'first committed original bytes')
-    assert request_findings(tmp_path) == []
+    assert _integrity(tmp_path)[0] == 0
     body.write_bytes(raw + b'edited')
-    assert any(item.code == 'owner_text_edited' for item in request_findings(tmp_path))
+    assert _integrity(tmp_path)[0] == 1 and 'R1.md' in _integrity(tmp_path)[1]
     assert boundary.read_bytes() == snapshot
 
-def _immutable_codes(output):
-    return {code for code in ('owner_text_edited', 'request_meta_edited', 'record_edited') if code in output}
+def _damaged_request_paths(output):
+    return {line.split(':', 1)[0] for line in output.splitlines()
+            if line.startswith('.flowguard/requests/')}
 
 def test_unedited_copy_without_git_is_unverifiable_not_edited(tmp_path, capsys):
     root = tmp_path / 'project'
@@ -92,12 +93,12 @@ def test_unedited_copy_without_git_is_unverifiable_not_edited(tmp_path, capsys):
     copy = tmp_path / 'copy'
     shutil.copytree(root, copy, ignore=shutil.ignore_patterns('.git'))
     code, output, _ = _integrity(copy)
-    assert code == 0 and (not _immutable_codes(output)), output
-    assert 'immutable_unverified' in output
+    assert code == 0 and (not _damaged_request_paths(output)), output
+    assert 'unverified' in output
     body = copy / '.flowguard/requests/R1.md'
     body.write_bytes(body.read_bytes() + b'x')
     code, output, _ = _integrity(copy)
-    assert code == 1 and 'owner_text_edited' in output, output
+    assert code == 1 and 'R1.md' in output, output
 
 def test_moved_nongit_project_is_unverifiable_not_edited(tmp_path, capsys):
     root = _project(tmp_path / 'project', capsys)
@@ -108,12 +109,12 @@ def test_moved_nongit_project_is_unverifiable_not_edited(tmp_path, capsys):
     moved = tmp_path / 'moved'
     root.rename(moved)
     code, output, _ = _integrity(moved)
-    assert code == 0 and (not _immutable_codes(output)), output
-    assert 'immutable_unverified' in output
+    assert code == 0 and (not _damaged_request_paths(output)), output
+    assert 'unverified' in output
     body = moved / '.flowguard/requests/R1.md'
     body.write_bytes(body.read_bytes() + b'x')
     code, output, _ = _integrity(moved)
-    assert code == 1 and 'owner_text_edited' in output, output
+    assert code == 1 and 'R1.md' in output, output
 
 def test_committed_file_has_one_answer_in_every_checkout(tmp_path, capsys):
     root = _project(tmp_path / 'project', capsys)
@@ -128,7 +129,7 @@ def test_committed_file_has_one_answer_in_every_checkout(tmp_path, capsys):
     item.update(sha256=hashlib.sha256(body.read_bytes()).hexdigest(), bytes=len(body.read_bytes()))
     meta.write_bytes(json.dumps(item).encode())
     code, output, _ = _integrity(root)
-    assert code == 1 and 'owner_text_edited' in output, output
+    assert code == 1 and 'R1.md' in output, output
     _git(root, 'add', '--', '.flowguard/requests')
     _git(root, 'commit', '-qm', 'committed request bytes')
     clone = tmp_path / 'clone'
@@ -136,13 +137,13 @@ def test_committed_file_has_one_answer_in_every_checkout(tmp_path, capsys):
     answers = []
     for checkout in (root, clone):
         code, output, _ = _integrity(checkout)
-        answers.append((code, _immutable_codes(output)))
+        answers.append((code, _damaged_request_paths(output)))
     assert answers == [(0, set()), (0, set())], answers
     for checkout in (root, clone):
         changed = checkout / '.flowguard/requests/R1.md'
         changed.write_bytes(changed.read_bytes() + b'x')
         code, output, _ = _integrity(checkout)
-        assert code == 1 and 'owner_text_edited' in output, output
+        assert code == 1 and 'R1.md' in output, output
 
 
 def test_a_damaged_request_sidecar_is_named_and_never_dropped_silently(tmp_path):
@@ -151,11 +152,11 @@ def test_a_damaged_request_sidecar_is_named_and_never_dropped_silently(tmp_path)
     _git(tmp_path, 'add', '-A'); _git(tmp_path, 'commit', '-qm', 'original request')
     sidecar = body.with_suffix('.json')
     sidecar.write_bytes(b'{')
-    findings = request_findings(tmp_path)
-    assert [(item.level, item.code, item.component) for item in findings] == [('error', 'request_meta_edited', 'R1')]
-    assert sidecar.name in findings[0].message and 'restore its original bytes' in findings[0].message
+    code, text, _ = _integrity(tmp_path)
+    assert code == 1 and sidecar.name in text and 'immutable file bytes changed' in text
     row = owner_words(tmp_path)['rows'][0]
     assert row['id'] == 'R1' and row['edited'] and row['first_line'] == ''
+    assert sidecar.name in row['edited'] and 'restore its original bytes' in row['edited']
 
 
 def test_independent_branches_merge_automatic_requests_without_a_mutable_index(tmp_path):
@@ -172,7 +173,7 @@ def test_independent_branches_merge_automatic_requests_without_a_mutable_index(t
         _git(root, 'commit', '-qm', branch + ' original request\n\nRequest: ' + request['id'])
     assert len(set(identifiers)) == 2
     _git(root, 'merge', '--no-edit', 'left')
-    assert request_findings(root) == []
+    assert _integrity(root)[0] == 0
     rows = owner_words(root)['rows']
     assert {row['id'] for row in rows if any(c.startswith('commit ') for c in row['cited_by'])} == set(identifiers)
     assert _git(root, 'ls-files', '-u') == b''
@@ -180,12 +181,13 @@ def test_independent_branches_merge_automatic_requests_without_a_mutable_index(t
 
 def test_unreadable_receipt_is_reported_as_unreadable_not_as_an_edit(tmp_path):
     from flowguard.map.records import _written_path
-    from flowguard.map.requests import store_request, request_findings
+    from flowguard.map.requests import store_request
     from flowguard.map.common import MapError
     root = _project(tmp_path / 'project')
     store_request(root, b'Keep the request when its receipt is damaged.\n', identifier='R1')
     receipt = _written_path(root, root / '.flowguard/requests/R1.md', None)
     receipt.write_text('not a receipt\n', encoding='ascii')
     with pytest.raises(MapError, match='receipt_unreadable') as error:
-        request_findings(root)
-    assert str(receipt) in str(error.value) and (not _immutable_codes(str(error.value)))
+        from flowguard.map.requests import owner_words
+        owner_words(root)
+    assert str(receipt) in str(error.value) and (not _damaged_request_paths(str(error.value)))

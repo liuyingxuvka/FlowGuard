@@ -215,12 +215,12 @@ function call(fn, args) {
 
 function contextProblem(args) {
   for (const arg of args) {
-    if (typeof arg === 'function') return '参数里有函数（回调），不回放';
+    if (typeof arg === 'function') return 'arguments contain a function (callback); not replayed';
     if (arg === null || typeof arg !== 'object') continue;
     const client = database(arg);
-    if (client) return `看不清：参数里有数据库客户端（${client}），不回放`;
+    if (client) return `unavailable: arguments contain a database client (${client}); not replayed`;
     const unseen = unseenIn(encode(arg));
-    if (unseen) return `参数里有不能复制的对象（${unseen}），不回放`;
+    if (unseen) return `arguments contain an object that cannot be copied (${unseen}); not replayed`;
   }
   return '';
 }
@@ -235,10 +235,10 @@ function replay(point, fn, args, oldFn, copies, limit) {
     const values = axisOf(args[index], point);
     if (values) axes.push([index, values]);
   });
-  if (!axes.length) return { status: 'grey', reason: '没有可变化的简单参数', rows: [] };
+  if (!axes.length) return { status: 'grey', reason: 'no simple parameters to vary', rows: [] };
   let total = 1;
   for (const [, values] of axes) total *= values.length;
-  if (total > limit) return { status: 'grey', reason: `代表值组合 ${total} 个，超过上限 ${limit}`, rows: [] };
+  if (total > limit) return { status: 'grey', reason: `representative combinations: ${total}; exceeds limit ${limit}`, rows: [] };
   let points = [[]];
   for (const [index, values] of axes) points = points.flatMap((prefix) => values.map((value) => [...prefix, [index, value]]));
   const rows = [];
@@ -267,11 +267,11 @@ function replay(point, fn, args, oldFn, copies, limit) {
   } finally {
     S.replaying = false;
   }
-  if (S.voided) return { status: 'grey', reason: `看不清：回放中碰到 ${S.voided}，回放作废`, rows: [] };
+  if (S.voided) return { status: 'grey', reason: `unavailable: replay encountered ${S.voided}; replay discarded`, rows: [] };
   const unseen = unseenIn(first) || rows.map((row) => unseenIn(row.now)).find(Boolean);
-  if (unseen) return { status: 'grey', reason: `看不清：结果不是可以比较的数据（${unseen}）`, rows: [] };
+  if (unseen) return { status: 'grey', reason: `unavailable: result is not comparable data (${unseen}）`, rows: [] };
   if (JSON.stringify(first) !== JSON.stringify(again)) {
-    return { status: 'grey', reason: '原值复查结果变了：可能有副作用或输入不稳定', rows: [] };
+    return { status: 'grey', reason: 'original-input recheck changed: possible side effects or unstable input', rows: [] };
   }
   return { status: 'ok', reason: '', rows };
 }

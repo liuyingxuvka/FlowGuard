@@ -18,7 +18,7 @@ from dataclasses import dataclass, replace
 
 from flowguard.map.common import is_test_file
 
-RANKS = {1: '取值', 2: '配对', 3: '缺列', 4: '删除', 5: '副本', 6: '写入', 7: '建行', 8: '标签'}
+RANKS = {1: 'value', 2: 'together', 3: 'missing columns', 4: 'delete', 5: 'copy', 6: 'write', 7: 'row creation', 8: 'labels'}
 BOOKKEEPING = {'id', 'createdat', 'updatedat', 'created_at', 'updated_at', 'createdbyid', 'updatedbyid',
                'created_by', 'updated_by', 'revision', 'version'}     # written by every writer on purpose
 WRITER_FILES = 3             # files writing one field without an owner before it is an issue
@@ -29,7 +29,7 @@ SHOWN_GROUPS = 3             # copies or unowned fields the --all listing shows 
 DELETING = ('delete', 'deleteMany', 'nested:delete', 'nested:deleteMany', 'sql:delete')
 INSERTING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'sql:insert')      # code that makes rows
 RESTRICTING = ('NoAction', 'Restrict')
-NO_KEY = '没有外键'           # a schema whose table has a relation's key columns but no @relation on them
+NO_KEY = 'no foreign key'       # a schema whose table has a relation's key columns but no @relation on them
 
 
 @dataclass(frozen=True)
@@ -187,12 +187,12 @@ def values(change, *, everything=False):
                  and now[key(row, declared, value)] > before[key(row, declared, value)]]
         allowed = '|'.join(map(str, declared['values']))
         def line(chosen):
-            return ('取值不在声明集合里：' + '  '.join(f'{row["file"]}:{row["line"]} {name}={value!r}' for row, value in chosen)
-                    + f'，允许 {allowed}（{where}）')
-        step = '改用集合里的值；集合真要加值，先改那条声明（' + where + '）'
+            return ('Value outside the declared set: ' + '  '.join(f'{row["file"]}:{row["line"]} {name}={value!r}' for row, value in chosen)
+                    + f'; allowed {allowed} ({where})')
+        step = 'use a value from the declared set; to add a value, change its declaration first (' + where + '）'
         if fresh and change.baseline:
             found.red.append(line(fresh) + ' → ' + step)
-        found.issues.append(Issue(issue_name, 1, f'取值 {name}', line(items), step,
+        found.issues.append(Issue(issue_name, 1, f'value {name}', line(items), step,
                                   frozenset(row_function(row) for row, _ in items), frozenset(row['file'] for row, _ in items),
                                   new=bool(fresh and change.baseline)))
     return found
@@ -284,15 +284,15 @@ def deletes(change, *, everything=False):
         parts = []
         for name, relations in open_children.items():
             keys = [key for relation in relations for key in relation['keys']]
-            parts.append(name + (f'（{len(keys)} 个外键：{"、".join(keys)}）' if len(keys) > 1 else ''))
+            parts.append(name + (f' ({len(keys)} foreign keys: {", ".join(keys)})' if len(keys) > 1 else ''))
         actions = '/'.join(dict.fromkeys(relation['on_delete'] or 'Restrict' for items in open_children.values() for relation in items))
-        text = (f'删除没处理子表：{_places(calls)} {function} 删 {parent}，{actions} 子表 {"、".join(parts)} '
-                f'在同一操作里没删、没置空、没计数' + ('（调用按名字解析）' if by_name else ''))
-        step = '删除前先删或置空这些子表的行，或先计数并拒绝删除；有意交给数据库拒绝，就把决定记进 .flowguard/ledger.toml：'
+        text = (f'Delete leaves child rows: {_places(calls)} {function} deletes {parent}; {actions} child tables {", ".join(parts)} '
+                f'are not deleted, cleared or counted in the same operation' + (' (calls resolved by name)' if by_name else ''))
+        step = 'delete or clear these child rows first, or count them and reject deletion; if database rejection is intentional, record the decision in .flowguard/ledger.toml:'
         entry = tuple(_structure_lines(f'delete:{file}:{function}:{parent}'))
         fresh = bool(change.baseline) and (file in change.files and _fresh_delete(change, file, function, parent)
                                           or bool(change.files & {child['file'] for items in open_children.values() for child in items}))
-        issue = Issue(f'delete:{file}:{function}:{parent}', 4, f'删除 {parent}（{function}）', text, step,
+        issue = Issue(f'delete:{file}:{function}:{parent}', 4, f'delete {parent} ({function})', text, step,
                       frozenset({named(ident)}), frozenset({file}), new=fresh, entry=entry)
         if fresh:
             issue = replace(issue, lead=text + ' → ' + issue.next_step())
@@ -365,19 +365,19 @@ def columns(change, *, everything=False):
         parts, fresh = [], False
         for item in items:
             if item['kind'].endswith('-table'):
-                parts.append(f'没有表 {item["table"]}')
+                parts.append(f'missing table {item["table"]}')
             else:
                 parts.append(f'{item["table"]}' + (f'（{item["file"]}:{item["line"]}）' if item.get('file') else '')
-                             + (f' 缺 {"、".join(item["missing"])}' if item['missing'] else '')
-                             + (f'{"，" if item["missing"] else " "}多出 {"、".join(item["extra"])}' if item.get('extra') else ''))
+                             + (f' missing {", ".join(item["missing"])}' if item['missing'] else '')
+                             + (f'{"; " if item["missing"] else " "}extra {", ".join(item["extra"])}' if item.get('extra') else ''))
             fresh = fresh or before is not None and any((_gap_key(item), name) not in before
                                                          for name in [*item['missing'], *item['extra']])
-        text = f'几份描述之间缺的列：{description} 对照 {schema}：' + '；'.join(parts)
-        step = f'补上缺的列和表；那份描述过时了，就写明它不再使用或删掉它（{description}）'
+        text = f'Columns missing between descriptions: {description} against {schema}: ' + '；'.join(parts)
+        step = f'add the missing columns and tables; if this description is obsolete, mark it unused or remove it ({description})'
         lead = text + ' → ' + step if fresh else ''
         if fresh:
             found.leads.append(lead)
-        found.issues.append(Issue(f'columns:{description}~{schema}', 3, f'缺列 {_short_path(description)}',
+        found.issues.append(Issue(f'columns:{description}~{schema}', 3, f'missing columns {_short_path(description)}',
                                   text, step, frozenset(), _schema_files(change.graph, schema, description),
                                   new=fresh, lead=lead))
     return found
@@ -422,15 +422,15 @@ def delete_rules(change):
                                for relation in item['relations']))
     for item in rules:
         schema, description, relations = item['schema'], item['description'], item['relations']
-        head = f'onDelete 不同：{description} 对照 {schema}：'
-        legend = f'括号里先是 {schema} 的规则，再是这份的'
-        text = head + f'{len(relations)} 条关系（{legend}）：' + listed(relations)
+        head = f'onDelete differs: {description} against {schema}: '
+        legend = f'parentheses show {schema}\'s rule first, then this description\'s rule'
+        text = head + f'{len(relations)} relations ({legend}): ' + listed(relations)
         name = 'ondelete:' + '~'.join(sorted((schema, description)))
-        step = ('让两份 schema 的删除规则一致，或让测试用的那份也照在用的那份删；有意不同（例如 SQL Server 不允许多条级联路径），'
-                '就把决定记进 .flowguard/ledger.toml：')
+        step = ('align deletion rules in both schemas, including the test schema; if differences are intentional (for example, SQL Server disallows multiple cascade paths), '
+                'record the decision in .flowguard/ledger.toml:')
         entry = tuple(_structure_lines(name))
         fresh = [relation for relation in relations if before is not None and before.isdisjoint(idents(item, relation))]
-        lead = (head + f'这次新增 {len(fresh)} 条关系（共 {len(relations)} 条；{legend}）：' + listed(fresh)
+        lead = (head + f'{len(fresh)} relations added in this change ({len(relations)} total; {legend}): ' + listed(fresh)
                 + ' → ' + step + ' ' + ' '.join(entry)) if fresh else ''
         if fresh:
             found.leads.append(lead)
@@ -484,12 +484,12 @@ def copies(change, index, *, before=False):
             by_files.setdefault(frozenset(row[1] for row in members), []).append((name, members))
     for files, items in sorted(by_files.items(), key=lambda item: sorted(item[0])):
         names = [name for name, _ in items]
-        text = (f'同名函数、函数体不同（结构相似度不低于 {SIMILAR_COPY:g}）：'
+        text = (f'Same-named functions have different bodies (structural similarity at least {SIMILAR_COPY:g}): '
                 + '；'.join(f'{name} ' + '  '.join(f'{file}:{line}' for _, file, _, line, _ in members) for name, members in items))
         label = names[0].strip('_').upper()
-        step = (f'留一份、别处改成调用它；要锁定：负责人上方写 owner {label}、副本上方写 sensor {label}'
-                f'（# 或 // flowguard:）；有意不同就改名')
-        found.issues.append(Issue('copies:' + '+'.join(names), 5, f'副本 {names[0]}' + (f' 等 {len(names)} 个' if len(names) > 1 else ''),
+        step = (f'keep one implementation and call it elsewhere; to bind agreement, write same {label} ref above the reference and same {label} above each copy'
+                f' (# or // flowguard:); rename intentionally different functions')
+        found.issues.append(Issue('copies:' + '+'.join(names), 5, f'copy {names[0]}' + (f' ({len(names)} total)' if len(names) > 1 else ''),
                                   text, step, frozenset(row[0] for _, members in items for row in members), files))
     return found
 
@@ -518,12 +518,12 @@ def writers(change, index, rows=None):
         files = {row['file'] for row in rows}
         if len(files) < WRITER_FILES or name.casefold() in owned:
             continue
-        functions = list(dict.fromkeys(row['function'] for row in rows))
-        text = f'{name} 有 {len(files)} 个文件在写，没有登记负责人：' + _places(rows)
+        functions = list(dict.fromkeys(f'{row["file"]}:{row["function"]}' for row in rows))
+        text = f'{name} is written by {len(files)} files without a registered writer agreement: ' + _places(rows)
         comment = '//' if any(row.get('language', 'python') != 'python' for row in rows) else '#'
-        step = (f'先告诉主人，问谁负责；定下来后在负责的函数旁写 {comment} flowguard: owner {name} writers={",".join(functions)}'
-                f'（只留主人认可的写入者），并在 .flowguard/ledger.toml 记下决定：')
-        found.issues.append(Issue(f'writers:{name}', 6, f'写入 {name}', text, step,
+        step = (f'ask the owner who is responsible; then write {comment} flowguard: writers {name} {",".join(functions)}'
+                f' (retain only writers the owner approves), and record the decision in .flowguard/ledger.toml:')
+        found.issues.append(Issue(f'writers:{name}', 6, f'write {name}', text, step,
                                   frozenset(row_function(row) for row in rows), frozenset(files),
                                   entry=tuple(_structure_lines(f'writers:{name}'))))
     return found
@@ -569,7 +569,7 @@ def co_written(change, name):
         alone = [places[function] for function in writers if other not in by_function[function]]
         lines.append(f'with= candidate (reference only): {other} is written by {count} of the {len(writers)} functions '
                      f'that write {target}' + (f'; not by {"  ".join(alone)}' if alone else '')
-                     + f' -> if the owner says they change together: {comment} flowguard: owner {target} with={other}')
+                     + f' -> if the owner says they change together: {comment} flowguard: together {target} {other}')
     return lines
 
 
@@ -596,15 +596,15 @@ def uncreated(change):
     for row in [*rows, *(row for row in graph.queries() if row.get('model') and live(row))]:
         if row['model'] in made or row['model'] in views:
             continue
-        verb = '删' if 'kind' in row and row['kind'] in DELETING else '改' if 'kind' in row else '读'
+        verb = 'delete' if 'kind' in row and row['kind'] in DELETING else 'update' if 'kind' in row else 'read'
         uses.setdefault(row['model'], {}).setdefault(verb, []).append(row)
     for model, verbs in sorted(uses.items()):
-        if set(verbs) == {'改'}:
+        if set(verbs) == {'update'}:
             continue                # only updated: the writers check lists who writes it
-        text = (f'代码从不建行的表：{model} ' + '，'.join(f'{verb} {_places(verbs[verb])}' for verb in ('读', '删', '改') if verb in verbs)
-                + '，没有一处 create/upsert/INSERT')
-        step = '先告诉主人：这些行从哪里来（种子、迁移、外部系统）；没有来源就删掉这些读和删，有意如此就把决定记进 .flowguard/ledger.toml：'
-        found.issues.append(Issue(f'uncreated:{model}', 7, f'建行 {model}', text, step,
+        text = (f'Table whose rows are never created by this code: {model} ' + '，'.join(f'{verb} {_places(verbs[verb])}' for verb in ('read', 'delete', 'update') if verb in verbs)
+                + '; no create/upsert/INSERT exists')
+        step = 'ask the owner where these rows come from (seeds, migrations or external systems); if there is no source, remove these reads and deletes; if intentional, record the decision in .flowguard/ledger.toml:'
+        found.issues.append(Issue(f'uncreated:{model}', 7, f'row creation {model}', text, step,
                                   frozenset(row_function(row) for items in verbs.values() for row in items),
                                   frozenset(row['file'] for items in verbs.values() for row in items),
                                   entry=tuple(_structure_lines(f'uncreated:{model}'))))
@@ -623,20 +623,20 @@ def labels(change):
         names = [table['name'] for table in tables]
         def ref(i):
             return names[i] if names.count(names[i]) == 1 else f'{names[i]}（{tables[i]["file"].rpartition("/")[2]}:{tables[i]["line"]}）'
-        parts = [f'{key} ' + ' 与 '.join(f'{label!r}（{"、".join(ref(i) for i in where)}）' for label, where in spelled.items())
+        parts = [f'{key} ' + ' versus '.join(f'{label!r}（{"、".join(ref(i) for i in where)}）' for label, where in spelled.items())
                  for key, spelled in family['differ'].items()]
-        parts += [f'{ref(i)} 缺 {"、".join(keys)}' for i, keys in family['lacking'].items()]
-        text = ('标签表不一致：' + '、'.join(f'{table["file"]}:{table["line"]} {table["name"]}' for table in tables)
+        parts += [f'{ref(i)} lacks {", ".join(keys)}' for i, keys in family['lacking'].items()]
+        text = ('Label tables disagree: ' + '、'.join(f'{table["file"]}:{table["line"]} {table["name"]}' for table in tables)
                 + '：' + '；'.join(parts))
         head = tables[0]
         name = f'labels:{head["file"]}:{head["name"]}'
-        step = ('让这些表取自同一张表（一个负责人），或统一写法、补上缺的键；有意不同（缩写、另一种用途）就把决定记进 '
+        step = ('derive these tables from one source, or align labels and add missing keys; if differences are intentional (abbreviations or another purpose), record the decision in '
                 '.flowguard/ledger.toml：')
         fresh = bool(change.baseline) and any(_table_changed(change, table) for table in tables)
         lead = text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)) if fresh else ''
         if fresh:
             found.leads.append(lead)
-        found.issues.append(Issue(name, 8, f'标签 {head["name"]}', text, step, frozenset(),
+        found.issues.append(Issue(name, 8, f'labels {head["name"]}', text, step, frozenset(),
                                   frozenset(table['file'] for table in tables), new=fresh,
                                   entry=tuple(_structure_lines(name)), lead=lead))
     return found
@@ -663,9 +663,9 @@ def decided(cfg, index, issues):
         kind, _, target = name.partition(':')
         if kind == 'writers' and target.casefold() not in owned:
             issue = next((item for item in issues if item.name == name), None)
-            anchor = issue.step.partition('旁写 ')[2].partition('（只留')[0] if issue else \
-                f'# flowguard: owner {target} writers=<函数,…>（JS/TS 用 //）'
-            red.append(f'结构决定 [structure."{name}"] 记下了谁负责，但没有 owner 锚点 → 在负责的函数旁加一行：{anchor}')
+            anchor = issue.step.partition('then write ')[2].partition(' (retain only')[0] if issue else \
+                f'# flowguard: writers {target} <function,...> (use // for JS/TS)'
+            red.append(f'Structure decision [structure."{name}"] records responsibility but has no writers agreement -> add beside the responsible function: {anchor}')
     return [issue for issue in issues if issue.name not in decisions], red
 
 
@@ -683,7 +683,7 @@ def touched(change, issues):
             or issue.name.startswith('ondelete:') and issue.files & change.files \
             or issue.rank == 1 and any(file in change.files for file in issue.files if file.endswith(('.prisma', '.sql')))
         if hit:
-            out.append(f'未决结构问题：{issue.text} → {issue.next_step()}')
+            out.append(f'Open structure issue: {issue.text} -> {issue.next_step()}')
     return out
 
 
@@ -699,7 +699,7 @@ def section(issues):
     ordered = _order(issues)
     if not ordered:
         return []
-    lines = [f'结构问题 {len(ordered)} 项（按严重程度；主人定下后记进 .flowguard/ledger.toml 的 [structure] 就不再提示）：']
+    lines = [f'{len(ordered)} structure issues (by severity; a sourced owner decision in .flowguard/ledger.toml [structure] closes an issue):']
     number = 0
     for rank in sorted(RANKS):
         group = [issue for issue in ordered if issue.rank == rank]
@@ -707,23 +707,23 @@ def section(issues):
             number += 1
             if rank == 5:
                 group.sort(key=lambda issue: (-len(issue.nodes), issue.name))
-                names = '、'.join(f'{issue.name.partition(":")[2]}（{len(issue.nodes)} 份）' for issue in group)
-                lines.append(f'{number}. 副本：{len(group)} 组同名函数、函数体不同（结构相似度不低于 {SIMILAR_COPY:g}）：{names}')
-                lines.append('   下一步：show 名字 列出每份的位置；每组留一份、别处调用它，或用 owner/sensor 锁定，有意不同就改名')
+                names = '、'.join(f'{issue.name.partition(":")[2]} ({len(issue.nodes)} copies)' for issue in group)
+                lines.append(f'{number}. Copies: {len(group)} groups of same-named functions with different bodies (structural similarity at least {SIMILAR_COPY:g}): {names}')
+                lines.append('   Next: show NAME lists copy locations; keep one implementation and call it elsewhere, bind a same agreement, or rename intentional differences')
             else:
                 models = {}
                 for issue in group:
                     models.setdefault(issue.name.partition(':')[2].rpartition('.')[0], []).append(issue)
                 parts = sorted(models.items(), key=lambda item: (-max(len(issue.files) for issue in item[1]), item[0]))
-                names = '、'.join(f'{model}（{len(items)} 个字段，最多 {max(len(issue.files) for issue in items)} 个文件）'
+                names = '、'.join(f'{model} ({len(items)} fields, up to {max(len(issue.files) for issue in items)} files)'
                                  for model, items in parts)
-                lines.append(f'{number}. 写入：{len(group)} 个字段由 {WRITER_FILES} 个以上文件写入、没有登记负责人：{names}')
-                lines.append('   下一步：先告诉主人，问谁负责；show 模型.字段 列出写入点和可以照抄的 owner 行、[structure] 条目')
+                lines.append(f'{number}. Writers: {len(group)} fields written by at least {WRITER_FILES} files without a writer agreement: {names}')
+                lines.append('   Next: ask the owner who is responsible; show Model.field lists writes, a writers agreement and a [structure] entry')
             continue
         for issue in group:
             number += 1
             lines.append(f'{number}. {RANKS[issue.rank]}：{issue.text}')
-            lines.append(f'   下一步：{issue.step}')
+            lines.append(f'   Next: {issue.step}')
             lines.extend('       ' + line for line in issue.entry)
     return lines
 
@@ -742,8 +742,8 @@ def brief_line(cfg):
     data = cache.structure_summary(cfg)
     if not data or not data['count'] and not data['writers']:
         return ''
-    return (f'未决结构问题 {data["count"]} 项' + (f'（另 {data["writers"]} 个字段多处写入、没有负责人）' if data['writers'] else '')
-            + '，最重：' + '；'.join(data['top']) + '（上次检查；check --static --all 列出全部和下一步）')
+    return (f'{data["count"]} open structure issues' + (f' ({data["writers"]} other fields have multiple writers and no writer agreement)' if data['writers'] else '')
+            + '; highest severity: ' + '；'.join(data['top']) + ' (last check; check --static --all lists every issue and next step)')
 
 
 def assess(cfg, change, index, found, *, everything=False):

@@ -183,7 +183,7 @@ def test_check_static_old_value_lead_reads_the_folded_constant_names_too(tmp_pat
     })
     (tmp_path / 'src/a.ts').write_text('export function over(x: number): boolean {\n  return x > 105;\n}\n', encoding='utf-8')
     code, text = _flowguard(tmp_path, 'check', '--static')
-    assert code == 0 and '线索：旧值 100 还出现在 1 个判断里：src/b.ts:4' in text, text
+    assert code == 0 and 'lead: old values 100 remain in 1 decisions: src/b.ts:4' in text, text
 
 
 # ---- the plan ----------------------------------------------------------------------------------------
@@ -210,7 +210,7 @@ def test_prepare_is_off_without_a_ts_change_and_plans_anchored_and_changed_funct
             }
         ''',
     })
-    assert _prepare(tmp_path) == {'status': 'off', 'reason': '相对基准没有 TS/JS 改动：执行侧不准备'}
+    assert _prepare(tmp_path) == {'status': 'off', 'reason': 'no TS/JS changes since baseline; execution preparation is skipped'}
     _sensor(tmp_path, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
     _sensor(tmp_path, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
     _sensor(tmp_path, 'src/colors.ts', '  cell(value', 'CELL')
@@ -271,13 +271,13 @@ def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_
     for days in (4, 5):
         _commit(tmp_path, {'src/limits.ts': limit.format(days)}, message=f'task {days}')
     code, text = _report(tmp_path, _prepare(tmp_path)['plan'])
-    assert code == 0 and f'FlowGuard（相对任务开始 {start[:7]}，HEAD 之前 2 个提交；新任务先运行 python -m flowguard new-task）' \
-        in text.splitlines() and '未验证：LIMIT（src/limits.ts:2）：没有测试走到' in text, text
+    assert code == 0 and f'FlowGuard（since task start {start[:7]}, commits before HEAD: 2; first run python -m flowguard new-task for a new task)' \
+        in text.splitlines() and 'unverified: LIMIT（src/limits.ts:2): not reached by any test' in text, text
     assert _flowguard(tmp_path, 'new-task')[0] == 0
     head = _git(tmp_path, 'rev-parse', 'HEAD').strip()
     (tmp_path / 'src/limits.ts').write_text(limit.format(6), encoding='utf-8')
     code, text = _report(tmp_path, _prepare(tmp_path)['plan'])
-    assert code == 0 and f'FlowGuard（相对任务开始 {head[:7]}）' in text.splitlines(), text
+    assert code == 0 and f'FlowGuard（since task start {head[:7]}）' in text.splitlines(), text
 
 
 def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tmp_path):
@@ -302,7 +302,7 @@ def test_a_function_that_names_a_database_client_is_planned_but_never_replayed(t
     _sensor(tmp_path, 'src/effects/audited.ts', 'export function activeCount', 'ACTIVE_COUNT')
     plan = json.loads(Path(_prepare(tmp_path)['plan']).read_text(encoding='utf-8'))
     [point] = [point for entry in plan['files'].values() for point in entry['points']]
-    assert point['skip'] == '看不清：函数里用到数据库客户端，不回放', point
+    assert point['skip'] == 'unavailable: function uses a database client; not replayed', point
 
 
 # ---- init ---------------------------------------------------------------------------------------------
@@ -973,26 +973,24 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     root = _fees_project(vitest_home, 'fees')
     code, text = _vitest(root, vitest_home)
     assert code == 0 and 'FlowGuard check --static' not in text.split('Test Files')[-1], text  # no change: nothing added
-    assert '变：' not in text and '同名锚点' not in text, text
+    assert 'changed: ' not in text and 'same-name anchor' not in text, text
     _sensor(root, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
     _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
     code, text = _vitest(root, vitest_home)
     assert code == 1, text
     # the smallest differing input, as the pytest side picks it; the copies differ for members after day 3
-    assert ('红：同名锚点 LATE_FEE：days=3.01, member=T，2 份：1 份得 5.01（src/fees/late-fee.ts:4 lateFee），'
-            '1 份得 5.02（src/preview/fee-preview.ts:3 lateFee） -> 先定哪份对，再让另一份和它一致；'
-            '有意不同，就给它们起不同的名字') in text, text     # TS has no distinct
-    assert '红：FEE_WINDOW: days=6 member=T -> rule 8, code 11（src/preview/fee-preview.ts:3 lateFee）' in text, text
-    assert 'FEE_WINDOW 出处：assumed: three free days, then 5 plus 1 a day for members and 2 a day for others' in text, text
+    assert ('red: same-name anchor LATE_FEE：days=3.01, member=T，2 copies: 1 copies return 5.01 (src/fees/late-fee.ts:4 lateFee), 1 copies return 5.02 (src/preview/fee-preview.ts:3 lateFee) -> first decide which copy is correct, then make the other copy agree with it; if intentionally different, use different names') in text, text     # TS has no distinct
+    assert 'red: FEE_WINDOW: days=6 member=T -> rule 8, code 11（src/preview/fee-preview.ts:3 lateFee）' in text, text
+    assert 'FEE_WINDOW source: assumed: three free days, then 5 plus 1 a day for members and 2 a day for others' in text, text
     _commit(root, message='sensors')
     late = root / 'src/fees/late-fee.ts'
     late.write_text(late.read_text(encoding='utf-8').replace('days > FREE_DAYS', 'days >= FREE_DAYS'), encoding='utf-8')
     code, text = _vitest(root, vitest_home)
     assert code == 1, text
-    assert '变：LATE_FEE（src/fees/late-fee.ts:4）已比较 12 类（划分未完成），变 2 类：days=3，member=F 等 2 类；函数返回值 0 → 5' in text, text
-    assert '红：FEE_WINDOW: days=3 member=F -> rule 0, code 5（src/fees/late-fee.ts:4 lateFee）' in text, text
+    assert 'changed: LATE_FEE（src/fees/late-fee.ts:4）compared 12 classes (partition incomplete); changed 2 classes：days=3，member=F and 2 classes; function result 0 → 5' in text, text
+    assert 'red: FEE_WINDOW: days=3 member=F -> rule 0, code 5（src/fees/late-fee.ts:4 lateFee）' in text, text
     # the unchanged copy compared on every replayed class prints nothing of its own
-    assert not [line for line in text.splitlines() if line.startswith('未验证') and 'fee-preview.ts' in line], text
+    assert not [line for line in text.splitlines() if line.startswith('unverified') and 'fee-preview.ts' in line], text
 
 
 def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_change(vitest_home):
@@ -1000,7 +998,7 @@ def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_ch
     _sensor(root, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
     _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
     code, text = _vitest(root, vitest_home)
-    red = '红：同名锚点 LATE_FEE：days=3.01, member=T，2 份：1 份得 5.01'
+    red = 'red: same-name anchor LATE_FEE：days=3.01, member=T，2 copies: 1 copies return 5.01'
     assert code == 1 and red in text, text
     _commit(root, message='sensors')
     # The static test's check --static recorded the task baseline; a commit keeps it, the next task moves it.
@@ -1013,8 +1011,8 @@ def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_ch
     _commit(root, message='the copies agree')
     assert _flowguard(root, 'new-task')[0] == 0
     code, text = _vitest(root, vitest_home)
-    assert code == 0 and '同名锚点' not in text, text
-    assert _prepare(root) == {'status': 'off', 'reason': '相对基准没有 TS/JS 改动：执行侧不准备'}   # compared, agreed: cleared
+    assert code == 0 and 'same-name anchor' not in text, text
+    assert _prepare(root) == {'status': 'off', 'reason': 'no TS/JS changes since baseline; execution preparation is skipped'}   # compared, agreed: cleared
 
 
 ISO_WEEK = '''
@@ -1060,14 +1058,13 @@ def test_a_same_name_red_names_an_input_next_to_the_one_the_test_used_and_fails_
                          timeout=600, env=_environment())
     text = display_text(run.stdout + run.stderr)
     # 2025 is next to the 2026 the test used (2026 itself agrees: both count 53); year=0 would be read as 1900
-    red = ('红：同名锚点 ISO_WEEKS_IN_YEAR：year=2025，2 份：1 份得 52（src/chart.ts:9 weeksInYear），'
-           '1 份得 1（src/calendar.ts:9 weekCount） -> 先定哪份对，再让另一份和它一致；有意不同，就给它们起不同的名字')
+    red = ('red: same-name anchor ISO_WEEKS_IN_YEAR：year=2025，2 copies: 1 copies return 52 (src/chart.ts:9 weeksInYear), 1 copies return 1 (src/calendar.ts:9 weekCount) -> first decide which copy is correct, then make the other copy agree with it; if intentionally different, use different names')
     assert run.returncode == 1 and red in text, text
     results = json.loads((root / 'results.json').read_text(encoding='utf-8'))
     cases = {case['title']: case for result in results['testResults'] for case in result['assertionResults']}
     assert cases['counts the weeks of this year']['status'] == 'passed', cases
     session = cases['FlowGuard execution side']             # the red is a failed test case in vitest's own results
-    assert session['status'] == 'failed' and red.removeprefix('红：') in display_text(''.join(session['failureMessages'])), session
+    assert session['status'] == 'failed' and red.removeprefix('red: ') in display_text(''.join(session['failureMessages'])), session
     assert red in text.split('Test Files')[-1], text          # the block still follows the summary
     run = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', 'tests'], cwd=root,
                          capture_output=True, encoding='utf-8', timeout=600, env=_environment())
@@ -1103,10 +1100,9 @@ def test_three_same_name_copies_are_counted_by_answer_and_the_red_leaves_the_cho
     code, text = _flowguard(root, 'init')
     assert code == 0, text
     code, text = _vitest(root, vitest_home)
-    red = list(dict.fromkeys(line for line in text.splitlines() if line.startswith('红：同名锚点')))   # block and failed case
+    red = list(dict.fromkeys(line for line in text.splitlines() if line.startswith('red: same-name anchor')))   # block and failed case
     assert code == 1 and red == [
-        '红：同名锚点 ISO_WEEKS_IN_YEAR：year=2025，3 份：2 份得 52（src/chart.ts:9 weeksInYear、src/planner.ts:9 isoWeeks），'
-        '1 份得 1（src/calendar.ts:9 weekCount） -> 先定哪份对，再让其余几份和它一致；有意不同，就给它们起不同的名字'], text
+        'red: same-name anchor ISO_WEEKS_IN_YEAR：year=2025，3 copies: 2 copies return 52 (src/chart.ts:9 weeksInYear, src/planner.ts:9 isoWeeks), 1 copies return 1 (src/calendar.ts:9 weekCount) -> first decide which copy is correct, then make the remaining copies agree with it; if intentionally different, use different names'], text
 
 
 def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest_home):
@@ -1126,9 +1122,9 @@ def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest
     assert code == 0, text
     code, text = _vitest(root / 'web', vitest_home)
     assert code == 0, text
-    unverified = [line for line in text.splitlines() if line.startswith('未验证')]
-    assert unverified[0].startswith('未验证 2 项（不是通过）'), unverified                   # two places, two items
-    assert '未验证：B_LIMIT（web/src/b.ts:2）：没有测试走到' in unverified and '未验证：B_LIMIT（web/src/c.ts:2）：没有测试走到' in unverified
+    unverified = [line for line in text.splitlines() if line.startswith('unverified')]
+    assert unverified[0].startswith('unverified 2 items (not passed)'), unverified                   # two places, two items
+    assert 'unverified: B_LIMIT（web/src/b.ts:2): not reached by any test' in unverified and 'unverified: B_LIMIT（web/src/c.ts:2): not reached by any test' in unverified
     assert 'API_LIMIT' not in text and 'api/src' not in text, text      # no web test can reach the api package
 
 
@@ -1139,9 +1135,9 @@ def test_a_replay_refuses_writes_and_database_clients_and_the_real_call_still_ru
     code, text = _vitest(root, vitest_home)
     assert code == 0, text
     assert (root / 'audit.log').read_text(encoding='utf-8') == 'fee 4\n'         # only the test's own call wrote
-    assert '未验证 2 项（不是通过）' in text, text
-    assert '未验证：AUDITED_FEE：看不清：回放中碰到 fs.appendFileSync，回放作废' in text, text
-    assert '未验证：ACTIVE_COUNT：看不清：函数里用到数据库客户端，不回放' in text, text
+    assert 'unverified 2 items (not passed)' in text, text
+    assert 'unverified: AUDITED_FEE：unavailable: replay encountered fs.appendFileSync; replay discarded' in text, text
+    assert 'unverified: ACTIVE_COUNT：unavailable: function uses a database client; not replayed' in text, text
 
 
 def test_the_adapter_spells_windows_and_vite_ids_as_one_file(tmp_path):

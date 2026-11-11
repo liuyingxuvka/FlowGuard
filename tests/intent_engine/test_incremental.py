@@ -254,6 +254,23 @@ def test_default_history_protects_a_row_in_the_first_committed_tree(tmp_path):
     assert any('row removed' in line for line in history.check(cfg))
 
 
+def test_default_history_keeps_the_task_baseline_after_later_commits(tmp_path):
+    root, cfg, _ = fixture(tmp_path)
+    git(root, 'init', '-q')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'accepted regression')
+    baseline = cache.task_start(cfg, record=True)[0]
+    path = cfg.intent / 'limit.py'
+    path.write_text(path.read_text().replace("LIMIT.rows(row(x=4,expect=False,why='fixed fourth value'))\n", ''))
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'remove the accepted row')
+    (root / 'note.txt').write_text('an unrelated later commit\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'record an unrelated note')
+    assert cache.session_baseline(cfg) == baseline
+    assert any('row removed' in line for line in history.check(cfg))
+
+
 def test_marked_test_loss_is_visible(tmp_path):
     root, cfg, _ = fixture(tmp_path)
     test = root / 'tests/test_guard.py'

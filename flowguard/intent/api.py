@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import sys
+from .deprecation import warn
 from itertools import islice
 from datetime import date, datetime, timedelta
 from decimal import Decimal as D
@@ -210,6 +211,7 @@ def _template_source(kind, source, *arguments):
 
 def precedes(first, then, *, source=None):
     """Every observed `then` comes after a `first` in the same test: `first` starts each path."""
+    warn('precedes')
     from .flow import Node
     edges = (('first', 'then'), ('first', 'first'), ('then', 'then'), ('then', 'first'))
     return _declare_flow(_template_id('precedes', first, then), _template_source('precedes', source, first, then),
@@ -219,6 +221,7 @@ def precedes(first, then, *, source=None):
 
 def guarded_by(guard, action, *, source=None):
     """Every observed `action` has its own `guard` before it: no action follows an action directly."""
+    warn('guarded_by')
     from .flow import Node
     edges = (('guard', 'action'), ('guard', 'guard'), ('action', 'guard'))
     return _declare_flow(_template_id('guarded_by', guard, action), _template_source('guarded_by', source, guard, action),
@@ -230,6 +233,7 @@ def transitions(state, *, source=None, **allowed):
     """The allowed changes of one `states` field wherever an anchored call changes it:
     transitions("Job.status", new={"saved"}, saved={"published"}). Its values come from the field's
     existing `# flowguard: states` comment; this line only says which changes are allowed."""
+    warn('transitions')
     from .flow import Transition
     if not allowed:
         raise IntentError(f'transitions({state!r}) needs before={{after, ...}} pairs')
@@ -245,6 +249,7 @@ def checks(rule, case, *, actual=None, source=None, **fields):
     """A rule checked on a scenario test's own arguments: checks("FEE", "FEE_CASE", days="arg.days").
     The decision read is `actual` (an anchor name, optionally `NAME.result...`), by default the rule's
     single anchor or the anchor named like the rule; the existing scenario binding derives the rest."""
+    warn('checks')
     from .flow import Node, Read, Relation
     identifier = rule.id if isinstance(rule, Rule) else rule
     if not fields:
@@ -282,6 +287,7 @@ class Distinct:
 
 def distinct(a, b, why, source) -> Distinct:
     """Declare two rules or two source anchors as separate decisions, with their source and reason."""
+    warn('distinct')
     line = sys._getframe(1).f_lineno
     if not isinstance(why, str) or not why.strip():
         raise IntentError(f"line {line}: distinct() needs why=")
@@ -330,6 +336,7 @@ class StructureRule:
 
 def structure_rule(identifier, *, source):
     """A Python function selects violations from six fixed generated queries."""
+    warn('structure_rule')
     def declare(predicate):
         item = StructureRule(identifier, source, predicate)
         DECLARED.append(item)

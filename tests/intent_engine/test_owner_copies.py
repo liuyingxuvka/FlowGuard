@@ -63,7 +63,7 @@ def _check(root, *options, before_main=''):
     return result.returncode, _text(result)
 
 
-def _lines(text, prefix='线索：'):
+def _lines(text, prefix='lead: '):
     return [line for line in text.splitlines() if line.startswith(prefix)]
 
 
@@ -109,7 +109,7 @@ def test_one_judgment_has_one_owner():
     ''')
     index = anchors._index([anchors._anchor(row) for row in facts['anchors']], [])
     assert [issue.code for issue in index.issues] == ['owner', 'owner']
-    assert 'keep one owner' in index.issues[0].message and 'policy.py:1' in index.issues[0].message
+    assert 'keep one reference' in index.issues[0].message and 'policy.py:1' in index.issues[0].message
 
 
 def test_a_projection_is_written_without_a_colon():
@@ -152,7 +152,7 @@ def test_parameters_correspond_only_by_name_unless_the_copy_writes_its_mapping(t
     '''
     index = anchors._index([anchors._anchor(row) for row in _facts(source)['anchors']], [])
     hint = next(issue.message for issue in index.issues if 'ELIGIBLE(' in issue.message)
-    assert 'parameters correspond only by name: write # flowguard: sensor ELIGIBLE(days=<its parameter>)' in hint
+    assert 'parameters correspond only by name: write # flowguard: same ELIGIBLE(days=<its parameter>)' in hint
     mapped = source.replace('# flowguard: sensor ELIGIBLE\n', '# flowguard: sensor ELIGIBLE(days=overdue_days)\n')
     facts = _facts(mapped)
     copy = anchors._anchor(facts['anchors'][1])
@@ -161,8 +161,7 @@ def test_parameters_correspond_only_by_name_unless_the_copy_writes_its_mapping(t
     _project(tmp_path, {'policy.py': mapped})
     code, text = _check(tmp_path)
     assert code == 1, text
-    assert ('红：同名锚点 ELIGIBLE：days=4，2 份：1 份得 F（负责人 policy.py:2 owner），1 份得 T（policy.py:5 copy） -> '
-            '让 policy.py:5 copy 和负责人一致；') in text, text
+    assert ('red: same-name anchor ELIGIBLE：days=4，2 copies: 1 copies return F (reference policy.py:2 owner), 1 copies return T (policy.py:5 copy) -> make policy.py:5 copy agree with the reference;') in text, text
 
 
 def test_math_is_not_grey_and_representatives_include_halves_and_non_finite_values(tmp_path):
@@ -186,8 +185,7 @@ def test_math_is_not_grey_and_representatives_include_halves_and_non_finite_valu
     '''})
     code, text = _check(tmp_path)
     assert code == 1, text
-    assert ('红：同名锚点 ROUND：value=-0.5，2 份：1 份得 -1（负责人 rounding.py:6 away），1 份得 0（rounding.py:13 up） -> '
-            '让 rounding.py:13 up 和负责人一致；') in text, text
+    assert ('red: same-name anchor ROUND：value=-0.5，2 copies: 1 copies return -1 (reference rounding.py:6 away), 1 copies return 0 (rounding.py:13 up) -> make rounding.py:13 up agree with the reference;') in text, text
     assert 'not proved pure' not in text and 'import is unresolved' not in text, text
     from flowguard.intent import cells
     assert {-2.5, -0.5, 0.5, 2.5}.issubset(cells.representatives(cells.Kind('float')))
@@ -222,12 +220,12 @@ def test_fixed_6_copies_with_different_return_forms_are_compared_through_their_p
             assert preview(0).ok
     '''}) / 'policy.py'
     agreed = _pytest(tmp_path)
-    assert agreed.returncode == 0 and '同名锚点' not in _text(agreed), _text(agreed)
+    assert agreed.returncode == 0 and 'same-name anchor' not in _text(agreed), _text(agreed)
     policy.write_text(policy.read_text(encoding='utf-8').replace('overdue_days <= 3', 'overdue_days <= 5'), encoding='utf-8')
     result = _pytest(tmp_path)
     text = _text(result)
     assert result.returncode == 1 and '1 passed' in result.stdout, text
-    assert '红：同名锚点 ELIGIBLE：days=4，2 份：1 份得 F（policy.py:11 eligible），1 份得 T（policy.py:16 preview）' in text, text
+    assert 'red: same-name anchor ELIGIBLE：days=4，2 copies: 1 copies return F (policy.py:11 eligible), 1 copies return T (policy.py:16 preview)' in text, text
 
 
 # ---- round 22 F1: a same-name red names every copy's answer and chooses none -------------------------------
@@ -252,7 +250,7 @@ def _same_name_red(root, source):
     result = _pytest(root)
     text = _text(result)
     assert result.returncode == 1, text
-    return [line for line in text.splitlines() if line.startswith('红：同名锚点 LIMIT')], text
+    return [line for line in text.splitlines() if line.startswith('red: same-name anchor LIMIT')], text
 
 
 def test_three_same_name_copies_are_counted_by_answer_and_the_red_does_not_choose_the_right_one(tmp_path):
@@ -260,29 +258,25 @@ def test_three_same_name_copies_are_counted_by_answer_and_the_red_does_not_choos
     # agree: done as written, it copies the odd one's answer. The red counts the answers and leaves the choice.
     _project(tmp_path, {'limits.py': _copies(3, 3, 3), **REACHES_CHART})
     red, text = _same_name_red(tmp_path, _copies(3, 3, 4))
-    assert red == ['红：同名锚点 LIMIT：days=4，3 份：2 份得 F（limits.py:2 chart、limits.py:7 calendar），'
-                   '1 份得 T（limits.py:12 report） -> 先定哪份对，再让其余几份和它一致；'
-                   '有意不同，就改用不同的锚点名并写 distinct'], text
+    assert red == ['red: same-name anchor LIMIT：days=4，3 copies: 2 copies return F (limits.py:2 chart, limits.py:7 calendar), 1 copies return T (limits.py:12 report) -> first decide which copy is correct, then make the remaining copies agree with it; if intentionally different, use different anchor names and declare distinct'], text
 
 
 def test_two_same_name_copies_are_one_answer_each_and_an_owner_stays_the_reference(tmp_path):
     _project(tmp_path, {'limits.py': _copies(3, 3), **REACHES_CHART})
     red, text = _same_name_red(tmp_path, _copies(4, 3))
     # one each: no side is the larger one, and the step names no copy to change
-    assert red == ['红：同名锚点 LIMIT：days=4，2 份：1 份得 T（limits.py:2 chart），1 份得 F（limits.py:7 calendar）'
-                   ' -> 先定哪份对，再让另一份和它一致；有意不同，就改用不同的锚点名并写 distinct'], text
+    assert red == ['red: same-name anchor LIMIT：days=4，2 copies: 1 copies return T (limits.py:2 chart), 1 copies return F (limits.py:7 calendar) -> first decide which copy is correct, then make the other copy agree with it; if intentionally different, use different anchor names and declare distinct'], text
     # The owner is the reference its copies follow: the copy changes, also when the test reaches the owner
     # (4.2 then said `让 chart 和同名副本一致`, the owner after its copy).
     red, text = _same_name_red(tmp_path, _copies(3, 4, owner=True))
-    assert red == ['红：同名锚点 LIMIT：days=4，2 份：1 份得 F（负责人 limits.py:2 chart），1 份得 T（limits.py:7 calendar）'
-                   ' -> 让 limits.py:7 calendar 和负责人一致；有意不同，就改用不同的锚点名并写 distinct'], text
+    assert red == ['red: same-name anchor LIMIT：days=4，2 copies: 1 copies return F (reference limits.py:2 chart), 1 copies return T (limits.py:7 calendar) -> make limits.py:7 calendar agree with the reference; if intentionally different, use different anchor names and declare distinct'], text
 
 
 def _checked_red(root, source):
     (root / 'limits.py').write_text(source, encoding='utf-8')
     code, text = _check(root)
     assert code == 1, text
-    return sorted(line for line in text.splitlines() if line.startswith('红')), text
+    return sorted(line for line in text.splitlines() if line.startswith('red')), text
 
 
 def test_check_sends_a_changed_copy_back_to_the_owner_and_counts_every_copys_answer(tmp_path):
@@ -291,16 +285,12 @@ def test_check_sends_a_changed_copy_back_to_the_owner_and_counts_every_copys_ans
     # named no owner.
     _project(tmp_path, {'limits.py': _copies(3, 3, 3, owner=True)})
     red, text = _checked_red(tmp_path, _copies(3, 3, 4, owner=True))
-    assert red == ['红：同名锚点 LIMIT：days=4，3 份：2 份得 F（负责人 limits.py:2 chart、limits.py:7 calendar），'
-                   '1 份得 T（limits.py:12 report） -> 让 limits.py:12 report 和负责人一致；有意不同，就改用不同的锚点名并写 distinct',
-                   '红：锚点 LIMIT：report（limits.py:12）改了行为；原来和它行为相同的 2 份没改：limits.py:7  limits.py:2'
-                   ' → 让 report 回到负责人 chart（limits.py:2）的行为'], text
+    assert red == ['red: anchor LIMIT：report（limits.py:12） changed behavior; 2 previously equivalent copies are unchanged: limits.py:7  limits.py:2 → make report match reference chart(limits.py:2)',
+                   'red: same-name anchor LIMIT：days=4，3 copies: 2 copies return F (reference limits.py:2 chart, limits.py:7 calendar), 1 copies return T (limits.py:12 report) -> make limits.py:12 report agree with the reference; if intentionally different, use different anchor names and declare distinct'], text
     # The owner changed: its copies follow it.
     red, text = _checked_red(tmp_path, _copies(4, 3, 3, owner=True))
-    assert red == ['红：同名锚点 LIMIT：days=4，3 份：1 份得 T（负责人 limits.py:2 chart），2 份得 F（limits.py:7 calendar、'
-                   'limits.py:12 report） -> 让 limits.py:7 calendar、limits.py:12 report 和负责人一致；有意不同，就改用不同的锚点名并写 distinct',
-                   '红：负责人 LIMIT：chart（limits.py:2）改了行为；原来和它行为相同的 2 份没改：limits.py:7  limits.py:12'
-                   ' → 一起改，或改成调用 chart'], text
+    assert red == ['red: reference LIMIT：chart（limits.py:2） changed behavior; 2 previously equivalent copies are unchanged: limits.py:7  limits.py:12 → update together, or call chart',
+                   'red: same-name anchor LIMIT：days=4，3 copies: 1 copies return T (reference limits.py:2 chart), 2 copies return F (limits.py:7 calendar, limits.py:12 report) -> make limits.py:7 calendar、limits.py:12 report agree with the reference; if intentionally different, use different anchor names and declare distinct'], text
 
 
 def test_check_names_the_owner_when_it_changed_with_a_copy_and_a_third_copy_stayed(tmp_path):
@@ -309,19 +299,15 @@ def test_check_names_the_owner_when_it_changed_with_a_copy_and_a_third_copy_stay
     # the same check sent report to the owner.
     _project(tmp_path, {'limits.py': _copies(3, 3, 3, owner=True)})
     red, text = _checked_red(tmp_path, _copies(4, 4, 3, owner=True))
-    assert red == ['红：同名锚点 LIMIT：days=4，3 份：2 份得 T（负责人 limits.py:2 chart、limits.py:7 calendar），'
-                   '1 份得 F（limits.py:12 report） -> 让 limits.py:12 report 和负责人一致；有意不同，就改用不同的锚点名并写 distinct',
-                   '红：负责人 LIMIT：calendar（limits.py:7）、chart（limits.py:2） 这 2 处改了行为；原来和它们行为相同的 1 份没改：'
-                   'limits.py:12 → 一起改，或改成调用 chart'], text
+    assert red == ['red: reference LIMIT：calendar（limits.py:7）、chart（limits.py:2） (2 locations) changed behavior; 1 previously equivalent copies are unchanged: limits.py:12 → update together, or call chart',
+                   'red: same-name anchor LIMIT：days=4，3 copies: 2 copies return T (reference limits.py:2 chart, limits.py:7 calendar), 1 copies return F (limits.py:12 report) -> make limits.py:12 report agree with the reference; if intentionally different, use different anchor names and declare distinct'], text
 
 
 def test_check_leaves_the_choice_between_copies_when_none_is_the_owner(tmp_path):
     _project(tmp_path, {'limits.py': _copies(3, 3, 3)})
     red, text = _checked_red(tmp_path, _copies(3, 3, 4))
-    assert red == ['红：同名锚点 LIMIT：days=4，3 份：2 份得 F（limits.py:2 chart、limits.py:7 calendar），'
-                   '1 份得 T（limits.py:12 report） -> 先定哪份对，再让其余几份和它一致；有意不同，就改用不同的锚点名并写 distinct',
-                   '红：锚点 LIMIT：report（limits.py:12）改了行为；原来和它行为相同的 2 份没改：limits.py:7  limits.py:2'
-                   ' → 先定哪份对：这次是有意改的，就一起改，或改成调用 report；不是，就让 report 回到原来的行为'], text
+    assert red == ['red: anchor LIMIT：report（limits.py:12） changed behavior; 2 previously equivalent copies are unchanged: limits.py:7  limits.py:2 → first decide which copy is correct: for an intended change, update together or call report; otherwise make report return to the original behavior',
+                   'red: same-name anchor LIMIT：days=4，3 copies: 2 copies return F (limits.py:2 chart, limits.py:7 calendar), 1 copies return T (limits.py:12 report) -> first decide which copy is correct, then make the remaining copies agree with it; if intentionally different, use different anchor names and declare distinct'], text
 
 
 # Round 22 F1, second review: chart is the owner, report already differs from it at days=3 (`days < 3`), and this
@@ -333,18 +319,14 @@ def _split_copies(calendar):
     return source[:source.rindex('days <= 3')] + 'days < 3\n'
 
 
-SPLIT_RED = ('红：同名锚点 LIMIT：days=3，3 份：1 份得 T（负责人 limits.py:2 chart），1 份得 F（limits.py:12 report），'
-             '另 1 份在别的输入上和负责人不同：limits.py:7 calendar（days=4） -> 让 limits.py:12 report 和负责人一致；'
-             'days=4，3 份：1 份得 F（负责人 limits.py:2 chart），1 份得 T（limits.py:7 calendar），'
-             '另 1 份在别的输入上和负责人不同：limits.py:12 report（days=3） -> 让 limits.py:7 calendar 和负责人一致；'
-             '有意不同，就改用不同的锚点名并写 distinct')
+SPLIT_RED = ('red: same-name anchor LIMIT：days=3，3 copies: 1 copies return T (reference limits.py:2 chart), 1 copies return F (limits.py:12 report), plus 1 copies differ from the reference on other inputs: limits.py:7 calendar (days=4) -> make limits.py:12 report agree with the reference；days=4，3 copies: 1 copies return F (reference limits.py:2 chart), 1 copies return T (limits.py:7 calendar), plus 1 copies differ from the reference on other inputs: limits.py:12 report (days=3) -> make limits.py:7 calendar agree with the reference; if intentionally different, use different anchor names and declare distinct')
 
 
 def test_check_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp_path):
     _project(tmp_path, {'limits.py': _split_copies(3)})
     red, text = _checked_red(tmp_path, _split_copies(4))
-    assert [line for line in red if '同名锚点' in line] == [SPLIT_RED], text
-    assert '红 同名锚点' not in text, text          # no pair is left to a block of its own
+    assert [line for line in red if 'same-name anchor' in line] == [SPLIT_RED], text
+    assert 'red same-name anchor' not in text, text          # no pair is left to a block of its own
 
 
 def test_pytest_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp_path):
@@ -365,22 +347,22 @@ def test_fixed_10_a_registered_owner_lists_the_other_six_kwp_copies_by_behavior(
     code, text = _check(tmp_path)
     assert code == 0, text
     leads = _lines(text)
-    header = next(line for line in leads if line.startswith('线索：负责人 MATLAB_ROUND'))
-    assert 'Step1/src/kwp_step1/matlab_fallbacks.py:15' in header and '疑似副本 6 份' in header, text
-    assert re.search(r'候选 6 个，用时 \d+\.\d\d 秒', header) and '# flowguard: sensor MATLAB_ROUND' in header, text
-    same = next(line for line in leads if line.startswith('线索：副本 3 份'))
-    assert '不是证明' in same and all(place in same for place in (
+    header = next(line for line in leads if line.startswith('lead: reference MATLAB_ROUND'))
+    assert 'Step1/src/kwp_step1/matlab_fallbacks.py:15' in header and 'has 6 suspected copies' in header, text
+    assert re.search('candidates: 6; time: \\d+\\.\\d\\d seconds', header) and '# flowguard: same MATLAB_ROUND' in header, text
+    same = next(line for line in leads if line.startswith('lead: copy: 3 copies'))
+    assert 'not a proof' in same and all(place in same for place in (
         'Step3/src/kwp_step3/technology.py:53', 'Step2/src/kwp_step2/try_data.py:15',
         'Step10/step10_baublock_progress_maps.py:'))
-    assert '这是在负责人的全部代表值上比较的结果，调用点是否走到负数、非有限值等没有核对' in header, header
-    half = [line for line in leads if 'value=-2.5 → -2（负责人给 -3）' in line]
-    assert len(half) == 1 and half[0].startswith('线索：相似 2 份：') and 'simulation_preparation.py:25' in half[0] \
+    assert 'compared on all reference values; call-site reachability of negative, non-finite and other values was not checked' in header, header
+    half = [line for line in leads if 'value=-2.5 → -2(reference returns -3）' in line]
+    assert len(half) == 1 and half[0].startswith('lead: similar 2 copies:') and 'simulation_preparation.py:25' in half[0] \
         and 'Step6a/kwp_step6a/config.py:' in half[0], text
     # Grouped by the first difference; int(x + 0.5) and floor(x + 0.5) still differ on negative whole numbers.
-    assert '这几份在别的代表值上也互不相同' in half[0], half[0]
+    assert 'these copies also differ on other representative values' in half[0], half[0]
     legacy = next(line for line in leads if 'step2_demand_library.py' in line)
-    assert legacy.startswith('线索：相似 1 份：') and 'value=nan → 0（负责人给 raised ValueError）' in legacy, text
-    assert len([line for line in leads if re.match(r'线索：(副本|分叉的副本|相似) ', line)]) == 3, text
+    assert legacy.startswith('lead: similar 1 copies:') and 'value=nan → 0(reference returns raised ValueError）' in legacy, text
+    assert len([line for line in leads if re.match('lead: (copy:|diverged copy|similar) ', line)]) == 3, text
 
 
 def test_fixed_11_three_changed_copies_name_the_four_left_behind(tmp_path):
@@ -402,16 +384,16 @@ def test_fixed_11_three_changed_copies_name_the_four_left_behind(tmp_path):
     assert code == 0, text
     # No rules, so no pytest batch: the title still names the baseline the leads were compared with.
     title = next(line for line in text.splitlines() if line.startswith('FlowGuard（'))
-    assert title.startswith('FlowGuard（相对任务开始 '), text
-    lead = next(line for line in _lines(text) if '改了行为' in line)
-    assert '这 3 处改了行为' in lead and all(place in lead for place in (
+    assert title.startswith('FlowGuard（since task start '), text
+    lead = next(line for line in _lines(text) if 'changed behavior' in line)
+    assert '(3 locations) changed behavior' in lead and all(place in lead for place in (
         'Step1/src/kwp_step1/matlab_fallbacks.py:15', 'Step3/src/kwp_step3/technology.py:53',
         'Step10/step10_baublock_progress_maps.py:'))
-    twins, similar = lead.split('相似', 1)
-    assert '原来和它们行为相同的 1 份没改：Step6a/kwp_step6a/config.py:' in twins, lead
+    twins, similar = lead.split('similar', 1)
+    assert '1 previously equivalent copies are unchanged: Step6a/kwp_step6a/config.py:' in twins, lead
     assert all(place in similar for place in ('Step2/src/kwp_step2/simulation_preparation.py:25',
                                               'Step2/src/kwp_step2/try_data.py:15', 'Step2/step2_demand_library.py:')), lead
-    assert '# flowguard: owner MATLAB_ROUND' in lead
+    assert '# flowguard: same MATLAB_ROUND ref' in lead
 
 
 # ---- fixed examples 8, 14 and 18: static leads ---------------------------------------------------------
@@ -433,12 +415,12 @@ def test_fixed_8_one_changed_grace_copy_names_the_other_four(tmp_path):
     result = _pytest(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    lead = next(line for line in _lines(text) if '旧值 14' in line)
+    lead = next(line for line in _lines(text) if 'old values 14' in line)
     expected = [f'policy.py:{number}' for number, line in enumerate(changed.splitlines(), 1)
                 if re.search(r'(<=|>) 14:?$|LIMITS\[0\]', line)]
-    assert len(expected) == 4 and '还出现在 4 个判断里' in lead, (expected, text)
-    assert all(place in lead for place in expected) and lead.count('（大函数中）') == 2, text
-    assert '…' not in lead and '# flowguard: owner' in lead
+    assert len(expected) == 4 and 'remain in 4 decisions:' in lead, (expected, text)
+    assert all(place in lead for place in expected) and lead.count('(in a large function)') == 2, text
+    assert '…' not in lead and '# flowguard: same NAME ref' in lead
 
 
 def test_fixed_14_a_rule_that_still_holds_the_old_value_is_a_lead(tmp_path):
@@ -473,7 +455,7 @@ def test_fixed_14_a_rule_that_still_holds_the_old_value_is_a_lead(tmp_path):
     '''}) / 'policy.py'
     policy.write_text(policy.read_text(encoding='utf-8').replace('GRACE_DAYS = 14', 'GRACE_DAYS = 21'), encoding='utf-8')
     text = _text(_pytest(tmp_path))
-    assert '线索：规则 GRACE 里还写着旧值 14（tests/intent/grace.py 判断第 7 行、回归行第 12 行）：需求变了就先改规则' in text, text
+    assert 'lead: rule GRACE still uses old value 14(tests/intent/grace.py decision line 7、regression row line 12): if requirements changed, update the rule first' in text, text
 
 
 def test_fixed_18_numbers_equal_only_at_zero_are_unrelated_and_dict_keys_never_drift(tmp_path):
@@ -494,7 +476,7 @@ def test_fixed_18_numbers_equal_only_at_zero_are_unrelated_and_dict_keys_never_d
                      + "\n\ndef upper(row):\n    return {'ID': row}\n", encoding='utf-8')
     code, text = _check(tmp_path, '--all')
     assert code == 0, text
-    assert 'money.py:6' not in text and '疑似副本' not in text and '写法不一致' not in text, text
+    assert 'money.py:6' not in text and all(marker not in text for marker in ('suspected copy', 'suspected copies')) and 'spellings differ' not in text, text
 
 
 def test_a_new_spelling_of_a_label_is_a_lead_and_an_old_one_is_not(tmp_path):
@@ -505,17 +487,17 @@ def test_a_new_spelling_of_a_label_is_a_lead_and_an_old_one_is_not(tmp_path):
             return 'other'
     '''})
     code, text = _check(tmp_path)
-    assert '写法不一致' not in text, text
+    assert 'spellings differ' not in text, text
     (tmp_path / 'view.py').write_text("def title(kind):\n    return 'My organization' if kind else ''\n", encoding='utf-8')
     code, text = _check(tmp_path)
-    lead = next(line for line in _lines(text) if '写法不一致' in line)
-    assert "'My Organization'（labels.py:2）" in lead and "'My organization'（view.py:2，这次新增的写法）" in lead, text
+    lead = next(line for line in _lines(text) if 'spellings differ' in line)
+    assert "'My Organization'（labels.py:2）" in lead and "'My organization'(view.py:2, spelling added in this task)" in lead, text
 
 
 # ---- data owners ---------------------------------------------------------------------------------------
 
 def test_a_new_write_outside_a_data_owner_is_red_and_older_ones_are_the_old_ledger(tmp_path):
-    _project(tmp_path, {'shop/__init__.py': '', 'shop/store.py': '''
+    _project(tmp_path, {'changed.py': 'def unrelated(): return 0\n', 'shop/__init__.py': '', 'shop/store.py': '''
         # flowguard: owner hires.reserved writers=shop.store:reserve
         def reserve(db, hire_id):
             db.execute("UPDATE hires SET reserved = 1 WHERE id = ?", (hire_id,))
@@ -528,20 +510,50 @@ def test_a_new_write_outside_a_data_owner_is_red_and_older_ones_are_the_old_ledg
             assert True
     '''})
     code, text = _check(tmp_path)
-    assert code == 0 and '负责人以外' not in text, text
+    assert code == 0 and 'outside the declared writer' not in text, text
+    # Enter pytest's cached static route before --all, while leaving every real writer unchanged.
+    (tmp_path / 'changed.py').write_text('def unrelated(): return 1\n', encoding='utf-8')
     code, text = _check(tmp_path, '--all')
-    assert code == 0 and '线索：旧账 hires.reserved 负责人以外的写入：shop/store.py:7 legacy（sql:update，值 0）' in text, text
+    assert code == 0 and 'lead: before: hires.reserved writes outside the declared writer: shop/store.py:7 legacy（sql:update, value 0）' in text, text
     (tmp_path / 'shop/api.py').write_text('def cancel(db, hire_id):\n    db.execute("UPDATE hires SET reserved = 0 WHERE id = ?", (hire_id,))\n', encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 1, text
-    red = next(line for line in text.splitlines() if line.startswith('红：负责人以外新增写入'))
-    assert 'hires.reserved：shop/api.py:2 cancel（sql:update，值 0）' in red and '只允许 shop.store:reserve' in red, red
-    assert '把 shop.api:cancel 加进 writers=（owner 注释在 shop/store.py:1）' in red and 'legacy' not in red, red
+    red = next(line for line in text.splitlines() if line.startswith('red: new write outside the declared writer'))
+    assert 'hires.reserved：shop/api.py:2 cancel（sql:update, value 0）' in red and 'allowed only: shop.store:reserve' in red, red
+    assert 'add shop.api:cancel to the writers agreement (comment at shop/store.py:1）' in red and 'legacy' not in red, red
     result = _pytest(tmp_path)
-    assert result.returncode == 1 and '红：负责人以外新增写入 hires.reserved' in _text(result), _text(result)
+    assert result.returncode == 1 and 'red: new write outside the declared writer for hires.reserved' in _text(result), _text(result)
 
 
 # ---- copy discovery: replay route, timeout, import errors, a new copy of an owner ---------------------------
+
+def test_reusing_static_findings_keeps_discovered_copies_in_the_summary_and_all_listing(tmp_path):
+    from contextlib import closing
+    from flowguard.intent import owners
+    from flowguard.intent.config import load_config
+    from flowguard.structure import build
+    _project(tmp_path, {'reference.py': '''
+        # flowguard: same LIMIT ref
+        def limit(value: int) -> bool:
+            if value < 0: return False
+            if value <= 3: return True
+            return False
+    ''', 'peer.py': '''
+        def permitted(value: int) -> bool:
+            if value < 0: return False
+            if value <= 4: return True
+            return False
+    '''})
+    cfg = load_config(tmp_path)
+    base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        index = anchors.collect(graph)
+        static = owners.static_findings(cfg, graph, index, base, everything=True)
+        found = owners.check_findings(cfg, graph, index, base, everything=True, static=static)
+    assert 'copies:LIMIT' in {issue.name for issue in found.issues}
+    assert found.summary['count'] == 1
+    assert any('LIMIT' in line for line in found.section)
+
 
 def test_copy_discovery_replays_through_the_runtime_and_lists_what_it_cannot_run(tmp_path):
     _project(tmp_path, {'rules.py': '''
@@ -583,10 +595,10 @@ def test_copy_discovery_replays_through_the_runtime_and_lists_what_it_cannot_run
     assert result.returncode == 0, text
     replayed = set(re.findall(r'REPLAY (\w+)', result.stderr))
     assert {'half', 'same', 'spin'} <= replayed, result.stderr
-    assert re.search(r'副本 1 份（在 \d+ 个代表值上与负责人相同，不是证明）：rules.py:6', text), text
-    unclear = next(line for line in _lines(text) if line.startswith('线索：看不清'))
-    assert 'rules.py:10（超过 0.5 秒没有结束）' in unclear, unclear
-    assert "vendor_copy.py:4（导入出错：ModuleNotFoundError: No module named 'not_installed_anywhere'）" in unclear, unclear
+    assert re.search('copy: 1 copies \\(match the reference on \\d+ representative values; not a proof\\): rules.py:6', text), text
+    unclear = next(line for line in _lines(text) if line.startswith('lead: unavailable copies:'))
+    assert 'rules.py:10（exceeded 0.5 seconds without completion）' in unclear, unclear
+    assert "vendor_copy.py:4（import failed: ModuleNotFoundError: No module named 'not_installed_anywhere'）" in unclear, unclear
     # `broken` imports json inside its body: that import now runs under the replay guard, and the copy's
     # TypeError for every representative is a behaviour to compare, not something left unseen.
     assert 'rules.py:16' not in unclear, unclear
@@ -604,7 +616,7 @@ def test_a_new_copy_of_a_registered_owner_is_red(tmp_path):
     rules.write_text(rules.read_text(encoding='utf-8') + '\n\ndef again(amount: float) -> float:\n    return 0.5 * amount\n', encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 1, text
-    assert '红：负责人 HALF（rules.py:2） 之外新起了一份：rules.py:6（副本）→ 改成调用 half，或在它上方写 # flowguard: sensor HALF' in text, text
+    assert 'red: reference HALF（rules.py:2） has a new copy outside it: rules.py:6(copy) -> call half, or write above it: # flowguard: same HALF' in text, text
 
 
 def test_a_typescript_data_owner_turns_a_new_prisma_write_outside_its_writers_red(tmp_path):
@@ -618,15 +630,15 @@ def test_a_typescript_data_owner_turns_a_new_prisma_write_outside_its_writers_re
     (tmp_path / '.gitignore').write_text('.flowguard/cache/\n', encoding='utf-8')
     _commit(tmp_path)
     code, text = _check(tmp_path)
-    assert code == 0 and '负责人以外新增写入' not in text, text
+    assert code == 0 and 'new write outside the declared writer' not in text, text
     (tmp_path / 'backend/src/services/rogue.ts').write_text(
         'export async function moveEmployee(prisma: any, id: string, unit: string) {\n'
         '  await prisma.employee.update({ where: { id }, data: { organizationalUnitId: unit } });\n}\n', encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 1, text
-    red = next(line for line in text.splitlines() if line.startswith('红：负责人以外新增写入'))
-    assert red.startswith('红：负责人以外新增写入 Employee.organizationalUnitId：backend/src/services/rogue.ts:2 moveEmployee（update）'), red
-    assert '只允许 transferEmployee' in red and 'owner 注释在 backend/src/owners.ts:1' in red and red.count('.ts:') == 2, red
+    red = next(line for line in text.splitlines() if line.startswith('red: new write outside the declared writer'))
+    assert red.startswith('red: new write outside the declared writer for Employee.organizationalUnitId：backend/src/services/rogue.ts:2 moveEmployee（update）'), red
+    assert 'allowed only: transferEmployee' in red and 'comment at backend/src/owners.ts:1' in red and red.count('.ts:') == 2, red
 
 
 def test_show_lists_an_owners_old_ledger(tmp_path):
@@ -779,18 +791,17 @@ def test_a_registered_pair_is_red_where_a_write_leaves_its_partner_out(tmp_path)
             db.execute("UPDATE hires SET reserved = 0")
     '''})
     code, text = _check(tmp_path)
-    assert code == 0 and '配对没写' not in text, text
+    assert code == 0 and 'missing paired write' not in text, text
     store = tmp_path / 'shop/store.py'
     store.write_text("# flowguard: owner hires.reserved with=hires.state=held alone=shop.store:import_rows(bulk import marks rows later)\n"
                      + store.read_text(encoding='utf-8'), encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 1, text
-    red = next(line for line in text.splitlines() if line.startswith('红：配对没写'))
+    red = next(line for line in text.splitlines() if line.startswith('red: missing paired write'))
     # Round 20 semantics change: the partner is looked for in the same operation (callers three levels up,
     # then three levels down from them), no longer in the writer's own call tree only.
-    assert red.startswith('红：配对没写 hires.reserved：shop/store.py:16 release 写了 hires.reserved，'
-                          '同一操作（调用方向上 3 层、再从那里向下 3 层）里没写 hires.state=held'), red
-    assert 'reserve' not in red.split('：', 2)[2].split('写了')[0] and 'import_rows' not in red and 'alone=函数名(理由)' in red, red
+    assert red.startswith('red: missing paired write for hires.reserved：shop/store.py:16 release writes hires.reserved, the same operation (3 caller levels, then 3 callee levels) does not write hires.state=held'), red
+    assert 'reserve' not in red.partition('：')[2].split(' writes ')[0] and 'import_rows' not in red and 'except=path:function(reason)' in red, red
 
 
 def test_copy_discovery_compares_on_the_codes_own_literals(tmp_path):
@@ -801,8 +812,8 @@ def test_copy_discovery_compares_on_the_codes_own_literals(tmp_path):
                                                           '# flowguard: owner TECHNOLOGY\ndef normalize_technology_name(value: object)'), encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0, text
-    forked = next(line for line in _lines(text) if line.startswith('线索：分叉的副本 1 份'))
-    assert 'Step1/src/kwp_step1/utils.py:' in forked and "→ 'district_heat'（负责人给 'waermenetze'）" in forked, forked
+    forked = next(line for line in _lines(text) if line.startswith('lead: diverged copy 1 copies'))
+    assert 'Step1/src/kwp_step1/utils.py:' in forked and "→ 'district_heat'(reference returns 'waermenetze'）" in forked, forked
 
 
 RULE_FILE = ('AGENTS.md', 'The two normalizers stay apart until the step 1 importer is retired next year.\n')
@@ -819,16 +830,16 @@ def test_an_owner_whose_copies_the_owner_decided_gets_no_discovery_leads(tmp_pat
     technology.write_text(technology.read_text(encoding='utf-8').replace('def normalize_technology_name(value: object)',
                                                           '# flowguard: owner TECHNOLOGY\ndef normalize_technology_name(value: object)'), encoding='utf-8')
     code, text = _check(tmp_path)
-    assert code == 0 and any(line.startswith('线索：分叉的副本 1 份') for line in _lines(text)), text
+    assert code == 0 and any(line.startswith('lead: diverged copy 1 copies') for line in _lines(text)), text
     (tmp_path / '.flowguard').mkdir(exist_ok=True)
     # Round 24 review: a decision on a same-name family whose names merely include the anchor name is not this one
     (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:helper+TECHNOLOGY"]\n' + DECIDED, encoding='utf-8')
     code, text = _check(tmp_path)
-    assert code == 0 and any(line.startswith('线索：分叉的副本 1 份') for line in _lines(text)), text
+    assert code == 0 and any(line.startswith('lead: diverged copy 1 copies') for line in _lines(text)), text
     (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:TECHNOLOGY"]\n' + DECIDED, encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0, text
-    assert not [line for line in _lines(text) if 'TECHNOLOGY' in line or line.startswith(('线索：分叉的副本', '线索：副本 '))], text
+    assert not [line for line in _lines(text) if 'TECHNOLOGY' in line or line.startswith(('lead: diverged copy', 'lead: copy'))], text
 
 
 def test_a_function_whose_copies_the_owner_decided_gets_no_changed_alone_lead(tmp_path):
@@ -839,11 +850,11 @@ def test_a_function_whose_copies_the_owner_decided_gets_no_changed_alone_lead(tm
     (tmp_path / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
     static = lambda: _check(tmp_path, '--static')
     code, text = static()
-    assert code == 0 and any(line.startswith('线索：total（src/a.ts:1）改了') for line in _lines(text)), text
+    assert code == 0 and any(line.startswith('lead: total(src/a.ts:1) changed;') for line in _lines(text)), text
     (tmp_path / '.flowguard').mkdir(exist_ok=True)
     (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:total"]\n' + DECIDED, encoding='utf-8')
     code, text = static()
-    assert code == 0 and not any(line.startswith('线索：total（') for line in _lines(text)), text
+    assert code == 0 and not any(line.startswith('lead: total(') for line in _lines(text)), text
 
 
 def test_a_copies_decision_silences_only_the_members_of_its_family(tmp_path):
@@ -867,13 +878,13 @@ def test_a_copies_decision_silences_only_the_members_of_its_family(tmp_path):
                     encoding='utf-8')
     code, text = _check(tmp_path, '--static')
     assert code == 0, text
-    assert any(line.startswith('线索：UserRepo.save（src/repo/user.ts:2）改了，改前和它一模一样的 1 份没改：src/repo/order.ts:2')
+    assert any(line.startswith('lead: UserRepo.save(src/repo/user.ts:2) changed; previously identical copies: 1 unchanged: src/repo/order.ts:2')
                for line in _lines(text)), text
     # the decided family itself stays quiet: a changed member does not list the other member
     _git(tmp_path, 'checkout', '-q', '--', 'src/repo/user.ts')
     (tmp_path / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
     code, text = _check(tmp_path, '--static')
-    assert code == 0 and not any(line.startswith('线索：save（') for line in _lines(text)), text
+    assert code == 0 and not any(line.startswith('lead: save(') for line in _lines(text)), text
 
 
 def test_a_copies_decision_holds_for_the_family_the_owner_decided_on(tmp_path):
@@ -891,12 +902,12 @@ def test_a_copies_decision_holds_for_the_family_the_owner_decided_on(tmp_path):
               .replace('  return Math.round', '  if (sum > 1e9) { return -1; }\n  return Math.round'))
     (moved / 'src/a.ts').write_text(edited, encoding='utf-8')
     code, text = _check(moved, '--static')
-    assert code == 0 and not any(line.startswith('线索：save（') for line in _lines(text)), text
+    assert code == 0 and not any(line.startswith('lead: save(') for line in _lines(text)), text
     # an exact copy of a member that the decided problem does not list (src/c.ts beside src/a.ts) keeps its lead
     exact = tmp_path / 'exact'
     _project(exact, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), 'src/c.ts': body.format(limit=10)})
     code, text = _check(exact, '--static', '--all')
-    assert '副本：同名函数、函数体不同（结构相似度不低于 0.8）：save src/a.ts:1  src/b.ts:1' in text, text
+    assert 'copy：Same-named functions have different bodies (structural similarity at least 0.8): save src/a.ts:1  src/b.ts:1' in text, text
     for name, content in decided.items():
         (exact / name).parent.mkdir(exist_ok=True)
         (exact / name).write_text(content, encoding='utf-8')
@@ -905,9 +916,8 @@ def test_a_copies_decision_holds_for_the_family_the_owner_decided_on(tmp_path):
     (exact / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
     code, text = _check(exact, '--static')
     assert code == 0, text
-    assert [line for line in _lines(text) if line.startswith('线索：save（')] == [
-        '线索：save（src/a.ts:1）改了，改前和它一模一样的 1 份没改：src/c.ts:1（要一起改就一起改；要锁定：在负责人上方加 '
-        '// flowguard: owner SAVE，副本上方加 // flowguard: sensor SAVE）'], text
+    assert [line for line in _lines(text) if line.startswith('lead: save(')] == [
+        'lead: save(src/a.ts:1) changed; previously identical copies: 1 unchanged: src/c.ts:1(update them together when required; to lock them, write above the reference: // flowguard: same SAVE ref, above the copy: // flowguard: same SAVE)'], text
 
 
 def test_a_copies_problem_lists_the_same_functions_after_a_file_is_mapped_again(tmp_path):
@@ -917,12 +927,12 @@ def test_a_copies_problem_lists_the_same_functions_after_a_file_is_mapped_again(
             "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
             "  return Math.round(sum * 100) / 100;\n}}\n")
     _project(tmp_path, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), 'src/c.ts': body.format(limit=10)})
-    listed = lambda text: [line for line in text.splitlines() if '同名函数、函数体不同' in line]
+    listed = lambda text: [line for line in text.splitlines() if 'Same-named functions have different bodies' in line]
     code, text = _check(tmp_path, '--static', '--all')
-    assert listed(text) == ['1. 副本：同名函数、函数体不同（结构相似度不低于 0.8）：save src/a.ts:1  src/b.ts:1'], text
+    assert listed(text) == ['1. copy：Same-named functions have different bodies (structural similarity at least 0.8): save src/a.ts:1  src/b.ts:1'], text
     (tmp_path / 'src/a.ts').write_text('// rounded to cents\n' + body.format(limit=10), encoding='utf-8')
     code, text = _check(tmp_path, '--static', '--all')
-    assert listed(text) == ['1. 副本：同名函数、函数体不同（结构相似度不低于 0.8）：save src/a.ts:2  src/b.ts:1'], text
+    assert listed(text) == ['1. copy：Same-named functions have different bodies (structural similarity at least 0.8): save src/a.ts:2  src/b.ts:1'], text
 
 
 def test_a_copies_decision_on_a_problem_this_task_made_quiets_its_changed_alone_lead(tmp_path):
@@ -934,11 +944,11 @@ def test_a_copies_decision_on_a_problem_this_task_made_quiets_its_changed_alone_
     _project(tmp_path, {'src/a.ts': body.format(scale=100), 'src/b.ts': body.format(scale=100), RULE_FILE[0]: RULE_FILE[1]})
     (tmp_path / 'src/a.ts').write_text(body.format(scale=1000), encoding='utf-8')
     code, text = _check(tmp_path, '--static')
-    assert code == 0 and any(line.startswith('线索：save（src/a.ts:1）改了') for line in _lines(text)), text
+    assert code == 0 and any(line.startswith('lead: save(src/a.ts:1) changed;') for line in _lines(text)), text
     (tmp_path / '.flowguard').mkdir(exist_ok=True)
     (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:save"]\n' + DECIDED, encoding='utf-8')
     code, text = _check(tmp_path, '--static')
-    assert code == 0 and not any(line.startswith('线索：save（') for line in _lines(text)), text
+    assert code == 0 and not any(line.startswith('lead: save(') for line in _lines(text)), text
 
 
 def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path):
@@ -959,13 +969,12 @@ def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path
     ''', 'a/kinds.py': 'from typing import Literal\nKind = Literal["member", "guest"]\n',
          'tests/test_case.py': 'def test_native():\n    assert True\n'})
     code, text = _check(tmp_path)
-    assert '两份声明不同' not in text, text                      # old: only the old ledger lists it
+    assert 'declarations differ' not in text, text                      # old: only the old ledger lists it
     code, text = _check(tmp_path, '--all')
-    assert ("线索：旧账 两份声明不同：AvailabilityStatus a/contracts.py:4（'blocked' | 'ready'；少 'available'）  "
-            "b/contracts.py:4（'available' | 'blocked'；少 'ready'）") in text, text
+    assert ("lead: before: declarations differ: AvailabilityStatus a/contracts.py:4（'blocked' | 'ready'; missing 'available'）  b/contracts.py:4（'available' | 'blocked'; missing 'ready'）") in text, text
     (tmp_path / 'b/kinds.py').write_text('from typing import Literal\nKind = Literal["member", "guest", "staff"]\n', encoding='utf-8')
     code, text = _check(tmp_path)
-    assert ("线索：两份声明不同：Kind a/kinds.py:2（'guest' | 'member'；少 'staff'）  b/kinds.py:2（'guest' | 'member' | 'staff'）"
+    assert ("lead: declarations differ: Kind a/kinds.py:2（'guest' | 'member'; missing 'staff'）  b/kinds.py:2（'guest' | 'member' | 'staff'）"
             in text), text
 
 
@@ -974,5 +983,4 @@ def test_two_typescript_union_declarations_with_different_members_are_a_lead(tmp
     (tmp_path / 'frontend/src').mkdir(parents=True)
     (tmp_path / 'frontend/src/lending.ts').write_text("export type LendingStatus = 'DRAFT' | 'ACTIVE';\n", encoding='utf-8')
     code, text = _check(tmp_path)
-    assert ("线索：两份声明不同：LendingStatus backend/src/lending.ts:1（'ACTIVE' | 'DRAFT' | 'ENDED'）  "
-            "frontend/src/lending.ts:1（'ACTIVE' | 'DRAFT'；少 'ENDED'）") in text, text
+    assert ("lead: declarations differ: LendingStatus backend/src/lending.ts:1（'ACTIVE' | 'DRAFT' | 'ENDED'）  frontend/src/lending.ts:1（'ACTIVE' | 'DRAFT'; missing 'ENDED'）") in text, text

@@ -44,8 +44,8 @@ def test_a_file_write_is_refused_before_it_happens_and_names_its_line(tmp_path):
     assert outcome is True
     assert target.read_text() == 'x'                     # only the real call wrote
     assert reading.status == 'grey' and reading.rows == []
-    assert reading.reasons[0].startswith('回放被拦住：r19_candidate.py:3 with open(')
-    assert '写文件 ' + str(target) in reading.reasons[0]
+    assert reading.reasons[0].startswith('replay refused: r19_candidate.py:3 with open(')
+    assert 'write file ' + str(target) in reading.reasons[0]
 
 
 def test_a_refusal_the_replayed_code_swallows_still_voids_the_replay(tmp_path):
@@ -59,34 +59,34 @@ def test_a_refusal_the_replayed_code_swallows_still_voids_the_replay(tmp_path):
             return x <= 3
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True and target.exists()
-    assert reading.status == 'grey' and reading.rows == [] and '写文件' in reading.reasons[0]
+    assert reading.status == 'grey' and reading.rows == [] and 'write file' in reading.reasons[0]
 
 
 @pytest.mark.parametrize('statement,what', [
-    ("import subprocess; subprocess.run(['true'])", '启动子进程'),
-    ("import os; os.system('true')", '执行 shell 命令'),
-    ("import os, tempfile; os.remove(tempfile.gettempdir() + '/flowguard-never-there')", '删除文件'),
-    ("import os, tempfile; os.mkdir(tempfile.gettempdir() + '/flowguard-never-made')", '新建目录'),
-    ("import socket; socket.socket().connect(('127.0.0.1', 9))", '连接网络'),
+    ("import subprocess; subprocess.run(['true'])", 'start subprocess'),
+    ("import os; os.system('true')", 'run shell command'),
+    ("import os, tempfile; os.remove(tempfile.gettempdir() + '/flowguard-never-there')", 'remove file'),
+    ("import os, tempfile; os.mkdir(tempfile.gettempdir() + '/flowguard-never-made')", 'create directory'),
+    ("import socket; socket.socket().connect(('127.0.0.1', 9))", 'connect to network'),
     # Thread.start is refused before it registers the thread, on Python 3.11 (no audit event) too.
-    ("import threading; threading.Thread(target=print).start()", '启动线程'),
-    ("import _thread; _thread.start_new_thread(print, ())", '启动线程'),
-    ("import os; os.chdir(os.getcwd())", '切换工作目录'),
-    pytest.param("import os; os.fchdir(os.open('.', os.O_RDONLY))", '切换工作目录',
+    ("import threading; threading.Thread(target=print).start()", 'start thread'),
+    ("import _thread; _thread.start_new_thread(print, ())", 'start thread'),
+    ("import os; os.chdir(os.getcwd())", 'change working directory'),
+    pytest.param("import os; os.fchdir(os.open('.', os.O_RDONLY))", 'change working directory',
                  marks=pytest.mark.skipif(os.name == 'nt', reason='os.fchdir is POSIX only')),
-    pytest.param("import os, tempfile; os.setxattr(tempfile.gettempdir(), 'user.flowguard', b'1')", '改文件扩展属性',
+    pytest.param("import os, tempfile; os.setxattr(tempfile.gettempdir(), 'user.flowguard', b'1')", 'change extended file attributes',
                  marks=pytest.mark.skipif(sys.platform != 'linux', reason='extended attributes are Linux only')),
-    pytest.param("import os, tempfile; os.removexattr(tempfile.gettempdir(), 'user.flowguard')", '删除文件扩展属性',
+    pytest.param("import os, tempfile; os.removexattr(tempfile.gettempdir(), 'user.flowguard')", 'remove extended file attributes',
                  marks=pytest.mark.skipif(sys.platform != 'linux', reason='extended attributes are Linux only')),
-    pytest.param("import os; os.killpg(os.getpgid(0), 0)", '给进程组发信号',
+    pytest.param("import os; os.killpg(os.getpgid(0), 0)", 'signal process group',
                  marks=pytest.mark.skipif(os.name == 'nt', reason='process groups are POSIX only')),
-    pytest.param("import signal, threading; signal.pthread_kill(threading.get_ident(), 0)", '给线程发信号',
+    pytest.param("import signal, threading; signal.pthread_kill(threading.get_ident(), 0)", 'signal thread',
                  marks=pytest.mark.skipif(os.name == 'nt', reason='signal.pthread_kill is POSIX only')),
     # No audit event: wrapped while a replayed call runs.
-    pytest.param("import os, tempfile; os.mkfifo(tempfile.gettempdir() + '/flowguard-never-made-fifo')", '新建命名管道',
+    pytest.param("import os, tempfile; os.mkfifo(tempfile.gettempdir() + '/flowguard-never-made-fifo')", 'create named pipe',
                  marks=pytest.mark.skipif(os.name == 'nt', reason='os.mkfifo is POSIX only')),
     pytest.param("import os, stat, tempfile; os.mknod(tempfile.gettempdir() + '/flowguard-never-made-node', stat.S_IFREG)",
-                 '新建设备文件', marks=pytest.mark.skipif(os.name == 'nt', reason='os.mknod is POSIX only')),
+                 'create device file', marks=pytest.mark.skipif(os.name == 'nt', reason='os.mknod is POSIX only')),
 ])
 def test_processes_files_threads_and_network_are_refused(tmp_path, statement, what):
     m, reading, outcome = _observe(tmp_path, f'''
@@ -124,8 +124,8 @@ def test_database_writes_are_denied_rolled_back_and_the_connection_is_restored(t
     assert db.execute('SELECT count(*) FROM hires').fetchone()[0] == 1          # the real call only
     assert db.total_changes == before + 1
     assert reading.status == 'grey' and reading.rows == []
-    assert reading.reasons[0] == ('回放被拦住：r19_candidate.py:3 db.execute("insert into hires(item_id) values (?)", '
-                                  '(item_id,))：写数据库 INSERT hires')
+    assert reading.reasons[0] == ('replay refused: r19_candidate.py:3 db.execute("insert into hires(item_id) values (?)", '
+                                  '(item_id,))：write database INSERT hires')
     db.execute('INSERT INTO hires VALUES (5)')          # no authorizer was left behind
     assert db.execute('SELECT count(*) FROM hires').fetchone()[0] == 2
     assert not db.in_transaction or db.isolation_level is not None
@@ -162,7 +162,7 @@ def test_connections_opened_during_a_replay_cannot_write_or_create_files(tmp_pat
     existing = tmp_path / 'existing.db'
     _hires(existing).close()
     created = tmp_path / 'created.db'
-    for path, what in ((existing, '写数据库 INSERT'), (created, '新建数据库文件')):
+    for path, what in ((existing, 'write database INSERT'), (created, 'create database file')):
         source = f'''
             import sqlite3
             def f(x: int):
@@ -188,7 +188,7 @@ def test_python_sql_functions_are_refused_in_the_statement_that_calls_them(tmp_p
                 return db.execute("select touch()").fetchone()[0] <= x
         ''', lambda fn: fn(db, 1), axes={'x': [0, 2]})
     assert outcome is True and hits == [1]
-    assert reading.status == 'grey' and 'SQL 函数 touch' in reading.reasons[0]
+    assert reading.status == 'grey' and 'SQL function touch' in reading.reasons[0]
 
 
 @pytest.mark.parametrize('kind', ['file', 'socket', 'driver', 'nested'])
@@ -212,7 +212,7 @@ def test_arguments_the_guard_cannot_see_into_are_not_replayed(tmp_path, kind):
             if hasattr(value, 'close'):
                 value.close()
     assert reading.status == 'grey' and reading.rows == []
-    assert reading.reasons[0].startswith('看不清：参数 context'), reading.reasons
+    assert reading.reasons[0].startswith('unavailable: arguments context'), reading.reasons
     if kind == 'nested':
         assert 'context.inner.stream' in reading.reasons[0]
 
@@ -229,7 +229,7 @@ def test_an_existing_authorizer_is_not_replaced_and_the_call_is_not_replayed(tmp
         real = len(hits)
         db.execute('select n from t')
         assert len(hits) > real                          # still the test's own authorizer
-    assert reading.status == 'grey' and '看不清' in reading.reasons[0] and 'authorizer' in reading.reasons[0]
+    assert reading.status == 'grey' and 'unavailable' in reading.reasons[0] and 'authorizer' in reading.reasons[0]
 
 
 def test_mutable_arguments_are_replayed_on_copies(tmp_path):
@@ -259,7 +259,7 @@ def test_an_argument_that_cannot_be_copied_is_not_replayed(tmp_path):
     ''', lambda fn: fn(counter, 1), axes={'x': [0, 4]})
     assert outcome is True and counter.calls == 1          # only the real call ran
     assert reading.status == 'grey' and reading.rows == []
-    assert reading.reasons == ['看不清：参数 counter 复制不了（TypeError: not copyable）']
+    assert reading.reasons == ['unavailable: arguments counter cannot be copied (TypeError: not copyable）']
 
 
 @pytest.mark.parametrize('body,line', [
@@ -279,7 +279,7 @@ def f(x: int):
     return x <= 3
 ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True and reading.status == 'grey'
-    assert reading.reasons[0].startswith('明确的写操作：'), reading.reasons
+    assert reading.reasons[0].startswith('explicit write: '), reading.reasons
 
 
 def test_database_read_wrappers_dates_and_days_are_replayed(tmp_path):
@@ -309,8 +309,8 @@ def test_the_baseline_code_write_is_refused_with_its_baseline_line(tmp_path):
                                        old=old, axes={'x': [2, 4]})
         assert db.execute('SELECT n FROM count').fetchone()[0] == 0
     assert reading.status == 'ok' and reading.rows and reading.comparison_status == 'grey'
-    assert reading.comparison_reasons[0] == ('基准代码的回放被拦住：r19_candidate.py（基准）:3 '
-                                             'db.execute("UPDATE count SET n = n + 1")：写数据库 UPDATE count')
+    assert reading.comparison_reasons[0] == ('baseline code: replay refused: r19_candidate.py(baseline):3 '
+                                             'db.execute("UPDATE count SET n = n + 1")：write database UPDATE count')
 
 
 def test_a_new_write_loses_the_observation_the_baseline_had(tmp_path):
@@ -412,7 +412,7 @@ def test_a_class_passed_as_an_argument_is_looked_into_through_its_own_namespace(
     with open(tmp_path / 'log.txt', 'w') as log:
         class Holder:
             output = log
-        assert R._visible({'cls': Holder})[1] == '参数 cls.output 是写模式打开的文件'
+        assert R._visible({'cls': Holder})[1] == 'arguments cls.output is a file opened for writing'
 
 
 # ---- what a replay cannot copy or see into is not replayed (round 20 review) ---------------------------------
@@ -442,20 +442,20 @@ def _uncopyable_cases(tmp_path):
     locked = Locked()
     reader = open(lines, encoding='utf-8')
     return {
-        'generator': ((i for i in range(100)), 'next(value)', lambda value: next(value) == 1, '是生成器或协程'),
-        'readable file': (reader, 'value.readline()', lambda value: value.readline() == 'line1\n', '是打开的文件'),
+        'generator': ((i for i in range(100)), 'next(value)', lambda value: next(value) == 1, 'is a generator or coroutine'),
+        'readable file': (reader, 'value.readline()', lambda value: value.readline() == 'line1\n', 'is an open file'),
         'csv writer': (csv.writer(rows_stream), "value.writerow(['row'])",
-                       lambda value: (rows_stream.flush(), len(rows.read_text().splitlines()))[1] == 1, '是 csv 的读写器'),
+                       lambda value: (rows_stream.flush(), len(rows.read_text().splitlines()))[1] == 1, 'is a csv reader or writer'),
         'csv reader': (csv.reader(open(lines, encoding='utf-8')), 'next(value)', lambda value: next(value) == ['line1'],
-                       '是 csv 的读写器'),
-        'builtin bound method': (events.append, "value('called')", lambda value: events == ['called'], '是函数或绑定方法'),
-        'closure': (lambda item: events.append(item), "value('called')", lambda value: events == ['called'], '是函数或绑定方法'),
+                       'is a csv reader or writer'),
+        'builtin bound method': (events.append, "value('called')", lambda value: events == ['called'], 'is a function or bound method'),
+        'closure': (lambda item: events.append(item), "value('called')", lambda value: events == ['called'], 'is a function or bound method'),
         'logger': (logger, "value.warning('called')", lambda value: (handler.flush(), len(log.read_text(encoding='utf-8').splitlines()))[1] == 1,
-                   '是 logging 的记录器'),
-        'executor': (pool, "value.submit(print).result()", lambda value: True, '是队列或线程池'),
-        'queue': (jobs, 'value.put(1)', lambda value: value.qsize() == 1, '是队列或线程池'),
+                   'is a logging logger'),
+        'executor': (pool, "value.submit(print).result()", lambda value: True, 'is a queue or thread pool'),
+        'queue': (jobs, 'value.put(1)', lambda value: value.qsize() == 1, 'is a queue or thread pool'),
         'nested uncopyable': (locked, "value.items.setdefault('calls', []).append(1)",
-                              lambda value: value.items == {'calls': [1]}, '复制不了'),
+                              lambda value: value.items == {'calls': [1]}, 'cannot be copied'),
     }, [rows_stream, reader, handler, pool]
 
 
@@ -476,7 +476,7 @@ def test_arguments_a_replay_could_only_share_with_the_test_are_not_replayed(tmp_
         for resource in resources:
             (resource.shutdown if hasattr(resource, 'shutdown') else resource.close)()
     assert reading.status == 'grey' and reading.rows == [] and reading.changed == []
-    assert reading.reasons[0].startswith('看不清：参数 value') and why in reading.reasons[0], reading.reasons
+    assert reading.reasons[0].startswith('unavailable: arguments value') and why in reading.reasons[0], reading.reasons
 
 
 def test_a_sqlite_blob_argument_is_not_replayed(tmp_path):
@@ -494,7 +494,7 @@ def test_a_sqlite_blob_argument_is_not_replayed(tmp_path):
         ''', lambda fn: fn(blob, 1), axes={'x': [0, 4]})
         blob.close()
         assert db.execute('SELECT v FROM b').fetchone()[0] == b'\x01'      # the real call only
-    assert reading.status == 'grey' and '参数 blob 是 sqlite3 的 Blob' in reading.reasons[0]
+    assert reading.status == 'grey' and 'arguments blob is a sqlite3 Blob' in reading.reasons[0]
 
 
 def test_a_sqlite_connection_at_any_depth_is_protected(tmp_path):
@@ -511,7 +511,7 @@ def test_a_sqlite_connection_at_any_depth_is_protected(tmp_path):
     ''', lambda fn: fn(context, 1), old='def f(context, x: int):\n    return x <= 3\n', axes={'x': [0, 4]})
     assert outcome is True
     assert db.execute('SELECT count(*) FROM hires').fetchone()[0] == 1
-    assert reading.status == 'grey' and '写数据库 INSERT hires' in reading.reasons[0], reading.reasons
+    assert reading.status == 'grey' and 'write database INSERT hires' in reading.reasons[0], reading.reasons
 
 
 def test_an_argument_too_large_to_look_through_is_not_replayed(tmp_path, monkeypatch):
@@ -520,7 +520,7 @@ def test_an_argument_too_large_to_look_through_is_not_replayed(tmp_path, monkeyp
     m, reading, outcome = _observe(tmp_path, 'def f(items, x: int):\n    return x <= 3\n',
                                    lambda fn: fn(items, 1), axes={'x': [0, 4]})
     assert outcome is True and reading.status == 'grey'
-    assert reading.reasons == ['看不清：参数 items 太大：看了 50 个对象还没看完，不知道里面有没有打开的文件或连接']
+    assert reading.reasons == ['unavailable: arguments items is too large: inspected 50 objects without finishing; open files or connections may remain unseen']
 
 
 # ---- process-wide state: the random module and the working directory --------------------------------------
@@ -631,7 +631,7 @@ def test_writes_through_modules_classes_aliases_and_standard_calls_stay_grey(tmp
     line = next(index for index, text in enumerate(lines, 1) if text.strip() == statement
                 and any(lines[i].startswith(f'def {name}(') for i in range(max(0, index - 4), index)))
     assert reading.status == 'grey' and reading.rows == []
-    assert reading.reasons[0].startswith(f'明确的写操作：第 {line} 行改了模块里的 '), reading.reasons
+    assert reading.reasons[0].startswith(f'explicit write: line {line} changes module state '), reading.reasons
 
 
 def test_reads_dates_days_and_calls_on_fresh_objects_stay_replayable(tmp_path, monkeypatch):
@@ -670,7 +670,7 @@ def test_a_reading_stays_grey_when_the_replay_does_not_finish(tmp_path, monkeypa
     with runtime.hook(m.f, axes={'x': [0, 4]}):
         with pytest.raises(RuntimeError, match='FlowGuard itself failed'):
             m.f(1)
-    assert runtime.readings[-1].status == 'grey' and runtime.readings[-1].reasons == ['回放没有完整结束']
+    assert runtime.readings[-1].status == 'grey' and runtime.readings[-1].reasons == ['replay did not complete']
     assert R._CALLING == 0 and R._LOCAL.guard is None and sqlite3.connect is R._SQLITE_CONNECT
 
 
@@ -699,7 +699,7 @@ def f(db, x: int):
     assert outcome is True
     assert db.execute('SELECT item_id FROM hires').fetchall() == [(1,)]        # the real call's row only
     assert reading.status == 'grey' and reading.rows == []
-    assert '回放之后 sqlite3 连接上的回放保护不在了' in reading.reasons[0] or '往回放保护着的' in reading.reasons[0], reading.reasons
+    assert 'sqlite3 replay guard is absent after replay' in reading.reasons[0] or 'write to a replay-guarded' in reading.reasons[0], reading.reasons
     assert not db.in_transaction and db.execute('PRAGMA query_only').fetchone()[0] == 0
     db.execute('INSERT INTO hires VALUES (5)')          # no authorizer was left behind
 
@@ -719,7 +719,7 @@ def f(a, b, x: int):
                                    axes={'x': [0, 4]})
     assert outcome is True
     assert reading.status == 'grey' and reading.rows == []
-    assert any(text in reading.reasons[0] for text in ('回放保护收尾出错', '回放之后 sqlite3 连接上的回放保护不在了')), reading.reasons
+    assert any(text in reading.reasons[0] for text in ('replay guard teardown failed', 'sqlite3 replay guard is absent after replay')), reading.reasons
     # The connection that stayed open has its usual behaviour back: no authorizer, no savepoint, writable.
     assert not a.in_transaction and a.execute('PRAGMA query_only').fetchone()[0] == 0
     a.execute('INSERT INTO hires VALUES (5)')
@@ -728,10 +728,10 @@ def f(a, b, x: int):
 
 
 @pytest.mark.parametrize('body,line,where', [
-    ('if x != 1:\n        db.close()', 7, 'db 上调用 close'),
-    ('if x != 1:\n        shut(db)', 3, 'connection 上调用 close'),        # followed into the helper
-    ('if x != 1:\n        db.row_factory = sqlite3.Row', 7, 'db 的 row_factory'),
-    ("if x != 1:\n        db.create_function('leak', 0, len)", 7, 'db 上调用 create_function'),
+    ('if x != 1:\n        db.close()', 7, 'db method close'),
+    ('if x != 1:\n        shut(db)', 3, 'connection method close'),        # followed into the helper
+    ('if x != 1:\n        db.row_factory = sqlite3.Row', 7, 'db row_factory'),
+    ("if x != 1:\n        db.create_function('leak', 0, len)", 7, 'db method create_function'),
 ])
 def test_a_change_to_a_shared_connection_is_an_explicit_write(tmp_path, body, line, where):
     with sqlite3.connect(':memory:') as db:
@@ -746,7 +746,7 @@ def f(db, x: int):
         assert outcome is True
         assert db.execute('SELECT count(*) FROM t').fetchone()[0] == 0 and db.row_factory is None      # untouched
     assert reading.status == 'grey'
-    assert reading.reasons[0].startswith(f'明确的写操作：第 {line} 行') and where in reading.reasons[0], reading.reasons
+    assert reading.reasons[0].startswith(f'explicit write: line {line}') and where in reading.reasons[0], reading.reasons
 
 
 # ---- sqlite3: connections bound before the replay, backups, Blobs and callbacks -------------------------------
@@ -766,7 +766,7 @@ def test_a_connection_opened_through_an_alias_is_refused_before_it_opens(tmp_pat
     assert outcome is True
     assert sqlite3.connect(path).execute('SELECT count(*) FROM hires').fetchone()[0] == 1
     assert reading.status == 'grey' and 'r19_candidate.py:4' in reading.reasons[0]
-    assert '没经过回放保护' in reading.reasons[0], reading.reasons
+    assert 'opened outside the replay guard' in reading.reasons[0], reading.reasons
 
 
 @pytest.mark.parametrize('direction', ['into a new connection', 'into the shared connection'])
@@ -826,7 +826,7 @@ def test_a_callback_a_replay_gives_a_shared_connection_voids_the_replay(tmp_path
         ''', lambda fn: fn(db, 1), axes={'x': [0, 4]})
         assert outcome is True
         assert not R._callbacks(db)          # a trace callback is taken off again
-    assert reading.status == 'grey' and '回放改了 sqlite3 连接上的回调' in reading.reasons[0], reading.reasons
+    assert reading.status == 'grey' and 'replay changed sqlite3 connection callbacks' in reading.reasons[0], reading.reasons
 
 
 # ---- open resources in module state; log records ------------------------------------------------------------
@@ -850,13 +850,13 @@ def test_open_resources_in_module_state_are_not_replayed_and_connections_there_a
             return DB.execute("select count(*) from hires").fetchone()[0] <= x
     ''', lambda fn: fn(1), axes={'x': [0, 4]}, name='written')
     assert outcome is True and len(log.read_text().splitlines()) == 1
-    assert reading.reasons == ['看不清：模块全局 LOG 是写模式打开的文件'], reading.reasons
+    assert reading.reasons == ['unavailable: module globals LOG is a file opened for writing'], reading.reasons
     runtime = Runtime(tmp_path, previous={'r19_candidate.py': (tmp_path / 'r19_candidate.py').read_text()})
     with runtime.hook(m.stored, axes={'x': [0, 4]}):
         assert m.stored(1) is True
     m.DB.commit()
     assert sqlite3.connect(store).execute('SELECT count(*) FROM hires').fetchone()[0] == 1
-    assert runtime.readings[-1].status == 'grey' and '写数据库 INSERT hires' in runtime.readings[-1].reasons[0]
+    assert runtime.readings[-1].status == 'grey' and 'write database INSERT hires' in runtime.readings[-1].reasons[0]
     with runtime.hook(m.counted, axes={'x': [0, 4]}):
         assert m.counted(1) is True
     assert runtime.readings[-1].status == 'ok' and runtime.readings[-1].rows        # a read is replayed
@@ -903,7 +903,7 @@ def test_a_replay_that_runs_too_long_is_interrupted_and_grey(tmp_path, monkeypat
             return True
     ''', lambda fn: fn(1), old='def f(x: int):\n    return True\n', axes={'x': [0, 4]})
     assert outcome is True
-    assert reading.status == 'grey' and reading.reasons == ['超过 0.3 秒没有结束'] and reading.rows == []
+    assert reading.status == 'grey' and reading.reasons == ['exceeded 0.3 seconds without completion'] and reading.rows == []
     assert reading.lost == ''        # a slow replay is no lost observation
     assert R._CALLING == 0 and R._LOCAL.guard is None and sqlite3.connect is R._SQLITE_CONNECT
 
@@ -916,7 +916,7 @@ def test_a_replay_that_recurses_too_deeply_is_grey(tmp_path):
             return f(x)
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True
-    assert reading.status == 'grey' and reading.reasons == ['回放没有结束：递归太深（RecursionError）']
+    assert reading.status == 'grey' and reading.reasons == ['replay did not complete: recursion too deep (RecursionError)']
 
 
 def test_an_interruption_that_arrived_leaves_a_traced_thread_running(tmp_path):

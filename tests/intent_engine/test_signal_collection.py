@@ -40,7 +40,7 @@ raise SystemExit(result)
     assert result.returncode == 0, _text(result)
     assert '1 passed' in result.stdout, _text(result)
     prefix, encoded = result.stdout.split('COLLECTED_SIGNALS=', 1)
-    assert '候选' not in _text(subprocess.CompletedProcess([], 0, prefix, result.stderr)), prefix
+    assert 'candidate' not in _text(subprocess.CompletedProcess([], 0, prefix, result.stderr)), prefix
     reports = json.loads(encoded)
     assert len(reports) == 1 and reports[0]['source_changed'] is True
     permit = next(item for item in reports[0]['items'] if item['name'] == 'PERMIT')
@@ -96,9 +96,9 @@ def test_changed_import_binding_is_not_silent_when_the_unanchored_body_is_unchan
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    assert 'permit' in text and '未挂锚点' in text, text
-    assert '比较未完成' in text and 'binding' in text, text
-    assert '共 0 类，变 0 类' not in text, text
+    assert 'permit' in text and 'unanchored' in text, text
+    assert 'comparison incomplete' in text and 'binding' in text, text
+    assert 'total 0 classes，changed 0 classes' not in text, text
 
 
 def test_changed_global_constant_selects_an_unchanged_unanchored_function(tmp_path):
@@ -116,7 +116,7 @@ def test_changed_global_constant_selects_an_unchanged_unanchored_function(tmp_pa
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    assert 'permit' in text and '未挂锚点' in text and 'x=4' in text, text
+    assert 'permit' in text and 'unanchored' in text and 'x=4' in text, text
     assert 'LIMIT 3' in text and 'policy.py:1' in text, text
 
 

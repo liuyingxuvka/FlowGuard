@@ -3,7 +3,7 @@
 `prepare` runs when vitest loads its config (`flowguard.vitest.mjs`, written by `init`). With no TS/JS change
 against the task baseline it answers `off` after one `git diff` and nothing is wrapped, unless same-name sensors
 disagreed in the last report (`DISAGREED`): those are compared again. Otherwise it plans,
-as the pytest side does, the anchored functions (`// flowguard: sensor NAME`) and the functions this change
+as the pytest side does, the anchored functions (`// flowguard: same NAME`) and the functions this change
 edited: their positional parameters, representative values from cells (the compared constants of the map's
 ecma facts, folded names and table keys included), same-name copies and the baseline sources. The plan is
 cached by a fingerprint of the baseline commit (and whether it is a recorded task start or HEAD standing in),
@@ -145,14 +145,14 @@ def _database(graph, ident, text):
     """Why a function is not replayed: its own code or a function it calls (three levels, by name) names a
     database client; '' otherwise."""
     if DATABASE.search(text):
-        return '看不清：函数里用到数据库客户端，不回放'
+        return 'unavailable: function uses a database client; not replayed'
     for callee in graph.call_tree(ident, depth=3):
         found = graph.node(callee)
         if callee == ident or not found or not found.get('file') or found['kind'] not in ('function', 'method'):
             continue
         lines = (graph.root / found['file']).read_text(encoding='utf-8').splitlines()
         if DATABASE.search('\n'.join(lines[found['line'] - 1:found['end_line']])):
-            return f'看不清：调用的 {found["qual"]}（{found["file"]}）用到数据库客户端，不回放'
+            return f'unavailable: called function {found["qual"]}（{found["file"]}) uses a database client; not replayed'
     return ''
 
 
@@ -229,14 +229,14 @@ def plan(cfg, commit, changed, key):
             line = graph.node(ident)['line'] if graph.node(ident) else 0
             if found is None:
                 unplanned.append(dict(id=ident, name=name, rel=rel, line=line,
-                                      reason='只观察模块顶层的 function f 和 const f = (...) =>，这个函数不包'))
+                                      reason='only module-level function f and const f = (...) => are observed; this function is not wrapped'))
                 continue
             if not anchored and not found['params']:
                 continue                # like the pytest side: a changed function without inputs is not observed
             lines = (cfg.root / rel).read_text(encoding='utf-8').splitlines()
             node = found['node']
             body = '\n'.join(lines[node.start_point.row:node.end_point.row + 1])
-            skip = '看不清：async 函数返回 Promise，不回放' if found['is_async'] else _database(graph, ident, body)
+            skip = 'unavailable: async function returns a Promise; not replayed' if found['is_async'] else _database(graph, ident, body)
             points.append(dict(id=ident, name=name, anchored=anchored, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
                                consts=numbers.get((rel, qual), []), labels=sorted(set(strings.get((rel, qual), [])))))
@@ -306,20 +306,20 @@ def prepare(root):
     from ..map.common import git_common_directory, git_run
     cfg = load_config(root)
     if git_common_directory(cfg.root) is None:
-        return dict(status='off', reason='不是 git 仓库：没有基准提交，执行侧不比较')
+        return dict(status='off', reason='not a git repository: no baseline commit; execution comparison is off')
     # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
     # stands in, and the title says so.
     baseline, kind = cache.task_baseline(cfg)
     if kind == 'missing':
-        return dict(status='off', reason=f'记下的任务开始 {baseline[:7]} 不在这个仓库里：执行侧不比较；先运行 python -m flowguard new-task')
+        return dict(status='off', reason=f'recorded task baseline {baseline[:7]} is not in this repository: execution comparison is off; first run python -m flowguard new-task')
     found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (baseline or 'HEAD') + '^{commit}', allowed=(0, 1))
     if found.returncode:
-        return dict(status='off', reason='还没有提交：没有基准，执行侧不比较')
+        return dict(status='off', reason='no commits yet: no baseline; execution comparison is off')
     commit = found.stdout.decode().strip()
     changed = _changed(cfg, commit)
     again = sorted(disagreed(cfg)) if not changed else []
     if not changed and not again:
-        return dict(status='off', reason='相对基准没有 TS/JS 改动：执行侧不准备')
+        return dict(status='off', reason='no TS/JS changes since baseline; execution preparation is skipped')
     # Without a change, the same-name sensors that disagreed last time are compared again (every sensor is
     # planned, as in a run with a change); the record clears once they agree or are no longer anchored.
     key = _key(cfg, commit, changed or ['same-name:' + name for name in again], kind)
@@ -334,7 +334,7 @@ def prepare(root):
     else:
         data = json.loads(path.read_text(encoding='utf-8'))
     if not data['files'] and not data['unplanned']:
-        return dict(status='off', reason='这次改动里没有要观察的函数（锚点或改过的模块顶层函数）')
+        return dict(status='off', reason='no functions to observe in this change (anchors or changed module-level functions)')
     return dict(status='on', plan=path.as_posix(), adapter=(ADAPTER / 'index.mjs').as_posix())
 
 
@@ -344,7 +344,7 @@ GENERATED = INIT_MARK + ': FlowGuard\'s execution side for vitest (minimal: vite
 MODULE = GENERATED + '''
 // The vitest config imports this file and lists flowguard() in its plugins: two lines marked `flowguard: vitest`.
 // Delete those two lines to undo. With no TS/JS change against the task baseline it adds nothing; otherwise it
-// wraps the functions anchored with a `flowguard: sensor NAME` comment and the changed ones, and FlowGuard's lines follow
+// wraps the functions anchored with a `flowguard: same NAME` comment and the changed ones, and FlowGuard's lines follow
 // the test summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
 // interpreter that ran `flowguard init` on this machine, recorded in @RECORDED@ (git-ignored), then `python3`,
 // `python` and, on Windows, `py -3`.
@@ -473,7 +473,7 @@ def _same(left, right):
 
 def case_class(point, inputs):
     """The case class of one replayed input: each varied input against the constants its function compares
-    (`days<3`, `days=3`, `3<days<10`, `days>10`), a compared string or `其他`, a boolean or date as it is."""
+    (`days<3`, `days=3`, `3<days<10`, `days>10`), a compared string or `other`, a boolean or date as it is."""
     from . import cells as C
     parts, bounds, labels = [], point['bounds'], set(point['strings'])
     for name, encoded in inputs:
@@ -491,7 +491,7 @@ def case_class(point, inputs):
                 low, high = max(b for b in bounds if b < item), min(b for b in bounds if b > item)
                 parts.append(f'{C.show(low)}<{name}<{C.show(high)}')
         elif isinstance(item, str):
-            parts.append(f'{name}={C.show(item)}' if item in labels else f'{name}=其他')
+            parts.append(f'{name}={C.show(item)}' if item in labels else f'{name}=other')
         else:
             parts.append(f'{name}={C.show(item)}')
     return '，'.join(parts)
@@ -573,7 +573,7 @@ def judge(cfg, data, records, package=None):
                         if calls.get(other['id']))
         if not calls.get(ident):
             if point['anchored'] and not copy_only and _inside(cfg, point['rel'], package):
-                unverified.append(f'{point["name"]}（{where}）：没有测试走到')
+                unverified.append(f'{point["name"]}（{where}): not reached by any test')
             continue
         if not collected:
             unverified.extend(f'{point["name"]}：{reason}' for reason in dict.fromkeys(reasons))
@@ -589,7 +589,7 @@ def judge(cfg, data, records, package=None):
             changed=len({row['label'] for row in changes}),
             changes=[dict(inputs={name: value(item) for name, item in row['in']}, region=row['label'],
                           before=C.show(value(row['old'])), after=C.show(value(row['now']))) for row in changes],
-            reasons=['TS 的情况类来自比较里的常量，不证明划分完整'] + list(dict.fromkeys(reasons)),
+            reasons=['TS classes come from comparison constants; this does not prove a complete partition'] + list(dict.fromkeys(reasons)),
             rows=[(row['in'], row['now']) for row in collected]))
     # same-name sensors: the copies ran on the same replayed inputs. One red per name: what every copy answered
     # on the first input where they differ, never which one to follow (TS has no `distinct`: a different name).
@@ -612,7 +612,7 @@ def judge(cfg, data, records, package=None):
                 continue
             inputs = ', '.join(f'{name}={C.show(value(item))}' for name, item in row['in'])
             text, step = copy_answers(answers, _same, lambda item: C.show(value(item)), total=len(point['copies']) + 1)
-            red.append(f'同名锚点 {point["name"]}：{inputs}，{text} -> {step}；有意不同，就给它们起不同的名字')
+            red.append(f'same-name anchor {point["name"]}：{inputs}, {text} -> {step}; if intentionally different, use different names')
             same_name['disagreed'][point['name']] = red[-1]
             break
     # rules on the observed calls and replayed classes, as the pytest side checks a reading
@@ -633,7 +633,7 @@ def judge(cfg, data, records, package=None):
                       if all(name in inputs and C.kind_of(kind).accepts(inputs[name]) for name, kind in rule.fields.items())]
             if not usable:
                 if calls.get(ident):
-                    unverified.append(f'{rule.id}：{point["name"]} 的观察里没有规则要的输入（{", ".join(rule.fields)}）')
+                    unverified.append(f'{rule.id}：{point["name"]} observation lacks the inputs required by this rule ({", ".join(rule.fields)}）')
                 continue
             for inputs, actual in usable:
                 cell = {name: inputs[name] for name in rule.fields}
@@ -648,7 +648,7 @@ def judge(cfg, data, records, package=None):
                            f'（{point["rel"]}:{point["target_line"]} {point["fn"]}）')
                 if rule.id not in quoted:
                     source = parse(rule.source)
-                    red.append(rule.id + ' 出处：' + (source.quote or source.text))
+                    red.append(rule.id + ' source: ' + (source.quote or source.text))
                     quoted.add(rule.id)
                     steps.setdefault(rule.id, rule_steps(rule.id, f'{point["rel"]}:{point["target_line"]} {point["fn"]}',
                                                          f'{model.file_of[rule.id]}:{rule.line}'))

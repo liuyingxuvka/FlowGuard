@@ -9,7 +9,7 @@ from __future__ import annotations
 import ast
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import enum
@@ -152,7 +152,9 @@ class DecisionReading:
 
 
 _NAME = r'[^\W\d][\w.-]*'
-_HEAD = re.compile(r'#\s*flowguard:\s*(sensor|states|event|owner)\b\s*(.*)')
+_HEAD = re.compile(r'#\s*flowguard:\s*(sensor|states|event|owner|same|together|writers)\b\s*(.*)')
+_FOREIGN_HEAD = re.compile(r'//\s*flowguard:\s*(sensor|owner|same|together|writers)\b\s*(.*)$')
+_QUAL = r'(?:[^\W\d]|\$)[\w$]*(?:\.(?:[^\W\d]|\$)[\w$]*)*'
 _PROJECTION = r'result(?:\[[^\]]*\]|\.[^\W\d]\w*)+'
 _SESSION = ContextVar('flowguard_anchor_session', default=None)
 # What one verified session already read about a source anchor before calling it: the project's sources,
@@ -160,6 +162,90 @@ _SESSION = ContextVar('flowguard_anchor_session', default=None)
 _SESSION_FACTS = ContextVar('flowguard_anchor_session_facts', default=None)
 _TYPES = {'bool': bool, 'int': int, 'float': float, 'str': str, 'None': type(None),
           'Decimal': Decimal, 'date': date, 'datetime': datetime, 'timedelta': timedelta}
+
+
+def _agreement(kind, body):
+    """Translate the public spellings into the one existing anchor representation."""
+    if kind == 'same':
+        reference = re.match(r'(' + _NAME + r')\s+ref\b(.*)', body)
+        return 'sensor', reference[1] + reference[2] if reference else body, bool(reference), False
+    if kind in ('together', 'writers'):
+        parts = re.fullmatch(r'(' + _NAME + r')\s+(\S+)(.*)', body)
+        if parts is None:
+            raise ValueError(f'{kind} needs a field and its {"partners" if kind == "together" else "writers"}')
+        name, values, options = parts.groups()
+        if kind == 'writers' and options.strip():
+            raise ValueError('writers needs a comma-separated list of functions')
+        if kind == 'together':
+            if re.search(r'(?<!\S)(?:writers|with|alone)=', options):
+                raise ValueError('together options are on= and except=')
+            options = re.sub(r'(?<!\S)except=', 'alone=', options)
+        return 'owner', name + (' with=' if kind == 'together' else ' writers=') + values + options, False, True
+    return kind, body, False, False
+
+
+def _position(text, file, module):
+    """Scope new bare names locally; repository paths are resolved by the source index."""
+    from ..structure.readers.registry import language_for, module_name
+    path, colon, qual = text.rpartition(':')
+    if not colon:
+        if not re.fullmatch(_QUAL, text):
+            raise ValueError('a writer needs a function name or repository-relative path:function')
+        return module + ':' + text
+    if not re.fullmatch(_QUAL, qual) or not path or path.startswith('/') or '\\' in path \
+            or any(part in ('', '.', '..') for part in path.split('/')) or ':' in path:
+        raise ValueError('a code position needs a repository-relative path:function')
+    language = language_for(path)
+    if language is None:
+        raise ValueError('a code position needs a source file path:function')
+    target = module if path == file else path if language == 'python' else module_name(path)
+    return target + ':' + qual
+
+
+def _indexed_agreement(anchor, kind, modules):
+    """Use the map's actual Python import identity, including configured source roots."""
+    if kind not in ('writers', 'together'):
+        return anchor
+    def resolve(position):
+        target, colon, qual = position.rpartition(':')
+        return modules.get(target, target) + colon + qual
+    return replace(anchor, writers=tuple(resolve(value) for value in anchor.writers),
+                   alone=tuple(resolve(value.partition('(')[0]) + '(' + value.partition('(')[2]
+                               for value in anchor.alone))
+
+
+def _spelling_at(lines, number, file):
+    if not 0 < number <= len(lines):
+        return None
+    text = lines[number - 1]
+    return _HEAD.fullmatch(text.lstrip()) if file.endswith('.py') else _FOREIGN_HEAD.search(text)
+
+
+def _old_spellings(match, notices):
+    """Collect notices for this index read, rather than suppressing later warm reads."""
+    if match is None:
+        return
+    kind, body = match.groups()
+    if kind == 'sensor':
+        notices.add(('sensor', 'same NAME'))
+    elif kind == 'owner':
+        writers, pairs = 'writers=' in body, 'with=' in body
+        if writers and pairs:
+            notices.add(('owner with writers= and with=', 'separate writers and together comments'))
+        elif writers:
+            notices.add(('owner writers=', 'writers FIELD FUNCTIONS'))
+        elif pairs:
+            notices.add(('owner with=', 'together FIELD PARTNERS'))
+        else:
+            notices.add(('function owner', 'same NAME ref'))
+        if 'alone=' in body:
+            notices.add(('alone=', 'except=path:function(reason)'))
+
+
+def _warn_spellings(notices):
+    from .deprecation import warn
+    for feature, replacement in sorted(notices):
+        warn(feature, replacement)
 
 
 def _annotation(node):
@@ -344,7 +430,7 @@ def _parts(text, delimiter=','):
     return result + ([text[start:].strip()] if text[start:].strip() else [])
 
 
-FIELDS_HELP = ('写法：fields 名=表达式 名=表达式，表达式用函数自己的参数和模块里的名字，例如 '
+FIELDS_HELP = ('syntax: fields name=expression name=expression; expressions use the function parameters and module names, for example '
                '# flowguard: sensor FEE fields days=(today - hire.due).days member=customer.is_member')
 
 
@@ -381,24 +467,24 @@ def _field_items(text):
                 and tokens[index + 1].type == tokenize.OP and tokens[index + 1].string == '=':
             starts.append(index)
     if not starts or starts[0] != 0:
-        raise ValueError('fields 后面要写 名=表达式' + (f'，{text!r} 不是' if text else ''))
+        raise ValueError('fields must be followed by name=expression' + (f', {text!r} is not' if text else ''))
     items = []
     for position, index in enumerate(starts):
         name = tokens[index].string
         end = tokens[starts[position + 1]].start[1] if position + 1 < len(starts) else len(text)
         expression = text[tokens[index + 1].end[1]:end].strip()
         if keyword.iskeyword(name):
-            raise ValueError(f'字段名 {name} 是 Python 关键字')
+            raise ValueError(f'field name {name} is a Python keyword')
         if not expression:
-            raise ValueError(f'字段 {name} 没有表达式')
+            raise ValueError(f'field {name} has no expression')
         try:
             ast.parse(expression, mode='eval')
         except SyntaxError as error:
-            raise ValueError(f'字段 {name} 的 {expression} 不是一个 Python 表达式（{error.msg}）') from None
+            raise ValueError(f'field {name} expression {expression} is not a Python expression ({error.msg})') from None
         items.append((name, expression))
     names = [name for name, _ in items]
     if len(set(names)) != len(names):
-        raise ValueError('字段名重复：' + ', '.join(sorted({name for name in names if names.count(name) > 1})))
+        raise ValueError('duplicate field names: ' + ', '.join(sorted({name for name in names if names.count(name) > 1})))
     return tuple(items)
 
 
@@ -455,28 +541,33 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
             continue
         kind, body = match.groups()
         line, column = token.start
+        try:
+            kind, body, reference, scoped = _agreement(kind, body)
+        except ValueError as error:
+            problems.append(issue('red', 'syntax', str(error), line))
+            continue
         calibration = re.search(r'\s+calibrated_by=(\S+)(?=\s+fields\s|\s*$)', body)
         calibrated_by = calibration[1] if calibration else ''
         body = body[:calibration.start()] + body[calibration.end():] if calibration else body
         local = []
-        is_owner = kind == 'owner'
+        is_owner = kind == 'owner' or reference
         try:
             body, field_text = _split_fields(body)
             fields = _field_items(field_text) if field_text is not None else ()
         except (ValueError, tokenize.TokenError) as error:
             # A wrong anchor is red at its own line, with the way to write it.
-            reason = (f'锚点写错了：括号或引号没有配对（{error.args[0]}）' if isinstance(error, tokenize.TokenError)
-                      else f'fields 写错了：{error}')
+            reason = (f'invalid anchor: unmatched parentheses or quotes ({error.args[0]}）' if isinstance(error, tokenize.TokenError)
+                      else f'invalid fields: {error}')
             problems.append(issue('red', 'syntax', f'{file}:{line} {reason}' + ('' if isinstance(error, tokenize.TokenError)
                                   else '。' + FIELDS_HELP), line))
             continue
         if fields and kind in ('states', 'event'):
-            problems.append(issue('red', 'syntax', f'{file}:{line} fields 只用于 sensor 和函数的 owner 锚点。{FIELDS_HELP}', line))
+            problems.append(issue('red', 'syntax', f'{file}:{line} fields apply only to sensor and function owner anchors. {FIELDS_HELP}', line))
             continue
-        if is_owner:
-            data_owner = _data_owner(body, file, module, line, is_test)
+        if kind == 'owner':
+            data_owner = _data_owner(body, file, module, line, is_test, scoped=scoped)
             if data_owner is not None and fields:
-                problems.append(issue('red', 'syntax', f'{file}:{line} 数据负责人不带 fields；fields 只用于判断函数。{FIELDS_HELP}', line))
+                problems.append(issue('red', 'syntax', f'{file}:{line} data owners cannot have fields; fields apply only to decision functions. {FIELDS_HELP}', line))
                 continue
             if data_owner is not None:
                 (entries if isinstance(data_owner, dict) else problems).append(data_owner)
@@ -595,8 +686,8 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
             taken = set(actual) | {p.name for p in params} | ({receiver} if receiver else set())
             for field_name, _ in fields:
                 if field_name in taken:
-                    local.append(issue('red', 'syntax', f'{file}:{line} 字段 {field_name} 和参数同名：参数本来就是规则字段，'
-                                       f'不用写进 fields。{FIELDS_HELP}', line, name))
+                    local.append(issue('red', 'syntax', f'{file}:{line} field {field_name} matches a parameter: parameters are already rule fields, '
+                                       f'do not repeat them in fields. {FIELDS_HELP}', line, name))
             output_name = output_name or ''
             output_type = output_type or (return_type if kind == 'sensor' and not projection else '')
             if kind == 'sensor' and not projection:
@@ -614,18 +705,20 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
 
 
 _DATA_OWNER = re.compile(r'(?P<name>' + _NAME + r')(?:\s+writers=(?P<writers>\S+))?(?:\s+with=(?P<with>\S+))?'
-                         r'(?:\s+on=(?P<on>\S+))?(?:\s+alone=(?P<alone>(?:[\w.:]+\([^()]*\),?)+))?\s*')
+                         r'(?:\s+on=(?P<on>\S+))?(?:\s+alone=(?P<alone>(?:[^\s(),]+\([^()]*\),?)+))?\s*')
 
 
-def _data_owner(body, file, module, line, is_test):
+def _data_owner(body, file, module, line, is_test, *, scoped=False):
     """`Table.column writers=f,... with=Model.field[=value],... on=update alone=f(reason),...` as an owner
     anchor (a dict), a syntax Issue, or None for a function owner (a bare name above a function)."""
     listed = _DATA_OWNER.fullmatch(body.strip())
+    if listed and not scoped and listed['alone'] and not re.fullmatch(r'(?:[\w.:]+\([^()]*\),?)+', listed['alone']):
+        listed = None                 # Keep the old spelling's accepted grammar and bindings.
     if listed and not (listed['writers'] or listed['with'] or listed['alone'] or listed['on']):
         return None
     writers = tuple(dict.fromkeys(part for part in (listed['writers'] or '').split(',') if part)) if listed else ()
     pairs = tuple(dict.fromkeys(part for part in (listed['with'] or '').split(',') if part)) if listed else ()
-    alone = tuple(re.findall(r'[\w.:]+\([^()]*\)', listed['alone'] or '')) if listed else ()
+    alone = tuple(re.findall(r'[^\s(),]+\([^()]*\)', listed['alone'] or '')) if listed else ()
     on = (listed['on'] or '') if listed else ''
     # an on= the line spells (also one after alone=, which the form does not read) gets the on= form
     if on not in ('', 'update', 'create') or on and not pairs or not listed and re.search(r'(?:^|\s)on=', body):
@@ -635,6 +728,18 @@ def _data_owner(body, file, module, line, is_test):
             or any('.' not in pair.partition('=')[0].strip('.') for pair in pairs) or alone and not pairs:
         return Issue('red', 'syntax', 'a data owner needs Table.column (or Model.field) with writers=function,... '
                      'and/or with=Model.field[=value],...; alone=function(reason) needs with=', file, line)
+    if scoped:
+        try:
+            writers = tuple(_position(value, file, module) for value in writers)
+            exceptions = []
+            for value in alone:
+                target, _, reason = value.partition('(')
+                if ':' not in target:
+                    raise ValueError('except needs a repository-relative path:function(reason)')
+                exceptions.append(_position(target, file, module) + '(' + reason)
+            alone = tuple(exceptions)
+        except ValueError as error:
+            return Issue('red', 'syntax', str(error), file, line)
     return asdict(Anchor('owner', listed['name'], file, module, '', line, line, writers=writers, pairs=pairs, alone=alone,
                          on=on, source_role='test' if is_test else 'production'))
 
@@ -647,9 +752,19 @@ def foreign_owners(text, module, file, *, is_test=False, functions=()):
     entries, problems = [], []
     lines = text.splitlines()
     for number, line in enumerate(lines, 1):
-        sensor = re.match(r'\s*//\s*flowguard:\s*sensor\b\s*(.*)$', line)
-        if sensor:
-            name = sensor[1].strip()
+        found = _FOREIGN_HEAD.search(line)
+        if not found:
+            continue
+        spelling, body = found.groups()
+        if spelling in ('sensor', 'same') and not re.match(r'\s*//', line):
+            continue
+        try:
+            kind, body, reference, scoped = _agreement(spelling, body)
+        except ValueError as error:
+            problems.append(asdict(Issue('red', 'syntax', str(error), file, number)))
+            continue
+        if kind == 'sensor':
+            name = body.strip()
             following = [row for row in functions if row.get('kind') in ('function', 'method')
                          and number < row['line'] <= number + 3 and not row['qual'].rpartition('.')[2].startswith('<anonymous')]
             if not re.fullmatch(_NAME, name):
@@ -662,14 +777,11 @@ def foreign_owners(text, module, file, *, is_test=False, functions=()):
                 target = min(following, key=lambda row: row['line'])
                 params = tuple(Parameter(value, '', '', 'input', True) for value in target.get('raw', {}).get('parameters', ()))
                 entries.append(asdict(Anchor('sensor', name, file, module, target['qual'], number, target['line'], params,
-                                             source_role='test' if is_test else 'production')))
+                                             source_role='test' if is_test else 'production', owner=reference)))
             continue
-        found = re.search(r'//\s*flowguard:\s*owner\b\s*(.*)$', line)
-        if not found:
-            continue
-        owner = _data_owner(found[1], file, module, number, is_test)
-        if owner is None and re.fullmatch(_NAME + r'\s*', found[1]):
-            owner = asdict(Anchor('owner', found[1].strip(), file, module, '', number, number,
+        owner = _data_owner(body, file, module, number, is_test, scoped=scoped)
+        if owner is None and re.fullmatch(_NAME + r'\s*', body):
+            owner = asdict(Anchor('owner', body.strip(), file, module, '', number, number,
                                   source_role='test' if is_test else 'production'))
         elif owner is None:
             owner = Issue('red', 'syntax', 'owner needs NAME, or Table.column writers=function,...', file, number)
@@ -727,8 +839,38 @@ def project(anchor, value):
 _NO_VALUE = object()
 
 
+def _data_agreements(entries):
+    """Combine only one writer declaration and one complementary pair declaration."""
+    groups = {}
+    for number, anchor in enumerate(entries):
+        if anchor.kind == 'owner':
+            groups.setdefault(anchor.name, []).append((number, anchor))
+    combined, omitted = {}, set()
+    for group in groups.values():
+        if len(group) != 2:
+            continue
+        writers = [(number, anchor) for number, anchor in group
+                   if anchor.writers and not (anchor.pairs or anchor.on or anchor.alone)]
+        pairs = [(number, anchor) for number, anchor in group if anchor.pairs and not anchor.writers]
+        if len(writers) != 1 or len(pairs) != 1:
+            continue
+        writer_number, writer = writers[0]
+        pair_number, pair = pairs[0]
+        if (writer.file, writer.module, writer.source_role, writer.source_digest) != \
+                (pair.file, pair.module, pair.source_role, pair.source_digest):
+            continue
+        if any(anchor.owner or anchor.qual or anchor.parameters or anchor.values or anchor.fields or anchor.issues
+               or anchor.output or anchor.output_type or anchor.calibrated_by or anchor.receiver
+               for anchor in (writer, pair)):
+            continue
+        first, second = sorted((writer_number, pair_number))
+        combined[first] = replace(pair, writers=writer.writers)
+        omitted.add(second)
+    return tuple(combined.get(number, anchor) for number, anchor in enumerate(entries) if number not in omitted)
+
+
 def _index(entries, problems):
-    index = Index(tuple(entries))
+    index = Index(_data_agreements(tuple(entries)))
     for name, group in index.by_name.items():
         # Omitted labels/units are unknown metadata, not conflicting declarations.
         roles = {(a.kind, a.values) for a in group}
@@ -747,14 +889,21 @@ def _index(entries, problems):
                 hint = ''
                 if len(roles) == 1 and anchor is not reference and own != wanted and len(own) == len(wanted):
                     # Parameters correspond only by name; the mapping is written, never guessed from position or type.
-                    hint = (f'; parameters correspond only by name: write # flowguard: sensor {name}('
+                    hint = (f'; parameters correspond only by name: write # flowguard: same {name}('
                             + ', '.join(f'{p}=<its parameter>' for p in wanted) + ') on this copy')
                 problems.append(Issue('red', 'identity', f'same anchor {name} has conflicting roles, units or signature' + hint, anchor.file, anchor.line, name))
         owners = [anchor for anchor in group if anchor.owner or anchor.kind == 'owner']
         if len(owners) > 1:
+            data_only = all(anchor.kind == 'owner' and not anchor.qual and (anchor.writers or anchor.pairs)
+                            for anchor in owners)
             for anchor in owners:
-                problems.append(Issue('red', 'owner', f'{name} has {len(owners)} owners ({", ".join(f"{a.file}:{a.line}" for a in owners)}): '
-                                      'keep one owner; mark the copies # flowguard: sensor ' + name, anchor.file, anchor.line, name))
+                places = ', '.join(f'{a.file}:{a.line}' for a in owners)
+                message = (f'{name} has repeated or incompatible data agreements ({places}): '
+                           'use one writers declaration and one together declaration in the same file; '
+                           'multiple together declarations or different on= scopes cannot share one registration') if data_only else \
+                    (f'{name} has {len(owners)} references ({places}): '
+                     'keep one reference; mark the copies # flowguard: same ' + name)
+                problems.append(Issue('red', 'owner', message, anchor.file, anchor.line, name))
     index.issues = tuple(problems)
     return index
 
@@ -762,15 +911,25 @@ def _index(entries, problems):
 def collect(graph):
     """Read the single stored source index, including anchored project tests."""
     entries, problems, field_types = [], [], []
-    shas = dict(graph.con.execute('SELECT path, sha FROM file'))
+    files = list(graph.con.execute('SELECT path, sha, module FROM file'))
+    shas = {file: sha for file, sha, module in files}
+    modules = {file: module for file, sha, module in files}
+    notices = set()
     # Only the kinds the index reads; assignments only when a declared set needs the value gate.
     for file, error, data in graph._kinds('anchors', 'anchor_issues', 'field_types'):
         if error and file.endswith('.py'):
             problems.append(Issue('grey', 'source-syntax', error, file))
+        lines = read_source(graph.root / file).splitlines() if data.get('anchors') or data.get('anchor_issues') else []
         for value in data.get('anchors', ()):
             anchor = _anchor(dict(value, source_digest=shas[file]))
+            spelling = _spelling_at(lines, anchor.line, file)
+            _old_spellings(spelling, notices)
+            if spelling is not None:
+                anchor = _indexed_agreement(anchor, spelling[1], modules)
             entries.append(anchor)
             problems.extend(anchor.issues)
+        for value in data.get('anchor_issues', ()):
+            _old_spellings(_spelling_at(lines, value['line'], file), notices)
         problems.extend(Issue(**value) for value in data.get('anchor_issues', ()))
         field_types.extend(data.get('field_types', ()))
     classes = dict(graph.con.execute("SELECT id, sig FROM node WHERE kind='class'"))
@@ -778,6 +937,7 @@ def collect(graph):
     if table:      # one value gate over the assignment facts of the files that assign a declared field
         problems.extend(value_gate(table, [graph._folded(row) for row in graph.assignments_to(table)
                                            if row['field'] in table]))
+    _warn_spellings(notices)
     return _index(entries, problems)
 
 
@@ -866,7 +1026,10 @@ def collect_sources(root, files_with_modules):
     reader digest as the map. No project module is imported.
     """
     root = Path(root)
+    files_with_modules = tuple(files_with_modules)
+    modules = {item[0]: item[1] for item in files_with_modules}
     entries, problems = [], []
+    notices = set()
     for item in files_with_modules:
         file, module, *role = item
         raw = (root / file).read_bytes()
@@ -880,11 +1043,18 @@ def collect_sources(root, files_with_modules):
         data = source_facts(tree, text, module, file, source_digest=content_digest(root / file, data=raw), is_test=bool(role and role[0]))
         for value in data.get('anchors', ()):
             anchor = _anchor(value)
+            spelling = _spelling_at(text.splitlines(), anchor.line, file)
+            _old_spellings(spelling, notices)
+            if spelling is not None:
+                anchor = _indexed_agreement(anchor, spelling[1], modules)
             entries.append(anchor)
             problems.extend(anchor.issues)
+        for value in data.get('anchor_issues', ()):
+            _old_spellings(_spelling_at(text.splitlines(), value['line'], file), notices)
         problems.extend(Issue(**value) for value in data.get('anchor_issues', ()))
         if any(value['kind'] == 'states' for value in data.get('anchors', ())):
             problems.extend(_slice_gate(root, file, module, raw, [_anchor(value) for value in data['anchors']]))
+    _warn_spellings(notices)
     return _index(entries, problems)
 
 
@@ -1061,7 +1231,7 @@ def draft(graph, target):
         issues.extend(Issue('grey', 'range-incomplete', reason, file, function.lineno) for reason in space.reasons
                       if not any(i.code == 'range-incomplete' and i.message == reason for i in issues))
     name = qual.replace('.', '_')
-    comment = f'# flowguard: sensor {name}'
+    comment = f'# flowguard: same {name}'
     if any(p.unit for p in parameters):
         inputs = ', '.join(p.name + (': ' + p.unit if p.unit else '') for p in parameters if p.role == 'input')
         context = ', '.join(p.name for p in parameters if p.role == 'context')
@@ -1181,7 +1351,7 @@ def _observe_verified(root, anchor, values):
         return Observation('grey', reasons=(refused,), anchor=anchor.target)
     if isinstance(value, cells.Raised) and isinstance(value.error, ImportError):
         # An import inside the function failed in this observation's environment: not its behaviour.
-        return Observation('grey', reasons=(f'看不清：观察时导入失败：{type(value.error).__name__}: {value.error}',), anchor=anchor.target)
+        return Observation('grey', reasons=(f'unavailable: import failed during observation: {type(value.error).__name__}: {value.error}',), anchor=anchor.target)
     if isinstance(value, cells.Raised):
         return Observation('ok', value=value, anchor=anchor.target)
     if anchor.projection:

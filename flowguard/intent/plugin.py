@@ -37,10 +37,18 @@ CREATE TABLE IF NOT EXISTS result(item TEXT PRIMARY KEY, rule TEXT, verdict TEXT
 '''
 
 
+class SignalReports(list):
+    """One check's reports and its already computed static findings; never serialized."""
+    def __init__(self, everything=False):
+        super().__init__()
+        self.everything = everything
+        self.static = {}
+
+
 @contextmanager
-def collect_signals():
+def collect_signals(*, everything=False):
     """Let a multi-batch check render its runtime facts exactly once."""
-    reports = []
+    reports = SignalReports(everything)
     token = _SIGNALS.set(reports)
     try:
         yield reports
@@ -251,7 +259,7 @@ class Session:
                 self.ledger_result = ledger.evaluate(self.cfg, self.get_map(), baseline=baseline)
             except (MapError, OSError, UnicodeError) as error:
                 self.ledger_result = ledger.Result(present=True, red=[ledger.Finding(
-                    f'兜底账本没有核对完：{type(error).__name__}: {error}', ('改正这个错误后重新运行测试',))])
+                    f'fallback ledger check did not complete: {type(error).__name__}: {error}', ('correct this error and rerun the tests',))])
         return self.ledger_result
 
 
@@ -306,17 +314,17 @@ def _partition_copy(axes, part):
                       part.complete, list(part.reasons), part.representative_points), [])
 
 
-_UNHOOKABLE = '函数：调用处的结果不能比较'      # the end of a lost reading's reason when the call became a generator or coroutine
-_OPAQUE = '回放结果不是可以比较的简单数据'
+_UNHOOKABLE = ' function: the call result cannot be compared'      # the end of a lost reading reason when the call became a generator or coroutine
+_OPAQUE = 'replay result is not simple comparable data'
 
 
 def _restore_step(lost):
     """The first way out of a lost observation, for what made it grey."""
-    if lost.startswith(_OPAQUE):
-        return '恢复可观察：让这次调用像基准代码那样返回可以比较的简单数据（数字、字符串、布尔、None，或由它们组成的列表、元组、字典）；'
-    if lost.endswith(_UNHOOKABLE):
-        return '恢复可观察：让它像基准代码那样直接返回结果，不改成生成器或协程函数；'
-    return '恢复可观察：改掉上面那一处，让这次调用不再写文件、数据库、进程或网络；'
+    if lost.startswith((_OPAQUE, '回放结果不是可以比较的简单数据')):
+        return 'restore observability: return simple comparable data as the baseline code did (numbers, strings, booleans, None, or lists, tuples and dictionaries of them); '
+    if lost.endswith((_UNHOOKABLE, '函数：调用处的结果不能比较')):
+        return 'restore observability: return a result directly as the baseline code did, rather than becoming a generator or coroutine; '
+    return 'restore observability: correct the location above so this call does not write files, databases, processes or the network; '
 
 
 class Observations:
@@ -476,8 +484,8 @@ class Observations:
         replays that baseline with the same arguments; a clean replay makes the grey a lost observation.
         A test that never enters it lists the hook's reason as before."""
         import inspect
-        kind = ('协程' if inspect.iscoroutinefunction(fn) else '异步生成器' if inspect.isasyncgenfunction(fn)
-                else '生成器' if inspect.isgeneratorfunction(fn) else '')
+        kind = ('coroutine' if inspect.iscoroutinefunction(fn) else 'async generator' if inspect.isasyncgenfunction(fn)
+                else 'generator' if inspect.isgeneratorfunction(fn) else '')
         if not kind or not self.changed or not self._losable(point):
             return False
         import dis
@@ -520,7 +528,7 @@ class Observations:
                 kwargs[parameter.name] = value
         reading = Reading(point['name'], fn.__module__ + ':' + fn.__qualname__, test=self.runtime.test,
                           baseline=self.runtime.baseline, status='grey',
-                          reasons=[f'{fn.__qualname__} 现在是{kind}' + _UNHOOKABLE])
+                          reasons=[f'{fn.__qualname__} is now a {kind}' + _UNHOOKABLE])
         self.records.append((len(self.runtime.readings), point, None, [], None))
         self.runtime.readings.append(reading)
         self.runtime._lost(reading, fn, signature.bind(*args, **kwargs))
@@ -713,7 +721,7 @@ class Observations:
         for rule in self.rules.get(point['target'], ()):
             if not set(rule.fields) <= axes.keys() | fields:
                 self.grey.append(rule.id + ': this real context does not expose all rule inputs'
-                                 + (f'（参数和 fields 里没有 {", ".join(sorted(set(rule.fields) - axes.keys() - fields))}）' if fields else ''))
+                                 + (f'(arguments and fields do not contain {", ".join(sorted(set(rule.fields) - axes.keys() - fields))}）' if fields else ''))
                 continue
             values = self.state.engine.rr_space(rule.decides)[2]
             for field in [name for name in rule.fields if name not in fields]:
@@ -900,7 +908,7 @@ class Observations:
                         self.red.append(f'{rule.id}: {C.show_cell(inputs)} -> rule {C.show(expected)}, code {str(actual) if type(actual) is bool else C.show(actual)}')
                         if rule.id not in quoted:
                             source = parse(rule.source)
-                            self.red.append(rule.id + ' 出处：' + (source.quote or source.text))
+                            self.red.append(rule.id + ' source: ' + (source.quote or source.text))
                             quoted.add(rule.id)
                         break
 
@@ -959,7 +967,7 @@ class Observations:
             if observed['red']:
                 if (quote := source.quote or source.text) not in quotes.values():
                     quotes[identifier] = quote
-                self.red.extend(name + ' 出处：' + quote for name, quote in quotes.items())
+                self.red.extend(name + ' source: ' + quote for name, quote in quotes.items())
             results.append(observed)
         return results
 
@@ -1053,7 +1061,7 @@ class Observations:
         unverified, failed_items = [], set()      # an intent item's red is already a failed test
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':
-                unverified.extend(item.partition('::')[2] + '：' + str(reason) for reason in result.get('grey', ()) or ['未验证'])
+                unverified.extend(item.partition('::')[2] + '：' + str(reason) for reason in result.get('grey', ()) or ['unverified'])
             if result.get('red'):
                 rule = self.state.model.rules.get(result.get('rule'))
                 quote = ''
@@ -1061,16 +1069,16 @@ class Observations:
                     from .sources import parse
                     source = parse(rule.source)
                     quote = source.quote or source.text
-                lines = [signals.constraint(message, result.get('rule') or '规矩') for message in result['red']]
+                lines = [signals.constraint(message, result.get('rule') or 'rule') for message in result['red']]
                 if quote:
-                    lines.append(str(result.get('rule') or '规矩') + ' 出处：' + quote)
+                    lines.append(str(result.get('rule') or 'rule') + ' source: ' + quote)
                 self.red.extend(lines)
                 failed_items.update(lines)
         unverified.extend(self._lost())
         # Each violated rule names the next step: correct the code, or the rule first when the need changed.
         for rule in self.state.model.rules.values():
-            if any(str(message).partition('：')[0].partition(': ')[0].partition(' 出处')[0] == rule.id for message in self.red):
-                homes = '、'.join(self._place(home.target) for home in rule.homes if not hasattr(home, 'scenario')) or rule.id + ' 的绑定'
+            if any(str(message).partition('：')[0].partition(': ')[0].partition(' source')[0].partition(' 出处')[0] == rule.id for message in self.red):
+                homes = '、'.join(self._place(home.target) for home in rule.homes if not hasattr(home, 'scenario')) or rule.id + ' binding'
                 said = [str(message).partition('：')[2] for message in self.red if str(message).startswith(rule.id + '：')]
                 self.steps.setdefault(rule.id, signals.rule_steps(rule.id, homes, f'{self.state.model.file_of[rule.id]}:{rule.line}', said))
         for issue in self.index.issues:
@@ -1084,12 +1092,21 @@ class Observations:
             # a new spelling of a label, a new write outside a data owner's writers, a pair, a value.
             from . import anchors, owners
             graph = self.state.get_map()       # the map's index also holds the TS/JS owners (check --static reads it)
-            found = owners.static_findings(self.cfg, graph, anchors.collect(graph), self.runtime.baseline)
+            collector = _SIGNALS.get()
+            everything = collector.everything if collector is not None else False
+            key = (self.cfg.root, self.requested_base, everything)
+            if collector is not None and key in collector.static:
+                found = collector.static[key]
+            else:
+                found = owners.static_findings(self.cfg, graph, anchors.collect(graph), self.runtime.baseline,
+                                              everything=everything)
+                if collector is not None:
+                    collector.static[key] = found
             self.red.extend(found.red)
             leads.extend(found.leads)
             self.structure = found.summary         # the session brief's count of open structure problems
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
-        items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
+        items = [dict(name='uncovered', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
         fallbacks = self.state.ledger()
         # a [structure] entry of a later FlowGuard is unverified, never red, also in a run without a source change
         unverified.extend(fallbacks.later)
@@ -1141,7 +1158,7 @@ class Observations:
         names = ({anchor.name for anchor in self.index.entries} | set(model.rules) | set(model.flows)
                  | set(model.states) | set(model.structures) | set(model.anchor_distincts))
         for name in sorted(set(listed) - names):
-            self._red(f'[unverified] 里的 {name}', f'不是锚点、规则或模型的名字，从 {ledger.LEDGER} 的 [unverified] 段删掉它')
+            self._red(f'[unverified] entry {name}', f'is not an anchor, rule or model name; remove it from {ledger.LEDGER} [unverified] section')
         kept, seen = [], set()
         for index, point, part, unknown, cause in self.records:
             if index >= len(self.runtime.readings) or not self._losable(point):
@@ -1157,13 +1174,13 @@ class Observations:
             seen.add(key)
             reason = next((listed[name] for name in subjects if name in listed), '')
             if reason:
-                kept.append(f'{subjects[0]}（{self._place(point["target"])}）：已登记不回放：{reason}')
+                kept.append(f'{subjects[0]}（{self._place(point["target"])}): replay exemption recorded: {reason}')
                 continue
-            self._red('观察丢失 ' + '、'.join(subjects),
-                      f'{self._place(point["target"])} 在 {reading.test or "这个测试"} 里，基准代码能比较，现在是灰：{reading.lost}',
+            self._red('observation lost: ' + '、'.join(subjects),
+                      f'{self._place(point["target"])} in {reading.test or "this test"}: baseline code was comparable, but the current result is grey: {reading.lost}',
                       next=[_restore_step(reading.lost),
-                            f'或者确实不再回放：在 {ledger.LEDGER} 的 [unverified] 段写一句理由（不少于 {ledger.MIN_WORDS} 个词）'
-                            + ('' if ledger.path(self.cfg).is_file() else '；还没有这个文件时先运行 python -m flowguard ledger init') + '：',
+                            f'or, if replay is intentionally retired, add a reason to {ledger.LEDGER} [unverified] section (at least {ledger.MIN_WORDS} words)'
+                            + ('' if ledger.path(self.cfg).is_file() else '; if this file is absent, first run python -m flowguard ledger init') + '：',
                             '[unverified]', f'{subjects[0]} = ' + ledger._quote(ledger.PLACEHOLDER_UNVERIFIED)])
         return kept
 
@@ -1282,7 +1299,7 @@ class Observations:
                 itertools.product(*(range(size) for size in sizes)), 4097))) <= 4096:
             for name, values in windowed.items():
                 axes[name].extend(value for value in values if value not in axes[name])
-            part, unknown = None, [*unknown, '算术结果：每类取了连续的代表值，不是完整划分']
+            part, unknown = None, [*unknown, 'arithmetic result: consecutive representatives were selected per class; this is not a complete partition']
         return part, unknown
 
     def _cause(self, point, original=None):
@@ -1307,7 +1324,7 @@ class Observations:
         if current is None:
             return None
         for before, after, line in self._moved_literals(point, current):
-            return dict(name=point['name'] + ' 的常量', before=before, after=after, file=point['file'], line=line)
+            return dict(name=point['name'] + ' constant', before=before, after=after, file=point['file'], line=line)
         for tag, i, stop, j, end in difflib.SequenceMatcher(a=old.splitlines(), b=source.splitlines()).get_opcodes():
             if tag != 'equal' and current.lineno <= j + 1 <= current.end_lineno:
                 return f'{point["name"]}（{point["file"]}:{j + 1}）'
@@ -1493,6 +1510,9 @@ def pytest_collection_modifyitems(config, items):
     from .calibration import probe_context
     if probe_context(config):
         return  # A private source subtree cannot replace the real collection.
+    if any(any(item.iter_markers('rule')) for item in items):
+        from .deprecation import warn
+        warn('pytest.mark.rule')
     state = config._flowguard_intent
     state.collected = {i.nodeid for i in items if isinstance(i, IntentItem)}
     if config.getoption('--flowguard-complete', default=False):
@@ -1583,8 +1603,8 @@ def sentinel(config: pytest.Config):
     from .calibration import probe_context
     from . import ledger
     fallbacks = ledger.Result(present=False) if probe_context(config) else state.ledger()
-    red = ('\n' + ledger.summary(fallbacks) + ' -> 运行 python -m flowguard ledger check 列出全部差异和可照抄的条目\n'
-           + '\n'.join('红：' + finding.text for finding in fallbacks.red)) if fallbacks.red else ''
+    red = ('\n' + ledger.summary(fallbacks) + ' -> run python -m flowguard ledger check for all differences and entries to copy\n'
+           + '\n'.join('red: ' + finding.text for finding in fallbacks.red)) if fallbacks.red else ''
     if missing:
         raise AssertionError(f'only {len(declared) - len(missing)} of {len(declared)} intent items collected or reusable; missing ' + ', '.join(missing[:3]) + ' -> run the complete declared collection' + red)
     if red:

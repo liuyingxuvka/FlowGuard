@@ -33,7 +33,7 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 ## FlowGuard rules for the project agent
 
 1. Start each task with `python -m flowguard new-task` (it records the task's baseline; commits during the task keep it). Run the project's tests and read the FlowGuard lines; every red and lead ends with the next step: do it, and when it says to tell the owner, tell the owner before changing the structure.
-2. A judgment or a field that must agree everywhere has one owner: `# flowguard: owner NAME` above it, `# flowguard: sensor NAME` above each copy, `writers=` on a data owner.
+2. Mark copies of a judgment with `flowguard: same NAME`, its reference with `same NAME ref`; record field agreements with `together A B,C` and permitted writers with `writers A f,g`.
 3. A rule the owner set that must keep holding goes into `tests/intent/`, its source the owner's words stored once, byte for byte, with `python -m flowguard req add <file|-> --id <id>`.
 <!-- flowguard:end -->
 '''
@@ -41,18 +41,15 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 
 # The commands and the line `--help` gives each.
 COMMANDS = {
-    'anchor': 'Draft the source comment of a function: anchor draft module:function',
-    'show': 'Find the owner, writers, readers, copies and rules of a name or of "what it decides"',
-    'try': 'Run an anchor on given inputs (days=4) in its real test context',
-    'watch': 'Run a Python command normally, record its anchors and check the loaded models',
-    'model': 'Draft a small flow from recorded paths: model draft NAME',
+    'show': 'Find agreements, writers, readers, copies and rules of a name or of "what it decides"',
     'check': 'Recheck the affected rules and tests with pytest; --static runs the map checks without tests',
-    'compare': 'Compare two sensors class by class on the same inputs',
     'init': 'Wire FlowGuard into this project: pytest plugin, sentinel, CI fragment, rules block, npm test files',
     'new-task': 'Start the next task: record HEAD as the task baseline, then print the brief',
     'ledger': 'The fallback ledger: handlers that may end without raising',
     'req': "Store, list or retire the owner's own words, byte for byte",
 }
+
+DEPRECATED_COMMANDS = {'anchor', 'try', 'watch', 'model', 'compare'}
 
 
 def _spelled(word):
@@ -69,7 +66,7 @@ def _limit(lines, budget, more='show RULE for the complete result'):
         return lines
     kept = lines[:max(0, budget - 1)]
     hidden = lines[len(kept):]
-    reds = sum(line.startswith(('red ', '红：')) for line in hidden)
+    reds = sum(line.startswith(('red ', 'red: ', '红：')) for line in hidden)
     return kept + [f'... {len(hidden)} more lines' + (f' ({reds} red)' if reds else '') + ': ' + more]
 
 
@@ -200,7 +197,7 @@ def _rule_steps(model, data):
         if rule is None or not messages:
             continue
         homes = '、'.join(f'{home.anchor.file}:{home.anchor.target_line}' if getattr(home, 'anchor', None) else home.target
-                         for home in rule.homes if not hasattr(home, 'scenario')) or rid + ' 的绑定'
+                         for home in rule.homes if not hasattr(home, 'scenario')) or rid + ' binding'
         steps[rid] = rule_steps(rid, homes, f'{model.file_of[rid]}:{rule.line}', messages)
     return steps
 
@@ -299,7 +296,7 @@ def _candidate(candidate, full):
 def _candidate_lines(found, full, prefix):
     candidates = found['candidates']
     visible = candidates if full else candidates[:3]
-    result = [prefix + _candidate(candidate, full) + (' [线索]' if not full else '') for candidate in visible]
+    result = [prefix + _candidate(candidate, full) + (' [lead]' if not full else '') for candidate in visible]
     if len(visible) < len(candidates):
         result.append(f'{len(candidates) - len(visible)} more source candidates; show --full for all pointers')
     return result
@@ -366,7 +363,7 @@ def _copy_pointers(graph, index, anchors, homes, summary, results, words, full, 
             if old is None or rank(candidate) > rank(old):
                 candidates[candidate['id']] = candidate
     found = dict(candidates=sorted(candidates.values(), key=lambda row: (-row.get('score', 0), row['id'])))
-    return list(dict.fromkeys(lines)) + _candidate_lines(found, full, '线索 unbound candidate ')
+    return list(dict.fromkeys(lines)) + _candidate_lines(found, full, 'lead unbound candidate ')
 
 
 def _unmodelled(index, summary, *, root=None):
@@ -398,14 +395,14 @@ def _silent_lines(cfg, index, rid, full, limit=10):
         return []
     def listed(values):
         shown = values if full else values[:limit]
-        return '；'.join(shown) + (f'；另 {len(values) - len(shown)} 类：show --full {rid} 列出全部' if len(shown) < len(values) else '')
-    lines = [f'没表态：规则 {rid} 对 {len(silent)} 类情况没有给出结果（共 {key["cells"]} 类）：{listed(silent)}']
+        return '；'.join(shown) + (f'; plus {len(values) - len(shown)} classes: show --full {rid} lists all' if len(shown) < len(values) else '')
+    lines = [f'undecided: rule {rid} has no result for {len(silent)} classes (total {key["cells"]} classes): {listed(silent)}']
     undecided = [cell for cell in gaps.get('cells', ()) if cell in silent]
     if undecided and gaps.get('total'):
-        lines.append(f'红：{"、".join(gaps["total"])} 写了 total=True，{len(undecided)} 类情况没有任何规则表态：{listed(undecided)}'
-                     f' -> 在规则里给出这些情况的结果，或去掉 total=True')
+        lines.append(f'red: {"、".join(gaps["total"])} declares total=True, but {len(undecided)} classes have no rule result: {listed(undecided)}'
+                     f' -> give these cases a result in the rules, or remove total=True')
     elif undecided and len(undecided) < len(silent):
-        lines.append(f'其中 {len(undecided)} 类也没有别的规则表态：{listed(undecided)}')
+        lines.append(f'of these, {len(undecided)} classes also have no result from another rule: {listed(undecided)}')
     return lines
 
 
@@ -662,7 +659,7 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
     from .plugin import collect_signals
     from .signals import more_leads, render as render_signals
     start = cache.task_start(cfg, record=True) if base is None else (base, 'base', None)
-    with collect_signals() as reports:
+    with collect_signals(everything=everything) as reports:
         status = _check(cfg, everything=everything, since=since, deep=deep, base=base, reports=reports)
     from .differences import _source_index, _compare_pairs
     index = _source_index(cfg.root)
@@ -689,7 +686,8 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
         reports.append(dict(source_changed=compared['status'] != 'ok',
                             items=[dict(item, comparison=True, same_name=True) for item in items], red=red))
         status = status or int(compared['status'] == 'red')
-    found = _owner_findings(cfg, everything=everything, base=base)
+    found = _owner_findings(cfg, everything=everything, base=base,
+                            static=reports.static.get((cfg.root, base, everything)))
     if found.red or found.leads or found.section:
         reports.append(dict(source_changed=True, red=found.red, leads=found.leads, items=[], structure=found.section))
         status = status or int(bool(found.red))
@@ -770,7 +768,7 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     return status
 
 
-def _owner_findings(cfg, *, everything=False, base=None):
+def _owner_findings(cfg, *, everything=False, base=None, static=None):
     """Owners, copies and static leads of this change; copy discovery runs only here, in check."""
     from . import anchors, owners
     if not owners.baseline(cfg, base) and not everything:
@@ -780,7 +778,7 @@ def _owner_findings(cfg, *, everything=False, base=None):
         distincts = cache.read(cfg)['summary'].get('distincts', [])
         excluded = {target for item in distincts for target in (item['a'], item['b']) if ':' in target}
         excluded |= {anchor.target for item in distincts for name in (item['a'], item['b']) for anchor in index.named(name)}
-        found = owners.check_findings(cfg, graph, index, base, everything=everything, excluded=excluded)
+        found = owners.check_findings(cfg, graph, index, base, everything=everything, excluded=excluded, static=static)
         with graph.con:
             cache.save_structure(graph.con, found.summary)
         return found
@@ -899,8 +897,8 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
             red = [constraint(line.removeprefix('red ')) for line in lines if line.startswith('red ')]
             grey = [line.removeprefix('grey ') for line in lines if line.startswith(('grey ', 'OPEN '))]
             reports.append(dict(source_changed=bool(red or grey), red=red, steps=steps or {}, items=[dict(
-                name='未覆盖', status='grey', complete=False, changes=[], reasons=grey)] if grey else []))
-    historical = history.check(cfg, since)
+                name='uncovered', status='grey', complete=False, changes=[], reasons=grey)] if grey else []))
+    historical = history.check(cfg, base)
     data = cache.read(cfg)
     retry_incomplete = bool((data.get('attempt') or {}).get('errors'))
     if not model.declared_items() and not everything and not retry_incomplete:
@@ -992,7 +990,8 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
                 if nodeid.partition('::')[0] == file and _test_name(nodeid) == name and reading['outcome'] == 'skipped':
                     historical.append(f'guard lost: {nodeid} was skipped -> restore the real marked test')
     probes = []
-    revision = history._revision(cfg, since)
+    from .owners import baseline as owner_baseline
+    revision = owner_baseline(cfg, base)
     if revision is not None and executed:
         old = cache.scan(cfg, history._texts(cfg, revision, cfg.rel(cfg.intent)))['rules']
         current = data['summary']['rules']
@@ -1064,9 +1063,9 @@ def _owner_rules_unverified(cfg, data):
         if source.kind != 'owner':
             continue
         reasons = [message for value in result.get('items', {}).values() for message in value.get('grey', ())]
-        lines.append(f'red {rid}: 规则有主人原话出处（{source.rids[0]}），现在是灰（未验证）：'
+        lines.append(f'red {rid}: rule cites original words from the owner ({source.rids[0]}), but is now grey (unverified): '
                      + (reasons[0] if reasons else 'no results yet')
-                     + f' -> 恢复可观察；或在 {ledger.LEDGER} 的 [unverified] 段写一句理由：{rid} = '
+                     + f' -> restore observability; or, in {ledger.LEDGER} [unverified] section, write a reason: {rid} = '
                      + ledger._quote(ledger.PLACEHOLDER_UNVERIFIED))
     return lines
 
@@ -1805,7 +1804,7 @@ def ledger(cfg, operation):
     if not result.present and not result.red:
         print('\n'.join([*missing, f'FlowGuard ledger: no {fallbacks.LEDGER}; python -m flowguard ledger init starts one from the current code.']))
         return 0
-    print('\n'.join([*missing, fallbacks.summary(result), *fallbacks.lines(result), *('未核对：' + line for line in result.grey)]))
+    print('\n'.join([*missing, fallbacks.summary(result), *fallbacks.lines(result), *('not checked: ' + line for line in result.grey)]))
     return int(bool(result.red))
 
 
@@ -1826,8 +1825,8 @@ def requests(cfg, options):
                              supersedes=options.supersedes)
         print(f'stored {item["id"]} ({item["kind"]}, sha {item["sha256"][:12]}, {item["bytes"]} bytes)')
         from .differences import display
-        display(f'这句话如果定下了一直成立的规矩，就写成 {cfg.rel(cfg.intent)}/ 里的规则，并以 {item["id"]} 为出处：'
-                f'source="owner {item["id"]}: <原话里的那一句>"')
+        display(f'if these words set a continuing rule, write it in {cfg.rel(cfg.intent)}/ and cite {item["id"]} as its source: '
+                f'source="owner {item["id"]}: <the exact sentence from the owner words>"')
     elif options.operation == 'retire':
         retire_request(cfg.root, options.identifier, note=options.note)
         print(f'retired {options.identifier}: not the owner\'s words')
@@ -1851,18 +1850,25 @@ def main(argv=None):
             raise SystemExit('--root needs a project directory')
         root = argv[at + 1]
         del argv[at:at + 2]
+    if argv and argv[0] in {'status', 'where'}:
+        print('this is a FlowGuard 0.7x command; here run python -m flowguard new-task')
+        return 0
+    from .deprecation import warn as deprecated
+    if argv and argv[0] in DEPRECATED_COMMANDS:
+        deprecated(argv[0], 'python -m flowguard new-task, check or show NAME')
     parser = argparse.ArgumentParser(prog='flowguard')
     parser.add_argument('--version', action='version', version=__version__)
-    commands = parser.add_subparsers(dest='command')
-    add_parser = lambda name: commands.add_parser(name, help=COMMANDS[name])
+    commands = parser.add_subparsers(dest='command', metavar='{' + ','.join(COMMANDS) + '}')
+    def add_parser(name):
+        return commands.add_parser(name, **({'help': COMMANDS[name]} if name in COMMANDS else {}))
     anchor_parser = add_parser('anchor')
     anchor_operations = anchor_parser.add_subparsers(dest='operation', required=True)
     anchor_draft = anchor_operations.add_parser('draft')
     anchor_draft.add_argument('target')
     show_parser = add_parser('show')
     show_parser.add_argument('query', nargs='?')
-    show_parser.add_argument('--draft')
-    show_parser.add_argument('--gaps')
+    show_parser.add_argument('--draft', help=argparse.SUPPRESS)
+    show_parser.add_argument('--gaps', help=argparse.SUPPRESS)
     show_parser.add_argument('--full', action='store_true', help='Include decision sites and full candidate metadata')
     try_parser = add_parser('try')
     try_parser.add_argument('anchor')
@@ -1877,7 +1883,7 @@ def main(argv=None):
     check_parser = add_parser('check')
     check_parser.add_argument('--all', action='store_true')
     check_parser.add_argument('--deep', action='store_true', help='Run decision probes and mutation-survival checks')
-    check_parser.add_argument('--since')
+    check_parser.add_argument('--since', help=argparse.SUPPRESS)
     check_parser.add_argument('--base', type=cache.base_commit,
                               help='Compare behavior with this commit instead of the remembered session baseline')
     check_parser.add_argument('--static', action='store_true',
@@ -1897,7 +1903,7 @@ def main(argv=None):
     add = operations.add_parser('add')
     add.add_argument('file')
     add.add_argument('--id', dest='identifier')
-    add.add_argument('--kind', choices=('request', 'glossary', 'adoption'), default='request')
+    add.add_argument('--kind', choices=('request', 'glossary', 'adoption'), metavar='request', default='request')
     add.add_argument('--supersedes', action='append', default=[])
     operations.add_parser('list')
     retire = operations.add_parser('retire')
@@ -1905,6 +1911,12 @@ def main(argv=None):
     retire.add_argument('--not-owner', action='store_true', required=True)
     retire.add_argument('--note')
     options = parser.parse_args(argv)
+    if options.command == 'show' and (options.draft is not None or options.gaps is not None):
+        deprecated('show --draft/--gaps', 'python -m flowguard show NAME')
+    if options.command == 'check' and options.since is not None:
+        deprecated('check --since', 'python -m flowguard check --base REV')
+    if options.command == 'req' and options.operation == 'add' and options.kind != 'request':
+        deprecated('req --kind ' + options.kind, 'req add FILE --id R<n>')
     try:
         cfg = load_config(root or find_root())
         if options.command == 'anchor':

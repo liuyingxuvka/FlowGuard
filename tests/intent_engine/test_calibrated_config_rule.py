@@ -105,7 +105,7 @@ def test_config_file_fee_change_fails_ordinary_pytest_on_the_rule(tmp_path):
     assert 'smallest days=3 member=F -> rule 3, code 4' in text, text
     after = _verdicts(root)
     assert after[cells] == 'red' and after[rows] == 'red', after
-    assert 'FEE 出处：assumed: 3 per day after 2 free days, members half' in text, text
+    assert 'FEE source: assumed: 3 per day after 2 free days, members half' in text, text
     assert 'calibrated anchor must be prepared' not in text
 
 
@@ -181,5 +181,5 @@ def test_real_call_of_a_config_reader_is_checked_against_its_rule(tmp_path):
     text = display_text(changed)
     assert changed.returncode == 1, text
     assert 'LIMIT: days=4 -> rule F, code True' in text, text
-    assert 'LIMIT 出处：At most three days.' in text, text
+    assert 'LIMIT source: At most three days.' in text, text
     assert 'no verified current reading' not in text, text

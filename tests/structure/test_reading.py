@@ -107,3 +107,44 @@ def test_match_arms_and_excluded_paths(repo):
     sites = [(s["field"], s["op"], s["const"], s["leads"]) for s in m.sites("loans:status_action")]
     assert sites == [("loan.status", "In", "('lost', 'damaged')", "raise"), ("loan.status", "Eq", "'out'", "return")]
     assert m.node("vendor.big:huge") is None and m.stats["files"] == 1
+
+
+def test_project_settings_and_pytest_paths_share_the_existing_toml_reader(tmp_path):
+    from flowguard.intent.config import load_config, search_paths
+    from flowguard.structure.store import project_config
+    (tmp_path / 'pyproject.toml').write_text(
+        '\ufeff[tool.flowguard]\r\nroots = ["lib"]\r\nintent = "checks"\r\n'
+        'exclude = ["vendor/**"]\r\narchives = ["history/**"]\r\npropagate = ["handOn"]\r\n'
+        '[tool.pytest.ini_options]\r\npythonpath = ["helpers", "."]\r\n', encoding='utf-8')
+    cfg = load_config(tmp_path)
+    assert cfg.roots == [tmp_path / 'lib'] and cfg.intent == tmp_path / 'checks'
+    assert cfg.exclude == ['vendor/**']
+    assert project_config(tmp_path)['archives'] == ['history/**']
+    assert project_config(tmp_path)['propagate'] == ['handOn']
+    assert search_paths(cfg) == [tmp_path, tmp_path / 'lib', tmp_path / 'helpers', tmp_path]
+
+
+def test_only_an_absent_pyproject_uses_empty_settings(tmp_path, monkeypatch):
+    import tomllib
+    import pytest
+    from pathlib import Path
+    from flowguard.intent.config import load_config, search_paths
+    from flowguard.structure.store import project_config
+    assert project_config(tmp_path) == {}
+    cfg = load_config(tmp_path)
+    assert search_paths(cfg) == [tmp_path]
+    path = tmp_path / 'pyproject.toml'
+    path.write_text('[tool.flowguard\n', encoding='utf-8')
+    for read in (lambda: project_config(tmp_path), lambda: load_config(tmp_path), lambda: search_paths(cfg)):
+        with pytest.raises(tomllib.TOMLDecodeError):
+            read()
+    path.write_text('[tool.flowguard]\n', encoding='utf-8')
+    original = Path.read_text
+    def unreadable(current, *args, **kwargs):
+        if current == path:
+            raise PermissionError('project settings cannot be read')
+        return original(current, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', unreadable)
+    for read in (lambda: project_config(tmp_path), lambda: load_config(tmp_path), lambda: search_paths(cfg)):
+        with pytest.raises(PermissionError, match='project settings cannot be read'):
+            read()

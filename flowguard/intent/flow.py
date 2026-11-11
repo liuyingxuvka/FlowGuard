@@ -43,6 +43,10 @@ class Transition:
     on: str
     initial: bool = False
 
+    def __post_init__(self):
+        from .deprecation import warn
+        warn('Transition')
+
 
 _UNSET = object()
 

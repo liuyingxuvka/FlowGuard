@@ -50,9 +50,9 @@ def choice(x: int) -> bool:
 def test_scenario_gets_actual_production_result_not_test_none_or_predicate(tmp_path):
     binding = scenario(tmp_path)
     bind_scenario(tmp_path, binding)
-    actual = calibration.execute_scenario(tmp_path, binding, {'x': 4})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
     assert actual.status == 'ok' and actual.value is False, actual.reasons
-    actual = calibration.execute_scenario(tmp_path, binding, {'x': 2})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
     assert actual.status == 'ok' and actual.value is True, actual.reasons
 
 
@@ -60,34 +60,34 @@ def test_scenario_enum_identity_is_real_member_not_its_string_value(tmp_path):
     binding = scenario(tmp_path, enum=True)
     bind_scenario(tmp_path, binding)
     enum = importlib.import_module('kinds').QuoteCase
-    actual = calibration.execute_scenario(tmp_path, binding, {'quote': enum.CHANGED})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': enum.CHANGED})
     assert actual.status == 'ok' and actual.value is False, actual.reasons
     forged = object.__new__(enum)
     forged._name_, forged._value_ = 'CHANGED', 'not-the-value'
-    actual = calibration.execute_scenario(tmp_path, binding, {'quote': forged})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': forged})
     assert actual.status == 'grey' and actual.value is None
     copied = object.__new__(enum)
     copied._name_, copied._value_ = enum.CHANGED.name, enum.CHANGED.value
-    actual = calibration.execute_scenario(tmp_path, binding, {'quote': copied})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': copied})
     assert actual.status == 'grey' and actual.value is None
 
 
 def test_scenario_only_declared_native_error_can_be_refused(tmp_path):
     binding = scenario(tmp_path, refusal=True)
     bind_scenario(tmp_path, binding)
-    actual = calibration.execute_scenario(tmp_path, binding, {'x': -1})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': -1})
     assert actual.status == 'ok' and isinstance(actual.value, Raised), actual.reasons
     assert type(actual.value.error) is ValueError and str(actual.value.error) == 'native negative refusal'
     fresh = scenario(tmp_path, extra="    raise ValueError('test harness failure')\n")
     bind_scenario(tmp_path, fresh)
-    actual = calibration.execute_scenario(tmp_path, fresh, {'x': 2})
+    actual = calibration._observe_scenario_current(tmp_path, fresh, {'x': 2})
     assert actual.status in {'red', 'grey'} and not isinstance(actual.value, Raised)
 
 
 def test_scenario_does_not_choose_first_or_last_reading(tmp_path):
     binding = scenario(tmp_path, extra='    choice(x)\n')
     bind_scenario(tmp_path, binding)
-    actual = calibration.execute_scenario(tmp_path, binding, {'x': 4})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
     assert actual.status == 'grey' and actual.value is None
 
 
@@ -96,7 +96,7 @@ def test_scenario_runtime_failure_is_not_a_business_refusal(tmp_path, monkeypatc
     scope, _ = bind_scenario(tmp_path, binding)
     def failed(*args, **kwargs): raise ValueError('real replay infrastructure failure')
     monkeypatch.setattr(scope.runtime, 'replay', failed)
-    actual = calibration.execute_scenario(tmp_path, binding, {'x': 2})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
     assert actual.status in {'red', 'grey'} and actual.value is None
     assert 'replay infrastructure failure' in ' '.join(actual.reasons)
 
@@ -105,7 +105,7 @@ def test_scenario_checks_requested_logical_inputs_for_joint_witnesses(tmp_path):
     binding = scenario(tmp_path)
     bind_scenario(tmp_path, binding)
     binding.requested_inputs = {'x': 99}
-    actual = calibration.execute_scenario(tmp_path, binding, {'x': 2})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
     assert actual.status == 'grey' and actual.value is None
     assert 'input did not match' in ' '.join(actual.reasons)
 
@@ -118,7 +118,7 @@ def test_scenario_never_uses_test_return_or_rule_predicate_as_actual(tmp_path):
     relation = binding.flow.relations[0]
     binding.flow.relations = (Relation(ExplosiveRule(), relation.inputs, relation.actual, relation.on),)
     bind_scenario(tmp_path, binding)
-    actual = calibration.execute_scenario(tmp_path, binding, {'x': 4})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
     assert actual.status == 'ok' and actual.value is False, actual.reasons
 
 
@@ -130,7 +130,7 @@ def test_enum_source_binding_must_be_the_actual_native_class(tmp_path):
     binding.anchor_index, binding.scenario = index, index.named('CASE')[0]
     bind_scenario(tmp_path, binding)
     changed = importlib.import_module('kinds').QuoteCase.CHANGED
-    actual = calibration.execute_scenario(tmp_path, binding, {'quote': changed})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': changed})
     assert actual.status == 'grey' and actual.value is None
     assert 'source type' in ' '.join(actual.reasons)
 
@@ -139,7 +139,7 @@ def test_real_probe_plugin_does_not_write_ordinary_cache_or_project_map(tmp_path
     binding = scenario(tmp_path)
     file = tmp_path / 'pyproject.toml'; file.write_text(file.read_text()+'addopts="-p flowguard.intent.plugin"\n')
     bind_scenario(tmp_path, binding)
-    actual = calibration.execute_scenario(tmp_path, binding, {'x': 4})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
     assert actual.status == 'ok' and actual.value is False, actual.reasons
     assert not (tmp_path / '.flowguard' / 'cache').exists(), list((tmp_path / '.flowguard').rglob('*'))
 
@@ -193,7 +193,7 @@ def test_case(expression: str):
 def test_scenario_parameter_point_type_mismatch_is_red(tmp_path):
     binding = scenario(tmp_path)
     bind_scenario(tmp_path, binding)
-    actual = calibration.execute_scenario(tmp_path, binding, {'x': 'not-an-int'})
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 'not-an-int'})
     assert actual.status == 'red' and actual.value is None
     assert 'parameter type' in ' '.join(actual.reasons)
 
@@ -217,7 +217,7 @@ def test_native_plugin_and_calibration_share_one_verified_source_owner(tmp_path)
     index = anchors.collect_sources(tmp_path,[('policy.py','policy'),('test_case.py','test_case',True)])
     binding.anchor_index,binding.scenario = index,index.named('CASE')[0]
     scope,item = bind_scenario(tmp_path,binding)
-    actual = calibration.execute_scenario(tmp_path,binding,{'x':4})
+    actual = calibration._observe_scenario_current(tmp_path,binding,{'x':4})
     assert actual.status=='ok' and actual.value is False,actual.reasons
     assert item.config is scope.items[0].config
 

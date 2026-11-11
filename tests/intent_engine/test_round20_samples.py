@@ -89,11 +89,11 @@ def _block(text):
         if not line.strip() or line.startswith(('====', '____')) or re.match(r'\d+ (passed|failed)', line):
             break
         block.append(line)
-    red = [line for line in block if line.startswith('红：') or line.startswith('    ')]
+    red = [line for line in block if line.startswith('red: ') or line.startswith('    ')]
     rest = [line for line in block if line not in red]
     assert len(rest) <= 10, block
     assert not any('…' in line for line in block), block
-    kinds = ('红', '变', '比较', '线索', '未验证')
+    kinds = ('red', 'changed', 'compared', 'lead', 'unverified')
     order = [kinds.index(re.match('|'.join(kinds), line)[0]) for line in block if not line.startswith('    ')]
     assert order == sorted(order), block
     return lines[start], block
@@ -116,8 +116,8 @@ def test_sample_1_equal_stock_and_reserved_changes_from_refused_to_allowed(shop)
     assert result.returncode == 0, text
     title, block = _block(text)
     head = _git(shop, 'rev-parse', 'HEAD').strip()
-    assert title == f'FlowGuard（相对任务开始 {head[:7]}）', title
-    line = next(line for line in block if line.startswith('变：AVAILABLE（shop/store.py:12）'))
+    assert title == f'FlowGuard（since task start {head[:7]}）', title
+    line = next(line for line in block if line.startswith('changed: AVAILABLE（shop/store.py:12）'))
     assert re.search(r'(stock=reserved|reserved=stock)（0–2）', line) and 'False → True' in line, line
 
 
@@ -130,43 +130,42 @@ def test_sample_2_database_write_is_refused_at_its_line_and_the_table_is_unchang
         assert result.returncode == 0, text
         rows[label] = json.loads(target.read_text())
         if label == 'plugin':
-            line = next(line for line in _block(text)[1] if line.startswith('未验证：HIRES'))
-            assert ('回放被拦住：shop/store.py:19 db.execute("insert into hires(item_id) values (?)", (item_id,))'
-                    '：写数据库 INSERT hires') in line, line
+            line = next(line for line in _block(text)[1] if line.startswith('unverified: HIRES'))
+            assert ('replay refused: shop/store.py:19 db.execute("insert into hires(item_id) values (?)", (item_id,))：write database INSERT hires') in line, line
     assert rows == {'plugin': 1, 'without': 1}
     result, text = _pytest(shop)                         # the full suite shows the same line
-    assert result.returncode == 0 and any(line.startswith('未验证：HIRES（shop/store.py:18）：回放被拦住') for line in _block(text)[1]), text
+    assert result.returncode == 0 and any(line.startswith('unverified: HIRES（shop/store.py:18）：replay refused') for line in _block(text)[1]), text
 
 
 def test_sample_3_a_helper_constant_shows_its_whole_interval_and_cause(shop):
     _edit(shop, 'shop/policy.py', 'GRACE_DAYS = 3', 'GRACE_DAYS = 7')
     result, text = _pytest(shop)
     title, block = _block(text)
-    line = next(line for line in block if line.startswith('变：STANDING（shop/policy.py:10）'))
+    line = next(line for line in block if line.startswith('changed: STANDING（shop/policy.py:10）'))
     assert 'days_after_expiry=4–7' in line and 'False → True' in line, line
-    assert '原因：GRACE_DAYS 3 → 7（shop/policy.py:1）' in line, line
+    assert 'cause: GRACE_DAYS 3 → 7（shop/policy.py:1）' in line, line
     # The copy in preview.py still says 3: the same-name anchors now disagree, red with its next step.
     assert result.returncode == 1, text
-    red = next(index for index, line in enumerate(block) if line.startswith('红：同名锚点 STANDING：'))
-    assert '2 份：1 份得 T（shop/policy.py:10 standing_allows），1 份得 F（shop/preview.py:2 preview_allows）' in block[red], block
+    red = next(index for index, line in enumerate(block) if line.startswith('red: same-name anchor STANDING：'))
+    assert '2 copies: 1 copies return T (shop/policy.py:10 standing_allows), 1 copies return F (shop/preview.py:2 preview_allows)' in block[red], block
     # its next step chooses neither copy: the changed one may be the right one
-    assert block[red].endswith(' -> 先定哪份对，再让另一份和它一致；有意不同，就改用不同的锚点名并写 distinct'), block
+    assert block[red].endswith(' -> first decide which copy is correct, then make the other copy agree with it; if intentionally different, use different anchor names and declare distinct'), block
 
 
 def test_sample_4_unanchored_late_fee_reports_the_member_classes(shop):
     _edit(shop, 'shop/fees.py', 'return fee // 2 if member else fee', 'return fee * 2 // 3 if member else fee')
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    line = next(line for line in _block(text)[1] if line.startswith('变：late_fee（未挂锚点，自动）（shop/fees.py:1）'))
-    assert int(re.search(r'变 (\d+) 类', line)[1]) >= 5 and 'member=T' in line and 'member=F' not in line, line
-    assert '例：days=3, member=T：1 → 2' in line, line
+    line = next(line for line in _block(text)[1] if line.startswith('changed: late_fee(unanchored, automatic)（shop/fees.py:1）'))
+    assert int(re.search('changed (\\d+) classes', line)[1]) >= 5 and 'member=T' in line and 'member=F' not in line, line
+    assert 'example: days=3, member=T：1 → 2' in line, line
 
 
 def test_sample_5_the_skipped_save_step_is_a_visible_path_change(shop):
     _edit(shop, 'shop/publish.py', 'return not artifact_id.startswith("tmp")', 'return not artifact_id.startswith(("tmp", "a"))')
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    assert '变：路径 tests/test_publish.py::test_release：ENTRY → SAVED → PUBLISHED 变成 ENTRY → PUBLISHED' in _block(text)[1], text
+    assert 'changed: path tests/test_publish.py::test_release：ENTRY → SAVED → PUBLISHED became ENTRY → PUBLISHED' in _block(text)[1], text
 
 
 def test_sample_7_rule_violation_is_one_red_line_with_the_owner_sentence(shop):
@@ -174,11 +173,11 @@ def test_sample_7_rule_violation_is_one_red_line_with_the_owner_sentence(shop):
     result, text = _pytest(shop)
     assert result.returncode == 1 and '2 failed, 10 passed' in result.stdout, text
     block = _block(text)[1]
-    reds = [index for index, line in enumerate(block) if line.startswith('红：DEPOSIT_REVIEW')]
+    reds = [index for index, line in enumerate(block) if line.startswith('red: DEPOSIT_REVIEW')]
     assert len(reds) == 1, block
     line = block[reds[0]]
-    assert 'deposit=101 member=T' in line and line.endswith('出处：owner R1: 会员也一样，不能例外。'), line
-    assert block[reds[0] + 1] == '    改代码，让 shop/deposit.py:2 符合规则 DEPOSIT_REVIEW；', block
+    assert 'deposit=101 member=T' in line and line.endswith('source: owner R1: 会员也一样，不能例外。'), line
+    assert block[reds[0] + 1] == '    change the code so shop/deposit.py:2 follows rule DEPOSIT_REVIEW; ', block
     assert 'tests/intent/deposit.py:4' in block[reds[0] + 2], block
 
 
@@ -189,16 +188,16 @@ def test_sample_7_the_phase_0_config_fee_rule_is_red_in_the_new_block(tmp_path):
     _edit(root, 'tests/test_fees.py', '== 9', '== 12')
     result, text = _pytest(root, '-rf')
     assert result.returncode == 1 and '2 failed' in result.stdout, text
-    line = next(line for line in _block(text)[1] if line.startswith('红：FEE'))
-    assert 'days=3 member=F -> rule 3, code 4' in line and '出处：assumed: 3 per day after 2 free days, members half' in line, line
+    line = next(line for line in _block(text)[1] if line.startswith('red: FEE'))
+    assert 'days=3 member=F -> rule 3, code 4' in line and 'source: assumed: 3 per day after 2 free days, members half' in line, line
 
 
 def test_sample_9_both_database_contexts_are_observed_and_the_second_shows_an_interval(shop):
     _edit(shop, 'shop/members.py', '    return days_after_expiry <= 3\n', '    return days_after_expiry <= 7\n')
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    line = next(line for line in _block(text)[1] if line.startswith('变：BORROW（shop/members.py:11）'))
-    assert 'days_after_expiry=4–7，member_id=1' in line and '原因：BORROW 的常量 3 → 7（shop/members.py:15）' in line, line
+    line = next(line for line in _block(text)[1] if line.startswith('changed: BORROW（shop/members.py:11）'))
+    assert 'days_after_expiry=4–7，member_id=1' in line and 'cause: BORROW constant 3 → 7（shop/members.py:15）' in line, line
     readings = [item for item in _observations(shop)['items'] if item.get('name') == 'BORROW']
     assert len(readings) == 2 and all(item['status'] == 'ok' for item in readings), readings
     assert readings[0]['changed'] == [] and len(readings[1]['changed']) == 4, readings
@@ -208,5 +207,5 @@ def test_sample_19_the_broken_file_is_only_unverified(shop):
     _edit(shop, 'shop/store.py', 'return stock > reserved', 'return stock >= reserved')
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    grey = [item for item in _observations(shop)['items'] if item.get('name') == '未覆盖']
+    grey = [item for item in _observations(shop)['items'] if item.get('name') == 'uncovered']
     assert any('_tmp_x.py' in reason and 'cannot be parsed' in reason for item in grey for reason in item['reasons']), grey

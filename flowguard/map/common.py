@@ -21,20 +21,6 @@ SOURCE_EXTS = {'.py', '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.go', '.rs'
 DEFAULT_IGNORE = ['.flowguard/**', '.git/**', '**/__pycache__/**', 'node_modules/**',
                   'dist/**', 'build/**', '.venv/**', 'venv/**', '**/*.min.js']
 
-def read_git_paths(root, *arguments):
-    """Read Git with a disposable index so a source query cannot refresh the real index."""
-    root = Path(root)
-    where = git_run(root, 'rev-parse', '--git-path', 'index')
-    source = Path(os.fsdecode(where.stdout).strip())
-    if not source.is_absolute():
-        source = root / source
-    with tempfile.TemporaryDirectory(prefix='flowguard-read-index-') as folder:
-        index = Path(folder) / 'index'
-        if source.exists():
-            shutil.copy2(source, index)
-        env = dict(os.environ, GIT_OPTIONAL_LOCKS='0', GIT_INDEX_FILE=str(index))
-        result = git_run(root, *arguments, env=env)
-        return [os.fsdecode(item) for item in result.stdout.split(b'\0') if item]
 
 
 
@@ -264,14 +250,6 @@ def quiet_broken_pipe(command):
 
 
 
-def project_root(given=None) -> Path:
-    """The project a command works on, decided the same way by every entry point: --root as given, or without
-    --root the nearest directory at or above the current directory that holds .flowguard/ (the current
-    directory itself when none does)."""
-    if given is not None:
-        return Path(given).resolve()
-    start = Path.cwd().resolve()
-    return next((directory for directory in (start, *start.parents) if (directory / ".flowguard").is_dir()), start)
 
 
 

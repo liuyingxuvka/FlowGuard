@@ -111,23 +111,23 @@ def test_a_new_write_that_loses_the_baseline_observation_fails_with_two_ways_out
     policy.write_text(policy.read_text(encoding='utf-8').replace('    return days <= 3', '    open("audit.log", "a").close()\n    return days <= 3'), encoding='utf-8')
     result, text = _pytest(root, '-q')
     assert result.returncode == 1 and '2 passed' in text, text
-    assert '未验证' not in text, text                 # the lost observation is red, not also listed as grey
+    assert 'unverified' not in text, text                 # the lost observation is red, not also listed as grey
     lines = text.splitlines()
-    index = next(i for i, line in enumerate(lines) if line.startswith('红：观察丢失 STANDING：'))
-    assert 'policy.py:2 在 tests/test_policy.py::test_standing 里，基准代码能比较，现在是灰' in lines[index], lines[index]
-    assert 'policy.py:3 open("audit.log", "a").close()：写文件 audit.log' in lines[index], lines[index]
-    assert lines[index + 1].startswith('    恢复可观察：'), lines
-    assert lines[index + 2].endswith('；还没有这个文件时先运行 python -m flowguard ledger init：'), lines
+    index = next(i for i, line in enumerate(lines) if line.startswith('red: observation lost: STANDING：'))
+    assert 'policy.py:2 in tests/test_policy.py::test_standing: baseline code was comparable, but the current result is grey' in lines[index], lines[index]
+    assert 'policy.py:3 open("audit.log", "a").close()：write file audit.log' in lines[index], lines[index]
+    assert lines[index + 1].startswith('    restore observability: '), lines
+    assert lines[index + 2].endswith('; if this file is absent, first run python -m flowguard ledger init：'), lines
     assert lines[index + 3:index + 5] == ['    [unverified]', '    STANDING = ' + ledger._quote(ledger.PLACEHOLDER_UNVERIFIED)], lines
     # A reason too short is red in the ledger's own check; a real reason keeps it unverified, not failed.
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
     (root / ledger.LEDGER).write_text('[unverified]\nSTANDING = "不再回放"\n', encoding='utf-8')
     short, text = _pytest(root, '-q')
-    assert short.returncode == 1 and '[unverified] 里的 "STANDING"：理由只有' in text, text
+    assert short.returncode == 1 and '[unverified] item "STANDING": reason has' in text, text
     (root / ledger.LEDGER).write_text('[unverified]\nSTANDING = ' + ledger._quote(REASON) + '\n', encoding='utf-8')
     listed, text = _pytest(root, '-q')
     assert listed.returncode == 0, text
-    assert '观察丢失' not in text and f'STANDING（policy.py:2）：已登记不回放：{REASON}' in text, text
+    assert 'observation lost' not in text and f'STANDING（policy.py:2): replay exemption recorded: {REASON}' in text, text
 
 
 def test_a_grey_that_the_baseline_shares_is_not_a_lost_observation(tmp_path):
@@ -137,8 +137,8 @@ def test_a_grey_that_the_baseline_shares_is_not_a_lost_observation(tmp_path):
     policy = root / 'policy.py'
     policy.write_text(policy.read_text(encoding='utf-8').replace('days <= 3', 'days <= 4'), encoding='utf-8')
     result, text = _pytest(root, '-q')
-    assert result.returncode == 0 and '观察丢失' not in text, text
-    assert '未验证' in text and '写文件 audit.log' in text, text
+    assert result.returncode == 0 and 'observation lost' not in text, text
+    assert 'unverified' in text and 'write file audit.log' in text, text
 
 
 def test_check_all_fails_a_grey_rule_quoting_the_owner_unless_it_is_listed(tmp_path):
@@ -172,14 +172,14 @@ def test_check_all_fails_a_grey_rule_quoting_the_owner_unless_it_is_listed(tmp_p
     _git(root, 'commit', '-qm', 'owner words')
     checked, text = _cli(root, 'check', '--all')
     assert checked.returncode == 1, text
-    assert '红：LIMIT_RULE：规则有主人原话出处（R1），现在是灰（未验证）：module initialization of json is not proved pure' in text, text
-    assert f'[unverified] 段写一句理由：LIMIT_RULE = ' in text, text
+    assert 'red: LIMIT_RULE：rule cites original words from the owner (R1), but is now grey (unverified)：module initialization of json is not proved pure' in text, text
+    assert f'[unverified] section, write a reason: LIMIT_RULE = ' in text, text
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
     (root / ledger.LEDGER).write_text('[unverified]\nLIMIT_RULE = ' + ledger._quote(
         '这个判断读 json 配置，模块导入证明不了纯；由 test_limit 和回归行守住') + '\n', encoding='utf-8')
     listed, text = _cli(root, 'check', '--all')
     assert listed.returncode == 0, text
-    assert '规则有主人原话出处' not in text, text
+    assert 'rule cites original words from the owner' not in text, text
 
 
 def test_a_grey_mutation_probe_alone_does_not_make_an_owner_rule_unverified(tmp_path):
@@ -244,16 +244,16 @@ def test_distributed_workers_are_refused_before_a_red_can_be_lost(tmp_path):
     env = dict(os.environ, PYTHONPATH=os.pathsep.join(filter(None, [str(plugins), os.environ.get('PYTHONPATH')])))
     stand_in = ('-q', '-p', 'no:xdist', '-p', 'xdist_stand_in')
     plain, text = _pytest(root, *stand_in, env=env)
-    assert plain.returncode == 1 and '红：观察丢失 STANDING' in text, text
+    assert plain.returncode == 1 and 'red: observation lost: STANDING' in text, text
     for options in (['-n', '2'], ['--dist', 'load', '--tx', 'popen'], ['--as-worker']):
         refused, text = _pytest(root, *stand_in, *options, env=env)
         assert refused.returncode == 4 and REFUSED in text, (options, text)
-        assert not _ran(text) and '红：' not in text, (options, text)
+        assert not _ran(text) and 'red: ' not in text, (options, text)
     for options in (['-n', '0'], ['--dist', 'load'], ['-n', '2', '--collect-only']):   # no worker starts
         single, text = _pytest(root, *stand_in, *options, env=env)
         assert REFUSED not in text, (options, text)
         assert single.returncode == (0 if '--collect-only' in options else 1), (options, text)
-        assert '--collect-only' in options or '红：观察丢失 STANDING' in text, (options, text)
+        assert '--collect-only' in options or 'red: observation lost: STANDING' in text, (options, text)
 
 
 def test_dash_n_two_never_ends_as_a_passed_run_with_or_without_xdist(tmp_path):
@@ -288,11 +288,11 @@ def test_junit_xml_marks_a_grey_item_and_writes_a_session_red_as_a_failed_testca
     # A lost observation exits 1 although every test passed: the XML has the same failed verdict.
     root = _lost_project(tmp_path / 'lost')
     result, text = _pytest(root, '-q', f'--junitxml={tmp_path / "lost.xml"}')
-    assert result.returncode == 1 and '2 passed' in text and '红：观察丢失 STANDING' in text, text
+    assert result.returncode == 1 and '2 passed' in text and 'red: observation lost: STANDING' in text, text
     suite, cases, properties = _junit(tmp_path / 'lost.xml')
     assert suite.get('failures') == '1', cases
     failure = cases['flowguard::session'].find('failure')
-    assert failure is not None and '红：观察丢失 STANDING' in failure.get('message'), failure
+    assert failure is not None and 'red: observation lost: STANDING' in failure.get('message'), failure
     assert '[unverified]' in failure.text and 'STANDING = ' in failure.text, failure.text
     assert all(case.find('failure') is None for name, case in cases.items() if name != 'flowguard::session'), cases
 
@@ -377,18 +377,18 @@ def test_a_result_that_can_no_longer_be_compared_is_a_lost_observation(tmp_path)
     root = _project(tmp_path / 'opaque', GATE)
     _change(root, 'gate.py', '    return age >= 18', '    return Answer(age >= 18)')
     result, text = _pytest(root, '-q')
-    assert result.returncode == 1 and '2 passed' in text and '未验证' not in text, text
+    assert result.returncode == 1 and '2 passed' in text and 'unverified' not in text, text
     lines = text.splitlines()
-    index = next(i for i, line in enumerate(lines) if line.startswith('红：观察丢失 GATE：'))
-    assert 'gate.py:8 在 tests/test_gate.py::test_gate 里，基准代码能比较，现在是灰：回放结果不是可以比较的简单数据（Answer）' in lines[index], lines[index]
-    assert lines[index + 1].startswith('    恢复可观察：让这次调用像基准代码那样返回可以比较的简单数据'), lines
+    index = next(i for i, line in enumerate(lines) if line.startswith('red: observation lost: GATE：'))
+    assert 'gate.py:8 in tests/test_gate.py::test_gate: baseline code was comparable, but the current result is grey: replay result is not simple comparable data (Answer）' in lines[index], lines[index]
+    assert lines[index + 1].startswith('    restore observability: return simple comparable data as the baseline code did'), lines
     # The baseline already returned the object: nothing was lost, the point stays unverified.
     shared = _project(tmp_path / 'shared', dict(GATE, **{'gate.py': textwrap.dedent(GATE['gate.py']).replace(
         '    return age >= 18', '    return Answer(age >= 18)')}))
     _change(shared, 'gate.py', 'age >= 18', 'age >= 21')
     result, text = _pytest(shared, '-q')
-    assert result.returncode == 0 and '观察丢失' not in text, text
-    assert '未验证：GATE（gate.py:8）：回放结果不是可以比较的简单数据（Answer）' in text, text
+    assert result.returncode == 0 and 'observation lost' not in text, text
+    assert 'unverified: GATE（gate.py:8）：replay result is not simple comparable data (Answer）' in text, text
 
 
 def test_a_call_that_became_a_generator_or_coroutine_is_a_lost_observation(tmp_path):
@@ -402,16 +402,16 @@ def test_a_call_that_became_a_generator_or_coroutine_is_a_lost_observation(tmp_p
         _change(root, 'tests/test_gate.py', 'assert gate(30)', 'assert ' + call)
         result, text = _pytest(root, '-q')
         assert result.returncode == 1 and '2 passed' in text, (name, text)
-        line = next(line for line in text.splitlines() if line.startswith('红：观察丢失 GATE：'))
-        kind = '生成器' if name == 'generator' else '协程'
-        assert f'gate.py:8 在 tests/test_gate.py::test_gate 里，基准代码能比较，现在是灰：gate 现在是{kind}函数：调用处的结果不能比较' in line, line
-        assert '    恢复可观察：让它像基准代码那样直接返回结果，不改成生成器或协程函数；' in text, text
+        line = next(line for line in text.splitlines() if line.startswith('red: observation lost: GATE：'))
+        kind = 'generator' if name == 'generator' else 'coroutine'
+        assert f'gate.py:8 in tests/test_gate.py::test_gate: baseline code was comparable, but the current result is grey: gate is now a {kind} function: the call result cannot be compared' in line, line
+        assert '    restore observability: return a result directly as the baseline code did, rather than becoming a generator or coroutine; ' in text, text
     # A test that never enters the generator has no context to replay: it stays unverified.
     root = _project(tmp_path / 'unentered', GATE)
     _change(root, 'gate.py', '    return age >= 18', '    yield age >= 18')
     result, text = _pytest(root, '-q')
-    assert result.returncode == 0 and '观察丢失' not in text, text
-    assert '未验证：GATE：calibration async/generator is unsupported' in text, text
+    assert result.returncode == 0 and 'observation lost' not in text, text
+    assert 'unverified: GATE：calibration async/generator is unsupported' in text, text
 
 
 def test_an_unanchored_changed_function_whose_replay_is_refused_is_listed_unverified(tmp_path):
@@ -431,17 +431,17 @@ def test_an_unanchored_changed_function_whose_replay_is_refused_is_listed_unveri
     _change(root, 'policy.py', '    return days <= 3', '    open("audit.log", "a").close()\n    return days <= 3')
     result, text = _pytest(root, '-q')
     # Not an anchor or a rule: nothing is lost and nothing is red, but the grey is never quiet.
-    assert result.returncode == 0 and '观察丢失' not in text and '红：' not in text, text
-    assert '未验证 1 项（不是通过）' in text, text
-    assert '未验证：limit（未挂锚点，自动）（policy.py:1）：回放被拦住：policy.py:2 open("audit.log", "a").close()：写文件 audit.log' in text, text
+    assert result.returncode == 0 and 'observation lost' not in text and 'red: ' not in text, text
+    assert 'unverified 1 items (not passed)' in text, text
+    assert 'unverified: limit(unanchored, automatic)（policy.py:1）：replay refused: policy.py:2 open("audit.log", "a").close()：write file audit.log' in text, text
 
 
 def test_check_all_fails_a_grey_template_flow_quoting_the_owner_and_the_brief_lists_it(tmp_path):
     root = _owner_flow(tmp_path / 'p', tmp_path, [])       # no test stores or ships: the Flow stays grey
     checked, text = _cli(root, 'check', '--all')
     assert checked.returncode == 1, text
-    assert '红：PRECEDES_STORED_SHIPPED：规则有主人原话出处（R1），现在是灰（未验证）' in text, text
-    assert '[unverified] 段写一句理由：PRECEDES_STORED_SHIPPED = ' in text, text
+    assert 'red: PRECEDES_STORED_SHIPPED：rule cites original words from the owner (R1), but is now grey (unverified)' in text, text
+    assert '[unverified] section, write a reason: PRECEDES_STORED_SHIPPED = ' in text, text
     brief, text = _cli(root)
     assert brief.returncode == 0 and 'FlowGuard: 1 rules;' in text, text
     assert 'PRECEDES_STORED_SHIPPED: unfinished / unverified; R1: 先存好再发出去' in text, text
@@ -449,4 +449,4 @@ def test_check_all_fails_a_grey_template_flow_quoting_the_owner_and_the_brief_li
     (root / ledger.LEDGER).write_text('[unverified]\nPRECEDES_STORED_SHIPPED = ' + ledger._quote(
         '测试还没有走到存和发这两步，顺序由 test_docs 之外的集成检查守住') + '\n', encoding='utf-8')
     listed, text = _cli(root, 'check', '--all')
-    assert listed.returncode == 0 and '规则有主人原话出处' not in text, text
+    assert listed.returncode == 0 and 'rule cites original words from the owner' not in text, text

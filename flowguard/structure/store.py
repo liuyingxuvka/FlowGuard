@@ -147,12 +147,13 @@ def connect(path: Path) -> sqlite3.Connection:
     return con
 
 
-def project_config(root: Path) -> dict:
+def project_config(root: Path, *, section='flowguard') -> dict:
+    """Read a tool section from the project's existing TOML; damaged inputs are errors."""
     import tomllib
-    try:
-        return tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8-sig")).get("tool", {}).get("flowguard", {})
-    except (OSError, tomllib.TOMLDecodeError):
+    path = Path(root) / 'pyproject.toml'
+    if not path.exists() and not path.is_symlink():
         return {}
+    return tomllib.loads(path.read_text(encoding='utf-8-sig')).get('tool', {}).get(section, {})
 
 
 def reader_digest():

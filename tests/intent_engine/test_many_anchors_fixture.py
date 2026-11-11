@@ -97,8 +97,8 @@ def test_a_change_against_the_owner_words_is_red_with_the_sentence(shop):
     _edit(shop, 'shop/fees.py', '    return deposit > 100\n', '    return deposit > 100 and not member\n')
     result, text = _pytest(shop)
     assert result.returncode == 1, text
-    red = next(line for line in text.splitlines() if line.startswith('红：DEPOSIT_REVIEW'))
-    assert 'deposit=150 member=T -> rule T, code False' in red and '出处：owner R1: 会员也一样，不能例外。' in red, red
+    red = next(line for line in text.splitlines() if line.startswith('red: DEPOSIT_REVIEW'))
+    assert 'deposit=150 member=T -> rule T, code False' in red and 'source: owner R1: 会员也一样，不能例外。' in red, red
     assert 'FAILED tests/intent/rules.py::DEPOSIT_REVIEW[shop.fees.needs_approval:rows]' in text, text
 
 
@@ -106,9 +106,8 @@ def test_a_copy_that_drifts_from_its_owner_is_red_at_both_places(shop):
     _edit(shop, 'shop/preview.py', 'return days_after_expiry <= 3 and owed <= 20', 'return days_after_expiry <= 4 and owed <= 20')
     result, text = _pytest(shop)
     assert result.returncode == 1, text
-    red = next(line for line in text.splitlines() if line.startswith('红：同名锚点 STANDING'))
+    red = next(line for line in text.splitlines() if line.startswith('red: same-name anchor STANDING'))
     # the owner is the reference: the copy that left it is the one to change
-    assert ('3 份：2 份得 F（负责人 shop/policy.py:5 standing_allows、shop/kiosk.py:2 kiosk_allows），'
-            '1 份得 T（shop/preview.py:2 preview_allows） -> 让 shop/preview.py:2 preview_allows 和负责人一致') in red, red
-    assert any(line.startswith('线索：旧值 3 还出现在') and 'shop/kiosk.py:3' in line for line in text.splitlines()), text
+    assert ('3 copies: 2 copies return F (reference shop/policy.py:5 standing_allows, shop/kiosk.py:2 kiosk_allows), 1 copies return T (shop/preview.py:2 preview_allows) -> make shop/preview.py:2 preview_allows agree with the reference') in red, red
+    assert any(line.startswith('lead: old values 3 remain in') and 'shop/kiosk.py:3' in line for line in text.splitlines()), text
     assert 'FAILED tests/intent/rules.py::STANDING_RULE[shop.preview.preview_allows:rows]' in text, text

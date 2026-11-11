@@ -10,28 +10,6 @@ from flowguard.map.common import MapError, content_digest, git_blob, git_run, no
 from .cache import scan
 
 
-def _revision(cfg, value=None):
-    if value:
-        git_run(cfg.root, 'rev-parse', '--verify', value + '^{commit}')
-        return value
-    if git_run(cfg.root, 'rev-parse', '--verify', 'HEAD', allowed=(0, 128)).returncode:
-        return None
-    upstream = git_run(cfg.root, 'rev-parse', '--verify', 'origin/main', allowed=(0, 128))
-    if upstream.returncode == 0:
-        base = git_run(cfg.root, 'merge-base', 'HEAD', 'origin/main').stdout.decode().strip()
-        if base != git_run(cfg.root, 'rev-parse', 'HEAD').stdout.decode().strip():
-            return base
-    dirty = git_run(cfg.root, 'diff', '--quiet', 'HEAD', allowed=(0, 1)).returncode
-    untracked = git_run(cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout.split(b'\0')
-    if dirty or any(path.endswith(b'.py') for path in untracked):
-        return 'HEAD'
-    parent = git_run(cfg.root, 'rev-parse', '--verify', 'HEAD^', allowed=(0, 128))
-    if parent.returncode == 0:
-        return parent.stdout.decode().strip()
-    shallow = git_run(cfg.root, 'rev-parse', '--is-shallow-repository').stdout.strip()
-    return None if shallow == b'true' else 'HEAD'
-
-
 def _texts(cfg, revision, folder):
     paths = git_run(cfg.root, 'ls-tree', '-r', '--name-only', '-z', revision, '--', folder).stdout.split(b'\0')
     return {path.decode(): git_run(cfg.root, 'show', revision + ':' + path.decode()).stdout.decode('utf-8-sig')
@@ -80,7 +58,10 @@ def _guards(texts):
 
 def check(cfg, base=None):
     """Compare Git's baseline, never a cache that might already have forgotten a deleted rule."""
-    revision = _revision(cfg, base)
+    from .owners import baseline
+    revision = baseline(cfg, base)
+    if base is not None:
+        git_run(cfg.root, 'rev-parse', '--verify', base + '^{commit}')
     if revision is None:
         shallow = git_run(cfg.root, 'rev-parse', '--is-shallow-repository', allowed=(0, 128))
         return ['anchor gone (no history: use fetch-depth 0)'] if shallow.stdout.strip() == b'true' else []
@@ -326,10 +307,14 @@ def _probe(root, rule, row, *, runtime=None):
                 else 'new code' if statuses=={'new code'} else 'regression',homes=answers)
 
 
-def proven(cfg, rule, row, base='HEAD^'):
+def proven(cfg, rule, row, base=None):
     """Compare old functions/constants in the same verified inputs, not an old project run."""
     from .runtime import Runtime
-    try:revision=_revision(cfg,base)
+    from .owners import baseline
+    try:
+        revision = baseline(cfg, base)
+        if base is not None:
+            git_run(cfg.root, 'rev-parse', '--verify', base + '^{commit}')
     except MapError as error:return dict(status='unknown',reason=str(error))
     if revision is None:return dict(status='unknown',reason='no previous commit')
     current=_probe(cfg.root,rule,row)

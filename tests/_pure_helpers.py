@@ -30,16 +30,22 @@ def call(root,capsys,*arguments):
 
 
 def integrity(root):
-    """Inspect the retained independent readers directly, without map-check plumbing."""
-    from flowguard.map.requests import request_findings
-    findings=request_findings(root)
-    return findings
+    """Read each archive's actual byte problems, without the retired finding renderer."""
+    from flowguard.map.requests import _identifiers, _request_problems
+    root = Path(root)
+    unverified = []
+    problems = {identifier: _request_problems(root, identifier, unverified)[:2]
+                for identifier in _identifiers(root)}
+    return problems, unverified
 
 
 def integrity_result(root):
-    findings=integrity(root)
-    text='\n'.join(f'{finding.level} {finding.code}: {finding.message}' for finding in findings)
-    return int(any(finding.level=='error' for finding in findings)),text,''
+    problems, unverified = integrity(root)
+    errors = [f'.flowguard/requests/{identifier}.{suffix}: {problem}'
+              for identifier, pair in problems.items()
+              for suffix, problem in zip(('md', 'json'), pair) if problem]
+    lines = errors + (['unverified: original bytes are unavailable'] if unverified else [])
+    return int(bool(errors)), '\n'.join(lines), ''
 
 
 

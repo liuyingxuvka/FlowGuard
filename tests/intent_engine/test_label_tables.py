@@ -81,17 +81,17 @@ def test_label_tables_that_disagree_are_listed_and_a_lead_when_this_change_edits
     _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'baseline')
     base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
     found = _findings(tmp_path, base, True)
-    listed = [line.partition('标签：')[2] for line in found.section if '. 标签：' in line]
+    listed = [line.partition('labels：')[2] for line in found.section if '. labels：' in line]
     assert listed == [ENTRY, ORG], found.section
     entry = found.section.index(next(line for line in found.section if line.endswith(ORG)))
     assert found.section[entry + 2] == '       [structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"]'
-    assert not [lead for lead in found.leads if '标签表不一致' in str(lead)]
+    assert not [lead for lead in found.leads if 'Label tables disagree' in str(lead)]
     # An edit elsewhere in a file with a table is no lead; an edit of a table is one, with the entry to copy.
     detail = tmp_path / 'frontend/src/pages/Detail.tsx'
     detail.write_text(detail.read_text(encoding='utf-8') + 'export const other = 1;\n', encoding='utf-8')
-    assert not [lead for lead in _findings(tmp_path, base, False).leads if '标签表不一致' in str(lead)]
+    assert not [lead for lead in _findings(tmp_path, base, False).leads if 'Label tables disagree' in str(lead)]
     detail.write_text(detail.read_text(encoding='utf-8').replace("TEAM: 'Team' }", "TEAM: 'Teams' }"), encoding='utf-8')
-    leads = [lead for lead in _findings(tmp_path, base, False).leads if '标签表不一致' in str(lead)]
+    leads = [lead for lead in _findings(tmp_path, base, False).leads if 'Label tables disagree' in str(lead)]
     assert len(leads) == 1 and leads[0].startswith(ORG.replace('；DETAIL_LABELS 缺', "；TEAM 'Team'（TYPE_LABELS） 与 'Teams'（DETAIL_LABELS）；DETAIL_LABELS 缺")), leads
     assert leads[0].endswith('[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"] decision = "换成主人的决定：谁负责、'
                              '为什么这样（不少于 8 个词）" source = "R<n>"'), leads

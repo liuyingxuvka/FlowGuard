@@ -43,12 +43,11 @@ def test_a_repository_git_cannot_give_a_work_tree_is_an_error_not_a_folder_witho
 
 @pytest.mark.skipif(os.name == 'nt', reason='a POSIX shell script stands in for a failing git')
 def test_a_failing_git_tree_listing_stops_the_origin_reader_with_gits_own_message(tmp_path, monkeypatch):
-    from flowguard.map.common import read_git_paths
     root = _committed_shelf_project(tmp_path)
     _git(root, 'tag', 'v1.0.0')
     _failing_git(tmp_path, monkeypatch, 'ls-tree')
     with pytest.raises(MapError, match='git ls-tree failed in .*simulated ls-tree failure'):
-        read_git_paths(root, 'ls-tree', '-r', '--name-only', '-z', 'v1.0.0', '--', 'shelf')
+        git_blob(root, 'v1.0.0', 'shelf/loans.py')
 
 @pytest.mark.parametrize('literal', ['0', '1'])
 def test_the_path_probe_reads_names_literally_whatever_the_pathspec_setting(tmp_path, monkeypatch, literal):

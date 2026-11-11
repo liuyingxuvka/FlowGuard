@@ -604,7 +604,7 @@ class MapHandle:
             rows.append(dict(
                 key=key, name=key, field=key, values=values,
                 where=f"enum {enum} ({', '.join(f'{file}:{line}' for file, line in places)}"
-                      "，没找到生成器在用的 schema，按这个包的全部 schema 判)",
+                      ", generator schema not found; checked against all schemas in this package)",
                 kind='prisma-enum', guessed=True, fold=False, file=files[0], files=files, place=files[0], scope=(), packages=(),
                 excluded_packages=frozenset(model_packages.get(key.partition('.')[0], set()) - {package})))
         for key, (_, check) in self._check_sets().items():
@@ -1251,12 +1251,6 @@ class MapHandle:
     def _observed(self, src: str, dst: str) -> bool:
         return self.con.execute("SELECT 1 FROM edge WHERE src = ? AND dst = ? AND prov = 'observed'", (src, dst)).fetchone() is not None
 
-    def add_observed(self, pairs) -> int:
-        """Record caller -> callee pairs a tracer saw; they confirm guessed edges and survive relinks."""
-        rows = [(s, d, "calls", "observed", "<observed>", 0) for s, d in sorted({(s,d) for s,d in pairs}) if not self._observed(s, d)]
-        self.con.executemany("INSERT INTO edge VALUES(?,?,?,?,?,?)", rows)
-        self.con.commit()
-        return len(rows)
 
     # ---- other homes ---------------------------------------------------------------
     def other_homes(self, ident: str, k: int = 5, *, words: str = "", decides=None,

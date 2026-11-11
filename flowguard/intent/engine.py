@@ -1178,7 +1178,7 @@ class Engine:
         names = ', '.join(name for name, _ in home.anchor.fields)
         if self.call_sites is None:
             return dict(kind=part, verdict='grey', red=[], info=[], n=0, bad=0, entered=False,
-                        grey=[f'{home.short}: fields（{names}）在测试走到的调用上求值，需要普通 pytest 会话 -> 运行项目的测试'])
+                        grey=[f'{home.short}: fields ({names}) are evaluated at calls reached by tests; an ordinary pytest session is required -> run the project tests'])
         calls, reasons = self.call_sites(rule, home)
         tests = sorted({test for _, _, test in calls})
         red, grey, bad, checked = [], [f'{home.short}: {reason}' for reason in reasons], [], 0
@@ -1198,8 +1198,8 @@ class Engine:
                     reached = [outcome for inputs, outcome, _ in calls
                                if all(name in inputs and outcome_eq(inputs[name], value) for name, value in cell.items())]
                     if not reached:
-                        grey.append(f'{home.short}: {label}（{show_cell(cell)}）没有被测试走到的调用核对；'
-                                    f'fields 只在调用上求值，回归行和规则的核对见 [rules]')
+                        grey.append(f'{home.short}: {label}（{show_cell(cell)}) was not checked by a call reached in tests; '
+                                    f'fields are evaluated only at calls; see [rules] for regression-row and rule checks')
                         continue
                     cases += 1
                     checked += len(reached)
@@ -1212,7 +1212,7 @@ class Engine:
             red.append(f'{home.short}: {len(bad)} of {checked} calls disagree; smallest {show_cell(cell)} -> '
                        f'rule {show(expected)}, code {got!r}' + (f' ({label})' if label != 'cell' else ''))
         if not checked and not grey:
-            grey.append(f'{home.short}: 没有被测试走到、读得出 fields（{names}）且规则表了态的调用')
+            grey.append(f'{home.short}: no test-reached call with readable fields ({names}) and a rule result')
         info = [f'checked on {checked} calls the tests reached ({len(tests)} tests); fields {names} are read from each '
                 'call\'s own arguments, and classes the tests did not reach are not checked']
         files = sorted({test.partition('::')[0] for test in tests} | {home.anchor.file})
@@ -1386,7 +1386,7 @@ class Engine:
             return dict(kind='live', verdict='red', red=errors, grey=[], info=[], k=0, n=0)
         if isinstance(home, _AnchorBinding) and home.anchor is not None and home.anchor.fields:
             return dict(kind='live', verdict='grey', red=[], info=[], k=0, n=0, sites=[], mutants=0,
-                        grey=[f'{home.short}: fields 锚点的规则在测试走到的调用上核对，变异存活检查需要能直接调用的锚点'])
+                        grey=[f'{home.short}: fields-anchor rules are checked at test-reached calls; surviving-mutation checks require directly callable anchors'])
         fn, sites, gone = self.home_sites(home.target)
         if gone:
             return dict(kind="live", verdict="red", red=[f"home gone: {home.target}"], grey=[], info=[], k=0, n=0)

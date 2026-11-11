@@ -102,7 +102,7 @@ def pytest_run(root, *, forbid='', limit='10'):
 
 
 def changes(text):
-    return [line for line in text.splitlines() if line.startswith('变：')]
+    return [line for line in text.splitlines() if line.startswith('changed: ')]
 
 
 def stored(root):
@@ -115,7 +115,7 @@ def test_an_unchanged_fingerprint_reuses_the_comparison_with_the_same_report(tmp
     first, text = pytest_run(root)
     assert first.returncode == 0, text
     reported = changes(text)
-    assert any(line.startswith('变：TABLE') for line in reported), text
+    assert any(line.startswith('changed: TABLE') for line in reported), text
     assert len(stored(root)) == 1, 'only TABLE has a fingerprint: FILED reads a file'
     again, repeated = pytest_run(root, forbid='TABLE')
     assert again.returncode == 0, repeated

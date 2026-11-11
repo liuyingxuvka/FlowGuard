@@ -116,14 +116,6 @@ def test_a_real_package_named_venv_is_not_an_environment(repo):
     assert mapped.node('venv:owned') is None
 
 
-def test_observed_edges_are_one_fact_even_when_many_tests_enter_them(repo):
-    repo.write({'work.py': 'def first(): return 1\ndef second(): return first()\n'})
-    mapped = repo.build()
-    pair = ('work:second', 'work:first')
-    other = ('tests:example', 'work:first')
-    assert mapped.add_observed([pair, pair, other, pair]) == 2
-    assert mapped.add_observed([other, pair, pair]) == 0
-    assert mapped.con.execute("SELECT COUNT(*) FROM edge WHERE prov='observed'").fetchone()[0] == 2
 
 
 @pytest.mark.parametrize('body,always_raises', [

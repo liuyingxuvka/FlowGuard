@@ -400,7 +400,7 @@ def anchor_distinct(root, declaration, *, graph=None, index=None, cfg=None, arch
     if broken:
         result.update(status='red', reasons=list(dict.fromkeys(result['reasons'] + [
             f'distinct broken: {declaration.a} and {declaration.b} agree on every class; {declaration.why} -> '
-            f'照这条 distinct 让两份分开；它们本来就该一样，先问主人，再删掉这条 distinct'])))
+            f'keep the copies separate as this distinct requires; if they should agree, ask the owner before removing this distinct'])))
     elif unresolved or not source_ready or not report['items']:
         result.update(status='grey', complete=False,
                       reasons=list(dict.fromkeys(result['reasons'] + ([reason] if not source_ready else []))))

@@ -133,7 +133,7 @@ def test_draft_uses_existing_cells_and_missing_numeric_bounds_stays_grey(tmp_pat
     with closing(build(root, tmp_path / 'map.sqlite', workers=1)) as graph:
         target = next(n['id'] for n in graph.nodes() if n['qual'] == 'eligible')
         draft = A.draft(graph, target)
-        assert draft.text == '# flowguard: sensor eligible' and draft.status == 'ok'
+        assert draft.text == '# flowguard: same eligible' and draft.status == 'ok'
         assert {17, 18, 19} <= set(draft.ranges['points']['age'])
         assert draft.ranges['points']['active'] == [False, True]
         unknown = A.draft(graph, next(n['id'] for n in graph.nodes() if n['qual'] == 'raw'))

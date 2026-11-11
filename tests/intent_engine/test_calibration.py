@@ -72,7 +72,7 @@ def test_native(filename):
     assert calls == ['call', 'call']
     reading = scope.runtime.readings[-1]
     assert reading.status == 'grey' and not reading.rows
-    assert reading.reasons[0].startswith("回放被拦住：policy.py:7 Path(filename + '.closed').write_text('finished')：写文件 ")
+    assert reading.reasons[0].startswith("replay refused: policy.py:7 Path(filename + '.closed').write_text('finished')：write file ")
     assert reading.reasons[0].endswith('limit.txt.closed'), reading.reasons
     assert module.limit is alias and module.limit.__code__ is original
 

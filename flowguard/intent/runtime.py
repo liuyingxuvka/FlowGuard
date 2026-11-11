@@ -132,17 +132,17 @@ class Refused(BaseException):
 
 _WRITE_FLAGS = os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_TRUNC
 _REFUSED_EVENTS = {
-    'os.remove': '删除文件', 'os.rename': '改名或移动文件', 'os.rmdir': '删除目录', 'os.mkdir': '新建目录',
-    'os.chmod': '改文件权限', 'os.chown': '改文件属主', 'os.utime': '改文件时间', 'os.truncate': '截断文件',
-    'os.link': '新建链接', 'os.symlink': '新建链接', 'shutil.rmtree': '删除目录树',
-    'os.setxattr': '改文件扩展属性', 'os.removexattr': '删除文件扩展属性', 'os.chdir': '切换工作目录',
-    'subprocess.Popen': '启动子进程', 'os.system': '执行 shell 命令', 'os.exec': '替换当前进程',
-    'os.spawn': '启动子进程', 'os.posix_spawn': '启动子进程', 'os.fork': '复制当前进程', 'os.forkpty': '复制当前进程',
-    'os.kill': '给进程发信号', 'os.killpg': '给进程组发信号', 'signal.pthread_kill': '给线程发信号',
-    'os.putenv': '改环境变量', 'os.unsetenv': '改环境变量',
-    'socket.connect': '连接网络', 'socket.sendto': '发送网络数据', 'socket.sendmsg': '发送网络数据',
-    'urllib.Request': '发起网络请求',
-    '_thread.start_new_thread': '启动线程', '_thread.start_joinable_thread': '启动线程',
+    'os.remove': 'remove file', 'os.rename': 'rename or move file', 'os.rmdir': 'remove directory', 'os.mkdir': 'create directory',
+    'os.chmod': 'change file permissions', 'os.chown': 'change file owner', 'os.utime': 'change file timestamps', 'os.truncate': 'truncate file',
+    'os.link': 'create link', 'os.symlink': 'create link', 'shutil.rmtree': 'remove directory tree',
+    'os.setxattr': 'change extended file attributes', 'os.removexattr': 'remove extended file attributes', 'os.chdir': 'change working directory',
+    'subprocess.Popen': 'start subprocess', 'os.system': 'run shell command', 'os.exec': 'replace current process',
+    'os.spawn': 'start subprocess', 'os.posix_spawn': 'start subprocess', 'os.fork': 'fork current process', 'os.forkpty': 'fork current process',
+    'os.kill': 'signal process', 'os.killpg': 'signal process group', 'signal.pthread_kill': 'signal thread',
+    'os.putenv': 'change environment variable', 'os.unsetenv': 'change environment variable',
+    'socket.connect': 'connect to network', 'socket.sendto': 'send network data', 'socket.sendmsg': 'send network data',
+    'urllib.Request': 'make network request',
+    '_thread.start_new_thread': 'start thread', '_thread.start_joinable_thread': 'start thread',
 }
 _MUTATORS = {'append', 'extend', 'insert', 'pop', 'remove', 'clear', 'update', 'setdefault', 'add', 'discard',
              'sort', 'reverse', 'popitem', 'appendleft', 'extendleft', 'popleft', 'write', 'writelines',
@@ -228,12 +228,12 @@ def _audit(event, args):
         if not (type(mode) is str and any(letter in mode for letter in 'wax+')
                 or type(flags) is int and flags & _WRITE_FLAGS):
             return
-        what = '写文件 ' + (os.fsdecode(args[0]) if isinstance(args[0], (str, bytes, os.PathLike)) else f'（文件描述符 {args[0]}）')
+        what = 'write file ' + (os.fsdecode(args[0]) if isinstance(args[0], (str, bytes, os.PathLike)) else f'(file descriptor {args[0]}）')
     elif event == 'sqlite3.connect':
         if not _LOCAL.connecting:
-            what = '打开 sqlite3 连接没经过回放保护（例如 from sqlite3 import connect 在回放之前已经绑定）'
+            what = 'sqlite3 connection opened outside the replay guard (for example, from sqlite3 import connect was bound before replay)'
         elif _creates_database(args[0]):
-            what = '新建数据库文件 ' + os.fsdecode(args[0])
+            what = 'create database file ' + os.fsdecode(args[0])
         else:
             return
     elif event in _REFUSED_EVENTS:
@@ -279,10 +279,10 @@ def _refusing(function, what):
 # registers the thread (the audit event comes later, from _thread); Python 3.11 has no thread audit event.
 _PATCHES = [(sqlite3, 'connect', _SQLITE_CONNECT, _connect),
             (threading.Thread, 'start', vars(threading.Thread)['start'],
-             _refusing(vars(threading.Thread)['start'], '启动线程')),
+             _refusing(vars(threading.Thread)['start'], 'start thread')),
             *((os, name, getattr(os, name), _refusing(getattr(os, name), what))
-              for name, what in (('mkfifo', '新建命名管道'), ('mknod', '新建设备文件')) if hasattr(os, name)),
-            *(((_thread, 'start_new_thread', _thread.start_new_thread, _refusing(_thread.start_new_thread, '启动线程')),)
+              for name, what in (('mkfifo', 'create named pipe'), ('mknod', 'create device file')) if hasattr(os, name)),
+            *(((_thread, 'start_new_thread', _thread.start_new_thread, _refusing(_thread.start_new_thread, 'start thread')),)
               if sys.version_info < (3, 12) else ())]
 
 
@@ -378,7 +378,7 @@ def _bounded(guard):
         if not _CALLING:
             _unwrap()
         guard.timed_out, guard.old = True, False     # the current reading is void, whichever code was running
-        guard._mark(f'超过 {seconds:g} 秒没有结束')
+        guard._mark(f'exceeded {seconds:g} seconds without completion')
 
 
 @contextmanager
@@ -492,37 +492,37 @@ def _unseen(value, kind, objects):
     method or a logger would run on the test's own objects too."""
     import io
     if kind in (types.GeneratorType, types.CoroutineType, types.AsyncGeneratorType):
-        return '是生成器或协程（回放会取走它的值）'
+        return 'is a generator or coroutine (replay would consume its values)'
     if issubclass(kind, io.IOBase):
         if value.closed:
             return ''
-        return '是写模式打开的文件' if value.writable() else '是打开的文件（回放会读走它的内容）'
+        return 'is a file opened for writing' if value.writable() else 'is an open file (replay would consume its contents)'
     sockets = sys.modules.get('socket')
     if sockets is not None and issubclass(kind, sockets.socket):
-        return '是套接字'
+        return 'is a socket'
     if kind is getattr(sqlite3, 'Blob', None):
-        return '是 sqlite3 的 Blob（它的写入不经过回放保护）'
+        return 'is a sqlite3 Blob (its writes bypass the replay guard)'
     tables = sys.modules.get('_csv')
     if tables is not None and kind in (tables.Reader, tables.Writer):
-        return '是 csv 的读写器（回放会读走或写进它的文件）'
+        return 'is a csv reader or writer (replay would read from or write to its file)'
     for module, names in (('queue', ('Queue', 'SimpleQueue')), ('asyncio', ('Queue',)),
                           ('multiprocessing.queues', ('Queue', 'SimpleQueue')), ('concurrent.futures', ('Executor',))):
         found = sys.modules.get(module)
         if found is not None and issubclass(kind, tuple(vars(found)[name] for name in names if name in vars(found))):
-            return '是队列或线程池（回放的效果会落到别的线程里）'
+            return 'is a queue or thread pool (replay effects would reach other threads)'
     if objects:
         owner = value.__self__ if kind is types.BuiltinFunctionType else None
         if kind in (types.FunctionType, types.MethodType, types.MethodWrapperType, functools.partial) or \
                 owner is not None and type(owner) is not types.ModuleType and not issubclass(type(owner), type) \
                 and not _simple(owner) and type(owner) not in _PLAIN:
-            return '是函数或绑定方法（回放会在测试自己的对象上运行它）'
+            return 'is a function or bound method (replay would run it on test-owned objects)'
         logging = sys.modules.get('logging')
         if logging is not None and issubclass(kind, (logging.Logger, logging.LoggerAdapter, logging.Handler)):
-            return '是 logging 的记录器（deepcopy 返回它本身）'
+            return 'is a logging logger (deepcopy returns the same object)'
     names = {name for name in ('cursor', 'commit', 'rollback', 'execute', 'fetchone')
              if callable(inspect.getattr_static(kind, name, None))}
     if {'cursor', 'commit', 'rollback'} <= names or {'execute', 'commit'} <= names or {'execute', 'fetchone'} <= names:
-        return f'是 sqlite3 以外的数据库连接（{kind.__module__}.{kind.__qualname__}）'
+        return f'is a non-sqlite3 database connection ({kind.__module__}.{kind.__qualname__}）'
     return ''
 
 
@@ -554,7 +554,7 @@ def _parts(value, kind, label, top):
                 yield label + '…', item
 
 
-def _visible(values, what='参数', *, objects=True):
+def _visible(values, what='arguments', *, objects=True):
     """(sqlite3 connections and cursors to keep shared, why the replay cannot see into `values`).
 
     `values` maps a name to an argument (`objects`) or to module state a function reads. Everything they
@@ -582,7 +582,7 @@ def _visible(values, what='参数', *, objects=True):
         looked += 1
         if looked > _LOOK:
             name = re.match(r'[^.\[…]*', label).group()
-            return shared, f'{what} {name} 太大：看了 {_LOOK} 个对象还没看完，不知道里面有没有打开的文件或连接'
+            return shared, f'{what} {name} is too large: inspected {_LOOK} objects without finishing; open files or connections may remain unseen'
         kind = type(value)
         if kind is sqlite3.Cursor:
             shared.append(value)
@@ -591,7 +591,7 @@ def _visible(values, what='参数', *, objects=True):
             if not any(value is other for other in shared):
                 shared.append(value)
             if _callbacks(value):
-                return shared, f'{what} {label} 的 sqlite3 连接带着 Python 回调（authorizer、progress、trace 或行工厂），回放后恢复不了'
+                return shared, f'{what} {label} sqlite3 connection has Python callbacks (authorizer, progress, trace or row factory) that cannot be restored after replay'
             continue
         if problem := _unseen(value, kind, objects):
             return shared, f'{what} {label} {problem}'
@@ -642,7 +642,7 @@ class _Guard:
         for function, historical in functions:
             state.update(runtime.module_state(function, historical=historical))
         if state and not self.unseen:
-            found, self.unseen = _visible(state, '模块全局', objects=False)
+            found, self.unseen = _visible(state, 'module globals', objects=False)
             self.shared += [value for value in found if not any(value is other for other in self.shared)]
         self.connections = [value for value in self.shared if type(value) is sqlite3.Connection]
         self.generators = [random, *(value for value in state.values() if type(value) is random.Random)]
@@ -697,7 +697,7 @@ class _Guard:
             connection.set_authorizer(self.authorizer)
             record.steps.append('authorizer')
         except sqlite3.Error as error:
-            self._mark(f'回放没有运行：sqlite3 连接装不上回放保护：{type(error).__name__}: {error}')
+            self._mark(f'replay did not run: sqlite3 replay guard could not be installed: {type(error).__name__}: {error}')
             return False
         return True
 
@@ -708,16 +708,16 @@ class _Guard:
         if not record.steps:
             return
         if 'authorizer' in record.steps:
-            self._step('去掉回放的 authorizer', connection.set_authorizer, None)
+            self._step('remove replay authorizer', connection.set_authorizer, None)
         if 'query_only' in record.steps:
-            self._step('恢复 query_only', connection.execute, f'PRAGMA query_only={int(record.query_only)}')
-        if self._step('回到 SAVEPOINT', connection.execute, 'ROLLBACK TO flowguard_replay') is not _MISSING:
-            self._step('结束 SAVEPOINT', connection.execute, 'RELEASE flowguard_replay')
-        changes = self._step('读 total_changes', getattr, connection, 'total_changes')
+            self._step('restore query_only', connection.execute, f'PRAGMA query_only={int(record.query_only)}')
+        if self._step('roll back to SAVEPOINT', connection.execute, 'ROLLBACK TO flowguard_replay') is not _MISSING:
+            self._step('release SAVEPOINT', connection.execute, 'RELEASE flowguard_replay')
+        changes = self._step('read total_changes', getattr, connection, 'total_changes')
         if changes is not _MISSING and changes != record.changes:
-            self._mark(f'回放被拦住：回放之后数据库仍有改动（total_changes {record.changes} → {changes}）')
+            self._mark(f'replay refused: database remained changed after replay (total_changes {record.changes} → {changes}）')
         if changes is not _MISSING:
-            self._step('恢复连接上的回调', self._callbacks_back, connection, record.callbacks)
+            self._step('restore connection callbacks', self._callbacks_back, connection, record.callbacks)
 
     def _step(self, what, action, *args):
         """One step of undoing a connection's protection: its result, or _MISSING with the sqlite3 error
@@ -725,7 +725,7 @@ class _Guard:
         try:
             return action(*args)
         except sqlite3.Error as error:
-            self._mark(f'回放保护收尾出错：{what}：{type(error).__name__}: {error}')
+            self._mark(f'replay guard teardown failed: {what}：{type(error).__name__}: {error}')
             return _MISSING
 
     def _callbacks_back(self, connection, before):
@@ -736,7 +736,7 @@ class _Guard:
         after = _callback_state(connection)
         if after == before:
             return
-        self._mark('回放改了 sqlite3 连接上的回调、SQL 函数或排序规则')
+        self._mark('replay changed sqlite3 connection callbacks, SQL functions or collations')
         callables, connection.row_factory, connection.text_factory = before[:3]
         if after[0] != callables:
             connection.set_progress_handler(None, 0)
@@ -757,12 +757,12 @@ class _Guard:
             connection.set_authorizer(self.authorizer)
         except sqlite3.Error as error:
             connection.close()
-            raise Refused(self.refuse(f'新建的 sqlite3 连接装不上回放保护：{type(error).__name__}: {error}',
+            raise Refused(self.refuse(f'replay guard could not be installed on a new sqlite3 connection: {type(error).__name__}: {error}',
                                       sys._getframe(1))) from error
         self.adopted.append((connection, keeper))
 
     def refuse(self, what, frame):
-        reason = '回放被拦住：' + self._where(frame) + what
+        reason = 'replay refused: ' + self._where(frame) + what
         self._mark(reason)
         return reason
 
@@ -780,7 +780,7 @@ class _Guard:
                     line += patch.node.lineno - frame.f_code.co_firstlineno
                     source = self.runtime._source(relative) or ''
                     text = source.splitlines()[line - 1].strip() if 0 < line <= len(source.splitlines()) else ''
-                    relative += '（基准）'
+                    relative += '(baseline)'
                 else:
                     text = linecache.getline(file, line).strip()
                 return f'{relative}:{line} ' + (f'{text}：' if text else '')
@@ -789,12 +789,12 @@ class _Guard:
 
     def _authorize(self, action, first, second, database, trigger):
         if action == sqlite3.SQLITE_FUNCTION and (second or '').lower() in self.functions:
-            self.refuse(f'调用 Python 写的 SQL 函数 {second}', sys._getframe(1))
+            self.refuse(f'call Python SQL function {second}', sys._getframe(1))
             return sqlite3.SQLITE_DENY
         if action in _SQL_READS or action == sqlite3.SQLITE_PRAGMA and (first or '').lower() in _SQL_READ_PRAGMAS and (
                 second is None or (first or '').lower() in _SQL_TABLE_PRAGMAS):
             return sqlite3.SQLITE_OK
-        self.refuse('写数据库 ' + _SQL_WRITES.get(action, f'（authorizer 动作 {action}）') + (f' {first}' if first else ''),
+        self.refuse('write database ' + _SQL_WRITES.get(action, f'(authorizer action {action}）') + (f' {first}' if first else ''),
                     sys._getframe(1))
         return sqlite3.SQLITE_DENY
 
@@ -831,15 +831,15 @@ class _Guard:
         if isinstance(outcome, cells.Raised):
             error = outcome.error
             if isinstance(error, RecursionError):
-                self._mark('回放没有结束：递归太深（RecursionError）')
+                self._mark('replay did not complete: recursion too deep (RecursionError)')
             elif isinstance(error, sqlite3.OperationalError) and str(error) in _PROTECTED_ERRORS:
                 trace = error.__traceback__
                 while trace is not None and trace.tb_next is not None:
                     trace = trace.tb_next
-                self.refuse('往回放保护着的 sqlite3 连接里写（不经过 authorizer 的写入，例如 backup 或 Blob）', trace.tb_frame if trace else None)
+                self.refuse('write to a replay-guarded sqlite3 connection (writes bypassing authorizer, such as backup or Blob)', trace.tb_frame if trace else None)
         for record in self.protected:
             if 'authorizer' in record.steps and not any(ref is self.authorizer for ref in gc.get_referents(record.connection)):
-                self._mark('回放之后 sqlite3 连接上的回放保护不在了（set_authorizer 换掉了它，或者连接被关掉了）')
+                self._mark('sqlite3 replay guard is absent after replay (set_authorizer replaced it, or the connection was closed)')
 
     def _copied(self, bound):
         """Deep copies of the arguments to replay on, one memo for all (shared objects stay shared); None, with
@@ -853,10 +853,10 @@ class _Guard:
             try:
                 copied = copy.deepcopy(value, memo)
             except (TypeError, ValueError, AttributeError, RecursionError, copy.Error) as error:
-                self.unseen = self.unseen or f'参数 {name} 复制不了（{type(error).__name__}: {error}）'
+                self.unseen = self.unseen or f'arguments {name} cannot be copied ({type(error).__name__}: {error}）'
                 return None
             if copied is value and not _unchanged(value, self.shared):
-                self.unseen = self.unseen or f'参数 {name} 复制不了（deepcopy 返回它本身：{type(value).__name__}）'
+                self.unseen = self.unseen or f'argument {name} cannot be copied (deepcopy returned the same object: {type(value).__name__})'
                 return None
             arguments[name] = copied
         return _binding(bound.signature, arguments)
@@ -1613,9 +1613,9 @@ class Runtime:
         if top and arguments:
             unseen = _visible(arguments)[1]
             if unseen:
-                return '看不清：' + unseen
+                return 'unavailable: ' + unseen
         if node is None and not historical and (inspect.isgeneratorfunction(fn) or inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)):
-            return '看不清：生成器或协程函数的函数体在回放里不运行'
+            return 'unavailable: generator or coroutine function bodies do not run during replay'
         written = node is not None       # the given definition carries its own source lines
         if not written:
             try:
@@ -1625,7 +1625,7 @@ class Runtime:
                     node = self.patches[fn].node
                     # The baseline definition, not the current function object, decides what it was.
                     if isinstance(node, ast.AsyncFunctionDef) or any(isinstance(part, (ast.Yield, ast.YieldFrom)) for part in sites.own_nodes(node)):
-                        return '看不清：生成器或协程函数的函数体在回放里不运行'
+                        return 'unavailable: generator or coroutine function bodies do not run during replay'
                 else:
                     node = _definition(fn)
             except (OSError, TypeError, SyntaxError):
@@ -1720,8 +1720,8 @@ class Runtime:
 
         for part in parts:
             if isinstance(part, (ast.Global, ast.Nonlocal)) and set(part.names) & stored:
-                kind = '全局变量' if isinstance(part, ast.Global) else '外层变量'
-                return f'明确的写操作：第 {line(part)} 行给{kind} {", ".join(sorted(set(part.names) & stored))} 赋值'
+                kind = 'global variable' if isinstance(part, ast.Global) else 'enclosing variable'
+                return f'explicit write: line {line(part)} assigns {kind} {", ".join(sorted(set(part.names) & stored))}'
             if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load) and part.id not in local and part.id not in modules:
                 value = namespace.get(part.id, _MISSING)
                 if _module_data(value):
@@ -1735,24 +1735,24 @@ class Runtime:
                 if isinstance(part, ast.AugAssign) or isinstance(part, ast.AnnAssign) and part.value is not None else []
             for target in _written(targets):
                 if name := shared(target.value, owner=True):
-                    return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{ast.unparse(target)}）'
+                    return f'explicit write: line {line(part)} changes module state {name}（{ast.unparse(target)}）'
                 if isinstance(target, ast.Attribute) and connection(target.value):
-                    return (f'明确的写操作：第 {line(part)} 行改了 sqlite3 连接 {ast.unparse(target.value)} 的 {target.attr}'
-                            '（连接复制不了，回放会改到测试自己的连接）')
+                    return (f'explicit write: line {line(part)} changes sqlite3 connection {ast.unparse(target.value)} {target.attr}'
+                            '(connection cannot be copied; replay would change the test-owned connection)')
             if not isinstance(part, ast.Call):
                 continue
             if isinstance(part.func, ast.Attribute) and part.func.attr in _MUTATORS and (name := shared(part.func.value)):
-                return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{ast.unparse(part.func)}）'
+                return f'explicit write: line {line(part)} changes module state {name}（{ast.unparse(part.func)}）'
             if isinstance(part.func, ast.Name) and part.func.id in ('setattr', 'delattr') and part.func.id not in local \
                     and part.args and (name := shared(part.args[0], owner=True)):
-                return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{part.func.id}）'
+                return f'explicit write: line {line(part)} changes module state {name}（{part.func.id}）'
             target = _resolve(part.func, namespace)
             if id(target) in _MUTATING_IDS and part.args and (name := shared(part.args[0])):
-                return f'明确的写操作：第 {line(part)} 行改了模块里的 {name}（{ast.unparse(part.func)}）'
+                return f'explicit write: line {line(part)} changes module state {name}（{ast.unparse(part.func)}）'
             if isinstance(part.func, ast.Attribute) and part.func.attr in _CONNECTION_CALLS and connection(part.func.value) \
                     and (part.func.attr == 'close' or type(current(part.func.value)) is sqlite3.Connection):
-                return (f'明确的写操作：第 {line(part)} 行在 sqlite3 连接 {ast.unparse(part.func.value)} 上调用 {part.func.attr}'
-                        '（连接复制不了，回放会作用在测试自己的连接上）')
+                return (f'explicit write: line {line(part)} calls sqlite3 connection {ast.unparse(part.func.value)} method {part.func.attr}'
+                        '(connection cannot be copied; replay would act on the test-owned connection)')
             if type(target) is types.FunctionType and self._project(target):
                 # The helper's parameters name what this call passes it, as far as that is known statically.
                 passed = None
@@ -1768,8 +1768,8 @@ class Runtime:
             if not written:
                 self._reads[(fn, historical)] = dict(reads)
             values = {label: value for label, read in reads.items() if (value := read()) is not _MISSING}
-            if values and (unseen := _visible(values, '模块全局', objects=False)[1]):
-                return '看不清：' + unseen
+            if values and (unseen := _visible(values, 'module globals', objects=False)[1]):
+                return 'unavailable: ' + unseen
         return ''
 
     def module_state(self, function, *, historical=False):
@@ -1792,11 +1792,11 @@ class Runtime:
         for evaluator in evaluators:
             problem = self.safety(fn, None, historical=False, node=evaluator.definition(parameters, line))
             if problem:
-                reading.field_reasons.append(f'字段 {evaluator.name}：{problem}')
+                reading.field_reasons.append(f'field {evaluator.name}：{problem}')
                 return
         guard = _Guard(self, bound.arguments, ((fn, False),))
         if guard.unseen:
-            reading.field_reasons.append(f'字段 {", ".join(name for name, _ in fields)}：看不清：{guard.unseen}')
+            reading.field_reasons.append(f'field {", ".join(name for name, _ in fields)}：unavailable: {guard.unseen}')
             return
         calls = [bound, *(_binding(bound.signature, {**bound.arguments, **inputs}) for inputs, _ in reading.rows)]
         found = []
@@ -1806,14 +1806,14 @@ class Runtime:
                 for evaluator in evaluators:
                     value = guard.call(evaluator, arguments)
                     if guard.unseen:
-                        guard.void = guard.void or '看不清：' + guard.unseen
+                        guard.void = guard.void or 'unavailable: ' + guard.unseen
                     if guard.void:
-                        reading.field_reasons.append(f'字段 {evaluator.name}：{guard.void}')
+                        reading.field_reasons.append(f'field {evaluator.name}：{guard.void}')
                         break
                     if isinstance(value, cells.Raised):
-                        reason = f'字段 {evaluator.name} 求不出值：{type(value.error).__name__}: {value.error}'
+                        reason = f'field {evaluator.name} could not be evaluated: {type(value.error).__name__}: {value.error}'
                     elif not _simple(value):
-                        reason = f'字段 {evaluator.name} 的值不是简单数据（{type(value).__name__}）'
+                        reason = f'field {evaluator.name} has a non-simple value ({type(value).__name__}）'
                     else:
                         values[evaluator.name] = value
                         continue
@@ -1826,7 +1826,7 @@ class Runtime:
                 found.append(values)
         if guard.void:      # a refused effect voids every value this guard read
             if not any(reason.endswith(guard.void) for reason in reading.field_reasons):
-                reading.field_reasons.append(f'字段 {", ".join(name for name, _ in fields)}：{guard.void}')
+                reading.field_reasons.append(f'field {", ".join(name for name, _ in fields)}：{guard.void}')
             return
         reading.fields, reading.field_rows = found[0], found[1:]
 
@@ -1834,12 +1834,12 @@ class Runtime:
         """One guarded call that is not a test's own call: (outcome, why it was refused or '')."""
         guard = _Guard(self, bound.arguments, ((fn, False),))
         if guard.unseen:
-            return None, '看不清：' + guard.unseen
+            return None, 'unavailable: ' + guard.unseen
         outcome = None
         with guard, _bounded(guard):
             outcome = guard.call(fn, bound)
         if guard.unseen:
-            return None, '看不清：' + guard.unseen
+            return None, 'unavailable: ' + guard.unseen
         return outcome, guard.void
 
     def _lost(self, reading, owner, bound):
@@ -1930,13 +1930,13 @@ class Runtime:
         runs in one guard; a refused effect voids the reading. The reading is grey until the replay has
         completely finished: an error of FlowGuard's own on the way leaves no green reading behind."""
         reading = Reading(name or owner.__qualname__, owner.__module__ + ':' + owner.__qualname__,
-                          test=self.test, baseline=self.baseline, status='grey', reasons=['回放没有完整结束'])
+                          test=self.test, baseline=self.baseline, status='grey', reasons=['replay did not complete'])
         self.readings.append(reading)
         problem = self.safety(original, bound.arguments)
         if problem:
             reading.status, reading.reasons = 'grey', [problem]
             reading.comparison_status, reading.comparison_reasons = 'grey', [problem]
-            if not problem.startswith('看不清'):
+            if not problem.startswith(('unavailable', '看不清')):
                 self._lost(reading, owner, bound)
             return
         patch = self.register(owner)
@@ -1978,7 +1978,7 @@ class Runtime:
                 outcomes = self._grid(guard, reading, original, bound, patch, itertools.chain(points, neighbours))
         baseline, again, opaque = outcomes
         if guard.unseen:
-            problem = '看不清：' + guard.unseen
+            problem = 'unavailable: ' + guard.unseen
             reading.reasons = [problem]
             reading.comparison_status, reading.comparison_reasons = 'grey', [problem]
             reading.rows.clear()
@@ -1992,14 +1992,14 @@ class Runtime:
                 self._lost(reading, owner, bound)
             return
         if opaque or not _data(again):
-            reading.status, reading.reasons = 'grey', [f'回放结果不是可以比较的简单数据（{opaque or type(again).__name__}）：不运行它的比较运算']
+            reading.status, reading.reasons = 'grey', [f'replay result is not simple comparable data ({opaque or type(again).__name__}); comparison operators are not run']
             reading.rows.clear()
             reading.changed.clear()
             self._lost(reading, owner, bound)
             return
         if guard.void_old:
             reading.comparison_status = 'grey'
-            reading.comparison_reasons.append('基准代码的' + guard.void_old)
+            reading.comparison_reasons.append('baseline code: ' + guard.void_old)
             reading.changed.clear()
         reading.status, reading.reasons = 'ok', []
         if not outcome_equal(baseline, again):

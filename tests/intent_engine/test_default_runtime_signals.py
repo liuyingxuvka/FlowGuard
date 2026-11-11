@@ -91,7 +91,7 @@ def test_fixed_1_contextual_comparison_reports_the_equal_stock_boundary(tmp_path
     compared = _run(tmp_path, '--flowguard-base', 'HEAD')
     compared_text = _text(compared)
     assert compared.returncode == 0, compared_text
-    assert 'AVAILABLE' in compared_text and re.search(r'共\s*[1-9]\d*\s*类，变\s*0\s*类', compared_text), compared_text
+    assert 'AVAILABLE' in compared_text and re.search(r'total\s*[1-9]\d*\s*classes，changed\s*0\s*classes', compared_text), compared_text
     report = _observations(tmp_path)
     assert report['source_changed'] is False and report['comparison_requested'] is True
     readings = [item for item in report['items'] if item.get('name') == 'AVAILABLE']
@@ -102,7 +102,7 @@ def test_fixed_1_contextual_comparison_reports_the_equal_stock_boundary(tmp_path
     capsys.readouterr()
     assert cli_main(['--root', str(tmp_path), 'check', '--all', '--base', 'HEAD'], cwd=tmp_path) == 0
     cli_text = capsys.readouterr().out
-    assert 'AVAILABLE' in cli_text and re.search(r'共\s*[1-9]\d*\s*类，变\s*0\s*类', _text(cli_text)), cli_text
+    assert 'AVAILABLE' in cli_text and re.search(r'total\s*[1-9]\d*\s*classes，changed\s*0\s*classes', _text(cli_text)), cli_text
     cli_report = _observations(tmp_path)
     assert cli_report['comparison_requested'] and cli_report['source_changed'] is False
 
@@ -148,7 +148,7 @@ def test_fixed_3_old_function_uses_old_module_constant_and_names_its_line(tmp_pa
     text = _text(result)
     assert result.returncode == 0, text
     assert 'STANDING' in text and re.search(r'4\s*[–-]\s*7', text), text
-    assert '；函数返回值 F → T（例：' in text, text
+    assert '; function result F → T(example: ' in text, text
     assert 'GRACE_DAYS' in text and 'policy.py:1' in text, text
     assert _has_change(text), text
 
@@ -195,9 +195,9 @@ def test_fixed_5_passing_release_test_reports_the_missing_save_step(tmp_path):
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    path = next((line for line in text.splitlines() if 'test_release' in line and '变成' in line), '')
+    path = next((line for line in text.splitlines() if 'test_release' in line and 'became' in line), '')
     assert path, text
-    before, after = path.split('变成', 1)
+    before, after = path.split('became', 1)
     assert 'ENTER' in before and 'SAVED' in before and 'PUBLISHED' in before, text
     assert 'ENTER' in after and 'PUBLISHED' in after and 'SAVED' not in after, text
 
