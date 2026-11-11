@@ -6,8 +6,10 @@ that drifts from its owner, are red with their source and the places involved. O
 asserted here; the run times are measured outside the suite.
 """
 from pathlib import Path
+import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 
@@ -89,8 +91,20 @@ def test_the_fixture_has_its_anchors_rules_and_copies(template):
 def test_without_a_change_the_run_passes_quietly(shop):
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    assert '62 passed' in result.stdout, text
-    assert 'FlowGuard（' not in text, text
+    # 75 items: the rule items on anchors that read a constant from shop.settings run only through the
+    # sealed whitelist, which loads no other project module, so they are unverified, never passed or red.
+    assert '59 passed, 16 unverified' in result.stdout, text
+    lines = text.splitlines()
+    title = next(index for index, line in enumerate(lines) if line.startswith('FlowGuard（'))
+    assert lines[title + 1] == '', lines[title:title + 3]            # only the timed title: nothing to report
+    with sqlite3.connect(shop / '.flowguard/cache/map.sqlite') as connection:
+        greys = {item: json.loads(payload)['grey'] for item, payload in connection.execute('SELECT item, payload FROM result')
+                 if json.loads(payload)['verdict'] == 'grey'}
+    for item, constant in (('STANDING_RULE[shop.policy.standing_allows:rows]', 'GRACE_DAYS'),
+                           ('STANDING_RULE[shop.policy.standing_allows:cells]', 'GRACE_DAYS'),
+                           ('FREE_SHIPPING_RULE[shop.cart.free_shipping:cells]', 'FREE_SHIPPING_FROM'),
+                           ('LATE_FEE_RULE[shop.fees.late_fee:cells]', 'LATE_FEE_PER_DAY')):
+        assert any('uses unavailable binding ' + constant in reason for reason in greys['tests/intent/rules.py::' + item]), greys
 
 
 def test_a_change_against_the_owner_words_is_red_with_the_sentence(shop):
@@ -107,7 +121,13 @@ def test_a_copy_that_drifts_from_its_owner_is_red_at_both_places(shop):
     result, text = _pytest(shop)
     assert result.returncode == 1, text
     red = next(line for line in text.splitlines() if line.startswith('red: same-name anchor STANDING'))
-    # the owner is the reference: the copy that left it is the one to change
-    assert ('3 copies: 2 copies return F (reference shop/policy.py:5 standing_allows, shop/kiosk.py:2 kiosk_allows), 1 copies return T (shop/preview.py:2 preview_allows) -> make shop/preview.py:2 preview_allows agree with the reference') in red, red
+    # The owner reads GRACE_DAYS from shop.settings and is not compared sealed; the two copies that ran
+    # still disagree at 4, so the newly broken pair is red, and the choice is left to the reader.
+    assert ('2 copies (plus 1 copies without a result for this input): 1 copies return F (shop/kiosk.py:2 kiosk_allows), '
+            '1 copies return T (shop/preview.py:2 preview_allows) -> first decide which copy is correct') in red, red
+    with sqlite3.connect(shop / '.flowguard/cache/map.sqlite') as connection:
+        items = json.loads(connection.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()[0])['items']['items']
+    assert any('STANDING: shop/policy.py:5 standing_allows uses unavailable binding GRACE_DAYS' in reason
+               for item in items for reason in item.get('reasons', ())), items
     assert any(line.startswith('lead: old values 3 remain in') and 'shop/kiosk.py:3' in line for line in text.splitlines()), text
     assert 'FAILED tests/intent/rules.py::STANDING_RULE[shop.preview.preview_allows:rows]' in text, text
