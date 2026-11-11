@@ -1,11 +1,5 @@
 # Changelog
 
-## v4.2.2 - 2026-11-10 - A test's mock of a Node module stays the test's
-
-A correction found in blind trials on Planning Tool. Saved inputs keep their meaning; nothing needs migrating.
-
-- vitest: the runtime that a wrapped function calls now takes Node's modules (`fs`, `fs.promises`, `child_process`, `net`, `http`, `https`, `dgram`, `worker_threads`, `path`) from Node's `require`. A test that mocks one of them (`vi.mock('node:fs/promises', () => ({ writeFile: vi.fn() }))`) and loads a function FlowGuard wraps no longer fails as a whole file with `No "default" export is defined on the "node:fs/promises" mock`. The replay guard still refuses writes, processes, network and threads through the real modules, also a project's own ESM import of them.
-
 ## v4.2.1 - 2026-11-10 - Next steps that do not mislead
 
 Corrections from maintaining Planning Tool with 4.2.0 and from three rounds of adversarial review. Saved inputs keep their meaning; nothing needs migrating.
