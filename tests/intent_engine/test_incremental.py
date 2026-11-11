@@ -467,8 +467,9 @@ def test_pytest_pythonpath_helper_dependencies_use_the_maps_detected_roots(tmp_p
     source = root / (module + '.py')
     original_code = ''.join(line for line in source.read_text().splitlines(True)
                             if not line.lstrip().startswith('# flowguard:'))
+    # The scenario test runs once, at the boundary x=3; a scenario is observed only at the input it ran with.
     code, declarations = scenario(root, module, original_code, intent.read_text().replace(",anchor='LIMIT'", ''),
-        rule='LIMIT', target='accept', parameters={'x': 'int'}, source_parameters={'x': 'int'},
+        rule='LIMIT', target='accept', parameters={'x': 'int'}, source_parameters={'x': 'int'}, defaults={'x': '3'},
         body=f'from support_{tag} import value\nanswer=app.accept(value(x))\nassert type(answer) is bool')
     source.write_text(code)
     intent.write_text(declarations)

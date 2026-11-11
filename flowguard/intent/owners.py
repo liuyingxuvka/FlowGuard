@@ -418,11 +418,19 @@ def _source_constants(graph, source, text):
     """The constants of one Python source text (`_read_constants`), read once per text and kept with the map's
     other rebuildable facts. `source` names the text: a baseline blob, or the digest of a working-tree text;
     `text()` gives it when it was not read before. A text that does not parse raises SyntaxError and is not kept.
-    Facts only: the comparison of two texts is never stored."""
+    Facts only: the comparison of two texts is never stored. The key holds the digest of the code that reads
+    the facts (this file and `runtime._functions`'s, as `reader_digest` does for the map's readers), so an
+    upgraded FlowGuard never reuses facts an earlier version stored."""
     import json
     import sys
+    from pathlib import Path
+    from flowguard.map.common import content_digest
     from flowguard.structure import store
-    identity = json.dumps([*source, CONSTANT_FACTS, sys.implementation.cache_tag], separators=(',', ':'))
+    if 'constant_facts_code' not in graph._derived:
+        from . import runtime
+        graph._derived['constant_facts_code'] = [content_digest(Path(__file__)), content_digest(Path(runtime.__file__))]
+    identity = json.dumps([*source, CONSTANT_FACTS, sys.implementation.cache_tag, *graph._derived['constant_facts_code']],
+                          separators=(',', ':'))
     key = 'constant_facts:' + sha256_bytes(identity.encode())
     held = graph._derived.setdefault('constant_facts', {})
     if key not in held:

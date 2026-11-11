@@ -1,6 +1,7 @@
 """Immutable baseline facts are reusable; source changes and reader identity are not."""
 from contextlib import closing
 import ast
+from pathlib import Path
 import sqlite3
 import subprocess
 import zlib
@@ -256,6 +257,25 @@ def test_constant_facts_are_read_once_per_text_and_never_borrowed_by_an_edit(tmp
     assert changes() == [(3, 4)] and len(read) == 2           # a reopened map reads neither again
     (root / 'app.py').write_text('LIMIT = 5\ndef eligible(x): return x <= LIMIT\n', encoding='utf-8')
     assert changes() == [(3, 5)] and len(read) == 3 and blobs == []     # only the edited text is read
+
+
+def test_stored_constant_facts_are_never_reused_by_another_version_of_the_code_that_read_them(tmp_path, monkeypatch):
+    from flowguard.intent import owners
+    root = project(tmp_path)
+    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n', encoding='utf-8')
+    read = []
+    original = owners._read_constants
+    monkeypatch.setattr(owners, '_read_constants', lambda text: read.append(text) or original(text))
+    def changes():
+        with closing(build(root)) as graph:
+            return [(row['before'], row['after']) for row in owners.constant_changes(Change(load_config(root), graph, 'HEAD'))]
+    assert changes() == [(3, 4)] and len(read) == 2
+    assert changes() == [(3, 4)] and len(read) == 2           # the same code reuses what it stored
+    # An upgrade: the reading code's own file has other bytes, so its digest in the key differs.
+    upgraded = tmp_path / 'owners.py'
+    upgraded.write_text(Path(owners.__file__).read_text(encoding='utf-8') + '\n# a later FlowGuard version\n', encoding='utf-8')
+    monkeypatch.setattr(owners, '__file__', str(upgraded))
+    assert changes() == [(3, 4)] and len(read) == 4           # both texts are read again, nothing stale is reused
 
 
 def test_parse_error_in_old_source_is_preserved_on_cold_and_hot_read(tmp_path):

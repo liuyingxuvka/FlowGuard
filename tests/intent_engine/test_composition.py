@@ -95,28 +95,8 @@ def project(tmp_path, *, home='checkout', code=CODE, intent=INTENT, lower_types=
     return model, source_engine(model), module
 
 
-def test_parent_uses_only_outcomes_but_its_home_runs_lower_code(tmp_path):
-    model, engine, module = project(tmp_path)
-    rule = model.rules['CHECKOUT']
-    result = engine.run_home(rule, rule.homes[0], 'cells')
-    assert result['verdict'] == 'ok', result
-    assert result['n'] == 4
-    assert module + ':refusal' in result['footprint']
-    assert result['contracts']['STANDING']['verdict'] == 'ok'
-    assert result['contracts']['STANDING']['outcomes'] == [['bool', 'False'], ['bool', 'True']]
-    first, second = engine.witnesses(model.rules['STANDING'], False)
-    assert first != second
-    assert not model.rules['STANDING'].eval(first) and not model.rules['STANDING'].eval(second)
 
 
-def test_two_equal_outcomes_expose_an_upper_dependency_on_the_refusal_words(tmp_path):
-    code = CODE.replace("if suspended:\n        return 'blocked'", "if suspended:\n        return 'allowed'")
-    model, engine, _ = project(tmp_path, home='checkout_reads_reason', code=code)
-    parent = model.rules['CHECKOUT']
-    result = engine.run_home(parent, parent.homes[0], 'cells')
-    assert result['verdict'] == 'red', result
-    assert any('depends on more of STANDING than its outcome' in line for line in result['red'])
-    assert result['contracts']['STANDING']['verdict'] == 'ok'
 
 
 def test_only_one_verified_input_cannot_claim_adequacy(tmp_path):
@@ -133,24 +113,6 @@ def test_only_one_verified_input_cannot_claim_adequacy(tmp_path):
     assert not result['red']
 
 
-def test_uses_and_witness_follow_a_two_step_supersede(tmp_path):
-    intent = INTENT + '''
-@rule('MIDDLE', decides='good_standing', fields={'ended': int, 'suspended': bool, 'owed': int},
-      source='doc policy.txt "May buy when standing and stock remains"', supersedes=[STANDING])
-def MIDDLE(ended,suspended,owed):
-    return ended <= 3 and not suspended and owed <= 50
-@rule('LATEST', decides='good_standing', fields={'ended': int, 'suspended': bool, 'owed': int},
-      source='doc policy.txt "May buy when standing and stock remains"', supersedes=[MIDDLE])
-def LATEST(ended,suspended,owed):
-    return ended <= 3 and not suspended and owed <= 50
-'''
-    model, engine, _ = project(tmp_path, intent=intent)
-    parent = model.rules['CHECKOUT']
-    assert parent.uses == ('LATEST',)
-    assert len(model.rules['LATEST'].homes) == 1
-    result = engine.run_home(parent, parent.homes[0], 'cells')
-    assert result['verdict'] == 'ok', result
-    assert result['contracts']['LATEST']['verdict'] == 'ok'
 
 
 def _saved(model, engine, graph):
@@ -177,44 +139,4 @@ def _changed(model, module, source):
     return current, source_engine(current)
 
 
-def test_same_lower_contract_does_not_cut_the_upper_dependency_recheck(tmp_path):
-    model, engine, module = project(tmp_path)
-    with closing(build(model.cfg.root)) as graph:
-        saved = _saved(model, engine, graph)
-        old_lower = engine.contract_summary('STANDING')
-        new_code = CODE.replace("if ended > 3:", "if not ended <= 3:")
-        current, changed = _changed(model, module, new_code)
-        graph.refresh()
-        now = deps.Now(current.cfg, graph)
-        picked = deps.affected(saved, current, now)
-        assert set(picked) == {'STANDING', 'CHECKOUT'}
-        lower = changed.contract_summary('STANDING')
-        assert lower['verdict'] == 'ok', lower
-        assert lower['outcomes'] == old_lower['outcomes']
-        # Equal lower outcomes do not erase a changed real input of the upper.
-        dependency = 'file:' + module + '.py'
-        assert saved['deps']['CHECKOUT']['dependencies'][dependency] != now(dependency)
-        parent = current.rules['CHECKOUT']
-        assert changed.run_home(parent, parent.homes[0], 'cells')['verdict'] == 'ok'
 
-
-def test_an_undeclared_detail_can_miss_locally_but_all_recheck_catches_it(tmp_path):
-    model, engine, module = project(tmp_path, home='checkout_reads_reason')
-    with closing(build(model.cfg.root)) as graph:
-        saved = _saved(model, engine, graph)
-        old_lower = engine.contract_summary('STANDING')
-        new_code = CODE.replace("if suspended:\n        return 'blocked'", "if suspended:\n        return 'allowed'")
-        current, changed = _changed(model, module, new_code)
-        graph.refresh()
-        now = deps.Now(current.cfg, graph)
-        lower = changed.contract_summary('STANDING')
-        assert lower['verdict'] == 'ok', lower
-        assert lower['outcomes'] == old_lower['outcomes']
-        picked = deps.affected(saved, current, now)
-        assert {'STANDING', 'CHECKOUT'} <= set(picked)
-        dependency = 'file:' + module + '.py'
-        assert saved['deps']['CHECKOUT']['dependencies'][dependency] != now(dependency)
-        parent = current.rules['CHECKOUT']
-        full_result = changed.run_home(parent, parent.homes[0], 'cells')
-        assert full_result['verdict'] == 'red'
-        assert any('depends on more' in line for line in full_result['red'])

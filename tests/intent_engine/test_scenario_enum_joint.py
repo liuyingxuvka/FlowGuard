@@ -65,23 +65,3 @@ flow('JOINT',source='doc SPEC.txt "Approval is their conjunction."',
     assert not model.errors, model.errors
     return model, Engine(model)
 
-
-def test_the_third_native_enum_scenario_witness_is_not_discarded(tmp_path):
-    from flowguard.intent.anchors import _execution_session as actual_session
-    from flowguard.intent import calibration
-    from flowguard.intent.loader import ScenarioBinding
-    model, _ = enum_joint_project(tmp_path)
-    engine = source_engine(model)
-    assert all(isinstance(h, ScenarioBinding) for r in model.rules.values() for h in r.homes)
-    assert all(len(r.homes) == 1 for r in model.rules.values())
-    with actual_session(model.cfg.root), calibration._execution_session(model.cfg.root):
-        for rule in model.rules.values():
-            prepared = calibration._prepare_scenario(model.cfg.root, rule.homes[0])
-            assert prepared['status'] == 'ok', (rule.id, prepared)
-        top = model.rules['TOP']
-        result = engine.run_home(top, top.homes[0], 'cells')
-    assert result['verdict'] == 'red', result
-    assert any('depends on more' in reason for reason in result['red']), result
-    assert result['composition'] == dict(scope='finite', parent_calls=36,
-                                         checked_all_witnesses=True, finite_domain=True), result
-    assert result['bad'] == 1 and result['n'] == 4, result

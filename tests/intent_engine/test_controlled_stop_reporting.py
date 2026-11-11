@@ -24,35 +24,20 @@ def limit(x: int) -> bool:
     return anchors.collect_sources(tmp_path, [('policy_stop_reporting.py','policy_stop_reporting')]).entries[0]
 
 
-def recorded_replays(monkeypatch):
-    actual = Runtime.replay
-    results = []
-    def recorded(self, item, **kwargs):
-        result = actual(self, item, **kwargs)
-        results.append(result)
-        return result
-    monkeypatch.setattr(Runtime, 'replay', recorded)
-    return results
-
-
-def test_requested_inputs_run_sealed_at_the_real_call_without_a_nested_session(tmp_path, monkeypatch):
-    anchor = native_project(tmp_path)
+def test_requested_inputs_run_sealed_from_the_recorded_call_without_running_the_test_again(tmp_path, monkeypatch):
+    log = tmp_path / 'runs.log'
+    anchor = native_project(tmp_path, body=f'open({str(log)!r}, "a").write("run\\n")\nassert limit(2) is True')
     scope, item = bind_anchor(tmp_path, anchor)
-    results = recorded_replays(monkeypatch)
     def no_nested_session(*args, **kwargs):
         raise AssertionError('the collected pytest session must be reused')
     monkeypatch.setattr(pytest, 'main', no_nested_session)
     readings = [calibration.execute(tmp_path, anchor, values) for values in ({}, {'x': 5}, {'x': 1})]
     assert [reading.status for reading in readings] == ['ok', 'ok', 'ok'], readings
     assert [reading.value for reading in readings] == [True, False, True]
-    assert len(results) == 3
-    # The actual inputs run the whole named test natively; a requested input is evaluated sealed once the
-    # real call agrees with the sealed source, and that replay ends at the real call: its only failure is
-    # FlowGuard's own stop there, never a project failure (the complete run was already prepared).
-    assert results[0]['status'] == 'ok' and all(report.passed for report in results[0]['reports'])
-    for result in results[1:]:
-        assert [type(error).__name__ for _, error in result['errors']] == ['_Stop'], result['errors']
-        assert [report.when for report in result['reports'] if not report.passed] == ['call'], result['reports']
+    # The named test ran once, in its ordinary run. Each requested input is evaluated sealed with that run's
+    # recorded call as its context; no point runs the test again, so no controlled stop exists either.
+    assert log.read_text().split() == ['run']
+    assert not hasattr(Runtime, 'replay') and not hasattr(calibration, '_Stop')
     assert calibration._context(tmp_path, anchor.calibrated_by) == (scope, item)
 
 
@@ -81,34 +66,26 @@ def test_real_fixture_failures_still_fail_and_keep_the_original_message(tmp_path
              '    raise AssertionError("real ' + phase + ' failure")\n')
     anchor = native_project(tmp_path, extra)
     scope, item = bind_anchor(tmp_path, anchor)
-    replay = scope.runtime.replay(item, nextitem=scope.nextitem)
-    assert replay['status'] == 'grey'
-    failures = [report for report in replay['reports'] if report.failed]
-    assert any(report.when == phase and 'real ' + phase + ' failure' in str(report.longrepr) for report in failures)
-    assert any(when == phase and type(error) is AssertionError and str(error) == 'real ' + phase + ' failure'
-               for when, error in replay['errors'])
+    # The ordinary run's own report of the failed phase keeps the original exception.
+    [(when, outcome, error)] = scope.runtime.outcomes[item.nodeid]
+    assert (when, outcome, type(error), str(error)) == (phase, 'failed', AssertionError, 'real ' + phase + ' failure')
     actual = calibration.execute(tmp_path, anchor, {'x': 5})
     assert actual.status == 'red' and actual.value is None, actual
     assert not isinstance(actual.value, Raised)
+    assert actual.reasons == ('real calibration test did not pass completely: ' + phase + ' failed',), actual.reasons
 
 
-def test_real_body_failure_keeps_original_source_and_message_for_each_traceback_style(tmp_path, monkeypatch, request):
-    anchor = native_project(tmp_path, body='assert limit(2) is True\nraise AssertionError("real scenario body failure")')
+def test_real_body_failure_is_red_with_the_original_exception_and_no_second_run(tmp_path):
+    log = tmp_path / 'runs.log'
+    anchor = native_project(tmp_path, body=f'open({str(log)!r}, "a").write("run\\n")\nassert limit(2) is True\n'
+                                           'raise AssertionError("real scenario body failure")')
     scope, item = bind_anchor(tmp_path, anchor)
-    failures = []
-    for style in ('short', 'line'):
-        monkeypatch.setattr(request.config.option, 'tbstyle', style)
-        replay = scope.runtime.replay(item, nextitem=scope.nextitem)
-        report = next(report for report in replay['reports'] if report.when == 'call')
-        assert report.failed and 'real scenario body failure' in str(report.longrepr)
-        assert Path(report.longrepr.reprcrash.path).resolve() == (tmp_path / 'test_native_stop.py').resolve()
-        assert '_Stop' not in str(report.longrepr)
-        error = next(error for phase, error in replay['errors'] if phase == 'call')
-        assert type(error) is AssertionError and str(error) == 'real scenario body failure'
-        failures.append([(entry.when, entry.outcome) for entry in replay['reports']])
-    assert failures[0] == failures[1]
+    [(when, outcome, error)] = scope.runtime.outcomes[item.nodeid]
+    assert (when, outcome, type(error), str(error)) == ('call', 'failed', AssertionError, 'real scenario body failure')
     actual = calibration.execute(tmp_path, anchor, {'x': 5})
     assert actual.status == 'red' and not isinstance(actual.value, Raised)
+    assert actual.reasons == ('real calibration test did not pass completely: call failed',), actual.reasons
+    assert log.read_text().split() == ['run']
 
 
 def test_collection_failure_keeps_its_native_error_and_source_not_a_refusal(tmp_path):

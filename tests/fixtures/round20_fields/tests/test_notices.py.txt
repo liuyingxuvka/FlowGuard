@@ -7,7 +7,7 @@ from shop.notices import send_notice
 
 @pytest.fixture
 def days():
-    return 5
+    return 4
 
 
 # flowguard: event NOTICE_CASE(days: int; tmp_path) calibrated_by=tests/test_notices.py::test_notice

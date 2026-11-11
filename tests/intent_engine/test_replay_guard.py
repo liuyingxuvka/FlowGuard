@@ -747,7 +747,7 @@ def test_reads_dates_days_and_calls_on_fresh_objects_stay_replayable(tmp_path, m
 # ---- the guard's own restoring: grey first, every connection restored, the real call still runs -------------
 
 def test_a_reading_stays_grey_when_the_replay_does_not_finish(tmp_path, monkeypatch):
-    def broken(source, qual):
+    def broken(source, qual, imports=None):
         raise RuntimeError('FlowGuard itself failed')
     m = module(tmp_path, 'CALLS = 0\ndef f(x: int):\n    global CALLS\n    CALLS += 1\n    return x <= 3\n')
     runtime = Runtime(tmp_path, previous={})

@@ -96,19 +96,58 @@ def declarations(data, rel):
     return found
 
 
-def sealed_source(data, rel, name):
-    """Only the selected function, same-file helpers, and literal constants; never module imports."""
+def _imported_literal(read, rel, specifier, name):
+    """The text of `const NAME = literal` (a string, number, boolean or null) at the top level of the project
+    file a relative import names, read with `read(path)` and never run; None for anything else."""
+    import posixpath
+    from ..structure.readers.common import parse, text
+    from ..structure.readers.registry import language_for
+    if read is None or not specifier.startswith('.'):
+        return None
+    base = posixpath.normpath(posixpath.join(posixpath.dirname(rel), specifier))
+    stem = base[:-3] if base.endswith(('.js', '.mjs', '.cjs')) else base
+    for path in (base, *(stem + suffix for suffix in ('.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs',
+                                                       '/index.ts', '/index.js'))):
+        if path.startswith('../') or path == '..' or language_for(path) is None:
+            continue
+        data = read(path)
+        if data is None:
+            continue
+        source, tree = parse(data, language_for(path))
+        for statement in tree.root_node.named_children:
+            inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+            if inner is None or inner.type != 'lexical_declaration' or not text(inner, source).startswith('const'):
+                continue
+            for item in inner.named_children:
+                key, value = item.child_by_field_name('name'), item.child_by_field_name('value')
+                while value is not None and value.type in ('as_expression', 'satisfies_expression', 'parenthesized_expression'):
+                    value = value.named_children[0]
+                if key is None or value is None or key.type != 'identifier' or text(key, source) != name:
+                    continue
+                negative = value.type == 'unary_expression' and text(value, source)[:1] == '-' \
+                    and [child.type for child in value.named_children] == ['number']
+                return text(value, source) if value.type in ('string', 'number', 'true', 'false', 'null') or negative else None
+        return None
+    return None
+
+
+def sealed_source(data, rel, name, read=None):
+    """Only the selected function, same-file helpers, and literal constants; never module imports. A name
+    imported from a relative project file whose top level declares it `const NAME = literal` is that literal
+    (`read(path)` gives a file's bytes, or None); any other import stays unavailable."""
     from ..structure.readers.common import parse, text, walk
     from ..structure.readers.registry import language_for
     source, tree = parse(data, language_for(rel))
     found = declarations(data, rel)
-    constants, blocked = {}, set()
+    constants, blocked, imported = {}, set(), {}
     for statement in tree.root_node.named_children:
         inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
         if inner is None:
             continue
         if inner.type == 'import_statement':
             clause = next((child for child in inner.named_children if child.type == 'import_clause'), None)
+            origin = inner.child_by_field_name('source')
+            specifier = text(origin, source)[1:-1] if origin is not None else ''
             for item in clause.named_children if clause is not None else ():
                 if item.type == 'identifier':
                     blocked.add(text(item, source))
@@ -117,8 +156,15 @@ def sealed_source(data, rel, name):
                 else:
                     for spec in item.named_children:
                         alias = spec.child_by_field_name('alias') or spec.child_by_field_name('name')
-                        if alias is not None:
+                        if alias is None:
+                            continue
+                        value = None if text(inner, source).startswith('import type') or text(spec, source).startswith('type ') \
+                            else _imported_literal(read, rel, specifier, text(spec.child_by_field_name('name'), source))
+                        if value is None:
                             blocked.add(text(alias, source))
+                            imported.pop(text(alias, source), None)
+                        else:
+                            imported[text(alias, source)] = value
         if inner.type in ('class_declaration', 'abstract_class_declaration', 'enum_declaration', 'internal_module'):
             name_node = inner.child_by_field_name('name')
             if name_node is not None:
@@ -150,7 +196,7 @@ def sealed_source(data, rel, name):
             if target is not None and target.type == 'identifier':
                 blocked.add(text(target, source))
         pending_bindings.extend(node.named_children)
-    module_names = found.keys() | constants.keys() | blocked
+    module_names = found.keys() | constants.keys() | blocked | imported.keys()
     for node in walk(tree.root_node):
         if node.type in ('assignment_expression', 'augmented_assignment_expression', 'update_expression'):
             target = node.child_by_field_name('left') or node.child_by_field_name('argument')
@@ -221,6 +267,9 @@ def sealed_source(data, rel, name):
         used.add(current)
         if current in blocked:
             return '', 'uses imported or mutable binding ' + current
+        if current in imported:
+            pieces.append(f'const {current} = {imported[current]};')
+            continue
         if current in found:
             function = found[current]
             node = function['node']
@@ -234,7 +283,7 @@ def sealed_source(data, rel, name):
             code = stripped(node)
             pieces.append(code if function['form'] == 'function' else f'const {current} = {code};')
             pending.extend(text(child, source) for child in walk(node)
-                           if child.type == 'identifier' and text(child, source) in found.keys() | constants.keys())
+                           if child.type == 'identifier' and text(child, source) in found.keys() | constants.keys() | imported.keys())
         else:
             node = constants[current]
             if current in folded:
@@ -324,7 +373,8 @@ def plan(cfg, commit, changed, key):
                 unplanned.append(dict(id=ident, name=name, rel=rel, line=line,
                                       reason='only module-level function f and const f = (...) => are observed; this function is not wrapped'))
                 continue
-            closed, skip = sealed_source((cfg.root / rel).read_bytes(), rel, qual)
+            closed, skip = sealed_source((cfg.root / rel).read_bytes(), rel, qual,
+                                         lambda path: (cfg.root / path).read_bytes() if (cfg.root / path).is_file() else None)
             from ..structure.readers.common import parse, walk, text
             from ..structure.readers.ecma import literal
             code, closed_tree = parse(closed.encode(), 'javascript')
@@ -336,7 +386,8 @@ def plan(cfg, commit, changed, key):
                         number = -number
                     extra_numbers.append(number)
             old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, rel)
-            prior, old_skip = (sealed_source(old, rel, qual) if old is not None and qual in declarations(old, rel)
+            prior, old_skip = (sealed_source(old, rel, qual, lambda path: old_sources.get(path) if path in old_sources
+                                             else git_blob(cfg.root, commit, path)) if old is not None and qual in declarations(old, rel)
                                else ('', 'function absent at baseline'))
             points.append(dict(id=ident, name=name, anchored=anchored, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,

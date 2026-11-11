@@ -374,7 +374,8 @@ def test_current_context_comparison_does_not_invent_an_independent_test_session(
     repository(root, source+source.replace('sensor grace', 'sensor copy').replace('def allowed', 'def copy'))
     def forbidden(*args, **kwargs):
         raise AssertionError('debug comparison cannot create a fresh or nested test session')
-    monkeypatch.setattr(Runtime, 'replay', forbidden)
+    monkeypatch.setattr(pytest, 'main', forbidden)
+    assert not hasattr(Runtime, 'replay')           # no test is run again anywhere (design 4.5, 8)
     report = D.compare(root, 'grace', 'copy')
     assert report['status'] == 'grey' and not report['complete'], report
     assert 'same actual call context' in ' '.join(report['reasons'])

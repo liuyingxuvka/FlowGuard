@@ -120,7 +120,8 @@ def test_a_copy_that_cannot_run_sealed_does_not_hide_a_disagreement_between_the_
         def test_answer():
             assert answer(2) == other(2) == third(2) == 3
     ''')
-    (tmp_path / 'settings.py').write_text('STEP = 1\n')
+    # A computed project constant is not read sealed (only a literal one is): this copy cannot run.
+    (tmp_path / 'settings.py').write_text('STEP = len("x")\n')
     (tmp_path / 'other.py').write_text('from settings import STEP\n# flowguard: same ANSWER\ndef answer(n):\n    return n + STEP\n')
     (tmp_path / 'third.py').write_text('# flowguard: same ANSWER\ndef answer(n):\n    return n + 1\n')
     _git(tmp_path, 'add', 'settings.py', 'other.py', 'third.py')

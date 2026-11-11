@@ -1428,6 +1428,28 @@ def test_sealed_source_does_not_replace_an_import_or_mutable_binding_with_a_buil
     assert source == '' and reason == 'uses imported or mutable binding ' + name, (source, reason)
 
 
+def test_a_literal_const_imported_from_a_relative_project_file_is_that_literal():
+    from flowguard.intent.vitest import ADAPTER, sealed_source
+    files = {'src/settings.ts': b'export const GRACE_DAYS = 3;\nexport const NAME = "late";\nexport const BUILT = GRACE_DAYS + 1;\n'
+                                b'export const LIMITS = { a: 1 };\nexport const NEGATIVE = -2 as const;\n'}
+    read = lambda path: files.get(path)
+    source, reason = sealed_source(b'import { GRACE_DAYS as G, NEGATIVE } from "./settings";\n'
+                                   b'export function allows(days: number) { return days <= G && days > NEGATIVE; }', 'src/policy.ts', 'allows', read)
+    assert not reason and 'const G = 3;' in source and 'const NEGATIVE = -2;' in source and 'import' not in source, (source, reason)
+    run = subprocess.run([_tool('node'), str(ADAPTER / 'sealed.mjs')],
+                         input=json.dumps([dict(source=source, fn='allows', args=[3]), dict(source=source, fn='allows', args=[4])]),
+                         capture_output=True, text=True, check=True, timeout=30)
+    assert json.loads(run.stdout) == [{'value': True}, {'value': False}], run.stdout + run.stderr
+    for line, name in (('import { BUILT } from "./settings";', 'BUILT'), ('import { LIMITS } from "./settings";', 'LIMITS'),
+                       ('import { MISSING } from "./settings";', 'MISSING'), ('import { GRACE_DAYS } from "settings";', 'GRACE_DAYS'),
+                       ('import type { GRACE_DAYS } from "./settings";', 'GRACE_DAYS'), ('import { GRACE_DAYS } from "./other";', 'GRACE_DAYS')):
+        closed, why = sealed_source((line + f'\nexport function f(x: number) {{ return x <= {name} as any; }}').encode(), 'src/policy.ts', 'f', read)
+        assert closed == '' and why == 'uses imported or mutable binding ' + name, (line, closed, why)
+    # Without a reader, as before, nothing imported is available.
+    closed, why = sealed_source(b'import { GRACE_DAYS } from "./settings";\nexport function f(x: number) { return x <= GRACE_DAYS; }', 'src/policy.ts', 'f')
+    assert closed == '' and why == 'uses imported or mutable binding GRACE_DAYS'
+
+
 def test_an_unused_aliased_import_does_not_hide_the_real_builtin():
     from flowguard.intent.vitest import sealed_source
     source, reason = sealed_source(b'import { Number as Custom } from "./dep"; export function f(x: string) { return Number(x); }', 'src/f.ts', 'f')

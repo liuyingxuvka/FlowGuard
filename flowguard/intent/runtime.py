@@ -144,7 +144,13 @@ def unguarded():
         _LOCAL.guard = previous
 
 
-def _json(value, trail=frozenset()):
+def _json(value):
+    """The one JSON text of exact JSON data; anything else is refused before it is encoded."""
+    _checked(value, frozenset())
+    return json.dumps(value, allow_nan=False, ensure_ascii=True, separators=(',', ':'))
+
+
+def _checked(value, trail):
     kind = type(value)
     if kind in (type(None), bool, int, float, str):
         if kind is float and not _FINITE(value):
@@ -156,10 +162,9 @@ def _json(value, trail=frozenset()):
         if kind is dict and any(type(key) is not str for key in value):
             raise Refused('JSON object keys must be strings')
         for item in value.values() if kind is dict else value:
-            _json(item, trail)
+            _checked(item, trail)
     else:
         raise Refused('not JSON data')
-    return json.dumps(value, allow_nan=False, ensure_ascii=True, separators=(',', ':'))
 
 
 def _clock(*args, **kwargs):
@@ -189,19 +194,36 @@ _METHODS = frozenset(('real imag numerator denominator year month day hour minut
     'keys values items get copy bit_length as_integer_ratio quantize normalize is_finite').split())
 
 
-def _closed(source, qual):
-    tree = ast.parse(source)
+def _project_space(imports, name, level, seen):
+    """The literal constants of one project module as a namespace, read from its source with the same scan
+    as the sealed file's own top level (`_scope`); nothing is imported or executed. None when `imports`
+    finds no project source for the module (a standard or installed module, or no resolver). A module that
+    does not parse makes the importing source unavailable with that error."""
+    found = imports(name, level) if imports is not None else None
+    if found is None or found[2] in seen:
+        return None
+    text, nested, key = found
+    env, _, _, _, literals = _scope(ast.parse(text, key), nested, seen | {key})
+    return types.SimpleNamespace(**{name: env[name] for name in literals if not name.startswith('_')})
+
+
+def _scope(tree, imports=None, seen=frozenset()):
+    """The sealed globals of one module's top level: its literal constants, the whitelisted modules, the
+    literal constants of the project modules it imports (`imports` finds their source), its functions and the
+    names nothing may read. Returns (env, functions, blocked, namespaces by id, literal constant names)."""
     modules = {'math': types.SimpleNamespace(**{name: value for name, value in _MATH.items()
                if vars(math).get(name) is value}), 'decimal': types.SimpleNamespace(Decimal=Decimal),
                'datetime': types.SimpleNamespace(date=_Date, datetime=_DateTime, timedelta=timedelta)}
+    spaces = {id(space): space for space in modules.values()}
     env = _Globals(__builtins__=_BUILTINS, **_BUILTINS)
-    functions, blocked = {}, set()
+    functions, blocked, literals = {}, set(), set()
     for n in tree.body:
         names, values = set(), {}
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
             functions[n.name] = n
             env.pop(n.name, None)
             blocked.discard(n.name)
+            literals.discard(n.name)
             continue
         if isinstance(n, ast.Import):
             for a in n.names:
@@ -209,14 +231,35 @@ def _closed(source, qual):
                 names.add(name)
                 if a.name in modules:
                     values[name] = modules[a.name]
+                    continue
+                # `import X.Y as Z` binds the module X.Y; `import X.Y` binds X with its attribute Y.
+                space = _project_space(imports, a.name, 0, seen)
+                parts = a.name.split('.')
+                for depth in range(len(parts) - 1, 0, -1) if space is not None and not a.asname else ():
+                    spaces[id(space)] = space
+                    parent = _project_space(imports, '.'.join(parts[:depth]), 0, seen) or types.SimpleNamespace()
+                    setattr(parent, parts[depth], space)
+                    space = parent
+                if space is not None:
+                    values[name] = spaces[id(space)] = space
         elif isinstance(n, ast.ImportFrom):
             for a in n.names:
                 if a.name == '*':
                     raise Refused('uses wildcard import')
                 name = a.asname or a.name
                 names.add(name)
-                if not n.level and n.module in modules and not a.name.startswith('_') and hasattr(modules[n.module], a.name):
-                    values[name] = getattr(modules[n.module], a.name)
+                if not n.level and n.module in modules:
+                    if not a.name.startswith('_') and hasattr(modules[n.module], a.name):
+                        values[name] = getattr(modules[n.module], a.name)
+                elif not a.name.startswith('_'):
+                    owner = _project_space(imports, n.module or '', n.level, seen)
+                    if owner is not None and hasattr(owner, a.name):
+                        values[name] = getattr(owner, a.name)
+                    else:       # `from package import module`
+                        module = _project_space(imports, ((n.module or '') + '.' + a.name).lstrip('.') if n.module
+                                                else a.name, n.level, seen)
+                        if module is not None:
+                            values[name] = spaces[id(module)] = module
         elif isinstance(n, (ast.Assign, ast.AnnAssign)):
             if n.value is None:
                 continue
@@ -238,8 +281,16 @@ def _closed(source, qual):
             functions.pop(name, None)
             env.pop(name, None)
             blocked.add(name)
+            literals.discard(name)
         env.update(values)
         blocked.difference_update(values)
+        if isinstance(n, (ast.Assign, ast.AnnAssign)):
+            literals.update(values)
+    return env, functions, blocked, spaces, literals
+
+
+def _closed(source, qual, imports=None):
+    env, functions, blocked, spaces, _ = _scope(ast.parse(source), imports)
     if qual in blocked:
         raise Refused('uses unavailable binding ' + qual)
     if '.' in qual or qual not in functions:
@@ -266,6 +317,15 @@ def _closed(source, qual):
         local = {p.arg for p in [*n.args.posonlyargs, *n.args.args, *n.args.kwonlyargs,
                                 *([n.args.vararg] if n.args.vararg else []), *([n.args.kwarg] if n.args.kwarg else [])]}
         local.update(p.id for p in ast.walk(n) if isinstance(p, ast.Name) and isinstance(p.ctx, ast.Store))
+        def space(node):
+            """The module namespace an attribute chain of global names reads (`math`, `shop.settings`), or None."""
+            if isinstance(node, ast.Name):
+                found = env.get(node.id) if node.id not in local else None
+            elif isinstance(node, ast.Attribute) and (outer := space(node.value)) is not None:
+                found = vars(outer).get(node.attr)
+            else:
+                return None
+            return found if id(found) in spaces and spaces[id(found)] is found else None
         for part in ast.walk(n):
             if isinstance(part, (ast.Import, ast.ImportFrom, ast.ClassDef, ast.Global, ast.Nonlocal,
                                  ast.Yield, ast.YieldFrom, ast.Await, ast.Try, ast.With, ast.AsyncWith)):
@@ -278,8 +338,8 @@ def _closed(source, qual):
                     and part.id not in local and part.id not in functions and part.id not in env):
                 raise Refused('uses ' + part.id)
             if isinstance(part, ast.Attribute):
-                namespace = env.get(part.value.id) if isinstance(part.value, ast.Name) else None
-                module = any(namespace is allowed for allowed in modules.values())
+                namespace = space(part.value)
+                module = namespace is not None
                 if module and not hasattr(namespace, part.attr):
                     raise Refused('uses unavailable attribute ' + part.attr)
                 if part.attr.startswith('_') or isinstance(part.ctx, (ast.Store, ast.Del)) or part.attr not in _METHODS and not module:
@@ -292,11 +352,12 @@ def _closed(source, qual):
     return env[qual]
 
 
-def sealed(source, qual, args, kwargs):
-    """Evaluate one source-only function in fresh globals and strict JSON values."""
+def sealed(source, qual, args, kwargs, imports=None):
+    """Evaluate one source-only function in fresh globals and strict JSON values. `imports` finds the source
+    of a project module the function's file imports constants from (`Runtime.imports`)."""
     token = _PRIVATE.set(True)
     try:
-        fn = _closed(source, qual)
+        fn = _closed(source, qual, imports)
         values = json.loads(_json({'args': list(args), 'kwargs': kwargs}))
         value = _value(fn, types.SimpleNamespace(args=values['args'], kwargs=values['kwargs']))
         if isinstance(value, cells.Raised):
@@ -424,6 +485,7 @@ class Reading:
     sample: dict | None = None
     json_result: object = None
     index: int = -1
+    tests: set = field(default_factory=set)     # every test that called with this encoded input
 
 class _ObserverHub:
     """One monitoring/trace owner, with local boundaries and optional discovery."""
@@ -746,7 +808,58 @@ class Runtime:
         self.readings, self.issues, self.events = [], [], []
         self.patches, self.constants, self.unavailable, self.current_constants = {}, {}, {}, {}
         self._sources, self._trees, self._imported, self._projects, self._bindings = {}, {}, {}, {}, {}
-        self._seen, self.test, self.seconds = {}, '', 0.0
+        self._seen, self._test, self.ran, self.seconds = {}, '', set(), 0.0
+        self.outcomes = {}          # each ordinary test's phases that did not pass: [(when, outcome, error)]
+
+    @property
+    def test(self):
+        """The ordinary test whose calls are recorded now; `ran` keeps every test that was current."""
+        return self._test
+
+    @test.setter
+    def test(self, nodeid):
+        self._test = nodeid
+        self.ran.add(nodeid)
+
+    def outcome(self, nodeid, when, outcome, excinfo=None):
+        """One phase of an ordinary test's run that did not pass (`when`: setup, call or teardown)."""
+        self.outcomes.setdefault(nodeid, []).append((when, outcome, excinfo.value if excinfo is not None else None))
+
+    def imports(self, file, module, old=False):
+        """How the sealed environment finds a project module that `file` (module `module`) imports: by the
+        import root that gives `file` its module name, as the map resolves a project import, and only a
+        project source file (never an installed package). The baseline source when `old`. Each answer is
+        (source text, the resolver for that module, its file); None when no project file has the name."""
+        parts = list(Path(file).with_suffix('').parts)
+        own = module.split('.') if module else []
+        package = bool(parts) and parts[-1] == '__init__'
+        if package:
+            parts.pop()
+        if not own or parts[len(parts) - len(own):] != own:
+            return lambda name, level: None          # the name does not follow the path: no import root
+        prefix = parts[:len(parts) - len(own)]
+        def find(name, level):
+            if level:
+                base = own if package else own[:-1]
+                if level - 1 > len(base):
+                    return None
+                name = '.'.join([*base[:len(base) - level + 1], *([name] if name else [])])
+            if not name:
+                return None
+            for candidate in (Path(*prefix, *name.split('.')).with_suffix('.py'), Path(*prefix, *name.split('.'), '__init__.py')):
+                relative = candidate.as_posix()
+                if not self._project_file(str(self.root / relative)):
+                    continue
+                if old:
+                    text = self._source(relative)
+                elif (self.root / relative).is_file():
+                    text = (self.root / relative).read_text(encoding='utf-8-sig')
+                else:
+                    text = None
+                if text is not None:
+                    return text, self.imports(relative, name, old), relative
+            return None
+        return find
 
     def _input(self, function, historical=False):
         fn = sites.unwrap(function)
@@ -757,14 +870,16 @@ class Runtime:
         return fn, file, source
 
     def full(self, function):
+        """Twenty distinct encoded inputs of the function are recorded: its hook comes off."""
         return len(self._seen.get(sites.unwrap(function), ())) >= 20
 
     def safety(self, function, arguments=None, seen=None, *, historical=False, node=None, reads=None):
         """Compatibility qualification for explicit callers; ordinary hooks never use it."""
         owner = self if historical else (_HISTORICAL.get() or self)
         try:
-            fn, _, source = owner._input(function, historical=historical or _HISTORICAL.get() is not None)
-            _closed(source, fn.__qualname__)
+            old = historical or _HISTORICAL.get() is not None
+            fn, file, source = owner._input(function, historical=old)
+            _closed(source, fn.__qualname__, owner.imports(file, fn.__module__, old))
             if arguments is not None:
                 _json(dict(arguments))
             return ''
@@ -778,8 +893,9 @@ class Runtime:
                 return _value(fn, bound), ''
             historical = owner is not None
             owner = owner or self
-            function, _, source = owner._input(fn, historical=historical)
-            answer = sealed(source, function.__qualname__, list(bound.args), dict(bound.kwargs))
+            function, file, source = owner._input(fn, historical=historical)
+            answer = sealed(source, function.__qualname__, list(bound.args), dict(bound.kwargs),
+                            owner.imports(file, function.__module__, historical))
         except (Refused, ValueError, TypeError, OSError) as error:
             return None, str(error)
         if answer['status'] == 'unavailable':
@@ -792,12 +908,12 @@ class Runtime:
     def field_values(self, original, bound, fields, line, reading):
         """Explicit fields use the same closed engine; opaque context stays unavailable."""
         try:
-            fn, _, source = self._input(original)
+            fn, file, source = self._input(original)
             parameters = ', '.join(inspect.signature(fn, follow_wrapped=False).parameters)
             values = {}
             for name, expression in fields:
                 body = source + f'\ndef _flowguard_field({parameters}):\n    return ({expression})\n'
-                answer = sealed(body, '_flowguard_field', list(bound.args), dict(bound.kwargs))
+                answer = sealed(body, '_flowguard_field', list(bound.args), dict(bound.kwargs), self.imports(file, fn.__module__))
                 if answer['status'] != 'ok':
                     reading.field_reasons.append('field ' + name + ': ' + answer.get('reason', str(answer.get('error'))))
                     return
@@ -809,20 +925,32 @@ class Runtime:
     def observe(self, original, bound, *, owner=None, name='', axes=None, private=False, fields=(), line=0, recorded=None):
         started = _PERF()
         function = sites.unwrap(owner or original)
-        if (_PRIVATE.get() and not private) or function in _OBSERVING.get() or (not private and self.full(function)):
+        if (_PRIVATE.get() and not private) or function in _OBSERVING.get() \
+                or (not private and len(self._seen.get(function, ())) >= 20):
             return original(*bound.args, **bound.kwargs)
         bound.apply_defaults()
+        try:
+            key, reason = _json(dict(bound.arguments)), ''    # the call's arguments decide args and kwargs
+        except (Refused, ValueError, TypeError, RecursionError) as error:
+            key, reason = None, str(error)
+        seen = self._seen.setdefault(function, {}) if key is not None and not private else None
+        if seen is not None and key in seen:
+            # This encoded input was recorded before (design 4.5): one encode and one lookup, no reading.
+            seen[key].tests.add(self.test)
+            self.seconds += _PERF() - started
+            return original(*bound.args, **bound.kwargs)
         token = _PRIVATE.set(True)
         observing = _OBSERVING.set(_OBSERVING.get() | {function})
         reading = Reading(name or function.__qualname__, function.__module__ + ':' + function.__qualname__,
-                          test=self.test, baseline=self.baseline or '')
+                          test=self.test, baseline=self.baseline or '', tests={self.test})
         reading.actual_inputs = dict(bound.arguments)
-        try:
-            reading.sample = json.loads(_json({'args': list(bound.args), 'kwargs': dict(bound.kwargs),
-                                               'inputs': dict(bound.arguments)}))
-        except (Refused, ValueError, TypeError, RecursionError) as error:
-            reading.sample = None
-            reading.reasons.append(str(error))
+        if key is None:
+            reading.reasons.append(reason)
+        else:
+            reading.sample = dict(args=json.loads(_json(list(bound.args))), kwargs=json.loads(_json(dict(bound.kwargs))),
+                                  inputs=json.loads(key))
+        if seen is not None:
+            seen[key] = reading
         if fields:
             self.field_values(original, bound, fields, line, reading)
         reading.index = len(self.readings)
@@ -851,13 +979,6 @@ class Runtime:
             except (Refused, ValueError, TypeError, RecursionError) as error:
                 reading.sample = None
                 reading.reasons.append(str(error))
-        if reading.sample is not None and not private:
-            if self.full(function):
-                reading.sample = None
-                reading.reasons.append('sample limit reached')
-            else:
-                key = _json(reading.sample)
-                self._seen.setdefault(function, set()).add(key)
         if recorded is not None:
             recorded(reading)
 
@@ -888,8 +1009,8 @@ class Runtime:
         fn = sites.unwrap(function)
         if fn not in self.patches:
             try:
-                _, _, source = self._input(fn, historical=True)
-                compiled = _closed(source, fn.__qualname__)
+                _, file, source = self._input(fn, historical=True)
+                compiled = _closed(source, fn.__qualname__, self.imports(file, fn.__module__, True))
                 self.patches[fn] = Patch(fn, compiled.__code__, compiled.__defaults__, compiled.__kwdefaults__,
                                          dict(_functions(ast.parse(source)))[fn.__qualname__], source)
             except (Refused, ValueError, TypeError, OSError) as error:
@@ -1000,58 +1121,3 @@ class Runtime:
             from flowguard.structure.paths import project_code
             self._projects[file] = project_code(file, self.root)
         return self._projects[file]
-
-    def replay(self, item, *, nextitem=None):
-        """Called after the real protocol has torn down its function fixtures.
-
-        Shared fixtures cannot be silently reset: doing that also resets their
-        lifecycle for the surrounding real suite. Return unavailable instead.
-        """
-        import pytest
-        from _pytest.nodes import Node
-        active = [node for node in item.session._setupstate.stack if isinstance(node, pytest.Item)]
-        ancestors = set(item.listchain()) - {item}
-        if any(node not in ancestors for node in active):
-            return dict(status='grey', reasons=['replay requires a completed test protocol'])
-        definitions = getattr(getattr(item, '_fixtureinfo', None), 'name2fixturedefs', {})
-        borrowed = [name for name, defs in definitions.items() if active and defs and defs[-1].scope == 'function'
-                    and defs[-1].cached_result is not None]
-        if borrowed:
-            return dict(status='grey', reasons=['function fixture is still owned by an active ancestor: ' + ', '.join(borrowed)])
-        from _pytest.fixtures import pytestconfig
-        from _pytest.tmpdir import tmp_path_factory
-        builtins = {inspect.unwrap(pytestconfig), inspect.unwrap(tmp_path_factory)}
-        shared = [name for name, defs in definitions.items() if defs and defs[-1].scope != 'function'
-                  and inspect.unwrap(defs[-1].func) not in builtins]
-        if shared:
-            return dict(status='grey', reasons=['shared fixture lifecycle is not replay-isolated: ' + ', '.join(shared)])
-        needed = set(item.listchain())
-        retained = set(nextitem.listchain()) if nextitem is not None else set()
-        for node, (finalizers, _) in item.session._setupstate.stack.items():
-            if node not in needed and node in retained and (len(finalizers) > 1 or
-                    getattr(node.teardown, '__func__', None) is not Node.teardown):
-                return dict(status='grey', reasons=['pending shared collector lifecycle cannot be reset: ' + node.nodeid])
-        from _pytest.runner import runtestprotocol
-        errors = []
-        class Reports:
-            def pytest_runtest_makereport(self, item, call):
-                if call.excinfo is not None:
-                    errors.append((call.when, call.excinfo.value))
-        recorder = Reports()
-        item.config.pluginmanager.register(recorder)
-        token = _PRIVATE.set(True)
-        try:
-            try:
-                item.session._setupstate.teardown_exact(item)
-            except BaseException as error:
-                if isinstance(error, (KeyboardInterrupt, SystemExit, GeneratorExit, pytest.exit.Exception)):
-                    raise
-                return dict(status='grey', reports=[], errors=[('teardown', error)],
-                            reasons=['collector teardown failed: ' + type(error).__name__ + ': ' + str(error)])
-            reports = runtestprotocol(item, log=False, nextitem=nextitem)
-            failures = [r for r in reports if not r.passed]
-            return dict(status='grey' if failures else 'ok', reports=reports,
-                        errors=errors, reasons=[r.when + ': ' + r.outcome for r in failures])
-        finally:
-            _PRIVATE.reset(token)
-            item.config.pluginmanager.unregister(recorder)
