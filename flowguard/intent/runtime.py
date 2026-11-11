@@ -93,24 +93,6 @@ def _simple(value):
                     (type(None), types.WrapperDescriptorType, types.MethodDescriptorType, types.BuiltinFunctionType)
                     for name in operations))
 
-def _neighbours(value):
-    """Representable neighbours of exact native quantities, without user operators."""
-    if not any(type(value) is kind for kind in (int, float, Decimal, date, datetime, timedelta)):
-        return
-    try:
-        step = cells.epsilon(value)
-    except ArithmeticError:
-        return
-    if step is not None:
-        for lower in (True, False):
-            try:
-                candidate = value - step if lower else value + step
-                if _simple(candidate) and (type(candidate) is not Decimal or candidate.is_finite()):
-                    yield candidate
-            except ArithmeticError:
-                pass
-
-
 # The closed environment has values, never a project module or its live globals.
 class Refused(BaseException):
     pass
