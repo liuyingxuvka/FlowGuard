@@ -496,8 +496,11 @@ def extract(root, rel, data, module, is_test):
 
     def object_fields(value, base, prefix, rows, depth=0):
         """Write paths of one Prisma data value: fields, nested operations and what stays unclear. A path only one
-        branch of `c ? {...} : {...}` writes, or a side of `c && {...}`, `a || {...}` or `a ?? {...}` writes, is
-        `conditional`: the positions of those expressions, outermost first (a field both branches write is not)."""
+        branch of `c ? {...} : {...}` writes, or one side of `c && {...}`, `a || {...}` or `a ?? {...}` writes, is
+        `conditional`: one mark per such expression, outermost first, its position and its branch ('LINE:COL?' and
+        'LINE:COL:' for the two branches of a ternary, 'LINE:COL&' for the right of `&&`, 'LINE:COL<' and 'LINE:COL>'
+        for the left and right of `||` and `??`), so two paths in two branches of one expression are told apart. A
+        path both branches (or both sides) write is not conditional there."""
         value = unwrap(value)
         if value is None or depth > 8:
             return
@@ -507,20 +510,21 @@ def extract(root, rel, data, module, is_test):
             return
         where = f'{value.start_point.row + 1}:{value.start_point.column + 1}'
         if value.type == 'ternary_expression':
-            branches = []
-            for item in (field(value, 'consequence'), field(value, 'alternative')):
-                branches.append([])
-                object_fields(item, base, prefix, branches[-1], depth + 1)
-            both = {tuple(row['path']) for row in branches[0]} & {tuple(row['path']) for row in branches[1]}
-            rows.extend(row if tuple(row['path']) in both else dict(row, conditional=[where, *row.get('conditional', ())])
-                        for branch in branches for row in branch)
-            return
-        if value.type == 'binary_expression' and operator(value) in ('&&', '||', '??'):
+            branches = (('?', field(value, 'consequence')), (':', field(value, 'alternative')))
+        elif value.type == 'binary_expression' and operator(value) == '&&':
+            branches = (('&', field(value, 'right')),)
+        elif value.type == 'binary_expression' and operator(value) in ('||', '??'):
+            branches = (('<', field(value, 'left')), ('>', field(value, 'right')))
+        else:
+            branches = ()
+        if branches:
             found = []
-            object_fields(field(value, 'right'), base, prefix, found, depth + 1)
-            if operator(value) != '&&':
-                object_fields(field(value, 'left'), base, prefix, found, depth + 1)
-            rows.extend(dict(row, conditional=[where, *row.get('conditional', ())]) for row in found)
+            for mark, item in branches:
+                found.append((mark, []))
+                object_fields(item, base, prefix, found[-1][1], depth + 1)
+            both = set.intersection(*({tuple(row['path']) for row in paths} for _, paths in found)) if len(found) > 1 else set()
+            rows.extend(row if tuple(row['path']) in both else dict(row, conditional=[where + mark, *row.get('conditional', ())])
+                        for mark, paths in found for row in paths)
             return
         if value.type == 'call_expression':
             callee, args = field(value, 'function'), field(value, 'arguments')
@@ -683,10 +687,7 @@ def extract(root, rel, data, module, is_test):
 
     def callback_of(node, scope):
         """How the module registers the outermost anonymous function that holds `node`, when no named function
-        does: the call it is passed to with that call's first string argument (`router.put('/:id/leader')`, `#2`
-        and on for a further callback registered the same way, in file order), or `key:` for an object member.
-        A callback's id says where it starts and moves with every line above it; this does not. None in a named
-        function, at the module's own level, or for a callback no call or member holds (an IIFE)."""
+        does (`registration`). None in a named function or at the module's own level."""
         if named_scope(scope) != '<module>' or '<anonymous' not in scope:
             return None
         outer, item = None, node.parent
@@ -694,8 +695,14 @@ def extract(root, rel, data, module, is_test):
             if item.type in FUNCTIONS:
                 outer = item
             item = item.parent
-        if outer is None:
-            return None
+        return None if outer is None else registration(outer)
+
+    def registration(function):
+        """How the module registers a module-level anonymous function (a callback no named function holds): the
+        call it is passed to with that call's first string argument (`router.put('/:id/leader')`, `#2` and on for
+        a further callback registered the same way, in file order), or `key:` for an object member. A callback's
+        id says where it starts and moves with every line above it; this does not. None for any other function and
+        for a callback no call or member holds (an IIFE)."""
         if not registrations:
             registrations[None] = None                     # read once per file
             stack, counts = [tree.root_node], {}
@@ -722,7 +729,7 @@ def extract(root, rel, data, module, is_test):
                     continue
                 counts[label] = counts.get(label, 0) + 1
                 registrations[item.start_byte] = label + (f'#{counts[label]}' if counts[label] > 1 else '')
-        return registrations.get(outer.start_byte)
+        return registrations.get(function.start_byte)
 
     def prisma_call(node, owner, scope):
         """The write rows of one Prisma client call (or raw SQL write) of `owner`. A Prisma row also carries the
@@ -1081,6 +1088,8 @@ def extract(root, rel, data, module, is_test):
                        size=node.descendant_count, raw=dict(name=name, scope=scope, declared_qual=declared_qual, parameters=arg_names,
                        shadows=sorted(own_shadows), declaration_kind=node.type, holder=holder_of(node)),
                        column=position(node, source)['column'], end_column=position(node, source)['end_column'])
+            if not scope and name.startswith('<anonymous') and (registered := registration(node)) is not None:
+                row['raw']['callback'] = registered     # a module-level callback: how its module registers it
             out['nodes'].append(row)
             container = node.parent
             while container and container.type in ('variable_declarator','lexical_declaration','variable_declaration','parenthesized_expression'):

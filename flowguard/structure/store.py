@@ -415,11 +415,15 @@ def build(root, db_path=None, *, roots=None, force=False, workers=None) -> dict:
     return stats
 
 
-def _build(con, root, roots, force, workers, t0):
-    cfg = project_config(root)
+def ignored(root):
+    """The patterns of the paths a map of `root` never reads: FlowGuard's defaults and `[tool.flowguard] exclude`."""
     # A real package may be named venv (CPython has one). Environment ownership
     # is decided by project_code, including pyvenv.cfg, rather than that name.
-    ignore = [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [str(p) for p in cfg.get("exclude", [])]
+    return [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [str(p) for p in project_config(root).get("exclude", [])]
+
+
+def _build(con, root, roots, force, workers, t0):
+    ignore = ignored(root)
     files = [f for f in list_files(root) if not matches_any(f, ignore)]
     sources = [f for f in files if language_for(f)]
     py = [f for f, owned in zip(sources, project_files([str(root / f) for f in sources], root)) if owned]

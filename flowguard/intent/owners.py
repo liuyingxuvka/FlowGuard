@@ -69,12 +69,15 @@ class Change:
         return self._impact
 
     def touched(self):
-        """Functions (named, nested callbacks folded into them) this change edits or adds."""
+        """Functions (named, nested callbacks folded into them) this change edits or adds, and each JS/TS module-level
+        callback it edits or adds by the id a pair member names it by (`_member`: a route handler is a member of its
+        own)."""
         if not hasattr(self, '_touched'):
             from flowguard.structure.api import _without_moves
             delta = self.delta(sorted(self.files)) if self.baseline else []
-            self._touched = {named(ident) for ident, change, *_ in _without_moves(delta)
-                             if change in ('changed', 'added')}
+            edited = [ident for ident, change, *_ in _without_moves(delta) if change in ('changed', 'added')]
+            self._touched = {named(ident) for ident in edited} | {_member(ident) for ident in edited
+                                                                  if _member(ident) != named(ident)}
         return self._touched
 
     def delta(self, files):
@@ -110,12 +113,19 @@ class Change:
 
     def module(self, file):
         """The module the map names `file` by; for a file the working tree no longer holds (this change deletes it or
-        renames it away) the name `graph.impact` gives it (`_file_deltas`). None for a file the map does not read."""
+        renames it away) the name `graph.impact` gives it (`_file_deltas`). None for a file the map does not read,
+        such as one its ignore patterns leave out (`store.ignored`), which it did not read at the baseline either."""
+        from flowguard.map.common import matches_any
         from flowguard.structure.readers.registry import language_for, module_name
+        from flowguard.structure.store import ignored
         if file in self._modules:
             return self._modules[file]
         language = language_for(file)
         if not language or (self.graph.root / file).exists():
+            return None
+        if not hasattr(self, '_ignored'):
+            self._ignored = ignored(self.graph.root)
+        if matches_any(file, self._ignored):
             return None
         return file[:-3].replace('/', '.') if language == 'python' else module_name(file)
 
@@ -160,37 +170,58 @@ class Change:
                 self._baseline_writes[key] = self.graph.writes(target, by_name=by_name)
         return self._baseline_writes[key]
 
+    def facts(self, file, *, old=False):
+        """The whole fact record of `file` now (the map's; None when the map does not read it) or (`old`) at the
+        baseline: `old_facts` for a path of `baseline_paths`, the map's for any other file, which this change leaves
+        alone. Read once."""
+        if old and file in self.baseline_paths():
+            return self.old_facts(file)
+        if file not in self._current:
+            self._current[file] = self.graph.file_facts(file)
+        return self._current[file]
+
+    def path_of(self, module, *, old=False):
+        """The path of a module on the map, or (`old`) also of one this change deletes or renames away (`module`);
+        None for any other."""
+        if not hasattr(self, '_paths'):
+            self._paths = {name: path for path, name in self._modules.items()}
+            self._gone_paths = {}
+            for path in sorted(self.baseline_paths() - set(self._modules)):
+                self._gone_paths.setdefault(self.module(path), path)
+        return self._paths.get(module) or (self._gone_paths.get(module) if old else None)
+
+    def calls(self, file, *, old=False):
+        """{node: frozenset of names}: what each node of `file` calls as its source spells it, now or (`old`) at the
+        baseline (`facts`): its syntax calls by the node that makes them, in any language, and for a Python function
+        also the callables it passes on (`run(save)`, `facts.functions[qual].calls`, as the call index reads them;
+        a module's own code and a test file have syntax calls alone). {} for a file the map does not read or that
+        does not parse. Read once per file and side."""
+        key = (file, old)
+        if not hasattr(self, '_calls'):
+            self._calls = {}
+        if key not in self._calls:
+            facts = self.facts(file, old=old)
+            found = {}
+            for call in (facts or {}).get('syntax_calls', ()):
+                found.setdefault(call['node'], set()).add(call['text'])
+            if facts and facts['language'] == 'python' and facts['facts']:
+                module = self.module(file) if old else self._modules.get(file)
+                for function, data in facts['facts']['functions'].items():
+                    found.setdefault(f'{module}:{function}', set()).update(data['calls'])
+            self._calls[key] = {node: frozenset(names) for node, names in found.items()}
+        return self._calls[key]
+
     def callees(self, ident, *, old=False):
         """The names the function `ident` (`module:qual`; a module's own code for `module`) calls as its source
-        spells them, the functions nested in it included, now or (`old`) at the baseline: its file's syntax calls,
-        in any language, and for a Python function also the callables it passes on (`run(save)`), as the call index
-        reads them (`facts.functions[qual].calls`; a module's own code and a test file have syntax calls alone).
-        A function of no mapped file (at the baseline: of no file this change deletes or renames away either),
-        absent from its file or in a file that does not parse calls nothing."""
+        spells them, the functions nested in it included, now or (`old`) at the baseline (`calls`). A function of no
+        mapped file (at the baseline: of no file this change deletes or renames away either), absent from its file or
+        in a file that does not parse calls nothing."""
         module, _, qual = ident.partition(':')
-        row = self.graph.con.execute("SELECT file FROM node WHERE id=? AND kind='module'", (module,)).fetchone()
-        if row is not None:
-            file = row[0]
-        elif old:
-            file = next((path for path in sorted(self.baseline_paths() - set(self._modules)) if self.module(path) == module), None)
-        else:
-            file = None
+        file = self.path_of(module, old=old)
         if file is None:
             return frozenset()
-        if old and file in self.baseline_paths():
-            facts = self.old_facts(file)
-        else:
-            if file not in self._current:
-                self._current[file] = self.graph.file_facts(file)
-            facts = self._current[file]
-        if not facts:
-            return frozenset()
-        calls = {call['text'] for call in facts.get('syntax_calls', ())
-                 if call['node'] == ident or qual and call['node'].startswith(ident + '.')}
-        if facts['language'] == 'python' and qual and facts['facts']:
-            calls.update(name for function, data in facts['facts']['functions'].items()
-                         if function == qual or function.startswith(qual + '.') for name in data['calls'])
-        return frozenset(calls)
+        return frozenset(name for node, names in self.calls(file, old=old).items()
+                         if node == ident or qual and node.startswith(ident + '.') for name in names)
 
     def rule_declarations(self):
         """The intent source facts of this change, not an old-value matching result."""
@@ -354,39 +385,49 @@ def _pair_function(row):
     return row_function(row)
 
 
-def _pair_key(row):
-    """The member as the baseline names it too: a module-level callback by the call that registers it (the reader's
-    `callback`), which no line above it moves; any other function by its id."""
-    function = _pair_function(row)
-    if function != row_function(row) and row.get('callback'):
-        return row['node'].partition(':')[0] + ':' + row['callback']
-    return function
-
-
 def _same_call(a, b):
     return (a['file'], a['node'], a.get('call_line')) == (b['file'], b['node'], b.get('call_line'))
 
 
 def _same_record(trigger, partner):
     """(holds, why not confirmed): may a partner write of the trigger's own function write the trigger's record (D20)?
-    Yes in the same call, and when either call has no `where` (it makes a row); a `where` that cannot be read
-    counts, not confirmed; else one model must select by the same text (another `id` is another record) and two
-    models by different text (the same `{ id }` on two models names unrelated records)."""
-    if _same_call(trigger, partner) or 'selector' not in trigger or 'selector' not in partner:
+    Yes in the same call. A create of the trigger's own model makes another record than the one the trigger's `where`
+    selects, so it does not hold such a trigger. Otherwise yes when either call has no `where` (it makes a row); a
+    `where` that cannot be read counts, not confirmed; else one model must select by the same text (another `id` is
+    another record) and two models by different text (the same `{ id }` on two models names unrelated records)."""
+    if _same_call(trigger, partner):
+        return True, ''
+    if 'selector' in trigger and 'selector' not in partner and creates(partner) \
+            and trigger.get('accessor') == partner.get('accessor'):
+        return False, ''
+    if 'selector' not in trigger or 'selector' not in partner:
         return True, ''
     if trigger['selector'] is None or partner['selector'] is None:
         return True, 'its where cannot be read'
     return (trigger['selector'] == partner['selector']) == (trigger.get('accessor') == partner.get('accessor')), ''
 
 
+def _exclusive(marks, others):
+    """Do two lists of condition marks (`ecma.object_fields`: position and branch) put their writes in two branches of
+    one conditional expression?"""
+    branch = {mark[:-1]: mark[-1] for mark in marks}
+    return any(branch.get(mark[:-1], mark[-1]) != mark[-1] for mark in others)
+
+
 def _unconditional(trigger, partner):
     """(holds, why not confirmed) for a partner field the reader marks `conditional` (a spread or a branch of
-    `c && {...}`, `c ? {...} : {...}`), D21: it holds the pair in the trigger's own call under the trigger's own
-    conditions; a trigger written always is not held by it; when the trigger is written under a condition too, the
-    two conditions are not compared (a variable may tie them) and it counts, not confirmed."""
+    `c && {...}`, `c ? {...} : {...}`, `a || {...}`), D21: it holds the pair in the trigger's own call under the
+    trigger's own conditions, never from the other branch of a conditional the trigger is written in; a trigger
+    written always is not held by it; when the trigger is written under a condition too, the two conditions are not
+    compared (a variable may tie them) and it counts, not confirmed."""
     marks = partner.get('conditional')
-    if not marks or _same_call(trigger, partner) and set(marks) <= set(trigger.get('conditional') or ()):
+    if not marks:
         return True, ''
+    if _same_call(trigger, partner):
+        if _exclusive(trigger.get('conditional') or (), marks):
+            return False, ''
+        if set(marks) <= set(trigger.get('conditional') or ()):
+            return True, ''
     return (True, 'it is written under another condition') if trigger.get('conditional') else (False, '')
 
 
@@ -410,97 +451,319 @@ def _held(trigger, function, tree, partners):
 
 
 class _Calls:
-    """Did the operation tree call more at the baseline? The callee-stability guard of the pair baseline: the
-    baseline result is read with the current tree, which is exact for a call this change adds (a larger tree only
-    holds more) but not for one it removes: a member missing now may have been held through it. So a member is judged
-    at the baseline only when no function of its tree lost a call (`lost`), no changed file stopped calling a function
-    of its tree (`gone`) and no function of its tree calls one this change removed that wrote the partner then.
+    """The baseline side of a pair: whom a baseline write row is of (`current`), and the callee-stability guard (`exact`).
 
-    A named function compares its callees now and at the baseline (`Change.callees`). A module-level callback has no
-    stable id: it lost nothing when a baseline callback of its file has its code (fingerprint) at the same place, when
-    its file's callbacks together spell every call they spelled, or, as the member itself, when it calls all its
-    baseline counterpart called. Module-level code, which registers the handlers, is not compared. Read once per
-    change."""
+    The baseline result is read with the current operation tree, which is exact for what a change adds (a larger tree
+    only holds more) but not for what it takes away: a member missing its partner now may have been held at the
+    baseline through a call that is gone. So a member is judged at the baseline only while its tree lost nothing;
+    otherwise it counts as new (fail-closed red). The tree lost something when, at the baseline,
+
+    - a function on it, in a file this change alters, called what it no longer calls, or a name its file now imports
+      from elsewhere;
+    - a function on it called a function this change removes;
+    - code of a changed file (a function, a module-level callback, JS/TS module code) called the member or one of its
+      callers up to two levels up, and no longer does.
+
+    A call counts only where it may reach a function of the project as the map resolves calls (`reaches`). Test files
+    take no part, as in the operation tree. A module-level callback has no stable id (its id says where it starts):
+    its baseline counterpart is the callback of the same file with the same code and registration, or else the one
+    registered so once on each side (`callbacks`). Not seen: an unchanged call whose target a changed file redirects
+    by a re-export, or makes ambiguous by adding a function of the same name. Read once per change."""
 
     def __init__(self, change):
-        self.change, self._unmoved, self._spelled, self._files, self._gone = change, {}, {}, None, None
+        self.change = change
+        self._maps, self._groups, self._bindings, self._external, self._index = {}, {}, {}, {}, {}
+        self._python, self._modules = {}, {}
+        self._production = self._tests = self._targets = self._removed = self._defaults = self._by_id = None
+        self._lost = self._by_name = None
 
-    def _file(self, ident):
-        if self._files is None:
-            self._files = {module: path for path, module in self.change.graph.con.execute('SELECT path, module FROM file')}
-        return self._files.get(ident.partition(':')[0])
+    def python(self, file):
+        """Is `file` Python (else JS/TS: calls never cross the two)?"""
+        if file not in self._python:
+            from flowguard.structure.readers.registry import language_for
+            self._python[file] = language_for(file) == 'python'
+        return self._python[file]
 
-    def lost(self, ident, then=None):
-        """Did `ident`, a key of an operation tree, call something at the baseline it no longer calls? `then` is the
-        baseline id of a member callback."""
-        file, qual = self._file(ident), ident.partition(':')[2]
-        if not qual or file not in self.change.files:
+    def tests(self):
+        """The map's test files."""
+        if self._tests is None:
+            self._tests = {path for (path,) in self.change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
+        return self._tests
+
+    def production(self):
+        """The paths of `baseline_paths` a reader reads, test files left out."""
+        if self._production is None:
+            from flowguard.structure.readers.registry import language_for
+            self._production = frozenset(path for path in self.change.baseline_paths() if language_for(path)
+                                         and self.change.module(path) and path not in self.tests() and not is_test_file(path))
+        return self._production
+
+    # ---- module-level callbacks: the same one at the baseline and now ----------------------------------------
+
+    def callbacks(self, file):
+        """(baseline id -> current id, current id -> baseline id) of the module-level callbacks of a changed file. A
+        baseline callback whose code (fingerprint) a current one has, registered the same way (`ecma.registration`,
+        its `#n` aside), is that one, in file order; of the rest, a registration left once on each side pairs them.
+        Any other callback is new, or gone."""
+        if file not in self._maps:
+            import re
+            from flowguard.structure import store
+            def listed(rows):
+                return [(ident, re.sub(r'#\d+$', '', raw.get('callback') or ''), fp)
+                        for ident, qual, fp, raw in rows if qual.startswith('<anonymous') and '.' not in qual]
+            module = self.change.module(file)
+            old = listed((f'{module}:{row["qual"]}', row['qual'], row['fp'], row.get('raw') or {})
+                         for row in self.change.old_part(file, 'nodes') or ())
+            now = listed((ident, qual, fp, store.unpack(raw) if raw else {}) for ident, qual, fp, raw in self.change.graph.con.execute(
+                "SELECT id, qual, fp, raw FROM node WHERE file=? AND qual LIKE '<anonymous%' ORDER BY line", (file,)))
+            forward, waiting = {}, {}
+            for ident, label, fp in now:
+                waiting.setdefault((label, fp), []).append(ident)
+            for ident, label, fp in old:
+                if waiting.get((label, fp)):
+                    forward[ident] = waiting[(label, fp)].pop(0)
+            taken = set(forward.values())
+            rest_old = [(ident, label) for ident, label, _ in old if ident not in forward]
+            rest_now = [(ident, label) for ident, label, _ in now if ident not in taken]
+            left, right = Counter(label for _, label in rest_old), Counter(label for _, label in rest_now)
+            for ident, label in rest_old:
+                if label and left[label] == right[label] == 1:
+                    forward[ident] = next(new for new, other in rest_now if other == label)
+            self._maps[file] = forward, {new: ident for ident, new in forward.items()}
+        return self._maps[file]
+
+    def current(self, row):
+        """The member a baseline write row is of, named as the current map names it (`_pair_function`): a module-level
+        callback of a changed file by its counterpart (`callbacks`), or by an id no current function has."""
+        function = _pair_function(row)
+        if function == row_function(row) or row['file'] not in self.change.baseline_paths():
+            return function
+        return self.callbacks(row['file'])[0].get(function, function + ' (at the baseline)')
+
+    # ---- what each caller of a file calls, and through which binding ----------------------------------------
+
+    def module(self, file):
+        """`Change.module(file)`, read once per file."""
+        if file not in self._modules:
+            self._modules[file] = self.change.module(file)
+        return self._modules[file]
+
+    def groups(self, file, *, old=False):
+        """{key: names}: what the callers of one file call now or (`old`) at the baseline (`Change.calls`). The key is
+        ('fn', id) for a named function, what its nested callbacks call folded in; ('cb', current id) for a module-level
+        callback, a baseline one by its counterpart and ('gone', baseline id) without one; ('module', module) for JS/TS
+        module code, which calls as a caller does (Python module code is no caller on the operation tree)."""
+        if (file, old) not in self._groups:
+            forward = self.callbacks(file)[0] if old else None
+            found = {}
+            for node, names in self.change.calls(file, old=old).items():
+                module, _, qual = node.partition(':')
+                if not qual:
+                    if self.python(file):
+                        continue
+                    key = ('module', module)
+                elif named(node).partition(':')[2]:
+                    key = ('fn', named(node))
+                elif forward is None:
+                    key = ('cb', _member(node))
+                else:
+                    key = ('cb', forward[_member(node)]) if _member(node) in forward else ('gone', _member(node))
+                found.setdefault(key, set()).update(names)
+            self._groups[(file, old)] = found
+        return self._groups[(file, old)]
+
+    def of(self, file, ident, *, old=False):
+        """[(key, names)] of `groups(file, old=)` that belong to the function `ident` of an operation tree: a named
+        function with what it nests, a module-level callback, or (a bare module) its module code."""
+        index = self._index.setdefault((file, old), {})
+        if not index:
+            index[None] = []
+            for key, names in self.groups(file, old=old).items():
+                if key[0] == 'fn':
+                    module, _, qual = key[1].partition(':')
+                    parts = qual.split('.')
+                    for depth in range(1, len(parts) + 1):
+                        index.setdefault(f'{module}:{".".join(parts[:depth])}', []).append((key, names))
+                elif key[0] in ('cb', 'module'):
+                    index.setdefault(key[1], []).append((key, names))
+        return index.get(ident, [])
+
+    def binding(self, file, key, name, *, old=False):
+        """What binds the first name `name` of a call of the caller `key` of `file` now or at the baseline: a JS/TS
+        import (the module as spelled, the name it imports), a Python import (`module:name` or `module`; a function's
+        own import first); None when no import does."""
+        if (file, old) not in self._bindings:
+            facts = self.change.facts(file, old=old) or {}
+            if facts.get('language') == 'python':
+                data = facts.get('facts') or {}
+                module = self.change.module(file) if old else self.change._modules.get(file)
+                self._bindings[(file, old)] = dict(data.get('imports') or {}), {
+                    f'{module}:{qual}': function.get('local_imports') or {} for qual, function in (data.get('functions') or {}).items()}
+            else:
+                self._bindings[(file, old)] = {row['alias']: (row['module'], row.get('name')) for row in facts.get('dependencies', ())
+                                               if row.get('kind') == 'import' and row.get('alias')}, {}
+        top, local = self._bindings[(file, old)]
+        ident = key[1] if key[0] == 'fn' else ''
+        while ident.partition(':')[2]:
+            if name in local.get(ident, {}):
+                return local[ident][name]
+            module, _, qual = ident.partition(':')
+            ident = f'{module}:{qual.rpartition(".")[0]}'
+        return top.get(name)
+
+    def lost(self):
+        """{key: [(file, name, baseline binding)]}: per caller of the files this change alters (`production`), each
+        name it called at the baseline and no longer calls, or now calls through another binding (an import from
+        elsewhere)."""
+        if self._lost is None:
+            self._lost = {}
+            for file in sorted(self.production()):
+                now = self.groups(file)
+                for key, names in self.groups(file, old=True).items():
+                    for name in sorted(names):
+                        head = name.split('.')[0]
+                        then = self.binding(file, key, head, old=True)
+                        if name not in now.get(key, ()) or then != self.binding(file, key, head):
+                            self._lost.setdefault(key, []).append((file, name, then))
+        return self._lost
+
+    # ---- the functions a call may reach ------------------------------------------------------------------------
+
+    def targets(self):
+        """{(Python?, name): [target]}: the functions a call may reach, by language and the name a call ends in; a
+        target is (id, file, qual, holder): each named function and method of the map outside test files, and each one
+        this change removes (`removed`: of a production file it alters, at the baseline and no longer on the map)."""
+        if self._targets is None:
+            from flowguard.structure import store
+            found, ids = {}, set()
+            self._by_id = {}
+            def add(ident, file, qual, data):
+                target = (ident, file, qual, data.get('holder') or (qual.rpartition('.')[0] if '.' in qual else ''))
+                name = data.get('name') or qual.rpartition('.')[2].split('@')[0]
+                found.setdefault((self.python(file), name), []).append(target)
+                self._by_id[ident] = name, target
+                return target
+            for ident, file, qual, raw in self.change.graph.con.execute(
+                    "SELECT id, file, qual, raw FROM node WHERE kind IN ('function', 'method')"):
+                ids.add(ident)
+                if file and '<anonymous' not in qual and file not in self.tests() and not is_test_file(file):
+                    add(ident, file, qual, store.unpack(raw) if raw and not self.python(file) else {})
+            self._removed = []
+            for file in sorted(self.production()):
+                module = self.change.module(file)
+                for row in self.change.old_part(file, 'nodes') or ():
+                    ident = f'{module}:{row["qual"]}'
+                    if row['kind'] in ('function', 'method') and '<anonymous' not in row['qual'] and ident not in ids:
+                        self._removed.append(add(ident, file, row['qual'], row.get('raw') or {}))
+            self._targets = found
+        return self._targets
+
+    def removed(self):
+        """The targets this change removes (`targets`)."""
+        self.targets()
+        return self._removed
+
+    def defaults(self):
+        """The targets each file exports as its default, which a default import calls by another name."""
+        if self._defaults is None:
+            exported = {path: data['exports'].get('default') for path, _, data in self.change.graph._kinds('exports')
+                        if data.get('exports')}
+            self._defaults = {target for (python, _), targets in self.targets().items() if not python for target in targets
+                              if exported.get(target[1]) == target[2]}
+        return self._defaults
+
+    def candidates(self, file, name, binding, among=None):
+        """The targets a call `name` of `file` with this binding of its first name may reach by name: those of its
+        language its last name names, or, through a JS/TS default import, those exported as a default. `among`
+        narrows them."""
+        if isinstance(binding, tuple) and binding[1] == 'default' and '.' not in name:
+            found = self.defaults()
+        else:
+            found = self.targets().get((self.python(file), name.rpartition('.')[2]), ())
+        return [target for target in found if among is None or target in among]
+
+    def _ecma_external(self, file, module):
+        """Is the JS/TS import of `module` (as spelled) in `file` one of a package outside the project: not relative,
+        and the map resolves the file's current imports of it nowhere? False for one the file no longer has."""
+        if (file, module) not in self._external:
+            rows = [row for row in (self.change.facts(file) or {}).get('dependencies', ()) if row.get('module') == module]
+            self._external[(file, module)] = bool(rows) and not module.startswith(('.', '/')) \
+                and all(row.get('resolved') is None for row in rows)
+        return self._external[(file, module)]
+
+    def reaches(self, name, file, binding, target):
+        """May the call `name` (as spelled) of `file`, its first name bound by `binding`, reach the function `target`
+        (one of `candidates`) as the map resolves calls? JS/TS (the import links and `MapHandle.call_index`): through
+        the import that binds its first name, when that imports the target or its holder (a namespace or a default
+        import: any), never into a package outside the project; else by name within the target's package, a
+        `holder.name` call only to that holder's function when a function of the project has that holder; a Prisma
+        client call never. Python (the store's links): through the import, into its module or below; else a plain
+        name into the caller's own module, an attribute call anywhere."""
+        from flowguard.structure.readers.ecma import PRISMA_READS, PRISMA_WRITES
+        ident, place, qual, holder = target
+        parts = name.split('.')
+        if self.python(file) != self.python(place):
             return False
-        if not qual.startswith('<anonymous'):
-            return bool(self.change.callees(ident, old=True) - self.change.callees(ident))
-        if ident in self.unmoved(file) or not self.callback_calls(file):
+        if self.python(file):
+            module = ident.partition(':')[0]
+            if binding is not None:
+                bound = binding.partition(':')[0]
+                return module in (bound, binding.replace(':', '.')) or module.startswith(bound + '.')
+            return len(parts) > 1 or self.module(file) == module
+        if len(parts) >= 3 and parts[-1] in PRISMA_WRITES | PRISMA_READS:
             return False
-        return then is None or bool(self.change.callees(then, old=True) - self.change.callees(ident))
+        if binding is not None:
+            module, imported = binding
+            return not self._ecma_external(file, module) and (imported in ('*', 'default', None, holder)
+                                                              or imported == qual.split('.')[0].split('@')[0])
+        if self.change.graph.package(file) != self.change.graph.package(place):
+            return False
+        receiver = parts[-2] if len(parts) > 1 else ''
+        return receiver in ('', 'this') or holder == receiver \
+            or not any(other[3] == receiver for other in self.targets().get((False, parts[-1]), ()))
 
-    def unmoved(self, file):
-        """The module-level callbacks of a changed file whose code a baseline callback of the file has, matched by
-        their place among the callbacks (the positions in their ids aside)."""
-        import re
-        if file not in self._unmoved:
-            position = re.compile(r'<anonymous@\d+,\d+>')
-            old = Counter((position.sub('<anonymous>', row['qual']), row['fp'])
-                          for row in self.change.old_part(file, 'nodes') or () if row['qual'].startswith('<anonymous'))
-            same = set()
-            for ident, qual, fp in self.change.graph.con.execute(
-                    "SELECT id, qual, fp FROM node WHERE file=? AND qual LIKE '<anonymous%' ORDER BY line", (file,)):
-                key = (position.sub('<anonymous>', qual), fp)
-                if '.' not in qual and old[key] > 0:
-                    old[key] -= 1
-                    same.add(ident)
-            self._unmoved[file] = same
-        return self._unmoved[file]
+    def _reached(self, file, name, binding, among=None):
+        return next((target[0] for target in self.candidates(file, name, binding, among)
+                     if self.reaches(name, file, binding, target)), None)
 
-    def callback_calls(self, file):
-        """The calls the module-level callbacks of a changed file spelled at the baseline and spell no longer (counted
-        per file)."""
-        if file not in self._spelled:
-            def spelled(facts):
-                return Counter(call['text'] for call in (facts or {}).get('syntax_calls', ())
-                               if call['node'].partition(':')[2].startswith('<anonymous'))
-            self._spelled[file] = spelled(self.change.old_facts(file)) - spelled(self.change.graph.file_facts(file))
-        return self._spelled[file]
+    # ---- the guard -----------------------------------------------------------------------------------------------
 
-    def gone(self):
-        """The last parts of the call names the changed files no longer spell: those a changed or removed named
-        function lost, and those a file's module-level callbacks lost. Prisma client calls, which never resolve by
-        name, are left out."""
-        if self._gone is None:
-            from flowguard.structure.api import _without_moves
-            from flowguard.structure.readers.ecma import PRISMA_READS, PRISMA_WRITES
-            gone = set()
-            for file in sorted(self.change.files):
-                for ident in {named(ident) for ident, kind, *_ in _without_moves(self.change.delta([file]))
-                              if kind in ('changed', 'removed')}:
-                    if ident.partition(':')[2]:
-                        gone |= self.change.callees(ident, old=True) - self.change.callees(ident)
-                gone |= set(self.callback_calls(file))
-            parts = [name.split('.') for name in gone]
-            self._gone = {part[-1] for part in parts if not (len(part) >= 3 and part[-1] in PRISMA_WRITES | PRISMA_READS)}
-        return self._gone
-
-    def exact(self, tree, function, then, removed=frozenset()):
-        """(exact, why): may the member `function` be judged at the baseline with its current `tree`? `then` is the
-        member's baseline id, `removed` the names of the functions this change removed that wrote the partner."""
+    def exact(self, tree, function):
+        """(exact, why): may the member `function` be judged at the baseline with its current operation `tree`? Not
+        when the tree lost a call (see the class)."""
+        change, lost, removed = self.change, self.lost(), set(self.removed())
         for ident in tree:
-            if self.lost(ident, then if ident == function else None):
-                return False, f'{ident} no longer calls all it called at the baseline'
-        lost = sorted(ident for ident in tree if (qual := ident.partition(':')[2]) and not qual.startswith('<anonymous')
-                      and qual.rpartition('.')[2] in self.gone())
-        if lost:
-            return False, f'a changed file no longer calls {", ".join(lost)}'
-        calling = sorted(ident for ident in tree if removed & {name.rpartition('.')[2] for name in self.change.callees(ident)})
-        if calling:
-            return False, f'{", ".join(calling)} calls a function this change removed, which wrote the partner'
+            file = change.path_of(ident.partition(':')[0])
+            if file is None or file in self.tests() or is_test_file(file):
+                continue
+            changed = file in change.baseline_paths()
+            if file in self.production():
+                for key, _ in self.of(file, ident, old=True):
+                    for place, name, binding in lost.get(key, ()):
+                        if (reached := self._reached(place, name, binding)) is not None:
+                            return False, f'{ident} no longer calls {name} as it did at the baseline ({reached})'
+            if removed:
+                for key, names in self.of(file, ident, old=changed):
+                    for name in sorted(names):
+                        binding = self.binding(file, key, name.split('.')[0], old=changed)
+                        if (reached := self._reached(file, name, binding, removed)) is not None:
+                            return False, f'{ident} calls {reached}, which this change removes'
+        if self._by_name is None:
+            self._by_name = {}                    # the lost calls by the name they end in; a default import's by None
+            for items in lost.values():
+                for place, name, binding in items:
+                    default = isinstance(binding, tuple) and binding[1] == 'default' and '.' not in name
+                    self._by_name.setdefault(None if default else (self.python(place), name.rpartition('.')[2]), []).append(
+                        (place, name, binding))
+        for ident in change.graph.call_tree(function, 0, up=2):
+            if ident not in self._by_id:          # a callback, module code or a test: no call reaches it by name
+                continue
+            name, target = self._by_id[ident]
+            calls = self._by_name.get((self.python(target[1]), name), [])
+            calls = calls + (self._by_name.get(None, []) if target in self.defaults() else [])
+            for place, spelled, binding in calls:
+                if self.reaches(spelled, place, binding, target):
+                    return False, f'{place} no longer calls {ident} ({spelled})'
         return True, ''
 
 
@@ -526,16 +789,29 @@ def owner_pairs(change, index, *, everything=False):
 
     One `pair:A>B` finding per agreement and partner, one part per function that misses it (`_pair_function`).
     A part is fresh (this change added it) unless the baseline result has it: the current registration applied to
-    the baseline code (the writes of every changed file at the baseline, `Change.baseline_writes`), judged with the
-    current operation tree, and only while every function on that tree calls as at the baseline (`_Calls`; else the
-    part is fresh, fail-closed). Without a baseline nothing is fresh. The legacy red line names the misses of changed
-    files, or every miss of an agreement this change added."""
+    the baseline code (the writes of every changed file at the baseline, `Change.baseline_writes`, a module-level
+    callback by its counterpart), judged with the current operation tree, and only while that tree lost no call the
+    baseline had (`_Calls`; else the part is fresh, fail-closed). Without a baseline nothing is fresh. The legacy red
+    line names the misses of changed files, or every miss of an agreement this change added.
+
+    The finding's detail notes a hold that counts but is not confirmed (a `where` that cannot be read, D20; two
+    conditions not compared, D21) for each function that has one; an agreement whose every trigger is held has no
+    finding, so such a note shows only beside a member that misses its partner."""
     from .health import Issue
     found = Findings()
     def bound(row):         # a JS/TS `obj.f = ...` matched by field name alone is not a write of a model
         return not row.get('unclear') and not (row.get('how') == 'name' and row.get('language', 'python') != 'python')
     tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
-    trees, calls_now, functions = {}, _Calls(change), None
+    trees, guard, every = {}, _Calls(change), {}
+    def writes(target, *, old=False):
+        """`graph.writes(target, by_name=True)` (`old`: `Change.baseline_writes`), every row read once per side."""
+        from flowguard.structure.api import _writes_target
+        if old not in every:
+            every[old] = (change.baseline_writes(by_name=True), change.baseline_definitions().models
+                          if change.baseline_paths() else change.graph._models()) if old else \
+                (change.graph.writes(by_name=True), change.graph._models())
+        rows, models = every[old]
+        return [row for row in rows if _writes_target(row, target, models)]
     def tree_of(function):
         if function not in trees:
             trees[function] = operation(change.graph, function, fold=_member)
@@ -545,7 +821,7 @@ def owner_pairs(change, index, *, everything=False):
         def triggers(written):
             return [row for row in written if bound(row) and row['file'] not in tests and not is_test_file(row['file'])
                     and (not owner.on or creates(row) == (owner.on == 'create')) and not _allowed(row, alone)]
-        rows = triggers(change.graph.writes(owner.name, by_name=True))
+        rows = triggers(writes(owner.name))
         new_rule = change.baseline and not _owner_at_baseline(change, owner)
         for pair in owner.pairs:
             target, _, value = pair.partition('=')
@@ -553,7 +829,7 @@ def owner_pairs(change, index, *, everything=False):
             written = model if column == '*' else target
             def partners(rows):
                 return [row for row in rows if bound(row) and _holds(row, value or None)]
-            now = [(row, _pair_function(row)) for row in partners(change.graph.writes(written, by_name=True))]
+            now = [(row, _pair_function(row)) for row in partners(writes(written))]
             missing, calls, members, unconfirmed = [], {}, {}, {}
             for row in rows:
                 function = _pair_function(row)
@@ -578,22 +854,14 @@ def owner_pairs(change, index, *, everything=False):
                 continue
             fresh, detail = set(), []
             if change.baseline:
-                then = triggers(change.baseline_writes(owner.name, by_name=True))
-                current = {_pair_key(row): function for row, function in now} | {_pair_key(row): _pair_function(row) for row in rows}
-                then_partners = [(row, current.get(_pair_key(row), _pair_function(row)))
-                                 for row in partners(change.baseline_writes(written, by_name=True))]
-                if functions is None:
-                    functions = {ident for (ident,) in change.graph.con.execute("SELECT id FROM node WHERE kind IN ('function', 'method')")}
-                removed = frozenset(member.partition(':')[2].rpartition('.')[2] for row, member in then_partners
-                                    if row['file'] in change.baseline_paths() and member.partition(':')[2]
-                                    and not member.partition(':')[2].startswith('<anonymous') and member not in functions)
+                then = triggers(writes(owner.name, old=True))
+                then_partners = [(row, guard.current(row)) for row in partners(writes(written, old=True))]
                 for function, row in members.items():
-                    key = _pair_key(row)
-                    old = [item for item in then if _pair_key(item) == key]
+                    old = [item for item in then if guard.current(item) == function]
                     if not old or all(_held(item, function, tree_of(function), then_partners)[0] for item in old):
                         fresh.add(function)
                         continue
-                    exact, why = calls_now.exact(tree_of(function), function, _pair_function(old[0]), removed)
+                    exact, why = guard.exact(tree_of(function), function)
                     if not exact:
                         fresh.add(function)
                         detail.append(f'{_pair_place(row)} counts as new: {why}, so its baseline cannot be read')

@@ -489,6 +489,282 @@ def test_a_member_whose_partner_was_written_by_a_function_this_change_removes_is
     issues, lines, _ = _pairs(tmp_path)
     [issue] = issues
     assert _red(lines) == {('pair:Node.parentId>Node.level', 'typescript/src/node.ts:reparent')}
-    assert [text for text in issue.detail if 'this change removed' in text] == [
-        'src/node.ts:reparent counts as new: typescript/src/node.ts:reparent calls a function this change removed, '
-        'which wrote the partner, so its baseline cannot be read'], issue.detail
+    assert [text for text in issue.detail if 'this change removes' in text] == [
+        'src/node.ts:reparent counts as new: typescript/src/node.ts:reparent calls typescript/src/lib.ts:storeLevel, '
+        'which this change removes, so its baseline cannot be read'], issue.detail
+
+
+# ---- the guard reads what the tree lost, not every call a changed file dropped ----------------------------
+
+def test_an_unrelated_file_that_drops_a_call_of_a_tree_functions_name_leaves_the_old_member_old(tmp_path):
+    # `report` drops `validator.check`: `check` names a function lower in `move`'s tree, which cannot shrink it.
+    _project(tmp_path, {'src/util.ts': '''
+        export function check(id: number) { return id > 0; }
+    ''', 'src/node.ts': '''
+        import { check } from './util';
+        export async function move(prisma: any, id: number, parent: number) {
+          check(id);
+          await prisma.node.update({ where: { id }, data: { parentId: parent } });
+        }
+    ''', 'src/report.ts': '''
+        const validator: any = {};
+        export function report(x: number) { validator.check(x); return x; }
+    '''}, NODE)
+    _write(tmp_path, {'src/report.ts': '''
+        export function report(x: number) { return x; }
+    '''})
+    issues, lines, _ = _pairs(tmp_path)
+    assert _members(issues) == {('pair:Node.parentId>Node.level', 'typescript/src/node.ts:move')}
+    assert not _fresh(issues), [issue.detail for issue in issues]
+
+
+def test_a_test_or_another_holders_call_that_a_change_drops_leaves_the_old_member_old(tmp_path):
+    # A test is not part of the operation, and `otherService.move` is another function than `nodeService.move`.
+    _project(tmp_path, {'src/node.ts': OLD_VIOLATION % '', 'src/other.ts': '''
+        export const otherService = {
+          move(id: number) { return id; },
+        };
+        export function relocate(id: number) { return otherService.move(id); }
+    ''', 'tests/node.test.ts': '''
+        import { nodeService } from '../src/node';
+        export async function moveIt(prisma: any) { await nodeService.move(prisma, 1, 2); }
+    '''}, NODE)
+    _write(tmp_path, {'src/other.ts': '''
+        export const otherService = {
+          move(id: number) { return id; },
+        };
+        export function relocate(id: number) { return id; }
+    ''', 'tests/node.test.ts': '''
+        export async function moveIt(prisma: any) { return prisma; }
+    '''})
+    issues, lines, _ = _pairs(tmp_path)
+    assert _members(issues) == {MOVE} and not _fresh(issues), [issue.detail for issue in issues]
+
+
+LIB = '''
+    export async function sync(prisma: any, id: number, level: number) {
+      await prisma.node.update({ where: { id }, data: { level } });
+    }
+'''
+LIB_SILENT = '''
+    export async function sync(prisma: any, id: number, level: number) {
+      return level;
+    }
+'''
+CALLS_SYNC = '''
+    import { sync } from './%s';
+    export async function reparent(prisma: any, id: number, parent: number, level: number) {
+      await prisma.node.update({ where: { id }, data: { parentId: parent } });
+      await sync(prisma, id, level);
+    }
+'''
+
+
+def test_a_caller_that_imports_the_same_name_from_another_file_makes_its_member_red(tmp_path):
+    # The call reads `sync` as before, but from a file whose `sync` does not write the partner.
+    _project(tmp_path, {'src/lib.ts': LIB, 'src/lib2.ts': LIB_SILENT, 'src/node.ts': CALLS_SYNC % 'lib'}, NODE)
+    assert _pairs(tmp_path)[0] == []
+    _write(tmp_path, {'src/node.ts': CALLS_SYNC % 'lib2'})
+    issues, lines, _ = _pairs(tmp_path)
+    assert _members(issues) == _fresh(issues) == _red(lines) == REPARENT, [issue.detail for issue in issues]
+
+
+def test_a_python_caller_that_imports_the_same_name_from_another_module_makes_its_member_red(tmp_path):
+    store = '''
+        # flowguard: owner hires.reserved with=hires.state=held
+        from shop.%s import hold
+
+
+        def reserve(db, hire_id):
+            db.execute("UPDATE hires SET reserved = 1 WHERE id = ?", (hire_id,))
+            hold(db, hire_id)
+    '''
+    _commit(tmp_path, {'shop/__init__.py': '', 'shop/store.py': store % 'lib', 'shop/lib.py': '''
+        def hold(db, hire_id):
+            db.execute("UPDATE hires SET state = 'held' WHERE id = ?", (hire_id,))
+    ''', 'shop/lib2.py': '''
+        def hold(db, hire_id):
+            return hire_id
+    '''})
+    assert _pairs(tmp_path)[0] == []
+    _write(tmp_path, {'shop/store.py': store % 'lib2'})
+    issues, lines, _ = _pairs(tmp_path)
+    member = {('pair:hires.reserved>hires.state=held', 'shop.store:reserve')}
+    assert _members(issues) == _fresh(issues) == _red(lines) == member, [issue.detail for issue in issues]
+
+
+MID = '''
+    import { storeLevel } from './store';
+    export async function sync(prisma: any, id: number, level: number) {
+      await storeLevel(prisma, id, level);
+    }
+'''
+STORE = '''
+    export async function storeLevel(prisma: any, id: number, level: number) {
+      await prisma.node.update({ where: { id }, data: { level } });
+    }
+'''
+
+
+def test_a_helper_moved_to_a_new_file_without_the_call_that_wrote_the_partner_makes_the_caller_red(tmp_path):
+    # mid.ts:sync called the partner's writer; the change deletes it and imports a new sync that does not.
+    _project(tmp_path, {'src/store.ts': STORE, 'src/mid.ts': MID, 'src/node.ts': CALLS_SYNC % 'mid'}, NODE)
+    assert _pairs(tmp_path)[0] == []
+    (tmp_path / 'src/mid.ts').unlink()
+    _write(tmp_path, {'src/mid2.ts': LIB_SILENT, 'src/node.ts': CALLS_SYNC % 'mid2'})
+    issues, lines, _ = _pairs(tmp_path)
+    assert _members(issues) == _fresh(issues) == _red(lines) == REPARENT, [issue.detail for issue in issues]
+
+
+def test_a_helper_called_by_name_that_this_change_replaces_makes_the_unchanged_caller_red(tmp_path):
+    # `reparent` calls `sync` by name alone (no import) and stays as it is; the change deletes the `sync` that
+    # called the partner's writer and adds one that does not.
+    caller = CALLS_SYNC.replace("    import { sync } from './%s';\n", '')
+    _project(tmp_path, {'src/store.ts': STORE, 'src/mid.ts': MID, 'src/node.ts': caller}, NODE)
+    assert _pairs(tmp_path)[0] == []
+    (tmp_path / 'src/mid.ts').unlink()
+    _write(tmp_path, {'src/mid2.ts': LIB_SILENT})
+    issues, lines, _ = _pairs(tmp_path)
+    assert _members(issues) == _fresh(issues) == _red(lines) == REPARENT, [issue.detail for issue in issues]
+
+
+def test_module_code_that_stops_calling_the_member_makes_it_red(tmp_path):
+    # At the baseline the seed script's own code called setParent and wrote the partner: one operation.
+    _project(tmp_path, {'src/node.ts': '''
+        export async function setParent(prisma: any, id: number, parent: number) {
+          await prisma.node.update({ where: { id }, data: { parentId: parent } });
+        }
+    ''', 'src/seed.ts': '''
+        import { setParent } from './node';
+        const prisma: any = {};
+        await setParent(prisma, 1, 2);
+        await prisma.node.update({ where: { id: 1 }, data: { level: 1 } });
+    '''}, NODE)
+    assert _pairs(tmp_path)[0] == []
+    _write(tmp_path, {'src/seed.ts': '''
+        const prisma: any = {};
+        await prisma.node.update({ where: { id: 1 }, data: { level: 1 } });
+    '''})
+    issues, lines, _ = _pairs(tmp_path)
+    assert _red(lines) == {('pair:Node.parentId>Node.level', 'typescript/src/node.ts:setParent')}, [i.detail for i in issues]
+
+
+# ---- callbacks keep their identity by how they are registered and by their code ----------------------------
+
+LEADER_ROUTES = '''
+    %s
+    import { projectService } from './service';
+    const router: any = {};
+    router.put('/:id/leader', async (req: any, res: any) => {
+      await projectService.setLeader(prisma, req.params.id, req.body.id);
+      res.json(await prisma.member.create({ data: { projectId: req.params.id, id: req.body.id, role: '%s' } }));
+    });
+    export { router };
+'''
+SET_LEADER = '''
+    export const projectService = {
+      async setLeader(prisma: any, id: string, leader: string) {
+        await prisma.project.update({ where: { id }, data: { leaderId: leader } });
+      },
+    };
+'''
+SET_LEADER_MEMBER = ('pair:Project.leaderId>Member.role=LEAD', 'typescript/src/service.ts:setLeader')
+
+
+def test_a_handler_that_stops_writing_the_partner_value_while_lines_above_it_move_makes_the_member_red(tmp_path):
+    _project(tmp_path, {'src/service.ts': SET_LEADER, 'src/routes.ts': LEADER_ROUTES % ('', 'LEAD')},
+             'together Project.leaderId Member.role=LEAD')
+    assert _pairs(tmp_path)[0] == []
+    _write(tmp_path, {'src/routes.ts': LEADER_ROUTES % ('// moved\n// moved\n', 'MEMBER')})
+    issues, lines, _ = _pairs(tmp_path)
+    assert _members(issues) == _fresh(issues) == _red(lines) == {SET_LEADER_MEMBER}, [i.detail for i in issues]
+
+
+USE = '''
+    app.use(async (req: any, res: any) => {
+      await prisma.project.update({ where: { id: req.params.id }, data: { leaderId: req.body.id } });
+      %s
+    });
+'''
+
+
+def test_a_new_handler_registered_like_an_old_one_is_new(tmp_path):
+    # The new handler is inserted before the old one, which this change fixes: the new one is not the old one.
+    _project(tmp_path, {'src/members.ts': MEMBERS, 'src/app.ts': 'const app: any = {};\n' + USE % ''}, LEADER)
+    fix = "await prisma.member.create({ data: { projectId: req.params.id, id: req.body.id, role: 'LEAD' } });"
+    _write(tmp_path, {'src/app.ts': 'const app: any = {};\n' + USE % 'res.json(1);' + USE % fix})
+    issues, lines, _ = _pairs(tmp_path)
+    [member] = _members(issues)
+    assert _fresh(issues) == _red(lines) == {member}, [i.detail for i in issues]
+
+
+def test_an_old_handler_this_change_edits_is_before(tmp_path):
+    # The edited handler is touched (`Change.touched` names it as the pair does), so its old violation shows.
+    _project(tmp_path, {'src/members.ts': MEMBERS, 'src/routes.ts': ROUTES % ('', '')}, LEADER)
+    _write(tmp_path, {'src/routes.ts': ROUTES % ('  console.log(project.id);\n', '')})
+    issues, lines, _ = _pairs(tmp_path)
+    [member] = _members(issues)
+    assert not _fresh(issues) and [(line.kind, line.name, line.function) for line in lines] == [('before', *member)]
+
+
+# ---- w2 and w4: what the review of the first candidate found -----------------------------------------------
+
+def test_a_create_of_the_triggers_own_model_in_its_function_does_not_hold_an_update(tmp_path):
+    # A create makes another record than the one the trigger's `where` selects.
+    assert _reparent(tmp_path, _move('await prisma.node.create({ data: { id: parent + 1, level } });')) == REPARENT
+
+
+def _branches(data):
+    return ('export async function reparent(prisma: any, id: number, parent: number, level: number, moving: boolean) {\n'
+            f'  await prisma.node.update({{ where: {{ id }}, data: {data} }});\n}}\n')
+
+
+def test_a_trigger_and_a_partner_in_two_branches_of_one_conditional_do_not_hold_the_pair(tmp_path):
+    assert _reparent(tmp_path, _branches('moving ? { parentId: parent } : { level }')) == REPARENT
+    for data in ('{ ...(moving ? { parentId: parent } : { level }) }', '{ parentId: parent } || { level }',
+                 '{ ...(moving ? { parentId: parent } : null ?? { level }) }'):
+        _write(tmp_path, {'src/node.ts': _branches(data)})
+        assert _red(_pairs(tmp_path)[1]) == REPARENT, data
+
+
+def test_the_branch_of_a_conditional_is_part_of_its_mark(tmp_path):
+    _project(tmp_path, {'src/node.ts': _branches('moving ? { parentId: parent } : { level }')}, NODE)
+    with closing(build(tmp_path)) as graph:
+        rows = {row['field']: row['conditional'] for row in graph.writes('Node')}
+    assert rows == {'parentId': ['2:51?'], 'level': ['2:51:']}
+
+
+# ---- D20: a hold that is not confirmed --------------------------------------------------------------------
+
+def test_a_hold_that_is_not_confirmed_is_noted_only_on_a_finding_of_its_agreement(tmp_path):
+    # An unreadable `where` still holds the pair (D20). The note rides on the agreement's finding, as its detail; an
+    # agreement with no member missing its partner has no finding to carry it.
+    _project(tmp_path, {'src/keep.ts': 'export const keep = 1;\n'}, NODE)
+    unread = _move('const where = { id: parent };', 'await prisma.node.update({ where, data: { level } });')
+    _write(tmp_path, {'src/node.ts': unread})
+    assert _pairs(tmp_path)[0] == []
+    _write(tmp_path, {'src/node.ts': unread + OLD_VIOLATION % ''})
+    [issue] = _pairs(tmp_path)[0]
+    assert [function for function, *_ in issue.parts] == [MOVE[1]]
+    assert issue.detail[:1] == ('src/node.ts:reparent: src/node.ts:reparent writes Node.level, but its where cannot be '
+                                'read: not confirmed',), issue.detail
+
+
+# ---- the baseline reads only what the map reads -------------------------------------------------------------
+
+def test_a_deleted_file_the_map_never_reads_gives_the_baseline_nothing(tmp_path):
+    # `.flowguard/**` and `[tool.flowguard] exclude` are never mapped, so they held no write at the baseline either.
+    retired = '''
+        def reserve(db, hire_id):
+            db.execute("UPDATE hires SET reserved = 1 WHERE id = ?", (hire_id,))
+    '''
+    _commit(tmp_path, {'pyproject.toml': '[tool.flowguard]\nexclude = ["vendor/**"]\n', 'shop/__init__.py': '',
+                       'shop/store.py': '# flowguard: owner hires.reserved with=hires.state=held\nKEEP = 1\n',
+                       '.flowguard/models/retired.py': retired, 'vendor/tool.py': retired, 'shop/old.py': retired})
+    for path in ('.flowguard/models/retired.py', 'vendor/tool.py', 'shop/old.py'):
+        (tmp_path / path).unlink()
+    with closing(build(tmp_path)) as graph:
+        change = owners.Change(load_config(tmp_path), graph, 'HEAD')
+        assert {path: change.module(path) for path in sorted(change.baseline_paths()) if path.endswith('.py')} == {
+            '.flowguard/models/retired.py': None, 'shop/old.py': 'shop.old', 'vendor/tool.py': None}
+        assert {row['file'] for row in change.baseline_writes('hires.reserved')} == {'shop/old.py'}
