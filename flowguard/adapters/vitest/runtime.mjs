@@ -5,23 +5,17 @@
 // While a replay runs, fs writes, fs.promises writes, child_process, net, http, https, fetch, dgram and worker
 // threads are refused before they happen; a refusal voids the whole replay. A connection opened before the
 // replay cannot be stopped this way, so a call whose arguments hold a database client is never replayed.
-// The wrapped module, and so this runtime, loads inside the test's module graph, where a test may mock a Node
-// module (`vi.mock('node:fs/promises', () => ({ writeFile: vi.fn() }))`): an ESM import of it here would receive
-// the test's mock, and a mock without a default export fails the whole test file. Node's own require gives the
-// real modules, which the guard patches and `syncBuiltinESMExports` passes on to their ESM exports.
-import { createRequire, syncBuiltinESMExports } from 'node:module';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import cp from 'node:child_process';
+import net from 'node:net';
+import http from 'node:http';
+import https from 'node:https';
+import dgram from 'node:dgram';
+import wt from 'node:worker_threads';
+import path from 'node:path';
+import { syncBuiltinESMExports } from 'node:module';
 import { expect } from 'vitest';
-
-const require = createRequire(import.meta.url);
-const fs = require('node:fs');
-const fsp = require('node:fs/promises');
-const cp = require('node:child_process');
-const net = require('node:net');
-const http = require('node:http');
-const https = require('node:https');
-const dgram = require('node:dgram');
-const wt = require('node:worker_threads');
-const path = require('node:path');
 
 const KEY = Symbol.for('flowguard.vitest.runtime');
 const S = globalThis[KEY] ?? (globalThis[KEY] = {
