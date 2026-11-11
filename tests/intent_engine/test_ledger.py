@@ -444,7 +444,7 @@ def test_the_scan_scope_is_every_mapped_file_unless_configured(tmp_path):
     write(tmp_path, 'tests/test_app.py', LOOKUP)
     write(tmp_path, 'tests/fixtures/sample.py', LOOKUP)
     write(tmp_path, ledger.LEDGER, ledger.HEADER)
-    files = lambda: sorted(text.split()[0].removeprefix('New unregistered fallback: ').split(':')[0] for text in texts(evaluate(tmp_path)))
+    files = lambda: sorted(text.removeprefix('New unregistered fallback: ').split()[0].split(':')[0] for text in texts(evaluate(tmp_path)))
     assert files() == ['app.py', 'scripts/tool.py', 'tests/fixtures/sample.py', 'tests/test_app.py']
     write(tmp_path, 'pyproject.toml', '[tool.flowguard.ledger]\npaths = ["app.py", "tests"]\nexclude = ["tests/fixtures/**"]\n')
     assert files() == ['app.py', 'tests/test_app.py']

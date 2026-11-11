@@ -114,7 +114,7 @@ def test_damaged_retired_sidecar_stays_retired_and_names_the_sidecar(tmp_path, c
     sidecar = root / '.flowguard/requests/R1.json'
     sidecar.write_bytes(sidecar.read_bytes().replace(b'"kind": "request"', b'"kind": "bogus"'))
     assert retired_requests(root) == {'R1': None}
-    row = owner_words(root)['rows'][0]
+    row = next(row for row in owner_words(root)['rows'] if row['id'] == 'R1')
     assert row['id'] == 'R1' and row['retired'] and row['edited']
     assert 'R1.json' in row['edited'] and row['first_line'] == ''
 

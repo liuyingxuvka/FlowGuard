@@ -130,6 +130,21 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/intent/anchors.py:source_facts:ValueError"]
+count = 1
+reason = "Report invalid agreement syntax as a red source issue with its original error text and line. Collection continues only to report other independent errors; an invalid agreement never becomes valid."
+rule = { file = "AGENTS.md", text = "when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/anchors.py:_data_owner:ValueError"]
+count = 1
+reason = "Report an invalid writer or exception position as a red syntax issue with the original error and source line. No invalid position authorizes a write or suppresses a paired-field violation."
+rule = { file = "AGENTS.md", text = "when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/anchors.py:foreign_owners:ValueError"]
+count = 1
+reason = "Report invalid foreign-source agreement syntax as a red issue with its original message and source line. Parsing other comments cannot turn the rejected comment into a valid agreement."
+rule = { file = "AGENTS.md", text = "when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/cache.py:scan:SyntaxError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"

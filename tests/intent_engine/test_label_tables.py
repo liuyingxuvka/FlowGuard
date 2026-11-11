@@ -47,14 +47,8 @@ FILES = {
     'frontend/src/layout/Sidebar.tsx': "const MINE = { BU: 'My Unit', MAIN_DEPARTMENT: 'My Department', TEAM: 'My Team' };\n",
     'frontend/tests/labels.test.ts': "const EXPECTED = { BU: 'Business Units', MAIN_DEPARTMENT: 'Main Department', TEAM: 'Team' };\n",
 }
-ORG = ('标签表不一致：frontend/src/utils/type-label.ts:1 TYPE_LABELS、frontend/src/pages/Admin.tsx:1 TYPES、'
-       'frontend/src/pages/Detail.tsx:1 DETAIL_LABELS、backend/src/role.ts:1 TYPE_TO_ROLE：'
-       "BU 'Business Unit'（TYPE_LABELS、DETAIL_LABELS） 与 'Business unit'（TYPES）；"
-       "MAIN_DEPARTMENT 'Main Department'（TYPE_LABELS、DETAIL_LABELS） 与 'Main department'（TYPES）；"
-       'DETAIL_LABELS 缺 ENTITY；TYPE_TO_ROLE 缺 ENTITY')
-ENTRY = ('标签表不一致：backend/src/grid.ts:1 ENTRY_LABELS、backend/src/usage.ts:1 ENTRY_LABELS：'
-         "FLEXTIME 'Flex Time'（ENTRY_LABELS（grid.ts:1）） 与 'Flextime'（ENTRY_LABELS（usage.ts:1））；"
-         "SICK 'Sick Leave'（ENTRY_LABELS（grid.ts:1）） 与 'Sickness'（ENTRY_LABELS（usage.ts:1））")
+ORG = ("Label tables disagree: frontend/src/utils/type-label.ts:1 TYPE_LABELS、frontend/src/pages/Admin.tsx:1 TYPES、frontend/src/pages/Detail.tsx:1 DETAIL_LABELS、backend/src/role.ts:1 TYPE_TO_ROLE：BU 'Business Unit'（TYPE_LABELS、DETAIL_LABELS） versus 'Business unit'（TYPES）；MAIN_DEPARTMENT 'Main Department'（TYPE_LABELS、DETAIL_LABELS） versus 'Main department'（TYPES）；DETAIL_LABELS lacks ENTITY；TYPE_TO_ROLE lacks ENTITY")
+ENTRY = ("Label tables disagree: backend/src/grid.ts:1 ENTRY_LABELS、backend/src/usage.ts:1 ENTRY_LABELS：FLEXTIME 'Flex Time'（ENTRY_LABELS（grid.ts:1）） versus 'Flextime'（ENTRY_LABELS（usage.ts:1））；SICK 'Sick Leave'（ENTRY_LABELS（grid.ts:1）） versus 'Sickness'（ENTRY_LABELS（usage.ts:1））")
 
 
 def _git(root, *arguments):
@@ -92,6 +86,6 @@ def test_label_tables_that_disagree_are_listed_and_a_lead_when_this_change_edits
     assert not [lead for lead in _findings(tmp_path, base, False).leads if 'Label tables disagree' in str(lead)]
     detail.write_text(detail.read_text(encoding='utf-8').replace("TEAM: 'Team' }", "TEAM: 'Teams' }"), encoding='utf-8')
     leads = [lead for lead in _findings(tmp_path, base, False).leads if 'Label tables disagree' in str(lead)]
-    assert len(leads) == 1 and leads[0].startswith(ORG.replace('；DETAIL_LABELS 缺', "；TEAM 'Team'（TYPE_LABELS） 与 'Teams'（DETAIL_LABELS）；DETAIL_LABELS 缺")), leads
-    assert leads[0].endswith('[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"] decision = "换成主人的决定：谁负责、'
-                             '为什么这样（不少于 8 个词）" source = "R<n>"'), leads
+    assert len(leads) == 1 and leads[0].startswith(ORG.replace('；DETAIL_LABELS lacks ', "；TEAM 'Team'（TYPE_LABELS） versus 'Teams'（DETAIL_LABELS）；DETAIL_LABELS lacks ")), leads
+    assert leads[0].endswith('[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"] decision = "Replace with the owner\'s decision: who owns this and '
+                             'why (at least 8 words)" source = "R<n>"'), leads

@@ -10,6 +10,8 @@ from flowguard.intent import anchors, owners
 from flowguard.intent.config import load_config
 from flowguard.structure import build
 
+ACCOUNT_SCHEMA = 'model Account {\n  id Int @id\n  status String\n  changed Boolean\n}\n'
+
 
 def _files(root, files):
     for name, source in files.items():
@@ -79,7 +81,7 @@ def test_new_python_positions_follow_configured_import_roots(tmp_path):
         found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index, everything=True)
     assert len(found.leads) == 1
     assert 'src/other.py' in found.leads[0]
-    assert 'src/allowed.py:' not in found.leads[0].partition(' -> ')[0]
+    assert 'src/allowed.py:' not in found.leads[0].partition('; allowed only:')[0]
 
 
 @pytest.mark.parametrize('suffix', ['py', 'ts'])
@@ -108,15 +110,17 @@ def test_a_new_bare_writer_does_not_authorize_the_same_name_in_another_file(tmp_
             }
         '''
         field = 'Account.status'
-    _files(tmp_path, {f'local.{suffix}': local, f'other.{suffix}': other})
+    _files(tmp_path, {f'local.{suffix}': local, f'other.{suffix}': other,
+                      **({'prisma/schema.prisma': ACCOUNT_SCHEMA} if suffix == 'ts' else {})})
     with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
         index = anchors.collect(graph)
         agreement, = index.named(field)
         assert graph.node(agreement.writers[0])['file'] == f'local.{suffix}'
+        assert {row['file'] for row in graph.writes(field, by_name=True)} == {f'local.{suffix}', f'other.{suffix}'}
         found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index, everything=True)
     assert len(found.leads) == 1
     assert f'other.{suffix}:' in found.leads[0]
-    assert f'local.{suffix}:' not in found.leads[0].partition(' -> ')[0]
+    assert f'local.{suffix}:' not in found.leads[0].partition('; allowed only:')[0]
 
 
 def test_typescript_same_reference_binds_to_the_function_and_not_a_data_role(tmp_path):
@@ -139,7 +143,63 @@ def test_typescript_same_reference_binds_to_the_function_and_not_a_data_role(tmp
         agreement, = index.named('Account.status')
         assert not [issue for issue in index.issues if issue.name == 'Account.status']
         assert [graph.node(position)['file'] for position in agreement.writers] == ['policy.ts', 'other.ts']
-        assert agreement.alone == ('typescript/other.ts:service.save(owner approved)',)
+        assert agreement.writers == ('typescript/policy.ts:reference', 'typescript/other.ts:save')
+        assert agreement.alone == ('typescript/other.ts:save(owner approved)',)
+
+
+def test_typescript_positions_use_the_declared_holder_not_a_matching_method_tail(tmp_path):
+    _files(tmp_path, {'prisma/schema.prisma': ACCOUNT_SCHEMA, 'policy.ts': '''
+        // flowguard: writers Account.status other.ts:service.save
+    ''', 'other.ts': '''
+        export const service = {
+          save(prisma: any) { return prisma.account.update({ where: { id: 1 }, data: { status: 'ready' } }); }
+        };
+        export const second = {
+          save(prisma: any) { return prisma.account.update({ where: { id: 2 }, data: { status: 'ready' } }); }
+        };
+        export function save(prisma: any) {
+          return prisma.account.update({ where: { id: 3 }, data: { status: 'ready' } });
+        }
+    '''})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+        assert not index.issues
+        agreement, = index.named('Account.status')
+        assert graph.node(agreement.writers[0])['line'] == 2
+        rows = graph.writes('Account.status', by_name=True)
+        assert {row['line'] for row in rows} == {2, 5, 8}
+        found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index, everything=True)
+        assert len(found.leads) == 1
+        writes = found.leads[0].partition('; allowed only:')[0]
+        assert 'other.ts:5 ' in writes and 'other.ts:8 ' in writes and 'other.ts:2 ' not in writes
+        _files(tmp_path, {'policy.ts': '// flowguard: writers Account.status other.ts:missing.save\n'})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+        assert any(issue.code == 'position' and issue.level == 'red' and 'missing.save' in issue.message
+                   for issue in index.issues)
+
+
+def test_typescript_bare_function_and_ambiguous_holders_do_not_borrow_an_object_method(tmp_path):
+    _files(tmp_path, {'policy.ts': '''
+        // flowguard: writers Account.status save
+        export const service = { save(value: number) { return value; } };
+        export const second = { save(value: number) { return value + 1; } };
+        export function save(value: number) { return value - 1; }
+    '''})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+        agreement, = index.named('Account.status')
+        assert not index.issues
+        assert graph.node(agreement.writers[0])['line'] == 4
+    _files(tmp_path, {'policy.ts': '''
+        // flowguard: writers Account.status service.save
+        export const service = { save(value: number) { return value; } };
+        export const service = { save(value: number) { return value + 1; } };
+    '''})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+        assert any(issue.code == 'position' and issue.level == 'red' and 'service.save' in issue.message
+                   for issue in index.issues)
 
 
 @pytest.mark.parametrize('suffix', ['py', 'ts'])
@@ -167,7 +227,7 @@ def test_splitting_a_mixed_agreement_keeps_one_registration_with_both_constraint
 
 
 def test_a_split_registration_still_checks_the_writer_and_the_required_partner(tmp_path):
-    _files(tmp_path, {'policy.ts': '''
+    _files(tmp_path, {'prisma/schema.prisma': ACCOUNT_SCHEMA, 'policy.ts': '''
         // flowguard: writers Account.status save
         // flowguard: together Account.status Account.changed on=update
         export function save(prisma: any) {
@@ -181,11 +241,66 @@ def test_a_split_registration_still_checks_the_writer_and_the_required_partner(t
         index = anchors.collect(graph)
         assert not [issue for issue in index.issues if issue.name == 'Account.status']
         change = owners.Change(load_config(tmp_path), graph, None)
+        assert {row['function'] for row in graph.writes('Account.status', by_name=True)} == {'save', 'rogue'}
         writers = owners.owner_writes(change, index, everything=True)
         pairs = owners.owner_pairs(change, index, everything=True)
     assert len(writers.leads) == 1 and 'rogue' in writers.leads[0]
     assert {issue.name for issue in pairs.issues} == {'pair:Account.status>Account.changed'}
     assert pairs.red
+
+
+@pytest.mark.parametrize('suffix', ['py', 'ts'])
+@pytest.mark.parametrize('reverse', [False, True])
+def test_split_agreements_point_to_each_roles_own_comment(tmp_path, suffix, reverse):
+    marker = '#' if suffix == 'py' else '//'
+    field = 'account.status' if suffix == 'py' else 'Account.status'
+    partner = 'account.changed' if suffix == 'py' else 'Account.changed'
+    comments = [f'{marker} flowguard: writers {field} save', f'{marker} flowguard: together {field} {partner}']
+    if reverse:
+        comments.reverse()
+    body = '''
+        def save(db):
+            db.execute("UPDATE account SET status = 'ready'")
+        def rogue(db):
+            db.execute("UPDATE account SET status = 'ready'")
+    ''' if suffix == 'py' else '''
+        export function save(prisma: any) {
+          return prisma.account.update({ where: { id: 1 }, data: { status: 'ready' } });
+        }
+        export function rogue(prisma: any) {
+          return prisma.account.update({ where: { id: 2 }, data: { status: 'ready' } });
+        }
+    '''
+    _files(tmp_path, {f'policy.{suffix}': comments[0] + '\n' * 8 + comments[1] + '\n' + textwrap.dedent(body).lstrip(),
+                      **({'prisma/schema.prisma': ACCOUNT_SCHEMA} if suffix == 'ts' else {})})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+        assert not index.issues
+        raw = graph.file_facts(f'policy.{suffix}')['anchors']
+        assert [row['line'] for row in raw] == [1, 9]
+        change = owners.Change(load_config(tmp_path), graph, None)
+        writers = owners.owner_writes(change, index, everything=True)
+        pairs = owners.owner_pairs(change, index, everything=True)
+        shown = owners.show_lines(load_config(tmp_path), graph, index, field)
+    writer_line, pair_line = (9, 1) if reverse else (1, 9)
+    assert len(writers.leads) == 1 and f'agreement at policy.{suffix}:{writer_line}' in writers.leads[0]
+    assert len(pairs.issues) == 1 and f'comment at policy.{suffix}:{pair_line}' in pairs.issues[0].step
+    assert shown[0].startswith(f'owner {field} policy.{suffix}:{writer_line}; writers=')
+
+
+def test_ambiguous_role_locations_are_labelled_as_canonical_registration(tmp_path):
+    _files(tmp_path, {'policy.py': '''
+        # flowguard: writers account.status save
+        # flowguard: writers account.status other
+        def rogue(db):
+            db.execute("UPDATE account SET status = 'ready'")
+    '''})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+        assert any(issue.code == 'owner' and issue.level == 'red' for issue in index.issues)
+        found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index, everything=True)
+    assert len(found.leads) == 2
+    assert all('agreement at canonical registration policy.py:' in lead for lead in found.leads)
 
 
 @pytest.mark.parametrize('comments', [

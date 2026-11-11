@@ -555,6 +555,41 @@ def test_reusing_static_findings_keeps_discovered_copies_in_the_summary_and_all_
     assert any('LIMIT' in line for line in found.section)
 
 
+def test_reusing_static_findings_returns_its_issues_reds_and_leads_without_mutating_it(tmp_path, monkeypatch):
+    from contextlib import closing
+    from copy import deepcopy
+    from flowguard.intent import owners
+    from flowguard.intent.config import load_config
+    from flowguard.structure import build
+    _project(tmp_path, {'policy.py': '''
+        # flowguard: writers account.status save
+        # flowguard: together account.status account.changed
+        def save(db):
+            db.execute("UPDATE account SET status = 'ready'")
+        def legacy(db):
+            db.execute("UPDATE account SET status = 'ready'")
+    '''})
+    cfg = load_config(tmp_path)
+    base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        index = anchors.collect(graph)
+        static = owners.static_findings(cfg, graph, index, base, everything=True)
+        before = deepcopy(static)
+        assert static.issues and static.red and static.leads
+        def repeated_static(*args, **kwargs):
+            raise AssertionError('the existing static facts must be reused')
+        monkeypatch.setattr(owners, 'static_findings', repeated_static)
+        found = owners.check_findings(cfg, graph, index, base, everything=True, static=static)
+    assert static == before
+    assert found is not static
+    assert found.issues == static.issues
+    assert all(line in found.red for line in static.red)
+    assert all(line in found.leads for line in static.leads)
+    assert found.summary == static.summary
+    assert found.section == static.section
+    assert all(found.stats[key] == value for key, value in static.stats.items())
+
+
 def test_copy_discovery_replays_through_the_runtime_and_lists_what_it_cannot_run(tmp_path):
     _project(tmp_path, {'rules.py': '''
         # flowguard: owner HALF

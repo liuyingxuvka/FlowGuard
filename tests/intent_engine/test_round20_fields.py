@@ -166,7 +166,7 @@ def test_sample_14_the_changed_grace_constant_leaves_both_rule_leads(shop):
     _edit(shop, 'shop/policy.py', 'GRACE_DAYS = 14', 'GRACE_DAYS = 21')
     result, text = _pytest(shop)
     leads = [line for line in _block(text) if line.startswith('lead: ')]
-    assert 'lead: rule GRACE still uses old value 14（tests/intent/grace.py decision line 7、regression row line 12): if requirements changed, update the rule first' in leads, leads
+    assert 'lead: rule GRACE still uses old value 14(tests/intent/grace.py decision line 7、regression row line 12): if requirements changed, update the rule first' in leads, leads
     copy = next(line for line in leads if ' copies at ' in line)
     assert copy == ('lead: STANDING copies at shop/policy.py:standing changed; rule GRACE is unchanged -> if requirements changed, first use python -m flowguard req add to store the new owner words, then update rule tests/intent/grace.py:4; otherwise confirm that this code change is correct'), copy
 

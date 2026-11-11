@@ -129,7 +129,7 @@ def test_fixed_2_database_writes_stay_grey_without_replaying_the_effect(tmp_path
     text = _text(result)
     assert result.returncode == 0, text
     assert 'COUNTED' in text or 'hire_count' in text, text
-    assert re.search(r'灰|grey|side.effect|副作用|未验证', text, re.I), text
+    assert re.search(r'灰|grey|side.effect|副作用|unverified', text, re.I), text
 
 
 def test_fixed_3_old_function_uses_old_module_constant_and_names_its_line(tmp_path):

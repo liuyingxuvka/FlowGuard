@@ -111,7 +111,7 @@ def test_a_new_write_that_loses_the_baseline_observation_fails_with_two_ways_out
     policy.write_text(policy.read_text(encoding='utf-8').replace('    return days <= 3', '    open("audit.log", "a").close()\n    return days <= 3'), encoding='utf-8')
     result, text = _pytest(root, '-q')
     assert result.returncode == 1 and '2 passed' in text, text
-    assert 'unverified' not in text, text                 # the lost observation is red, not also listed as grey
+    assert not any(line.startswith('unverified') for line in text.splitlines()), text                 # the lost observation is red, not also listed as grey
     lines = text.splitlines()
     index = next(i for i, line in enumerate(lines) if line.startswith('red: observation lost: STANDING：'))
     assert 'policy.py:2 in tests/test_policy.py::test_standing: baseline code was comparable, but the current result is grey' in lines[index], lines[index]
@@ -172,7 +172,7 @@ def test_check_all_fails_a_grey_rule_quoting_the_owner_unless_it_is_listed(tmp_p
     _git(root, 'commit', '-qm', 'owner words')
     checked, text = _cli(root, 'check', '--all')
     assert checked.returncode == 1, text
-    assert 'red: LIMIT_RULE：rule cites original words from the owner (R1), but is now grey (unverified)：module initialization of json is not proved pure' in text, text
+    assert 'red: LIMIT_RULE：rule cites original words from the owner (R1), but is now grey (unverified): module initialization of json is not proved pure' in text, text
     assert f'[unverified] section, write a reason: LIMIT_RULE = ' in text, text
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
     (root / ledger.LEDGER).write_text('[unverified]\nLIMIT_RULE = ' + ledger._quote(
@@ -377,10 +377,10 @@ def test_a_result_that_can_no_longer_be_compared_is_a_lost_observation(tmp_path)
     root = _project(tmp_path / 'opaque', GATE)
     _change(root, 'gate.py', '    return age >= 18', '    return Answer(age >= 18)')
     result, text = _pytest(root, '-q')
-    assert result.returncode == 1 and '2 passed' in text and 'unverified' not in text, text
+    assert result.returncode == 1 and '2 passed' in text and not any(line.startswith('unverified') for line in text.splitlines()), text
     lines = text.splitlines()
     index = next(i for i, line in enumerate(lines) if line.startswith('red: observation lost: GATE：'))
-    assert 'gate.py:8 in tests/test_gate.py::test_gate: baseline code was comparable, but the current result is grey: replay result is not simple comparable data (Answer）' in lines[index], lines[index]
+    assert 'gate.py:8 in tests/test_gate.py::test_gate: baseline code was comparable, but the current result is grey: replay result is not simple comparable data (Answer)' in lines[index], lines[index]
     assert lines[index + 1].startswith('    restore observability: return simple comparable data as the baseline code did'), lines
     # The baseline already returned the object: nothing was lost, the point stays unverified.
     shared = _project(tmp_path / 'shared', dict(GATE, **{'gate.py': textwrap.dedent(GATE['gate.py']).replace(
@@ -388,7 +388,7 @@ def test_a_result_that_can_no_longer_be_compared_is_a_lost_observation(tmp_path)
     _change(shared, 'gate.py', 'age >= 18', 'age >= 21')
     result, text = _pytest(shared, '-q')
     assert result.returncode == 0 and 'observation lost' not in text, text
-    assert 'unverified: GATE（gate.py:8）：replay result is not simple comparable data (Answer）' in text, text
+    assert 'unverified: GATE（gate.py:8）：replay result is not simple comparable data (Answer)' in text, text
 
 
 def test_a_call_that_became_a_generator_or_coroutine_is_a_lost_observation(tmp_path):

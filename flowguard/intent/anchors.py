@@ -202,16 +202,39 @@ def _position(text, file, module):
     return target + ':' + qual
 
 
-def _indexed_agreement(anchor, kind, modules):
-    """Use the map's actual Python import identity, including configured source roots."""
+def _indexed_agreement(anchor, kind, modules, positions=None):
+    """Resolve new agreement positions to the source map's actual function identities."""
     if kind not in ('writers', 'together'):
         return anchor
+    issues = list(anchor.issues)
     def resolve(position):
         target, colon, qual = position.rpartition(':')
-        return modules.get(target, target) + colon + qual
-    return replace(anchor, writers=tuple(resolve(value) for value in anchor.writers),
-                   alone=tuple(resolve(value.partition('(')[0]) + '(' + value.partition('(')[2]
-                               for value in anchor.alone))
+        target = modules.get(target, target)
+        if positions is not None and target in positions:
+            matches = positions[target].get(qual, ())
+            if len(matches) == 1:
+                return matches[0]
+            issues.append(Issue('red', 'position', f'cannot resolve {position} to one declared function; '
+                                'use the actual function or object and method in that source file',
+                                anchor.file, anchor.line, anchor.name))
+        return target + colon + qual
+    writers = tuple(resolve(value) for value in anchor.writers)
+    alone = tuple(resolve(value.partition('(')[0]) + '(' + value.partition('(')[2] for value in anchor.alone)
+    return replace(anchor, writers=writers, alone=alone, issues=tuple(issues))
+
+
+def _agreement_positions(graph, modules):
+    """Actual foreign function ids, using the existing reader's named object holders."""
+    from ..structure import store
+    from ..structure.readers.registry import ECMA, language_for
+    positions = {module: {} for file, module in modules.items() if language_for(file) in ECMA}
+    for module, qual, raw in graph.con.execute("SELECT module, qual, raw FROM node WHERE kind IN ('function', 'method')"):
+        if module not in positions:
+            continue
+        data = store.unpack(raw)
+        declared = (data['holder'] + '.' + data['name']) if data.get('holder') else data['declared_qual']
+        positions[module].setdefault(declared, []).append(module + ':' + qual)
+    return positions
 
 
 def _spelling_at(lines, number, file):
@@ -914,6 +937,7 @@ def collect(graph):
     files = list(graph.con.execute('SELECT path, sha, module FROM file'))
     shas = {file: sha for file, sha, module in files}
     modules = {file: module for file, sha, module in files}
+    positions = _agreement_positions(graph, modules)
     notices = set()
     # Only the kinds the index reads; assignments only when a declared set needs the value gate.
     for file, error, data in graph._kinds('anchors', 'anchor_issues', 'field_types'):
@@ -925,7 +949,7 @@ def collect(graph):
             spelling = _spelling_at(lines, anchor.line, file)
             _old_spellings(spelling, notices)
             if spelling is not None:
-                anchor = _indexed_agreement(anchor, spelling[1], modules)
+                anchor = _indexed_agreement(anchor, spelling[1], modules, positions)
             entries.append(anchor)
             problems.extend(anchor.issues)
         for value in data.get('anchor_issues', ()):

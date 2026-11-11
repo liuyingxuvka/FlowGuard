@@ -143,7 +143,7 @@ def standing(days):
         text = signals.render(dict(items=[], leads=[report]))
         assert 'old values 14 remain in 6 decisions' in text and len(text.splitlines()) == 1
         assert all(f"{row['file']}:{row['line']}" in text for row in report['locations'])
-        assert '# flowguard: owner' in text and '…' not in text
+        assert '# flowguard: same NAME ref' in text and '…' not in text
 
 
 def test_successful_comparison_grid_is_not_a_claim_of_complete_partition():

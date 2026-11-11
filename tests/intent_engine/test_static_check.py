@@ -220,7 +220,7 @@ def test_a_package_whose_prisma_files_name_no_schema_in_use_is_judged_by_all_of_
     _write(root, write)
     code, text = _static(root)
     red = _lines(text, 'red: Value')
-    assert code == 1 and len(red) == 1 and '（enum Kind (prisma/schema.postgres.prisma:1)）' in red[0], text
+    assert code == 1 and len(red) == 1 and '(enum Kind (prisma/schema.postgres.prisma:1))' in red[0], text
 
 
 def test_a_guessed_schema_fills_only_models_no_schema_in_use_defines_and_each_of_its_enums_is_a_set(tmp_path):
@@ -1013,8 +1013,8 @@ def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript
         "3. value：Value outside the declared set: backend/src/notice.service.ts:3 Notice.kind='ARCHIVED'; allowed CREATED|UPDATED (CHECK backend/prisma/migrations/001/migration.sql:1)"], text
     differ = sorted(line for line in _lines(text, 'lead: before: declarations differ: '))
     assert differ == [
-        "lead: before: declarations differ: Gauge.level backend/prisma/central/central.prisma:6（'HIGH' | 'LOW'; missing 'MID'）  backend/prisma/central/migrations/001/migration.sql:1（'HIGH' | 'LOW' | 'MID'） → add missing values; mark an unused description or remove it",
-        "lead: before: declarations differ: Notice.kind backend/prisma/migrations/001/migration.sql:1（'CREATED' | 'UPDATED'; missing 'DELETED'）  backend/prisma/schema.sqlite.prisma:6（'CREATED'; missing 'DELETED', 'UPDATED'）  backend/src/types/notice.ts:1（'CREATED' | 'DELETED' | 'UPDATED'） → add missing values; mark an unused description or remove it"], text
+        "lead: before: declarations differ: Gauge.level backend/prisma/central/central.prisma:6（'HIGH' | 'LOW'; missing 'MID'）  backend/prisma/central/migrations/001/migration.sql:1（'HIGH' | 'LOW' | 'MID'） -> add missing values; mark an unused description or remove it",
+        "lead: before: declarations differ: Notice.kind backend/prisma/migrations/001/migration.sql:1（'CREATED' | 'UPDATED'; missing 'DELETED'）  backend/prisma/schema.sqlite.prisma:6（'CREATED'; missing 'DELETED', 'UPDATED'）  backend/src/types/notice.ts:1（'CREATED' | 'DELETED' | 'UPDATED'） -> add missing values; mark an unused description or remove it"], text
 
 
 def _config(root):
@@ -1061,7 +1061,7 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
     code, text = _static(tmp_path)
     assert code == 1, text
     assert _lines(text, 'red: missing paired write') == [
-        'red: missing paired write for Central.orgUnitId：src/admin.ts:2 editCentral(JS/TS calls resolved by name) writes Central.orgUnitId, the same operation (3 caller levels, then 3 callee levels) does not write Local.unitId → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at src/owners.ts:1）'], text
+        'red: missing paired write for Central.orgUnitId：src/admin.ts:2 editCentral(JS/TS calls resolved by name) writes Central.orgUnitId, the same operation (3 caller levels, then 3 callee levels) does not write Local.unitId → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at src/owners.ts:1)'], text
 
 
 # Round 22 E1, hole 1: the four `w1` wrong fixes of the Planning Tool's registered pairs write the partner field as
@@ -1300,7 +1300,7 @@ def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_
     code, text = _static(tmp_path)
     assert code == 1, text
     assert _lines(text, 'red: missing paired write') == [
-        'red: missing paired write for Employee.sapRef：src/employees.ts:9 fixNumber(JS/TS calls resolved by name)(updates only) writes Employee.sapRef, the same operation (3 caller levels, then 3 callee levels) does not write Opportunity.responsibleNo → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at src/owners.ts:1）'], text
+        'red: missing paired write for Employee.sapRef：src/employees.ts:9 fixNumber(JS/TS calls resolved by name)(updates only) writes Employee.sapRef, the same operation (3 caller levels, then 3 callee levels) does not write Opportunity.responsibleNo → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at src/owners.ts:1)'], text
     _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=create')})
     code, text = _static(tmp_path)
     assert code == 1 and [line.partition('(JS/TS')[0] for line in _lines(text, 'red: missing paired write')] == [
@@ -1353,7 +1353,7 @@ def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_he
     assert code == 1, text
     # _reserve_row writes reserved alone, but its caller reserve writes state='held' through _hold_row
     assert _lines(text, 'red: missing paired write') == [
-        'red: missing paired write for hires.reserved：shop/store.py:16 release writes hires.reserved, the same operation (3 caller levels, then 3 callee levels) does not write hires.state=held → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at shop/store.py:1）'], text
+        'red: missing paired write for hires.reserved：shop/store.py:16 release writes hires.reserved, the same operation (3 caller levels, then 3 callee levels) does not write hires.state=held → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at shop/store.py:1)'], text
 
 
 def test_show_a_model_field_lists_sql_file_writes_and_counts_the_lines_it_leaves_out(tmp_path):
@@ -1444,7 +1444,7 @@ def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_pa
     # moveManager reaches mirrorSap through `this` in its own package; the page's calls are the frontend's own
     # names, and the test that calls dropManager is not part of its operation; the test's fixture is no write to hold.
     assert _lines(text, 'red: missing paired write') == [
-        'red: missing paired write for Unit.managerId：backend/src/unit.service.ts:13 removeManager  backend/src/unit.service.ts:16 dropManager(JS/TS calls resolved by name) writes Unit.managerId, the same operation (3 caller levels, then 3 callee levels) does not write Unit.managerSap → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at backend/src/owners.ts:1）'], text
+        'red: missing paired write for Unit.managerId：backend/src/unit.service.ts:13 removeManager  backend/src/unit.service.ts:16 dropManager(JS/TS calls resolved by name) writes Unit.managerId, the same operation (3 caller levels, then 3 callee levels) does not write Unit.managerSap → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at backend/src/owners.ts:1)'], text
 
 
 def test_show_of_a_field_names_the_fields_its_writers_also_write_as_with_candidates(tmp_path):
@@ -1477,9 +1477,9 @@ def test_show_of_a_field_names_the_fields_its_writers_also_write_as_with_candida
     # id and createdAt are bookkeeping that every writer sets
     assert _lines(text, 'with= candidate') == [
         'with= candidate (reference only): Node.level is written by 2 of the 3 functions that write Node.parentId; not by '
-        'src/nodes.ts:8 move -> if the owner says they change together: // flowguard: owner Node.parentId with=Node.level',
+        'src/nodes.ts:8 move -> if the owner says they change together: // flowguard: together Node.parentId Node.level',
         'with= candidate (reference only): Node.title is written by 2 of the 3 functions that write Node.parentId; not by '
-        'src/nodes.ts:8 move -> if the owner says they change together: // flowguard: owner Node.parentId with=Node.title'], text
+        'src/nodes.ts:8 move -> if the owner says they change together: // flowguard: together Node.parentId Node.title'], text
 
 
 # ---- deletes that leave restricting children ---------------------------------------------------------
@@ -1731,7 +1731,7 @@ def test_a_table_the_code_reads_or_deletes_but_never_fills_is_a_structure_proble
     source.write_text(source.read_text().replace('where: { id } }', 'where: { id }, take: 5 }'))
     code, text = _static(tmp_path)
     assert _lines(text, 'lead: Open structure issue: Table whose rows are never created by this code') == [
-        'lead: Open structure issue: Table whose rows are never created by this code: Deputy read src/deputies.ts:2，delete src/deputies.ts:5; no create/upsert/INSERT exists → ask the owner where these rows come from (seeds, migrations or external systems); if there is no source, remove these reads and deletes; if intentional, record the decision in .flowguard/ledger.toml:'], text
+        'lead: Open structure issue: Table whose rows are never created by this code: Deputy read src/deputies.ts:2，delete src/deputies.ts:5; no create/upsert/INSERT exists -> ask the owner where these rows come from (seeds, migrations or external systems); if there is no source, remove these reads and deletes; if intentional, record the decision in .flowguard/ledger.toml:'], text
 
 
 def test_a_prisma_view_the_code_reads_is_not_a_table_without_rows(tmp_path):
@@ -1874,7 +1874,7 @@ def test_a_change_to_either_schema_of_an_open_ondelete_pair_gets_the_touched_lea
         path.write_text(saved + '// reviewed\n', encoding='utf-8')
         code, text = _static(tmp_path)
         assert code == 0 and _lines(text, 'lead: Open structure issue: onDelete differs') == [
-            "lead: Open structure issue: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations (parentheses show prisma/schema.prisma's rule first, then this description's rule): Room.unit（NoAction/Restrict / Cascade） → align deletion rules in both schemas, including the test schema; if differences are intentional (for example, SQL Server disallows multiple cascade paths), record the decision in .flowguard/ledger.toml:"], (file, text)
+            "lead: Open structure issue: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations (parentheses show prisma/schema.prisma's rule first, then this description's rule): Room.unit（NoAction/Restrict / Cascade） -> align deletion rules in both schemas, including the test schema; if differences are intentional (for example, SQL Server disallows multiple cascade paths), record the decision in .flowguard/ledger.toml:"], (file, text)
         path.write_text(saved, encoding='utf-8')
 
 
@@ -1979,7 +1979,7 @@ def test_fixed_17_missing_columns_between_prisma_and_init_sql_are_listed_one_by_
     code, text = _static(tmp_path)
     assert code == 0, text
     lead = next(line for line in _lines(text, 'lead: Columns missing between descriptions') if 'central/schema.prisma' in line)
-    assert lead.startswith('lead: Columns missing between descriptions: backend/prisma/central/init-azure-sql.sql against backend/prisma/central/schema.prisma：'), lead
+    assert lead.startswith('lead: Columns missing between descriptions: backend/prisma/central/init-azure-sql.sql against backend/prisma/central/schema.prisma: '), lead
     for column in ('central_sync_attempted_at', 'central_sync_error', 'central_sync_state', 'external_type',
                    'personnel_lifecycle_state', 'personnel_source', 'storage_scope'):
         assert column in lead, (column, lead)
@@ -2020,8 +2020,8 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     code, text = _static(root)
     assert code == 0, text
     drift = next(line for line in _lines(text, 'lead: label spellings differ') if 'My Organization' in line)
-    assert "'My Organization'（backend/src/services/authority/organization-navigation.ts:" in drift, drift
-    assert "'My organization'（frontend/src/utils/organization-navigation.ts:" in drift and 'spelling added in this task' in drift, drift
+    assert "'My Organization'(backend/src/services/authority/organization-navigation.ts:" in drift, drift
+    assert "'My organization'(frontend/src/utils/organization-navigation.ts:" in drift and 'spelling added in this task' in drift, drift
     code, text = _flowguard(root, 'init')
     assert code == 0 and 'Generated flowguard.static.test.mjs (vitest)' in text, text
     generated = root / 'flowguard.static.test.mjs'
@@ -2070,7 +2070,7 @@ def test_check_static_all_lists_label_spellings_the_baseline_already_had(tmp_pat
     assert code == 0 and not _lines(text, 'lead: label spellings differ'), text
     code, text = _static(root, '--all')
     old = next(line for line in _lines(text, 'lead: before: label spellings differ') if 'My Organization' in line)
-    assert "'My organization'（frontend/src/utils/organization-navigation.ts:" in old and 'spelling added in this task' not in old, old
+    assert "'My organization'(frontend/src/utils/organization-navigation.ts:" in old and 'spelling added in this task' not in old, old
 
 
 def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lists_every_lead(tmp_path):
@@ -2085,7 +2085,7 @@ def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lis
     code, text = _static(tmp_path, '--all')
     leads = _lines(text, 'lead: ')
     assert code == 0 and leads[0].startswith("lead: label spellings differ: 'Gamma Ray'"), text       # the new one first
-    assert "'Gamma ray'（src/ray.ts:1, spelling added in this task）" in leads[0], leads
+    assert "'Gamma ray'(src/ray.ts:1, spelling added in this task)" in leads[0], leads
     assert leads[-1].startswith('lead: plus ') and leads[-1].endswith('entries: python -m flowguard check --static --all --leads lists all leads'), leads
     code, text = _static(tmp_path, '--all', '--leads')
     every = _lines(text, 'lead: ')
@@ -2211,7 +2211,7 @@ def test_a_change_that_touches_an_open_structure_problem_gets_one_lead(tmp_path)
     assert (code, text) == (0, ''), text
     hold = tmp_path / 'shop/hold.py'
     hold.write_text(hold.read_text().replace("'held'", "'paused'"))
-    lead = ('lead: Open structure issue: Job.status is written by 3 files without a registered writer agreement：shop/close.py:5  shop/hold.py:5  shop/reopen.py:5 → ask the owner who is responsible; then write # flowguard: writers Job.status shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen (retain only writers the owner approves), and record the decision in .flowguard/ledger.toml:')
+    lead = ('lead: Open structure issue: Job.status is written by 3 files without a registered writer agreement: shop/close.py:5  shop/hold.py:5  shop/reopen.py:5 -> ask the owner who is responsible; then write # flowguard: writers Job.status shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen (retain only writers the owner approves), and record the decision in .flowguard/ledger.toml:')
     code, text = _pytest(tmp_path)
     assert code == 0 and lead in text, text
     assert '    [structure."writers:Job.status"]' in text, text
@@ -2380,7 +2380,7 @@ def test_a_changed_typescript_constant_and_function_lead_to_the_places_left_behi
     code, text = _static(tmp_path)
     assert code == 0, text
     assert _lines(text, 'lead: old values 14') == [
-        'lead: old values 14 remain in 1 decisions: src/reminders.ts:2 → if requirements changed, update together; to lock them, write # flowguard: same NAME ref above the reference and # flowguard: same NAME above the copies'], text
+        'lead: old values 14 remain in 1 decisions: src/reminders.ts:2 -> if requirements changed, update together; to lock them, write # flowguard: same NAME ref above the reference and # flowguard: same NAME above the copies'], text
     alone = next(line for line in _lines(text, 'lead: lateFee'))
     assert alone.startswith('lead: lateFee(src/fees.ts:1) changed; previously identical copies: 1 unchanged: src/legacy/fees.ts:1'), alone
     assert '// flowguard: owner LATEFEE' in alone, alone
@@ -2395,7 +2395,7 @@ def test_check_static_reports_a_new_typescript_fallback_and_a_write_outside_its_
     assert code == 0, text
     _commit(tmp_path, message='ledger')
     code, text = _static(tmp_path)
-    assert (code, text) == (0, ''), text
+    assert (code, text) == (0, 'deprecated: owner writers= will be removed in 5.0; write writers FIELD FUNCTIONS\n'), text
     _write(tmp_path, {'backend/src/services/rogue.ts': '''
         export async function moveEmployee(prisma: any, id: string, unit: string, next: any) {
           try {

@@ -339,7 +339,7 @@ def test_init_can_extend_a_final_pytest_table_without_a_trailing_newline(tmp_pat
     assert path.read_bytes() == first
 
 
-REQ_ADD = '    需求确实变了：先用 python -m flowguard req add 存下新的原话，再改规则 tests/intent/policy.py:2'
+REQ_ADD = '    if requirements changed, first store the new owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'
 LONGER = """@rule('LONGER',decides='acceptance',fields={'days':int},source='doc policy.txt "At most three days."')
 def LONGER(days):
     return days <= 4
@@ -374,12 +374,12 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
         policy.write_text(policy.read_text() + FOURTH)
         code = root / (root.name + '.py')
         code.write_text(code.read_text().replace('return days <= 3', 'return days <= 3 or days == 4'))
-    steps = {'code': [f'    改代码，让 {root.name}.py:2 符合规则 LIMIT；', REQ_ADD],
-             'own row': ['    改回归行或规则 tests/intent/policy.py:2，让规则和它的回归行一致；', REQ_ADD],
-             'conflict': ['    规则 LIMIT 和 LONGER 冲突，两条定一条：要问主人；',
-                          '    主人定了：先用 python -m flowguard req add 存下主人的原话，再改规则 tests/intent/policy.py:2'],
-             'gap': ['    补规则或回归行 tests/intent/policy.py:2，让没有规则判定的格也有判定；', REQ_ADD],
-             'decision of': ['    改回归行或规则 tests/intent/policy.py:2，让规则和它的回归行一致；', REQ_ADD]}[kind]
+    steps = {'code': [f'    change the code so {root.name}.py:2 follows rule LIMIT; ', REQ_ADD],
+             'own row': ['    correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree; ', REQ_ADD],
+             'conflict': ['    rules LIMIT and LONGER conflict; choose one by asking the owner; ',
+                          '    when the owner decides, first store the exact owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'],
+             'gap': ['    add rules or regression rows at tests/intent/policy.py:2 so undecided cells have a rule result; ', REQ_ADD],
+             'decision of': ['    correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree; ', REQ_ADD]}[kind]
     cli.init(cfg)
     capsys.readouterr()
     def block(text):

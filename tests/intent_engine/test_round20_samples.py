@@ -158,7 +158,7 @@ def test_sample_4_unanchored_late_fee_reports_the_member_classes(shop):
     assert result.returncode == 0, text
     line = next(line for line in _block(text)[1] if line.startswith('changed: late_fee(unanchored, automatic)（shop/fees.py:1）'))
     assert int(re.search('changed (\\d+) classes', line)[1]) >= 5 and 'member=T' in line and 'member=F' not in line, line
-    assert 'example: days=3, member=T：1 → 2' in line, line
+    assert 'example: days=3, member=T: 1 → 2' in line, line
 
 
 def test_sample_5_the_skipped_save_step_is_a_visible_path_change(shop):

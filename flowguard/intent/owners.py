@@ -139,6 +139,16 @@ def _write_text(row):
     return f'{row["file"]}:{row["line"]} {row["function"]}（{row["kind"]}{value}）'
 
 
+def _agreement_place(graph, owner, role):
+    """A role's original declaration, before complementary data agreements were combined."""
+    facts = graph.file_facts(owner.file)
+    rows = [row for row in facts.get('anchors', ()) if row['kind'] == 'owner' and row['name'] == owner.name
+            and not row['qual'] and row.get(role)] if facts is not None else []
+    if len(rows) == 1:
+        return f'{owner.file}:{rows[0]["line"]}'
+    return f'canonical registration {owner.file}:{owner.line}'
+
+
 def owner_writes(change, index, *, everything=False):
     """A write outside a data owner's writers that this change adds is red; older ones are the old ledger."""
     found = Findings()
@@ -159,7 +169,7 @@ def owner_writes(change, index, *, everything=False):
             fresh = change.baseline and row['file'] in change.files and now[key] > before[key]
             (new if fresh else old).append(row)
         allowed = '、'.join(owner.writers)
-        where = f'{owner.file}:{owner.line}'
+        where = _agreement_place(change.graph, owner, 'writers')
         if new:
             functions = '、'.join(dict.fromkeys(row['node'] if row.get('language', 'python') == 'python' else row['function']
                                                 for row in new))     # TS/JS writers are function names
@@ -239,7 +249,7 @@ def owner_pairs(change, index, *, everything=False):
                 return '  '.join(f'{row["file"]}:{row["line"]} {row["function"]}' for row in rows) \
                     + ('(JS/TS calls resolved by name)' if any(calls[id(row)] for row in rows) else '') \
                     + {'update': '(updates only)', 'create': '(creates only)'}.get(owner.on, '')
-            step = (f'write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at {owner.file}:{owner.line})')
+            step = (f'write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at {_agreement_place(change.graph, owner, "pairs")})')
             shown = [row for row in missing if everything or new_rule or row['file'] in change.files]
             if shown:
                 # One owner per red line: the subject names the owner, so two owners' pairs never merge into one.
@@ -1215,7 +1225,8 @@ def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=(
     found = discover(cfg, graph, index, change, everything=everything, excluded=excluded).extend(
         changed_alone(cfg, graph, index, change, excluded=excluded))
     found = health.assess(cfg, change, index, found)
-    opened, _ = health.decided(cfg, index, [*static.issues, *found.issues])
+    found = Findings().extend(static).extend(found)
+    opened, _ = health.decided(cfg, index, found.issues)
     found.summary = health.summary(opened)
     if everything:
         from .ledger import open_legacy
@@ -1230,7 +1241,7 @@ def show_lines(cfg, graph, index, name):
         if owner.kind == 'owner' and owner.writers:
             rows = [row for row in graph.writes(owner.name, by_name=True)]
             outside = [row for row in rows if not row.get('unclear') and not _allowed(row, owner.writers)]
-            lines.append(f'owner {owner.name} {owner.file}:{owner.line}; writers={",".join(owner.writers)}')
+            lines.append(f'owner {owner.name} {_agreement_place(graph, owner, "writers")}; writers={",".join(owner.writers)}')
             def plain(row):
                 value = f', value {row["value"]!r}' if 'value' in row else ''
                 return f'{row["file"]}:{row["line"]} {row["function"]} ({row["kind"]}{value})'
