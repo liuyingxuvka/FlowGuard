@@ -561,6 +561,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
             for issue in health.writers(change, index, written).issues:
                 ranked.append((2001, f'structure: {issue.text} -> {issue.step} ' + ' '.join(issue.entry)))
             ranked.extend((2001, line) for line in health.co_written(change, query))
+            ranked.extend((1999 - order, line) for order, line in enumerate(checks.field_lines(graph, query, written)))
         for rid, rule in rules.items():
             score = 1000 if query.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
             score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))

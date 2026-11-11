@@ -500,7 +500,8 @@ def structure_decisions(cfg):
     except tomllib.TOMLDecodeError:
         return {}, [], []      # parse() already reports the unreadable ledger as red with its error
     if STRUCTURE in data:
-        warn('ledger [structure]')
+        # A decision closes a structure problem; from 4.3 a known.toml entry does (act "ignore" or "leave").
+        warn('ledger [structure]', '[known.<id>] in .flowguard/known.toml with act = "ignore" or "leave"')
     section = data.get(STRUCTURE, {})
     if not isinstance(section, dict):
         return {}, [Finding(f"""{LEDGER} [{STRUCTURE}] must be a table: write decision and source below [{STRUCTURE}."issue-name"]""",

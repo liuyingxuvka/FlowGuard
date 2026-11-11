@@ -16,6 +16,7 @@ from contextlib import contextmanager
 import ctypes
 from dataclasses import dataclass, field
 import os
+import re
 import threading
 import time
 
@@ -30,7 +31,9 @@ PEERS = 40                   # look-alikes of one changed function replayed at m
 
 @dataclass
 class Findings:
-    """Red lines and leads for the existing signal report, each with the next step to copy."""
+    """Red lines and leads for the existing signal report, each with the next step to copy; and, for the 4.3
+    lines (`signals.deliver`), the findings with their members, the lines already of their kind, what this change
+    touches and which families ran."""
     red: list = field(default_factory=list)
     leads: list = field(default_factory=list)
     stats: dict = field(default_factory=dict)
@@ -38,15 +41,58 @@ class Findings:
     section: list = field(default_factory=list)     # the --all listing of open structure problems
     summary: dict | None = None                     # count and heaviest names for the session brief
     known: list = field(default_factory=list)       # sources.Known: the entries of known.toml, sites resolved
+    lines: list = field(default_factory=list)       # signals.Line of their final kind (impact, loosened, not compared)
+    hidden: list = field(default_factory=list)      # {feature, text}: leads that get no line, only `show --last`
+                                                    # (feature: the 5.0-deprecated heuristic; '' for none)
+    ran: set = field(default_factory=set)           # the families whose checks ran (a known entry's `known fixed?`)
+    touched_functions: frozenset = frozenset()      # what this change edits or adds: a finding's member there is
+    touched_files: frozenset = frozenset()          # touched (`deliver`); files for a file-level member
+    decided: list = field(default_factory=list)     # the issues a `[structure]` decision closed (counted, no line)
 
     def extend(self, other):
         self.red.extend(other.red)
         self.leads.extend(other.leads)
         self.issues.extend(other.issues)
         self.known.extend(other.known)
+        self.lines.extend(other.lines)
+        self.hidden.extend(other.hidden)
+        self.ran |= other.ran
+        self.touched_functions |= other.touched_functions
+        self.touched_files |= other.touched_files
+        self.decided.extend(other.decided)
         for key, value in other.stats.items():
             self.stats[key] = self.stats.get(key, 0) + value
         return self
+
+
+def _ascii(text):
+    """A legacy FlowGuard text with its full-width punctuation written in ASCII (project names stay as they are)."""
+    for wide, plain in (('\u3001', ', '), ('\uff1b', '; '), ('\uff1a', ': '), ('\uff08', ' ('), ('\uff09', ')'), ('\uff0c', ', '),
+                        ('\u2192', '->')):
+        text = text.replace(wide, plain)
+    return text
+
+
+def _hide(found, feature, text):
+    """Keep a lead that gets no 4.3 line for `show --last` (D6): `feature` names the 5.0-deprecated heuristic."""
+    found.hidden.append(dict(feature=feature, text=_ascii(text)))
+
+
+def place(row):
+    """A write or query row's place, as known.toml and the 4.3 lines spell one: `path:function`, or `path:line` for a
+    module's own code."""
+    symbol = row_function(row).partition(':')[2]
+    return f'{row["file"]}:{symbol}' if symbol else f'{row["file"]}:{row["line"]}'
+
+
+SEEDING = re.compile(r'(?i:seed|backfill|migration)s?(?![a-z])')
+
+
+def seeding(path):
+    """Is this a seed, backfill or migration script (a folder or the file's stem `seed`, `seeds`, `backfill...`,
+    `migrations`, `seedUsers`, `seed-demo`)? Their writes fill or reshape data once; impact counts leave them out."""
+    parts = path.split('/')
+    return any(SEEDING.match(part) for part in [*parts[:-1], parts[-1].partition('.')[0]])
 
 
 # ---- the change: baseline commit, changed files and their facts at the baseline ---------------------
@@ -61,6 +107,14 @@ class Change:
         self._modules = {path: module for path, module in graph.con.execute('SELECT path, module FROM file')}
         self._texts, self._facts, self._delta, self._impact = {}, {}, {}, None
         self._baseline_writes, self._current, self._definitions = {}, {}, None
+        self._held = {}
+
+    def held(self, key, compute):
+        """One result of this check, computed once (`compute()`) and kept with the change, for the checks that each
+        need it (the copies at the baseline)."""
+        if key not in self._held:
+            self._held[key] = compute()
+        return self._held[key]
 
     def impact(self):
         """The map's changed, added and removed ids against the baseline (read once)."""
@@ -255,7 +309,7 @@ def _agreement_place(graph, owner, role):
 
 def owner_writes(change, index, *, everything=False):
     """A write outside a data owner's writers that this change adds is red; older ones are the old ledger."""
-    found, written = Findings(), None
+    found, written = Findings(ran={'writer'}), None
     for owner in (a for a in index.entries if a.kind == 'owner' and a.writers):
         if written is None:
             written = change.graph.writes(by_name=True)        # read once for every owner
@@ -285,7 +339,41 @@ def owner_writes(change, index, *, everything=False):
         if old and everything:
             found.leads.append(f'before: {owner.name} writes outside the declared writer: ' + '  '.join(_write_text(row) for row in old)
                                + f'; allowed only: {allowed}(agreement at {where}）')
+        found.issues.append(_writer_issue(change, owner, outside, where))
     return found
+
+
+def _writer_name(writer):
+    """A writers entry as the agreement names it: its function, without the module a position resolves to."""
+    return writer.rpartition(':')[2] if ':' in writer else writer
+
+
+def _writer_issue(change, owner, outside, where):
+    """The `writer:` finding of one writers agreement: one member per function that writes the field outside it.
+    The agreement is the current one, judged on the baseline code too (`Change.baseline_writes`, D2): a function is
+    new (fresh) when it writes outside more often now than the baseline code did, so an agreement added over writes
+    that were already there leaves them old."""
+    from .health import Issue, LINES_ONLY
+    now = {}
+    for row in outside:
+        now.setdefault(row_function(row), []).append(row)
+    fresh = set()
+    if change.baseline and change.baseline_paths():
+        before = {}
+        for row in change.baseline_writes(owner.name, by_name=True):
+            if not row.get('unclear') and not _allowed(row, owner.writers):
+                before.setdefault(row_function(row), Counter())[_write_key(row)] += 1
+        fresh = {function for function, rows in now.items()
+                 if any(count > before.get(function, Counter())[key] for key, count in Counter(map(_write_key, rows)).items())}
+    names = list(dict.fromkeys(map(_writer_name, owner.writers)))
+    step = 'call ' + ' or '.join(names) + ' instead'
+    what = f'writes {owner.name} outside ' + ', '.join(names)
+    parts = tuple((function, place(rows[0]), what, step) for function, rows in sorted(now.items()))
+    return Issue(f'writer:{owner.name}', LINES_ONLY, f'writer {owner.name}',
+                 f'{owner.name} is written outside its writers agreement ({where}): ' + '  '.join(place(rows[0]) for _, rows in sorted(now.items())),
+                 step, frozenset(now), frozenset(row['file'] for row in outside), new=bool(fresh),
+                 family='writer', subject=f'writers {owner.name}', parts=parts, fresh=frozenset(fresh),
+                 detail=(f'agreement: {where}', 'if the owner agrees that a function may write it, add it to that writers agreement'))
 
 
 def _call_tree(graph, node, depth=3, up=0):
@@ -710,7 +798,18 @@ def copies_without_rule(change, index):
         places = '、'.join(dict.fromkeys(f'{anchor.file}:{anchor.qual}' for anchor in changed))
         found.leads.append(f'{names} copies at {places} changed; rule {item["id"]} is unchanged -> if requirements changed, first use python -m flowguard req add to '
                            f'store the new owner words, then update rule {file}:{item["line"]}; otherwise confirm that this code change is correct')
+        _hide(found, '', found.leads[-1])         # no 4.3 line and no deprecation (D6): `show --last` only
     return found
+
+
+def _old_value_text(lead):
+    """The text of an old-value lead (`signals.stale_copies`) for `show --last`."""
+    def shown(value):
+        return repr(value) if isinstance(value, str) else str(value)
+    values = ', '.join(dict.fromkeys(shown(row['old']) for row in lead['locations']))
+    return (f'old values {values} remain in {lead["total"]} decisions: '
+            + '  '.join(f'{row["file"]}:{row["line"]}' + (' (in a large function)' if row.get('big') else '') for row in lead['locations'])
+            + ' -> if requirements changed, update them together')
 
 
 def old_value_leads(change):
@@ -721,7 +820,10 @@ def old_value_leads(change):
         lead = stale_copies(change.graph, [item])
         if lead['total']:
             found.leads.append(lead)
-        found.leads.extend(rule_old_values(change.cfg, item['before'], declarations=change.rule_declarations()))
+            _hide(found, 'old-value leads', _old_value_text(lead))
+        for text in rule_old_values(change.cfg, item['before'], declarations=change.rule_declarations()):
+            found.leads.append(text)
+            _hide(found, 'old-value leads', text)
     if found.leads:
         from .deprecation import warn
         warn('old-value leads')
@@ -758,13 +860,16 @@ def declarations_differ(change, *, everything=False):
     """Two declarations of one name (union type or enum) with different members, and the declarations of one
     database field (`MapHandle.field_declarations`: each Prisma schema's enum, each SQL CHECK, a JS/TS
     declaration of the enum's name) with different values: a lead, reported when this change touches one
-    of them (`check --all` lists all)."""
+    of them (`check --all` lists all). Each is also a `declarations:` finding of the files declaring it, new when a
+    file this change edits or adds declares it otherwise than the baseline did (`_declarations_unchanged`)."""
     found = Findings()
+    found.ran.add('declarations')
     named = [(name, items, ' -> keep one definition and reference it elsewhere; use different names if intentionally different') for name, items in _declarations(change.graph).items()]
     fields = [(name, items, ' -> add missing values; mark an unused description or remove it') for name, items in change.graph.field_declarations().items()]
     for name, items, step in sorted(named + fields):
         if len(items) < 2 or len({values for _, _, values in items}) < 2:
             continue
+        found.issues.append(_declarations_issue(change, name, items, step.removeprefix(' -> ')))
         if not everything and not any(file in change.files for file, _, _ in items):
             continue
         union = set().union(*(values for _, _, values in items))
@@ -774,6 +879,52 @@ def declarations_differ(change, *, everything=False):
         found.leads.append(('before: ' if everything and not any(file in change.files for file, _, _ in items) else '')
                            + f'declarations differ: {name} ' + '  '.join(parts) + step)
     return found
+
+
+def _declarations_issue(change, name, items, step):
+    from .health import Issue, LINES_ONLY
+    ordered = sorted(items)
+    def declared(values):
+        return ' | '.join(map(repr, sorted(values, key=repr)))
+    (first, line, values), rest = ordered[0], ordered[1:]
+    what = f'declares {declared(values)}; ' + '; '.join(f'{file}:{at} declares {declared(other)}' for file, at, other in rest)
+    files = frozenset(file for file, _, _ in items)
+    fresh = bool(change.baseline) and any(file in change.baseline_paths() and not _declarations_unchanged(change, file) for file in files)
+    return Issue(f'declarations:{name}', LINES_ONLY, f'declarations {name}', f'declarations differ: {name}: {first}:{line} {what}',
+                 step, frozenset(), files, new=fresh, family='declarations', subject=f'declarations {name}',
+                 parts=(('', f'{first}:{line}', what, step),), fresh=frozenset({''}) if fresh else frozenset())
+
+
+def _declarations_unchanged(change, file):
+    """Does `file` declare its value sets as the baseline did: its JS/TS sets, its schema (enums and CHECKs), its
+    Python `Literal` unions and its classes (an enum's members), positions aside? A file the baseline lacked does
+    not; read once per file."""
+    def held():
+        old = change.old_facts(file)
+        now = change.graph.file_facts(file)
+        if not old or now is None:
+            return False
+        def sets(facts):
+            return sorted((row['name'], row['kind'], bool(row.get('exported')), repr(row.get('values')), bool(row.get('optional')))
+                          for row in facts.get('value_sets') or ())
+        def unions(facts):
+            return sorted({(row.get('declaration'), repr(row['value'])) for row in facts.get('literals') or () if row.get('context') == 'union'})
+        def schema(facts):
+            return _without_positions(facts.get('schema'))
+        classes_now = sorted(change.graph.con.execute("SELECT qual, fp FROM node WHERE file = ? AND kind = 'class'", (file,)))
+        classes_then = sorted((node['qual'], node.get('fp')) for node in old.get('nodes', ()) if node['kind'] == 'class')
+        return sets(old) == sets(now) and unions(old) == unions(now) and schema(old) == schema(now) \
+            and [tuple(row) for row in classes_now] == classes_then
+    return change.held(('declarations unchanged', file), held)
+
+
+def _without_positions(value):
+    """A schema fact without its line numbers (`line`, `end`), so a moved declaration compares equal."""
+    if isinstance(value, dict):
+        return {key: _without_positions(part) for key, part in value.items() if key not in ('line', 'end', 'file')}
+    if isinstance(value, list):
+        return [_without_positions(part) for part in value]
+    return value
 
 
 def literal_drift(change, *, everything=False):
@@ -801,6 +952,7 @@ def literal_drift(change, *, everything=False):
         # --all also lists the spellings the baseline already had, as the old ledger.
         found.leads.append(('' if fresh else 'before: ') + 'label spellings differ: ' + ' and '.join(parts)
                            + ' -> use one spelling, or read both from one reference')
+        _hide(found, 'label-spelling leads', found.leads[-1])
         reported = True
     if reported:
         from .deprecation import warn
@@ -879,20 +1031,154 @@ def changed_once(change, decided=()):
             found.leads.append(f'{ident.partition(":")[2]}({node.get("file")}:{node.get("line")}) changed; ' + '; '.join(parts)
                                + f'(update them together when required; to lock them, write above the reference: {comment} flowguard: same {name} ref, '
                                  f'above the copy: {comment} flowguard: same {name})')
+            _hide(found, 'similar-implementation leads', found.leads[-1])
     if found.leads:
         from .deprecation import warn
         warn('similar-implementation leads')
     return found
 
 
+# ---- what this change loosened, and the fields it newly writes (4.3) ----------------------------------
+
+LOOSENED_STEP = "name it in your report; needs the owner's yes"
+
+
+def _agreements(rows):
+    """The agreements of these `anchors` fact rows: {field: {'writers': {writer: row}, 'pairs': {partner: row},
+    'alone': {function: row}, 'on': {on: row}}} of the data agreements (writers, together; the old owner spellings
+    are the same rows), and {(name, function): [rows]} of the same-name copies (`same`, `same NAME ref`, a function
+    owner). A position in the comment's own file is its bare function, so a file renamed or a comment moved with its
+    functions keeps its agreement."""
+    data, same = {}, {}
+    for row in rows:
+        def local(position):
+            target, colon, qual = position.rpartition(':')
+            return qual if colon and target == row['module'] else position
+        if row['kind'] == 'owner' and not row.get('qual'):
+            item = data.setdefault(row['name'], dict(writers={}, pairs={}, alone={}, on={}))
+            for writer in row.get('writers', ()):
+                item['writers'].setdefault(local(writer), row)
+            for partner in row.get('pairs', ()):
+                item['pairs'].setdefault(partner, row)
+            for exception in row.get('alone', ()):
+                item['alone'].setdefault(local(exception.partition('(')[0]), row)
+            if row.get('pairs'):
+                item['on'].setdefault(row.get('on') or '', row)
+        elif row['kind'] in ('sensor', 'owner'):
+            same.setdefault((row['name'], row['qual']), []).append(row)
+    return data, same
+
+
 def loosened(change, index):
-    """What this change loosened (an `except=` added, an agreement or a known entry removed, ...). None yet."""
-    return Findings()
+    """What this change loosened in the agreements of its `flowguard:` comments (D9), each a `loosened` line: an
+    `except=` (`alone=`) added, also in a new together; a together partner removed (the whole agreement too); an
+    `on=` added to or changed in a together that stays; a writer added to a writers agreement that stays; a writers
+    agreement removed; a `same NAME` removed from a function. The baseline's comments are the old `anchors` facts of
+    the files this change edits, deletes or renames away, beside the map's for every other file."""
+    from .signals import Line
+    found = Findings()
+    paths = change.baseline_paths() if change.baseline else frozenset()
+    if not paths:
+        return found
+    old_rows, new_rows = [], []
+    for path, _, data in change.graph._kinds('anchors'):
+        new_rows.extend(data.get('anchors', ()))
+        if path not in paths:
+            old_rows.extend(data.get('anchors', ()))
+    for path in sorted(paths):
+        old_rows.extend(change.old_part(path, 'anchors') or ())
+    (then, same_then), (now, same_now) = _agreements(old_rows), _agreements(new_rows)
+
+    def line(key, text, row, function=''):
+        place = f'{row["file"]}:{row["line"]}'
+        found.lines.append(Line('loosened', f'loosened:{key}', function, text, LOOSENED_STEP, (place,), (f'comment at {place}',)))
+
+    for name in sorted(then.keys() | now.keys()):
+        old, new = then.get(name), now.get(name)
+        if new is not None:
+            for exception in sorted(new['alone'].keys() - (old['alone'].keys() if old else set())):
+                line(f'except:{name}:{exception}', f'except={_writer_name(exception)} added to together {name}', new['alone'][exception])
+        if old is not None and old['pairs']:
+            if new is None or not new['pairs']:
+                line(f'together:{name}', f'together {name} {",".join(old["pairs"])} removed', next(iter(old['pairs'].values())))
+            else:
+                for partner in sorted(old['pairs'].keys() - new['pairs'].keys()):
+                    line(f'partner:{name}:{partner}', f'{partner} removed from together {name}', old['pairs'][partner])
+                for on in sorted(set(new['on']) - set(old['on']) - {''}):
+                    was = ', '.join(f'on={value}' for value in sorted(set(old['on']) - {''}))
+                    line(f'on:{name}:{on}', (f'on={on} replaces {was} in together {name}' if was else f'on={on} added to together {name}'),
+                         new['on'][on])
+        if old is not None and old['writers']:
+            if new is None or not new['writers']:
+                line(f'writers:{name}', f'writers {name} removed', next(iter(old['writers'].values())))
+            else:
+                for writer in sorted(new['writers'].keys() - old['writers'].keys()):
+                    line(f'writer:{name}:{writer}', f'{_writer_name(writer)} added to writers {name}', new['writers'][writer])
+    for key, rows in sorted(same_then.items()):
+        kept = same_now.get(key, [])
+        if len(kept) < len(rows):
+            # The copies gone: first those of a file that has none of them now (a renamed file keeps its count).
+            files = {row['file'] for row in kept}
+            gone = sorted(rows, key=lambda row: (row['file'] in files, row['file'], row['line']))[:len(rows) - len(kept)]
+            for row in gone:
+                line(f'same:{key[0]}:{row["module"]}:{key[1]}', f'same {key[0]} removed from {row["file"]}:{key[1]}', row,
+                     f'{row["module"]}:{key[1]}')
+    return found
 
 
 def field_impact(change, index):
-    """The fields a changed function writes now and not at the baseline, or no longer writes. None yet."""
-    return Findings()
+    """One `impact` line (4.6) per function this change edits or adds whose set of written fields (`Model.field`
+    or `table.column`, bookkeeping columns aside) differs from the baseline code's: the fields it now writes and no
+    longer writes, how many other production functions write the first of them (seed, backfill and migration
+    scripts aside) and whether several files write it without a writers agreement (an open `writers:` problem), and
+    how many functions read its model (`MapHandle.queries`, model-level, tests included). Counts and one name only;
+    `show NAME` lists them. A test's, a seed script's or a module's own code is no function this reports."""
+    from .health import _test_files, decided, written_field, writers
+    from .signals import Line
+    found = Findings()
+    touched = change.touched() if change.baseline else set()
+    if not touched:
+        return found
+    graph = change.graph
+    tests = _test_files(graph)
+
+    def fields(rows):
+        by_function = {}
+        for row in rows:
+            if (key := written_field(row, tests)) is not None and not seeding(row['file']):
+                by_function.setdefault(row_function(row), {}).setdefault(key, row)
+        return by_function
+
+    now, then = fields(change.writes()), None
+    open_writers, readers_of = None, {}
+    for function in sorted(touched):
+        written = now.get(function, {})
+        if then is None:
+            then = fields(change.baseline_writes())
+        before = then.get(function, {})
+        added, removed = sorted(written.keys() - before.keys()), sorted(before.keys() - written.keys())
+        if not added and not removed:
+            continue
+        shown = (added or removed)[0]
+        row = (written or before)[shown]
+        model = shown.rpartition('.')[0]
+        others = sorted({other for other, items in now.items() if other != function and shown in items})
+        if model not in readers_of:
+            readers_of[model] = sorted({row_function(query) for query in graph.queries(model)})
+        readers = readers_of[model]
+        if open_writers is None:
+            open_writers = {issue.name for issue in decided(change.cfg, index, writers(change, index).issues)[0]}
+        qual = function.partition(':')[2] or function
+        text = (f'{qual} now writes {", ".join(added)}' if added else f'{qual} no longer writes {", ".join(removed)}') \
+            + (f'; no longer writes {", ".join(removed)}' if added and removed else '') \
+            + f'; {len(others)} other writers' + (' (no writers agreement)' if f'writers:{shown}' in open_writers else '') \
+            + f', {len(readers)} readers of {model}'
+        here = f'{row["file"]}:{qual}'
+        detail = tuple(f'other writer of {shown}: {other}' for other in others[:10]) \
+            + tuple(f'reader of {model}: {reader}' for reader in readers[:10])
+        found.lines.append(Line('impact', f'impact:{function}', function, text,
+                                f'check them for this change only (python -m flowguard show {shown})', (here,), detail))
+    return found
 
 
 def static_findings(cfg, graph, index, base=None, *, everything=False, replay=False, excluded=()):
@@ -920,11 +1206,10 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
             # stands now, so the owner's decision on the problem the change just raised holds too.
             decided = []
             if any(name.startswith('copies:') for name in decisions):
-                then = health.copies(change, index, before=True).issues
+                then = change.held('copies before', lambda: health.copies(change, index, before=True)).issues
                 named = {issue.name for issue in then}
                 decided = [issue.nodes for issue in then if issue.name in decisions] + [
-                    issue.nodes for issue in health.copies(change, index).issues
-                    if issue.name in decisions and issue.name not in named]
+                    issue.nodes for issue in copies.issues if issue.name in decisions and issue.name not in named]
             found.extend(changed_once(change, decided))
     if change.baseline or everything:
         found.extend(literal_drift(change, everything=everything))
@@ -936,10 +1221,21 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
         found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
         found.extend(changed_alone(cfg, graph, index, change, excluded=excluded))
     found = health.assess(cfg, change, index, found, everything=everything)
+    found.ran.add('pair')
+    found.touched_functions, found.touched_files = touched_functions(change), frozenset(change.files)
     if everything:
         from .ledger import open_legacy
         found.section.extend(open_legacy(cfg, graph))
     return found
+
+
+def touched_functions(change):
+    """The functions a finding's member is touched by (`signals.deliver`): those this change edits or adds
+    (`Change.touched`), and the module of each SQL file it changes, whose statements are that module's own code."""
+    if not change.baseline:
+        return frozenset()
+    return frozenset(change.touched() | {change._modules[file] for file in change.files
+                                         if file.endswith('.sql') and file in change._modules})
 
 
 # ---- replay of candidate functions (check only) ------------------------------------------------------
@@ -1204,6 +1500,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
     owners = [a for a in index.entries if a.kind == 'sensor' and a.owner and a.source_role == 'production' and not a.issues]
     if not owners:
         return found
+    found.ran.add('copies')
     warn('unregistered copy discovery')
     started = time.perf_counter()
     functions = _functions(graph, cfg)
@@ -1230,10 +1527,12 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         label = f'{owner.name}（{owner.file}:{owner.target_line}）'
         if reason:
             found.leads.append(f'reference {label} suspected copy {len(shown)} copies were not compared: {reason}')
+            _hide(found, 'unregistered copy discovery', found.leads[-1])
             continue
         reference, why = _replay(home, rows, names)
         if reference is None:
             found.leads.append(f'reference {label} cannot run itself; copies were not compared: {why}')
+            _hide(found, 'unregistered copy discovery', found.leads[-1])
             continue
         groups, unclear, partial = {}, [], []
         for row in shown:
@@ -1260,7 +1559,10 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         if not total:
             continue
         quiet = f'copies:{owner.name}' in decisions
-        lead = found.leads.append if not quiet else (lambda text: None)
+        def lead(text):
+            if not quiet:
+                found.leads.append(text)
+                _hide(found, 'unregistered copy discovery', text)
         lead(f'reference {label} has {total} suspected copies (candidates: {len(candidates)}; time: {seconds:.2f} seconds; '
                            f'{len(rows)} representative values; only comparable JSON inputs count; call-site reachability was not checked)'
                            f'-> choose one for each copy: call the reference; or write above the copy: # flowguard: same {owner.name}；'
@@ -1281,13 +1583,23 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
                 found.red.append(f'reference {label} has a new copy outside it: ' + '  '.join(f'{row["file"]}:{row["line"]}' for row in fresh)
                                  + f'({category}) -> call {owner.qual}, or write above it: # flowguard: same {owner.name}')
             lead(('before: ' if everything and not new_owner and not fresh else '') + text)
+            # The 4.3 finding: a copy of the reference is a `copies:` member (a structure finding, never red, D1); one this
+            # change adds is new, the reference and the copies the baseline had are old (the agreement is the current one).
+            from .health import Issue, LINES_ONLY
+            parts = tuple((row['id'], f'{row["file"]}:{row["qual"]}', f'is a {category} of the reference {owner.file}:{owner.qual}',
+                           f'call {owner.qual}') for row in members)
+            facts = dict(family='copies', subject=f'copies of {owner.name}', parts=parts,
+                         fresh=frozenset(row['id'] for row in fresh) if old_owner else frozenset())
             if category == 'diverged copy':
-                from .health import Issue
                 found.issues.append(Issue(f'copies:{owner.name}', 5, f'copy {owner.name}', f'reference {label}: {text}',
                                           f'choose one for each copy: call {owner.qual}; or write # flowguard: same {owner.name} above the copy and make it agree; '
                                           f'or declare distinct("{owner.name}", "<copy-anchor-name>", why="...", source="...")',
                                           frozenset({owner.target, *(row['id'] for row in members)}),
-                                          frozenset({owner.file, *(row['file'] for row in members)})))
+                                          frozenset({owner.file, *(row['file'] for row in members)}), **facts))
+            elif category == 'copy' and fresh and old_owner:
+                found.issues.append(Issue(f'copies:{owner.name}', LINES_ONLY, f'copy {owner.name}', f'reference {label}: {text}',
+                                          f'call {owner.qual}', frozenset(row['id'] for row in members),
+                                          frozenset(row['file'] for row in members), new=True, **facts))
         if unclear:
             lead(f'unavailable copies: {len(unclear)} copies: ' + '  '.join(unclear))
         if partial:
@@ -1328,6 +1640,7 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
     found = Findings()
     if not change.baseline:
         return found
+    found.ran.add('changed-alone')
     started = time.perf_counter()
     impact = change.impact()
     touched = set(impact['changed']) | set(impact['added'])
@@ -1379,6 +1692,7 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         missing = _not_compared(mine['before'], mine['now']) if mine is not None else why
         if missing:
             found.leads.append(f'not compared: {row["file"]}:{row["line"]} {row["qual"]} ({missing})')
+            found.lines.append(_not_compared_line(row, missing))
         if mine is None or not mine['compared'] or not any(_same(a, b) is False for a, b in zip(mine['before'], mine['now'])):
             continue            # no comparable old version, or the edit kept every representative's result
         examined += 1
@@ -1387,6 +1701,7 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
             theirs, why = _replay(peer, rows, row['simple'])
             if theirs is not None and (missing := _not_compared(mine['before'], theirs['now'])):
                 found.leads.append(f'not compared: {peer["file"]}:{peer["line"]} {peer["qual"]} ({missing})')
+                found.lines.append(_not_compared_line(peer, missing))
             comparison = [_same(a, b) for a, b in zip(mine['before'], theirs['now']) if _same(a, b) is not None] if theirs else []
             if comparison and all(comparison):
                 if any(_same(a, b) is False for a, b in zip(mine['now'], theirs['now'])):
@@ -1427,14 +1742,38 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
             else:
                 step = f'first decide which copy is correct: for an intended change, update together or call {row["qual"]}; otherwise make {quals} return to the original behavior'
             found.red.append(f'{"reference" if anchor.owner else "anchor"} {anchor.name}：' + text + ' → ' + step)
+            found.issues.append(_changed_alone_issue(anchor, changed, twins, step))
         else:
             found.leads.append(text + f'(update them together when required; to lock them, write above the reference: # flowguard: same {name} ref, '
                                       f'above the copy: # flowguard: same {name})')
+            _hide(found, 'similar-implementation leads', found.leads[-1])
     found.stats.update(changed_examined=examined, changed_seconds=time.perf_counter() - started)
     if found.leads:
         from .deprecation import warn
         warn('similar-implementation leads')
     return found
+
+
+def _not_compared_line(row, reason):
+    """A `not compared` line of the changed-alone comparison: a function whose old and new results (or a copy's)
+    could not be compared on some inputs."""
+    from .signals import Line
+    place = f'{row["file"]}:{row["qual"]}'
+    return Line('not compared', 'not compared:' + row['id'], row['id'], f'{place} ({reason})', 'not a failure', (place,), (reason,))
+
+
+def _changed_alone_issue(anchor, changed, twins, step):
+    """The `changed-alone:` finding of one registered name: one member per changed function whose unchanged former
+    copies now answer differently. New by construction: the comparison is this change's old against its new code."""
+    from .health import Issue, LINES_ONLY
+    copies = '  '.join(f'{peer["file"]}:{peer["qual"]}' for peer in twins)
+    what = f'changed behavior; {len(twins)} copies that answered the same are unchanged: {copies}'
+    parts = tuple((item['id'], f'{item["file"]}:{item["qual"]}', what, step) for item in changed)
+    return Issue(f'changed-alone:{anchor.name}', LINES_ONLY, f'changed alone {anchor.name}',
+                 f'{anchor.name}: ' + ', '.join(place for _, place, _, _ in parts) + ' ' + what, step,
+                 frozenset(item['id'] for item in changed), frozenset(item['file'] for item in changed), new=True,
+                 family='changed-alone', subject=f'same {anchor.name}', parts=parts,
+                 fresh=frozenset(item['id'] for item in changed))
 
 
 def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=(), static=None):
@@ -1449,7 +1788,7 @@ def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=(
         changed_alone(cfg, graph, index, change, excluded=excluded))
     found = health.assess(cfg, change, index, found)
     found = Findings().extend(static).extend(found)
-    opened, _ = health.decided(cfg, index, found.issues)
+    opened = health.decided(cfg, index, found.issues)[0]
     found.summary = health.summary(opened)
     if everything:
         from .ledger import open_legacy
@@ -1458,13 +1797,15 @@ def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=(
 
 
 def show_lines(cfg, graph, index, name):
-    """`show NAME` of an owner: its writers and the writes outside them, or its unregistered look-alikes."""
+    """`show NAME` of an owner: its writers and the writes outside them, or its unregistered look-alikes; and for
+    a writers or together agreement the fix the red line leaves out (4.7: a red line names no way to silence it)."""
     lines = []
     for owner in index.named(name):
         if owner.kind == 'owner' and owner.writers:
             rows = [row for row in graph.writes(owner.name, by_name=True)]
             outside = [row for row in rows if not row.get('unclear') and not _allowed(row, owner.writers)]
-            lines.append(f'owner {owner.name} {_agreement_place(graph, owner, "writers")}; writers={",".join(owner.writers)}')
+            where = _agreement_place(graph, owner, "writers")
+            lines.append(f'owner {owner.name} {where}; writers={",".join(owner.writers)}')
             def plain(row):
                 value = f', value {row["value"]!r}' if 'value' in row else ''
                 return f'{row["file"]}:{row["line"]} {row["function"]} ({row["kind"]}{value})'
@@ -1472,6 +1813,16 @@ def show_lines(cfg, graph, index, name):
             lines.extend('unclear: ' + plain(row) + f' {row.get("reason", "")}' for row in rows if row.get('unclear'))
             lines.extend(f'with {pair}' for pair in owner.pairs)
             lines.extend(f'alone {item}' for item in owner.alone)
+            if outside:
+                lines.append(f'fix: call {" or ".join(dict.fromkeys(map(_writer_name, owner.writers)))} instead; only with the '
+                             f"owner's yes add a function to the writers agreement ({where})")
+            if owner.pairs:
+                lines.append(_pair_fix(graph, owner))
+        elif owner.kind == 'owner' and owner.pairs:
+            lines.append(f'together {owner.name} {",".join(owner.pairs)}' + (f' on={owner.on}' if owner.on else '')
+                         + f' {_agreement_place(graph, owner, "pairs")}')
+            lines.extend(f'except {item}' for item in owner.alone)
+            lines.append(_pair_fix(graph, owner))
         elif owner.owner:
             functions = _functions(graph, cfg)
             home = next((row for row in functions if row['id'] == owner.target), None)
@@ -1482,4 +1833,26 @@ def show_lines(cfg, graph, index, name):
             lines.append(f'owner {owner.name} {owner.file}:{owner.target_line}; {len(similar)} unregistered look-alikes '
                          '(not run here; check --all compares them)')
             lines.extend(f'look-alike {row["file"]}:{row["line"]} {row["qual"]}' for row in similar)
+    return lines
+
+
+def _pair_fix(graph, owner):
+    return (f'fix: also write {", ".join(owner.pairs)} in the same operation; only with the owner\'s yes add '
+            f'except=path:function(reason) to the together agreement ({_agreement_place(graph, owner, "pairs")}), '
+            'which the next run shows as loosened')
+
+
+def field_lines(graph, name, written):
+    """`show Model.field` (4.6): the functions that read its model (`MapHandle.queries`; model-level, as the facts
+    keep only a read's filter keys), the callers one level up of each function that writes it (an edge guessed by
+    a name alone left out) and the test files whose imports reach a file that writes it (file-level facts)."""
+    model = name.partition('.')[0]
+    lines = [f'reads {model} {row["file"]}:{row["line"]} {row["function"]} ({row["method"]})' for row in graph.queries(model)]
+    for function in dict.fromkeys(row_function(row) for row in written if not row.get('unclear')):
+        for caller in graph.callers(function, 1, guessed=False):
+            node = graph.node(caller) or {}
+            lines.append(f'caller of {function.partition(":")[2] or function}: {caller.partition(":")[2] or caller}'
+                         + (f' ({node["file"]}:{node["line"]})' if node.get('file') else ''))
+    files = sorted({row['file'] for row in written})
+    lines.extend(f'test {file} reaches a writer of {name}' for file in graph._tests_for(files, set()))
     return lines

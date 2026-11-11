@@ -122,10 +122,10 @@ def test_static_findings_take_the_catalog_loosened_and_impact_findings_and_carry
     with closing(build(root)) as graph:
         cfg, index = load_config(root), anchors.collect(graph)
         plain = owners.static_findings(cfg, graph, index)
-        assert plain.known == [] and not [issue for issue in plain.issues if issue.family]
-        # The stubs add nothing; what each hook returns joins the one list.
+        assert plain.known == [] and all(issue.family for issue in plain.issues)
+        # The catalog's stub adds nothing (loosened and field_impact have their own tests); what each hook returns
+        # joins the one list.
         assert sources.findings(cfg, graph, None) == owners.Findings()
-        assert owners.loosened(None, index) == owners.Findings() == owners.field_impact(None, index)
         entry = sources.Known('k', ('app/a.ts:setState',), 'why', 'leave')
         catalog = Issue('input:known.k', 1, 'known.k', 'text', 'step', family='input', subject='known.k',
                         parts=(('', '.flowguard/known.toml:1', 'is invalid', 'fix it'),), fresh=frozenset({''}))
