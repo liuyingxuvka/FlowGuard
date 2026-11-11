@@ -213,10 +213,13 @@ def test_complete_cli_without_actual_projected_readings_stays_grey(tmp_path):
 def test_projected_rules_keep_the_raw_sensor_behavior_difference(tmp_path):
     from flowguard.intent import cache
     from tests.intent_engine.test_default_runtime_signals import _git
-    model, _, module, _ = project(tmp_path)
+    model, _, module, native = project(tmp_path)
     root = model.cfg.root
     (root / 'tests/test_flowguard_intent.py').write_text(
         'def test_flowguard_intent(request):\n from flowguard.intent.plugin import sentinel\n sentinel(request.config)\n')
+    # Inputs come only from the tests' calls (4.5): one ordinary test reaches the refusing branch.
+    test = root / ('tests/' + native + '.py')
+    test.write_text(test.read_text() + 'def test_blocked():\n    assert app.lower(False, False) is not None\n')
     _git(root, 'init', '-q', '-b', 'main')
     _git(root, 'add', module + '.py', 'tests', 'pyproject.toml', 'SPEC.txt')
     _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
@@ -227,5 +230,6 @@ def test_projected_rules_keep_the_raw_sensor_behavior_difference(tmp_path):
     report = cache.observations(model.cfg)['items']
     assert not report['red'], report
     readings = [item for item in report['items'] if item['name'] == 'LOWER_CALL']
-    assert any(change['before'] == "'blocked'" and change['after'] == "'denied'"
-               for reading in readings for change in reading['changes']), readings
+    # The recorded call's sealed outcome before and after the edit (JSON values, 4.5).
+    assert [change for reading in readings for change in reading['changed']] == [
+        [{'flag': False, 'detail': False}, 'blocked', 'denied']], readings

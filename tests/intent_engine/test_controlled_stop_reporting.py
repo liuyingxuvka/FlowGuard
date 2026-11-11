@@ -35,7 +35,7 @@ def recorded_replays(monkeypatch):
     return results
 
 
-def test_actual_inputs_use_passing_native_reports_without_a_stop_or_nested_session(tmp_path, monkeypatch):
+def test_requested_inputs_run_sealed_at_the_real_call_without_a_nested_session(tmp_path, monkeypatch):
     anchor = native_project(tmp_path)
     scope, item = bind_anchor(tmp_path, anchor)
     results = recorded_replays(monkeypatch)
@@ -46,9 +46,14 @@ def test_actual_inputs_use_passing_native_reports_without_a_stop_or_nested_sessi
     assert [reading.status for reading in readings] == ['ok', 'ok', 'ok'], readings
     assert [reading.value for reading in readings] == [True, False, True]
     assert len(results) == 3
-    assert all(result['status'] == 'ok' and all(report.passed for report in result['reports']) for result in results)
+    # The actual inputs run the whole named test natively; a requested input is evaluated sealed once the
+    # real call agrees with the sealed source, and that replay ends at the real call: its only failure is
+    # FlowGuard's own stop there, never a project failure (the complete run was already prepared).
+    assert results[0]['status'] == 'ok' and all(report.passed for report in results[0]['reports'])
+    for result in results[1:]:
+        assert [type(error).__name__ for _, error in result['errors']] == ['_Stop'], result['errors']
+        assert [report.when for report in result['reports'] if not report.passed] == ['call'], result['reports']
     assert calibration._context(tmp_path, anchor.calibrated_by) == (scope, item)
-    assert not any('_Stop' in str(report.longrepr) for result in results for report in result['reports'])
 
 
 def test_native_refusal_is_not_a_harness_failure(tmp_path):
@@ -57,8 +62,8 @@ def test_native_refusal_is_not_a_harness_failure(tmp_path):
     actual = calibration.execute(tmp_path, anchor, {'x': -1})
     assert actual.status == 'ok', actual.reasons
     assert isinstance(actual.value, Raised)
+    # The requested point runs sealed: its exception comes back as its type and message (JSON), not a traceback.
     assert type(actual.value.error) is ValueError and str(actual.value.error) == 'native negative refusal'
-    assert actual.value.error.__traceback__ is not None
 
 
 def test_swallowing_baseexception_cannot_supply_an_absent_anchor_reading(tmp_path):

@@ -7,8 +7,8 @@ test went from 0.03 s to 1.01 s). Observation points are now the code objects of
 anchored functions (and functions included for comparison), monitored with
 local events; an unrelated hot loop is not seen at all.
 
-The replay guard's audit hook (installed by the first call-site replay, which an earlier test of the
-project makes) costs nothing in that loop: plain calls raise no audit event, so the hook never runs.
+The sealed environment's audit hook is installed only when a comparison runs after the tests (4.5), so
+no test's loop runs under it; plain calls raise no audit event in any case.
 
 Run this file directly to print the measured call-phase times::
 
@@ -154,13 +154,14 @@ def test_unrelated_hot_loop_is_not_monitored_when_the_tree_has_a_change(tmp_path
         assert state['tool'] is not None, 'the anchored functions are observed with the shared monitoring tool'
         assert not state['global'] & state['start'], f'process-wide call monitoring is on: {state}'
         assert state['local_step'] == 0, f'an unanchored unchanged function is monitored: {state}'
-    # The earlier test's replay installed the audit hook; the hot loop's 1 001 calls raised (almost) no
-    # audit event for it. On Python 3.11 the trace fallback reads f_code (an audit event) only for a call
-    # that starts on the first line of an observed function, here `work` beside `standing` on line 5.
-    assert state['hooked'] is True and state['audit_events'] < 10, state
-    # Observation points still work: the changed constant is reported at its sensor
-    # and the event path of the ordinary test is recorded.
-    assert 'STANDING' in completed.stdout, completed.stdout
+    # No comparison runs during the tests, so the sealed audit hook is not installed while the loop runs;
+    # the loop's 1 001 calls raised (almost) no audit event. On Python 3.11 the trace fallback reads f_code
+    # (an audit event) only for a call that starts on the first line of an observed function.
+    assert state['hooked'] is False and state['audit_events'] < 10, state
+    # Observation points still work: the event path of the ordinary test is recorded. The changed constant
+    # lives in another module that the sealed environment does not load, and `standing` itself did not
+    # change, so no change is claimed for it (4.5: before/after only for the changed functions).
+    assert 'changed:' not in completed.stdout, completed.stdout
     with sqlite3.connect(root / '.flowguard/cache/map.sqlite') as connection:
         payload = json.loads(connection.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()[0])
     entered = [event['anchor'] for event in payload['events'] if event['phase'] == 'call']

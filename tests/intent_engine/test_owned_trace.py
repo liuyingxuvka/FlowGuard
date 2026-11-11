@@ -55,11 +55,11 @@ def test_native():
     alias,original=module.limit,module.limit.__code__
     index=anchors.collect_sources(tmp_path,[('policy.py','policy')])
     ambient=sys.gettrace()
-    # Ordinary coverage receives this actual direct call, not private replay
-    # classes. The explicit runtime still observes all requested representatives.
+    # Ordinary coverage receives this actual direct call; the explicit runtime records
+    # that same call once, privately, and replays nothing beside it.
     with Capture(tmp_path,index,'outer',_ordinary=True) as outer:
         owned=sys.gettrace()
-        with scope.runtime.hook(module.limit,name='limit',axes={'x':[value]},private=True):
+        with scope.runtime.hook(module.limit,name='limit',private=True):
             result=alias(value)
         assert sys.gettrace() is owned
     assert sys.gettrace() is ambient
@@ -68,7 +68,8 @@ def test_native():
     assert [(e.phase,e.occurrence)for e in outer.events]==[('call',1),('return',1)]
     assert outer.events[0].values['x']==value
     assert outer.events[1].result is actual and outer.issues==[]
-    assert any(inputs['x']==value and observed is actual for inputs,observed in scope.runtime.readings[-1].rows)
+    reading=scope.runtime.readings[-1]
+    assert reading.actual==({'x':value},actual) and reading.actual[1] is actual and reading.rows==[]
 
 
 def test_nested_captures_share_the_sdk_owner_and_restore_exact_ambient(tmp_path):
