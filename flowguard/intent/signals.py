@@ -233,20 +233,14 @@ def copy_lines(inputs, same, show, owner=None, total=None, *, only=None):
     is kept on an input where it first shows a copy that differs from the owner (`owner`, its place), so each
     such copy is named, with its step, on its own first input that differs; without an owner that answers, where
     it first shows two copies that differ. `pairs` holds the pairs of places the line shows to differ. On another
-    line a copy that answers as the owner but differs from it elsewhere is set apart (`copy_answers`)."""
+    line a copy that answers as the owner but differs from it elsewhere is set apart (`copy_answers`). `only`, one
+    set of pairs per input, keeps each input to those of its pairs."""
     owned = owner is not None and any(place == owner for _, answers in inputs for place, _ in answers)
     kept, seen = [], set()
-    for where, answers in inputs:
-        values = dict(answers)
-        if owned:
-            if owner not in values:
-                continue
-            pairs = {frozenset((owner, place)) for place, value in answers if not same(values[owner], value)}
-        else:
-            pairs = {frozenset((place, other)) for number, (place, value) in enumerate(answers)
-                     for other, theirs in answers[number + 1:] if not same(value, theirs)}
+    for number, (where, answers) in enumerate(inputs):
+        pairs = _differing(answers, same, owner if owned else None)
         if only is not None:
-            pairs &= only
+            pairs &= only[number]
         if pairs - seen:
             kept.append((where, answers, pairs))
         seen |= pairs
@@ -262,12 +256,69 @@ def copy_lines(inputs, same, show, owner=None, total=None, *, only=None):
     return lines
 
 
-def copy_partition(inputs, previous, same, show, owner=None, total=None):
-    """An existing disagreement cannot hide a newly broken pair of functions."""
-    past = {pair for line in copy_lines(previous, same, show, owner, total) for pair in line[3]}
-    current = {pair for line in copy_lines(inputs, same, show, owner, total) for pair in line[3]}
-    return (copy_lines(inputs, same, show, owner, total, only=current - past),
-            copy_lines(inputs, same, show, owner, total, only=current & past))
+def _differing(answers, same, owner=None):
+    """The pairs of places one input shows to differ: each copy that differs from the owner, or without one
+    every two copies that differ. An input the owner does not answer shows none."""
+    if owner is not None:
+        values = dict(answers)
+        return {frozenset((owner, place)) for place, value in answers
+                if owner in values and not same(values[owner], value)}
+    return {frozenset((place, other)) for number, (place, value) in enumerate(answers)
+            for other, theirs in answers[number + 1:] if not same(value, theirs)}
+
+
+def copy_partition(rows, same, show, owner=None, total=None):
+    """Each input judged on its own against the copies' versions at the baseline (design 4.5): neither an old
+    disagreement nor an input whose baseline could not run hides a pair of copies newly broken on another input.
+
+    `rows` [(input, now, old, unknown)]: what the copies answer the input now ([(place, value)]), what they answered
+    it at the baseline ({place: (value, raised)}) and the places whose baseline could not run on it; a place in
+    neither did not exist at the baseline. A pair that differs now is red where it agreed at the baseline (or one
+    of its copies is new), before where it already differed on this input, and not compared where a baseline of
+    it could not run or both raised the same exception there. Returns the `copy_lines` of each, in that order."""
+    inputs = [(where, now) for where, now, _, _ in rows]
+    owned = owner if owner is not None and any(place == owner for _, now in inputs for place, _ in now) else None
+    split = ([], [], [])
+    for where, now, old, unknown in rows:
+        kinds = (set(), set(), set())
+        for pair in _differing(now, same, owned):
+            first, second = pair
+            if pair & unknown:
+                kind = 2
+            elif first in old and second in old:
+                (value, raised), (theirs, raised_too) = old[first], old[second]
+                kind = 2 if raised and raised_too and same(value, theirs) else 0 if same(value, theirs) else 1
+            else:
+                kind = 0
+            kinds[kind].add(pair)
+        for lines, pairs in zip(split, kinds):
+            lines.append(pairs)
+    return tuple(copy_lines(inputs, same, show, owner, total, only=pairs) for pairs in split)
+
+
+def copy_inputs(recorded, numbers, limit=64):
+    """The inputs same-name copies are compared on (design 4.5), at most `limit`, in this order: every recorded
+    input; each recorded input with one numeric field set to each number the copies use; the neighbours (+1 and -1)
+    of the numeric fields of both. Equal JSON is kept once and a non-finite number never enters; an int and a float
+    stay apart (1 is not 1.0), and a bool or None is no number. `recorded` and the result are {field: value}."""
+    import json
+    import math
+    inputs, seen = [], set()
+    def add(row):
+        if len(inputs) < limit and not any(type(value) is float and not math.isfinite(value) for value in row.values()):
+            encoded = json.dumps(row, sort_keys=True, allow_nan=False)
+            if encoded not in seen:
+                seen.add(encoded)
+                inputs.append(row)
+    numeric = lambda row: [key for key, value in row.items() if type(value) in (int, float)]
+    constants = [{**row, key: number} for row in recorded for key in numeric(row) for number in numbers]
+    for row in [*recorded, *constants]:
+        add(row)
+    for row in [*recorded, *constants]:
+        for key in numeric(row):
+            for step in (-1, 1):
+                add({**row, key: row[key] + step})
+    return inputs
 
 
 def copy_red(name, lines):

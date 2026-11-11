@@ -1343,7 +1343,9 @@ def test_nonprimitive_arguments_are_untouched_and_the_real_value_is_returned(vit
 
 
 @pytest.mark.parametrize('first', [0, 1])
-def test_copy_baseline_colour_uses_the_whole_name_not_the_first_witness(tmp_path, first):
+def test_copy_baseline_colour_is_judged_per_input_whatever_the_first_witness(tmp_path, first):
+    # Off x=0 the copies already differed at the baseline (before); at x=0 they agreed and differ now (red).
+    # Which input the test called first changes neither colour (design 4.5: each input against the baseline).
     from flowguard.intent.config import load_config
     from flowguard.intent.vitest import judge
     _commit(tmp_path, {
@@ -1355,8 +1357,44 @@ def test_copy_baseline_colour_uses_the_whole_name_not_the_first_witness(tmp_path
     data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
     records = [dict(id='typescript/src/a.ts:f', args=[first], result=3 if first == 0 else 1)]
     result = judge(load_config(tmp_path), data, records)
-    assert not result['red'] and len(result['before']) == 1, result
-    assert 'same-name anchor LIMIT' in result['before'][0], result
+    assert len(result['red']) == len(result['before']) == 1, result
+    assert result['red'][0].startswith('same-name anchor LIMIT: x=0, ') and 'x=1' not in result['red'][0], result
+    assert result['before'][0].startswith('same-name anchor LIMIT: x=') and 'x=0' not in result['before'][0], result
+
+
+def test_an_old_copy_difference_on_one_input_does_not_colour_a_new_one_on_another(tmp_path):
+    # The copies already differed at 91; the change breaks 4..7, where both old copies returned false.
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    _commit(tmp_path, {
+        'src/a.ts': '// flowguard: same LIMIT\nexport function f(days: number) { return days <= 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function g(days: number) { return days <= 3 || days === 91; }\n',
+    })
+    path = tmp_path / 'src/a.ts'
+    path.write_text(path.read_text().replace('<= 3', '<= 7'))
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    result = judge(load_config(tmp_path), data, [dict(id='typescript/src/a.ts:f', args=[0], result=True)])
+    assert len(result['red']) == len(result['before']) == 1, result
+    assert 'days=7' in result['red'][0] and 'days=91' not in result['red'][0], result
+    assert 'days=91' in result['before'][0] and 'days=7' not in result['before'][0], result
+
+
+def test_a_copy_whose_baseline_cannot_be_sealed_does_not_hide_a_new_break_between_the_others(tmp_path):
+    # f's baseline read an unknown setting; g and h agreed at the baseline and differ now at x=3.
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    _commit(tmp_path, {
+        'src/a.ts': '// flowguard: same LIMIT\nexport function f(x: number) { return getSetting(x); }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function g(x: number) { return x + 1; }\n',
+        'src/c.ts': '// flowguard: same LIMIT\nexport function h(x: number) { return x + 1; }\n',
+    })
+    (tmp_path / 'src/a.ts').write_text((tmp_path / 'src/a.ts').read_text().replace('getSetting(x)', 'x + 1'))
+    (tmp_path / 'src/b.ts').write_text((tmp_path / 'src/b.ts').read_text().replace('x + 1', 'x === 3 ? 0 : x + 1'))
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    result = judge(load_config(tmp_path), data, [dict(id='typescript/src/b.ts:g', args=[2], result=3)])
+    assert len(result['red']) == 1 and 'x=3' in result['red'][0] and 'src/c.ts:2 h' in result['red'][0], result
+    assert any('baseline could not be compared' in line and 'x=3' in line for line in result['unverified']), result
+    assert not result['before'], result
 
 
 @pytest.mark.parametrize('reference', [False, True])
