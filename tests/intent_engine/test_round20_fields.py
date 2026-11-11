@@ -103,29 +103,33 @@ BORROW_ITEMS = ('tests/intent/borrow.py::BORROW[shop.hires.may_borrow:cells]',
                 'tests/intent/borrow.py::BORROW[shop.hires.may_borrow:rows]')
 
 
-def test_sample_13_fields_read_from_a_connection_and_a_record_verify_the_rule_without_a_scenario(shop):
+FIELD_REASON = 'shop.hires.may_borrow: field days: uses attribute due'
+
+
+def test_sample_13_fields_read_from_a_connection_and_a_record_are_unverified_not_passed(shop):
     result, text = _pytest(shop, '-rA')
-    assert result.returncode == 0, text
+    assert result.returncode == 0, text           # the project's own test: its customers table keeps two rows
+    # The fields are read in the sealed environment (4.5): it has no connection and reads no attribute of a
+    # record, so the rule items on the anchor are unverified with the field named, never passed.
     results = _results(shop)
     for item in BORROW_ITEMS:
-        assert results[item]['verdict'] == 'ok', results[item]   # the guarded sqlite reads are not grey
-        assert results[item]['tests'] == ['tests/test_hires.py::test_may_borrow'], results[item]
-    assert int(results[BORROW_ITEMS[0]]['label'].split()[0]) >= 3, results[BORROW_ITEMS[0]]
-    assert 'PASSED tests/intent/borrow.py::BORROW[shop.hires.may_borrow:cells]' in text, text
-    # The project's own test asserts that its customers table still has its two rows.
+        assert results[item]['verdict'] == 'grey' and not results[item]['red'], results[item]
+        assert FIELD_REASON in results[item]['grey'], results[item]
+    assert not any(f'PASSED {item}' in text for item in BORROW_ITEMS), text
 
 
-def test_sample_13_a_broken_judgment_is_red_with_the_owner_sentence(shop):
+def test_sample_13_a_broken_judgment_is_never_green_and_its_rule_lead_names_the_change(shop):
     _edit(shop, 'shop/hires.py', '<= 10:', '<= 9:')
     result, text = _pytest(shop)
-    assert result.returncode == 1, text
+    # The rule cannot read its fields sealed, so it claims no verdict on the calls; the static leads
+    # still point at the changed judgment and its unchanged rule.
+    assert result.returncode == 0, text
     block = _block(text)
-    red = next(line for line in block if line.startswith('red: BORROW'))
-    assert 'days=10 member=F -> rule T, code False' in red, red
-    assert 'shop.hires.may_borrow:' in red and 'calls disagree' in red, red
-    assert red.endswith('BORROW source: owner R1: 逾期超过 10 天就不能再借，会员除外。'), red
-    assert 'FAILED tests/intent/borrow.py::BORROW[shop.hires.may_borrow:cells]' in text and '1 failed' in text, text
-    assert not any(line.startswith('unverified: BORROW') for line in block), block
+    assert 'lead: rule BORROW still uses old value 10(tests/intent/borrow.py decision line 7): if requirements changed, update the rule first' in block, block
+    assert any(line.startswith('lead: MAY_BORROW copies at shop/hires.py:may_borrow changed; rule BORROW is unchanged') for line in block), block
+    results = _results(shop)
+    assert all(results[item]['verdict'] == 'grey' and FIELD_REASON in results[item]['grey'] for item in BORROW_ITEMS), results
+    assert not any(f'PASSED {item}' in text for item in BORROW_ITEMS) and not any(line.startswith('red: ') for line in block), text
 
 
 def test_sample_13_a_field_that_cannot_be_read_is_grey_and_names_the_field(shop):
@@ -134,23 +138,24 @@ def test_sample_13_a_field_that_cannot_be_read_is_grey_and_names_the_field(shop)
     assert result.returncode == 0, text
     assert all(f'{item} UNVERIFIED' in text for item in BORROW_ITEMS), text
     assert not any(line.startswith('red: BORROW') for line in _block(text)), text
-    reason = "field member could not be evaluated: AttributeError: 'Hire' object has no attribute 'customer_id'"
+    # The first field the sealed environment cannot read names itself, before the broken one is reached.
     cells = _results(shop)[BORROW_ITEMS[0]]
     assert cells['verdict'] == 'grey' and not cells['red'], cells
-    assert any(reason in grey for grey in cells['grey']), cells
+    assert FIELD_REASON in cells['grey'], cells
     shown = display_text(_flowguard(shop, 'show', 'BORROW'))     # where the block's last line points
-    assert 'shop.hires.may_borrow: ' + reason in shown, shown
+    assert FIELD_REASON in shown, shown
 
 
-def test_sample_13_a_partial_run_without_the_rule_items_still_checks_the_calls(shop):
+def test_sample_13_a_partial_run_without_the_rule_items_names_the_unread_field(shop):
     _edit(shop, 'shop/hires.py', '<= 10:', '<= 9:')
     result, text = _pytest(shop, 'tests/test_hires.py')
-    assert result.returncode == 1, text
-    red = next(line for line in _block(text) if line.startswith('red: BORROW'))
-    assert 'days=10 member=F' in red and '-> rule T, code False' in red and 'source: owner R1' in red, red
+    assert result.returncode == 0 and '1 passed' in result.stdout, text
+    block = _block(text)
+    assert 'unverified: BORROW：field days: uses attribute due' in block, block
+    assert not any(line.startswith('red: ') for line in block), block
 
 
-def test_a_field_that_writes_the_database_is_refused_and_grey_with_its_field(shop):
+def test_a_field_that_writes_the_database_never_runs_and_is_grey_with_its_field(shop):
     _edit(shop, 'shop/hires.py', 'member=is_member(db, hire.customer)', 'member=remember(db, hire.customer)')
     path = shop / 'shop/hires.py'
     path.write_text(path.read_text() + '\n\ndef remember(db, customer):\n'
@@ -158,8 +163,8 @@ def test_a_field_that_writes_the_database_is_refused_and_grey_with_its_field(sho
     result, text = _pytest(shop, '-rA')
     assert result.returncode == 0, text            # the project test's own row count is still 2
     cells = _results(shop)[BORROW_ITEMS[0]]
-    assert cells['verdict'] == 'grey', cells
-    assert any(reason.endswith('field member：replay refused: shop/hires.py:32 db.execute("insert into customers values (99, 1)")：write database INSERT customers') for reason in cells['grey']), cells
+    assert cells['verdict'] == 'grey' and not cells['red'], cells
+    assert FIELD_REASON in cells['grey'], cells
 
 
 def test_sample_14_the_changed_grace_constant_leaves_both_rule_leads(shop):
@@ -280,7 +285,7 @@ def test_an_explicit_write_in_a_field_is_refused_statically_at_the_comment_line(
     reading = Reading('JUDGE', 'fieldwrite:judge')
     runtime.field_values(module.judge, bound, (('days', 'note(today)'),), 7, reading)
     assert reading.fields is None and module.SEEN == []
-    assert reading.field_reasons == ['field days：explicit write: line 4 changes module state SEEN（SEEN.append）'], reading.field_reasons
+    assert reading.field_reasons == ['field days: uses attribute append'], reading.field_reasons      # refused before it runs
     reading = Reading('JUDGE', 'fieldwrite:judge')
     runtime.field_values(module.judge, bound, (('days', '[today + n for n in range(2)][1]'),), 7, reading)
     assert reading.fields == {'days': 6} and not reading.field_reasons, reading
@@ -304,7 +309,8 @@ def test_calibrated_by_with_fields_keeps_only_the_named_tests_calls(shop):
     result, text = _pytest(shop, '-rA')
     assert result.returncode == 0, text
     cells = _results(shop)[BORROW_ITEMS[0]]
-    assert cells['verdict'] == 'ok' and cells['tests'] == ['tests/test_hires.py::test_member'], cells
+    # The named test's calls are the only ones kept, and their fields are read sealed: unverified, never ok.
+    assert cells['verdict'] == 'grey' and FIELD_REASON in cells['grey'] and not cells['red'], cells
     assert 'calibrat' not in ' '.join(cells['grey'] + cells['red']), cells
 
 
