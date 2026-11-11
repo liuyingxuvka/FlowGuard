@@ -107,21 +107,24 @@ def _observations(root):
 def test_without_a_change_the_run_is_quiet(shop):
     result, text = _pytest(shop)
     assert result.returncode == 0 and '12 passed' in result.stdout, text
-    assert 'FlowGuard（' not in text, text
+    # Only the title with FlowGuard's own time (4.10): no red, change, lead or unverified line.
+    title, block = _block(text)
+    assert re.fullmatch(r'FlowGuard（since task start [0-9a-f]{7}）; \d+\.\d{3} s', title) and block == [], (title, block)
 
 
-def test_sample_1_equal_stock_and_reserved_changes_from_refused_to_allowed(shop):
+def test_sample_1_a_database_decision_is_not_compared_and_names_itself(shop):
     _edit(shop, 'shop/store.py', 'return stock > reserved', 'return stock >= reserved')
     result, text = _pytest(shop)
-    assert result.returncode == 0, text
+    assert result.returncode == 0 and '12 passed' in result.stdout, text
     title, block = _block(text)
     head = _git(shop, 'rev-parse', 'HEAD').strip()
-    assert title == f'FlowGuard（since task start {head[:7]}）', title
-    line = next(line for line in block if line.startswith('changed: AVAILABLE（shop/store.py:12）'))
-    assert re.search(r'(stock=reserved|reserved=stock)（0–2）', line) and 'False → True' in line, line
+    assert title.startswith(f'FlowGuard（since task start {head[:7]}）; '), title
+    # The connection argument is not JSON: no change is claimed for it either way (4.5, 6.4).
+    assert 'unverified: AVAILABLE：no comparable JSON result' in block, block
+    assert not any(line.startswith('changed: AVAILABLE') for line in block), block
 
 
-def test_sample_2_database_write_is_refused_at_its_line_and_the_table_is_unchanged(shop, tmp_path):
+def test_sample_2_a_database_write_is_not_compared_and_the_table_has_one_row(shop, tmp_path):
     _edit(shop, 'shop/store.py', 'return count + stock - reserved', 'return max(0, count + stock - reserved)')
     rows = {}
     for label, options in (('plugin', ()), ('without', ('-p', 'no:flowguard.intent.plugin'))):
@@ -130,42 +133,55 @@ def test_sample_2_database_write_is_refused_at_its_line_and_the_table_is_unchang
         assert result.returncode == 0, text
         rows[label] = json.loads(target.read_text())
         if label == 'plugin':
-            line = next(line for line in _block(text)[1] if line.startswith('unverified: HIRES'))
-            assert ('replay refused: shop/store.py:19 db.execute("insert into hires(item_id) values (?)", (item_id,))：write database INSERT hires') in line, line
+            assert any('HIRES' in line for line in _block(text)[1] if line.startswith('unverified')), text
+            assert any('HIRES: no comparable JSON result' in reason for item in _observations(shop)['items']
+                       for reason in item.get('reasons', ())), text
     assert rows == {'plugin': 1, 'without': 1}
     result, text = _pytest(shop)                         # the full suite shows the same line
-    assert result.returncode == 0 and any(line.startswith('unverified: HIRES（shop/store.py:18）：replay refused') for line in _block(text)[1]), text
+    assert result.returncode == 0 and 'unverified: HIRES：no comparable JSON result' in _block(text)[1], text
 
 
-def test_sample_3_a_helper_constant_shows_its_whole_interval_and_cause(shop):
+def test_sample_3_a_helper_constant_makes_the_copies_disagree_at_its_own_value(shop):
     _edit(shop, 'shop/policy.py', 'GRACE_DAYS = 3', 'GRACE_DAYS = 7')
     result, text = _pytest(shop)
     title, block = _block(text)
-    line = next(line for line in block if line.startswith('changed: STANDING（shop/policy.py:10）'))
-    assert 'days_after_expiry=4–7' in line and 'False → True' in line, line
-    assert 'cause: GRACE_DAYS 3 → 7（shop/policy.py:1）' in line, line
-    # The copy in preview.py still says 3: the same-name anchors now disagree, red with its next step.
+    # The recorded calls (0 and 9) give the same answer before and after: no change is claimed for them.
+    standing = next(item for item in _observations(shop)['items'] if item.get('name') == 'STANDING')
+    assert standing['total'] == 2 and standing['changed'] == [], standing
+    assert not any(line.startswith('changed: STANDING') for line in block), block
+    # The copy in preview.py still says 3: the helper's constant 7 is in the compared union, where the
+    # same-name anchors now disagree: red with its next step.
     assert result.returncode == 1, text
     red = next(index for index, line in enumerate(block) if line.startswith('red: same-name anchor STANDING：'))
+    assert 'days_after_expiry=7' in block[red], block
     assert '2 copies: 1 copies return T (shop/policy.py:10 standing_allows), 1 copies return F (shop/preview.py:2 preview_allows)' in block[red], block
     # its next step chooses neither copy: the changed one may be the right one
     assert block[red].endswith(' -> first decide which copy is correct, then make the other copy agree with it; if intentionally different, use different anchor names and declare distinct'), block
 
 
-def test_sample_4_unanchored_late_fee_reports_the_member_classes(shop):
+def test_sample_4_unanchored_late_fee_claims_no_change_for_the_member_branch_no_test_calls(shop):
     _edit(shop, 'shop/fees.py', 'return fee // 2 if member else fee', 'return fee * 2 // 3 if member else fee')
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    line = next(line for line in _block(text)[1] if line.startswith('changed: late_fee(unanchored, automatic)（shop/fees.py:1）'))
-    assert int(re.search('changed (\\d+) classes', line)[1]) >= 5 and 'member=T' in line and 'member=F' not in line, line
-    assert 'example: days=3, member=T: 1 → 2' in line, line
+    # Inputs come only from the tests' calls (4.5): late_fee(5, False) gives 9 before and after.
+    item = next(item for item in _observations(shop)['items'] if item.get('name') == 'late_fee')
+    assert item['unanchored'] and item['rows'] == [[{'days': 5, 'member': False}, 9]] and item['changed'] == [], item
+    assert not any(line.startswith('changed: late_fee') for line in _block(text)[1]), text
 
 
-def test_sample_5_the_skipped_save_step_is_a_visible_path_change(shop):
+def test_sample_5_the_skipped_save_step_is_a_changed_decision_on_the_real_path(shop):
     _edit(shop, 'shop/publish.py', 'return not artifact_id.startswith("tmp")', 'return not artifact_id.startswith(("tmp", "a"))')
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    assert 'changed: path tests/test_publish.py::test_release：ENTRY → SAVED → PUBLISHED became ENTRY → PUBLISHED' in _block(text)[1], text
+    block = _block(text)[1]
+    line = next(line for line in block if line.startswith('changed: needs_save(unanchored, automatic)（shop/publish.py:17）'))
+    assert "artifact_id='a1'" in line and 'function result True → False' in line, line
+    # The test is not run again with the old code (6.5); the real current path is recorded without SAVED.
+    assert not any('became' in line for line in block), block
+    with sqlite3.connect(shop / '.flowguard/cache/map.sqlite') as connection:
+        events = json.loads(connection.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()[0])['events']
+    calls = [event['anchor'] for event in events if event['case'] == 'tests/test_publish.py::test_release' and event['phase'] == 'call']
+    assert calls == ['ENTRY', 'PUBLISHED'], events
 
 
 def test_sample_7_rule_violation_is_one_red_line_with_the_owner_sentence(shop):
@@ -181,26 +197,24 @@ def test_sample_7_rule_violation_is_one_red_line_with_the_owner_sentence(shop):
     assert 'tests/intent/deposit.py:4' in block[reds[0] + 2], block
 
 
-def test_sample_7_the_phase_0_config_fee_rule_is_red_in_the_new_block(tmp_path):
-    from tests.intent_engine.test_calibrated_config_rule import _demo
+def test_sample_7_the_phase_0_config_fee_rule_is_unverified_in_the_new_block(tmp_path):
+    from tests.intent_engine.test_calibrated_config_rule import _demo, _sealed_grey
     root = _demo(tmp_path / 'demo')
     _edit(root, 'shop/fees.json', '"per_day": 3', '"per_day": 4')
     _edit(root, 'tests/test_fees.py', '== 9', '== 12')
     result, text = _pytest(root, '-rf')
-    assert result.returncode == 1 and '2 failed' in result.stdout, text
-    line = next(line for line in _block(text)[1] if line.startswith('red: FEE'))
-    assert 'days=3 member=F -> rule 3, code 4' in line and 'source: assumed: 3 per day after 2 free days, members half' in line, line
+    # The calibrated reader of fees.json cannot run sealed: its rule items are unverified, never passed or red.
+    assert result.returncode == 0 and '2 passed, 3 unverified' in result.stdout, text
+    assert not any(line.startswith('red: FEE') for line in _block(text)[1]), text
+    _sealed_grey(root)
 
 
-def test_sample_9_both_database_contexts_are_observed_and_the_second_shows_an_interval(shop):
+def test_sample_9_both_database_calls_run_once_and_are_not_compared(shop):
     _edit(shop, 'shop/members.py', '    return days_after_expiry <= 3\n', '    return days_after_expiry <= 7\n')
     result, text = _pytest(shop)
-    assert result.returncode == 0, text
-    line = next(line for line in _block(text)[1] if line.startswith('changed: BORROW（shop/members.py:11）'))
-    assert 'days_after_expiry=4–7，member_id=1' in line and 'cause: BORROW constant 3 → 7（shop/members.py:15）' in line, line
-    readings = [item for item in _observations(shop)['items'] if item.get('name') == 'BORROW']
-    assert len(readings) == 2 and all(item['status'] == 'ok' for item in readings), readings
-    assert readings[0]['changed'] == [] and len(readings[1]['changed']) == 4, readings
+    assert result.returncode == 0 and '12 passed' in result.stdout, text       # one debt row, as the test asserts
+    assert 'unverified: BORROW：no comparable JSON result' in _block(text)[1], text
+    assert not [item for item in _observations(shop)['items'] if item.get('name') == 'BORROW'], _observations(shop)
 
 
 def test_sample_19_the_broken_file_is_only_unverified(shop):
