@@ -68,10 +68,14 @@ def test_an_ignore_entry_counts_the_members_of_a_family_that_may_be_ignored_and_
     delete = issue('delete:x', 'delete', ('m:f', 'src/a.py:f'), ('m:g', 'src/b.py:g'), ('m:h', 'src/c.py:h'), fresh=['m:f'])
     lines, ignored = deliver([delete], touched_functions={'m:g'}, touched_files=(), known=[entry('k', 'ignore', 'delete:x')])
     assert lines == [] and ignored == 3            # fresh, old touched and old untouched members alike
-    # Beside an entry of another act the members stay shown.
-    both = [entry('k', 'ignore', 'delete:x'), entry('l', 'leave', 'delete:x')]
+    # Beside an entry of another act the members stay shown: the touched old one as that entry's, once its sites
+    # are touched too.
+    both = [entry('k', 'ignore', 'delete:x'), entry('l', 'leave', 'delete:x', nodes={'m:g'})]
     lines, ignored = deliver([delete], touched_functions={'m:g'}, touched_files=(), known=both)
     assert kinds(lines) == [('known', 'known.l', 'm:g'), ('impact', 'delete:x', 'm:f')] and ignored == 0
+    away = [entry('k', 'ignore', 'delete:x'), entry('l', 'leave', 'delete:x', nodes={'m:other'})]
+    lines, ignored = deliver([delete], touched_functions={'m:g'}, touched_files=(), known=away)
+    assert kinds(lines) == [('impact', 'delete:x', 'm:f')] and ignored == 0
 
 
 def test_ignore_holds_only_for_families_that_may_be_ignored():
@@ -95,15 +99,35 @@ def test_ignored_members_are_counted_once_each():
     ('fix', '', 'fix it in this change and say so in your report'),
 ])
 def test_a_touched_old_member_named_by_a_known_entry_is_a_known_line_with_the_step_of_its_act(act, asked, step):
-    known = [entry('k', act, 'pair:A>B', asked=asked)]
+    known = [entry('k', act, 'pair:A>B', asked=asked, nodes={'m:g'})]
     lines, _ = deliver([PAIR], touched_functions={'m:g'}, touched_files=(), known=known)
     assert kinds(lines) == [('red', 'pair:A>B', 'm:f'), ('known', 'known.k', 'm:g')]
     assert (lines[1].text, lines[1].step, lines[1].places) == ('known.k at src/b.py:g', step, ('src/b.py:g',))
     assert 'why: why k' in lines[1].detail
+    # A site of the entry in a file the change touches counts as well.
+    by_file = [entry('k', act, 'pair:A>B', asked=asked, files={'src/b.py'})]
+    assert kinds(deliver([PAIR], touched_functions={'m:g'}, touched_files={'src/b.py'}, known=by_file)[0]) == [
+        ('red', 'pair:A>B', 'm:f'), ('known', 'known.k', 'm:g')]
     # Untouched, the old member says nothing; with everything it is listed.
     assert kinds(deliver([PAIR], touched_functions=(), touched_files=(), known=known)[0]) == [('red', 'pair:A>B', 'm:f')]
     assert kinds(deliver([PAIR], touched_functions=(), touched_files=(), known=known, everything=True)[0]) == [
         ('red', 'pair:A>B', 'm:f'), ('known', 'known.k', 'm:g')]
+
+
+def test_a_touched_old_member_named_by_a_known_entry_whose_sites_are_untouched_says_nothing():
+    # 4.7: `known` needs the entry's sites touched, `before` needs no entry naming the finding.
+    for sites in (dict(), dict(nodes={'m:other'}), dict(files={'src/other.py'})):
+        known = [entry('k', 'leave', 'pair:A>B', **sites)]
+        assert kinds(deliver([PAIR], touched_functions={'m:g'}, touched_files={'src/b.py'}, known=known)[0]) == [
+            ('red', 'pair:A>B', 'm:f')], sites
+        assert kinds(deliver([PAIR], touched_functions={'m:g'}, touched_files=(), known=known, everything=True)[0]) == [
+            ('red', 'pair:A>B', 'm:f'), ('known', 'known.k', 'm:g')], sites
+    # The entry's sites touched and the member not: the entry's own line (beside no red, which would name it).
+    old = issue('pair:A>B', 'pair', ('m:g', 'src/b.py:g'))
+    known = [entry('k', 'leave', 'pair:A>B', nodes={'m:other'})]
+    assert kinds(deliver([old], touched_functions={'m:other'}, touched_files=(), known=known)[0]) == [('known', 'known.k', '')]
+    assert kinds(deliver([old], touched_functions={'m:other', 'm:g'}, touched_files=(), known=known)[0]) == [
+        ('known', 'known.k', 'm:g')]
 
 
 def test_writers_findings_have_lines_of_their_own_only_with_everything():

@@ -15,10 +15,11 @@ from collections import Counter
 from contextlib import contextmanager
 import ctypes
 from dataclasses import dataclass, field
+import os
 import threading
 import time
 
-from flowguard.map.common import git_blob, is_test_file, read_source, sha256_bytes
+from flowguard.map.common import git_blob, git_run, is_test_file, read_source, sha256_bytes
 
 SIMILAR_SHAPE = 0.5          # 3-gram Jaccard of two function bodies that counts as a similar structure
 SIMILAR_FOREIGN = 0.8        # the same for JS/TS, whose copies are found by structure alone (no replay)
@@ -59,7 +60,7 @@ class Change:
         self.files = set(graph._git_changed(self.baseline)) if self.baseline else set()
         self._modules = {path: module for path, module in graph.con.execute('SELECT path, module FROM file')}
         self._texts, self._facts, self._delta, self._impact = {}, {}, {}, None
-        self._baseline_writes, self._current = {}, {}
+        self._baseline_writes, self._current, self._definitions = {}, {}, None
 
     def impact(self):
         """The map's changed, added and removed ids against the baseline (read once)."""
@@ -98,53 +99,98 @@ class Change:
             self._texts[file] = raw.decode('utf-8-sig', errors='replace') if raw is not None else None
         return self._texts[file]
 
+    def baseline_paths(self):
+        """The paths whose baseline side this change alters: `files`, and the old path of a staged rename, which
+        `files` (Git's rename detection) names by its new path only. Read once."""
+        if not hasattr(self, '_baseline_paths'):
+            listed = git_run(self.graph.root, 'diff', '--name-only', '-z', '--relative', '--no-renames', self.baseline,
+                             '--').stdout if self.baseline else b''
+            self._baseline_paths = frozenset(self.files | {os.fsdecode(name) for name in listed.split(b'\0') if name})
+        return self._baseline_paths
+
+    def module(self, file):
+        """The module the map names `file` by; for a file the working tree no longer holds (this change deletes it or
+        renames it away) the name `graph.impact` gives it (`_file_deltas`). None for a file the map does not read."""
+        from flowguard.structure.readers.registry import language_for, module_name
+        if file in self._modules:
+            return self._modules[file]
+        language = language_for(file)
+        if not language or (self.graph.root / file).exists():
+            return None
+        return file[:-3].replace('/', '.') if language == 'python' else module_name(file)
+
     def old_facts(self, file):
-        """The map facts the same extractor reads from the file's baseline bytes ({} when it was absent)."""
+        """The map facts the same extractor reads from the file's baseline bytes ({} when it was absent, or when
+        the map does not read the file)."""
         if file not in self._facts:
-            module = self._modules.get(file)
+            module = self.module(file)
             self._facts[file] = self.graph._baseline_facts(self.baseline, file, module, is_test_file(file)) \
                 if self.baseline and module else {}
         return self._facts[file]
 
     def old_part(self, file, kind):
         """One kind of `old_facts(file)` (None when absent), read without decoding the file's whole record."""
-        module = self._modules.get(file)
+        module = self.module(file)
         return self.graph._baseline_part(self.baseline, file, module, kind, is_test_file(file)) \
             if self.baseline and module else None
 
+    def baseline_definitions(self):
+        """The value sets, constants and schema models of the baseline (`graph.definitions`): those of each path of
+        `baseline_paths` read from its baseline facts, the map's for every other file. Built once."""
+        if self._definitions is None:
+            self._definitions = self.graph.definitions(
+                [(path, self.module(path), self.old_facts(path)) for path in sorted(self.baseline_paths())])
+        return self._definitions
+
     def baseline_writes(self, target=None, *, by_name=False):
-        """`graph.writes(target, by_name=)` as the baseline had them: the rows of the files this change leaves
-        alone, and the rows the same reader finds in the baseline bytes of each changed file on the map
-        (`old_facts`: a file this change adds gives none, and so does one it deletes, which the map no longer
-        holds). Read once per target and spelling."""
+        """`graph.writes(target, by_name=)` as the baseline had them: the facts of every file this change leaves
+        alone, and those the same reader finds in the baseline bytes of each path of `baseline_paths` (a file this
+        change adds has none; one it deletes or renames away has its old ones), with the values and models resolved
+        by the baseline's own definitions (`baseline_definitions`: a set, a constant or a schema this change alters
+        gives its old value or binding). Read once per target and spelling."""
         key = (target, by_name)
         if key not in self._baseline_writes:
-            from flowguard.structure.query import Rows
-            kept = [row for row in self.graph.writes(target, by_name=by_name) if row['file'] not in self.files]
-            facts = [facts for facts in map(self.old_facts, sorted(self.files)) if facts]
-            old = self.graph.writes(target, by_name=by_name, facts=facts) if facts else []
-            self._baseline_writes[key] = Rows(sorted(
-                [*kept, *old], key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
+            paths = self.baseline_paths()
+            if paths:
+                facts = [data for path, _, data in self.graph._kinds('language', 'writes', 'assignments') if path not in paths]
+                facts += [record for record in map(self.old_facts, sorted(paths)) if record]
+                self._baseline_writes[key] = self.graph.writes(target, by_name=by_name, facts=facts,
+                                                               definitions=self.baseline_definitions())
+            else:
+                self._baseline_writes[key] = self.graph.writes(target, by_name=by_name)
         return self._baseline_writes[key]
 
     def callees(self, ident, *, old=False):
         """The names the function `ident` (`module:qual`; a module's own code for `module`) calls as its source
         spells them, the functions nested in it included, now or (`old`) at the baseline: its file's syntax calls,
-        in any language. A function of no mapped file, absent from its file or in a file that does not parse calls
-        nothing."""
+        in any language, and for a Python function also the callables it passes on (`run(save)`), as the call index
+        reads them (`facts.functions[qual].calls`; a module's own code and a test file have syntax calls alone).
+        A function of no mapped file (at the baseline: of no file this change deletes or renames away either),
+        absent from its file or in a file that does not parse calls nothing."""
         module, _, qual = ident.partition(':')
         row = self.graph.con.execute("SELECT file FROM node WHERE id=? AND kind='module'", (module,)).fetchone()
-        if row is None:
+        if row is not None:
+            file = row[0]
+        elif old:
+            file = next((path for path in sorted(self.baseline_paths() - set(self._modules)) if self.module(path) == module), None)
+        else:
+            file = None
+        if file is None:
             return frozenset()
-        file = row[0]
-        if old and file in self.files:
+        if old and file in self.baseline_paths():
             facts = self.old_facts(file)
         else:
             if file not in self._current:
                 self._current[file] = self.graph.file_facts(file)
             facts = self._current[file]
-        return frozenset(call['text'] for call in facts.get('syntax_calls', ())
-                         if call['node'] == ident or qual and call['node'].startswith(ident + '.'))
+        if not facts:
+            return frozenset()
+        calls = {call['text'] for call in facts.get('syntax_calls', ())
+                 if call['node'] == ident or qual and call['node'].startswith(ident + '.')}
+        if facts['language'] == 'python' and qual and facts['facts']:
+            calls.update(name for function, data in facts['facts']['functions'].items()
+                         if function == qual or function.startswith(qual + '.') for name in data['calls'])
+        return frozenset(calls)
 
     def rule_declarations(self):
         """The intent source facts of this change, not an old-value matching result."""

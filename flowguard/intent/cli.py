@@ -416,14 +416,10 @@ def show_last(cfg, full=False):
 
 
 def show_catalog(cfg, query, full=False):
-    """`show rules`, `show rule.<id>` and `show known.<id>`: the catalog of rules.toml and known.toml. This
-    version reads neither file yet."""
+    """`show rules`, `show rule.<id>` and `show known.<id>` in a project with rules.toml or known.toml: their
+    catalog. This version reads neither file yet."""
     from .sources import catalog_files
-    present = catalog_files(cfg)
-    if present:
-        print(f'FlowGuard: this version does not read {" or ".join(present)} yet')
-    else:
-        print('FlowGuard: no .flowguard/rules.toml or known.toml')
+    print(f'FlowGuard: this version does not read {" or ".join(catalog_files(cfg))} yet')
     return 0
 
 
@@ -432,8 +428,9 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
         if query or draft or gaps:
             raise ValueError('show --last takes no NAME: python -m flowguard show --last')
         return show_last(cfg, full)
-    if query and not draft and not gaps and (query == 'rules' or query.startswith(('rule.', 'known.'))):
-        return show_catalog(cfg, query, full)
+    from .sources import catalog_files
+    if query and not draft and not gaps and (query == 'rules' or query.startswith(('rule.', 'known.'))) and catalog_files(cfg):
+        return show_catalog(cfg, query, full)      # without a catalog file these names are looked up as before
     query = draft or query
     if not gaps and query:
         request = cfg.root / '.flowguard/requests' / (query + '.md')

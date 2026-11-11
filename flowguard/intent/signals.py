@@ -248,9 +248,10 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     names its finding (the entry goes into the line's detail: an entry never silences a new finding); otherwise
     it gets its family's new kind (impact), unless an ignore entry covers it. Every other member counts when this
     change touches it (its function; for a file-level member, one of the finding's files), and with `everything`
-    always: a known entry naming its finding gives a `known` line, an ignore entry alone counts it, and without
-    an entry it is `before`. An ignore entry covers only a family that may be ignored, and an entry of another
-    act beside it keeps the member shown. Fields several files write without an agreement (family 'writers')
+    always: a known entry naming its finding gives a `known` line when the change also touches the entry's sites
+    (else nothing: `known` needs the entry's sites touched, `before` no entry), an ignore entry alone counts it,
+    and without an entry it is `before`. An ignore entry covers only a family that may be ignored, and an entry
+    of another act beside it keeps the member shown. Fields several files write without an agreement (family 'writers')
     have no line of their own except with `everything`. A known entry whose finding belongs to a family that ran
     (`ran`) and is not among the findings is `known fixed?`; any other entry, except an ignore entry, whose
     sites this change touches (`Known.nodes` in `touched_functions` or `Known.files` in `touched_files`, every
@@ -293,9 +294,10 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
                 ignored.add((issue.name, function))
             elif shown and (everything or (function in touched_functions if function else bool(issue.files & touched_files))):
                 for entry in speaking:
-                    lines.append(Line('known', f'known.{entry.id}', function, f'known.{entry.id} at {place}',
-                                      _known_step(entry), places, _known_detail(entry)))
-                    said.add(entry.id)
+                    if everything or entry.nodes & touched_functions or entry.files & touched_files:
+                        lines.append(Line('known', f'known.{entry.id}', function, f'known.{entry.id} at {place}',
+                                          _known_step(entry), places, _known_detail(entry)))
+                        said.add(entry.id)
                 if not speaking:
                     lines.append(Line('before', issue.name, function, f'{issue.subject} at {place} was broken at task start',
                                       BEFORE_STEP, places, issue.detail))
