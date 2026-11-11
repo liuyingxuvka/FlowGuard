@@ -31,7 +31,8 @@ function sourceMap(code, file) {
     return out;
   };
   let previous = 0;
-  const mappings = code.split('\n').map((line, index) => {
+  // lines as JavaScript counts them (CR LF, LF, CR, U+2028, U+2029): stack positions are read in those lines
+  const mappings = code.split(/\r\n|[\n\r\u2028\u2029]/).map((line, index) => {
     const first = 'AA' + (index ? 'C' : 'A') + vlq(-previous);
     previous = line.length;
     return first + ',CAAC'.repeat(line.length);

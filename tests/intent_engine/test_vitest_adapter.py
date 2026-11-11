@@ -1031,6 +1031,28 @@ def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_ch
     assert _prepare(root)['status'] == 'on'  # registered copies are checked even when no source changed
 
 
+def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph_separator(vitest_home):
+    # JavaScript ends a line at U+2028 and U+2029 too: the recorder's source map counts lines the same way,
+    # so a stack position inside a recorded function is the one vitest gives without FlowGuard (line 7, column 13).
+    root = vitest_home / 'separators'
+    _commit(root, {
+        'package.json': '{"name":"separators","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/grade.ts': ("/* a note\u2028with a line separator */\nexport const NOTE = 'x\u2029y';\n"
+                         "export const seen: string[] = [];\nexport function grade(n: number): string {\n"
+                         "  seen.push(new Error('in').stack!.split('\\n')[1].trim());\n"
+                         "  return n >= 5 ? 'pass' : 'fail';\n}\n"),
+        'tests/grade.test.ts': ("import { expect, it } from 'vitest';\nimport { grade, seen } from '../src/grade';\n"
+                                "it('grades', () => { expect(grade(5)).toBe('pass'); expect(seen[0]).toMatch(/grade\\.ts:7:13\\)$/); });\n"),
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    grade = root / 'src/grade.ts'
+    grade.write_text(grade.read_text(encoding='utf-8').replace("n >= 5 ?", "!(n < 5) ?"), encoding='utf-8', newline='\n')
+    plan = json.loads(Path(_prepare(root)['plan']).read_text(encoding='utf-8'))
+    assert [point['fn'] for entry in plan['files'].values() for point in entry['points']] == ['grade'], plan
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and 'Tests  3 passed (3)' in text, text
+
 ISO_WEEK = '''
     function isoWeek(date: Date): number {
       const day = date.getUTCDay() || 7;
