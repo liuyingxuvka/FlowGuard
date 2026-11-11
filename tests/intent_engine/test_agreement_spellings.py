@@ -203,6 +203,31 @@ def test_typescript_bare_function_and_ambiguous_holders_do_not_borrow_an_object_
 
 
 @pytest.mark.parametrize('suffix', ['py', 'ts'])
+@pytest.mark.parametrize('role', ['writers', 'together'])
+@pytest.mark.parametrize('missing', ['file', 'function'])
+def test_new_positions_reject_missing_source_files_and_functions(tmp_path, suffix, role, missing):
+    target = f'not-here.{suffix}:save' if missing == 'file' else f'other.{suffix}:missing'
+    marker = '#' if suffix == 'py' else '//'
+    comment = f'writers Account.status {target}' if role == 'writers' else \
+        f'together Account.status Account.changed except={target}(owner approved)'
+    _files(tmp_path, {f'policy.{suffix}': f'{marker} flowguard: {comment}\n',
+                      f'other.{suffix}': 'def save(): pass\n' if suffix == 'py' else 'export function save() {}\n'})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+        issue, = [issue for issue in index.issues if issue.code == 'position']
+    assert (issue.level, issue.file, issue.line, issue.name) == ('red', f'policy.{suffix}', 1, 'Account.status')
+    assert target in issue.message
+
+
+def test_a_historical_slice_keeps_positions_without_claiming_to_resolve_other_sources(tmp_path):
+    _files(tmp_path, {'policy.py': '# flowguard: writers Account.status not-here.py:save\n'})
+    index = anchors.collect_sources(tmp_path, [('policy.py', 'policy')])
+    agreement, = index.named('Account.status')
+    assert agreement.writers == ('not-here.py:save',)
+    assert not [issue for issue in index.issues if issue.code == 'position']
+
+
+@pytest.mark.parametrize('suffix', ['py', 'ts'])
 @pytest.mark.parametrize('reverse', [False, True])
 def test_splitting_a_mixed_agreement_keeps_one_registration_with_both_constraints(tmp_path, suffix, reverse):
     marker = '#' if suffix == 'py' else '//'

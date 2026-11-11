@@ -210,8 +210,8 @@ def _indexed_agreement(anchor, kind, modules, positions=None):
     def resolve(position):
         target, colon, qual = position.rpartition(':')
         target = modules.get(target, target)
-        if positions is not None and target in positions:
-            matches = positions[target].get(qual, ())
+        if positions is not None:
+            matches = positions.get(target, {}).get(qual, ())
             if len(matches) == 1:
                 return matches[0]
             issues.append(Issue('red', 'position', f'cannot resolve {position} to one declared function; '
@@ -224,15 +224,16 @@ def _indexed_agreement(anchor, kind, modules, positions=None):
 
 
 def _agreement_positions(graph, modules):
-    """Actual foreign function ids, using the existing reader's named object holders."""
+    """Actual function ids, retaining the foreign reader's named object holders."""
     from ..structure import store
     from ..structure.readers.registry import ECMA, language_for
-    positions = {module: {} for file, module in modules.items() if language_for(file) in ECMA}
+    foreign = {module for file, module in modules.items() if language_for(file) in ECMA}
+    positions = {module: {} for module in modules.values()}
     for module, qual, raw in graph.con.execute("SELECT module, qual, raw FROM node WHERE kind IN ('function', 'method')"):
-        if module not in positions:
-            continue
-        data = store.unpack(raw)
-        declared = (data['holder'] + '.' + data['name']) if data.get('holder') else data['declared_qual']
+        declared = qual
+        if module in foreign:
+            data = store.unpack(raw)
+            declared = (data['holder'] + '.' + data['name']) if data.get('holder') else data['declared_qual']
         positions[module].setdefault(declared, []).append(module + ':' + qual)
     return positions
 
