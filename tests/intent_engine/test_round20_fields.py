@@ -345,8 +345,9 @@ def test_req_add_says_how_a_lasting_rule_cites_the_stored_words(shop, tmp_path):
         assert stored.returncode == 0, stored.stdout + stored.stderr
         lines = display_text(stored).splitlines()
         assert lines[0].startswith(f'stored {identifier} (request, sha ')
-        assert lines[1] == (f'if these words set a continuing rule, write it in tests/intent/ and cite {identifier} as its source: '
-                            f'source="owner {identifier}: <the exact sentence from the owner words>"'), lines
+        # The hint names the one place a continuing rule lives (design 4.4) and the one source form it cites.
+        assert lines[1] == ('if these words set a continuing rule, add it to .flowguard/rules.toml: [rule.<id>] '
+                            f'text = "..." source = \'{identifier} "<exact words>"\''), lines
 
 
 def test_check_reruns_the_tests_that_reached_a_fields_rule_when_only_the_rule_changed(tmp_path):

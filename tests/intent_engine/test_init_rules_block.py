@@ -79,17 +79,22 @@ def test_crlf_file_keeps_its_line_endings_outside_the_block(tmp_path, capsys):
     assert result == expected
 
 
-def test_rule_one_starts_each_task_with_new_task_and_the_block_keeps_three_rules(tmp_path, capsys):
+def test_rule_one_starts_each_task_with_new_task_and_the_block_holds_the_seven_rules(tmp_path, capsys):
     result = _init(tmp_path, '').lstrip('\n')
-    assert result.startswith('<!-- flowguard:start -->\n## FlowGuard rules for the project agent\n\n') \
+    # Design 4.9: the heading and seven rules, no blank line between them.
+    assert result.startswith('<!-- flowguard:start -->\n## FlowGuard rules for the project agent\n1. ') \
         and result.endswith('<!-- flowguard:end -->\n'), result
     rules = [line for line in result.splitlines() if line[:1].isdigit()]
-    assert [line[:3] for line in rules] == ['1. ', '2. ', '3. '], rules
-    # How a task starts: its baseline is recorded, so a commit made during the task does not hide its changes.
-    assert rules[0] == ("1. Start each task with `python -m flowguard new-task` (it records the task's baseline; commits "
-                        "during the task keep it). Run the project's tests and read the FlowGuard lines; every red and "
-                        "lead ends with the next step: do it, and when it says to tell the owner, tell the owner before "
-                        "changing the structure."), rules[0]
+    assert [line[:3] for line in rules] == [f'{number}. ' for number in range(1, 8)], rules
+    assert len(result.splitlines()) == 10 and result.isascii(), result
+    # How a task starts: new-task records the baseline and prints the brief, which is read before any change.
+    assert rules[0] == ("1. Start each task with `python -m flowguard new-task`; read its brief (owner rules, open items) "
+                        "before you change code."), rules[0]
+    # The block names the two catalog files and never offers a way to silence a red.
+    assert "Never add `except=`, remove a flowguard comment or edit `.flowguard/known.toml` to clear it without the " \
+           "owner's yes." in rules[2], rules[2]
+    assert rules[6] == ("7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own "
+                        "text, and keep `.flowguard/rules.toml` current, each rule's source quoting those words."), rules[6]
 
 
 def test_other_level_one_headings_are_not_touched(tmp_path, capsys):
@@ -145,7 +150,7 @@ def test_the_flowguard_0_70_workflow_gives_way_to_the_rules_and_the_project_rule
         f'flowguard[languages] @ git+https://github.com/liuyingxuvka/FlowGuard.git@v{cli.__version__}')
     assert result == engine + cli.PROJECT_RULES + '\n' + LIMITS, result       # in the workflow's place
     assert 'flowguard read' not in result and 'current-map' not in result and 'map check' not in result
-    assert out.splitlines()[0] == 'Initialized intent sentinel, pytest plugin, CI fragment and three project rules.'
+    assert out.splitlines()[0] == 'Initialized intent sentinel, pytest plugin, CI fragment and seven project rules.'
     assert 'AGENTS.md: the FlowGuard 0.70 section "Six-step workflow" is replaced by the project rules block' in out, out
     assert 'AGENTS.md: the FlowGuard 0.70 section "Owner-authorized current-map exception (2026-10-29)" is replaced' in out, out
     assert f'AGENTS.md: the FlowGuard version and install line now name {cli.__version__}' in out, out

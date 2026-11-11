@@ -31,10 +31,13 @@ def test_flowguard_intent(request):
 
 PROJECT_RULES = '''<!-- flowguard:start -->
 ## FlowGuard rules for the project agent
-
-1. Start each task with `python -m flowguard new-task` (it records the task's baseline; commits during the task keep it). Run the project's tests and read the FlowGuard lines; every red and lead ends with the next step: do it, and when it says to tell the owner, tell the owner before changing the structure.
-2. Mark copies of a judgment with `flowguard: same NAME`, its reference with `same NAME ref`; record field agreements with `together A B,C` and permitted writers with `writers A f,g`.
-3. A rule the owner set that must keep holding goes into `tests/intent/`, its source the owner's words stored once, byte for byte, with `python -m flowguard req add <file|-> --id <id>`.
+1. Start each task with `python -m flowguard new-task`; read its brief (owner rules, open items) before you change code.
+2. Run the project's tests. FlowGuard prints last; its first line counts each kind. `python -m flowguard show NAME` explains any name.
+3. `red` means your change broke a recorded agreement: fix the code. Never add `except=`, remove a flowguard comment or edit `.flowguard/known.toml` to clear it without the owner's yes.
+4. `known` and `before` were there before your task: do what the line says after `->`. Tell the owner only when it says `ask owner`.
+5. `changed` means a function returns something else for the input shown: if you meant it, say so in your report; if not, fix it. `impact` and `not compared` are not failures.
+6. When you find two places that must agree, mark each with `flowguard: same NAME` in the same change; when you find a problem only the owner can decide, add it to `.flowguard/known.toml` with `act = "ask"`.
+7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own text, and keep `.flowguard/rules.toml` current, each rule's source quoting those words.
 <!-- flowguard:end -->
 '''
 
@@ -202,77 +205,128 @@ def _rule_steps(model, data):
     return steps
 
 
-def _brief_source(cfg, item):
-    """Only this rule's cited words, never the archive's conversation transcript."""
-    from .sources import parse, authority
-    from .api import IntentError
-    from ..map.requests import quote_matches, read_request_bytes
-    text = item.get('source', '')
-    if not isinstance(text, str):
-        return 'source unconfirmed'
-    try:
-        source = parse(text)
-    except IntentError:
-        return 'source unconfirmed'
-    if source.kind == 'doc':
-        valid, _ = authority(source, None, cfg, None)
-        return ('source: ' + source.quote) if valid else 'source quote unconfirmed'
-    if source.kind == 'owner':
-        quote = item.get('quote') or source.text.partition(':')[2].strip()
-        entry = owner_word(cfg.root, source.rids[0])
-        if not entry or entry.get('edited') or entry.get('invalid') or entry.get('retired') or not isinstance(quote, str) or not quote:
-            return 'owner source unconfirmed (no verified phrase)'
-        text = read_request_bytes(cfg.root, source.rids[0]).decode('utf-8-sig')
-        return (source.rids[0] + ': ' + quote) if quote_matches(text, quote) else 'owner quote unconfirmed'
-    return source.kind + ' / unconfirmed'
+BRIEF_LINES = 8            # design 4.7: the one FlowGuard output an agent surely reads before it writes code
+BRIEF_RULES = 4
+BRIEF_KNOWN = 2
+BRIEF_WIDTH = 200
+# The findings whose red is judged against the task's baseline: after new-task they are before, unless a file of
+# theirs is still dirty. Intent, test and input reds stay red under any baseline (D3, D4).
+BASELINE_FAMILIES = frozenset({'pair', 'writer', 'values', 'same', 'changed-alone', 'source', 'ledger'})
 
 
-def _brief(cfg, data, baseline, note=''):
-    summary, candidates = data['summary'], []
-    active = {rid: item for rid, item in summary['rules'].items() if not item.get('superseded_by')}
-    for error in summary['errors']:
-        candidates.append(f'red load {error["file"]}:{error["line"]}: {error["msg"]}')
-    attempt = data.get('attempt') or {}
-    candidates.extend('red verification: ' + message for message in attempt.get('errors', []))
-    for rid, result in data['results'].items():
-        for value in result.get('items', {}).values():
-            if value.get('kind') == 'load':
-                candidates.extend('red last check load: ' + message for message in value.get('red', []))
-    pending = []
-    for rid, item in active.items():
-        result = data['results'].get(rid, {})
-        colour = _rule_colour(item, result)
-        if colour == 'red':
-            messages = [message for value in result.get('items', {}).values() for message in value.get('red', [])]
-            candidates.extend(f'red last check {rid}: ' + message for message in messages or ['reported red; show the complete result'])
-            candidates.append(f'{rid} ' + _brief_source(cfg, item))
-        elif colour in ('grey', 'green*'):
-            pending.append(f'{rid}: ' + ('no results yet' if not result.get('items') else 'unfinished / unverified') + '; ' + _brief_source(cfg, item))
+def _brief_line(text, more=0):
+    """A rule or known line of the brief: at most BRIEF_WIDTH characters, the last of its kind with the count of
+    the entries `show rules` lists besides."""
+    if not more:
+        return text if len(text) <= BRIEF_WIDTH else text[:BRIEF_WIDTH - 3] + '...'
+    tail = f'; +{more} more: python -m flowguard show rules'
+    text = text.removesuffix('.')
+    width = BRIEF_WIDTH - len(tail)
+    return (text if len(text) <= width else text[:width - 3] + '...') + tail
+
+
+def _known_brief(entry):
+    if entry.act == 'ask':
+        return (f'known.{entry.id}: asked on {entry.asked}; leave it until the owner answers: {entry.ask}' if entry.asked
+                else f'known.{entry.id}: ask owner: {entry.ask}')
+    return f'known.{entry.id}: ' + ('fix' if entry.act == 'fix' else 'leave it') + f': {entry.why}'
+
+
+def _brief_reds(cfg, data):
+    """The reds the last check left that no baseline moves: intent load errors (the static scan), a failed
+    verification or collection, red intent results and failed tests of pytest's scope, one per message."""
     from .deps import test_scope
+    summary, attempt = data['summary'], data['attempt'] or {}
+    reds = [f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in summary['errors']]
+    reds += ['verification: ' + message for message in attempt.get('errors', [])]
+    for result in data['results'].values():
+        for value in result['items'].values():
+            if value.get('kind') == 'load':
+                reds.extend('load: ' + message for message in value.get('red', []))
+    for rid, item in summary['rules'].items():
+        result = data['results'].get(rid, {})
+        if _rule_colour(item, result) == 'red':        # a red colour has items
+            messages = [message for value in result['items'].values() for message in value.get('red', [])]
+            reds.extend(f'{rid}: {message}' for message in messages or ['reported red'])
     in_scope = test_scope(cfg)
-    for test, reading in data.get('tests', {}).items():
-        if reading.get('outcome') == 'failed' and in_scope(test.partition('::')[0]):
-            candidates.append('red last check test ' + test + ': ' + (reading.get('reason') or reading.get('phase', 'failed')))
+    reds += ['test ' + test for test, reading in data['tests'].items()
+             if reading['outcome'] == 'failed' and in_scope(test.partition('::')[0])]
     if attempt.get('missing') or (attempt.get('collected') and attempt.get('sentinel') != 'ok'):
-        candidates.append('red collection incomplete: run the complete check')
-    if attempt.get('exit') not in (None, 0):
-        pending.append(f'last check exit {attempt["exit"]}; task verification unfinished')
-    candidates.extend('unfinished ' + line for line in pending)
-    candidates = list(dict.fromkeys(candidates))
-    reds = sum(line.startswith('red ') for line in candidates)
-    header = f'FlowGuard: {len(active)} rules; {reds} red (parse / last check); baseline {baseline[:12] if baseline else "none (no Git commit)"}'
-    if not active and not candidates:
-        return [f'FlowGuard: no intent rules; baseline {baseline[:12] if baseline else "none (no Git commit)"}.',
-                *([note] if note else [])]
-    # A cached green is not a new verification. The brief reads no source map. A rule's line is an excerpt
-    # beyond 100 characters; the baseline note is whole, as it ends with the command to run.
-    lines = [header, *([note] if note else [])] + [line if len(line) <= 100 else line[:75] + '... (excerpt; show RULE)'
-                                                   for line in sorted(candidates, key=lambda line: not line.startswith('red '))]
-    budget = min(10, cfg.screen_lines)
-    if len(lines) <= budget:
-        return lines
-    hidden = lines[budget - 1:]
-    return lines[:budget - 1] + [f'... {len(hidden)} more lines ({sum(line.startswith("red ") for line in hidden)} red): show RULE for details']
+        reds.append('collection incomplete')
+    return list(dict.fromkeys(reds))
+
+
+def _dirty(cfg):
+    """The files of the working tree that differ from HEAD, untracked ones too."""
+    from flowguard.map.common import git_run
+    listed = git_run(cfg.root, 'diff', '--name-only', '-z', '--relative', 'HEAD', '--').stdout
+    listed += git_run(cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
+    return {os.fsdecode(name) for name in listed.split(b'\0') if name}
+
+
+def _recounted(cfg, line):
+    """Is this red of the last run one the brief counts from where it is read now: an intent rule's or a test's
+    (the intent cache, `_brief_reds`), or an input problem of an intent file or a catalog file (the static scan and
+    `sources.catalog`)?"""
+    from .signals import family_of
+    from .sources import CATALOG_FILES
+    family = family_of(line['name'])
+    if family in ('rule', 'test'):
+        return True
+    intent = cfg.rel(cfg.intent)
+    files = [place.rpartition(':')[0] for place in line['places']]
+    return family in ('input', '') and bool(files) and all(
+        file in CATALOG_FILES or file == intent or file.startswith(intent + '/') for file in files)
+
+
+def _last_reds(cfg, baseline):
+    """(now before, still red) of the last run's reds (`cache.read_last`), but those the brief counts where they are
+    read now (`_recounted`). When that run compared with another commit than `baseline` (new-task has moved it
+    since), a red of a baseline-judged family whose places' files are all clean against HEAD is before now (D26);
+    one that names no place, one with a dirty file and every red of another family still count."""
+    from .signals import family_of
+    last = cache.read_last(cfg)
+    if last is None:
+        return 0, 0
+    reds = [line for line in last['lines'] if line['kind'] == 'red' and not _recounted(cfg, line)]
+    judged = [line for line in reds if family_of(line['name']) in BASELINE_FAMILIES]
+    if not judged or baseline is None or last['baseline'] in (None, baseline):
+        return 0, len(reds)
+    dirty = _dirty(cfg)
+    moved = sum(bool(line['places']) and not any(place.rpartition(':')[0] in dirty for place in line['places'])
+                for line in judged)
+    return moved, len(reds) - moved
+
+
+def _brief(cfg, data, baseline, note='', *, structure=''):
+    """The brief (design 4.7, at most BRIEF_LINES lines, no map, no project code): the baseline with its note; the
+    first rules of .flowguard/rules.toml in file order; the open matters of .flowguard/known.toml an agent must act
+    on (ask, not asked yet; fix; leave; ask, asked; never ignore); one count of the open structure problems; and what
+    the last run left: the reds new-task's moved baseline turned into before, the reds that still stand, and invalid
+    entries of the two files."""
+    from .sources import catalog
+    version = '.'.join(__version__.split('.')[:2])
+    first = f'FlowGuard {version} brief, baseline {baseline[:12] if baseline else "none (no Git commit)"}'
+    head = [first + ('; ' + note.removeprefix('baseline: ') if note else '')]
+    found = catalog(cfg)
+    order = {'ask': 0, 'fix': 1, 'leave': 2}
+    waiting = sorted((entry for entry in found.known.values() if entry.act != 'ignore'),
+                     key=lambda entry: 3 if entry.act == 'ask' and entry.asked else order[entry.act])
+    before, still = _last_reds(cfg, baseline)
+    still += len(_brief_reds(cfg, data))
+    tail = [f'{before} red from the previous task are now before'] if before else []
+    if still:
+        tail.append(f'{still} still red: python -m flowguard show --last')
+    if found.issues:
+        tail.append(f'{len(found.issues)} invalid entries in .flowguard/rules.toml or known.toml: python -m flowguard show rules')
+    fixed = [*([structure] if structure else []), *(['; '.join(tail)] if tail else [])]
+    known = [_brief_line(_known_brief(entry), len(waiting) - BRIEF_KNOWN if index == BRIEF_KNOWN - 1 else 0)
+             for index, entry in enumerate(waiting[:BRIEF_KNOWN])]
+    slots = min(BRIEF_RULES, BRIEF_LINES - len(head) - len(fixed) - len(known))
+    rules = list(found.rules.values())
+    shown = [_brief_line(f'rule.{rule.id}: {rule.text}', len(rules) - slots if index == slots - 1 else 0)
+             for index, rule in enumerate(rules[:slots])]
+    return [*head, *shown, *known, *fixed]
 
 
 def screen(cfg, *, new_task=False):
@@ -283,7 +337,7 @@ def screen(cfg, *, new_task=False):
     data = cache.read(cfg)
     from .differences import display
     structure = brief_line(cfg)         # one line from the last check; the brief builds no map
-    display('\n'.join([*_brief(cfg, data, baseline, note), *([structure] if structure else [])]))
+    display('\n'.join(_brief(cfg, data, baseline, note, structure=structure)))
     return int(bool(data['summary']['errors']))
 
 
@@ -415,12 +469,65 @@ def show_last(cfg, full=False):
     return 0
 
 
+def _finding_state(last, entry):
+    """What the last run (`cache.read_last`) said of a known entry's finding."""
+    if last is None:
+        return 'no run recorded'
+    names = {(line['kind'], line['name']) for line in last['lines']}
+    if ('known fixed?', f'known.{entry.id}') in names:
+        return 'not found in the last run (known fixed?)'
+    return 'found in the last run' if any(name == entry.finding for _, name in names) else 'not reported in the last run'
+
+
 def show_catalog(cfg, query, full=False):
-    """`show rules`, `show rule.<id>` and `show known.<id>` in a project with rules.toml or known.toml: their
-    catalog. This version reads neither file yet."""
-    from .sources import catalog_files
-    print(f'FlowGuard: this version does not read {" or ".join(catalog_files(cfg))} yet')
-    return 0
+    """`show rules`: every rule of .flowguard/rules.toml (its text, its source and whether it holds now, the intent
+    declarations that cite it), every entry of .flowguard/known.toml (act, why, ask, fix, its sites resolved on the
+    map, its finding and what the last run said of it, its source), then the input problems of both files; `show
+    rule.<id>` and `show known.<id>` one entry. Exit 1 when an input problem is listed (or the entry is missing)."""
+    from .differences import display
+    from .sources import KNOWN, RULES, catalog, catalog_authority, citing, known_sites, parse, shared_archive
+    found = catalog(cfg)
+    resolved, unresolved = [], []
+    if found.known:                     # only a known entry's sites need the map
+        with closing(build(cfg.root, roots=cfg.roots)) as graph:
+            resolved, unresolved = known_sites(graph, found.known.values())
+    sites = {entry.id: entry for entry in resolved}
+    problems = [*found.issues, *unresolved]
+    archive, cited, last = shared_archive(cfg.root), citing(cfg), cache.read_last(cfg)
+    table, _, wanted = query.partition('.')
+    rules = [rule for rule in found.rules.values() if query == 'rules' or table == 'rule' and rule.id == wanted]
+    entries = [entry for entry in found.known.values() if query == 'rules' or table == 'known' and entry.id == wanted]
+    if query != 'rules':     # the entry's own problem, and its file's (an entry of an invalid file is not read)
+        problems = [issue for issue in problems if issue.subject in (query, RULES if table == 'rule' else KNOWN)]
+    cited_words = [parse(item.source, strict=True) for item in [*rules, *entries] if item.source]
+    archive.read([source.rids[0] for source in cited_words if source.kind == 'request'])     # one listing for all
+    lines = [f'FlowGuard rules: {len(found.rules)} in {RULES}, {len(found.known)} known in {KNOWN}, '
+             f'{len(problems)} input problems'] if query == 'rules' else []
+    for rule in rules:
+        valid, reason = catalog_authority(parse(rule.source, strict=True), cfg, archive)
+        lines.append(f'rule.{rule.id}: {rule.text}')
+        lines.append(f'    source: {rule.source} ' + ('(holds)' if valid else f'(does not hold: {reason})'))
+        lines.extend(f'    cited by {place}' for place in cited.get(rule.id, ()))
+    for entry in entries:
+        act = (f'ask, asked on {entry.asked}' if entry.asked else 'ask, not asked yet') if entry.act == 'ask' else entry.act
+        lines.append(f'known.{entry.id}: act {act}')
+        lines.extend(f'    {key}: {getattr(entry, key)}' for key in ('why', 'ask', 'fix') if getattr(entry, key))
+        for site in entry.sites:
+            lines.append(f'    site {site}' + ('' if entry.id in sites else ' (see the input problem below)'))
+        if entry.finding:
+            lines.append(f'    finding {entry.finding}: {_finding_state(last, entry)}')
+        if entry.source:
+            valid, reason = catalog_authority(parse(entry.source, strict=True), cfg, archive)
+            lines.append(f'    source: {entry.source} ' + ('(holds)' if valid else f'(does not hold: {reason})'))
+    for issue in problems:
+        _, place, what, step = issue.parts[0]
+        lines.append(f'input {issue.name}: {place} {what} -> {step}')
+    if query != 'rules' and not rules and not entries and not problems:
+        lines.append(f'{query} is not in {RULES if table == "rule" else KNOWN}: python -m flowguard show rules lists every entry')
+        display('\n'.join(lines))
+        return 1
+    display('\n'.join(lines))
+    return int(bool(problems))
 
 
 def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
@@ -809,11 +916,16 @@ def _owner_findings(cfg, *, everything=False, base=None, static=None):
         return found
 
 
-def _check_selection(cfg: Config, model: object, data: dict, everything: bool, since: str | None, sentinel: Path):
+def _check_selection(cfg: Config, model: object, data: dict, everything: bool, since: str | None, sentinel: Path,
+                     base: str | None = None):
     import ast
+    from flowguard.map.common import git_run
     from . import deps, history
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
-        now = deps.Now(cfg, graph)
+        # The commit pytest compares with (its Runtime resolves --flowguard-base the same way), else the task
+        # baseline: a source judged against another commit (`baseline:<commit>` of deps.record) is judged again.
+        commit = None if base is None else git_run(cfg.root, 'rev-parse', '--verify', base + '^{commit}').stdout.decode().strip()
+        now = deps.Now(cfg, graph, baseline=commit)
         selected = set(model.rules) if everything else set(deps.affected(data, model, now))
         flows = {identifier for identifier in [*model.flows, *model.states, *model.structures, *model.anchor_distincts]
                  if everything or not deps.reusable(data, identifier, now)}
@@ -961,7 +1073,7 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     if stream_all:
         print('FlowGuard check --all: preparing source dependencies before pytest.', flush=True)
     selected, flows, ordinary, test_records, guards, rule_markers = _check_selection(
-        cfg, model, data, everything, since, sentinel)
+        cfg, model, data, everything, since, sentinel, base)
     extras = flows
     attempt = data.get('attempt') or {}
     failed_collection = (attempt.get('sentinel') is not None or attempt.get('collected')) and (
@@ -1070,7 +1182,7 @@ def _owner_rules_unverified(cfg, data):
     [unverified] section lists it with a reason."""
     from . import ledger
     from .api import IntentError
-    from .sources import parse
+    from .sources import cited, parse
     listed = ledger.unverified(cfg)[0]
     lines = []
     for rid, item in data['summary']['rules'].items():
@@ -1082,10 +1194,10 @@ def _owner_rules_unverified(cfg, data):
         if item.get('superseded_by') or _rule_colour(item, checked) != 'grey' or rid in listed:
             continue
         try:
-            source = parse(item.get('source', ''))
+            source = cited(parse(item.get('source', '')), cfg)     # rule.<id>: the words its rules.toml entry cites
         except IntentError:
             continue        # The load check reports an unreadable source.
-        if source.kind != 'owner':
+        if source.kind not in ('owner', 'request'):
             continue
         reasons = [message for value in result.get('items', {}).values() for message in value.get('grey', ())]
         lines.append(f'red {rid}: rule cites original words from the owner ({source.rids[0]}), but is now grey (unverified): '
@@ -1788,7 +1900,7 @@ def init(cfg):
         content = content.rstrip() + newline + newline + rules
     agents.write_bytes(content.encode('utf-8'))
     notes += _legacy_instructions(content)
-    print('Initialized intent sentinel, pytest plugin, CI fragment and three project rules.')
+    print('Initialized intent sentinel, pytest plugin, CI fragment and seven project rules.')
     for line in [*notes, *_legacy_binding_lines(cfg, text)]:
         print(line)
     if packages:
@@ -1850,8 +1962,8 @@ def requests(cfg, options):
                              supersedes=options.supersedes)
         print(f'stored {item["id"]} ({item["kind"]}, sha {item["sha256"][:12]}, {item["bytes"]} bytes)')
         from .differences import display
-        display(f'if these words set a continuing rule, write it in {cfg.rel(cfg.intent)}/ and cite {item["id"]} as its source: '
-                f'source="owner {item["id"]}: <the exact sentence from the owner words>"')
+        display(f'if these words set a continuing rule, add it to .flowguard/rules.toml: [rule.<id>] text = "..." '
+                f'source = \'{item["id"]} "<exact words>"\'')
     elif options.operation == 'retire':
         retire_request(cfg.root, options.identifier, note=options.note)
         print(f'retired {options.identifier}: not the owner\'s words')

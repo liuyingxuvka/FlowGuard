@@ -13,7 +13,7 @@ import sys
 import tomllib
 
 from flowguard.map.common import content_digest, read_source
-from .sources import parse
+from .sources import RULES, cited, parse
 
 
 def _digest(text):
@@ -259,9 +259,24 @@ def digest(value):
 
 
 class Now:
-    def __init__(self, cfg, graph):
+    def __init__(self, cfg, graph, *, baseline=None):
         self.cfg, self.graph, self.memo = cfg, graph, {}
         self.sources = {}
+        self._baseline = baseline
+
+    def catalog(self):
+        """The working tree's .flowguard/rules.toml and known.toml (`sources.catalog`), read once for the session."""
+        if not hasattr(self, '_catalog'):
+            from .sources import catalog
+            self._catalog = catalog(self.cfg)
+        return self._catalog
+
+    def baseline(self):
+        """The commit this run compares with: the one it was given, else the task baseline (`cache.session_baseline`)."""
+        if self._baseline is None:
+            from . import cache
+            self._baseline = cache.session_baseline(self.cfg)
+        return self._baseline
 
     def source(self, relative, identity):
         """Rebuildable syntax facts for the current source bytes, never a comparison result."""
@@ -294,10 +309,12 @@ class Now:
             elif kind == 'listing':
                 digest = _digest('\n'.join(row[0] for row in self.graph.con.execute('SELECT path FROM file ORDER BY path')))
             elif kind == 'authority':
-                from .sources import Archive
+                from .sources import shared_archive
                 if not hasattr(self, 'archive'):
-                    self.archive = Archive(self.cfg.root)
+                    self.archive = shared_archive(self.cfg.root)
                 digest = _digest(repr(self.archive.status(value)))
+            elif kind == 'baseline':        # the commit a source was judged with: still the one this run compares with?
+                digest = 'compared' if value == self.baseline() else 'other'
             else:
                 digest = file_digest(self.cfg.root / value)
             self.memo[key] = digest
@@ -628,6 +645,7 @@ def record(cfg, model, rule, results, graph, now=None, found=None):
     the same seeds, every declaration's files."""
     seeds = {model.file_of[rule.id], 'pyproject.toml'}
     nodes, authorities = set(), set()
+    now = Now(cfg, graph) if now is None else now
     entries = list(results.values()) if isinstance(results, dict) else list(results)
     # All declarations are cheap inputs; this avoids a second lower-model resolver.
     seeds.update(model.file_of.values())
@@ -645,6 +663,9 @@ def record(cfg, model, rule, results, graph, now=None, found=None):
                 seeds.add(anchor.file)
                 nodes.add(anchor.target)
         source = parse(declaration.source)
+        if source.kind == 'rule':           # rule.<id>: the rules.toml entry, and the words its own source cites
+            seeds.add(RULES)
+            source = cited(source, cfg, now.catalog())
         if source.kind == 'doc':
             seeds.add(source.path)
         for rid in source.rids + ((declaration.confirmed,) if getattr(declaration, 'confirmed', None) else ()):
@@ -656,7 +677,6 @@ def record(cfg, model, rule, results, graph, now=None, found=None):
             node = graph.node(identifier)
             if node and node['file']:
                 seeds.add(node['file'])
-    now = Now(cfg, graph) if now is None else now
     found = {} if found is None else found
     if frozenset(seeds) not in found:
         found[frozenset(seeds)] = _file_dependencies(cfg, graph, seeds, now)
@@ -664,6 +684,10 @@ def record(cfg, model, rule, results, graph, now=None, found=None):
     keys = standard_keys(dependencies)
     keys['listing:'] = now('listing:')
     keys.update(('authority:' + rid, now('authority:' + rid)) for rid in authorities)
+    # A source judged against the session's baseline (red or before) holds for that baseline only: a run that
+    # compares with another commit (after new-task, or with another --base) judges it again.
+    keys.update(('baseline:' + commit, 'compared')
+                for commit in sorted({entry['source_baseline'] for entry in entries if 'source_baseline' in entry}))
     return dict(dependencies=keys, reasons=list(dependencies.get('<unresolved>', [])), own_nodes=sorted(nodes),
                 contracts={child: value for result in entries for child, value in result.get('contracts', {}).items()})
 

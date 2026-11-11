@@ -443,15 +443,15 @@ def test_an_unanchored_changed_function_whose_replay_is_refused_is_listed_unveri
     assert not (root / 'audit.log').exists()
 
 
-def test_check_all_fails_a_grey_template_flow_quoting_the_owner_and_the_brief_lists_it(tmp_path):
+def test_check_all_fails_a_grey_template_flow_quoting_the_owner(tmp_path):
     root = _owner_flow(tmp_path / 'p', tmp_path, [])       # no test stores or ships: the Flow stays grey
     checked, text = _cli(root, 'check', '--all')
     assert checked.returncode == 1, text
     assert 'red: PRECEDES_STORED_SHIPPED：rule cites original words from the owner (R1), but is now grey (unverified)' in text, text
     assert '[unverified] section, write a reason: PRECEDES_STORED_SHIPPED = ' in text, text
     brief, text = _cli(root)
-    assert brief.returncode == 0 and 'FlowGuard: 1 rules;' in text, text
-    assert 'PRECEDES_STORED_SHIPPED: unfinished / unverified; R1: 先存好再发出去' in text, text
+    # The brief (design 4.7) lists the rules of rules.toml, not an unfinished intent item: check --all lists that.
+    assert brief.returncode == 0 and text.startswith('FlowGuard ') and 'PRECEDES_STORED_SHIPPED' not in text, text
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
     (root / ledger.LEDGER).write_text('[unverified]\nPRECEDES_STORED_SHIPPED = ' + ledger._quote(
         '测试还没有走到存和发这两步，顺序由 test_docs 之外的集成检查守住') + '\n', encoding='utf-8')

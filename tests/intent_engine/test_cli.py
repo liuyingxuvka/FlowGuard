@@ -37,10 +37,13 @@ def test_a_fresh_screen_lists_rules_without_executing_them(tmp_path, capsys):
     root, cfg = project(tmp_path)
     path = cfg.intent / 'policy.py'
     path.write_text('raise RuntimeError("screen must not execute this")\n' + path.read_text())
+    (root / '.flowguard').mkdir()
+    (root / '.flowguard/rules.toml').write_text('[rule.three-days]\ntext = "A loan lasts at most three days."\n'
+                                                'source = \'doc policy.txt "At most three days."\'\n', encoding='utf-8')
     assert cli.screen(cfg) == 0
     text = capsys.readouterr().out
-    assert 'LIMIT' in text and 'no results yet' in text
-    assert len(text.splitlines()) <= 40
+    # The rules in force are those of rules.toml (design 4.4); the intent rule that checks one is not listed.
+    assert text.splitlines()[1:] == ['rule.three-days: A loan lasts at most three days.'], text
 
 
 def test_no_rules_is_one_quiet_line_without_building_a_map(tmp_path, capsys, monkeypatch):
@@ -457,7 +460,7 @@ def test_a_skipped_declaration_is_a_visible_load_failure(tmp_path, capsys):
     assert cli_fixture.check(cfg) == 1
     assert 'Skipped' in capsys.readouterr().out
     assert cli.screen(cfg) == 0  # A screen reports cached facts; check owns execution status.
-    assert 'last check load' in capsys.readouterr().out
+    assert capsys.readouterr().out.splitlines()[-1] == '1 still red: python -m flowguard show --last'
 
 
 def test_show_short_function_name_is_an_exact_owner_candidate(tmp_path, capsys):

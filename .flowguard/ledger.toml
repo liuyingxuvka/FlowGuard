@@ -195,11 +195,6 @@ count = 2
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/cli.py:_brief_source:IntentError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["flowguard/intent/cli.py:_early_plugin:tomllib.TOMLDecodeError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
@@ -719,6 +714,11 @@ rule = "旧账"
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
+
+["flowguard/intent/sources.py:_load:(tomllib.TOMLDecodeError, UnicodeDecodeError)"]
+count = 1
+reason = "Reports a rules.toml or known.toml that is not UTF-8 TOML as a red input finding with the parser's own message; the file then counts no rule or known entry, so nothing it holds closes or checks anything."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/vitest.py:judge:PredicateError"]
 count = 1
