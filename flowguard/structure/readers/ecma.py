@@ -495,7 +495,9 @@ def extract(root, rel, data, module, is_test):
                     **({'partial': True} if ('partial', None) in parts else {}))
 
     def object_fields(value, base, prefix, rows, depth=0):
-        """Write paths of one Prisma data value: fields, nested operations and what stays unclear."""
+        """Write paths of one Prisma data value: fields, nested operations and what stays unclear. A path only one
+        branch of `c ? {...} : {...}` writes, or a side of `c && {...}`, `a || {...}` or `a ?? {...}` writes, is
+        `conditional`: the positions of those expressions, outermost first (a field both branches write is not)."""
         value = unwrap(value)
         if value is None or depth > 8:
             return
@@ -503,14 +505,22 @@ def extract(root, rel, data, module, is_test):
             for item in value.named_children:
                 object_fields(item, base, prefix, rows, depth + 1)
             return
+        where = f'{value.start_point.row + 1}:{value.start_point.column + 1}'
         if value.type == 'ternary_expression':
+            branches = []
             for item in (field(value, 'consequence'), field(value, 'alternative')):
-                object_fields(item, base, prefix, rows, depth + 1)
+                branches.append([])
+                object_fields(item, base, prefix, branches[-1], depth + 1)
+            both = {tuple(row['path']) for row in branches[0]} & {tuple(row['path']) for row in branches[1]}
+            rows.extend(row if tuple(row['path']) in both else dict(row, conditional=[where, *row.get('conditional', ())])
+                        for branch in branches for row in branch)
             return
         if value.type == 'binary_expression' and operator(value) in ('&&', '||', '??'):
-            object_fields(field(value, 'right'), base, prefix, rows, depth + 1)
+            found = []
+            object_fields(field(value, 'right'), base, prefix, found, depth + 1)
             if operator(value) != '&&':
-                object_fields(field(value, 'left'), base, prefix, rows, depth + 1)
+                object_fields(field(value, 'left'), base, prefix, found, depth + 1)
+            rows.extend(dict(row, conditional=[where, *row.get('conditional', ())]) for row in found)
             return
         if value.type == 'call_expression':
             callee, args = field(value, 'function'), field(value, 'arguments')
@@ -648,13 +658,85 @@ def extract(root, rel, data, module, is_test):
             return sql_text(args if args.type == 'template_string' else args.named_children[0] if args.named_children else None)
         return None
 
+    def selector(value):
+        """The record a Prisma write's `where` selects: its [key, expression] pairs in key order, each expression's
+        text with its whitespace folded; None when `where` is no object literal of plain keys (a variable, a spread,
+        a computed key), so the record cannot be read."""
+        value = unwrap(value)
+        if value is None or value.type != 'object':
+            return None
+        pairs = []
+        for item in value.named_children:
+            if item.type in COMMENTS:
+                continue
+            if item.type == 'shorthand_property_identifier':
+                pairs.append([text(item, source)] * 2)
+                continue
+            key = field(item, 'key') if item.type == 'pair' else None
+            name = None if key is None else text(key, source) if key.type == 'property_identifier' else string(key)
+            if name is None:
+                return None
+            pairs.append([name, ' '.join(text(field(item, 'value'), source).split())])
+        return sorted(pairs)
+
+    registrations = {}
+
+    def callback_of(node, scope):
+        """How the module registers the outermost anonymous function that holds `node`, when no named function
+        does: the call it is passed to with that call's first string argument (`router.put('/:id/leader')`, `#2`
+        and on for a further callback registered the same way, in file order), or `key:` for an object member.
+        A callback's id says where it starts and moves with every line above it; this does not. None in a named
+        function, at the module's own level, or for a callback no call or member holds (an IIFE)."""
+        if named_scope(scope) != '<module>' or '<anonymous' not in scope:
+            return None
+        outer, item = None, node.parent
+        while item is not None:
+            if item.type in FUNCTIONS:
+                outer = item
+            item = item.parent
+        if outer is None:
+            return None
+        if not registrations:
+            registrations[None] = None                     # read once per file
+            stack, counts = [tree.root_node], {}
+            while stack:
+                item = stack.pop()
+                if item.type in CLASSES:
+                    continue
+                if item.type not in FUNCTIONS:
+                    stack.extend(reversed(item.named_children))
+                    continue
+                if not name_of(item).startswith('<anonymous'):
+                    continue
+                holder = item.parent
+                while holder is not None and holder.type in WRAPPERS:
+                    holder = holder.parent
+                if holder is not None and holder.type == 'arguments' and holder.parent is not None:
+                    call = holder.parent
+                    first = next((string(arg) for arg in holder.named_children if string(arg) is not None), None)
+                    label = ' '.join(text(field(call, 'function') or field(call, 'constructor'), source).split()) \
+                        + (f'({first!r})' if first is not None else '()')
+                elif holder is not None and holder.type == 'pair' and field(holder, 'key') is not None:
+                    label = text(field(holder, 'key'), source) + ':'
+                else:
+                    continue
+                counts[label] = counts.get(label, 0) + 1
+                registrations[item.start_byte] = label + (f'#{counts[label]}' if counts[label] > 1 else '')
+        return registrations.get(outer.start_byte)
+
     def prisma_call(node, owner, scope):
+        """The write rows of one Prisma client call (or raw SQL write) of `owner`. A Prisma row also carries the
+        `selector` of the call's `where` (absent without one, None when unreadable), and a row of a module-level
+        callback the `callback` that registers it (`callback_of`)."""
         callee, args = field(node, 'function'), field(node, 'arguments')
         if callee is None or callee.type != 'member_expression' or args is None:
             return
         method = text(field(callee, 'property'), source)
         receiver = field(callee, 'object')
         base = dict(node=owner, file=rel, function=named_scope(scope), call_line=node.start_point.row + 1)
+        registered = callback_of(node, scope)
+        if registered is not None:
+            base['callback'] = registered
         if method in RAW_WRITES:
             from .sql import statements
             query = sql_text(args if args.type == 'template_string' else args.named_children[0] if args.named_children else None)
@@ -686,6 +768,10 @@ def extract(root, rel, data, module, is_test):
         if arg.type not in ('object', 'identifier') or arg.type == 'identifier' and method in ('delete', 'deleteMany'):
             return                                 # map.delete(key), set.delete(item)
         base.update(via='prisma', accessor=text(accessor, source), method=method, receiver=text(field(receiver, 'object'), source))
+        if 'where' in keys:
+            base['selector'] = selector(keys['where'])
+        elif 'where' in shorthand:
+            base['selector'] = None                # `{ where, data }`: the record is a variable's
         rows = []
         if arg.type == 'identifier':
             add_write(rows, base, [], 'opaque', arg, 'Prisma argument is not an object literal')

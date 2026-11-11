@@ -288,24 +288,48 @@ def owner_writes(change, index, *, everything=False):
     return found
 
 
-def _call_tree(graph, node, depth=3, up=0):
-    """{named function: how}: the function and what it calls, down `depth` levels (first `up` levels of
-    callers, with `up`); JS/TS member calls are resolved by name ('name')."""
+def _member(ident):
+    """The name the pair operation gives a function id: `named(ident)`, except that a JS/TS module-level callback
+    (`module:<anonymous@L,C>...`, such as a route handler) keeps its outermost part: each handler is its own
+    operation, not one `<module>` with every other handler of its file."""
+    module, _, qual = ident.partition(':')
+    head = qual.split('.')[0]
+    return f'{module}:{head}' if head.startswith('<anonymous') else named(ident)
+
+
+def _call_tree(graph, node, depth=3, up=0, *, fold=named):
+    """{function: how}: the function and what it calls, down `depth` levels (first `up` levels of callers, with
+    `up`), each id folded by `fold` (`named`: a callback is its function's); JS/TS member calls are resolved by
+    name ('name'). With `fold=_member` a module-level callback keeps its own id, and one that calls into the climb
+    (which `graph.call_tree` reaches as its bare module, since it climbs to named functions) is a caller too, with
+    what it calls `depth` levels down."""
     tree = {}
-    for ident, how in graph.call_tree(node, depth, up=up).items():
-        key = named(ident)
-        tree[key] = 'name' if 'name' in (how, tree.get(key)) else how
+    def add(found, via='edge'):
+        for ident, how in found.items():
+            key = fold(ident)
+            how = 'name' if 'name' in (via, how) else how
+            tree[key] = 'name' if 'name' in (how, tree.get(key)) else how
+    add(graph.call_tree(node, depth, up=up))
+    if fold is _member and up:
+        climbed = graph.call_tree(node, 0, up=up)
+        _, upward = graph.call_index()
+        for ident, how in climbed.items():
+            for caller, edge in upward.get(ident, {}).items():
+                key = _member(caller)
+                if key != named(caller) and named(caller) in climbed and key not in tree:
+                    add(graph.call_tree(key, depth), 'name' if 'name' in (how, edge) else 'edge')
     return tree
 
 
 OPERATION = 'the same operation (3 caller levels, then 3 callee levels)'
 
 
-def operation(graph, node):
+def operation(graph, node, *, fold=named):
     """{named function: how} of the operation a function belongs to: its callers three levels up and what
     each of them calls three levels down, so a caller that writes one field through one helper and its
-    partner through another is one operation. Pairs and deletes read the same tree."""
-    return _call_tree(graph, node, 3, up=3)
+    partner through another is one operation. Pairs and deletes read the same tree; pairs name a module-level
+    callback by itself (`fold=_member`)."""
+    return _call_tree(graph, node, 3, up=3, fold=fold)
 
 
 def creates(row):
@@ -322,35 +346,225 @@ def _holds(row, value):
     return any(str(item) == value for item in values)
 
 
+def _pair_function(row):
+    """The member a write row is of in a pair: `row_function(row)`, or the module-level callback that holds a JS/TS
+    write (`_member`)."""
+    if row.get('language', 'python') != 'python' and row['function'] == '<module>' and '<anonymous' in row['node']:
+        return _member(row['node'])
+    return row_function(row)
+
+
+def _pair_key(row):
+    """The member as the baseline names it too: a module-level callback by the call that registers it (the reader's
+    `callback`), which no line above it moves; any other function by its id."""
+    function = _pair_function(row)
+    if function != row_function(row) and row.get('callback'):
+        return row['node'].partition(':')[0] + ':' + row['callback']
+    return function
+
+
+def _same_call(a, b):
+    return (a['file'], a['node'], a.get('call_line')) == (b['file'], b['node'], b.get('call_line'))
+
+
+def _same_record(trigger, partner):
+    """(holds, why not confirmed): may a partner write of the trigger's own function write the trigger's record (D20)?
+    Yes in the same call, and when either call has no `where` (it makes a row); a `where` that cannot be read
+    counts, not confirmed; else one model must select by the same text (another `id` is another record) and two
+    models by different text (the same `{ id }` on two models names unrelated records)."""
+    if _same_call(trigger, partner) or 'selector' not in trigger or 'selector' not in partner:
+        return True, ''
+    if trigger['selector'] is None or partner['selector'] is None:
+        return True, 'its where cannot be read'
+    return (trigger['selector'] == partner['selector']) == (trigger.get('accessor') == partner.get('accessor')), ''
+
+
+def _unconditional(trigger, partner):
+    """(holds, why not confirmed) for a partner field the reader marks `conditional` (a spread or a branch of
+    `c && {...}`, `c ? {...} : {...}`), D21: it holds the pair in the trigger's own call under the trigger's own
+    conditions; a trigger written always is not held by it; when the trigger is written under a condition too, the
+    two conditions are not compared (a variable may tie them) and it counts, not confirmed."""
+    marks = partner.get('conditional')
+    if not marks or _same_call(trigger, partner) and set(marks) <= set(trigger.get('conditional') or ()):
+        return True, ''
+    return (True, 'it is written under another condition') if trigger.get('conditional') else (False, '')
+
+
+def _held(trigger, function, tree, partners):
+    """(held, (unconfirmed partner, why) or None): does a partner write [(row, member)] of the operation `tree` hold
+    the trigger write of `function`? A partner of the same function must write the same record (`_same_record`),
+    and a conditional partner field must be written whenever the trigger is (`_unconditional`)."""
+    unconfirmed = None
+    for partner, member in partners:
+        if member not in tree:
+            continue
+        holds, why = _unconditional(trigger, partner)
+        if holds and member == function:
+            holds, record = _same_record(trigger, partner)
+            why = why or record
+        if holds and not why:
+            return True, None
+        if holds and unconfirmed is None:
+            unconfirmed = (partner, why)
+    return unconfirmed is not None, unconfirmed
+
+
+class _Calls:
+    """Did the operation tree call more at the baseline? The callee-stability guard of the pair baseline: the
+    baseline result is read with the current tree, which is exact for a call this change adds (a larger tree only
+    holds more) but not for one it removes: a member missing now may have been held through it. So a member is judged
+    at the baseline only when no function of its tree lost a call (`lost`), no changed file stopped calling a function
+    of its tree (`gone`) and no function of its tree calls one this change removed that wrote the partner then.
+
+    A named function compares its callees now and at the baseline (`Change.callees`). A module-level callback has no
+    stable id: it lost nothing when a baseline callback of its file has its code (fingerprint) at the same place, when
+    its file's callbacks together spell every call they spelled, or, as the member itself, when it calls all its
+    baseline counterpart called. Module-level code, which registers the handlers, is not compared. Read once per
+    change."""
+
+    def __init__(self, change):
+        self.change, self._unmoved, self._spelled, self._files, self._gone = change, {}, {}, None, None
+
+    def _file(self, ident):
+        if self._files is None:
+            self._files = {module: path for path, module in self.change.graph.con.execute('SELECT path, module FROM file')}
+        return self._files.get(ident.partition(':')[0])
+
+    def lost(self, ident, then=None):
+        """Did `ident`, a key of an operation tree, call something at the baseline it no longer calls? `then` is the
+        baseline id of a member callback."""
+        file, qual = self._file(ident), ident.partition(':')[2]
+        if not qual or file not in self.change.files:
+            return False
+        if not qual.startswith('<anonymous'):
+            return bool(self.change.callees(ident, old=True) - self.change.callees(ident))
+        if ident in self.unmoved(file) or not self.callback_calls(file):
+            return False
+        return then is None or bool(self.change.callees(then, old=True) - self.change.callees(ident))
+
+    def unmoved(self, file):
+        """The module-level callbacks of a changed file whose code a baseline callback of the file has, matched by
+        their place among the callbacks (the positions in their ids aside)."""
+        import re
+        if file not in self._unmoved:
+            position = re.compile(r'<anonymous@\d+,\d+>')
+            old = Counter((position.sub('<anonymous>', row['qual']), row['fp'])
+                          for row in self.change.old_part(file, 'nodes') or () if row['qual'].startswith('<anonymous'))
+            same = set()
+            for ident, qual, fp in self.change.graph.con.execute(
+                    "SELECT id, qual, fp FROM node WHERE file=? AND qual LIKE '<anonymous%' ORDER BY line", (file,)):
+                key = (position.sub('<anonymous>', qual), fp)
+                if '.' not in qual and old[key] > 0:
+                    old[key] -= 1
+                    same.add(ident)
+            self._unmoved[file] = same
+        return self._unmoved[file]
+
+    def callback_calls(self, file):
+        """The calls the module-level callbacks of a changed file spelled at the baseline and spell no longer (counted
+        per file)."""
+        if file not in self._spelled:
+            def spelled(facts):
+                return Counter(call['text'] for call in (facts or {}).get('syntax_calls', ())
+                               if call['node'].partition(':')[2].startswith('<anonymous'))
+            self._spelled[file] = spelled(self.change.old_facts(file)) - spelled(self.change.graph.file_facts(file))
+        return self._spelled[file]
+
+    def gone(self):
+        """The last parts of the call names the changed files no longer spell: those a changed or removed named
+        function lost, and those a file's module-level callbacks lost. Prisma client calls, which never resolve by
+        name, are left out."""
+        if self._gone is None:
+            from flowguard.structure.api import _without_moves
+            from flowguard.structure.readers.ecma import PRISMA_READS, PRISMA_WRITES
+            gone = set()
+            for file in sorted(self.change.files):
+                for ident in {named(ident) for ident, kind, *_ in _without_moves(self.change.delta([file]))
+                              if kind in ('changed', 'removed')}:
+                    if ident.partition(':')[2]:
+                        gone |= self.change.callees(ident, old=True) - self.change.callees(ident)
+                gone |= set(self.callback_calls(file))
+            parts = [name.split('.') for name in gone]
+            self._gone = {part[-1] for part in parts if not (len(part) >= 3 and part[-1] in PRISMA_WRITES | PRISMA_READS)}
+        return self._gone
+
+    def exact(self, tree, function, then, removed=frozenset()):
+        """(exact, why): may the member `function` be judged at the baseline with its current `tree`? `then` is the
+        member's baseline id, `removed` the names of the functions this change removed that wrote the partner."""
+        for ident in tree:
+            if self.lost(ident, then if ident == function else None):
+                return False, f'{ident} no longer calls all it called at the baseline'
+        lost = sorted(ident for ident in tree if (qual := ident.partition(':')[2]) and not qual.startswith('<anonymous')
+                      and qual.rpartition('.')[2] in self.gone())
+        if lost:
+            return False, f'a changed file no longer calls {", ".join(lost)}'
+        calling = sorted(ident for ident in tree if removed & {name.rpartition('.')[2] for name in self.change.callees(ident)})
+        if calling:
+            return False, f'{", ".join(calling)} calls a function this change removed, which wrote the partner'
+        return True, ''
+
+
+def _pair_place(row):
+    """'path:symbol' of a write's function; 'path:line' for a module-level write or callback."""
+    return f'{row["file"]}:{row["function"] if row["function"] != "<module>" else row["line"]}'
+
+
+def _pair_step(row, partner):
+    if row['function'] != '<module>':
+        return f'also write {partner} in {row["function"].rpartition(".")[2]}'
+    return f'also write {partner} in the callback of {row["callback"]}' if row.get('callback') else \
+        f'also write {partner} in the code at line {row["line"]}'
+
+
 def owner_pairs(change, index, *, everything=False):
-    """`with=`: each write of a registered field also writes its partner in the same operation (`operation`:
-    callers three levels up, then three levels down from them), unless its function is listed in `alone=`;
-    `on=update` holds only the writes that change a row (`on=create` only those that make one, `creates`).
-    A test's fixture write is not held to the pair. Red when this change adds the write or the rule."""
+    """`with=` (`together A B`): each write of a registered field also writes its partner in the same operation
+    (`operation`: callers three levels up, then three levels down from them; a JS/TS module-level callback is an
+    operation of its own), unless its function is listed in `alone=`; `on=update` holds only the writes that change
+    a row (`on=create` only those that make one, `creates`). A partner of the trigger's own function holds it only
+    for the same record (`_same_record`), and a conditional partner field only under the trigger's own condition
+    (`_unconditional`). A test's fixture write is not held to the pair.
+
+    One `pair:A>B` finding per agreement and partner, one part per function that misses it (`_pair_function`).
+    A part is fresh (this change added it) unless the baseline result has it: the current registration applied to
+    the baseline code (the writes of every changed file at the baseline, `Change.baseline_writes`), judged with the
+    current operation tree, and only while every function on that tree calls as at the baseline (`_Calls`; else the
+    part is fresh, fail-closed). Without a baseline nothing is fresh. The legacy red line names the misses of changed
+    files, or every miss of an agreement this change added."""
     from .health import Issue
     found = Findings()
     def bound(row):         # a JS/TS `obj.f = ...` matched by field name alone is not a write of a model
         return not row.get('unclear') and not (row.get('how') == 'name' and row.get('language', 'python') != 'python')
     tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
+    trees, calls_now, functions = {}, _Calls(change), None
+    def tree_of(function):
+        if function not in trees:
+            trees[function] = operation(change.graph, function, fold=_member)
+        return trees[function]
     for owner in (a for a in index.entries if a.kind == 'owner' and a.pairs):
-        rows = [row for row in change.graph.writes(owner.name, by_name=True) if bound(row)
-                and row['file'] not in tests and not is_test_file(row['file'])
-                and (not owner.on or creates(row) == (owner.on == 'create'))]
         alone = [item.partition('(')[0] for item in owner.alone]
+        def triggers(written):
+            return [row for row in written if bound(row) and row['file'] not in tests and not is_test_file(row['file'])
+                    and (not owner.on or creates(row) == (owner.on == 'create')) and not _allowed(row, alone)]
+        rows = triggers(change.graph.writes(owner.name, by_name=True))
         new_rule = change.baseline and not _owner_at_baseline(change, owner)
         for pair in owner.pairs:
             target, _, value = pair.partition('=')
             model, _, column = target.rpartition('.')
-            partners = {row_function(row) for row in change.graph.writes(model if column == '*' else target, by_name=True)
-                        if bound(row) and _holds(row, value or None)}
-            missing, calls = [], {}
+            written = model if column == '*' else target
+            def partners(rows):
+                return [row for row in rows if bound(row) and _holds(row, value or None)]
+            now = [(row, _pair_function(row)) for row in partners(change.graph.writes(written, by_name=True))]
+            missing, calls, members, unconfirmed = [], {}, {}, {}
             for row in rows:
-                if _allowed(row, alone):
-                    continue
-                tree = operation(change.graph, row_function(row))
-                if not tree.keys() & partners:
+                function = _pair_function(row)
+                tree = tree_of(function)
+                held, unsure = _held(row, function, tree, now)
+                if not held:
                     missing.append(row)
+                    members.setdefault(function, row)
                     calls[id(row)] = 'name' in tree.values() or row.get('language', 'python') != 'python'
+                elif unsure is not None:
+                    unconfirmed.setdefault(function, (row, unsure))
             def where(rows):
                 return '  '.join(f'{row["file"]}:{row["line"]} {row["function"]}' for row in rows) \
                     + ('(JS/TS calls resolved by name)' if any(calls[id(row)] for row in rows) else '') \
@@ -360,12 +574,43 @@ def owner_pairs(change, index, *, everything=False):
             if shown:
                 # One owner per red line: the subject names the owner, so two owners' pairs never merge into one.
                 found.red.append(f'missing paired write for {owner.name}：{where(shown)} writes {owner.name}, {OPERATION} does not write {pair} → ' + step)
-            if missing:
-                found.issues.append(Issue(
-                    f'pair:{owner.name}>{pair}', 2, f'pair {owner.name}',
-                    f'missing paired write: {where(missing)} writes {owner.name}; {OPERATION} does not write {pair}',
-                    step, frozenset(row_function(row) for row in missing), frozenset(row['file'] for row in missing),
-                    new=bool(shown)))
+            if not missing:
+                continue
+            fresh, detail = set(), []
+            if change.baseline:
+                then = triggers(change.baseline_writes(owner.name, by_name=True))
+                current = {_pair_key(row): function for row, function in now} | {_pair_key(row): _pair_function(row) for row in rows}
+                then_partners = [(row, current.get(_pair_key(row), _pair_function(row)))
+                                 for row in partners(change.baseline_writes(written, by_name=True))]
+                if functions is None:
+                    functions = {ident for (ident,) in change.graph.con.execute("SELECT id FROM node WHERE kind IN ('function', 'method')")}
+                removed = frozenset(member.partition(':')[2].rpartition('.')[2] for row, member in then_partners
+                                    if row['file'] in change.baseline_paths() and member.partition(':')[2]
+                                    and not member.partition(':')[2].startswith('<anonymous') and member not in functions)
+                for function, row in members.items():
+                    key = _pair_key(row)
+                    old = [item for item in then if _pair_key(item) == key]
+                    if not old or all(_held(item, function, tree_of(function), then_partners)[0] for item in old):
+                        fresh.add(function)
+                        continue
+                    exact, why = calls_now.exact(tree_of(function), function, _pair_function(old[0]), removed)
+                    if not exact:
+                        fresh.add(function)
+                        detail.append(f'{_pair_place(row)} counts as new: {why}, so its baseline cannot be read')
+            partner = model if column == '*' else pair
+            scope = {'update': ' (updates only)', 'create': ' (creates only)'}.get(owner.on, '')
+            detail += [f'{_pair_place(row)}: {_pair_place(unsure)} writes {pair}, but {why}: not confirmed'
+                       for row, (unsure, why) in unconfirmed.values()]
+            if any(calls.values()):
+                detail.append('JS/TS calls resolved by name')
+            found.issues.append(Issue(
+                f'pair:{owner.name}>{pair}', 2, f'pair {owner.name}',
+                f'missing paired write: {where(missing)} writes {owner.name}; {OPERATION} does not write {pair}',
+                step, frozenset(row_function(row) for row in missing), frozenset(row['file'] for row in missing),
+                new=bool(shown), family='pair', subject=f'together {owner.name}',
+                parts=tuple((function, _pair_place(row), f'writes {owner.name} without {pair}{scope}', _pair_step(row, partner))
+                            for function, row in members.items()),
+                fresh=frozenset(fresh), detail=tuple(detail)))
     return found
 
 
