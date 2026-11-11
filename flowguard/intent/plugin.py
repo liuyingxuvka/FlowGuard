@@ -11,6 +11,7 @@ from functools import cache
 from contextlib import closing, ExitStack, contextmanager
 from contextvars import ContextVar
 import json
+import math
 import os
 from pathlib import Path
 import sqlite3
@@ -69,21 +70,23 @@ def try_reading(target, name, values, grid=False):
 
 
 def observation_payload(value, seen=frozenset()):
-    import math
+    # Types are compared by identity only, so no class hook of an observed value runs.
     kind = type(value)
-    if any(kind is native for native in (type(None), bool, int, str)) or kind is float and math.isfinite(value):
+    if kind is str or kind is int or kind is bool or kind is _NONE or kind is float and math.isfinite(value):
         return value
-    namespace = type.__dict__['__dict__'].__get__(kind)
-    module = namespace.get('__module__', 'builtins')
-    label = (module if type(module) is str else '?') + '.' + type.__dict__['__qualname__'].__get__(kind)
-    if any(kind is native for native in (dict, list, tuple)) and id(value) not in seen:
+    if (kind is dict or kind is list or kind is tuple) and id(value) not in seen:
         seen = seen | {id(value)}
         if kind is dict:
             if all(type(key) is str for key in value):
                 return {key: observation_payload(part, seen) for key, part in value.items()}
         else:
             return [observation_payload(part, seen) for part in value]
-    return {'unverified_type': label}
+    namespace = type.__dict__['__dict__'].__get__(kind)
+    module = namespace.get('__module__', 'builtins')
+    return {'unverified_type': (module if type(module) is str else '?') + '.' + type.__dict__['__qualname__'].__get__(kind)}
+
+
+_NONE = type(None)
 
 def _json(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, default=repr)
@@ -418,11 +421,13 @@ class Observations:
             views = {}
             # The running FlowGuard never observes its own observation code: hooking the
             # changed Runtime.observe (or a replay helper) re-enters itself without end.
-            tool = Path(__file__).resolve().parents[1]
+            tool, own = Path(__file__).resolve().parents[1], {}
             for row in graph.nodes():
                 if row['file'] not in self.files or row['kind'] not in ('function', 'method') or not state.is_project(str(self.cfg.root / row['file'])):
                     continue
-                if (self.cfg.root / row['file']).resolve().is_relative_to(tool):
+                if row['file'] not in own:
+                    own[row['file']] = (self.cfg.root / row['file']).resolve().is_relative_to(tool)     # once per file
+                if own[row['file']]:
                     continue
                 if row['file'] not in views:
                     tree = ast.parse(read_source(self.cfg.root / row['file']))
@@ -860,8 +865,9 @@ class Observations:
                       seconds=self.state.tool_seconds + getattr(self.runtime, 'seconds', 0) + time.perf_counter() - timing)
         from dataclasses import fields
         from .flow import Event
+        names = [field.name for field in fields(Event)]
         self.payload = observation_payload(dict(stamp=self.state.started, baseline=self.runtime.baseline, items=report, paths=self.paths,
-                                  events=[{field.name: getattr(event, field.name) for field in fields(Event)}
+                                  events=[{name: getattr(event, name) for name in names}
                                           for event in self.state.events if type(event) is Event]))
         collector = _SIGNALS.get()
         if collector is not None:

@@ -100,6 +100,44 @@ def test_source_fact_cache_does_not_commit_an_existing_transaction(tmp_path):
         graph.con.rollback()
 
 
+def test_one_kind_of_a_baseline_record_is_read_without_decoding_the_record_again(tmp_path, monkeypatch):
+    root = project(tmp_path)
+    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n')
+    with closing(build(root)) as graph:
+        whole = graph._baseline_facts('HEAD', 'app.py', 'app')
+        assert graph._baseline_part('HEAD', 'app.py', 'app', 'nodes') == whole['nodes']
+        assert graph._baseline_part('HEAD', 'app.py', 'app', 'no such kind') is None
+        assert graph._baseline_part('HEAD', 'absent.py', 'absent', 'nodes') is None
+        delta = graph._delta_against('HEAD', ['app.py'])
+    decoded = []
+    unpack = api.store.unpack
+    def counted(blob):
+        value = unpack(blob)
+        if isinstance(value, dict) and 'nodes' in value:
+            decoded.append(value)            # a whole record
+        return value
+    with closing(build(root)) as graph:
+        monkeypatch.setattr(api.store, 'unpack', counted)
+        assert graph._baseline_part('HEAD', 'app.py', 'app', 'nodes') == whole['nodes']
+        assert graph._baseline_part('HEAD', 'app.py', 'app', 'literals') == whole['literals']
+        assert graph._baseline_part('HEAD', 'app.py', 'app', 'no such kind') is None
+        assert graph._delta_against('HEAD', ['app.py']) == delta
+        assert decoded == []
+        assert Change(load_config(root), graph, 'HEAD').old_facts('app.py') == whole      # the record itself is kept
+
+
+def test_a_record_kept_before_its_parts_gets_them_in_one_commit(tmp_path):
+    root = project(tmp_path)
+    with closing(build(root)) as graph:
+        whole = graph._baseline_facts('HEAD', 'app.py', 'app')
+        graph.con.execute("DELETE FROM meta WHERE k LIKE 'baseline_facts:%:%'")
+        graph.con.commit()
+        graph._derived.clear()
+        assert graph._baseline_part('HEAD', 'app.py', 'app', 'nodes') == whole['nodes']
+        kept = graph.con.execute("SELECT COUNT(*) FROM meta WHERE k LIKE 'baseline_facts:%:%'").fetchone()[0]
+        assert kept == len(whole) + 1 and not graph.con.in_transaction
+
+
 def test_touched_uses_the_same_move_filtered_delta_without_full_impact(tmp_path, monkeypatch):
     root = project(tmp_path)
     (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\ndef added(x): return x > 9\n')
@@ -122,11 +160,102 @@ def test_touched_uses_the_same_move_filtered_delta_without_full_impact(tmp_path,
      'def f(x):\n def g(y): return y + 9\n return g(x)', True),
 ])
 def test_literal_shape_projection_keeps_structure_types_and_original_ast(before, after, same):
-    from flowguard.intent.owners import _shape
+    from flowguard.intent.owners import _shape_key
     first, second = ast.parse(before).body[0], ast.parse(after).body[0]
     original = ast.dump(first, include_attributes=True)
-    assert (_shape(first) == _shape(second)) is same
+    assert (_shape_key(first) == _shape_key(second)) is same
     assert ast.dump(first, include_attributes=True) == original
+
+
+def _blank_dump(function):
+    """The earlier projection, kept as the oracle: every constant replaced by its type name, then dumped."""
+    def blank(node):
+        if isinstance(node, ast.Constant):
+            return ast.Constant(type(node.value).__name__)
+        if isinstance(node, ast.AST):
+            return type(node)(**{name: blank(value) for name, value in ast.iter_fields(node)})
+        if isinstance(node, list):
+            return [blank(value) for value in node]
+        return node
+    return ast.dump(blank(function), include_attributes=False)
+
+
+@pytest.mark.parametrize('before,after', [
+    ('def f(x): return x + 1', 'def f(x): return x + 2'),
+    ('def f(x): return u"a"', 'def f(x): return "b"'),
+    ('def f(x): return None', 'def f(x): return ...'),
+    ('def f(x=1, *, y=2): return {1: x, **y}', 'def f(x=3, *, y=4): return {5: x, **y}'),
+    ('def f(x): return {**x, 1: 2}', 'def f(x): return {1: 2, **x}'),
+    ('def f(x) -> int: return 1', 'def f(x): return 1'),
+    ('def f(x):\n    global a\n    return a', 'def f(x):\n    global b\n    return b'),
+    ('def f(x): return f"{x!r:>{1}}"', 'def f(x): return f"{x!s:>{2}}"'),
+    ('def f(x): return x[1:2]', 'def f(x): return x[1:2:3]'),
+    ('def f(x):\n    from . import a\n    return 1', 'def f(x):\n    from .. import a\n    return 2'),
+    ('def f(x):\n    match x:\n        case None: return 1\n        case [1, *r]: return 2',
+     'def f(x):\n    match x:\n        case True: return 1\n        case [3, *r]: return 4'),
+    ('def f(x): return lambda y=1: y', 'def f(x): return lambda y=2: y'),
+    ('def f(x): return (1, 2)', 'def f(x): return [1, 2]'),
+    ('def f(x): return b"a"', 'def f(x): return "a"'),
+    ('@d(1)\ndef f(x): return 1', '@d(2)\ndef f(x): return 1'),
+    ('async def f(x): await g(1)', 'async def f(x): await g(2)'),
+])
+def test_shape_key_decides_as_the_blanked_dump_and_keeps_constants_in_walk_order(before, after):
+    from flowguard.intent.owners import _shape_key
+    first, second = ast.parse(before).body[0], ast.parse(after).body[0]
+    same = _shape_key(first) == _shape_key(second)
+    assert same is (_blank_dump(first) == _blank_dump(second))
+    if same:      # one structure: the walk meets the constants of both at the same places
+        walked = [[type(node.value).__name__ for node in ast.walk(tree) if isinstance(node, ast.Constant)] for tree in (first, second)]
+        assert walked[0] == walked[1]
+
+
+def test_shape_key_reads_an_expression_deeper_than_the_recursion_limit():
+    import sys
+    from flowguard.intent.owners import _shape_key
+    depth = sys.getrecursionlimit() + 100
+    tree = ast.parse('def f(x):\n    return x' + ' + 1' * depth + '\n').body[0]
+    other = ast.parse('def f(x):\n    return x' + ' + 2' * depth + '\n').body[0]
+    assert _shape_key(tree) == _shape_key(other)
+
+
+LITERALS = [None, ..., True, False, 0, -7, 2 ** 200, 0x1 << 20000, -0.0, 1e-300, float('inf'), 1.5j,
+            'text é\ud800', b'\x00\xff', (1, [2.0, {3: 'x'}]), {1, 'a'}, {'k': (None, ...)}, ()]
+
+
+@pytest.mark.parametrize('value', LITERALS, ids=[type(value).__name__ for value in LITERALS])
+def test_stored_literals_keep_their_exact_type_and_value(value):
+    import json
+    from flowguard.intent.owners import _packed, _unpacked
+    back = _unpacked(json.loads(json.dumps(_packed(value))))
+    def same(a, b):
+        if type(a) is not type(b):
+            return False
+        if type(a) in (tuple, list):
+            return len(a) == len(b) and all(same(x, y) for x, y in zip(a, b))
+        if type(a) is dict:
+            return list(a) == list(b) and all(same(a[key], b[key]) for key in a)
+        if type(a) is float:
+            return a.hex() == b.hex()
+        return a == b
+    assert same(back, value)
+
+
+def test_constant_facts_are_read_once_per_text_and_never_borrowed_by_an_edit(tmp_path, monkeypatch):
+    from flowguard.intent import owners
+    root = project(tmp_path)
+    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n')
+    read = []
+    original = owners._read_constants
+    monkeypatch.setattr(owners, '_read_constants', lambda text: read.append(text) or original(text))
+    def changes():
+        with closing(build(root)) as graph:
+            return [(row['before'], row['after']) for row in owners.constant_changes(Change(load_config(root), graph, 'HEAD'))]
+    assert changes() == [(3, 4)] and len(read) == 2           # the baseline blob and the working-tree text
+    blobs = []
+    monkeypatch.setattr(Change, 'old_text', lambda self, file: blobs.append(file))
+    assert changes() == [(3, 4)] and len(read) == 2           # a reopened map reads neither again
+    (root / 'app.py').write_text('LIMIT = 5\ndef eligible(x): return x <= LIMIT\n')
+    assert changes() == [(3, 5)] and len(read) == 3 and blobs == []     # only the edited text is read
 
 
 def test_parse_error_in_old_source_is_preserved_on_cold_and_hot_read(tmp_path):

@@ -639,8 +639,22 @@ def stale_copies(graph, changes):
                 constant_members[identity] = ()
         return any(equal(old, item) for item in constant_members[identity])
 
+    def key(value, *, old=False):
+        """What equal() compares a value by, to narrow the scan: its text for a str, its decimal number for an
+        int, float or Decimal; None for a value equal() matches with nothing. `ANY` for an old value of another
+        type: every site is read for it. An int member keys by its exact number even where equal() cannot
+        read it, which only adds a candidate that held() then refuses."""
+        kind = type(value)
+        if kind is str:
+            return value
+        if kind is bool or kind not in (int, float, Decimal):
+            return ANY if old and kind is not bool else None
+        number = Decimal(value) if kind is int else Decimal(str(value))
+        return None if number.is_nan() else number
+
     from flowguard.structure.readers.registry import ECMA, language_for
     from .owners import named
+    ANY = object()
     if 'stale_copy_facts' not in graph._derived:
         sites = graph.con.execute('SELECT s.node,s.line,s.field,s.const,s.value,s.vkind,s.identity,s.file,n.line,n.end_line '
                                   'FROM site s LEFT JOIN node n ON n.id = s.node ORDER BY s.file,s.line').fetchall()
@@ -660,18 +674,47 @@ def stale_copies(graph, changes):
         graph._mark_query('literals')  # cached facts still count in this predicate's query coverage
     sites, constants, foreign = graph._derived['stale_copy_facts']
     direct_members, constant_members = graph._derived.setdefault('stale_copy_members', ({}, {}))
+    if 'stale_copy_index' not in graph._derived:
+        # Which sites an old value can match: a site's direct members join by_key once held() has read them
+        # (until then the site is pending and read for every old value); a site with a known constant is read
+        # for every old value, so its constant is still read only when an old value first needs it.
+        foreign_by_key = {}
+        for position, (row, _) in enumerate(foreign):
+            if (found_key := key(row['value'])) is not None:
+                foreign_by_key.setdefault(found_key, []).append(position)
+        graph._derived['stale_copy_index'] = (
+            {}, [position for position, row in enumerate(sites) if (row[6] or '').partition('[')[0] in constants],
+            {position for position, row in enumerate(sites) if row[4]}, foreign_by_key, {}, {})
+    by_key, by_constant, pending, foreign_by_key, direct_keys, constant_keys = graph._derived['stale_copy_index']
     found = {}
     for change in changes:
         old, own = change['before'], change.get('identity') or ''
-        for target, line, field, literal, value, vkind, identity, file, start, end in sites:
+        wanted = key(old, old=True)
+        positions = range(len(sites)) if wanted is ANY else \
+            sorted(by_key.get(wanted, set()).union(by_constant, pending))
+        for position in positions:
+            target, line, field, literal, value, vkind, identity, file, start, end = sites[position]
             if target == change.get('target') or own and (identity or '').startswith(own):
                 continue                    # the changed function and the readers of the changed constant
-            if not held(old, value, vkind, identity):
+            if wanted is not ANY and identity in constant_keys and position not in pending \
+                    and wanted not in direct_keys.get(position, ()) and wanted not in constant_keys[identity]:
+                continue                    # neither its value nor its constant has a member equal() can match
+            matched = held(old, value, vkind, identity)
+            if position in pending:
+                pending.discard(position)
+                keys = {found_key for item in direct_members[value] if (found_key := key(item)) is not None}
+                direct_keys[position] = keys
+                for found_key in keys:
+                    by_key.setdefault(found_key, set()).add(position)
+            if identity in constant_members and identity not in constant_keys:
+                constant_keys[identity] = {found_key for item in constant_members[identity] if (found_key := key(item)) is not None}
+            if not matched:
                 continue
             big = bool(start and end and end - start >= 20 and line - start >= 3)
             found[(file, line)] = dict(file=file, line=line, target=target, field=field, old=old,
                                       identity=identity, big=big, kind='lead')
-        for row, target in foreign:
+        for position in range(len(foreign)) if wanted is ANY else foreign_by_key.get(wanted, ()):
+            row, target = foreign[position]
             if target == change.get('target') or (row['file'], row['line']) == (change['file'], change['line']) \
                     or not equal(old, row['value']):
                 continue
