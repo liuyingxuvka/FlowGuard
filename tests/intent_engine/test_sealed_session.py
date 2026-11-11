@@ -89,3 +89,24 @@ def test_nested_calls_keep_their_own_recorded_identity(tmp_path):
     items = {item['name']: item for item in _report(tmp_path)['items'] if item.get('file') == 'policy.py'}
     assert items['inner']['changed'] == [[{'n': 2}, 3, 4]], items
     assert items['outer']['changed'] == [[{'n': 2}, 6, 8]], items
+
+
+def test_same_copies_also_try_the_numbers_their_sealed_helpers_and_constants_use(tmp_path):
+    # The boundary 7 is neither a recorded call, its neighbour, nor a literal inside `standing`: it is the
+    # module constant its same-file helper reads. The copies agreed at the baseline (both 3) and now
+    # disagree from 4 to 7, so the union must reach 7 (design 4.5: the function's numeric constants).
+    path = _project(tmp_path, 'GRACE = 3\n\ndef within(days):\n    return days <= GRACE\n\n'
+                    '# flowguard: same STANDING\ndef standing(days: int) -> bool:\n    return within(days)\n\n'
+                    '# flowguard: same STANDING\ndef preview(days: int) -> bool:\n    return days <= 3\n', '''
+        from policy import preview, standing
+        def test_copies():
+            assert standing(0) and preview(0)
+            assert not standing(9) and not preview(9)
+    ''')
+    path.write_text(path.read_text().replace('GRACE = 3', 'GRACE = 7'))
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 1 and '1 passed' in result.stdout, text
+    report = _report(tmp_path)
+    red, = [line for line in report['red'] if 'STANDING' in line]
+    assert 'days=7' in red and not report['before'], report

@@ -310,6 +310,44 @@ def _declared(point, inputs):
     return {_canonical(point, name): value for name, value in inputs.items()}
 
 
+def _sealed_numbers(tree, qual):
+    """The numbers a same-name copy works with in the sealed environment: the int and float literals of the
+    function and of the same-file functions it calls, and of the literal module constants they read, in that
+    order. None when the module has no such function."""
+    import ast
+    functions = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    if qual not in functions:
+        return None
+    constants = {}
+    for node in tree.body:
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            literal = node.value.operand if isinstance(node.value, ast.UnaryOp) and isinstance(node.value.op, ast.USub) else node.value
+            value = literal.value if isinstance(literal, ast.Constant) else None
+            value = -value if literal is not node.value and type(value) in (int, float) else value
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    if type(value) in (int, float):
+                        constants[target.id] = value
+                    else:
+                        constants.pop(target.id, None)
+    numbers, todo, seen, read = [], [qual], set(), []
+    while todo:
+        name = todo.pop(0)
+        if name in seen:
+            continue
+        seen.add(name)
+        for part in ast.walk(functions[name]):
+            if isinstance(part, ast.Constant) and type(part.value) in (int, float):
+                numbers.append(part.value)
+            elif isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load):
+                if part.id in functions:
+                    todo.append(part.id)
+                elif part.id in constants:
+                    read.append(constants[part.id])
+    return list(dict.fromkeys([*numbers, *read]))
+
+
 
 
 
@@ -529,10 +567,8 @@ class Observations:
                             for step in (-1, 1):
                                 add({**row, key: number + step})
             for point in points:
-                text = source(point)
-                node = dict(R._functions(ast.parse(text))).get(point['qual'])
-                if node is not None:
-                    numbers = [part.value for part in ast.walk(node) if isinstance(part, ast.Constant) and type(part.value) in (int, float)]
+                numbers = _sealed_numbers(ast.parse(source(point)), point['qual'])
+                if numbers is not None:
                     for row in list(inputs):
                         for key, number in row.items():
                             if type(number) in (int, float):
