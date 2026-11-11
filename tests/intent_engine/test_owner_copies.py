@@ -491,7 +491,7 @@ def test_a_new_spelling_of_a_label_is_a_lead_and_an_old_one_is_not(tmp_path):
     (tmp_path / 'view.py').write_text("def title(kind):\n    return 'My organization' if kind else ''\n", encoding='utf-8')
     code, text = _check(tmp_path)
     lead = next(line for line in _lines(text) if 'spellings differ' in line)
-    assert "'My Organization'（labels.py:2）" in lead and "'My organization'(view.py:2, spelling added in this task)" in lead, text
+    assert "'My Organization'(labels.py:2)" in lead and "'My organization'(view.py:2, spelling added in this task)" in lead, text
 
 
 # ---- data owners ---------------------------------------------------------------------------------------

@@ -127,7 +127,7 @@ def test_a_new_write_that_loses_the_baseline_observation_fails_with_two_ways_out
     (root / ledger.LEDGER).write_text('[unverified]\nSTANDING = ' + ledger._quote(REASON) + '\n', encoding='utf-8')
     listed, text = _pytest(root, '-q')
     assert listed.returncode == 0, text
-    assert 'observation lost' not in text and f'STANDING（policy.py:2): replay exemption recorded: {REASON}' in text, text
+    assert 'observation lost' not in text and f'STANDING（policy.py:2)：replay exemption recorded: {REASON}' in text, text
 
 
 def test_a_grey_that_the_baseline_shares_is_not_a_lost_observation(tmp_path):

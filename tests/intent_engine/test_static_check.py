@@ -2383,7 +2383,7 @@ def test_a_changed_typescript_constant_and_function_lead_to_the_places_left_behi
         'lead: old values 14 remain in 1 decisions: src/reminders.ts:2 -> if requirements changed, update together; to lock them, write # flowguard: same NAME ref above the reference and # flowguard: same NAME above the copies'], text
     alone = next(line for line in _lines(text, 'lead: lateFee'))
     assert alone.startswith('lead: lateFee(src/fees.ts:1) changed; previously identical copies: 1 unchanged: src/legacy/fees.ts:1'), alone
-    assert '// flowguard: owner LATEFEE' in alone, alone
+    assert '// flowguard: same LATEFEE ref' in alone, alone
 
 
 # ---- the ledger's TS catch fallbacks and a TS data owner, without pytest -----------------------------
@@ -2412,7 +2412,7 @@ def test_check_static_reports_a_new_typescript_fallback_and_a_write_outside_its_
     '''})
     code, text = _static(tmp_path)
     assert code == 1, text
-    assert 'red: New unlisted fallback: backend/src/services/rogue.ts:9 catch any can end without raising' in text, text
+    assert 'red: New unregistered fallback: backend/src/services/rogue.ts:9 catch any can end without raising' in text, text
     assert '    ["backend/src/services/rogue.ts:moveEmployee:any"]' in text and 'rogue.ts:4' not in text, text
     red = next(line for line in text.splitlines() if line.startswith('red: new write outside the declared writer'))
     assert red.startswith('red: new write outside the declared writer for Employee.organizationalUnitId：backend/src/services/rogue.ts:3 moveEmployee（update）'), red
