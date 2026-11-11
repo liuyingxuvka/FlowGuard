@@ -345,6 +345,40 @@ def test_init_wires_the_vitest_config_readably_and_says_jest_is_static_only(tmp_
         "export default defineConfig({\n  plugins: [react()],\n  test: { environment: 'jsdom' },\n});\n"
 
 
+def test_init_wires_a_one_line_vitest_config_without_swallowing_its_code(tmp_path):
+    # Round 29: `defineConfig({ test: {...} });` on one line became `plugins: [flowguard()], // flowguard: vitest test:
+    # {...} });`: the line comment swallowed the rest of the line and vitest failed to parse the config.
+    vitest = '{"name": "%s", "type": "module", "scripts": {"test": "vitest run"}, "devDependencies": {"vitest": "4.1.11"}}\n'
+    head = "import { defineConfig } from 'vitest/config';\n\n"
+    configs = {
+        'line': "export default defineConfig({ test: { setupFiles: ['./setup.ts'] } });\n",
+        'lines': "export default defineConfig({\n  test: { setupFiles: ['./setup.ts'] },\n});\n",
+        'empty': 'export default defineConfig({});\n',
+        'plugins': "export default defineConfig({ plugins: [], test: { environment: 'node' } });\n",
+    }
+    _commit(tmp_path, {name: text for folder, config in configs.items()
+                       for name, text in ((f'{folder}/package.json', vitest % folder), (f'{folder}/vitest.config.mjs', head + config))})
+    code, text = _flowguard(tmp_path, 'init')
+    assert code == 0, text
+    wired = {folder: (tmp_path / folder / 'vitest.config.mjs').read_text(encoding='utf-8').partition('// flowguard: vitest (python')[2]
+             .partition('\n')[2] for folder in configs}
+    plugin = '  plugins: [flowguard()], // flowguard: vitest\n'
+    assert wired == {
+        'line': "\nexport default defineConfig({\n" + plugin + "  test: { setupFiles: ['./setup.ts'] } });\n",
+        'lines': "\nexport default defineConfig({\n" + plugin + "  test: { setupFiles: ['./setup.ts'] },\n});\n",
+        'empty': '\nexport default defineConfig({\n' + plugin + '});\n',
+        'plugins': "\nexport default defineConfig({ plugins: [flowguard() /* flowguard: vitest */, ], test: { environment: 'node' } });\n",
+    }, wired
+    for folder in configs:             # each wired config is still a module node can read
+        run = subprocess.run([_tool('node'), '--check', str(tmp_path / folder / 'vitest.config.mjs')], capture_output=True,
+                             encoding='utf-8', timeout=60)
+        assert run.returncode == 0, (folder, run.stdout + run.stderr)
+    # deleting the marked lines undoes it, and no code of the project's goes with them
+    undone = '\n'.join(line for line in (tmp_path / 'line/vitest.config.mjs').read_text(encoding='utf-8').splitlines()
+                       if 'flowguard: vitest' not in line)
+    assert undone == head + "export default defineConfig({\n  test: { setupFiles: ['./setup.ts'] } });", undone
+
+
 def test_init_adds_its_test_to_suite_scripts_on_named_folders_and_skips_a_package_without_a_runner(tmp_path):
     package = ('{\n  "name": "api",\n  "type": "module",\n  "scripts": {\n    "test": "vitest run",\n'
                '    "test:unit": "prisma generate && vitest run tests/unit --reporter=dot",\n'

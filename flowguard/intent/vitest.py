@@ -425,7 +425,13 @@ def wire(cfg, package):
     if plugins:
         patched = patched[:plugins.end()] + 'flowguard() /* ' + MARK + ' */, ' + patched[plugins.end():]
     elif define:
-        patched = patched[:define.end()] + '\n  plugins: [flowguard()], // ' + MARK + patched[define.end():]
+        # The entry gets a line of its own: what followed `defineConfig({` on its line moves to the next line, so the
+        # line comment never swallows it (a one-line config) and deleting the marked line undoes the edit.
+        rest = patched[define.end():]
+        if not re.match(r'[ \t]*(?:\r?\n|$)', rest):
+            rest = rest.lstrip(' \t')
+            rest = ('\n' if rest.startswith('}') else '\n  ') + rest
+        patched = patched[:define.end()] + '\n  plugins: [flowguard()], // ' + MARK + rest
     else:
         return f'Generated {cfg.rel(target)}; no plugins list or defineConfig({{ in {cfg.rel(config)}: {manual}'
     config.write_text(patched, encoding='utf-8', newline='')
