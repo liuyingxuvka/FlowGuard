@@ -110,3 +110,27 @@ def test_same_copies_also_try_the_numbers_their_sealed_helpers_and_constants_use
     report = _report(tmp_path)
     red, = [line for line in report['red'] if 'STANDING' in line]
     assert 'days=7' in red and not report['before'], report
+
+
+def test_a_copy_that_cannot_run_sealed_does_not_hide_a_disagreement_between_the_others(tmp_path):
+    path = _project(tmp_path, '# flowguard: same ANSWER\ndef answer(n):\n    return n + 1\n', '''
+        from other import answer as other
+        from policy import answer
+        from third import answer as third
+        def test_answer():
+            assert answer(2) == other(2) == third(2) == 3
+    ''')
+    (tmp_path / 'settings.py').write_text('STEP = 1\n')
+    (tmp_path / 'other.py').write_text('from settings import STEP\n# flowguard: same ANSWER\ndef answer(n):\n    return n + STEP\n')
+    (tmp_path / 'third.py').write_text('# flowguard: same ANSWER\ndef answer(n):\n    return n + 1\n')
+    _git(tmp_path, 'add', 'settings.py', 'other.py', 'third.py')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'three copies')
+    path.write_text(path.read_text().replace('n + 1', 'n + 1 if n != 3 else 0'))
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 1 and '1 passed' in result.stdout, text
+    report = _report(tmp_path)
+    red, = [line for line in report['red'] if 'ANSWER' in line]
+    assert 'n=3' in red and '(plus 1 copies without a result for this input)' in red, red
+    assert any('ANSWER: other.py:3 answer uses unavailable binding STEP' in reason
+               for item in report['items'] for reason in item.get('reasons', ())), [item.get('reasons') for item in report['items']]

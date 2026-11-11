@@ -581,29 +581,36 @@ class Observations:
             owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
             current_rows, past_rows, old_unknown = [], [], False
             for row in inputs:
-                outcomes, old_outcomes = [], []
+                answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
                 for point in points:
                     spelled = {_spelled(point, key): v for key, v in row.items()}
                     node = dict(R._functions(ast.parse(source(point)))).get(point['qual'])
                     positional = [spelled.pop(p.arg) for p in node.args.posonlyargs if p.arg in spelled] if node else []
                     sample = dict(args=positional, kwargs=spelled)
-                    outcomes.append(run(point, sample))
-                    past = run(point, sample, True)
+                    now = run(point, sample)
+                    if now['status'] == 'unavailable':
+                        # This copy is not compared; the copies that ran still are (design 4.5, 6.4).
+                        self.grey.append(name + ': ' + places[point['target']] + ' ' + now.get('reason', ''))
+                        continue
                     past_text = source(point, True)
-                    if past_text is not None and point['qual'] in dict(R._functions(ast.parse(past_text))):
-                        if past['status'] == 'unavailable':
-                            old_unknown = True
-                        else:
-                            old_outcomes.append((places[point['target']], past))
+                    existed = past_text is not None and point['qual'] in dict(R._functions(ast.parse(past_text)))
+                    answered.append((point, now, run(point, sample, True) if existed else None))
                 witness = ', '.join(f'{key}={C.show(value)}' for key, value in row.items())
+                if any(past is not None and past['status'] == 'unavailable' for _, _, past in answered):
+                    old_unknown = True
+                old_outcomes = [(places[point['target']], past) for point, _, past in answered
+                                if past is not None and past['status'] != 'unavailable']
                 if old_outcomes and all(out['status'] == 'raised' for _, out in old_outcomes) and all(
                         equal(out, old_outcomes[0][1]) for _, out in old_outcomes[1:]):
                     old_unknown = True
                 past_rows.append((witness, [(place, value(out)) for place, out in old_outcomes]))
-                if any(out['status'] == 'unavailable' for out in outcomes) or (all(out['status'] == 'raised' for out in outcomes) and all(equal(out, outcomes[0]) for out in outcomes[1:])):
-                    self.grey.append(name + ': ' + next((out.get('reason', '') for out in outcomes if out.get('reason')), 'copies raise exceptions'))
+                outcomes = [out for _, out, _ in answered]
+                if len(outcomes) < 2:
                     continue
-                current_rows.append((witness, [(places[point['target']], value(out)) for point, out in zip(points, outcomes)]))
+                if all(out['status'] == 'raised' for out in outcomes) and all(equal(out, outcomes[0]) for out in outcomes[1:]):
+                    self.grey.append(name + ': copies raise exceptions')
+                    continue
+                current_rows.append((witness, [(places[point['target']], value(out)) for point, out, _ in answered]))
             new_lines, previous_lines = signals.copy_partition(current_rows, past_rows, equal, C.show, owner, len(points))
             if previous_lines:
                 before.append(signals.copy_red(name, previous_lines))
