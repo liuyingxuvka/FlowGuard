@@ -1,6 +1,7 @@
 """CLI batching keeps one signal view and a caller-selected historical base."""
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -19,6 +20,7 @@ def test_signal_collector_suppresses_only_the_product_view_and_honors_explicit_b
         from policy import permit
         def test_native():
             assert permit(0) is True
+            assert permit(4) is True
     ''')
     base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
     policy.write_text(policy.read_text().replace('x <= 3', 'x <= 4'))
@@ -44,11 +46,11 @@ raise SystemExit(result)
     reports = json.loads(encoded)
     assert len(reports) == 1 and reports[0]['source_changed'] is True
     permit = next(item for item in reports[0]['items'] if item['name'] == 'PERMIT')
-    assert [(change['region'], change['witness']['x']) for change in permit['changes']] == [('x=4–5', '4')]
-    assert permit['cause']['before'] == 3 and permit['cause']['after'] == 5
+    # Against the explicit base (x <= 3) the recorded x=4 changed; against HEAD (x <= 4) it would not have.
+    assert permit['changed'] == [[{'x': 4}, False, True]] and permit['total'] == 2, permit
 
 
-def test_explicit_ordinary_selection_keeps_the_bound_rule_counterexample(tmp_path):
+def test_the_bound_rule_counterexample_is_reported_by_its_intent_items_not_an_ordinary_selection(tmp_path):
     policy = _project(tmp_path, '''
         # flowguard: sensor STANDING
         def standing(days: int) -> bool:
@@ -66,16 +68,26 @@ def test_explicit_ordinary_selection_keeps_the_bound_rule_counterexample(tmp_pat
         STANDING_RULE.rows(row(days=4, expect=False, why='the fourth day must remain refused'))
     ''')
     policy.write_text(policy.read_text().replace('days <= 3', 'days <= 4'))
+    _assert_rule_red_only_with_its_items(tmp_path)
+
+
+def _assert_rule_red_only_with_its_items(tmp_path):
+    """The rule's row days=4 is not a call any ordinary test makes. An ordinary selection does not replay the
+    anchor at the rule's rows (4.5), so it claims nothing about the rule; the rule's own items report it."""
     bootstrap = ('import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; '
                  'raise SystemExit(pytest.main(sys.argv[1:]))')
-    result = subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '-q', '-p',
-                            'flowguard.intent.plugin', 'tests/test_case.py'], cwd=tmp_path,
-                            capture_output=True, text=True, timeout=30)
-    text = _text(result)
-    assert result.returncode == 1, text
-    assert 'STANDING_RULE' in text and 'days=4' in text, text
-    assert 'At most three days.' in text, text
-    assert '1 passed' in result.stdout, text
+    selected = subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '-q', '-p',
+                              'flowguard.intent.plugin', 'tests/test_case.py'], cwd=tmp_path,
+                              capture_output=True, text=True, timeout=30)
+    text = _text(selected)
+    assert selected.returncode == 0 and '1 passed' in selected.stdout, text
+    assert not re.search(r'STANDING_RULE[^\n]*(?:passed|verified|ok)', text), text
+    complete = subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '-q', '-p', 'flowguard.intent.plugin'],
+                              cwd=tmp_path, capture_output=True, text=True, timeout=60)
+    text = _text(complete)
+    assert complete.returncode == 1, text
+    assert 'STANDING_RULE' in text and 'days=4' in text and 'At most three days.' in text, text
+    assert 'FAILED tests/intent/decisions.py::STANDING_RULE' in text, text
 
 
 def test_changed_import_binding_is_not_silent_when_the_unanchored_body_is_unchanged(tmp_path):
@@ -96,8 +108,7 @@ def test_changed_import_binding_is_not_silent_when_the_unanchored_body_is_unchan
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    assert 'permit' in text and 'unanchored' in text, text
-    assert 'comparison incomplete' in text and 'binding' in text, text
+    assert 'unverified: permit(unanchored, automatic)（policy.py:2）：uses unavailable binding decide' in text, text
     assert 'total 0 classes，changed 0 classes' not in text, text
 
 
@@ -110,17 +121,18 @@ def test_changed_global_constant_selects_an_unchanged_unanchored_function(tmp_pa
         from policy import permit
         def test_native():
             assert permit(0) is True
+            assert permit(4) is True
     ''')
     policy.write_text(policy.read_text().replace('LIMIT = 3', 'LIMIT = 4'))
     from tests.intent_engine.test_default_runtime_signals import _run
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    assert 'permit' in text and 'unanchored' in text and 'x=4' in text, text
-    assert 'LIMIT 3' in text and 'policy.py:1' in text, text
+    line = next(line for line in text.splitlines() if line.startswith('changed: permit(unanchored, automatic)'))
+    assert 'policy.py:2' in line and 'x=4' in line and 'function result False → True' in line, text
 
 
-def test_unchanged_source_still_checks_a_bound_rule_in_the_real_context(tmp_path):
+def test_unchanged_source_bound_rule_is_checked_by_its_intent_items(tmp_path):
     _project(tmp_path, '\n# flowguard: sensor STANDING\ndef standing(days: int) -> bool:\n    return True\n',
              '\nfrom policy import standing\ndef test_native():\n    assert standing(0) is True\n', rule='''
         from flowguard.intent import rule, row
@@ -130,15 +142,7 @@ def test_unchanged_source_still_checks_a_bound_rule_in_the_real_context(tmp_path
             return days <= 3
         STANDING_RULE.rows(row(days=4, expect=False, why='the fourth day must remain refused'))
     ''')
-    bootstrap = ('import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; '
-                 'raise SystemExit(pytest.main(sys.argv[1:]))')
-    result = subprocess.run([sys.executable, '-c', bootstrap, SOURCE, '-q', '-p',
-                            'flowguard.intent.plugin', 'tests/test_case.py'], cwd=tmp_path,
-                            capture_output=True, text=True, timeout=30)
-    text = _text(result)
-    assert result.returncode == 1, text
-    assert 'STANDING_RULE' in text and 'days=4' in text and 'At most three days.' in text, text
-    assert '1 passed' in result.stdout, text
+    _assert_rule_red_only_with_its_items(tmp_path)
 
 
 def test_no_git_baseline_cannot_turn_an_ordinary_call_into_a_source_lookup_error(tmp_path):
