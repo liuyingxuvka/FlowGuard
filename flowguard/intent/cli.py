@@ -264,20 +264,38 @@ def _dirty(cfg):
     return {os.fsdecode(name) for name in listed.split(b'\0') if name}
 
 
+def _recounted(cfg, line):
+    """Is this red of the last run one the brief counts from where it is read now: an intent rule's or a test's
+    (the intent cache, `_brief_reds`), or an input problem of an intent file or a catalog file (the static scan and
+    `sources.catalog`)?"""
+    from .signals import family_of
+    from .sources import CATALOG_FILES
+    family = family_of(line['name'])
+    if family in ('rule', 'test'):
+        return True
+    intent = cfg.rel(cfg.intent)
+    files = [place.rpartition(':')[0] for place in line['places']]
+    return family in ('input', '') and bool(files) and all(
+        file in CATALOG_FILES or file == intent or file.startswith(intent + '/') for file in files)
+
+
 def _last_reds(cfg, baseline):
-    """(now before, still red) of the last run's reds of the baseline-judged families (`cache.read_last`). When that
-    run compared with another commit than `baseline` (new-task has moved it since), a red whose places' files are all
-    clean against HEAD is before now (D26); otherwise each still counts."""
+    """(now before, still red) of the last run's reds (`cache.read_last`), but those the brief counts where they are
+    read now (`_recounted`). When that run compared with another commit than `baseline` (new-task has moved it
+    since), a red of a baseline-judged family whose places' files are all clean against HEAD is before now (D26);
+    one that names no place, one with a dirty file and every red of another family still count."""
     from .signals import family_of
     last = cache.read_last(cfg)
     if last is None:
         return 0, 0
-    reds = [line for line in last['lines'] if line['kind'] == 'red' and family_of(line['name']) in BASELINE_FAMILIES]
-    if not reds or baseline is None or last['baseline'] in (None, baseline):
+    reds = [line for line in last['lines'] if line['kind'] == 'red' and not _recounted(cfg, line)]
+    judged = [line for line in reds if family_of(line['name']) in BASELINE_FAMILIES]
+    if not judged or baseline is None or last['baseline'] in (None, baseline):
         return 0, len(reds)
     dirty = _dirty(cfg)
-    still = sum(any(place.rpartition(':')[0] in dirty for place in line['places']) for line in reds)
-    return len(reds) - still, still
+    moved = sum(bool(line['places']) and not any(place.rpartition(':')[0] in dirty for place in line['places'])
+                for line in judged)
+    return moved, len(reds) - moved
 
 
 def _brief(cfg, data, baseline, note='', *, structure=''):
@@ -467,7 +485,7 @@ def show_catalog(cfg, query, full=False):
     map, its finding and what the last run said of it, its source), then the input problems of both files; `show
     rule.<id>` and `show known.<id>` one entry. Exit 1 when an input problem is listed (or the entry is missing)."""
     from .differences import display
-    from .sources import Archive, KNOWN, RULES, catalog, catalog_authority, citing, known_sites, parse
+    from .sources import KNOWN, RULES, catalog, catalog_authority, citing, known_sites, parse, shared_archive
     found = catalog(cfg)
     resolved, unresolved = [], []
     if found.known:                     # only a known entry's sites need the map
@@ -475,12 +493,14 @@ def show_catalog(cfg, query, full=False):
             resolved, unresolved = known_sites(graph, found.known.values())
     sites = {entry.id: entry for entry in resolved}
     problems = [*found.issues, *unresolved]
-    archive, cited, last = Archive(cfg.root), citing(cfg), cache.read_last(cfg)
+    archive, cited, last = shared_archive(cfg.root), citing(cfg), cache.read_last(cfg)
     table, _, wanted = query.partition('.')
     rules = [rule for rule in found.rules.values() if query == 'rules' or table == 'rule' and rule.id == wanted]
     entries = [entry for entry in found.known.values() if query == 'rules' or table == 'known' and entry.id == wanted]
-    if query != 'rules':
-        problems = [issue for issue in problems if issue.subject == query]
+    if query != 'rules':     # the entry's own problem, and its file's (an entry of an invalid file is not read)
+        problems = [issue for issue in problems if issue.subject in (query, RULES if table == 'rule' else KNOWN)]
+    cited_words = [parse(item.source, strict=True) for item in [*rules, *entries] if item.source]
+    archive.read([source.rids[0] for source in cited_words if source.kind == 'request'])     # one listing for all
     lines = [f'FlowGuard rules: {len(found.rules)} in {RULES}, {len(found.known)} known in {KNOWN}, '
              f'{len(problems)} input problems'] if query == 'rules' else []
     for rule in rules:
@@ -895,11 +915,16 @@ def _owner_findings(cfg, *, everything=False, base=None, static=None):
         return found
 
 
-def _check_selection(cfg: Config, model: object, data: dict, everything: bool, since: str | None, sentinel: Path):
+def _check_selection(cfg: Config, model: object, data: dict, everything: bool, since: str | None, sentinel: Path,
+                     base: str | None = None):
     import ast
+    from flowguard.map.common import git_run
     from . import deps, history
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
-        now = deps.Now(cfg, graph)
+        # The commit pytest compares with (its Runtime resolves --flowguard-base the same way), else the task
+        # baseline: a source judged against another commit (`baseline:<commit>` of deps.record) is judged again.
+        commit = None if base is None else git_run(cfg.root, 'rev-parse', '--verify', base + '^{commit}').stdout.decode().strip()
+        now = deps.Now(cfg, graph, baseline=commit)
         selected = set(model.rules) if everything else set(deps.affected(data, model, now))
         flows = {identifier for identifier in [*model.flows, *model.states, *model.structures, *model.anchor_distincts]
                  if everything or not deps.reusable(data, identifier, now)}
@@ -1047,7 +1072,7 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     if stream_all:
         print('FlowGuard check --all: preparing source dependencies before pytest.', flush=True)
     selected, flows, ordinary, test_records, guards, rule_markers = _check_selection(
-        cfg, model, data, everything, since, sentinel)
+        cfg, model, data, everything, since, sentinel, base)
     extras = flows
     attempt = data.get('attempt') or {}
     failed_collection = (attempt.get('sentinel') is not None or attempt.get('collected')) and (

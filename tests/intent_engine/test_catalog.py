@@ -192,6 +192,14 @@ def test_an_ignore_entry_of_a_structure_finding_is_valid(tmp_path):
 
 SITES = {
     'src/fees.py': PYTHON,
+    'src/orders.py': '''
+        class Order:
+            status: str = 'new'
+
+
+        def pay(order: Order):
+            order.status = 'paid'
+    ''',
     'web/a.ts': '''
         export const GRACE_DAYS = 14;
         export function overdue(days: number) { return days > GRACE_DAYS; }
@@ -253,7 +261,15 @@ def test_a_model_field_site_resolves_to_its_writers_and_its_schema_file(tmp_path
         (frozenset({'typescript/web/store.ts:setValue'}), frozenset({'prisma/schema.prisma'}))], resolved
 
 
+def test_a_python_class_field_site_resolves_to_its_writers_and_the_file_of_its_class(tmp_path):
+    resolved, issues = _resolved(tmp_path, ['src/orders.py:Order.status'])
+    assert issues == [] and [(entry.nodes, entry.files) for entry in resolved] == [
+        (frozenset({'src.orders:Order', 'src.orders:pay'}), frozenset({'src/orders.py'}))], (resolved, issues)
+
+
 @pytest.mark.parametrize('site, problem', [
+    ('src/orders.py:Order.gone', 'site src/orders.py:Order.gone names nothing'),      # no write binds the field
+    ('src/fees.py:Order.status', 'site src/fees.py:Order.status names nothing'),      # its class is in another file
     ('src/fees.py:missing', 'site src/fees.py:missing names nothing in src/fees.py: name one function, object.method, constant or Model.field of that file'),
     ('src/fees.py:Shop', 'site src/fees.py:Shop names nothing in src/fees.py'),               # a class is no site
     ('web/a.ts:update', 'site web/a.ts:update names nothing in web/a.ts'),                    # the holder belongs to it
@@ -418,6 +434,16 @@ def test_show_rules_lists_each_rule_its_source_and_the_intent_rules_citing_it_th
     assert capsys.readouterr().out.splitlines()[1] == (
         '    source: doc SPEC.md "At most three days." (does not hold: SPEC.md does not contain "At most three days." '
         '-> quote the document exactly)')
+
+
+def test_show_of_an_entry_names_the_problem_of_its_file(tmp_path, capsys):
+    cfg = _project(tmp_path, rules='[rule.three-days]\ntext = "x"\nsource = \'unclosed\n')
+    assert cli.show(cfg, 'rule.three-days') == 1
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 1 and lines[0].startswith('input rules-file:.flowguard/rules.toml: .flowguard/rules.toml '
+                                                   '.flowguard/rules.toml is not TOML: '), lines
+    # The other file's problem is not this entry's.
+    assert cli.show(cfg, 'known.scale') == 0 and 'rules-file' not in capsys.readouterr().out
 
 
 def test_the_repository_keeps_its_rules_in_force_each_quoting_stored_owner_words(capsys):

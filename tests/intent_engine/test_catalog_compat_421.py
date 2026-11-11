@@ -81,6 +81,9 @@ def _write(root, files):
         path.write_text(textwrap.dedent(text).lstrip(), encoding='utf-8', newline='\n')
 
 
+RED = re.compile(r'^(red|\u7ea2)', re.M)       # a red line as 4.3 and as 4.2.1 print it (4.2.1: U+7EA2, then a colon)
+
+
 def test_flowguard_421_checks_a_project_with_rules_toml_and_known_toml_without_red(tmp_path):
     release = _release_421(tmp_path / 'release')
     project = tmp_path / 'project'
@@ -93,10 +96,27 @@ def test_flowguard_421_checks_a_project_with_rules_toml_and_known_toml_without_r
     _git(project, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'baseline')
     (project / 'shop/fees.py').write_text('WEEKS = 52\n\n\ndef fee(days):\n    return 2 * days\n', encoding='utf-8')
     static = _run_421(release, project, 'from flowguard.intent.cli import main; sys.exit(main(["check", "--static"]))')
-    assert static.returncode == 0 and not re.search(r'^red', static.stdout + static.stderr, re.M), static.stdout + static.stderr
+    assert static.returncode == 0 and not RED.search(static.stdout + static.stderr), static.stdout + static.stderr
     tests = _run_421(release, project, 'import pytest; sys.exit(pytest.main(["-q", "-p", "no:cacheprovider"]))')
     assert tests.returncode == 0 and '2 passed' in tests.stdout, tests.stdout + tests.stderr
-    assert not re.search(r'^red', tests.stdout, re.M), tests.stdout
+    assert not RED.search(tests.stdout), tests.stdout
+
+
+def test_the_red_pattern_matches_the_red_line_421_prints(tmp_path):
+    """The check above can fail: a pair this change breaks is a red line under 4.2.1, and the pattern finds it."""
+    release = _release_421(tmp_path / 'release')
+    project = tmp_path / 'project'
+    order = 'class Order:\n    total = 0\n    tax = 0\n\n\n# flowguard: owner Order.total with=Order.tax\n' \
+            'def set_total(order):\n    order.total = 1\n    order.tax = 2\n'
+    _write(project, {**FILES, 'shop/order.py': order})
+    _git(project, 'init', '-q', '-b', 'main')
+    assert _run_421(release, project, 'from flowguard.intent.cli import main; sys.exit(main(["init"]))').returncode == 0
+    _write(project, CATALOG)
+    _git(project, 'add', '.')
+    _git(project, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'baseline')
+    (project / 'shop/order.py').write_text(order + '\n\ndef only_total(order):\n    order.total = 3\n', encoding='utf-8')
+    static = _run_421(release, project, 'from flowguard.intent.cli import main; sys.exit(main(["check", "--static"]))')
+    assert static.returncode == 1 and RED.search(static.stdout + static.stderr), static.stdout + static.stderr
 
 
 def _allowed(text):

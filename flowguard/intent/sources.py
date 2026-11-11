@@ -11,7 +11,7 @@ import tomllib
 
 from .api import IntentError
 from flowguard.map.requests import (REQUEST_DIR, RETIRED_DIR, added_since, exact_quote, quote_matches, read_request_bytes,
-                                    request_state)
+                                    request_states)
 from flowguard.map.common import git_blob, git_common_directory, git_head, git_run
 
 
@@ -93,10 +93,16 @@ class Archive:
         self.present = (self.root / '.flowguard/requests').is_dir()
         self.rows = {}
 
+    def read(self, rids):
+        """Check the stored requests of `rids` not read yet, with one listing of the archive for all of them
+        (`request_states`)."""
+        unread = [rid for rid in dict.fromkeys(rids) if rid not in self.rows]
+        if self.present and unread:
+            self.rows.update(request_states(self.root, unread))
+
     def row(self, rid):
         """`request_state` of one stored request (None when none is stored), read once."""
-        if self.present and rid not in self.rows:
-            self.rows[rid] = request_state(self.root, rid)
+        self.read([rid])
         return self.rows.get(rid)
 
     def status(self, rid, quote=None):
@@ -112,6 +118,23 @@ class Archive:
             if not quote_matches(text, quote):
                 return False, f'{rid} quote gone -> quote the actual stored words'
         return True, f'owner {rid}'
+
+
+_ARCHIVES = {}      # resolved root -> (what its request files are, the Archive read from them)
+
+
+def shared_archive(root):
+    """The Archive of `root` for this process, shared by the engine, the static findings, the dependency digests
+    and show, so one run checks each cited request once; a fresh one once a file under .flowguard/requests was
+    added, removed or rewritten (a request stored, retired or edited, its .gitattributes changed)."""
+    root = Path(root).resolve()
+    directory = root / REQUEST_DIR
+    stamp = tuple(sorted((path.relative_to(directory).as_posix(), status.st_size, status.st_mtime_ns)
+                         for path in directory.rglob('*') for status in [path.lstat()])) if directory.is_dir() else ()
+    held = _ARCHIVES.get(root)
+    if held is None or held[0] != stamp:
+        held = _ARCHIVES[root] = (stamp, Archive(root))
+    return held[1]
 
 
 # flowguard: sensor SOURCE_AUTHORITY(src: source, rule_confirmed: request, cfg: config, archive: archive, quote: words) -> answer: tuple[bool, str] calibrated_by=tests/test_anchor_self_rules.py::test_authority_anchor_case[EXACT]
@@ -495,19 +518,20 @@ def catalog_authority(src, cfg, archive, *, revision=None, baseline=None):
     the commit `revision`: the request is stored, neither retired nor superseded, and holds the words exactly after
     `normalize_newlines`; the document is listed in that commit's `authority_docs` and holds them; `rule.<id>` is a
     valid rule of that commit's rules.toml whose own source holds. No permissive comparison follows a strict miss."""
-    problem = _problem(src, cfg, Archive(cfg.root) if archive is None else archive, revision=revision, baseline=baseline)
+    problem = _problem(src, cfg, shared_archive(cfg.root) if archive is None else archive, revision=revision, baseline=baseline)
     if problem is not None:
         return False, f'{problem[0]} -> {problem[1]}'
     return True, (f'rule.{src.rule}' if src.kind == 'rule' else f'owner {src.rids[0]}' if src.kind == 'request'
                   else f'doc {src.path}')
 
 
-def cited(src, cfg):
+def cited(src, cfg, found=None):
     """The source whose words a rule's lines quote: for `rule.<id>` its rules.toml entry's source (the rule source
-    itself while the entry is missing or invalid, so the line names rule.<id>); any other source is its own."""
+    itself while the entry is missing or invalid, so the line names rule.<id>); any other source is its own. `found`
+    is the working tree's catalog when the caller already read it (one session reads it once)."""
     if src.kind != 'rule':
         return src
-    entry = catalog(cfg).rules.get(src.rule)
+    entry = (catalog(cfg) if found is None else found).rules.get(src.rule)
     return src if entry is None else parse(entry.source, strict=True)
 
 
@@ -519,15 +543,16 @@ def _declarations_at(cfg, revision):
     return _held(cfg, revision, 'intent', lambda: scan(cfg, _texts(cfg, revision, cfg.rel(cfg.intent)))['rules'])
 
 
-def source_state(engine, declaration, confirmed=None, quote=None):
+def source_state(engine, declaration, confirmed=None, quote=None, *, gone_red=True):
     """(state, reason) of an intent declaration's source for the engine's verdict: 'ok'; 'grey' for a source that
     cannot be confirmed (a missing request, an unlisted document, an assumption, ...); 'red' when this change broke it;
     'before' when the same citation (the declaration's source and quote unchanged) already failed at the session's
     baseline (`engine.baseline`), judged with that commit's archive, documents and authority_docs (design 4.7, D28).
     Judged so are every failure of a strict source (`rule.<id>`, `R74 "words"`) and a quote gone or a request no
     longer current of the forms `owner` and `doc`; a request stored in this task that supersedes or retires the cited
-    one makes it red (D27). Without a baseline the 4.2.1 colours stay: a gone quote and a strict source red, the
-    rest grey."""
+    one makes it red (D27). Without a baseline nothing is compared (D13): a strict source is grey, and the intent
+    forms keep their 4.2.1 colours, a gone quote red where `gone_red` (rules and flows; 4.2.1 left the source of states
+    and structure rules grey) and the rest grey."""
     cfg = engine.m.cfg
     src = parse(declaration.source)
     valid, reason = authority(src, confirmed, cfg, engine.archive, quote)
@@ -537,7 +562,7 @@ def source_state(engine, declaration, confirmed=None, quote=None):
     if not judged:
         return 'grey', reason
     if engine.baseline is None:
-        return ('red' if src.strict or 'quote gone' in reason else 'grey'), reason
+        return ('red' if gone_red and not src.strict and 'quote gone' in reason else 'grey'), reason
     if src.strict:
         what, step = _problem(src, cfg, engine.archive, baseline=engine.baseline)
         reason = f'{what} -> {step}'
@@ -556,9 +581,11 @@ LOOSENED_STEP = "name it in your report; needs the owner's yes"
 def known_sites(graph, entries, change=None):
     """(entries, input findings): the known entries with their sites resolved on the map, and one input finding per
     entry with a site that names no single function, method, object.method, constant or Model.field of its file (that
-    entry is left out). `Known.nodes` holds the node of each function, method or constant site and, for a Model.field
-    site, the functions that write that field now and (with `change`) at its baseline; `Known.files` the schema file of
-    each Model.field site (D31: a site is touched when its node changes, or its schema file changes)."""
+    entry is left out). A Model.field is a field of a schema model (Prisma, SQL) of that file, or of a class the file
+    declares that the map binds writes to (a Python class written as `order.status = ...`). `Known.nodes` holds the
+    node of each function, method or constant site and, for a Model.field site, the functions that write that field
+    now and (with `change`) at its baseline; `Known.files` the schema or class file of each Model.field site (D31: a
+    site is touched when its node changes, or that file changes)."""
     from .anchors import _agreement_positions
     from .owners import row_function
     entries = list(entries)
@@ -569,6 +596,13 @@ def known_sites(graph, entries, change=None):
     schemas = {}
     for schema in graph.schemas():
         schemas.setdefault(schema['file'], []).append(schema)
+    written = {}            # Model.field -> its write rows now, all read once (`graph.writes_to`)
+    def writes(symbol):
+        if symbol not in written:
+            if not written:
+                written[None] = graph.writes()
+            written[symbol] = graph.writes_to(written[None], symbol)
+        return written[symbol]
     resolved, issues = [], []
     for entry in entries:
         nodes, files, problems = set(), set(), []
@@ -584,13 +618,17 @@ def known_sites(graph, entries, change=None):
             model, dot, name = symbol.rpartition('.')
             fields = [symbol for schema in schemas.get(path, ()) for item in schema['models']
                       if dot and item['name'] == model and any(column['name'] == name for column in item['fields'])]
+            if dot and not fields and '.' not in model and graph.con.execute(
+                    "SELECT 1 FROM node WHERE module=? AND kind='class' AND qual=?", (module, model)).fetchone() \
+                    and any(row['model'] == model and row['field'] == name for row in writes(symbol)):
+                fields.append(symbol)
             if len(found) + len(fields) != 1:
                 problems.append(f'site {site} names ' + (f'{len(found) + len(fields)} declarations' if found or fields else 'nothing')
                                 + f' in {path}: name one function, object.method, constant or Model.field of that file')
             elif found:
                 nodes.update(found)
             else:
-                nodes.update(row_function(row) for row in graph.writes(symbol))
+                nodes.update(row_function(row) for row in writes(symbol))
                 if change is not None and change.baseline:
                     nodes.update(row_function(row) for row in change.baseline_writes(symbol))
                 files.add(path)
@@ -629,13 +667,16 @@ def findings(cfg, graph, change):
     now = catalog(cfg)
     known, unresolved = known_sites(graph, now.known.values(), change)
     found = Findings(issues=[*now.issues, *unresolved], known=known)
-    archive, baseline = Archive(cfg.root), change.baseline
+    archive, baseline = shared_archive(cfg.root), change.baseline
     then = catalog(cfg, baseline) if baseline else Catalog()
+    words = {(table, entry.id): parse(entry.source, strict=True) for table, entries in (('rule', now.rules), ('known', now.known))
+             for entry in entries.values() if entry.source}
+    archive.read([source.rids[0] for source in words.values() if source.kind == 'request'])     # one listing for all
     for file, table, entries, before in ((RULES, 'rule', now.rules, then.rules), (KNOWN, 'known', now.known, then.known)):
         for entry in entries.values():
             if not entry.source:
                 continue
-            source = parse(entry.source, strict=True)
+            source = words[table, entry.id]
             problem = _problem(source, cfg, archive, baseline=baseline)
             if problem is None:
                 continue

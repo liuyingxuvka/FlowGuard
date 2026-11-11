@@ -225,6 +225,69 @@ def test_a_supersession_stored_in_this_task_is_new_and_one_stored_before_it_is_n
     assert found.fresh == frozenset({''}) and found.parts[0][2] == "R15 was retired as not the owner's words", found.parts
 
 
+def test_the_requests_a_run_cites_are_read_with_one_listing_and_once_per_process(tmp_path, monkeypatch):
+    from flowguard.map import requests
+    _project(tmp_path, rules=''.join(f'''
+        [rule.r{index}]
+        text = "Words {index}."
+        source = 'R{index} "Words {index}."'
+    ''' for index in range(1, 4)))
+    for index in range(1, 4):
+        store_request(tmp_path, f'Words {index}.\n'.encode(), identifier=f'R{index}')
+    base = _commit(tmp_path)
+    listings, reads = [], []
+    listing, states = requests._identifiers, requests.request_states
+    monkeypatch.setattr(requests, '_identifiers', lambda root: listings.append(root) or listing(root))
+    monkeypatch.setattr(sources, 'request_states', lambda root, rids: reads.append(list(rids)) or states(root, rids))
+    assert _source_findings(tmp_path, base) == {}
+    assert len(listings) == 1 and reads == [['R1', 'R2', 'R3']], (listings, reads)
+    # The engine, the dependency digests and a second static check of the same process share those rows.
+    engine = Engine(load(load_config(tmp_path)))
+    assert engine.archive is sources.shared_archive(tmp_path) and engine.archive.row('R2')['id'] == 'R2'
+    assert _source_findings(tmp_path, base) == {} and reads == [['R1', 'R2', 'R3']]
+    # A request stored since is read again: the archive changed.
+    store_request(tmp_path, b'Words 1 again.\n', identifier='R4', supersedes=['R1'])
+    assert set(_source_findings(tmp_path, base)) == {'source:rule.r1'} and reads[1:] == [['R1', 'R2', 'R3']]
+
+
+def test_request_states_is_request_state_of_each_identifier(tmp_path):
+    from flowguard.map.requests import request_state, request_states
+    store_request(tmp_path, b'one\n', identifier='R1')
+    store_request(tmp_path, b'two\n', identifier='R2', supersedes=['R1'])
+    store_request(tmp_path, b'three\n', identifier='R3', supersedes=['R1', 'R2'])
+    store_request(tmp_path, b'four\n', identifier='R4')
+    retire_request(tmp_path, 'R4')
+    store_request(tmp_path, b'five\n', identifier='R5')
+    _commit(tmp_path)
+    (tmp_path / '.flowguard/requests/R5.md').write_bytes(b'edited\n')
+    identifiers = ['R3', 'R1', 'R9', 'R4', 'R2', 'R5']
+    batch = request_states(tmp_path, identifiers)
+    assert list(batch) == identifiers and batch == {rid: request_state(tmp_path, rid) for rid in identifiers}
+    assert batch['R1']['superseded_by'] == ['R2', 'R3'] and batch['R9'] is None and batch['R4']['retired']
+    assert batch['R5']['edited']
+
+
+def test_dependency_records_read_the_catalog_once_per_session(tmp_path, monkeypatch):
+    _project(tmp_path, rules=''.join(f'''
+        [rule.r{index}]
+        text = "At most three days."
+        source = 'doc docs/spec.md "At most three days."'
+    ''' for index in range(12)), **{'tests/intent/days.py': 'from flowguard.intent import rule\n' + ''.join(
+        f"\n\n@rule('D{index}', decides='days {index}', fields={{'days': int}}, source='rule.r{index}')\n"
+        f"def D{index}(days):\n    return days <= 3\n" for index in range(12))})
+    cfg = load_config(tmp_path)
+    model = load(cfg)
+    assert len(model.rules) == 12
+    reads = []
+    original = sources._read_catalog
+    monkeypatch.setattr(sources, '_read_catalog', lambda cfg, revision: reads.append(revision) or original(cfg, revision))
+    with closing(build(tmp_path, workers=1)) as graph:
+        now, found = deps.Now(cfg, graph), {}
+        records = [deps.record(cfg, model, rule, [dict(verdict='ok')], graph, now, found) for rule in model.rules.values()]
+    assert reads == [None], reads
+    assert all('file:.flowguard/rules.toml' in item['dependencies'] for item in records)
+
+
 def test_an_entry_whose_source_this_change_rewrote_is_judged_as_new(tmp_path):
     _project(tmp_path, rules=RULE.replace('At most three days."\'', 'At most two days."\''))
     base = _commit(tmp_path)
@@ -280,8 +343,9 @@ def test_an_intent_rule_citing_a_rule_is_red_when_this_change_broke_it_and_befor
     engine.baseline = base
     rule = engine.m.rules['DAYS2']
     assert sources.source_state(engine, rule, rule.confirmed, rule.quote)[0] == 'red'
-    # Without a baseline a broken strict source stays red, as 4.2.1 kept a gone quote red.
-    assert _state(tmp_path, 'rule.days', None) == ('red', reason)
+    # Without a baseline nothing is compared (plan 2.3, D13, as the static findings): a broken strict source is grey.
+    assert _state(tmp_path, 'rule.days', None) == ('grey', reason)
+    assert _state(tmp_path, 'R9 "x"', None) == ('grey', "R9 is not stored -> store the owner's words with python -m flowguard req add - --id R9")
 
 
 def test_a_missing_rule_is_no_valid_source_for_an_intent_rule(tmp_path):
@@ -317,6 +381,40 @@ def test_an_intent_owner_source_superseded_in_this_task_is_red_and_one_supersede
     assert _state(tmp_path, 'owner R1', base)[0] == 'before'
 
 
+STATES = '''
+    from flowguard.intent import states, structure_rule
+    states('shop:Hire.status', ['open'], source={source!r})
+
+
+    @structure_rule('PATHS', source={source!r})
+    def PATHS(graph):
+        return []
+'''
+
+
+def _declarations(tmp_path, source, baseline):
+    _write(tmp_path, {'tests/intent/days.py': STATES.format(source=source)})
+    engine = Engine(load(load_config(tmp_path)))
+    engine.baseline = baseline
+    return engine.run_states(engine.m.states['states:shop:Hire.status']), engine.run_structure(engine.m.structures['PATHS'])
+
+
+def test_states_and_structure_rules_judge_their_source_against_the_baseline_too(tmp_path):
+    _project(tmp_path, **{'shop.py': 'class Hire:\n    def open(self):\n        self.status = "open"\n'})
+    store_request(tmp_path, b'Only open.\n', identifier='R1')
+    base = _commit(tmp_path, {'tests/intent/days.py': STATES.format(source='owner R1')})
+    assert [result['verdict'] for result in _declarations(tmp_path, 'owner R1', base)] == ['ok', 'grey'], 'PATHS: empty'
+    store_request(tmp_path, b'Open or held.\n', identifier='R2', supersedes=['R1'])
+    gone = 'R1 is no longer current -> cite the current request'
+    # D27: a request stored in this task supersedes the cited one: red, as for a rule.
+    assert all(gone in result['red'] and result['source_baseline'] == base for result in _declarations(tmp_path, 'owner R1', base))
+    # Without a baseline 4.2.1's colour stays: grey.
+    assert all(gone in result['grey'] and gone not in result['red'] for result in _declarations(tmp_path, 'owner R1', None))
+    base = _commit(tmp_path, message='R2 stored')
+    for result in _declarations(tmp_path, 'owner R1', base):
+        assert gone not in result['red'] + result['grey'] and result['before'] == [gone], result
+
+
 # ---- dependency records ------------------------------------------------------------------------------------------
 
 def test_a_rule_citing_a_catalog_rule_depends_on_rules_toml_its_words_and_its_baseline(tmp_path):
@@ -340,6 +438,27 @@ def test_a_rule_citing_a_catalog_rule_depends_on_rules_toml_its_words_and_its_ba
         assert deps.Now(cfg, graph, baseline=base)('baseline:' + base) == 'compared'
         assert deps.Now(cfg, graph, baseline='0' * 40)('baseline:' + base) == 'other'
         assert deps.stale(dict(dependencies=judged), deps.Now(cfg, graph, baseline='0' * 40)) == ['baseline:' + base]
+
+
+def test_check_with_a_base_judges_again_a_source_recorded_against_the_task_baseline(tmp_path, capsys, monkeypatch):
+    from tests.intent_engine import _cli_fixture as cli_fixture
+    from tests.intent_engine.test_cli import project
+    from flowguard.intent import cache, cli
+    root, cfg = project(tmp_path)
+    cli.init(cfg)
+    (root / 'policy.txt').write_text('At most four days.\n')          # the quote is gone at the task start, C0
+    _commit(root, message='C0')
+    assert cli.screen(cfg, new_task=True) == 0
+    (root / 'policy.txt').write_text('At most three days.\n')         # C1 restores it
+    c1 = _commit(root, message='C1')
+    (root / 'policy.txt').write_text('At most four days.\n')          # this change removes it again
+    assert cli_fixture.check(cfg) == 0                                # before against C0: it fails nothing
+    capsys.readouterr()
+    observed = cli_fixture.calls(monkeypatch)
+    # Against C1 the quote held, so this change broke it: the result recorded against C0 is not reused.
+    assert cli_fixture.check(cfg, base=c1[:12]) == 1, capsys.readouterr()
+    assert observed, 'check --base ran pytest again'
+    assert cache.read(cfg)['results']['LIMIT']['items'], 'the result judged against C1 is recorded'
 
 
 def test_two_rules_citing_the_owners_words_through_the_catalog_that_disagree_ask_the_owner(tmp_path):

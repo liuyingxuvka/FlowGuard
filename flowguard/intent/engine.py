@@ -180,8 +180,8 @@ class Engine:
     def __init__(self, model):
         self.m = model
         self.is_project = project_code(model.cfg)
-        from .sources import Archive
-        self.archive = Archive(model.cfg.root)
+        from .sources import shared_archive
+        self.archive = shared_archive(model.cfg.root)
         self._rr_space: dict = {}
         self._rr_info: dict = {}
         self._readings: dict = {}
@@ -390,9 +390,10 @@ class Engine:
     def run_states(self, declaration):
         from flowguard.structure import build
         from contextlib import closing
-        from .sources import authority
-        valid, why = authority(parse_source(declaration.source), None, self.m.cfg, self.archive)
-        red, grey = [], [] if valid else [why]
+        from .sources import source_state
+        source, why = source_state(self, declaration, gone_red=False)
+        valid = source == 'ok'
+        red, grey = ([why] if source == 'red' else []), ([why] if source == 'grey' else [])
         from .anchors import value_gate
         with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
             writes = [row for row in graph.assignments(include_unknown=True) if row['field'] == declaration.target
@@ -403,14 +404,16 @@ class Engine:
         if not writes:
             grey.append(f'no literal writes found for {declaration.target} -> check the field binding')
         return dict(kind='states', verdict='red' if red else 'grey' if grey else 'ok', red=red, grey=grey,
-                    info=[], n=len(writes), files=sorted({write['file'] for write in writes}), provisional=valid and self.provisional(declaration))
+                    info=[], n=len(writes), files=sorted({write['file'] for write in writes}), provisional=valid and self.provisional(declaration),
+                    **self._judged(source, why))
 
     def run_structure(self, declaration):
         from flowguard.structure import build
         from contextlib import closing
-        from .sources import authority
-        valid, why = authority(parse_source(declaration.source), None, self.m.cfg, self.archive)
-        red, grey = [], [] if valid else [why]
+        from .sources import source_state
+        source, why = source_state(self, declaration, gone_red=False)
+        valid = source == 'ok'
+        red, grey = ([why] if source == 'red' else []), ([why] if source == 'grey' else [])
         files = set()
         coverage = None
         with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
@@ -440,7 +443,7 @@ class Engine:
                             f'{issue["reason"]} ({location}) -> use a supported explicit scope or reader')
         return dict(kind='structure', verdict='red' if red else 'grey' if grey else 'ok', red=red, grey=grey,
                     info=[], n=len(violations), files=sorted(files), listing=True, query_coverage=coverage,
-                    provisional=valid and self.provisional(declaration))
+                    provisional=valid and self.provisional(declaration), **self._judged(source, why))
 
     # ------------------------------------------------------------ cells
 

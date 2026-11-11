@@ -699,3 +699,22 @@ def test_new_task_says_which_reds_of_the_previous_task_are_before_now(tmp_path, 
     _last_run(cfg, cache.session_baseline(cfg), [('red', 'values:Order.status', 'other:write', 'values Order.status: ...',
                                                   'use one', ('other.py:write',))])
     assert cli.screen(cfg) == 0 and capsys.readouterr().out.splitlines()[-1] == '1 still red: python -m flowguard show --last'
+
+
+def test_new_task_keeps_every_red_no_baseline_moves_and_one_without_places(tmp_path, capsys):
+    root, cfg = project(tmp_path, rules=0)
+    start = cache.session_baseline(cfg, remember=True)
+    _last_run(cfg, start, [
+        ('red', 'pair:Order.total>Order.tax', 'app:eligible', 'together Order.total: ...', 'also write', ('app.py:eligible',)),
+        ('red', 'ledger:app.py:eligible:Exception', '', 'ledger app.py: ...', 'add the entry', ()),     # no places
+        ('red', 'input:comment', '', 'comment app.py:1: ...', 'correct it', ('app.py:1',)),           # no baseline moves it
+        ('red', 'rule:LIMIT', 'LIMIT', 'rule LIMIT: ...', 'fix', ('tests/intent/policy.py:LIMIT',)),  # the intent cache's
+        ('red', 'rules-entry:rule.x', '', 'rule.x: ...', 'correct it', ('.flowguard/rules.toml:rule.x',)),   # the catalog's
+        ('red', 'input:load', '', 'load tests/intent/policy.py:3: ...', 'correct it', ('tests/intent/policy.py:3',))])
+    (root / 'app.py').write_text('def eligible(days: int): return days <= 3  # committed\n')
+    git(root, 'commit', '--quiet', '-am', 'the previous task')
+    assert cli.main(['--root', str(root), 'new-task']) == 0
+    # The pair's file is clean: before. The ledger red names no place and the comment's red is no baseline's: still
+    # red. The rule's red, the invalid entry and the load error are counted where they are read now (none here).
+    assert capsys.readouterr().out.splitlines()[-1] == (
+        '1 red from the previous task are now before; 2 still red: python -m flowguard show --last')

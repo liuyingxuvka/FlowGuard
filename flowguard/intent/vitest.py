@@ -702,7 +702,7 @@ def judge(cfg, data, records, package=None):
     from . import cache, cells as C
     from .engine import CONFLICT, Engine, PredicateError, outcome_eq
     from .loader import load
-    from .sources import cited, parse, source_state
+    from .sources import parse
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
     rows, reasons_by_point = closed_rows(data, records)
     calls = {}
@@ -816,6 +816,7 @@ def judge(cfg, data, records, package=None):
     model = load(cfg)
     engine = Engine(model)
     engine.baseline = data['baseline']      # a rule's source is judged with this run's comparison commit, as in pytest
+    from .sources import cited, source_state
     unverified.extend(f'{error["file"]}:{error["line"]}: {error["msg"]}' for error in model.errors)
     quoted = set()
     for rule in model.rules.values():
