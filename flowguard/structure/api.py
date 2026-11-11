@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import posixpath
 import re
 import sqlite3
 from pathlib import Path
 
-from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_run, glob_match, is_test_file
+from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_path_object, git_run, glob_match, is_test_file, sha256_bytes
 from . import homes, store
 from .extract import extract
 from .store import shape_list
@@ -358,6 +359,72 @@ class MapHandle:
         """The whole stored fact record of one mapped file, or None when the file is not on the map."""
         row = self.con.execute('SELECT data FROM file WHERE path=?', (path,)).fetchone()
         return store.unpack(row[0]) if row else None
+
+    def _baseline_revision(self, revision):
+        """Pin a mutable Git name, while an already immutable commit is verified once."""
+        if revision == ':':
+            return revision
+        held = self._derived.setdefault('baseline_revisions', {})
+        if re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', revision) and revision in held:
+            return held[revision]
+        commit = git_run(self.root, 'rev-parse', '--verify', revision + '^{commit}').stdout.decode().strip()
+        held[commit] = commit
+        return commit
+
+    def _baseline_object(self, revision, path):
+        revision = self._baseline_revision(revision)
+        if revision == ':':
+            return git_path_object(self.root, revision, path)
+        trees = self._derived.setdefault('baseline_objects', {})
+        if revision not in trees:
+            listing = git_run(self.root, 'ls-tree', '-r', '-t', '-z', revision).stdout
+            objects = {}
+            for row in listing.split(b'\0'):
+                if row:
+                    description, _, name = row.partition(b'\t')
+                    objects[os.fsdecode(name)] = description.split()[2].decode()
+            trees[revision] = objects
+        return trees[revision].get(Path(path).as_posix())
+
+    def _baseline_bytes(self, revision, path):
+        blob = self._baseline_object(revision, path)
+        if blob is None:
+            return None
+        held = self._derived.setdefault('baseline_bytes', {})
+        if blob not in held:
+            held[blob] = git_run(self.root, 'cat-file', 'blob', blob).stdout
+        return held[blob]
+
+    def _baseline_facts(self, revision, path, module, is_test=False):
+        """Rebuildable source facts, shared by every baseline query of this map.
+
+        Git's immutable blob and the map reader/context signature own the key;
+        no comparison or verification result is stored. Existing transactions
+        keep ownership of their commit, including these disposable facts.
+        """
+        blob = self._baseline_object(revision, path)
+        if blob is None:
+            return {}
+        reader = self.con.execute("SELECT v FROM meta WHERE k='reader_digest'").fetchone()[0]
+        identity = json.dumps([blob, reader, path, module, bool(is_test)], separators=(',', ':'))
+        key = 'baseline_facts:' + sha256_bytes(identity.encode())
+        facts = self._derived.setdefault('baseline_facts', {})
+        if key not in facts:
+            row = self.con.execute('SELECT v FROM meta WHERE k=?', (key,)).fetchone()
+            if row is None:
+                data = self._baseline_bytes(revision, path)
+                packed = store.pack(extract(self.root, path, data, module, is_test))
+                active = self.con.in_transaction
+                from flowguard.intent.cache import put_meta
+                put_meta(self.con, key, packed)
+                if not active:
+                    self.con.commit()
+            else:
+                packed = row[0]
+            decoded = store.unpack(packed)
+            decoded['nodes']  # Required fact record; a broken cache is not an absent source file.
+            facts[key] = decoded
+        return facts[key]
 
     # ---- declared value sets, typed values, Prisma reads, relations and calls by name ----------
     def _ts_sets(self):
@@ -1576,10 +1643,9 @@ class MapHandle:
         for f in files:
             if not language_for(f):
                 continue
-            data = git_blob(self.root, since, f)
             module = names.get(f) or (f[:-3].replace("/", ".") if language_for(f) == "python" else module_name(f))
             old = {f"{module}:{n['qual']}": (n["fp"], n["sig"]) for n in
-                   (extract(self.root, f, data, module, False)["nodes"] if data is not None else [])}
+                   self._baseline_facts(since, f, module).get('nodes', [])}
             new = {i: (fp, sig) for i, fp, sig in self.con.execute("SELECT id, fp, sig FROM node WHERE file = ? AND "
                                                                     "kind NOT IN ('module','alias','missing')", (f,))}
             for i in sorted(set(old) | set(new)):

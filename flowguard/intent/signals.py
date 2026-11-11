@@ -596,15 +596,6 @@ def stale_copies(graph, changes):
     import ast
     import json
     from decimal import Decimal, InvalidOperation
-    sites = graph.con.execute('SELECT s.node,s.line,s.field,s.const,s.value,s.vkind,s.identity,s.file,n.line,n.end_line '
-                              'FROM site s LEFT JOIN node n ON n.id = s.node ORDER BY s.file,s.line').fetchall()
-    constants = {}
-    for ident, sig in graph.con.execute("SELECT id, sig FROM node WHERE kind = 'const'"):
-        try:
-            constants[ident] = ast.literal_eval(sig)
-        except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-            continue
-
     def equal(old, value):
         if type(old) is str or type(value) is str:
             return type(old) is type(value) and old == value
@@ -624,28 +615,51 @@ def stale_copies(graph, changes):
 
     def held(old, value, vkind, identity):
         if value:
-            try:
-                folded = json.loads(value)
-            except ValueError:
-                folded = value
-            if any(equal(old, item) for item in members(folded)):
-                return True
-        base, bracket, key = (identity or '').partition('[')
-        if base in constants:
-            data = constants[base]
-            if bracket:
+            if value not in direct_members:
                 try:
-                    index = ast.literal_eval(key.removesuffix(']'))
-                    data = data[index]
-                except (ValueError, SyntaxError, KeyError, IndexError, TypeError):
-                    return False
-            return any(equal(old, item) for item in members(data))
-        return False
+                    folded = json.loads(value)
+                except ValueError:
+                    folded = value
+                direct_members[value] = tuple(members(folded))
+            if any(equal(old, item) for item in direct_members[value]):
+                return True
+        if identity not in constant_members:
+            base, bracket, key = (identity or '').partition('[')
+            if base in constants:
+                data = constants[base]
+                if bracket:
+                    try:
+                        index = ast.literal_eval(key.removesuffix(']'))
+                        data = data[index]
+                    except (ValueError, SyntaxError, KeyError, IndexError, TypeError):
+                        constant_members[identity] = ()
+                        return False
+                constant_members[identity] = tuple(members(data))
+            else:
+                constant_members[identity] = ()
+        return any(equal(old, item) for item in constant_members[identity])
 
     from flowguard.structure.readers.registry import ECMA, language_for
     from .owners import named
-    # JS/TS decisions are literal facts (comparisons, cases, returns, sets, unions), not folded sites.
-    foreign = [row for row in [*graph.literals(), *graph.numbers()] if language_for(row['file']) in ECMA]
+    if 'stale_copy_facts' not in graph._derived:
+        sites = graph.con.execute('SELECT s.node,s.line,s.field,s.const,s.value,s.vkind,s.identity,s.file,n.line,n.end_line '
+                                  'FROM site s LEFT JOIN node n ON n.id = s.node ORDER BY s.file,s.line').fetchall()
+        constants = {}
+        for ident, sig in graph.con.execute("SELECT id, sig FROM node WHERE kind = 'const'"):
+            try:
+                constants[ident] = ast.literal_eval(sig)
+            except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+                continue
+        # Without a direct value or a known constant, held() is false for every old value.
+        sites = [row for row in sites if row[4] or (row[6] or '').partition('[')[0] in constants]
+        # Facts and symbol associations only: old-value matching remains below, per change.
+        foreign = [(row, named(row['node'])) for row in [*graph.literals(), *graph.numbers()]
+                   if language_for(row['file']) in ECMA]
+        graph._derived['stale_copy_facts'] = sites, constants, foreign
+    else:
+        graph._mark_query('literals')  # cached facts still count in this predicate's query coverage
+    sites, constants, foreign = graph._derived['stale_copy_facts']
+    direct_members, constant_members = graph._derived.setdefault('stale_copy_members', ({}, {}))
     found = {}
     for change in changes:
         old, own = change['before'], change.get('identity') or ''
@@ -657,11 +671,11 @@ def stale_copies(graph, changes):
             big = bool(start and end and end - start >= 20 and line - start >= 3)
             found[(file, line)] = dict(file=file, line=line, target=target, field=field, old=old,
                                       identity=identity, big=big, kind='lead')
-        for row in foreign:
-            if named(row['node']) == change.get('target') or (row['file'], row['line']) == (change['file'], change['line']) \
+        for row, target in foreign:
+            if target == change.get('target') or (row['file'], row['line']) == (change['file'], change['line']) \
                     or not equal(old, row['value']):
                 continue
-            found[(row['file'], row['line'])] = dict(file=row['file'], line=row['line'], target=named(row['node']),
+            found[(row['file'], row['line'])] = dict(file=row['file'], line=row['line'], target=target,
                                                     field=row['context'], old=old, identity='', big=False, kind='lead')
     rows = sorted(found.values(), key=lambda row: (row['file'], row['line']))
     return dict(total=len(rows), locations=rows, kind='lead')

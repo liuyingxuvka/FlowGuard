@@ -52,8 +52,9 @@ class Change:
     """The working tree against one baseline commit, read once; no baseline means nothing is new."""
 
     def __init__(self, cfg, graph, baseline):
-        self.cfg, self.graph, self.baseline = cfg, graph, baseline
-        self.files = set(graph._git_changed(baseline)) if baseline else set()
+        self.cfg, self.graph = cfg, graph
+        self.baseline = graph._baseline_revision(baseline) if baseline else None
+        self.files = set(graph._git_changed(self.baseline)) if self.baseline else set()
         self._modules = {path: module for path, module in graph.con.execute('SELECT path, module FROM file')}
         self._texts, self._facts, self._impact = {}, {}, None
 
@@ -66,8 +67,10 @@ class Change:
     def touched(self):
         """Functions (named, nested callbacks folded into them) this change edits or adds."""
         if not hasattr(self, '_touched'):
-            impact = self.impact()
-            self._touched = {named(ident) for ident in [*impact.get('changed', ()), *impact.get('added', ())]}
+            from flowguard.structure.api import _without_moves
+            delta = self.graph._delta_against(self.baseline, sorted(self.files)) if self.baseline else []
+            self._touched = {named(ident) for ident, change, *_ in _without_moves(delta)
+                             if change in ('changed', 'added')}
         return self._touched
 
     def writes(self):
@@ -79,18 +82,23 @@ class Change:
 
     def old_text(self, file):
         if file not in self._texts:
-            raw = git_blob(self.cfg.root, self.baseline, file) if self.baseline else None
+            raw = self.graph._baseline_bytes(self.baseline, file) if self.baseline else None
             self._texts[file] = raw.decode('utf-8-sig', errors='replace') if raw is not None else None
         return self._texts[file]
 
     def old_facts(self, file):
         """The map facts the same extractor reads from the file's baseline bytes ({} when it was absent)."""
         if file not in self._facts:
-            from flowguard.structure.extract import extract
-            raw = git_blob(self.cfg.root, self.baseline, file) if self.baseline else None
             module = self._modules.get(file)
-            self._facts[file] = extract(self.cfg.root, file, raw, module, is_test_file(file)) if raw is not None and module else {}
+            self._facts[file] = self.graph._baseline_facts(self.baseline, file, module, is_test_file(file)) \
+                if self.baseline and module else {}
         return self._facts[file]
+
+    def rule_declarations(self):
+        """The intent source facts of this change, not an old-value matching result."""
+        if not hasattr(self, '_rules'):
+            self._rules = _rule_declarations(self.cfg)
+        return self._rules
 
     def changed_python(self):
         return sorted(file for file in self.files if file.endswith('.py') and file in self._modules
@@ -358,7 +366,8 @@ def constant_changes(change):
         if old is None:
             continue
         try:
-            old_tree, new_tree = ast.parse(old), ast.parse(read_source(change.cfg.root / file))
+            new = read_source(change.cfg.root / file)
+            old_tree, new_tree = ast.parse(old), ast.parse(new)
         except SyntaxError:
             continue
         module = change._modules[file]
@@ -368,26 +377,37 @@ def constant_changes(change):
                 out.append(dict(name=name, before=old_value, after=new_value, file=file, line=after[name][1],
                                 identity=module + ':' + name, target=''))
         old_functions, new_functions = dict(_functions(old_tree)), dict(_functions(new_tree))
+        old_lines, new_lines = old.split('\n'), new.split('\n')
         for qual in old_functions.keys() & new_functions.keys():
             a, b = old_functions[qual], new_functions[qual]
+            start_a = min([a.lineno, *(d.lineno for d in a.decorator_list)]) - 1
+            start_b = min([b.lineno, *(d.lineno for d in b.decorator_list)]) - 1
+            if old_lines[start_a:a.end_lineno] == new_lines[start_b:b.end_lineno]:
+                continue
             first = [node for node in ast.walk(a) if isinstance(node, ast.Constant)]
             second = [node for node in ast.walk(b) if isinstance(node, ast.Constant)]
-            if len(first) != len(second) or _shape(a) != _shape(b):
+            if len(first) != len(second):
                 continue
-            for x, y in zip(first, second):
-                for old_value, new_value in _differences(x.value, y.value):
+            differences = [(y, _differences(x.value, y.value)) for x, y in zip(first, second)]
+            if not any(pairs for _, pairs in differences) or _shape(a) != _shape(b):
+                continue
+            for y, pairs in differences:
+                for old_value, new_value in pairs:
                     out.append(dict(name=qual + ' constant', before=old_value, after=new_value, file=file, line=y.lineno,
                                     identity='', target=module + ':' + qual))
     return out
 
 
 def _shape(function):
-    import copy
-
-    class Blank(ast.NodeTransformer):
-        def visit_Constant(self, node):
-            return ast.copy_location(ast.Constant(type(node.value).__name__), node)
-    return ast.dump(Blank().visit(copy.deepcopy(function)), include_attributes=False)
+    def blank(node):
+        if isinstance(node, ast.Constant):
+            return ast.Constant(type(node.value).__name__)
+        if isinstance(node, ast.AST):
+            return type(node)(**{name: blank(value) for name, value in ast.iter_fields(node)})
+        if isinstance(node, list):
+            return [blank(value) for value in node]
+        return node
+    return ast.dump(blank(function), include_attributes=False)
 
 
 def _rule_declarations(cfg):
@@ -425,7 +445,7 @@ def _rule_declarations(cfg):
     return found
 
 
-def rule_old_values(cfg, old):
+def rule_old_values(cfg, old, *, declarations=None):
     """Rules in the intent folder whose predicate or literal rows still spell an old value."""
     kind = _value_kind(old)
     if kind is None:
@@ -433,7 +453,7 @@ def rule_old_values(cfg, old):
     def holds(node):
         return isinstance(node, ast.Constant) and _value_kind(node.value) == kind and node.value == old
     found = []
-    for path, rules in _rule_declarations(cfg):
+    for path, rules in _rule_declarations(cfg) if declarations is None else declarations:
         for item in rules:
             node = item['node']
             body = node.body[1:] if ast.get_docstring(node) is not None else node.body
@@ -451,7 +471,7 @@ def copies_without_rule(change, index):
     touch that rule's file: the requirement may have changed without its rule. A lead with both next steps.
     Changed means its body, a constant it reads or a function it calls changed against the baseline."""
     found = Findings()
-    rules = [(path, item) for path, items in _rule_declarations(change.cfg) for item in items if item['anchors']]
+    rules = [(path, item) for path, items in change.rule_declarations() for item in items if item['anchors']]
     if not change.baseline or not rules:
         return found
     impact = change.impact()
@@ -480,7 +500,7 @@ def old_value_leads(change):
         lead = stale_copies(change.graph, [item])
         if lead['total']:
             found.leads.append(lead)
-        found.leads.extend(rule_old_values(change.cfg, item['before']))
+        found.leads.extend(rule_old_values(change.cfg, item['before'], declarations=change.rule_declarations()))
     if found.leads:
         from .deprecation import warn
         warn('old-value leads')
