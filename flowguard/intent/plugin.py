@@ -383,7 +383,7 @@ class Observations:
         import ast
         from . import anchors, cache, differences
         from .runtime import Runtime, _functions, _binding_facts
-        from ..map.common import MapError, git_run, read_source
+        from ..map.common import MapError, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
         self.requested_base = state.config.getoption('--flowguard-base', default=None)
@@ -404,6 +404,7 @@ class Observations:
             raise pytest.UsageError(self.runtime._baseline_error)
         self.index = state.model.anchor_index or differences._source_index(self.cfg.root)
         state.model.anchor_index = self.index
+        self.renamed = {}       # a moved file's baseline version is at its old path
         try:
             changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', baseline).stdout
             added = git_run(self.cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
@@ -413,6 +414,7 @@ class Observations:
             # A changed TS/JS, Prisma, SQL or other mapped file is a change too: the map checks read it.
             self.mapped = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                            if value and language_for(os.fsdecode(value)) not in (None, 'python')}
+            self.renamed = git_renames(self.cfg.root, baseline)
         except MapError:
             self.files = set()
             self.differs = set()
@@ -440,7 +442,7 @@ class Observations:
             its body, or a top-level binding it reads (a module constant). A function new since then changed."""
             if file not in views:
                 tree = ast.parse(read_source(self.cfg.root / file))
-                old = self.runtime._source(file)
+                old = self.runtime._source(self.renamed.get(file, file))
                 old_tree = ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
                 views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree))
             current_functions, prior_functions, old_facts, facts = views[file]
@@ -449,9 +451,24 @@ class Observations:
                 return node, True
             loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
             return node, any(old_facts.get(name) != facts.get(name) for name in loaded)
-        # A before/after comparison is due for a function that changed itself, not for its unchanged neighbours.
+        def reaches(file, qual):
+            """Whether `qual` or a same-file function it calls, at any depth, changed: its sealed run executes them
+            all (design 4.5), as the vitest plan compares the closed source with its helpers."""
+            todo, seen = [qual], set()
+            while todo:
+                name = todo.pop()
+                if name in seen:
+                    continue
+                seen.add(name)
+                node, changed = function(file, name)
+                if changed:
+                    return True
+                todo.extend(part.id for part in ast.walk(node) if isinstance(part, ast.Name)
+                            and isinstance(part.ctx, ast.Load) and part.id in views[file][0])
+            return False
+        # A before/after comparison is due for a function whose sealed run changed, not for its unchanged neighbours.
         for point in self.points.values():
-            point['changed'] = point['file'] in self.files and function(point['file'], point['qual'])[1]
+            point['changed'] = point['file'] in self.files and reaches(point['file'], point['qual'])
         if self.changed:
             # The existing map supplies module ownership for unanchored changed functions.
             graph = state.get_map()
@@ -537,7 +554,8 @@ class Observations:
         def source(point, old=False):
             key = point['file'], old
             if key not in sources:
-                sources[key] = (None if self.runtime._baseline_error else self.runtime._source(key[0])) if old else read_source(self.cfg.root / key[0])
+                sources[key] = (None if self.runtime._baseline_error else self.runtime._source(self.renamed.get(key[0], key[0]))) \
+                    if old else read_source(self.cfg.root / key[0])
             return sources[key]
         def run(point, sample, old=False):
             text = source(point, old)
@@ -581,10 +599,12 @@ class Observations:
                 continue
             from . import signals, cells as C
             numbers = [number for point in points for number in _sealed_numbers(ast.parse(source(point)), point['qual']) or ()]
-            inputs = signals.copy_inputs([_declared(point, sample['inputs']) for point in points
-                                          for sample in samples.get(point['target'], {}).values()], numbers)
+            inputs, left = signals.copy_inputs([_declared(point, sample['inputs']) for point in points
+                                                for sample in samples.get(point['target'], {}).values()], numbers)
             if not inputs:
                 self.grey.append(name + ': no recorded JSON inputs')
+            if cut := signals.copy_cut(name, 64, left):
+                self.grey.append(cut)
             places = {point['target']: self._place(point['target']) + ' ' + point['qual'] for point in points}
             owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
             rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
@@ -1246,12 +1266,13 @@ def pytest_runtest_protocol(item, nextitem):
         from .calibration import probe_context
         # Anchor events are always recorded (local events on anchored code only), so
         # show NAME and model draft have data after a plain pytest run. A source change keeps the
-        # Flows' test-entry filter: no old-code rerun reads the other events (design 6.5).
+        # Flows' test-entry filter: no old-code rerun reads the other events (design 6.5). Without
+        # one (no Flows, or a Flow that starts in production code) an anchor no Flow reads is sampled.
         if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
                 and state.model.anchor_index.entries and not probe_context(item.config)):
             from .flow import Capture
             capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
-                                                   models=state.model.flows.values() if state.model.flows else None, _ordinary=True))
+                                                   models=state.model.flows.values(), _ordinary=True))
             if state.observations is not None:
                 # Modules imported during this test add their anchored code to the capture.
                 state.observations.capture = capture

@@ -145,10 +145,11 @@ def test_sample_3_a_helper_constant_makes_the_copies_disagree_at_its_own_value(s
     _edit(shop, 'shop/policy.py', 'GRACE_DAYS = 3', 'GRACE_DAYS = 7')
     result, text = _pytest(shop)
     title, block = _block(text)
-    # standing_allows itself is unchanged: only its changed helper is compared before and after (design 4.5,
-    # the functions this change touched). Its recorded calls (0 and 9) answer the same: no change is claimed.
+    # standing_allows reaches the changed constant through its same-file helper, which its sealed run executes
+    # (design 4.5): both are compared before and after. Their recorded calls (0 and 9) answer the same: no
+    # change is claimed for either.
     items = {item.get('name'): item for item in _observations(shop)['items']}
-    assert 'STANDING' not in items, items
+    assert items['STANDING']['total'] == 2 and items['STANDING']['changed'] == [], items
     assert items['within_grace']['total'] == 2 and items['within_grace']['changed'] == [], items
     assert not any(line.startswith('changed: STANDING') for line in block), block
     # The copy in preview.py still says 3: the helper's constant 7 is in the compared union, where the

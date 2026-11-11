@@ -263,7 +263,7 @@ def _constants_changed(before, now):
 def plan(cfg, commit, changed, key):
     """The points to observe and everything the Node adapter needs, as one JSON-ready dict."""
     from contextlib import closing
-    from ..map.common import git_blob
+    from ..map.common import git_blob, git_renames
     from ..structure import build
     from ..structure.extract import extract
     from .anchors import collect
@@ -277,12 +277,13 @@ def plan(cfg, commit, changed, key):
             if anchor.kind == 'sensor' and _ecma(anchor.file) and anchor.source_role != 'test':
                 wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual)
         old_sources, readers = {}, {}
+        renamed = git_renames(cfg.root, commit)         # a moved file's baseline version is at its old path
         for rel in changed:
             if rel not in modules or is_test_rel(rel) or not (cfg.root / rel).is_file():
                 continue
             if (cfg.root / rel).read_text(encoding='utf-8-sig').startswith(INIT_MARK):
                 continue  # FlowGuard's generated wiring is not an application probe.
-            old = git_blob(cfg.root, commit, rel)
+            old = git_blob(cfg.root, commit, renamed.get(rel, rel))
             old_sources[rel] = old
             before = extract(cfg.root, rel, old, modules[rel], False) if old is not None else dict(nodes=[], const_tables=[])
             now = extract(cfg.root, rel, (cfg.root / rel).read_bytes(), modules[rel], False)
@@ -335,7 +336,7 @@ def plan(cfg, commit, changed, key):
                     if token.parent.type == 'unary_expression' and text(token.parent, code).startswith('-'):
                         number = -number
                     extra_numbers.append(number)
-            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, rel)
+            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, renamed.get(rel, rel))
             prior, old_skip = (sealed_source(old, rel, qual) if old is not None and qual in declarations(old, rel)
                                else ('', 'function absent at baseline'))
             points.append(dict(id=ident, name=name, anchored=anchored, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
@@ -608,8 +609,10 @@ def _inside(cfg, rel, package):
 
 
 def closed_rows(data, records):
-    """Compare source-only functions after the session, using real JSON inputs and copy neighbours."""
+    """Compare source-only functions after the session, using real JSON inputs and copy neighbours. Returns the
+    rows, the reasons by point and, by same name, what the input limit left out (`signals.copy_inputs`)."""
     import subprocess
+    from .signals import copy_inputs
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
     actual, groups, reasons = {}, {}, {}
     for record in records:
@@ -630,17 +633,14 @@ def closed_rows(data, records):
             if len(result) == limit:
                 break
         return result
-    shared = {}
+    shared, cuts = {}, {}
     for name, peers in groups.items():
         if len(peers) < 2:
             continue
-        samples = unique([args for peer in peers for args in actual.get(peer['id'], ())], LIMIT)
-        extra, constants = [], sorted({number for peer in peers for number in peer['numbers']})
-        for args in samples:
-            for index, item in enumerate(args):
-                if type(item) in (int, float):
-                    extra.extend([*args[:index], number, *args[index + 1:]] for number in [item - 1, item + 1, *constants])
-        shared[name] = unique([*samples, *extra], LIMIT)
+        # The same union as the pytest side, on the positions of the arguments.
+        inputs, cuts[name] = copy_inputs([dict(enumerate(args)) for peer in peers for args in actual.get(peer['id'], ())],
+                                         [number for peer in peers for number in peer['numbers']], LIMIT)
+        shared[name] = [[row[index] for index in sorted(row)] for row in inputs]
     wanted, jobs, keys = {}, [], {}
     for ident, point in points.items():
         wanted[ident] = unique([*actual.get(ident, ()), *shared.get(point['name'], ())], None)
@@ -695,7 +695,7 @@ def closed_rows(data, records):
                 same=any(_same(args, sample) for sample in shared.get(point['name'], ())),
                 copies={copy['id']: outcome(copy['id'], False, args) for copy in point['copies']},
                 old_copies={copy['id']: outcome(copy['id'], True, args) for copy in point['copies']}))
-    return rows, reasons
+    return rows, reasons, cuts
 
 
 def judge(cfg, data, records, package=None):
@@ -707,7 +707,7 @@ def judge(cfg, data, records, package=None):
     from .loader import load
     from .sources import parse
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
-    rows, reasons_by_point = closed_rows(data, records)
+    rows, reasons_by_point, cuts = closed_rows(data, records)
     calls = {}
     for record in records:
         calls.setdefault(record['id'], []).append(record)
@@ -758,7 +758,8 @@ def judge(cfg, data, records, package=None):
     # Same-name copies share replayed inputs. Each input is judged on its own against the copies at the
     # baseline: an old disagreement on one input cannot hide a pair newly broken on another (design 4.5).
     same_name = dict(compared=set(), disagreed={})
-    from .signals import copy_partition, rule_steps
+    from .signals import copy_cut, copy_partition, rule_steps
+    unverified.extend(line for name, left in cuts.items() if (line := copy_cut(name, LIMIT, left)))
     def copy_report(name, lines, existing=False):
         return (f'same-name anchor {name}: ' + '; '.join(
             f'{where}, {text}' + ('' if existing else f' -> {step}') for where, text, step, _ in lines)

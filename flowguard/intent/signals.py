@@ -297,28 +297,55 @@ def copy_partition(rows, same, show, owner=None, total=None):
 
 
 def copy_inputs(recorded, numbers, limit=64):
-    """The inputs same-name copies are compared on (design 4.5), at most `limit`, in this order: every recorded
-    input; each recorded input with one numeric field set to each number the copies use; the neighbours (+1 and -1)
-    of the numeric fields of both. Equal JSON is kept once and a non-finite number never enters; an int and a float
-    stay apart (1 is not 1.0), and a bool or None is no number. `recorded` and the result are {field: value}."""
+    """The inputs same-name copies are compared on (design 4.5), at most `limit`, and what that cut left out.
+
+    In this order: the recorded inputs; the first recorded input that has a number, with each numeric field set to
+    each number the copies use, so that every number is tried; each recorded input with each number in each numeric
+    field; the neighbours (+1 and -1) of the numeric fields of all of these. Up to half of the inputs are kept for
+    the numbers before the recorded inputs are cut, so neither many recorded calls nor a long table pushes the other
+    out. Equal JSON is kept once and a non-finite number never enters; an int and a float stay apart (1 is not 1.0),
+    and a bool or None is no number. Rows are made one at a time until `limit` are kept. `recorded` and the inputs
+    are {field: value}; the cut is {'recorded': recorded inputs left out, 'numbers': numbers that no input tries}."""
+    import itertools
     import json
     import math
-    inputs, seen = [], set()
-    def add(row):
-        if len(inputs) < limit and not any(type(value) is float and not math.isfinite(value) for value in row.values()):
-            encoded = json.dumps(row, sort_keys=True, allow_nan=False)
-            if encoded not in seen:
-                seen.add(encoded)
-                inputs.append(row)
+    finite = lambda row: not any(type(value) is float and not math.isfinite(value) for value in row.values())
+    encode = lambda row: json.dumps(row, sort_keys=True, allow_nan=False)
     numeric = lambda row: [key for key, value in row.items() if type(value) in (int, float)]
-    constants = [{**row, key: number} for row in recorded for key in numeric(row) for number in numbers]
-    for row in [*recorded, *constants]:
-        add(row)
-    for row in [*recorded, *constants]:
-        for key in numeric(row):
-            for step in (-1, 1):
-                add({**row, key: row[key] + step})
-    return inputs
+    numbers = list({(type(number), number): number for number in numbers
+                    if type(number) in (int, float) and math.isfinite(number)}.values())
+    recorded = list({encode(row): row for row in recorded if finite(row)}.values())
+    def spread(rows):
+        return ({**row, key: number} for row in rows for key in numeric(row) for number in numbers)
+    def neighbours(rows):
+        return ({**row, key: row[key] + step} for row in rows for key in numeric(row) for step in (-1, 1))
+    first = next(([row] for row in recorded if numeric(row)), [])
+    reserved = {}
+    for row in spread(first):
+        if len(reserved) == limit // 2:
+            break
+        reserved.setdefault(encode(row), row)
+    room = limit - len(reserved)
+    inputs, seen = [], set()
+    for row in itertools.chain(recorded[:room], reserved.values(), recorded[room:], spread(recorded),
+                               neighbours(recorded), neighbours(spread(recorded))):
+        if len(inputs) == limit:
+            break
+        encoded = encode(row) if finite(row) else None
+        if encoded is not None and encoded not in seen:
+            seen.add(encoded)
+            inputs.append(row)
+    tried = {(type(value), value) for row in inputs for value in row.values() if type(value) in (int, float)}
+    # a number no input has a field for (no recorded number) is not tried, but the cut did not leave it out
+    return inputs, dict(recorded=sum(encode(row) not in seen for row in recorded),
+                        numbers=sum((type(number), number) not in tried for number in numbers) if first else 0)
+
+
+def copy_cut(name, limit, left):
+    """The grey line that names what the `limit` of a same-name comparison left out (`copy_inputs`), or None."""
+    parts = ([f'{left["recorded"]} recorded inputs'] if left['recorded'] else []) + (
+        [f'{left["numbers"]} numbers the copies use'] if left['numbers'] else [])
+    return f'{name}: compared on {limit} inputs; {" and ".join(parts)} left out' if parts else None
 
 
 def copy_red(name, lines):

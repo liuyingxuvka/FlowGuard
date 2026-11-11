@@ -25,35 +25,76 @@ def test_a_copy_uses_the_numbers_as_its_source_spells_them():
     assert _numbers('def g(x):\n    return 1\n') is None
 
 
+def _union(recorded, numbers):
+    inputs, left = signals.copy_inputs(recorded, numbers)
+    return inputs
+
+
 def test_recorded_inputs_come_first_then_every_constant_then_the_neighbours():
     recorded = [{'days': days} for days in range(100, 500, 10)]           # 40 recorded calls
-    inputs = signals.copy_inputs(recorded, [3, 7])
+    inputs, left = signals.copy_inputs(recorded, [3, 7])
     assert inputs[:40] == recorded and inputs[40:42] == [{'days': 3}, {'days': 7}], inputs[38:44]
     assert inputs[42:44] == [{'days': 99}, {'days': 101}], inputs[40:46]
-    assert len(inputs) == 64, len(inputs)
+    assert len(inputs) == 64 and left == dict(recorded=0, numbers=0), (len(inputs), left)
 
 
 def test_the_neighbours_of_recorded_numbers_and_of_constants_are_tried():
     # each neighbour moves one field and keeps the others as recorded
-    assert signals.copy_inputs([{'x': 100, 'y': 200}], []) == [
+    assert _union([{'x': 100, 'y': 200}], []) == [
         {'x': 100, 'y': 200}, {'x': 99, 'y': 200}, {'x': 101, 'y': 200}, {'x': 100, 'y': 199}, {'x': 100, 'y': 201}]
-    inputs = signals.copy_inputs([{'days': 0, 'name': 'a'}], [3])
+    inputs = _union([{'days': 0, 'name': 'a'}], [3])
     assert inputs == [{'days': 0, 'name': 'a'}, {'days': 3, 'name': 'a'}, {'days': -1, 'name': 'a'},
                       {'days': 1, 'name': 'a'}, {'days': 2, 'name': 'a'}, {'days': 4, 'name': 'a'}], inputs
 
 
 def test_no_more_than_64_inputs_and_each_only_once():
     recorded = [{'a': number, 'b': -number} for number in range(30)]
-    inputs = signals.copy_inputs(recorded, [1000, 2000, 1000.0])
+    inputs = _union(recorded, [1000, 2000, 1000.0])
     assert len(inputs) == 64 and inputs[:30] == recorded, len(inputs)
     assert len({repr(sorted(row.items())) for row in inputs}) == 64
-    assert signals.copy_inputs([{'a': 1}, {'a': 1}], []) == [{'a': 1}, {'a': 0}, {'a': 2}]
+    assert _union([{'a': 1}, {'a': 1}], []) == [{'a': 1}, {'a': 0}, {'a': 2}]
+    # the same number of several copies is one number; 3 and 3.0 stay two
+    assert _union([{'a': 0}], [3, 3, 3.0, 3]) == [{'a': 0}, {'a': 3}, {'a': 3.0}, {'a': -1}, {'a': 1},
+                                                  {'a': 2}, {'a': 4}, {'a': 2.0}, {'a': 4.0}]
 
 
 def test_a_boolean_or_none_never_gains_arithmetic_or_constants_and_infinity_never_enters():
-    inputs = signals.copy_inputs([{'flag': True, 'none': None}, {'flag': False, 'none': None}], [3, float('inf')])
+    inputs = _union([{'flag': True, 'none': None}, {'flag': False, 'none': None}], [3, float('inf')])
     assert inputs == [{'flag': True, 'none': None}, {'flag': False, 'none': None}], inputs
-    assert signals.copy_inputs([{'rate': 1.5}], [float('inf'), float('nan')]) == [{'rate': 1.5}, {'rate': 0.5}, {'rate': 2.5}]
+    assert _union([{'rate': 1.5}], [float('inf'), float('nan')]) == [{'rate': 1.5}, {'rate': 0.5}, {'rate': 2.5}]
+
+
+def test_recorded_inputs_alone_over_the_cap_leave_every_constant_its_place_and_the_cut_is_counted():
+    # 80 recorded calls (four copies, 20 each) would fill the 64 inputs alone and push 3 and 7 out.
+    recorded = [{'days': days} for days in range(1000, 1800, 10)]
+    inputs, left = signals.copy_inputs(recorded, [3, 7])
+    assert inputs == [*recorded[:62], {'days': 3}, {'days': 7}], inputs[60:]
+    assert left == dict(recorded=18, numbers=0), left
+
+
+def test_a_lookup_table_takes_at_most_half_the_inputs_and_the_untried_numbers_are_counted():
+    # Three copies read the same 5,000-number table; 60 recorded inputs of three fields.
+    recorded = [{'a': number, 'b': 100 + number, 'c': 'x'} for number in range(60)]
+    table = list(range(10_000, 15_000))
+    inputs, left = signals.copy_inputs(recorded, table * 3)
+    assert len(inputs) == 64 and inputs[:32] == recorded[:32], inputs[:34]
+    assert inputs[32:] == [{**recorded[0], 'a': number} for number in range(10_000, 10_032)], inputs[32:]
+    assert left == dict(recorded=28, numbers=4968), left
+
+
+def test_the_union_is_built_lazily_and_stops_at_the_cap():
+    # Each recorded input with each number would be 60 x 2 x 6,000 rows (hundreds of MB) before the cut at 64.
+    import tracemalloc
+    recorded = [{'a': number, 'b': 100 + number, 'c': 'x'} for number in range(60)]
+    numbers = list(range(20_000, 22_000)) * 3
+    tracemalloc.start()
+    try:
+        inputs, left = signals.copy_inputs(recorded, numbers)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert len(inputs) == 64 and left == dict(recorded=28, numbers=1968), left
+    assert peak < 2_000_000, peak
 
 
 def test_each_input_is_judged_against_the_baseline_of_the_same_input():

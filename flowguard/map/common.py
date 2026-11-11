@@ -127,6 +127,15 @@ def git_blob(root, revision: str, relative: str) -> bytes | None:
     return git_run(root, "cat-file", "blob", found).stdout
 
 
+def git_renames(root, revision: str) -> dict[str, str]:
+    """{path now: path at `revision`} of each file Git's rename detection (`diff -M`) finds moved since that
+    commit. Git compares only the files it tracks, so a file moved without `git add` (an untracked one) is no
+    rename."""
+    parts = git_run(root, "diff", "-M", "--name-status", "-z", "--diff-filter=R", revision, "--").stdout.split(b"\0")
+    return {os.fsdecode(parts[index + 2]): os.fsdecode(parts[index + 1])
+            for index in range(0, len(parts) - 2, 3) if parts[index].startswith(b"R")}
+
+
 
 def atomic_write_text(path: Path, text: str) -> None:
     """Replace a disposable cache atomically, leaving no partial shared file."""

@@ -988,8 +988,10 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
     code, text = _vitest(root, vitest_home)
     assert code == 1, text
-    # Samples come from real calls and their numeric neighbours, not the retired fractional grid.
-    assert 'before: same-name anchor LATE_FEE: days=5, member=T' in text, text
+    # Samples come from real calls, the copies' numbers and their numeric neighbours (signals.copy_inputs, as
+    # pytest compares), not the retired fractional grid. The copies already differed at 4 (6 and 7), the input
+    # closest to the real lateFee(2, true).
+    assert 'before: same-name anchor LATE_FEE: days=4, member=T' in text, text
     assert 'red: FEE_WINDOW: days=5 member=T -> rule 7, code 9（src/preview/fee-preview.ts:3 lateFee）' in text, text
     assert 'FEE_WINDOW source: assumed: three free days, then 5 plus 1 a day for members and 2 a day for others' in text, text
     _commit(root, message='sensors')
@@ -1363,7 +1365,8 @@ def test_copy_baseline_colour_is_judged_per_input_whatever_the_first_witness(tmp
 
 
 def test_an_old_copy_difference_on_one_input_does_not_colour_a_new_one_on_another(tmp_path):
-    # The copies already differed at 91; the change breaks 4..7, where both old copies returned false.
+    # The copies already differed at 91; the change breaks 4..7, where both old copies returned false. The red
+    # names the broken input closest to the real call (0): 4, the neighbour of the constant 3.
     from flowguard.intent.config import load_config
     from flowguard.intent.vitest import judge
     _commit(tmp_path, {
@@ -1375,8 +1378,8 @@ def test_an_old_copy_difference_on_one_input_does_not_colour_a_new_one_on_anothe
     data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
     result = judge(load_config(tmp_path), data, [dict(id='typescript/src/a.ts:f', args=[0], result=True)])
     assert len(result['red']) == len(result['before']) == 1, result
-    assert 'days=7' in result['red'][0] and 'days=91' not in result['red'][0], result
-    assert 'days=91' in result['before'][0] and 'days=7' not in result['before'][0], result
+    assert result['red'][0].startswith('same-name anchor LIMIT: days=4, ') and 'days=91' not in result['red'][0], result
+    assert 'days=91' in result['before'][0] and not re.search(r'days=[4-7],', result['before'][0]), result
 
 
 def test_a_copy_whose_baseline_cannot_be_sealed_does_not_hide_a_new_break_between_the_others(tmp_path):
@@ -1446,6 +1449,41 @@ def test_a_new_copy_is_absent_at_baseline_rather_than_an_unavailable_old_functio
     result = judge(load_config(tmp_path), data, [dict(id='typescript/src/a.ts:f', args=[2], result=3)])
     assert len(result['red']) == 1 and 'same-name anchor LIMIT' in result['red'][0], result
     assert not result['before'], result
+
+
+def test_a_moved_copy_is_compared_with_its_version_at_the_old_path(tmp_path):
+    # g already differed at 91; after `git mv` it is the same function at a new path, not a new copy.
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    _commit(tmp_path, {
+        'src/a.ts': '// flowguard: same LIMIT\nexport function f(days: number) { return days <= 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function g(days: number) { return days <= 3 || days === 91; }\n',
+    })
+    _git(tmp_path, 'mv', 'src/b.ts', 'src/moved.ts')
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    moved, = [point for entry in data['files'].values() for point in entry['points'] if point['fn'] == 'g']
+    assert moved['rel'] == 'src/moved.ts' and not moved['old_skip'] and not moved['changed'], moved
+    result = judge(load_config(tmp_path), data, [dict(id='typescript/src/a.ts:f', args=[0], result=True)])
+    assert not result['red'] and len(result['before']) == 1, result
+    assert 'days=91' in result['before'][0] and 'src/moved.ts' in result['before'][0], result
+
+
+def test_recorded_inputs_alone_over_the_cap_still_leave_every_constant_a_place_in_vitest(tmp_path):
+    # Four copies, 16 distinct far records each: 64 recorded inputs fill the cap alone. The constants 3 and 7
+    # still get their place, and the cut is named.
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    names = 'fghk'
+    _commit(tmp_path, {f'src/{name}.ts': f'// flowguard: same LIMIT\nexport function {name}(days: number) {{ return days <= 3; }}\n'
+                       for name in names})
+    path = tmp_path / 'src/f.ts'
+    path.write_text(path.read_text().replace('<= 3', '<= 7'))
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    records = [dict(id=f'typescript/src/{name}.ts:{name}', args=[1000 * (number + 1) + 10 * step], result=False)
+               for number, name in enumerate(names) for step in range(16)]
+    result = judge(load_config(tmp_path), data, records)
+    assert len(result['red']) == 1 and 'days=7' in result['red'][0] and not result['before'], result
+    assert any('LIMIT: compared on 64 inputs; 2 recorded inputs left out' in line for line in result['unverified']), result
 
 
 @pytest.mark.parametrize('prefix,expression,name', [

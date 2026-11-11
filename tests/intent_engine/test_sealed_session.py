@@ -4,6 +4,8 @@ from pathlib import Path
 import sqlite3
 import textwrap
 
+import pytest
+
 from tests.intent_engine.test_default_runtime_signals import _git, _project, _run, _text
 
 
@@ -215,6 +217,24 @@ def test_every_constant_is_compared_even_after_many_recorded_calls(tmp_path):
     assert result.returncode == 1 and 'days=7' in red and not report['before'], text
 
 
+def test_recorded_inputs_alone_over_the_cap_still_leave_every_constant_a_place(tmp_path):
+    # Four copies, 20 distinct far calls each: 80 recorded inputs, more than the 64 compared. The constants 3
+    # and 7 keep their place before the recorded inputs are cut, and the cut is named.
+    copies = ''.join(f'''
+        # flowguard: same STANDING
+        def copy{number}(days: int) -> bool:
+            return days <= 3
+    ''' for number in range(4))
+    test = 'from policy import copy0, copy1, copy2, copy3\ndef test_native():\n' + ''.join(
+        f'    for days in range({1000 * (number + 1)}, {1000 * (number + 1) + 200}, 10):\n        assert not copy{number}(days)\n'
+        for number in range(4))
+    result, text, report = _copies(tmp_path, copies, test, ('return days <= 3', 'return days <= 7'))
+    red, = _named(report['red'], 'STANDING')
+    assert result.returncode == 1 and 'days=7' in red and not report['before'], text
+    assert any('STANDING: compared on 64 inputs; 18 recorded inputs left out' in line
+               for line in text.splitlines() + _reasons(report)), text
+
+
 def test_the_neighbours_of_a_recorded_number_are_in_the_union(tmp_path):
     # No numeric literal: the copies now differ at 4 only, the neighbour of the recorded 3.
     result, text, report = _copies(tmp_path, '''
@@ -400,6 +420,50 @@ def test_a_changed_function_or_a_name_with_two_copies_is_due_and_listed_when_not
                for item in report['items']), report['items']                                      # changed itself
     assert 'TWIN: no comparable JSON result' in _reasons(report), report['items']                 # two copies
     assert not any('OPAQUE' in line for line in text.splitlines() + _reasons(report)), text       # neither
+
+
+@pytest.mark.parametrize('helper, call', [
+    ("from decimal import Decimal\ndef _fee(amount):\n    return 5 if amount < Decimal('100') else 0\n", 'Decimal(total)'),
+    ('def _fee(pair):\n    return 5 if pair[0] < 100 else 0\n', '(total, 1)'),
+], ids=['decimal', 'tuple'])
+def test_a_function_whose_same_file_helper_changed_is_compared_before_and_after(tmp_path, helper, call):
+    # fee itself is unchanged, but its sealed run executes _fee, whose bound moved from 100 to 50 (design 4.5:
+    # the def and the same-file functions it uses). _fee is called with no JSON value, so only fee's recorded
+    # call can show the change.
+    path = _project(tmp_path, helper + f'# flowguard: same FEE\ndef fee(total: int) -> int:\n    return _fee({call})\n', '''
+        from policy import fee
+        def test_fee():
+            assert fee(60) >= 0
+    ''')
+    path.write_text(path.read_text().replace('100', '50'))
+    result = _run(tmp_path)
+    text = _text(result)
+    item = next((item for item in _report(tmp_path)['items'] if item.get('name') == 'FEE'), None)
+    assert result.returncode == 0 and item is not None and item['changed'] == [[{'total': 60}, 5, 0]], (text, item)
+    assert any(line.startswith('changed: FEE') and 'total=60' in line for line in text.splitlines()), text
+
+
+# ---- a moved copy is compared with its own version at the baseline (git rename detection) ------------------
+
+def test_moving_a_copy_keeps_its_old_difference_before(tmp_path):
+    _project(tmp_path, '# flowguard: same STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n', '''
+        from policy import standing
+        from other import preview
+        def test_native():
+            assert standing(0) and preview(0)
+    ''')
+    (tmp_path / 'other.py').write_text('# flowguard: same STANDING\ndef preview(days: int) -> bool:\n    return days <= 3 or days == 91\n')
+    _git(tmp_path, 'add', 'other.py')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'two copies')
+    _git(tmp_path, 'mv', 'other.py', 'moved.py')
+    test = tmp_path / 'tests/test_case.py'
+    test.write_text(test.read_text().replace('from other import', 'from moved import'))
+    result = _run(tmp_path)
+    text, report = _text(result), _report(tmp_path)
+    before, = _named(report['before'], 'STANDING')
+    assert result.returncode == 0 and not report['red'] and 'days=91' in before and 'moved.py' in before, text
+    # the moved file's own function is unchanged: no before/after is due for it
+    assert not [item for item in report['items'] if item.get('file') == 'moved.py'], report['items']
 
 
 def test_the_retired_comparison_table_has_neither_a_writer_nor_a_reader(tmp_path):
