@@ -5,6 +5,7 @@ with `-p`; the plugin is no test module, so pytest skips rewriting it instead of
 """
 from __future__ import annotations
 
+from collections import Counter
 import fnmatch
 from functools import cache
 from contextlib import closing, ExitStack, contextmanager
@@ -748,8 +749,12 @@ class Observations:
         for _, point, _, _, _ in self.records:
             if self.request and self.request['target'] == point['target']:
                 self.request['readings'].extend(reading for reading in self.runtime.readings if reading.target == point['target'])
+        # Only a call due for a comparison is `not compared`: a changed file's function, or one of two or more
+        # same-name copies. A lone unchanged `same` function has nothing to compare it with.
+        copies = Counter(point['name'] for point in self.points.values() if point['anchor'] and point['kind'] == 'sensor')
         self.grey.extend(point['name'] + ': no comparable JSON result' for index, point, _, _, _ in self.records
-                         if self.runtime.readings[index].sample is None)
+                         if self.runtime.readings[index].sample is None
+                         and (point['file'] in self.files or copies[point['name']] > 1))
         unverified, failed_items = [], set()      # an intent item's red is already a failed test
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':
