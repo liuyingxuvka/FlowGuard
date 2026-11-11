@@ -406,7 +406,34 @@ def _silent_lines(cfg, index, rid, full, limit=10):
     return lines
 
 
-def show(cfg, query=None, *, draft=None, gaps=None, full=False):
+def show_last(cfg, full=False):
+    """`show --last`: the last run's lines with their details (`cache.read_last`). No run records them yet."""
+    if cache.read_last(cfg) is None:
+        print('FlowGuard: no last run recorded')
+    else:
+        print('FlowGuard: a last run is recorded, but this version does not print it yet')
+    return 0
+
+
+def show_catalog(cfg, query, full=False):
+    """`show rules`, `show rule.<id>` and `show known.<id>`: the catalog of rules.toml and known.toml. This
+    version reads neither file yet."""
+    from .sources import catalog_files
+    present = catalog_files(cfg)
+    if present:
+        print(f'FlowGuard: this version does not read {" or ".join(present)} yet')
+    else:
+        print('FlowGuard: no .flowguard/rules.toml or known.toml')
+    return 0
+
+
+def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
+    if last:
+        if query or draft or gaps:
+            raise ValueError('show --last takes no NAME: python -m flowguard show --last')
+        return show_last(cfg, full)
+    if query and not draft and not gaps and (query == 'rules' or query.startswith(('rule.', 'known.'))):
+        return show_catalog(cfg, query, full)
     query = draft or query
     if not gaps and query:
         request = cfg.root / '.flowguard/requests' / (query + '.md')
@@ -1870,6 +1897,7 @@ def main(argv=None):
     show_parser.add_argument('--draft', help=argparse.SUPPRESS)
     show_parser.add_argument('--gaps', help=argparse.SUPPRESS)
     show_parser.add_argument('--full', action='store_true', help='Include decision sites and full candidate metadata')
+    show_parser.add_argument('--last', action='store_true', help='Every line of the last run, with its details')
     try_parser = add_parser('try')
     try_parser.add_argument('anchor')
     try_parser.add_argument('inputs', nargs='*')
@@ -1933,7 +1961,7 @@ def main(argv=None):
             display(render_comparison(result))
             return int(result['status'] == 'red')
         if options.command == 'show':
-            return show(cfg, options.query, draft=options.draft, gaps=options.gaps, full=options.full)
+            return show(cfg, options.query, draft=options.draft, gaps=options.gaps, full=options.full, last=options.last)
         if options.command == 'check' and options.static:
             if options.deep or options.since:
                 raise ValueError('check --static runs no tests: --deep and --since need the pytest check')

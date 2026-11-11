@@ -1,7 +1,7 @@
 """The archive backs a source; it does not prove that the interpretation is correct."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import fnmatch
 from pathlib import Path
 import re
@@ -114,3 +114,61 @@ def provisional(src, cfg, intent_file):
     old_cfg = git_blob(cfg.root, revision, 'pyproject.toml')
     allowed = tomllib.loads(old_cfg.decode('utf-8-sig')).get('tool', {}).get('flowguard', {}).get('authority_docs', []) if old_cfg else []
     return not any(fnmatch.fnmatch(src.path, pattern) for pattern in allowed)
+
+
+# ---- the catalog: .flowguard/rules.toml and .flowguard/known.toml (4.3) ------------------------------------
+
+CATALOG_FILES = ('.flowguard/rules.toml', '.flowguard/known.toml')
+ACTS = ('leave', 'ask', 'fix', 'ignore')       # what a known entry asks of the agent (`act`)
+
+
+@dataclass(frozen=True)
+class CatalogRule:
+    """`[rule.<id>]` of rules.toml: a rule in force, its one-line text and its source (`R<n> "words"`)."""
+    id: str
+    text: str
+    source: str
+    line: int
+
+
+@dataclass(frozen=True)
+class Known:
+    """`[known.<id>]` of known.toml: an open matter, its sites (`path:symbol`) and what to do about it; `nodes`
+    and `files` are the sites resolved on the map."""
+    id: str
+    sites: tuple
+    why: str
+    act: str                    # one of ACTS
+    ask: str = ''
+    asked: str = ''             # YYYY-MM-DD, once the owner was asked
+    fix: str = ''
+    source: str = ''
+    finding: str = ''           # the finding name FlowGuard can judge (Issue.name or same:NAME)
+    line: int = 0
+    nodes: frozenset = frozenset()
+    files: frozenset = frozenset()
+
+
+@dataclass
+class Catalog:
+    """The valid rules and known entries by id, and the input findings of the invalid ones (health.Issue)."""
+    rules: dict = field(default_factory=dict)
+    known: dict = field(default_factory=dict)
+    issues: list = field(default_factory=list)
+
+
+def catalog_files(cfg):
+    """The catalog files present in the working tree."""
+    return [name for name in CATALOG_FILES if (cfg.root / name).is_file()]
+
+
+def catalog(cfg, revision=None):
+    """The catalog in the working tree, or at `revision`. This version reads neither file yet: the catalog is
+    empty, also when one of them is present."""
+    return Catalog()
+
+
+def findings(cfg, graph, change):
+    """The catalog's findings for `owners.static_findings`: invalid entries and the sources they cite. None yet."""
+    from .owners import Findings
+    return Findings()

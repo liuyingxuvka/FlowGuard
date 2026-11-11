@@ -1112,6 +1112,7 @@ def pytest_collection_finish(session):
     state.get_model()
     state.observations = Observations(state)
     state.engine.call_sites = state.observations.rule_calls
+    state.engine.baseline = state.observations.runtime.baseline
     state.source_items = tuple(item for item in session.items if not isinstance(item, IntentItem) and item.name != SENTINEL)
     intent = [item for item in session.items if isinstance(item, IntentItem)]
     # A Flow reads its lower rules' contracts from their items' results, so Flow items run last.

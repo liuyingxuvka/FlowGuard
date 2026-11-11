@@ -36,11 +36,13 @@ class Findings:
     issues: list = field(default_factory=list)      # health.Issue: open structure problems, old ones too
     section: list = field(default_factory=list)     # the --all listing of open structure problems
     summary: dict | None = None                     # count and heaviest names for the session brief
+    known: list = field(default_factory=list)       # sources.Known: the entries of known.toml, sites resolved
 
     def extend(self, other):
         self.red.extend(other.red)
         self.leads.extend(other.leads)
         self.issues.extend(other.issues)
+        self.known.extend(other.known)
         for key, value in other.stats.items():
             self.stats[key] = self.stats.get(key, 0) + value
         return self
@@ -57,6 +59,7 @@ class Change:
         self.files = set(graph._git_changed(self.baseline)) if self.baseline else set()
         self._modules = {path: module for path, module in graph.con.execute('SELECT path, module FROM file')}
         self._texts, self._facts, self._delta, self._impact = {}, {}, {}, None
+        self._baseline_writes, self._current = {}, {}
 
     def impact(self):
         """The map's changed, added and removed ids against the baseline (read once)."""
@@ -108,6 +111,40 @@ class Change:
         module = self._modules.get(file)
         return self.graph._baseline_part(self.baseline, file, module, kind, is_test_file(file)) \
             if self.baseline and module else None
+
+    def baseline_writes(self, target=None, *, by_name=False):
+        """`graph.writes(target, by_name=)` as the baseline had them: the rows of the files this change leaves
+        alone, and the rows the same reader finds in the baseline bytes of each changed file on the map
+        (`old_facts`: a file this change adds gives none, and so does one it deletes, which the map no longer
+        holds). Read once per target and spelling."""
+        key = (target, by_name)
+        if key not in self._baseline_writes:
+            from flowguard.structure.query import Rows
+            kept = [row for row in self.graph.writes(target, by_name=by_name) if row['file'] not in self.files]
+            facts = [facts for facts in map(self.old_facts, sorted(self.files)) if facts]
+            old = self.graph.writes(target, by_name=by_name, facts=facts) if facts else []
+            self._baseline_writes[key] = Rows(sorted(
+                [*kept, *old], key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
+        return self._baseline_writes[key]
+
+    def callees(self, ident, *, old=False):
+        """The names the function `ident` (`module:qual`; a module's own code for `module`) calls as its source
+        spells them, the functions nested in it included, now or (`old`) at the baseline: its file's syntax calls,
+        in any language. A function of no mapped file, absent from its file or in a file that does not parse calls
+        nothing."""
+        module, _, qual = ident.partition(':')
+        row = self.graph.con.execute("SELECT file FROM node WHERE id=? AND kind='module'", (module,)).fetchone()
+        if row is None:
+            return frozenset()
+        file = row[0]
+        if old and file in self.files:
+            facts = self.old_facts(file)
+        else:
+            if file not in self._current:
+                self._current[file] = self.graph.file_facts(file)
+            facts = self._current[file]
+        return frozenset(call['text'] for call in facts.get('syntax_calls', ())
+                         if call['node'] == ident or qual and call['node'].startswith(ident + '.'))
 
     def rule_declarations(self):
         """The intent source facts of this change, not an old-value matching result."""
@@ -802,17 +839,31 @@ def changed_once(change, decided=()):
     return found
 
 
+def loosened(change, index):
+    """What this change loosened (an `except=` added, an agreement or a known entry removed, ...). None yet."""
+    return Findings()
+
+
+def field_impact(change, index):
+    """The fields a changed function writes now and not at the baseline, or no longer writes. None yet."""
+    return Findings()
+
+
 def static_findings(cfg, graph, index, base=None, *, everything=False, replay=False, excluded=()):
     """The one assembly of owner and structure findings. Without replay (pytest, `check --static`): owner
     writes and pairs, values outside declared sets, old values (rules too), new spellings, unchanged copies
     of a changed function's old body, deletes that leave children, missing columns and the open structure
     problems (`health`). `replay` (`check`) runs copy discovery and the changed-alone comparison instead
-    of the static copy lead. `everything` adds the old ledger and the `--all` structure listing."""
-    from . import health
+    of the static copy lead. `everything` adds the old ledger and the `--all` structure listing. The catalog's
+    findings (`sources.findings`), what the change loosened and the fields it newly writes join the same list."""
+    from . import health, sources
     from .ledger import structure_decisions
     change = Change(cfg, graph, baseline(cfg, base))
     copies = health.copies(change, index)
     found = owner_writes(change, index, everything=everything).extend(owner_pairs(change, index, everything=everything))
+    found.extend(sources.findings(cfg, graph, change))
+    found.extend(loosened(change, index))
+    found.extend(field_impact(change, index))
     found.extend(health.values(change, everything=everything))
     if change.baseline:
         found.extend(old_value_leads(change))

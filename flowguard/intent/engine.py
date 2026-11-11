@@ -205,6 +205,8 @@ class Engine:
         self._proven_rows = {}
         # The calls a `fields` anchor's tests reached: set by the pytest plugin for its session.
         self.call_sites = None
+        # The session's comparison commit, which a source judged at the baseline reads; set by the pytest plugin.
+        self.baseline = None
 
     def child_nodes(self, rule):
         nodes = set()

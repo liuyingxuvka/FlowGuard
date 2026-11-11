@@ -34,8 +34,9 @@ NO_KEY = 'no foreign key'       # a schema whose table has a relation's key colu
 
 @dataclass(frozen=True)
 class Issue:
-    """One open structure problem: a stable name, its severity rank, a short name for the session brief,
-    the problem with every place, the next step to copy, and the functions and files that touch it."""
+    """One finding (an open structure problem, and from 4.3 every other finding too): a stable name, its
+    severity rank, a short name for the session brief, the problem with every place, the next step to copy,
+    and the functions and files that touch it. A finding's identity is (name, the function of one part)."""
     name: str
     rank: int
     short: str
@@ -46,6 +47,13 @@ class Issue:
     new: bool = False            # this change added it: it is already a red line or a lead
     entry: tuple = ()            # lines to copy (a ledger entry), shown indented under the step
     lead: str = ''               # the lead this change got for it (also in Findings.leads; `assess` drops it once decided)
+    # The 4.3 lines (`signals.deliver`); a producer that fills none of these keeps its legacy text only.
+    family: str = ''             # a key of `signals.FAMILIES` ('pair', 'values', 'delete', ...)
+    subject: str = ''            # what the finding is about: 'together Project.leaderId', 'same ISO_WEEKS_IN_YEAR'
+    parts: tuple = ()            # one (function, place, what, red_step) per member; function '' for a file-level finding,
+                                 # place 'path:symbol' (or 'path:line') relative to the repository
+    fresh: frozenset = frozenset()   # the members' functions absent from the baseline result: this change added them
+    detail: tuple = ()           # further lines only `show --last` and `show NAME` print
 
     def next_step(self):
         return '\n'.join([self.step, *('    ' + line for line in self.entry)])

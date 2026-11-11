@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 import re
 from decimal import Decimal, InvalidOperation
 
 from . import cells as C
+from .sources import ACTS
 
 
 def _short(text, width=100):
@@ -180,6 +182,140 @@ def render(report, limit=10):
     structure = list(report.get('structure', ()))
     rest = _render(report, limit, quiet=bool(ledger or structure))
     return '\n'.join([*ledger, *([rest] if rest else []), *structure])
+
+
+# ---- the nine kinds of line (4.3) ------------------------------------------------------------------
+# Every finding reaches the agent as `Line`s of these kinds, in this order. `deliver` gives each member of a
+# finding its kind from the finding's family, whether this change added it (`Issue.fresh`), what this change
+# touches and the entries of `.flowguard/known.toml`; it reads no map, no Git and no file.
+
+KINDS = ('red', 'before', 'known', 'known fixed?', 'changed', 'impact', 'loosened', 'not compared', 'deprecated')
+
+
+@dataclass(frozen=True)
+class Line:
+    """One line of the end-of-run block, `{kind}: {text} -> {step}`; (kind, name, function) is its identity."""
+    kind: str                   # one of KINDS
+    name: str                   # the finding's name (Issue.name), 'known.<id>', 'changed:<function>', ...
+    function: str = ''          # the finding's member; '' for a file-level one
+    text: str = ''              # between '{kind}: ' and ' -> ', paths relative to the repository
+    step: str = ''              # after ' -> '
+    places: tuple = ()          # the repository-relative places `text` names
+    detail: tuple = ()          # further lines only `show --last` prints
+
+
+# family: (can it be red, the kind of a member this change added when it cannot, may known.toml ignore it)
+FAMILIES = {
+    'pair': (True, None, False), 'writer': (True, None, False), 'values': (True, None, False),
+    'same': (True, None, False), 'changed-alone': (True, None, False), 'source': (True, None, False),
+    'rule': (True, None, False), 'flow': (True, None, False), 'test': (True, None, False),
+    'ledger': (True, None, False), 'input': (True, None, False),
+    'delete': (False, 'impact', True), 'columns': (False, 'impact', True), 'ondelete': (False, 'impact', True),
+    'labels': (False, 'impact', True), 'uncreated': (False, 'impact', True), 'copies': (False, 'impact', True),
+    'declarations': (False, 'impact', True),
+    'writers': (False, None, True),     # fields several files write without an agreement: shown in impact lines
+}
+BEFORE_STEP = 'leave it unless your task is about it'
+IMPACT_STEP = 'fix it, or say why in your report'
+KNOWN_STEPS = {'leave': 'leave it (the owner deferred it)', 'fix': 'fix it in this change and say so in your report'}
+FIXED_STEPS = {'leave': 'the owner deferred it: revert, or say why in your report',
+               'ask': 'the owner has not decided: revert, or say why in your report',
+               'fix': 'say so in your report; remove known.{id} once the owner agrees',
+               'ignore': 'say so in your report; remove known.{id} once the owner agrees'}
+
+
+def family_of(name):
+    """The family of a finding name by its prefix ('pair:A>B' -> 'pair'); '' when the prefix is none."""
+    head = name.partition(':')[0]
+    return head if head in FAMILIES else ''
+
+
+def _known_step(entry):
+    if entry.act == 'ask':
+        return f'asked on {entry.asked}; leave it until the owner answers' if entry.asked else 'ask owner (not asked yet)'
+    return KNOWN_STEPS[entry.act]
+
+
+def _known_detail(entry):
+    return tuple(f'{key}: {getattr(entry, key)}' for key in ('why', 'ask', 'fix', 'source') if getattr(entry, key))
+
+
+def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset(), everything=False, extra=()):
+    """(lines, ignored): the findings as `Line`s in KINDS order, and the number of members an `act = "ignore"`
+    entry of known.toml covers (counted, never a line).
+
+    A member this change added (in `Issue.fresh`) is red when its family can be red, also when a known entry
+    names its finding (the entry goes into the line's detail: an entry never silences a new finding); otherwise
+    it gets its family's new kind (impact), unless an ignore entry covers it. Every other member counts when this
+    change touches it (its function; for a file-level member, one of the finding's files), and with `everything`
+    always: a known entry naming its finding gives a `known` line, an ignore entry alone counts it, and without
+    an entry it is `before`. An ignore entry covers only a family that may be ignored, and an entry of another
+    act beside it keeps the member shown. Fields several files write without an agreement (family 'writers')
+    have no line of their own except with `everything`. A known entry whose finding belongs to a family that ran
+    (`ran`) and is not among the findings is `known fixed?`; any other entry, except an ignore entry, whose
+    sites this change touches (`Known.nodes` in `touched_functions` or `Known.files` in `touched_files`, every
+    entry with `everything`) and that has no line yet is `known`. `extra` are lines already of their kind
+    (changed, impact, loosened, not compared). Lines are unique by (kind, name, function), the first one kept.
+    Pure: no map, no Git, no file."""
+    touched_functions, touched_files = frozenset(touched_functions), frozenset(touched_files)
+    entries = list(known)
+    for entry in entries:
+        if entry.act not in ACTS:
+            raise ValueError(f'known.{entry.id}: act is one of {", ".join(ACTS)}, not {entry.act!r}')
+    lines, ignored, said, names = [], set(), set(), set()      # said: entries that already have a line
+    for issue in issues:
+        if issue.family not in FAMILIES:
+            raise ValueError(f'{issue.name}: family {issue.family!r} is not a key of signals.FAMILIES')
+        if not issue.subject or not issue.parts:
+            raise ValueError(f'{issue.name}: a finding needs its subject and one part per member')
+        if not issue.fresh <= {part[0] for part in issue.parts}:
+            raise ValueError(f'{issue.name}: fresh names a function that is no part: {sorted(issue.fresh)}')
+        red, new, ignorable = FAMILIES[issue.family]
+        shown = issue.family != 'writers' or everything
+        naming = [entry for entry in entries if entry.finding == issue.name]
+        speaking = [entry for entry in naming if entry.act != 'ignore']
+        ignoring = ignorable and len(speaking) < len(naming)
+        names.add(issue.name)
+        for function, place, what, step in issue.parts:
+            places = (place,) if place else ()
+            if function in issue.fresh and red:
+                lines.append(Line('red', issue.name, function, f'{issue.subject}: {place} {what}', step, places,
+                                  issue.detail + tuple(f'known.{entry.id} names this finding; this change added it, '
+                                                       'so it stays red' for entry in naming)))
+                said.update(entry.id for entry in naming)
+            elif function in issue.fresh:
+                if ignoring and not speaking:
+                    ignored.add((issue.name, function))
+                elif shown:
+                    lines.append(Line(new or 'impact', issue.name, function, f'{issue.subject}: {place} {what}',
+                                      IMPACT_STEP, places, issue.detail))
+            elif ignoring and not speaking:
+                ignored.add((issue.name, function))
+            elif shown and (everything or (function in touched_functions if function else bool(issue.files & touched_files))):
+                for entry in speaking:
+                    lines.append(Line('known', f'known.{entry.id}', function, f'known.{entry.id} at {place}',
+                                      _known_step(entry), places, _known_detail(entry)))
+                    said.add(entry.id)
+                if not speaking:
+                    lines.append(Line('before', issue.name, function, f'{issue.subject} at {place} was broken at task start',
+                                      BEFORE_STEP, places, issue.detail))
+    for entry in entries:
+        if entry.id in said:
+            continue
+        if entry.finding and family_of(entry.finding) in ran and entry.finding not in names:
+            lines.append(Line('known fixed?', f'known.{entry.id}', '', f'known.{entry.id}: {entry.finding} no longer found',
+                              FIXED_STEPS[entry.act].format(id=entry.id), (), _known_detail(entry)))
+        elif entry.act != 'ignore' and (everything or entry.nodes & touched_functions or entry.files & touched_files):
+            lines.append(Line('known', f'known.{entry.id}', '', f'known.{entry.id} at {", ".join(entry.sites)}',
+                              _known_step(entry), tuple(entry.sites), _known_detail(entry)))
+    for line in extra:
+        if line.kind not in KINDS:
+            raise ValueError(f'{line.name}: kind {line.kind!r} is not one of signals.KINDS')
+        lines.append(line)
+    unique = {}
+    for line in lines:
+        unique.setdefault((line.kind, line.name, line.function), line)
+    return sorted(unique.values(), key=lambda line: KINDS.index(line.kind)), len(ignored)
 
 
 # ---- the end-of-test view ------------------------------------------------------------------------
