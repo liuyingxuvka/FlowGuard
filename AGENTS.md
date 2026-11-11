@@ -5,10 +5,13 @@ Ordinary edits do not need an intent model or a separate task record.
 
 <!-- flowguard:start -->
 ## FlowGuard rules for the project agent
-
-1. Start each task with `python -m flowguard new-task` (it records the task's baseline; commits during the task keep it). Run the project's tests and read the FlowGuard lines; every red and lead ends with the next step: do it, and when it says to tell the owner, tell the owner before changing the structure.
-2. Mark copies of a judgment with `flowguard: same NAME`, its reference with `same NAME ref`; record field agreements with `together A B,C` and permitted writers with `writers A f,g`.
-3. A rule the owner set that must keep holding goes into `tests/intent/`, its source the owner's words stored once, byte for byte, with `python -m flowguard req add <file|-> --id <id>`.
+1. Start each task with `python -m flowguard new-task`; read its brief (owner rules, open items) before you change code.
+2. Run the project's tests. FlowGuard prints last; its first line counts each kind. `python -m flowguard show NAME` explains any name.
+3. `red` means your change broke a recorded agreement: fix the code. Never add `except=`, remove a flowguard comment or edit `.flowguard/known.toml` to clear it without the owner's yes.
+4. `known` and `before` were there before your task: do what the line says after `->`. Tell the owner only when it says `ask owner`.
+5. `changed` means a function returns something else for the input shown: if you meant it, say so in your report; if not, fix it. `impact` and `not compared` are not failures.
+6. When you find two places that must agree, mark each with `flowguard: same NAME` in the same change; when you find a problem only the owner can decide, add it to `.flowguard/known.toml` with `act = "ask"`.
+7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own text, and keep `.flowguard/rules.toml` current, each rule's source quoting those words.
 <!-- flowguard:end -->
 
 ## Owners and layout

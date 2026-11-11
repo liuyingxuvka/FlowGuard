@@ -702,7 +702,7 @@ def judge(cfg, data, records, package=None):
     from . import cache, cells as C
     from .engine import CONFLICT, Engine, PredicateError, outcome_eq
     from .loader import load
-    from .sources import parse
+    from .sources import cited, parse, source_state
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
     rows, reasons_by_point = closed_rows(data, records)
     calls = {}
@@ -815,12 +815,21 @@ def judge(cfg, data, records, package=None):
     # rules on the observed calls and replayed classes, as the pytest side checks a reading
     model = load(cfg)
     engine = Engine(model)
+    engine.baseline = data['baseline']      # a rule's source is judged with this run's comparison commit, as in pytest
     unverified.extend(f'{error["file"]}:{error["line"]}: {error["msg"]}' for error in model.errors)
     quoted = set()
     for rule in model.rules.values():
-        for home in rule.homes:
-            if getattr(home, 'anchor', None) is None or home.anchor.target not in points:
-                continue
+        homes = [home for home in rule.homes if getattr(home, 'anchor', None) is not None and home.anchor.target in points]
+        if not homes:
+            continue
+        # The source gate of `Engine.run_rules`: a source this change broke (rule.<id> missing or invalid, its words
+        # gone, a request superseded in this task) is red, one already broken at task start before; the rule's
+        # expectations are checked as pytest's intent items check them. An unconfirmed source (assumed:, a request
+        # not stored) adds nothing here, as before.
+        state, reason = source_state(engine, rule, rule.confirmed, rule.quote)
+        if state in ('red', 'before'):
+            (red if state == 'red' else before).append(f'{rule.id}: {reason}')
+        for home in homes:
             ident = home.anchor.target
             point = points[ident]
             observed = [({name: value(item) for name, item in row['in']}, value(row['now'])) for row in rows.get(ident, ())]
@@ -844,7 +853,7 @@ def judge(cfg, data, records, package=None):
                 red.append(f'{rule.id}: {C.show_cell(cell)} -> rule {C.show(expected)}, code {C.show(actual)}'
                            f'（{point["rel"]}:{point["target_line"]} {point["fn"]}）')
                 if rule.id not in quoted:
-                    source = parse(rule.source)
+                    source = cited(parse(rule.source), cfg)
                     red.append(rule.id + ' source: ' + (source.quote or source.text))
                     quoted.add(rule.id)
                     steps.setdefault(rule.id, rule_steps(rule.id, f'{point["rel"]}:{point["target_line"]} {point["fn"]}',

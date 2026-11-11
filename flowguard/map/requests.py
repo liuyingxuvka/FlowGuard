@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import re
 
-from .common import MapError, git_common_directory, git_head, git_run, sha256_bytes
+from .common import MapError, git_blob, git_common_directory, git_head, git_run, normalize_newlines, sha256_bytes
 from .records import (NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, restore_advice,
                       validate_new_files, write_once, read_original_bytes)
 
@@ -417,3 +417,18 @@ def quote_matches(text: str, quote: str) -> bool:
             return False
         position = found + len(fragment)
     return bool(quote.strip())
+
+
+def exact_quote(raw: bytes, quote: str) -> bool:
+    """The strict quote of `.flowguard/rules.toml` and `.flowguard/known.toml`: `quote` occurs in `raw` exactly,
+    after only CRLF and CR become LF on both sides (`normalize_newlines`). No whitespace is folded and `...` is three
+    dots, not an elision; an empty quote matches nothing."""
+    words = normalize_newlines(quote.encode('utf-8')).decode('utf-8')
+    return bool(words) and words in normalize_newlines(raw).decode('utf-8-sig')
+
+
+def added_since(root: Path, baseline: str, identifier: str) -> bool:
+    """Whether the request `identifier` was stored after `baseline`: its sidecar is not in that commit. Requests are
+    only ever added, so a request that supersedes another and was stored in this task is exactly this case. Its fields
+    are read by the one sidecar validator (`request_state`), never here."""
+    return git_blob(root, baseline, (REQUEST_DIR / (identifier + '.json')).as_posix()) is None

@@ -1,5 +1,5 @@
-"""The 4.3 interfaces that print nothing yet: the last run's lines in the cache, `show --last`, `show rules`, the
-empty catalog, the new finding fields and the session's comparison commit on the engine."""
+"""The 4.3 interfaces: the last run's lines in the cache, `show --last` (which prints nothing yet), `show rules` over
+the catalog, the new finding fields and the session's comparison commit on the engine."""
 from contextlib import closing
 from dataclasses import asdict
 import json
@@ -33,7 +33,7 @@ def test_the_last_run_round_trips_through_the_cache_meta_and_is_none_before_any_
     assert cache.read_last(cfg)['lines'] == []
 
 
-def test_show_last_and_the_catalog_queries_print_one_line_and_leave_every_other_show_alone(tmp_path, capsys):
+def test_show_last_prints_one_line_and_the_catalog_queries_read_the_catalog_and_leave_every_other_show_alone(tmp_path, capsys):
     root = str(tmp_path)
     assert cli.main(['--root', root, 'show', '--last']) == 0
     assert capsys.readouterr().out == 'FlowGuard: no last run recorded\n'
@@ -47,12 +47,17 @@ def test_show_last_and_the_catalog_queries_print_one_line_and_leave_every_other_
     assert 'show --last takes no NAME' in capsys.readouterr().err
     (tmp_path / '.flowguard').mkdir(exist_ok=True)
     (tmp_path / '.flowguard/known.toml').write_text('[known.x]\n', encoding='utf-8')
-    for query in ('rules', 'rule.english-skill', 'known.percent-scale'):
-        assert cli.main(['--root', root, 'show', query]) == 0
-        assert capsys.readouterr().out == 'FlowGuard: this version does not read .flowguard/known.toml yet\n'
+    # An entry without its keys is an input problem: show lists it and fails; a name the catalog lacks fails too.
+    assert cli.main(['--root', root, 'show', 'rules']) == 1
+    out = capsys.readouterr().out
+    assert out.splitlines()[0] == 'FlowGuard rules: 0 in .flowguard/rules.toml, 0 known in .flowguard/known.toml, 1 input problems', out
+    assert 'input known-entry:known.x: .flowguard/known.toml:known.x missing sites; missing why; missing act -> ' in out, out
+    for query, file in (('rule.english-skill', 'rules'), ('known.percent-scale', 'known')):
+        assert cli.main(['--root', root, 'show', query]) == 1
+        assert capsys.readouterr().out == f'{query} is not in .flowguard/{file}.toml: python -m flowguard show rules lists every entry\n'
     (tmp_path / '.flowguard/rules.toml').write_text('[rule.x]\n', encoding='utf-8')
-    assert cli.main(['--root', root, 'show', 'rules']) == 0
-    assert capsys.readouterr().out == 'FlowGuard: this version does not read .flowguard/rules.toml or .flowguard/known.toml yet\n'
+    assert cli.main(['--root', root, 'show', 'rule.x']) == 1
+    assert 'input rules-entry:rule.x: .flowguard/rules.toml:rule.x missing text; missing source -> ' in capsys.readouterr().out
     # Any other query still needs a name and finds rules, functions and words as before.
     assert cli.main(['--root', root, 'show']) == 2
     assert 'show needs a rule, function, request id or words' in capsys.readouterr().err
@@ -79,18 +84,20 @@ def test_without_a_catalog_file_show_rules_and_rule_names_find_what_they_found_b
     assert 'app/store.py:2 rename (sql:update)' in out and 'FlowGuard: no' not in out, out
     # A catalog file present: these names are the catalog's.
     (tmp_path / '.flowguard/rules.toml').write_text('[rule.name]\n', encoding='utf-8')
-    assert cli.main(['--root', root, 'show', 'rule.name']) == 0
-    assert capsys.readouterr().out == 'FlowGuard: this version does not read .flowguard/rules.toml yet\n'
+    assert cli.main(['--root', root, 'show', 'rule.name']) == 1
+    out = capsys.readouterr().out
+    assert 'input rules-entry:rule.name: ' in out and 'app/store.py' not in out, out
 
 
-def test_the_catalog_is_empty_with_or_without_its_files(tmp_path):
+def test_the_catalog_is_empty_without_its_files_and_reads_them_when_present(tmp_path):
     cfg = load_config(tmp_path)
     assert sources.catalog(cfg) == sources.Catalog() == sources.Catalog({}, {}, [])
     assert sources.catalog_files(cfg) == []
     (tmp_path / '.flowguard').mkdir()
     (tmp_path / '.flowguard/rules.toml').write_text('[rule.x]\ntext = "x"\n', encoding='utf-8')
     assert sources.catalog_files(cfg) == ['.flowguard/rules.toml']
-    assert sources.catalog(cfg) == sources.catalog(cfg, 'HEAD') == sources.Catalog()
+    found = sources.catalog(cfg)
+    assert found.rules == {} and [issue.name for issue in found.issues] == ['rules-entry:rule.x'], found
 
 
 def test_the_new_finding_fields_default_to_nothing_and_the_engine_has_no_baseline_of_its_own(tmp_path):

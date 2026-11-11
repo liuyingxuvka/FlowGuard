@@ -1,0 +1,22 @@
+# The rules in force for FlowGuard itself (design 4.4): each a one-line summary and the owner's exact words it
+# rests on, stored in .flowguard/requests/. A rule the owner replaces is deleted here; git keeps its history.
+
+[rule.regression-role]
+text = "AI review discovers problems, and FlowGuard preserves recorded requirements against regression as the software grows."
+source = 'R68 "就是发现问题肯定是认真检查是靠 AI，然后你把这个长期不不退步是靠它。我本来一直就是这么想的，这就是我的想法，因为毕竟就是你可以想象我说的建模，就让 AI 去建模或者是插探针呐、啊、等等，写下来规矩，肯定是发现问题才能长期的让去它生长。这就是我所说的，让 Flowguard 模型和这个软件共同生长"'
+
+[rule.current-rules]
+text = "Make current requirements, prohibitions and their conflicts explicit."
+source = 'R80 "就是我们葫芦画的不是应该是这个规则立住，就是什么东西要，什么东西不要，然后冲突矛盾等等吗？"'
+
+[rule.efficient-use]
+text = "FlowGuard avoids excessive time and token use and favors fast operation."
+source = 'R75 "所以，我们还是因为对于成本、速度、token 使用，我们都是有要求，不能太过浪费，尽量是快，尽量省时间。"'
+
+[rule.english-skill]
+text = "FlowGuard skill text is written in English."
+source = 'R74 "这个技能本身你用英文去做没问题吧"'
+
+[rule.chinese-conversation]
+text = "Communicate with the owner in Chinese."
+source = 'R58 "你用中文跟我交流，怎么刚才又给我写了一大堆英文？"'
