@@ -1,8 +1,6 @@
 // FlowGuard vitest adapter (minimal: vitest, ESM only). Python (`python -m flowguard.intent.vitest prepare`)
-// writes a plan: which functions to observe, their parameter names, representative values, same-name copies
-// and the baseline sources. This plugin only edits text: after each planned function it adds
-// `f = wrap(f)` (a `const f = ...` becomes `let`), and it loads a baseline source as the virtual module
-// `<file>?flowguard-baseline`, so relative imports resolve from the same folder. The judgments are Python's.
+// writes a plan of real calls to record. This plugin only adds a recorder after each planned function;
+// a const function becomes let so the recorder can remove itself. No old or copy module is imported.
 // It also adds FlowGuard's own test project (session.test.mjs), run after the project's tests
 // (sequence.groupOrder): its one test case fails on a red, so the red is in vitest's results (JSON, junit) too.
 import fs from 'node:fs';
@@ -15,8 +13,6 @@ const RUNTIME = path.join(HERE, 'runtime.mjs');
 const GLOBAL_SETUP = path.join(HERE, 'global-setup.mjs');
 const SESSION = 'session.test.mjs';
 const LAST = 1000;               // the session project's group comes after the others (vitest spreads its groups: keep it small)
-const BASELINE = '?flowguard-baseline';
-const PREFIX = 'virtual:flowguard/';
 
 // One spelling of a file for plan lookups: forward slashes, no query, a lower-case drive letter on Windows.
 export function normalize(file, windows = process.platform === 'win32') {
@@ -27,14 +23,33 @@ export function normalize(file, windows = process.platform === 'win32') {
   return windows ? text.toLowerCase() : text;
 }
 
-export function flowguardPlugin({ plan: planFile, python, root }) {
+function sourceMap(code, file) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const vlq = (number) => {
+    let value = Math.abs(number) * 2 + (number < 0 ? 1 : 0), out = '';
+    do { const part = value & 31; value = Math.floor(value / 32); out += alphabet[part + (value ? 32 : 0)]; } while (value);
+    return out;
+  };
+  let previous = 0;
+  const mappings = code.split('\n').map((line, index) => {
+    const first = 'AA' + (index ? 'C' : 'A') + vlq(-previous);
+    previous = line.length;
+    return first + ',CAAC'.repeat(line.length);
+  }).join(';');
+  return { version: 3, sources: [file], sourcesContent: [code], names: [], mappings };
+}
+
+export function flowguardPlugin({ plan: planFile, python, root, prepareSeconds }) {
   const plan = JSON.parse(fs.readFileSync(planFile, 'utf8'));
+  const preparation = prepareSeconds ?? plan.prepare_seconds;
+  if (typeof preparation !== 'number' || !Number.isFinite(preparation) || preparation < 0) {
+    throw new Error('flowguard: this plan has no current preparation timing; run prepare again');
+  }
   const windows = process.platform === 'win32';
   const files = new Map(Object.entries(plan.files).map(([file, entry]) => [normalize(file, windows), { file, ...entry }]));
-  const baselines = plan.baselines;                     // [{file, text, functions}]
-  const copies = plan.copy_files;                       // [file]
   const own = new Set([RUNTIME, GLOBAL_SETUP].map((file) => normalize(file, windows)));
-  let viteRoot = root;
+  let viteRoot = root, injected = false;
+  const available = typeof process.getBuiltinModule === 'function';
   const lookup = (id) => {
     const key = normalize(id, windows);
     if (files.has(key)) return files.get(key);
@@ -49,29 +64,34 @@ export function flowguardPlugin({ plan: planFile, python, root }) {
       process.env.FLOWGUARD_VITEST_PLAN = planFile;
       process.env.FLOWGUARD_VITEST_PYTHON = JSON.stringify(python);
       process.env.FLOWGUARD_VITEST_ROOT = root;
+      process.env.FLOWGUARD_VITEST_PREPARE_SECONDS = String(preparation);
       return { test: { globalSetup: [GLOBAL_SETUP] } };
     },
     configResolved(config) {
       viteRoot = config.root;
+      if (available) {
+        const test = config.test ??= {};
+        const setup = test.setupFiles == null ? [] : Array.isArray(test.setupFiles) ? test.setupFiles : [test.setupFiles];
+        test.setupFiles = [RUNTIME, ...setup.filter((file) => normalize(file, windows) !== normalize(RUNTIME, windows))];
+      }
       // the package whose tests run: a planned point in another package is not "not reached" by them
       process.env.FLOWGUARD_VITEST_PACKAGE = config.root;
     },
-    // vitest 5 caches transforms on disk keyed by the source text: the plan belongs to that key
+    // Vitest 4.1 caches transforms on disk: the plan and runtime location belong to that key
     configureVitest(context) {
-      context.defineCacheKeyGenerator?.(({ id }) => {
+      context.experimental_defineCacheKeyGenerator?.(({ id }) => {
         const entry = lookup(id);
-        return entry ? digest([entry, plan.key]) : id.includes(BASELINE) ? digest(plan.key) : '';
+        return entry ? digest([entry, plan.key, RUNTIME, available]) : '';
       });
-      // vitest 3.2 and later; an older vitest reports the red after the summary and in the exit status only
+      if (injected || !available) return;
+      injected = true;
       return context.injectTestProjects?.({
-        test: { name: 'flowguard', root: HERE, include: [SESSION], globals: true, environment: 'node',
+        test: { name: 'flowguard', root: HERE, include: [SESSION], globals: true, environment: 'node', setupFiles: [], globalSetup: [],
           sequence: { groupOrder: LAST } },
       });
     },
     async resolveId(id, importer) {
-      if (id === PREFIX + 'runtime') return RUNTIME;
-      if (id.startsWith(PREFIX + 'baseline/')) return baselines[Number(id.slice(PREFIX.length + 9))].file + BASELINE;
-      if (id.startsWith(PREFIX + 'copy/')) return copies[Number(id.slice(PREFIX.length + 5))];
+      if (normalize(id, windows) === normalize(RUNTIME, windows)) return RUNTIME;
       if (id === 'vitest' && importer && own.has(normalize(importer, windows))) {
         // the adapter ships with Python, outside node_modules: it uses the project's own vitest
         return this.resolve('vitest', path.join(viteRoot, 'package.json'), { skipSelf: true });
@@ -79,44 +99,28 @@ export function flowguardPlugin({ plan: planFile, python, root }) {
       return null;
     },
     load(id) {
-      if (!id.endsWith(BASELINE)) return null;
-      const key = normalize(id.slice(0, -BASELINE.length), windows);
-      const found = baselines.find((item) => normalize(item.file, windows) === key);
-      if (!found) throw new Error(`flowguard: no baseline source for ${id}`);
-      return found.text + '\n' + found.functions.map((fn) => `export { ${fn} as __flowguard_${fn} };`).join('\n') + '\n';
+      if (normalize(id, windows) === normalize(RUNTIME, windows)) return fs.readFileSync(RUNTIME, 'utf8');
+      return null;
     },
     transform(code, id) {
-      if (id.includes('?') || id.includes('\0')) return null;
+      if (!available || id.includes('?') || id.includes('\0')) return null;
       const entry = lookup(id);
-      if (!entry) return null;
+      if (!entry || !entry.points.some((point) => point.recordable !== false)) return null;
       const lines = code.split('\n');
-      const tail = [`import * as __fg_rt from ${JSON.stringify(PREFIX + 'runtime')};`];
-      if (entry.baseline !== null) tail.push(`import * as __fg_old from ${JSON.stringify(PREFIX + 'baseline/' + entry.baseline)};`);
-      const aliases = new Map();
+      const tail = ['const __fg_rt = globalThis.__flowguard_vitest_runtime__;'];
       for (const point of entry.points) {
+        if (point.recordable === false) continue;
         if (point.form === 'const') {
           const index = point.line - 1;
           if (!/\bconst\s/.test(lines[index] ?? '')) {
             throw new Error(`flowguard: ${point.rel}:${point.line} is not the const declaration of ${point.fn}`);
           }
-          lines[index] = lines[index].replace(/\bconst\s/, 'let ');
+          lines[index] = lines[index].replace(/\bconst(\s)/, 'let  $1');
         }
-        const peers = point.copies.map((copy) => {
-          if (!aliases.has(copy.index)) {
-            aliases.set(copy.index, `__fg_c${aliases.size}`);
-            tail.push(`import * as ${aliases.get(copy.index)} from ${JSON.stringify(PREFIX + 'copy/' + copy.index)};`);
-          }
-          const name = JSON.stringify('__flowguard_' + copy.fn);
-          return `{ id: ${JSON.stringify(copy.id)}, params: ${JSON.stringify(copy.params)}, get fn() { return ${aliases.get(copy.index)}[${name}]; } }`;
-        });
-        const alias = JSON.stringify('__flowguard_' + point.fn);
-        const old = entry.baseline === null ? '() => undefined' : `() => (${alias} in __fg_old ? __fg_old[${alias}] : null)`;
-        const meta = { id: point.id, rel: point.rel, fn: point.fn, line: point.line, params: point.params,
-          numbers: point.numbers, strings: point.strings, skip: point.skip };
-        tail.push(`${point.fn} = __fg_rt.wrap(${JSON.stringify(meta)}, ${point.fn}, ${old}, () => [${peers.join(', ')}], ${plan.limit});`);
-        tail.push(`export { ${point.fn} as __flowguard_${point.fn} };`);   // copies and baselines reach unexported functions too
+        const meta = { id: point.id, rel: point.rel, fn: point.fn, line: point.line };
+        tail.push(`${point.fn} = __fg_rt.wrap(${JSON.stringify(meta)}, ${point.fn}, (original) => { ${point.fn} = original; });`);
       }
-      return { code: lines.join('\n') + '\n' + tail.join('\n') + '\n', map: null };
+      return { code: lines.join('\n') + '\n' + tail.join('\n') + '\n', map: sourceMap(code, id) };
     },
   };
 }

@@ -1,9 +1,8 @@
-"""Call-site replay is refused before an effect happens, then voided (design 4.7).
+"""Real effects happen once; source-only comparisons refuse unsupported context.
 
-Every replayed call (current code, baseline code swapped in, the original-value recheck) runs under one
-guard in the replaying thread only. The audit hook refuses writes, processes, threads and network access;
-sqlite3 connections refuse writing statements and return to a savepoint; arguments are deep copies; the
-static check stops only explicit writes, so reads, dates and `.days` are replayed.
+Historical test names retain the old guarantee's identity. Automatic before-call grids,
+resource snapshots and SQL guards are gone. Explicit sealed calls below check the
+same isolation/refusal guarantees without claiming unobserved inputs were sampled.
 """
 import inspect
 import json
@@ -33,6 +32,25 @@ def _observe(tmp_path, source, call, *, old=None, axes=None, name='f'):
     return m, runtime.readings[-1], outcome
 
 
+def _sealed(module, reading, *, name='f', source=None):
+    """Use the production source-only runner; never infer comparison from status=ok."""
+    fn = getattr(module, name)
+    if reading.sample is None:
+        bound = inspect.signature(fn).bind(**reading.actual_inputs)
+        args, kwargs = list(bound.args), dict(bound.kwargs)
+    else:
+        args, kwargs = reading.sample['args'], reading.sample['kwargs']
+    return R.sealed(source or Path(module.__file__).read_text(), fn.__qualname__, args, kwargs)
+
+
+def _unavailable(module, reading, **options):
+    answer = _sealed(module, reading, **options)
+    assert answer['status'] == 'unavailable', answer
+    assert answer['reason']
+    assert reading.rows == []  # ordinary observation did not manufacture a grid
+    return answer['reason']
+
+
 def test_a_file_write_is_refused_before_it_happens_and_names_its_line(tmp_path):
     target = tmp_path / 'log.txt'
     m, reading, outcome = _observe(tmp_path, f'''
@@ -43,9 +61,9 @@ def test_a_file_write_is_refused_before_it_happens_and_names_its_line(tmp_path):
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True
     assert target.read_text() == 'x'                     # only the real call wrote
-    assert reading.status == 'grey' and reading.rows == []
-    assert reading.reasons[0].startswith('replay refused: r19_candidate.py:3 with open(')
-    assert 'write file ' + str(target) in reading.reasons[0]
+    assert reading.actual == ({'x': 1}, True)
+    assert _unavailable(m, reading) == 'unsupported With'
+    assert target.read_text() == 'x'
 
 
 def test_a_refusal_the_replayed_code_swallows_still_voids_the_replay(tmp_path):
@@ -59,7 +77,8 @@ def test_a_refusal_the_replayed_code_swallows_still_voids_the_replay(tmp_path):
             return x <= 3
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True and target.exists()
-    assert reading.status == 'grey' and reading.rows == [] and 'write file' in reading.reasons[0]
+    assert _unavailable(m, reading) == 'unsupported Try'
+    assert target.read_text() == '' and reading.actual == ({'x': 1}, True)
 
 
 @pytest.mark.parametrize('statement,what', [
@@ -97,8 +116,8 @@ def test_processes_files_threads_and_network_are_refused(tmp_path, statement, wh
             return x <= 3
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True
-    assert reading.status == 'grey' and what in reading.reasons[0], reading.reasons
-    assert 'r19_candidate.py:5' in reading.reasons[0]
+    assert reading.actual == ({'x': 1}, True)
+    assert _unavailable(m, reading) == 'unsupported Import'
 
 
 def _hires(db_path):
@@ -123,9 +142,9 @@ def test_database_writes_are_denied_rolled_back_and_the_connection_is_restored(t
     assert outcome == 2
     assert db.execute('SELECT count(*) FROM hires').fetchone()[0] == 1          # the real call only
     assert db.total_changes == before + 1
-    assert reading.status == 'grey' and reading.rows == []
-    assert reading.reasons[0] == ('replay refused: r19_candidate.py:3 db.execute("insert into hires(item_id) values (?)", '
-                                  '(item_id,))：write database INSERT hires')
+    assert reading.sample is None and reading.actual_inputs['db'] is db
+    _unavailable(m, reading, name='hire_count')
+    assert db.total_changes == before + 1
     db.execute('INSERT INTO hires VALUES (5)')          # no authorizer was left behind
     assert db.execute('SELECT count(*) FROM hires').fetchone()[0] == 2
     assert not db.in_transaction or db.isolation_level is not None
@@ -140,7 +159,9 @@ def test_a_statement_prepared_before_the_replay_is_denied_too(tmp_path):
     with runtime.hook(m.hire_count, axes={'stock': [1], 'reserved': [0]}):
         assert m.hire_count(db, 1, 2, 1) == 3
     assert db.execute('SELECT count(*) FROM hires').fetchone()[0] == 2
-    assert runtime.readings[-1].status == 'grey' and 'INSERT' in runtime.readings[-1].reasons[0]
+    assert runtime.readings[-1].sample is None
+    _unavailable(m, runtime.readings[-1], name='hire_count')
+    assert db.execute('SELECT count(*) FROM hires').fetchone()[0] == 2
 
 
 def test_an_open_transaction_of_the_test_survives_the_replay_savepoint(tmp_path):
@@ -152,7 +173,9 @@ def test_an_open_transaction_of_the_test_survives_the_replay_savepoint(tmp_path)
             return db.execute("select stock from items").fetchone()[0] >= x
     '''
     m, reading, outcome = _observe(tmp_path, source, lambda fn: fn(db, 1), axes={'x': [0, 3]})
-    assert outcome is True and reading.status == 'ok' and reading.rows
+    assert outcome is True and reading.actual_inputs['db'] is db
+    assert reading.sample is None
+    _unavailable(m, reading)
     assert db.in_transaction
     db.rollback()
     assert db.execute('SELECT count(*) FROM items').fetchone()[0] == 0
@@ -174,7 +197,8 @@ def test_connections_opened_during_a_replay_cannot_write_or_create_files(tmp_pat
                 return x <= 3
         '''
         m, reading, outcome = _observe(tmp_path, source, lambda fn: fn(1), axes={'x': [0, 4]})
-        assert reading.status == 'grey' and what in reading.reasons[0], reading.reasons
+        assert outcome is True and reading.actual == ({'x': 1}, True)
+        _unavailable(m, reading)
     assert sqlite3.connect(existing).execute('SELECT count(*) FROM hires').fetchone()[0] == 0
     assert not created.exists()
 
@@ -188,7 +212,9 @@ def test_python_sql_functions_are_refused_in_the_statement_that_calls_them(tmp_p
                 return db.execute("select touch()").fetchone()[0] <= x
         ''', lambda fn: fn(db, 1), axes={'x': [0, 2]})
     assert outcome is True and hits == [1]
-    assert reading.status == 'grey' and 'SQL function touch' in reading.reasons[0]
+    assert reading.sample is None and reading.actual[1] is True
+    _unavailable(m, reading)
+    assert hits == [1]
 
 
 @pytest.mark.parametrize('kind', ['file', 'socket', 'driver', 'nested'])
@@ -211,10 +237,9 @@ def test_arguments_the_guard_cannot_see_into_are_not_replayed(tmp_path, kind):
         for value in (resource, getattr(getattr(resource, 'inner', None), 'stream', None)):
             if hasattr(value, 'close'):
                 value.close()
-    assert reading.status == 'grey' and reading.rows == []
-    assert reading.reasons[0].startswith('unavailable: arguments context'), reading.reasons
-    if kind == 'nested':
-        assert 'context.inner.stream' in reading.reasons[0]
+    assert reading.sample is None and reading.actual_inputs['context'] is resource
+    assert reading.reasons == ['not JSON data']
+    _unavailable(m, reading)
 
 
 def test_an_existing_authorizer_is_not_replaced_and_the_call_is_not_replayed(tmp_path):
@@ -229,7 +254,8 @@ def test_an_existing_authorizer_is_not_replaced_and_the_call_is_not_replayed(tmp
         real = len(hits)
         db.execute('select n from t')
         assert len(hits) > real                          # still the test's own authorizer
-    assert reading.status == 'grey' and 'unavailable' in reading.reasons[0] and 'authorizer' in reading.reasons[0]
+    assert reading.sample is None and reading.actual_inputs['db'] is db
+    _unavailable(m, reading)
 
 
 def test_mutable_arguments_are_replayed_on_copies(tmp_path):
@@ -240,7 +266,11 @@ def test_mutable_arguments_are_replayed_on_copies(tmp_path):
             return config['allowed'] and x <= 3
     ''', lambda fn: fn(config, 1), axes={'x': [0, 4]})
     assert outcome is True and config['calls'] == 1
-    assert reading.status == 'ok' and {row['x'] for row, _ in reading.rows} >= {0, 4}
+    assert reading.sample['inputs']['config'] == {'allowed': True, 'calls': 0}
+    assert _sealed(m, reading) == {'status': 'ok', 'value': True}
+    rows = {x: R.sealed(Path(m.__file__).read_text(), 'f', [reading.sample['args'][0], x], {}) for x in (0, 4)}
+    assert rows == {0: {'status': 'ok', 'value': True}, 4: {'status': 'ok', 'value': False}}
+    assert config == {'allowed': True, 'calls': 1}
 
 
 def test_an_argument_that_cannot_be_copied_is_not_replayed(tmp_path):
@@ -258,8 +288,10 @@ def test_an_argument_that_cannot_be_copied_is_not_replayed(tmp_path):
             return x <= 3
     ''', lambda fn: fn(counter, 1), axes={'x': [0, 4]})
     assert outcome is True and counter.calls == 1          # only the real call ran
-    assert reading.status == 'grey' and reading.rows == []
-    assert reading.reasons == ['unavailable: arguments counter cannot be copied (TypeError: not copyable）']
+    assert reading.sample is None and reading.actual_inputs['counter'] is counter
+    assert reading.reasons == ['not JSON data']
+    _unavailable(m, reading)
+    assert counter.calls == 1
 
 
 @pytest.mark.parametrize('body,line', [
@@ -278,8 +310,13 @@ def f(x: int):
     {body}
     return x <= 3
 ''', lambda fn: fn(1), axes={'x': [0, 4]})
-    assert outcome is True and reading.status == 'grey'
-    assert reading.reasons[0].startswith('explicit write: '), reading.reasons
+    assert outcome is True and reading.actual == ({'x': 1}, True)
+    before = m.TOTAL, dict(m.CACHE)
+    if body in ('CACHE[x] = True', 'helper(x)'):
+        assert _sealed(m, reading) == {'status': 'ok', 'value': True}
+    else:
+        _unavailable(m, reading)
+    assert (m.TOTAL, m.CACHE) == before
 
 
 def test_database_read_wrappers_dates_and_days_are_replayed(tmp_path):
@@ -294,7 +331,9 @@ def test_database_read_wrappers_dates_and_days_are_replayed(tmp_path):
                 return (today - due_of(db, item_id)).days > 3
         ''', lambda fn: fn(db, 1, date(2026, 11, 9)))
     assert outcome is True
-    assert reading.status == 'ok' and reading.rows, reading.reasons
+    assert reading.sample is None and reading.actual[1] is True
+    assert reading.actual_inputs['today'] == date(2026, 11, 9)
+    _unavailable(m, reading)
 
 
 def test_the_baseline_code_write_is_refused_with_its_baseline_line(tmp_path):
@@ -308,9 +347,9 @@ def test_the_baseline_code_write_is_refused_with_its_baseline_line(tmp_path):
         m, reading, outcome = _observe(tmp_path, 'def f(db, x: int):\n    return x <= 3\n', lambda fn: fn(db, 2),
                                        old=old, axes={'x': [2, 4]})
         assert db.execute('SELECT n FROM count').fetchone()[0] == 0
-    assert reading.status == 'ok' and reading.rows and reading.comparison_status == 'grey'
-    assert reading.comparison_reasons[0] == ('baseline code: replay refused: r19_candidate.py(baseline):3 '
-                                             'db.execute("UPDATE count SET n = n + 1")：write database UPDATE count')
+    assert reading.sample is None and reading.actual[1] is True
+    _unavailable(m, reading)
+    _unavailable(m, reading, source=textwrap.dedent(old))
 
 
 def test_a_new_write_loses_the_observation_the_baseline_had(tmp_path):
@@ -318,11 +357,15 @@ def test_a_new_write_loses_the_observation_the_baseline_had(tmp_path):
     old = 'def f(x: int):\n    return x <= 3\n'
     now = f'def f(x: int):\n    open({str(target)!r}, "a").close()\n    return x <= 3\n'
     m, reading, outcome = _observe(tmp_path, now, lambda fn: fn(1), old=old, axes={'x': [0, 4]})
-    assert reading.status == 'grey' and reading.lost == reading.reasons[0] and 'r19_candidate.py:2' in reading.lost
+    assert reading.actual == ({'x': 1}, True) and target.exists()
+    _unavailable(m, reading)
+    assert _sealed(m, reading, source=old) == {'status': 'ok', 'value': True}
     both = now.replace('return x <= 3', 'return x <= 4')
     m, reading, outcome = _observe(tmp_path / 'both' if (tmp_path / 'both').mkdir() is None else tmp_path, both,
                                    lambda fn: fn(1), old=now, axes={'x': [0, 4]})
-    assert reading.status == 'grey' and reading.lost == ''            # the baseline was grey as well
+    assert reading.actual == ({'x': 1}, True)
+    _unavailable(m, reading)
+    _unavailable(m, reading, source=now)
 
 
 def test_only_the_replaying_thread_is_guarded(tmp_path):
@@ -343,7 +386,9 @@ def test_only_the_replaying_thread_is_guarded(tmp_path):
         assert m.f(1) is True
     worker.join(10)
     assert other.read_text() == 'written while a replay ran'
-    assert runtime.readings[-1].status == 'ok' and runtime.readings[-1].rows      # the replay ran meanwhile
+    assert runtime.readings[-1].actual == ({'x': 1}, True)
+    _unavailable(m, runtime.readings[-1])
+    assert done.is_set() and not worker.is_alive()
 
 
 def test_the_audit_hook_is_installed_only_when_a_replay_first_runs(tmp_path):
@@ -358,11 +403,14 @@ def test_the_audit_hook_is_installed_only_when_a_replay_first_runs(tmp_path):
         from hooked_module import f
         rt = R.Runtime(sys.argv[2], previous={})
         rt.observe(f, inspect.signature(f).bind(1), axes={'x': [0, 4]})
-        print(json.dumps([before, R._HOOKED, R._CALLING, rt.readings[0].status]))
+        after_real = R._HOOKED
+        answer = R.sealed('def f(x): return x <= 3', 'f', [1], {})
+        print(json.dumps([before, after_real, R._HOOKED, R._CALLING, answer['status']]))
     ''')
     result = subprocess.run([sys.executable, '-c', script, str(Path(__file__).resolve().parents[2]), str(tmp_path)],
                             capture_output=True, text=True, timeout=60)
-    assert json.loads(result.stdout) == [False, True, 0, 'ok'], result.stdout + result.stderr
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == [False, False, True, 0, 'ok'], result.stdout + result.stderr
 
 
 def test_an_implicit_operator_that_writes_is_refused_at_its_own_line(tmp_path):
@@ -377,7 +425,8 @@ def test_an_implicit_operator_that_writes_is_refused_at_its_own_line(tmp_path):
             return LIMIT <= x
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True and target.exists()
-    assert reading.status == 'grey' and 'r19_candidate.py:4 ' in reading.reasons[0], reading.reasons
+    _unavailable(m, reading)
+    assert target.read_text() == '' and reading.actual == ({'x': 1}, True)
 
 
 @pytest.mark.parametrize('definition', [
@@ -395,11 +444,13 @@ def test_views_temp_tables_generated_columns_and_text_storage_are_read_without_w
                 return db.execute("SELECT n FROM debt").fetchone()[0] != x
         ''', lambda fn: fn(db, 7), axes={'x': [0, 7]})
         assert db.total_changes == before
-    assert reading.status == 'ok' and reading.rows, reading.reasons
+    assert reading.sample is None and reading.actual_inputs['db'] is db
+    _unavailable(m, reading)
 
 
 def test_a_class_passed_as_an_argument_is_looked_into_through_its_own_namespace(tmp_path):
     # A classmethod's `cls`: the instance `__dict__` descriptor does not apply to the class itself.
+    # Class/instance identity is preserved in real readings; no resource walker inspects it.
     class Policy:
         limit = 3
 
@@ -407,12 +458,18 @@ def test_a_class_passed_as_an_argument_is_looked_into_through_its_own_namespace(
         def accept(cls, days):
             return days <= cls.limit
 
-    assert R._attributes(Policy)['limit'] == 3 and R._attributes(Policy()) == {}
-    assert R._visible({'cls': Policy, 'days': 2})[1] == ''
+    m, reading, outcome = _observe(tmp_path, 'def f(policy, days): return policy.accept(days)\n',
+                                   lambda fn: fn(Policy, 2))
+    assert outcome is True and Policy.limit == 3 and vars(Policy()) == {}
+    assert reading.sample is None and reading.actual_inputs['policy'] is Policy
+    _unavailable(m, reading)
     with open(tmp_path / 'log.txt', 'w') as log:
         class Holder:
             output = log
-        assert R._visible({'cls': Holder})[1] == 'arguments cls.output is a file opened for writing'
+        assert R.sealed('def f(cls): return True', 'f', [Holder], {}) == {
+            'status': 'unavailable', 'reason': 'not JSON data'}
+        assert not log.closed and log.tell() == 0
+
 
 
 # ---- what a replay cannot copy or see into is not replayed (round 20 review) ---------------------------------
@@ -471,12 +528,14 @@ def test_arguments_a_replay_could_only_share_with_the_test_are_not_replayed(tmp_
                 return x <= 3
         ''', lambda fn: fn(value, 1), old='def f(value, x: int):\n    return x <= 3\n', axes={'x': [0, 4]})
         assert outcome is True
+        assert reading.sample is None and reading.rows == [] and reading.changed == []
+        assert reading.actual_inputs['value'] is value and reading.actual[1] is True
+        assert reading.reasons == ['not JSON data']
+        _unavailable(m, reading)
         assert once(value), 'the replay acted on the test\'s own object'
     finally:
         for resource in resources:
             (resource.shutdown if hasattr(resource, 'shutdown') else resource.close)()
-    assert reading.status == 'grey' and reading.rows == [] and reading.changed == []
-    assert reading.reasons[0].startswith('unavailable: arguments value') and why in reading.reasons[0], reading.reasons
 
 
 def test_a_sqlite_blob_argument_is_not_replayed(tmp_path):
@@ -494,7 +553,8 @@ def test_a_sqlite_blob_argument_is_not_replayed(tmp_path):
         ''', lambda fn: fn(blob, 1), axes={'x': [0, 4]})
         blob.close()
         assert db.execute('SELECT v FROM b').fetchone()[0] == b'\x01'      # the real call only
-    assert reading.status == 'grey' and 'arguments blob is a sqlite3 Blob' in reading.reasons[0]
+    assert reading.sample is None and reading.actual_inputs['blob'] is blob
+    _unavailable(m, reading)
 
 
 def test_a_sqlite_connection_at_any_depth_is_protected(tmp_path):
@@ -511,16 +571,31 @@ def test_a_sqlite_connection_at_any_depth_is_protected(tmp_path):
     ''', lambda fn: fn(context, 1), old='def f(context, x: int):\n    return x <= 3\n', axes={'x': [0, 4]})
     assert outcome is True
     assert db.execute('SELECT count(*) FROM hires').fetchone()[0] == 1
-    assert reading.status == 'grey' and 'write database INSERT hires' in reading.reasons[0], reading.reasons
+    assert reading.sample is None and reading.actual_inputs['context'] is context
+    _unavailable(m, reading)
+    assert db.execute('SELECT count(*) FROM hires').fetchone()[0] == 1
 
 
 def test_an_argument_too_large_to_look_through_is_not_replayed(tmp_path, monkeypatch):
-    monkeypatch.setattr(R, '_LOOK', 50)
     items = [{'n': index} for index in range(100)]
     m, reading, outcome = _observe(tmp_path, 'def f(items, x: int):\n    return x <= 3\n',
                                    lambda fn: fn(items, 1), axes={'x': [0, 4]})
-    assert outcome is True and reading.status == 'grey'
-    assert reading.reasons == ['unavailable: arguments items is too large: inspected 50 objects without finishing; open files or connections may remain unseen']
+    assert outcome is True and reading.sample['inputs']['items'] == items
+    assert len(reading.sample['inputs']['items']) == 100
+    assert _sealed(m, reading) == {'status': 'ok', 'value': True}
+    # Strict JSON checks the whole input, so an opaque value beyond the old 50-object
+    # inspection budget is refused, rather than hidden behind a traversal limit.
+    with open(tmp_path / 'hidden.txt', 'w') as stream:
+        items[-1]['resource'] = stream
+        runtime = Runtime(tmp_path, previous={})
+        with runtime.hook(m.f):
+            assert m.f(items, 1) is True
+        hidden = runtime.readings[-1]
+        assert hidden.sample is None and hidden.actual_inputs['items'] is items
+        assert hidden.reasons == ['not JSON data']
+        _unavailable(m, hidden)
+        assert stream.tell() == 0 and not stream.closed
+
 
 
 # ---- process-wide state: the random module and the working directory --------------------------------------
@@ -537,7 +612,8 @@ def test_the_random_state_after_the_call_is_the_one_real_calls(tmp_path):
             random.random()
             return x <= 3
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
-    assert outcome is True and reading.status == 'ok' and reading.rows
+    assert outcome is True and reading.actual == ({'x': 1}, True)
+    _unavailable(m, reading)
     assert random.random() == expected
 
 
@@ -630,8 +706,16 @@ def test_writes_through_modules_classes_aliases_and_standard_calls_stay_grey(tmp
     lines = MODULE_STATE.splitlines()
     line = next(index for index, text in enumerate(lines, 1) if text.strip() == statement
                 and any(lines[i].startswith(f'def {name}(') for i in range(max(0, index - 4), index)))
-    assert reading.status == 'grey' and reading.rows == []
-    assert reading.reasons[0].startswith(f'explicit write: line {line} changes module state '), reading.reasons
+    assert reading.actual == ({'x': 1}, True)
+    if name in ('local_alias', 'loop_alias'):
+        assert _sealed(m, reading, name=name) == {'status': 'ok', 'value': True}
+    else:
+        _unavailable(m, reading, name=name)
+    if name == 'consumed':
+        # The original `after` check above already consumed item 1 itself.
+        assert next(m.TICKETS) == 2
+    else:
+        assert after(m, r19_settings), 'sealed comparison changed live module state'
 
 
 def test_reads_dates_days_and_calls_on_fresh_objects_stay_replayable(tmp_path, monkeypatch):
@@ -656,22 +740,27 @@ def test_reads_dates_days_and_calls_on_fresh_objects_stay_replayable(tmp_path, m
             return math.floor(x) + window + counts[x] + days > 0 and bool(os.path.join('a', 'b'))
     ''', lambda fn: fn(1, date(2026, 11, 9)), axes={'x': [0, 4]})
     assert outcome is True
-    assert reading.status == 'ok' and reading.rows, reading.reasons
+    assert reading.sample is None and reading.actual_inputs['today'] == date(2026, 11, 9)
+    _unavailable(m, reading)
 
 
 # ---- the guard's own restoring: grey first, every connection restored, the real call still runs -------------
 
 def test_a_reading_stays_grey_when_the_replay_does_not_finish(tmp_path, monkeypatch):
-    def broken(before):
+    def broken(source, qual):
         raise RuntimeError('FlowGuard itself failed')
-    monkeypatch.setattr(R, '_next_tick', broken)
-    m = module(tmp_path, 'def f(x: int):\n    return x <= 3\n')
-    runtime = Runtime(tmp_path, previous={'r19_candidate.py': 'def f(x: int):\n    return x <= 3\n'})
-    with runtime.hook(m.f, axes={'x': [0, 4]}):
-        with pytest.raises(RuntimeError, match='FlowGuard itself failed'):
-            m.f(1)
-    assert runtime.readings[-1].status == 'grey' and runtime.readings[-1].reasons == ['replay did not complete']
-    assert R._CALLING == 0 and R._LOCAL.guard is None and sqlite3.connect is R._SQLITE_CONNECT
+    m = module(tmp_path, 'CALLS = 0\ndef f(x: int):\n    global CALLS\n    CALLS += 1\n    return x <= 3\n')
+    runtime = Runtime(tmp_path, previous={})
+    with runtime.hook(m.f):
+        assert m.f(1) is True
+    reading = runtime.readings[-1]
+    monkeypatch.setattr(R, '_closed', broken)
+    with pytest.raises(RuntimeError, match='FlowGuard itself failed'):
+        _sealed(m, reading)
+    assert reading.actual == ({'x': 1}, True) and m.CALLS == 1
+    assert reading.rows == [] and reading.changed == []
+    assert R._CALLING == 0 and R._LOCAL.guard is None
+
 
 
 # Called through getattr, which the static check does not follow: what the guard does at run time.
@@ -698,8 +787,9 @@ def f(db, x: int):
                                    axes={'x': [0, 4]})
     assert outcome is True
     assert db.execute('SELECT item_id FROM hires').fetchall() == [(1,)]        # the real call's row only
-    assert reading.status == 'grey' and reading.rows == []
-    assert 'sqlite3 replay guard is absent after replay' in reading.reasons[0] or 'write to a replay-guarded' in reading.reasons[0], reading.reasons
+    assert reading.sample is None and reading.actual[1] is True
+    _unavailable(m, reading)
+    assert db.execute('SELECT item_id FROM hires').fetchall() == [(1,)]
     assert not db.in_transaction and db.execute('PRAGMA query_only').fetchone()[0] == 0
     db.execute('INSERT INTO hires VALUES (5)')          # no authorizer was left behind
 
@@ -718,8 +808,9 @@ def f(a, b, x: int):
                                    old=HELPERS + 'def f(a, b, x: int):\n    return a.execute("select count(*) from hires").fetchone()[0] <= x\n',
                                    axes={'x': [0, 4]})
     assert outcome is True
-    assert reading.status == 'grey' and reading.rows == []
-    assert any(text in reading.reasons[0] for text in ('replay guard teardown failed', 'sqlite3 replay guard is absent after replay')), reading.reasons
+    assert reading.sample is None and reading.actual_inputs['a'] is a and reading.actual_inputs['b'] is b
+    _unavailable(m, reading)
+    assert b.execute('SELECT count(*) FROM hires').fetchone()[0] == 0
     # The connection that stayed open has its usual behaviour back: no authorizer, no savepoint, writable.
     assert not a.in_transaction and a.execute('PRAGMA query_only').fetchone()[0] == 0
     a.execute('INSERT INTO hires VALUES (5)')
@@ -745,8 +836,8 @@ def f(db, x: int):
 '''.replace('def f', 'import sqlite3\ndef f', 1), lambda fn: fn(db, 1), axes={'x': [0, 4]})
         assert outcome is True
         assert db.execute('SELECT count(*) FROM t').fetchone()[0] == 0 and db.row_factory is None      # untouched
-    assert reading.status == 'grey'
-    assert reading.reasons[0].startswith(f'explicit write: line {line}') and where in reading.reasons[0], reading.reasons
+    assert reading.sample is None and reading.actual_inputs['db'] is db
+    _unavailable(m, reading)
 
 
 # ---- sqlite3: connections bound before the replay, backups, Blobs and callbacks -------------------------------
@@ -765,8 +856,9 @@ def test_a_connection_opened_through_an_alias_is_refused_before_it_opens(tmp_pat
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True
     assert sqlite3.connect(path).execute('SELECT count(*) FROM hires').fetchone()[0] == 1
-    assert reading.status == 'grey' and 'r19_candidate.py:4' in reading.reasons[0]
-    assert 'opened outside the replay guard' in reading.reasons[0], reading.reasons
+    assert reading.actual == ({'x': 1}, True)
+    _unavailable(m, reading)
+    assert sqlite3.connect(path).execute('SELECT count(*) FROM hires').fetchone()[0] == 1
 
 
 @pytest.mark.parametrize('direction', ['into a new connection', 'into the shared connection'])
@@ -792,8 +884,9 @@ def f(db, x: int):
     assert outcome is True
     db.close()
     assert [row[0] for row in sqlite3.connect(target).execute('SELECT name FROM sqlite_master')] == ['marker']
-    assert reading.status == 'grey' and 'backup' in reading.reasons[0], reading.reasons
-    assert 'r19_candidate.py:4' in reading.reasons[0]
+    assert reading.sample is None and reading.actual_inputs['db'] is db
+    _unavailable(m, reading)
+    assert [row[0] for row in sqlite3.connect(target).execute('SELECT name FROM sqlite_master')] == ['marker']
 
 
 def test_a_blob_write_on_a_shared_connection_is_refused(tmp_path):
@@ -811,12 +904,13 @@ def test_a_blob_write_on_a_shared_connection_is_refused(tmp_path):
                 return x <= 3
         ''', lambda fn: fn(db, 1), axes={'x': [0, 4]})
         assert db.execute('SELECT v FROM b').fetchone()[0] == b'\x00'
-    assert reading.status == 'grey' and 'Blob' in reading.reasons[0], reading.reasons
+    assert reading.sample is None and reading.actual[1] is True
+    _unavailable(m, reading)
 
 
 @pytest.mark.parametrize('change', ["getattr(db, 'create_function')('leak', 0, len)",
                                     "getattr(db, 'set_trace_callback')(print)"])
-def test_a_callback_a_replay_gives_a_shared_connection_voids_the_replay(tmp_path, change):
+def test_a_callback_a_replay_gives_a_shared_connection_voids_the_replay(tmp_path, change, capsys):
     with sqlite3.connect(':memory:') as db:
         m, reading, outcome = _observe(tmp_path, f'''
             def f(db, x: int):
@@ -825,8 +919,14 @@ def test_a_callback_a_replay_gives_a_shared_connection_voids_the_replay(tmp_path
                 return x <= 3
         ''', lambda fn: fn(db, 1), axes={'x': [0, 4]})
         assert outcome is True
-        assert not R._callbacks(db)          # a trace callback is taken off again
-    assert reading.status == 'grey' and 'replay changed sqlite3 connection callbacks' in reading.reasons[0], reading.reasons
+        assert reading.sample is None
+        _unavailable(m, reading)
+        if 'create_function' in change:
+            with pytest.raises(sqlite3.OperationalError, match='no such function: leak'):
+                db.execute("SELECT leak('x')")
+        else:
+            assert db.execute('SELECT 1').fetchone() == (1,)
+            assert capsys.readouterr().out == ''
 
 
 # ---- open resources in module state; log records ------------------------------------------------------------
@@ -850,16 +950,19 @@ def test_open_resources_in_module_state_are_not_replayed_and_connections_there_a
             return DB.execute("select count(*) from hires").fetchone()[0] <= x
     ''', lambda fn: fn(1), axes={'x': [0, 4]}, name='written')
     assert outcome is True and len(log.read_text().splitlines()) == 1
-    assert reading.reasons == ['unavailable: module globals LOG is a file opened for writing'], reading.reasons
+    _unavailable(m, reading, name='written')
+    assert len(log.read_text().splitlines()) == 1
     runtime = Runtime(tmp_path, previous={'r19_candidate.py': (tmp_path / 'r19_candidate.py').read_text()})
     with runtime.hook(m.stored, axes={'x': [0, 4]}):
         assert m.stored(1) is True
     m.DB.commit()
     assert sqlite3.connect(store).execute('SELECT count(*) FROM hires').fetchone()[0] == 1
-    assert runtime.readings[-1].status == 'grey' and 'write database INSERT hires' in runtime.readings[-1].reasons[0]
+    _unavailable(m, runtime.readings[-1], name='stored')
+    assert sqlite3.connect(store).execute('SELECT count(*) FROM hires').fetchone()[0] == 1
     with runtime.hook(m.counted, axes={'x': [0, 4]}):
         assert m.counted(1) is True
-    assert runtime.readings[-1].status == 'ok' and runtime.readings[-1].rows        # a read is replayed
+    assert runtime.readings[-1].actual == ({'x': 1}, True)
+    _unavailable(m, runtime.readings[-1], name='counted')
     m.LOG.close()
     m.DB.close()
 
@@ -873,7 +976,8 @@ def test_log_records_of_a_replayed_call_are_dropped(tmp_path, caplog):
             logging.getLogger('flowguard.test.replay').warning('checked %s', x)
             return x <= 3
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
-    assert outcome is True and reading.status == 'ok' and reading.rows
+    assert outcome is True and reading.actual == ({'x': 1}, True)
+    _unavailable(m, reading)
     assert [record.getMessage() for record in caplog.records] == ['checked 1']
 
 
@@ -889,8 +993,8 @@ def test_a_clock_reading_function_is_grey_on_a_coarse_clock(tmp_path, monkeypatc
             def f(x: int) -> float:
                 return time.time() + x
         ''', lambda fn: fn(1), axes={'x': [0, 4]})
-        assert reading.status == 'grey' and reading.rows == []
-        assert reading.reasons[0] == 'original-value recheck changed: possible side effect or unstable input'
+        assert type(outcome) is float and reading.actual[1] == outcome
+        _unavailable(m, reading)
 
 
 def test_a_replay_that_runs_too_long_is_interrupted_and_grey(tmp_path, monkeypatch):
@@ -903,9 +1007,11 @@ def test_a_replay_that_runs_too_long_is_interrupted_and_grey(tmp_path, monkeypat
             return True
     ''', lambda fn: fn(1), old='def f(x: int):\n    return True\n', axes={'x': [0, 4]})
     assert outcome is True
-    assert reading.status == 'grey' and reading.reasons == ['exceeded 0.3 seconds without completion'] and reading.rows == []
-    assert reading.lost == ''        # a slow replay is no lost observation
-    assert R._CALLING == 0 and R._LOCAL.guard is None and sqlite3.connect is R._SQLITE_CONNECT
+    assert reading.actual == ({'x': 1}, True)
+    assert _sealed(m, reading) == {'status': 'ok', 'value': True}
+    assert R.sealed(Path(m.__file__).read_text(), 'f', [0], {}) == {
+        'status': 'unavailable', 'reason': 'exceeded 0.3 seconds without completion'}
+    assert R._CALLING == 0 and R._LOCAL.guard is None
 
 
 def test_a_replay_that_recurses_too_deeply_is_grey(tmp_path):
@@ -916,7 +1022,11 @@ def test_a_replay_that_recurses_too_deeply_is_grey(tmp_path):
             return f(x)
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True
-    assert reading.status == 'grey' and reading.reasons == ['replay did not complete: recursion too deep (RecursionError)']
+    assert reading.actual == ({'x': 1}, True)
+    assert _sealed(m, reading) == {'status': 'ok', 'value': True}
+    answer = R.sealed(Path(m.__file__).read_text(), 'f', [0], {})
+    assert answer['status'] == 'raised' and answer['error']['type'] == 'RecursionError'
+    assert R._CALLING == 0 and R._LOCAL.guard is None
 
 
 def test_an_interruption_that_arrived_leaves_a_traced_thread_running(tmp_path):

@@ -3,8 +3,8 @@ the objects it is given (round 20 review of the call-site replay guard).
 
 Each changed function would, if replayed on the test's own objects, leave the test something other than
 its one real call left: a consumed generator, extra callback events or log records, a random state moved
-on, extra rows, a module counter raised, a closed connection. The guard does not replay what it cannot
-copy or see into, restores the random state, drops log records and refuses or voids the rest.
+on, extra rows, a module counter raised, a closed connection. Recording makes no extra live calls;
+post-session source-only comparisons refuse unsupported names and non-JSON context.
 """
 import subprocess
 import sys

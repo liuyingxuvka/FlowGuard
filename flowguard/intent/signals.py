@@ -381,12 +381,16 @@ def _fit(lines, room, overflow):
 
 def _session(report, limit):
     budget = min(10, max(1, limit))
+    title = _title(report)
+    if 'seconds' in report:
+        title += f'; {report["seconds"]:.3f} s'
     items = list(report.get('items', ()))
     reds = _red_lines(report, items)
     requested = bool(report.get('comparison_requested'))
     # A missing task start compares nothing, and the title alone says so with the next step.
-    alone = _title(report) if report.get('baseline_kind') == 'missing' else ''
-    if not reds and not report.get('source_changed') and not requested:
+    alone = title if report.get('baseline_kind') == 'missing' or 'seconds' in report else ''
+    before = ['before: ' + str(message) for message in report.get('before', ())]
+    if not reds and not before and not report.get('source_changed') and not requested:
         return alone
     changes, names, unverified, calls = [], [], [], {}
     compared, compared_names = [], []      # an explicit comparison's unchanged points, after every change
@@ -439,7 +443,7 @@ def _session(report, limit):
         counted[(subject, reason)] = counted.get((subject, reason), 0) + 1
         cause = re.sub(r'^(comparison incomplete: )?[A-Za-z_][\w.]*: ', r'\1', reason)
         causes.setdefault(cause, set()).add(subject or reason)
-    if not (reds or changes or compared or leads or counted):
+    if not (reds or before or changes or compared or leads or counted):
         return alone
     room = budget
     # Changes come first and keep their room; an unchanged comparison never pushes a change into the overflow.
@@ -455,7 +459,7 @@ def _session(report, limit):
     else:
         shown_leads = _fit(leads, room - bool(counted), lambda rest: f'lead: plus {rest} entries: {more} lists all leads')
         room -= len(shown_leads)
-    lines = [_title(report), *reds, *shown, *shown_leads]
+    lines = [title, *reds, *before[:2], *shown, *shown_leads]
     if counted and room > 0:
         subjects = {subject or reason for subject, reason in counted}
         common = max(causes, key=lambda cause: (len(causes[cause]), -list(causes).index(cause)))

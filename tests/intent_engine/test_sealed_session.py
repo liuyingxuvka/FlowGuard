@@ -1,0 +1,91 @@
+"""Post-session comparison uses source, never a second live project call."""
+import json
+import sqlite3
+
+from tests.intent_engine.test_default_runtime_signals import _git, _project, _run, _text
+
+
+def _report(root):
+    with sqlite3.connect(root / '.flowguard/cache/map.sqlite') as con:
+        return json.loads(con.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()[0])['items']
+
+
+def test_changed_uses_only_the_actual_json_input_after_tests(tmp_path):
+    path = _project(tmp_path, 'def answer(n):\n    return n + 1\n', '''
+        from policy import answer
+        def test_answer():
+            assert answer(2) in (3, 4)
+    ''')
+    path.write_text(path.read_text().replace('n + 1', 'n + 2'))
+    result = _run(tmp_path)
+    assert result.returncode == 0, _text(result)
+    item = next(item for item in _report(tmp_path)['items'] if item['name'] == 'answer')
+    assert item['total'] == 1 and item['changed'] == [[{'n': 2}, 3, 4]], item
+
+
+def test_same_copies_are_compared_without_importing_the_other_module(tmp_path):
+    path = _project(tmp_path, '# flowguard: same ANSWER\ndef answer(n):\n    return n + 1\n', '''
+        from policy import answer
+        def test_answer():
+            assert answer(2) == 3
+    ''')
+    other = tmp_path / 'other.py'
+    other.write_text('from pathlib import Path\nPath("unwanted").write_text("imported")\n'
+                     '# flowguard: same ANSWER\ndef answer(n):\n    return n + 1\n')
+    _git(tmp_path, 'add', 'other.py')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'equal copies')
+    other.write_text(other.read_text().replace('n + 1', 'n + 2'))
+    result = _run(tmp_path)
+    assert result.returncode == 1, _text(result)
+    assert not (tmp_path / 'unwanted').exists()
+    report = _report(tmp_path)
+    assert any('ANSWER' in line for line in report['red']), report
+    assert not report['before'], report
+
+
+def test_preexisting_copy_difference_is_before_and_not_a_test_failure(tmp_path):
+    path = _project(tmp_path, '# flowguard: same ANSWER\ndef answer(n):\n    return n + 1\n', '''
+        from policy import answer
+        def test_answer():
+            assert answer(2) == 3
+    ''')
+    other = tmp_path / 'other.py'
+    other.write_text('# flowguard: same ANSWER\ndef answer(n):\n    return n + 2\n')
+    _git(tmp_path, 'add', 'other.py')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'existing disagreement')
+    path.write_text(path.read_text() + '\n# documentation-only edit\n')
+    result = _run(tmp_path)
+    assert result.returncode == 0, _text(result)
+    report = _report(tmp_path)
+    assert not report['red'] and any('ANSWER' in line for line in report['before']), report
+    assert 'before: ' in _text(result)
+
+
+def test_equal_exceptions_are_not_reported_as_unchanged(tmp_path):
+    path = _project(tmp_path, 'def answer(n):\n    raise ValueError("no result")\n', '''
+        import pytest
+        from policy import answer
+        def test_answer():
+            with pytest.raises(ValueError, match='no result'):
+                answer(2)
+    ''')
+    path.write_text(path.read_text().replace('raise ValueError', 'n += 0\n    raise ValueError'))
+    result = _run(tmp_path)
+    assert result.returncode == 0, _text(result)
+    item = next(item for item in _report(tmp_path)['items'] if item['name'] == 'answer')
+    assert item['status'] == 'grey' and not item['changed'] and not item['rows'], item
+    assert 'same exception' in ' '.join(item['reasons'])
+
+
+def test_nested_calls_keep_their_own_recorded_identity(tmp_path):
+    path = _project(tmp_path, 'def inner(n):\n    return n + 1\n\ndef outer(n):\n    return inner(n) * 2\n', '''
+        from policy import outer
+        def test_outer():
+            assert outer(2) in (6, 8)
+    ''')
+    path.write_text(path.read_text().replace('n + 1', 'n + 2').replace('inner(n) * 2', '2 * inner(n)'))
+    result = _run(tmp_path)
+    assert result.returncode == 0, _text(result)
+    items = {item['name']: item for item in _report(tmp_path)['items'] if item.get('file') == 'policy.py'}
+    assert items['inner']['changed'] == [[{'n': 2}, 3, 4]], items
+    assert items['outer']['changed'] == [[{'n': 2}, 6, 8]], items

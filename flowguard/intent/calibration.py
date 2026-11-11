@@ -204,9 +204,13 @@ def _sensor(root, anchor, values):
         if (not inspect.isfunction(function) or Path(function.__code__.co_filename).resolve() != (Path(root) / anchor.file).resolve()
                 or function.__qualname__.replace('.<locals>.', '.') != anchor.qual):
             return _unavailable('loaded function does not match the actual source anchor')
+        if _instrumented((anchor.target,)):
+            return _unavailable('calibration cannot replace installed code instrumentation with source execution')
         readings, stop = [], _Stop()
         def observe(original, bound):
-            axes = {}
+            from .runtime import Refused, _json
+            bound.apply_defaults()
+            requested = inspect.BoundArguments(bound.signature, dict(bound.arguments))
             for parameter in anchor.parameters:
                 name = parameter.name
                 if name not in bound.arguments:
@@ -217,53 +221,55 @@ def _sensor(root, anchor, values):
                 except ValueError as error:
                     raise _Unavailable(str(error)) from error
                 if kind is not None:
-                    axes[name] = [_value_in_context(anchor, original, name, values.get(name, actual), actual)]
+                    requested.arguments[name] = _value_in_context(anchor, original, name, values.get(name, actual), actual)
                 elif name in values:
                     raise _Unavailable(name + ': actual test context cannot be replaced')
-            if gate := scope.runtime.safety(original, bound.arguments):
-                # A second call beside the test's own call needs a proof that it is inert.
-                # Without one, the requested point replaces the named test's own call: that
-                # is a same-session rerun of the test, as calibrated_by declares.
-                for name in values:
-                    bound.arguments[name] = axes[name][0]
-                try:
-                    outcome = original(*bound.args, **bound.kwargs)
-                except Exception as error:
-                    outcome = Raised(error)
-                readings.append((None, [outcome], gate))
-                if values:
-                    raise stop
-                if isinstance(outcome, Raised):
-                    raise outcome.error
-                return outcome
+            expected, reason = scope.runtime.guarded(original, bound)
+            if reason:
+                raise _Unavailable(reason)
+            outcome, reason = scope.runtime.guarded(original, requested) if values else (expected, '')
+            if reason:
+                raise _Unavailable(reason)
             position = len(scope.runtime.readings)
             try:
-                return scope.runtime.observe(original, bound, owner=function, name=anchor.name, axes=axes, private=True)
+                return scope.runtime.observe(original, bound, owner=function, name=anchor.name, private=True,
+                                             fields=anchor.fields, line=anchor.line)
             finally:
                 if len(scope.runtime.readings) > position:
                     reading = scope.runtime.readings[position]
-                    requested = {name: grid[0] for name, grid in axes.items()}
-                    rows = [value for inputs, value in reading.rows
-                            if inputs.keys() == requested.keys() and all(outcome_equal(inputs[k], v) for k, v in requested.items())]
-                    readings.append((reading, rows, ''))
-        observe.__flowguard_transport__ = (type(scope.runtime).observe.__code__,)
-        scope.runtime.register(function)
+                    actual = reading.actual[1] if reading.actual is not None else None
+                    if isinstance(actual, Raised) and not isinstance(actual.error, Exception):
+                        pass  # Process control keeps propagating from the real call.
+                    else:
+                        if reading.actual is None or reading.sample is None:
+                            raise _Unavailable('; '.join(reading.reasons) or 'actual calibration call has no JSON reading')
+                        if anchor.fields and (reading.fields is None or reading.field_reasons):
+                            raise _Unavailable('; '.join(reading.field_reasons) or 'actual calibration fields are unavailable')
+                        if isinstance(actual, Raised) and isinstance(expected, Raised):
+                            try:
+                                agrees = type(actual.error) is type(expected.error) and _json(actual.error.args) == _json(expected.error.args)
+                            except Refused as error:
+                                raise _Unavailable(str(error)) from error
+                        else:
+                            agrees = not isinstance(actual, Raised) and not isinstance(expected, Raised) \
+                                and outcome_equal(reading.json_result, expected)
+                        if not agrees:
+                            raise _Unavailable('actual named-test outcome differs from the sealed source outcome')
+                        readings.append(outcome)
+                        if values:
+                            raise stop
+        observe.__flowguard_transport__ = (type(scope.runtime).guarded.__code__, type(scope.runtime).observe.__code__)
         with sites.intercepted(function, observe):
             replay = scope.runtime.replay(item, nextitem=scope.nextitem)
         if problems := scope.runtime.observer_issues():
             return _unavailable('; '.join(problems))
-        replaced = bool(values) and any(gate for _, _, gate in readings)
+        replaced = bool(values) and bool(readings)
         failed = _reports(replay, stop=stop if replaced else None)
         if failed:
             return failed
         if len(readings) != 1:
             return _unavailable('test must reach the actual anchor exactly once; target may be absent or ambiguous')
-        reading, rows, gate = readings[0]
-        if reading is not None and reading.status != 'ok' or len(rows) != 1:
-            return _unavailable('; '.join(reading.reasons if reading else ()) or 'requested reading is unavailable or ambiguous')
-        if rows[0] is None and anchor.qual.rsplit('.', 1)[-1] == '__init__':
-            return _unavailable('constructor None is not a judgment observation' + ('; ' + gate if gate else ''))
-        return dict(status='ok', outcome=rows[0], gate=gate)
+        return dict(status='ok', outcome=readings[0])
     except (OSError, ValueError, TypeError, SyntaxError, AttributeError, sites.NotMutable) as error:
         return _unavailable(str(error))
 
@@ -303,13 +309,7 @@ def _prepare(root, anchor, *, _reuse=True):
     if _instrumented((anchor.target,)):
         return _unavailable('calibration must be prepared before code instrumentation')
     baseline = _sensor(root, anchor, {})
-    zero = _sensor(root, anchor, {}) if baseline['status'] == 'ok' else baseline
-    unstable = 'original-value recheck differs from the complete original test'
-    if baseline.get('gate'):
-        unstable += '; the named test call was used because a separate replay is refused: ' + baseline['gate']
-    result = (dict(status='ok') if baseline['status'] == zero['status'] == 'ok'
-              and outcome_equal(baseline['outcome'], zero['outcome']) else
-              _unavailable(unstable) if baseline['status'] == zero['status'] == 'ok' else zero)
+    result = dict(status='ok') if baseline['status'] == 'ok' else baseline
     # A red or grey preparation keeps its own verdict and reason for this session.
     if _reuse and facts is not None:
         facts[key] = result

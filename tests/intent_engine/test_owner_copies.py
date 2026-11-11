@@ -354,14 +354,16 @@ def test_fixed_10_a_registered_owner_lists_the_other_six_kwp_copies_by_behavior(
     assert 'not a proof' in same and all(place in same for place in (
         'Step3/src/kwp_step3/technology.py:53', 'Step2/src/kwp_step2/try_data.py:15',
         'Step10/step10_baublock_progress_maps.py:'))
-    assert 'compared on all reference values; call-site reachability of negative, non-finite and other values was not checked' in header, header
+    assert 'only comparable JSON inputs count; call-site reachability was not checked' in header, header
     half = [line for line in leads if 'value=-2.5 → -2(reference returns -3）' in line]
     assert len(half) == 1 and half[0].startswith('lead: similar 2 copies:') and 'simulation_preparation.py:25' in half[0] \
         and 'Step6a/kwp_step6a/config.py:' in half[0], text
     # Grouped by the first difference; int(x + 0.5) and floor(x + 0.5) still differ on negative whole numbers.
     assert 'these copies also differ on other representative values' in half[0], half[0]
     legacy = next(line for line in leads if 'step2_demand_library.py' in line)
-    assert legacy.startswith('lead: similar 1 copies:') and 'value=nan → 0(reference returns raised ValueError）' in legacy, text
+    assert legacy.startswith('lead: similar 1 copies:'), text
+    assert not any('value=nan' in line for line in leads), text
+    assert any(line.startswith('lead: not compared:') and 'step2_demand_library.py' in line for line in leads), text
     assert len([line for line in leads if re.match('lead: (copy:|diverged copy|similar) ', line)]) == 3, text
 
 
@@ -590,7 +592,7 @@ def test_reusing_static_findings_returns_its_issues_reds_and_leads_without_mutat
     assert all(found.stats[key] == value for key, value in static.stats.items())
 
 
-def test_copy_discovery_replays_through_the_runtime_and_lists_what_it_cannot_run(tmp_path):
+def test_copy_discovery_uses_sealed_source_and_lists_what_it_cannot_run(tmp_path):
     _project(tmp_path, {'rules.py': '''
         # flowguard: owner HALF
         def half(value: float) -> float:
@@ -619,24 +621,82 @@ def test_copy_discovery_replays_through_the_runtime_and_lists_what_it_cannot_run
     '''})
     spy = ('from flowguard.intent import runtime as R, owners as O\n'
            'O.TIMEOUT = 0.5\n'
-           '_real = R.Runtime._replay_rows\n'
-           'def _counted(self, original, *a, **k):\n'
-           '    sys.__stderr__.write("REPLAY " + original.__qualname__ + "\\n")\n'
-           '    return _real(self, original, *a, **k)\n'
-           'R.Runtime._replay_rows = _counted\n')
+           '_real = R.sealed\n'
+           'def _counted(source, qual, args, kwargs):\n'
+           '    assert isinstance(source, str)\n'
+           '    sys.__stderr__.write("SEALED " + qual + "\\n")\n'
+           '    return _real(source, qual, args, kwargs)\n'
+           'R.sealed = _counted\n')
     result = subprocess.run([sys.executable, '-c', _cli_fixture._BOOT, SOURCE, 'unused-marker', spy,
                              '--root', str(tmp_path), 'check', '--all'], cwd=tmp_path, capture_output=True, text=True, timeout=120)
     text = _text(result)
     assert result.returncode == 0, text
-    replayed = set(re.findall(r'REPLAY (\w+)', result.stderr))
-    assert {'half', 'same', 'spin'} <= replayed, result.stderr
-    assert re.search('copy: 1 copies \\(match the reference on \\d+ representative values; not a proof\\): rules.py:6', text), text
+    compared = set(re.findall(r'SEALED (\w+)', result.stderr))
+    assert {'half', 'same', 'spin', 'copied'} <= compared, result.stderr
+    copies = next(line for line in _lines(text) if line.startswith('lead: before: copy:'))
+    assert 'rules.py:6' in copies and 'vendor_copy.py:4' in copies and 'not a proof' in copies, text
     unclear = next(line for line in _lines(text) if line.startswith('lead: unavailable copies:'))
-    assert 'rules.py:10（exceeded 0.5 seconds without completion）' in unclear, unclear
-    assert "vendor_copy.py:4（import failed: ModuleNotFoundError: No module named 'not_installed_anywhere'）" in unclear, unclear
-    # `broken` imports json inside its body: that import now runs under the replay guard, and the copy's
-    # TypeError for every representative is a behaviour to compare, not something left unseen.
-    assert 'rules.py:16' not in unclear, unclear
+    assert 'rules.py:10' in unclear and '0.5' in unclear and 'completion' in unclear, unclear
+    assert 'rules.py:16（unsupported Import）' in unclear, unclear
+    assert 'vendor_copy.py:4' not in unclear, unclear
+    assert 'deprecated: unregistered copy discovery' in result.stderr
+
+
+def test_manual_copy_discovery_does_not_execute_module_initialization_or_function_effects(tmp_path):
+    marker = tmp_path / 'executed.txt'
+    _project(tmp_path, {'reference.py': f'''
+        open({str(marker)!r}, 'w').write('module initialization')
+        # flowguard: same LIMIT ref
+        def limit(value: int) -> int:
+            return value * 3
+    ''', 'peer.py': f'''
+        raise RuntimeError('module initialization must not run')
+        def copy(value: int) -> int:
+            return value * 3
+        def effect(value: int) -> int:
+            open({str(marker)!r}, 'w').write('function effect')
+            return value * 3
+    ''', 'tests/test_native.py': 'def test_native():\n    assert True\n'})
+    code, text = _check(tmp_path, '--all')
+    assert code == 0, text
+    assert not marker.exists()
+    assert any('peer.py:2' in line and 'copy:' in line for line in _lines(text)), text
+    unavailable = next(line for line in _lines(text) if line.startswith('lead: unavailable copies:'))
+    assert 'peer.py:4' in unavailable and 'uses ' in unavailable, text
+
+
+def test_changed_alone_compares_baseline_source_without_importing_the_project(tmp_path):
+    from contextlib import closing
+    from flowguard.intent import owners
+    from flowguard.intent.config import load_config
+    from flowguard.structure import build
+    marker = tmp_path / 'initialized.txt'
+    source = f"open({str(marker)!r}, 'w').write('initialized')\ndef limit(value: int):\n    return value <= 3\n"
+    _project(tmp_path, {'policy.py': source, 'peer.py': 'def copy(value: int):\n    return value <= 3\n'})
+    base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    (tmp_path / 'policy.py').write_text(source.replace('<= 3', '<= 4'), encoding='utf-8')
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        found = owners.changed_alone(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, base))
+    assert not marker.exists()
+    assert any('changed behavior' in line and 'peer.py:1' in line for line in found.leads), found
+
+
+def test_changed_alone_does_not_count_the_same_raised_exception_as_agreement(tmp_path):
+    from contextlib import closing
+    from flowguard.intent import owners
+    from flowguard.intent.config import load_config
+    from flowguard.structure import build
+    source = 'def limit(value: int):\n    raise ValueError("same")\n'
+    _project(tmp_path, {'policy.py': source, 'peer.py': source.replace('limit', 'copy')})
+    base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    (tmp_path / 'policy.py').write_text(source + '    return value\n', encoding='utf-8')
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        found = owners.changed_alone(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, base))
+    assert not found.red
+    assert any('not compared' in line and 'same raised exception' in line for line in found.leads), found
+    assert not any('changed behavior' in line for line in found.leads), found
 
 
 def test_a_new_copy_of_a_registered_owner_is_red(tmp_path):

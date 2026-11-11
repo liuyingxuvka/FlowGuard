@@ -44,7 +44,7 @@ def test_draft_reads_source_without_importing_the_target(tmp_path, capsys):
     project(tmp_path, 'raise RuntimeError("must not be imported")\n' + SOURCE, RULE)
     assert cli.main(['--root', str(tmp_path), 'anchor', 'draft', 'app:accept']) == 0
     text = capsys.readouterr().out
-    assert text.splitlines()[0] == '# flowguard: sensor accept'
+    assert text.splitlines()[0] == '# flowguard: same accept'
     assert 'range days:' in text and '3' in text
 
 

@@ -281,7 +281,10 @@ def test_method_homes_keep_their_real_binding(tmp_path, decoration):
     model, engine, _ = project(tmp_path, code, text)
     rule = model.rules['LIMIT']
     result = engine.run_home(rule, rule.homes[0], 'cells')
-    assert result['verdict'] == 'ok' and result['entered']
+    # Design 4.5/6.4 excludes methods from sealed comparisons; no false agreement.
+    assert result['verdict'] == 'grey' and result['entered'] is False
+    assert result['red'] == []
+    assert result['grey'] == ['not a module-level function -> strengthen or split the lower contract']
 
 
 @pytest.mark.parametrize('imports,call', [

@@ -66,7 +66,7 @@ FEES = {
         export const BASE_CHARGE = 5;
     ''',
     'src/fees/late-fee.ts': '''
-        import { BASE_CHARGE, FREE_DAYS } from './limits';
+        const BASE_CHARGE = 5, FREE_DAYS = 3;
 
         export function lateFee(days: number, member: boolean): number {
           if (days > FREE_DAYS) {
@@ -210,7 +210,9 @@ def test_prepare_is_off_without_a_ts_change_and_plans_anchored_and_changed_funct
             }
         ''',
     })
-    assert _prepare(tmp_path) == {'status': 'off', 'reason': 'no TS/JS changes since baseline; execution preparation is skipped'}
+    answer = _prepare(tmp_path)
+    assert answer['status'] == 'off' and answer['reason'] == 'no functions to observe in this change (anchors or changed module-level functions)'
+    assert answer['seconds'] >= 0
     _sensor(tmp_path, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
     _sensor(tmp_path, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
     _sensor(tmp_path, 'src/colors.ts', '  cell(value', 'CELL')
@@ -224,16 +226,23 @@ def test_prepare_is_off_without_a_ts_change_and_plans_anchored_and_changed_funct
                            'typescript/src/colors.ts:band', 'typescript/src/colors.ts:typeLabel'}, points
     band, label = points['typescript/src/colors.ts:band'], points['typescript/src/colors.ts:typeLabel']
     assert not band['anchored'] and band['name'] == 'band' and band['bounds'] == [30, 100], band
-    assert {29, 30, 31, 29.99, 30.01, 99.99, 100, 100.01, 101} <= {value for value in band['numbers'] if not isinstance(value, dict)}
+    assert band['numbers'] == [30, 100]  # neighbours are made only from calls recorded by the tests
+    assert 'const LOW = 30' in band['source'] and 'const FULL = 100' in band['source']
     assert label['strings'] == ['AREA', 'TEAM', '<other>'], label
     fee, preview = points['typescript/src/fees/late-fee.ts:lateFee'], points['typescript/src/preview/fee-preview.ts:lateFee']
     assert fee['anchored'] and fee['params'] == ['days', 'member'] and fee['form'] == 'function', fee
     assert preview['form'] == 'const' and preview['line'] == 3 and [copy['id'] for copy in preview['copies']] == [fee['id']], preview
-    assert {'$num': 'NaN'} in fee['numbers'] and -2.5 in fee['numbers'], fee['numbers']     # copies add the representatives
+    assert fee['numbers'] == [0, 1, 2, 3, 5]  # JSON numbers and source constants, no synthetic NaN/grid
+    assert 'const FREE_DAYS = 3' in fee['source'] and not fee['skip']
     assert [item['name'] for item in plan['unplanned']] == ['CELL'], plan['unplanned']
-    assert [item['file'].endswith('src/colors.ts') for item in plan['baselines']].count(True) == 1
-    stamp = Path(answer['plan']).stat().st_mtime_ns
-    assert _prepare(tmp_path) == answer and Path(answer['plan']).stat().st_mtime_ns == stamp   # the cached plan
+    assert 'old_source' in band and 'old_source' in label
+    assert 'baselines' not in plan and 'copy_files' not in plan  # no executable project-module imports
+    frozen = json.loads(Path(answer['plan']).read_text())
+    frozen.pop('prepare_seconds')
+    again = _prepare(tmp_path)
+    current = json.loads(Path(answer['plan']).read_text())
+    assert again['plan'] == answer['plan'] and again['seconds'] == current.pop('prepare_seconds')
+    assert current == frozen  # source plan is cached; timing belongs to this invocation
 
 
 def test_the_plan_says_head_until_a_task_baseline_is_recorded(tmp_path):
@@ -271,13 +280,14 @@ def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_
     for days in (4, 5):
         _commit(tmp_path, {'src/limits.ts': limit.format(days)}, message=f'task {days}')
     code, text = _report(tmp_path, _prepare(tmp_path)['plan'])
-    assert code == 0 and f'FlowGuard（since task start {start[:7]}, commits before HEAD: 2; first run python -m flowguard new-task for a new task)' \
-        in text.splitlines() and 'unverified: LIMIT（src/limits.ts:2)：not reached by any test' in text, text
+    assert code == 0 and text.splitlines()[0].startswith(f'FlowGuard（since task start {start[:7]}, commits before HEAD: 2; first run python -m flowguard new-task for a new task)') \
+        and re.search(r'; [0-9]+\.[0-9]{3} s$', text.splitlines()[0]) and 'unverified: LIMIT（src/limits.ts:2)：not reached by any test' in text, text
     assert _flowguard(tmp_path, 'new-task')[0] == 0
     head = _git(tmp_path, 'rev-parse', 'HEAD').strip()
     (tmp_path / 'src/limits.ts').write_text(limit.format(6), encoding='utf-8')
     code, text = _report(tmp_path, _prepare(tmp_path)['plan'])
-    assert code == 0 and f'FlowGuard（since task start {head[:7]}）' in text.splitlines(), text
+    assert code == 0 and text.splitlines()[0].startswith(f'FlowGuard（since task start {head[:7]}）') \
+        and re.search(r'; [0-9]+\.[0-9]{3} s$', text.splitlines()[0]), text
 
 
 def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tmp_path):
@@ -297,12 +307,12 @@ def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tm
     assert (point['fn'], point['bounds']) == ('over', [4]), point     # the folded value of the changed constant
 
 
-def test_a_function_that_names_a_database_client_is_planned_but_never_replayed(tmp_path):
+def test_a_function_that_names_a_database_client_is_not_executed_in_a_project_module(tmp_path):
     _commit(tmp_path, {'src/effects/audited.ts': FEES['src/effects/audited.ts']})
     _sensor(tmp_path, 'src/effects/audited.ts', 'export function activeCount', 'ACTIVE_COUNT')
     plan = json.loads(Path(_prepare(tmp_path)['plan']).read_text(encoding='utf-8'))
     [point] = [point for entry in plan['files'].values() for point in entry['points']]
-    assert point['skip'] == 'unavailable: function uses a database client; not replayed', point
+    assert point['skip'] == 'uses nonliteral constant prisma' and point['source'] == '', point
 
 
 # ---- init ---------------------------------------------------------------------------------------------
@@ -978,41 +988,47 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
     code, text = _vitest(root, vitest_home)
     assert code == 1, text
-    # the smallest differing input, as the pytest side picks it; the copies differ for members after day 3
-    assert ('red: same-name anchor LATE_FEE：days=3.01, member=T, 2 copies: 1 copies return 5.01 (src/fees/late-fee.ts:4 lateFee), 1 copies return 5.02 (src/preview/fee-preview.ts:3 lateFee) -> first decide which copy is correct, then make the other copy agree with it; if intentionally different, use different names') in text, text     # TS has no distinct
-    assert 'red: FEE_WINDOW: days=6 member=T -> rule 8, code 11（src/preview/fee-preview.ts:3 lateFee）' in text, text
+    # Samples come from real calls and their numeric neighbours, not the retired fractional grid.
+    assert 'before: same-name anchor LATE_FEE: days=5, member=T' in text, text
+    assert 'red: FEE_WINDOW: days=5 member=T -> rule 7, code 9（src/preview/fee-preview.ts:3 lateFee）' in text, text
     assert 'FEE_WINDOW source: assumed: three free days, then 5 plus 1 a day for members and 2 a day for others' in text, text
     _commit(root, message='sensors')
     late = root / 'src/fees/late-fee.ts'
     late.write_text(late.read_text(encoding='utf-8').replace('days > FREE_DAYS', 'days >= FREE_DAYS'), encoding='utf-8')
+    test = root / 'tests/fees.test.ts'
+    test.write_text(test.read_text().replace('expect(lateFee(2, true)).toBe(0);', 'expect(lateFee(2, true)).toBe(0); expect(lateFee(3, false)).toBe(5);'))
     code, text = _vitest(root, vitest_home)
     assert code == 1, text
-    assert 'changed: LATE_FEE（src/fees/late-fee.ts:4）compared 12 classes (partition incomplete); changed 2 classes：days=3，member=F and 2 classes; function result 0 → 5' in text, text
+    assert 'changed: LATE_FEE' in text and 'days=3' in text and 'function result 0 → 5' in text, text
     assert 'red: FEE_WINDOW: days=3 member=F -> rule 0, code 5（src/fees/late-fee.ts:4 lateFee）' in text, text
     # the unchanged copy compared on every replayed class prints nothing of its own
     assert not [line for line in text.splitlines() if line.startswith('unverified') and 'fee-preview.ts' in line], text
 
 
 def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_change(vitest_home):
-    root = _fees_project(vitest_home, 'again')
-    _sensor(root, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
-    _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
+    root = vitest_home / 'again'
+    _commit(root, {
+        'package.json': '{"name":"again","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function enough(x: number) { return x > 3; }\n',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired agreeing copies')
+    other = root / 'src/b.ts'
+    other.write_text(other.read_text().replace('x > 3', 'x >= 3'))
     code, text = _vitest(root, vitest_home)
-    red = 'red: same-name anchor LATE_FEE：days=3.01, member=T, 2 copies: 1 copies return 5.01'
-    assert code == 1 and red in text, text
-    _commit(root, message='sensors')
-    # The static test's check --static recorded the task baseline; a commit keeps it, the next task moves it.
-    assert _flowguard(root, 'new-task')[0] == 0      # nothing changed against the baseline any more
+    assert code == 1 and 'red: same-name anchor LIMIT: x=3' in text, text
+    _commit(root, message='copies disagree')
+    assert _flowguard(root, 'new-task')[0] == 0
     code, text = _vitest(root, vitest_home)
-    assert code == 1 and red in text, text      # the registered copies still disagree: still red
-    preview = root / 'src/preview/fee-preview.ts'
-    preview.write_text(preview.read_text(encoding='utf-8').replace('(days - 3) * 2', '(days - 3) * (member ? 1 : 2)'),
-                       encoding='utf-8', newline='\n')
+    assert code == 0 and 'before: same-name anchor LIMIT: x=3' in text and 'red: same-name anchor' not in text, text
+    other.write_text(other.read_text().replace('x >= 3', 'x > 3'))
     _commit(root, message='the copies agree')
     assert _flowguard(root, 'new-task')[0] == 0
     code, text = _vitest(root, vitest_home)
     assert code == 0 and 'same-name anchor' not in text, text
-    assert _prepare(root) == {'status': 'off', 'reason': 'no TS/JS changes since baseline; execution preparation is skipped'}   # compared, agreed: cleared
+    assert _prepare(root)['status'] == 'on'  # registered copies are checked even when no source changed
 
 
 ISO_WEEK = '''
@@ -1039,7 +1055,7 @@ def test_a_same_name_red_names_an_input_next_to_the_one_the_test_used_and_fails_
         'src/calendar.ts': ISO_WEEK + '''
             // flowguard: sensor ISO_WEEKS_IN_YEAR
             export function weekCount(year: number): number {
-              return isoWeek(new Date(Date.UTC(year, 11, 31)));
+              return isoWeek(new Date(Date.UTC(year, 11, 28)));
             }
         ''',
         'tests/chart.test.ts': '''
@@ -1053,12 +1069,14 @@ def test_a_same_name_red_names_an_input_next_to_the_one_the_test_used_and_fails_
     })
     code, text = _flowguard(root, 'init')
     assert code == 0, text
+    calendar = root / 'src/calendar.ts'
+    calendar.write_text(calendar.read_text().replace('year, 11, 28', 'year, 11, 31'))
     run = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', '--reporter=default',
                           '--reporter=json', '--outputFile.json=results.json'], cwd=root, capture_output=True, encoding='utf-8',
                          timeout=600, env=_environment())
     text = display_text(run.stdout + run.stderr)
     # 2025 is next to the 2026 the test used (2026 itself agrees: both count 53); year=0 would be read as 1900
-    red = ('red: same-name anchor ISO_WEEKS_IN_YEAR：year=2025, 2 copies: 1 copies return 52 (src/chart.ts:9 weeksInYear), 1 copies return 1 (src/calendar.ts:9 weekCount) -> first decide which copy is correct, then make the other copy agree with it; if intentionally different, use different names')
+    red = ('red: same-name anchor ISO_WEEKS_IN_YEAR: year=2025, 2 copies: 1 copies return 52 (src/chart.ts:9 weeksInYear), 1 copies return 1 (src/calendar.ts:9 weekCount) -> first decide which copy is correct, then make the other copy agree with it; if intentionally different, use different names')
     assert run.returncode == 1 and red in text, text
     results = json.loads((root / 'results.json').read_text(encoding='utf-8'))
     cases = {case['title']: case for result in results['testResults'] for case in result['assertionResults']}
@@ -1087,7 +1105,7 @@ def test_three_same_name_copies_are_counted_by_answer_and_the_red_leaves_the_cho
                         '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
         'src/chart.ts': ISO_WEEK + copy % ('weeksInYear', 28),
         'src/planner.ts': ISO_WEEK + copy % ('isoWeeks', 28),
-        'src/calendar.ts': ISO_WEEK + copy % ('weekCount', 31),
+        'src/calendar.ts': ISO_WEEK + copy % ('weekCount', 28),
         'tests/chart.test.ts': '''
             import { expect, it } from 'vitest';
             import { weeksInYear } from '../src/chart';
@@ -1099,10 +1117,12 @@ def test_three_same_name_copies_are_counted_by_answer_and_the_red_leaves_the_cho
     })
     code, text = _flowguard(root, 'init')
     assert code == 0, text
+    calendar = root / 'src/calendar.ts'
+    calendar.write_text(calendar.read_text().replace('year, 11, 28', 'year, 11, 31'))
     code, text = _vitest(root, vitest_home)
     red = list(dict.fromkeys(line for line in text.splitlines() if line.startswith('red: same-name anchor')))   # block and failed case
     assert code == 1 and red == [
-        'red: same-name anchor ISO_WEEKS_IN_YEAR：year=2025, 3 copies: 2 copies return 52 (src/chart.ts:9 weeksInYear, src/planner.ts:9 isoWeeks), 1 copies return 1 (src/calendar.ts:9 weekCount) -> first decide which copy is correct, then make the remaining copies agree with it; if intentionally different, use different names'], text
+        'red: same-name anchor ISO_WEEKS_IN_YEAR: year=2025, 3 copies: 2 copies return 52 (src/chart.ts:9 weeksInYear, src/planner.ts:9 isoWeeks), 1 copies return 1 (src/calendar.ts:9 weekCount) -> first decide which copy is correct, then make the remaining copies agree with it; if intentionally different, use different names'], text
 
 
 def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest_home):
@@ -1128,7 +1148,7 @@ def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest
     assert 'API_LIMIT' not in text and 'api/src' not in text, text      # no web test can reach the api package
 
 
-def test_a_replay_refuses_writes_and_database_clients_and_the_real_call_still_runs(vitest_home):
+def test_sealed_comparison_does_not_run_writes_or_database_clients_and_the_real_call_still_runs(vitest_home):
     root = _fees_project(vitest_home, 'effects')
     _sensor(root, 'src/effects/audited.ts', 'export function auditedFee', 'AUDITED_FEE')
     _sensor(root, 'src/effects/audited.ts', 'export function activeCount', 'ACTIVE_COUNT')
@@ -1136,8 +1156,8 @@ def test_a_replay_refuses_writes_and_database_clients_and_the_real_call_still_ru
     assert code == 0, text
     assert (root / 'audit.log').read_text(encoding='utf-8') == 'fee 4\n'         # only the test's own call wrote
     assert 'unverified 2 items (not passed)' in text, text
-    assert 'unverified: AUDITED_FEE：unavailable: replay encountered fs.appendFileSync; replay discarded' in text, text
-    assert 'unverified: ACTIVE_COUNT：unavailable: function uses a database client; not replayed' in text, text
+    assert 'unverified: AUDITED_FEE：uses imported or mutable binding appendFileSync' in text, text
+    assert 'unverified: ACTIVE_COUNT：uses nonliteral constant prisma' in text, text
 
 
 def test_the_adapter_spells_windows_and_vite_ids_as_one_file(tmp_path):
@@ -1150,3 +1170,319 @@ def test_the_adapter_spells_windows_and_vite_ids_as_one_file(tmp_path):
     run = subprocess.run([_tool('node'), str(tmp_path / 'probe.mjs')], capture_output=True, encoding='utf-8', timeout=60)
     assert run.returncode == 0, run.stdout + run.stderr
     assert json.loads(run.stdout) == ['c:/users/ann/src/a.ts'] * 4 + ['/home/ann/src/a.ts'], run.stdout
+
+
+def test_source_only_comparison_strips_types_keeps_defaults_and_same_file_helpers(tmp_path):
+    from flowguard.intent.vitest import ADAPTER, sealed_source
+    source, why = sealed_source(b'''
+        import './must-not-be-imported';
+        const SCALE = { value: 3 } as const;
+        function identity<T>(x: T): T { return x!; }
+        export const fee = (x: number = 2): number =>
+          (identity<number>(x) as number) * SCALE.value satisfies number;
+    ''', 'src/fee.ts', 'fee')
+    assert not why and 'import ' not in source, (source, why)
+    run = subprocess.run([_tool('node'), str(ADAPTER / 'sealed.mjs')],
+                         input=json.dumps([dict(source=source, fn='fee', args=[])]),
+                         text=True, capture_output=True, check=True, timeout=30)
+    assert json.loads(run.stdout) == [{'value': 6}], run.stdout + run.stderr
+
+
+@pytest.mark.parametrize('body,reason', [
+    ('return Date.now();', 'uses Date.now'),
+    ('return new Date().getTime();', 'uses Date without arguments'),
+    ('return Math.random();', 'uses Math.random'),
+    ('return require("node:fs");', 'require is not defined'),
+    ('return process.cwd();', 'process is not defined'),
+    ('return fetch("https://example.invalid");', 'fetch is not defined'),
+])
+def test_source_only_comparison_has_no_modules_or_implicit_clock(body, reason):
+    from flowguard.intent.vitest import ADAPTER
+    run = subprocess.run([_tool('node'), str(ADAPTER / 'sealed.mjs')],
+                         input=json.dumps([dict(source='function f() {' + body + '}', fn='f', args=[])]),
+                         text=True, capture_output=True, check=True, timeout=30)
+    [result] = json.loads(run.stdout)
+    assert result['error']['name'] == 'ReferenceError' and reason in result['error']['message'], result
+
+
+def test_records_twenty_distinct_primitive_calls_then_removes_its_wrapper(vitest_home):
+    root = vitest_home / 'record-limit'
+    _commit(root, {
+        'package.json': '{"name":"record-limit","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/sample.ts': '''
+            let calls = 0;
+            // flowguard: same SAMPLE
+            export function sample(n: number) { calls++; return n + 1; }
+            export function callCount() { return calls; }
+        ''',
+        'tests/app.test.ts': '''
+            import {it,expect} from 'vitest';
+            import fs from 'node:fs';
+            import path from 'node:path';
+            import * as app from '../src/sample';
+            it('records actual calls only, with the stated cap', () => {
+              const before = app.sample;
+              for (let i=0; i<25; i++) expect(app.sample(0)).toBe(1);
+              for (let i=0; i<21; i++) expect(app.sample(i)).toBe(i+1);
+              expect(app.sample).not.toBe(before);
+              expect(before(30)).toBe(31);
+              expect(app.callCount()).toBe(47);
+              const dir = process.env.FLOWGUARD_VITEST_OBS;
+              const records = fs.readdirSync(dir).filter(n=>n.endsWith('.jsonl')).flatMap(n=>
+                fs.readFileSync(path.join(dir,n),'utf8').trim().split('\\n').filter(Boolean).map(JSON.parse));
+              const calls = records.filter(r=>r.id?.endsWith(':sample') && 'args' in r);
+              expect(calls).toHaveLength(20);
+              expect(calls.map(r=>r.args[0])).toEqual(Array.from({length:20},(_,i)=>i));
+            });
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='recording fixture')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and 'uses imported or mutable binding calls' in text, text
+
+
+def test_nonprimitive_arguments_are_untouched_and_the_real_value_is_returned(vitest_home):
+    root = vitest_home / 'primitive-only'
+    _commit(root, {
+        'package.json': '{"name":"primitive-only","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/sample.ts': '''
+            // flowguard: same IDENTITY
+            export function identity(value: unknown) { return value; }
+        ''',
+        'tests/app.test.ts': '''
+            import {it,expect} from 'vitest';
+            import {identity} from '../src/sample';
+            it('does not inspect an object or proxy', () => {
+              let touches = 0;
+              const object = { get value() { touches++; return 2; }, toJSON() { touches++; return 2; } };
+              const proxy = new Proxy(object, { get() { touches++; throw new Error('read proxy'); },
+                ownKeys() { touches++; throw new Error('reflect proxy'); },
+                getPrototypeOf() { touches++; throw new Error('read prototype'); } });
+              expect(identity(proxy)).toBe(proxy);
+              expect(identity(object)).toBe(object);
+              expect(touches).toBe(0);
+            });
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='nonprimitive recording fixture')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and 'only primitive JSON arguments and results are recorded' in text, text
+
+
+@pytest.mark.parametrize('first', [0, 1])
+def test_copy_baseline_colour_uses_the_whole_name_not_the_first_witness(tmp_path, first):
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    _commit(tmp_path, {
+        'src/a.ts': '// flowguard: same LIMIT\nexport function f(x: number) { return x === 0 ? 0 : 1; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function g(x: number) { return x === 0 ? 0 : 2; }\n',
+    })
+    path = tmp_path / 'src/a.ts'
+    path.write_text(path.read_text().replace('? 0 : 1', '? 3 : 1'))
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    records = [dict(id='typescript/src/a.ts:f', args=[first], result=3 if first == 0 else 1)]
+    result = judge(load_config(tmp_path), data, records)
+    assert not result['red'] and len(result['before']) == 1, result
+    assert 'same-name anchor LIMIT' in result['before'][0], result
+
+
+def test_copy_baseline_that_cannot_be_sealed_is_not_called_unchanged(tmp_path):
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    _commit(tmp_path, {
+        'src/a.ts': '// flowguard: same LIMIT\nexport function f(x: number) { return getSetting(x); }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function g(x: number) { return x + 1; }\n',
+    })
+    path = tmp_path / 'src/a.ts'
+    path.write_text(path.read_text().replace('getSetting(x)', 'x + 2'))
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    result = judge(load_config(tmp_path), data, [dict(id='typescript/src/a.ts:f', args=[2], result=4)])
+    assert not result['red'] and not result['before'], result
+    assert any('baseline could not be compared' in line for line in result['unverified']), result
+    assert 'LIMIT' not in result['same_name_pairs']['compared'], result
+
+
+def test_a_new_copy_is_absent_at_baseline_rather_than_an_unavailable_old_function(tmp_path):
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    _commit(tmp_path, {'src/a.ts': '// flowguard: same LIMIT\nexport function f(x: number) { return x + 1; }\n'})
+    _write(tmp_path, {'src/b.ts': '// flowguard: same LIMIT\nexport function g(x: number) { return x + 2; }\n'})
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    result = judge(load_config(tmp_path), data, [dict(id='typescript/src/a.ts:f', args=[2], result=3)])
+    assert len(result['red']) == 1 and 'same-name anchor LIMIT' in result['red'][0], result
+    assert not result['before'], result
+
+
+@pytest.mark.parametrize('prefix,expression,name', [
+    ('import { Number } from "./dep";', 'Number(x)', 'Number'),
+    ('import { custom as Number } from "./dep";', 'Number(x)', 'Number'),
+    ('import Number from "./dep";', 'Number(x)', 'Number'),
+    ('import * as Math from "./dep";', 'Math.floor(x)', 'Math'),
+    ('let Number = (x: number) => 99;', 'Number(x)', 'Number'),
+    ('var Number = (x: number) => 99;', 'Number(x)', 'Number'),
+    ('if (true) { var Number = (x: number) => 99; }', 'Number(x)', 'Number'),
+    ('class Number { static value(x: number) { return 99; } }', 'Number.value(x)', 'Number'),
+    ('function helper(x: number) { return x; } helper = (x: number) => 99;', 'helper(x)', 'helper'),
+    ('function helper(x: number) { return x; } function replace() { helper = (x: number) => 99; }', 'helper(x)', 'helper'),
+])
+def test_sealed_source_does_not_replace_an_import_or_mutable_binding_with_a_builtin(prefix, expression, name):
+    from flowguard.intent.vitest import sealed_source
+    source, reason = sealed_source((prefix + '\nexport function f(x: number) { return ' + expression + '; }').encode(), 'src/f.ts', 'f')
+    assert source == '' and reason == 'uses imported or mutable binding ' + name, (source, reason)
+
+
+def test_an_unused_aliased_import_does_not_hide_the_real_builtin():
+    from flowguard.intent.vitest import sealed_source
+    source, reason = sealed_source(b'import { Number as Custom } from "./dep"; export function f(x: string) { return Number(x); }', 'src/f.ts', 'f')
+    assert not reason and 'return Number(x)' in source and 'Custom' not in source, (source, reason)
+
+
+def test_negative_zero_is_not_encoded_as_positive_zero(vitest_home):
+    root = vitest_home / 'negative-zero'
+    _commit(root, {
+        'package.json': '{"name":"negative-zero","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/sample.ts': '''
+            // flowguard: same IDENTITY_NUMBER
+            export function identity(x: number) { return x; }
+            // flowguard: same NEGATIVE_NUMBER
+            export function negative(x: number) { return -0; }
+        ''',
+        'tests/app.test.ts': '''
+            import {it,expect} from 'vitest'; import fs from 'node:fs'; import path from 'node:path';
+            import {identity,negative} from '../src/sample';
+            it('preserves real negative zero without claiming comparable transport', () => {
+              expect(Object.is(identity(-0),-0)).toBe(true);
+              expect(Object.is(negative(1),-0)).toBe(true);
+              expect(identity(1)).toBe(1);
+              expect(identity(-Number.MIN_VALUE)).toBe(-Number.MIN_VALUE);
+              const dir=process.env.FLOWGUARD_VITEST_OBS;
+              const records=fs.readdirSync(dir).filter(n=>n.endsWith('.jsonl')).flatMap(n=>
+                fs.readFileSync(path.join(dir,n),'utf8').trim().split('\\n').filter(Boolean).map(JSON.parse));
+              const values=records.filter(r=>'args' in r);
+              expect(values).toHaveLength(2); expect(values[0].args).toEqual([1]); expect(values[0].result).toBe(1);
+              expect(values[1].args).toEqual([-Number.MIN_VALUE]); expect(values[1].result).toBe(-Number.MIN_VALUE);
+              expect(records.filter(r=>r.reason)).toHaveLength(2);
+            });
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='negative zero fixture')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and 'only primitive JSON arguments and results are recorded' in text, text
+    from flowguard.intent.vitest import ADAPTER
+    run = subprocess.run([_tool('node'), str(ADAPTER / 'sealed.mjs')],
+                         input=json.dumps([dict(source='function f(x) { return -0; }', fn='f', args=[1])]),
+                         capture_output=True, text=True, check=True, timeout=30)
+    assert json.loads(run.stdout) == [{'reason': 'negative zero is not compared'}], run.stdout
+
+
+def test_unsealable_imports_still_leave_real_primitive_calls_for_intent_rules(vitest_home):
+    root = vitest_home / 'imported-rule'
+    _commit(root, {
+        'package.json': '{"name":"imported-rule","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/sample.ts': '''
+            import {Number} from './dep';
+            // flowguard: same CALC
+            export function calc(x: number) { return x + 1; }
+        ''',
+        'src/dep.ts': 'export const Number = (x: number) => 99;\n',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {calc} from '../src/sample'; it('actual result',()=>expect(calc(5)).toBe(6));\n",
+        'tests/intent/calc.py': '''
+            from flowguard.intent import rule
+            @rule('CALC_RULE', decides='next value', fields={'x': int}, anchor='CALC', source='assumed: the result is the input plus one')
+            def expected(x):
+                return x + 1
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='intent fixture baseline')
+    path = root / 'src/sample.ts'
+    path.write_text(path.read_text().replace('return x + 1', 'return Number(x)'))
+    path = root / 'tests/app.test.ts'
+    path.write_text(path.read_text().replace('toBe(6)', 'toBe(99)'))
+    code, text = _vitest(root, vitest_home)
+    assert code == 1 and 'red: CALC_RULE: x=5 -> rule 6, code 99' in text, text
+    assert 'uses imported or mutable binding Number' in text, text
+
+
+def test_a_real_same_file_helper_named_number_does_not_replace_the_comparison_codec():
+    from flowguard.intent.vitest import ADAPTER, sealed_source
+    source, reason = sealed_source(b'function Number(x: number) { return x + 10; } export function f(x: number) { return Number(x); }', 'src/f.ts', 'f')
+    assert not reason, reason
+    run = subprocess.run([_tool('node'), str(ADAPTER / 'sealed.mjs')],
+                         input=json.dumps([dict(source=source, fn='f', args=[5])]), capture_output=True,
+                         text=True, check=True, timeout=30)
+    assert json.loads(run.stdout) == [{'value': 15}], run.stdout + run.stderr
+
+
+def test_literal_arithmetic_uses_the_existing_folder_without_running_calls():
+    import ast
+    from flowguard.intent.vitest import ADAPTER, sealed_source
+    from flowguard.structure.api import _expression
+    cached = ast.dump(_expression('HOURS * MINUTES * 60 * 1000'))
+    source, reason = sealed_source(b'''
+        const HOURS = 24;
+        const MINUTES = 60;
+        const MS_PER_DAY = HOURS * MINUTES * 60 * 1000;
+        const ROUNDED = 9007199254740992 + 1 - 9007199254740992;
+        export function duration(days: number) { return days * MS_PER_DAY + ROUNDED; }
+    ''', 'src/duration.ts', 'duration')
+    assert not reason and 'const MS_PER_DAY = 86400000;' in source and 'const ROUNDED = 0;' in source, (source, reason)
+    run = subprocess.run([_tool('node'), str(ADAPTER / 'sealed.mjs')],
+                         input=json.dumps([dict(source=source, fn='duration', args=[2])]), capture_output=True,
+                         text=True, check=True, timeout=30)
+    assert json.loads(run.stdout) == [{'value': 172800000}], run.stdout
+    assert ast.dump(_expression('HOURS * MINUTES * 60 * 1000')) == cached
+    for expression in ('Date.now()', 'Math.floor(2)', 'config.value', 'getHours() * 60'):
+        source, reason = sealed_source(('const TIME = ' + expression + '; export function f(x: number) { return x * TIME; }').encode(), 'src/f.ts', 'f')
+        assert not source and reason == 'uses nonliteral constant TIME', (source, reason)
+
+
+def test_prepare_replaces_cached_timing_and_old_and_new_wrappers_share_one_value(tmp_path):
+    from flowguard.intent.vitest import ADAPTER
+    _commit(tmp_path, {'src/a.ts': '// flowguard: same LIMIT\nexport function f(x: number) { return x > 3; }\n'})
+    first = _prepare(tmp_path)
+    path = Path(first['plan'])
+    data = json.loads(path.read_text())
+    data['prepare_seconds'] = 9999
+    path.write_text(json.dumps(data))
+    second = _prepare(tmp_path)
+    data = json.loads(path.read_text())
+    assert second['plan'] == first['plan'] and second['seconds'] == data['prepare_seconds'] and 0 <= second['seconds'] < 9999
+    script = '''
+        import {flowguardPlugin} from @INDEX@;
+        const options = {plan: @PLAN@, python: ['python'], root: @ROOT@};
+        flowguardPlugin(options).config();
+        const legacy = Number(process.env.FLOWGUARD_VITEST_PREPARE_SECONDS);
+        flowguardPlugin({...options, prepareSeconds: @SECONDS@}).config();
+        console.log(JSON.stringify([legacy, Number(process.env.FLOWGUARD_VITEST_PREPARE_SECONDS)]));
+    '''.replace('@INDEX@', json.dumps((ADAPTER / 'index.mjs').as_uri())).replace('@PLAN@', json.dumps(str(path))).replace('@ROOT@', json.dumps(str(tmp_path))).replace('@SECONDS@', json.dumps(second['seconds']))
+    run = subprocess.run([_tool('node'), '--input-type=module', '-e', script], text=True, capture_output=True, check=True, timeout=30)
+    assert json.loads(run.stdout) == [second['seconds'], second['seconds']], run.stdout + run.stderr
+
+
+def test_existing_wrapper_without_the_timing_argument_receives_this_preparations_time(vitest_home):
+    root = vitest_home / 'old-wrapper-timing'
+    _commit(root, {
+        'package.json': '{"name":"old-wrapper-timing","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/sample.ts': '// flowguard: same VALUE\nexport function value(x: number) { return x; }\n',
+        'tests/app.test.ts': '''
+            import {it,expect} from 'vitest'; import fs from 'node:fs';
+            import {value} from '../src/sample';
+            it('keeps the value and receives current preparation time', () => {
+              expect(value(4)).toBe(4);
+              const plan=JSON.parse(fs.readFileSync(process.env.FLOWGUARD_VITEST_PLAN,'utf8'));
+              const seconds=Number(process.env.FLOWGUARD_VITEST_PREPARE_SECONDS);
+              expect(seconds).toBeGreaterThan(0); expect(seconds).toBe(plan.prepare_seconds);
+            });
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    wrapper = root / 'flowguard.vitest.mjs'
+    wrapper.write_text(wrapper.read_text().replace(', prepareSeconds: answer.seconds', ''))
+    assert 'prepareSeconds' not in wrapper.read_text()
+    _commit(root, message='legacy wrapper fixture')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0, text

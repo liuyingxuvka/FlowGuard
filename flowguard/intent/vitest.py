@@ -1,18 +1,7 @@
-"""The execution side for TS/JS projects tested with vitest (minimal: vitest and ESM only; jest stays static).
+"""Vitest records real primitive calls; after tests, Python judges source-only sealed comparisons.
 
-`prepare` runs when vitest loads its config (`flowguard.vitest.mjs`, written by `init`). With no TS/JS change
-against the task baseline it answers `off` after one `git diff` and nothing is wrapped, unless same-name sensors
-disagreed in the last report (`DISAGREED`): those are compared again. Otherwise it plans,
-as the pytest side does, the anchored functions (`// flowguard: same NAME`) and the functions this change
-edited: their positional parameters, representative values from cells (the compared constants of the map's
-ecma facts, folded names and table keys included), same-name copies and the baseline sources. The plan is
-cached by a fingerprint of the baseline commit (and whether it is a recorded task start or HEAD standing in),
-the changed files and the reader.
-
-`report` runs after the tests. It reads what the Node adapter recorded and makes every judgment the way the
-pytest side does: what changed against the baseline per case class, which same-name sensors disagree, which
-rules the observed calls violate, and what stayed unverified. signals.render prints the usual lines.
-Usage: python -m flowguard.intent.vitest prepare --root ROOT | report --root ROOT --plan PLAN --observations DIR
+The Vite transform never imports baseline or copy modules. Python reads their source with the existing
+reader, passes extracted functions to a separate Node vm, and reports through the shared signals owner.
 """
 from __future__ import annotations
 
@@ -23,21 +12,15 @@ import math
 import re
 import shutil
 import sys
+import time
 from pathlib import Path
 
 from .config import INIT_MARK, RECORDED_PYTHON
 
 ADAPTER = Path(__file__).resolve().parents[1] / 'adapters' / 'vitest'
-LIMIT = 512                                      # representative combinations one replayed call may run
+LIMIT = 64                                       # same-name inputs, after the real tests
 STRING_CONTEXTS = frozenset({'compare', 'case', 'member', 'set'})
-# A function whose code or callees name a database client is never replayed: a connection opened before the
-# replay cannot be refused by the Node guard.
-DATABASE = re.compile(r'\b(?:prisma|PrismaClient|centralPrisma|knex|sequelize|mongoose|typeorm|drizzle|mssql|tedious|'
-                      r'pg|mysql2?|sqlite3?|redis|ioredis)\b|\$transaction|\$queryRaw')
 WRAPPABLE = ('function_declaration', 'generator_function_declaration')
-# The map's meta key holding {sensor name: red line} of the same-name sensors whose last comparison disagreed:
-# `prepare` compares them again in a run without a TS/JS change, `report` keeps it current.
-DISAGREED = 'vitest_same_name_disagreed'
 
 
 # ---- prepare ----------------------------------------------------------------------------------------
@@ -113,47 +96,154 @@ def declarations(data, rel):
     return found
 
 
-def _number_values(consts, copies):
-    """cells.points over the compared constants: c-1, c, c+1 and c-0.01, c, c+0.01 (a TS number is both an int
-    and a float), far below and above, 0; same-name copies also run the fixed representatives."""
-    from . import cells as C
-    numbers = [value for value in consts if isinstance(value, (int, float)) and not isinstance(value, bool)]
-    out = []
-    if numbers and all(isinstance(value, int) for value in numbers):
-        out += C.points(C.Kind('int'), numbers)
-    if numbers:
-        out += C.points(C.Kind('float'), [float(value) for value in numbers])
-    if copies:
-        out += C.representatives(C.Kind('float'))
-    seen, values = set(), []
-    for value in out:
-        value = int(value) if isinstance(value, float) and value.is_integer() else value
-        encoded = _encode(value)
-        if json.dumps(encoded) not in seen:
-            seen.add(json.dumps(encoded))
-            values.append(encoded)
-    return values
-
-
-def _encode(value):
-    if isinstance(value, float) and not math.isfinite(value):
-        return {'$num': 'NaN' if math.isnan(value) else 'Infinity' if value > 0 else '-Infinity'}
-    return value
-
-
-def _database(graph, ident, text):
-    """Why a function is not replayed: its own code or a function it calls (three levels, by name) names a
-    database client; '' otherwise."""
-    if DATABASE.search(text):
-        return 'unavailable: function uses a database client; not replayed'
-    for callee in graph.call_tree(ident, depth=3):
-        found = graph.node(callee)
-        if callee == ident or not found or not found.get('file') or found['kind'] not in ('function', 'method'):
+def sealed_source(data, rel, name):
+    """Only the selected function, same-file helpers, and literal constants; never module imports."""
+    from ..structure.readers.common import parse, text, walk
+    from ..structure.readers.registry import language_for
+    source, tree = parse(data, language_for(rel))
+    found = declarations(data, rel)
+    constants, blocked = {}, set()
+    for statement in tree.root_node.named_children:
+        inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+        if inner is None:
             continue
-        lines = (graph.root / found['file']).read_text(encoding='utf-8').splitlines()
-        if DATABASE.search('\n'.join(lines[found['line'] - 1:found['end_line']])):
-            return f'unavailable: called function {found["qual"]}（{found["file"]}) uses a database client; not replayed'
-    return ''
+        if inner.type == 'import_statement':
+            clause = next((child for child in inner.named_children if child.type == 'import_clause'), None)
+            for item in clause.named_children if clause is not None else ():
+                if item.type == 'identifier':
+                    blocked.add(text(item, source))
+                elif item.type == 'namespace_import':
+                    blocked.add(text(item.named_children[-1], source))
+                else:
+                    for spec in item.named_children:
+                        alias = spec.child_by_field_name('alias') or spec.child_by_field_name('name')
+                        if alias is not None:
+                            blocked.add(text(alias, source))
+        if inner.type in ('class_declaration', 'abstract_class_declaration', 'enum_declaration', 'internal_module'):
+            name_node = inner.child_by_field_name('name')
+            if name_node is not None:
+                blocked.add(text(name_node, source))
+        if inner.type not in ('lexical_declaration', 'variable_declaration'):
+            continue
+        immutable = text(inner, source).startswith('const')
+        for item in inner.named_children:
+            key, value = item.child_by_field_name('name'), item.child_by_field_name('value')
+            if key is not None and immutable and key.type == 'identifier' and value is not None:
+                constants[text(key, source)] = value
+            elif key is not None:
+                blocked.update(text(child, source) for child in walk(key)
+                               if child.type in ('identifier', 'shorthand_property_identifier_pattern'))
+    pending_bindings = list(tree.root_node.named_children)
+    while pending_bindings:
+        node = pending_bindings.pop()
+        if node.type in ('function_declaration', 'generator_function_declaration', 'arrow_function', 'function_expression',
+                         'function', 'class_declaration', 'abstract_class_declaration'):
+            continue
+        if node.type == 'variable_declarator' and node.parent.type == 'variable_declaration':
+            key = node.child_by_field_name('name')
+            if key is not None:
+                blocked.update(text(child, source) for child in walk(key) if child.type == 'identifier')
+        if node.type in ('assignment_expression', 'augmented_assignment_expression', 'update_expression'):
+            target = node.child_by_field_name('left') or node.child_by_field_name('argument')
+            while target is not None and target.type in ('member_expression', 'subscript_expression'):
+                target = target.child_by_field_name('object')
+            if target is not None and target.type == 'identifier':
+                blocked.add(text(target, source))
+        pending_bindings.extend(node.named_children)
+    module_names = found.keys() | constants.keys() | blocked
+    for node in walk(tree.root_node):
+        if node.type in ('assignment_expression', 'augmented_assignment_expression', 'update_expression'):
+            target = node.child_by_field_name('left') or node.child_by_field_name('argument')
+            while target is not None and target.type in ('member_expression', 'subscript_expression'):
+                target = target.child_by_field_name('object')
+            if target is not None and target.type == 'identifier' and text(target, source) in module_names:
+                blocked.add(text(target, source))
+    if name not in found:
+        return '', 'only module-level functions can be compared'
+    omitted = {'type_annotation', 'type_parameters', 'type_arguments'}
+    wrappers = {'as_expression', 'satisfies_expression', 'non_null_expression'}
+    forbidden = {'enum_declaration', 'internal_module', 'decorator', 'jsx_element', 'jsx_self_closing_element', 'meta_property',
+                 'accessibility_modifier', 'readonly', 'this', 'await_expression', 'yield_expression'}
+    def stripped(node):
+        if node.type in omitted or (node.type == '?' and node.parent.type == 'optional_parameter'):
+            return ''
+        if node.type in wrappers:
+            return stripped(node.named_children[0])
+        parts, at = [], node.start_byte
+        for child in node.children:
+            parts.extend((source[at:child.start_byte].decode(), stripped(child)))
+            at = child.end_byte
+        parts.append(source[at:node.end_byte].decode())
+        return ''.join(parts)
+    def literal(node):
+        if node.type in wrappers:
+            return literal(node.named_children[0])
+        if node.type in ('string', 'number', 'true', 'false', 'null'):
+            return True
+        if node.type in ('array', 'object', 'pair'):
+            return all(literal(child) or child.type == 'property_identifier' for child in node.named_children)
+        return node.type == 'unary_expression' and text(node, source)[:1] in '+-' and all(literal(child) for child in node.named_children)
+    # Reuse the reader's literal folder, without admitting calls, attributes or dynamic bindings.
+    import ast
+    from ..structure import features
+    from ..structure.api import _expression
+    folded, environment = {}, {}
+    arithmetic = (ast.Constant, ast.Name, ast.Load, ast.BinOp, ast.UnaryOp,
+                  ast.Add, ast.Sub, ast.Mult, ast.Div, ast.USub, ast.UAdd)
+    def number_ast(node):
+        if isinstance(node, ast.BinOp):
+            return ast.BinOp(number_ast(node.left), node.op, number_ast(node.right))
+        if isinstance(node, ast.UnaryOp):
+            return ast.UnaryOp(node.op, number_ast(node.operand))
+        if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+            return ast.Constant(float(node.value))
+        return node
+    for constant, node in constants.items():
+        expression = _expression(stripped(node))
+        if constant in blocked or expression is None or any(not isinstance(part, arithmetic) for part in ast.walk(expression)):
+            continue
+        numeric = [part for part in ast.walk(expression) if isinstance(part, ast.Constant) and type(part.value) in (int, float)]
+        if any(abs(part.value) > sys.float_info.max for part in numeric):
+            continue
+        # Preserve the reader's cached AST; JS Number rounds each step, not only the final value.
+        value = features.fold(number_ast(expression), environment, {})
+        if value is not None and (value[0] == 'str' or value[0] == 'num' and math.isfinite(value[1])):
+            environment[constant] = value
+            primitive = value[1]
+            if type(primitive) is float and primitive.is_integer() and not (primitive == 0 and math.copysign(1, primitive) < 0):
+                primitive = int(primitive)
+            folded[constant] = json.dumps(primitive, ensure_ascii=False)
+    pending, used, pieces = [name], set(), []
+    while pending:
+        current = pending.pop()
+        if current in used:
+            continue
+        used.add(current)
+        if current in blocked:
+            return '', 'uses imported or mutable binding ' + current
+        if current in found:
+            function = found[current]
+            node = function['node']
+            bad = next((child.type for child in walk(node) if child.type in forbidden), None)
+            shadowed = sorted({text(child, source) for child in walk(node)
+                               if child.type in ('identifier', 'shorthand_property_identifier') and text(child, source) in blocked})
+            if shadowed:
+                return '', 'uses imported or mutable binding ' + shadowed[0]
+            if function['is_async'] or 'generator' in node.type or bad:
+                return '', 'unsupported ' + (bad or 'async or generator')
+            code = stripped(node)
+            pieces.append(code if function['form'] == 'function' else f'const {current} = {code};')
+            pending.extend(text(child, source) for child in walk(node)
+                           if child.type == 'identifier' and text(child, source) in found.keys() | constants.keys())
+        else:
+            node = constants[current]
+            if current in folded:
+                pieces.append(f'const {current} = {folded[current]};')
+            elif literal(node):
+                pieces.append(f'const {current} = {stripped(node)};')
+            else:
+                return '', 'uses nonliteral constant ' + current
+    return '\n'.join(reversed(pieces)), ''
 
 
 def _top_level(qual):
@@ -189,6 +279,8 @@ def plan(cfg, commit, changed, key):
         for rel in changed:
             if rel not in modules or is_test_rel(rel) or not (cfg.root / rel).is_file():
                 continue
+            if (cfg.root / rel).read_text(encoding='utf-8-sig').startswith(INIT_MARK):
+                continue  # FlowGuard's generated wiring is not an application probe.
             old = git_blob(cfg.root, commit, rel)
             old_sources[rel] = old
             before = extract(cfg.root, rel, old, modules[rel], False) if old is not None else dict(nodes=[], const_tables=[])
@@ -231,98 +323,70 @@ def plan(cfg, commit, changed, key):
                 unplanned.append(dict(id=ident, name=name, rel=rel, line=line,
                                       reason='only module-level function f and const f = (...) => are observed; this function is not wrapped'))
                 continue
-            if not anchored and not found['params']:
-                continue                # like the pytest side: a changed function without inputs is not observed
-            lines = (cfg.root / rel).read_text(encoding='utf-8').splitlines()
-            node = found['node']
-            body = '\n'.join(lines[node.start_point.row:node.end_point.row + 1])
-            skip = 'unavailable: async function returns a Promise; not replayed' if found['is_async'] else _database(graph, ident, body)
+            closed, skip = sealed_source((cfg.root / rel).read_bytes(), rel, qual)
+            from ..structure.readers.common import parse, walk, text
+            from ..structure.readers.ecma import literal
+            code, closed_tree = parse(closed.encode(), 'javascript')
+            extra_numbers = []
+            for token in walk(closed_tree.root_node):
+                valid, number = literal(token, code) if token.type == 'number' else (False, None)
+                if valid and type(number) in (int, float) and math.isfinite(number):
+                    if token.parent.type == 'unary_expression' and text(token.parent, code).startswith('-'):
+                        number = -number
+                    extra_numbers.append(number)
+            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, rel)
+            prior, old_skip = (sealed_source(old, rel, qual) if old is not None and qual in declarations(old, rel)
+                               else ('', 'function absent at baseline'))
             points.append(dict(id=ident, name=name, anchored=anchored, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
-                               consts=numbers.get((rel, qual), []), labels=sorted(set(strings.get((rel, qual), [])))))
+                               recordable=(not found['is_async'] and 'generator' not in found['node'].type
+                                           and skip != 'uses imported or mutable binding ' + qual),
+                               source=closed, old_source=prior, old_skip=old_skip,
+                               changed=(rel in changed and (old is None or closed != prior)),
+                               consts=numbers.get((rel, qual), []) + extra_numbers, labels=sorted(set(strings.get((rel, qual), [])))))
     groups = {}
     for point in points:
         if point['anchored']:
             groups.setdefault(point['name'], []).append(point)
-    copy_files = sorted({point['file'] for group in groups.values() if len(group) > 1 for point in group})
     files = {}
-    baselines = []
     from .cells import OTHER
     shared = {point['id']: (list(point['consts']), list(point['labels'])) for point in points}
     for point in points:
         peers = [other for other in groups.get(point['name'], ()) if other is not point] if point['anchored'] else []
         consts = point.pop('consts') + [value for other in peers for value in shared[other['id']][0]]
         labels = sorted(set(point.pop('labels')).union(*(shared[other['id']][1] for other in peers)))
-        point.update(numbers=_number_values(consts, bool(peers)), strings=labels + [OTHER] if labels else [],
+        point.update(numbers=sorted({value for value in consts if type(value) in (int, float) and math.isfinite(value)}), strings=labels + [OTHER] if labels else [],
                      bounds=sorted({value for value in consts if isinstance(value, (int, float)) and not isinstance(value, bool)}),
-                     copies=[dict(id=other['id'], fn=other['fn'], params=other['params'], index=copy_files.index(other['file']))
+                     copies=[dict(id=other['id'], fn=other['fn'], params=other['params'])
                              for other in peers])
     for point in points:
-        entry = files.get(point['file'])
-        if entry is None:
-            old = old_sources[point['rel']] if point['rel'] in old_sources else git_blob(cfg.root, commit, point['rel'])
-            if old is not None:
-                baselines.append(dict(file=point['file'], text=old.decode('utf-8'),
-                                      functions=sorted(declarations(old, point['rel']))))
-            entry = files[point['file']] = dict(baseline=len(baselines) - 1 if old is not None else None, points=[])
-        entry['points'].append(point)
-    return dict(key=key, root=cfg.root.as_posix(), baseline=commit, limit=LIMIT, files=files, baselines=baselines,
-                copy_files=copy_files, unplanned=unplanned)
-
-
-def disagreed(cfg):
-    """{sensor name: red line} of the same-name sensors whose last vitest comparison disagreed."""
-    from contextlib import closing
-    import sqlite3
-    path = cfg.cache / 'map.sqlite'
-    if not path.is_file():
-        return {}
-    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
-        if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
-            return {}
-        row = con.execute('SELECT v FROM meta WHERE k=?', (DISAGREED,)).fetchone()
-    return json.loads(row[0]) if row else {}
-
-
-def _remember_disagreed(cfg, data, same_name):
-    """Keep the record of disagreeing same-name sensors: this run's disagreements, and the earlier ones
-    this run did not compare while they are still planned (anchored)."""
-    from contextlib import closing
-    from .cache import put_meta
-    from ..structure.store import connect
-    before = disagreed(cfg)
-    planned = {point['name'] for entry in data['files'].values() for point in entry['points'] if point['anchored']}
-    now = {name: line for name, line in before.items() if name in planned and name not in same_name['compared']}
-    now.update(same_name['disagreed'])
-    if now != before:
-        with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
-            put_meta(con, DISAGREED, json.dumps(now, ensure_ascii=False, sort_keys=True))
+        files.setdefault(point['file'], dict(points=[]))['points'].append(point)
+    return dict(key=key, root=cfg.root.as_posix(), baseline=commit, limit=LIMIT, files=files, unplanned=unplanned)
 
 
 def prepare(root):
     """{'status': 'off', 'reason'} without a TS/JS change, else {'status': 'on', 'plan', 'adapter'}."""
     from . import cache
     from .config import load_config
-    from ..map.common import git_common_directory, git_run
+    from ..map.common import atomic_write_text, git_common_directory, git_run
+    started = time.perf_counter()
+    def answer(**values):
+        return dict(values, seconds=time.perf_counter() - started)
     cfg = load_config(root)
     if git_common_directory(cfg.root) is None:
-        return dict(status='off', reason='not a git repository: no baseline commit; execution comparison is off')
+        return answer(status='off', reason='not a git repository: no baseline commit; execution comparison is off')
     # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
     # stands in, and the title says so.
     baseline, kind = cache.task_baseline(cfg)
     if kind == 'missing':
-        return dict(status='off', reason=f'recorded task baseline {baseline[:7]} is not in this repository: execution comparison is off; first run python -m flowguard new-task')
+        return answer(status='off', reason=f'recorded task baseline {baseline[:7]} is not in this repository: execution comparison is off; first run python -m flowguard new-task')
     found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (baseline or 'HEAD') + '^{commit}', allowed=(0, 1))
     if found.returncode:
-        return dict(status='off', reason='no commits yet: no baseline; execution comparison is off')
+        return answer(status='off', reason='no commits yet: no baseline; execution comparison is off')
     commit = found.stdout.decode().strip()
     changed = _changed(cfg, commit)
-    again = sorted(disagreed(cfg)) if not changed else []
-    if not changed and not again:
-        return dict(status='off', reason='no TS/JS changes since baseline; execution preparation is skipped')
-    # Without a change, the same-name sensors that disagreed last time are compared again (every sensor is
-    # planned, as in a run with a change); the record clears once they agree or are no longer anchored.
-    key = _key(cfg, commit, changed or ['same-name:' + name for name in again], kind)
+    # Same-name functions are always planned, including runs without a source change.
+    key = _key(cfg, commit, changed, kind)
     path = cfg.cache / 'vitest' / f'plan-{key}.json'
     if not path.is_file():
         data = plan(cfg, commit, changed, key)
@@ -330,12 +394,14 @@ def prepare(root):
         path.parent.mkdir(parents=True, exist_ok=True)
         for old in path.parent.glob('plan-*.json'):
             old.unlink()                # one current plan; an older one belongs to another change
-        path.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
     else:
         data = json.loads(path.read_text(encoding='utf-8'))
+    data['prepare_seconds'] = time.perf_counter() - started
+    atomic_write_text(path, json.dumps(data, ensure_ascii=False))
     if not data['files'] and not data['unplanned']:
-        return dict(status='off', reason='no functions to observe in this change (anchors or changed module-level functions)')
-    return dict(status='on', plan=path.as_posix(), adapter=(ADAPTER / 'index.mjs').as_posix())
+        return dict(status='off', reason='no functions to observe in this change (anchors or changed module-level functions)',
+                    seconds=data['prepare_seconds'])
+    return dict(status='on', plan=path.as_posix(), adapter=(ADAPTER / 'index.mjs').as_posix(), seconds=data['prepare_seconds'])
 
 
 # ---- init: wire the plugin into the vitest config ---------------------------------------------------
@@ -343,8 +409,8 @@ def prepare(root):
 GENERATED = INIT_MARK + ': FlowGuard\'s execution side for vitest (minimal: vitest, ESM).'
 MODULE = GENERATED + '''
 // The vitest config imports this file and lists flowguard() in its plugins: two lines marked `flowguard: vitest`.
-// Delete those two lines to undo. With no TS/JS change against the task baseline it adds nothing; otherwise it
-// wraps the functions anchored with a `flowguard: same NAME` comment and the changed ones, and FlowGuard's lines follow
+// Delete those two lines to undo. It records functions marked `flowguard: same NAME` and changed functions;
+// without either it adds nothing. Comparison runs after the tests, and FlowGuard's lines follow
 // the test summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
 // interpreter that ran `flowguard init` on this machine, recorded in @RECORDED@ (git-ignored), then `python3`,
 // `python` and, on Windows, `py -3`.
@@ -379,7 +445,7 @@ export default async function flowguard() {
     const answer = JSON.parse(run.stdout.trim().split('\\n').pop());
     if (answer.status !== 'on') return null;
     const { flowguardPlugin } = await import(pathToFileURL(answer.adapter).href);
-    return flowguardPlugin({ plan: answer.plan, python: [command, ...prefix], root: ROOT });
+    return flowguardPlugin({ plan: answer.plan, python: [command, ...prefix], root: ROOT, prepareSeconds: answer.seconds });
   }
   throw new Error('FlowGuard: no Python that can import flowguard was found for the vitest execution side; set '
     + 'FLOWGUARD_PYTHON to the interpreter FlowGuard is installed in. Tried:\\n' + tried.join('\\n'));
@@ -537,6 +603,97 @@ def _inside(cfg, rel, package):
     return package is None or (cfg.root / rel).resolve().is_relative_to(Path(package).resolve())
 
 
+def closed_rows(data, records):
+    """Compare source-only functions after the session, using real JSON inputs and copy neighbours."""
+    import subprocess
+    points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
+    actual, groups, reasons = {}, {}, {}
+    for record in records:
+        if record.get('reason'):
+            reasons.setdefault(record['id'], []).append(record['reason'])
+        elif 'args' in record:
+            actual.setdefault(record['id'], []).append(record['args'])
+    for point in points.values():
+        if point['anchored']:
+            groups.setdefault(point['name'], []).append(point)
+    def unique(values, limit):
+        result, seen = [], set()
+        for args in values:
+            key = json.dumps(args, sort_keys=True)
+            if key not in seen:
+                seen.add(key)
+                result.append(args)
+            if len(result) == limit:
+                break
+        return result
+    shared = {}
+    for name, peers in groups.items():
+        if len(peers) < 2:
+            continue
+        samples = unique([args for peer in peers for args in actual.get(peer['id'], ())], LIMIT)
+        extra, constants = [], sorted({number for peer in peers for number in peer['numbers']})
+        for args in samples:
+            for index, item in enumerate(args):
+                if type(item) in (int, float):
+                    extra.extend([*args[:index], number, *args[index + 1:]] for number in [item - 1, item + 1, *constants])
+        shared[name] = unique([*samples, *extra], LIMIT)
+    wanted, jobs, keys = {}, [], {}
+    for ident, point in points.items():
+        wanted[ident] = unique([*actual.get(ident, ()), *shared.get(point['name'], ())], None)
+        for prior in (False, True):
+            source, why = (point['old_source'], point['old_skip']) if prior else (point['source'], point['skip'])
+            if why:
+                if not prior or why != point['skip']:
+                    reasons.setdefault(ident, []).append(('baseline: ' if prior else '') + why)
+                continue
+            for args in wanted[ident]:
+                key = (ident, prior, json.dumps(args, sort_keys=True))
+                keys[key] = len(jobs)
+                jobs.append(dict(source=source, fn=point['fn'], args=args))
+    outcomes = []
+    if jobs:
+        run = subprocess.run(['node', str(ADAPTER / 'sealed.mjs')], input=json.dumps(jobs), capture_output=True,
+                             text=True, check=True, timeout=max(30, len(jobs) * 0.4))
+        outcomes = json.loads(run.stdout)
+        if len(outcomes) != len(jobs):
+            raise ValueError('sealed comparison returned the wrong number of results')
+    def outcome(ident, prior, args):
+        index = keys.get((ident, prior, json.dumps(args, sort_keys=True)))
+        if index is None:
+            return {'$missing': 1}
+        result = outcomes[index]
+        why = result.get('reason')
+        if 'error' in result:
+            error = result['error']
+            missing = re.fullmatch(r'(\S+) is not defined', error['message'])
+            if error['name'] == 'ReferenceError' and (missing or error['message'].startswith('uses ')):
+                why = 'uses ' + missing[1] if missing else error['message']
+            elif error['name'] == 'EvalError':
+                why = error['message']
+            else:
+                return {'$threw': error}
+        if why:
+            reasons.setdefault(ident, []).append(('baseline: ' if prior else '') + why)
+            return {'$missing': 1}
+        return result['value']
+    rows = {}
+    for ident, point in points.items():
+        real = {json.dumps(args, sort_keys=True) for args in actual.get(ident, ())}
+        rows[ident] = []
+        for args in wanted[ident]:
+            now = outcome(ident, False, args)
+            if isinstance(now, dict) and '$missing' in now:
+                continue
+            old = outcome(ident, True, args)
+            rows[ident].append(dict(
+                **{'in': list(zip(point['params'], args))}, now=now, old=old,
+                actual=json.dumps(args, sort_keys=True) in real,
+                same=any(_same(args, sample) for sample in shared.get(point['name'], ())),
+                copies={copy['id']: outcome(copy['id'], False, args) for copy in point['copies']},
+                old_copies={copy['id']: outcome(copy['id'], True, args) for copy in point['copies']}))
+    return rows, reasons
+
+
 def judge(cfg, data, records, package=None):
     """The session report signals.render prints: changes per case class, same-name and rule reds, grey.
     `package` is the folder of the vitest run: a point in another package cannot be reached by its tests
@@ -546,47 +703,50 @@ def judge(cfg, data, records, package=None):
     from .loader import load
     from .sources import parse
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
-    calls, rows = {}, {}
+    rows, reasons_by_point = closed_rows(data, records)
+    calls = {}
     for record in records:
         calls.setdefault(record['id'], []).append(record)
-    items, red, steps, unverified = [], [], {}, []
+    items, red, before, steps, unverified = [], [], [], {}, []
     for item in data['unplanned']:
         if _inside(cfg, item['rel'], package):
             unverified.append(f'{item["name"]}（{item["rel"]}:{item["line"]}）：{item["reason"]}')
     for ident, point in points.items():
         where = f'{point["rel"]}:{point["target_line"]}'
-        seen, collected, reasons = set(), [], []
-        for record in calls.get(ident, ()):
-            replay = record.get('replay')
-            if replay is None:
-                continue
-            if replay['status'] != 'ok':
-                reasons.append(replay['reason'])
-                continue
-            for row in replay['rows']:
-                signature = json.dumps(row['in'], sort_keys=True)
-                if signature not in seen:
-                    seen.add(signature)
-                    collected.append(dict(row, label=case_class(point, row['in'])))
+        collected = [dict(row, label=case_class(point, row['in'])) for row in rows.get(ident, ())]
+        reasons = reasons_by_point.get(ident, [])
+        if point['skip']:
+            reasons.append(point['skip'])
         rows[ident] = collected
         copy_only = any(copy['id'] == ident for other in points.values() for copy in other['copies']
                         if calls.get(other['id']))
-        if not calls.get(ident):
+        if not calls.get(ident) and not collected:
+            if point['skip'] and (copy_only or _inside(cfg, point['rel'], package)):
+                unverified.append(f'{point["name"]}: {point["skip"]}')
+                continue
             if point['anchored'] and not copy_only and _inside(cfg, point['rel'], package):
                 unverified.append(f'{point["name"]}（{where}): not reached by any test')
             continue
         if not collected:
             unverified.extend(f'{point["name"]}：{reason}' for reason in dict.fromkeys(reasons))
             continue
-        compared = [row for row in collected if 'old' in row and not (isinstance(row['old'], dict) and '$missing' in row['old'])]
+        if not point['changed']:
+            if reasons:
+                unverified.extend(f'{point["name"]}: {reason}' for reason in dict.fromkeys(reasons))
+            continue
+        actual_rows = [row for row in collected if row['actual']]
+        compared = [row for row in actual_rows if not (isinstance(row['old'], dict) and '$missing' in row['old'])
+                    and not (isinstance(row['old'], dict) and '$threw' in row['old'] and _same(row['old'], row['now']))]
+        if any(isinstance(row['old'], dict) and '$threw' in row['old'] and _same(row['old'], row['now']) for row in actual_rows):
+            reasons.append('both versions raised the same exception; not compared')
         changes = [row for row in compared if not _same(row['old'], row['now'])]
-        classes = {row['label'] for row in collected}
+        classes = {row['label'] for row in actual_rows}
         if not changes and not reasons and {row['label'] for row in compared} == classes:
             continue    # every replayed class compared and none changed: quiet, as on the pytest side
         items.append(dict(
             name=point['name'], file=point['rel'], line=point['target_line'], unanchored=not point['anchored'],
-            status='ok', complete=False, total=len(classes), checked=len({row['label'] for row in compared}),
-            changed=len({row['label'] for row in changes}),
+            status='ok', complete=False, total=len(actual_rows), checked=len(compared),
+            changed=len(changes),
             changes=[dict(inputs={name: value(item) for name, item in row['in']}, region=row['label'],
                           before=C.show(value(row['old'])), after=C.show(value(row['now']))) for row in changes],
             reasons=['TS classes come from comparison constants; this does not prove a complete partition'] + list(dict.fromkeys(reasons)),
@@ -595,25 +755,53 @@ def judge(cfg, data, records, package=None):
     # on the first input where they differ, never which one to follow (TS has no `distinct`: a different name).
     same_name = dict(compared=set(), disagreed={})
     from .signals import copy_answers, rule_steps
-    for ident, point in points.items():
-        if not point['copies'] or point['name'] in same_name['disagreed']:
+    handled = set()
+    for ident, point in sorted(points.items(), key=lambda pair: not bool(calls.get(pair[0]))):
+        if not point['copies'] or point['name'] in handled:
             continue
-        for row in sorted(rows.get(ident, ()), key=_counterexample(point, calls.get(ident, ()))):
+        handled.add(point['name'])
+        samples = [row for row in rows.get(ident, ()) if row['same']]
+        old_disagreed, old_unknown = False, False
+        for row in samples:
+            old = [(ident, row['old']), *row['old_copies'].items()]
+            old = [(target, answer) for target, answer in old
+                   if points[target]['old_skip'] != 'function absent at baseline']
+            complete = all(not (isinstance(answer, dict) and '$missing' in answer) for _, answer in old)
+            if not complete:
+                old_unknown = True
+                continue
+            if len(old) > 1:
+                differs = any(not _same(answer, old[0][1]) for _, answer in old[1:])
+                old_disagreed |= differs
+                if not differs and all(isinstance(answer, dict) and '$threw' in answer for _, answer in old):
+                    old_unknown = True
+        for row in sorted(samples, key=_counterexample(point, [record for record in calls.get(ident, ()) if 'args' in record])):
             answers = [(f'{point["rel"]}:{point["target_line"]} {point["fn"]}', row['now'])]
             for copy in point['copies']:
-                theirs = row.get('copies', {}).get(copy['id'])
-                if theirs is not None and '$unmatched' not in json.dumps(theirs):
+                theirs = row['copies'].get(copy['id'])
+                if theirs is not None and not (isinstance(theirs, dict) and '$missing' in theirs):
                     other = points[copy['id']]
                     answers.append((f'{other["rel"]}:{other["target_line"]} {other["fn"]}', theirs))
             if len(answers) < 2:
                 continue
-            same_name['compared'].add(point['name'])
+            if all(isinstance(answer, dict) and '$threw' in answer for _, answer in answers) and all(
+                    _same(answer, answers[0][1]) for _, answer in answers):
+                unverified.append(point['name'] + ': all copies raised the same exception; not compared')
+                continue
+            if len(answers) == len(point['copies']) + 1 and not old_unknown:
+                same_name['compared'].add(point['name'])
             if all(_same(theirs, row['now']) for _, theirs in answers[1:]):
                 continue
             inputs = ', '.join(f'{name}={C.show(value(item))}' for name, item in row['in'])
             text, step = copy_answers(answers, _same, lambda item: C.show(value(item)), total=len(point['copies']) + 1)
-            red.append(f'same-name anchor {point["name"]}：{inputs}, {text} -> {step}; if intentionally different, use different names')
-            same_name['disagreed'][point['name']] = red[-1]
+            line = f'same-name anchor {point["name"]}: {inputs}, {text}'
+            if old_disagreed:
+                before.append(line + ' -> leave it unless your task is about it')
+            elif old_unknown:
+                unverified.append(line + ': baseline could not be compared')
+            else:
+                red.append(line + f' -> {step}; if intentionally different, use different names')
+            same_name['disagreed'][point['name']] = line
             break
     # rules on the observed calls and replayed classes, as the pytest side checks a reading
     model = load(cfg)
@@ -628,7 +816,7 @@ def judge(cfg, data, records, package=None):
             point = points[ident]
             observed = [({name: value(item) for name, item in row['in']}, value(row['now'])) for row in rows.get(ident, ())]
             observed += [({name: value(item) for name, item in zip(point['params'], record['args'])}, value(record['result']))
-                         for record in calls.get(ident, ())]
+                         for record in calls.get(ident, ()) if 'args' in record and 'result' in record]
             usable = [(inputs, actual) for inputs, actual in observed
                       if all(name in inputs and C.kind_of(kind).accepts(inputs[name]) for name, kind in rule.fields.items())]
             if not usable:
@@ -659,7 +847,7 @@ def judge(cfg, data, records, package=None):
     start = cache.task_start(cfg) if kind == 'task' else (None, None, None)
     return dict(session=True, baseline=data['baseline'], baseline_kind=kind,
                 baseline_ahead=start[2] if start[:2] == (data['baseline'], 'task') else None,
-                source_changed=True, items=items, paths=[], leads=[], red=list(dict.fromkeys(red)), steps=steps,
+                source_changed=True, items=items, paths=[], leads=[], red=list(dict.fromkeys(red)), before=list(dict.fromkeys(before)), steps=steps,
                 unverified=unverified, same_name_pairs=same_name)
 
 
@@ -673,10 +861,14 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     from .config import load_config
     from .differences import display
     from .signals import render
+    started = time.perf_counter()
     cfg = load_config(root)
     data = json.loads(Path(plan_path).read_text(encoding='utf-8'))
-    result = judge(cfg, data, _observations(observations), package)
-    _remember_disagreed(cfg, data, result['same_name_pairs'])
+    records = _observations(observations)
+    recorded = sum(record.get('record_seconds', 0) for record in records)
+    result = judge(cfg, data, [record for record in records if 'id' in record], package)
+    import os
+    result['seconds'] = float(os.environ.get('FLOWGUARD_VITEST_PREPARE_SECONDS', 0)) + recorded + time.perf_counter() - started
     text = render(result)
     status = 1 if result['red'] else 0
     if in_test:

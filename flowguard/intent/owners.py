@@ -2,7 +2,7 @@
 
 A function owner (`# flowguard: owner NAME`) is the reference its same-name sensors follow; the
 existing same-name comparison checks those. Copy discovery runs unregistered look-alikes on the
-owner's case classes, through the runtime's one call-site replay (`Runtime._replay_rows`), only in
+owner's case classes, through the runtime's source-only sealed executor, only in
 `check`. A data owner (`owner Table.column writers=...`) turns a new write outside its writers red.
 Static leads (an old value still elsewhere, also in rules; a new spelling of a label) never replay.
 Only what this change adds is reported; older findings are the old ledger (`check --all`, `show`).
@@ -15,8 +15,6 @@ from collections import Counter
 from contextlib import contextmanager
 import ctypes
 from dataclasses import dataclass, field
-import importlib
-import inspect
 import threading
 import time
 
@@ -730,81 +728,44 @@ def watchdog(seconds):
                 pass  # Sent after the block ended (or caught inside it): the block is over, nothing to interrupt.
 
 
-def _load(cfg, module, qual):
-    """The live function object; an import that fails is a reason, the run continues without it."""
-    from .config import setup_path
-    from .imports import prepare
-    setup_path(cfg)
-    prepare(cfg.root)
-    try:
-        value = importlib.import_module(module)
-        for part in qual.split('.'):
-            value = getattr(value, part)
-    except (ImportError, SyntaxError, OSError, ArithmeticError, LookupError, ValueError, TypeError,
-            AttributeError, NameError, RuntimeError, AssertionError) as error:
-        return None, f'import failed: {type(error).__name__}: {error}'
-    if not inspect.isfunction(value):
-        return None, f'{module}:{qual} is not an ordinary function'
-    return value, ''
-
-
-def _replay(runtime, function, rows, names, label, seconds=None):
-    """Outcomes of `function` on each row, through the runtime's call-site replay; (outcomes, reason)."""
-    from . import sites
-    seconds = TIMEOUT if seconds is None else seconds
-    from .runtime import _PRIVATE
-    fn = sites.unwrap(function)
-    signature = inspect.signature(fn)
-    parameters = [p for p in signature.parameters.values()
-                  if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
-    if len(parameters) != len(names) or len(parameters) != len(signature.parameters):
-        return None, 'parameter counts differ'
-    try:
-        bound = signature.bind(*(rows[0][name] for name in names))
-    except TypeError as error:
-        return None, f'arguments cannot be bound: {error}'
-    axes = {}
-    for parameter, name in zip(parameters, names):
-        pool = axes.setdefault(parameter.name, [])
-        for row in rows:
-            if not any(repr(row[name]) == repr(value) for value in pool):
-                pool.append(row[name])
-    token = _PRIVATE.set(True)
-    start = len(runtime.readings)
-    try:
-        with watchdog(seconds):
-            runtime._replay_rows(fn, bound, owner=fn, name=label, axes=axes)
-    except _Timeout:
-        return None, f'exceeded {seconds:g} seconds without completion'
-    finally:
-        _PRIVATE.reset(token)
-    reading = runtime.readings[start] if len(runtime.readings) > start else None
-    if reading is None or reading.status != 'ok':
-        return None, '; '.join(reading.reasons) if reading else 'no replay reading'
-    by_inputs = {tuple(repr(inputs[p.name]) for p in parameters): value for inputs, value in reading.rows}
-    outcomes = []
-    for row in rows:
-        signature_key = tuple(repr(row[name]) for name in names)
-        if signature_key not in by_inputs:
-            return None, 'replay skipped a representative value'
-        outcomes.append(by_inputs[signature_key])
-    old = {tuple(repr(inputs[p.name]) for p in parameters): before for inputs, before, _ in reading.changed}
-    previous = [old.get(tuple(repr(row[name]) for name in names), outcome) for row, outcome in zip(rows, outcomes)]
-    return dict(now=outcomes, before=previous, compared=reading.comparison_status == 'ok'), ''
+def _replay(function, rows, names, previous=None):
+    """Collect only the unified sealed executor's per-input outcomes, without importing the project."""
+    from .runtime import sealed
+    def run(source):
+        return [sealed(source, function['qual'], [row[name] for name in names], {}) for row in rows]
+    outcomes = run(function['source'])
+    if all(value['status'] == 'unavailable' for value in outcomes):
+        return None, '; '.join(dict.fromkeys(value['reason'] for value in outcomes))
+    before = run(previous) if previous is not None else outcomes
+    return dict(now=outcomes, before=before,
+                compared=previous is not None and any(_same(a, b) is not None for a, b in zip(before, outcomes))), ''
 
 
 def _same(left, right):
-    """Equal outcomes; raised outcomes agree by exception type, whatever their messages say."""
-    from .cells import Raised
+    """Equal sealed outcomes; unavailable inputs and the same raised exception are not comparisons."""
     from .runtime import outcome_equal
-    if isinstance(left, Raised) or isinstance(right, Raised):
-        return isinstance(left, Raised) and isinstance(right, Raised) and type(left.error) is type(right.error)
-    return outcome_equal(left, right)
+    if left['status'] == 'unavailable' or right['status'] == 'unavailable':
+        return None
+    if left['status'] == right['status'] == 'raised':
+        return None if left['error'] == right['error'] else False
+    return left['status'] == right['status'] == 'ok' and outcome_equal(left['value'], right['value'])
 
 
 def _show(value):
-    from .cells import Raised, show
-    return f'raised {type(value.error).__name__}' if isinstance(value, Raised) else show(value)
+    from .cells import show
+    return show(value)
+
+
+def _outcome(value):
+    return f'raised {value["error"]["type"]}' if value['status'] == 'raised' else _show(value['value'])
+
+
+def _not_compared(left, right):
+    missing = [(a, b) for a, b in zip(left, right) if _same(a, b) is None]
+    reasons = [value['reason'] for pair in missing for value in pair if value['status'] == 'unavailable']
+    if any(a['status'] == b['status'] == 'raised' for a, b in missing):
+        reasons.append('same raised exception')
+    return f'{len(missing)}/{len(left)} inputs not compared: ' + '; '.join(dict.fromkeys(reasons)) if missing else ''
 
 
 def _order(rows, names):
@@ -828,10 +789,10 @@ def _example(rows, names, mine, reference, label='reference'):
     representative order (halves, negatives, zero, then boundaries), and how many more differ."""
     import math
     differing = [(rows[index], mine[index], reference[index]) for index in _order(rows, names)
-                 if not _same(mine[index], reference[index])]
+                 if _same(mine[index], reference[index]) is False]
     finite = [item for item in differing if all(not (type(item[0][n]) is float and not math.isfinite(item[0][n])) for n in names)]
     chosen = finite[:1] + [item for item in differing if item not in finite][:1]
-    text = '；'.join(', '.join(f'{name}={_show(row[name])}' for name in names) + f' → {_show(a)}({label} returns {_show(b)}）'
+    text = '；'.join(', '.join(f'{name}={_show(row[name])}' for name in names) + f' → {_outcome(a)}({label} returns {_outcome(b)}）'
                     for row, a, b in chosen)
     return text + (f'; plus {len(differing) - len(chosen)} other differences' if len(differing) > len(chosen) else '')
 
@@ -848,7 +809,7 @@ def _functions(graph, cfg):
     from pathlib import Path
     from flowguard.structure.store import shape_list
     from .runtime import _functions as definitions
-    rows, trees = [], {}
+    rows, trees, sources = [], {}, {}
     tool = Path(__file__).resolve().parents[1]          # the running FlowGuard package never replays itself
     for ident, file, module, qual, line, end, blob in graph.con.execute(
             "SELECT n.id, n.file, n.module, n.qual, n.line, n.end_line, n.shape FROM node n JOIN file f ON f.path = n.file "
@@ -858,17 +819,18 @@ def _functions(graph, cfg):
             continue                    # a nested function has no importable name of its own
         if file not in trees:
             try:
-                trees[file] = dict(definitions(ast.parse(read_source(cfg.root / file))))
+                sources[file] = read_source(cfg.root / file)
+                trees[file] = dict(definitions(ast.parse(sources[file])))
             except (SyntaxError, OSError, UnicodeError):
                 trees[file] = {}
         node = trees[file].get(qual)
         if node is None:
             continue
         if (file, '') not in trees:
-            trees[(file, '')] = _module_literals(ast.parse(read_source(cfg.root / file)))
+            trees[(file, '')] = _module_literals(ast.parse(sources[file]))
         rows.append(dict(id=ident, file=file, module=module, qual=qual, line=line, end=end or line,
                          shape=set(shape_list(blob) if isinstance(blob, bytes) else blob or ()), node=node,
-                         constants=_numbers(node), simple=_simple_parameters(node),
+                         constants=_numbers(node), simple=_simple_parameters(node), source=sources[file],
                          literals=_own_literals(node, trees[(file, '')])))
     return rows
 
@@ -981,18 +943,18 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
     whose copies the owner decided (`[structure."copies:NAME"]`, NAME its anchor name) gets no leads; a copy
     this change adds beside it is still red."""
     from .ledger import structure_decisions
-    from .runtime import Runtime
+    from .deprecation import warn
     found = Findings()
     decisions = structure_decisions(cfg)[0]
     owners = [a for a in index.entries if a.kind == 'sensor' and a.owner and a.source_role == 'production' and not a.issues]
     if not owners:
         return found
+    warn('unregistered copy discovery')
     started = time.perf_counter()
     functions = _functions(graph, cfg)
     by_id = {row['id']: row for row in functions}
     registered = {a.target for a in index.entries if a.kind == 'sensor'} | set(excluded)
     added = set(change.impact()['added']) if change.baseline else set()
-    runtime = Runtime(cfg.root, previous={})
     candidates_seen = 0
     for owner in owners:
         home = by_id.get(owner.target)
@@ -1014,26 +976,29 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         if reason:
             found.leads.append(f'reference {label} suspected copy {len(shown)} copies were not compared: {reason}')
             continue
-        fn, why = _load(cfg, owner.module, owner.qual)
-        reference, why = _replay(runtime, fn, rows, names, owner.name) if fn else (None, why)
+        reference, why = _replay(home, rows, names)
         if reference is None:
             found.leads.append(f'reference {label} cannot run itself; copies were not compared: {why}')
             continue
-        groups, unclear = {}, []
+        groups, unclear, partial = {}, [], []
         for row in shown:
-            fn, why = _load(cfg, row['module'], row['qual'])
-            result, why = _replay(runtime, fn, rows, names, owner.name) if fn else (None, why)
+            result, why = _replay(row, rows, names)
             if result is None:
                 unclear.append(f'{row["file"]}:{row["line"]}（{why}）')
                 continue
             outcomes = result['now']
-            same = sum(_same(a, b) for a, b in zip(outcomes, reference['now']))
-            category = _category(same, len(rows), _similarity(row['shape'], home['shape']), bool(row['constants'] & home['constants']))
+            compared = [_same(a, b) for a, b in zip(outcomes, reference['now']) if _same(a, b) is not None]
+            if missing := _not_compared(outcomes, reference['now']):
+                partial.append(f'{row["file"]}:{row["line"]} ({missing})')
+            if not compared:
+                unclear.append(f'{row["file"]}:{row["line"]} (no comparable inputs)')
+                continue
+            category = _category(sum(compared), len(compared), _similarity(row['shape'], home['shape']), bool(row['constants'] & home['constants']))
             if category is None:
                 continue
             # Grouped by the first difference from the owner in the fixed representative order.
-            first = next(((index, _show(a)) for index in _order(rows, names)
-                          for a, b in [(outcomes[index], reference['now'][index])] if not _same(a, b)), None)
+            first = next(((index, _outcome(a)) for index in _order(rows, names)
+                          for a, b in [(outcomes[index], reference['now'][index])] if _same(a, b) is False), None)
             groups.setdefault((category, first), []).append((row, outcomes))
         seconds = time.perf_counter() - started
         total = sum(len(group) for group in groups.values()) + len(unclear)
@@ -1042,7 +1007,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         quiet = f'copies:{owner.name}' in decisions
         lead = found.leads.append if not quiet else (lambda text: None)
         lead(f'reference {label} has {total} suspected copies (candidates: {len(candidates)}; time: {seconds:.2f} seconds; '
-                           f'{len(rows)} representative values; compared on all reference values; call-site reachability of negative, non-finite and other values was not checked)'
+                           f'{len(rows)} representative values; only comparable JSON inputs count; call-site reachability was not checked)'
                            f'-> choose one for each copy: call the reference; or write above the copy: # flowguard: same {owner.name}；'
                            f'or declare distinct("{owner.name}", "<copy-anchor-name>", why="...", source="...")')
         order = {'copy': 0, 'diverged copy': 1, 'similar': 2}
@@ -1050,9 +1015,10 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
             members = [row for row, _ in group]
             places = '  '.join(f'{row["file"]}:{row["line"]}' for row in members)
             if category == 'copy':
-                text = f'{category}: {len(members)} copies (match the reference on {len(rows)} representative values; not a proof): {places}'
+                compared_count = sum(_same(a, b) is not None for a, b in zip(group[0][1], reference['now']))
+                text = f'{category}: {len(members)} copies (match the reference on {compared_count} representative values; not a proof): {places}'
             else:
-                apart = len({tuple(_show(value) for value in outcomes) for _, outcomes in group}) > 1
+                apart = len({tuple(str(value) for value in outcomes) for _, outcomes in group}) > 1
                 text = (f'{category} {len(members)} copies: {_example(rows, names, group[0][1], reference["now"])}：{places}'
                         + ('(same first difference; these copies also differ on other representative values)' if apart else ''))
             fresh = [row for row in members if row['id'] in added]
@@ -1069,6 +1035,8 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
                                           frozenset({owner.file, *(row['file'] for row in members)})))
         if unclear:
             lead(f'unavailable copies: {len(unclear)} copies: ' + '  '.join(unclear))
+        if partial:
+            lead('not compared: ' + '  '.join(partial))
     found.stats.update(copy_candidates=candidates_seen, copy_seconds=time.perf_counter() - started)
     return found
 
@@ -1102,7 +1070,6 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
     value, while the new one differs: those copies probably needed the same change. Owners make it red."""
     from . import cells as C
     from .anchors import Parameter, parameter_kind, _annotation
-    from .runtime import Runtime
     found = Findings()
     if not change.baseline:
         return found
@@ -1113,7 +1080,6 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         return found                      # nothing changed: no function to compare with its look-alikes
     functions = _functions(graph, cfg)
     by_id = {row['id']: row for row in functions}
-    runtime = Runtime(cfg.root, change.baseline)
     anchored = {a.target: a for a in index.entries if a.kind == 'sensor'}
     alone, examined = {}, 0
     for ident in sorted(set(impact['changed'])):
@@ -1154,19 +1120,21 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
                 for name, kind in kinds.items()}
         base = {name: values[0] for name, values in axes.items()}
         rows = [dict(base, **{name: value}) for name, values in axes.items() for value in values]
-        fn, why = _load(cfg, row['module'], row['qual'])
-        if fn is None:
-            continue
-        mine, why = _replay(runtime, fn, rows, row['simple'], row['qual'])
-        if mine is None or not mine['compared'] or all(_same(a, b) for a, b in zip(mine['before'], mine['now'])):
+        mine, why = _replay(row, rows, row['simple'], old_text)
+        missing = _not_compared(mine['before'], mine['now']) if mine is not None else why
+        if missing:
+            found.leads.append(f'not compared: {row["file"]}:{row["line"]} {row["qual"]} ({missing})')
+        if mine is None or not mine['compared'] or not any(_same(a, b) is False for a, b in zip(mine['before'], mine['now'])):
             continue            # no comparable old version, or the edit kept every representative's result
         examined += 1
         twins, similar = [], []
         for peer in peers:
-            other, why = _load(cfg, peer['module'], peer['qual'])
-            theirs, why = _replay(runtime, other, rows, row['simple'], peer['qual']) if other else (None, why)
-            if theirs is not None and all(_same(a, b) for a, b in zip(mine['before'], theirs['now'])):
-                if not all(_same(a, b) for a, b in zip(mine['now'], theirs['now'])):
+            theirs, why = _replay(peer, rows, row['simple'])
+            if theirs is not None and (missing := _not_compared(mine['before'], theirs['now'])):
+                found.leads.append(f'not compared: {peer["file"]}:{peer["line"]} {peer["qual"]} ({missing})')
+            comparison = [_same(a, b) for a, b in zip(mine['before'], theirs['now']) if _same(a, b) is not None] if theirs else []
+            if comparison and all(comparison):
+                if any(_same(a, b) is False for a, b in zip(mine['now'], theirs['now'])):
                     twins.append(peer)
             else:
                 similar.append((peer, why if theirs is None else ''))

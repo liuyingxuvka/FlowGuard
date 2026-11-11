@@ -91,6 +91,7 @@ def _json(value):
 # flowguard: states Session.sentinel = None | 'failed' | 'ok'
 class Session:
     def __init__(self, config):
+        timing = time.perf_counter()
         self.config = config
         self.owns_host = False
         self.owns_root = False
@@ -117,6 +118,7 @@ class Session:
         self.ledger_result = None
         self.sentinel_ledger = False
         self.session_red = []            # reds only the session decides: a failed JUnit testcase
+        self.tool_seconds = time.perf_counter() - timing
 
     @property
     def runtime(self):
@@ -307,24 +309,10 @@ def _declared(point, inputs):
     return {_canonical(point, name): value for name, value in inputs.items()}
 
 
-def _partition_copy(axes, part):
-    from .differences import Partition, Region
-    return ({name: list(pool) for name, pool in axes.items()},
-            Partition([Region(dict(region.inputs), region.label) for region in part.regions],
-                      part.complete, list(part.reasons), part.representative_points), [])
 
 
-_UNHOOKABLE = ' function: the call result cannot be compared'      # the end of a lost reading reason when the call became a generator or coroutine
-_OPAQUE = 'replay result is not simple comparable data'
 
 
-def _restore_step(lost):
-    """The first way out of a lost observation, for what made it grey."""
-    if lost.startswith((_OPAQUE, '回放结果不是可以比较的简单数据')):
-        return 'restore observability: return simple comparable data as the baseline code did (numbers, strings, booleans, None, or lists, tuples and dictionaries of them); '
-    if lost.endswith((_UNHOOKABLE, '函数：调用处的结果不能比较')):
-        return 'restore observability: return a result directly as the baseline code did, rather than becoming a generator or coroutine; '
-    return 'restore observability: correct the location above so this call does not write files, databases, processes or the network; '
 
 
 class Observations:
@@ -369,13 +357,12 @@ class Observations:
             self.mapped = set()
         self.points = {a.target: dict(anchor=a, target=a.target, file=a.file, module=a.module, qual=a.qual,
                                      name=a.name, kind=a.kind, node=None)
-                       for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'}
+                       for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'
+                       and a.file.endswith('.py')}
         self.changed, self.records, self.pairs, self.red, self.grey, self.paths = bool(self.files), [], [], [], [], []
         self.steps = {}         # the next steps to copy under a red line, by its subject
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
-        # Comparisons by fingerprint (_reuse): the key of each reading index, the stored results this
-        # session kept, the new results to store, and the engine identity and stored entries, read once.
-        self.keys, self.reused, self.fresh, self.engine_digest, self.stored = {}, {}, {}, None, None
+        self.fresh = {}  # Saved comparison reuse is retired; observations belong to this session.
         self.structure = None
         self.event_record = self.capture = None
         self.request, self.text = _TRY.get(), ''
@@ -412,8 +399,6 @@ class Observations:
                                                 anchors._parameter_role(anchors._annotation(arg.annotation)), True)
                                for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
                                if arg.arg not in ('self', 'cls'))
-                if not any(p.role == 'input' for p in params):
-                    continue
                 prior = prior_functions.get(row['qual'])
                 if prior is not None and ast.dump(prior, include_attributes=False) == ast.dump(node, include_attributes=False):
                     loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
@@ -437,7 +422,6 @@ class Observations:
             _PRIVATE.reset(token)
 
     def _bind_module(self, module):
-        import inspect
         import types
         filename = getattr(module, '__file__', None)
         if not filename:
@@ -457,11 +441,6 @@ class Observations:
             from . import sites
             fn = sites.unwrap(value)
             point['fn'], point['receiver'] = fn, receiver
-            groups = self.index.named(point['name'], 'sensor') if point['anchor'] else ()
-            if not self.changed and (point['kind'] == 'event' or not self.comparison_requested and len(groups) < 2 and not self.rules.get(point['target'])
-                                     and not (self.request and self.request['target'] == point['target'])):
-                continue
-            self.runtime.register(fn)
             self.bound[point['target']] = point
             if point['kind'] == 'event':
                 self.event_codes[id(fn.__code__)] = (fn.__code__, point['name'])
@@ -471,315 +450,128 @@ class Observations:
             try:
                 anchor = point['anchor']
                 original = self.scopes.enter_context(self.runtime.hook(fn, name=point['name'],
-                    axes=lambda original, bound, point=point: self._at_call(point, original, bound),
+                    recorded=lambda reading, point=point: self._recorded(point, reading),
                     fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0))
                 point['original'] = original
             except (ValueError, TypeError, sites.NotMutable) as error:
-                if not self._watch_unhookable(point, fn, str(error)):
-                    self.grey.append(point['name'] + ': ' + str(error))
+                self.grey.append(point['name'] + ': ' + str(error))
 
-    def _watch_unhookable(self, point, fn, reason):
-        """A generator or coroutine function cannot be hooked, so its result is never compared. When the
-        baseline code of an anchored or ruled point is a plain function, the first entry of a test's call
-        replays that baseline with the same arguments; a clean replay makes the grey a lost observation.
-        A test that never enters it lists the hook's reason as before."""
-        import inspect
-        kind = ('coroutine' if inspect.iscoroutinefunction(fn) else 'async generator' if inspect.isasyncgenfunction(fn)
-                else 'generator' if inspect.isgeneratorfunction(fn) else '')
-        if not kind or not self.changed or not self._losable(point):
-            return False
-        import dis
-        entered = []
+    def _recorded(self, point, reading):
+        self.records.append((reading.index, point, None, [], None))
 
-        def entry(frame, event, arg):
-            # Python 3.11's trace also reports the call that only creates the generator (RETURN_GENERATOR):
-            # its body has not started, so that is not an entry.
-            created = frame.f_lasti >= 0 and dis.opname[frame.f_code.co_code[frame.f_lasti]] == 'RETURN_GENERATOR'
-            if event == 'call' and not created and not entered:
-                entered.append(True)
-                self._unhookable_call(point, fn, kind, frame.f_locals)
-
-        record = self.runtime.record(codes=[(fn.__code__, point['name'])], callback=entry, entry_only=True)
-        self.scopes.enter_context(record)
-
-        def closed():
-            if not entered:
-                self.grey.append(point['name'] + ': ' + reason)
-            # The recorder keeps a failed callback's error as an issue; it is this point's grey, with its text.
-            self.grey.extend(point['name'] + ': ' + issue for issue in record.issues)
-
-        self.scopes.callback(closed)
-        return True
-
-    def _unhookable_call(self, point, fn, kind, values):
-        import inspect
-        from .runtime import Reading
-        signature = inspect.signature(fn)
-        args, kwargs = [], {}
-        for parameter in signature.parameters.values():
-            value = values[parameter.name]
-            if parameter.kind is parameter.POSITIONAL_ONLY:
-                args.append(value)
-            elif parameter.kind is parameter.VAR_POSITIONAL:
-                args.extend(value)
-            elif parameter.kind is parameter.VAR_KEYWORD:
-                kwargs.update(value)
-            else:
-                kwargs[parameter.name] = value
-        reading = Reading(point['name'], fn.__module__ + ':' + fn.__qualname__, test=self.runtime.test,
-                          baseline=self.runtime.baseline, status='grey',
-                          reasons=[f'{fn.__qualname__} is now a {kind}' + _UNHOOKABLE])
-        self.records.append((len(self.runtime.readings), point, None, [], None))
-        self.runtime.readings.append(reading)
-        self.runtime._lost(reading, fn, signature.bind(*args, **kwargs))
-
-    def _partition(self, point, original, bound):
+    def _compare(self):
+        """Only after the session: sources and JSON samples enter the sealed owner."""
         import ast
-        from types import SimpleNamespace
-        from . import anchors, cells as C, differences as D
-        from .runtime import _definition
-        parameters = point.get('parameters', getattr(point['anchor'], 'parameters', ()))
-        kinds, unknown = {}, []
-        for parameter in parameters:
-            try:
-                kind = anchors.parameter_kind(parameter, bound.arguments.get(parameter.name, ...))
-            except ValueError as error:
-                unknown.append(str(error))
-            else:
-                if kind is not None:
-                    kinds[parameter.name] = kind
-        path = self.cfg.root / point['file']
-        source = path.read_bytes()
-        code = original.__code__
-        patch = self.runtime.patches.get(point['fn'])
-        old_code = patch.code if patch else None
-        old_source = self.runtime._source(point['file']) if patch else None
-        baseline, old_identity = _metadata_value(self.runtime.baseline), _metadata_value(old_source)
-        identity = (id(code), source, old_identity, baseline, id(old_code))
-        key = point['file'], original.__qualname__
-        cacheable = baseline is not None and old_identity is not None and Path(code.co_filename).resolve() == path.resolve()
-        data = self.metadata.setdefault(key, {}) if cacheable else {}
-        if (data.get('identity') != identity or data.get('code') is not code
-                or data.get('old_code') is not old_code):
-            file_data = self.metadata.setdefault((point['file'],), {}) if cacheable else {}
-            source_identity = source, old_identity, baseline
-            if file_data.get('identity') != source_identity:
-                tree = ast.parse(source.decode('utf-8-sig'))
-                file_data.update(identity=source_identity, tree=tree,
-                                 old_tree=ast.parse(old_source) if patch else tree)
-            current = _definition(original)
-            if any(getattr(parameter, 'alias', '') for parameter in parameters):
-                current = anchors._declared_names(current, parameters)[0]      # read under the declared names
-            previous = patch.node if patch else current
-            data.clear()
-            data.update(identity=identity, code=code, old_code=old_code,
-                        tree=file_data['tree'], current=current, previous=previous, old_tree=file_data['old_tree'],
-                        names=sorted({node.id for body in (previous, current) for node in ast.walk(body)
-                                      if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}))
-        tree, current, previous, old_tree = (data[name] for name in ('tree', 'current', 'previous', 'old_tree'))
-        env = anchors._literal_globals(tree)
-        old_env = anchors._literal_globals(old_tree)
-        old_env.update(self.runtime._constants(old_tree, original.__module__))
-        from .runtime import _simple
-        for (_, name), (namespace, before) in self.runtime.constants.items():
-            if namespace is original.__globals__ and name in namespace and _simple(namespace[name]):
-                env[name] = namespace[name]
-                old_env[name] = self.runtime._old_value(namespace, name, before)
-        roles = tuple((p.name, p.unit, p.source_type, p.role, p.inferred) for p in parameters)
-        domains = tuple((name, kind.name, kind.optional, kind.literals) for name, kind in kinds.items())
-        facts = [roles, domains]
-        for namespace in (env, old_env, original.__globals__):
-            facts.append(tuple((name, namespace[name]) for name in data['names'] if name in namespace))
-        tokens = [_metadata_value(value) for value in facts]
-        reusable = (not unknown and all(kind.enum_type is None for kind in kinds.values())
-                    and all(value is not None for value in tokens))
-        domain_key = tuple(tokens) if reusable else None
-        if reusable and data.get('domain_key') == domain_key and 'partition' in data:
-            return _partition_copy(*data['partition'])
-        count = len(kinds)
-        now_read = C.read_predicate(SimpleNamespace(__globals__=env), kinds, node=current)
-        old_read = C.read_predicate(SimpleNamespace(__globals__=old_env), kinds, node=previous)
-        # An unclosed numeric range keeps candidate examples, never a proof.
-        candidates = {}
-        for name in list(kinds):
-            evidence = kinds[name].name in ('bool', 'enum') or any(
-                reading.consts.get(name) or any(name in plane.coefs for plane in reading.planes)
-                or any(name in link for link in reading.links) for reading in (now_read, old_read))
-            if not evidence:
-                unknown.append(name + ': no closed range; these are candidate examples')
-                kind = kinds.pop(name)
-                literals = [C.coerce(node.value, kind) for tree in (previous, current) for node in ast.walk(tree)
-                            if isinstance(node, ast.Constant) and kind.accepts(C.coerce(node.value, kind))]
-                candidates[name] = C.points(kind, literals)
-                if name in bound.arguments:
-                    env[name] = old_env[name] = bound.arguments[name]
-        readings = (old_read, now_read) if len(kinds) == count else tuple(
-            C.read_predicate(SimpleNamespace(__globals__=values), kinds, node=node)
-            for node, values in ((previous, old_env), (current, env)))
-        views = [SimpleNamespace(kinds=kinds, reading=reading, issues=(), node=node, literal_globals=values)
-                 for node, values, reading in zip((previous, current), (old_env, env), readings)]
-        part = D.joint_partition(*views)
-        # joint_partition already built the joint space and retained every
-        # logical class. Rebuilding that space here duplicated both work and
-        # grid points; the runtime needs these proved representatives only.
-        axes = {name: [] for name in kinds}
-        from .runtime import outcome_equal
-        for region in part.regions:
-            for name, value in region.inputs.items():
-                if not any(outcome_equal(value, prior) for prior in axes[name]):
-                    axes[name].append(value)
-        axes.update(candidates)
-        if reusable and not unknown and part.complete and all(
-                _metadata_value(tuple(region.inputs.values())) is not None for region in part.regions):
-            saved_axes, saved_part, _ = _partition_copy(axes, part)
-            data.update(domain_key=domain_key, partition=(saved_axes, saved_part))
-        return axes, part if not unknown else None, unknown
-
-    def _at_call(self, point, original, bound):
+        import math
         from . import runtime as R
-        token = R._PRIVATE.set(True)
-        try:
-            return self._classes_at_call(point, original, bound)
-        finally:
-            R._PRIVATE.reset(token)
-
-    def _reuse(self, point, original, bound):
-        """The comparison an earlier session computed under this call's fingerprint, as the reading the
-        runtime keeps in place of a replay; None when there is none or no key can be taken. The key covers
-        FlowGuard's own code, the baseline, the anchor's file and the project configuration, the bodies of the
-        target and of the project functions it calls, the current values of the constants they read and the
-        call's arguments. Only a session with a change has a key (its map is built already); a point with rules,
-        `fields`, same-name copies or a try request has none, and nor has one whose inputs the map cannot
-        read completely (deps.comparison_inputs)."""
-        from . import cache, deps, runtime as R
-        anchor = point['anchor']
-        if (not self.changed or self.rules.get(point['target']) or not self.runtime.baseline
-                or anchor is not None and (anchor.fields or len(self.index.named(point['name'], 'sensor')) > 1)
-                or self.request and self.request['target'] == point['target']):
-            return None
-        graph = self.state.get_map()
-        fingerprints, constants, reasons = deps.comparison_inputs(graph, point['target'])
-        values = [(module, name, _metadata_value(vars(sys.modules[module]).get(name, ...)))
-                  for module, name in constants if module in sys.modules]
-        arguments = [(name, _metadata_value(value)) for name, value in bound.arguments.items()]
-        if reasons or len(values) != len(constants) or any(item[-1] is None for item in [*values, *arguments]):
-            return None
-        if self.engine_digest is None:
-            self.engine_digest = deps.Now(self.cfg, graph)('engine:')
-        key = deps.digest((self.engine_digest, self.runtime.baseline, point['target'], point['name'],
-                           deps.file_digest(self.cfg.root / point['file']), deps.file_digest(self.cfg.root / 'pyproject.toml'),
-                           sorted(fingerprints.items()), values, arguments))
-        index = len(self.runtime.readings)
-        self.keys[index] = key
-        if self.stored is None:
-            self.stored = cache.comparisons(self.cfg, self.runtime.baseline)
-        if key not in self.stored:
-            return None
-        self.reused[index] = json.loads(self.stored[key])
-        self.records.append((index, point, None, [], self._cause(point, original)))
-        self.pairs.append((index, point, []))
-        return R.Reading(point['name'], self.reused[index]['target'], test=self.runtime.test, baseline=self.runtime.baseline)
-
-    def _classes_at_call(self, point, original, bound):
-        from . import runtime as R
-        if problem := self.runtime.safety(original, bound.arguments):
-            self.records.append((len(self.runtime.readings), point, None, [problem], None))
-            return {}  # Runtime still records its refusal and makes the one real call.
-        if (reading := self._reuse(point, original, bound)) is not None:
-            return reading
-        try:
-            axes, part, unknown = self._partition(point, original, bound)
-        except (ValueError, TypeError, OSError, SyntaxError, AttributeError) as error:
-            axes, part, unknown = {}, None, [str(error)]
-        part, unknown = self._widen(point, original, axes, part, unknown)
-        if self.request and self.request['target'] == point['target']:
-            from . import anchors
-            parameters = {parameter.name: parameter for parameter in
-                          point.get('parameters', getattr(point['anchor'], 'parameters', ()))}
-            for parameter in parameters.values():
-                actual = bound.arguments.get(parameter.name, ...)
-                try:
-                    if anchors.parameter_kind(parameter, actual) is not None and R._simple(actual):
-                        self.request['actual_inputs'][parameter.name] = actual
-                except ValueError:
-                    pass  # Unknown inputs never become an invented default.
-            for name, value in self.request['values'].items():
-                try:
-                    kind = anchors.parameter_kind(parameters[name], bound.arguments.get(name, ...))
-                    if kind is None:
-                        raise ValueError(name + ': context inputs cannot be replaced')
-                    if not kind.accepts(value):
-                        raise ValueError(name + ': requested value has the wrong input type')
-                except (KeyError, ValueError) as error:
-                    self.request['reasons'].append(str(error))
-                    continue
-                pool = axes.setdefault(name, [])
-                if not any(R.outcome_equal(value, prior) for prior in pool):
-                    pool.append(value)
-            self.request['partition_reasons'].extend(unknown + (part.reasons if part is not None else []))
-        fields = {name for name, _ in point['anchor'].fields} if point['anchor'] else set()
-        for rule in self.rules.get(point['target'], ()):
-            if not set(rule.fields) <= axes.keys() | fields:
-                self.grey.append(rule.id + ': this real context does not expose all rule inputs'
-                                 + (f'(arguments and fields do not contain {", ".join(sorted(set(rule.fields) - axes.keys() - fields))}）' if fields else ''))
+        from ..map.common import read_source
+        sources, samples, items, before = {}, {}, [], []
+        def source(point, old=False):
+            key = point['file'], old
+            if key not in sources:
+                sources[key] = (None if self.runtime._baseline_error else self.runtime._source(key[0])) if old else read_source(self.cfg.root / key[0])
+            return sources[key]
+        def run(point, sample, old=False):
+            text = source(point, old)
+            return R.sealed(text, point['qual'], sample['args'], sample['kwargs']) if text is not None else dict(status='unavailable', reason='no baseline source')
+        def value(out):
+            return out.get('value') if out['status'] == 'ok' else {'raises': out.get('error')}
+        def equal(left, right):
+            return json.dumps(left, sort_keys=True, allow_nan=False) == json.dumps(right, sort_keys=True, allow_nan=False)
+        def comparable(a, b):
+            return (a['status'] != 'unavailable' and b['status'] != 'unavailable'
+                    and not (a['status'] == b['status'] == 'raised' and a['error'] == b['error']))
+        for index, point, _, _, _ in self.records:
+            reading = self.runtime.readings[index]
+            if reading.sample is not None:
+                samples.setdefault(point['target'], {})[json.dumps(reading.sample, sort_keys=True)] = reading.sample
+        for target, calls in samples.items():
+            calls = list(calls.values())
+            point = self.points[target]
+            # An unchanged same declaration still participates in the group comparison below.
+            if point['file'] not in self.files:
                 continue
-            values = self.state.engine.rr_space(rule.decides)[2]
-            for field in [name for name in rule.fields if name not in fields]:
-                pool = axes.setdefault(field, [])
-                additions = [*values.get(field, ()), *(row.inputs[field] for row in rule.live_rows if field in row.inputs)]
-                pool.extend(value for value in additions if not any(R.outcome_equal(value, prior) for prior in pool))
-        peers, measured = [], []
-        declared = {_canonical(point, name): value for name, value in bound.arguments.items()}
-        if not self.runtime.safety(original, bound.arguments) and point['anchor']:
-            for anchor in self.index.named(point['name'], 'sensor'):
-                other = self.bound.get(anchor.target)
-                if other is point:
+            rows, changes, reasons = [], [], []
+            for sample in calls:
+                old, now = run(point, sample, True), run(point, sample)
+                if not comparable(old, now):
+                    reasons.append(old.get('reason') or now.get('reason') or 'both versions raise the same exception')
                     continue
-                if not other or 'original' not in other:
-                    self.grey.append(point['name'] + ': copy not loaded in this real context: ' + anchor.target)
+                inputs = _declared(point, sample['inputs'])
+                rows.append((inputs, value(now)))
+                if not equal(old, now):
+                    changes.append((inputs, value(old), value(now)))
+            items.append(dict(name=point['name'], file=point['file'], line=getattr(point['anchor'], 'target_line', 0) or getattr(point['node'], 'lineno', 0),
+                              unanchored=point['anchor'] is None, status='grey' if reasons else 'ok', complete=not reasons,
+                              rows=rows, changed=changes, total=len(calls), reasons=list(dict.fromkeys(reasons))))
+        groups = {}
+        for point in self.points.values():
+            if point['anchor'] and point['kind'] == 'sensor':
+                groups.setdefault(point['name'], []).append(point)
+        for name, points in groups.items():
+            if len(points) < 2:
+                continue
+            inputs, seen = [], set()
+            def add(row):
+                if len(inputs) >= 64 or any(type(v) is float and not math.isfinite(v) for v in row.values()):
+                    return
+                encoded = json.dumps(row, sort_keys=True, allow_nan=False)
+                if encoded not in seen and len(inputs) < 64:
+                    seen.add(encoded)
+                    inputs.append(row)
+            for point in points:
+                for sample in samples.get(point['target'], {}).values():
+                    row = _declared(point, sample['inputs'])
+                    add(row)
+                    for key, number in row.items():
+                        if type(number) in (int, float):
+                            for step in (-1, 1):
+                                add({**row, key: number + step})
+            for point in points:
+                text = source(point)
+                node = dict(R._functions(ast.parse(text))).get(point['qual'])
+                if node is not None:
+                    numbers = [part.value for part in ast.walk(node) if isinstance(part, ast.Constant) and type(part.value) in (int, float)]
+                    for row in list(inputs):
+                        for key, number in row.items():
+                            if type(number) in (int, float):
+                                for number in numbers:
+                                    add({**row, key: number})
+            if not inputs:
+                self.grey.append(name + ': no recorded JSON inputs')
+            message, old_bad, old_unknown = None, False, False
+            for row in inputs:
+                outcomes, old_outcomes = [], []
+                for point in points:
+                    spelled = {_spelled(point, key): v for key, v in row.items()}
+                    node = dict(R._functions(ast.parse(source(point)))).get(point['qual'])
+                    positional = [spelled.pop(p.arg) for p in node.args.posonlyargs if p.arg in spelled] if node else []
+                    sample = dict(args=positional, kwargs=spelled)
+                    outcomes.append(run(point, sample))
+                    past = run(point, sample, True)
+                    past_text = source(point, True)
+                    if past_text is not None and point['qual'] in dict(R._functions(ast.parse(past_text))):
+                        if past['status'] == 'unavailable':
+                            old_unknown = True
+                        else:
+                            old_outcomes.append(past)
+                old_bad |= any(not equal(out, old_outcomes[0]) for out in old_outcomes[1:])
+                if any(out['status'] == 'unavailable' for out in outcomes) or (all(out['status'] == 'raised' for out in outcomes) and all(equal(out, outcomes[0]) for out in outcomes[1:])):
+                    self.grey.append(name + ': ' + next((out.get('reason', '') for out in outcomes if out.get('reason')), 'copies raise exceptions'))
                     continue
-                # The actual context is borrowed only under the same named roles.
-                contexts = {p.name: p.source_type for p in point['anchor'].parameters if p.name not in axes}
-                theirs = {p.name: p.source_type for p in anchor.parameters if p.name not in axes}
-                if contexts != theirs or ({'self', 'cls'} & bound.arguments.keys() and point.get('receiver') is not other.get('receiver')):
-                    self.grey.append(point['name'] + ': copy context is not available under the same roles')
-                    continue
-                import inspect
-                try:
-                    arguments = inspect.signature(other['original']).bind(
-                        **{_spelled(other, name): value for name, value in declared.items()})
-                except TypeError:
-                    self.grey.append(point['name'] + ': copy signature does not accept this real context')
-                    continue
-                if self.runtime.safety(other['original'], arguments.arguments):
-                    self.grey.append(point['name'] + ': copy is not safe to replay in this context')
-                    continue
-                try:
-                    other_axes, other_part, other_unknown = self._partition(other, other['original'], arguments)
-                except (ValueError, TypeError, OSError, SyntaxError, AttributeError) as error:
-                    self.grey.append(point['name'] + ': copy partition unavailable: ' + str(error))
-                    continue
-                for field, values in other_axes.items():
-                    pool = axes.setdefault(field, [])
-                    pool.extend(value for value in values if not any(R.outcome_equal(value, prior) for prior in pool))
-                if other_unknown or other_part is None or not other_part.complete:
-                    self.grey.append(point['name'] + ': same-name partition is not closed; candidate comparisons only')
-                measured.append((other, arguments))
-        for other, arguments in measured:
-            token = R._PRIVATE.set(True)
-            index = len(self.runtime.readings)
-            try:
-                self.runtime.observe(other['original'], arguments, owner=other['fn'], name=point['name'],
-                                     axes={_spelled(other, name): values for name, values in axes.items()}, private=True)
-            except Exception:
-                pass  # Raised rows, not the synthetic final call, decide agreement.
-            finally:
-                R._PRIVATE.reset(token)
-            if len(self.runtime.readings) > index:
-                peers.append((self.runtime.readings[index], other))
-        self.records.append((len(self.runtime.readings), point, part, unknown, self._cause(point, original)))
-        self.pairs.append((len(self.runtime.readings), point, peers))
-        return {_spelled(point, name): values for name, values in axes.items()}
+                if message is None and any(not equal(out, outcomes[0]) for out in outcomes[1:]):
+                    places = [(self._place(point['target']) + ' ' + point['qual'], value(out)) for point, out in zip(points, outcomes)]
+                    witness = ', '.join(f'{key}={value!r}' for key, value in row.items())
+                    from . import signals
+                    message = signals.copy_red(name, signals.copy_lines([(witness, places)], equal, repr, total=len(points)))
+            if message:
+                if old_bad:
+                    before.append(message)
+                elif old_unknown:
+                    self.grey.append(name + ': baseline comparison unavailable; current copies disagree')
+                else:
+                    self.red.append(message)
+        return items, before
 
     @contextmanager
     def scope(self, item):
@@ -792,36 +584,7 @@ class Observations:
                 for name in {point['module'] for point in self.points.values()}:
                     if (module := sys.modules.get(name)) is not None:
                         self._module(module)
-                entered = []          # the runtime record's own entries of the event code objects
-                if self.changed and any(point['kind'] == 'event' for point in self.points.values()):
-                    # Event code objects only, with local events; later imports add theirs.
-                    self.event_record = self.runtime.record(list(self.event_codes.values()), entry_only=True, events=entered)
-                    try:
-                        with self.event_record:
-                            yield
-                    finally:
-                        self.event_record = None
-                else:
-                    yield
-                self.actual_path = [event['anchor'] for event in entered if event['phase'] == 'call']
-
-    def old_path(self, item, nextitem):
-        if not self.changed or not self.actual_path or not self.event_codes:
-            return
-        old = []
-        with self.runtime.old_code():
-            codes = {id(point['fn'].__code__): (point['fn'].__code__, point['name']) for point in self.bound.values()
-                     if point['kind'] == 'event' and point['fn'] in self.runtime.patches}
-            if len(codes) != len(self.event_codes):
-                self.grey.append(item.nodeid + ': baseline event code is unavailable')
-                return
-            with self.runtime.record(codes=list(codes.values()), private=True, entry_only=True, events=old):
-                result = self.runtime.replay(item, nextitem=nextitem)
-        if result['status'] == 'ok':
-            before = [event['anchor'] for event in old if event['phase'] == 'call']
-            self.paths.append(dict(test=item.nodeid, before=before, after=self.actual_path))
-        else:
-            self.grey.extend(item.nodeid + ': ' + reason for reason in result['reasons'])
+                yield
 
     @staticmethod
     def _rule_rows(point, reading):
@@ -972,92 +735,17 @@ class Observations:
         return results
 
     def report(self):
-        from types import SimpleNamespace
-        from . import cells as C, differences as D, runtime as R, signals
+        timing = time.perf_counter()
+        from . import signals
         self._rule_signals()
         partial_flows = self._flow_signals()
-        items, leads = [], []
-        key = lambda inputs: tuple((name, type(value).__name__, repr(value)) for name, value in sorted(inputs.items()))
-        for index, point, part, unknown, cause in self.records:
-            if index >= len(self.runtime.readings):
-                continue
-            reading = self.runtime.readings[index]
+        items, before = self._compare()
+        leads = []
+        for _, point, _, _, _ in self.records:
             if self.request and self.request['target'] == point['target']:
-                self.request['readings'].append(reading)
-            actual = {key(_declared(point, inputs)): value for inputs, value in reading.rows}
-            changes = {key(_declared(point, inputs)): old for inputs, old, new in reading.changed}
-            if index in self.reused:
-                result = self.reused[index]['result']
-            elif part is not None:
-                before, after = [], []
-                for region in part.regions:
-                    signature = key(region.inputs)
-                    available = signature in actual and reading.status == reading.comparison_status == 'ok'
-                    before.append(SimpleNamespace(status='ok' if available else 'grey', reasons=tuple(reading.reasons + reading.comparison_reasons),
-                                                  value=changes.get(signature, actual.get(signature))))
-                    after.append(SimpleNamespace(status='ok' if available else 'grey', reasons=tuple(reading.reasons), value=actual.get(signature)))
-                result = D._result(point['name'], part, before, after)
-                result['reasons'] += unknown
-                result['complete'] &= not unknown
-                if index in self.keys and reading.status == reading.comparison_status == 'ok':
-                    self.fresh[self.keys[index]] = json.dumps(dict(target=reading.target, result=result), ensure_ascii=False)
-            else:
-                from dataclasses import asdict
-                result = asdict(reading)
-                result['reasons'] += unknown
-                result['complete'] = False
-            # `lost` marks a point whose loss is red or listed under [unverified]; an unanchored point
-            # without a rule is never red, so its grey stays listed as unverified.
-            result.update(name=point['name'], file=point['file'], line=getattr(point['anchor'], 'target_line', 0) or point['node'].lineno,
-                          unanchored=point['anchor'] is None, lost=reading.lost if self._losable(point) else '')
-            if reading.status != 'ok':
-                result.update(complete=False, reasons=reading.reasons, status='grey', rows=[])
-            if cause:
-                result['cause'] = cause
-            items.append(result)
-        from .anchors import project
-        def projected(point, value):
-            try:
-                return True, project(point['anchor'], value) if point['anchor'] else value
-            except ValueError as error:
-                self.grey.append(point['name'] + ': ' + str(error))
-                return False, None
-        # Same-name copies ran on the same inputs. What every copy answered on the smallest input where one
-        # differs, and again on the first input of each other copy that differs elsewhere (`signals.copy_lines`);
-        # the owner, when one is registered, is the reference, else no copy is chosen.
-        reported = set()
-        def nearest(signature):       # report the smallest differing input, whatever the set order
-            def size(text):
-                try:
-                    return 0, abs(float(text)), float(text)
-                except ValueError:
-                    return 1, 0, text
-            return [size(value) for _, _, value in signature]
-        for index, point, peers in self.pairs:
-            if index >= len(self.runtime.readings) or not peers or point['name'] in reported:
-                continue
-            current = self.runtime.readings[index]
-            if current.status != 'ok':
-                continue
-            tables = [(reading, member, {key(_declared(member, inputs)): value for inputs, value in reading.rows})
-                      for reading, member in [(current, point), *peers] if reading.status == 'ok']
-            inputs, owner = [], None
-            for signature in sorted(tables[0][2], key=nearest):
-                answers = []
-                for reading, member, table in tables:
-                    if signature not in table:
-                        continue
-                    ok, answer = projected(member, table[signature])
-                    if ok:
-                        place = f'{self._place(reading.target)} {member["qual"]}'
-                        owner = place if member['anchor'] and member['anchor'].owner else owner
-                        answers.append((place, answer))
-                if len(answers) > 1:
-                    inputs.append((', '.join(f'{name}={value}' for name, kind, value in signature), answers))
-            lines = signals.copy_lines(inputs, R.outcome_equal, C.show, owner=owner, total=len(peers) + 1)
-            if lines:
-                self.red.append(signals.copy_red(current.name, lines))
-                reported.add(point['name'])
+                self.request['readings'].extend(reading for reading in self.runtime.readings if reading.target == point['target'])
+        self.grey.extend(point['name'] + ': no comparable JSON result' for index, point, _, _, _ in self.records
+                         if self.runtime.readings[index].sample is None)
         unverified, failed_items = [], set()      # an intent item's red is already a failed test
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':
@@ -1074,7 +762,6 @@ class Observations:
                     lines.append(str(result.get('rule') or 'rule') + ' source: ' + quote)
                 self.red.extend(lines)
                 failed_items.update(lines)
-        unverified.extend(self._lost())
         # Each violated rule names the next step: correct the code, or the rule first when the need changed.
         for rule in self.state.model.rules.values():
             if any(str(message).partition('：')[0].partition(': ')[0].partition(' source')[0].partition(' 出处')[0] == rule.id for message in self.red):
@@ -1116,8 +803,9 @@ class Observations:
                       more_leads=signals.more_leads('check --static', base=self.requested_base),
                       source_changed=self.changed or bool(self.mapped) or bool(fallbacks.later),
                       comparison_requested=self.comparison_requested, items=items, paths=self.paths,
-                      leads=leads, red=list(dict.fromkeys(self.red)), steps=self.steps, partial_flows=partial_flows, unverified=unverified,
-                      ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in fallbacks.red])
+                      leads=leads, before=list(dict.fromkeys(before)), red=list(dict.fromkeys(self.red)), steps=self.steps, partial_flows=partial_flows, unverified=unverified,
+                      ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in fallbacks.red],
+                      seconds=self.state.tool_seconds + getattr(self.runtime, 'seconds', 0) + time.perf_counter() - timing)
         from dataclasses import fields
         from .flow import Event
         self.payload = observation_payload(dict(stamp=self.state.started, baseline=self.runtime.baseline, items=report, paths=self.paths,
@@ -1147,188 +835,12 @@ class Observations:
             return target
         return f"{point['file']}:{getattr(point['anchor'], 'target_line', 0) or getattr(point['node'], 'lineno', 0)}"
 
-    def _lost(self):
-        """Observations that the baseline code makes in the same context and the current code turns grey.
 
-        Each fails the run, unless `.flowguard/ledger.toml` lists its anchor or rule under [unverified]
-        with a reason; listed ones are returned as unverified lines. Without a baseline nothing is lost."""
-        from . import ledger
-        listed = ledger.unverified(self.cfg)[0]     # its malformed lines are red in the ledger's own check
-        model = self.state.model      # check --all asks for any grey owner-sourced declaration, a Flow too
-        names = ({anchor.name for anchor in self.index.entries} | set(model.rules) | set(model.flows)
-                 | set(model.states) | set(model.structures) | set(model.anchor_distincts))
-        for name in sorted(set(listed) - names):
-            self._red(f'[unverified] entry {name}', f'is not an anchor, rule or model name; remove it from {ledger.LEDGER} [unverified] section')
-        kept, seen = [], set()
-        for index, point, part, unknown, cause in self.records:
-            if index >= len(self.runtime.readings) or not self._losable(point):
-                continue
-            reading = self.runtime.readings[index]
-            if not reading.lost:
-                continue
-            subjects = [point['name']] if point['anchor'] else []
-            subjects += [rule.id for rule in self.rules.get(point['target'], ())]
-            key = point['target'], reading.lost
-            if key in seen:
-                continue
-            seen.add(key)
-            reason = next((listed[name] for name in subjects if name in listed), '')
-            if reason:
-                kept.append(f'{subjects[0]}（{self._place(point["target"])}): replay exemption recorded: {reason}')
-                continue
-            self._red('observation lost: ' + '、'.join(subjects),
-                      f'{self._place(point["target"])} in {reading.test or "this test"}: baseline code was comparable, but the current result is grey: {reading.lost}',
-                      next=[_restore_step(reading.lost),
-                            f'or, if replay is intentionally retired, add a reason to {ledger.LEDGER} [unverified] section (at least {ledger.MIN_WORDS} words)'
-                            + ('' if ledger.path(self.cfg).is_file() else '; if this file is absent, first run python -m flowguard ledger init') + '：',
-                            '[unverified]', f'{subjects[0]} = ' + ledger._quote(ledger.PLACEHOLDER_UNVERIFIED)])
-        return kept
 
-    def _losable(self, point):
-        """Only an anchor, or a function a rule is bound to, can lose its observation."""
-        return point['anchor'] is not None or bool(self.rules.get(point['target']))
 
-    def _reachable(self, fn):
-        """The function and the project helpers it calls, as the runtime registered them."""
-        found, pending = [], [fn]
-        while pending:
-            current = pending.pop()
-            if current in found:
-                continue
-            found.append(current)
-            patch = self.runtime.patches.get(current)
-            pending.extend(patch.dependencies if patch else ())
-        return found
 
-    def _moved_constants(self, fn):
-        """(name, namespace, before, after, file, function) of the module constants that this function, or a project
-        helper it calls, reads and that differ from the baseline."""
-        import ast
-        import inspect
-        from . import runtime as R
-        found = []
-        for function in self._reachable(fn):
-            # Names from the source, not the code object: an observed helper runs FlowGuard's call hook.
-            names = self.metadata.setdefault(('names', function), {node.id for node in ast.walk(R._definition(function))
-                                                                   if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)})
-            for (_, name), (namespace, before) in self.runtime.constants.items():
-                if namespace is not function.__globals__ or name not in names:
-                    continue
-                after = namespace[name]
-                if R.outcome_equal(self.runtime._old_value(namespace, name, before), after):
-                    continue
-                file = Path(inspect.getsourcefile(function)).resolve().relative_to(self.cfg.root).as_posix()
-                if (name, file) not in {(entry[0], entry[4]) for entry in found}:
-                    found.append((name, namespace, before, after, file, function))
-        return found
 
-    def _moved_literals(self, point, current):
-        """(before, after, line) of the literals that differ inside an otherwise identical function body."""
-        import ast
-        import copy
-        from . import runtime as R
-        patch = self.runtime.patches.get(point['fn'])
-        if patch is None:
-            return []
-        class Shape(ast.NodeTransformer):
-            def visit_Constant(self, node):
-                return ast.copy_location(ast.Constant(type(node.value).__name__), node)
-        if ast.dump(Shape().visit(copy.deepcopy(patch.node)), include_attributes=False) != ast.dump(Shape().visit(copy.deepcopy(current)), include_attributes=False):
-            return []
-        return [(before.value, after.value, after.lineno) for before, after in zip(
-                    (node for node in ast.walk(patch.node) if isinstance(node, ast.Constant)),
-                    (node for node in ast.walk(current) if isinstance(node, ast.Constant)))
-                if type(before.value) is type(after.value) and not R.outcome_equal(before.value, after.value)]
 
-    def _widen(self, point, original, axes, part, unknown):
-        """Comparison points the branch partition alone misses, for integer inputs:
-
-        - every value between the old and the new value of a moved integer constant (also one read by a
-          helper, or a literal changed inside the body), so a moved boundary shows as its whole interval;
-        - for a function that returns arithmetic on an input, six consecutive values from each
-          representative, since the branch classes do not separate arithmetic results. That grid is
-          not a partition: the comparison is then reported as incomplete."""
-        import ast
-        import itertools
-        from . import sites
-        from .runtime import _definition
-        integer = [name for name, pool in axes.items() if pool and all(type(value) is int for value in pool)]
-        if not integer:
-            return part, unknown
-        try:
-            current = _definition(original)
-        except (OSError, TypeError, SyntaxError):
-            return part, unknown
-        own = list(sites.own_nodes(current))
-
-        def related(names=(), helpers=(), line=0):
-            """The integer inputs compared with the moved value, or passed to the helper that reads it."""
-            found = set()
-            for node in own:
-                inside = {child.id for child in ast.walk(node) if isinstance(child, ast.Name)}
-                if isinstance(node, ast.Compare) and (inside & set(names) or line and node.lineno <= line <= node.end_lineno):
-                    found |= inside
-                elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in helpers:
-                    found |= inside
-            return [name for name in integer if name in found] or integer
-        moved = [(before, after, related(names=[name] if function is point['fn'] else (),
-                                         helpers=[function.__name__] if function is not point['fn'] else ()))
-                 for name, _, before, after, _, function in self._moved_constants(point['fn'])]
-        moved += [(before, after, related(line=line)) for before, after, line in self._moved_literals(point, current)]
-        for before, after, inputs in moved:
-            if type(before) is int and type(after) is int and abs(before - after) <= 64:
-                for name in inputs:
-                    axes[name].extend(value for value in range(min(before, after) - 1, max(before, after) + 2)
-                                      if value not in axes[name])
-        patch = self.runtime.patches.get(point['fn'])
-        bodies = [current] + ([patch.node] if patch is not None else [])
-        arithmetic = set()
-        for body in bodies:
-            parts = list(sites.own_nodes(body))
-            computed = {target.id for part in parts if isinstance(part, ast.Assign) and any(isinstance(node, ast.BinOp) for node in ast.walk(part.value))
-                        for target in part.targets if isinstance(target, ast.Name)}
-            returns = [part.value for part in parts if isinstance(part, ast.Return) and part.value is not None]
-            if body.returns is not None and ast.unparse(body.returns) == 'bool' or not any(
-                    isinstance(node, ast.BinOp) or isinstance(node, ast.Name) and node.id in computed
-                    for value in returns for node in ast.walk(value)):
-                continue
-            arithmetic |= {node.id for part in parts if isinstance(part, ast.BinOp) for node in ast.walk(part) if isinstance(node, ast.Name)}
-        windowed = {name: sorted({step for value in axes[name] for step in range(value - 1, value + 6)}) for name in integer if name in arithmetic}
-        sizes = [len(windowed.get(name, axes[name])) for name in axes]
-        if windowed and all(len(values) <= 40 for values in windowed.values()) and len(list(itertools.islice(
-                itertools.product(*(range(size) for size in sizes)), 4097))) <= 4096:
-            for name, values in windowed.items():
-                axes[name].extend(value for value in values if value not in axes[name])
-            part, unknown = None, [*unknown, 'arithmetic result: consecutive representatives were selected per class; this is not a complete partition']
-        return part, unknown
-
-    def _cause(self, point, original=None):
-        import ast
-        import difflib
-        from . import runtime as R
-        for name, namespace, before, after, file, _ in self._moved_constants(point['fn']):
-            tree = ast.parse((self.cfg.root / file).read_text(encoding='utf-8-sig'))
-            line = next((node.lineno for node in tree.body if isinstance(node, (ast.Assign, ast.AnnAssign))
-                         and any(isinstance(target, ast.Name) and target.id == name for target in (node.targets if isinstance(node, ast.Assign) else [node.target]))), 1)
-            return dict(name=name, before=before, after=after, file=file, line=line)
-        from ..map.common import MapError
-        try:
-            old = self.runtime._source(point['file'])
-        except MapError:
-            return None  # Runtime owns the explicit unavailable-baseline reason.
-        if old is None:
-            return None
-        source = (self.cfg.root / point['file']).read_text(encoding='utf-8-sig')
-        from .runtime import _functions
-        current = dict(_functions(ast.parse(source))).get(point['qual'])
-        if current is None:
-            return None
-        for before, after, line in self._moved_literals(point, current):
-            return dict(name=point['name'] + ' constant', before=before, after=after, file=point['file'], line=line)
-        for tag, i, stop, j, end in difflib.SequenceMatcher(a=old.splitlines(), b=source.splitlines()).get_opcodes():
-            if tag != 'equal' and current.lineno <= j + 1 <= current.end_lineno:
-                return f'{point["name"]}（{point["file"]}:{j + 1}）'
-        return None
 
 def pytest_addoption(parser):
     from .cache import base_commit
@@ -1535,6 +1047,7 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_finish(session):
+    timing = time.perf_counter()
     state = session.config._flowguard_intent
     if state.complete_collection is not None and {item.nodeid for item in session.items} != state.complete_collection:
         raise pytest.UsageError('another selection changed the full ordinary collection')
@@ -1547,6 +1060,7 @@ def pytest_collection_finish(session):
     session.items[:] = [*state.source_items, *(item for item in intent if item.kind != 'flow'),
                        *(item for item in intent if item.kind == 'flow'),
                        *(item for item in session.items if item.name == SENTINEL)]
+    state.tool_seconds += time.perf_counter() - timing
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -1697,9 +1211,6 @@ def pytest_runtest_protocol(item, nextitem):
                 scopes.close()
                 state.events.extend(capture.events)
                 state.anchor_issues.extend(capture.issues)
-    if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.observations is not None
-            and state.readings.get(item.nodeid, {}).get('outcome') == 'passed'):
-        state.observations.old_path(item, nextitem)
 
 
 @pytest.hookimpl(tryfirst=True)

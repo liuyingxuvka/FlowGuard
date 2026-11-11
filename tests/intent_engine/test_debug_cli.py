@@ -104,7 +104,7 @@ def test_model_draft_cli_uses_recorded_path_and_stays_unverified(tmp_path, capsy
     compile(text, '<draft>', 'exec')
 
 
-def test_context_try_cli_uses_its_one_real_test_session(tmp_path, capsys):
+def test_context_try_cli_reports_non_json_context_as_not_compared(tmp_path, capsys):
     name = 'context_' + uuid.uuid4().hex
     (tmp_path / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\n')
     (tmp_path / (name + '.py')).write_text('''import sqlite3
@@ -123,9 +123,8 @@ def test_limit():
     # A real command owns one top-level Session; an SDK test never nests one.
     result = subprocess.run([sys.executable, '-m', 'flowguard', '--root', str(tmp_path), 'try', 'LIMIT', 'days=4'],
                             cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
-    assert result.returncode == 0, (result.stdout, result.stderr)
-    assert "'days': 4" in result.stdout and "'enabled': True" in result.stdout and 'False' in result.stdout
-    assert 'real test context' in result.stdout and 'db' not in result.stdout
+    assert result.returncode == 2, (result.stdout, result.stderr)
+    assert 'not compared' in result.stdout and 'JSON' in result.stdout
 
 
 def test_context_try_cli_refuses_a_test_that_does_not_call_the_anchor(tmp_path, capsys):
@@ -160,13 +159,32 @@ def test_limit():
     assert limit(db, 2) is True
     assert db == [2]
 ''')
-    for inputs, code, expected in ((['days=4'], 0, "{'days': 4} → False"), (['days=4', 'db=1'], 2, 'context inputs cannot be replaced')):
+    for inputs, code, expected in ((['days=4'], 2, 'not compared: uses attribute append'), (['days=4', 'db=1'], 2, 'context inputs cannot be replaced')):
         result = subprocess.run([sys.executable, '-m', 'flowguard', '--root', str(tmp_path), 'try', 'LIMIT', *inputs],
                                 cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
-        # The append goes to a deep copy of the test's list: the named test's own assertion db == [2] holds.
+        # The ordinary call still leaves only [2]; the closed engine refuses the mutating method.
         assert result.returncode == code, (result.stdout, result.stderr)
         assert expected in display_text(result.stdout)
         assert 'ordinary test exited' not in result.stdout
+
+
+def test_context_try_uses_json_inputs_without_replacing_the_ordinary_call(tmp_path):
+    name = 'context_' + uuid.uuid4().hex
+    (tmp_path / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\n')
+    (tmp_path / (name + '.py')).write_text('''# flowguard: sensor LIMIT calibrated_by=tests/test_case.py::test_limit
+def limit(config: dict, days: int) -> bool:
+    return days <= config['limit']
+''')
+    tests = tmp_path / 'tests'; tests.mkdir()
+    (tests / 'test_case.py').write_text('from ' + name + ' import limit\n' + '''def test_limit():
+    config = {'limit': 3}
+    assert limit(config, 2) is True
+    assert config == {'limit': 3}
+''')
+    result = subprocess.run([sys.executable, '-m', 'flowguard', '--root', str(tmp_path), 'try', 'LIMIT', 'days=4'],
+                            cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert "{'days': 4} → False" in result.stdout and 'ordinary call unchanged' in result.stdout
 
 
 def test_watch_and_model_show_never_hide_a_model_load_error(tmp_path, capsys):

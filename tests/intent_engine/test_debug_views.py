@@ -139,15 +139,35 @@ def test_watch_restores_trace_when_program_replaces_it_then_raises(tmp_path):
     assert 'ValueError: after replacement' in result['error']
 
 
-def test_point_try_calls_exact_value_once(tmp_path):
+def test_point_try_calls_sealed_exactly_once_without_faking_an_ordinary_call(tmp_path, monkeypatch):
     from flowguard.intent.runtime import Runtime
+    from flowguard.intent import runtime as executor
     cfg, index, name = project(tmp_path, '# flowguard: sensor LIMIT\ndef limit(x: int) -> bool:\n    return x <= 3\n')
-    calls = []
+    calls, sealed_calls = [], []
+    original = executor.sealed
+    def record(source, qual, args, kwargs):
+        sealed_calls.append((qual, args, kwargs))
+        return original(source, qual, args, kwargs)
+    monkeypatch.setattr(executor, 'sealed', record)
     runtime = Runtime(tmp_path)
     with runtime.record(predicate=lambda code: code.co_filename == str(tmp_path / (name + '.py')) and code.co_name == 'limit',
                         callback=lambda frame, event, arg: calls.append(frame.f_locals['x']), private=True, entry_only=True):
         result = debug.try_anchor(cfg, 'LIMIT', {'x': 4}, index=index)
-    assert calls == [4] and result['tested'] == 1 and result['value'] is False
+    assert calls == [] and sealed_calls == [('limit', [4], {})]
+    assert result['tested'] == 1 and result['value'] is False
+
+
+@pytest.mark.parametrize('source, value', [
+    ('from decimal import Decimal\n# flowguard: sensor LIMIT\ndef limit(x: Decimal) -> bool:\n    return x <= Decimal("3")\n', 'decimal'),
+    ('from datetime import date\n# flowguard: sensor LIMIT\ndef limit(x: date) -> bool:\n    return x <= date(2026, 1, 1)\n', 'date'),
+])
+def test_try_non_json_date_or_decimal_is_not_reported_as_compared(tmp_path, source, value):
+    from decimal import Decimal
+    from datetime import date
+    cfg, index, _ = project(tmp_path, source)
+    result = debug.try_anchor(cfg, 'LIMIT', {'x': Decimal('4') if value == 'decimal' else date(2026, 1, 2)}, index=index)
+    assert result['status'] == 'grey', result
+    assert any('not compared' in line and 'JSON' in line for line in result['lines']), result
 
 
 def test_point_try_checks_module_initialization_before_import(tmp_path):

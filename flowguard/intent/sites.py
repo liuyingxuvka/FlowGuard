@@ -446,7 +446,7 @@ def orderable(v) -> bool:
 
 
 @contextmanager
-def intercepted(fn, callback):
+def intercepted(fn, callback, *, keep=None):
     """One mechanical call hook on the same function object, including imported aliases.
 
     The original code runs in a clone with the same globals/defaults.  The hook
@@ -470,7 +470,12 @@ def intercepted(fn, callback):
     while key in fn.__globals__ or key in signature.parameters:
         key += '_'
     def invoke(*args, **kwargs):
-        return callback(original, signature.bind(*args, **kwargs))
+        try:
+            return callback(original, signature.bind(*args, **kwargs))
+        finally:
+            if keep is not None and not keep():
+                fn.__code__ = original.__code__
+                fn.__globals__.pop(key, None)
     def body(fdef):
         args = [ast.Name(p.name, ast.Load()) for p in signature.parameters.values()
                 if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]

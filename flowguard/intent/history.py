@@ -210,8 +210,7 @@ def confirmation(cfg, rule, engine=None):
 def _historical_home(runtime, home, values):
     """An absent function is new code; an absent comment or environment is not."""
     from . import anchors, sites
-    from .runtime import _functions, _resolve, _SAFE
-    import types,builtins
+    from .runtime import _functions
     anchor=home.anchor
     source=runtime._source(anchor.file)
     if source is None:return dict(status='unknown',reason='old module location cannot be restored')
@@ -224,33 +223,16 @@ def _historical_home(runtime, home, values):
     facts=anchors.source_facts(tree,source,anchor.module,anchor.file)
     previous=next((old for old in facts.get('anchors',()) if old['name']==anchor.name and old['qual']==anchor.qual),None)
     if previous is None:return dict(status='unknown',reason='old source has no corresponding observation anchor')
-    if [(p['name'],p['source_type'],p['unit']) for p in previous['parameters']]!=[(p.name,p.source_type,p.unit) for p in anchor.parameters]:
-        return dict(status='unknown',reason='old observation parameter meaning cannot be restored')
+    previous=anchors._anchor(previous)
+    if previous.parameters!=anchor.parameters or any(getattr(previous,name)!=getattr(anchor,name) for name in
+            ('kind','output','output_type','projection','fields','values','calibrated_by')):
+        return dict(status='unknown',reason='old observation meaning cannot be restored')
     function=sites.unwrap(sites.resolve_loaded(anchor.target))
     if runtime.register(function) is None:return dict(status='unknown',reason=runtime.unavailable.get(function,'old function unavailable'))
-    for native,patch in runtime.patches.items():
-        names={node.id for node in ast.walk(patch.node) if isinstance(node,ast.Name) and isinstance(node.ctx,ast.Load)}-set(patch.code.co_varnames)
-        available=set(native.__globals__)|set(vars(builtins))|{name for (_,name),(namespace,_) in runtime.constants.items() if namespace is native.__globals__}
-        if names-available:return dict(status='unknown',reason='old global cannot be restored: '+', '.join(sorted(names-available)))
-        old=ast.parse(runtime._source(Path(native.__code__.co_filename).resolve().relative_to(runtime.root).as_posix()))
-        now=ast.parse(Path(native.__code__.co_filename).read_text(encoding='utf-8-sig'))
-        def environment(module):
-            constants=runtime._constants(module,native.__module__)
-            return [ast.dump(node,include_attributes=False) for node in module.body
-                    if not isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef))
-                    and not (isinstance(node,(ast.Assign,ast.AnnAssign)) and all(
-                        isinstance(target,ast.Name) and target.id in constants for target in
-                        (node.targets if isinstance(node,ast.Assign) else [node.target])))]
-        if environment(old)!=environment(now):return dict(status='unknown',reason='old imports or module environment cannot be restored')
-        for part in ast.walk(patch.node):
-            if isinstance(part,ast.Attribute):
-                owner=_resolve(part.value,native.__globals__)
-                value=_resolve(part,native.__globals__)
-                if isinstance(owner,types.ModuleType) and (id(vars(owner)),part.attr) not in runtime.constants \
-                        and all(value is not known for known in (*_SAFE,*runtime.patches)):
-                    return dict(status='unknown',reason='old imported attribute cannot be restored: '+ast.unparse(part))
+    # Qualification and later evaluation both use the historical source in fresh sealed globals.
+    # Live module bindings are deliberately irrelevant; no old code is installed into them.
     signature = inspect.signature(function, follow_wrapped=False)
-    supplied = {parameter.name: values[parameter.name] for parameter in anchor.parameters if parameter.name in values}
+    supplied = {parameter.source: values[parameter.name] for parameter in anchor.parameters if parameter.name in values}
     positional = [supplied[parameter.name] for parameter in signature.parameters.values()
                   if parameter.kind is inspect.Parameter.POSITIONAL_ONLY and parameter.name in supplied]
     keywords = {name: value for name, value in supplied.items()
@@ -266,6 +248,7 @@ def _historical_home(runtime, home, values):
         files={home.testnode.partition('::')[0]}|{Path(definition.func.__code__.co_filename).resolve().relative_to(runtime.root).as_posix() for definitions in item._fixtureinfo.name2fixturedefs.values() for definition in definitions if hasattr(definition.func,'__code__') and Path(definition.func.__code__.co_filename).resolve().is_relative_to(runtime.root)}
         if any(normalize_newlines((runtime._source(file) or '').encode())!=normalize_newlines((runtime.root/file).read_text(encoding='utf-8-sig').encode()) for file in files):
             return dict(status='unknown',reason='old test context cannot be restored')
+        return dict(status='unknown',reason='not compared: old scenario event/path replay is unavailable; a leaf does not establish the previous path')
     return None
 
 

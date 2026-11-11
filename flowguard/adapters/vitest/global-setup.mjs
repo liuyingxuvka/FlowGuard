@@ -1,32 +1,37 @@
-// FlowGuard vitest adapter: before the tests, a fresh folder for this run's observations; after them,
-// FlowGuard's lines are printed (Python reads the observations, or the session test already did). Red sets the
-// exit status to 1.
-import fs from 'node:fs';
-import path from 'node:path';
-import { spawnSync } from 'node:child_process';
-
+// The root project owns the observations directory and the final report.
+const builtin = typeof process.getBuiltinModule === 'function' ? process.getBuiltinModule.bind(process) : null;
+const fs = builtin?.('fs'), path = builtin?.('path');
+const read = fs?.readFileSync, exists = fs?.existsSync, remove = fs?.rmSync, mkdir = fs?.mkdirSync;
+const spawn = builtin?.('child_process').spawnSync;
 let observations = '';
+let active = false;
 
-export function setup() {
+export function setup(project) {
+  if (!project.isRootProject()) return;
+  active = true;
+  if (!builtin) return;
   const plan = process.env.FLOWGUARD_VITEST_PLAN;
   observations = path.join(path.dirname(plan), `obs-${process.pid}-${Date.now()}`);
-  fs.mkdirSync(observations, { recursive: true });
+  mkdir(observations, { recursive: true });
   process.env.FLOWGUARD_VITEST_OBS = observations;
 }
 
 export function teardown() {
-  // The session test (session.test.mjs) judged the observations already and saved what it printed: print that
-  // after the summary. A run whose filters left the session test out is judged here.
+  if (!active) return;
+  if (!builtin) {
+    console.log('\nnot compared: this Node.js has no process.getBuiltinModule; call recording is unavailable');
+    return;
+  }
   const saved = path.join(observations, 'report.json');
-  if (fs.existsSync(saved)) {
-    const { text, status } = JSON.parse(fs.readFileSync(saved, 'utf8'));
-    fs.rmSync(observations, { recursive: true });
+  if (exists(saved)) {
+    const { text, status } = JSON.parse(read(saved, 'utf8'));
+    remove(observations, { recursive: true });
     if (text) console.log('\n' + text);
     if (status === 1) process.exitCode = 1;
     return;
   }
   const [command, ...prefix] = JSON.parse(process.env.FLOWGUARD_VITEST_PYTHON);
-  const run = spawnSync(command, [...prefix, '-m', 'flowguard.intent.vitest', 'report', '--root', process.env.FLOWGUARD_VITEST_ROOT,
+  const run = spawn(command, [...prefix, '-m', 'flowguard.intent.vitest', 'report', '--root', process.env.FLOWGUARD_VITEST_ROOT,
     '--plan', process.env.FLOWGUARD_VITEST_PLAN, '--observations', observations, '--package', process.env.FLOWGUARD_VITEST_PACKAGE], {
     encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
   });

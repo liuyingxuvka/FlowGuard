@@ -2,7 +2,7 @@
 // after the project's tests (sequence.groupOrder). Python judges this run's observations as the teardown would;
 // a red fails this test, so the red is in vitest's own results (JSON, junit), not only in the exit status. The
 // text and status are saved for the teardown, which prints them after the summary. `test` is a global here.
-import { spawnSync } from 'node:child_process';
+const { spawnSync } = process.getBuiltinModule('child_process');
 
 test('FlowGuard execution side', () => {
   const [command, ...prefix] = JSON.parse(process.env.FLOWGUARD_VITEST_PYTHON);

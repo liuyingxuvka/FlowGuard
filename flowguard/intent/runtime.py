@@ -1,51 +1,43 @@
-"""One in-process observation boundary, shared by tests and explicit checks.
-
-The runtime never collects tests or opens another Python/test session. Replay is
-private; real calls and their exceptions still run normally. Unknown replay
-boundaries produce unavailable observations, never evidence of agreement.
-"""
+"""Actual-call observation and one source-only sealed execution boundary."""
 from __future__ import annotations
 
-import _thread
 import ast
 import builtins
-import collections
 import copy
 import dis
+import enum
+import inspect
+import importlib.util
+import itertools
+import json
+import math
+import os
+from pathlib import Path
+import re
+import sys
+import threading
+import time
+import textwrap
+import types
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-import enum
-import functools
-import gc
-import inspect
-import importlib.util
-import itertools
-import os
-from pathlib import Path
-import random
-import re
-import sqlite3
-import sys
-import textwrap
-import threading
-import time
-import types
 
 from . import cells, sites
 from flowguard.map.common import MapError
 
-is_transport = sites.is_transport
-transport = sites.transport
-
+is_transport, transport = sites.is_transport, sites.transport
 _PRIVATE = ContextVar('flowguard_runtime_private', default=False)
 _OBSERVING = ContextVar('flowguard_runtime_observing', default=frozenset())
+_HISTORICAL = ContextVar('flowguard_runtime_historical', default=None)
 _MISSING = object()
-_SAFE = {bool, int, float, str, bytes, tuple, list, dict, set, frozenset, len, abs, min,
-         max, sum, all, any, sorted, round, isinstance, issubclass, type, range, enumerate,
-         zip, Decimal, date, datetime, timedelta, Path}
+_PERF = time.perf_counter
+_FINITE = math.isfinite
+_SAFE = {bool, int, float, str, tuple, list, dict, set, frozenset, len, abs, min,
+         max, sum, all, any, sorted, round, isinstance, range, enumerate,
+         zip, Decimal, date, datetime, timedelta}
 
 
 def _private_call(function, *args):
@@ -55,7 +47,6 @@ def _private_call(function, *args):
     finally:
         _PRIVATE.reset(token)
 
-
 def outcome_equal(left, right):
     if isinstance(left, cells.Raised) or isinstance(right, cells.Raised):
         return (isinstance(left, cells.Raised) and isinstance(right, cells.Raised)
@@ -63,13 +54,25 @@ def outcome_equal(left, right):
                 and str(left.error) == str(right.error))
     return cells.same(left, right)
 
-
 def _value(fn, bound):
-    try:
-        return fn(*bound.args, **bound.kwargs)
-    except Exception as error:
-        return cells.Raised(error)
-
+    """One bounded call, for an explicit current object or a compiled closed def."""
+    global _CALLING
+    scope = types.SimpleNamespace(reason='')
+    _install()
+    with _bounded(scope):
+        previous, _LOCAL.guard = _LOCAL.guard, scope
+        _CALLING += 1
+        try:
+            try:
+                value = fn(*bound.args, **bound.kwargs)
+            except Exception as error:
+                value = cells.Raised(error)
+        finally:
+            _CALLING -= 1
+            _LOCAL.guard = previous
+    if scope.reason:
+        raise Refused(scope.reason)
+    return value
 
 def _raw_value(value):
     """A boundary summary; source-declared readings belong to Capture's callback."""
@@ -77,10 +80,8 @@ def _raw_value(value):
         return value
     return '<' + type.__getattribute__(type(value), '__name__') + '>'
 
-
 def _binding(signature, arguments):
     return inspect.BoundArguments(signature, dict(arguments))
-
 
 def _simple(value):
     kinds = (type(None), bool, int, float, str, Decimal, date, datetime, timedelta)
@@ -91,7 +92,6 @@ def _simple(value):
             and all(type(inspect.getattr_static(type(value), name, None)) in
                     (type(None), types.WrapperDescriptorType, types.MethodDescriptorType, types.BuiltinFunctionType)
                     for name in operations))
-
 
 def _neighbours(value):
     """Representable neighbours of exact native quantities, without user operators."""
@@ -108,109 +108,27 @@ def _neighbours(value):
                 if _simple(candidate) and (type(candidate) is not Decimal or candidate.is_finite()):
                     yield candidate
             except ArithmeticError:
-                pass  # A native endpoint has no representable neighbour here.
+                pass
 
 
-# ---- replay guard -------------------------------------------------------------------------------
-# A call-site replay (the current code, the baseline code swapped in, the original-value recheck) runs its calls
-# inside one guard: only in the replaying thread and only while a replayed call runs. The audit hook refuses
-# file writes, directory changes, processes, signals, threads and network access before they happen. Calls
-# that raise no audit event (sqlite3.connect, threading.Thread.start, os.mkfifo, os.mknod, and
-# _thread.start_new_thread on Python 3.11) are wrapped while a replayed call runs, for the replaying thread.
-# sqlite3 connections in the arguments and in the module state the function reads (at any depth) hold a
-# savepoint and a read transaction (nothing can be backed up into them), are query_only and refuse writing
-# statements; they return to the savepoint afterwards. Connections opened during a call are protected the
-# same way. Logging records made in a replayed call are dropped and the random module's state is restored.
-# Any refusal voids the whole replay, also when the replayed code catches it. What the guard cannot copy or
-# see into (a generator, an open file, a function, a logger, a queue, another database driver ...) is not
-# replayed, and a replay that runs too long (the owners' watchdog) or recurses too deeply is void.
-
+# The closed environment has values, never a project module or its live globals.
 class Refused(BaseException):
-    """Raised in the audit hook, so the refused operation does not happen. A BaseException: an
-    ordinary `except Exception` in the replayed code does not continue with further effects."""
+    pass
 
 
-_WRITE_FLAGS = os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_TRUNC
-_REFUSED_EVENTS = {
-    'os.remove': 'remove file', 'os.rename': 'rename or move file', 'os.rmdir': 'remove directory', 'os.mkdir': 'create directory',
-    'os.chmod': 'change file permissions', 'os.chown': 'change file owner', 'os.utime': 'change file timestamps', 'os.truncate': 'truncate file',
-    'os.link': 'create link', 'os.symlink': 'create link', 'shutil.rmtree': 'remove directory tree',
-    'os.setxattr': 'change extended file attributes', 'os.removexattr': 'remove extended file attributes', 'os.chdir': 'change working directory',
-    'subprocess.Popen': 'start subprocess', 'os.system': 'run shell command', 'os.exec': 'replace current process',
-    'os.spawn': 'start subprocess', 'os.posix_spawn': 'start subprocess', 'os.fork': 'fork current process', 'os.forkpty': 'fork current process',
-    'os.kill': 'signal process', 'os.killpg': 'signal process group', 'signal.pthread_kill': 'signal thread',
-    'os.putenv': 'change environment variable', 'os.unsetenv': 'change environment variable',
-    'socket.connect': 'connect to network', 'socket.sendto': 'send network data', 'socket.sendmsg': 'send network data',
-    'urllib.Request': 'make network request',
-    '_thread.start_new_thread': 'start thread', '_thread.start_joinable_thread': 'start thread',
-}
-_MUTATORS = {'append', 'extend', 'insert', 'pop', 'remove', 'clear', 'update', 'setdefault', 'add', 'discard',
-             'sort', 'reverse', 'popitem', 'appendleft', 'extendleft', 'popleft', 'write', 'writelines',
-             'put', 'put_nowait', '__setitem__', '__delitem__', 'move_to_end', 'rotate'}
-
-
-def _mutating_functions():
-    """Standard functions that change the object given as their first argument."""
-    import bisect
-    import collections
-    import heapq
-    import operator
-    functions = [heapq.heappush, heapq.heappop, heapq.heapify, heapq.heapreplace, heapq.heappushpop,
-                 bisect.insort, bisect.insort_left, bisect.insort_right, random.shuffle, next,
-                 operator.setitem, operator.delitem,
-                 *(getattr(operator, name) for name in ('iadd', 'iand', 'iconcat', 'ifloordiv', 'ilshift', 'imatmul',
-                                                         'imod', 'imul', 'ior', 'ipow', 'irshift', 'isub', 'itruediv', 'ixor'))]
-    for kind in (list, dict, set, bytearray, collections.deque, collections.OrderedDict):
-        functions.extend(vars(kind)[name] for name in _MUTATORS if name in vars(kind))
-    return functions
-
-
-_MUTATING = _mutating_functions()       # kept alive, so their ids below stay theirs
-_MUTATING_IDS = frozenset(map(id, _MUTATING))
-# Methods that change a sqlite3 connection itself: on a connection the replay shares with the test, they
-# would change the test's own connection (it cannot be copied).
-_CONNECTION_CALLS = {'close', 'set_authorizer', 'set_progress_handler', 'set_trace_callback', 'create_function',
-                     'create_aggregate', 'create_window_function', 'create_collation', 'backup', 'blobopen',
-                     'enable_load_extension', 'load_extension', 'interrupt', 'setlimit', 'setconfig', 'deserialize'}
-# What a protected connection itself answers to a write that bypasses its authorizer: a backup into it (it
-# holds a read transaction) and a Blob write (it is query_only).
-_PROTECTED_ERRORS = {'destination database is in use', 'attempt to write a readonly database'}
-_SQL_READS = {sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION, 33}  # 33: SQLITE_RECURSIVE
-_SQL_TABLE_PRAGMAS = {'table_info', 'table_xinfo', 'index_list', 'index_info', 'index_xinfo', 'foreign_key_list'}
-_SQL_READ_PRAGMAS = _SQL_TABLE_PRAGMAS | {
-    'table_list', 'database_list', 'function_list', 'pragma_list', 'collation_list', 'module_list',
-    'compile_options', 'user_version', 'schema_version', 'application_id', 'encoding', 'page_count',
-    'page_size', 'freelist_count', 'data_version', 'foreign_keys', 'integrity_check', 'quick_check'}
-_SQL_WRITES = {
-    sqlite3.SQLITE_INSERT: 'INSERT', sqlite3.SQLITE_UPDATE: 'UPDATE', sqlite3.SQLITE_DELETE: 'DELETE',
-    sqlite3.SQLITE_ALTER_TABLE: 'ALTER', sqlite3.SQLITE_TRANSACTION: 'BEGIN/COMMIT/ROLLBACK',
-    sqlite3.SQLITE_SAVEPOINT: 'SAVEPOINT', sqlite3.SQLITE_ATTACH: 'ATTACH', sqlite3.SQLITE_DETACH: 'DETACH',
-    sqlite3.SQLITE_REINDEX: 'REINDEX', sqlite3.SQLITE_ANALYZE: 'ANALYZE', sqlite3.SQLITE_PRAGMA: 'PRAGMA',
-    **{getattr(sqlite3, name): 'CREATE' for name in dir(sqlite3) if name.startswith('SQLITE_CREATE_')},
-    **{getattr(sqlite3, name): 'DROP' for name in dir(sqlite3) if name.startswith('SQLITE_DROP_')}}
-_LOOK = 10000         # objects one visibility check looks at; a larger argument or module state is not replayed
-_PERF, _SLEEP = time.perf_counter, time.sleep      # the real ones: a test's patched time.time cannot stretch a wait
-_TICK_WAIT = max(0.05, 4 * max(time.get_clock_info(name).resolution for name in ('time', 'monotonic')))
-# Objects that are code, not state: a visibility check does not look into them.
-_CODE = (types.FunctionType, types.BuiltinFunctionType, types.MethodType, types.MethodDescriptorType,
-         types.WrapperDescriptorType, types.MethodWrapperType, types.ClassMethodDescriptorType,
-         types.GetSetDescriptorType, types.MemberDescriptorType, types.CodeType, types.FrameType,
-         types.ModuleType, classmethod, staticmethod, property, functools.partial)
-_PLAIN = (type(None), bool, int, float, str, bytes)
+class _Globals(dict):
+    def __missing__(self, name):
+        raise Refused('uses ' + name)
 
 
 class _Local(threading.local):
     guard = None
-    connecting = False      # inside the sqlite3.connect wrapper: the connection being opened is protected
 
 
-_LOCAL = _Local()
-_CALLING = 0          # the one switch the audit hook reads: replayed calls now running in any thread
-_HOOKED = False
+_LOCAL, _CALLING, _HOOKED = _Local(), 0, False
 
 
 def _install():
-    """Install the audit hook on the first replay; it cannot be removed and costs one global test."""
     global _HOOKED
     if not _HOOKED:
         sys.addaudithook(_audit)
@@ -218,172 +136,25 @@ def _install():
 
 
 def _audit(event, args):
-    if not _CALLING:
-        return
-    guard = _LOCAL.guard
-    if guard is None:
-        return
-    if event == 'open':
-        mode, flags = args[1], args[2]
-        if not (type(mode) is str and any(letter in mode for letter in 'wax+')
-                or type(flags) is int and flags & _WRITE_FLAGS):
-            return
-        what = 'write file ' + (os.fsdecode(args[0]) if isinstance(args[0], (str, bytes, os.PathLike)) else f'(file descriptor {args[0]}）')
-    elif event == 'sqlite3.connect':
-        if not _LOCAL.connecting:
-            what = 'sqlite3 connection opened outside the replay guard (for example, from sqlite3 import connect was bound before replay)'
-        elif _creates_database(args[0]):
-            what = 'create database file ' + os.fsdecode(args[0])
-        else:
-            return
-    elif event in _REFUSED_EVENTS:
-        what = _REFUSED_EVENTS[event] + ''.join(' ' + os.fsdecode(value) for value in args[:1] if isinstance(value, (str, bytes)))
-    else:
-        return
-    frame = sys._getframe(1)
-    if _bytecode_cache(frame):
-        return
-    raise Refused(guard.refuse(what, frame))
-
-
-def _connect(*args, **kwargs):
-    """sqlite3.connect while a replayed call runs: the new connection is protected like the arguments' ones."""
-    guard = _LOCAL.guard
-    if guard is None:
-        return _SQLITE_CONNECT(*args, **kwargs)
-    _LOCAL.connecting = True
-    try:
-        connection = _SQLITE_CONNECT(*args, **kwargs)
-    finally:
-        _LOCAL.connecting = False
-    guard.adopt(connection)
-    return connection
-
-
-_SQLITE_CONNECT = sqlite3.connect
-
-
-def _refusing(function, what):
-    """`function` for every thread, refused in a replayed call: it raises no audit event of its own."""
-    def refusing(*args, **kwargs):
-        guard = _LOCAL.guard
-        if guard is not None:
-            path = args[0] if args and isinstance(args[0], (str, bytes, os.PathLike)) else None
-            raise Refused(guard.refuse(what + ('' if path is None else ' ' + os.fsdecode(path)), sys._getframe(1)))
-        return function(*args, **kwargs)
-    refusing.__wrapped__ = function
-    return refusing
-
-
-# (owner, name, original, wrapper): put in place while a replayed call runs. Thread.start is refused before it
-# registers the thread (the audit event comes later, from _thread); Python 3.11 has no thread audit event.
-_PATCHES = [(sqlite3, 'connect', _SQLITE_CONNECT, _connect),
-            (threading.Thread, 'start', vars(threading.Thread)['start'],
-             _refusing(vars(threading.Thread)['start'], 'start thread')),
-            *((os, name, getattr(os, name), _refusing(getattr(os, name), what))
-              for name, what in (('mkfifo', 'create named pipe'), ('mknod', 'create device file')) if hasattr(os, name)),
-            *(((_thread, 'start_new_thread', _thread.start_new_thread, _refusing(_thread.start_new_thread, 'start thread')),)
-              if sys.version_info < (3, 12) else ())]
-
-
-def _wrap():
-    """The wrappers, where the original is still in place (a test's own replacement stays)."""
-    for owner, name, original, wrapper in _PATCHES:
-        if getattr(owner, name, None) is original:
-            setattr(owner, name, wrapper)
-
-
-def _unwrap():
-    """The originals back, where a wrapper is in place; repeating it changes nothing."""
-    for owner, name, original, wrapper in _PATCHES:
-        if getattr(owner, name, None) is wrapper:
-            setattr(owner, name, original)
-
-
-def _creates_database(database):
-    """sqlite3.connect creates a missing database file at once; memory and existing files do not."""
-    name = os.fsdecode(database) if isinstance(database, (str, bytes, os.PathLike)) else ''
-    if name in ('', ':memory:') or name.startswith('file:') and ('mode=memory' in name or 'mode=ro' in name):
-        return False
-    return not Path(name.removeprefix('file:').partition('?')[0]).exists()
-
-
-def _bytecode_cache(frame):
-    """The import system writing a .pyc for a module imported during the replay is not its effect."""
-    for _ in range(4):
-        if frame is None:
-            return False
-        code = frame.f_code
-        if code.co_filename.startswith('<frozen importlib') and code.co_name in ('_write_atomic', 'set_data'):
-            return True
-        frame = frame.f_back
-    return False
-
-
-def _quiet(record):
-    """A filter on every logging handler while a guard is active: a record made in a replayed call is dropped."""
-    return _LOCAL.guard is None
-
-
-def _handlers():
-    """The logging handlers of every logger, and the last-resort one; none when logging is not imported."""
-    logging = sys.modules.get('logging')
-    if logging is None:
-        return []
-    loggers = [logging.root, *(item for item in list(logging.Logger.manager.loggerDict.values())
-                                if isinstance(item, logging.Logger))]
-    found, seen = [], set()
-    for handler in [handler for logger in loggers for handler in list(logger.handlers)] + [logging.lastResort]:
-        if handler is not None and id(handler) not in seen:
-            seen.add(id(handler))
-            found.append(handler)
-    return found
-
-
-def _unquiet(handler):
-    for index, item in enumerate(handler.filters):
-        if item is _quiet:
-            del handler.filters[index]
-            return
-
-
-def _clocks():
-    return time.time(), time.monotonic()
-
-
-def _next_tick(before):
-    """Wait until the wall clock and the monotonic clock have both moved on from `before`, so that the
-    original-value recheck runs a clock tick later than the first call: on a coarse clock (1/64 s on
-    Windows) the two calls of a clock-reading function would otherwise often read the same value. The
-    wait is bounded by the real performance counter (a frozen clock never moves)."""
-    deadline = _PERF() + _TICK_WAIT
-    while _PERF() < deadline:
-        wall, steady = _clocks()
-        if wall != before[0] and steady != before[1]:
-            return
-        _SLEEP(0.0005)
+    scope = _LOCAL.guard
+    if _CALLING and scope is not None and (event == 'open' or event.startswith(
+            ('os.', 'socket.', 'subprocess.', 'sqlite3.', 'urllib.', '_thread.')) or event == 'import'):
+        scope.reason = 'uses ' + event
+        raise Refused(scope.reason)
 
 
 @contextmanager
-def _bounded(guard):
-    """The replay owners' watchdog (`owners.watchdog`, `owners.TIMEOUT` seconds) around the replayed calls of one
-    guard: a replay that runs longer is interrupted, and it is void."""
+def _bounded(scope):
     from . import owners
-    seconds = owners.TIMEOUT
     try:
-        with owners.watchdog(seconds):
+        with owners.watchdog(owners.TIMEOUT):
             yield
     except owners._Timeout:
-        # The interruption may have cut a replayed call's own restoring short: put the originals back.
-        if not _CALLING:
-            _unwrap()
-        guard.timed_out, guard.old = True, False     # the current reading is void, whichever code was running
-        guard._mark(f'exceeded {seconds:g} seconds without completion')
+        scope.reason = f'exceeded {owners.TIMEOUT:g} seconds without completion'
 
 
 @contextmanager
 def unguarded():
-    """FlowGuard's own work that happens to run inside a replayed call (an import observer) is not guarded."""
     previous, _LOCAL.guard = _LOCAL.guard, None
     try:
         yield
@@ -391,508 +162,171 @@ def unguarded():
         _LOCAL.guard = previous
 
 
-def _data(value, trail=frozenset()):
-    """Inert data whose comparison runs no project operator: the only outcomes a replay compares."""
-    if type(value) in (type(None), bool, int, float, str, bytes, Decimal, date, timedelta):
-        return True
-    if type(value) is datetime:
-        return value.tzinfo is None
-    if isinstance(value, cells.Raised):
-        return True
-    if type(type(value)) is enum.EnumType and _simple(value):
-        hooks = {name for base in type(value).__mro__ for name in vars(base)
-                 if name.startswith('__') and name.endswith('__')}
-        hooks -= {'__module__', '__doc__', '__qualname__', '__annotations__', '__slots__'}
-        native = (type(None), types.WrapperDescriptorType, types.MethodDescriptorType,
-                  types.ClassMethodDescriptorType, types.GetSetDescriptorType, types.BuiltinFunctionType)
-        return all(inspect.getattr_static(type(value), name, None) is inspect.getattr_static(enum.Enum, name, None)
-                   or type(inspect.getattr_static(type(value), name, None)) in native for name in hooks)
-    if id(value) in trail:
-        return False
-    if type(value) in (tuple, list, dict, set, frozenset):
-        children = [*value.keys(), *value.values()] if type(value) is dict else value
-    elif (fields := _record_fields(value)) is not None:
-        children = fields
+def _json(value, trail=frozenset()):
+    kind = type(value)
+    if kind in (type(None), bool, int, float, str):
+        if kind is float and not _FINITE(value):
+            raise Refused('non-finite JSON number')
+    elif kind in (list, dict):
+        if id(value) in trail:
+            raise Refused('cyclic JSON value')
+        trail = trail | {id(value)}
+        if kind is dict and any(type(key) is not str for key in value):
+            raise Refused('JSON object keys must be strings')
+        for item in value.values() if kind is dict else value:
+            _json(item, trail)
     else:
-        return False
-    return all(_data(item, trail | {id(value)}) for item in children)
+        raise Refused('not JSON data')
+    return json.dumps(value, allow_nan=False, ensure_ascii=True, separators=(',', ':'))
 
 
-def _record_fields(value):
-    """The field values of a plain record result (a NamedTuple, or a dataclass whose equality is the
-    generated one), so comparing two of them runs no project operator; None for anything else."""
-    import dataclasses
-    kind = type(value)
-    if isinstance(value, tuple) and type(inspect.getattr_static(kind, '_fields', None)) is tuple:
-        return list(value) if inspect.getattr_static(kind, '__eq__') is tuple.__eq__ else None
-    if not dataclasses.is_dataclass(kind) or not kind.__dataclass_params__.eq:
-        return None
-    equality = inspect.getattr_static(kind, '__eq__')
-    if getattr(getattr(equality, '__code__', None), 'co_filename', None) != '<string>':
-        return None     # a hand-written __eq__ is project code
-    state = _attributes(value)
-    names = [field.name for field in dataclasses.fields(kind)]
-    return [state[name] for name in names] if all(name in state for name in names) else None
+def _clock(*args, **kwargs):
+    raise Refused('uses current time')
 
 
-def _attributes(value):
-    """An object's own attribute dictionary, read without running project code. The `__dict__` descriptor is
-    taken from the object's type, so a class passed as an argument (a classmethod's `cls`) reads its own
-    namespace instead of the descriptor its instances use."""
-    namespace = type.__dict__['__dict__'].__get__
-    descriptor = next((namespace(klass)['__dict__'] for klass in type(value).__mro__ if '__dict__' in namespace(klass)),
-                      None)
-    if type(descriptor) is types.GetSetDescriptorType:
-        found = descriptor.__get__(value)
-        return dict(found) if type(found) in (dict, types.MappingProxyType) else {}
-    return {}
+class _Date(date):
+    today = classmethod(_clock)
 
 
-def _namespace(owner):
-    """A module's globals or another object's own attributes, read without running project code."""
-    return vars(owner) if type(owner) is types.ModuleType else _attributes(owner)
+class _DateTime(datetime):
+    now = utcnow = today = classmethod(_clock)
 
 
-def _callbacks(connection):
-    """True when the connection holds a Python authorizer, progress handler, trace callback or row factory
-    (sqlite3.Row is native; a text factory other than str and bytes counts as well), the callbacks a
-    connection refers to: no Python version
-    can read an authorizer back, so the replay could not restore it, and the others would run again in
-    every replayed statement. SQL functions, aggregates and collations are not seen here; the guard
-    refuses a Python SQL function or aggregate when a replayed statement calls it, while a collation
-    simply runs again."""
-    noise, cache = [sqlite3.Connection, connection.text_factory, connection.row_factory], False
-    if connection.row_factory not in (None, sqlite3.Row) or not (connection.text_factory is str or connection.text_factory is bytes):
-        return True
-    for ref in gc.get_referents(connection):
-        if not callable(ref):
+_BUILTINS = {name: getattr(builtins, name) for name in (
+    'abs all any bool dict divmod enumerate filter float frozenset int isinstance len list map max min '
+    'range repr reversed round set sorted str sum tuple zip').split()}
+_BUILTINS.update((name, value) for name, value in vars(builtins).items()
+                 if isinstance(value, type) and issubclass(value, Exception))
+_MATH = {name: value for name, value in vars(math).items() if not name.startswith('_') and (
+    type(value) in (int, float) or type(value) is types.BuiltinFunctionType
+    and value.__module__ == 'math' and value.__name__ == name)}
+_METHODS = frozenset(('real imag numerator denominator year month day hour minute second microsecond days seconds '
+    'date weekday isoweekday isocalendar isoformat fromisoformat total_seconds '
+    'lower upper strip lstrip rstrip split rsplit splitlines join replace startswith endswith find rfind '
+    'count index isalpha isdigit isdecimal isalnum isspace capitalize title casefold zfill '
+    'keys values items get copy bit_length as_integer_ratio quantize normalize is_finite').split())
+
+
+def _closed(source, qual):
+    tree = ast.parse(source)
+    modules = {'math': types.SimpleNamespace(**{name: value for name, value in _MATH.items()
+               if vars(math).get(name) is value}), 'decimal': types.SimpleNamespace(Decimal=Decimal),
+               'datetime': types.SimpleNamespace(date=_Date, datetime=_DateTime, timedelta=timedelta)}
+    env = _Globals(__builtins__=_BUILTINS, **_BUILTINS)
+    functions, blocked = {}, set()
+    for n in tree.body:
+        names, values = set(), {}
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            functions[n.name] = n
+            env.pop(n.name, None)
+            blocked.discard(n.name)
             continue
-        found = next((i for i, value in enumerate(noise) if ref is value), None)
-        if found is not None:
-            noise.pop(found)
-        elif not cache and type(ref) is functools._lru_cache_wrapper and inspect.getattr_static(ref, '__wrapped__', None) is connection:
-            cache = True
-        else:
-            return True
-    return False
-
-
-def _callback_state(connection):
-    """What of a connection a replayed call could change without a statement: the callables it refers to,
-    its row and text factories, its Python SQL functions (name, kind, arguments) and its collations."""
-    return (frozenset(id(ref) for ref in gc.get_referents(connection) if callable(ref)),
-            connection.row_factory, connection.text_factory,
-            frozenset((row[0], row[2], row[4]) for row in connection.execute('PRAGMA function_list') if not row[1]),
-            frozenset(row[1] for row in connection.execute('PRAGMA collation_list')))
-
-
-def _unseen(value, kind, objects):
-    """Why a replay cannot copy or see into this one object, or ''. Read without running project code
-    (except an open file's own `closed` and `writable`). `objects`: an argument, where a function, a bound
-    method or a logger would run on the test's own objects too."""
-    import io
-    if kind in (types.GeneratorType, types.CoroutineType, types.AsyncGeneratorType):
-        return 'is a generator or coroutine (replay would consume its values)'
-    if issubclass(kind, io.IOBase):
-        if value.closed:
-            return ''
-        return 'is a file opened for writing' if value.writable() else 'is an open file (replay would consume its contents)'
-    sockets = sys.modules.get('socket')
-    if sockets is not None and issubclass(kind, sockets.socket):
-        return 'is a socket'
-    if kind is getattr(sqlite3, 'Blob', None):
-        return 'is a sqlite3 Blob (its writes bypass the replay guard)'
-    tables = sys.modules.get('_csv')
-    if tables is not None and kind in (tables.Reader, tables.Writer):
-        return 'is a csv reader or writer (replay would read from or write to its file)'
-    for module, names in (('queue', ('Queue', 'SimpleQueue')), ('asyncio', ('Queue',)),
-                          ('multiprocessing.queues', ('Queue', 'SimpleQueue')), ('concurrent.futures', ('Executor',))):
-        found = sys.modules.get(module)
-        if found is not None and issubclass(kind, tuple(vars(found)[name] for name in names if name in vars(found))):
-            return 'is a queue or thread pool (replay effects would reach other threads)'
-    if objects:
-        owner = value.__self__ if kind is types.BuiltinFunctionType else None
-        if kind in (types.FunctionType, types.MethodType, types.MethodWrapperType, functools.partial) or \
-                owner is not None and type(owner) is not types.ModuleType and not issubclass(type(owner), type) \
-                and not _simple(owner) and type(owner) not in _PLAIN:
-            return 'is a function or bound method (replay would run it on test-owned objects)'
-        logging = sys.modules.get('logging')
-        if logging is not None and issubclass(kind, (logging.Logger, logging.LoggerAdapter, logging.Handler)):
-            return 'is a logging logger (deepcopy returns the same object)'
-    names = {name for name in ('cursor', 'commit', 'rollback', 'execute', 'fetchone')
-             if callable(inspect.getattr_static(kind, name, None))}
-    if {'cursor', 'commit', 'rollback'} <= names or {'execute', 'commit'} <= names or {'execute', 'fetchone'} <= names:
-        return f'is a non-sqlite3 database connection ({kind.__module__}.{kind.__qualname__}）'
-    return ''
-
-
-def _parts(value, kind, label, top):
-    """(label, object) of what an object holds: items, keys, attributes and the other references the garbage
-    collector knows. A class is looked into only as an argument itself (its data attributes); other classes,
-    modules and code are not looked into."""
-    if issubclass(kind, type):
-        if top:
-            for name, item in _attributes(value).items():
-                if not (name.startswith('__') and name.endswith('__')) and type(item) not in _CODE:
-                    yield f'{label}.{name}', item
-        return
-    if kind in _CODE:
-        return
-    if issubclass(kind, dict):
-        for key, item in dict.items(value):
-            yield (f'{label}[{key!r}]' if type(key) in _PLAIN else f'{label}[…]'), item
-            yield f'{label}[…]', key
-    elif issubclass(kind, (list, tuple, set, frozenset)):
-        base = next(base for base in (list, tuple, set, frozenset) if issubclass(kind, base))
-        for index, item in enumerate(base.__iter__(value)):
-            yield (f'{label}[{index}]' if base in (list, tuple) else f'{label}[…]'), item
-    for name, item in _attributes(value).items():
-        yield f'{label}.{name}', item
-    if kind not in (dict, list, tuple, set, frozenset):
-        for item in gc.get_referents(value):
-            if item is not kind:
-                yield label + '…', item
-
-
-def _visible(values, what='arguments', *, objects=True):
-    """(sqlite3 connections and cursors to keep shared, why the replay cannot see into `values`).
-
-    `values` maps a name to an argument (`objects`) or to module state a function reads. Everything they
-    hold is looked at, at any depth and without running project code, up to `_LOOK` objects (beyond that
-    the replay does not run): an open file, a socket, a database connection other than sqlite3, a sqlite3
-    connection holding Python callbacks or a Blob, a generator, a csv reader or writer, a queue or an
-    executor keeps the replay from running; for an argument a function, a bound method or a logger does
-    too. Module state may hold functions and loggers (a replayed call's log records are dropped)."""
-    logging = sys.modules.get('logging')
-    quiet = () if objects or logging is None else (logging.Logger, logging.LoggerAdapter, logging.Handler, logging.Manager)
-    shared, seen, pending = [], set(), collections.deque()
-
-    def push(value, label, top=False):
-        if type(value) not in _PLAIN and id(value) not in seen:
-            seen.add(id(value))
-            pending.append((value, label, top))
-
-    for name, value in values.items():
-        push(value, name, True)
-    looked = 0
-    while pending:
-        value, label, top = pending.popleft()
-        if _simple(value):
-            continue
-        looked += 1
-        if looked > _LOOK:
-            name = re.match(r'[^.\[…]*', label).group()
-            return shared, f'{what} {name} is too large: inspected {_LOOK} objects without finishing; open files or connections may remain unseen'
-        kind = type(value)
-        if kind is sqlite3.Cursor:
-            shared.append(value)
-            value, kind = value.connection, sqlite3.Connection
-        if kind is sqlite3.Connection:
-            if not any(value is other for other in shared):
-                shared.append(value)
-            if _callbacks(value):
-                return shared, f'{what} {label} sqlite3 connection has Python callbacks (authorizer, progress, trace or row factory) that cannot be restored after replay'
-            continue
-        if problem := _unseen(value, kind, objects):
-            return shared, f'{what} {label} {problem}'
-        if quiet and issubclass(kind, quiet):
-            continue
-        for name, item in _parts(value, kind, label, top):
-            push(item, name)
-    return shared, ''
-
-
-def _shareable(value):
-    """Arguments a replay uses as they are: classes and modules are module state (their writes are the
-    static check's), and the builtin functions of a module, the methods of builtin types and a few
-    immutable values run no project code and cannot change."""
-    kind = type(value)
-    return (issubclass(kind, type) or kind in (types.ModuleType, types.MethodDescriptorType, types.WrapperDescriptorType,
-                                                types.ClassMethodDescriptorType, range, complex, re.Pattern)
-            or kind is types.BuiltinFunctionType and (type(value.__self__) is types.ModuleType
-                                                      or issubclass(type(value.__self__), type)))
-
-
-def _unchanged(value, shared):
-    """deepcopy returned `value` itself: right for plain data, the shared connections and what a replay shares
-    (an immutable tuple of them); anything else returned as it is would be the test's own object."""
-    if type(value) in _PLAIN or _simple(value) or _shareable(value) or any(value is other for other in shared):
-        return True
-    return type(value) in (tuple, frozenset) and all(_unchanged(item, shared) for item in value)
-
-
-@dataclass
-class _Protected:
-    """One shared sqlite3 connection under a guard: what it was before, and which protections are in place."""
-    connection: object
-    changes: int = 0
-    callbacks: tuple = ()
-    query_only: int = 0
-    steps: list = field(default_factory=list)
-
-
-class _Guard:
-    """One guarded replay of one call site; `void` holds the first refusal of the current code, `unseen` why
-    the arguments or module state cannot be copied or seen into (then nothing is replayed)."""
-
-    def __init__(self, runtime, arguments, functions=()):
-        self.runtime = runtime
-        self.shared, self.unseen = _visible(arguments)
-        state = {}
-        for function, historical in functions:
-            state.update(runtime.module_state(function, historical=historical))
-        if state and not self.unseen:
-            found, self.unseen = _visible(state, 'module globals', objects=False)
-            self.shared += [value for value in found if not any(value is other for other in self.shared)]
-        self.connections = [value for value in self.shared if type(value) is sqlite3.Connection]
-        self.generators = [random, *(value for value in state.values() if type(value) is random.Random)]
-        self.void = self.void_old = ''
-        self.timed_out = False
-        self.protected, self.adopted, self.handlers, self.seeds = [], [], [], []
-        self.old = False
-        self.functions = set()
-        self.authorizer = self._authorize   # one bound method: the connections refer to this very object
-        self.code = _value.__code__     # the frame that calls the replayed function: where a location search stops
-
-    def __enter__(self):
-        _install()
-        self.seeds = [(source.setstate, source.getstate()) for source in self.generators]
-        self.handlers = _handlers()
-        for handler in self.handlers:
-            handler.filters.append(_quiet)
-        for connection in self.connections:
-            if not self._protect(connection):
-                break
-        return self
-
-    def __exit__(self, *error):
-        for record in reversed(self.protected):
-            self._release(record)
-        for connection, keeper in self.adopted:
-            _forget(connection, keeper)
-        for handler in self.handlers:
-            _unquiet(handler)
-        for setstate, state in self.seeds:
-            setstate(state)
-        return False
-
-    def _protect(self, connection):
-        """Savepoint, read transaction, query_only and authorizer on one shared connection; False (and the
-        replay void) when one of them cannot be set up."""
-        record = _Protected(connection)
-        self.protected.append(record)
-        try:
-            record.changes = connection.total_changes
-            record.callbacks = _callback_state(connection)
-            # SQL functions defined in Python run project code on every statement that calls them.
-            self.functions |= {name.lower() for name, kind, count in record.callbacks[3]}
-            record.query_only = connection.execute('PRAGMA query_only').fetchone()[0]
-            connection.execute('SAVEPOINT flowguard_replay')
-            record.steps.append('savepoint')
-            # A read transaction: nothing can be backed up into the connection. No function is called, so a
-            # Python function overriding a built-in one (count) does not run here.
-            connection.execute('SELECT 1 FROM sqlite_master LIMIT 1').fetchall()
-            connection.execute('PRAGMA query_only=1')
-            record.steps.append('query_only')
-            connection.set_authorizer(self.authorizer)
-            record.steps.append('authorizer')
-        except sqlite3.Error as error:
-            self._mark(f'replay did not run: sqlite3 replay guard could not be installed: {type(error).__name__}: {error}')
-            return False
-        return True
-
-    def _release(self, record):
-        """Undo one connection's protection. Each step that fails (the replayed call closed the connection or
-        ended its transaction) is recorded, and the remaining steps and connections are still restored."""
-        connection = record.connection
-        if not record.steps:
-            return
-        if 'authorizer' in record.steps:
-            self._step('remove replay authorizer', connection.set_authorizer, None)
-        if 'query_only' in record.steps:
-            self._step('restore query_only', connection.execute, f'PRAGMA query_only={int(record.query_only)}')
-        if self._step('roll back to SAVEPOINT', connection.execute, 'ROLLBACK TO flowguard_replay') is not _MISSING:
-            self._step('release SAVEPOINT', connection.execute, 'RELEASE flowguard_replay')
-        changes = self._step('read total_changes', getattr, connection, 'total_changes')
-        if changes is not _MISSING and changes != record.changes:
-            self._mark(f'replay refused: database remained changed after replay (total_changes {record.changes} → {changes}）')
-        if changes is not _MISSING:
-            self._step('restore connection callbacks', self._callbacks_back, connection, record.callbacks)
-
-    def _step(self, what, action, *args):
-        """One step of undoing a connection's protection: its result, or _MISSING with the sqlite3 error
-        recorded (the replay is void; the other steps still run)."""
-        try:
-            return action(*args)
-        except sqlite3.Error as error:
-            self._mark(f'replay guard teardown failed: {what}：{type(error).__name__}: {error}')
-            return _MISSING
-
-    def _callbacks_back(self, connection, before):
-        """A replayed call that gave a shared connection a callback, an SQL function or a collation voids the
-        replay. Its factories, progress handler and trace callback are put back (the connection held no
-        progress or trace callback before, or it would not have been replayed); an SQL function or a
-        collation cannot be removed again (passing None leaves a broken entry), so it stays."""
-        after = _callback_state(connection)
-        if after == before:
-            return
-        self._mark('replay changed sqlite3 connection callbacks, SQL functions or collations')
-        callables, connection.row_factory, connection.text_factory = before[:3]
-        if after[0] != callables:
-            connection.set_progress_handler(None, 0)
-            connection.set_trace_callback(None)
-
-    def _mark(self, reason):
-        if self.old:
-            self.void_old = self.void_old or reason
-        else:
-            self.void = self.void or reason
-
-    def adopt(self, connection):
-        """A connection opened during a replayed call is protected like a shared one, without a savepoint (its
-        `with` block or commit stays a no-op): an unfinished read keeps nothing from being backed up into it."""
-        try:
-            keeper = connection.execute('SELECT 1 FROM sqlite_master UNION ALL SELECT 1 UNION ALL SELECT 1')
-            connection.execute('PRAGMA query_only=1')
-            connection.set_authorizer(self.authorizer)
-        except sqlite3.Error as error:
-            connection.close()
-            raise Refused(self.refuse(f'replay guard could not be installed on a new sqlite3 connection: {type(error).__name__}: {error}',
-                                      sys._getframe(1))) from error
-        self.adopted.append((connection, keeper))
-
-    def refuse(self, what, frame):
-        reason = 'replay refused: ' + self._where(frame) + what
-        self._mark(reason)
-        return reason
-
-    def _where(self, frame):
-        """`file:line text：` of the innermost project frame; a baseline function's line is its baseline line."""
-        import linecache
-        old = {id(patch.code): patch for patch in self.runtime.patches.values()} if self.old else {}
-        while frame is not None and frame.f_code is not self.code:
-            file = frame.f_code.co_filename
-            if self.runtime._project_file(file):
-                relative = Path(file).resolve().relative_to(self.runtime.root).as_posix()
-                line, text = frame.f_lineno, ''
-                if (patch := old.get(id(frame.f_code))) is not None:
-                    # The swapped code keeps the current first line; its body lines are the baseline's, shifted.
-                    line += patch.node.lineno - frame.f_code.co_firstlineno
-                    source = self.runtime._source(relative) or ''
-                    text = source.splitlines()[line - 1].strip() if 0 < line <= len(source.splitlines()) else ''
-                    relative += '(baseline)'
-                else:
-                    text = linecache.getline(file, line).strip()
-                return f'{relative}:{line} ' + (f'{text}：' if text else '')
-            frame = frame.f_back
-        return ''
-
-    def _authorize(self, action, first, second, database, trigger):
-        if action == sqlite3.SQLITE_FUNCTION and (second or '').lower() in self.functions:
-            self.refuse(f'call Python SQL function {second}', sys._getframe(1))
-            return sqlite3.SQLITE_DENY
-        if action in _SQL_READS or action == sqlite3.SQLITE_PRAGMA and (first or '').lower() in _SQL_READ_PRAGMAS and (
-                second is None or (first or '').lower() in _SQL_TABLE_PRAGMAS):
-            return sqlite3.SQLITE_OK
-        self.refuse('write database ' + _SQL_WRITES.get(action, f'(authorizer action {action}）') + (f' {first}' if first else ''),
-                    sys._getframe(1))
-        return sqlite3.SQLITE_DENY
-
-    def call(self, fn, bound, *, old=False):
-        """One replayed call: its outcome, with the arguments copied and every effect refused; None when an
-        argument cannot be copied (`unseen`), and then nothing ran."""
-        global _CALLING
-        previous = _LOCAL.guard
-        self.old = old
-        outcome = None
-        try:
-            # No call between these two lines and the `finally` below, so an interruption (the watchdog)
-            # cannot leave the switch on: the restoring lines there come first, with no call either.
-            _CALLING += 1
-            _LOCAL.guard = self
-            _wrap()
-            arguments = self._copied(bound)
-            if arguments is not None:
-                outcome = _value(fn, arguments)
-        except Refused as error:
-            outcome = cells.Raised(error)  # The refusal is already recorded; this whole replay is void.
-        finally:
-            _CALLING -= 1
-            _LOCAL.guard = previous
-            if not _CALLING:
-                _unwrap()
-        self._after(outcome)
-        self.old = False
-        return outcome
-
-    def _after(self, outcome):
-        """After one replayed call: a RecursionError, a write a protected connection refused by itself (a
-        backup into it, a Blob), or a shared connection without the guard's authorizer voids the replay."""
-        if isinstance(outcome, cells.Raised):
-            error = outcome.error
-            if isinstance(error, RecursionError):
-                self._mark('replay did not complete: recursion too deep (RecursionError)')
-            elif isinstance(error, sqlite3.OperationalError) and str(error) in _PROTECTED_ERRORS:
-                trace = error.__traceback__
-                while trace is not None and trace.tb_next is not None:
-                    trace = trace.tb_next
-                self.refuse('write to a replay-guarded sqlite3 connection (writes bypassing authorizer, such as backup or Blob)', trace.tb_frame if trace else None)
-        for record in self.protected:
-            if 'authorizer' in record.steps and not any(ref is self.authorizer for ref in gc.get_referents(record.connection)):
-                self._mark('sqlite3 replay guard is absent after replay (set_authorizer replaced it, or the connection was closed)')
-
-    def _copied(self, bound):
-        """Deep copies of the arguments to replay on, one memo for all (shared objects stay shared); None, with
-        `unseen` set, when an argument cannot be copied or deepcopy returns the object itself."""
-        memo = {id(value): value for value in self.shared}
-        arguments = {}
-        for name, value in bound.arguments.items():
-            if _simple(value) or id(value) in memo and memo[id(value)] is value or _shareable(value):
-                arguments[name] = value
+        if isinstance(n, ast.Import):
+            for a in n.names:
+                name = a.asname or a.name.split('.')[0]
+                names.add(name)
+                if a.name in modules:
+                    values[name] = modules[a.name]
+        elif isinstance(n, ast.ImportFrom):
+            for a in n.names:
+                if a.name == '*':
+                    raise Refused('uses wildcard import')
+                name = a.asname or a.name
+                names.add(name)
+                if not n.level and n.module in modules and not a.name.startswith('_') and hasattr(modules[n.module], a.name):
+                    values[name] = getattr(modules[n.module], a.name)
+        elif isinstance(n, (ast.Assign, ast.AnnAssign)):
+            if n.value is None:
                 continue
+            targets = n.targets if isinstance(n, ast.Assign) else [n.target]
+            names = {p.id for target in targets for p in ast.walk(target) if isinstance(p, ast.Name)}
             try:
-                copied = copy.deepcopy(value, memo)
-            except (TypeError, ValueError, AttributeError, RecursionError, copy.Error) as error:
-                self.unseen = self.unseen or f'arguments {name} cannot be copied ({type(error).__name__}: {error}）'
-                return None
-            if copied is value and not _unchanged(value, self.shared):
-                self.unseen = self.unseen or f'argument {name} cannot be copied (deepcopy returned the same object: {type(value).__name__})'
-                return None
-            arguments[name] = copied
-        return _binding(bound.signature, arguments)
+                value = ast.literal_eval(n.value)
+            except (ValueError, TypeError, SyntaxError):
+                value = _MISSING
+                names.update(p.id for p in ast.walk(n.value) if isinstance(p, ast.Name))
+            for target in targets:
+                if value is not _MISSING and isinstance(target, ast.Name):
+                    values[target.id] = value
+        else:
+            names = {p.id for p in ast.walk(n) if isinstance(p, ast.Name)}
+            names.update(p.name for p in ast.walk(n) if isinstance(p, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)))
+            names.update(p.asname or p.name.split('.')[0] for p in ast.walk(n) if isinstance(p, ast.alias))
+        for name in names:
+            functions.pop(name, None)
+            env.pop(name, None)
+            blocked.add(name)
+        env.update(values)
+        blocked.difference_update(values)
+    if qual in blocked:
+        raise Refused('uses unavailable binding ' + qual)
+    if '.' in qual or qual not in functions:
+        raise Refused('not a module-level function')
+    todo, used, definitions = [qual], set(), []
+    while todo:
+        name = todo.pop()
+        if name in used:
+            continue
+        used.add(name)
+        n = functions[name]
+        if isinstance(n, ast.AsyncFunctionDef) or n.decorator_list or getattr(n, 'type_params', ()):
+            raise Refused('decorator, async or type parameters')
+        n = copy.deepcopy(n)
+        n.returns = None
+        for a in [*n.args.posonlyargs, *n.args.args, *n.args.kwonlyargs, *([n.args.vararg] if n.args.vararg else []),
+                  *([n.args.kwarg] if n.args.kwarg else [])]:
+            a.annotation = None
+        for value in [*n.args.defaults, *(v for v in n.args.kw_defaults if v is not None)]:
+            try:
+                ast.literal_eval(value)
+            except (ValueError, TypeError, SyntaxError):
+                raise Refused('non-literal default') from None
+        local = {p.arg for p in [*n.args.posonlyargs, *n.args.args, *n.args.kwonlyargs,
+                                *([n.args.vararg] if n.args.vararg else []), *([n.args.kwarg] if n.args.kwarg else [])]}
+        local.update(p.id for p in ast.walk(n) if isinstance(p, ast.Name) and isinstance(p.ctx, ast.Store))
+        for part in ast.walk(n):
+            if isinstance(part, (ast.Import, ast.ImportFrom, ast.ClassDef, ast.Global, ast.Nonlocal,
+                                 ast.Yield, ast.YieldFrom, ast.Await, ast.Try, ast.With, ast.AsyncWith)):
+                raise Refused('unsupported ' + type(part).__name__)
+            if isinstance(part, ast.Name) and part.id.startswith('__'):
+                raise Refused('uses ' + part.id)
+            if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load) and part.id in blocked - local:
+                raise Refused('uses unavailable binding ' + part.id)
+            if (isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)
+                    and part.id not in local and part.id not in functions and part.id not in env):
+                raise Refused('uses ' + part.id)
+            if isinstance(part, ast.Attribute):
+                namespace = env.get(part.value.id) if isinstance(part.value, ast.Name) else None
+                module = any(namespace is allowed for allowed in modules.values())
+                if module and not hasattr(namespace, part.attr):
+                    raise Refused('uses unavailable attribute ' + part.attr)
+                if part.attr.startswith('_') or isinstance(part.ctx, (ast.Store, ast.Del)) or part.attr not in _METHODS and not module:
+                    raise Refused('uses attribute ' + part.attr)
+        todo.extend(p.id for p in ast.walk(n) if isinstance(p, ast.Name) and isinstance(p.ctx, ast.Load)
+                    and p.id in functions and p.id not in local)
+        definitions.append(n)
+    exec(compile(ast.fix_missing_locations(ast.Module(body=definitions, type_ignores=[])),
+                 '<flowguard-sealed>', 'exec'), env)
+    return env[qual]
 
 
-def _forget(connection, keeper):
-    """A connection a replayed call opened gets its usual behaviour back, unless that call closed it."""
+def sealed(source, qual, args, kwargs):
+    """Evaluate one source-only function in fresh globals and strict JSON values."""
+    token = _PRIVATE.set(True)
     try:
-        connection.set_authorizer(None)     # first: the guard's authorizer refuses the PRAGMA below
-        keeper.close()
-        connection.execute('PRAGMA query_only=0')
-    except sqlite3.ProgrammingError:
-        pass  # The replayed call closed the connection it opened; nothing is left to restore.
-
-
-class _Field:
-    """One `fields NAME=EXPRESSION` of an anchor: called with the anchor function's own arguments, it
-    returns the expression's value in that function's module, the arguments being its local names."""
-
-    def __init__(self, function, name, expression):
-        self.name, self.expression, self.namespace = name, expression, function.__globals__
-        self.signature = inspect.signature(function, follow_wrapped=False)
-        self.code = compile(expression, f'<flowguard fields {name}>', 'eval')
-
-    def __call__(self, *args, **kwargs):
-        bound = self.signature.bind(*args, **kwargs)
-        bound.apply_defaults()
-        # One namespace, so comprehensions and lambdas in the expression see the arguments too.
-        return eval(self.code, {**self.namespace, **bound.arguments})
-
-    def definition(self, parameters, line):
-        """The expression as a function of the same parameters, at the anchor comment's line, for the
-        static check of explicit writes."""
-        node = ast.parse(f'def _flowguard_field({", ".join(parameters)}):\n    return ({self.expression})\n').body[0]
-        ast.increment_lineno(node, line - 2)      # the expression's own line is the comment's
-        return node
+        fn = _closed(source, qual)
+        values = json.loads(_json({'args': list(args), 'kwargs': kwargs}))
+        value = _value(fn, types.SimpleNamespace(args=values['args'], kwargs=values['kwargs']))
+        if isinstance(value, cells.Raised):
+            error = value.error
+            return dict(status='raised', error=dict(type=type(error).__name__, message=str(error)))
+        return dict(status='ok', value=json.loads(_json(value)))
+    except Refused as error:
+        return dict(status='unavailable', reason=str(error))
+    except (ValueError, SyntaxError, TypeError, RecursionError) as error:
+        return dict(status='unavailable', reason=type(error).__name__ + ': ' + str(error))
+    finally:
+        _PRIVATE.reset(token)
 
 
 def _resolve(expression, env):
@@ -906,38 +340,14 @@ def _resolve(expression, env):
             return vars(owner).get(expression.attr, _MISSING)
     return _MISSING
 
-
 def _chain(expression):
     """An attribute/subscript chain from a name, without calls (`CACHE`, `settings.LIMITS['a']`)."""
     while isinstance(expression, (ast.Attribute, ast.Subscript)):
         expression = expression.value
     return isinstance(expression, ast.Name)
 
-
-def _written(targets):
-    """The attribute and subscript targets of an assignment or deletion, also inside tuples and starred names."""
-    for target in targets:
-        if isinstance(target, (ast.Tuple, ast.List)):
-            yield from _written(target.elts)
-        elif isinstance(target, ast.Starred):
-            yield from _written([target.value])
-        elif isinstance(target, (ast.Attribute, ast.Subscript)):
-            yield target
-
-
-def _module_data(value):
-    """Module state a replay could act on: not code, a class, a module or a simple value."""
-    return not (value is _MISSING or type(value) in _PLAIN or _simple(value) or type(value) in _CODE
-                or issubclass(type(value), type))
-
-
-def _read(owner, name):
-    return _namespace(owner).get(name, _MISSING)
-
-
 def _definition(fn):
     return ast.parse(textwrap.dedent(inspect.getsource(fn))).body[0]
-
 
 def _functions(tree, prefix=''):
     for node in tree.body:
@@ -945,7 +355,6 @@ def _functions(tree, prefix=''):
             yield prefix + node.name, node
         elif isinstance(node, ast.ClassDef):
             yield from _functions(node, prefix + node.name + '.')
-
 
 def _literal(node, constants):
     """Only inert constructors, never execution of a previous module initializer."""
@@ -961,7 +370,6 @@ def _literal(node, constants):
             raise ValueError('old constant/default names an unknown value: ' + part.id)
     return eval(compile(ast.Expression(node), '<flowguard old constant>', 'eval'),
                 {'__builtins__': {}, **allowed, **constants})
-
 
 def _literal_equal(left, right):
     """Compare inert source data without running a fixture object's operators."""
@@ -988,7 +396,6 @@ def _literal_equal(left, right):
         return None
     return None if None in outcomes else all(outcomes)
 
-
 def _binding_facts(tree):
     """Top-level binding identity; function bodies have their own fingerprints."""
     result = {}
@@ -1013,23 +420,6 @@ def _binding_facts(tree):
                     result[node.id] = ('value', ast.dump(value, include_attributes=False))
     return result
 
-
-@dataclass
-class Patch:
-    function: object
-    code: object
-    defaults: tuple | None
-    kwdefaults: dict | None
-    node: object
-    dependencies: tuple = ()
-
-    def callable(self):
-        fn = self.function
-        result = types.FunctionType(self.code, fn.__globals__, fn.__name__, self.defaults, fn.__closure__)
-        result.__kwdefaults__ = self.kwdefaults
-        return result
-
-
 @dataclass
 class Reading:
     name: str
@@ -1047,8 +437,11 @@ class Reading:
     lost: str = ''  # why it is grey, when the baseline code in this same context replays cleanly
     fields: dict | None = None  # an anchor's `fields` values at the real call, read before it ran
     field_rows: list = field(default_factory=list)  # the same values at each replayed row (None: not read)
-    field_reasons: list = field(default_factory=list)  # why a field could not be read: its name and error
-
+    field_reasons: list = field(default_factory=list)
+    actual_inputs: dict = field(default_factory=dict)
+    sample: dict | None = None
+    json_result: object = None
+    index: int = -1
 
 class _ObserverHub:
     """One monitoring/trace owner, with local boundaries and optional discovery."""
@@ -1220,10 +613,6 @@ class _ObserverHub:
                 frame.f_trace_lines = saved[1]
         return self.trace if interested or foreign is not None else None
 
-
-_HUB = _ObserverHub()
-
-
 def _cells(function):
     values = []
     for cell in function.__closure__ or ():
@@ -1232,7 +621,6 @@ def _cells(function):
         except ValueError:
             continue  # An empty cell holds no function.
     return values
-
 
 def module_codes(module, wanted):
     """Code objects of `module` whose (co_filename, qualname without '<locals>') is in `wanted`.
@@ -1273,7 +661,6 @@ def module_codes(module, wanted):
     for value in list(vars(module).values()):
         value_walk(value, 0)
     return found
-
 
 class _Record:
     def __init__(self, runtime, codes, predicate, callback, private, ignored, entry_only, events=None):
@@ -1335,29 +722,206 @@ class _Record:
         self.frames.clear()
         self.pending.clear()
 
+_HUB = _ObserverHub()
+
+
+
+@dataclass
+class Patch:
+    function: object
+    code: object
+    defaults: tuple | None
+    kwdefaults: dict | None
+    node: object
+    source: str
+    dependencies: tuple = ()
+
+    def callable(self):
+        def call(*args, **kwargs):
+            result = sealed(self.source, self.node.name, list(args), kwargs)
+            if result['status'] == 'unavailable':
+                raise Refused(result['reason'])
+            if result['status'] == 'raised':
+                error = result['error']
+                raise getattr(builtins, error['type'], ValueError)(error['message'])
+            return result['value']
+        return call
+
+
 
 class Runtime:
     def __init__(self, root, baseline='HEAD', *, previous=None):
-        self.root, self.baseline = Path(root).resolve(), baseline
-        self.previous = previous
+        self.root, self.baseline, self.previous = Path(root).resolve(), baseline, previous
         self._baseline_error = ''
         if previous is None:
             from flowguard.map.common import git_run
             try:
                 found = git_run(self.root, 'rev-parse', '--verify', baseline + '^{commit}', allowed=(0, 128))
-                if found.returncode:
-                    raise MapError(found.stderr.decode(errors='replace').strip() or 'baseline is unavailable')
-                self.baseline = found.stdout.decode().strip()
+                self.baseline = found.stdout.decode().strip() if not found.returncode else None
+                self._baseline_error = '' if self.baseline else 'baseline is unavailable'
             except (MapError, TypeError) as error:
                 self.baseline, self._baseline_error = None, str(error)
         self.readings, self.issues, self.events = [], [], []
-        self.patches, self.constants, self.unavailable = {}, {}, {}
-        self.current_constants = {}
-        self._sources, self._registered = {}, set()
-        self._trees, self._imported, self._projects = {}, {}, {}   # parsed sources, module constants, boundary
-        self._bindings = {}     # id(parsed tree) -> (tree, its _binding_facts); the trees are kept in _trees
-        self._reads = {}     # (function, historical) → the module state its static check found it reads
-        self.test = ''
+        self.patches, self.constants, self.unavailable, self.current_constants = {}, {}, {}, {}
+        self._sources, self._trees, self._imported, self._projects, self._bindings = {}, {}, {}, {}, {}
+        self._seen, self.test, self.seconds = {}, '', 0.0
+
+    def _input(self, function, historical=False):
+        fn = sites.unwrap(function)
+        file = Path(inspect.getsourcefile(fn)).resolve().relative_to(self.root).as_posix()
+        source = self._source(file) if historical else (self.root / file).read_text(encoding='utf-8-sig')
+        if source is None:
+            raise ValueError('function has no baseline source')
+        return fn, file, source
+
+    def full(self, function):
+        return len(self._seen.get(sites.unwrap(function), ())) >= 20
+
+    def safety(self, function, arguments=None, seen=None, *, historical=False, node=None, reads=None):
+        """Compatibility qualification for explicit callers; ordinary hooks never use it."""
+        owner = self if historical else (_HISTORICAL.get() or self)
+        try:
+            fn, _, source = owner._input(function, historical=historical or _HISTORICAL.get() is not None)
+            _closed(source, fn.__qualname__)
+            if arguments is not None:
+                _json(dict(arguments))
+            return ''
+        except (Refused, ValueError, TypeError, OSError) as error:
+            return str(error)
+
+    def guarded(self, fn, bound, *, current=False):
+        owner = _HISTORICAL.get()
+        try:
+            if current and owner is None:
+                return _value(fn, bound), ''
+            historical = owner is not None
+            owner = owner or self
+            function, _, source = owner._input(fn, historical=historical)
+            answer = sealed(source, function.__qualname__, list(bound.args), dict(bound.kwargs))
+        except (Refused, ValueError, TypeError, OSError) as error:
+            return None, str(error)
+        if answer['status'] == 'unavailable':
+            return None, answer['reason']
+        if answer['status'] == 'raised':
+            error = answer['error']
+            return cells.Raised(getattr(builtins, error['type'], ValueError)(error['message'])), ''
+        return answer['value'], ''
+
+    def field_values(self, original, bound, fields, line, reading):
+        """Explicit fields use the same closed engine; opaque context stays unavailable."""
+        try:
+            fn, _, source = self._input(original)
+            parameters = ', '.join(inspect.signature(fn, follow_wrapped=False).parameters)
+            values = {}
+            for name, expression in fields:
+                body = source + f'\ndef _flowguard_field({parameters}):\n    return ({expression})\n'
+                answer = sealed(body, '_flowguard_field', list(bound.args), dict(bound.kwargs))
+                if answer['status'] != 'ok':
+                    reading.field_reasons.append('field ' + name + ': ' + answer.get('reason', str(answer.get('error'))))
+                    return
+                values[name] = answer['value']
+            reading.fields = values
+        except (OSError, ValueError, TypeError) as error:
+            reading.field_reasons.append(str(error))
+
+    def observe(self, original, bound, *, owner=None, name='', axes=None, private=False, fields=(), line=0, recorded=None):
+        started = _PERF()
+        function = sites.unwrap(owner or original)
+        if (_PRIVATE.get() and not private) or function in _OBSERVING.get() or (not private and self.full(function)):
+            return original(*bound.args, **bound.kwargs)
+        bound.apply_defaults()
+        token = _PRIVATE.set(True)
+        observing = _OBSERVING.set(_OBSERVING.get() | {function})
+        reading = Reading(name or function.__qualname__, function.__module__ + ':' + function.__qualname__,
+                          test=self.test, baseline=self.baseline or '')
+        reading.actual_inputs = dict(bound.arguments)
+        try:
+            reading.sample = json.loads(_json({'args': list(bound.args), 'kwargs': dict(bound.kwargs),
+                                               'inputs': dict(bound.arguments)}))
+        except (Refused, ValueError, TypeError, RecursionError) as error:
+            reading.sample = None
+            reading.reasons.append(str(error))
+        if fields:
+            self.field_values(original, bound, fields, line, reading)
+        reading.index = len(self.readings)
+        self.readings.append(reading)
+        _OBSERVING.reset(observing)
+        _PRIVATE.reset(token)
+        self.seconds += _PERF() - started
+        try:
+            value = original(*bound.args, **bound.kwargs)
+        except BaseException as error:
+            started = _PERF()
+            reading.actual = (dict(bound.arguments), cells.Raised(error))
+            self._record(function, reading, recorded, raised=True, private=private)
+            self.seconds += _PERF() - started
+            raise
+        started = _PERF()
+        reading.actual = (dict(bound.arguments), value)
+        self._record(function, reading, recorded, private=private)
+        self.seconds += _PERF() - started
+        return value
+
+    def _record(self, function, reading, recorded, raised=False, private=False):
+        if not raised:
+            try:
+                reading.json_result = json.loads(_json(reading.actual[1]))
+            except (Refused, ValueError, TypeError, RecursionError) as error:
+                reading.sample = None
+                reading.reasons.append(str(error))
+        if reading.sample is not None and not private:
+            if self.full(function):
+                reading.sample = None
+                reading.reasons.append('sample limit reached')
+            else:
+                key = _json(reading.sample)
+                self._seen.setdefault(function, set()).add(key)
+        if recorded is not None:
+            recorded(reading)
+
+    @contextmanager
+    def hook(self, function, *, name='', axes=None, private=False, fields=(), line=0, recorded=None):
+        function = sites.unwrap(function)
+        if not private and self.full(function):
+            yield function
+            return
+        def callback(original, bound):
+            return self.observe(original, bound, owner=function, name=name, axes=axes,
+                                private=private, fields=fields, line=line, recorded=recorded)
+        callback.__flowguard_transport__ = (type(self).observe.__code__,)
+        with sites.intercepted(function, callback, keep=lambda: private or not self.full(function)) as original:
+            yield original
+
+    @staticmethod
+    def observer_issues():
+        return [issue for record in _HUB.records for issue in record.issues]
+
+    def record(self, codes=(), *, predicate=None, callback=None, private=False, ignored=(), entry_only=False, events=None):
+        return _Record(self, codes, predicate, callback, private, ignored, entry_only, events)
+
+    def axes(self, function, bound, explicit=None):
+        return {name: list(values) for name, values in (explicit or {}).items()}
+
+    def register(self, function):
+        fn = sites.unwrap(function)
+        if fn not in self.patches:
+            try:
+                _, _, source = self._input(fn, historical=True)
+                compiled = _closed(source, fn.__qualname__)
+                self.patches[fn] = Patch(fn, compiled.__code__, compiled.__defaults__, compiled.__kwdefaults__,
+                                         dict(_functions(ast.parse(source)))[fn.__qualname__], source)
+            except (Refused, ValueError, TypeError, OSError) as error:
+                self.unavailable[fn] = str(error)
+        return self.patches.get(fn)
+
+    @contextmanager
+    def old_code(self):
+        token = _HISTORICAL.set(self)
+        try:
+            yield
+        finally:
+            _HISTORICAL.reset(token)
+
 
     def _source(self, file):
         if self._baseline_error:
@@ -1443,123 +1007,10 @@ class Runtime:
         return copy.deepcopy(self._imported[key])
 
     def _binding_facts(self, tree):
-        """_binding_facts of a tree, once per tree object (callers only read them)."""
-        if id(tree) not in self._bindings or self._bindings[id(tree)][0] is not tree:
-            self._bindings[id(tree)] = tree, _binding_facts(tree)
-        return self._bindings[id(tree)][1]
-
-    def _remember_constant(self, namespace, name, old_value, current, tree):
-        if name not in current and ({name, '*', '__getattr__'} & self._binding_facts(tree).keys()):
-            raise ValueError('current source constant is unavailable: ' + name)
-        key = id(namespace), name
-        self.constants[key] = namespace, old_value
-        self.current_constants[key] = current.get(name, _MISSING)
-
-    def _old_value(self, namespace, name, old_value):
-        actual = namespace.get(name, _MISSING)
-        same = _literal_equal(actual, self.current_constants[(id(namespace), name)])
-        if same is None:
-            raise ValueError('cannot distinguish fixture override from source constant: ' + name)
-        return old_value if same else actual
-
-    def register(self, function):
-        """Read old functions and reachable project helpers, without importing code."""
-        fn = sites.unwrap(function)
-        if fn in self._registered:
-            return self.patches.get(fn)
-        self._registered.add(fn)
-        try:
-            file = Path(inspect.getsourcefile(fn)).resolve().relative_to(self.root).as_posix()
-            source = self._source(file)
-            if source is None:
-                raise ValueError('function has no source in the baseline')
-            tree = self._parsed(source, str(self.root / file))
-            node = dict(_functions(tree)).get(fn.__qualname__)
-            if node is None:
-                raise ValueError('function is absent or structurally different in the baseline')
-            current = _definition(fn)
-            constants = self._module_constants(source, fn.__module__, set(), True)
-            current_text = (self.root / file).read_text(encoding='utf-8-sig')
-            current_tree = self._parsed(current_text)
-            current_constants = self._module_constants(current_text, fn.__module__, set(), False)
-            # All old constants in this module are swapped together: helpers use
-            # their own real globals, including imported aliases to functions.
-            old_names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
-            for name in (set(fn.__code__.co_names) | old_names) & constants.keys():
-                self._remember_constant(fn.__globals__, name, constants[name], current_constants, current_tree)
-            local = {arg.arg for arg in node.args.posonlyargs + node.args.args + node.args.kwonlyargs}
-            local.update(n.id for n in sites.own_nodes(node) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store))
-            old_bindings, current_bindings = self._binding_facts(tree), self._binding_facts(current_tree)
-            for name in old_names - local - {'__name__', '__package__', '__file__'}:
-                value = fn.__globals__.get(name)
-                if name not in constants and type(value) in (types.ModuleType, type, enum.EnumType, types.FunctionType) and \
-                        old_bindings.get(name) != current_bindings.get(name):
-                    raise ValueError('baseline import/binding changed: ' + name)
-                if name in fn.__globals__ and name not in constants and type(value) not in (
-                        types.ModuleType, type, enum.EnumType, types.FunctionType, types.BuiltinFunctionType):
-                    raise ValueError('baseline global value is unavailable: ' + name)
-            for part in sites.own_nodes(node):
-                if isinstance(part, ast.Attribute):
-                    owner = _resolve(part.value, fn.__globals__)
-                    imported_file = vars(owner).get('__file__') if type(owner) is types.ModuleType else None
-                    if imported_file and self._project_file(imported_file):
-                        source = self._source(Path(imported_file).resolve().relative_to(self.root).as_posix())
-                        values = self._module_constants(source, owner.__name__, set(), True) if source is not None else {}
-                        value = vars(owner).get(part.attr)
-                        if part.attr in values:
-                            current_text = Path(imported_file).read_text(encoding='utf-8-sig')
-                            current_tree = self._parsed(current_text)
-                            current_values = self._module_constants(current_text, owner.__name__, set(), False)
-                            self._remember_constant(vars(owner), part.attr, values[part.attr], current_values, current_tree)
-                        elif type(value) not in (types.ModuleType, type, enum.EnumType, types.FunctionType, types.BuiltinFunctionType):
-                            raise ValueError('baseline module value is unavailable: ' + ast.unparse(part))
-                    elif type(owner) in (type, enum.EnumType):
-                        value = vars(owner).get(part.attr)
-                        if _simple(value) or type(value) in (tuple, list, dict, set, frozenset):
-                            raise ValueError('baseline class value is unavailable: ' + ast.unparse(part))
-            old = copy.deepcopy(node)
-            defaults = tuple(_literal(value, constants) for value in old.args.defaults) or None
-            kwdefaults = {arg.arg: _literal(value, constants) for arg, value in zip(old.args.kwonlyargs, old.args.kw_defaults)
-                          if value is not None} or None
-            if ast.dump(current.args, include_attributes=False) != ast.dump(old.args, include_attributes=False):
-                # Defaults are evaluated above, but an actual parameter-layout
-                # change cannot be installed on existing aliases safely.
-                def layout(args):
-                    return ([a.arg for a in args.posonlyargs], [a.arg for a in args.args],
-                            [a.arg for a in args.kwonlyargs], bool(args.vararg), bool(args.kwarg))
-                if layout(current.args) != layout(old.args):
-                    raise ValueError('baseline parameter layout changed')
-            old.decorator_list, old.returns = [], None
-            old.args.defaults, old.args.kw_defaults = [], [None] * len(old.args.kwonlyargs)
-            for arg in old.args.posonlyargs + old.args.args + old.args.kwonlyargs + \
-                    [x for x in (old.args.vararg, old.args.kwarg) if x]:
-                arg.annotation = None
-            if fn.__code__.co_freevars:
-                raise ValueError('baseline closure cannot be safely replaced')
-            namespace = {}
-            module = ast.fix_missing_locations(ast.Module(body=[old], type_ignores=[]))
-            exec(compile(module, str(self.root / file), 'exec'), fn.__globals__, namespace)
-            # Existing anchor identity follows the current function location.
-            # Keep node.lineno unchanged as separate historical source metadata.
-            code = namespace[old.name].__code__.replace(co_qualname=fn.__code__.co_qualname,
-                                                       co_firstlineno=fn.__code__.co_firstlineno)
-            self.patches[fn] = Patch(fn, code, defaults, kwdefaults, node)
-            dependencies = []
-            for call in (n for definition in (current, node) for n in sites.own_nodes(definition)
-                         if isinstance(n, ast.Call)):
-                helper = _resolve(call.func, fn.__globals__)
-                if type(helper) is types.FunctionType and self._project(helper):
-                    dependencies.append(helper)
-                    self.register(helper)
-            self.patches[fn].dependencies = tuple(dict.fromkeys(dependencies))
-            return self.patches[fn]
-        except (ValueError, TypeError, OSError, SyntaxError, ImportError, MapError) as error:
-            self.unavailable[fn] = str(error)
-            return None
-
-    def _project(self, fn):
-        file = inspect.getsourcefile(fn)
-        return bool(file and self._project_file(file))
+            """_binding_facts of a tree, once per tree object (callers only read them)."""
+            if id(tree) not in self._bindings or self._bindings[id(tree)][0] is not tree:
+                self._bindings[id(tree)] = tree, _binding_facts(tree)
+            return self._bindings[id(tree)][1]
 
     def _project_file(self, file):
         """project_code, once per file for this runtime (its callers ask for every name a function reads)."""
@@ -1567,504 +1018,6 @@ class Runtime:
             from flowguard.structure.paths import project_code
             self._projects[file] = project_code(file, self.root)
         return self._projects[file]
-
-    @contextmanager
-    def old_code(self):
-        saved = []
-        try:
-            for fn, patch in self.patches.items():
-                saved.append(('function', fn, (fn.__code__, fn.__defaults__, fn.__kwdefaults__)))
-                fn.__code__, fn.__defaults__, fn.__kwdefaults__ = patch.code, patch.defaults, patch.kwdefaults
-            for (_, name), (namespace, value) in self.constants.items():
-                replacement = self._old_value(namespace, name, value)
-                saved.append(('constant', (namespace, name), namespace.get(name, _MISSING)))
-                if replacement is _MISSING:
-                    namespace.pop(name, None)
-                else:
-                    namespace[name] = replacement
-            yield
-        finally:
-            for kind, target, value in reversed(saved):
-                if kind == 'function':
-                    target.__code__, target.__defaults__, target.__kwdefaults__ = value
-                elif value is _MISSING:
-                    target[0].pop(target[1], None)
-                else:
-                    target[0][target[1]] = value
-
-    def safety(self, function, arguments=None, seen=None, *, historical=False, node=None, reads=None):
-        """Why this call is not replayed, or ''. Only explicit writes stop a replay statically: a
-        `global`/`nonlocal` name the function assigns; an assignment, deletion or mutating method call on
-        module state (a module global, a module's or a class's attribute, also through a local name bound
-        to one); module state passed to a standard function that changes its first argument (`heapq`,
-        `bisect.insort`, `next`, `list.append(...)`); a call that changes a sqlite3 connection the replay
-        shares with the test (`close`, `create_function`, `backup` ...); here and in the project helpers it
-        calls. The arguments, and the module state the function and those helpers read, must be visible to
-        the replay guard. Reads, dates, properties and unresolved calls run under the guard instead.
-        `node` checks another definition in the function's module instead (an anchor's `fields`
-        expression, whose lines are the anchor comment's)."""
-        fn = sites.unwrap(function)
-        top = seen is None
-        seen = set() if seen is None else seen
-        reads = {} if reads is None else reads
-        if fn in seen and node is None:
-            return ''
-        seen.add(fn)
-        if top and arguments:
-            unseen = _visible(arguments)[1]
-            if unseen:
-                return 'unavailable: ' + unseen
-        if node is None and not historical and (inspect.isgeneratorfunction(fn) or inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)):
-            return 'unavailable: generator or coroutine function bodies do not run during replay'
-        written = node is not None       # the given definition carries its own source lines
-        if not written:
-            try:
-                if historical:
-                    if fn not in self.patches:
-                        return 'baseline function is unavailable: ' + self.unavailable.get(fn, fn.__qualname__)
-                    node = self.patches[fn].node
-                    # The baseline definition, not the current function object, decides what it was.
-                    if isinstance(node, ast.AsyncFunctionDef) or any(isinstance(part, (ast.Yield, ast.YieldFrom)) for part in sites.own_nodes(node)):
-                        return 'unavailable: generator or coroutine function bodies do not run during replay'
-                else:
-                    node = _definition(fn)
-            except (OSError, TypeError, SyntaxError):
-                return 'source is unavailable for side-effect checking'
-        parts = list(sites.own_nodes(node))
-        declared = {name for part in parts if isinstance(part, (ast.Global, ast.Nonlocal)) for name in part.names}
-        stored = {part.id for part in parts if isinstance(part, ast.Name) and isinstance(part.ctx, (ast.Store, ast.Del))}
-        # Modules imported in the function body: `import a.b` binds `a`, `import a.b as c` binds `a.b`.
-        imported = {alias.asname or alias.name.partition('.')[0]: alias.name if alias.asname else alias.name.partition('.')[0]
-                    for part in parts if isinstance(part, ast.Import) for alias in part.names}
-        modules = {name: sys.modules[module] for name, module in imported.items() if module in sys.modules}
-        local = ({arg.arg for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs,
-                                      *(x for x in (node.args.vararg, node.args.kwarg) if x))} | stored | set(imported)) - declared
-        namespace = fn.__globals__
-        # A local name bound to an attribute/subscript chain (`cache = CACHE`, `m = settings`, `for row in ROWS`)
-        # names what that chain names; flow-insensitive, like `stored`.
-        aliases = {}
-        for part in parts:
-            if isinstance(part, (ast.Assign, ast.AnnAssign)) and part.value is not None and _chain(part.value):
-                targets = part.targets if isinstance(part, ast.Assign) else [part.target]
-                if len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id not in declared:
-                    aliases.setdefault(targets[0].id, part.value)
-            elif isinstance(part, (ast.For, ast.AsyncFor)) and isinstance(part.target, ast.Name) and _chain(part.iter):
-                aliases.setdefault(part.target.id, ast.Subscript(part.iter, ast.Constant(None), ast.Load()))
-
-        def line(part):
-            return part.lineno if historical or written else fn.__code__.co_firstlineno + part.lineno - 1
-
-        def origin(expression, depth=0):
-            """(global name, its value, whether the chain went through a call, whether it went through an
-            attribute or item) an attribute/subscript/call chain starts from, following local aliases; None
-            for a local value."""
-            called = inside = False
-            while isinstance(expression, (ast.Attribute, ast.Subscript, ast.Call)):
-                called = called or isinstance(expression, ast.Call)
-                inside = inside or not isinstance(expression, ast.Call)
-                expression = expression.func if isinstance(expression, ast.Call) else expression.value
-            if not isinstance(expression, ast.Name) or depth > 8:
-                return None
-            name = expression.id
-            if name in modules:
-                return name, modules[name], called, inside
-            if name in aliases:
-                found = origin(aliases[name], depth + 1)
-                return found and (found[0], found[1], found[2] or called, found[3] or inside)
-            if name in local:
-                return None
-            value = namespace.get(name, _MISSING)
-            return None if value is _MISSING else (name, value, called, inside)
-
-        def shared(expression, owner=False):
-            """The module-level object a chain starts from, if it is module state: a global that is not a
-            function or a simple value, or (through attributes and items, without a call) a module or a class.
-            `owner`: the chain is the object whose attribute or item is written, so a module or a class itself
-            counts too (`settings.LIMIT = 4`); a call on a module or a class itself is no write (`os.remove`)."""
-            found = origin(expression)
-            if found is None or _simple(found[1]):
-                return None
-            name, value, called, inside = found
-            if type(value) is types.ModuleType or issubclass(type(value), type):
-                return None if called or not (owner or inside) else name
-            return None if callable(value) else name
-
-        def current(expression, depth=0):
-            """The object a chain names in this call (an argument or module state), read without running
-            project code; _MISSING when it is not known statically."""
-            if depth > 8:
-                return _MISSING
-            if isinstance(expression, ast.Name):
-                name = expression.id
-                if name in aliases:
-                    return current(aliases[name], depth + 1)
-                if arguments and name in arguments:
-                    return arguments[name]
-                if name in modules:
-                    return modules[name]
-                return _MISSING if name in local else namespace.get(name, _MISSING)
-            if isinstance(expression, ast.Attribute):
-                owner = current(expression.value, depth + 1)
-                return _MISSING if owner is _MISSING else _namespace(owner).get(expression.attr, _MISSING)
-            if isinstance(expression, ast.Subscript) and isinstance(expression.slice, ast.Constant):
-                owner = current(expression.value, depth + 1)
-                key = expression.slice.value
-                if type(owner) is dict and type(key) in _PLAIN:
-                    return owner.get(key, _MISSING)
-                if type(owner) in (list, tuple) and type(key) is int and -len(owner) <= key < len(owner):
-                    return owner[key]
-            return _MISSING
-
-        def connection(expression):
-            return type(current(expression)) in (sqlite3.Connection, sqlite3.Cursor)
-
-        for part in parts:
-            if isinstance(part, (ast.Global, ast.Nonlocal)) and set(part.names) & stored:
-                kind = 'global variable' if isinstance(part, ast.Global) else 'enclosing variable'
-                return f'explicit write: line {line(part)} assigns {kind} {", ".join(sorted(set(part.names) & stored))}'
-            if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load) and part.id not in local and part.id not in modules:
-                value = namespace.get(part.id, _MISSING)
-                if _module_data(value):
-                    reads.setdefault(part.id, functools.partial(namespace.get, part.id, _MISSING))
-            elif isinstance(part, ast.Attribute) and isinstance(part.ctx, ast.Load) and isinstance(part.value, ast.Name) \
-                    and (found := origin(part.value)) and not found[2] and not found[3] \
-                    and (type(found[1]) is types.ModuleType or issubclass(type(found[1]), type)):
-                if _module_data(_namespace(found[1]).get(part.attr, _MISSING)):
-                    reads.setdefault(f'{found[0]}.{part.attr}', functools.partial(_read, found[1], part.attr))
-            targets = part.targets if isinstance(part, (ast.Assign, ast.Delete)) else [part.target] \
-                if isinstance(part, ast.AugAssign) or isinstance(part, ast.AnnAssign) and part.value is not None else []
-            for target in _written(targets):
-                if name := shared(target.value, owner=True):
-                    return f'explicit write: line {line(part)} changes module state {name}（{ast.unparse(target)}）'
-                if isinstance(target, ast.Attribute) and connection(target.value):
-                    return (f'explicit write: line {line(part)} changes sqlite3 connection {ast.unparse(target.value)} {target.attr}'
-                            '(connection cannot be copied; replay would change the test-owned connection)')
-            if not isinstance(part, ast.Call):
-                continue
-            if isinstance(part.func, ast.Attribute) and part.func.attr in _MUTATORS and (name := shared(part.func.value)):
-                return f'explicit write: line {line(part)} changes module state {name}（{ast.unparse(part.func)}）'
-            if isinstance(part.func, ast.Name) and part.func.id in ('setattr', 'delattr') and part.func.id not in local \
-                    and part.args and (name := shared(part.args[0], owner=True)):
-                return f'explicit write: line {line(part)} changes module state {name}（{part.func.id}）'
-            target = _resolve(part.func, namespace)
-            if id(target) in _MUTATING_IDS and part.args and (name := shared(part.args[0])):
-                return f'explicit write: line {line(part)} changes module state {name}（{ast.unparse(part.func)}）'
-            if isinstance(part.func, ast.Attribute) and part.func.attr in _CONNECTION_CALLS and connection(part.func.value) \
-                    and (part.func.attr == 'close' or type(current(part.func.value)) is sqlite3.Connection):
-                return (f'explicit write: line {line(part)} calls sqlite3 connection {ast.unparse(part.func.value)} method {part.func.attr}'
-                        '(connection cannot be copied; replay would act on the test-owned connection)')
-            if type(target) is types.FunctionType and self._project(target):
-                # The helper's parameters name what this call passes it, as far as that is known statically.
-                passed = None
-                if not any(isinstance(item, ast.Starred) for item in part.args) and all(item.arg for item in part.keywords):
-                    code = target.__code__
-                    names = code.co_varnames[:code.co_argcount + code.co_kwonlyargcount]
-                    passed = {name: current(item) for name, item in zip(names[:code.co_argcount], part.args)}
-                    passed.update((item.arg, current(item.value)) for item in part.keywords if item.arg in names)
-                    passed = {name: value for name, value in passed.items() if value is not _MISSING} or None
-                if problem := self.safety(target, passed, seen, historical=historical and target in self.patches, reads=reads):
-                    return problem
-        if top:
-            if not written:
-                self._reads[(fn, historical)] = dict(reads)
-            values = {label: value for label, read in reads.items() if (value := read()) is not _MISSING}
-            if values and (unseen := _visible(values, 'module globals', objects=False)[1]):
-                return 'unavailable: ' + unseen
-        return ''
-
-    def module_state(self, function, *, historical=False):
-        """The module state (non-simple globals, module and class attributes) the function and the project
-        helpers it calls read, as the static check found it: name → current value."""
-        fn = sites.unwrap(function)
-        if (fn, historical) not in self._reads:
-            self.safety(fn, historical=historical)
-        values = {label: read() for label, read in self._reads.get((fn, historical), {}).items()}
-        return {label: value for label, value in values.items() if value is not _MISSING}
-
-    def field_values(self, original, bound, fields, line, reading):
-        """An anchor's `fields` values, with the real call's arguments and with each replayed row's, in
-        one guard of their own: reading them is a guarded execution like a replay (static explicit-write
-        check, audit hook, sqlite savepoint and authorizer, copied arguments). A value that cannot be read
-        leaves its call without fields and names the field and its error in `reading.field_reasons`."""
-        fn = sites.unwrap(original)
-        evaluators = [_Field(fn, name, expression) for name, expression in fields]
-        parameters = list(inspect.signature(fn, follow_wrapped=False).parameters)
-        for evaluator in evaluators:
-            problem = self.safety(fn, None, historical=False, node=evaluator.definition(parameters, line))
-            if problem:
-                reading.field_reasons.append(f'field {evaluator.name}：{problem}')
-                return
-        guard = _Guard(self, bound.arguments, ((fn, False),))
-        if guard.unseen:
-            reading.field_reasons.append(f'field {", ".join(name for name, _ in fields)}：unavailable: {guard.unseen}')
-            return
-        calls = [bound, *(_binding(bound.signature, {**bound.arguments, **inputs}) for inputs, _ in reading.rows)]
-        found = []
-        with guard, _bounded(guard):
-            for arguments in calls:
-                values = {}
-                for evaluator in evaluators:
-                    value = guard.call(evaluator, arguments)
-                    if guard.unseen:
-                        guard.void = guard.void or 'unavailable: ' + guard.unseen
-                    if guard.void:
-                        reading.field_reasons.append(f'field {evaluator.name}：{guard.void}')
-                        break
-                    if isinstance(value, cells.Raised):
-                        reason = f'field {evaluator.name} could not be evaluated: {type(value.error).__name__}: {value.error}'
-                    elif not _simple(value):
-                        reason = f'field {evaluator.name} has a non-simple value ({type(value).__name__}）'
-                    else:
-                        values[evaluator.name] = value
-                        continue
-                    if reason not in reading.field_reasons:
-                        reading.field_reasons.append(reason)
-                    values = None
-                    break
-                if guard.void:
-                    break
-                found.append(values)
-        if guard.void:      # a refused effect voids every value this guard read
-            if not any(reason.endswith(guard.void) for reason in reading.field_reasons):
-                reading.field_reasons.append(f'field {", ".join(name for name, _ in fields)}：{guard.void}')
-            return
-        reading.fields, reading.field_rows = found[0], found[1:]
-
-    def guarded(self, fn, bound):
-        """One guarded call that is not a test's own call: (outcome, why it was refused or '')."""
-        guard = _Guard(self, bound.arguments, ((fn, False),))
-        if guard.unseen:
-            return None, 'unavailable: ' + guard.unseen
-        outcome = None
-        with guard, _bounded(guard):
-            outcome = guard.call(fn, bound)
-        if guard.unseen:
-            return None, 'unavailable: ' + guard.unseen
-        return outcome, guard.void
-
-    def _lost(self, reading, owner, bound):
-        """Mark a grey reading lost when the baseline code, in this same context, replays cleanly:
-        compared with the baseline it would have been red or green."""
-        patch = self.register(owner)
-        if patch is None or self.safety(owner, bound.arguments, historical=True):
-            return
-        guard = _Guard(self, bound.arguments, ((owner, True),))
-        if guard.unseen:
-            return
-        outcome = None
-        with guard, _bounded(guard), self.old_code():
-            outcome = guard.call(patch.callable(), bound, old=True)
-        if not (guard.void_old or guard.void or guard.unseen) and _data(outcome):
-            reading.lost = reading.reasons[0]
-
-    def axes(self, function, bound, explicit=None):
-        """Retain all proved representatives and actuals without cross-axis guesses.
-
-        The generic grid adds source constants and their neighbours; the replay
-        loop supplements an explicit grid with actual-tuple neighbours.
-        """
-        axes = {name: list(values) for name, values in (explicit or {}).items()}
-        if explicit is None:
-            for name, value in bound.arguments.items():
-                if _simple(value):
-                    axes[name] = [False, True] if isinstance(value, bool) else [value]
-        constants = []
-        if explicit is None:
-            try:
-                for site in sites.sites_of(function):
-                    constants.extend(sites.site_constants(site))
-            except (OSError, ValueError, TypeError, sites.NotMutable):
-                pass
-            for (_, name), (namespace, value) in self.constants.items():
-                if _simple(value):
-                    constants.extend((value, namespace.get(name, _MISSING),
-                                      self.current_constants[(id(namespace), name)]))
-        for name, values in axes.items():
-            actual = bound.arguments.get(name)
-            values.append(actual)
-            for value in ([actual, *constants] if explicit is None else []):
-                if type(value) is not type(actual) or isinstance(value, bool):
-                    continue
-                values.append(value)
-                values.extend(_neighbours(value))
-            unique = []
-            for value in values:
-                if not any(outcome_equal(value, old) for old in unique):
-                    unique.append(value)
-            axes[name] = unique
-        return axes
-
-    def observe(self, original, bound, *, owner=None, name='', axes=None, private=False, fields=(), line=0):
-        """Metadata and replay are private; the real call always runs outside them. An anchor's
-        `fields` are read before the real call, with its arguments and each replayed row's."""
-        owner = sites.unwrap(owner or original)
-        if (_PRIVATE.get() and not private) or owner in _OBSERVING.get():
-            return original(*bound.args, **bound.kwargs)
-        token = _PRIVATE.set(True)
-        observing = _OBSERVING.set(_OBSERVING.get() | {owner})
-        index = len(self.readings)
-        try:
-            if isinstance(axes, Reading):   # a comparison stored under the same fingerprint: kept, not replayed
-                self.readings.append(axes)
-            else:
-                self._replay_rows(original, bound, owner=owner, name=name, axes=axes)
-            if fields and index < len(self.readings):
-                self.field_values(original, bound, fields, line, self.readings[index])
-        finally:
-            _OBSERVING.reset(observing)
-            _PRIVATE.reset(token)
-        reading = self.readings[index] if index < len(self.readings) else None
-        inputs = {name: value for name, value in bound.arguments.items() if _simple(value)}
-        try:
-            outcome = original(*bound.args, **bound.kwargs)
-        except Exception as error:
-            if reading is not None:
-                reading.actual = (inputs, cells.Raised(error))
-            raise
-        if reading is not None:
-            reading.actual = (inputs, outcome)
-        return outcome
-
-    def _replay_rows(self, original, bound, *, owner, name, axes):
-        """No normal call here, including when metadata or a replay gate is grey. Every replayed call
-        runs in one guard; a refused effect voids the reading. The reading is grey until the replay has
-        completely finished: an error of FlowGuard's own on the way leaves no green reading behind."""
-        reading = Reading(name or owner.__qualname__, owner.__module__ + ':' + owner.__qualname__,
-                          test=self.test, baseline=self.baseline, status='grey', reasons=['replay did not complete'])
-        self.readings.append(reading)
-        problem = self.safety(original, bound.arguments)
-        if problem:
-            reading.status, reading.reasons = 'grey', [problem]
-            reading.comparison_status, reading.comparison_reasons = 'grey', [problem]
-            if not problem.startswith(('unavailable', '看不清')):
-                self._lost(reading, owner, bound)
-            return
-        patch = self.register(owner)
-        old_problem = self.safety(owner, bound.arguments, historical=True)
-        if old_problem:
-            reading.comparison_status = 'grey'
-            reading.comparison_reasons.append(old_problem)
-            patch = None
-        supplied_axes = axes is not None
-        if supplied_axes:
-            axes = {name: list(values) for name, values in axes.items()}
-            unsupported = [name for name, values in axes.items() if not _simple(bound.arguments.get(name))
-                           or any(not _simple(value) for value in values)]
-            if unsupported:
-                reading.status, reading.reasons = 'grey', ['input is not an inert simple value: ' + ', '.join(unsupported)]
-                return
-        axes = self.axes(original, bound, axes)
-        reading.context = tuple(n for n in bound.arguments if n not in axes)
-        unsupported = [name for name, values in axes.items() if not _simple(bound.arguments.get(name))
-                       or any(not _simple(value) for value in values)]
-        if unsupported:
-            reading.status, reading.reasons = 'grey', ['input is not an inert simple value: ' + ', '.join(unsupported)]
-            return
-        if not axes:
-            reading.status, reading.reasons = 'grey', ['no finite simple input classes']
-            return
-        points = (dict(zip(axes, values)) for values in itertools.product(*axes.values()))
-        neighbours = []
-        if supplied_axes:
-            actual = {name: bound.arguments.get(name) for name in axes}
-            for name in axes:
-                for value in _neighbours(actual[name]):
-                    if not any(outcome_equal(value, prior) for prior in axes[name]):
-                        neighbours.append({**actual, name: value})
-        guard = _Guard(self, bound.arguments, ((original, False), (owner, True)))
-        outcomes = None, None, ''
-        if not guard.unseen:
-            with guard, _bounded(guard):
-                outcomes = self._grid(guard, reading, original, bound, patch, itertools.chain(points, neighbours))
-        baseline, again, opaque = outcomes
-        if guard.unseen:
-            problem = 'unavailable: ' + guard.unseen
-            reading.reasons = [problem]
-            reading.comparison_status, reading.comparison_reasons = 'grey', [problem]
-            reading.rows.clear()
-            reading.changed.clear()
-            return
-        if guard.void:
-            reading.status, reading.reasons = 'grey', [guard.void]
-            reading.rows.clear()
-            reading.changed.clear()
-            if not guard.timed_out:     # a slow machine is no lost observation
-                self._lost(reading, owner, bound)
-            return
-        if opaque or not _data(again):
-            reading.status, reading.reasons = 'grey', [f'replay result is not simple comparable data ({opaque or type(again).__name__}); comparison operators are not run']
-            reading.rows.clear()
-            reading.changed.clear()
-            self._lost(reading, owner, bound)
-            return
-        if guard.void_old:
-            reading.comparison_status = 'grey'
-            reading.comparison_reasons.append('baseline code: ' + guard.void_old)
-            reading.changed.clear()
-        reading.status, reading.reasons = 'ok', []
-        if not outcome_equal(baseline, again):
-            reading.status, reading.reasons = 'grey', ['original-value recheck changed: possible side effect or unstable input']
-            reading.rows.clear()
-            reading.changed.clear()
-        if not supplied_axes:
-            reading.reasons.append('comparison grid is not a proof of partition completeness')
-
-    def _grid(self, guard, reading, original, bound, patch, inputs):
-        """The replayed calls of one reading: the original values, every grid point (the current and the
-        baseline code), then the original values again, at least one clock tick after the first call;
-        (first outcome, recheck outcome, the type of an outcome that cannot be compared)."""
-        if guard.void:
-            return None, None, ''
-        baseline = guard.call(original, bound)
-        if guard.unseen:
-            return None, None, ''
-        clocks = _clocks()
-        opaque = '' if _data(baseline) else type(baseline).__name__
-        for point in inputs:
-            if guard.void or opaque:
-                break
-            arguments = _binding(bound.signature, {**bound.arguments, **point})
-            now = guard.call(original, arguments)
-            old = None
-            if patch is not None and not guard.void_old:
-                with self.old_code():
-                    old = guard.call(patch.callable(), arguments, old=True)
-            if not _data(now) or not _data(old):
-                opaque = type(now if not _data(now) else old).__name__
-                break
-            reading.rows.append((point, now))
-            if patch is not None and not guard.void_old and not outcome_equal(old, now):
-                reading.changed.append((point, old, now))
-        if guard.void or opaque:
-            return baseline, None, opaque
-        _next_tick(clocks)
-        return baseline, guard.call(original, bound), opaque
-
-    @contextmanager
-    def hook(self, function, *, name='', axes=None, private=False, fields=(), line=0):
-        owner = sites.unwrap(function)
-        _private_call(self.register, owner)
-        def callback(original, bound):
-            if (_PRIVATE.get() and not private) or owner in _OBSERVING.get():
-                return original(*bound.args, **bound.kwargs)
-            if callable(axes):
-                values = _private_call(axes, original, bound)
-            else:
-                values = axes
-            return self.observe(original, bound, owner=owner, name=name, axes=values, private=private,
-                                fields=fields, line=line)
-        callback.__flowguard_transport__ = (type(self).observe.__code__,)
-        with sites.intercepted(owner, callback) as original:
-            yield original
-
-    @staticmethod
-    def observer_issues():
-        return [issue for record in _HUB.records for issue in record.issues]
-
-    def record(self, codes=(), *, predicate=None, callback=None, private=False, ignored=(), entry_only=False, events=None):
-        """One hub owns local anchor events and explicit dynamic footprints. The record appends its events
-        (anchor, phase, values) to `events`, by default the runtime's own list."""
-        return _Record(self, codes, predicate, callback, private, ignored, entry_only, events)
 
     def replay(self, item, *, nextitem=None):
         """Called after the real protocol has torn down its function fixtures.

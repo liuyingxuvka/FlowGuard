@@ -1371,7 +1371,7 @@ def _observe_verified(root, anchor, values):
     problem = runtime.safety(fn, bound.arguments)
     if problem:
         return Observation('grey', reasons=(problem,), anchor=anchor.target)
-    value, refused = runtime.guarded(fn, bound)
+    value, refused = runtime.guarded(fn, bound, current=True)
     if refused:
         return Observation('grey', reasons=(refused,), anchor=anchor.target)
     if isinstance(value, cells.Raised) and isinstance(value.error, ImportError):
