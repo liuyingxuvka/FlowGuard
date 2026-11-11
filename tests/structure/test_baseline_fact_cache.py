@@ -22,7 +22,7 @@ def git(root, *args):
 def project(tmp_path):
     root = tmp_path / 'project'
     root.mkdir()
-    (root / 'app.py').write_text('LIMIT = 3\ndef eligible(x): return x <= LIMIT\n')
+    (root / 'app.py').write_text('LIMIT = 3\ndef eligible(x): return x <= LIMIT\n', encoding='utf-8')
     git(root, 'init', '-q', '-b', 'main')
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'original boundary')
@@ -40,7 +40,7 @@ def counted(monkeypatch):
 
 def test_old_facts_delta_and_reopened_map_share_one_source_extraction(tmp_path, monkeypatch):
     root = project(tmp_path)
-    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n')
+    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n', encoding='utf-8')
     calls = counted(monkeypatch)
     with closing(build(root)) as graph:
         old = Change(load_config(root), graph, 'HEAD').old_facts('app.py')
@@ -60,7 +60,7 @@ def test_blob_module_test_and_reader_changes_do_not_borrow_cached_facts(tmp_path
     calls = counted(monkeypatch)
     with closing(build(root)) as graph:
         first = graph._baseline_facts('HEAD', 'app.py', 'app')
-        (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n')
+        (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n', encoding='utf-8')
         git(root, 'add', 'app.py')
         git(root, 'commit', '-qm', 'new boundary')
         second = graph._baseline_facts('HEAD', 'app.py', 'app')
@@ -102,7 +102,7 @@ def test_source_fact_cache_does_not_commit_an_existing_transaction(tmp_path):
 
 def test_one_kind_of_a_baseline_record_is_read_without_decoding_the_record_again(tmp_path, monkeypatch):
     root = project(tmp_path)
-    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n')
+    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n', encoding='utf-8')
     with closing(build(root)) as graph:
         whole = graph._baseline_facts('HEAD', 'app.py', 'app')
         assert graph._baseline_part('HEAD', 'app.py', 'app', 'nodes') == whole['nodes']
@@ -140,7 +140,7 @@ def test_a_record_kept_before_its_parts_gets_them_in_one_commit(tmp_path):
 
 def test_touched_uses_the_same_move_filtered_delta_without_full_impact(tmp_path, monkeypatch):
     root = project(tmp_path)
-    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\ndef added(x): return x > 9\n')
+    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\ndef added(x): return x > 9\n', encoding='utf-8')
     with closing(build(root)) as graph:
         expected = graph.impact(since='HEAD')
         change = Change(load_config(root), graph, 'HEAD')
@@ -243,7 +243,7 @@ def test_stored_literals_keep_their_exact_type_and_value(value):
 def test_constant_facts_are_read_once_per_text_and_never_borrowed_by_an_edit(tmp_path, monkeypatch):
     from flowguard.intent import owners
     root = project(tmp_path)
-    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n')
+    (root / 'app.py').write_text('LIMIT = 4\ndef eligible(x): return x <= LIMIT\n', encoding='utf-8')
     read = []
     original = owners._read_constants
     monkeypatch.setattr(owners, '_read_constants', lambda text: read.append(text) or original(text))
@@ -254,15 +254,15 @@ def test_constant_facts_are_read_once_per_text_and_never_borrowed_by_an_edit(tmp
     blobs = []
     monkeypatch.setattr(Change, 'old_text', lambda self, file: blobs.append(file))
     assert changes() == [(3, 4)] and len(read) == 2           # a reopened map reads neither again
-    (root / 'app.py').write_text('LIMIT = 5\ndef eligible(x): return x <= LIMIT\n')
+    (root / 'app.py').write_text('LIMIT = 5\ndef eligible(x): return x <= LIMIT\n', encoding='utf-8')
     assert changes() == [(3, 5)] and len(read) == 3 and blobs == []     # only the edited text is read
 
 
 def test_parse_error_in_old_source_is_preserved_on_cold_and_hot_read(tmp_path):
     root = project(tmp_path)
-    (root / 'app.py').write_text('def broken(\n')
+    (root / 'app.py').write_text('def broken(\n', encoding='utf-8')
     git(root, 'add', 'app.py'); git(root, 'commit', '-qm', 'unreadable baseline')
-    (root / 'app.py').write_text('def repaired(): return 3\n')
+    (root / 'app.py').write_text('def repaired(): return 3\n', encoding='utf-8')
     with closing(build(root)) as graph:
         facts = graph._baseline_facts('HEAD', 'app.py', 'app')
         assert facts['parse_error'] and facts['nodes'] == []
@@ -281,9 +281,9 @@ def test_parse_error_in_old_source_is_preserved_on_cold_and_hot_read(tmp_path):
 def test_literal_change_shortcut_keeps_structure_and_docstring_semantics(tmp_path, old, new, pairs):
     from flowguard.intent.owners import constant_changes
     root = project(tmp_path)
-    (root / 'app.py').write_text(old + '\n')
+    (root / 'app.py').write_text(old + '\n', encoding='utf-8')
     git(root, 'add', 'app.py'); git(root, 'commit', '-qm', 'baseline judgment')
-    (root / 'app.py').write_text(new + '\n')
+    (root / 'app.py').write_text(new + '\n', encoding='utf-8')
     with closing(build(root)) as graph:
         result = constant_changes(Change(load_config(root), graph, 'HEAD'))
     assert [(row['before'], row['after']) for row in result] == pairs
@@ -294,7 +294,7 @@ def test_baseline_tree_keeps_nested_project_and_literal_file_identity(tmp_path):
     inside = root / 'inside'
     inside.mkdir()
     name = 'hash # 空格.py'
-    (inside / name).write_text('def eligible(x): return x <= 3\n')
+    (inside / name).write_text('def eligible(x): return x <= 3\n', encoding='utf-8')
     git(root, 'add', 'inside'); git(root, 'commit', '-qm', 'nested source')
     with closing(build(inside)) as graph:
         facts = graph._baseline_facts('HEAD', name, 'literal_module')
