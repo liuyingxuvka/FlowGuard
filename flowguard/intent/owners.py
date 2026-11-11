@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 import threading
 import time
 
-from flowguard.map.common import git_blob, is_test_file, read_source
+from flowguard.map.common import git_blob, is_test_file, read_source, sha256_bytes
 
 SIMILAR_SHAPE = 0.5          # 3-gram Jaccard of two function bodies that counts as a similar structure
 SIMILAR_FOREIGN = 0.8        # the same for JS/TS, whose copies are found by structure alone (no replay)
@@ -56,7 +56,7 @@ class Change:
         self.baseline = graph._baseline_revision(baseline) if baseline else None
         self.files = set(graph._git_changed(self.baseline)) if self.baseline else set()
         self._modules = {path: module for path, module in graph.con.execute('SELECT path, module FROM file')}
-        self._texts, self._facts, self._impact = {}, {}, None
+        self._texts, self._facts, self._delta, self._impact = {}, {}, {}, None
 
     def impact(self):
         """The map's changed, added and removed ids against the baseline (read once)."""
@@ -68,10 +68,19 @@ class Change:
         """Functions (named, nested callbacks folded into them) this change edits or adds."""
         if not hasattr(self, '_touched'):
             from flowguard.structure.api import _without_moves
-            delta = self.graph._delta_against(self.baseline, sorted(self.files)) if self.baseline else []
+            delta = self.delta(sorted(self.files)) if self.baseline else []
             self._touched = {named(ident) for ident, change, *_ in _without_moves(delta)
                              if change in ('changed', 'added')}
         return self._touched
+
+    def delta(self, files):
+        """The map's delta rows of these files against the baseline, in their order; each file's rows are read
+        once per check (the touched functions and the changed-once leads both ask)."""
+        missing = [file for file in dict.fromkeys(files) if file not in self._delta]
+        if missing:
+            found = dict(self.graph._file_deltas(self.baseline, missing))
+            self._delta.update({file: found.get(file, []) for file in missing})     # no reader: no rows
+        return [row for file in files for row in self._delta[file]]
 
     def writes(self):
         """Every write row of the map, read once per check; Python right sides are not folded (the structure
@@ -93,6 +102,12 @@ class Change:
             self._facts[file] = self.graph._baseline_facts(self.baseline, file, module, is_test_file(file)) \
                 if self.baseline and module else {}
         return self._facts[file]
+
+    def old_part(self, file, kind):
+        """One kind of `old_facts(file)` (None when absent), read without decoding the file's whole record."""
+        module = self._modules.get(file)
+        return self.graph._baseline_part(self.baseline, file, module, kind, is_test_file(file)) \
+            if self.baseline and module else None
 
     def rule_declarations(self):
         """The intent source facts of this change, not an old-value matching result."""
@@ -157,9 +172,11 @@ def _agreement_place(graph, owner, role):
 
 def owner_writes(change, index, *, everything=False):
     """A write outside a data owner's writers that this change adds is red; older ones are the old ledger."""
-    found = Findings()
+    found, written = Findings(), None
     for owner in (a for a in index.entries if a.kind == 'owner' and a.writers):
-        rows = [row for row in change.graph.writes(owner.name, by_name=True) if not row.get('unclear')]
+        if written is None:
+            written = change.graph.writes(by_name=True)        # read once for every owner
+        rows = [row for row in change.graph.writes_to(written, owner.name) if not row.get('unclear')]
         outside = [row for row in rows if not _allowed(row, owner.writers)]
         if not outside:
             continue
@@ -358,61 +375,177 @@ def _literal_text(text):
 def constant_changes(change):
     """Literal values this change replaced: module constants (also inside tuples and dicts) and the
     constants of a function whose structure is otherwise unchanged, in Python and JS/TS files. Read from
-    source, never run."""
-    from .runtime import _functions
+    source, never run; each source text's constants are read once (`_source_constants`)."""
     out = _foreign_constant_changes(change)
     for file in change.changed_python():
-        old = change.old_text(file)
-        if old is None:
+        blob = change.graph._baseline_object(change.baseline, file)
+        if blob is None:
             continue
         try:
             new = read_source(change.cfg.root / file)
-            old_tree, new_tree = ast.parse(old), ast.parse(new)
+            old_facts = _source_constants(change.graph, ['blob', blob], lambda: change.old_text(file))
+            new_facts = _source_constants(change.graph, ['text', sha256_bytes(new.encode('utf-8', 'surrogatepass'))], lambda: new)
         except SyntaxError:
             continue
         module = change._modules[file]
-        before, after = _module_literals(old_tree), _module_literals(new_tree)
+        before, after = old_facts['literals'], new_facts['literals']
         for name in before.keys() & after.keys():
             for old_value, new_value in _differences(before[name][0], after[name][0]):
                 out.append(dict(name=name, before=old_value, after=new_value, file=file, line=after[name][1],
                                 identity=module + ':' + name, target=''))
-        old_functions, new_functions = dict(_functions(old_tree)), dict(_functions(new_tree))
-        old_lines, new_lines = old.split('\n'), new.split('\n')
+        old_functions, new_functions = old_facts['functions'], new_facts['functions']
         for qual in old_functions.keys() & new_functions.keys():
             a, b = old_functions[qual], new_functions[qual]
-            start_a = min([a.lineno, *(d.lineno for d in a.decorator_list)]) - 1
-            start_b = min([b.lineno, *(d.lineno for d in b.decorator_list)]) - 1
-            if old_lines[start_a:a.end_lineno] == new_lines[start_b:b.end_lineno]:
-                continue
-            first = [node for node in ast.walk(a) if isinstance(node, ast.Constant)]
-            second = [node for node in ast.walk(b) if isinstance(node, ast.Constant)]
+            if a['text'] == b['text']:
+                continue                    # the same lines: decorators, signature and body
+            first, second = a['constants'], b['constants']
             if len(first) != len(second):
                 continue
-            differences = [(y, _differences(x.value, y.value)) for x, y in zip(first, second)]
-            if not any(pairs for _, pairs in differences) or _shape(a) != _shape(b):
+            differences = [(line, _differences(x, y)) for (_, x), (line, y) in zip(first, second)]
+            if not any(pairs for _, pairs in differences) or a['shape'] != b['shape']:
                 continue
-            for y, pairs in differences:
+            for line, pairs in differences:
                 for old_value, new_value in pairs:
-                    out.append(dict(name=qual + ' constant', before=old_value, after=new_value, file=file, line=y.lineno,
+                    out.append(dict(name=qual + ' constant', before=old_value, after=new_value, file=file, line=line,
                                     identity='', target=module + ':' + qual))
     return out
 
 
-def _shape(function):
-    def blank(node):
-        if isinstance(node, ast.Constant):
-            return ast.Constant(type(node.value).__name__)
-        if isinstance(node, ast.AST):
-            return type(node)(**{name: blank(value) for name, value in ast.iter_fields(node)})
-        if isinstance(node, list):
-            return [blank(value) for value in node]
-        return node
-    return ast.dump(blank(function), include_attributes=False)
+CONSTANT_FACTS = 1          # the form of `_read_constants`; a new form never reads an older one
+
+
+def _source_constants(graph, source, text):
+    """The constants of one Python source text (`_read_constants`), read once per text and kept with the map's
+    other rebuildable facts. `source` names the text: a baseline blob, or the digest of a working-tree text;
+    `text()` gives it when it was not read before. A text that does not parse raises SyntaxError and is not kept.
+    Facts only: the comparison of two texts is never stored."""
+    import json
+    import sys
+    from flowguard.structure import store
+    identity = json.dumps([*source, CONSTANT_FACTS, sys.implementation.cache_tag], separators=(',', ':'))
+    key = 'constant_facts:' + sha256_bytes(identity.encode())
+    held = graph._derived.setdefault('constant_facts', {})
+    if key not in held:
+        row = graph.con.execute('SELECT v FROM meta WHERE k=?', (key,)).fetchone()
+        if row is None:
+            packed = store.pack(_read_constants(text()))
+            active = graph.con.in_transaction
+            from .cache import put_meta
+            put_meta(graph.con, key, packed)
+            if not active:
+                graph.con.commit()
+        else:
+            packed = row[0]
+        facts = store.unpack(packed)
+        held[key] = dict(literals={name: (_unpacked(value), line) for name, value, line in facts['literals']},
+                         functions={qual: dict(text=text_digest, shape=shape, constants=[(line, _unpacked(value)) for line, value in constants])
+                                    for qual, text_digest, shape, constants in facts['functions']})
+    return held[key]
+
+
+def _read_constants(text):
+    """What constant_changes compares in one source text: its module literals (`_module_literals`, in their
+    order) and, for each function `_functions` finds, the digest of its lines (decorators to last line), the
+    digest of its structure with constants reduced to their type (`_shape_key`) and its constants in
+    `ast.walk` order."""
+    from .runtime import _functions
+    tree = ast.parse(text)
+    lines = text.split('\n')
+    functions = []
+    for qual, node in dict(_functions(tree)).items():
+        start = min([node.lineno, *(d.lineno for d in node.decorator_list)]) - 1
+        span = lines[start:node.end_lineno]
+        functions.append([qual, sha256_bytes(_json_text([len(span), *span]).encode('utf-8', 'surrogatepass')),
+                          sha256_bytes(_shape_key(node).encode('utf-8', 'surrogatepass')),
+                          [[part.lineno, _packed(part.value)] for part in ast.walk(node) if isinstance(part, ast.Constant)]])
+    return dict(literals=[[name, _packed(value), line] for name, (value, line) in _module_literals(tree).items()],
+                functions=functions)
+
+
+def _json_text(value):
+    import json
+    return json.dumps(value, ensure_ascii=False, separators=(',', ':'))
+
+
+def _packed(value):
+    """A literal value in a JSON form that keeps its exact type (`_unpacked` reads it back)."""
+    kind = type(value)
+    if value is None or value is Ellipsis:
+        return [repr(value)]
+    if kind is bool or kind is str:
+        return [kind.__name__, value]
+    if kind is int:
+        return ['int', hex(value)]
+    if kind is float:
+        return ['float', value.hex()]
+    if kind is complex:
+        return ['complex', value.real.hex(), value.imag.hex()]
+    if kind is bytes:
+        return ['bytes', value.hex()]
+    if kind in (tuple, list, set):
+        return [kind.__name__, [_packed(part) for part in value]]
+    if kind is dict:
+        return ['dict', [[_packed(key), _packed(part)] for key, part in value.items()]]
+    raise TypeError('a literal of type ' + kind.__name__ + ' has no stored form')
+
+
+def _unpacked(data):
+    kind = data[0]
+    if kind in ('None', 'Ellipsis'):
+        return None if kind == 'None' else Ellipsis
+    if kind in ('bool', 'str'):
+        return data[1]
+    if kind == 'int':
+        return int(data[1], 16)
+    if kind == 'float':
+        return float.fromhex(data[1])
+    if kind == 'complex':
+        return complex(float.fromhex(data[1]), float.fromhex(data[2]))
+    if kind == 'bytes':
+        return bytes.fromhex(data[1])
+    if kind in ('tuple', 'list', 'set'):
+        return {'tuple': tuple, 'list': list, 'set': set}[kind](_unpacked(part) for part in data[1])
+    if kind == 'dict':
+        return {_unpacked(key): _unpacked(part) for key, part in data[1]}
+    raise ValueError('unknown stored literal form ' + repr(kind))
+
+
+_ABSENT = object()
+
+
+def _shape_key(function):
+    """A function's structure with each constant reduced to its type name, as one text (the same comparison
+    as `ast.dump` of that reduced tree): every part is written with its length, so two structures share a key
+    only when they are the same. Built without recursion, so a deep expression cannot exhaust the stack."""
+    parts, stack = [], [function]
+    while stack:
+        item = stack.pop()
+        if type(item) is str:
+            parts.append(f'{len(item)}:{item}')
+            continue
+        if isinstance(item, ast.Constant):
+            stack.append('C' + type(item.value).__name__)
+            continue
+        fields = ['N' + type(item).__name__]
+        for name in item._fields:
+            value = getattr(item, name, _ABSENT)
+            # As ast.dump: a missing field and a None one whose class default is None are both left out.
+            if value is _ABSENT or value is None and getattr(type(item), name, ...) is None:
+                fields.append('-')
+            elif type(value) is list:
+                fields.append('[' + str(len(value)))
+                fields.extend(part if isinstance(part, ast.AST) else 'v' + repr(part) for part in value)
+            elif isinstance(value, ast.AST):
+                fields.append(value)
+            else:
+                fields.append('v' + repr(value))
+        stack.extend(reversed(fields))
+    return ''.join(parts)
 
 
 def _rule_declarations(cfg):
     """The rules in the intent folder, read from source and never run: for each file its path and tree,
-    and for each rule its id, predicate node, anchor names and `.rows(...)` calls."""
+    and for each rule its id, predicate node, anchor names, `.rows(...)` calls and the constants of both."""
     if not cfg.intent.is_dir():
         return []
     found = []
@@ -441,6 +574,13 @@ def _rule_declarations(cfg):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'rows' \
                     and isinstance(node.func.value, ast.Name) and node.func.value.id in rules:
                 rules[node.func.value.id]['rows'].append(node)
+        for item in rules.values():
+            # The constants rule_old_values compares with each old value: the predicate's (docstring aside)
+            # and those of its literal rows, collected once.
+            node = item['node']
+            body = node.body[1:] if ast.get_docstring(node) is not None else node.body
+            item['judged'] = [n for s in body for n in ast.walk(s) if isinstance(n, ast.Constant)]
+            item['literals'] = [n for call in item['rows'] for n in ast.walk(call) if isinstance(n, ast.Constant)]
         found.append((path, list(rules.values())))
     return found
 
@@ -455,10 +595,8 @@ def rule_old_values(cfg, old, *, declarations=None):
     found = []
     for path, rules in _rule_declarations(cfg) if declarations is None else declarations:
         for item in rules:
-            node = item['node']
-            body = node.body[1:] if ast.get_docstring(node) is not None else node.body
-            judged = sorted({n.lineno for s in body for n in ast.walk(s) if holds(n)})
-            rows = sorted({n.lineno for call in item['rows'] for n in ast.walk(call) if holds(n)})
+            judged = sorted({n.lineno for n in item['judged'] if holds(n)})
+            rows = sorted({n.lineno for n in item['literals'] if holds(n)})
             if judged or rows:
                 parts = ([f'decision line {"、".join(map(str, judged))}'] if judged else []) + \
                         ([f'regression row line {"、".join(map(str, rows))}'] if rows else [])
@@ -565,7 +703,7 @@ def literal_drift(change, *, everything=False):
     groups = _project_spellings(change, change.graph.literal_groups())
     if not groups:
         return found
-    before = {row['value'] for file in change.files for row in change.old_facts(file).get('literals', ())}
+    before = {row['value'] for file in change.files for row in change.old_part(file, 'literals') or ()}
     before |= {row['value'] for group in groups for rows in group['spellings'].values() for row in rows
                if row['file'] not in change.files}
     reported = False
@@ -621,7 +759,7 @@ def changed_once(change, decided=()):
     files = change.changed_python() + foreign
     if not files:
         return found
-    delta = change.graph._delta_against(change.baseline, files)
+    delta = change.delta(files)
     touched = {row[0] for row in delta}
     shapes = None
     for ident, kind, old_fp, new_fp, _, _ in delta:

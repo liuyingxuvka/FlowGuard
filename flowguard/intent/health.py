@@ -454,7 +454,7 @@ def _module_functions(change, *, before=False):
         edited = sorted(file for (file,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 0')
                         if file in change.files)
         rows += [(f'{change._modules[file]}:{node["qual"]}', file, node['qual'], node['fp'], node['line'], node['shape'])
-                 for file in edited for node in change.old_facts(file).get('nodes', ())
+                 for file in edited for node in change.old_part(file, 'nodes') or ()
                  if node['kind'] == 'function' and '.' not in node['qual'] and not node['qual'].startswith('<')]
     return sorted(rows, key=lambda row: (row[1], row[4], row[0]))
 

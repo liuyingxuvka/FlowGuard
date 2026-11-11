@@ -84,3 +84,37 @@ def test_each_old_value_and_target_is_checked_again_after_fact_reuse(tmp_path):
         graph.reset_query_coverage()
         assert targets(signals.stale_copies(graph, [change(7, target='policy:first')])) == {'policy:second'}
         assert graph.query_coverage()['queried'] == ['literals']
+
+
+class Numeric(str):
+    """A str subclass equal() reads as a number, never as text."""
+
+
+OLD_VALUES = [7, 7.0, Decimal('7.000'), '7', 'seven', True, False, None, float('nan'), float('inf'), -0.0, 0,
+              10 ** 5000, Numeric('7'), (7,), 99, 'not JSON[', 3.5]
+
+
+def test_indexed_reads_find_what_a_first_full_read_finds_for_every_old_value(tmp_path):
+    (tmp_path / 'policy.py').write_text('''LIMITS = (7, 99)
+NAMES = {"a": "seven", "b": 3.5}
+def numeric(x): return x <= 7
+def floating(x): return x == 3.5
+def zero(x): return x == 0
+def text(x): return x == "seven"
+def quoted(x): return x == "7"
+def member(x): return x in (7, "seven", 99)
+def limit(x): return x <= LIMITS[1]
+def named(x): return x == NAMES["b"]
+def boolean(x): return x is True
+def infinite(x): return x < float("inf")
+''')
+    with closing(build(tmp_path)) as warm:
+        # The same graph answers every old value in turn: after its first read most sites are indexed.
+        reused = [signals.stale_copies(warm, [change(old)]) for old in OLD_VALUES]
+    for old, report in zip(OLD_VALUES, reused):
+        with closing(build(tmp_path)) as fresh:
+            # A fresh graph's first read visits every site, as the scan without an index did.
+            assert report == signals.stale_copies(fresh, [change(old)]), old
+    assert targets(reused[0]) == {'policy:numeric', 'policy:member'}
+    assert targets(reused[OLD_VALUES.index(99)]) == {'policy:member', 'policy:limit'}
+    assert reused[OLD_VALUES.index(10 ** 5000)]['total'] == 0

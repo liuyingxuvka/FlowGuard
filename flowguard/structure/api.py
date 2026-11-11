@@ -355,6 +355,12 @@ class MapHandle:
             rows = [row for row in rows if _writes_target(row, target, models)]
         return Rows(sorted(rows, key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
 
+    def writes_to(self, rows, target):
+        """The rows of `writes()` that write `target`, in their order: what `writes(target)` gives when `rows` is
+        `writes()` with the same options, without reading every write again for each target."""
+        models = self._models()
+        return Rows(row for row in rows if _writes_target(row, target, models))
+
     def file_facts(self, path):
         """The whole stored fact record of one mapped file, or None when the file is not on the map."""
         row = self.con.execute('SELECT data FROM file WHERE path=?', (path,)).fetchone()
@@ -405,9 +411,7 @@ class MapHandle:
         blob = self._baseline_object(revision, path)
         if blob is None:
             return {}
-        reader = self.con.execute("SELECT v FROM meta WHERE k='reader_digest'").fetchone()[0]
-        identity = json.dumps([blob, reader, path, module, bool(is_test)], separators=(',', ':'))
-        key = 'baseline_facts:' + sha256_bytes(identity.encode())
+        key = self._baseline_key(blob, path, module, is_test)
         facts = self._derived.setdefault('baseline_facts', {})
         if key not in facts:
             row = self.con.execute('SELECT v FROM meta WHERE k=?', (key,)).fetchone()
@@ -417,14 +421,54 @@ class MapHandle:
                 active = self.con.in_transaction
                 from flowguard.intent.cache import put_meta
                 put_meta(self.con, key, packed)
+                decoded = store.unpack(packed)
+                self._put_parts(key, decoded)          # in the same commit
                 if not active:
                     self.con.commit()
             else:
-                packed = row[0]
-            decoded = store.unpack(packed)
+                decoded = store.unpack(row[0])
             decoded['nodes']  # Required fact record; a broken cache is not an absent source file.
             facts[key] = decoded
         return facts[key]
+
+    def _put_parts(self, key, facts):
+        """Each kind of one baseline record under `KEY:KIND`, and the list of its kinds under `KEY:`."""
+        from flowguard.intent.cache import put_meta
+        for kind, value in facts.items():
+            put_meta(self.con, key + ':' + kind, store.pack([value]))
+        put_meta(self.con, key + ':', store.pack(sorted(facts)))
+
+    def _baseline_key(self, blob, path, module, is_test):
+        reader = self.con.execute("SELECT v FROM meta WHERE k='reader_digest'").fetchone()[0]
+        identity = json.dumps([blob, reader, path, module, bool(is_test)], separators=(',', ':'))
+        return 'baseline_facts:' + sha256_bytes(identity.encode())
+
+    def _baseline_part(self, revision, path, module, kind, is_test=False):
+        """One kind of `_baseline_facts` (None when the record has none, or when the file was absent), kept
+        apart under the record's key once it was read: a query that needs only a file's nodes or literals does
+        not decode its whole record again (most of a record is the symbol reads and syntax calls)."""
+        blob = self._baseline_object(revision, path)
+        if blob is None:
+            return None
+        key = self._baseline_key(blob, path, module, is_test)
+        parts = self._derived.setdefault('baseline_parts', {})
+        if (key, kind) not in parts:
+            row = self.con.execute('SELECT v FROM meta WHERE k=?', (key + ':' + kind,)).fetchone()
+            kinds = None if row is not None else self.con.execute('SELECT v FROM meta WHERE k=?', (key + ':',)).fetchone()
+            if row is not None:
+                value = store.unpack(row[0])[0]
+            elif kinds is not None and kind not in store.unpack(kinds[0]):
+                value = None                           # the record has no such kind
+            else:
+                # A record kept before its parts were: they are written once, in one commit.
+                facts = self._baseline_facts(revision, path, module, is_test)
+                active = self.con.in_transaction
+                self._put_parts(key, facts)
+                if not active:
+                    self.con.commit()
+                value = facts.get(kind)
+            parts[(key, kind)] = value
+        return parts[(key, kind)]
 
     # ---- declared value sets, typed values, Prisma reads, relations and calls by name ----------
     def _ts_sets(self):
@@ -1638,14 +1682,22 @@ class MapHandle:
 
     def _delta_against(self, since: str, files: list[str]) -> list[tuple]:
         rows = []
+        for _, found in self._file_deltas(since, files):
+            rows += found
+        return rows
+
+    def _file_deltas(self, since: str, files: list[str]) -> list[tuple]:
+        """(file, its delta rows) for each of `files` that has a reader, in their order."""
+        out = []
         names = {f: m for f, m in self.con.execute("SELECT path, module FROM file")}
         from .readers.registry import language_for, module_name
         for f in files:
             if not language_for(f):
                 continue
+            rows = []
             module = names.get(f) or (f[:-3].replace("/", ".") if language_for(f) == "python" else module_name(f))
             old = {f"{module}:{n['qual']}": (n["fp"], n["sig"]) for n in
-                   self._baseline_facts(since, f, module).get('nodes', [])}
+                   self._baseline_part(since, f, module, 'nodes') or []}
             new = {i: (fp, sig) for i, fp, sig in self.con.execute("SELECT id, fp, sig FROM node WHERE file = ? AND "
                                                                     "kind NOT IN ('module','alias','missing')", (f,))}
             for i in sorted(set(old) | set(new)):
@@ -1655,7 +1707,8 @@ class MapHandle:
                     rows.append((i, "added", None, new[i][0], None, new[i][1]))
                 elif old[i][0] != new[i][0]:
                     rows.append((i, "changed", old[i][0], new[i][0], old[i][1], new[i][1]))
-        return rows
+            out.append((f, rows))
+        return out
 
 
 def _without_moves(delta):
