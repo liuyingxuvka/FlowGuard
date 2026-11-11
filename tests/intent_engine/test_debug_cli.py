@@ -184,7 +184,8 @@ def limit(config: dict, days: int) -> bool:
     result = subprocess.run([sys.executable, '-m', 'flowguard', '--root', str(tmp_path), 'try', 'LIMIT', 'days=4'],
                             cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
     assert result.returncode == 0, (result.stdout, result.stderr)
-    assert "{'days': 4} → False" in result.stdout and 'ordinary call unchanged' in result.stdout
+    # a Windows console escapes the arrow (`\u2192`): read the text a reader sees, as the test above does
+    assert "{'days': 4} → False" in display_text(result.stdout) and 'ordinary call unchanged' in result.stdout
 
 
 def test_watch_and_model_show_never_hide_a_model_load_error(tmp_path, capsys):
