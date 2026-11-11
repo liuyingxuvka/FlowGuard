@@ -1288,6 +1288,30 @@ def test_copy_baseline_colour_uses_the_whole_name_not_the_first_witness(tmp_path
     assert 'same-name anchor LIMIT' in result['before'][0], result
 
 
+@pytest.mark.parametrize('reference', [False, True])
+def test_an_old_copy_difference_does_not_hide_a_newly_broken_pair(tmp_path, reference):
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    _commit(tmp_path, {
+        'src/chart.ts': '// flowguard: same LIMIT' + (' ref' if reference else '')
+                        + '\nexport function chart(days: number) { return days <= 3; }\n',
+        'src/calendar.ts': '// flowguard: same LIMIT\nexport function calendar(days: number) { return days <= 3; }\n',
+        'src/report.ts': '// flowguard: same LIMIT\nexport function report(days: number) { return days < 3; }\n',
+    })
+    path = tmp_path / 'src/calendar.ts'
+    path.write_text(path.read_text().replace('<= 3', '<= 4'))
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    points = [point for entry in data['files'].values() for point in entry['points']]
+    assert [point['fn'] for point in points if point['owner']] == (['chart'] if reference else [])
+    result = judge(load_config(tmp_path), data, [dict(id='typescript/src/chart.ts:chart', args=[4], result=False)])
+    assert len(result['red']) == len(result['before']) == 1, result
+    assert 'days=4' in result['red'][0] and 'calendar' in result['red'][0], result
+    assert 'days=3' in result['before'][0] and 'report' in result['before'][0], result
+    assert ('reference src/chart.ts' in result['red'][0]) == reference, result
+    assert ('reference src/chart.ts' in result['before'][0]) == reference, result
+    assert 'distinct' not in result['red'][0], result
+
+
 def test_copy_baseline_that_cannot_be_sealed_is_not_called_unchanged(tmp_path):
     from flowguard.intent.config import load_config
     from flowguard.intent.vitest import judge

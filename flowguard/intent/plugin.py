@@ -539,7 +539,10 @@ class Observations:
                                     add({**row, key: number})
             if not inputs:
                 self.grey.append(name + ': no recorded JSON inputs')
-            message, old_bad, old_unknown = None, False, False
+            from . import signals, cells as C
+            places = {point['target']: self._place(point['target']) + ' ' + point['qual'] for point in points}
+            owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
+            current_rows, past_rows, old_unknown = [], [], False
             for row in inputs:
                 outcomes, old_outcomes = [], []
                 for point in points:
@@ -554,23 +557,24 @@ class Observations:
                         if past['status'] == 'unavailable':
                             old_unknown = True
                         else:
-                            old_outcomes.append(past)
-                old_bad |= any(not equal(out, old_outcomes[0]) for out in old_outcomes[1:])
+                            old_outcomes.append((places[point['target']], past))
+                witness = ', '.join(f'{key}={C.show(value)}' for key, value in row.items())
+                if old_outcomes and all(out['status'] == 'raised' for _, out in old_outcomes) and all(
+                        equal(out, old_outcomes[0][1]) for _, out in old_outcomes[1:]):
+                    old_unknown = True
+                past_rows.append((witness, [(place, value(out)) for place, out in old_outcomes]))
                 if any(out['status'] == 'unavailable' for out in outcomes) or (all(out['status'] == 'raised' for out in outcomes) and all(equal(out, outcomes[0]) for out in outcomes[1:])):
                     self.grey.append(name + ': ' + next((out.get('reason', '') for out in outcomes if out.get('reason')), 'copies raise exceptions'))
                     continue
-                if message is None and any(not equal(out, outcomes[0]) for out in outcomes[1:]):
-                    places = [(self._place(point['target']) + ' ' + point['qual'], value(out)) for point, out in zip(points, outcomes)]
-                    witness = ', '.join(f'{key}={value!r}' for key, value in row.items())
-                    from . import signals
-                    message = signals.copy_red(name, signals.copy_lines([(witness, places)], equal, repr, total=len(points)))
-            if message:
-                if old_bad:
-                    before.append(message)
-                elif old_unknown:
+                current_rows.append((witness, [(places[point['target']], value(out)) for point, out in zip(points, outcomes)]))
+            new_lines, previous_lines = signals.copy_partition(current_rows, past_rows, equal, C.show, owner, len(points))
+            if previous_lines:
+                before.append(signals.copy_red(name, previous_lines))
+            if new_lines:
+                if old_unknown:
                     self.grey.append(name + ': baseline comparison unavailable; current copies disagree')
                 else:
-                    self.red.append(message)
+                    self.red.append(signals.copy_red(name, new_lines))
         return items, before
 
     @contextmanager

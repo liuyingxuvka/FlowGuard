@@ -224,8 +224,11 @@ def test_fixed_6_copies_with_different_return_forms_are_compared_through_their_p
     policy.write_text(policy.read_text(encoding='utf-8').replace('overdue_days <= 3', 'overdue_days <= 5'), encoding='utf-8')
     result = _pytest(tmp_path)
     text = _text(result)
-    assert result.returncode == 1 and '1 passed' in result.stdout, text
-    assert 'red: same-name anchor ELIGIBLE：days=4，2 copies: 1 copies return F (policy.py:11 eligible), 1 copies return T (policy.py:16 preview)' in text, text
+    # Both ordinary calls still run and retain their original projections. Their tuple/dataclass
+    # results are not JSON, so the closed comparison must stay explicitly unverified.
+    assert result.returncode == 0 and '1 passed' in result.stdout, text
+    assert 'unverified: ELIGIBLE' in text and 'no comparable JSON result' in text, text
+    assert 'red: same-name anchor ELIGIBLE' not in text
 
 
 # ---- round 22 F1: a same-name red names every copy's answer and chooses none -------------------------------
@@ -332,7 +335,9 @@ def test_check_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp
 def test_pytest_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp_path):
     _project(tmp_path, {'limits.py': _split_copies(3), **REACHES_CHART})
     red, text = _same_name_red(tmp_path, _split_copies(4))
-    assert red == [SPLIT_RED], text
+    # report already differs at days=3; calendar newly differs at days=4. The old pair cannot hide the new one.
+    assert red == ['red: same-name anchor LIMIT：days=4，3 copies: 2 copies return F (reference limits.py:2 chart, limits.py:12 report), 1 copies return T (limits.py:7 calendar) -> make limits.py:7 calendar agree with the reference; if intentionally different, use different anchor names and declare distinct'], text
+    assert [line for line in text.splitlines() if line.startswith('before: same-name anchor LIMIT')] == ['before: same-name anchor LIMIT：days=3，3 copies: 2 copies return T (reference limits.py:2 chart, limits.py:7 calendar), 1 copies return F (limits.py:12 report) -> make limits.py:12 report agree with the reference; if intentionally different, use different anchor names and declare distinct'], text
 
 
 # ---- fixed examples 10 and 11: the KWP rounding copies ---------------------------------------------------

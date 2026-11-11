@@ -226,7 +226,7 @@ def copy_answers(answers, same, show, owner=None, total=None, apart=()):
     return text, 'first decide which copy is correct, then make ' + ('the other copy' if len(answers) == 2 else 'the remaining copies') + ' agree with it'
 
 
-def copy_lines(inputs, same, show, owner=None, total=None):
+def copy_lines(inputs, same, show, owner=None, total=None, *, only=None):
     """The lines of one same-name red, in the same words in pytest and `check`: [(input, text, step, pairs)].
 
     `inputs` [(input, [(place, value)])] is what the copies answered each input, in the order to report. A line
@@ -245,6 +245,8 @@ def copy_lines(inputs, same, show, owner=None, total=None):
         else:
             pairs = {frozenset((place, other)) for number, (place, value) in enumerate(answers)
                      for other, theirs in answers[number + 1:] if not same(value, theirs)}
+        if only is not None:
+            pairs &= only
         if pairs - seen:
             kept.append((where, answers, pairs))
         seen |= pairs
@@ -258,6 +260,14 @@ def copy_lines(inputs, same, show, owner=None, total=None):
         text, step = copy_answers(answers, same, show, owner=owner if owned else None, total=total, apart=apart)
         lines.append((where, text, step, pairs))
     return lines
+
+
+def copy_partition(inputs, previous, same, show, owner=None, total=None):
+    """An existing disagreement cannot hide a newly broken pair of functions."""
+    past = {pair for line in copy_lines(previous, same, show, owner, total) for pair in line[3]}
+    current = {pair for line in copy_lines(inputs, same, show, owner, total) for pair in line[3]}
+    return (copy_lines(inputs, same, show, owner, total, only=current - past),
+            copy_lines(inputs, same, show, owner, total, only=current & past))
 
 
 def copy_red(name, lines):
