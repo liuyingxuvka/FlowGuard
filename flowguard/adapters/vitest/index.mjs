@@ -3,6 +3,7 @@
 // a const function becomes let so the recorder can remove itself. No old or copy module is imported.
 // It also adds FlowGuard's own test project (session.test.mjs), run after the project's tests
 // (sequence.groupOrder): its one test case fails on a red, so the red is in vitest's results (JSON, junit) too.
+// It applies only in a vitest run: what `vite build` and the dev server serve is never changed.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -61,6 +62,9 @@ export function flowguardPlugin({ plan: planFile, python, root, prepareSeconds }
   return {
     name: 'flowguard',
     enforce: 'pre',
+    // vitest sets VITEST before it reads the config: a build or dev server never applies this plugin, also
+    // through a flowguard.vitest.mjs written by an older init
+    apply: () => Boolean(process.env.VITEST),
     config() {
       process.env.FLOWGUARD_VITEST_PLAN = planFile;
       process.env.FLOWGUARD_VITEST_PYTHON = JSON.stringify(python);

@@ -1053,6 +1053,55 @@ def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph
     code, text = _vitest(root, vitest_home)
     assert code == 0 and 'Tests  3 passed (3)' in text, text
 
+def test_a_build_and_the_dev_server_never_load_flowguard_only_a_vitest_run_does(vitest_home):
+    # R85: FlowGuard never changes the maintained software. The vite config that vitest reads is also the one
+    # `vite build` and the dev server read: outside vitest no plugin applies, no Python starts and the code served
+    # or bundled is the project's own, also with no FlowGuard installed and with a flowguard.vitest.mjs of an
+    # older init (no VITEST check of its own).
+    root = vitest_home / 'built'
+    _commit(root, {
+        'package.json': '{"name":"built","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'vite.config.mjs': ("import { defineConfig } from 'vite';\n\nexport default defineConfig({\n  plugins: [],\n"
+                            "  build: { lib: { entry: 'src/grade.ts', formats: ['es'], fileName: 'grade' } },\n});\n"),
+        'src/grade.ts': '// flowguard: same PASS_MARK\nexport function grade(n: number): string {\n  return n >= 5 ? "pass" : "fail";\n}\n',
+        'src/mark.ts': '// flowguard: same PASS_MARK\nexport function passed(n: number): boolean {\n  return n >= 5;\n}\n',
+        'tests/grade.test.ts': ("import { expect, it } from 'vitest';\nimport { grade } from '../src/grade';\n"
+                                "it('grades', () => expect(grade(5)).toBe('pass'));\n"),
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    grade = root / 'src/grade.ts'
+    grade.write_text(grade.read_text(encoding='utf-8').replace('n >= 5 ?', '!(n < 5) ?'), encoding='utf-8', newline='\n')
+    assert _prepare(root)['status'] == 'on'  # a vitest run would record grade
+    vite = vitest_home / 'node_modules/vite/bin/vite.js'
+    assert vite.is_file(), 'vite comes with vitest'
+    dev = ("const { createServer } = await import('vite');"
+           "const server = await createServer({ root: process.cwd(), logLevel: 'silent', server: { middlewareMode: true } });"
+           "const result = await server.transformRequest('/src/grade.ts'); await server.close();"
+           "process.stdout.write(result.code);")
+    wrapper = root / 'flowguard.vitest.mjs'
+    current = wrapper.read_text(encoding='utf-8')
+    older = current.replace('  if (!process.env.VITEST) return null;\n', '')
+    assert older != current
+    plain = {key: item for key, item in _environment().items() if key not in ('VITEST', 'TEST')}
+    for label, text, python in (('current', current, sys.executable), ('current, no FlowGuard', current, str(root / 'no-python')),
+                                ('older init', older, sys.executable)):
+        wrapper.write_text(text, encoding='utf-8', newline='\n')
+        env = dict(plain, FLOWGUARD_PYTHON=python)
+        built = subprocess.run([_tool('node'), str(vite), 'build', '--outDir', 'dist-' + str(len(label))], cwd=root,
+                               capture_output=True, encoding='utf-8', timeout=600, env=env)
+        assert built.returncode == 0, (label, built.stdout + built.stderr)
+        bundle = ''.join(path.read_text(encoding='utf-8') for path in (root / ('dist-' + str(len(label)))).rglob('*.*js'))
+        assert '"pass"' in bundle and '__flowguard' not in bundle and '__fg_rt' not in bundle, (label, bundle)
+        served = subprocess.run([_tool('node'), '--input-type=module', '-e', dev], cwd=root, capture_output=True,
+                                encoding='utf-8', timeout=600, env=env)
+        assert served.returncode == 0, (label, served.stdout + served.stderr)
+        assert 'function grade' in served.stdout and '__flowguard' not in served.stdout, (label, served.stdout)
+    wrapper.write_text(current, encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)  # the same config in a vitest run: FlowGuard records and reports
+    assert code == 0 and 'FlowGuard' in text, text
+
+
 ISO_WEEK = '''
     function isoWeek(date: Date): number {
       const day = date.getUTCDay() || 7;
