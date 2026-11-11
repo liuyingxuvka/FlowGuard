@@ -52,7 +52,7 @@ def test_an_exception_on_an_on_a_writer_or_a_removed_partner_same_or_writers_agr
         'except=legacy added to together Item.state',
         'Item.kind removed from together Item.state',
         'on=update added to together Item.state',
-        'setKind added to writers Item.note',
+        'app/w.ts:setKind added to writers Item.note',        # a function of another file, spelled as the comment does
         'writers Item.kind removed',
         'same LABEL removed from app/a.ts:label',
         'same LABEL removed from app/gone.ts:label',          # a file this change deletes, read at the baseline
@@ -60,7 +60,7 @@ def test_an_exception_on_an_on_a_writer_or_a_removed_partner_same_or_writers_agr
     same = next(line for line in lines if line.text == 'same LABEL removed from app/a.ts:label')
     assert same.function == 'typescript/app/a.ts:label' and same.places == ('app/a.ts:9',)      # the baseline's comment
     exception = next(line for line in lines if line.text.startswith('except='))
-    assert exception.name == 'loosened:except:Item.state:legacy' and exception.places == ('app/a.ts:1',)
+    assert exception.name == 'loosened:except:Item.state:typescript/app/a.ts:legacy' and exception.places == ('app/a.ts:1',)
 
 
 def test_a_new_agreement_with_an_exception_is_loosened_and_tightening_is_not(tmp_path):
@@ -106,10 +106,51 @@ def test_moving_a_comment_between_files_or_renaming_a_file_loosens_nothing_and_n
     _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/a.ts': BASE})
     _git(tmp_path, 'mv', 'app/a.ts', 'app/b.ts')
     assert _loosened(tmp_path)[0] == []
-    _write(tmp_path, {'app/b.ts': BODY + LABEL, 'app/c.ts': BASE.replace(BODY + LABEL, '')})
+    # A comment moved to another file means the same functions when it names them by that file's path.
+    _write(tmp_path, {'app/b.ts': BODY + LABEL,
+                      'app/c.ts': '// flowguard: together Item.state Item.note,Item.kind\n// flowguard: writers Item.note app/b.ts:setState\n'})
     assert _loosened(tmp_path)[0] == []
     _write(tmp_path, {'app/c.ts': 'export const none = 1;\n'})
     assert len(_loosened(tmp_path)[0]) == 2 and _loosened(tmp_path, base=None)[0] == []
+
+
+def test_a_file_moved_without_git_keeps_its_agreements(tmp_path):
+    # Git sees a deleted file and an untracked one; their comments, the same up to the file they name, moved together.
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/a.ts': BASE})
+    (tmp_path / 'app/a.ts').rename(tmp_path / 'app/b.ts')
+    _write(tmp_path, {'app/b.ts': (tmp_path / 'app/b.ts').read_text(encoding='utf-8') + 'export const more = 1;\n'})
+    assert _loosened(tmp_path)[0] == []
+
+
+SAVE = "export async function save(prisma: any) {\n  await prisma.item.update({ where: { id: '1' }, data: { state: '%s' } });\n}\n"
+
+
+def test_a_comment_moved_to_a_file_with_a_same_named_function_names_another_function(tmp_path):
+    # A bare name is the function of the comment's own file (design 4.4): moved beside another save, the agreement
+    # lets that save write the field and no longer the first one; a same mark moved so compares another function.
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/a.ts': '// flowguard: writers Item.state save\n' + SAVE % 'a',
+                       'app/b.ts': SAVE % 'b', 'app/ref.ts': '// flowguard: same LABEL ref\nexport function label(x: string) { return x; }\n',
+                       'app/c.ts': '// flowguard: same LABEL\n' + 'export function label(x: string) { return x + 1; }\n',
+                       'app/d.ts': 'export function label(x: string) { return x + 2; }\n'})
+    _write(tmp_path, {'app/a.ts': SAVE % 'a', 'app/b.ts': '// flowguard: writers Item.state save\n' + SAVE % 'b',
+                      'app/c.ts': 'export function label(x: string) { return x + 1; }\n',
+                      'app/d.ts': '// flowguard: same LABEL\n' + 'export function label(x: string) { return x + 2; }\n'})
+    texts, lines = _loosened(tmp_path)
+    assert sorted(texts) == ['same LABEL removed from app/c.ts:label', 'save added to writers Item.state']
+    writer = next(line for line in lines if line.text.startswith('save added'))
+    assert writer.places == ('app/b.ts:1',) and writer.name == 'loosened:writer:Item.state:typescript/app/b.ts:save'
+    # Moved beside the other save but naming the first one by its path, the agreement means what it meant.
+    _write(tmp_path, {'app/b.ts': '// flowguard: writers Item.state app/a.ts:save\n' + SAVE % 'b'})
+    assert _loosened(tmp_path)[0] == ['same LABEL removed from app/c.ts:label']
+
+
+def test_an_exception_moved_with_its_comment_is_loosened_only_when_it_names_another_function(tmp_path):
+    together = '// flowguard: together Item.state Item.note except=app/%s.ts:save(old import)\n'
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/a.ts': together % 'a' + SAVE % 'a', 'app/b.ts': SAVE % 'b'})
+    _write(tmp_path, {'app/a.ts': SAVE % 'a', 'app/b.ts': together % 'a' + SAVE % 'b'})
+    assert _loosened(tmp_path)[0] == []
+    _write(tmp_path, {'app/b.ts': together % 'b' + SAVE % 'b'})
+    assert _loosened(tmp_path)[0] == ['except=save added to together Item.state']
 
 
 def test_the_static_assembly_carries_the_loosened_lines(tmp_path):

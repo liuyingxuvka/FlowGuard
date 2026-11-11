@@ -861,7 +861,7 @@ class MapHandle:
             found[key].extend(item for name in sorted(names) for item in by_name.get(name, ()))
         return found
 
-    def typed_writes(self, facts=None):
+    def typed_writes(self, facts=None, *, definitions=None):
         """Values JS/TS code gives a typed member: a class field initializer, `this.f = 'v'` in a class, and
         the literal fields of an object written as `const x: T = {...}`, `{...} satisfies T` or `{...} as T`.
         Not database writes: they feed the value gate only; `prisma` marks a `T` the file imports from the
@@ -870,9 +870,12 @@ class MapHandle:
         gated by `model`, the imported model's name; `schema` is the schema whose client output the import
         names ('' for `@prisma/client`). A module that re-exports the client's types is not followed.
         `type_from` is the module a `T` of the file's own project is imported from by a relative path, as a
-        path without its extension ('' otherwise). `facts` reads these file facts instead."""
+        path without its extension ('' otherwise). `facts` reads these file facts instead; `definitions`
+        (`definitions()`) resolves `Name.KEY` spellings and binds models with other definitions than the map's, such
+        as the baseline's (as `writes(definitions=)`)."""
         rows, seen = [], set()
-        models = self._models().by_name
+        models = (self._models() if definitions is None else definitions.models).by_name
+        sets = None if definitions is None else definitions.sets
         for facts in [data for _, _, data in self._kinds('language', 'typed_writes', 'dependencies')] if facts is None else facts:
             written = facts.get('typed_writes', ())
             if not written:
@@ -899,7 +902,7 @@ class MapHandle:
                     model = client[space] if client.get(space) not in (None, '*', 'default') else None
                 rows.append(self._resolved(dict(row, model=model or row['container'], language=facts.get('language'),
                                                 prisma=model is not None, schema=origin.get(space, '') if model else '',
-                                                type_from='' if dot or model else imported.get(space, ''))))
+                                                type_from='' if dot or model else imported.get(space, '')), sets))
         return Rows(rows)
 
     def _prisma_client(self, file, module):

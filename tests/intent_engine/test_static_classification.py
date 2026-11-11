@@ -285,8 +285,186 @@ def test_a_registered_copy_changed_alone_is_a_red_finding_and_what_cannot_be_com
     assert issue.parts == (('limits:report', 'limits.py:report',
                             'changed behavior; 1 copies that answered the same are unchanged: limits.py:chart',
                             'make report match reference chart(limits.py:2)'),)
-    assert 'changed-alone' in found.ran
+    assert 'changed-alone' not in found.ran          # it judges only what the change edits: never `known fixed?`
     lines, _ = signals.deliver(found.issues, touched_functions=(), touched_files=(), extra=found.lines)
     assert [(line.kind, line.name) for line in lines] == [('red', 'changed-alone:LIMIT'), ('not compared', 'not compared:policy:limit')]
     assert lines[1].text.startswith('policy.py:limit (') and 'same raised exception' in lines[1].text
     assert lines[1].step == 'not a failure'
+
+
+# ---- the --all listing, the baseline of typed members and declarations, known fixed?, one read ----------
+
+GHOST = 'model Ghost {\n  id String @id\n}\n'
+
+
+def test_the_all_listing_counts_and_lists_only_the_findings_it_shows(tmp_path):
+    # Writes outside a writers agreement and declarations that differ are findings only the 4.3 lines report: the
+    # --all listing neither counts nor lists them, as before they existed.
+    agreement = '// flowguard: writers Item.state setState\n'
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/a.ts': "export type Kind = 'a' | 'b';\n",
+                       'app/b.ts': "export type Kind = 'a' | 'b' | 'c';\n",
+                       'app/owner.ts': _write_state('setState', comment=agreement), 'app/legacy.ts': _write_state('legacy')})
+    _write(tmp_path, {'app/legacy.ts': _write_state('legacy', 'y')})
+    found = _found(tmp_path, everything=True)
+    assert {'writer:Item.state', 'declarations:Kind'} <= {issue.name for issue in found.issues}
+    assert not [line for line in found.section if 'structure issues' in line], found.section
+    # With a listed problem beside them, the header counts the entries it lists.
+    _write(tmp_path, {'prisma/schema.prisma': SCHEMA + GHOST,
+                      'app/ghost.ts': "export async function readGhost(prisma: any) { return prisma.ghost.findMany({ where: { id: '1' } }); }\n"})
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        index = anchors.collect(graph)
+        static = owners.static_findings(cfg, graph, index, 'HEAD', everything=True)
+        checked = owners.check_findings(cfg, graph, index, 'HEAD', everything=True, static=static)
+    for section in (static.section, checked.section):
+        assert section[0].startswith('1 structure issues ') and [line for line in section if line[:1].isdigit()] == [
+            section[0], next(line for line in section if line.startswith('1. row creation'))], section
+
+
+def test_a_typed_member_given_a_constant_this_change_alters_is_new_in_the_unchanged_function(tmp_path):
+    # D2: the declared set is the current one; the baseline code gave the member the constant's old value.
+    use = ("import { K } from './consts';\nimport type { Row } from './types';\n"
+           "export function make(): Row {\n  const row: Row = { kind: K.A };\n  return row;\n}\n")
+    _commit(tmp_path, {'app/types.ts': "export type Kind = 'a' | 'b';\nexport interface Row { kind: Kind }\n",
+                       'app/consts.ts': "export const K = { A: 'a' } as const;\n", 'app/use.ts': use})
+    _write(tmp_path, {'app/consts.ts': "export const K = { A: 'z' } as const;\n"})
+    found = _found(tmp_path)
+    issue = _issue(found, 'values:Row.kind')
+    assert issue.fresh == frozenset({_module(tmp_path, 'app/use.ts') + ':make'})
+    assert issue.parts[0][1:3] == ('app/use.ts:make', "writes 'z' outside 'a'|'b'")
+    assert _kinds(_deliver(found), issue.name) == [('red', 'make')]
+
+
+def test_an_unrelated_declaration_added_beside_an_old_difference_leaves_it_old(tmp_path):
+    # Whether a declarations finding is new is decided by that name's declarations alone, not the declaring file's.
+    _commit(tmp_path, {'app/a.ts': "export type Kind = 'a' | 'b';\n", 'app/b.ts': "export type Kind = 'a' | 'b' | 'c';\n"})
+    _write(tmp_path, {'app/b.ts': "export type Kind = 'a' | 'b' | 'c';\nexport type Other = 'p' | 'q';\n"})
+    found = _found(tmp_path)
+    kind = _issue(found, 'declarations:Kind')
+    assert kind.fresh == frozenset()
+    assert [line.kind for line in _deliver(found) if line.name == kind.name] == ['before']
+    # The name's own declaration changing is new.
+    _write(tmp_path, {'app/b.ts': "export type Kind = 'a' | 'b' | 'd';\nexport type Other = 'p' | 'q';\n"})
+    assert _issue(_found(tmp_path), 'declarations:Kind').fresh == frozenset({''})
+
+
+def test_a_declaration_whose_alias_now_names_other_values_is_new_though_its_file_is_unchanged(tmp_path):
+    _commit(tmp_path, {'app/consts.ts': "export const KS = ['a', 'b'] as const;\n", 'app/b.ts': "export type Kind = 'a' | 'b';\n",
+                       'app/a.ts': "import { KS } from './consts';\nexport type Kind = (typeof KS)[number];\n"})
+    _write(tmp_path, {'app/consts.ts': "export const KS = ['a', 'c'] as const;\n"})
+    found = _found(tmp_path)
+    kind = _issue(found, 'declarations:Kind')
+    assert kind.files == frozenset({'app/a.ts', 'app/b.ts'}) and kind.fresh == frozenset({''})
+    assert [line.kind for line in _deliver(found) if line.name == kind.name] == ['impact']
+
+
+def test_an_unrelated_model_added_to_a_schema_leaves_an_old_field_declaration_difference_old(tmp_path):
+    enum = 'enum State {\n  open\n  shut\n}\n\nmodel Item {\n  id    String @id\n  state State\n}\n'
+    _commit(tmp_path, {'prisma/schema.prisma': enum, 'app/state.ts': "export type State = 'open' | 'gone';\n"})
+    _write(tmp_path, {'prisma/schema.prisma': enum + '\nmodel Other {\n  id String @id\n}\n'})
+    found = _found(tmp_path)
+    field = _issue(found, 'declarations:Item.state')
+    assert field.fresh == frozenset() and field.files == frozenset({'prisma/schema.prisma', 'app/state.ts'})
+    assert [line.kind for line in _deliver(found) if line.name == field.name] == ['before']
+    # A member added to the enum is new.
+    _write(tmp_path, {'prisma/schema.prisma': enum.replace('  shut\n', '  shut\n  held\n')})
+    assert _issue(_found(tmp_path), 'declarations:Item.state').fresh == frozenset({''})
+
+
+def test_a_python_declaration_is_new_only_when_its_own_members_change(tmp_path):
+    other = 'from typing import Literal\n\nKind = Literal["a", "c"]\n\n\nclass Order:\n    def total(self):\n        return %d\n'
+    _commit(tmp_path, {'app/__init__.py': '', 'app/a.py': 'from typing import Literal\n\nKind = Literal["a", "b"]\n',
+                       'app/b.py': other % 1})
+    _write(tmp_path, {'app/b.py': other % 2})
+    assert _issue(_found(tmp_path), 'declarations:Kind').fresh == frozenset()
+    _write(tmp_path, {'app/b.py': (other % 2).replace('"c"', '"d"')})
+    assert _issue(_found(tmp_path), 'declarations:Kind').fresh == frozenset({''})
+
+
+def test_a_python_enum_declaration_is_new_only_when_its_own_members_change(tmp_path):
+    enum = 'from enum import Enum\n\n\nclass Status(Enum):\n    OPEN = "open"\n    %s = "%s"\n'
+    other = enum % ('GONE', 'gone') + '\n\nclass Order:\n    def total(self):\n        return %d\n'
+    _commit(tmp_path, {'app/__init__.py': '', 'app/a.py': enum % ('SHUT', 'shut'), 'app/b.py': other % 1})
+    _write(tmp_path, {'app/b.py': other % 2})
+    status = _issue(_found(tmp_path), 'declarations:Status')
+    assert status.files == frozenset({'app/a.py', 'app/b.py'}) and status.fresh == frozenset()
+    _write(tmp_path, {'app/b.py': (other % 2).replace('"gone"', '"lost"')})
+    assert _issue(_found(tmp_path), 'declarations:Status').fresh == frozenset({''})
+
+
+def test_known_fixed_is_said_only_for_a_family_every_check_of_which_judged_the_whole_project(tmp_path):
+    from flowguard.intent.sources import Known
+    _commit(tmp_path, {'limits.py': LIMITS % 3, 'pyproject.toml': '[tool.pytest.ini_options]\npythonpath=["."]\n',
+                       'caps.py': 'def cap(days: int) -> bool:\n    return days <= 5\n'})      # a look-alike of chart
+    _write(tmp_path, {'limits.py': LIMITS % 3 + '\n\ndef other():\n    return 1\n'})
+    discovered = Known(id='limit-copies', sites=('limits.py:chart',), why='the owner deferred it', act='leave',
+                       finding='copies:LIMIT')
+    changed = Known(id='limit-alone', sites=('limits.py:chart',), why='the owner deferred it', act='leave',
+                    finding='changed-alone:LIMIT')
+    # pytest and check --static: copy discovery, which names copies of a reference, did not run; the changed-alone
+    # comparison judges only what a change edits, so a finding of it gone is never fixed.
+    found = _found(tmp_path)
+    assert 'copies' not in found.ran and 'changed-alone' not in found.ran
+    assert not [line for line in _deliver(found, known=(discovered, changed)) if line.kind == 'known fixed?']
+    # check judges the copies of every reference only with --all (otherwise those this change touches: not caps.py).
+    assert 'copies' not in _found(tmp_path, replay=True).ran
+    assert 'copies' in _found(tmp_path, replay=True, everything=True).ran
+    assert 'copies' not in _found(tmp_path).ran
+    # Without a reference no copy discovery can name a copies finding: the structural check alone judges them all.
+    _commit(tmp_path, {'limits.py': 'def chart(days):\n    return days <= 3\n'})
+    _write(tmp_path, {'limits.py': 'def chart(days):\n    return days <= 4\n'})
+    found = _found(tmp_path)
+    gone = Known(id='fmt-copies', sites=('limits.py:chart',), why='the owner deferred it', act='leave', finding='copies:fmt')
+    assert 'copies' in found.ran
+    assert [(line.kind, line.name) for line in _deliver(found, known=(gone,))] == [('known fixed?', 'known.fmt-copies')]
+
+
+def test_a_red_step_of_two_copies_changed_alone_is_ascii(tmp_path):
+    text = LIMITS + '''
+
+# flowguard: sensor LIMIT
+def summary(days: int) -> bool:
+    return days <= %d
+'''
+    _commit(tmp_path, {'limits.py': text % (3, 3), 'pyproject.toml': '[tool.pytest.ini_options]\npythonpath=["."]\n'})
+    _write(tmp_path, {'limits.py': text % (4, 4)})
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        found = owners.changed_alone(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, 'HEAD'))
+    issue = _issue(found, 'changed-alone:LIMIT')
+    assert [part[3] for part in issue.parts] == ['make report, summary match reference chart(limits.py:2)'] * 2
+    assert any('report\u3001summary' in line for line in found.red)     # the legacy red line keeps its text
+    lines, _ = signals.deliver(found.issues, touched_functions=(), touched_files=(), extra=found.lines)
+    assert all(ord(character) < 128 for line in lines for character in line.text + line.step)
+
+
+def test_the_static_assembly_reads_the_deprecated_structure_section_once(tmp_path, capsys):
+    entry = _write_state('setOne', field='note')
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA + GHOST, 'app/one.ts': entry,
+                       'docs/owner.md': 'Ghost rows come from the nightly import.\n', '.flowguard/ledger.toml': DECISION})
+    _write(tmp_path, {'app/one.ts': entry.replace("note: 'x'", "note: 'x', state: 'y'")})
+    found = _found(tmp_path)
+    assert [line.kind for line in found.lines] == ['impact']            # field_impact asked for the open writers
+    assert len([line for line in capsys.readouterr().err.splitlines() if line.startswith('deprecated: ledger [structure]')]) == 1
+
+
+def test_the_baseline_writes_are_read_once_for_every_writers_agreement_and_the_old_copies_only_when_files_changed(
+        tmp_path, monkeypatch):
+    from flowguard.intent import health
+    agreements = ''.join(f'// flowguard: writers Item.{field} setState\n' for field in ('state', 'note'))
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/owner.ts': _write_state('setState', comment=agreements),
+                       'app/legacy.ts': _write_state('legacy') + _write_state('legacyNote', field='note'),
+                       'app/x.ts': 'export function fmt(a: number) { if (a > 1) { return a + 1; } return a - 1; }\n',
+                       'app/y.ts': 'export function fmt(a: number) { if (a > 2) { return a + 1; } return a - 2; }\n'})
+    targets, before = [], []
+    original, functions = owners.Change.baseline_writes, health._module_functions
+    monkeypatch.setattr(owners.Change, 'baseline_writes',
+                        lambda self, target=None, **options: targets.append(target) or original(self, target, **options))
+    monkeypatch.setattr(health, '_module_functions', lambda change, **options: before.append(options.get('before', False))
+                        or functions(change, **options))
+    assert 'copies:fmt' in {issue.name for issue in _found(tmp_path).issues}
+    assert True not in before              # nothing changed: the baseline code is the code
+    _write(tmp_path, {'app/legacy.ts': _write_state('legacy', 'y') + _write_state('legacyNote', 'z', field='note')})
+    found = _found(tmp_path)
+    assert {issue.name for issue in found.issues} >= {'writer:Item.state', 'writer:Item.note'}
+    assert set(targets) == {None} and True in before

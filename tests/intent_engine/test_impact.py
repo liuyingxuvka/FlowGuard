@@ -132,3 +132,20 @@ def test_show_of_a_field_lists_its_models_readers_the_callers_of_its_writers_and
     assert code == 0, text
     assert 'reads Entry app/read.ts:1 listEntries (findMany)' in lines and 'reads Entry app/read.ts:2 countEntries (count)' in lines, text
     assert 'reads Entry tests/entry.test.ts:1 fixture (findMany)' in lines, text       # every read of the model
+
+
+def test_a_function_that_stops_writing_one_of_two_fields_gets_its_line_and_the_static_check_still_runs(tmp_path):
+    # It still writes Entry.value, so the field it no longer writes is found among the baseline's rows only.
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/set.ts': _update('setBoth', "value: 1, note: 'n'")})
+    _write(tmp_path, {'app/set.ts': _update('setBoth', 'value: 1')})
+    found, modules = _impact(tmp_path)
+    assert [(line.function, line.text, line.places) for line in found.lines] == [
+        (modules['app/set.ts'] + ':setBoth', 'setBoth no longer writes Entry.note; 0 other writers, 0 readers of Entry',
+         ('app/set.ts:setBoth',))]
+    assert found.lines[0].step == 'check them for this change only (python -m flowguard show Entry.note)'
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        assembled = owners.static_findings(cfg, graph, anchors.collect(graph), 'HEAD')
+    assert [line.text for line in assembled.lines if line.kind == 'impact'] == [found.lines[0].text]
+    code, text = _flowguard(tmp_path, 'check', '--static')
+    assert code == 0 and 'Traceback' not in text, text

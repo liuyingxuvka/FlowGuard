@@ -75,7 +75,8 @@ def _foreign_writes(change, facts=None, *, baseline=False):
     """Write rows outside Python with a readable value, keyed for the gate by `Model.field`, each with its
     file's `package` (a guessed schema's set judges only some packages) and its `scope`: the schema in use
     whose enum judges it, or the file whose declaration of a TS type judges it (None: none). `baseline` reads
-    the baseline code instead (`Change.baseline_writes`), scoped by the schemas and types in use now."""
+    the baseline code instead (`Change.baseline_writes`, and the typed members with the baseline's own constants
+    and models), scoped by the schemas and types in use now."""
     from flowguard.structure.api import _module_stem
     graph = change.graph
     # The schemas in use that define a model (schema, its package, {field: enum values}), in path order; the
@@ -118,7 +119,7 @@ def _foreign_writes(change, facts=None, *, baseline=False):
             return imported
         return sets[0][0] if len(sets) == 1 else None
 
-    typed = facts
+    typed, definitions = facts, None
     if baseline:
         # The baseline code: every file's writes as the baseline had them, resolved by its own definitions, and
         # the typed members of the files this change leaves alone and of the baseline bytes of the others.
@@ -126,6 +127,7 @@ def _foreign_writes(change, facts=None, *, baseline=False):
         rows = change.baseline_writes()
         typed = [data for path, _, data in graph._kinds('language', 'typed_writes', 'dependencies') if path not in paths]
         typed += [record for record in map(change.old_facts, sorted(paths)) if record]
+        definitions = change.baseline_definitions()
     else:
         rows = graph.writes(facts=facts) if facts is not None else change.writes()
     out = [dict(row, field=f'{row["model"]}.{row["field"]}', values=[v for v in row.get('values', ()) if v is not None],
@@ -134,7 +136,7 @@ def _foreign_writes(change, facts=None, *, baseline=False):
            and row.get('values')]
     # gated by the TS type's own sets; a type the file imports from the Prisma client by its model's sets
     # (`model`: the imported model's name, also under an alias or a namespace)
-    for row in graph.typed_writes(facts=typed):
+    for row in graph.typed_writes(facts=typed, definitions=definitions):
         if not row.get('values'):
             continue
         key = f'{row["model"]}.{row["field"]}'
@@ -520,8 +522,9 @@ def copies(change, index, *, before=False):
     in the first file by path. Issues only: a change gets the leads of `owners.changed_once`. A registered
     sensor is not listed. `before`: the problems as they stood at the change's baseline (`_module_functions`)."""
     from flowguard.structure.store import shape_list
+    from .owners import STRUCTURAL_COPIES
     found = _findings()
-    found.ran.add('copies')
+    found.ran.add(STRUCTURAL_COPIES)          # the `copies` family also needs copy discovery (`owners.families_ran`)
     registered = {anchor.target for anchor in index.entries if anchor.kind == 'sensor'}
     groups = {}
     for ident, file, qual, fp, line, blob in _module_functions(change, before=before):
@@ -538,8 +541,9 @@ def copies(change, index, *, before=False):
         if len(members) > 1:
             by_files.setdefault(frozenset(row[1] for row in members), []).append((name, members))
     then = None
-    if not before and by_files and change.baseline:
-        # The problems at the baseline, read once per change (`static_findings` asks for them too).
+    if not before and by_files and change.baseline and change.baseline_paths():
+        # The problems at the baseline, read once per change (`static_findings` asks for them too); a change that
+        # alters no file has the baseline's code, so none of its members is new (`then` stays None).
         then = {issue.name: issue.nodes for issue in change.held('copies before', lambda: copies(change, index, before=True)).issues}
     for files, items in sorted(by_files.items(), key=lambda item: sorted(item[0])):
         names = [name for name, _ in items]
@@ -784,13 +788,14 @@ def _table_changed(change, table):
 
 # ---- decisions, touched issues, the --all section and the brief ----------------------------------
 
-def decided(cfg, index, issues):
+def decided(cfg, index, issues, decisions=None):
     """(open issues, red findings, input findings): issues the `[structure]` section decides are closed; a decision
     on who writes a field without its owner anchor is red, with the anchor line to copy, also as an input finding
     for the 4.3 lines. The section itself is a 5.0-deprecated feature: reading it prints the deprecated line
-    (`ledger.structure_decisions`)."""
+    (`ledger.structure_decisions`); `decisions` are the decisions a change already read (`owners.Change.decisions`)."""
     from .ledger import LEDGER, STRUCTURE, structure_decisions
-    decisions = structure_decisions(cfg)[0]        # malformed decisions are the ledger's red lines
+    if decisions is None:
+        decisions = structure_decisions(cfg)[0]    # malformed decisions are the ledger's red lines
     owned = {anchor.name.casefold() for anchor in index.entries if anchor.kind == 'owner'}
     red, wrong = [], []
     for name in sorted(decisions):
@@ -833,8 +838,9 @@ def _order(issues):
 def section(issues):
     """The `--all` listing: every open issue by severity, each with its next step, untruncated. Copies and
     fields without an owner wait for the owner's choice: more than SHOWN_GROUPS of either become one line
-    (by name, the most copies or writer files first); `show NAME` lists any one of them in full."""
-    ordered = _order(issues)
+    (by name, the most copies or writer files first); `show NAME` lists any one of them in full. A finding only the
+    4.3 lines report (rank LINES_ONLY) is neither counted nor listed."""
+    ordered = _order([issue for issue in issues if issue.rank != LINES_ONLY])
     if not ordered:
         return []
     lines = [f'{len(ordered)} structure issues (by severity; a sourced owner decision in .flowguard/ledger.toml [structure] closes an issue):']
@@ -891,7 +897,7 @@ def assess(cfg, change, index, found, *, everything=False):
     `found.decided`, counted as an ignore entry is) only when its family may be ignored: a decision never closes a
     finding that can be red."""
     from .signals import FAMILIES
-    issues, red, wrong = decided(cfg, index, found.issues)
+    issues, red, wrong = decided(cfg, index, found.issues, change.decisions())
     still = {issue.name for issue in issues}
     for issue in found.issues:
         if issue.lead and issue.name not in still:
