@@ -48,12 +48,21 @@ function run(job) {
         return {error: {name: '' + (error?.name ?? 'Error'), message: '' + (error?.message ?? error)}};
       }
     })())`;
+  // The copy's source is compiled here, outside the context: a syntax error is then the host's own SyntaxError (syntax
+  // the reader left in, such as TypeScript it does not strip), whose message is read; an error of a run in the
+  // context is the copy's object and is never inspected.
+  let compiling = false;
   try {
     vm.runInContext(setup, context, { timeout: 100 });
-    vm.runInContext("'use strict';\n" + job.source, context, { timeout: 100 });
+    compiling = true;
+    const copy = new vm.Script("'use strict';\n" + job.source, { filename: 'flowguard-sealed.js' });
+    compiling = false;
+    copy.runInContext(context, { timeout: 100 });
     return JSON.parse(vm.runInContext(program, context, { timeout: 100 }));
   }
-  catch { return {reason: 'sealed execution failed or timed out'}; }
+  catch (error) {
+    return {reason: compiling ? `the sealed source does not parse: ${error.message}` : 'sealed execution failed or timed out'};
+  }
 }
 
 const jobs = JSON.parse(fs.readFileSync(0, 'utf8'));

@@ -3,7 +3,13 @@
 // a const function becomes let so the recorder can remove itself. No old or copy module is imported.
 // It also adds FlowGuard's own test project (session.test.mjs), run after the project's tests
 // (sequence.groupOrder): its one test case fails on a red, so the red is in vitest's results (JSON, junit) too.
-// It applies only in a vitest run: what `vite build` and the dev server serve is never changed.
+// A run whose path filters, -t or --project leave that test out is judged by the global setup's teardown: its red
+// reaches the exit status and the block, not the JSON or junit results, which vitest writes before any teardown.
+// That is a limit of vitest 4: every project's files pass through the CLI filters (TestProject.filterFiles), -t is
+// one pattern for every project (configOverride.testNamePattern), --project filters injected projects too, and no
+// plugin hook adds a test or a result between the last test and the reporters' onTestRunEnd.
+// It applies only to the vite servers vitest itself starts for a run (R85): what `vite build` and the dev server
+// serve is never changed, nor a build or server that a test or a global setup starts inside a vitest run.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -13,6 +19,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RUNTIME = path.join(HERE, 'runtime.mjs');
 const GLOBAL_SETUP = path.join(HERE, 'global-setup.mjs');
 const SESSION = 'session.test.mjs';
+const SESSION_FOLDER = ['node_modules', '.cache', 'flowguard'];
 const LAST = 1000;               // the session project's group comes after the others (vitest spreads its groups: keep it small)
 
 // One spelling of a file for plan lookups: forward slashes, no query, a lower-case drive letter on Windows.
@@ -22,6 +29,20 @@ export function normalize(file, windows = process.platform === 'win32') {
   if (windows && /^\/[A-Za-z]:\//.test(text)) text = text.slice(1);
   if (windows && /^[A-Za-z]:\//.test(text)) text = text[0].toLowerCase() + text.slice(1);
   return windows ? text.toLowerCase() : text;
+}
+
+// Whether a vite config being resolved is one of vitest's own servers (the root's or a project's): vitest passes its
+// plugin (`vitest`, `vitest:project`) among the inline plugins of exactly those. A build, a dev server, and a server
+// or build a test or a global setup starts read the same config file without it, also with VITEST in their
+// environment (a worker's child process inherits it).
+export function vitestServer(config) {
+  const pending = [...(config.plugins ?? [])];
+  while (pending.length) {
+    const item = pending.pop();
+    if (Array.isArray(item)) pending.push(...item);
+    else if (item && typeof item === 'object' && (item.name === 'vitest' || item.name === 'vitest:project')) return true;
+  }
+  return false;
 }
 
 function sourceMap(code, file) {
@@ -62,9 +83,9 @@ export function flowguardPlugin({ plan: planFile, python, root, prepareSeconds }
   return {
     name: 'flowguard',
     enforce: 'pre',
-    // vitest sets VITEST before it reads the config: a build or dev server never applies this plugin, also
-    // through a flowguard.vitest.mjs written by an older init
-    apply: () => Boolean(process.env.VITEST),
+    // vitest sets VITEST before it reads the config; only its own servers serve the test modules (`vitestServer`): a
+    // build or dev server never applies this plugin, also through a flowguard.vitest.mjs written by an older init
+    apply: (config, env) => Boolean(process.env.VITEST) && env.command === 'serve' && vitestServer(config),
     config() {
       process.env.FLOWGUARD_VITEST_PLAN = planFile;
       process.env.FLOWGUARD_VITEST_PYTHON = JSON.stringify(python);
@@ -90,9 +111,15 @@ export function flowguardPlugin({ plan: planFile, python, root, prepareSeconds }
       });
       if (injected || !available) return;
       injected = true;
+      // vitest names a test file in its results (junit's testsuite and classname) by its path from the vitest root: the
+      // session test runs from the package's tool cache, node_modules/.cache/flowguard (git-ignored everywhere), so its
+      // name is the same in every project and on every machine, never a path into FlowGuard's install
+      const session = path.join(viteRoot, ...SESSION_FOLDER);
+      fs.mkdirSync(session, { recursive: true });
+      fs.copyFileSync(path.join(HERE, SESSION), path.join(session, SESSION));
       return context.injectTestProjects?.({
-        test: { name: 'flowguard', root: HERE, include: [SESSION], globals: true, environment: 'node', setupFiles: [], globalSetup: [],
-          sequence: { groupOrder: LAST } },
+        test: { name: 'flowguard', root: session, include: [SESSION], exclude: [], globals: true, environment: 'node', setupFiles: [],
+          globalSetup: [], sequence: { groupOrder: LAST } },
       });
     },
     async resolveId(id, importer) {

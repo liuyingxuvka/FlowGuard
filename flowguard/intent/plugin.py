@@ -102,6 +102,8 @@ def _json(value):
 class Session:
     def __init__(self, config):
         timing = time.perf_counter()
+        from . import deprecation
+        self.notices = []               # the session's own deprecation notices, said after its block (`say_notices`)
         self.config = config
         self.owns_host = False
         self.owns_root = False
@@ -129,7 +131,6 @@ class Session:
         self.ledger_judged = False      # the ledger was compared with the map in full (a known entry's `known fixed?`)
         self.sentinel_ledger = False
         self.session_red = []            # reds only the session decides: a failed JUnit testcase
-        from . import deprecation
         self.deprecations = deprecation.mark()      # the deprecated features this session uses (`show --last`)
         self.finishing = None            # when the session's own judgement began (`pytest_sessionfinish`)
         self._timing = False             # inside `timed`
@@ -156,8 +157,17 @@ class Session:
                 _execution_session(self.cfg.root, facts=self.anchor_facts):
             yield
 
+    def say_notices(self):
+        """Print the deprecation notices this session held, on stderr, once, after its block (design 4.7): its
+        collection captures stderr, where they would be lost (only -s showed them). A session that ends before its
+        block says them when it closes."""
+        from . import deprecation
+        deprecation.unhold(self.notices)
+        deprecation.say(self.notices)
+
     def close(self):
         global _CURRENT
+        self.say_notices()
         _CURRENT = self.previous_session
         self.closed = True
         for module, name, real, refused in reversed(self.process_calls):
@@ -1287,6 +1297,10 @@ def _session(config):
         state.owns_root = hold_root(state.cfg.root)
         state.previous_session, _CURRENT = _CURRENT, state
         config.add_cleanup(state.close)
+        # pytest captures the collection's stderr: from here the session's notices wait for the end of its block, and
+        # its close says those a session that ends earlier still holds
+        from .deprecation import hold
+        hold(state.notices)
     config._flowguard_intent.guard_process_exit(config)
     return config._flowguard_intent
 
@@ -1810,7 +1824,20 @@ class Block:
     def pytest_sessionfinish(self, session, exitstatus):
         result = yield
         _display(session)
+        session.config._flowguard_intent.say_notices()
         return result
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_runtestloop(self, session):
+        """The project's tests run with deprecation notices as they come (a FlowGuard call inside a test is that test's
+        own output); the session's own, before and after them, wait for the end of its block."""
+        from . import deprecation
+        notices = session.config._flowguard_intent.notices
+        deprecation.unhold(notices)
+        try:
+            return (yield)
+        finally:
+            deprecation.hold(notices)
 
 
 def _display(session):

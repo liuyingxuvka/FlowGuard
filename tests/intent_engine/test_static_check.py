@@ -2181,16 +2181,17 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     # the test prints nothing and fails with the same one line.
     observations = tmp_path / 'obs'
     run = _run_generated(root, generated, env=dict(FLOWGUARD_VITEST_OBS=str(observations)))
-    # stdout holds the stub runner's one line; the label-spelling leads are FlowGuard's own, so stderr holds no
-    # deprecation notice
+    # stdout holds the stub runner's one line; stderr holds nothing: the label-spelling leads are FlowGuard's own and
+    # say no deprecation notice, and a notice check does say goes to static.json for the plugin's block (design 4.7)
     assert run.returncode == 1 and (run.stdout.splitlines(), run.stderr.splitlines()) == (
         ['FAIL FlowGuard check --static: FlowGuard: 2 red, see the FlowGuard block at the end'], []), run
     # one shape: what show --last keeps of the run (`signals.last_run`), with the parts of its first line
     from flowguard.intent import signals
     from flowguard.intent.vitest import static_lines
     saved = json.loads((observations / 'static.json').read_text(encoding='utf-8'))
-    assert sorted(saved) == ['baseline', 'baseline_kind', 'compared', 'deprecated', 'hidden', 'ignored', 'lines', 'run', 'seconds',
-                             'stamp', 'title', 'title_parts'], saved
+    assert sorted(saved) == ['baseline', 'baseline_kind', 'compared', 'deprecated', 'hidden', 'ignored', 'lines', 'notices', 'run',
+                             'seconds', 'stamp', 'title', 'title_parts'], saved
+    assert saved['notices'] == [], saved      # FlowGuard's own leads say no notice
     assert [line['text'] for line in saved['lines'] if line['kind'] == 'red'] == [
         "values AuditEvent.severity: backend/src/services/authority/authority-integrity-repair.service.ts:repairOrganizationAuthority writes "
         "'WARN' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL'",

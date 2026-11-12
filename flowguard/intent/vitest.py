@@ -227,7 +227,9 @@ def sealed_source(data, rel, name, read=None, tables=None):
                 blocked.add(text(target, source))
     if name not in found:
         return '', 'only module-level functions can be compared'
-    omitted = {'type_annotation', 'type_parameters', 'type_arguments'}
+    # TypeScript's own syntax, which JavaScript does not parse: a parameter's or result's type, a type guard's
+    # `x is T` and an assertion's `asserts x`, and type parameters and arguments
+    omitted = {'type_annotation', 'type_predicate_annotation', 'asserts_annotation', 'type_parameters', 'type_arguments'}
     wrappers = {'as_expression', 'satisfies_expression', 'non_null_expression'}
     forbidden = {'enum_declaration', 'internal_module', 'decorator', 'jsx_element', 'jsx_self_closing_element', 'meta_property',
                  'accessibility_modifier', 'readonly', 'this', 'await_expression', 'yield_expression'}
@@ -462,8 +464,15 @@ def _constants_changed(before, now, old_constants, new_constants):
     return _derived(names, new_constants)
 
 
+ABSENT = 'function absent at baseline'
+NO_BASELINE = 'no baseline'     # a copy's version at the baseline when the run has none to compare with
+
+
 def plan(cfg, commit, changed, key):
-    """The points to observe and everything the Node adapter needs, as one JSON-ready dict."""
+    """The points to observe and everything the Node adapter needs, as one JSON-ready dict. Without a baseline commit
+    (`commit` None: outside Git, before the first commit, a recorded task start this repository lacks) nothing has
+    changed and only the same-name copies are planned, each with no version at the baseline (`NO_BASELINE`): as in
+    pytest, copies that disagree are then red (design 4.7, D13: the title says nothing was compared)."""
     from contextlib import closing
     from ..map.common import git_blob, git_renames
     from ..structure import build
@@ -479,7 +488,7 @@ def plan(cfg, commit, changed, key):
             if anchor.kind == 'sensor' and _ecma(anchor.file) and anchor.source_role != 'test':
                 wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual)
         old_sources, readers, touched, constants = {}, {}, set(), {}
-        renamed = git_renames(cfg.root, commit)         # a moved file's baseline version is at its old path
+        renamed = git_renames(cfg.root, commit) if commit else {}    # a moved file's baseline version is at its old path
         for rel in changed:
             if rel not in modules or is_test_rel(rel) or not (cfg.root / rel).is_file():
                 continue
@@ -549,10 +558,10 @@ def plan(cfg, commit, changed, key):
                         number = -number
                     extra_numbers.append(number)
             old_rel = renamed.get(rel, rel)     # a moved file's baseline imports name files next to its old path
-            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, old_rel)
+            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, old_rel) if commit else None
             prior, old_skip = (sealed_source(old, old_rel, qual, lambda path: baseline_files.get(path) if path in baseline_files
                                              else git_blob(cfg.root, commit, path), old_tables) if old is not None and qual in declarations(old, old_rel)
-                               else ('', 'function absent at baseline'))
+                               else ('', ABSENT if commit else NO_BASELINE))
             points.append(dict(id=ident, name=name, anchored=anchored, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
                                recordable=(not found['is_async'] and 'generator' not in found['node'].type
@@ -612,33 +621,38 @@ def _issue(fields):
                         entry=tuple(fields['entry']), detail=tuple(fields['detail']), parts=parts))
 
 
-def prepare(root):
-    """{'status': 'off', 'reason'} without a TS/JS change, else {'status': 'on', 'plan', 'adapter'}."""
-    from . import cache
+def prepare(root, package=None):
+    """{'status': 'on', 'plan', 'adapter', 'seconds'} with the plan of this vitest run, or {'status': 'off', 'reason',
+    'seconds'} for a run that has nothing to observe (no same-name copy, no changed module-level function), a baseline
+    commit, and no static test wired in its package (`package`, the folder of its vitest config; the root when not
+    given). The first line is always printed (D12): a run whose package has the static test wired prints that test's
+    map checks in its block (design 4.7), and a run without a baseline commit (outside Git, before the first commit, a
+    recorded task start this repository lacks) compares its same-name copies as pytest does and says in its title
+    that nothing was compared with a baseline (D13)."""
+    from . import cache, deprecation
     from .config import load_config
     from ..map.common import atomic_write_text, git_common_directory, git_run
     started = time.perf_counter()
-    def answer(**values):
-        return dict(values, seconds=time.perf_counter() - started)
     cfg = load_config(root)
-    if git_common_directory(cfg.root) is None:
-        return answer(status='off', reason='not a git repository: no baseline commit; execution comparison is off')
-    # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
-    # stands in, and the title says so.
-    baseline, kind = cache.task_baseline(cfg)
-    if kind == 'missing':
-        return answer(status='off', reason=f'recorded task baseline {baseline[:7]} is not in this repository: execution comparison is off; first run python -m flowguard new-task')
-    found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (baseline or 'HEAD') + '^{commit}', allowed=(0, 1))
-    if found.returncode:
-        return answer(status='off', reason='no commits yet: no baseline; execution comparison is off')
-    commit = found.stdout.decode().strip()
-    changed = _changed(cfg, commit)
+    commit = label = kind = None        # the commit compared with, the commit the title names, and its kind
+    if git_common_directory(cfg.root) is not None:
+        # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
+        # stands in, and the title says so.
+        label, kind = cache.task_baseline(cfg)
+        if kind != 'missing':
+            found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (label or 'HEAD') + '^{commit}', allowed=(0, 1))
+            commit = label = None if found.returncode else found.stdout.decode().strip()
+    changed = _changed(cfg, commit) if commit else []
     # Same-name functions are always planned, including runs without a source change.
-    key = _key(cfg, commit, changed, kind)
+    key = _key(cfg, commit or label or '', changed, kind or 'none')
     path = cfg.cache / 'vitest' / f'plan-{key}.json'
-    if not path.is_file():
-        data = plan(cfg, commit, changed, key)
-        data['baseline_kind'] = kind
+    # Without a baseline commit no diff names the files a plan has read, so such a plan is made again on every run.
+    if commit is None or not path.is_file():
+        # what the plan read with a deprecated spelling: the report says it after the block, on every run of this plan
+        since = deprecation.mark()
+        with deprecation.held() as notices:
+            data = plan(cfg, commit, changed, key)
+        data.update(baseline=label, baseline_kind=kind, deprecated=deprecation.used(since), notices=notices)
         path.parent.mkdir(parents=True, exist_ok=True)
         for old in path.parent.glob('plan-*.json'):
             old.unlink()                # one current plan; an older one belongs to another change
@@ -646,7 +660,7 @@ def prepare(root):
         data = json.loads(path.read_text(encoding='utf-8'))
     data['prepare_seconds'] = time.perf_counter() - started
     atomic_write_text(path, json.dumps(data, ensure_ascii=False))
-    if not data['files'] and not data['unplanned']:
+    if not data['files'] and not data['unplanned'] and commit is not None and not _wired(cfg, package):
         return dict(status='off', reason='no functions to observe in this change (anchors or changed module-level functions)',
                     seconds=data['prepare_seconds'])
     return dict(status='on', plan=path.as_posix(), adapter=(ADAPTER / 'index.mjs').as_posix(), seconds=data['prepare_seconds'])
@@ -658,10 +672,12 @@ GENERATED = INIT_MARK + ': FlowGuard\'s execution side for vitest (minimal: vite
 MODULE = GENERATED + '''
 // The vitest config imports this file and lists flowguard() in its plugins: two lines marked `flowguard: vitest`.
 // Delete those two lines to undo. Only a vitest run loads FlowGuard (vitest sets VITEST before it reads the
-// config): `vite build`, `vite` and `vite preview` get no plugin and start no Python, so the software itself is
-// never changed. In a vitest run it records functions marked `flowguard: same NAME` and changed functions;
-// without either it adds nothing. Comparison runs after the tests, and FlowGuard's lines follow
-// the test summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
+// config): `vite build`, `vite` and `vite preview` get no plugin and start no Python, nor does a build or server
+// that a test starts (in a vitest worker, VITEST_WORKER_ID is set, also for its child processes), and the plugin
+// applies only to the servers vitest itself starts, so the software itself is never changed. In a vitest run it
+// records functions marked `flowguard: same NAME` and changed functions; without either it adds nothing, unless
+// flowguard.static.test.mjs is next to this file or there is no baseline commit: then it adds the block only.
+// Comparison runs after the tests, and FlowGuard's lines follow the test summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
 // interpreter that ran `flowguard init` on this machine, recorded in @RECORDED@ (git-ignored), then `python3`,
 // `python` and, on Windows, `py -3`.
 import { spawnSync } from 'node:child_process';
@@ -669,7 +685,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), @ROOT@);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, @ROOT@);
 const RECORDED = path.join(ROOT, ...@RECORDED@.split('/'));
 
 function interpreters() {
@@ -681,10 +698,10 @@ function interpreters() {
 }
 
 export default async function flowguard() {
-  if (!process.env.VITEST) return null;
+  if (!process.env.VITEST || process.env.VITEST_WORKER_ID) return null;
   const tried = [];
   for (const [command, ...prefix] of interpreters()) {
-    const run = spawnSync(command, [...prefix, '-m', 'flowguard.intent.vitest', 'prepare', '--root', ROOT], {
+    const run = spawnSync(command, [...prefix, '-m', 'flowguard.intent.vitest', 'prepare', '--root', ROOT, '--package', HERE], {
       cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
     const output = ((run.stdout || '') + (run.stderr || '')).trimEnd();
@@ -705,6 +722,129 @@ export default async function flowguard() {
 CONFIGS = [f'{stem}.config.{ext}' for stem in ('vitest', 'vite') for ext in ('ts', 'mts', 'js', 'mjs', 'cts', 'cjs')]
 MARK = 'flowguard: vitest'
 IMPORT = "import flowguard from './flowguard.vitest.mjs'; // " + MARK + " (python -m flowguard init; delete this line and flowguard() to undo)"
+
+
+DEFAULT_INCLUDE = ('**/*.{test,spec}.?(c|m)[jt]s?(x)',)      # vitest's test.include and test.exclude when a config names none
+DEFAULT_EXCLUDE = ('**/node_modules/**', '**/.git/**')
+_DEFAULT_LISTS = {'configDefaults.include': DEFAULT_INCLUDE, 'defaultInclude': DEFAULT_INCLUDE,
+                  'configDefaults.exclude': DEFAULT_EXCLUDE, 'defaultExclude': DEFAULT_EXCLUDE}
+_UNREAD_TEST_KEYS = {'root', 'dir', 'projects', 'workspace'}       # the files of such a config are another folder's
+
+
+def _glob(pattern):
+    """A regex for a vitest (picomatch) glob of the syntax read here: `**`, `*`, `?`, `[...]`, `{a,b}` and the extglobs
+    `?(a|b)`, `*(..)`, `+(..)`, `@(..)`; None for any other (a negation, `!(..)`, an escape)."""
+    out, groups, at = [], [], 0
+    closers = {'?': ')?', '*': ')*', '+': ')+', '@': ')'}
+    while at < len(pattern):
+        char = pattern[at]
+        if char in '!\\':
+            return None
+        if char in closers and pattern[at + 1:at + 2] == '(':
+            out.append('(?:')
+            groups.append(closers[char])
+            at += 2
+            continue
+        if pattern.startswith('**/', at) and (at == 0 or pattern[at - 1] == '/'):
+            out.append('(?:[^/]*/)*')
+            at += 3
+        elif pattern.startswith('**', at):
+            out.append('.*')
+            at += 2
+        elif char == '*':
+            out.append('[^/]*')
+            at += 1
+        elif char == '?':
+            out.append('[^/]')
+            at += 1
+        elif char == '[':
+            end = pattern.find(']', at + 1)
+            if end < 0:
+                return None
+            out.append('[' + re.escape(pattern[at + 1:end]) + ']')
+            at = end + 1
+        elif char == '{':
+            out.append('(?:')
+            groups.append(')')
+            at += 1
+        elif char in ',|' and groups:
+            out.append('|')
+            at += 1
+        elif char in '})' and groups:
+            out.append(groups.pop())
+            at += 1
+        else:
+            out.append(re.escape(char))
+            at += 1
+    return None if groups else re.compile(''.join(out))
+
+
+def _literal_list(node, source):
+    """The strings of a config's array of string literals and of vitest's default lists spread into it
+    (`...configDefaults.include`); None for anything else."""
+    from ..structure.readers.common import text
+    while node is not None and node.type in ('as_expression', 'satisfies_expression', 'parenthesized_expression'):
+        node = node.named_children[0]
+    if node is None or node.type != 'array':
+        return None
+    found = []
+    for item in node.named_children:
+        if item.type == 'string' and all(child.type == 'string_fragment' for child in item.named_children):
+            found.append(text(item, source)[1:-1])
+        elif item.type == 'spread_element' and text(item.named_children[0], source) in _DEFAULT_LISTS:
+            found.extend(_DEFAULT_LISTS[text(item.named_children[0], source)])
+        elif item.type != 'comment':
+            return None
+    return found
+
+
+def static_test_runs(folder, name):
+    """Whether vitest started in `folder` runs the test file `name` there, by the test.include and test.exclude of
+    the config it reads there (vitest.config.*, then vite.config.*; vitest's defaults for a list the config does not
+    name, and with no config, where init writes one with the defaults): (True, config, include) or (False, config,
+    include), `config` the file's name or None; (None, config, ()) when init cannot read that from the config: its
+    default export is no object literal (or defineConfig of one), a list is no literal of strings or vitest's
+    default lists, a glob has syntax not read here (`_glob`), or the config names its own root, dir, projects or
+    workspace."""
+    from ..structure.readers.common import parse, text
+    from ..structure.readers.registry import language_for
+    config = next((file for file in CONFIGS if (folder / file).is_file()), None)
+    if config is None:
+        return True, None, DEFAULT_INCLUDE
+    unread = None, config, ()
+    source, tree = parse((folder / config).read_bytes(), language_for(config))
+    value = next((statement.child_by_field_name('value') for statement in tree.root_node.named_children
+                  if statement.type == 'export_statement' and any(child.type == 'default' for child in statement.children)), None)
+    if value is not None and value.type == 'call_expression' and text(value.child_by_field_name('function'), source) == 'defineConfig':
+        arguments = value.child_by_field_name('arguments').named_children
+        value = arguments[0] if len(arguments) == 1 else None
+    if value is None or value.type != 'object':
+        return unread
+    def pairs(node):
+        found = {}
+        for item in node.named_children:
+            key = item.child_by_field_name('key') if item.type == 'pair' else None
+            if key is not None and key.type in ('property_identifier', 'string'):
+                found[text(key, source).strip('\'"')] = item.child_by_field_name('value')
+            elif item.type not in ('comment', 'method_definition'):
+                return None             # a spread, a shorthand or a computed key: what it holds is not read here
+        return found
+    top = pairs(value)
+    if top is None or 'root' in top:
+        return unread
+    test = top.get('test')
+    lists = {} if test is None else pairs(test) if test.type == 'object' else None
+    if lists is None or _UNREAD_TEST_KEYS & lists.keys():
+        return unread
+    include = _literal_list(lists['include'], source) if 'include' in lists else list(DEFAULT_INCLUDE)
+    exclude = _literal_list(lists['exclude'], source) if 'exclude' in lists else list(DEFAULT_EXCLUDE)
+    if include is None or exclude is None:
+        return unread
+    taken, left = ([_glob(glob.removeprefix('./')) for glob in globs] for globs in (include, exclude))
+    if None in taken or None in left:
+        return unread
+    runs = any(pattern.fullmatch(name) for pattern in taken) and not any(pattern.fullmatch(name) for pattern in left)
+    return runs, config, tuple(include)
 
 
 def wire(cfg, package):
@@ -893,7 +1033,8 @@ def closed_rows(data, records):
         for prior in (False, True):
             source, why = (point['old_source'], point['old_skip']) if prior else (point['source'], point['skip'])
             if why:
-                if not prior or why != point['skip']:
+                # without a baseline nothing is compared with one, which the title says (D13)
+                if not prior or why not in (point['skip'], NO_BASELINE):
                     reasons.setdefault(ident, []).append(('baseline: ' if prior else '') + why)
                 continue
             for args in wanted[ident]:
@@ -1054,7 +1195,7 @@ def judge(cfg, data, records, package=None):
         for row in sorted(samples, key=_counterexample(point, [record for record in calls.get(ident, ()) if 'args' in record])):
             inputs = ', '.join(f'{key}={_shown(item)}' for key, item in row['in'])
             old = [(target, answer) for target, answer in [(ident, row['old']), *row['old_copies'].items()]
-                   if points[target]['old_skip'] != 'function absent at baseline']
+                   if points[target]['old_skip'] not in (ABSENT, NO_BASELINE)]
             answers = [(places[ident], row['now'])]
             for copy in point['copies']:
                 theirs = row['copies'].get(copy['id'])
@@ -1080,7 +1221,10 @@ def judge(cfg, data, records, package=None):
     # rules on the observed calls and replayed classes, as the pytest side checks a reading
     model = load(cfg)
     engine = Engine(model)
-    engine.baseline = data['baseline']      # a rule's source is judged with this run's comparison commit, as in pytest
+    # a rule's source is judged with this run's comparison commit, as in pytest: none outside Git, before the first
+    # commit or for a recorded task start this repository lacks (whose commit the title still names)
+    commit = None if data['baseline_kind'] == 'missing' else data['baseline']
+    engine.baseline = commit
     for error in model.errors:
         place = f'{error["file"]}:{error["line"]}'
         issues.append(signals.finding('input', f'load:{place}', f'load {place}', [signals.ascii_text(error['msg'])],
@@ -1142,10 +1286,11 @@ def judge(cfg, data, records, package=None):
     lines += [signals.not_compared(subject, entry['reasons'], function=function, places=entry['places'])
               for (subject, function), entry in unchecked.items()]
     # What the change touches: the files it changed (read now: an intent file's or a document's change does not
-    # change the plan), the TS/JS declarations it added, edited or removed, the changed points, and the members of
+    # change the plan), the TS/JS declarations whose node it added, edited or removed (D31, as pytest reads them: an
+    # edit of a function's spacing alone, which changes its sealed text, touches nothing), and the members of
     # same-name copies one of whose files it changed (a before line needs that, 4.7).
-    touched_files = frozenset(_differs(cfg, data['baseline']))
-    touched = {*data['touched'], *(ident for ident, point in points.items() if point['changed'])}
+    touched_files = frozenset(_differs(cfg, commit)) if commit else frozenset()
+    touched = set(data['touched'])
     touched |= {part[0] for issue in issues if issue.family == 'same' and issue.files & touched_files for part in issue.parts}
     # How far HEAD lies after a recorded task start is read now, by the one git call of pytest's title, and not
     # kept in the plan, whose key is the commit and its kind: the title says it as pytest's does.
@@ -1183,7 +1328,7 @@ def static_lines(observations):
     """The saved map checks of this vitest run (the `signals.last_run` payload with its `title_parts` that
     `check --static` writes for flowguard.static.test.mjs into the observations folder), its lines as `signals.Line`;
     None when the static test did not run in it. The report reads its lines, seconds, ignored count, deprecated
-    features and hidden leads."""
+    features, deprecation notices (`notices`, which the static test held for the end of the block) and hidden leads."""
     from .signals import KINDS, Line
     path = Path(observations) / STATIC
     if not path.is_file():
@@ -1198,10 +1343,15 @@ def static_lines(observations):
 
 def merged(own, static, said):
     """The block's lines: this run's, then those of the map checks (`static_lines`), each (kind, name, function) once
-    and in KINDS order; a known entry this run already speaks for (`said`) keeps this run's line only."""
+    and in KINDS order; a known entry this run already speaks for (`said`) keeps this run's line only, except that a
+    `known fixed?` of the map checks is always listed (D8) and replaces this run's `known` line of its entry: the map
+    checks judged that entry's finding in the whole project and found it gone, while this run's line only says that
+    the change touches the entry's sites (no check of this run judges a family the map checks run)."""
     from .signals import KINDS
+    fixed = {line.name for line in static if line.kind == 'known fixed?'}
     unique = {}
-    for line in [*own, *(line for line in static if not (line.kind in ('known', 'known fixed?') and line.name in said))]:
+    for line in [*(line for line in own if not (line.kind == 'known' and line.name in fixed)),
+                 *(line for line in static if not (line.kind == 'known' and line.name in said))]:
         unique.setdefault((line.kind, line.name, line.function), line)
     return sorted(unique.values(), key=lambda line: KINDS.index(line.kind))
 
@@ -1226,14 +1376,16 @@ def _save_last(cfg, payload):
             save_last(con, payload)
 
 
-def report(root, plan_path, observations, package=None, *, in_test=False):
+def report(root, plan_path, observations, package=None, *, in_test=False, notices=()):
     """Judge this run's observations, merge the map checks the static test saved in this run, print the 4.3 block
     (`signals.render_block`, a place named by the shortest end of its path no other file of the repository has) and
     keep its lines for `show --last`; 1 when a line is red. The first line's time is FlowGuard's own: the preparation,
     the recording, this report and the static test's map checks. `in_test` is the session test (session.test.mjs,
     run after the project's tests): it keeps the observations and saves the block, its status and the number of its
     reds the static test did not already fail on, for the session test and the teardown, which prints the block after
-    vitest's summary instead of judging again."""
+    vitest's summary instead of judging again. The deprecation notices of the plan, of this report (`notices`, those
+    `main` holds) and of the static test print once, on stderr, after the block (design 4.7): the teardown prints those
+    the session test's report saved."""
     import os
     from . import deprecation, signals
     from .config import load_config
@@ -1264,15 +1416,18 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     text = signals.render_block(lines, title=heading, files=files)
     _save_last(cfg, signals.last_run(lines, ignored + (static['ignored'] if static else 0), run='vitest', stamp=time.time(),
                                      baseline=result['baseline'], kind=result['baseline_kind'], title=heading, seconds=seconds,
-                                     deprecated=list(dict.fromkeys([*deprecation.used(since), *(static['deprecated'] if static else ())])),
+                                     deprecated=list(dict.fromkeys([*data['deprecated'], *deprecation.used(since),
+                                                                    *(static['deprecated'] if static else ())])),
                                      hidden=static['hidden'] if static else ()))
     status = 1 if red else 0
+    deprecated = list(dict.fromkeys([*data['notices'], *notices, *(static['notices'] if static else ())]))
     if in_test:
-        (Path(observations) / SESSION).write_text(json.dumps(dict(text=text, status=status, red=mine), ensure_ascii=False),
-                                                  encoding='utf-8')
+        (Path(observations) / SESSION).write_text(json.dumps(dict(text=text, status=status, red=mine, deprecated=deprecated),
+                                                             ensure_ascii=False), encoding='utf-8')
     else:
         shutil.rmtree(observations)     # this run's records are read; the next run starts empty
         display(text)
+        deprecation.say(deprecated)
     return status
 
 
@@ -1282,15 +1437,18 @@ def main(argv=None):
     parser.add_argument('--root', required=True)
     parser.add_argument('--plan')
     parser.add_argument('--observations')
-    parser.add_argument('--package', help='The folder of the vitest run (its vite root)')
+    parser.add_argument('--package', help='The folder of the vitest run (its vite root); for prepare, of its vitest config')
     parser.add_argument('--in-test', action='store_true', help='Run by the session test: keep the observations')
     options = parser.parse_args(argv)
     if options.step == 'prepare':
-        print(json.dumps(prepare(options.root), ensure_ascii=False))
+        print(json.dumps(prepare(options.root, options.package), ensure_ascii=False))
         return 0
     if not options.plan or not options.observations:
         parser.error('report needs --plan and --observations')
-    return report(options.root, options.plan, options.observations, options.package, in_test=options.in_test)
+    from . import deprecation
+    with deprecation.held() as notices:     # said after the block, never inside the session test's output
+        return report(options.root, options.plan, options.observations, options.package, in_test=options.in_test,
+                      notices=notices)
 
 
 if __name__ == '__main__':

@@ -535,8 +535,11 @@ def test_a_recorded_task_start_this_repository_lacks_is_named_and_compares_nothi
     prepared = vitest.prepare(root)
     seconds = prepared.pop('seconds')
     assert type(seconds) in (int, float) and math.isfinite(seconds) and seconds >= 0
-    assert prepared == dict(status='off', reason=f'recorded task baseline {gone[:7]} is not in this repository: execution comparison is off; '
-                                                'first run python -m flowguard new-task')
+    # vitest says it as the other runs do (D12, D13): its plan names the missing start in the block's title and holds
+    # nothing to compare with it
+    plan = json.loads(Path(prepared.pop('plan')).read_text(encoding='utf-8'))
+    assert prepared == dict(status='on', adapter=(vitest.ADAPTER / 'index.mjs').as_posix()), prepared
+    assert (plan['baseline'], plan['baseline_kind'], plan['files'], plan['touched']) == (gone, 'missing', {}, []), plan
     code, text = _run(root)
     assert code == 0 and text.splitlines()[0].endswith(f'; recorded {gone[:12]} is not in this repository; the task starts at HEAD'), text
     head = git(root, 'rev-parse', 'HEAD')

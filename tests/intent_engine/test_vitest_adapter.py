@@ -319,9 +319,12 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
                             ('cannot be parsed: line 3',))],
                       2, run='check --static', stamp=0, baseline=head, kind='HEAD', title='FlowGuard', seconds=2.5,
                       deprecated=['old spelling'], hidden=[dict(feature='similar-implementation leads', text='a lead')])
+    notice = 'deprecated: old spelling goes in 5.0 -> do not use it'
+    static = dict(static, notices=[notice])           # the static test's notices, held for the end of the block
     code, saved = _report(tmp_path, plan, package='web', records=records, static=static, in_test=True)
     block = _cli_fixture.block(saved['text'])
     assert code == 1 and (saved['status'], saved['red']) == (1, 1), saved       # the static test failed on its reds itself
+    assert saved['deprecated'] == [notice], saved          # the teardown prints them on stderr after the block
     title = re.fullmatch(rf'FlowGuard {re.escape(signals.version())} \(since HEAD {head[:7]}\): 3 red, 1 not compared; ([0-9.]+) s', block[0])
     assert title and float(title[1]) >= 2.5, block                               # the static test's time counts
     assert block[1] == red and block[2].startswith(entry) and block[3:] == [
@@ -342,6 +345,10 @@ def test_a_known_entry_this_run_speaks_for_keeps_its_own_line_beside_the_map_che
               Line('before', 'pair:X>Y', 'c.ts:h', 'together X at c.ts:h was broken at task start', 'leave it unless your task is about it')]
     assert merged(own, static, {'known.limit'}) == [static[2], own[0], static[1]]
     assert merged(own, static, set()) == [static[2], own[0], static[0], static[1]]
+    # the map checks found the entry's finding gone: their known fixed? is listed (D8) instead of this run's known line
+    fixed = Line('known fixed?', 'known.limit', '', 'known.limit: declarations:Limit no longer found',
+                 'the owner has not decided: revert, or say why in your report')
+    assert merged(own, [fixed, static[1]], {'known.limit'}) == [static[1], fixed]
 
 
 def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_does(tmp_path):
@@ -1120,7 +1127,9 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     root = _fees_project(vitest_home, 'fees')
     code, text = _vitest(root, vitest_home)
     after = text.split('Test Files')[-1]
-    assert code == 0 and 'FlowGuard check --static' not in after and not TITLE.search(after), text  # no change: nothing added
+    # no change: the block is its first line alone (D12), the static test's map checks included and passed
+    assert code == 0 and 'FlowGuard check --static' not in after, text
+    assert re.fullmatch(r'FlowGuard \S+ \(since HEAD \w+\): 0 red; [0-9.]+ s', '\n'.join(_block(text))), text
     assert 'changed: ' not in text and 'same LATE_FEE' not in text, text
     _sensor(root, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
     _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
@@ -1238,6 +1247,310 @@ def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_ch
         in block, block
 
 
+def test_type_guard_copies_are_compared_and_a_pair_this_change_broke_is_red(vitest_home):
+    # Review of 4.3: a type guard's `age is number` reached the sealed run unstripped, node refused to parse it, and
+    # the broken pair was `not compared (sealed execution failed or timed out)` with exit 0; the same Python copies
+    # are red under pytest. A guard's predicate and an assertion's `asserts` are TypeScript only, as a type is.
+    root = vitest_home / 'guards'
+    guard = "// flowguard: same IS_ADULT\nexport function {name}(age: unknown): age is number {{\n  return typeof age === 'number' && age >= 18;\n}}\n"
+    _commit(root, {
+        'package.json': '{"name":"guards","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': guard.format(name='isAdult'),
+        'src/b.ts': guard.format(name='adult'),
+        'tests/p.test.ts': ("import { it, expect } from 'vitest';\nimport { isAdult } from '../src/a';\nimport { adult } from '../src/b';\n"
+                            "it('adult', () => { expect(isAdult(20)).toBe(true); expect(adult(30)).toBe(true); });\n"),
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    first = root / 'src/a.ts'
+    first.write_text(first.read_text(encoding='utf-8').replace('age >= 18', 'age > 18'), encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)
+    block = _block(text)
+    assert code == 1 and 'red: same IS_ADULT: on age=18: a.ts:isAdult returns False, b.ts:adult returns True ' \
+                         '-> decide which copy is right, then make the other agree' in block, text
+    assert not [line for line in block if line.startswith('not compared')], block
+    from flowguard.intent.vitest import sealed_source
+    asserting = b"export function check(age: unknown): asserts age is number {\n  if (typeof age !== 'number') throw new TypeError('no age');\n}\n" \
+                b"export function present(value: unknown): asserts value {\n  if (!value) throw new TypeError('empty');\n}\n"
+    for name, args, answer in (('check', ['x'], {'error': {'name': 'TypeError', 'message': 'no age'}}),
+                               ('present', [0], {'error': {'name': 'TypeError', 'message': 'empty'}})):
+        source, why = sealed_source(asserting, 'src/check.ts', name)
+        assert not why and 'asserts' not in source and ' is ' not in source, (source, why)
+        assert _sealed(source, name, args) == answer, source
+    # Syntax the reader leaves in is said as what it is, not as a failed or timed out run.
+    assert _sealed('function f(age): age is number { return age > 1; }', 'f', [2]) == \
+        {'reason': "the sealed source does not parse: Unexpected token ':'"}
+    assert _sealed('function f() { for (;;) {} }', 'f', []) == {'reason': 'sealed execution failed or timed out'}
+
+
+def test_a_known_fixed_of_the_map_checks_is_listed_in_a_vitest_run_that_touches_the_entrys_sites(vitest_home):
+    # Review of 4.3: check --static says `known fixed?` for an entry whose finding is gone, but the vitest run of the
+    # same tree said `known ... -> leave it`, the opposite step, because this run's own line for the touched sites
+    # replaced the map checks' line. known fixed? is listed in full (D8), in the block and in show --last.
+    root = vitest_home / 'declared'
+    _commit(root, {
+        'package.json': '{"name":"declared","private":true,"type":"module","scripts":{"test":"vitest run"},'
+                        '"devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': "export type Status = 'open' | 'closed';\nexport function isOpen(s: string): boolean {\n  return s === 'open';\n}\n",
+        'src/b.ts': "export type Status = 'open' | 'done';\nexport function label(s: string): string {\n  return s.toUpperCase();\n}\n",
+        'tests/app.test.ts': ("import { it, expect } from 'vitest';\nimport { isOpen } from '../src/a';\nimport { label } from '../src/b';\n"
+                              "it('real', () => { expect(isOpen('open')).toBe(true); expect(label('x')).toBe('X'); });\n"),
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, {'.flowguard/known.toml': '''
+        [known.status]
+        sites = ["src/a.ts:isOpen", "src/b.ts:label"]
+        why = "two Status declarations differ"
+        act = "leave"
+        finding = "declarations:Status"
+    '''}, message='wired, with the known difference')
+    other = root / 'src/b.ts'
+    other.write_text(other.read_text(encoding='utf-8').replace("'open' | 'done'", "'open' | 'closed'")
+                     .replace('s.toUpperCase()', 's.trim().toUpperCase()'), encoding='utf-8', newline='\n')
+    fixed = ('known fixed?: known.status: declarations:Status no longer found -> the owner deferred it: revert, or say why '
+             'in your report')
+    code, text = _flowguard(root, 'check', '--static')
+    assert code == 0 and fixed in text.splitlines(), text
+    code, text = _vitest(root, vitest_home)
+    block = _block(text)
+    assert code == 0 and fixed in block and not [line for line in block if line.startswith('known: ')], text
+    assert re.fullmatch(r'FlowGuard \S+ \(since \w+\): 0 red, 1 known fixed\?; [0-9.]+ s', block[0]), block
+    assert fixed in _cli_fixture.last(root) and 'known: known.status' not in _cli_fixture.last(root), _cli_fixture.last(root)
+
+
+def test_a_run_with_nothing_to_observe_still_prints_the_map_checks_and_a_run_without_a_baseline_compares_copies(vitest_home):
+    # Review of 4.3: when the plugin turned itself off (no function to observe, no baseline commit) the run printed no
+    # block: a loosened line or a red of known.toml the static test found was hidden with the passing tests' output, a
+    # failure pointed at "the FlowGuard block at the end" that never came, and copies that disagree were silent where
+    # pytest is red. The first line always prints (D12), the map checks join the vitest block (4.7), and without a
+    # baseline the copies are compared as pytest compares them, the title saying nothing was compared with one (D13).
+    from flowguard.intent import cache
+    from flowguard.intent.config import load_config
+    root = vitest_home / 'quiet'
+    _commit(root, {
+        'package.json': '{"name":"quiet","private":true,"type":"module","scripts":{"test":"vitest run"},'
+                        '"devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': 'export function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'tests/app.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nit('real', () => { expect(over(4)).toBe(true); });\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0 and (root / 'flowguard.static.test.mjs').is_file()
+    entry = '[known.limit]\nsites = ["src/a.ts:over"]\nwhy = "the limit may be off by one"\nact = "ask"\nask = "is 3 included?"\n'
+    _commit(root, {'.flowguard/known.toml': entry}, message='wired, with a known entry')
+    (root / '.flowguard/known.toml').write_text(entry.replace('act = "ask"', 'act = "leave"'), encoding='utf-8', newline='\n')
+    loosened = "loosened: known.limit changed (act) -> name it in your report; needs the owner's yes"
+    code, text = _vitest(root, vitest_home)
+    block = _block(text)
+    assert code == 0 and block[1:] == [loosened] and re.fullmatch(r'FlowGuard \S+ \(since HEAD \w+\): 0 red, 1 loosened; [0-9.]+ s', block[0]), text
+    (root / '.flowguard/known.toml').write_text(entry.replace('ask = "is 3 included?"\n', ''), encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)
+    block = _block(text)
+    assert code == 1 and 'Error: FlowGuard: 1 red, see the FlowGuard block at the end' in text, text
+    assert [line for line in block if line.startswith('red: ')] == [
+        'red: known.limit: known.toml:known.limit act = "ask" needs ask: the question for the owner -> correct [known.limit] in known.toml'], block
+    # copies that disagree, compared with a recorded task start this repository lacks, and outside Git
+    copies = vitest_home / 'unborn'
+    _commit(copies, {
+        'package.json': '{"name":"unborn","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport const enough = (x: number): boolean => x >= 3;\n',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+    })
+    assert _flowguard(copies, 'init')[0] == 0
+    (copies / 'flowguard.static.test.mjs').unlink()         # copies alone: the baseline turns the plugin on
+    _commit(copies, message='wired')
+    cache._record_baseline(load_config(copies), 'b' * 40)
+    red = 'red: same LIMIT: on x=3: a.ts:over returns False, b.ts:enough returns True -> decide which copy is right, then make the other agree'
+    code, text = _vitest(copies, vitest_home)
+    block = _block(text)
+    assert code == 1 and block[1:] == [red], text
+    assert block[0].startswith(f'FlowGuard {signals.version()} (since bbbbbbb, not in this repository: nothing compared; '
+                               'run python -m flowguard new-task): 1 red; '), block
+    shutil.rmtree(copies / '.git')
+    shutil.rmtree(copies / '.flowguard/cache')
+    code, text = _vitest(copies, vitest_home)
+    block = _block(text)
+    assert code == 1 and block[1:] == [red] and block[0].startswith(f'FlowGuard {signals.version()} (no baseline: nothing compared): 1 red; '), text
+    (copies / 'src/b.ts').write_text((copies / 'src/b.ts').read_text().replace('x >= 3', 'x > 3'), encoding='utf-8', newline='\n')
+    code, text = _vitest(copies, vitest_home)        # no stale plan: the copies agree now
+    assert code == 0 and _block(text)[1:] == [], text
+
+
+def test_the_block_leaves_a_machine_readable_report_on_stdout_whole(vitest_home):
+    # Review of 4.3: `vitest run --reporter=json > report.json` got the block after the JSON, which then no longer
+    # parsed ("Extra data"); junit and tap the same. A reporter that writes its document to stdout sends the block
+    # to stderr; with its document in a file, or another reporter, the block stays on stdout after the summary.
+    import xml.etree.ElementTree as ElementTree
+    root = vitest_home / 'machine'
+    _commit(root, {
+        'package.json': '{"name":"machine","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function enough(x: number) { return x > 3; }\n',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    def run(*arguments):
+        done = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', *arguments], cwd=root,
+                              capture_output=True, encoding='utf-8', timeout=600, env=_environment())
+        return done.returncode, ANSI.sub('', done.stdout), ANSI.sub('', done.stderr)
+    for reporter, read in (('json', json.loads), ('junit', ElementTree.fromstring)):
+        code, out, err = run(f'--reporter={reporter}')
+        assert code == 0 and not TITLE.search(out) and TITLE.search(err), (reporter, out, err)
+        read(out.strip())                                  # the whole of stdout is the reporter's document
+    for arguments in (['--reporter=tap'], ['--reporter=tap-flat', '--outputFile=ignored.txt']):     # tap has no output file
+        code, out, err = run(*arguments)
+        assert code == 0 and out.lstrip().startswith('TAP version') and not TITLE.search(out) and TITLE.search(err), (arguments, out, err)
+    # its document in a file, or a reporter for people: the block follows the summary on stdout
+    code, out, err = run('--reporter=json', '--outputFile.json=report.json')
+    assert code == 0 and TITLE.search(out) and not TITLE.search(err), (out, err)
+    assert json.loads((root / 'report.json').read_text(encoding='utf-8'))['success'] is True
+    code, out, err = run('--reporter=default')
+    assert code == 0 and TITLE.search(out) and not TITLE.search(err) and _block(out), (out, err)
+
+
+def test_a_run_that_filters_out_the_session_test_fails_with_its_red_in_the_block(vitest_home):
+    # Review of 4.3: path filters, -t and --project also leave FlowGuard's session test out. The global setup's
+    # teardown then judges the run: exit 1 and the red in the block. vitest writes its JSON and junit results before
+    # any teardown and has no supported way to keep a test in a filtered run, so those results do not carry the red:
+    # a limit documented in docs/intent-guide.md and index.mjs.
+    root = vitest_home / 'filtered'
+    _commit(root, {
+        'package.json': '{"name":"filtered","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function enough(x: number) { return x > 3; }\n',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    config = root / 'vitest.config.mjs'
+    config.write_text(config.read_text(encoding='utf-8').replace('plugins: [flowguard()] }', "plugins: [flowguard()], test: { name: 'app' } }"),
+                      encoding='utf-8', newline='\n')
+    _commit(root, message='wired')
+    other = root / 'src/b.ts'
+    other.write_text(other.read_text().replace('x > 3', 'x >= 3'))
+    red = 'red: same LIMIT: on x=3: a.ts:over returns False, b.ts:enough returns True -> decide which copy is right, then make the other agree'
+    for arguments in (['tests/app.test.ts'], ['-t', 'real'], ['--project', 'app']):
+        code, text = _vitest(root, vitest_home, *arguments, '--reporter=default', '--reporter=json', '--outputFile.json=results.json')
+        assert code == 1 and red in _block(text), (arguments, text)
+        results = json.loads((root / 'results.json').read_text(encoding='utf-8'))
+        ran = {case['title']: case['status'] for result in results['testResults'] for case in result['assertionResults']}
+        assert ran['real'] == 'passed' and ran.get('FlowGuard execution side') in (None, 'skipped'), (arguments, ran)
+
+
+def test_deprecation_notices_print_once_on_stderr_after_the_block(vitest_home):
+    # Review of 4.3: the session test discarded its report's stderr, so a deprecated intent spelling (precedes) was
+    # said nowhere but in show --last; the plan's own notices (prepare's stderr) and the static test's were lost the
+    # same way. Design 4.7: deprecated goes to stderr; each notice once, after the block, also in a filtered run.
+    root = vitest_home / 'deprecated'
+    _commit(root, {
+        'package.json': '{"name":"deprecated","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: sensor LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'src/b.ts': '// flowguard: sensor LIMIT\nexport const enough = (x: number): boolean => x > 3;\n',
+        'tests/app.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nit('real', () => { expect(over(4)).toBe(true); });\n",
+        'tests/intent/order_rules.py': ("from flowguard.intent import precedes\n\n"
+                                        "precedes('SAVED', 'PUBLISHED', source='assumed: a draft is saved before it is published')\n"),
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    notices = ['deprecated: sensor goes in 5.0 -> write same NAME', 'deprecated: precedes goes in 5.0 -> do not use it']
+    for arguments in ([], ['tests/app.test.ts']):           # the session test's report, and the teardown's
+        done = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', *arguments], cwd=root,
+                              capture_output=True, encoding='utf-8', timeout=600, env=_environment())
+        out, err = ANSI.sub('', done.stdout), ANSI.sub('', done.stderr)
+        assert done.returncode == 0 and _block(out), (arguments, out, err)
+        assert err.strip().splitlines()[-2:] == notices, (arguments, err)
+        assert [(out + err).count(notice) for notice in notices] == [1, 1], (arguments, out, err)
+    assert 'deprecated features used (5.0): sensor, precedes' in _cli_fixture.last(root), _cli_fixture.last(root)
+
+
+def test_an_edit_of_spacing_alone_touches_no_known_site_as_in_pytest(vitest_home):
+    # Review of 4.3: a trailing space inside a known entry's site changed the function's sealed text, which vitest
+    # counted as touching the site (`known: ...`), while pytest, which counts only the node delta (D31), said nothing.
+    root = vitest_home / 'spacing'
+    _commit(root, {
+        'package.json': '{"name":"spacing","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport const enough = (x: number): boolean => x >= 3;\n',
+        'tests/app.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nit('real', () => { expect(over(4)).toBe(true); });\n",
+        '.flowguard/known.toml': '''
+            [known.limit]
+            sites = ["src/a.ts:over", "src/b.ts:enough"]
+            why = "the copies disagree at 3"
+            act = "ask"
+            ask = "which limit is right?"
+            finding = "same:LIMIT"
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    assert _flowguard(root, 'new-task')[0] == 0
+    first = root / 'src/a.ts'
+    first.write_text(first.read_text(encoding='utf-8').replace('return x > 3;', 'return x  >  3; '), encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and not [line for line in _block(text) if 'known.limit' in line], text
+    first.write_text(first.read_text(encoding='utf-8').replace('return x  >  3; ', 'return 3 < x;'), encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)       # the node changed: the site is touched
+    assert code == 0 and 'known: known.limit at a.ts:over, b.ts:enough -> ask owner (not asked yet)' in _block(text), text
+
+
+def test_init_says_npm_test_runs_the_static_test_only_when_the_vitest_config_includes_it(vitest_home):
+    # Review of 4.3: with `include: ['tests/**/*.test.ts']` init said "npm test runs python -m flowguard check
+    # --static", but vitest never ran the file and every run said only that the map checks did not run. init reads
+    # test.include (and test.exclude) when they are literals; otherwise it says it cannot confirm the claim.
+    configs = {
+        'left-out': "export default defineConfig({\n  plugins: [],\n  test: { include: ['tests/**/*.test.ts'] },\n});\n",
+        'taken': "export default defineConfig({\n  plugins: [],\n  test: { include: ['tests/**/*.test.ts', 'flowguard.static.test.mjs'] },\n});\n",
+        'unread': "const include = ['tests/**/*.test.ts'];\nexport default defineConfig({\n  plugins: [],\n  test: { include },\n});\n",
+    }
+    said = {
+        'left-out': ('Generated flowguard.static.test.mjs (vitest), but test.include in vitest.config.ts (tests/**/*.test.ts) '
+                     'leaves it out: add "flowguard.static.test.mjs" to test.include there, so npm test runs python -m '
+                     'flowguard check --static and fails on red.'),
+        'taken': 'Generated flowguard.static.test.mjs (vitest): npm test runs python -m flowguard check --static and fails on red.',
+        'unread': ('Generated flowguard.static.test.mjs (vitest): init cannot read test.include in vitest.config.ts, so it cannot '
+                   'confirm that npm test runs python -m flowguard check --static: test.include must take flowguard.static.test.mjs.'),
+    }
+    for label, config in configs.items():
+        root = vitest_home / f'include-{label}'
+        _commit(root, {
+            'package.json': '{"name":"include","private":true,"type":"module","scripts":{"test":"vitest run"},'
+                            '"devDependencies":{"vitest":"' + VITEST + '"}}',
+            'vitest.config.ts': "import { defineConfig } from 'vitest/config';\n" + config,
+            'src/a.ts': 'export function over(x: number) { return x > 3; }\n',
+            'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+        })
+        code, text = _flowguard(root, 'init')
+        assert code == 0 and said[label] in text.splitlines(), (label, text)
+        _commit(root, message='wired')
+        code, text = _vitest(root, vitest_home)     # what vitest does with the file: only the claim made holds
+        ran = not [line for line in _block(text) if 'map checks did not run' in line]
+        assert code == 0 and ran == (label == 'taken'), (label, text)
+
+
+def test_the_session_test_has_one_name_in_every_project_and_on_every_machine(vitest_home):
+    # Review of 4.3: vitest names a test file in its results by its path from the vitest root, so FlowGuard's junit
+    # testsuite and classname were a path into the Python install (../../../wt/flowguard/adapters/vitest/...), which
+    # differs on every machine. The session test runs from node_modules/.cache/flowguard of the vitest root.
+    import xml.etree.ElementTree as ElementTree
+    root = vitest_home / 'named'
+    _commit(root, {
+        'package.json': '{"name":"named","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function enough(x: number) { return x > 3; }\n',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    other = root / 'src/b.ts'
+    other.write_text(other.read_text().replace('x > 3', 'x >= 3'))
+    code, text = _vitest(root, vitest_home, '--reporter=default', '--reporter=junit', '--outputFile.junit=junit.xml')
+    assert code == 1, text
+    suites = ElementTree.parse(root / 'junit.xml').getroot().findall('testsuite')
+    [own] = [suite for suite in suites if suite.find('testcase').get('name') == 'FlowGuard execution side']
+    name = 'node_modules/.cache/flowguard/session.test.mjs'
+    assert own.get('name') == name and own.find('testcase').get('classname') == name, ElementTree.tostring(own)
+    assert own.find('testcase/failure').get('message') == 'FlowGuard: 1 red, see the FlowGuard block at the end'
+
+
 def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph_separator(vitest_home):
     # JavaScript ends a line at U+2028 and U+2029 too: the recorder's source map counts lines the same way,
     # so a stack position inside a recorded function is the one vitest gives without FlowGuard (line 7, column 13).
@@ -1270,6 +1583,7 @@ def test_the_observations_folder_reaches_every_worker_and_its_map_checks_join_th
                            'together Order.total: shop/orders.ts:save writes Order.total without Order.tax',
                            'also write Order.tax in save', ('shop/orders.ts:save',))],
                      0, run='check --static', stamp=0, baseline='0' * 40, kind='task', title='FlowGuard', seconds=0.5)
+    saved = dict(saved, notices=[])
     _commit(root, {
         'package.json': '{"name":"observed","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
         'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',
@@ -1303,16 +1617,68 @@ def test_a_build_and_the_dev_server_never_load_flowguard_only_a_vitest_run_does(
     # R85: FlowGuard never changes the maintained software. The vite config that vitest reads is also the one
     # `vite build` and the dev server read: outside vitest no plugin applies, no Python starts and the code served
     # or bundled is the project's own, also with no FlowGuard installed and with a flowguard.vitest.mjs of an
-    # older init (no VITEST check of its own).
+    # older init (no VITEST check of its own). Review of 4.3: VITEST alone does not say that: a build or server that
+    # a test or a global setup starts inside a vitest run, and a `vite build` child that inherits VITEST, read the
+    # same config, and got the plugin (`globalThis.__flowguard_vitest_runtime__.wrap(...)` in their bundle). Only
+    # vitest's own servers apply it, and the generated wrapper starts no Python in a vitest worker.
     root = vitest_home / 'built'
     _commit(root, {
         'package.json': '{"name":"built","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
         'vite.config.mjs': ("import { defineConfig } from 'vite';\n\nexport default defineConfig({\n  plugins: [],\n"
-                            "  build: { lib: { entry: 'src/grade.ts', formats: ['es'], fileName: 'grade' } },\n});\n"),
+                            "  build: { lib: { entry: 'src/grade.ts', formats: ['es'], fileName: 'grade' } },\n"
+                            "  test: { globalSetup: ['./tests/serve.setup.mjs'] },\n});\n"),
         'src/grade.ts': '// flowguard: same PASS_MARK\nexport function grade(n: number): string {\n  return n >= 5 ? "pass" : "fail";\n}\n',
         'src/mark.ts': '// flowguard: same PASS_MARK\nexport function passed(n: number): boolean {\n  return n >= 5;\n}\n',
         'tests/grade.test.ts': ("import { expect, it } from 'vitest';\nimport { grade } from '../src/grade';\n"
                                 "it('grades', () => expect(grade(5)).toBe('pass'));\n"),
+        # a dev server a global setup starts in vitest's own process (VITEST set, no worker)
+        'tests/serve.setup.mjs': '''
+            import fs from 'node:fs';
+            import { createServer } from 'vite';
+            export async function setup() {
+              const server = await createServer({ root: process.cwd(), logLevel: 'silent', server: { middlewareMode: true, hmr: false, ws: false } });
+              const served = await server.transformRequest('/src/grade.ts');
+              await server.close();
+              fs.writeFileSync('served-by-setup.js', served.code);
+            }
+        ''',
+        # a build and a server a test starts in its worker, a `vite build` it starts as a child, and the wrapper there
+        'tests/inside.test.ts': '''
+            import { expect, it } from 'vitest';
+            import { spawnSync } from 'node:child_process';
+            import fs from 'node:fs';
+            import { createRequire } from 'node:module';
+            import path from 'node:path';
+            import { build, createServer } from 'vite';
+
+            const root = process.cwd();
+            it('builds the project as it is', async () => {
+              const result: any = await build({ root, logLevel: 'silent', build: { write: false } });
+              const code = [result].flat().flatMap((item: any) => item.output).map((chunk: any) => chunk.code ?? '').join('\\n');
+              expect(code).toContain('pass');
+              expect(code).not.toContain('__flowguard');
+            });
+            it('serves the project as it is', async () => {
+              const server = await createServer({ root, logLevel: 'silent', server: { middlewareMode: true, hmr: false, ws: false } });
+              const served = await server.transformRequest('/src/grade.ts');
+              await server.close();
+              expect(served!.code).toContain('function grade');
+              expect(served!.code).not.toContain('__flowguard');
+            });
+            it('a vite build it starts bundles the project as it is', () => {
+              const vite = path.join(path.dirname(createRequire(import.meta.url).resolve('vite/package.json')), 'bin/vite.js');
+              const run = spawnSync(process.execPath, [vite, 'build', '--outDir', 'dist-child', '--logLevel', 'silent'], { cwd: root, encoding: 'utf8' });
+              expect(run.status, run.stdout + run.stderr).toBe(0);
+              const files = fs.readdirSync(path.join(root, 'dist-child'), { recursive: true }).map(String).filter((name) => /\\.m?js$/.test(name));
+              const bundle = files.map((name) => fs.readFileSync(path.join(root, 'dist-child', name), 'utf8')).join('');
+              expect(bundle).toContain('pass');
+              expect(bundle).not.toContain('__flowguard');
+            });
+            it('the generated wrapper starts nothing in a worker', async () => {
+              const { default: flowguard } = await import('../flowguard.vitest.mjs');
+              expect(await flowguard()).toBe(null);
+            });
+        ''',
     })
     assert _flowguard(root, 'init')[0] == 0
     _commit(root, message='wired')
@@ -1327,17 +1693,22 @@ def test_a_build_and_the_dev_server_never_load_flowguard_only_a_vitest_run_does(
            "process.stdout.write(result.code);")
     wrapper = root / 'flowguard.vitest.mjs'
     current = wrapper.read_text(encoding='utf-8')
-    older = current.replace('  if (!process.env.VITEST) return null;\n', '')
+    older = current.replace('  if (!process.env.VITEST || process.env.VITEST_WORKER_ID) return null;\n', '')
     assert older != current
-    plain = {key: item for key, item in _environment().items() if key not in ('VITEST', 'TEST')}
-    for label, text, python in (('current', current, sys.executable), ('current, no FlowGuard', current, str(root / 'no-python')),
-                                ('older init', older, sys.executable)):
+    plain = {key: item for key, item in _environment().items() if key not in ('VITEST', 'TEST', 'VITEST_WORKER_ID', 'VITEST_POOL_ID')}
+    vitest_env, worker_env = dict(VITEST='true', TEST='true'), dict(VITEST='true', TEST='true', VITEST_WORKER_ID='1', VITEST_POOL_ID='1')
+    for index, (label, text, python, extra) in enumerate((
+            ('current', current, sys.executable, {}), ('current, no FlowGuard', current, str(root / 'no-python'), {}),
+            ('older init', older, sys.executable, {}),
+            # a child process of vitest, which inherits VITEST, and of one of its workers
+            ('current, VITEST set', current, sys.executable, vitest_env), ('older init, VITEST set', older, sys.executable, vitest_env),
+            ("current, a worker's child", current, sys.executable, worker_env))):
         wrapper.write_text(text, encoding='utf-8', newline='\n')
-        env = dict(plain, FLOWGUARD_PYTHON=python)
-        built = subprocess.run([_tool('node'), str(vite), 'build', '--outDir', 'dist-' + str(len(label))], cwd=root,
+        env = dict(plain, FLOWGUARD_PYTHON=python, **extra)
+        built = subprocess.run([_tool('node'), str(vite), 'build', '--outDir', f'dist-{index}'], cwd=root,
                                capture_output=True, encoding='utf-8', timeout=600, env=env)
         assert built.returncode == 0, (label, built.stdout + built.stderr)
-        bundle = ''.join(path.read_text(encoding='utf-8') for path in (root / ('dist-' + str(len(label)))).rglob('*.*js'))
+        bundle = ''.join(path.read_text(encoding='utf-8') for path in (root / f'dist-{index}').rglob('*.*js'))
         assert '"pass"' in bundle and '__flowguard' not in bundle and '__fg_rt' not in bundle, (label, bundle)
         served = subprocess.run([_tool('node'), '--input-type=module', '-e', dev], cwd=root, capture_output=True,
                                 encoding='utf-8', timeout=600, env=env)
@@ -1345,7 +1716,9 @@ def test_a_build_and_the_dev_server_never_load_flowguard_only_a_vitest_run_does(
         assert 'function grade' in served.stdout and '__flowguard' not in served.stdout, (label, served.stdout)
     wrapper.write_text(current, encoding='utf-8', newline='\n')
     code, text = _vitest(root, vitest_home)  # the same config in a vitest run: FlowGuard records and reports
-    assert code == 0 and 'FlowGuard' in text, text
+    assert code == 0 and re.search(r'Tests +7 passed \(7\)', text) and _block(text)[0].startswith('FlowGuard '), text
+    served = (root / 'served-by-setup.js').read_text(encoding='utf-8')
+    assert 'function grade' in served and '__flowguard' not in served, served
 
 
 ISO_WEEK = '''
@@ -1657,6 +2030,69 @@ def test_nonprimitive_arguments_are_untouched_and_the_real_value_is_returned(vit
     code, text = _vitest(root, vitest_home)
     assert code == 0 and _cli_fixture.unchecked(root)['IDENTITY (src/sample.ts:2)'] == [
         'only primitive JSON arguments and results are recorded'], text
+
+
+def test_a_recorded_function_keeps_its_properties_prototype_constructor_and_source_text(vitest_home):
+    # R85, review of 4.3: the recorder copied only name and length, so a property set with Object.assign(f, ...) or
+    # `(f as any).x = ...` (which the mutable-binding guard does not see) was gone in the project's own tests, which
+    # failed only with FlowGuard. The recorded function is the project's function in every respect but its calls.
+    root = vitest_home / 'properties'
+    _commit(root, {
+        'package.json': '{"name":"properties","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/greet.ts': '''
+            export function greet(name: string): string {
+              return 'hi ' + name;
+            }
+            Object.assign(greet, { prefix: 'hi' });
+
+            export function shout(name: string): string {
+              return name.toUpperCase();
+            }
+            (shout as any).level = 2;
+
+            export function Point(this: any, x: number) {
+              this.x = x;
+            }
+            Object.assign(Point.prototype, { double(this: any) { return this.x * 2; } });
+        ''',
+        'tests/greet.test.ts': '''
+            import { it, expect } from 'vitest';
+            import { greet, shout, Point } from '../src/greet';
+            it('keeps properties', () => {
+              expect(greet('a')).toBe('hi a');
+              expect((greet as any).prefix).toBe('hi');
+              expect(shout('a')).toBe('A');
+              shout('a ');
+              expect((shout as any).level).toBe(2);
+              (greet as any).later = 3;
+              expect((greet as any).later).toBe(3);
+              expect([greet.name, greet.length]).toEqual(['greet', 1]);
+            });
+            it('keeps the prototype and new', () => {
+              const point = new (Point as any)(2);
+              expect(point.double()).toBe(4);
+              expect(point instanceof (Point as any)).toBe(true);
+              expect(Object.getPrototypeOf(point)).toBe((Point as any).prototype);
+            });
+            it('keeps the source text', () => {
+              for (const text of [greet.toString(), String(greet), `${greet}`]) expect(text.startsWith('function greet(')).toBe(true);
+              expect(greet.toString.call(shout).startsWith('function shout(')).toBe(true);
+            });
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    greet = root / 'src/greet.ts'
+    greet.write_text(greet.read_text(encoding='utf-8').replace("'hi ' + name;", "'hi ' + name.trim();")
+                     .replace('name.toUpperCase();', 'name.trim().toUpperCase();').replace('this.x = x;', 'this.x = x + 0;'),
+                     encoding='utf-8', newline='\n')
+    plan = json.loads(Path(_prepare(root)['plan']).read_text(encoding='utf-8'))
+    assert sorted(point['fn'] for entry in plan['files'].values() for point in entry['points'] if point['recordable']) == \
+        ['Point', 'greet', 'shout'], plan
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and re.search(r'Tests +5 passed \(5\)', text), text      # three of the project's, two of FlowGuard
+    # the calls were recorded through the same functions
+    assert "changed: shout (greet.ts:6): (name='a ') was 'A ', now 'A'; 1/2 inputs differ -> if you meant it, say so" in _block(text), text
 
 
 def _judged(root, records, package=None):
