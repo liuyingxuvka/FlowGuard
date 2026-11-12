@@ -824,8 +824,10 @@ def test_a_typescript_data_owner_turns_a_new_prisma_write_outside_its_writers_re
     assert code == 1 and _lines(text, 'red: ') == [
         'red: writers Employee.organizationalUnitId: rogue.ts:moveEmployee writes Employee.organizationalUnitId outside transferEmployee '
         '-> call transferEmployee instead'], text
+    # show --last names the run first; the agreement is the detail under the red line, found by its text
     shown = _cli_fixture.last(tmp_path).splitlines()
-    assert shown[2] == '    agreement: backend/src/owners.ts:1', shown
+    red = next(index for index, line in enumerate(shown) if line.startswith('red: writers Employee.organizationalUnitId: '))
+    assert shown[0].startswith('FlowGuard last run: check at ') and shown[red + 1] == '    agreement: backend/src/owners.ts:1', shown
 
 
 def test_show_lists_an_owners_old_ledger(tmp_path):
