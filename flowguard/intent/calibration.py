@@ -412,12 +412,14 @@ def _sealed_point(scope, item, binding, test, definition, events, entry, changed
              frozenset(passed))
     if facts not in scope.sealed:
         # No call changes an inert input the test did not change, nor a module, function or class it names globally.
-        immutable = {sources[name] for name, value in entry.values.items() if name not in changed and _inert(value)}
-        immutable |= {name for name, value in test.__globals__.items()
-                      if isinstance(value, (types.ModuleType, types.FunctionType, type))}
-        scope.sealed[facts] = (sorted(set(passed) & _stored(definition)), _tainted(definition, set(passed), immutable),
-                               _spans(definition))
-    assigned, tainted, calls = scope.sealed[facts]
+        fixed = {sources[name] for name, value in entry.values.items() if name not in changed and _inert(value)}
+        immutable = fixed | {name for name, value in test.__globals__.items()
+                             if isinstance(value, (types.ModuleType, types.FunctionType, type))}
+        stored = _stored(definition)
+        # An unchanged inert input the test never assigns has its recorded value at every input.
+        scope.sealed[facts] = (sorted(set(passed) & stored), _tainted(definition, set(passed), immutable),
+                               _spans(definition), fixed - stored)
+    assigned, tainted, calls, kept = scope.sealed[facts]
     if assigned:
         return _unavailable(f'not compared: the scenario test assigns {assigned[0]}; another input cannot be put '
                             'into its calls')
@@ -434,7 +436,7 @@ def _sealed_point(scope, item, binding, test, definition, events, entry, changed
                 node.reference == event.anchor and node.occurrence in (None, event.occurrence)
                 and _caller_matches(node, event, flow, events, index) for node in nodes):
             continue
-        point = _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted)
+        point = _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted, kept)
         if isinstance(point, dict):
             return point
         evaluated[identity] = point
@@ -475,11 +477,12 @@ def _sealed_point(scope, item, binding, test, definition, events, entry, changed
     return observed
 
 
-def _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted):
+def _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted, kept):
     """(anchor values, outcome, whether its error leaves the test) of one production anchor call the scenario
     test made itself: its recorded JSON call with each argument the test passes straight from a changed input
-    replaced, evaluated sealed. The recorded call's own sealed outcome must be the recorded one first. Or why it
-    is not compared. `calls`: the test's call expressions by source span."""
+    replaced, evaluated sealed. Every other argument must be a literal or an unchanged input in `kept`, so that
+    its recorded value is its value at every input. The recorded call's own sealed outcome must be the recorded
+    one first. Or why it is not compared. `calls`: the test's call expressions by source span."""
     from .flow import _resolved
     anchors = [anchor for anchor in index.named(event.anchor) if anchor.target == event.site]
     if len(anchors) != 1:
@@ -523,7 +526,7 @@ def _sealed_call(scope, item, index, test, calls, event, passed, changed, tainte
         return _unavailable(f'not compared: the scenario test\'s call of {anchor.name} is not one call expression '
                             'in its source')
     call, propagates = calls[span]
-    arguments, failure = _passed_arguments(call, signature, passed, tainted, anchor.name)
+    arguments, failure = _passed_arguments(call, signature, passed, tainted, kept, anchor.name)
     if failure:
         return failure
     if not arguments:
@@ -571,20 +574,33 @@ def _call_reading(scope, item, anchor, function, event):
     return reading
 
 
-def _passed_arguments(call, signature, passed, tainted, name):
+def _passed_arguments(call, signature, passed, tainted, kept, name):
     """({function parameter: scenario input}, None) for the arguments `call` passes straight from a changed
     input (`passed`: the test's parameter name -> its input), or (None, why it is not compared): the call is
     chosen by, or an argument is computed from, a changed input or a name whose value may depend on one
-    (`tainted`)."""
+    (`tainted`), or an argument is neither a literal nor an unchanged input in `kept`. The test's source does
+    not show every way a value reaches such an argument (an alias, a helper's module state), so its recorded
+    value is not its value at another input."""
     def mentions(node):
         return {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and part.id in tainted}
+    def unknown(parameter, expression):
+        return None, _unavailable(f'not compared: the scenario test passes {ast.unparse(expression)} as the '
+                                  f'{parameter} argument of {name}; only a literal, or an input of a fixed value '
+                                  'that the test never assigns, is known at another input')
     if found := sorted(mentions(call.func)):
         return None, _unavailable(f'not compared: the scenario test chooses its call of {name} by {", ".join(found)}')
     expressions = [*call.args, *(keyword.value for keyword in call.keywords)]
     if any(isinstance(argument, ast.Starred) for argument in call.args) or any(k.arg is None for k in call.keywords):
-        found = sorted(set().union(*map(mentions, expressions)))
-        return (None, _unavailable(f'not compared: the scenario test unpacks the arguments of {name} from '
-                                   f'{", ".join(found)}')) if found else ({}, None)
+        if found := sorted(set().union(*map(mentions, expressions))):
+            return None, _unavailable(f'not compared: the scenario test unpacks the arguments of {name} from '
+                                      f'{", ".join(found)}')
+        for expression in call.args:
+            if not _fixed(expression.value if isinstance(expression, ast.Starred) else expression, kept):
+                return unknown('unpacked', expression)
+        for keyword in call.keywords:
+            if not _fixed(keyword.value, kept):
+                return unknown('unpacked', ast.Starred(keyword.value) if keyword.arg is None else keyword.value)
+        return {}, None
     try:
         bound = signature.bind(*call.args, **{keyword.arg: keyword.value for keyword in call.keywords})
     except TypeError as error:
@@ -600,7 +616,25 @@ def _passed_arguments(call, signature, passed, tainted, name):
         if found := sorted(set().union(*map(mentions, parts))):
             return None, _unavailable(f'not compared: the scenario test computes the {parameter} argument of {name} '
                                       f'from {", ".join(found)}; the sealed environment does not run the test')
+        for part in parts:
+            if not _fixed(part, kept):
+                return unknown(parameter, part)
     return arguments, None
+
+
+def _fixed(node, kept):
+    """An argument expression of the test with the same value at every input: a literal or a name in `kept`."""
+    return isinstance(node, ast.Name) and node.id in kept or _literal(node)
+
+
+def _literal(node):
+    """A literal expression: a constant, a signed number, or a tuple of these. Nothing else is read as a fixed
+    value, not even a module name: a call could change what it holds."""
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        return isinstance(node.operand, ast.Constant) and type(node.operand.value) in (int, float, complex)
+    if isinstance(node, ast.Tuple):
+        return all(_literal(item) for item in node.elts)
+    return isinstance(node, ast.Constant)
 
 
 def _inert(value):

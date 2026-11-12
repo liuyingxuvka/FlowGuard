@@ -184,3 +184,56 @@ def test_a_lower_contract_the_sealed_environment_cannot_run_stays_grey_with_its_
     flow = engine.run_flow(model.flows['STANDING_CHECKOUT'], _recorded_events())
     assert flow['verdict'] == 'grey' and not flow['red'], flow
     assert 'lower model STANDING: real contract is not a complete verified finite contract' in flow['grey'], flow['grey']
+
+
+CALLED = '    app.refusal(ended,suspended,owed)\n'
+
+
+def _with_body(tmp_path, body, *, intent=INTENT):
+    """The composed project whose scenario test makes its first call as `body` does, as an ordinary check sees it."""
+    tmp_path.mkdir()
+    model, _, _ = project(tmp_path, intent=intent)
+    case = model.cfg.root / 'tests/test_case.py'
+    case.write_text(case.read_text().replace(CALLED, body, 1))
+    git(model.cfg.root, 'add', '.')
+    git(model.cfg.root, 'commit', '-qm', 'Change the scenario test body')
+    model = load(load_config(model.cfg.root))
+    assert not model.errors, model.errors
+    engine = source_engine(model)
+    model.deep = False
+    return model, engine
+
+
+def _contract(model, engine, identifier):
+    rule = model.rules[identifier]
+    parts = [dict(engine.run_rules(rule), rule=identifier, target=None),
+             *(dict(engine.run_home(rule, home, part), rule=identifier, target=home.target)
+               for home in rule.homes for part in ('rows', 'cells'))]
+    return parts, engine.contract_summary(rule, parts=parts)
+
+
+ALIASED = ("    box = {}\n    alias = box\n    alias['ended'] = ended\n    alias['suspended'] = suspended\n"
+           "    alias['owed'] = owed\n    app.refusal(box['ended'],box['suspended'],box['owed'])\n")
+ALWAYS = INTENT.replace('return ended <= 3 and not suspended and owed <= 50', 'return True').replace(
+    "row(ended=4, suspended=False, owed=0, expect=False, why='expired')",
+    "row(ended=4, suspended=False, owed=0, expect=True, why='expired')").replace(
+    "row(ended=0, suspended=True, owed=0, expect=False, why='suspended')",
+    "row(ended=0, suspended=True, owed=0, expect=True, why='suspended')")
+
+
+def test_inputs_the_scenario_test_passes_through_its_own_dict_are_never_a_complete_contract(tmp_path):
+    # The test hands its inputs to refusal through a dict it fills by an alias. The real test at ended=4 calls
+    # refusal(4, False, 0), which blocks; reusing the recorded call refusal(0, False, 0) would say it allows.
+    reason = ("not compared: the scenario test passes box['ended'] as the ended argument of REFUSAL; only a literal, "
+              'or an input of a fixed value that the test never assigns, is known at another input')
+    # An owner rule that always allows, against code that blocks: the finite contract is not ok, so the Flow
+    # above it does not read it as a complete verified contract.
+    model, engine = _with_body(tmp_path / 'always', ALIASED, intent=ALWAYS)
+    parts, contract = _contract(model, engine, 'STANDING')
+    assert contract['verdict'] == 'grey' and not contract['reasons'], contract
+    rows = parts[1]
+    assert rows['verdict'] == 'grey' and not rows['red'] and any(reason in line for line in rows['grey']), rows
+    # The owner's real rule, against the same code: no false red either.
+    model, engine = _with_body(tmp_path / 'standing', ALIASED)
+    parts, contract = _contract(model, engine, 'STANDING')
+    assert not any(part['red'] for part in parts) and contract['verdict'] == 'grey', (parts, contract)

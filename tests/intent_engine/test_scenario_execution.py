@@ -77,6 +77,42 @@ def test_another_scenario_input_is_not_compared_when_the_sealed_call_cannot_take
     assert actual.status == 'grey' and actual.value is None and actual.reasons == (reason,), actual.reasons
 
 
+HELPERS = "STORE = {}\nLIMIT = 2\nARGUMENTS = [2]\ndef put(value):\n    STORE['value'] = value\n"
+
+
+@pytest.mark.parametrize('call,read,parameter', [
+    # The test fills a dict through an alias; at x=4 the real call is choice(4), which is False.
+    ("None\n    box = {}\n    alias = box\n    alias['value'] = x\n    answer = choice(box['value'])", "box['value']", 'x'),
+    # A helper of the test module stores x in a module dict; the real call at x=4 is choice(4) again.
+    ("None\n    put(x)\n    answer = choice(STORE['value'])", "STORE['value']", 'x'),
+    # A module name: another call could change it, and its value at another input was not recorded.
+    ('choice(LIMIT)', 'LIMIT', 'x'),
+    # Arguments unpacked from a module list do not bind to a parameter at all.
+    ('choice(*ARGUMENTS)', '*ARGUMENTS', 'unpacked'),
+])
+def test_an_argument_that_is_not_a_literal_or_an_unchanged_input_is_not_compared_at_another_input(tmp_path, call, read,
+                                                                                                    parameter):
+    # The recorded call's arguments are reused only where the test's own expression gives the same value at every
+    # input; any other argument may carry the changed input in a way the test's source does not show.
+    binding = scenario(tmp_path, call=call, extra=HELPERS)
+    bind_scenario(tmp_path, binding)
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
+    assert actual.status == 'ok' and actual.value is True, actual.reasons       # the recorded input is observed
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
+    assert actual.status == 'grey' and actual.value is None and actual.reasons == (
+        f'not compared: the scenario test passes {read} as the {parameter} argument of choice; only a literal, or an '
+        'input of a fixed value that the test never assigns, is known at another input',), actual.reasons
+
+
+def test_a_literal_argument_is_the_recorded_call_at_every_input(tmp_path):
+    # choice(2) does not read x: at x=4 the real test calls choice(2) again, which is True.
+    binding = scenario(tmp_path, call='choice(2)')
+    bind_scenario(tmp_path, binding)
+    for x in (2, 4):
+        actual = calibration._observe_scenario_current(tmp_path, binding, {'x': x})
+        assert actual.status == 'ok' and actual.value is True, (x, actual.reasons)
+
+
 def test_scenario_test_that_assigns_its_input_is_not_compared_at_another_input(tmp_path):
     binding = scenario(tmp_path, call='choice(x)\n    x = 0')
     bind_scenario(tmp_path, binding)
