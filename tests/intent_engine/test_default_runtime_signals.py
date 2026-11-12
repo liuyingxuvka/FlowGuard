@@ -205,6 +205,10 @@ def test_a_function_reading_a_constant_derived_from_a_changed_one_is_changed(tmp
     assert result.returncode == 0, text
     assert _block(result)[1:] == [
         'changed: over (policy.py:5): (x=20) was False, now True; 1/1 inputs differ -> if you meant it, say so'], text
+    # over has no flowguard comment and its own code is the same: show --last says which constant made it due
+    changed = edit[0].partition(' ')[0]
+    assert f'    no flowguard comment: compared because a constant it reads changed: {changed}' in _last(tmp_path).splitlines(), \
+        _last(tmp_path)
 
 
 def test_a_project_below_the_repository_top_folder_compares_its_changed_function(tmp_path):
@@ -260,6 +264,9 @@ def test_a_function_reading_a_changed_constant_of_another_module_through_its_imp
     with the same edit: test_vitest_adapter.test_a_function_reading_an_imported_changed_constant_is_changed_in_an_unchanged_file)."""
     use = f'{binding}\n\n\ndef over(x: int) -> bool:\n    return x > {read}\n\n\ndef same(x: int) -> int:\n    return x\n'
     assert _imported(tmp_path, {**IMPORTED, 'use.py': use}) == [IMPORTED_CHANGED]
+    # its file is the same: show --last names the imported constant that made it due, as the source spells it
+    assert f'    no flowguard comment: compared because a constant it reads changed: {read}' in _last(tmp_path).splitlines(), \
+        _last(tmp_path)
 
 
 @pytest.mark.parametrize('binding, cap, said', [
@@ -283,7 +290,7 @@ def test_imports_bind_another_module_s_changed_constants_by_name_by_star_and_thr
     importer's package, a star import's public names, a later binding replacing an import, and the module names an
     attribute chain reads through (`_reads_changed`)."""
     import ast
-    from flowguard.intent.runtime import _absolute, _imported_changes, _reads_changed
+    from flowguard.intent.runtime import _absolute, _imported_changes, _reads_changed, changed_reads
     changed = {'shop.limits': {'LIMIT', 'BASE', '_HIDDEN'}, 'shop': set()}
     tree = ast.parse(textwrap.dedent('''
         from .limits import LIMIT as MAX
@@ -304,6 +311,9 @@ def test_imports_bind_another_module_s_changed_constants_by_name_by_star_and_thr
         return _reads_changed(ast.parse(expression, mode='eval'), names, aliases, changed)
     assert [reads(text) for text in ('limits.LIMIT', 'shop.limits.LIMIT', 'lim.BASE', 'MAX', 'lim.OTHER', 'shop.LIMIT',
                                      'LIMIT', 'limits._HIDDEN')] == [True, True, True, True, False, False, False, True]
+    # what a function reads of them, spelled as its source does, once each, in source order, down to the constant
+    assert changed_reads(ast.parse('lim.BASE + MAX + shop.limits.LIMIT.real + lim.BASE + lim.OTHER', mode='eval'), names,
+                         aliases, changed) == ['lim.BASE', 'MAX', 'shop.limits.LIMIT']
     assert [_absolute(*case) for case in ((0, 'a.b', 'x'), (1, 'b', 'a.c'), (2, 'b', 'a.c'), (1, None, 'a'), (2, 'b', 'a'),
                                           (1, 'b', ''))] == ['a.b', 'a.c.b', 'a.b', 'a', None, None]
 

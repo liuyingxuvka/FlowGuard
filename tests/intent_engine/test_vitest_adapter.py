@@ -398,11 +398,13 @@ def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tm
     limits = tmp_path / 'src/limits.ts'
     limits.write_text(limits.read_text(encoding='utf-8').replace("AREA: 'Area'", "AREA: 'Areas'"), encoding='utf-8')
     plan = json.loads(Path(_prepare(tmp_path)['plan']).read_text(encoding='utf-8'))
-    assert sorted(point['fn'] for entry in plan['files'].values() for point in entry['points']) == ['label'], plan['files']
+    assert [(point['fn'], point['why']) for entry in plan['files'].values() for point in entry['points']] == [
+        ('label', 'a constant it reads changed: LABELS')], plan['files']
     limits.write_text("export const LIMIT = 4;\nexport const LABELS = { TEAM: 'Team', AREA: 'Area' };\n", encoding='utf-8')
     plan = json.loads(Path(_prepare(tmp_path)['plan']).read_text(encoding='utf-8'))
     [point] = [point for entry in plan['files'].values() for point in entry['points']]
     assert (point['fn'], point['bounds']) == ('over', [4]), point     # the folded value of the changed constant
+    assert point['why'] == 'a constant it reads changed: MAX', point            # by the name its import binds
 
 
 DERIVED = ('const BASE = 10;\nconst LIMIT = BASE * 2;\n\nexport function over(x: number): boolean {\n  return x > LIMIT;\n}\n\n'
@@ -458,6 +460,8 @@ def test_a_function_reading_an_imported_changed_constant_is_changed_in_an_unchan
                                                    dict(id='typescript/use.ts:same', args=[19], result=19)])
     assert code == 0 and _cli_fixture.block(text)[1:] == [
         'changed: over (use.ts:4): (x=19) was False, now True; 1/1 inputs differ -> if you meant it, say so'], text
+    assert '    no flowguard comment: compared because a constant it reads changed: LIMIT' in _cli_fixture.last(tmp_path).splitlines(), \
+        _cli_fixture.last(tmp_path)
 
 
 @pytest.mark.parametrize('edit', [('BASE = 10', 'BASE = 9'), ('LIMIT = BASE * 2', 'LIMIT = BASE * 2 - 2')])

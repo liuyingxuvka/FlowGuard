@@ -510,8 +510,9 @@ def test_a_changed_line_shows_the_smallest_changed_input_and_how_many_differ():
         'changed', 'changed:policy:standing', 'policy:standing',
         'STANDING (shop/policy.py:3): (days=5) was False, now True; 3/12 inputs differ', 'if you meant it, say so', ('shop/policy.py:3',))
     assert line.detail == ('(days=9) was False, now True', '(days=5) was False, now True', "(days=7) was 'x', now raises ValueError: no")
-    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1, unanchored=True).detail[-1] == \
+    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1, why='its code changed').detail[-1] == \
         'no flowguard comment: compared because its code changed'
+    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1).detail == ('() was 1, now 2',)    # a comment
 
 
 def test_a_changed_line_and_the_check_view_take_list_and_dict_inputs():

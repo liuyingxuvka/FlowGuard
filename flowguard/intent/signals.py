@@ -663,11 +663,12 @@ def last_run(lines, ignored, *, run, stamp, baseline, kind, title, seconds, depr
                 compared=list(compared))
 
 
-def changed_line(name, target, file, line, changes, compared, *, cause=None, unanchored=False):
+def changed_line(name, target, file, line, changes, compared, *, cause=None, why=''):
     """The `changed` line of a function whose sealed run answers its recorded inputs differently than at the baseline
     (`changed: {function} ({file}:{line}): ...`, `name` the function's own name, also of a `same NAME` copy):
     `changes` [(inputs, old, new)], the first of the smallest inputs shown (all of them in the detail), `compared` the
-    number of inputs compared."""
+    number of inputs compared. `why` a function without a flowguard comment was compared (`its code changed`, `a
+    constant it reads changed: LIMIT`) is the detail's last line."""
     rows = [dict(inputs=inputs, before=old, after=new) for inputs, old, new in changes]
     first = rows[0]
     if all(row['inputs'] for row in rows):
@@ -683,8 +684,8 @@ def changed_line(name, target, file, line, changes, compared, *, cause=None, una
                       f' ({cause["file"]}:{cause["line"]})')
     elif cause:
         detail.append(f'cause: {cause}')
-    if unanchored:
-        detail.append('no flowguard comment: compared because its code changed')
+    if why:
+        detail.append(f'no flowguard comment: compared because {why}')
     return Line('changed', f'changed:{target}', target, f'{name} ({place}): {said(first)}; {len(rows)}/{compared} inputs differ',
                 CHANGED_STEP, (place,), tuple(_one_line(text) for text in detail))
 

@@ -520,7 +520,7 @@ class Observations:
         import ast
         from . import anchors, cache, differences
         from .runtime import (Runtime, _binding_facts, _binding_reads, _changed_constants, _functions, _imported_changes,
-                              _read_through, _reads_changed)
+                              _read_through, changed_reads)
         from ..map.common import MapError, git_files, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
@@ -636,10 +636,11 @@ class Observations:
                     changed_modules[module] = changed_modules.get(module, set()) | constants
                     pending.extend(sorted(importers.get(module, set()) - {file}))
         def function(file, qual):
-            """The current node of `qual` in `file` and whether the function changed since the baseline: its body, or
-            a top-level binding it reads (a module constant), also through the constants that binding reads (LIMIT =
-            BASE * 2 changes with BASE, as `vitest._constants_changed` reads it), or another module's changed
-            constant it reads through an import (`imported`). A function new since then changed."""
+            """The current node of `qual` in `file` and why the function changed since the baseline, '' when it did not:
+            its code (a function new since then too), or a top-level binding it reads (a module constant), also
+            through the constants that binding reads (LIMIT = BASE * 2 changes with BASE, as
+            `vitest._constants_changed` reads it), or another module's changed constant it reads through an import
+            (`imported`): `a constant it reads changed: BASE, m.LIMIT`."""
             if file not in views:
                 tree, old_tree = parsed(file)
                 views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree),
@@ -647,12 +648,13 @@ class Observations:
             current_functions, prior_functions, old_facts, facts, reads = views[file]
             node, prior = current_functions.get(qual), prior_functions.get(qual)
             if node is None or prior is None or ast.dump(prior, include_attributes=False) != ast.dump(node, include_attributes=False):
-                return node, True
+                return node, 'its code changed'
             loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
             through = _read_through(loaded, reads)
             constants, names, aliases = imported.get(file, (set(), set(), {}))
-            return node, (any(old_facts.get(name) != facts.get(name) for name in through) or bool(through & constants)
-                          or _reads_changed(node, names, aliases, changed_modules))
+            read = sorted(name for name in through if old_facts.get(name) != facts.get(name) or name in constants)
+            read += [name for name in changed_reads(node, names, aliases, changed_modules) if name not in read]
+            return node, 'a constant it reads changed: ' + ', '.join(read) if read else ''
         def reaches(file, qual):
             """Whether `qual` or a same-file function it calls, at any depth, changed: its sealed run executes them
             all (design 4.5), as the vitest plan compares the closed source with its helpers."""
@@ -685,8 +687,8 @@ class Observations:
                     own[row['file']] = (self.cfg.root / row['file']).resolve().is_relative_to(tool)     # once per file
                 if own[row['file']]:
                     continue
-                node, changed = function(row['file'], row['qual'])
-                if node is None or not changed:
+                node, why = function(row['file'], row['qual'])
+                if node is None or not why:
                     continue
                 params = tuple(anchors.Parameter(arg.arg, '', anchors._annotation(arg.annotation),
                                                 anchors._parameter_role(anchors._annotation(arg.annotation)), True)
@@ -694,7 +696,7 @@ class Observations:
                                if arg.arg not in ('self', 'cls'))
                 self.points.setdefault(row['id'], dict(anchor=None, parameters=params, target=row['id'], file=row['file'],
                                                        module=row['module'], qual=row['qual'], name=row['qual'], kind='sensor',
-                                                       node=node, changed=True))
+                                                       node=node, changed=True, why=why))
         for point in self.points.values():
             self.by_file.setdefault(point['file'], []).append(point)
 
@@ -804,7 +806,7 @@ class Observations:
             from . import signals
             if changes:
                 self.changes.append(signals.changed_line(point['qual'], target, point['file'], line, changes, len(rows),
-                                                         unanchored=point['anchor'] is None))
+                                                         why=point['why'] if point['anchor'] is None else ''))
             elif reasons:
                 self._unchecked(f'{point["name"]} ({point["file"]}:{line})', reasons, function=target,
                                 places=(f'{point["file"]}:{line}',))
