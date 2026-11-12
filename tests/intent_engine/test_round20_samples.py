@@ -18,7 +18,7 @@ import sys
 import pytest
 
 from flowguard import __version__
-from tests.intent_engine._cli_fixture import block, display_text, last
+from tests.intent_engine._cli_fixture import block, display_text, last, unchecked
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 FIXTURE = Path(__file__).resolve().parents[1] / 'fixtures/round20_samples'
@@ -134,9 +134,9 @@ def test_sample_2_a_database_write_is_not_compared_and_the_table_has_one_row(sho
             assert any('HIRES: no comparable JSON result' in reason for item in _observations(shop)['items']
                        for reason in item.get('reasons', ())), text
     assert rows == {'plugin': 1, 'without': 1}
-    result, text = _pytest(shop)                         # the full suite shows the same line
-    assert result.returncode == 0, text
-    assert 'not compared: HIRES -> not a failure' in last(shop).splitlines() and 'HIRES' in _block(result)[1][-1], text
+    result, text = _pytest(shop)                         # the full suite shows the same line, with HIRES's reason
+    assert result.returncode == 0 and 'HIRES' in _block(result)[1][-1], text
+    assert 'no comparable JSON result' in unchecked(shop)['HIRES'], last(shop)
 
 
 def test_sample_3_a_helper_constant_makes_the_copies_disagree_at_its_own_value(shop):

@@ -423,13 +423,23 @@ def test_a_call_that_became_a_generator_or_coroutine_is_not_compared(tmp_path):
         _change(root, 'tests/test_gate.py', 'assert gate(30)', 'assert ' + call)
         result, text = _pytest(root, '-q')
         assert result.returncode == 0 and '2 passed' in text and not re.search(r'^red: ', text, re.M), (name, text)
+        assert _gate_not_compared(result), (name, text)
         assert 'calibration async/generator is unsupported' in unchecked(root)['GATE'], (name, text)
     # A test that never enters the generator: the same not-compared line.
     root = _project(tmp_path / 'unentered', GATE)
     _change(root, 'gate.py', '    return age >= 18', '    yield age >= 18')
     result, text = _pytest(root, '-q')
     assert result.returncode == 0 and 'observation lost' not in text, text
+    assert _gate_not_compared(result), text
     assert 'calibration async/generator is unsupported' in unchecked(root)['GATE'], text
+
+
+def _gate_not_compared(result):
+    """The block says GATE was not compared, with the calibration's reason, on its one not compared line (the
+    function `gate` itself may be counted beside it, as Python 3.11 observes an unentered generator)."""
+    lines = block(result)[1:]
+    return (len(lines) == 1 and lines[0].startswith('not compared: ') and 'GATE' in lines[0].partition(' (')[0]
+            and 'calibration async/generator is unsupported' in lines[0] and lines[0].endswith(' -> not a failure'))
 
 
 def test_an_unanchored_changed_function_whose_replay_is_refused_is_listed_unverified(tmp_path):
