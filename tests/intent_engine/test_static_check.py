@@ -2181,10 +2181,10 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     # the test prints nothing and fails with the same one line.
     observations = tmp_path / 'obs'
     run = _run_generated(root, generated, env=dict(FLOWGUARD_VITEST_OBS=str(observations)))
-    # stdout holds the stub runner's one line; check's deprecation notice reaches stderr (console.error)
+    # stdout holds the stub runner's one line; the label-spelling leads are FlowGuard's own, so stderr holds no
+    # deprecation notice
     assert run.returncode == 1 and (run.stdout.splitlines(), run.stderr.splitlines()) == (
-        ['FAIL FlowGuard check --static: FlowGuard: 2 red, see the FlowGuard block at the end'],
-        ['deprecated: label-spelling leads goes in 5.0 -> do not use it']), run
+        ['FAIL FlowGuard check --static: FlowGuard: 2 red, see the FlowGuard block at the end'], []), run
     # one shape: what show --last keeps of the run (`signals.last_run`), with the parts of its first line
     from flowguard.intent import signals
     from flowguard.intent.vitest import static_lines
@@ -2198,7 +2198,7 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     head = _git(root, 'rev-parse', 'HEAD').strip()
     assert saved['title_parts'] == dict(baseline=head, kind='task', ahead=0, option='--base'), saved
     assert (saved['run'], saved['baseline'], saved['baseline_kind'], saved['deprecated']) == (
-        'check --static', head, 'task', ['label-spelling leads']), saved
+        'check --static', head, 'task', []), saved
     assert saved['title'] == signals.title(static_lines(observations)['lines'], **saved['title_parts'], seconds=saved['seconds']), saved
     assert saved['seconds'] > 0 and saved['ignored'] == 0 and any(lead['feature'] == 'label-spelling leads' for lead in saved['hidden'])
     # the vitest report reads it as it is (`vitest.static_lines`), and show --last names the run
@@ -2613,7 +2613,7 @@ def test_a_changed_typescript_constant_and_function_lead_to_the_places_left_behi
     code, text = _static(tmp_path)
     # 5.0-deprecated heuristics: leads of show --last, no line of the block
     assert code == 0 and _block(text) == [], text
-    assert 'deprecated: old-value leads goes in 5.0 -> do not use it' in text.splitlines(), text
+    assert 'deprecated:' not in text, text      # FlowGuard's own leads: the project uses nothing deprecated
     leads = _leads(tmp_path)
     assert 'old-value leads: old values 14 remain in 1 decisions: src/reminders.ts:2 -> if requirements changed, update them together' in leads, leads
     alone = next(lead for lead in leads if lead.startswith('similar-implementation leads: lateFee'))

@@ -728,7 +728,9 @@ def test_copy_discovery_uses_sealed_source_and_lists_what_it_cannot_run(tmp_path
     assert 'rules.py:10' in unclear and '0.5' in unclear and 'completion' in unclear, unclear
     assert 'rules.py:16 (unsupported Import)' in unclear, unclear
     assert 'vendor_copy.py:4' not in unclear, unclear
-    assert 'deprecated: unregistered copy discovery' in result.stderr
+    # FlowGuard runs copy discovery itself: only the project's own 4.2 owner spelling is deprecated
+    notices = [line for line in result.stderr.splitlines() if line.startswith('deprecated: ')]
+    assert notices == ['deprecated: function owner goes in 5.0 -> write same NAME ref'], result.stderr
 
 
 def test_manual_copy_discovery_does_not_execute_module_initialization_or_function_effects(tmp_path):

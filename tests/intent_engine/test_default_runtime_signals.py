@@ -292,8 +292,9 @@ def renewal(days: int) -> bool:
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    # A 5.0-deprecated heuristic: no line of the block, the lead only in show --last.
-    assert 'old values' not in text and 'deprecated: old-value leads goes in 5.0 -> do not use it' in result.stderr.splitlines(), text
+    # A 5.0-deprecated heuristic: no line of the block, the lead only in show --last; FlowGuard made it, the project uses
+    # nothing deprecated, so no deprecation notice.
+    assert 'old values' not in text and 'deprecated:' not in result.stderr, text
     last = _last(tmp_path).splitlines()
     leads = last[last.index('deprecated leads (5.0):') + 1:]
     lead = next(line for line in leads if 'old values 14 remain in 4 decisions' in line)

@@ -75,7 +75,9 @@ def _ascii(text):
 
 
 def _hide(found, feature, text):
-    """Keep a lead that gets no 4.3 line for `show --last` (D6): `feature` names the 5.0-deprecated heuristic."""
+    """Keep a lead that gets no 4.3 line for `show --last` (D6): `feature` names the 5.0-deprecated heuristic. FlowGuard
+    makes these leads itself, so they print no `deprecated:` notice: a notice says that the project's own input (a
+    comment spelling, a declaration, a command option) uses a feature that goes in 5.0."""
     found.hidden.append(dict(feature=feature, text=_ascii(text)))
 
 
@@ -1395,9 +1397,6 @@ def old_value_leads(change):
         for text in rule_old_values(change.cfg, item['before'], declarations=change.rule_declarations()):
             found.leads.append(text)
             _hide(found, 'old-value leads', text)
-    if found.leads:
-        from .deprecation import warn
-        warn('old-value leads')
     return found
 
 
@@ -1543,7 +1542,6 @@ def literal_drift(change, *, everything=False):
     before = {row['value'] for file in change.files for row in change.old_part(file, 'literals') or ()}
     before |= {row['value'] for group in groups for rows in group['spellings'].values() for row in rows
                if row['file'] not in change.files}
-    reported = False
     for group in groups:
         fresh = [value for value in group['spellings'] if value not in before]
         if not fresh and not everything:
@@ -1556,10 +1554,6 @@ def literal_drift(change, *, everything=False):
         found.leads.append(('' if fresh else 'before: ') + 'label spellings differ: ' + ' and '.join(parts)
                            + ' -> use one spelling, or read both from one reference')
         _hide(found, 'label-spelling leads', found.leads[-1])
-        reported = True
-    if reported:
-        from .deprecation import warn
-        warn('label-spelling leads')
     return found
 
 
@@ -1635,9 +1629,6 @@ def changed_once(change, decided=()):
                                + f'(update them together when required; to lock them, write above the reference: {comment} flowguard: same {name} ref, '
                                  f'above the copy: {comment} flowguard: same {name})')
             _hide(found, 'similar-implementation leads', found.leads[-1])
-    if found.leads:
-        from .deprecation import warn
-        warn('similar-implementation leads')
     return found
 
 
@@ -2134,13 +2125,11 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
     """Unregistered look-alikes of each function owner, grouped by their results on its classes. An owner
     whose copies the owner decided (`[structure."copies:NAME"]`, NAME its anchor name) gets no leads; a copy
     this change adds beside it is still red."""
-    from .deprecation import warn
     found = Findings()
     decisions = change.decisions()
     owners = _references(index)
     if not owners:
         return found
-    warn('unregistered copy discovery')
     started = time.perf_counter()
     functions = _functions(graph, cfg)
     by_id = {row['id']: row for row in functions}
@@ -2416,9 +2405,6 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
                                       f'above the copy: # flowguard: same {name})')
             _hide(found, 'similar-implementation leads', found.leads[-1])
     found.stats.update(changed_examined=examined, changed_seconds=time.perf_counter() - started)
-    if found.leads:
-        from .deprecation import warn
-        warn('similar-implementation leads')
     return found
 
 
