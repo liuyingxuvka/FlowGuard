@@ -487,7 +487,8 @@ class Observations:
     def __init__(self, state):
         import ast
         from . import anchors, cache, differences
-        from .runtime import Runtime, _functions, _binding_facts, _binding_reads, _read_through
+        from .runtime import (Runtime, _binding_facts, _binding_reads, _changed_constants, _functions, _imported_changes,
+                              _read_through, _reads_changed)
         from ..map.common import MapError, git_files, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
@@ -557,16 +558,52 @@ class Observations:
                 if not hasattr(home, 'scenario'):
                     self.rules.setdefault(home.target, []).append(rule)
         self.by_file, self.rels = {}, {}
-        views = {}
-        def function(file, qual):
-            """The current node of `qual` in a changed `file` and whether the function changed since the baseline:
-            its body, or a top-level binding it reads (a module constant), also through the constants that binding
-            reads (LIMIT = BASE * 2 changes with BASE, as `vitest._constants_changed` reads it). A function new since
-            then changed."""
-            if file not in views:
+        views, trees = {}, {}
+        def parsed(file):
+            """(tree now, tree at the baseline) of a changed file; of another file, which reads a changed constant
+            through an import, its one tree twice."""
+            if file not in trees:
                 tree = ast.parse(read_source(self.cfg.root / file))
-                old = self.runtime._source(self.renamed.get(file, file))
-                old_tree = ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
+                if file in self.files:
+                    old = self.runtime._source(self.renamed.get(file, file))
+                    trees[file] = tree, ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
+                else:
+                    trees[file] = tree, tree
+            return trees[file]
+        # Another module's constant this change alters reaches a file through its imports (`from m import LIMIT`,
+        # `m.LIMIT`), also a file whose own text is the same: {module: its changed constants}, and {file: (the
+        # file's constants that change with them, the names its imports bind to them, its module names)} of each
+        # file importing one, as the vitest plan follows imports (`runtime._imported_changes`).
+        changed_modules, imported = {}, {}
+        if self.files:
+            graph = state.get_map()
+            modules = {path: module for path, module, error in graph.con.execute('SELECT path, module, parse_error FROM file')
+                       if path.endswith('.py') and not error and state.is_project(str(self.cfg.root / path))}
+            importers = {}          # module: the files importing from it, or it as a submodule (`from P import M`)
+            for row in graph.imports(declarations=True):
+                if row['file'] in modules and row.get('module'):
+                    importers.setdefault(row['module'], set()).add(row['file'])
+                    if row.get('name') and row['name'] != '*':
+                        importers.setdefault(row['module'] + '.' + row['name'], set()).add(row['file'])
+            pending = sorted((file for file in self.files if modules.get(file) in importers), reverse=True)
+            while pending:
+                file = pending.pop()
+                tree, old_tree = parsed(file)
+                module = modules[file]
+                names, aliases, extra = _imported_changes(tree, module if file.endswith('__init__.py') else module.rpartition('.')[0],
+                                                          changed_modules)
+                constants = _changed_constants(old_tree, tree, extra)
+                imported[file] = constants, names, aliases
+                if constants - changed_modules.get(module, set()):
+                    changed_modules[module] = changed_modules.get(module, set()) | constants
+                    pending.extend(sorted(importers.get(module, set()) - {file}))
+        def function(file, qual):
+            """The current node of `qual` in `file` and whether the function changed since the baseline: its body, or
+            a top-level binding it reads (a module constant), also through the constants that binding reads (LIMIT =
+            BASE * 2 changes with BASE, as `vitest._constants_changed` reads it), or another module's changed
+            constant it reads through an import (`imported`). A function new since then changed."""
+            if file not in views:
+                tree, old_tree = parsed(file)
                 views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree),
                                _binding_reads(tree))
             current_functions, prior_functions, old_facts, facts, reads = views[file]
@@ -574,7 +611,10 @@ class Observations:
             if node is None or prior is None or ast.dump(prior, include_attributes=False) != ast.dump(node, include_attributes=False):
                 return node, True
             loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
-            return node, any(old_facts.get(name) != facts.get(name) for name in _read_through(loaded, reads))
+            through = _read_through(loaded, reads)
+            constants, names, aliases = imported.get(file, (set(), set(), {}))
+            return node, (any(old_facts.get(name) != facts.get(name) for name in through) or bool(through & constants)
+                          or _reads_changed(node, names, aliases, changed_modules))
         def reaches(file, qual):
             """Whether `qual` or a same-file function it calls, at any depth, changed: its sealed run executes them
             all (design 4.5), as the vitest plan compares the closed source with its helpers."""
@@ -592,7 +632,7 @@ class Observations:
             return False
         # A before/after comparison is due for a function whose sealed run changed, not for its unchanged neighbours.
         for point in self.points.values():
-            point['changed'] = point['file'] in self.files and reaches(point['file'], point['qual'])
+            point['changed'] = (point['file'] in self.files or point['file'] in imported) and reaches(point['file'], point['qual'])
         if self.changed:
             # The existing map supplies module ownership for unanchored changed functions.
             graph = state.get_map()
@@ -600,7 +640,8 @@ class Observations:
             # changed Runtime.observe (or a replay helper) re-enters itself without end.
             tool, own = Path(__file__).resolve().parents[1], {}
             for row in graph.nodes():
-                if row['file'] not in self.files or row['kind'] not in ('function', 'method') or not state.is_project(str(self.cfg.root / row['file'])):
+                if (row['file'] not in self.files and row['file'] not in imported) or row['kind'] not in ('function', 'method') \
+                        or not state.is_project(str(self.cfg.root / row['file'])):
                     continue
                 if row['file'] not in own:
                     own[row['file']] = (self.cfg.root / row['file']).resolve().is_relative_to(tool)     # once per file

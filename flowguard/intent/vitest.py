@@ -558,7 +558,7 @@ def plan(cfg, commit, changed, key):
                                recordable=(not found['is_async'] and 'generator' not in found['node'].type
                                            and skip != 'uses imported or mutable binding ' + qual),
                                source=closed, old_source=prior, old_skip=old_skip,
-                               changed=(rel in changed and (old is None or closed != prior)),
+                               changed=((rel in changed or rel in readers) and (old is None or closed != prior)),
                                consts=numbers.get((rel, qual), []) + extra_numbers, labels=sorted(set(strings.get((rel, qual), [])))))
         known, inputs = _catalog(cfg, graph)
     groups = {}

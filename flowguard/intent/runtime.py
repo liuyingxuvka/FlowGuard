@@ -764,6 +764,92 @@ def _read_through(names, reads):
     return found
 
 
+def _changed_constants(old_tree, tree, extra=()):
+    """The top-level constants of a module whose value this change may alter: a value binding whose statement differs
+    from the baseline's (`_binding_facts`: edited, added or removed), the names in `extra` (bound to another module's
+    changed constant, `_imported_changes`), and every binding whose right side reads one of these at any depth
+    (`_binding_reads`, `_read_through`: LIMIT = BASE * 2 changes with BASE)."""
+    old, new = _binding_facts(old_tree), _binding_facts(tree)
+    direct = {name for name in old.keys() | new.keys() if old.get(name) != new.get(name)
+              and 'value' in (old.get(name, ('',))[0], new.get(name, ('',))[0])} | set(extra)
+    reads = _binding_reads(tree)
+    return direct | {name for name in reads if _read_through({name}, reads) & direct}
+
+
+def _absolute(level, name, package):
+    """The module `from {'.' * level}{name} import ...` names inside `package` (as importlib resolves it); None for a
+    relative import above the top package."""
+    if not level:
+        return name or ''
+    parts = package.split('.') if package else []
+    if level - 1 >= len(parts):
+        return None
+    return '.'.join([*parts[:len(parts) - level + 1], *([name] if name else [])])
+
+
+def _imported_changes(tree, package, changed):
+    """(names, aliases, constants) of a module's top level against other modules' changed constants (`changed`:
+    {module: its `_changed_constants`}; `package` the one its relative imports start from): the names its imports
+    bind to a changed constant (`from M import X as Y` with X changed, every changed public name of `from M import
+    *`); {name: module} of the names bound to a module, read through attribute chains (`import M as Y`, `import M.sub`
+    binding M, `from P import M`, M perhaps a submodule; `_reads_changed`); and those names together with the
+    constants whose last binding reads a changed constant through such a chain (CAP = m.LIMIT + 1). A later
+    binding of a name replaces what an import bound to it."""
+    names, aliases, derived = set(), {}, set()
+    for statement in tree.body:
+        if isinstance(statement, ast.Import):
+            for alias in statement.names:
+                local = alias.asname or alias.name.split('.')[0]
+                names.discard(local)
+                derived.discard(local)
+                aliases[local] = alias.name if alias.asname else local
+        elif isinstance(statement, ast.ImportFrom):
+            source = _absolute(statement.level, statement.module, package)
+            for alias in statement.names:
+                if source is None:
+                    continue
+                if alias.name == '*':
+                    names.update(name for name in changed.get(source, ()) if not name.startswith('_'))
+                    continue
+                local = alias.asname or alias.name
+                derived.discard(local)
+                (names.add if alias.name in changed.get(source, ()) else names.discard)(local)
+                aliases[local] = f'{source}.{alias.name}' if source else alias.name
+        elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.discard(statement.name)
+            aliases.pop(statement.name, None)
+            derived.discard(statement.name)
+        else:
+            value = statement.value if isinstance(statement, (ast.Assign, ast.AnnAssign)) else statement
+            reads = value is not None and _reads_changed(value, set(), aliases, changed)
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+                    names.discard(node.id)
+                    aliases.pop(node.id, None)
+                    (derived.add if reads and isinstance(node.ctx, ast.Store) else derived.discard)(node.id)
+    return names, aliases, names | derived
+
+
+def _reads_changed(node, names, aliases, changed):
+    """Whether `node` (a function, or the right side of a binding) reads another module's changed constant: a name of
+    `names`, or an attribute chain through a module name of `aliases` (`m.LIMIT`, `pkg.limits.LIMIT`) to a constant
+    its module's `changed` constants hold (`_imported_changes`)."""
+    for part in ast.walk(node):
+        if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load) and part.id in names:
+            return True
+        if isinstance(part, ast.Attribute) and isinstance(part.ctx, ast.Load):
+            chain, value = [part.attr], part.value
+            while isinstance(value, ast.Attribute):
+                chain.insert(0, value.attr)
+                value = value.value
+            if isinstance(value, ast.Name) and value.id in aliases:
+                dotted = [*aliases[value.id].split('.'), *chain]
+                start = aliases[value.id].count('.') + 1
+                if any(dotted[index] in changed.get('.'.join(dotted[:index]), ()) for index in range(start, len(dotted))):
+                    return True
+    return False
+
+
 @dataclass
 class Reading:
     name: str
