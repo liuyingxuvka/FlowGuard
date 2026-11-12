@@ -14,7 +14,7 @@ import unittest
 
 import pytest
 
-from flowguard.intent import cache, cli
+from flowguard.intent import cache, cli, signals
 from flowguard.intent.config import load_config
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,9 +84,20 @@ def test_skill_limits_modeling_and_points_to_one_local_guide():
 def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
     text = (ROOT / 'README.md').read_text(encoding='utf-8')
     shown = re.search(r'```text\n(.*?)\n```', text, re.S)[1]
-    cfg = load_config(tmp_path)
-    assert cli.check(cfg) == 0
-    assert capsys.readouterr().out.strip() == shown
+    # The README's first line exactly, but for this FlowGuard's version, the task's start commit and the seconds.
+    readme = re.fullmatch(r'FlowGuard \d+\.\d+ \(since [0-9a-f]{7}\)(: .*; )\d+\.\d s', shown)
+    assert readme, shown
+    bare = tmp_path / 'bare'
+    bare.mkdir()
+    for command in (['init', '-q', '-b', 'main'], ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-q',
+                                                   '--allow-empty', '-m', 'start']):
+        subprocess.run(['git', '-C', str(bare), *command], check=True, capture_output=True)
+    head = subprocess.run(['git', '-C', str(bare), 'rev-parse', 'HEAD'], check=True, capture_output=True, text=True).stdout
+    assert cli.screen(load_config(bare), new_task=True) == 0
+    capsys.readouterr()
+    assert cli.check(load_config(bare)) == 0
+    printed = capsys.readouterr().out.strip()
+    assert re.fullmatch(re.escape(f'FlowGuard {signals.version()} (since {head[:7]}){readme[1]}') + r'\d+\.\d s', printed), printed
     # Start from exactly the reference the skill installer gives a fresh user.
     target = tmp_path / 'installed-skills'
     installed = subprocess.run([sys.executable, 'scripts/install_skill.py', '--target', str(target)],

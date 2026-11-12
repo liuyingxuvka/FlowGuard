@@ -19,7 +19,7 @@ import pytest
 from tests.intent_engine import _cli_fixture
 from tests.intent_engine._cli_fixture import display_text as _text, unchecked
 
-from flowguard.intent import anchors
+from flowguard.intent import anchors, cache
 from flowguard.structure import build
 
 SOURCE = str(Path(__file__).resolve().parents[2])
@@ -83,16 +83,69 @@ def _lines(text, prefix):
     return [line for line in text.splitlines() if line.startswith(prefix)]
 
 
+def _block(text, *, everything=False):
+    """The lines of the FlowGuard block a run printed after its first line (`_cli_fixture.block`); `everything` (--all)
+    has no budget: every line, each of the block's shapes."""
+    if not everything:
+        return _cli_fixture.block(text)[1:]
+    lines = _text(text).splitlines()
+    lines = lines[next(index for index, line in enumerate(lines) if re.match(r'FlowGuard \d+\.\d+ \(', line)):]
+    lines = lines[:next((index for index, line in enumerate(lines) if line.startswith('deprecated: ')), len(lines))]
+    assert all(_cli_fixture.SHAPE.match(line) for line in lines), lines
+    return lines[1:]
+
+
+def _reds(root, text, prefix='red: '):
+    """[(line, detail)] of each line of the block in `text` that starts with `prefix`, with the detail `show --last`
+    prints under the same line of that run in `root`."""
+    shown = _cli_fixture.last(root).splitlines()
+    starts = [index for index, line in enumerate(shown) if line.startswith(prefix)]
+    lines = [line for line in _block(text, everything=True) if line.startswith(prefix)]
+    assert len(starts) == len(lines), (lines, shown)
+    return [(line, [said.strip() for said in shown[start + 1:next((index for index, said in enumerate(shown[start + 1:], start + 1)
+                                                                  if not said.startswith('    ')), len(shown))]])
+            for line, start in zip(lines, starts)]
+
+
+def _last(root, prefix):
+    """[(line, detail)] of the last run's lines in `root` that start with `prefix`, as `show --last` prints them: every
+    line uncut, its paths in full, with the detail under it."""
+    shown = _cli_fixture.last(root).splitlines()
+    return [(line, [said.strip() for said in shown[index + 1:next((later for later, said in enumerate(shown[index + 1:], index + 1)
+                                                                  if not said.startswith('    ')), len(shown))]])
+            for index, line in enumerate(shown) if line.startswith(prefix)]
+
+
+def _leads(root):
+    """The 5.0-deprecated leads of the last run in `root`, which only `show --last` prints, each `feature: text`."""
+    shown = _cli_fixture.last(root).splitlines()
+    return [line.strip() for line in shown[shown.index('deprecated leads (5.0):') + 1:]] if 'deprecated leads (5.0):' in shown else []
+
+
+def _names(root):
+    """The finding names of the last run's lines in `root` (`cache.read_last`)."""
+    return [line['name'] for line in cache.read_last(_config(root))['lines']]
+
+
+def _detail(root, line):
+    """The detail `show --last` prints under the last run's line that starts with `line` (its paths in full)."""
+    shown = _cli_fixture.last(root).splitlines()
+    start = next(index for index, said in enumerate(shown) if said.startswith(line))
+    return [said.strip() for said in shown[start + 1:next((index for index, said in enumerate(shown[start + 1:], start + 1)
+                                                          if not said.startswith('    ')), len(shown))]]
+
+
 # ---- check --static: only what the change adds; exit 1 on red --------------------------------------
 
 def test_check_static_reports_only_new_values_outside_a_check_and_lists_old_ones_with_all(tmp_path):
     _commit(_planning(tmp_path, 'planning_tool_static'))
     code, text = _static(tmp_path)
-    assert (code, text) == (0, ''), text                      # nothing changed: not one line
+    assert code == 0 and _block(text) == [], text            # nothing changed: the first line alone
     code, text = _static(tmp_path, '--all')
     assert code == 0, text
-    old = next(line for line in text.splitlines() if line.startswith('1. value：'))
-    assert old == ("1. value：Value outside the declared set: backend/src/services/authority/authority-integrity-repair.service.ts:20 AuditEvent.severity='WARN'; allowed INFO|WARNING|ERROR|CRITICAL (CHECK backend/prisma/migrations/20260910120000_align_runtime_storage_contract/migration.sql:9)"), old
+    old = next(line for line in _block(text, everything=True) if line.startswith('before: values '))
+    assert old == ('before: values AuditEvent.severity at authority-integrity-repair.service.ts:repairOrganizationAuthority was broken '
+                   'at task start -> leave it unless your task is about it'), old
     _write(tmp_path, {'backend/src/services/notice.service.ts': '''
         export async function notice(prisma: any, id: string) {
           await prisma.auditEvent.create({ data: { severity: 'WARNING', entityId: id } });
@@ -102,7 +155,10 @@ def test_check_static_reports_only_new_values_outside_a_check_and_lists_old_ones
     code, text = _static(tmp_path)
     assert code == 1, text
     red = _lines(text, 'red: ')
-    assert red == ["red: Value outside the declared set: backend/src/services/notice.service.ts:3 AuditEvent.severity='NOTICE'; allowed INFO|WARNING|ERROR|CRITICAL (CHECK backend/prisma/migrations/20260910120000_align_runtime_storage_contract/migration.sql:9) → use a value from the declared set; to add a value, change its declaration first (CHECK backend/prisma/migrations/20260910120000_align_runtime_storage_contract/migration.sql:9）"], text
+    assert red == ["red: values AuditEvent.severity: notice.service.ts:notice writes 'NOTICE' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL' "
+                   '-> use a declared value'], text
+    assert _detail(tmp_path, 'red: values AuditEvent.severity: ') == [
+        'declared at CHECK backend/prisma/migrations/20260910120000_align_runtime_storage_contract/migration.sql:9']
     code, text = _flowguard(tmp_path, 'check', '--static', '--deep')
     assert code == 2 and 'check --static runs no tests' in text, text
 
@@ -116,9 +172,10 @@ def test_the_title_of_check_static_base_names_the_cli_option(tmp_path):
         }
     '''})
     code, text = _static(tmp_path, '--base', 'HEAD')
-    assert code == 1 and text.splitlines()[0] == 'FlowGuard（since --base HEAD）', text      # the option the CLI took
+    title = rf'FlowGuard \d+\.\d+ \(since {{}}\): 1 red, 1 impact; \d+\.\d s'
+    assert code == 1 and re.fullmatch(title.format('--base HEAD'), text.splitlines()[0]), text      # the option the CLI took
     code, text = _static(tmp_path)
-    assert code == 1 and text.splitlines()[0] == f'FlowGuard（since task start {head[:7]}）', text
+    assert code == 1 and re.fullmatch(title.format(head[:7]), text.splitlines()[0]), text
 
 
 def test_value_sets_come_from_prisma_enums_sql_checks_and_typescript_types(tmp_path):
@@ -207,11 +264,11 @@ def test_a_package_whose_prisma_files_name_no_schema_in_use_is_judged_by_all_of_
         _commit(root, files)
         _write(root, write)
         code, text = _static(root)
-        red = _lines(text, 'red: Value')
-        assert code == 1 and len(red) == 1 and "src/items.ts:2 Item.kind='C'; allowed A|B" in red[0], text
-        assert 'generator schema not found; checked against all schemas in this package' in red[0], red
+        red = _lines(text, 'red: values ')
+        assert code == 1 and red == ["red: values Item.kind: items.ts:add writes 'C' outside 'A'|'B' -> use a declared value"], text
         # the files that spell the enum alike share one set, which names each of them
-        assert ' (enum Kind (' + ', '.join(f'{file}:1' for file in sorted(files)) + ', generator schema not found' in red[0], red
+        assert _detail(root, 'red: values Item.kind: ') == ['declared at enum Kind (' + ', '.join(f'{file}:1' for file in sorted(files))
+                                                           + ', generator schema not found; checked against all schemas in this package)']
     # prisma.config.ts names the schema in use: the template beside it only describes, and nothing is guessed
     root = tmp_path / 'config'
     _commit(root, {'prisma/schema.sqlite.prisma': schema.replace('  B\n', '  B\n          C\n'),
@@ -220,8 +277,9 @@ def test_a_package_whose_prisma_files_name_no_schema_in_use_is_judged_by_all_of_
                                        "export default defineConfig({ schema: 'prisma/schema.postgres.prisma' });\n"})
     _write(root, write)
     code, text = _static(root)
-    red = _lines(text, 'red: Value')
-    assert code == 1 and len(red) == 1 and '(enum Kind (prisma/schema.postgres.prisma:1))' in red[0], text
+    red = _lines(text, 'red: values ')
+    assert code == 1 and red == ["red: values Item.kind: items.ts:add writes 'C' outside 'A'|'B' -> use a declared value"], text
+    assert _detail(root, 'red: values Item.kind: ') == ['declared at enum Kind (prisma/schema.postgres.prisma:1)']
 
 
 def test_a_guessed_schema_fills_only_models_no_schema_in_use_defines_and_each_of_its_enums_is_a_set(tmp_path):
@@ -264,8 +322,9 @@ def test_a_guessed_schema_fills_only_models_no_schema_in_use_defines_and_each_of
     code, text = _static(tmp_path)
     guessed = ', generator schema not found; checked against all schemas in this package'
     postgres, sqlite = (f'enum Tone (admin/prisma/schema.{name}.prisma:11{guessed})' for name in ('postgres', 'sqlite'))
-    assert code == 1 and _lines(text, 'red: Value') == [
-        f"red: Value outside the declared set: admin/src/notes.ts:3 Note.tone='Z'; allowed X|Y ({postgres}) → use a value from the declared set; to add a value, change its declaration first ({postgres}）；admin/src/notes.ts:2 Note.tone='Y'  admin/src/notes.ts:3 Note.tone='Z'; allowed X ({sqlite}) → use a value from the declared set; to add a value, change its declaration first ({sqlite}）"], text
+    assert code == 1 and _reds(tmp_path, text) == [
+        ("red: values Note.tone: notes.ts:note writes 'Z' outside 'X'|'Y' -> use a declared value", [f'declared at {postgres}']),
+        ("red: values Note.tone: notes.ts:note writes 'Y', 'Z' outside 'X' -> use a declared value", [f'declared at {sqlite}'])], text
     # A further set keeps its name when it is the only one broken and when its lines move.
     _write(tmp_path, {'admin/src/notes.ts': """
         export async function note(prisma: any, id: string) {
@@ -294,8 +353,9 @@ def test_archived_prisma_files_are_neither_in_use_nor_guessed(tmp_path):
         assert [(row['field'], row['values'], row['file']) for row in graph.value_sets()] == \
             [('Item.kind', ('A', 'B'), 'prisma/main.prisma')], graph.value_sets()
     code, text = _static(tmp_path)
-    assert code == 1 and _lines(text, 'red: Value') == [
-        "red: Value outside the declared set: src/items.ts:2 Item.kind='C'; allowed A|B (enum Kind (prisma/main.prisma:1, generator schema not found; checked against all schemas in this package)) → use a value from the declared set; to add a value, change its declaration first (enum Kind (prisma/main.prisma:1, generator schema not found; checked against all schemas in this package)）"], text
+    assert code == 1 and _reds(tmp_path, text) == [
+        ("red: values Item.kind: items.ts:add writes 'C' outside 'A'|'B' -> use a declared value",
+         ['declared at enum Kind (prisma/main.prisma:1, generator schema not found; checked against all schemas in this package)'])], text
     # `archives = []` makes every file live: the snapshot named schema.prisma is then the schema in use
     _write(tmp_path, {'pyproject.toml': '[tool.flowguard]\narchives = []\n'})
     with closing(build(tmp_path)) as graph:
@@ -330,8 +390,10 @@ def test_a_guessed_schema_judges_the_writes_of_its_own_package_and_of_a_package_
     code, text = _static(tmp_path)
     guessed = ', generator schema not found; checked against all schemas in this package'
     admin, web = f'enum Tone (admin/prisma/schema.postgres.prisma:1{guessed})', f'enum Tone (web/prisma/schema.sqlite.prisma:1{guessed})'
-    assert code == 1 and _lines(text, 'red: Value') == [
-        f"red: Value outside the declared set: admin/src/a.ts:3 Note.tone='Z'  scripts/seed.ts:2 Note.tone='W'; allowed X|Y ({admin}) → use a value from the declared set; to add a value, change its declaration first ({admin}）；scripts/seed.ts:2 Note.tone='W'; allowed X|Z ({web}) → use a value from the declared set; to add a value, change its declaration first ({web}）"], text
+    assert code == 1 and _reds(tmp_path, text) == [
+        ("red: values Note.tone: a.ts:note writes 'Z' outside 'X'|'Y' -> use a declared value", [f'declared at {admin}']),
+        ("red: values Note.tone: seed.ts:note writes 'W' outside 'X'|'Y' -> use a declared value", [f'declared at {admin}']),
+        ("red: values Note.tone: seed.ts:note writes 'W' outside 'X'|'Z' -> use a declared value", [f'declared at {web}'])], text
 
 
 def test_guessed_templates_with_the_same_enum_share_one_set_that_names_every_file(tmp_path):
@@ -344,8 +406,9 @@ def test_guessed_templates_with_the_same_enum_share_one_set_that_names_every_fil
     guessed = ', generator schema not found; checked against all schemas in this package'
     one = f'enum Tone (prisma/schema.mysql.prisma:1{guessed})'
     three = f'enum Tone (prisma/schema.postgres.prisma:1, prisma/schema.sqlite.prisma:1, prisma/schema.sqlserver.prisma:1{guessed})'
-    assert code == 1 and _lines(text, 'red: Value') == [
-        f"red: Value outside the declared set: src/notes.ts:2 Note.tone='Y'  src/notes.ts:3 Note.tone='Z'; allowed X ({one}) → use a value from the declared set; to add a value, change its declaration first ({one}）；src/notes.ts:3 Note.tone='Z'; allowed X|Y ({three}) → use a value from the declared set; to add a value, change its declaration first ({three}）"], text
+    assert code == 1 and _reds(tmp_path, text) == [
+        ("red: values Note.tone: notes.ts:note writes 'Y', 'Z' outside 'X' -> use a declared value", [f'declared at {one}']),
+        ("red: values Note.tone: notes.ts:note writes 'Z' outside 'X'|'Y' -> use a declared value", [f'declared at {three}'])], text
     with closing(build(tmp_path)) as graph:
         sets = [(row['values'], row['files']) for row in graph.value_sets()]
         from flowguard.intent import health, owners
@@ -389,14 +452,24 @@ def test_a_value_set_problem_takes_the_name_4_1_gave_its_field_and_a_further_set
     _commit(tmp_path, message='declare the CHECK again')
     assert names() == ['values:Account.status', 'values:Note.tone'], names()
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and "Account.status='gone'; allowed open|closed (CHECK prisma/migrations/002/migration.sql:2)" in text, text
-    # the decision a 4.1 project recorded on that field still closes it
+    lines = ['before: values Account.status at a.ts:add was broken at task start -> leave it unless your task is about it',
+             'before: values Note.tone at n.ts:2 was broken at task start -> leave it unless your task is about it']
+    assert code == 0 and [line for line in _block(text, everything=True) if line.startswith('before: values ')] == lines, text
+    assert _detail(tmp_path, 'before: values Account.status ') == ['declared at CHECK prisma/migrations/002/migration.sql:2']
+    assert cache.structure_summary(_config(tmp_path))['count'] == 3
+    # a folder is named by its name and '/', as a file by its name
+    assert ('before: columns migrations/ against prisma/schema.prisma at migrations/ was broken at task start -> leave it unless your task '
+            'is about it') in _block(text, everything=True), text
+    # the decision a 4.1 project recorded on that field still closes it (its problem leaves the open ones); a
+    # finding that can be red keeps its line (design 4.7: only act = "ignore" of known.toml hides a line)
     sentence = 'Old accounts keep the status gone until the cleanup job removes them.'
     _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
         '[structure."values:Account.status"]\ndecision = "old accounts keep the status gone until the cleanup job removes them"\n'
         f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and 'Account.status' not in text and "Note.tone='V'" in text, text
+    assert code == 0 and [line for line in _block(text, everything=True) if line.startswith('before: values ')] == lines, text
+    assert _detail(tmp_path, 'before: values Note.tone ') == ['declared at web/types.ts:1']
+    assert cache.structure_summary(_config(tmp_path))['count'] == 2
     # an enum of the schema in use takes the plain name; the CHECK and the TS type add their place
     _write(tmp_path, {'prisma/schema.prisma': 'enum Tone {\n  X\n  Y\n}\n\nenum Status {\n  open\n  closed\n}\n\n'
                                               + schema.replace('tone String', 'tone Tone').replace('status String', 'status Status')})
@@ -428,8 +501,10 @@ def test_a_generator_output_under_node_modules_is_the_client_by_its_package_name
     })
     code, text = _static(tmp_path)
     role, tier = 'enum Role (backend/prisma/schema.prisma:6)', 'enum Tier (backend/prisma/central/schema.prisma:6)'
-    assert code == 1 and _lines(text, 'red: Value') == [
-        f"red: Value outside the declared set: backend/src/b.ts:2 Person.role='N2'; allowed X|Y ({tier}) → use a value from the declared set; to add a value, change its declaration first ({tier}）；backend/src/a.ts:2 User.role='N1'  backend/src/c.ts:2 User.role='N3'; allowed A|B ({role}) → use a value from the declared set; to add a value, change its declaration first ({role}）"], text
+    assert code == 1 and _reds(tmp_path, text) == [
+        ("red: values Person.role: b.ts:2 writes 'N2' outside 'X'|'Y' -> use a declared value", [f'declared at {tier}']),
+        ("red: values User.role: a.ts:2 writes 'N1' outside 'A'|'B' -> use a declared value", [f'declared at {role}']),
+        ("red: values User.role: c.ts:2 writes 'N3' outside 'A'|'B' -> use a declared value", [f'declared at {role}'])], text
 
 
 def test_a_package_json_that_is_not_json_names_its_file(tmp_path):
@@ -463,8 +538,9 @@ def test_an_object_typed_with_a_prisma_client_type_is_gated_by_its_model(tmp_pat
         """,
     })
     code, text = _static(tmp_path)
-    red = _lines(text, 'red: Value')
-    assert code == 1 and len(red) == 1 and red[0].startswith("red: Value outside the declared set: src/sample.ts:2 Item.kind='C'; allowed A|B"), text
+    assert code == 1 and _reds(tmp_path, text) == [
+        ("red: values Item.kind: sample.ts:2 writes 'C' outside 'A'|'B' -> use a declared value",
+         ['declared at enum Kind (prisma/schema.prisma:1)'])], text
 
 
 def test_a_type_from_one_schemas_client_output_is_judged_by_that_schema_and_a_guess_reaches_packages_without_its_model(tmp_path):
@@ -489,11 +565,12 @@ def test_a_type_from_one_schemas_client_output_is_judged_by_that_schema_and_a_gu
         export const c: Other = { id: '3', role: 'C' };
     """})
     code, text = _static(root)
-    red = '\n'.join(_lines(text, 'red: Value'))
-    assert code == 1, text
-    assert "backend/src/a.ts:4 User.role='B'; allowed A|C (enum Role (backend/prisma/db2/schema.prisma:6))" in red, red
-    assert "backend/src/a.ts:5 User.role='C'; allowed A|B (enum Role (backend/prisma/db1/schema.prisma:6))" in red, red
-    assert 'a.ts:3' not in red, red                 # 'C' is db2's own value
+    # 'C' at a.ts:3 is db2's own value
+    assert code == 1 and _reds(root, text) == [
+        ("red: values User.role: a.ts:5 writes 'C' outside 'A'|'B' -> use a declared value",
+         ['declared at enum Role (backend/prisma/db1/schema.prisma:6)']),
+        ("red: values User.role: a.ts:4 writes 'B' outside 'A'|'C' -> use a declared value",
+         ['declared at enum Role (backend/prisma/db2/schema.prisma:6)'])], text
     root = tmp_path / 'guess'
     note = 'enum Tone {\n  X\n  Y\n}\n\nmodel Note {\n  id   String @id\n  tone Tone\n}\n'
     _commit(root, {
@@ -506,9 +583,10 @@ def test_a_type_from_one_schemas_client_output_is_judged_by_that_schema_and_a_gu
         'web/src/n.ts': "export async function add(prisma: any, id: string) {\n  await prisma.note.create({ data: { id, tone: 'Z' } });\n}\n",
     })
     code, text = _static(root)
-    red = [line.partition(' → ')[0] for line in _lines(text, 'red: Value')]
-    # api defines no Note: db's guessed template still judges it; web defines Note itself and is not judged by db
-    assert code == 1 and len(red) == 1 and "api/src/a.ts:2 Note.tone='Q'" in red[0] and 'web/src' not in red[0], text
+    # api defines no Note: a set still judges it; web defines Note itself and is not judged by db
+    assert code == 1 and _reds(root, text) == [("red: values Note.tone: a.ts:add writes 'Q' outside 'X'|'Z' -> use a declared value",
+                                                ['declared at enum Tone (web/prisma/schema.prisma:1)'])], text
+    assert _detail(root, "red: values Note.tone: api/src/a.ts:add ") == ['declared at enum Tone (web/prisma/schema.prisma:1)']
 
 
 def _role_schema(values, output=None, source=None):
@@ -519,15 +597,16 @@ def _role_schema(values, output=None, source=None):
                'enum Role {\n' + ''.join(f'  {value}\n' for value in values) + '}\n\nmodel User {\n  id   String @id\n  role Role\n}\n'))
 
 
-def _red_values(text):
-    "Each set's part of the value red line, `places; allowed values (where)`, without the step after it."
-    head, step, out = 'red: Value outside the declared set: ', ' → use a value from the declared set; to add a value, change its declaration first (', []
-    for line in _lines(text, head):
-        rest = line[len(head):]
-        while rest:
-            part, _, rest = rest.partition(step)
-            out.append(part)
-            rest = rest.partition('）')[2].removeprefix('；')
+def _red_values(root, text):
+    """Each value red of the last run in `root` as `show --last` prints it, paths in full: `Model.field: place writes
+    values outside allowed (where they are declared)`, without its step; the block in `text` has as many."""
+    shown, step, out = _cli_fixture.last(root).splitlines(), ' -> use a declared value', []
+    for index, line in enumerate(shown):
+        if line.startswith('red: values '):
+            assert line.endswith(step), line
+            declared = [said.strip().removeprefix('declared at ') for said in shown[index + 1:index + 2] if said.startswith('    declared at ')]
+            out.append(line[len('red: values '):-len(step)] + ''.join(f' ({where})' for where in declared))
+    assert len(out) == len(_lines(text, 'red: values ')), (out, text)
     return out
 
 
@@ -549,9 +628,10 @@ def test_a_schema_that_lacks_the_field_or_a_template_that_types_it_as_text_keeps
         _commit(root, files)
         _write(root, {'src/w.ts': write})
         code, text = _static(root)
-        assert code == 1 and _red_values(text) == [
-            "src/w.ts:3 User.role='Z'  src/w.ts:5 User.role='Z'; allowed A|B (enum Role (prisma/schema.prisma:%d))"
-            % (1 if name == 'reporting' else 6)], (name, text)
+        line = 1 if name == 'reporting' else 6
+        assert code == 1 and _red_values(root, text) == [
+            f"User.role: src/w.ts:5 writes 'Z' outside 'A'|'B' (enum Role (prisma/schema.prisma:{line}))",
+            f"User.role: src/w.ts:add writes 'Z' outside 'A'|'B' (enum Role (prisma/schema.prisma:{line}))"], (name, text)
 
 
 def test_a_member_typed_with_an_imported_alias_is_judged_by_the_alias_the_file_imports(tmp_path):
@@ -566,8 +646,8 @@ def test_a_member_typed_with_an_imported_alias_is_judged_by_the_alias_the_file_i
     })
     _write(tmp_path, {'src/page.ts': "import type { Grid } from './types/grid';\nexport const g: Grid = { granularity: 'MONTHLY' };\n"})
     code, text = _static(tmp_path)
-    red = _red_values(text)
-    assert code == 1 and len(red) == 1 and red[0].startswith("src/page.ts:2 Grid.granularity='MONTHLY'; allowed WEEK|MONTH"), text
+    assert code == 1 and _red_values(tmp_path, text) == [
+        "Grid.granularity: src/page.ts:2 writes 'MONTHLY' outside 'WEEK'|'MONTH' (Granularity (src/types/units.ts:1))"], text
 
 
 def test_a_schema_folder_is_one_schema_for_its_enums_and_its_datasource(tmp_path):
@@ -594,9 +674,9 @@ def test_a_schema_folder_is_one_schema_for_its_enums_and_its_datasource(tmp_path
         _write(root, writes)
         code, text = _static(root)
         # 'OPEN' passes: SQL Server compares without case
-        assert code == 1 and _red_values(text) == [
-            "src/a.ts:4 Account.status='gone'; allowed open|closed (CHECK prisma/migrations/001/migration.sql:1)",
-            "src/a.ts:2 User.role='C'; allowed A|B (enum Role (prisma/schema/enums.prisma:1))"], (name, text)
+        assert code == 1 and _red_values(root, text) == [
+            "Account.status: src/a.ts:add writes 'gone' outside 'open'|'closed' (CHECK prisma/migrations/001/migration.sql:1)",
+            "User.role: src/a.ts:add writes 'C' outside 'A'|'B' (enum Role (prisma/schema/enums.prisma:1))"], (name, text)
 
 
 def test_a_prisma_write_is_judged_by_the_schema_in_use_of_its_own_package(tmp_path):
@@ -616,9 +696,10 @@ def test_a_prisma_write_is_judged_by_the_schema_in_use_of_its_own_package(tmp_pa
         'scripts/seed.ts': write % 'C',
     })
     code, text = _static(tmp_path)
-    assert code == 1 and _red_values(text) == [
-        "apps/api/src/a.ts:2 User.role='C'  scripts/seed.ts:2 User.role='C'; allowed A|B (enum Role (apps/api/prisma/schema.prisma:1))",
-        "apps/worker/src/bad.ts:2 User.role='B'; allowed A|C (enum Role (apps/worker/prisma/schema.prisma:1))"], text
+    assert code == 1 and _red_values(tmp_path, text) == [
+        "User.role: apps/api/src/a.ts:add writes 'C' outside 'A'|'B' (enum Role (apps/api/prisma/schema.prisma:1))",
+        "User.role: scripts/seed.ts:add writes 'C' outside 'A'|'B' (enum Role (apps/api/prisma/schema.prisma:1))",
+        "User.role: apps/worker/src/bad.ts:add writes 'B' outside 'A'|'C' (enum Role (apps/worker/prisma/schema.prisma:1))"], text
 
 
 def test_a_write_through_a_client_of_two_differing_schemas_is_left_unjudged_and_a_typed_object_keeps_its_schema(tmp_path):
@@ -645,8 +726,8 @@ def test_a_write_through_a_client_of_two_differing_schemas_is_left_unjudged_and_
     """})
     code, text = _static(tmp_path)
     # which client a `user.create` goes through is not read: neither enum judges it
-    assert code == 1 and _red_values(text) == [
-        "backend/src/a.ts:9 User.role='B'; allowed A|C (enum Role (backend/prisma/db2/schema.prisma:6))"], text
+    assert code == 1 and _red_values(tmp_path, text) == [
+        "User.role: backend/src/a.ts:9 writes 'B' outside 'A'|'C' (enum Role (backend/prisma/db2/schema.prisma:6))"], text
 
 
 def test_an_import_of_a_generated_prisma_output_is_judged_by_its_own_schema(tmp_path):
@@ -664,9 +745,9 @@ def test_an_import_of_a_generated_prisma_output_is_judged_by_its_own_schema(tmp_
         export const c: Event = { id: '3', role: 'B' };
     """})
     code, text = _static(tmp_path)
-    assert code == 1 and _red_values(text) == [
-        "src/a.ts:5 User.role='B'; allowed A|C (enum Role (prisma/analytics/schema.prisma:6))",
-        "src/a.ts:4 User.role='C'; allowed A|B (enum Role (prisma/schema.prisma:6))"], text
+    assert code == 1 and _red_values(tmp_path, text) == [
+        "User.role: src/a.ts:5 writes 'B' outside 'A'|'C' (enum Role (prisma/analytics/schema.prisma:6))",
+        "User.role: src/a.ts:4 writes 'C' outside 'A'|'B' (enum Role (prisma/schema.prisma:6))"], text
 
 
 def test_a_typescript_type_declared_with_different_sets_in_several_files_is_judged_by_its_own_declaration(tmp_path):
@@ -686,10 +767,10 @@ def test_a_typescript_type_declared_with_different_sets_in_several_files_is_judg
         'src/Tile.tsx': "export const tile: Props = { tone: 'sunk' };\n",
     })
     code, text = _static(tmp_path)
-    assert code == 1 and _red_values(text) == [
-        "src/Tile.tsx:1 Props.tone='sunk'; allowed flat|raised (src/Card.tsx:1)",
-        "src/Panel.tsx:2 Props.variant='primary'; allowed info|warning (src/Badge.tsx:1)",
-        "src/Button.tsx:3 Props.variant='info'; allowed primary|secondary (src/Button.tsx:1)"], text
+    assert code == 1 and _red_values(tmp_path, text) == [
+        "Props.tone: src/Tile.tsx:1 writes 'sunk' outside 'flat'|'raised' (src/Card.tsx:1)",
+        "Props.variant: src/Panel.tsx:2 writes 'primary' outside 'info'|'warning' (src/Badge.tsx:1)",
+        "Props.variant: src/Button.tsx:3 writes 'info' outside 'primary'|'secondary' (src/Button.tsx:1)"], text
     with closing(build(tmp_path)) as graph:
         from flowguard.intent import health, owners
         names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
@@ -714,8 +795,9 @@ def test_a_schema_in_use_whose_field_is_no_enum_leaves_its_own_writes_to_no_enum
         'scripts/seed.ts': write % 'Z',
     })
     code, text = _static(root)
-    assert code == 1 and _red_values(text) == [
-        "apps/api/src/a.ts:2 User.role='Z'  scripts/seed.ts:2 User.role='Z'; allowed A|B (enum Role (apps/api/prisma/schema.prisma:1))"], text
+    assert code == 1 and _red_values(root, text) == [
+        "User.role: apps/api/src/a.ts:add writes 'Z' outside 'A'|'B' (enum Role (apps/api/prisma/schema.prisma:1))",
+        "User.role: scripts/seed.ts:add writes 'Z' outside 'A'|'B' (enum Role (apps/api/prisma/schema.prisma:1))"], text
     root = tmp_path / 'clients'
     _commit(root, {
         'backend/package.json': '{"name": "backend"}',
@@ -734,8 +816,8 @@ def test_a_schema_in_use_whose_field_is_no_enum_leaves_its_own_writes_to_no_enum
     code, text = _static(root)
     # db2's String judges its own client's object by no enum; which client `prisma.user.create` goes through is
     # unknown while the package's two schemas type the field differently
-    assert code == 1 and _red_values(text) == [
-        "backend/src/a.ts:4 User.role='Z'; allowed A|B (enum Role (backend/prisma/db1/schema.prisma:6))"], text
+    assert code == 1 and _red_values(root, text) == [
+        "User.role: backend/src/a.ts:4 writes 'Z' outside 'A'|'B' (enum Role (backend/prisma/db1/schema.prisma:6))"], text
 
 
 def test_a_typed_object_in_a_file_that_declares_its_type_without_a_set_is_not_judged_by_another_files_set(tmp_path):
@@ -758,8 +840,9 @@ def test_a_typed_object_in_a_file_that_declares_its_type_without_a_set_is_not_ju
     with closing(build(tmp_path)) as graph:
         assert graph.ts_type_files()['Props'] == {'src/Alert.tsx', 'src/Badge.tsx', 'src/Card.tsx', 'src/Form.tsx'}
     code, text = _static(tmp_path)
-    assert code == 1 and _red_values(text) == [
-        "src/Loose.tsx:1 Props.variant='other'  src/Panel.tsx:2 Props.variant='error'; allowed info|warning (src/Badge.tsx:1)"], text
+    assert code == 1 and _red_values(tmp_path, text) == [
+        "Props.variant: src/Loose.tsx:1 writes 'other' outside 'info'|'warning' (src/Badge.tsx:1)",
+        "Props.variant: src/Panel.tsx:2 writes 'error' outside 'info'|'warning' (src/Badge.tsx:1)"], text
 
 
 def test_typescript_sets_of_one_name_from_aliases_of_one_file_keep_apart_names(tmp_path):
@@ -781,8 +864,14 @@ def test_typescript_sets_of_one_name_from_aliases_of_one_file_keep_apart_names(t
         '[structure."values:Props.variant:src/Link.tsx"]\ndecision = "the link component keeps the nope variant until the design review ends"\n'
         f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and "src/Badge.tsx:3 Props.variant='nope'" in text and "src/Button.tsx:3 Props.variant='nope'" in text \
-        and 'src/Link.tsx:3' not in text, text
+    # the decision closes Link's problem alone (the open problems drop by one); a finding that can be red keeps its line
+    assert code == 0 and [line for line in _block(text, everything=True) if line.startswith('before: values ')] == [
+        f'before: values Props.variant at {name}.tsx:3 was broken at task start -> leave it unless your task is about it'
+        for name in ('Badge', 'Button', 'Link')], text
+    assert [_detail(tmp_path, f'before: values Props.variant at src/{name}.tsx:3 ') for name in ('Badge', 'Button', 'Link')] == [
+        ['declared at BadgeVariant (src/variants.ts:1)'], ['declared at ButtonVariant (src/variants.ts:2)'],
+        ['declared at LinkVariant (src/variants.ts:3)']]
+    assert cache.structure_summary(_config(tmp_path))['count'] == 2
 
 
 def test_a_guessed_schemas_enum_keeps_the_plain_name_beside_a_check_as_4_1_named_it(tmp_path):
@@ -811,9 +900,15 @@ def test_a_guessed_schemas_enum_keeps_the_plain_name_beside_a_check_as_4_1_named
         '[structure."values:Account.status"]\ndecision = "imported accounts keep the status zzz until the migration job maps them"\n'
         f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
     code, text = _static(tmp_path, '--all')
-    # the 4.1 decision closes the enum's problem, as in 4.1; the CHECK, which 4.1 did not read beside it, is open
-    assert code == 0 and 'open|closed|gone' not in text and \
-        "src/a.ts:2 Account.status='gone'  src/a.ts:3 Account.status='zzz'; allowed open|closed (CHECK prisma/migrations/001/migration.sql:1)" in text, text
+    # the 4.1 decision closes the enum's problem, as in 4.1 (the open problems are the CHECK's, which 4.1 did not read
+    # beside it, and the declarations that differ); a finding that can be red keeps its line
+    assert code == 0 and _block(text, everything=True)[:2] == [
+        'before: values Account.status at a.ts:add was broken at task start -> leave it unless your task is about it'] * 2, text
+    shown = _cli_fixture.last(tmp_path).splitlines()
+    assert [shown[index + 1].strip() for index, line in enumerate(shown) if line.startswith('before: values ')] == [
+        'declared at CHECK prisma/migrations/001/migration.sql:1',
+        'declared at enum Status (prisma/schema.postgres.prisma:6, generator schema not found; checked against all schemas in this package)']
+    assert cache.structure_summary(_config(tmp_path))['count'] == 1
 
 
 def test_a_schema_folder_at_the_repository_root_keeps_its_name_in_the_brief(tmp_path):
@@ -845,8 +940,11 @@ def test_archived_prisma_files_take_no_part_in_two_declarations_differ(tmp_path)
     })
     _write(tmp_path, {'prisma/schema.prisma': item % '  A\n  B\n  C\n  D\n'})
     code, text = _flowguard(tmp_path, 'check', '--static', '--leads')
-    differ = [line for line in text.splitlines() if 'declarations differ' in line]
-    assert code == 0 and len(differ) == 1 and 'docs/' not in differ[0] and "src/kinds.ts:2（'A' | 'B' | 'C'; missing 'D'）" in differ[0], text
+    # --leads (deprecated) lists every line without the budget
+    assert code == 0 and _block(text) == [
+        "impact: declarations Item.kind: schema.prisma:1 declares 'A' | 'B' | 'C' | 'D'; src/kinds.ts:2 declares 'A' | 'B' | 'C' "
+        '-> fix it, or say why in your report'], text
+    assert 'deprecated: check --leads will be removed in 5.0; write python -m flowguard show --last' in text.splitlines(), text
 
 
 def test_a_prisma_client_type_under_an_alias_a_namespace_or_a_generator_output_is_gated_by_its_model(tmp_path):
@@ -892,8 +990,10 @@ def test_a_prisma_client_type_under_an_alias_a_namespace_or_a_generator_output_i
         """,
     })
     code, text = _static(tmp_path)
-    assert code == 1 and _lines(text, 'red: Value') == [
-        "red: Value outside the declared set: src/alias.ts:2 Item.kind='C'  src/output.ts:2 Item.kind='G'  src/space.ts:3 Item.kind='D'  src/space.ts:4 Item.kind='E'; allowed A|B (enum Kind (prisma/schema.prisma:6)) → use a value from the declared set; to add a value, change its declaration first (enum Kind (prisma/schema.prisma:6)）"], text
+    assert code == 1 and _red_values(tmp_path, text) == [
+        "Item.kind: src/alias.ts:2 writes 'C' outside 'A'|'B' (enum Kind (prisma/schema.prisma:6))",
+        "Item.kind: src/output.ts:2 writes 'G' outside 'A'|'B' (enum Kind (prisma/schema.prisma:6))",
+        "Item.kind: src/space.ts:3 writes 'D', 'E' outside 'A'|'B' (enum Kind (prisma/schema.prisma:6))"], text
 
 
 def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript_types_apart(tmp_path):
@@ -1004,18 +1104,18 @@ def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript
                         ('Gauge.level', 'Gauge.level', ('LOW', 'HIGH', 'MID'), 'sql-check'),
                         ('Notice.kind', 'Notice.kind', ('CREATED', 'UPDATED'), 'sql-check')], sets
     code, text = _static(tmp_path, '--all')
-    values = [line for line in text.splitlines() if 'value：' in line]
     # 'UPDATED' is in the CHECK the database runs (the template enum lacks it); the archived description under
     # docs/ does not add 'ARCHIVED'; 'MID' passes the CHECK but not the enum of the schema in use; the frontend
-    # Demand is judged by its own union only.
-    assert values == [
-        "1. value：Value outside the declared set: frontend/src/demand.ts:3 Demand.unit='DAYS'; allowed FTE|HOURS (frontend/src/types.ts:1)",
-        "2. value：Value outside the declared set: backend/src/notice.service.ts:4 Gauge.level='MID'; allowed LOW|HIGH (enum Level (backend/prisma/central/central.prisma:6))",
-        "3. value：Value outside the declared set: backend/src/notice.service.ts:3 Notice.kind='ARCHIVED'; allowed CREATED|UPDATED (CHECK backend/prisma/migrations/001/migration.sql:1)"], text
-    differ = sorted(line for line in _lines(text, 'lead: before: declarations differ: '))
-    assert differ == [
-        "lead: before: declarations differ: Gauge.level backend/prisma/central/central.prisma:6（'HIGH' | 'LOW'; missing 'MID'）  backend/prisma/central/migrations/001/migration.sql:1（'HIGH' | 'LOW' | 'MID'） -> add missing values; mark an unused description or remove it",
-        "lead: before: declarations differ: Notice.kind backend/prisma/migrations/001/migration.sql:1（'CREATED' | 'UPDATED'; missing 'DELETED'）  backend/prisma/schema.sqlite.prisma:6（'CREATED'; missing 'DELETED', 'UPDATED'）  backend/src/types/notice.ts:1（'CREATED' | 'DELETED' | 'UPDATED'） -> add missing values; mark an unused description or remove it"], text
+    # Demand is judged by its own union only. Every one was there at the task start: before, with --all.
+    assert code == 0 and _block(text, everything=True) == [
+        f'before: {subject} at {place} was broken at task start -> leave it unless your task is about it' for subject, place in (
+            ('values Gauge.level', 'notice.service.ts:notify'), ('values Notice.kind', 'notice.service.ts:notify'),
+            ('values Demand.unit', 'demand.ts:3'), ('declarations Gauge.level', 'central.prisma:6'),
+            ('declarations Notice.kind', 'migration.sql:1'))], text
+    shown = _cli_fixture.last(tmp_path).splitlines()
+    assert [shown[index + 1].strip() for index, line in enumerate(shown) if line.startswith('before: values ')] == [
+        'declared at enum Level (backend/prisma/central/central.prisma:6)', 'declared at CHECK backend/prisma/migrations/001/migration.sql:1',
+        'declared at frontend/src/types.ts:1'], shown
 
 
 def _config(root):
@@ -1053,7 +1153,7 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
     _commit(tmp_path, files)
     _write(tmp_path, {'src/owners.ts': '// flowguard: owner Central.orgUnitId with=Local.unitId\nexport {};\n'})
     code, text = _static(tmp_path)
-    assert code == 0 and 'missing paired write' not in text, text            # move writes Local.unitId through this.mirror()
+    assert code == 0 and _block(text) == [], text            # move writes Local.unitId through this.mirror()
     _write(tmp_path, {'src/admin.ts': '''
         export async function editCentral(prisma: any, id: string, unit: string) {
           await prisma.central.update({ where: { id }, data: { orgUnitId: unit } });
@@ -1061,8 +1161,9 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
     '''})
     code, text = _static(tmp_path)
     assert code == 1, text
-    assert _lines(text, 'red: missing paired write') == [
-        'red: missing paired write for Central.orgUnitId：src/admin.ts:2 editCentral(JS/TS calls resolved by name) writes Central.orgUnitId, the same operation (3 caller levels, then 3 callee levels) does not write Local.unitId → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at src/owners.ts:1)'], text
+    assert _reds(tmp_path, text) == [
+        ('red: together Central.orgUnitId: admin.ts:editCentral writes Central.orgUnitId without Local.unitId '
+         '-> also write Local.unitId in editCentral', ['JS/TS calls resolved by name'])], text
 
 
 # Round 22 E1, hole 1: the four `w1` wrong fixes of the Planning Tool's registered pairs write the partner field as
@@ -1160,11 +1261,12 @@ def test_a_partner_field_written_as_undefined_is_not_written(tmp_path, case):
     _commit(tmp_path, {'prisma/schema.prisma': E1_SCHEMA, 'src/owners.ts': E1_OWNERS})
     _write(tmp_path, {'src/change.ts': E1_WRONG_FIXES[case]})
     code, text = _static(tmp_path)
-    assert code == 1 and [line.partition(': ')[0] for line in _lines(text, 'red: missing paired write for ' + owner + '：src/change.ts:')] == ['red'], text
+    red = _lines(text, 'red: ')
+    assert code == 1 and len(red) == 1 and red[0].startswith(f'red: together {owner}: change.ts:'), text
     # null is a value Prisma writes: the same change with null holds the pair.
     _write(tmp_path, {'src/change.ts': E1_WRONG_FIXES[case].replace('undefined', 'null').replace('void 0', 'null')})
     code, text = _static(tmp_path)
-    assert code == 0 and 'missing paired write' not in text, text
+    assert code == 0 and not _lines(text, 'red: '), text
 
 
 def test_the_pair_reds_of_two_owners_are_two_lines(tmp_path):
@@ -1202,11 +1304,9 @@ def test_the_pair_reds_of_two_owners_are_two_lines(tmp_path):
         }
     '''})
     code, text = _static(tmp_path)
-    assert code == 1, text
-    red = _lines(text, 'red: missing paired write')
-    assert [line.partition(': ')[0] for line in red] == ['red', 'red'] and len(red) == 2, text
-    assert red[0].startswith('red: missing paired write for Central.orgUnitId：src/admin.ts:2 editCentral') and '；' not in red[0].partition(' → ')[0], red
-    assert red[1].startswith('red: missing paired write for Project.leaderId：src/admin.ts:6 lead') and 'Central' not in red[1], red
+    assert code == 1 and _lines(text, 'red: ') == [
+        'red: together Central.orgUnitId: admin.ts:editCentral writes Central.orgUnitId without Local.unitId -> also write Local.unitId in editCentral',
+        'red: together Project.leaderId: admin.ts:lead writes Project.leaderId without Member.* -> also write Member in lead'], text
 
 
 def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
@@ -1265,15 +1365,18 @@ def test_the_value_gate_reads_the_fallback_of_a_nullish_default(tmp_path):
         }
     '''})
     code, text = _static(tmp_path)
-    assert code == 1, text
-    assert [line.partition(' → ')[0] for line in _lines(text, 'red: Value')] == [
-        "red: Value outside the declared set: src/projects.ts:3 Project.sourceType='CSV_IMPORT'; allowed MANUAL|IMPORT (CHECK prisma/migrations/001/migration.sql:1)"], text
+    assert code == 1 and _red_values(tmp_path, text) == [
+        "Project.sourceType: src/projects.ts:create writes 'CSV_IMPORT' outside 'MANUAL'|'IMPORT' (CHECK prisma/migrations/001/migration.sql:1)"], text
 
 
 def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_path):
     # Planning Tool 0.6.28 (round 21, V4): the business references follow a SAP number when it changes; with
     # with= alone every function that creates an employee was red.
+    owner = '// flowguard: owner Employee.sapRef with=Opportunity.responsibleNo on=update\nexport {};\n'
+    # The agreement holds at the baseline; the functions are this change's (a new agreement over old code is judged
+    # against the baseline code: what it finds there was there before the change).
     _commit(tmp_path, {
+        'src/owners.ts': owner,
         'prisma/schema.prisma': '''
             model Employee {
               id     String @id
@@ -1285,6 +1388,8 @@ def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_
               responsibleNo Int
             }
         ''',
+    })
+    _write(tmp_path, {
         'src/employees.ts': '''
             export async function hire(prisma: any, id: string, sap: number) {
               await prisma.employee.create({ data: { id, sapRef: sap } });
@@ -1298,16 +1403,14 @@ def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_
             }
         ''',
     })
-    owner = '// flowguard: owner Employee.sapRef with=Opportunity.responsibleNo on=update\nexport {};\n'
-    _write(tmp_path, {'src/owners.ts': owner})
     code, text = _static(tmp_path)
     assert code == 1, text
-    assert _lines(text, 'red: missing paired write') == [
-        'red: missing paired write for Employee.sapRef：src/employees.ts:9 fixNumber(JS/TS calls resolved by name)(updates only) writes Employee.sapRef, the same operation (3 caller levels, then 3 callee levels) does not write Opportunity.responsibleNo → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at src/owners.ts:1)'], text
+    assert _lines(text, 'red: ') == ['red: together Employee.sapRef: employees.ts:fixNumber writes Employee.sapRef without '
+                                     'Opportunity.responsibleNo (updates only) -> also write Opportunity.responsibleNo in fixNumber'], text
     _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=create')})
     code, text = _static(tmp_path)
-    assert code == 1 and [line.partition('(JS/TS')[0] for line in _lines(text, 'red: missing paired write')] == [
-        'red: missing paired write for Employee.sapRef：src/employees.ts:2 hire'], text
+    assert code == 1 and _lines(text, 'red: ') == ['red: together Employee.sapRef: employees.ts:hire writes Employee.sapRef without '
+                                                   'Opportunity.responsibleNo (creates only) -> also write Opportunity.responsibleNo in hire'], text
     _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=later')})
     code, text = _static(tmp_path)
     assert code == 1 and 'on= is update or create and limits with=: owner Model.field with=Other.field on=update' in text, text
@@ -1355,8 +1458,8 @@ def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_he
     code, text = _static(tmp_path)
     assert code == 1, text
     # _reserve_row writes reserved alone, but its caller reserve writes state='held' through _hold_row
-    assert _lines(text, 'red: missing paired write') == [
-        'red: missing paired write for hires.reserved：shop/store.py:16 release writes hires.reserved, the same operation (3 caller levels, then 3 callee levels) does not write hires.state=held → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at shop/store.py:1)'], text
+    assert _lines(text, 'red: ') == [
+        'red: together hires.reserved: store.py:release writes hires.reserved without hires.state=held -> also write hires.state=held in release'], text
 
 
 def test_show_a_model_field_lists_sql_file_writes_and_counts_the_lines_it_leaves_out(tmp_path):
@@ -1395,7 +1498,10 @@ def test_show_a_model_field_lists_sql_file_writes_and_counts_the_lines_it_leaves
 def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_path):
     # Planning Tool 0.6.28 `removeRole` (round 21, G13/G15): a frontend page with the same method names and a
     # backend test that calls both service methods satisfied the pair; a test's fixture write was a pair red.
+    # The agreement holds at the baseline; the service is this change's (a new agreement over old code is judged
+    # against the baseline code).
     _commit(tmp_path, {
+        'backend/src/owners.ts': '// flowguard: owner Unit.managerId with=Unit.managerSap\nexport {};\n',
         'backend/package.json': '{"name": "backend"}\n',
         'frontend/package.json': '{"name": "frontend"}\n',
         'backend/prisma/schema.prisma': '''
@@ -1405,6 +1511,23 @@ def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_pa
               managerSap Int?
             }
         ''',
+        'frontend/src/UnitPage.tsx': '''
+            export function UnitPage(api: any) {
+              api.removeManager('u1');
+              api.setManager('u1', 7);
+              return null;
+            }
+        ''',
+        'backend/tests/unit.service.test.ts': '''
+            import { unitService } from '../src/unit.service';
+            await prisma.unit.create({ data: { id: 'u1', managerId: 'm1' } });
+            export async function roundTrip(prisma: any) {
+              await unitService.dropManager(prisma, 'u1');
+              await unitService.setManager(prisma, 'u1', 7);
+            }
+        ''',
+    })
+    _write(tmp_path, {
         'backend/src/unit.service.ts': '''
             export const unitService = {
               async setManager(prisma: any, id: string, sap: number) {
@@ -1425,29 +1548,14 @@ def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_pa
               },
             };
         ''',
-        'frontend/src/UnitPage.tsx': '''
-            export function UnitPage(api: any) {
-              api.removeManager('u1');
-              api.setManager('u1', 7);
-              return null;
-            }
-        ''',
-        'backend/tests/unit.service.test.ts': '''
-            import { unitService } from '../src/unit.service';
-            await prisma.unit.create({ data: { id: 'u1', managerId: 'm1' } });
-            export async function roundTrip(prisma: any) {
-              await unitService.dropManager(prisma, 'u1');
-              await unitService.setManager(prisma, 'u1', 7);
-            }
-        ''',
     })
-    _write(tmp_path, {'backend/src/owners.ts': '// flowguard: owner Unit.managerId with=Unit.managerSap\nexport {};\n'})
     code, text = _static(tmp_path)
     assert code == 1, text
     # moveManager reaches mirrorSap through `this` in its own package; the page's calls are the frontend's own
     # names, and the test that calls dropManager is not part of its operation; the test's fixture is no write to hold.
-    assert _lines(text, 'red: missing paired write') == [
-        'red: missing paired write for Unit.managerId：backend/src/unit.service.ts:13 removeManager  backend/src/unit.service.ts:16 dropManager(JS/TS calls resolved by name) writes Unit.managerId, the same operation (3 caller levels, then 3 callee levels) does not write Unit.managerSap → write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at backend/src/owners.ts:1)'], text
+    assert _lines(text, 'red: ') == [
+        f'red: together Unit.managerId: unit.service.ts:{name} writes Unit.managerId without Unit.managerSap -> also write Unit.managerSap in {name}'
+        for name in ('removeManager', 'dropManager')], text
 
 
 def test_show_of_a_field_names_the_fields_its_writers_also_write_as_with_candidates(tmp_path):
@@ -1533,15 +1641,18 @@ def test_a_new_hard_delete_names_the_children_it_leaves_once_per_function_and_pa
     '''})
     code, text = _static(tmp_path)
     assert code == 0, text
-    leads = _lines(text, 'lead: Delete leaves child rows')
-    assert len(leads) == 1, text
-    assert leads[0].startswith('lead: Delete leaves child rows: backend/src/services/hard-delete.service.ts:9  backend/src/services/hard-delete.service.ts:10 removeEmployeeRow deletes Employee; NoAction child tables '), leads
-    listed = leads[0].partition('NoAction child tables ')[2].partition(' are not ')[0]
+    deletes = _last(tmp_path, 'impact: delete ')
+    assert len(deletes) == 1 and len(_lines(text, 'impact: delete ')) == 1, text
+    line, detail = deletes[0]
+    assert line.startswith('impact: delete Employee: backend/src/services/hard-delete.service.ts:removeEmployeeRow deletes Employee; '
+                           'NoAction child tables '), line
+    assert detail == ['delete at backend/src/services/hard-delete.service.ts:9  backend/src/services/hard-delete.service.ts:10'], detail
+    listed = line.partition('NoAction child tables ')[2].partition(' are not ')[0]
     # deleted (UserRole), counted inside OR (AuthorityAssignment), nulled (AuditEvent), Cascade (EmployeeLog) and a
     # table no code creates or updates rows in (EmployeeBadge) are not listed; the optional self relation
     # Employee.supervisor is (round 21, P12): one employee row is deleted and the copied create writes supervisorId.
     assert listed == 'Employee, EmployeeNote, EmployeeTransfer (3 foreign keys: decidedById, employeeId, requestedById), Notification', listed
-    assert '[structure."delete:backend/src/services/hard-delete.service.ts:removeEmployeeRow:Employee"]' in text, text
+    assert 'delete:backend/src/services/hard-delete.service.ts:removeEmployeeRow:Employee' in _names(tmp_path), _names(tmp_path)
 
 
 def test_an_optional_relation_over_a_required_key_restricts_the_delete(tmp_path):
@@ -1580,8 +1691,10 @@ def test_an_optional_relation_over_a_required_key_restricts_the_delete(tmp_path)
         }
     '''})
     code, text = _static(tmp_path)
-    assert code == 0 and _lines(text, 'lead: Delete leaves child rows') == [
-        'lead: Delete leaves child rows: src/remove.ts:2 removeUnit deletes Unit; Restrict child tables Room are not deleted, cleared or counted in the same operation (calls resolved by name) → delete or clear these child rows first, or count them and reject deletion; if database rejection is intentional, record the decision in .flowguard/ledger.toml:'], text
+    assert code == 0 and _lines(text, 'impact: delete ') == [
+        'impact: delete Unit: remove.ts:removeUnit deletes Unit; Restrict child tables Room are not deleted, cleared or counted in the same '
+        'operation (calls resolved by name) -> fix it, or say why in your report'], text
+    assert _detail(tmp_path, 'impact: delete Unit: ') == ['delete at src/remove.ts:2']
 
 
 def test_a_one_row_delete_of_a_tree_the_code_builds_names_its_children(tmp_path):
@@ -1635,8 +1748,10 @@ def test_a_one_row_delete_of_a_tree_the_code_builds_names_its_children(tmp_path)
     code, text = _static(tmp_path)
     assert code == 0, text
     # Folder rows go in a loop (hierarchy order) or all at once; no code links Tag rows into a tree.
-    assert _lines(text, 'lead: Delete leaves child rows') == [
-        'lead: Delete leaves child rows: src/remove.ts:2 removeDemand deletes Demand; NoAction child tables Demand are not deleted, cleared or counted in the same operation (calls resolved by name) → delete or clear these child rows first, or count them and reject deletion; if database rejection is intentional, record the decision in .flowguard/ledger.toml:'], text
+    assert _lines(text, 'impact: delete ') == [
+        'impact: delete Demand: remove.ts:removeDemand deletes Demand; NoAction child tables Demand are not deleted, cleared or counted in the '
+        'same operation (calls resolved by name) -> fix it, or say why in your report'], text
+    assert _detail(tmp_path, 'impact: delete Demand: ') == ['delete at src/remove.ts:2']
 
 
 def test_a_tree_whose_parent_key_can_be_null_is_left_to_a_delete_of_many_rows_also_over_a_required_tenant_key(tmp_path):
@@ -1669,8 +1784,11 @@ def test_a_tree_whose_parent_key_can_be_null_is_left_to_a_delete_of_many_rows_al
     '''})
     code, text = _static(tmp_path)
     # the one-row delete of a tree the code builds still names its children
-    assert code == 0 and _lines(text, 'lead: Delete leaves child rows') == [
-        'lead: Delete leaves child rows: src/clear.ts:5 removeNode deletes Node; Restrict child tables Node (2 foreign keys: tenantId, parentId) are not deleted, cleared or counted in the same operation (calls resolved by name) → delete or clear these child rows first, or count them and reject deletion; if database rejection is intentional, record the decision in .flowguard/ledger.toml:'], text
+    assert code == 0 and _last(tmp_path, 'impact: delete ') == [
+        ('impact: delete Node: src/clear.ts:removeNode deletes Node; Restrict child tables Node (2 foreign keys: tenantId, parentId) are not '
+         'deleted, cleared or counted in the same operation (calls resolved by name) -> fix it, or say why in your report',
+         ['delete at src/clear.ts:5'])], text
+    assert len(_lines(text, 'impact: delete ')) == 1, text
 
 
 def test_a_table_the_code_reads_or_deletes_but_never_fills_is_a_structure_problem(tmp_path):
@@ -1723,18 +1841,17 @@ def test_a_table_the_code_reads_or_deletes_but_never_fills_is_a_structure_proble
         ''',
     })
     code, text = _static(tmp_path, '--all')
-    found = [line for line in text.splitlines() if 'row creation：' in line]
     # Level rows come from a migration's INSERT, Note rows from code; a test fixture and an archived SQL file
     # under docs/ make no rows the application has.
-    assert found == [
-        '1. row creation：Table whose rows are never created by this code: Deputy read src/deputies.ts:2，delete src/deputies.ts:5; no create/upsert/INSERT exists',
-        '2. row creation：Table whose rows are never created by this code: Request read src/deputies.ts:7，update src/deputies.ts:6; no create/upsert/INSERT exists'], text
-    assert '       [structure."uncreated:Deputy"]' in text, text
+    before = 'before: uncreated {} at deputies.ts:{} was broken at task start -> leave it unless your task is about it'
+    assert code == 0 and _block(text, everything=True) == [
+        before.format('Deputy', 'deputiesOf'), before.format('Deputy', 'purge'), before.format('Request', 'purge')], text
+    assert {'uncreated:Deputy', 'uncreated:Request'} == set(_names(tmp_path)), _names(tmp_path)
     source = tmp_path / 'src/deputies.ts'
     source.write_text(source.read_text().replace('where: { id } }', 'where: { id }, take: 5 }'))
     code, text = _static(tmp_path)
-    assert _lines(text, 'lead: Open structure issue: Table whose rows are never created by this code') == [
-        'lead: Open structure issue: Table whose rows are never created by this code: Deputy read src/deputies.ts:2，delete src/deputies.ts:5; no create/upsert/INSERT exists -> ask the owner where these rows come from (seeds, migrations or external systems); if there is no source, remove these reads and deletes; if intentional, record the decision in .flowguard/ledger.toml:'], text
+    # the change touches deputiesOf, which reads Deputy: the problem was there before
+    assert code == 0 and _block(text) == [before.format('Deputy', 'deputiesOf')], text
 
 
 def test_a_prisma_view_the_code_reads_is_not_a_table_without_rows(tmp_path):
@@ -1764,8 +1881,8 @@ def test_a_prisma_view_the_code_reads_is_not_a_table_without_rows(tmp_path):
         ''',
     })
     code, text = _static(tmp_path, '--all')
-    assert [line for line in text.splitlines() if 'row creation：' in line] == [
-        '1. row creation：Table whose rows are never created by this code: Audit read src/users.ts:3; no create/upsert/INSERT exists'], text
+    assert code == 0 and _block(text, everything=True) == [
+        'before: uncreated Audit at users.ts:add was broken at task start -> leave it unless your task is about it'], text
 
 
 # ---- fixed example 17: columns one description lacks -------------------------------------------------
@@ -1791,14 +1908,17 @@ def test_delete_rules_that_differ_between_two_schemas_are_one_structure_problem_
     _commit(tmp_path, {'prisma/schema.prisma': schema % ('sqlserver', 'NoAction'),
                        'prisma/schema.sqlite.prisma': schema % ('sqlite', 'NoAction')})
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and 'onDelete differs' not in text, text
+    assert code == 0 and _block(text, everything=True) == [], text
     _write(tmp_path, {'prisma/schema.sqlite.prisma': schema % ('sqlite', 'Cascade')})
     code, text = _static(tmp_path)
-    leads = _lines(text, 'lead: onDelete differs')
-    assert code == 0 and leads == [
-        'lead: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations added in this change (1 total; parentheses show prisma/schema.prisma\'s rule first, then this description\'s rule): Room.unit（NoAction/Restrict / Cascade） → align deletion rules in both schemas, including the test schema; if differences are intentional (for example, SQL Server disallows multiple cascade paths), record the decision in .flowguard/ledger.toml: [structure."ondelete:prisma/schema.prisma~prisma/schema.sqlite.prisma"] decision = "Replace with the owner\'s decision: who owns this and why (at least 8 words)" source = "R<n>"'], text
+    impact = ('impact: onDelete schema.sqlite.prisma against prisma/schema.prisma: schema.sqlite.prisma differs on 1 relations from '
+              'prisma/schema.prisma, 1 added in this change: Room.unit (NoAction/Restrict / Cascade) -> fix it, or say why in your report')
+    assert code == 0 and _block(text) == [impact], text
+    assert _detail(tmp_path, 'impact: onDelete ') == [
+        'parentheses show the rule of prisma/schema.prisma first, then that of prisma/schema.sqlite.prisma']
+    assert _names(tmp_path) == ['ondelete:prisma/schema.prisma~prisma/schema.sqlite.prisma'], _names(tmp_path)
     code, text = _static(tmp_path, '--all')
-    assert '. delete：onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma' in text, text
+    assert code == 0 and _block(text, everything=True) == [impact], text
 
 
 ROOMS = '''
@@ -1835,14 +1955,12 @@ def test_the_ondelete_lead_names_the_relations_the_change_added_and_the_listing_
                        'prisma/schema.sqlite.prisma': _rooms('sqlite', [(name, 'Cascade') for name, _ in old] + [('Zulu', 'NoAction')])})
     _write(tmp_path, {'prisma/schema.sqlite.prisma': _rooms('sqlite', [(name, 'Cascade') for name, _ in old] + [('Zulu', 'SetNull')])})
     code, text = _static(tmp_path)
-    leads = _lines(text, 'lead: onDelete differs')
-    assert code == 0 and len(leads) == 1, text
-    assert leads[0].startswith("lead: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations added in this change (8 total; parentheses show prisma/schema.prisma's rule first, then this description's rule): Zulu.unit（NoAction/Restrict / SetNull） → "), leads
+    impact = ('impact: onDelete schema.sqlite.prisma against prisma/schema.prisma: schema.sqlite.prisma differs on 8 relations from '
+              'prisma/schema.prisma, 1 added in this change: Zulu.unit (NoAction/Restrict / SetNull) -> fix it, or say why in your report')
+    assert code == 0 and _block(text) == [impact], text
+    # --all lists the same finding: the change added it, so it is impact, not before
     code, text = _static(tmp_path, '--all')
-    listed = next(line for line in text.splitlines() if '. delete：onDelete differs' in line)
-    assert listed.endswith(": 8 relations (parentheses show prisma/schema.prisma's rule first, then this description's rule): "
-                           + '、'.join(f'{name}.unit（NoAction/Restrict / Cascade）' for name, _ in old)
-                           + '、Zulu.unit（NoAction/Restrict / SetNull）'), listed
+    assert code == 0 and _block(text, everything=True) == [impact], text
 
 
 def test_an_ondelete_pair_keeps_its_name_and_its_decision_when_the_other_schema_becomes_the_larger(tmp_path):
@@ -1852,20 +1970,24 @@ def test_an_ondelete_pair_keeps_its_name_and_its_decision_when_the_other_schema_
     b = _rooms('sqlserver', [('Room', 'Cascade')])
     _commit(tmp_path, {'prisma/a.prisma': a, 'prisma/b.prisma': b})
     code, text = _static(tmp_path, '--all')
-    assert '. delete：onDelete differs: prisma/b.prisma against prisma/a.prisma: 1 relations' in text, text
-    name = next(line.strip() for line in text.splitlines() if line.strip().startswith('[structure."ondelete:'))
-    assert name == '[structure."ondelete:prisma/a.prisma~prisma/b.prisma"]', text
+    assert 'before: onDelete b.prisma against prisma/a.prisma at b.prisma was broken at task start -> leave it unless your task is about it' \
+        in _block(text, everything=True), text
+    assert 'ondelete:prisma/a.prisma~prisma/b.prisma' in _names(tmp_path), _names(tmp_path)
+    name = '[structure."ondelete:prisma/a.prisma~prisma/b.prisma"]'
     _write(tmp_path, {'prisma/b.prisma': b + 'model Shed {\n  id String @id\n}\n\nmodel Barn {\n  id String @id\n}\n'})
+    turned = 'before: onDelete a.prisma against prisma/b.prisma at a.prisma was broken at task start -> leave it unless your task is about it'
     code, text = _static(tmp_path, '--all')
-    assert '. delete：onDelete differs: prisma/a.prisma against prisma/b.prisma: 1 relations' in text, text
-    assert '[structure."ondelete:prisma/a.prisma~prisma/b.prisma"]' in text, text
+    assert turned in _block(text, everything=True), text
+    assert 'ondelete:prisma/a.prisma~prisma/b.prisma' in _names(tmp_path), _names(tmp_path)
     code, text = _static(tmp_path)
-    assert not _lines(text, 'lead: onDelete differs'), text             # the change added no difference
+    # the change added no difference: the pair is before, as the change touches one of its schemas
+    assert _block(text) == [turned, 'impact: columns a.prisma against prisma/b.prisma: a.prisma lacks missing table Barn; missing table Shed '
+                                    '-> fix it, or say why in your report'], text
     _write(tmp_path, {'docs/decisions.md': 'The SQL Server schema keeps NoAction because of multiple cascade paths.\n',
                       '.flowguard/ledger.toml': name + '\ndecision = "the second schema cascades on purpose, the owner keeps both"\n'
                       'source = { file = "docs/decisions.md", text = "The SQL Server schema keeps NoAction because of multiple cascade paths." }\n'})
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and 'onDelete differs' not in text, text
+    assert code == 0 and not [line for line in _block(text, everything=True) if 'onDelete ' in line], text
 
 
 def test_a_change_to_either_schema_of_an_open_ondelete_pair_gets_the_touched_lead(tmp_path):
@@ -1876,8 +1998,9 @@ def test_a_change_to_either_schema_of_an_open_ondelete_pair_gets_the_touched_lea
         saved = path.read_text(encoding='utf-8')
         path.write_text(saved + '// reviewed\n', encoding='utf-8')
         code, text = _static(tmp_path)
-        assert code == 0 and _lines(text, 'lead: Open structure issue: onDelete differs') == [
-            "lead: Open structure issue: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations (parentheses show prisma/schema.prisma's rule first, then this description's rule): Room.unit（NoAction/Restrict / Cascade） -> align deletion rules in both schemas, including the test schema; if differences are intentional (for example, SQL Server disallows multiple cascade paths), record the decision in .flowguard/ledger.toml:"], (file, text)
+        assert code == 0 and _block(text) == [
+            'before: onDelete schema.sqlite.prisma against prisma/schema.prisma at schema.sqlite.prisma was broken at task start -> leave it unless your task is about it'], (file, text)
+        assert _detail(tmp_path, 'before: onDelete ') == ['parentheses show the rule of prisma/schema.prisma first, then that of prisma/schema.sqlite.prisma']
         path.write_text(saved, encoding='utf-8')
 
 
@@ -1896,9 +2019,8 @@ def test_a_mapping_added_to_both_schemas_adds_no_ondelete_difference(tmp_path, h
     _write(tmp_path, {'prisma/schema.prisma': _mapped(old, how), 'prisma/schema.sqlite.prisma': _mapped(template, how)})
     assert _mapped(old, how) != old and _mapped(template, how) != template
     code, text = _static(tmp_path)
-    leads = [lead for lead in _lines(text, 'lead: ') if 'onDelete' in lead]
-    assert code == 0 and len(leads) == 1 and leads[0].startswith(
-        'lead: Open structure issue: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations'), text
+    assert code == 0 and [line for line in _block(text) if 'onDelete' in line] == [
+        'before: onDelete schema.sqlite.prisma against prisma/schema.prisma at schema.sqlite.prisma was broken at task start -> leave it unless your task is about it'], text
 
 
 def test_a_schema_that_drops_a_relation_but_keeps_its_key_column_has_no_foreign_key(tmp_path):
@@ -1910,12 +2032,12 @@ def test_a_schema_that_drops_a_relation_but_keeps_its_key_column_has_no_foreign_
         '  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: NoAction)\n', '').replace('rooms Room[]', '')
     _write(tmp_path, {'prisma/schema.sqlite.prisma': template})
     code, text = _static(tmp_path)
-    assert code == 0 and [lead.partition(' → ')[0] for lead in _lines(text, 'lead: onDelete differs')] == [
-        "lead: onDelete differs: prisma/schema.sqlite.prisma against prisma/schema.prisma: 1 relations added in this change (1 total; parentheses show prisma/schema.prisma's rule first, then this description's rule): Room.unit（NoAction/Restrict / no foreign key）"], text
+    impact = ('impact: onDelete prisma/schema.sqlite.prisma against prisma/schema.prisma: prisma/schema.sqlite.prisma differs on 1 relations '
+              'from prisma/schema.prisma, 1 added in this change: Room.unit (NoAction/Restrict / no foreign key) -> fix it, or say why in your report')
+    assert code == 0 and [line for line, _ in _last(tmp_path, 'impact: ')] == [impact] and len(_block(text)) == 1, text
     code, text = _static(tmp_path, '--all')
-    assert next(line for line in text.splitlines() if '. delete：onDelete differs' in line).endswith(
-        ": 1 relations (parentheses show prisma/schema.prisma's rule first, then this description's rule): Room.unit（NoAction/Restrict / no foreign key）"), text
-    assert 'missing columns' not in text, text                    # the table and its key column are there
+    # the table and its key column are there: no columns finding
+    assert code == 0 and [line for line, _ in _last(tmp_path, '')[1:] if line.startswith(('before: ', 'impact: '))] == [impact], text
 
 
 UNITS = '''
@@ -1980,16 +2102,16 @@ def test_fixed_17_missing_columns_between_prisma_and_init_sql_are_listed_one_by_
     _commit(tmp_path)
     init.write_bytes(saved)
     code, text = _static(tmp_path)
-    assert code == 0, text
-    lead = next(line for line in _lines(text, 'lead: Columns missing between descriptions') if 'central/schema.prisma' in line)
-    assert lead.startswith('lead: Columns missing between descriptions: backend/prisma/central/init-azure-sql.sql against backend/prisma/central/schema.prisma: '), lead
-    for column in ('central_sync_attempted_at', 'central_sync_error', 'central_sync_state', 'external_type',
-                   'personnel_lifecycle_state', 'personnel_source', 'storage_scope'):
-        assert column in lead, (column, lead)
-    assert 'missing table central_lending_assignments' in lead, lead
+    assert code == 0 and len(_lines(text, 'impact: columns init-azure-sql.sql against backend/prisma/central/schema.prisma: ')) == 1, text
+    line, = [line for line, _ in _last(tmp_path, 'impact: columns ') if 'central/schema.prisma' in line]
+    assert line == ('impact: columns backend/prisma/central/init-azure-sql.sql against backend/prisma/central/schema.prisma: '
+                    'backend/prisma/central/init-azure-sql.sql lacks central_employees (backend/prisma/central/init-azure-sql.sql:64) missing '
+                    + ', '.join(('central_sync_attempted_at', 'central_sync_error', 'central_sync_state', 'external_type',
+                                 'personnel_lifecycle_state', 'personnel_source', 'storage_scope'))
+                    + '; missing table central_lending_assignments -> fix it, or say why in your report'), line
+    # --all: the change added it, so it is the same impact line
     code, text = _static(tmp_path, '--all')
-    assert any(line.startswith('lead: ') is False and 'missing columns：Columns missing between descriptions: backend/prisma/central/init-azure-sql.sql' in line
-               for line in text.splitlines()), text
+    assert code == 0 and [line for line, _ in _last(tmp_path, 'impact: columns ') if 'central/schema.prisma' in line] == [line], text
 
 
 # ---- fixed example 16: label drift, also in the generated vitest test --------------------------------
@@ -2013,6 +2135,9 @@ def _run_generated(root, target, env=None):
 
 
 def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated_vitest_test(tmp_path):
+    # 4.3: the label drift is a 5.0-deprecated heuristic, a lead of show --last; the block, which the generated test
+    # prints (or, inside a vitest run with FlowGuard's plugin, writes to static.json for the plugin's block), has the
+    # declarations that differ.
     root = _planning(tmp_path / 'pt')
     frontend = root / 'frontend/src/utils/organization-navigation.ts'
     saved = frontend.read_bytes()
@@ -2021,8 +2146,10 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
                                    '"devDependencies": {"vitest": "2.1.9"}}\n'})
     frontend.write_bytes(saved)
     code, text = _static(root)
-    assert code == 0, text
-    drift = next(line for line in _lines(text, 'lead: label spellings differ') if 'My Organization' in line)
+    differ = _block(text)
+    assert code == 0 and len(differ) == 1 and differ[0].startswith('impact: declarations OrganizationNavigationLabel: '), text
+    shown = _cli_fixture.last(root).splitlines()
+    drift = next(line for line in shown[shown.index('deprecated leads (5.0):'):] if 'My Organization' in line)
     assert "'My Organization'(backend/src/services/authority/organization-navigation.ts:" in drift, drift
     assert "'My organization'(frontend/src/utils/organization-navigation.ts:" in drift and 'spelling added in this task' in drift, drift
     code, text = _flowguard(root, 'init')
@@ -2032,7 +2159,7 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     run = _run_generated(root, generated)
     output = _text(run.stdout + run.stderr)
     assert run.returncode == 0 and 'PASS FlowGuard check --static' in output, output
-    assert drift in output, output                             # the same lead, printed by the npm test
+    assert differ[0] in output.splitlines(), output            # the same block, printed by the npm test
     _write(root, {'backend/src/services/notice.service.ts': '''
         export async function notice(prisma: any) {
           await prisma.auditEvent.create({ data: { severity: 'WARN' } });
@@ -2041,8 +2168,26 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     _planning(root, 'planning_tool_static')
     run = _run_generated(root, generated)
     output = _text(run.stdout + run.stderr)
-    assert run.returncode == 1 and 'FAIL FlowGuard check --static: FlowGuard check --static exit 1' in output, output
-    assert "backend/src/services/notice.service.ts:2 AuditEvent.severity='WARN'; allowed INFO|WARNING|ERROR|CRITICAL" in output, output
+    red = "red: values AuditEvent.severity: notice.service.ts:notice writes 'WARN' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL' -> use a declared value"
+    # the planning_tool_static files are new in this change as well: their own 'WARN' is red too
+    assert run.returncode == 1 and 'FAIL FlowGuard check --static: FlowGuard: 2 red, see the FlowGuard block at the end' in output, output
+    assert red in output.splitlines(), output
+    # Inside a vitest run with FlowGuard's plugin the lines go to <obs>/static.json, for the plugin's block at the end;
+    # the test prints nothing and fails with the same one line.
+    observations = tmp_path / 'obs'
+    run = _run_generated(root, generated, env=dict(FLOWGUARD_VITEST_OBS=str(observations)))
+    # stdout holds the stub runner's one line; check's deprecation notice reaches stderr (console.error)
+    assert run.returncode == 1 and (run.stdout.splitlines(), run.stderr.splitlines()) == (
+        ['FAIL FlowGuard check --static: FlowGuard: 2 red, see the FlowGuard block at the end'],
+        ['deprecated: label-spelling leads will be removed in 5.0']), run
+    saved = json.loads((observations / 'static.json').read_text(encoding='utf-8'))
+    assert sorted(saved) == ['deprecated', 'hidden', 'ignored', 'lines', 'seconds', 'title'], saved
+    assert [line['text'] for line in saved['lines'] if line['kind'] == 'red'] == [
+        "values AuditEvent.severity: backend/src/services/authority/authority-integrity-repair.service.ts:repairOrganizationAuthority writes "
+        "'WARN' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL'",
+        "values AuditEvent.severity: backend/src/services/notice.service.ts:notice writes 'WARN' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL'"]
+    assert saved['title'] == dict(baseline=_git(root, 'rev-parse', 'HEAD').strip(), kind='task', ahead=0, option='--base'), saved
+    assert saved['seconds'] > 0 and saved['ignored'] == 0 and any(lead['feature'] == 'label-spelling leads' for lead in saved['hidden'])
     run = _run_generated(root, generated, env=dict(FLOWGUARD_PYTHON=str(tmp_path / 'no-such-python')))
     output = _text(run.stdout + run.stderr)
     assert run.returncode == 1 and 'no Python that can import flowguard was found' in output, output
@@ -2070,9 +2215,11 @@ def test_check_static_all_lists_label_spellings_the_baseline_already_had(tmp_pat
     root = _planning(tmp_path / 'pt')
     _commit(root, {})                          # both spellings are old: nothing new to report
     code, text = _static(root)
-    assert code == 0 and not _lines(text, 'lead: label spellings differ'), text
+    assert code == 0 and _block(text) == [] and not [lead for lead in _leads(root) if 'label spellings differ' in lead], text
+    # --all keeps the old spellings for show --last (a 5.0-deprecated heuristic: a lead, no line of the block)
     code, text = _static(root, '--all')
-    old = next(line for line in _lines(text, 'lead: before: label spellings differ') if 'My Organization' in line)
+    old = next(lead for lead in _leads(root) if 'label spellings differ' in lead and 'My Organization' in lead)
+    assert old.startswith('label-spelling leads: before: label spellings differ: '), old
     assert "'My organization'(frontend/src/utils/organization-navigation.ts:" in old and 'spelling added in this task' not in old, old
 
 
@@ -2085,17 +2232,20 @@ def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lis
     })
     # a label spelled another way ('Gamma ray'), not a key ('gamma-ray' is of another kind: literal_shape)
     _write(tmp_path, {'src/ray.ts': "export function isRay(x: string) { return x === 'Gamma ray'; }\n"})
+    # 4.3: label spellings are a 5.0-deprecated heuristic, leads of show --last, which lists every one of them; --leads
+    # is deprecated and lists the same.
     code, text = _static(tmp_path, '--all')
-    leads = _lines(text, 'lead: ')
-    assert code == 0 and leads[0].startswith("lead: label spellings differ: 'Gamma Ray'"), text       # the new one first
-    assert "'Gamma ray'(src/ray.ts:1, spelling added in this task)" in leads[0], leads
-    assert leads[-1].startswith('lead: plus ') and leads[-1].endswith('entries: python -m flowguard check --static --all --leads lists all leads'), leads
+    leads = _leads(tmp_path)
+    new = ["label-spelling leads: label spellings differ: 'Gamma Ray'(src/gamma.ts:1) and 'Gamma ray'(src/ray.ts:1, spelling added in this "
+           'task) -> use one spelling, or read both from one reference']
+    assert code == 0 and _block(text, everything=True) == [] and len(leads) == 13, text
+    assert [lead for lead in leads if 'spelling added in this task' in lead] == new, leads
+    assert all(lead.startswith('label-spelling leads: before: label spellings differ: ') for lead in leads if lead not in new), leads
     code, text = _static(tmp_path, '--all', '--leads')
-    every = _lines(text, 'lead: ')
-    assert code == 0 and len(every) == 13 and every[0] == leads[0] and not any(line.startswith('lead: plus ') for line in every), text
-    assert all(line.startswith('lead: before: label spellings differ') for line in every[1:]), every
+    assert code == 0 and _leads(tmp_path) == leads, text
+    assert 'deprecated: check --leads will be removed in 5.0; write python -m flowguard show --last' in text.splitlines(), text
     code, text = _static(tmp_path)
-    assert code == 0 and _lines(text, 'lead: ') == [leads[0]], text
+    assert code == 0 and _block(text) == [] and _leads(tmp_path) == new, text
 
 
 def test_the_overflow_of_a_run_against_base_names_that_base_in_the_command_that_lists_every_lead(tmp_path):
@@ -2107,10 +2257,14 @@ def test_the_overflow_of_a_run_against_base_names_that_base_in_the_command_that_
     _commit(tmp_path, message='twelve new spellings')
     # Against HEAD nothing is new; against HEAD~1 the twelve spellings are: the listing command keeps that base.
     code, text = _static(tmp_path, '--base', 'HEAD~1')
-    leads = _lines(text, 'lead: ')
-    assert code == 0 and leads[-1].endswith('entries: python -m flowguard check --static --base HEAD~1 --leads lists all leads'), leads
+    assert code == 0 and re.fullmatch(r'FlowGuard \d+\.\d+ \(since --base HEAD~1\): 0 red; \d+\.\d s', text.splitlines()[0]), text
+    leads = _leads(tmp_path)                # show --last lists every lead, against that base
+    assert len(leads) == 12 and all(lead.endswith(', spelling added in this task) -> use one spelling, or read both from one reference')
+                                    for lead in leads), leads
     code, text = _static(tmp_path, '--base', 'HEAD~1', '--leads')
-    assert code == 0 and len(_lines(text, 'lead: ')) == 12, text
+    assert code == 0 and _leads(tmp_path) == leads, text
+    code, text = _static(tmp_path)
+    assert code == 0 and _leads(tmp_path) == [], text
 
 
 def test_a_pytest_session_against_flowguard_base_names_that_base_and_keeps_its_leads_for_show_last(tmp_path):
@@ -2216,18 +2370,19 @@ def test_a_change_that_touches_an_open_structure_problem_gets_one_lead(tmp_path)
     code, text = _pytest(tmp_path)
     assert code == 0 and 'Open structure issue' not in text, text
     code, text = _static(tmp_path)
-    assert (code, text) == (0, ''), text
+    assert code == 0 and _block(text) == [], text
     hold = tmp_path / 'shop/hold.py'
     hold.write_text(hold.read_text().replace("'held'", "'paused'"))
-    lead = ('lead: Open structure issue: Job.status is written by 3 files without a registered writer agreement: shop/close.py:5  shop/hold.py:5  shop/reopen.py:5 -> ask the owner who is responsible; then write # flowguard: writers Job.status shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen (retain only writers the owner approves), and record the decision in .flowguard/ledger.toml:')
-    # pytest prints the 4.3 block: fields several files write without an agreement get no line of their own (the
-    # impact line of a function whose written fields change names them); check --static keeps its 4.2 lead.
+    # pytest and check --static print the 4.3 block: fields several files write without an agreement get no line of
+    # their own (the impact line of a function whose written fields change names them); --all lists each writer.
     code, text = _pytest(tmp_path)
     assert code == 0 and _cli_fixture.block(text)[1:] == [], text
     code, text = _static(tmp_path)
-    assert code == 0 and lead in text, text
+    assert code == 0 and _block(text) == [], text
     code, text = _static(tmp_path, '--all')
-    assert '1. write：Job.status is written by 3 files without a registered writer agreement' in text, text
+    assert code == 0 and _block(text, everything=True) == [
+        f'before: no writers agreement for Job.status at {name}.py:{name} was broken at task start -> leave it unless your task is about it'
+        for name in ('close', 'hold', 'reopen')], text
 
 
 def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_problem(tmp_path):
@@ -2241,13 +2396,20 @@ def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_
         'src/close.ts': writer('closeJobs', 'closed'), 'src/hold.ts': writer('holdJobs', 'held'),
         'src/reopen.ts': writer('reopenJobs', 'open'),
     })
+    def touched():
+        from flowguard.intent import owners
+        cfg = _config(tmp_path)
+        with closing(build(tmp_path)) as graph:
+            return sorted(owners.touched_functions(owners.Change(cfg, graph, owners.baseline(cfg))))
+    # Fields several files write without an agreement get no line of their own (--all lists them): what this change
+    # touches decides their impact and before lines, `owners.touched_functions`.
     hold = tmp_path / 'src/hold.ts'
     hold.write_text('// flowguard: sensor HOLD_JOBS\n' + hold.read_text(encoding='utf-8'), encoding='utf-8')
     code, text = _static(tmp_path)
-    assert code == 0 and 'Open structure issue' not in text, text      # the callback only moved one line down
+    assert code == 0 and _block(text) == [] and touched() == [], text      # the callback only moved one line down
     hold.write_text(hold.read_text(encoding='utf-8').replace("'held'", "'paused'"), encoding='utf-8')
     code, text = _static(tmp_path)
-    assert code == 0 and 'lead: Open structure issue: Job.status is written by 3 files' in text, text      # an edit inside it does
+    assert code == 0 and _block(text) == [] and touched() == ['typescript/src/hold.ts:holdJobs'], text      # an edit inside it does
 
 
 def test_a_structure_decision_closes_its_problem_and_a_decided_owner_needs_its_anchor(tmp_path):
@@ -2266,16 +2428,21 @@ def test_a_structure_decision_closes_its_problem_and_a_decided_owner_needs_its_a
     ledger.write_text('[structure."writers:Job.status"]\ndecision = "close owns the status; hold and reopen will call close later"\n'
                       'source = "R1"\n', encoding='utf-8')
     code, text = _static(tmp_path, '--all')
-    assert code == 1, text
-    assert ('red: Structure decision [structure."writers:Job.status"] records responsibility but has no writers agreement -> add beside the responsible function: # flowguard: writers Job.status shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen\n') in text, text
-    assert 'write：Job.status' not in text, text               # decided: no longer listed
+    # decided: the writers of Job.status are no longer listed
+    assert code == 1 and _block(text, everything=True) == [
+        'red: ledger [structure."writers:Job.status"]: ledger.toml:[structure."writers:Job.status"] records who writes the field, but no '
+        'writers agreement exists -> add beside the responsible function: # flowguard: writers Job.status '
+        'shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen'], text
     close = tmp_path / 'shop/close.py'
     close.write_text('# flowguard: owner Job.status writers=close,hold,reopen\n' + close.read_text())
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and 'Structure decision' not in text and 'write：Job.status' not in text, text
+    # the agreement holds now; what writes Job.status outside it was there at the baseline
+    assert code == 0 and _block(text, everything=True) == [
+        'before: writers Job.status at models.py:Job was broken at task start -> leave it unless your task is about it'], text
 
 
 LATER = 'these fields require a newer FlowGuard; upgrade before reviewing them'
+CLOSES = '. This entry closes no issue in the current version'
 
 
 def test_a_structure_entry_with_fields_of_a_later_flowguard_is_unverified_and_closes_nothing(tmp_path):
@@ -2289,14 +2456,19 @@ def test_a_structure_entry_with_fields_of_a_later_flowguard_is_unverified_and_cl
                       'fix = "let hold and reopen call close"\n', encoding='utf-8')
     _commit(tmp_path, message='a 4.3 entry')
     grey = 'Structure entry [structure."writers:Job.status"] has fields this version does not recognize: fix, sites, status, why; ' + LATER
+    writers = [f'before: no writers agreement for Job.status at {name}.py:{name} was broken at task start -> leave it unless your task is '
+               'about it' for name in ('close', 'hold', 'reopen')]
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and grey in text and 'Structure decision' not in text and 'red: ' not in text, text
-    assert '1. write：Job.status is written by 3 files without a registered writer agreement' in text, text      # the entry closes no problem
+    # the entry closes no problem; the ledger is not compared, with the entry's reason (show --last in full)
+    assert code == 0 and _block(text, everything=True) == writers + ['not compared: ledger.toml -> not a failure'], text
+    assert unchecked(tmp_path) == {'.flowguard/ledger.toml': [grey + CLOSES]}, text
     code, text = _flowguard(tmp_path, 'ledger', 'check')
     assert code == 0 and 'not checked: ' + grey in text, text
     for run in (lambda: _static(tmp_path), lambda: _flowguard(tmp_path, 'check')):
         code, text = run()
-        assert code == 0 and 'red: ' not in text and grey in text, text
+        assert code == 0 and _block(text) == [
+            'not compared: ledger.toml (Structure entry [structure."writers:Job.status"] has fields this version does...) -> not a failure'], text
+        assert unchecked(tmp_path) == {'.flowguard/ledger.toml': [grey + CLOSES]}, text
     # pytest's block: one not compared line for the ledger, the entry's reason in show --last.
     code, text = _pytest(tmp_path)
     assert code == 0 and not re.search(r'^red: ', text, re.M), text
@@ -2309,8 +2481,9 @@ def test_a_structure_entry_with_fields_of_a_later_flowguard_is_unverified_and_cl
     ledger.write_text('[structure."writers:Job.status"]\ndecision = "close owns the status; hold and reopen will call close later"\n'
                       'source = "R1"\nevidence = "the owner said so in the review"\n', encoding='utf-8')
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and 'has fields this version does not recognize: evidence; ' + LATER in text, text
-    assert 'write：Job.status' in text and 'has no writers agreement' not in text, text
+    assert code == 0 and unchecked(tmp_path) == {'.flowguard/ledger.toml': [
+        'Structure entry [structure."writers:Job.status"] has fields this version does not recognize: evidence; ' + LATER + CLOSES]}, text
+    assert _block(text, everything=True)[:3] == writers and not _lines(text, 'red: '), text
 
 
 def test_a_later_field_leaves_the_known_fields_checked_and_a_misspelt_field_stays_red(tmp_path):
@@ -2393,11 +2566,14 @@ def test_a_changed_typescript_constant_and_function_lead_to_the_places_left_behi
     fees = tmp_path / 'src/fees.ts'
     fees.write_text(fees.read_text().replace('days > 3 ? days - 3', 'days > 5 ? days - 5'))
     code, text = _static(tmp_path)
-    assert code == 0, text
-    assert _lines(text, 'lead: old values 14') == [
-        'lead: old values 14 remain in 1 decisions: src/reminders.ts:2 -> if requirements changed, update together; to lock them, write # flowguard: same NAME ref above the reference and # flowguard: same NAME above the copies'], text
-    alone = next(line for line in _lines(text, 'lead: lateFee'))
-    assert alone.startswith('lead: lateFee(src/fees.ts:1) changed; previously identical copies: 1 unchanged: src/legacy/fees.ts:1'), alone
+    # 5.0-deprecated heuristics: leads of show --last, no line of the block
+    assert code == 0 and _block(text) == [], text
+    assert 'deprecated: old-value leads will be removed in 5.0' in text.splitlines(), text
+    leads = _leads(tmp_path)
+    assert 'old-value leads: old values 14 remain in 1 decisions: src/reminders.ts:2 -> if requirements changed, update them together' in leads, leads
+    alone = next(lead for lead in leads if lead.startswith('similar-implementation leads: lateFee'))
+    assert alone.startswith('similar-implementation leads: lateFee(src/fees.ts:1) changed; previously identical copies: 1 unchanged: '
+                            'src/legacy/fees.ts:1'), alone
     assert '// flowguard: same LATEFEE ref' in alone, alone
 
 
@@ -2410,7 +2586,8 @@ def test_check_static_reports_a_new_typescript_fallback_and_a_write_outside_its_
     assert code == 0, text
     _commit(tmp_path, message='ledger')
     code, text = _static(tmp_path)
-    assert (code, text) == (0, 'deprecated: owner writers= will be removed in 5.0; write writers FIELD FUNCTIONS\n'), text
+    assert code == 0 and _block(text) == [] and text.splitlines()[1:] == [
+        'deprecated: owner writers= will be removed in 5.0; write writers FIELD FUNCTIONS'], text
     _write(tmp_path, {'backend/src/services/rogue.ts': '''
         export async function moveEmployee(prisma: any, id: string, unit: string, next: any) {
           try {
@@ -2426,8 +2603,10 @@ def test_check_static_reports_a_new_typescript_fallback_and_a_write_outside_its_
         }
     '''})
     code, text = _static(tmp_path)
-    assert code == 1, text
-    assert 'red: New unregistered fallback: backend/src/services/rogue.ts:9 catch any can end without raising' in text, text
-    assert '    ["backend/src/services/rogue.ts:moveEmployee:any"]' in text and 'rogue.ts:4' not in text, text
-    red = next(line for line in text.splitlines() if line.startswith('red: new write outside the declared writer'))
-    assert red.startswith('red: new write outside the declared writer for Employee.organizationalUnitId：backend/src/services/rogue.ts:3 moveEmployee（update）'), red
+    # the handler that hands its error to next() is no fallback; the entry to copy is the red's detail
+    assert code == 1 and _lines(text, 'red: ') == [
+        'red: ledger: New unregistered fallback: rogue.ts:9 catch any can end without raising -> python -m flowguard ledger check prints what to change',
+        'red: writers Employee.organizationalUnitId: rogue.ts:moveEmployee writes Employee.organizationalUnitId outside transferEmployee '
+        '-> call transferEmployee instead'], text
+    assert '["backend/src/services/rogue.ts:moveEmployee:any"]' in _detail(tmp_path, 'red: ledger: New unregistered fallback: ')
+    assert 'rogue.ts:4' not in _cli_fixture.last(tmp_path), text

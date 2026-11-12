@@ -459,14 +459,15 @@ def _path_of(place):
 
 
 def _short_paths(paths):
-    """{path: what the block prints}: its file name, or where two paths of the block share one, the shortest end of
-    each that no other of them shares."""
+    """{path: what the block prints}: its file name (a folder's name with its '/'), or where two paths of the block
+    share one, the shortest end of each that no other of them shares."""
     paths = sorted(set(paths))
     shown = {}
     for path in paths:
-        parts = path.split('/')
+        folder = '/' if path.endswith('/') else ''
+        parts = path.removesuffix('/').split('/')
         for size in range(1, len(parts) + 1):
-            end = '/'.join(parts[-size:])
+            end = '/'.join(parts[-size:]) + folder
             if not any(other != path and (other == end or other.endswith('/' + end)) for other in paths):
                 break
         shown[path] = end

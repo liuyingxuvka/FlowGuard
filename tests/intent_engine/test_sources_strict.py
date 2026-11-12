@@ -502,8 +502,10 @@ def test_check_all_fails_a_grey_rule_that_cites_the_owners_words_through_the_cat
         source = 'doc docs/spec.md "At most three days."'
     ''')
     grey = dict(kind='cells', verdict='grey', grey=['field days could not be read'])
-    rules = {'LIMIT': dict(source='rule.limit', decides='limit'), 'DOC': dict(source='rule.doc', decides='doc'),
-             'GONE': dict(source='rule.gone', decides='gone')}
+    rules = {name: dict(source=f'rule.{name.lower()}', decides=name.lower(), file='tests/intent/days.py', line=line)
+             for line, name in enumerate(('LIMIT', 'DOC', 'GONE'), 3)}
     data = dict(summary=dict(rules=rules), results={name: dict(items={'cells': grey}) for name in rules})
-    lines = _owner_rules_unverified(cfg, data)
-    assert [line.partition(':')[0] for line in lines] == ['red LIMIT'] and '(R1)' in lines[0], lines
+    issues = _owner_rules_unverified(cfg, data)
+    assert [(issue.name, issue.family, issue.fresh) for issue in issues] == [('unverified:LIMIT', 'rule', frozenset({''}))], issues
+    assert issues[0].text == ('rule LIMIT: cites original words from the owner (R1), but is now grey (unverified): field days could not '
+                              'be read'), issues

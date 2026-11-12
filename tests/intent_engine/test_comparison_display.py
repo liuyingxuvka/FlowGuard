@@ -75,12 +75,13 @@ def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path)
         if name=='compare':
             assert r'\u2194'in shown and r'\u2192'in shown,(name,shown)
             assert 'total 3 classes'in shown,(name,shown)
-        elif name=='pytest':
-            # The 4.3 block reports the actual same-name contradiction: what each copy answered on the input.
-            assert 'red: same GRACE: on ' in shown and ' returns ' in shown,(name,shown)
         else:
-            # The three-signal view reports the actual same-name contradiction: what each copy answered (`2 份：1 份得 …`).
-            assert 'same-name anchor'in shown and 'copies return'in shown,(name,shown)
+            # The 4.3 block of pytest and check reports the actual same-name contradiction: what each copy answered on
+            # the input; check's red is pytest's own.
+            assert 'red: same GRACE: on ' in shown and ' returns ' in shown,(name,shown)
+            assert [line for line in shown.splitlines() if line.startswith('red: ')] == [
+                'red: same GRACE: on days=7: app.py:accept returns False, app.py:other returns True '
+                '-> decide which copy is right, then make the other agree'],(name,shown)
         assert 'UnicodeEncodeError'not in shown,(name,shown)
     # Retain literals and a final LF, including a backslash that looks like an
     # escape and non-LF separators. The fallback must be reversible display.

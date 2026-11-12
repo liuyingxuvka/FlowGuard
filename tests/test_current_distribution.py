@@ -63,4 +63,7 @@ assert main(['--root',sys.argv[2],'check']) == 0
     probe = subprocess.run([sys.executable, '-I', '-c', code, str(tmp_path / 'site'), str(project)],
                            capture_output=True, text=True)
     assert probe.returncode == 0, probe.stdout + probe.stderr
-    assert probe.stdout.strip() == 'FlowGuard check: no intent rules.'
+    # Outside Git nothing is compared; the first line still counts each kind and FlowGuard's own seconds.
+    version = '.'.join(metadata['Version'].split('.')[:2])          # the first line's MAJOR.MINOR
+    assert re.fullmatch(re.escape(f'FlowGuard {version} (no baseline: nothing compared): 0 red; ') + r'\d+\.\d s',
+                        probe.stdout.strip()), probe.stdout

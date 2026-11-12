@@ -15,7 +15,7 @@ import textwrap
 from flowguard.intent import ledger
 import re
 
-from tests.intent_engine._cli_fixture import block, display_text, unchecked
+from tests.intent_engine._cli_fixture import block, display_text, last, unchecked
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 REASON = '这个判断现在会写审计文件，回放会被拦住；它由 test_standing 的断言守住，不再回放比较'
@@ -168,14 +168,17 @@ def test_check_all_fails_a_grey_rule_quoting_the_owner_unless_it_is_listed(tmp_p
     _git(root, 'commit', '-qm', 'owner words')
     checked, text = _cli(root, 'check', '--all')
     assert checked.returncode == 1, text
-    assert 'red: LIMIT_RULE：rule cites original words from the owner (R1), but is now grey (unverified): module initialization of json is not proved pure' in text, text
-    assert f'[unverified] section, write a reason: LIMIT_RULE = ' in text, text
+    assert ('red: rule LIMIT_RULE: cites original words from the owner (R1), but is now grey (unverified): module initialization of json '
+            'is not proved pure -> restore observability so the rule is checked again') in text.splitlines(), text
+    # the owner's alternative is no way out the red line names: show --last gives it, as ledger check does
+    assert any(line.startswith("    only with the owner's yes: in .flowguard/ledger.toml [unverified] section, write a reason: LIMIT_RULE = ")
+               for line in last(root).splitlines()), last(root)
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
     (root / ledger.LEDGER).write_text('[unverified]\nLIMIT_RULE = ' + ledger._quote(
         '这个判断读 json 配置，模块导入证明不了纯；由 test_limit 和回归行守住') + '\n', encoding='utf-8')
     listed, text = _cli(root, 'check', '--all')
     assert listed.returncode == 0, text
-    assert 'rule cites original words from the owner' not in text, text
+    assert 'cites original words from the owner' not in text, text
 
 
 def test_a_grey_mutation_probe_alone_does_not_make_an_owner_rule_unverified(tmp_path):
@@ -458,8 +461,10 @@ def test_check_all_fails_a_grey_template_flow_quoting_the_owner(tmp_path):
     root = _owner_flow(tmp_path / 'p', tmp_path, [])       # no test stores or ships: the Flow stays grey
     checked, text = _cli(root, 'check', '--all')
     assert checked.returncode == 1, text
-    assert 'red: PRECEDES_STORED_SHIPPED：rule cites original words from the owner (R1), but is now grey (unverified)' in text, text
-    assert '[unverified] section, write a reason: PRECEDES_STORED_SHIPPED = ' in text, text
+    assert any(line.startswith('red: rule PRECEDES_STORED_SHIPPED: cites original words from the owner (R1), but is now grey (unverified): ')
+               for line in text.splitlines()), text
+    assert any(line.startswith("    only with the owner's yes: in .flowguard/ledger.toml [unverified] section, write a reason: "
+                               'PRECEDES_STORED_SHIPPED = ') for line in last(root).splitlines()), last(root)
     brief, text = _cli(root)
     # The brief (design 4.7) lists the rules of rules.toml, not an unfinished intent item: check --all lists that.
     assert brief.returncode == 0 and text.startswith('FlowGuard ') and 'PRECEDES_STORED_SHIPPED' not in text, text
@@ -467,4 +472,4 @@ def test_check_all_fails_a_grey_template_flow_quoting_the_owner(tmp_path):
     (root / ledger.LEDGER).write_text('[unverified]\nPRECEDES_STORED_SHIPPED = ' + ledger._quote(
         '测试还没有走到存和发这两步，顺序由 test_docs 之外的集成检查守住') + '\n', encoding='utf-8')
     listed, text = _cli(root, 'check', '--all')
-    assert listed.returncode == 0 and 'rule cites original words from the owner' not in text, text
+    assert listed.returncode == 0 and 'cites original words from the owner' not in text, text

@@ -587,7 +587,8 @@ def test_ledger_check_and_check_list_the_differences_without_running_tests(shop)
     red = cli(shop, 'ledger', 'check')
     assert red.returncode == 1 and 'red: Form cannot be registered: src/shop/stock.py:' in red.stdout, red.stdout + red.stderr
     checked = cli(shop, 'check')
-    assert checked.returncode == 1 and 'red: Form cannot be registered: src/shop/stock.py:' in checked.stdout, checked.stdout + checked.stderr
+    assert checked.returncode == 1 and 'red: ledger: Form cannot be registered: stock.py:12 except Exception' in checked.stdout, \
+        checked.stdout + checked.stderr
     again = cli(shop, 'ledger', 'init')
     assert again.returncode == 2 and 'already exists' in again.stderr
     (shop / ledger.LEDGER).unlink()
@@ -605,6 +606,8 @@ def test_check_base_compares_the_ledger_with_the_named_commit_in_a_project_witho
     for command in (('check', '--base', 'HEAD~1'), ('check', '--static', '--base', 'HEAD~1')):
         run = cli(shop, *command)
         assert run.returncode == 1 and 'is now missing' in run.stdout, (command, run.stdout + run.stderr)
+        # the first line names the option that gave the baseline, with FlowGuard's own seconds
+        assert re.fullmatch(r'FlowGuard \d+\.\d+ \(since --base HEAD~1\): 1 red; \d+\.\d s', run.stdout.splitlines()[0]), run.stdout
 
 
 def test_ledger_init_says_when_pytest_does_not_load_the_plugin(tmp_path):
@@ -723,6 +726,12 @@ def test_check_all_lists_unreviewed_legacy_fallbacks_of_production_code_by_how_t
         index = anchors.collect(graph)
         assert owners.static_findings(cfg, graph, index, None, everything=True).section[-len(expected):] == expected
         assert owners.static_findings(cfg, graph, index, None).section == []
+    # check --all and check --static --all print them as before lines, one per kind of handler body
+    from flowguard.intent.cli import _legacy_lines
+    assert [(line.kind, line.text, line.step) for line in _legacy_lines(expected)] == [
+        ('before', f'ledger legacy: {text}', 'leave it unless your task is about it') for text in (
+            'returns or substitutes another value: 3 handlers: src/shop/stock.py:4 old_reader, web/roles.ts:2 allowedRoles, web/roles.ts:17 scopes',
+            'only logs: 1 handlers: web/roles.ts:8 notify', 'empty body: 2 handlers: src/shop/stock.py:18 nothing, web/roles.ts:5 syncAll')]
 
 
 def test_a_catch_that_only_leaves_is_empty_and_one_that_logs_and_leaves_only_logs(tmp_path):
