@@ -119,7 +119,7 @@ Correct the entry from the question it records; nothing else needs rebuilding.
 | `# flowguard: owner A writers=f,g` | `# flowguard: writers A f,g` |
 | one owner line with `writers=` and `with=` | a `together` line and a `writers` line |
 
-`on=update` and `on=create` keep their place after the partners. A bare writer name means a function of the comment's own file; another file's function is written `path:function`.
+`on=update` and `on=create` keep their place after the partners. A bare writer name means a function of the comment's own file; another file's function is written `path:function`. A 4.2 writer named by its module (`writers=pkg.cache:put_meta`) is written by its file in 4.3 (`pkg/cache.py:put_meta`, or `put_meta` in that file's own comment); the module form is red at its line with that step.
 
 The 4.2 spellings are read with their old meaning. This 4.2 comment still gives the same red for a function that writes the field alone:
 
