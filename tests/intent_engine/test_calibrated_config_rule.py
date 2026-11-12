@@ -180,7 +180,7 @@ def test_real_call_of_a_config_reader_is_checked_against_its_rule(tmp_path):
     changed = _pytest(root)
     text = display_text(changed)
     assert changed.returncode == 1, text
-    assert ('red: rule LIMIT: days=4 -> rule False, code True at policy.py:accept '
+    assert ('red: rule LIMIT: days=4: rule False, code True at policy.py:accept '
             '-> change the code so policy.py:accept follows rule LIMIT') in text.splitlines(), text
     assert '    LIMIT source: At most three days.' in last(root).splitlines(), text
     assert 'no verified current reading' not in text, text

@@ -326,8 +326,8 @@ def test_a_line_names_at_most_three_places_and_paths_are_file_names_unless_two_s
     homes = [f'src/a{number}.py:f' for number in range(5)]
     step = signals.rule_steps('R', homes, 'tests/intent/r.py:3', ['days=4 -> rule False, code True'])[0].rstrip('; ')
     assert step == 'change the code so src/a0.py:f, src/a1.py:f, src/a2.py:f, src/a3.py:f and src/a4.py:f follow rule R', step
-    line = Line('red', 'rule:R', '', 'rule R: days=4 -> rule False, code True at src/a0.py:f', step, tuple(homes))
-    assert _block([line])[1] == ('red: rule R: days=4 -> rule False, code True at a0.py:f -> change the code so a0.py:f, '
+    line = Line('red', 'rule:R', '', 'rule R: days=4: rule False, code True at src/a0.py:f', step, tuple(homes))
+    assert _block([line])[1] == ('red: rule R: days=4: rule False, code True at a0.py:f -> change the code so a0.py:f, '
                                  'a1.py:f, a2.py:f (+2 places) follow rule R')
     code = ['days=4 -> rule False, code True']
     one = Line('red', 'rule:R', '', 'rule R: x', signals.rule_steps('R', homes[:4], 'r.py:3', code)[0].rstrip('; '), tuple(homes[:4]))
@@ -773,7 +773,7 @@ def test_a_rule_whose_source_does_not_parse_is_a_red_input_line_of_the_session_n
     load = ('red: load tests/intent/decisions.py:2: STANDING_RULE: source needs rule.<id> (a rule of .flowguard/rules.toml), '
             'R<id> "exact words", owner R-id, doc PATH "quoted words", assumed: or lesson: '
             '-> correct this declaration; until then none of its file is checked')
-    for options, rule in (((), ['red: rule STANDING_RULE: days=4 -> rule False, code True at policy.py:standing']),
+    for options, rule in (((), ['red: rule STANDING_RULE: days=4: rule False, code True at policy.py:standing']),
                           (('tests/test_case.py',), [])):          # with and without the rule's own items
         result = _run(tmp_path, *options)
         assert result.returncode == 1 and 'Traceback' not in result.stderr, result.stdout + result.stderr
@@ -824,7 +824,48 @@ def test_a_rule_red_spells_both_results_and_its_step_names_the_copy_that_disagre
     path.write_text(path.read_text(encoding='utf-8').replace(
         'def preview_accept(days: int) -> bool:\n    return days <= 3', 'def preview_accept(days: int) -> bool:\n    return days <= 4'),
         encoding='utf-8')
-    red = ('red: rule WINDOW: days=4 -> rule False, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) '
+    red = ('red: rule WINDOW: days=4: rule False, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) '
            '-> change the code so orders.py:preview_accept follows rule WINDOW')
     for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check'))):
         assert result.returncode == 1 and red in block(result), (run, result.stdout)
+
+
+def test_every_line_has_one_arrow_before_its_step_whatever_the_project_spells(tmp_path):
+    """` -> ` separates a line from its step, once per line: a recorded value that holds ` -> ` is written so that it
+    holds none (the same value in Python and JSON), a comment's own `->` stays out of the separator, and a rule red
+    reads `days=4: rule False, code True`."""
+    from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
+    root = _project(tmp_path / 'p', {
+        'route.py': '''
+            # flowguard: same ROUTE ref
+            def route(a: int) -> str:
+                return f'{a} -> hub'
+
+            # flowguard: same ROUTE
+            def route_copy(a: int) -> str:
+                return f'{a} -> hub'
+        ''',
+        'orders.py': '''
+            # flowguard: same ACCEPT(days: day) -> allowed: bool -> extra
+            def preview_accept(days: int) -> bool:
+                return days <= 3
+        ''',
+        'tests/test_route.py': '''
+            from route import route, route_copy
+
+            def test_route():
+                assert route(1) and route_copy(1)
+        ''',
+    })
+    path = root / 'route.py'
+    path.write_text(path.read_text(encoding='utf-8').replace("    return f'{a} -> hub'\n", "    return f'{a} -> cafe'\n", 2)
+                    .replace("    return f'{a} -> cafe'\n", "    return f'{a} -> hub'\n", 1), encoding='utf-8')
+    for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check')),
+                             ('check --static', _cli(root, 'check', '--static'))):
+        lines = result.stdout.splitlines()          # as printed: `block` would undo the escape of a display
+        shown = lines[next(number for number, line in enumerate(lines) if line.startswith('FlowGuard ')):]
+        assert result.returncode == 1 and all(line.count(' -> ') == 1 for line in shown[1:]), (run, shown)
+        assert 'red: comment orders.py:1: anchor return type bool->extra != source bool -> correct this flowguard comment' in shown, (run, shown)
+        if run == 'pytest':
+            assert ("red: same ROUTE: on a=1: the reference route.py:route returns '1 -\\u003e hub', route.py:route_copy returns "
+                    "'1 -\\u003e cafe' -> make route.py:route_copy agree with the reference") in shown, shown

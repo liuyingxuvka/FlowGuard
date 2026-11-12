@@ -593,9 +593,16 @@ def _cap(said, paths=(), places=()):
 def finding(family, name, subject, whats, step, *, function='', places=(), files=(), detail=(), fresh=True):
     """A finding of one member as `deliver` reads it (a `health.Issue`): its first `what`, and how many more it has,
     after the subject (`{subject}: {what}`, `places` the paths the line names), the others in its detail. `fresh`:
-    this change added it (findings judged without a baseline, as an intent test's red, always are)."""
+    this change added it (findings judged without a baseline, as an intent test's red, always are). A line has one
+    ` -> `, before its step: without a `step`, the first `what`'s own next step after its last ` -> ` is the step;
+    any other ` -> ` of the words reads `: ` (`days=4 -> rule False, code True` is `days=4: rule False, code True`)."""
     from .health import Issue, LINES_ONLY
     whats = list(dict.fromkeys(_one_line(what) for what in whats)) or ['']
+    if not step:
+        said, own = split_step(whats[0])
+        if own and not own.startswith('rule '):         # `inputs -> rule X, code Y` is no step
+            whats[0], step = said, own
+    whats = list(dict.fromkeys(what.replace(' -> ', ': ') for what in whats))
     what = whats[0] + (f' (+{len(whats) - 1} more)' if len(whats) > 1 else '')
     return Issue(name, LINES_ONLY, subject, f'{subject}: {what}', step, files=frozenset(files), new=fresh, family=family,
                  subject=subject, parts=((function, tuple(places), what, step),), fresh=frozenset({function}) if fresh else frozenset(),
@@ -680,13 +687,23 @@ def changed_line(name, target, file, line, changes, compared, *, cause=None, una
 
 
 def value_text(value):
-    """A recorded JSON value as Python spells it: 'text', True, None, 3; a raised exception as `raises ...`."""
+    """A recorded JSON value as Python spells it: 'text', True, None, 3; a raised exception as `raises ...`. A ` -> `
+    inside it is written ` -\\u003e ` (the same value in Python and JSON), as ` -> ` is where a line puts its step."""
     if type(value) is dict and set(value) == {'raises'}:
-        return f'raises {value["raises"]}'
-    if type(value) in (dict, list):
+        text = f'raises {value["raises"]}'
+    elif type(value) in (dict, list):
         import json
-        return json.dumps(value, ensure_ascii=False, sort_keys=True)
-    return repr(value)
+        text = json.dumps(value, ensure_ascii=False, sort_keys=True)
+    else:
+        text = repr(value)
+    return text.replace(' -> ', ' -\\u003e ')
+
+
+def split_step(text):
+    """(what, step) of a message that ends in its own next step after ` -> `, split at the last one (the words before it
+    may quote project text); (text, '') without one."""
+    what, arrow, step = text.rpartition(' -> ')
+    return (what, step) if arrow else (text, '')
 
 
 def ascii_text(text):

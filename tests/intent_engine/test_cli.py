@@ -76,8 +76,10 @@ def test_output_limit_keeps_whole_decisive_red_lines_and_counts_the_rest(tmp_pat
     issues, lines = cli._cache_findings(cfg, load(cfg), data)
     found, ignored = signals.collect([signals.delivery(issues, lines)])
     output = signals.render_block(found, title='FlowGuard').splitlines()
-    assert output[1:] == [f'red: rule LIMIT: {expected}0 (+49 more) -> change the code so {cfg.root.name}.py:accept follows rule LIMIT'], output
-    assert [expected + str(n) for n in range(1, 50)] == list(found[0].detail[:49]) and ignored == 0, found
+    # the line's one ` -> ` comes before its step: the engine's `days=4 -> rule False` reads `days=4: rule False`
+    shown = 'exact values days=4: rule False, code True; case '
+    assert output[1:] == [f'red: rule LIMIT: {shown}0 (+49 more) -> change the code so {cfg.root.name}.py:accept follows rule LIMIT'], output
+    assert [shown + str(n) for n in range(1, 50)] == list(found[0].detail[:49]) and ignored == 0, found
 
 
 def test_every_command_has_a_description_in_the_help(capsys, monkeypatch):

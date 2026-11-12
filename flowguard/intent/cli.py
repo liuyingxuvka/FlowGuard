@@ -719,21 +719,21 @@ class _Own:
 
 
 def _step_of(message, step):
-    """(what, step) of a message that may carry its own step after ' -> ', in ASCII; else `step`."""
-    from .signals import ascii_text
-    what, arrow, own = ascii_text(message).partition(' -> ')
-    return what, own if arrow else step
+    """(what, step) of a message that may carry its own step after its last ' -> ', in ASCII; else `step`."""
+    from .signals import ascii_text, split_step
+    what, own = split_step(ascii_text(message))
+    return what, own or step
 
 
 def _index_findings(index):
     """The findings of the flowguard comments, in the words of a pytest session: a malformed comment is red (it
     disables checks, D4), and a source file that does not parse is not compared, only that file."""
-    from .signals import ascii_text, finding, not_compared
+    from .signals import ascii_text, finding, not_compared, split_step
     reds, unparsed = {}, {}
     for issue in index.issues:
         place = f'{issue.file}:{issue.line}' if issue.line else issue.file
         if issue.level == 'red':
-            what, _, step = ascii_text(issue.message).partition(' -> ')
+            what, step = split_step(ascii_text(issue.message))
             entry = reds.setdefault(f'comment:{place}:{issue.code}', dict(place=place, file=issue.file, whats=[],
                                                                           step=step or 'correct this flowguard comment'))
             entry['whats'].append(what)

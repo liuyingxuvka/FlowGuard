@@ -260,7 +260,7 @@ def test_fixed_7_rule_failure_preserves_its_independent_source_sentence(tmp_path
     text = _text(result)
     assert result.returncode == 1, text
     assert [line for line in text.splitlines() if line.startswith('red: ')] == [
-        'red: rule STANDING_RULE: days=4 -> rule False, code True at policy.py:standing (1 of 6 cells disagree) (+1 more) '
+        'red: rule STANDING_RULE: days=4: rule False, code True at policy.py:standing (1 of 6 cells disagree) (+1 more) '
         '-> change the code so policy.py:standing follows rule STANDING_RULE'], text
     # The owner's sentence is the red's detail, which show --last prints under it.
     assert '    STANDING_RULE source: At most three days.' in _last(tmp_path).splitlines()

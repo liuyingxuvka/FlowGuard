@@ -986,7 +986,7 @@ class Observations:
             if issue.level == 'red':
                 self.red.append(issue.message)
                 place = f'{issue.file}:{issue.line}' if issue.line else issue.file
-                what, _, step = signals.ascii_text(issue.message).partition(' -> ')
+                what, step = signals.split_step(signals.ascii_text(issue.message))
                 self._found('input', f'comment:{place}:{issue.code}', f'comment {place}', what,
                             step or 'correct this flowguard comment', places=(place,), files=(issue.file,))
             elif issue.code == 'source-syntax':

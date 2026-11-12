@@ -190,7 +190,7 @@ def test_sample_7_rule_violation_is_one_red_line_with_the_owner_sentence(shop):
     assert result.returncode == 1 and '2 failed, 10 passed' in result.stdout, text
     block = _block(result)[1]
     # One red line for the rule's home; the owner sentence and every step are its detail (show --last).
-    assert block == ['red: rule DEPOSIT_REVIEW: deposit=101 member=T -> rule True, code False at shop/deposit.py:needs_approval '
+    assert block == ['red: rule DEPOSIT_REVIEW: deposit=101 member=T: rule True, code False at shop/deposit.py:needs_approval '
                      '(2 of 10 cells disagree) (+1 more) -> change the code so shop/deposit.py:needs_approval follows rule DEPOSIT_REVIEW',
                      BROKEN_LINE], block
     shown = last(shop).splitlines()
