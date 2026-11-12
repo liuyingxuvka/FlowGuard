@@ -1367,6 +1367,34 @@ def test_the_block_leaves_a_machine_readable_report_on_stdout_whole(vitest_home)
     assert code == 0 and TITLE.search(out) and not TITLE.search(err) and _block(out), (out, err)
 
 
+def test_a_run_that_filters_out_the_session_test_fails_with_its_red_in_the_block(vitest_home):
+    # Review of 4.3: path filters, -t and --project also leave FlowGuard's session test out. The global setup's
+    # teardown then judges the run: exit 1 and the red in the block. vitest writes its JSON and junit results before
+    # any teardown and has no supported way to keep a test in a filtered run, so those results do not carry the red:
+    # a limit documented in docs/intent-guide.md and index.mjs.
+    root = vitest_home / 'filtered'
+    _commit(root, {
+        'package.json': '{"name":"filtered","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function enough(x: number) { return x > 3; }\n',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    config = root / 'vitest.config.mjs'
+    config.write_text(config.read_text(encoding='utf-8').replace('plugins: [flowguard()] }', "plugins: [flowguard()], test: { name: 'app' } }"),
+                      encoding='utf-8', newline='\n')
+    _commit(root, message='wired')
+    other = root / 'src/b.ts'
+    other.write_text(other.read_text().replace('x > 3', 'x >= 3'))
+    red = 'red: same LIMIT: on x=3: a.ts:over returns False, b.ts:enough returns True -> decide which copy is right, then make the other agree'
+    for arguments in (['tests/app.test.ts'], ['-t', 'real'], ['--project', 'app']):
+        code, text = _vitest(root, vitest_home, *arguments, '--reporter=default', '--reporter=json', '--outputFile.json=results.json')
+        assert code == 1 and red in _block(text), (arguments, text)
+        results = json.loads((root / 'results.json').read_text(encoding='utf-8'))
+        ran = {case['title']: case['status'] for result in results['testResults'] for case in result['assertionResults']}
+        assert ran['real'] == 'passed' and ran.get('FlowGuard execution side') in (None, 'skipped'), (arguments, ran)
+
+
 def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph_separator(vitest_home):
     # JavaScript ends a line at U+2028 and U+2029 too: the recorder's source map counts lines the same way,
     # so a stack position inside a recorded function is the one vitest gives without FlowGuard (line 7, column 13).

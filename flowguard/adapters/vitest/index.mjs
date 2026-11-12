@@ -3,6 +3,11 @@
 // a const function becomes let so the recorder can remove itself. No old or copy module is imported.
 // It also adds FlowGuard's own test project (session.test.mjs), run after the project's tests
 // (sequence.groupOrder): its one test case fails on a red, so the red is in vitest's results (JSON, junit) too.
+// A run whose path filters, -t or --project leave that test out is judged by the global setup's teardown: its red
+// reaches the exit status and the block, not the JSON or junit results, which vitest writes before any teardown.
+// That is a limit of vitest 4: every project's files pass through the CLI filters (TestProject.filterFiles), -t is
+// one pattern for every project (configOverride.testNamePattern), --project filters injected projects too, and no
+// plugin hook adds a test or a result between the last test and the reporters' onTestRunEnd.
 // It applies only to the vite servers vitest itself starts for a run (R85): what `vite build` and the dev server
 // serve is never changed, nor a build or server that a test or a global setup starts inside a vitest run.
 import fs from 'node:fs';
