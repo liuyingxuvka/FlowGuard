@@ -474,6 +474,7 @@ class Observations:
         self.structure = None
         self.event_record = self.capture = None
         self.request, self.text = _TRY.get(), ''
+        self.final = None           # FlowGuard's own seconds in the session, taken once after all its work (`_final`)
         self.session_red = []       # set by report(): the reds no failed test carries
         # The 4.3 lines (`signals.collect`): findings by (name, member), what was not compared and why, the changed
         # lines, and for `show --last` the unchanged points an explicit comparison compared.
@@ -1676,11 +1677,23 @@ def _meta(con, name, value):
     put_meta(con, name, _json(value))
 
 
+def _final(state):
+    """The block's time, taken once: FlowGuard's own work in the session up to its last write (`_save_last`, the last
+    step of the session's transaction), so the terminal, junit's flowguard::session case and show --last print one
+    first line."""
+    observed = state.observations
+    if observed is not None and observed.text and observed.final is None:
+        observed.final = _seconds(state)
+        observed.text = observed.block(observed.final)
+
+
 def _save_last(con, state):
-    """The session's lines for `show --last` (`cache.save_last`), when this run prints the block."""
+    """The session's lines for `show --last` (`cache.save_last`), when this run prints the block: the last write of
+    its transaction, with the block's final time (`_final`)."""
     if state.observations is not None and state.observations.text:
         from .cache import save_last
-        save_last(con, state.observations.last(_seconds(state)))
+        _final(state)
+        save_last(con, state.observations.last(state.observations.final))
 
 
 def _save_readings(con, state):
@@ -1769,17 +1782,16 @@ class Block:
 
 
 def _display(session):
-    """Print the block; its first line's time is FlowGuard's own work in the session up to printing it. A console
+    """Print the block as the verdict fixed it (`_final`: its time is FlowGuard's own work in the session). A console
     that cannot take it leaves the committed verdict as it is and records why in the observations."""
     state = session.config._flowguard_intent
     if state.observations is None or not state.observations.text:
         return
     from .differences import display
-    timing = time.perf_counter()
     reporter = session.config.pluginmanager.get_plugin('terminalreporter')
     if reporter is not None and reporter._tw.width_of_current_line:
         reporter._tw.line()             # never after the progress line of the last test
-    text = state.observations.block(state.observations.seconds() + time.perf_counter() - timing)
+    text = state.observations.text
     try:
         display(text)
     except (OSError, ValueError) as error:
@@ -1816,6 +1828,17 @@ def _junit_session(session, state):
 
 
 def finish_verified(session, exitstatus):
+    """The session's verdict and its records; then the block's text with its final time (`_final`, already taken where
+    the transaction kept the run for show --last), whose lines junit's flowguard::session case carries."""
+    state = session.config._flowguard_intent
+    _verify(session, exitstatus)
+    _final(state)
+    observed = state.observations
+    if observed is not None and observed.session_red:
+        state.session_red.extend(observed.text.splitlines() or ['red: ' + line.text for line in observed.session_red])
+
+
+def _verify(session, exitstatus):
     state = session.config._flowguard_intent
     from .calibration import probe_context
     if probe_context(session.config):
@@ -1833,9 +1856,6 @@ def finish_verified(session, exitstatus):
     state.rule_contracts()
     if state.observations is not None and state.observations.report():
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
-        if state.observations.session_red:
-            state.session_red.extend(state.observations.text.splitlines()
-                                     or ['red: ' + line.text for line in state.observations.session_red])
     state.session_red[:0] = state.session_errors
     exitstatus = session.exitstatus
     missing = _missing(state, declared)
@@ -1869,10 +1889,9 @@ def finish_verified(session, exitstatus):
                         if state.observations is not None and state.observations.structure is not None:
                             from .cache import save_structure
                             save_structure(con, state.observations.structure)
-                    _save_last(con, state)
-                    if state.readings:
                         _save_readings(con, state)
                         _save_ordinary_collection(con, session, state)
+                    _save_last(con, state)
         return
     with closing(state.get_map()) as mapping:
         con = mapping.con
@@ -1884,7 +1903,6 @@ def finish_verified(session, exitstatus):
         if state.observations is not None and state.observations.structure is not None:
             from .cache import save_structure
             save_structure(con, state.observations.structure)
-        _save_last(con, state)
         if not missing and state.sentinel == 'ok' and not state.session_errors:
             _meta(con, 'intent_collection', attempt)
             if not model.deep:
@@ -1904,4 +1922,5 @@ def finish_verified(session, exitstatus):
             save_dependencies(con, records)
         _save_readings(con, state)
         _save_ordinary_collection(con, session, state)
+        _save_last(con, state)
         con.commit()

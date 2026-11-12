@@ -164,3 +164,42 @@ def test_every_pytest_run_that_prints_a_block_keeps_it_for_show_last(tmp_path):
     assert shown[0].startswith('FlowGuard last run: pytest at '), shown
     untimed = lambda title: title.rpartition('; ')[0]
     assert untimed(shown[1]) == untimed(block(nothing)[0]) and not any(line.startswith('red: ') for line in shown), (shown, nothing.stdout)
+
+
+def test_the_terminal_junit_and_show_last_give_one_run_the_same_first_line(tmp_path):
+    """One time per run: FlowGuard's own work in the session, taken once after all of it (here a slow write of the
+    session's readings, which a conftest of the project injects), in the block, junit's flowguard::session case and
+    the run kept for show --last alike."""
+    import xml.etree.ElementTree as ET
+    from tests.intent_engine.test_default_runtime_signals import _project, _run
+    from tests.intent_engine._cli_fixture import block, last
+    policy = _project(tmp_path, '''
+        # flowguard: same LIMIT
+        def chart(days: int) -> bool:
+            return days <= 3
+        # flowguard: same LIMIT
+        def calendar(days: int) -> bool:
+            return days <= 3
+    ''', '''
+        from policy import chart, calendar
+        def test_limit():
+            assert chart(1) and calendar(1)
+    ''')
+    (tmp_path / 'tests/conftest.py').write_text('''
+import time
+from flowguard.intent import plugin
+_readings = plugin._save_readings
+def _slow(con, state):
+    time.sleep(0.4)
+    _readings(con, state)
+plugin._save_readings = _slow
+''', encoding='utf-8')
+    policy.write_text(policy.read_text().replace('return days <= 3', 'return days <= 4', 1))
+    result = _run(tmp_path, f'--junitxml={tmp_path / "junit.xml"}')
+    assert result.returncode == 1, result.stdout + result.stderr
+    title = block(result)[0]
+    failures = [failure.text for failure in ET.parse(tmp_path / 'junit.xml').iter('failure')]
+    assert [text.splitlines()[0] for text in failures] == [title], (failures, title)
+    shown = last(tmp_path).splitlines()
+    assert shown[1] == title, (shown, title)
+    assert float(title.rpartition('; ')[2].removesuffix(' s')) >= 0.4, title
