@@ -184,9 +184,10 @@ def test_check_static_old_value_lead_reads_the_folded_constant_names_too(tmp_pat
     })
     (tmp_path / 'src/a.ts').write_text('export function over(x: number): boolean {\n  return x > 105;\n}\n', encoding='utf-8')
     code, text = _flowguard(tmp_path, 'check', '--static')
-    # old values are a 5.0-deprecated heuristic: a lead of show --last, no line of the block
+    # old values are a 5.0-deprecated heuristic: a lead of show --last, no line of the block, and FlowGuard's own, so
+    # no deprecation notice either
     shown = _cli_fixture.last(tmp_path).splitlines()
-    assert code == 0 and text.splitlines()[1:] == ['deprecated: old-value leads goes in 5.0 -> do not use it'], text
+    assert code == 0 and text.splitlines()[1:] == [], text
     assert '    old-value leads: old values 100 remain in 1 decisions: src/b.ts:4 -> if requirements changed, update them together' \
         in shown[shown.index('deprecated leads (5.0):'):], shown
 
