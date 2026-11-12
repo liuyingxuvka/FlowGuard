@@ -1087,7 +1087,9 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     root = _fees_project(vitest_home, 'fees')
     code, text = _vitest(root, vitest_home)
     after = text.split('Test Files')[-1]
-    assert code == 0 and 'FlowGuard check --static' not in after and not TITLE.search(after), text  # no change: nothing added
+    # no change: the block is its first line alone (D12), the static test's map checks included and passed
+    assert code == 0 and 'FlowGuard check --static' not in after, text
+    assert re.fullmatch(r'FlowGuard \S+ \(since HEAD \w+\): 0 red; [0-9.]+ s', '\n'.join(_block(text))), text
     assert 'changed: ' not in text and 'same LATE_FEE' not in text, text
     _sensor(root, 'src/fees/late-fee.ts', 'export function lateFee', 'LATE_FEE')
     _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
@@ -1273,6 +1275,63 @@ def test_a_known_fixed_of_the_map_checks_is_listed_in_a_vitest_run_that_touches_
     assert code == 0 and fixed in block and not [line for line in block if line.startswith('known: ')], text
     assert re.fullmatch(r'FlowGuard \S+ \(since \w+\): 0 red, 1 known fixed\?; [0-9.]+ s', block[0]), block
     assert fixed in _cli_fixture.last(root) and 'known: known.status' not in _cli_fixture.last(root), _cli_fixture.last(root)
+
+
+def test_a_run_with_nothing_to_observe_still_prints_the_map_checks_and_a_run_without_a_baseline_compares_copies(vitest_home):
+    # Review of 4.3: when the plugin turned itself off (no function to observe, no baseline commit) the run printed no
+    # block: a loosened line or a red of known.toml the static test found was hidden with the passing tests' output, a
+    # failure pointed at "the FlowGuard block at the end" that never came, and copies that disagree were silent where
+    # pytest is red. The first line always prints (D12), the map checks join the vitest block (4.7), and without a
+    # baseline the copies are compared as pytest compares them, the title saying nothing was compared with one (D13).
+    from flowguard.intent import cache
+    from flowguard.intent.config import load_config
+    root = vitest_home / 'quiet'
+    _commit(root, {
+        'package.json': '{"name":"quiet","private":true,"type":"module","scripts":{"test":"vitest run"},'
+                        '"devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': 'export function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'tests/app.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nit('real', () => { expect(over(4)).toBe(true); });\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0 and (root / 'flowguard.static.test.mjs').is_file()
+    entry = '[known.limit]\nsites = ["src/a.ts:over"]\nwhy = "the limit may be off by one"\nact = "ask"\nask = "is 3 included?"\n'
+    _commit(root, {'.flowguard/known.toml': entry}, message='wired, with a known entry')
+    (root / '.flowguard/known.toml').write_text(entry.replace('act = "ask"', 'act = "leave"'), encoding='utf-8', newline='\n')
+    loosened = "loosened: known.limit changed (act) -> name it in your report; needs the owner's yes"
+    code, text = _vitest(root, vitest_home)
+    block = _block(text)
+    assert code == 0 and block[1:] == [loosened] and re.fullmatch(r'FlowGuard \S+ \(since HEAD \w+\): 0 red, 1 loosened; [0-9.]+ s', block[0]), text
+    (root / '.flowguard/known.toml').write_text(entry.replace('ask = "is 3 included?"\n', ''), encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)
+    block = _block(text)
+    assert code == 1 and 'Error: FlowGuard: 1 red, see the FlowGuard block at the end' in text, text
+    assert [line for line in block if line.startswith('red: ')] == [
+        'red: known.limit: known.toml:known.limit act = "ask" needs ask: the question for the owner -> correct [known.limit] in known.toml'], block
+    # copies that disagree, compared with a recorded task start this repository lacks, and outside Git
+    copies = vitest_home / 'unborn'
+    _commit(copies, {
+        'package.json': '{"name":"unborn","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport const enough = (x: number): boolean => x >= 3;\n',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+    })
+    assert _flowguard(copies, 'init')[0] == 0
+    (copies / 'flowguard.static.test.mjs').unlink()         # copies alone: the baseline turns the plugin on
+    _commit(copies, message='wired')
+    cache._record_baseline(load_config(copies), 'b' * 40)
+    red = 'red: same LIMIT: on x=3: a.ts:over returns False, b.ts:enough returns True -> decide which copy is right, then make the other agree'
+    code, text = _vitest(copies, vitest_home)
+    block = _block(text)
+    assert code == 1 and block[1:] == [red], text
+    assert block[0].startswith(f'FlowGuard {signals.version()} (since bbbbbbb, not in this repository: nothing compared; '
+                               'run python -m flowguard new-task): 1 red; '), block
+    shutil.rmtree(copies / '.git')
+    shutil.rmtree(copies / '.flowguard/cache')
+    code, text = _vitest(copies, vitest_home)
+    block = _block(text)
+    assert code == 1 and block[1:] == [red] and block[0].startswith(f'FlowGuard {signals.version()} (no baseline: nothing compared): 1 red; '), text
+    (copies / 'src/b.ts').write_text((copies / 'src/b.ts').read_text().replace('x >= 3', 'x > 3'), encoding='utf-8', newline='\n')
+    code, text = _vitest(copies, vitest_home)        # no stale plan: the copies agree now
+    assert code == 0 and _block(text)[1:] == [], text
 
 
 def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph_separator(vitest_home):

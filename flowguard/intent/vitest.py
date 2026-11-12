@@ -412,8 +412,15 @@ def _constants_changed(before, now):
     return {name for name in old.keys() | new.keys() if old.get(name) != new.get(name)}
 
 
+ABSENT = 'function absent at baseline'
+NO_BASELINE = 'no baseline'     # a copy's version at the baseline when the run has none to compare with
+
+
 def plan(cfg, commit, changed, key):
-    """The points to observe and everything the Node adapter needs, as one JSON-ready dict."""
+    """The points to observe and everything the Node adapter needs, as one JSON-ready dict. Without a baseline commit
+    (`commit` None: outside Git, before the first commit, a recorded task start this repository lacks) nothing has
+    changed and only the same-name copies are planned, each with no version at the baseline (`NO_BASELINE`): as in
+    pytest, copies that disagree are then red (design 4.7, D13: the title says nothing was compared)."""
     from contextlib import closing
     from ..map.common import git_blob, git_renames
     from ..structure import build
@@ -429,7 +436,7 @@ def plan(cfg, commit, changed, key):
             if anchor.kind == 'sensor' and _ecma(anchor.file) and anchor.source_role != 'test':
                 wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual)
         old_sources, readers, touched = {}, {}, set()
-        renamed = git_renames(cfg.root, commit)         # a moved file's baseline version is at its old path
+        renamed = git_renames(cfg.root, commit) if commit else {}    # a moved file's baseline version is at its old path
         for rel in changed:
             if rel not in modules or is_test_rel(rel) or not (cfg.root / rel).is_file():
                 continue
@@ -495,10 +502,10 @@ def plan(cfg, commit, changed, key):
                         number = -number
                     extra_numbers.append(number)
             old_rel = renamed.get(rel, rel)     # a moved file's baseline imports name files next to its old path
-            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, old_rel)
+            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, old_rel) if commit else None
             prior, old_skip = (sealed_source(old, old_rel, qual, lambda path: baseline_files.get(path) if path in baseline_files
                                              else git_blob(cfg.root, commit, path), old_tables) if old is not None and qual in declarations(old, old_rel)
-                               else ('', 'function absent at baseline'))
+                               else ('', ABSENT if commit else NO_BASELINE))
             points.append(dict(id=ident, name=name, anchored=anchored, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
                                recordable=(not found['is_async'] and 'generator' not in found['node'].type
@@ -558,33 +565,35 @@ def _issue(fields):
                         entry=tuple(fields['entry']), detail=tuple(fields['detail']), parts=parts))
 
 
-def prepare(root):
-    """{'status': 'off', 'reason'} without a TS/JS change, else {'status': 'on', 'plan', 'adapter'}."""
+def prepare(root, package=None):
+    """{'status': 'on', 'plan', 'adapter', 'seconds'} with the plan of this vitest run, or {'status': 'off', 'reason',
+    'seconds'} for a run that has nothing to observe (no same-name copy, no changed module-level function), a baseline
+    commit, and no static test wired in its package (`package`, the folder of its vitest config; the root when not
+    given). The first line is always printed (D12): a run whose package has the static test wired prints that test's
+    map checks in its block (design 4.7), and a run without a baseline commit (outside Git, before the first commit, a
+    recorded task start this repository lacks) compares its same-name copies as pytest does and says in its title
+    that nothing was compared with a baseline (D13)."""
     from . import cache
     from .config import load_config
     from ..map.common import atomic_write_text, git_common_directory, git_run
     started = time.perf_counter()
-    def answer(**values):
-        return dict(values, seconds=time.perf_counter() - started)
     cfg = load_config(root)
-    if git_common_directory(cfg.root) is None:
-        return answer(status='off', reason='not a git repository: no baseline commit; execution comparison is off')
-    # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
-    # stands in, and the title says so.
-    baseline, kind = cache.task_baseline(cfg)
-    if kind == 'missing':
-        return answer(status='off', reason=f'recorded task baseline {baseline[:7]} is not in this repository: execution comparison is off; first run python -m flowguard new-task')
-    found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (baseline or 'HEAD') + '^{commit}', allowed=(0, 1))
-    if found.returncode:
-        return answer(status='off', reason='no commits yet: no baseline; execution comparison is off')
-    commit = found.stdout.decode().strip()
-    changed = _changed(cfg, commit)
+    commit = label = kind = None        # the commit compared with, the commit the title names, and its kind
+    if git_common_directory(cfg.root) is not None:
+        # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
+        # stands in, and the title says so.
+        label, kind = cache.task_baseline(cfg)
+        if kind != 'missing':
+            found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (label or 'HEAD') + '^{commit}', allowed=(0, 1))
+            commit = label = None if found.returncode else found.stdout.decode().strip()
+    changed = _changed(cfg, commit) if commit else []
     # Same-name functions are always planned, including runs without a source change.
-    key = _key(cfg, commit, changed, kind)
+    key = _key(cfg, commit or label or '', changed, kind or 'none')
     path = cfg.cache / 'vitest' / f'plan-{key}.json'
-    if not path.is_file():
+    # Without a baseline commit no diff names the files a plan has read, so such a plan is made again on every run.
+    if commit is None or not path.is_file():
         data = plan(cfg, commit, changed, key)
-        data['baseline_kind'] = kind
+        data.update(baseline=label, baseline_kind=kind)
         path.parent.mkdir(parents=True, exist_ok=True)
         for old in path.parent.glob('plan-*.json'):
             old.unlink()                # one current plan; an older one belongs to another change
@@ -592,7 +601,7 @@ def prepare(root):
         data = json.loads(path.read_text(encoding='utf-8'))
     data['prepare_seconds'] = time.perf_counter() - started
     atomic_write_text(path, json.dumps(data, ensure_ascii=False))
-    if not data['files'] and not data['unplanned']:
+    if not data['files'] and not data['unplanned'] and commit is not None and not _wired(cfg, package):
         return dict(status='off', reason='no functions to observe in this change (anchors or changed module-level functions)',
                     seconds=data['prepare_seconds'])
     return dict(status='on', plan=path.as_posix(), adapter=(ADAPTER / 'index.mjs').as_posix(), seconds=data['prepare_seconds'])
@@ -606,8 +615,9 @@ MODULE = GENERATED + '''
 // Delete those two lines to undo. Only a vitest run loads FlowGuard (vitest sets VITEST before it reads the
 // config): `vite build`, `vite` and `vite preview` get no plugin and start no Python, so the software itself is
 // never changed. In a vitest run it records functions marked `flowguard: same NAME` and changed functions;
-// without either it adds nothing. Comparison runs after the tests, and FlowGuard's lines follow
-// the test summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
+// without either it adds nothing, unless flowguard.static.test.mjs is next to this file or there is no baseline
+// commit: then it adds the block only. Comparison runs after the tests, and FlowGuard's lines follow the test
+// summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
 // interpreter that ran `flowguard init` on this machine, recorded in @RECORDED@ (git-ignored), then `python3`,
 // `python` and, on Windows, `py -3`.
 import { spawnSync } from 'node:child_process';
@@ -615,7 +625,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), @ROOT@);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, @ROOT@);
 const RECORDED = path.join(ROOT, ...@RECORDED@.split('/'));
 
 function interpreters() {
@@ -630,7 +641,7 @@ export default async function flowguard() {
   if (!process.env.VITEST) return null;
   const tried = [];
   for (const [command, ...prefix] of interpreters()) {
-    const run = spawnSync(command, [...prefix, '-m', 'flowguard.intent.vitest', 'prepare', '--root', ROOT], {
+    const run = spawnSync(command, [...prefix, '-m', 'flowguard.intent.vitest', 'prepare', '--root', ROOT, '--package', HERE], {
       cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
     const output = ((run.stdout || '') + (run.stderr || '')).trimEnd();
@@ -839,7 +850,8 @@ def closed_rows(data, records):
         for prior in (False, True):
             source, why = (point['old_source'], point['old_skip']) if prior else (point['source'], point['skip'])
             if why:
-                if not prior or why != point['skip']:
+                # without a baseline nothing is compared with one, which the title says (D13)
+                if not prior or why not in (point['skip'], NO_BASELINE):
                     reasons.setdefault(ident, []).append(('baseline: ' if prior else '') + why)
                 continue
             for args in wanted[ident]:
@@ -1000,7 +1012,7 @@ def judge(cfg, data, records, package=None):
         for row in sorted(samples, key=_counterexample(point, [record for record in calls.get(ident, ()) if 'args' in record])):
             inputs = ', '.join(f'{key}={_shown(item)}' for key, item in row['in'])
             old = [(target, answer) for target, answer in [(ident, row['old']), *row['old_copies'].items()]
-                   if points[target]['old_skip'] != 'function absent at baseline']
+                   if points[target]['old_skip'] not in (ABSENT, NO_BASELINE)]
             answers = [(places[ident], row['now'])]
             for copy in point['copies']:
                 theirs = row['copies'].get(copy['id'])
@@ -1026,7 +1038,10 @@ def judge(cfg, data, records, package=None):
     # rules on the observed calls and replayed classes, as the pytest side checks a reading
     model = load(cfg)
     engine = Engine(model)
-    engine.baseline = data['baseline']      # a rule's source is judged with this run's comparison commit, as in pytest
+    # a rule's source is judged with this run's comparison commit, as in pytest: none outside Git, before the first
+    # commit or for a recorded task start this repository lacks (whose commit the title still names)
+    commit = None if data['baseline_kind'] == 'missing' else data['baseline']
+    engine.baseline = commit
     for error in model.errors:
         place = f'{error["file"]}:{error["line"]}'
         issues.append(signals.finding('input', f'load:{place}', f'load {place}', [signals.ascii_text(error['msg'])],
@@ -1090,7 +1105,7 @@ def judge(cfg, data, records, package=None):
     # What the change touches: the files it changed (read now: an intent file's or a document's change does not
     # change the plan), the TS/JS declarations it added, edited or removed, the changed points, and the members of
     # same-name copies one of whose files it changed (a before line needs that, 4.7).
-    touched_files = frozenset(_differs(cfg, data['baseline']))
+    touched_files = frozenset(_differs(cfg, commit)) if commit else frozenset()
     touched = {*data['touched'], *(ident for ident, point in points.items() if point['changed'])}
     touched |= {part[0] for issue in issues if issue.family == 'same' and issue.files & touched_files for part in issue.parts}
     # How far HEAD lies after a recorded task start is read now, by the one git call of pytest's title, and not
@@ -1233,11 +1248,11 @@ def main(argv=None):
     parser.add_argument('--root', required=True)
     parser.add_argument('--plan')
     parser.add_argument('--observations')
-    parser.add_argument('--package', help='The folder of the vitest run (its vite root)')
+    parser.add_argument('--package', help='The folder of the vitest run (its vite root); for prepare, of its vitest config')
     parser.add_argument('--in-test', action='store_true', help='Run by the session test: keep the observations')
     options = parser.parse_args(argv)
     if options.step == 'prepare':
-        print(json.dumps(prepare(options.root), ensure_ascii=False))
+        print(json.dumps(prepare(options.root, options.package), ensure_ascii=False))
         return 0
     if not options.plan or not options.observations:
         parser.error('report needs --plan and --observations')
