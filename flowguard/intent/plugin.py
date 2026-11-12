@@ -488,7 +488,7 @@ class Observations:
         import ast
         from . import anchors, cache, differences
         from .runtime import Runtime, _functions, _binding_facts, _binding_reads, _read_through
-        from ..map.common import MapError, git_renames, git_run, read_source
+        from ..map.common import MapError, git_files, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
         self.requested_base = state.config.getoption('--flowguard-base', default=None)
@@ -510,12 +510,11 @@ class Observations:
         self.index = state.model.anchor_index or differences._source_index(self.cfg.root)
         state.model.anchor_index = self.index
         self.renamed = {}       # a moved file's baseline version is at its old path
-        self.repository = frozenset()   # the repository's files, which no shortened path of the block may name
+        # the project's files, which no shortened path of the block may name: Git's list, else the map's walk
+        self.repository = git_files(self.cfg.root)
         try:
             changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', baseline).stdout
             added = git_run(self.cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
-            tracked = git_run(self.cfg.root, 'ls-files', '-z').stdout
-            self.repository = frozenset(os.fsdecode(value) for value in (tracked + added).split(b'\0') if value)
             self.files = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                           if value and value.endswith(b'.py') and state.is_project(str(self.cfg.root / os.fsdecode(value)))}
             self.differs = {os.fsdecode(value) for value in changed.split(b'\0') if value}

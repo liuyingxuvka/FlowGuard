@@ -2223,6 +2223,21 @@ def test_check_and_check_static_name_a_file_by_an_end_no_other_file_of_the_repos
             'red: comment pkg/policy.py:1: invalid sensor anchor syntax -> correct this flowguard comment'], (command, text)
 
 
+@pytest.mark.parametrize('state', ['outside Git', 'unborn branch'])
+def test_every_run_names_a_file_by_an_end_no_other_project_file_has_also_where_git_lists_nothing(tmp_path, state):
+    """D17 without Git's file list: outside Git the project's files are those the map's own walk finds, so a/orders.py
+    beside b/orders.py prints as a/orders.py in pytest, check and check --static, never orders.py, though no line
+    names b/orders.py; on a branch before its first commit pytest reads Git's list though it compares nothing."""
+    _write(tmp_path, {'a/orders.py': '# flowguard: same ACCEPT ref(dayz: day)\ndef accept(days: int) -> bool:\n    return days <= 3\n',
+                      'b/orders.py': 'def other():\n    return 1\n', 'tests/test_ok.py': 'def test_ok():\n    assert True\n'})
+    if state == 'unborn branch':
+        _git(tmp_path, 'init', '-q', '-b', 'main')
+    red = "red: comment a/orders.py:1: anchor parameters ['dayz'] != source ['days'] -> correct this flowguard comment"
+    for command, (code, text) in (('pytest', _pytest(tmp_path)), ('check --static', _static(tmp_path)),
+                                  ('check', _flowguard(tmp_path, 'check'))):
+        assert code == 1 and _block(text) == [red], (command, text)
+
+
 def test_check_static_says_known_fixed_for_a_ledger_finding_once_a_ledger_judges_every_handler(tmp_path):
     # As a pytest session: a ledger compared with the map in full judges every handler, so a known entry naming a ledger
     # finding that is no longer found may be fixed (`ran`); without a ledger nothing judged it.
