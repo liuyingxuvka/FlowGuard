@@ -454,7 +454,7 @@ def _summary(lines, names):
         said = f'{ranked[0]}, or {ranked[1]}'
     else:
         said = f'{ranked[0]}, {ranked[1]}, or {len(ranked) - 2} other reason{"s" * (len(ranked) > 3)}'
-    subjects = [_shorten(_one_line(line.text), line.places, names) for line in lines]
+    subjects = [_shorten(_unarrowed(line.text), line.places, names) for line in lines]
     if len(lines) == 1:
         what = subjects[0]
     elif len(lines) <= PLACES:
@@ -466,9 +466,14 @@ def _summary(lines, names):
 
 def _reason(text):
     """A reason as the not compared line sums it up: its head, before a parenthesis or a semicolon, at most 80
-    characters (the whole reason is the line's detail in `show --last`)."""
-    head = re.split(r' \(|; ', _one_line(text).removeprefix('not compared: '), maxsplit=1)[0].strip()
+    characters, its own next step after a colon (the whole reason is the line's detail in `show --last`)."""
+    head = re.split(r' \(|; ', _unarrowed(text).removeprefix('not compared: '), maxsplit=1)[0].strip()
     return head if len(head) <= 80 else head[:77] + '...'
+
+
+def _unarrowed(text):
+    """Project text on one line whose `a -> b` reads `a: b`: in a line only its step follows ' -> '."""
+    return re.sub(r'\s*->\s*', ': ', _one_line(text))
 
 
 def _one_line(text):

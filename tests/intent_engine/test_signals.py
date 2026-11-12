@@ -367,6 +367,14 @@ def test_the_not_compared_line_names_up_to_three_items_and_the_most_common_reaso
     assert _block(three)[1] == 'not compared: 3 items: A, B and C[rules] (async, or uses getConfig) -> not a failure'
     many = [signals.not_compared(f'N{number}', [f'reason {number % 4}'], function=f'm:n{number}') for number in range(6)]
     assert _block(many)[1] == 'not compared: 6 functions (reason 0, reason 1, or 2 other reasons) -> not a failure'
+    # Only the step follows ' -> ': a reason's own next step reads after a colon (its detail keeps it as it is).
+    sourced = [signals.not_compared('A', ['assumed -> confirm against actual owner words']),
+               signals.not_compared('B', ['R9 missing -> req add the actual owner words']),
+               signals.not_compared('C -> D', ['uses getConfig'])]
+    said = _block(sourced)[1]
+    assert said == ('not compared: 3 items: A, B and C: D (assumed: confirm against actual owner words, R9 missing: req add the '
+                    'actual owner words, or 1 other reason) -> not a failure'), said
+    assert said.count('->') == 1 and sourced[0].detail == ('assumed -> confirm against actual owner words',)
 
 
 def test_every_line_of_a_block_has_one_of_the_shapes_and_flowguard_text_is_ascii():

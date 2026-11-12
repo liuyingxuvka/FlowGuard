@@ -98,7 +98,7 @@ def test_without_a_change_the_run_passes_quietly(shop):
     # Nothing red, changed or before: the timed first line and the one line of what could not be compared.
     title, *rest = block(text)
     assert re.fullmatch(r'FlowGuard \d+\.\d+ \(since [0-9a-f]{7}\): 0 red, 22 not compared; \d+\.\d s', title), title
-    assert rest == ['not compared: 22 items (assumed -> confirm against actual owner words, or not exhaustively checked) '
+    assert rest == ['not compared: 22 items (assumed: confirm against actual owner words, or not exhaustively checked) '
                     '-> not a failure'], rest
     with sqlite3.connect(shop / '.flowguard/cache/map.sqlite') as connection:
         greys = {item: json.loads(payload)['grey'] for item, payload in connection.execute('SELECT item, payload FROM result')
