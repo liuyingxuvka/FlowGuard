@@ -43,8 +43,8 @@ WINDOW.rows(row(days=4, expect=False, why="the fourth day was incorrectly accept
 Run `python -m flowguard init`, then `python -m pytest`. Change only the preview to allow four days: with a test that calls both functions, its real answer disagrees with the independent rule and the other registered copy, and the run ends with:
 
 ```text
-FlowGuard 4.3 (since 7308c9c): 2 red; 0.5 s
-red: rule WINDOW: days=4 -> rule F, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) -> change the code so orders.py:accept, orders.py:preview_accept follows rule WINDOW
+FlowGuard 4.3 (since 6765008): 2 red; 0.4 s
+red: rule WINDOW: days=4: rule False, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) -> change the code so orders.py:preview_accept follows rule WINDOW
 red: same ACCEPT: on days=4: the reference orders.py:accept returns False, orders.py:preview_accept returns True -> make orders.py:preview_accept agree with the reference
 ```
 
@@ -127,13 +127,13 @@ Read the FlowGuard block after the tests. Its first line counts each kind and Fl
 | --- | --- |
 | `red` | This change broke an agreement, an intent rule, a quoted source, the ledger or an entry of the two files. The only kind that fails the run. |
 | `before` | Something this change touches was already broken at the task start. |
-| `known` | This change touches the sites of a `known.toml` entry. |
+| `known` | This change edits the text of a `known.toml` entry's site, comments and spacing included. |
 | `known fixed?` | A `known.toml` finding is gone. |
-| `changed` | A function this change edited returns something else for an input a test used. |
+| `changed` | A function this change edited, or one importing a constant it altered, returns something else for an input a test used; plain `check` runs no ordinary tests, so this comes from a test run or `check --all`. |
 | `impact` | A changed function writes another set of fields, or an automatic structure check found something new. |
 | `loosened` | An `except=`, a removed or narrowed agreement, a changed or removed `known.toml` entry or a removed rule. |
 | `not compared` | A comparison was due but could not run in the closed environment; unverified, not success. |
-| `deprecated` | On stderr: a feature or spelling that goes in 5.0, with its replacement. |
+| `deprecated` | On stderr, after the block: a feature or spelling of the project that goes in 5.0, with its replacement. |
 
 Follow the step after `->`; tell the owner when it says `ask owner`. `python -m flowguard show --last` prints every line of the last run with its details. Use `python -m flowguard show "what it decides"` for registered functions, fields, copies and rules; use `python -m flowguard check --static --all` for a deliberate structure review.
 

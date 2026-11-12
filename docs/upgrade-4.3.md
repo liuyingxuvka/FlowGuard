@@ -26,14 +26,14 @@ The block `init` writes:
 
 | 4.2 | 4.3 |
 | --- | --- |
-| The closing block was titled `FlowGuard（相对任务开始 8d062cc）` and listed `红`, `变`, `线索` and `未验证` lines in Chinese. A run without a source change printed nothing. | Every run ends with one block after the runner's summary. Its first line counts each kind and FlowGuard's own seconds, `FlowGuard 4.3 (since 8d062cc): 1 red; 0.1 s`, also when there is nothing to say (`0 red`). Each further line starts with one of the nine kinds below. `python -m flowguard show --last` prints every line of the last run with its details. |
+| The closing block was titled `FlowGuard（相对任务开始 8d062cc）` and listed `红`, `变`, `线索` and `未验证` lines in Chinese. A run without a source change printed nothing. | Every run ends with one block after the runner's summary. Its first line counts each kind and FlowGuard's own seconds, `FlowGuard 4.3 (since 8d062cc): 1 red; 0.1 s`, also when there is nothing to say (`0 red`), when vitest observed nothing, and outside Git (`no baseline: nothing compared`). When a JSON, junit or TAP reporter writes to stdout, the block goes to stderr. Each further line starts with one of the nine kinds below. `python -m flowguard show --last` prints every line of the last run with its details. |
 | A pair red ended with how to silence it: `…有意只写一边，把函数加进 owner 行的 alone=函数名(理由)`. | `red: together Booking.employee_id: booking.py:transfer writes Booking.employee_id without Booking.unit_id -> also write Booking.unit_id in transfer`. A red line never names `except=`; an `except=` this change adds is a `loosened` line. |
 | Before/after comparison replayed each real call's function at representative values (its constants, their neighbours, a grid of classes) inside the test, under an audit hook, sqlite savepoints and deep copies of the arguments. `calibrated_by=` ran the named test again, up to a dozen times in one run; an event anchor ran its test again with the old code. | During the tests FlowGuard only records the JSON arguments and result of real calls: of each function marked `same` and each function this change edited, the first 20 distinct calls per process. After the tests it runs the function's old and new source in a closed environment (below) on those inputs: `changed: label (fees.py:15): (days=3) was 'on time', now 'late'; 1/2 inputs differ -> if you meant it, say so`. Nothing runs twice inside a test, so the tests' results, test doubles and coverage are what they are without FlowGuard. `calibrated_by=` reads the call the named test made in its ordinary run. Event anchors still record the real path. |
 | Same-name copies were imported and run inside the test, so a frontend test could load the backend's modules. | The copies run in the closed environment, never imported, on the recorded inputs, the numbers the copies use and the ±1 neighbours of both (at most 64 inputs per name). Their versions at the task start run on the same inputs: copies that agreed on an input and differ now are `red` on that input; copies that already differed are `before`, or `known` when a `known.toml` entry names them. |
 | A new agreement registered over code that already broke it was red. | The current registration is also applied to the task-start code: an old violation is `before`; only what this change broke is `red`. |
 | A new automatic structure problem (a delete that leaves restricting children, a missing column, onDelete rules that differ, label tables, never-filled tables, look-alike copies, declarations that differ) was red. | Automatic structure checks are never red: a new problem is `impact`, an old one this change touches is `before`, and `check --all` lists them all. |
 | A changed function whose new code could no longer be replayed (a new write, a result that is not simple data, a generator) was a lost observation and failed the run. | It is `not compared` with its reason and fails nothing. |
-| Old-value, label-spelling and similar-implementation leads were `线索` lines. | They are deprecated: no line in the block; `show --last` lists them under `deprecated leads (5.0)`. <!-- after flip: confirm the deprecated leads still appear only in show --last --> |
+| Old-value, label-spelling and similar-implementation leads and copy discovery were `线索` lines. | They are deprecated and print neither a line nor a notice; `show --last` lists them under `deprecated leads (5.0)`. |
 | The brief fitted ten lines. | The `new-task` brief has at most eight: the baseline, the first rules of `rules.toml`, the open `known.toml` entries (questions not yet asked first) and what the last task left, such as `1 red from the previous task are now before`. |
 | vitest's failed case "FlowGuard execution side" carried the findings in its message. | It fails with one line, `FlowGuard: 1 red, see the FlowGuard block at the end`; vitest's JSON `failureMessages` hold just that line, and the block follows vitest's summary. |
 | `status` and `where`, commands of FlowGuard 0.7x, were a usage error. | They print one line: `this is a FlowGuard 0.7x command; here run python -m flowguard new-task`. |
@@ -44,13 +44,13 @@ The block `init` writes:
 | --- | --- | --- |
 | `red` | This change broke a recorded agreement (`same`, `together`, `writers`, a declared value set), an intent rule, a quoted source, the ledger, or an entry of `rules.toml` or `known.toml` is invalid. Listed in full. | yes |
 | `before` | Something this change touches was already broken at the task start and no `known.toml` entry names it: `before: same FEE disagreed at task start on days=5: fees.py:late_fee returns 4, fees.py:preview_fee returns 6 -> leave it unless your task is about it`. | no |
-| `known` | This change touches the sites of a `known.toml` entry; the step follows its `act`. | no |
+| `known` | This change edits the text of a `known.toml` entry's site (comments and spacing included; a line beside it does not count). The step follows its `act`: `known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> ask owner (not asked yet)`. | no |
 | `known fixed?` | An entry with `finding` whose check ran and no longer finds it: `known fixed?: known.fee-copies: copies of FEE now agree -> the owner has not decided: revert, or say why in your report`. Listed in full. | no |
-| `changed` | A function this change edited returns something else for a recorded input. | no |
-| `impact` | A function this change edited now writes another set of fields, or a new automatic structure problem: `impact: close_day now writes booking.unit_id; 2 other writers, 0 readers of booking -> check them for this change only (python -m flowguard show booking.unit_id)`. | no |
+| `changed` | A function this change edited, or one that imports a constant this change altered, returns something else for an input a test used. Plain `check` runs no ordinary tests, so `changed` comes from a test run or `check --all`. | no |
+| `impact` | A function this change edited now writes another set of fields, or a new automatic structure problem: `impact: close_day now writes booking.unit_id; 2 other writers, 1 reader of booking -> check them for this change only (python -m flowguard show booking.unit_id)`. | no |
 | `loosened` | This change added `except=`, removed or narrowed an agreement, changed or removed a `known.toml` entry (other than its `asked` date), added one whose `act` is not `ask`, or removed a rule: `loosened: except=transfer added to together Booking.employee_id -> name it in your report; needs the owner's yes`. Listed in full. | no |
 | `not compared` | A comparison was due but could not run in the closed environment; one line sums them up. | no |
-| `deprecated` | A feature or spelling that goes in 5.0; printed on stderr, once per process. | no |
+| `deprecated` | A feature or spelling of the project that goes in 5.0; printed on stderr once per process, after the block in pytest and vitest. | no |
 
 Of `before`, `known`, `changed`, `impact` and `not compared` at most ten lines are shown: three changed, two known or before lines and one line counting the rest, two impact, one not compared; the rest is one line, `+N more: python -m flowguard show --last`. Paths are shortened to their file name unless another file of the repository has that name.
 
@@ -69,6 +69,7 @@ A few corrections go from 0 to 1, where 4.2 reported nothing although an agreeme
 - Pairs (`together`): a helper file that stops writing the partner makes its unchanged caller red; a partner written for another record (another `where`), only in one branch or in a conditional spread no longer holds the pair; a sibling route handler's write no longer holds a handler's pair, while what the handler calls does.
 - A request stored during the task that supersedes or retires the words a rule cites (`req add --supersedes R3`) makes that rule's source red.
 - A vitest run reports an intent file that does not load as red, as pytest does.
+- A vitest run outside Git, before the first commit or with a recorded task start the repository lacks compares its same-name copies as pytest does, so copies that disagree are red there; 4.2 compared nothing in such a run.
 - An invalid entry of `.flowguard/rules.toml` or `.flowguard/known.toml` is red, also in a run without a source change. Both files are new, so this only affects a project that adds them.
 
 ## Two new files
@@ -101,7 +102,7 @@ finding = "same:FEE"
 An entry FlowGuard cannot read counts for nothing and is red. With `act = "later"` the block says:
 
 ```text
-red: known.night-transfer: known.toml:known.night-transfer act is one of leave, ask, fix, ignore, not 'later' -> correct [known.night-transfer] in known.toml
+red: known.night-transfer: act is one of leave, ask, fix, ignore, not 'later' -> correct [known.night-transfer] in known.toml
 ```
 
 Correct the entry from the question it records; nothing else needs rebuilding.
@@ -129,11 +130,11 @@ def reserve(booking, employee, unit):
     booking.unit_id = unit
 ```
 
-and prints, once per process, `deprecated: owner with= goes in 5.0 -> write together FIELD PARTNERS`.
+and prints, once per process and after the block, `deprecated: owner with= goes in 5.0 -> write together FIELD PARTNERS` on stderr.
 
 ## Deprecated: goes in 5.0
 
-Each use prints one `deprecated` line on stderr; the feature works as in 4.2 until 5.0.
+A project that uses one of these gets one `deprecated` line per feature on stderr, after the block in pytest and vitest; the feature works as in 4.2 until 5.0.
 
 | Feature | Instead |
 | --- | --- |
@@ -145,7 +146,7 @@ Each use prints one `deprecated` line on stderr; the feature works as in 4.2 unt
 | `precedes`, `guarded_by`, `transitions`, `checks`, `distinct`, `structure_rule`, `Transition`, `pytest.mark.rule` | none: do not use them |
 | `[unverified]` in `.flowguard/ledger.toml` | none |
 | `[structure]` decisions in `.flowguard/ledger.toml` | a `known.toml` entry with `act = "ignore"` or `"leave"` |
-| old-value, label-spelling and similar-implementation leads, unregistered copy discovery | none |
+| old-value, label-spelling and similar-implementation leads, unregistered copy discovery | none; they are FlowGuard's own, so they print no notice, and `show --last` keeps them |
 
 ## The closed environment and what it does not compare
 
@@ -154,11 +155,10 @@ A Python function is compiled from its source, with the same-file functions it c
 Whatever cannot run there is `not compared` with its reason, for example:
 
 ```text
-not compared: 2 functions: price (prices.py:6) and fetch_price (uses unavailable binding RATE, or calibration async/generator is unsupported) -> not a failure
+not compared: 2 items: price (prices.py:6) and fetch_price (uses unavailable binding RATE, or is async) -> not a failure
 ```
-<!-- after flip: the not compared wording for an async function without calibration may change -->
 
-Not compared, in Python: decorated, async and generator functions, methods, defaults that are not literals, a name the environment lacks (a configuration read, a database client), arguments or results that are not JSON (`no comparable JSON result`); in TS/JS: enums, namespaces, decorators, JSX and parameter properties. A comparison is due only for a function this change edited (its body, a constant it reads or a same-file function it calls) and for names with two or more copies, so a lone unchanged `same` function is never listed. Inputs come only from what the tests called: to have an input compared, let a test call the function with it.
+Not compared, in Python: decorated, async and generator functions, methods, defaults that are not literals, a name the environment lacks (a configuration read, a database client), arguments or results that are not JSON (`no comparable JSON result`); in TS/JS: enums, namespaces, decorators, JSX and parameter properties. A comparison is due only for a function this change edited (its body, a constant it reads or a same-file function it calls), a function in another file that imports a constant this change altered, and names with two or more copies, so a lone unchanged `same` function is never listed. Inputs come only from what the tests called: to have an input compared, let a test call the function with it. Plain `check` runs the affected intent rules but not the project's ordinary tests, so it records no calls and prints no `changed` line; `check --all` runs the ordinary tests too. A project in a subfolder of its Git repository is compared like one at the top.
 
 ## Builds and the dev server
 
