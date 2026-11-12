@@ -983,6 +983,26 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     return issues, lines, ran, members
 
 
+def _uncovered_alone(issues, deliveries, index):
+    """`issues` without the members of a `changed-alone:NAME` finding that a `same:NAME` finding of the run already
+    covers (D30: one red per agreement member): a changed copy registered under NAME whose copies the same-name
+    comparison found to disagree. A changed function NAME does not register stays, and so does the finding where no
+    same-name finding of its name was made."""
+    from dataclasses import replace
+    covered = {issue.name.partition(':')[2] for part in deliveries for issue in part['issues'] if issue.family == 'same'}
+    kept = []
+    for issue in issues:
+        name = issue.name.partition(':')[2]
+        if issue.family == 'changed-alone' and name in covered:
+            copies = {anchor.target for anchor in index.named(name, 'sensor')}
+            parts = tuple(part for part in issue.parts if part[0] not in copies)
+            if not parts:
+                continue
+            issue = replace(issue, parts=parts, fresh=issue.fresh & {part[0] for part in parts})
+        kept.append(issue)
+    return kept
+
+
 def _keep_last(cfg, payload):
     """`cache.save_last` for a check that holds no map connection of its own."""
     import sqlite3
@@ -1033,6 +1053,7 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
     own.lines += lines
     own.ran |= ran
     own.touched |= members
+    found.issues = _uncovered_alone(found.issues, [*deliveries, own.delivery()], index)
     lines, ignored = signals.collect([*deliveries, own.delivery()], found, everything=everything)
     if own.code and not any(line.kind == 'red' for line in lines):
         # pytest failed where no finding says why (an internal or usage error, an interruption): never a quiet pass.

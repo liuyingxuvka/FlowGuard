@@ -323,15 +323,12 @@ def test_check_sends_a_changed_copy_back_to_the_owner_and_counts_every_copys_ans
     # named no owner.
     _project(tmp_path, {'limits.py': _copies(3, 3, 3, owner=True)})
     red, text = _checked_red(tmp_path, _copies(3, 3, 4, owner=True))
-    assert red == ['red: same LIMIT: limits.py:report changed behavior; 2 copies that answered the same are unchanged: limits.py:calendar  '
-                   'limits.py:chart -> make report match reference chart(limits.py:2)',
-                   'red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:calendar return False, limits.py:report returns True '
+    # one red per member (D30): the same-name red covers the changed copy, no changed-alone red repeats it
+    assert red == ['red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:calendar return False, limits.py:report returns True '
                    '-> make limits.py:report agree with the reference'], text
     # The owner changed: its copies follow it.
     red, text = _checked_red(tmp_path, _copies(4, 3, 3, owner=True))
-    assert red == ['red: same LIMIT: limits.py:chart changed behavior; 2 copies that answered the same are unchanged: limits.py:calendar  '
-                   'limits.py:report -> update together, or call chart',
-                   'red: same LIMIT: on days=4: the reference limits.py:chart returns True, limits.py:calendar and limits.py:report return False '
+    assert red == ['red: same LIMIT: on days=4: the reference limits.py:chart returns True, limits.py:calendar and limits.py:report return False '
                    '-> make limits.py:calendar, limits.py:report agree with the reference'], text
 
 
@@ -341,18 +338,14 @@ def test_check_names_the_owner_when_it_changed_with_a_copy_and_a_third_copy_stay
     # the same check sent report to the owner.
     _project(tmp_path, {'limits.py': _copies(3, 3, 3, owner=True)})
     red, text = _checked_red(tmp_path, _copies(4, 4, 3, owner=True))
-    assert red == [*(f'red: same LIMIT: limits.py:{name} changed behavior; 1 copy that answered the same is unchanged: limits.py:report '
-                     '-> update together, or call chart' for name in ('calendar', 'chart')),
-                   'red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:calendar return True, limits.py:report returns False '
+    assert red == ['red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:calendar return True, limits.py:report returns False '
                    '-> make limits.py:report agree with the reference'], text
 
 
 def test_check_leaves_the_choice_between_copies_when_none_is_the_owner(tmp_path):
     _project(tmp_path, {'limits.py': _copies(3, 3, 3)})
     red, text = _checked_red(tmp_path, _copies(3, 3, 4))
-    assert red == ['red: same LIMIT: limits.py:report change...anged: limits.py:calendar  limits.py:chart -> first decide which copy is correct: '
-                   'for an intended change, update together or call report; otherwise make report return to the original behavior',
-                   'red: same LIMIT: on days=4: limits.py:chart and limits.py:calendar return False, limits.py:report returns True '
+    assert red == ['red: same LIMIT: on days=4: limits.py:chart and limits.py:calendar return False, limits.py:report returns True '
                    '-> decide which copy is right, then make the others agree'], text
 
 
@@ -396,7 +389,7 @@ def test_check_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp
     red, text = _checked_red(tmp_path, _split_copies(4))
     assert [line for line in red if line.startswith('red: same LIMIT: on ')] == SPLIT_RED, text
     assert [line for line in text.splitlines() if line.startswith('before: same LIMIT')] == SPLIT_BEFORE, text
-    assert len(red) == 2, text          # and the changed calendar's own red; no pair is left to a line of its own
+    assert len(red) == 1, text          # the same-name red covers the changed calendar: no changed-alone red besides
 
 
 def test_pytest_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp_path):
