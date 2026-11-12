@@ -11,7 +11,9 @@ import subprocess
 import sys
 import textwrap
 
-from tests.intent_engine._cli_fixture import display_text as _text, last as _last
+import pytest
+
+from tests.intent_engine._cli_fixture import block as _block, display_text as _text, last as _last
 
 
 def _git(root, *arguments):
@@ -175,6 +177,34 @@ def test_a_changed_module_with_a_bare_annotation_is_compared(tmp_path):
     assert result.returncode == 0, text
     assert ('changed: over (policy.py:4): (x=3) was False, now True; 1/1 inputs differ '
             '-> if you meant it, say so') in text.splitlines(), text
+
+
+@pytest.mark.parametrize('edit', [('BASE = 10', 'BASE = 9'), ('LIMIT = BASE * 2', 'LIMIT = BASE * 2 - 2')])
+def test_a_function_reading_a_constant_derived_from_a_changed_one_is_changed(tmp_path, edit):
+    # BASE changed and LIMIT = BASE * 2 did not: over reads LIMIT, whose value changed with BASE, as the vitest side
+    # says (test_vitest_adapter.test_a_function_reading_a_constant_derived_from_a_changed_one_is_changed).
+    policy = _project(tmp_path, '''
+        BASE = 10
+        LIMIT = BASE * 2
+        AFTER = LIMIT + 1
+
+        def over(x: int) -> bool:
+            return x > LIMIT
+
+        def same(x: int) -> int:
+            return x
+    ''', '''
+        from policy import over, same
+        def test_native():
+            assert over(20) in (True, False)
+            assert same(20) == 20
+    ''')
+    policy.write_text(policy.read_text().replace(*edit))
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 0, text
+    assert _block(result)[1:] == [
+        'changed: over (policy.py:5): (x=20) was False, now True; 1/1 inputs differ -> if you meant it, say so'], text
 
 
 def test_fixed_4_changed_function_needs_no_anchor_to_report_member_changes(tmp_path):

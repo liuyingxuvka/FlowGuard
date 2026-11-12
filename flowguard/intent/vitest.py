@@ -400,14 +400,66 @@ def _top_level(qual):
     return '.' not in qual and not qual.startswith('<')
 
 
-def _constants_changed(before, now):
-    """Names of module constants (`const NAME = literal`, `const TABLE = {...}`) whose value this change altered."""
+def _const_reads(data, rel):
+    """{name: (tokens, reads)} of each top-level `const NAME = value` (exported too) whose value is no function: the
+    tokens of its right side without comments, and the identifiers that right side reads."""
+    from ..structure.readers.common import parse, text, walk
+    from ..structure.readers.registry import language_for
+    source, tree = parse(data, language_for(rel))
+    found = {}
+    for statement in tree.root_node.named_children:
+        inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+        if inner is None or inner.type != 'lexical_declaration' or not text(inner, source).startswith('const'):
+            continue
+        for item in inner.named_children:
+            key, value = item.child_by_field_name('name'), item.child_by_field_name('value')
+            if item.type != 'variable_declarator' or key is None or key.type != 'identifier' or value is None \
+                    or value.type in ('arrow_function', 'function_expression', 'function'):
+                continue
+            tokens, stack = [], [value]
+            while stack:
+                node = stack.pop()
+                if node.type == 'comment':
+                    continue
+                if node.child_count:
+                    stack.extend(reversed(node.children))
+                else:
+                    tokens.append(text(node, source))
+            found[text(key, source)] = (tuple(tokens), frozenset(
+                text(node, source) for node in walk(value) if node.type in ('identifier', 'shorthand_property_identifier')))
+    return found
+
+
+def _derived(names, constants):
+    """`names` and every constant of `constants` (`_const_reads`) whose right side reads one of them, at any depth."""
+    readers = {}
+    for name, (_, reads) in constants.items():
+        for read in reads:
+            readers.setdefault(read, set()).add(name)
+    found, todo = set(names), list(names)
+    while todo:
+        for name in readers.get(todo.pop(), ()):
+            if name not in found:
+                found.add(name)
+                todo.append(name)
+    return found
+
+
+def _constants_changed(before, now, old_constants, new_constants):
+    """Names of module constants whose value this change altered: a literal constant or table (`const NAME =
+    literal`, `const TABLE = {...}`) whose value changed, another constant whose right side changed, and every
+    constant whose right side reads one of these (`_derived`: LIMIT = BASE * 2 changes with BASE, as the pytest
+    side reads a module constant through `runtime._read_through`). `old_constants` and `new_constants` are the
+    `_const_reads` of the two versions."""
     def values(facts):
         found = {row['qual']: row['sig'] for row in facts['nodes'] if row['kind'] == 'const' and '.' not in row['qual']}
         found.update({row['name']: json.dumps(row['values'], sort_keys=True) for row in facts.get('const_tables', ())})
         return found
     old, new = values(before), values(now)
-    return {name for name in old.keys() | new.keys() if old.get(name) != new.get(name)}
+    names = {name for name in old.keys() | new.keys() if old.get(name) != new.get(name)}
+    names.update(name for name in (old_constants.keys() | new_constants.keys()) - old.keys() - new.keys()
+                 if old_constants.get(name, (None,))[0] != new_constants.get(name, (None,))[0])
+    return _derived(names, new_constants)
 
 
 def plan(cfg, commit, changed, key):
@@ -426,7 +478,7 @@ def plan(cfg, commit, changed, key):
         for anchor in index.entries:
             if anchor.kind == 'sensor' and _ecma(anchor.file) and anchor.source_role != 'test':
                 wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual)
-        old_sources, readers, touched = {}, {}, set()
+        old_sources, readers, touched, constants = {}, {}, set(), {}
         renamed = git_renames(cfg.root, commit)         # a moved file's baseline version is at its old path
         for rel in changed:
             if rel not in modules or is_test_rel(rel) or not (cfg.root / rel).is_file():
@@ -436,7 +488,9 @@ def plan(cfg, commit, changed, key):
             old = git_blob(cfg.root, commit, renamed.get(rel, rel))
             old_sources[rel] = old
             before = extract(cfg.root, rel, old, modules[rel], False) if old is not None else dict(nodes=[], const_tables=[])
-            now = extract(cfg.root, rel, (cfg.root / rel).read_bytes(), modules[rel], False)
+            data = (cfg.root / rel).read_bytes()
+            now = extract(cfg.root, rel, data, modules[rel], False)
+            constants[rel] = _const_reads(data, rel)
             prior = {row['qual']: row['fp'] for row in before['nodes']}
             # what this change touches (a known entry's site, D31): a declaration it adds, edits or removes
             touched.update(modules[rel] + ':' + row['qual'] for row in now['nodes'] if prior.get(row['qual']) != row['fp'])
@@ -445,7 +499,7 @@ def plan(cfg, commit, changed, key):
                 ident = modules[rel] + ':' + row['qual']
                 if row['kind'] == 'function' and _top_level(row['qual']) and prior.get(row['qual']) != row['fp'] and ident not in wanted:
                     wanted[ident] = (row['qual'], False, rel, row['qual'])
-            names = _constants_changed(before, now)
+            names = _constants_changed(before, now, _const_reads(old, renamed.get(rel, rel)) if old is not None else {}, constants[rel])
             if names:               # like the pytest side: a function reading a changed constant changed too
                 readers.setdefault(rel, set()).update(names)
                 for row in graph.imports(declarations=True):
@@ -454,6 +508,8 @@ def plan(cfg, commit, changed, key):
         for rel, names in readers.items():
             if rel not in modules or is_test_rel(rel):
                 continue
+            # an importing file's own constants that read an imported changed one changed too (CAP = LIMIT + 1)
+            names = _derived(names, constants[rel] if rel in constants else _const_reads((cfg.root / rel).read_bytes(), rel))
             lines = (cfg.root / rel).read_text(encoding='utf-8').splitlines()
             spelled = re.compile(r'\b(?:' + '|'.join(map(re.escape, sorted(names))) + r')\b')
             for row in graph.nodes(file=rel):

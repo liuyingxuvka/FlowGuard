@@ -687,6 +687,44 @@ def _binding_facts(tree):
                     result[node.id] = ('value', ast.dump(value, include_attributes=False))
     return result
 
+
+def _binding_reads(tree):
+    """{name: the names its top-level binding reads}, by the statement that binds it last, as `_binding_facts` reads
+    it. A function, class or import binding reads nothing here (a same-file function is followed by its own body)."""
+    reads = {}
+    for statement in tree.body:
+        if isinstance(statement, ast.AnnAssign) and statement.value is None:
+            continue
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            reads.pop(statement.name, None)
+        elif isinstance(statement, (ast.Import, ast.ImportFrom)):
+            for alias in statement.names:
+                reads.pop(alias.asname or alias.name.split('.')[0], None)
+        elif isinstance(statement, ast.Delete):
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Name):
+                    reads.pop(node.id, None)
+        else:
+            value = statement.value if isinstance(statement, (ast.Assign, ast.AnnAssign)) else statement
+            loaded = {node.id for node in ast.walk(value) if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                    reads[node.id] = loaded
+    return reads
+
+
+def _read_through(names, reads):
+    """`names` and every name a binding of `reads` (`_binding_reads`) among them reads, at any depth: with
+    LIMIT = BASE * 2, a function reading LIMIT reads BASE too."""
+    found, todo = set(names), list(names)
+    while todo:
+        for name in reads.get(todo.pop(), ()):
+            if name not in found:
+                found.add(name)
+                todo.append(name)
+    return found
+
+
 @dataclass
 class Reading:
     name: str

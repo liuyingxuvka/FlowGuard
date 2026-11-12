@@ -421,7 +421,7 @@ class Observations:
     def __init__(self, state):
         import ast
         from . import anchors, cache, differences
-        from .runtime import Runtime, _functions, _binding_facts
+        from .runtime import Runtime, _functions, _binding_facts, _binding_reads, _read_through
         from ..map.common import MapError, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
@@ -494,18 +494,21 @@ class Observations:
         views = {}
         def function(file, qual):
             """The current node of `qual` in a changed `file` and whether the function changed since the baseline:
-            its body, or a top-level binding it reads (a module constant). A function new since then changed."""
+            its body, or a top-level binding it reads (a module constant), also through the constants that binding
+            reads (LIMIT = BASE * 2 changes with BASE, as `vitest._constants_changed` reads it). A function new since
+            then changed."""
             if file not in views:
                 tree = ast.parse(read_source(self.cfg.root / file))
                 old = self.runtime._source(self.renamed.get(file, file))
                 old_tree = ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
-                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree))
-            current_functions, prior_functions, old_facts, facts = views[file]
+                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree),
+                               _binding_reads(tree))
+            current_functions, prior_functions, old_facts, facts, reads = views[file]
             node, prior = current_functions.get(qual), prior_functions.get(qual)
             if node is None or prior is None or ast.dump(prior, include_attributes=False) != ast.dump(node, include_attributes=False):
                 return node, True
             loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
-            return node, any(old_facts.get(name) != facts.get(name) for name in loaded)
+            return node, any(old_facts.get(name) != facts.get(name) for name in _read_through(loaded, reads))
         def reaches(file, qual):
             """Whether `qual` or a same-file function it calls, at any depth, changed: its sealed run executes them
             all (design 4.5), as the vitest plan compares the closed source with its helpers."""
