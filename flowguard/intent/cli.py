@@ -461,7 +461,8 @@ def _silent_lines(cfg, index, rid, full, limit=10):
 
 
 def show_last(cfg, full=False):
-    """`show --last`: the last run's first line, then every one of its lines (no budget, no cut, full paths) with
+    """`show --last`: which run it was and when (`FlowGuard last run: pytest at 2026-11-12 14:03:51`, local time), the
+    run's first line, then every one of its lines (no budget, no cut, full paths) with
     its detail indented under it; how many members an `act = "ignore"` entry of known.toml (or a `[structure]`
     decision) covered; the deprecated features the run used; the unchanged points an explicit comparison compared;
     and the 5.0-deprecated heuristic leads, which no longer get a line, under `deprecated leads (5.0):`. Read from
@@ -471,7 +472,8 @@ def show_last(cfg, full=False):
     if last is None:
         print('FlowGuard: no last run recorded')
         return 0
-    lines = [last['title']]
+    lines = [f'FlowGuard last run: {last["run"]} at {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last["stamp"]))}',
+             last['title']]
     for line in last['lines']:
         lines.append(f'{line["kind"]}: {line["text"]}' + (f' -> {line["step"]}' if line['step'] else ''))
         lines.extend('    ' + detail for detail in line['detail'])

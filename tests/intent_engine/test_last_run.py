@@ -3,6 +3,7 @@ the catalog, the new finding fields and the session's comparison commit on the e
 from contextlib import closing
 from dataclasses import asdict
 import json
+import time
 
 from flowguard.intent import cache, cli, sources
 from flowguard.intent.config import load_config
@@ -52,6 +53,7 @@ def test_show_last_prints_every_line_and_the_catalog_queries_read_the_catalog_an
     assert cli.main(['--root', root, 'show', '--last']) == 0
     # No budget and no shortening: every line, its paths in full, its detail indented under it.
     assert capsys.readouterr().out.splitlines() == [
+        f'FlowGuard last run: pytest at {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(1.0))}',
         'FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
         'red: together A: src/deep/a.py:f writes A without B -> also write B in f', '    JS/TS calls resolved by name',
         'not compared: N -> not a failure', '    uses attribute close', 'not compared: M -> not a failure', '    uses attribute close',
@@ -134,3 +136,31 @@ def test_the_pytest_session_gives_the_engine_its_comparison_commit(tmp_path):
     '''})
     result = run(tmp_path, 'tests/test_engine_baseline.py')
     assert result.returncode == 0 and '1 passed' in result.stdout, result.stdout + result.stderr
+
+
+def test_every_pytest_run_that_prints_a_block_keeps_it_for_show_last(tmp_path):
+    """show --last never prints an earlier run as the last one: a run that selects no test prints its block and keeps
+    it, and show --last says which run it was and when."""
+    from tests.intent_engine.test_default_runtime_signals import _project, _run
+    from tests.intent_engine._cli_fixture import block, last
+    policy = _project(tmp_path, '''
+        # flowguard: same LIMIT
+        def chart(days: int) -> bool:
+            return days <= 3
+        # flowguard: same LIMIT
+        def calendar(days: int) -> bool:
+            return days <= 3
+    ''', '''
+        from policy import chart, calendar
+        def test_limit():
+            assert chart(1) and calendar(1)
+    ''')
+    policy.write_text(policy.read_text().replace('return days <= 3', 'return days <= 4', 1))
+    red = _run(tmp_path)
+    assert red.returncode == 1 and block(red)[1].startswith('red: same LIMIT'), red.stdout
+    nothing = _run(tmp_path, '-k', 'nothing_matches')
+    assert nothing.returncode == 5, nothing.stdout + nothing.stderr
+    shown = last(tmp_path).splitlines()
+    assert shown[0].startswith('FlowGuard last run: pytest at '), shown
+    untimed = lambda title: title.rpartition('; ')[0]
+    assert untimed(shown[1]) == untimed(block(nothing)[0]) and not any(line.startswith('red: ') for line in shown), (shown, nothing.stdout)

@@ -1846,24 +1846,30 @@ def finish_verified(session, exitstatus):
     if not declared and not state.footprints and not observed:
         # Standalone pytest does not build a map, but must retire old traces
         # for a test it ran without recording. Never refresh them by implication.
-        # Recorded anchor events are kept even before the first map exists.
+        # Recorded anchor events are kept even before the first map exists. A
+        # session that ran no test but prints its block keeps the block alone, so
+        # show --last never prints an earlier run as the last one; without a cache
+        # there is no earlier run to print.
         path = state.cfg.cache / 'map.sqlite'
-        if (path.is_file() or state.events) and state.readings:
+        printed = state.observations is not None and bool(state.observations.text)
+        if (path.is_file() or state.events) and (state.readings or printed):
             from flowguard.map.common import cache_dir
             cache_dir(state.cfg.root)
             with closing(sqlite3.connect(path, timeout=30)) as con:
                 con.executescript(SCHEMA + 'CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);\n')
                 with con:
                     con.execute('BEGIN IMMEDIATE')
-                    _meta(con, 'intent_attempt', attempt)
-                    if state.observations is not None and state.observations.payload is not None:
-                        _meta(con, 'runtime_observations', state.observations.payload)
-                    if state.observations is not None and state.observations.structure is not None:
-                        from .cache import save_structure
-                        save_structure(con, state.observations.structure)
+                    if state.readings:
+                        _meta(con, 'intent_attempt', attempt)
+                        if state.observations is not None and state.observations.payload is not None:
+                            _meta(con, 'runtime_observations', state.observations.payload)
+                        if state.observations is not None and state.observations.structure is not None:
+                            from .cache import save_structure
+                            save_structure(con, state.observations.structure)
                     _save_last(con, state)
-                    _save_readings(con, state)
-                    _save_ordinary_collection(con, session, state)
+                    if state.readings:
+                        _save_readings(con, state)
+                        _save_ordinary_collection(con, session, state)
         return
     with closing(state.get_map()) as mapping:
         con = mapping.con
