@@ -33,7 +33,7 @@ FlowGuard 4.3 (since 99f025e): 0 red; 0.2 s
 ## Daily use
 
 1. Start the task with `python -m flowguard new-task` and read the brief.
-2. Run the project's ordinary tests and read the FlowGuard block after the runner's summary. Red findings fail the run; changes, leads and unverified observations explain what was checked. Follow the next step, and tell the owner when the output asks you to. Grey is unverified, not success.
+2. Run the project's ordinary tests and read the FlowGuard block after the runner's summary. Its first line counts each kind. Only `red` fails the run: your change broke a recorded agreement, so fix the code. `before` and `known` were there before the task: do what the line says after `->`, and tell the owner when it says `ask owner`. `changed` means a function returns something else for an input a test used: say so if you meant it. `impact` and `not compared` are not failures; `not compared` is unverified, not success. `python -m flowguard show --last` prints every line of the last run with its details.
 3. Use `python -m flowguard show "what it decides"` to inspect a named function, field or agreement before changing another copy.
 
 ## Record an agreement
@@ -65,6 +65,8 @@ The old comment spellings remain accepted with a deprecation notice. The interna
 
 An independent rule in `tests/intent/` states an expected answer and cites its source. Store the owner's actual words once, byte for byte, with `python -m flowguard req add <file|-> --id R1`. A document source quotes an exact sentence from a file listed in `authority_docs`. Never store an AI plan as the owner's words.
 
+`.flowguard/rules.toml` keeps the owner's current rules, each one line of text with a source that quotes the stored words or a document sentence exactly. `.flowguard/known.toml` keeps what is not settled and how to treat it: `act = "ask"` for a question only the owner can answer, `leave` for a problem the owner deferred, `fix` for a plain error to fix when its code changes, `ignore` for a false structure finding. `python -m flowguard show rules` lists both, and the `new-task` brief shows the first of them.
+
 `.flowguard/ledger.toml` records exception handlers that can finish without raising, with their count, reason and written rule. `python -m flowguard ledger init` records existing handlers; `python -m flowguard ledger check` checks the ledger. A finding names the forms that cannot be listed.
 
 The executable two-copy rule example and supported context annotations are in the [local reference](./.agents/skills/flowguard/reference.md).
@@ -73,11 +75,13 @@ The executable two-copy rule example and supported context annotations are in th
 
 Use `python -m flowguard check --static` for checks without running tests, or add `--all` to inspect the complete structure listing. `python -m flowguard check` runs affected rules and tests. Existing deep checks and finite flows are frozen; they are not part of the ordinary setup above.
 
-The base installation reads Python. Install `flowguard[languages]` for TS/JS, Prisma, SQL and the frozen C/C++/C# readers. Vitest with ESM supports execution observations; Jest runs static checks. Unavailable or unsupported observations stay unverified. Agreement on tested inputs does not prove the intended business answer.
+The base installation reads Python. Install `flowguard[languages]` for TS/JS, Prisma, SQL and the frozen C/C++/C# readers. Vitest with ESM supports execution observations; Jest runs static checks. A function that cannot run in the closed comparison after the tests is `not compared`, with its reason. Agreement on tested inputs does not prove the intended business answer.
+
+FlowGuard acts only inside test runs. It never runs a function a second time inside a test, and builds, the dev server and production never load it.
 
 ## Compatibility and repository
 
-Retained older inputs and APIs continue to work; deprecated features give a removal notice rather than silently changing their meaning. See the [4.1 notes](./docs/upgrade-4.1.md), [4.2 notes](./docs/upgrade-4.2.md) and [intent guide](./docs/intent-guide.md) for existing contracts.
+Retained older inputs and APIs continue to work; deprecated features give a removal notice rather than silently changing their meaning. See the [4.1 notes](./docs/upgrade-4.1.md), [4.2 notes](./docs/upgrade-4.2.md), [4.3 notes](./docs/upgrade-4.3.md) and [intent guide](./docs/intent-guide.md) for existing contracts.
 
 - `flowguard/structure/`: source facts and fixed queries.
 - `flowguard/intent/`: agreements, intent rules, the ledger and test adapters.

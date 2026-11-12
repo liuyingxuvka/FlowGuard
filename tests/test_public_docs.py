@@ -136,6 +136,7 @@ def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch):
         monkeypatch.setattr(cli, name, lambda *args, **kwargs: 0)
     docs = [ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'AGENTS.md', SKILL / 'SKILL.md',
             ROOT / 'docs/intent-guide.md', ROOT / 'docs/upgrade-2.0.md', ROOT / 'docs/upgrade-4.0.md', ROOT / 'docs/upgrade-4.1.md', ROOT / 'docs/upgrade-4.2.md',
+            ROOT / 'docs/upgrade-4.3.md',
             SKILL / 'reference.md']
     for path in docs:
         text = path.read_text(encoding='utf-8')

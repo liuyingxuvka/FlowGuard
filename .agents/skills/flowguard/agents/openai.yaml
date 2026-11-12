@@ -3,12 +3,13 @@ interface:
   short_description: "Keep a project consistent while an AI changes it"
   default_prompt: >-
     Use $flowguard: start with `python -m flowguard new-task`, then run the project's
-    ordinary tests and read the FlowGuard block. Follow each finding's next step and tell
-    the owner when it asks you to. Inspect agreements with
+    ordinary tests and read the FlowGuard block. A red line means your change broke a
+    recorded agreement: fix the code. Follow each other line's step after `->` and tell
+    the owner when it says `ask owner`. Inspect agreements with
     `python -m flowguard show "what it decides"`; mark necessary same-name copies with
     `same NAME`, adding `ref` to the chosen reference. Use `together` for paired fields
     and `writers` for allowed functions. Write the owner's lasting rules independently
     in tests/intent, citing actual words or an exact document sentence. Register useful
     agreements in the same change that discovers them. Do not model the development task.
-    Grey is unverified, not success. No source change stays quiet unless a constraint fails.
+    `not compared` is unverified, not success. No source change stays quiet unless a constraint fails.
     Report actual commands and results.

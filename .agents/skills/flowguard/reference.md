@@ -40,7 +40,15 @@ def WINDOW(days):
 WINDOW.rows(row(days=4, expect=False, why="the fourth day was incorrectly accepted"))
 ```
 
-Run `python -m flowguard init`, then `python -m pytest`. Change only the preview to allow four days: its real answer disagrees with the independent rule and the other registered copy. A newly written document is provisional evidence, not independent confirmation. The shortest comment is `# flowguard: same ACCEPT`; input and context roles are then read from the parameters.
+Run `python -m flowguard init`, then `python -m pytest`. Change only the preview to allow four days: with a test that calls both functions, its real answer disagrees with the independent rule and the other registered copy, and the run ends with:
+
+```text
+FlowGuard 4.3 (since 7308c9c): 2 red; 0.5 s
+red: rule WINDOW: days=4 -> rule F, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) -> change the code so orders.py:accept, orders.py:preview_accept follows rule WINDOW
+red: same ACCEPT: on days=4: the reference orders.py:accept returns False, orders.py:preview_accept returns True -> make orders.py:preview_accept agree with the reference
+```
+
+A newly written document is provisional evidence, not independent confirmation. The shortest comment is `# flowguard: same ACCEPT`; input and context roles are then read from the parameters.
 
 The rule's `fields` dictionary is the supported API's explicit input schema. It is separate from the `fields name=expression` annotation described below. Keep the predicate independent of the implementation and preserve meaningful regression rows.
 
@@ -72,9 +80,32 @@ Rules have an ID, decision key, typed fields, source and independent predicate. 
 
 Boolean and closed-enum domains can be enumerated. Supported numeric, date and duration domains use the current partition reader. Unknown domains remain unverified; a supported result type does not make that type an enumerable input domain.
 
-A Python `same` comment can keep `calibrated_by=tests/test_store.py::test_available`, including a parameter ID, to name the ordinary test that supplies its real context. An explicit `fields name=expression` annotation can expose rule inputs missing from the function's parameters. Neither annotation supplies an invented result or proves contexts the test did not reach. Keep real assertions, fixtures and cleanup in ordinary tests.
+A Python `same` comment can keep `calibrated_by=tests/test_store.py::test_available`, including a parameter ID, to name the ordinary test that supplies its real context: the call that test made in its ordinary run is the context, and the test never runs a second time. An explicit `fields name=expression` annotation can expose rule inputs missing from the function's parameters. Neither annotation supplies an invented result or proves contexts the test did not reach. Keep real assertions, fixtures and cleanup in ordinary tests.
 
 For an existing scenario binding, the test supplies actual case inputs and production calls; readings must come from the declared source and invocation. Missing or ambiguous evidence stays unverified. A passing setup test does not establish every possible filesystem, database or concurrent state.
+
+## Owner rules and open items
+
+`.flowguard/rules.toml` lists the owner's current rules. Each entry has two keys: one line of `text` and a `source` that quotes stored words or an `authority_docs` sentence exactly.
+
+```toml
+[rule.late-fee]
+text = "Each late day after the third costs 2."
+source = 'R1 "Late days after the third cost 2 each."'
+```
+
+An intent rule can then cite `source = 'rule.late-fee'`. When newer owner words replace a rule, delete its entry; Git keeps the history. Two rules that conflict, or a question for the owner, belong in `.flowguard/known.toml`:
+
+```toml
+[known.fee-copies]
+sites   = ["fees.py:late_fee", "fees.py:preview_fee"]
+why     = "The preview charges 3 per late day, the invoice 2"
+act     = "ask"
+ask     = "Which daily late fee is right, 2 or 3?"
+finding = "same:FEE"
+```
+
+`sites` are repository-relative `path:symbol` places (a function, `object.method`, a constant or `Model.field`). `act` is `leave` (deferred: do not touch), `ask` (tell the owner, do not fix it in passing; add `asked = "YYYY-MM-DD"` once asked), `fix` (a plain error: fix it when you change a site and say so) or `ignore` (a false finding of an automatic structure check, only counted). `sites`, `why` and `act` are required; an optional `fix` key holds the intended correction, which only `show` prints, and `source` quotes where the question comes from, as a rule's does. `finding` names a finding FlowGuard can judge, such as `same:FEE`; with it the run can say `known fixed?`. An invalid entry is red and counts for nothing. A new `act = "ask"` entry is quiet; changing or removing an entry, or adding one with another `act`, is a `loosened` line. Once the owner decides, store the answer with `req add`, write it into `rules.toml` and delete the entry. `python -m flowguard show rules` lists both files with each source's state.
 
 ## Sources and fallback reasons
 
@@ -90,6 +121,20 @@ The base installation reads Python. The `languages` extra adds TS/JS, Prisma, SQ
 
 ## Inspecting a result
 
-Read the FlowGuard block after the tests and follow its next step. Red findings fail the run; behavior changes, leads and unverified observations describe the current checks. Unverified is not success. Use `python -m flowguard show "what it decides"` for registered functions, fields, copies and rules; use `python -m flowguard check --static --all` for a deliberate structure review.
+Read the FlowGuard block after the tests. Its first line counts each kind and FlowGuard's own time, and names what the run compared with. Each further line is `kind: what -> step`:
+
+| Kind | Meaning |
+| --- | --- |
+| `red` | This change broke an agreement, an intent rule, a quoted source, the ledger or an entry of the two files. The only kind that fails the run. |
+| `before` | Something this change touches was already broken at the task start. |
+| `known` | This change touches the sites of a `known.toml` entry. |
+| `known fixed?` | A `known.toml` finding is gone. |
+| `changed` | A function this change edited returns something else for an input a test used. |
+| `impact` | A changed function writes another set of fields, or an automatic structure check found something new. |
+| `loosened` | An `except=`, a removed or narrowed agreement, a changed or removed `known.toml` entry or a removed rule. |
+| `not compared` | A comparison was due but could not run in the closed environment; unverified, not success. |
+| `deprecated` | On stderr: a feature or spelling that goes in 5.0, with its replacement. |
+
+Follow the step after `->`; tell the owner when it says `ask owner`. `python -m flowguard show --last` prints every line of the last run with its details. Use `python -m flowguard show "what it decides"` for registered functions, fields, copies and rules; use `python -m flowguard check --static --all` for a deliberate structure review.
 
 The CLI prepares the project's import context. Direct Model/Engine instances remain fixed snapshots. Retained deprecated APIs still accept their existing inputs; this guide does not recommend adding new uses of them.
