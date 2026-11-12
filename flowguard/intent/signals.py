@@ -558,10 +558,16 @@ def _shorten(text, places, names):
     return text
 
 
+_CHANGED = re.compile(r'(\(.*?\))( was )(.*)(, now )(.*)(; \d+/\d+ inputs differ)', re.S)    # `changed_line`'s words
+_GIVE = ((0, 36), (1, 4), (0, 4))      # (rank, characters kept at least) in the order the text gives way
+
+
 def _cap(said, paths=(), places=()):
-    """`said` within WIDTH characters besides the paths and places (`path:symbol`) it names: the longest stretch of its
-    text that is neither the head up to the first ': ' (kind and subject, and the input `on ...: ` a line is about),
-    one of its `places`, nor the step after the last ' -> ' gives way in its middle."""
+    """`said` within WIDTH characters besides the paths and places (`path:symbol`) it names. Its head up to the first
+    ': ' (kind and subject), its places and the step after the last ' -> ' stay whole; the rest gives way in the middle
+    of its longest stretches, cut to one length together: first the input the line is about (a changed line's inputs,
+    a same-name line's `on ...:`), down to 36 characters, then the other stretches, then that input further. A
+    changed line keeps the words between its values: `(inputs) was X, now Y; k/n inputs differ`."""
     spans = sorted({piece for piece in (*places, *paths) if piece}, key=len, reverse=True)
     def width(text):
         for piece in spans:
@@ -573,23 +579,42 @@ def _cap(said, paths=(), places=()):
     subject, colon, body = body.partition(': ') if ': ' in body[:80] else ('', '', body)
     body, arrow, step = body.rpartition(' -> ') if ' -> ' in body else (body, '', '')
     head = head + ': ' + subject + colon
-    if witness := re.match(r'on .*?: ', body):        # the input a same-name line is about
-        head, body = head + witness[0], body[witness.end():]
     kept = {piece for piece in (*places, *paths) if piece}
     pattern = '(' + '|'.join(re.escape(piece) for piece in sorted(kept, key=len, reverse=True)) + ')' if kept else None
-    pieces = [piece for piece in (re.split(pattern, body) if pattern else [body]) if piece]
-    while width(head + ''.join(pieces) + arrow + step) > WIDTH:
-        free = [index for index, piece in enumerate(pieces) if piece not in kept and len(piece) > 7]
-        if not free:
-            break
-        index = max(free, key=lambda index: len(pieces[index]))
-        piece = pieces[index]
-        excess = width(head + ''.join(pieces) + arrow + step) - WIDTH
-        keep = max(4, len(piece) - excess - 3)
-        pieces[index] = piece[:(keep + 1) // 2] + '...' + piece[len(piece) - keep // 2:]
-        if len(pieces[index]) >= len(piece):
-            break
-    return head + ''.join(pieces) + arrow + step
+    def stretches(text, rank):
+        """[text, rank] of the stretches of `text` between its places (rank None: a place, never cut)."""
+        return [[piece, None if piece in kept else rank] for piece in (re.split(pattern, text) if pattern else [text]) if piece]
+    pieces = []
+    if body.startswith('on '):
+        # the input a same-name line is about ends at the last ': ' before the first copy the line names
+        first = min((body.find(piece) for piece in kept if piece in body), default=-1)
+        end = body.rfind(': ', 0, first) if first > 0 else body.find(': ')
+        if end > 3:
+            pieces, body = [['on ', None], *stretches(body[3:end], 0), [': ', None]], body[end + 2:]
+    changed = _CHANGED.fullmatch(body) if head.startswith('changed: ') else None
+    if changed:
+        values = [stretches(changed[1], 0), [[changed[2], None]], stretches(changed[3], 1), [[changed[4], None]],
+                  stretches(changed[5], 1), [[changed[6], None]]]
+        pieces += [piece for part in values for piece in part]
+    else:
+        pieces += stretches(body, 1)
+    def total():
+        return width(head + ''.join(piece for piece, _ in pieces) + arrow + step)
+    for rank, least in _GIVE:
+        excess = total() - WIDTH
+        free = [index for index, (piece, own) in enumerate(pieces) if own == rank and len(piece) > least + 3]
+        if excess <= 0 or not free:
+            continue
+        # the longest stretches of this rank give way together, to one length, until the line fits or each is `least`
+        level = max(len(pieces[index][0]) for index in free)
+        while level > least + 3 and sum(max(0, len(pieces[index][0]) - level) for index in free) < excess:
+            level -= 1
+        for index in free:
+            piece = pieces[index][0]
+            if len(piece) > level:
+                keep = level - 3
+                pieces[index][0] = piece[:(keep + 1) // 2] + '...' + piece[len(piece) - keep // 2:]
+    return head + ''.join(piece for piece, _ in pieces) + arrow + step
 
 
 def finding(family, name, subject, whats, step, *, function='', places=(), files=(), detail=(), fresh=True):
