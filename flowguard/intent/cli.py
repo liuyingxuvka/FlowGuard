@@ -924,13 +924,14 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     from .runtime import Runtime, _module_at, sealed
     from .signals import finding, not_compared
     issues, lines, ran, members = [], [], set(), set()
-    runtime = Runtime(cfg.root, baseline) if baseline else None
+    # without a baseline the copies still run sealed now; nothing is read at a baseline
+    runtime = Runtime(cfg.root, baseline) if baseline else Runtime(cfg.root, previous={})
     renamed = git_renames(cfg.root, baseline) if baseline else {}
     texts = {}
     def source(point, old=False):
         key = point['file'], old
         if key not in texts:
-            texts[key] = (runtime._source(renamed.get(key[0], key[0])) if runtime else None) if old else read_source(cfg.root / key[0])
+            texts[key] = runtime._source(renamed.get(key[0], key[0])) if old else read_source(cfg.root / key[0])
         return texts[key]
     def run(point, sample, old=False):
         text = source(point, old)
