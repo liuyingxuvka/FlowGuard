@@ -530,6 +530,26 @@ def test_pytest_pythonpath_helper_dependencies_use_the_maps_detected_roots(tmp_p
     changed_graph.close()
 
 
+def test_history_reads_the_baseline_from_the_project_root_below_the_repository_top_folder(tmp_path):
+    """The project is a folder of a larger repository (a monorepo's app/): its intent and test files at the baseline
+    are read from the project's root (a bare `git show rev:tests/x.py` reads from the top folder and is refused), so
+    a removed row and a lost guard are found there too, and check runs instead of stopping on Git's refusal."""
+    (tmp_path / 'repo').mkdir()
+    root, cfg, _ = fixture(tmp_path / 'repo')
+    test = root / 'tests/test_guard.py'
+    test.write_text("import pytest\n@pytest.mark.rule('LIMIT')\ndef test_guard(): assert True\n")
+    top = root.parent
+    git(top, 'init', '-q')
+    git(top, 'add', '.')
+    git(top, 'commit', '-qm', 'baseline')
+    assert history.check(cfg, 'HEAD') == []
+    test.write_text(test.read_text().replace('assert True', "pytest.skip('lost')"))
+    path = cfg.intent / 'limit.py'
+    path.write_text(path.read_text().replace("LIMIT.rows(row(x=4,expect=False,why='fixed fourth value'))\n", ''))
+    found = history.check(cfg, 'HEAD')
+    assert any('row removed' in line for line in found) and any('guard lost' in line for line in found), found
+
+
 def test_rewriting_an_sdk_alias_does_not_look_like_deleting_a_marked_test(tmp_path):
     root, cfg, _ = fixture(tmp_path)
     path = cfg.intent / 'limit.py'

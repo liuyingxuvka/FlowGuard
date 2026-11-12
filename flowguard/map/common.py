@@ -138,11 +138,14 @@ def git_renames(root, revision: str) -> dict[str, str]:
 
 
 def git_files(root) -> frozenset[str]:
-    """The files of the work tree under root that Git lists, tracked ones and untracked ones it does not ignore,
-    relative to root; none outside Git. A run reads them once for its block, whose shortened paths may name no other
-    of these files (`signals.render_block`)."""
+    """The project's files under root, relative to root: in a Git work tree the files Git lists, tracked ones and
+    untracked ones it does not ignore; outside Git the files the map's own folder walk finds (`inventory.list_files`,
+    which skips .git, node_modules, __pycache__ and .venv). A run reads them once for its block, whose shortened
+    paths may name no other of these files (`signals.render_block`): `a/orders.py` beside `b/orders.py` is
+    `a/orders.py`, with Git or without."""
     if git_common_directory(root) is None:
-        return frozenset()
+        from .inventory import list_files
+        return frozenset(list_files(Path(root)))
     listed = git_run(root, "ls-files", "-z").stdout + git_run(root, "ls-files", "--others", "--exclude-standard", "-z").stdout
     return frozenset(os.fsdecode(name) for name in listed.split(b"\0") if name)
 

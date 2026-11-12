@@ -207,6 +207,118 @@ def test_a_function_reading_a_constant_derived_from_a_changed_one_is_changed(tmp
         'changed: over (policy.py:5): (x=20) was False, now True; 1/1 inputs differ -> if you meant it, say so'], text
 
 
+def test_a_project_below_the_repository_top_folder_compares_its_changed_function(tmp_path):
+    """The project is a folder of a larger repository (a monorepo's app/): Git names the changed files relative to the
+    project's root (`--relative`), so its changed function is compared as at the top folder, never silently not at
+    all (vitest's side: test_vitest_adapter.test_a_package_below_the_repository_top_folder_plans_its_changed_function)."""
+    app = tmp_path / 'app'
+    (app / 'tests').mkdir(parents=True)
+    (app / 'policy.py').write_text('def over(x: int) -> bool:\n    return x > 3\n', encoding='utf-8')
+    (app / 'tests/test_case.py').write_text('from policy import over\n\n\ndef test_native():\n'
+                                            '    assert over(3) in (True, False)\n', encoding='utf-8')
+    (app / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\ntestpaths=["tests"]\n', encoding='utf-8')
+    (tmp_path / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n.pytest_cache/\n', encoding='utf-8')
+    (tmp_path / 'README.md').write_text('The repository holds more than the project.\n', encoding='utf-8')
+    _git(tmp_path, 'init', '-q', '-b', 'main')
+    _git(tmp_path, 'add', '.')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture baseline')
+    policy = app / 'policy.py'
+    policy.write_text(policy.read_text().replace('x > 3', 'x >= 3'))
+    result = _run(app)
+    assert result.returncode == 0, _text(result)
+    assert _block(result)[1:] == [
+        'changed: over (policy.py:1): (x=3) was False, now True; 1/1 inputs differ -> if you meant it, say so'], _text(result)
+
+
+IMPORTED = {'limits.py': 'LIMIT = 20\n', 'tests/test_case.py': (
+    'from use import over, same\n\n\ndef test_native():\n    assert over(19) in (True, False)\n    assert same(19) == 19\n')}
+IMPORTED_CHANGED = 'changed: over (use.py:4): (x=19) was False, now True; 1/1 inputs differ -> if you meant it, say so'
+
+
+def _imported(root, files, edit=('LIMIT = 20', 'LIMIT = 18')):
+    """A project whose use.py reads a constant of limits.py; then limits.py alone is edited."""
+    for name, text in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text, encoding='utf-8')
+    (root / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n.pytest_cache/\n')
+    (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\ntestpaths=["tests"]\n')
+    _git(root, 'init', '-q', '-b', 'main')
+    _git(root, 'add', '.')
+    _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture baseline')
+    limits = root / 'limits.py'
+    limits.write_text(limits.read_text(encoding='utf-8').replace(*edit), encoding='utf-8')
+    result = _run(root)
+    assert result.returncode == 0, _text(result)
+    return _block(result)[1:]
+
+
+@pytest.mark.parametrize('binding, read', [('from limits import LIMIT', 'LIMIT'), ('from limits import LIMIT as MAX', 'MAX'),
+                                           ('import limits', 'limits.LIMIT'), ('import limits as lim', 'lim.LIMIT')])
+def test_a_function_reading_a_changed_constant_of_another_module_through_its_import_is_changed(tmp_path, binding, read):
+    """use.py is the same; the constant its function reads through an import changed in limits.py: the function
+    changed, as one reading a changed constant of its own file, by name or as the module's attribute (vitest's side,
+    with the same edit: test_vitest_adapter.test_a_function_reading_an_imported_changed_constant_is_changed_in_an_unchanged_file)."""
+    use = f'{binding}\n\n\ndef over(x: int) -> bool:\n    return x > {read}\n\n\ndef same(x: int) -> int:\n    return x\n'
+    assert _imported(tmp_path, {**IMPORTED, 'use.py': use}) == [IMPORTED_CHANGED]
+
+
+@pytest.mark.parametrize('binding, cap, said', [
+    ('from limits import LIMIT', 'LIMIT + 1',
+     'changed: over (use.py:6): (x=20) was False, now True; 1/1 inputs differ -> if you meant it, say so'),
+    # the sealed run reads no module attribute in a constant: it says so instead of nothing
+    ('import limits', 'limits.LIMIT + 1', 'not compared: over (use.py:6) (uses unavailable binding CAP) -> not a failure')])
+def test_constants_derived_on_either_side_of_an_import_change_with_the_imported_one(tmp_path, binding, cap, said):
+    """LIMIT = BASE * 2 changes with BASE in limits.py, and use.py's own CAP = LIMIT + 1 with LIMIT: the function of
+    use.py reading CAP changed; the one reading nothing of them did not."""
+    files = {'limits.py': 'BASE = 10\nLIMIT = BASE * 2\n', 'use.py': (
+        f'{binding}\n\nCAP = {cap}\n\n\ndef over(x: int) -> bool:\n    return x > CAP\n\n\n'
+        'def same(x: int) -> int:\n    return x\n'),
+        'tests/test_case.py': 'from use import over, same\n\n\ndef test_native():\n    assert over(20) in (True, False)\n'
+                              '    assert same(20) == 20\n'}
+    assert _imported(tmp_path, files, ('BASE = 10', 'BASE = 9')) == [said]
+
+
+def test_imports_bind_another_module_s_changed_constants_by_name_by_star_and_through_module_names():
+    """What `_imported_changes` reads of a module's imports, as Python binds them: relative imports from the
+    importer's package, a star import's public names, a later binding replacing an import, and the module names an
+    attribute chain reads through (`_reads_changed`)."""
+    import ast
+    from flowguard.intent.runtime import _absolute, _imported_changes, _reads_changed
+    changed = {'shop.limits': {'LIMIT', 'BASE', '_HIDDEN'}, 'shop': set()}
+    tree = ast.parse(textwrap.dedent('''
+        from .limits import LIMIT as MAX
+        from . import limits
+        import shop.limits
+        from .limits import *
+        import shop.limits as lim
+        from .limits import LIMIT
+        LIMIT = 3
+        CAP = lim.LIMIT + 1
+        GRACE = lim.OTHER
+    '''))
+    names, aliases, constants = _imported_changes(tree, 'shop', changed)
+    assert names == {'MAX', 'BASE'} and constants == {'MAX', 'BASE', 'CAP'}, (names, constants)
+    # a name bound by `from M import X` may be a submodule too; LIMIT, CAP and GRACE are bound again below their imports
+    assert aliases == {'MAX': 'shop.limits.LIMIT', 'limits': 'shop.limits', 'shop': 'shop', 'lim': 'shop.limits'}, aliases
+    def reads(expression):
+        return _reads_changed(ast.parse(expression, mode='eval'), names, aliases, changed)
+    assert [reads(text) for text in ('limits.LIMIT', 'shop.limits.LIMIT', 'lim.BASE', 'MAX', 'lim.OTHER', 'shop.LIMIT',
+                                     'LIMIT', 'limits._HIDDEN')] == [True, True, True, True, False, False, False, True]
+    assert [_absolute(*case) for case in ((0, 'a.b', 'x'), (1, 'b', 'a.c'), (2, 'b', 'a.c'), (1, None, 'a'), (2, 'b', 'a'),
+                                          (1, 'b', ''))] == ['a.b', 'a.c.b', 'a.b', 'a', None, None]
+
+
+def test_a_module_s_binding_facts_have_one_owner(tmp_path):
+    """`runtime._binding_facts` reads a module's top-level bindings for every caller (the session's changed functions,
+    `_changed_constants`); the Runtime keeps no second, uncalled copy of it, nor that copy's cache."""
+    import ast
+    from flowguard.intent import runtime
+    assert '_binding_facts' not in vars(runtime.Runtime)
+    assert not hasattr(runtime.Runtime(tmp_path, previous={}), '_bindings')
+    assert runtime._binding_facts(ast.parse('LIMIT = 3\ndef f():\n    return LIMIT\n')) == {
+        'LIMIT': ('value', ast.dump(ast.Constant(3), include_attributes=False)), 'f': ('function', 'f')}
+
+
 def test_fixed_4_changed_function_needs_no_anchor_to_report_member_changes(tmp_path):
     policy = _project(tmp_path, '''
         def late_fee(days: int, member: bool) -> int:
