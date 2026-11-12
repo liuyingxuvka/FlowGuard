@@ -944,7 +944,7 @@ def test_archived_prisma_files_take_no_part_in_two_declarations_differ(tmp_path)
     assert code == 0 and _block(text) == [
         "impact: declarations Item.kind: schema.prisma:1 declares 'A' | 'B' | 'C' | 'D'; src/kinds.ts:2 declares 'A' | 'B' | 'C' "
         '-> fix it, or say why in your report'], text
-    assert 'deprecated: check --leads will be removed in 5.0; write python -m flowguard show --last' in text.splitlines(), text
+    assert 'deprecated: check --leads goes in 5.0 -> write python -m flowguard show --last' in text.splitlines(), text
 
 
 def test_a_prisma_client_type_under_an_alias_a_namespace_or_a_generator_output_is_gated_by_its_model(tmp_path):
@@ -2182,7 +2182,7 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     # stdout holds the stub runner's one line; check's deprecation notice reaches stderr (console.error)
     assert run.returncode == 1 and (run.stdout.splitlines(), run.stderr.splitlines()) == (
         ['FAIL FlowGuard check --static: FlowGuard: 2 red, see the FlowGuard block at the end'],
-        ['deprecated: label-spelling leads will be removed in 5.0']), run
+        ['deprecated: label-spelling leads goes in 5.0 -> do not use it']), run
     saved = json.loads((observations / 'static.json').read_text(encoding='utf-8'))
     assert sorted(saved) == ['deprecated', 'hidden', 'ignored', 'lines', 'seconds', 'title'], saved
     assert [line['text'] for line in saved['lines'] if line['kind'] == 'red'] == [
@@ -2246,7 +2246,7 @@ def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lis
     assert all(lead.startswith('label-spelling leads: before: label spellings differ: ') for lead in leads if lead not in new), leads
     code, text = _static(tmp_path, '--all', '--leads')
     assert code == 0 and _leads(tmp_path) == leads, text
-    assert 'deprecated: check --leads will be removed in 5.0; write python -m flowguard show --last' in text.splitlines(), text
+    assert 'deprecated: check --leads goes in 5.0 -> write python -m flowguard show --last' in text.splitlines(), text
     code, text = _static(tmp_path)
     assert code == 0 and _block(text) == [] and _leads(tmp_path) == new, text
 
@@ -2571,7 +2571,7 @@ def test_a_changed_typescript_constant_and_function_lead_to_the_places_left_behi
     code, text = _static(tmp_path)
     # 5.0-deprecated heuristics: leads of show --last, no line of the block
     assert code == 0 and _block(text) == [], text
-    assert 'deprecated: old-value leads will be removed in 5.0' in text.splitlines(), text
+    assert 'deprecated: old-value leads goes in 5.0 -> do not use it' in text.splitlines(), text
     leads = _leads(tmp_path)
     assert 'old-value leads: old values 14 remain in 1 decisions: src/reminders.ts:2 -> if requirements changed, update them together' in leads, leads
     alone = next(lead for lead in leads if lead.startswith('similar-implementation leads: lateFee'))
