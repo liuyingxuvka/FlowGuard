@@ -23,7 +23,7 @@ def test_deprecated_templates_still_register_real_flow_declarations(name, args, 
         assert {node.anchor for node in declared.nodes} == set(args)
     output = capsys.readouterr()
     assert output.out == ''
-    assert f'deprecated: {name} will be removed in 5.0' in output.err.splitlines()
+    assert f'deprecated: {name} goes in 5.0 -> do not use it' in output.err.splitlines()
 
 
 def test_deprecated_sdk_declarations_keep_their_values_and_predicate(capsys, monkeypatch):
@@ -41,7 +41,7 @@ def test_deprecated_sdk_declarations_keep_their_values_and_predicate(capsys, mon
     output = capsys.readouterr()
     assert output.out == ''
     for feature in ('structure_rule', 'distinct', 'Transition'):
-        assert f'deprecated: {feature} will be removed in 5.0' in output.err.splitlines()
+        assert f'deprecated: {feature} goes in 5.0 -> do not use it' in output.err.splitlines()
 
 
 @pytest.mark.parametrize('feature,args,kwargs,error', [
@@ -53,4 +53,4 @@ def test_deprecation_notice_does_not_accept_an_invalid_old_call(feature, args, k
         getattr(api, feature)(*args, **kwargs)
     output = capsys.readouterr()
     assert output.out == ''
-    assert f'deprecated: {feature} will be removed in 5.0' in output.err.splitlines()
+    assert f'deprecated: {feature} goes in 5.0 -> do not use it' in output.err.splitlines()

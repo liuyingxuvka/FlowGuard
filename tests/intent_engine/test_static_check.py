@@ -2410,7 +2410,7 @@ def test_check_static_reports_a_new_typescript_fallback_and_a_write_outside_its_
     assert code == 0, text
     _commit(tmp_path, message='ledger')
     code, text = _static(tmp_path)
-    assert (code, text) == (0, 'deprecated: owner writers= will be removed in 5.0; write writers FIELD FUNCTIONS\n'), text
+    assert (code, text) == (0, 'deprecated: owner writers= goes in 5.0 -> write writers FIELD FUNCTIONS\n'), text
     _write(tmp_path, {'backend/src/services/rogue.ts': '''
         export async function moveEmployee(prisma: any, id: string, unit: string, next: any) {
           try {

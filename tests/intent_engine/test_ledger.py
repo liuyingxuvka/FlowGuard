@@ -235,10 +235,10 @@ def test_old_and_current_unverified_placeholders_stay_invalid(shop, reason):
 
 
 @pytest.mark.parametrize('section, reader, empty, replacement', [
-    ('unverified', ledger.unverified, ({}, []), ''),
+    ('unverified', ledger.unverified, ({}, []), ' -> do not use it'),
     # a [structure] decision names its 4.3 replacement
     ('structure', ledger.structure_decisions, ({}, [], []),
-     '; write [known.<id>] in .flowguard/known.toml with act = "ignore" or "leave"'),
+     ' -> write [known.<id>] in .flowguard/known.toml with act = "ignore" or "leave"'),
 ])
 def test_legacy_ledger_sections_warn_only_when_present(shop, capsys, section, reader, empty, replacement):
     assert reader(load_config(shop)) == empty
@@ -246,7 +246,7 @@ def test_legacy_ledger_sections_warn_only_when_present(shop, capsys, section, re
     add_entry(shop, '\n[' + section + ']\n')
     assert reader(load_config(shop)) == empty
     assert capsys.readouterr().err.splitlines() == [
-        'deprecated: ledger [' + section + '] will be removed in 5.0' + replacement]
+        'deprecated: ledger [' + section + '] goes in 5.0' + replacement]
 
 
 def test_word_count_reads_latin_words_and_cjk_characters():

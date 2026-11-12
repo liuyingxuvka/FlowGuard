@@ -12,14 +12,12 @@ USED = []           # every use of a deprecated feature in this process, in orde
 
 
 def warn(feature, replacement=None):
+    """`deprecated: {feature} goes in 5.0 -> write {replacement}` (design 4.7; `-> do not use it` without one)."""
     USED.append(feature)
     if feature in SAID:
         return
     SAID.add(feature)
-    message = f'deprecated: {feature} will be removed in 5.0'
-    if replacement:
-        message += '; write ' + replacement
-    print(message, file=sys.stderr)
+    print(f'deprecated: {feature} goes in 5.0 -> ' + (f'write {replacement}' if replacement else 'do not use it'), file=sys.stderr)
 
 
 def mark():

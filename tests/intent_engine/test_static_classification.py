@@ -247,7 +247,7 @@ def test_a_structure_decision_closes_its_finding_and_one_without_its_anchor_is_a
     assert (wrong.family, wrong.fresh, wrong.parts[0][1]) == ('input', frozenset({''}), '.flowguard/ledger.toml:[structure."writers:Item.state"]')
     assert _kinds(_deliver(found), wrong.name) == [('red', '')]
     # The section is deprecated and names its replacement (design 6.2).
-    assert ('deprecated: ledger [structure] will be removed in 5.0; write [known.<id>] in .flowguard/known.toml '
+    assert ('deprecated: ledger [structure] goes in 5.0 -> write [known.<id>] in .flowguard/known.toml '
             'with act = "ignore" or "leave"') in capsys.readouterr().err.splitlines()
 
 

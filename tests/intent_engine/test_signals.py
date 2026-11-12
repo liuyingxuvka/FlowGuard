@@ -401,8 +401,9 @@ def test_a_deprecated_feature_says_so_once_per_process_and_each_run_names_what_i
     for _ in range(3):
         deprecation.warn('old spelling', 'new spelling')
     deprecation.warn('other spelling')
-    assert capsys.readouterr().err.splitlines() == ['deprecated: old spelling will be removed in 5.0; write new spelling',
-                                                    'deprecated: other spelling will be removed in 5.0']
+    # design 4.7: `deprecated: X goes in 5.0 -> Y`, on stderr, once per feature in a process
+    assert capsys.readouterr().err.splitlines() == ['deprecated: old spelling goes in 5.0 -> write new spelling',
+                                                    'deprecated: other spelling goes in 5.0 -> do not use it']
     assert deprecation.used(start) == ['old spelling', 'other spelling']
     later = deprecation.mark()
     deprecation.warn('old spelling')
@@ -555,7 +556,7 @@ def test_every_stdout_line_of_a_pytest_block_has_one_of_the_shapes(tmp_path):
     kinds = {line.partition(': ')[0] for line in block[1:]}
     assert {'red', 'changed', 'not compared'} <= kinds, block
     assert not any(line.startswith('deprecated') for line in lines), lines
-    assert 'deprecated: old-value leads will be removed in 5.0' in result.stderr.splitlines(), result.stderr
+    assert 'deprecated: old-value leads goes in 5.0 -> do not use it' in result.stderr.splitlines(), result.stderr
 
 
 def test_the_block_follows_pytests_summary_with_every_reporter_option_and_after_an_interrupt(tmp_path):

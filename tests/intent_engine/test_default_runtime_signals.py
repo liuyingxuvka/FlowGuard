@@ -293,7 +293,7 @@ def renewal(days: int) -> bool:
     text = _text(result)
     assert result.returncode == 0, text
     # A 5.0-deprecated heuristic: no line of the block, the lead only in show --last.
-    assert 'old values' not in text and 'deprecated: old-value leads will be removed in 5.0' in result.stderr, text
+    assert 'old values' not in text and 'deprecated: old-value leads goes in 5.0 -> do not use it' in result.stderr.splitlines(), text
     last = _last(tmp_path).splitlines()
     leads = last[last.index('deprecated leads (5.0):') + 1:]
     lead = next(line for line in leads if 'old values 14 remain in 4 decisions' in line)
