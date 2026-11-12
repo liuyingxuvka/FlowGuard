@@ -20,3 +20,7 @@ source = 'R74 "这个技能本身你用英文去做没问题吧"'
 [rule.chinese-conversation]
 text = "Communicate with the owner in Chinese."
 source = 'R58 "你用中文跟我交流，怎么刚才又给我写了一大堆英文？"'
+
+[rule.no-harm]
+text = "FlowGuard never changes how the maintained software works: it acts only inside test runs, never in builds, the dev server or production."
+source = 'R85 "咱们得保证 FlowGuard 不会影响已有软件自身的功能，不能说用 FlowGuard 维护之后，这个软件就不好用了"'

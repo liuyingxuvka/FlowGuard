@@ -470,11 +470,11 @@ def test_the_repository_keeps_its_rules_in_force_each_quoting_stored_owner_words
     cfg = load_config(root)
     found = sources.catalog(cfg)
     assert found.issues == [] and list(found.rules) == ['regression-role', 'current-rules', 'efficient-use', 'english-skill',
-                                                        'chinese-conversation']
-    assert [found.rules[name].source.partition(' ')[0] for name in found.rules] == ['R68', 'R80', 'R75', 'R74', 'R58']
+                                                        'chinese-conversation', 'no-harm']
+    assert [found.rules[name].source.partition(' ')[0] for name in found.rules] == ['R68', 'R80', 'R75', 'R74', 'R58', 'R85']
     for rule in found.rules.values():
         assert rule.text.isascii() and sources.catalog_authority(sources.parse(rule.source, strict=True), cfg, None)[0], rule
     assert cli.show(cfg, 'rules') == 0
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == 'FlowGuard rules: 5 in .flowguard/rules.toml, 0 known in .flowguard/known.toml, 0 input problems'
-    assert sum(line.startswith('rule.') for line in lines) == 5 and sum(line.endswith('(holds)') for line in lines) == 5
+    assert lines[0] == 'FlowGuard rules: 6 in .flowguard/rules.toml, 0 known in .flowguard/known.toml, 0 input problems'
+    assert sum(line.startswith('rule.') for line in lines) == 6 and sum(line.endswith('(holds)') for line in lines) == 6
