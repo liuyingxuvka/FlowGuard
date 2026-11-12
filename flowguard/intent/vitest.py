@@ -615,10 +615,10 @@ MODULE = GENERATED + '''
 // Delete those two lines to undo. Only a vitest run loads FlowGuard (vitest sets VITEST before it reads the
 // config): `vite build`, `vite` and `vite preview` get no plugin and start no Python, nor does a build or server
 // that a test starts (in a vitest worker, VITEST_WORKER_ID is set, also for its child processes), and the plugin
-// applies only to the servers vitest itself starts, so the software itself is never changed. In a vitest run it records functions marked `flowguard: same NAME` and changed functions;
-// without either it adds nothing, unless flowguard.static.test.mjs is next to this file or there is no baseline
-// commit: then it adds the block only. Comparison runs after the tests, and FlowGuard's lines follow the test
-// summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
+// applies only to the servers vitest itself starts, so the software itself is never changed. In a vitest run it
+// records functions marked `flowguard: same NAME` and changed functions; without either it adds nothing, unless
+// flowguard.static.test.mjs is next to this file or there is no baseline commit: then it adds the block only.
+// Comparison runs after the tests, and FlowGuard's lines follow the test summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
 // interpreter that ran `flowguard init` on this machine, recorded in @RECORDED@ (git-ignored), then `python3`,
 // `python` and, on Windows, `py -3`.
 import { spawnSync } from 'node:child_process';
