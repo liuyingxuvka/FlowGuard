@@ -576,22 +576,81 @@ def source_state(engine, declaration, confirmed=None, quote=None, *, gone_red=Tr
 # ---- the catalog's findings for the static checks ---------------------------------------------------------------
 
 LOOSENED_STEP = "name it in your report; needs the owner's yes"
+FUNCTION_VALUES = ('arrow_function', 'function_expression', 'function', 'generator_function')
+
+
+def _declarations(path, data, symbol):
+    """The module-level declarations of `symbol` in one TS/JS or Python source (`data`, its bytes) that a site may
+    name as a constant, whatever its value (design 4.4), each as a fingerprint an edit of it changes and formatting or
+    a comment does not: in TS/JS each `const`, `let` or `var` declarator of that name whose value is no function (a
+    function is found on the map as a function site); in Python each assignment to it at the top level, also in an
+    `if`, `try` or `with` block there, as the map reads a module's constants. A Python source that does not parse
+    raises SyntaxError (the caller asks the map first)."""
+    import ast
+    from flowguard.map.common import read_source
+    from flowguard.map.inventory import syntax_tree
+    from ..structure.readers.common import fingerprint, parse, text
+    from ..structure.readers.ecma import unwrap
+    from ..structure.readers.registry import language_for
+    found = []
+    if language_for(path) != 'python':
+        source, tree = parse(data, language_for(path))
+        for statement in tree.root_node.named_children:
+            inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+            if inner is None or inner.type not in ('lexical_declaration', 'variable_declaration'):
+                continue
+            for item in inner.named_children:
+                name, value = item.child_by_field_name('name'), unwrap(item.child_by_field_name('value'))
+                if item.type == 'variable_declarator' and name is not None and name.type == 'identifier' \
+                        and text(name, source) == symbol and (value is None or value.type not in FUNCTION_VALUES):
+                    found.append(inner.children[0].type + ' ' + fingerprint(item, source))
+        return found
+    todo = list(reversed(syntax_tree(read_source(Path(path), data=data)).body))
+    while todo:
+        node = todo.pop()
+        if isinstance(node, (ast.If, ast.Try, ast.TryStar, ast.With)):
+            todo.extend(reversed([*node.body, *(statement for handler in getattr(node, 'handlers', ()) for statement in handler.body),
+                                  *getattr(node, 'orelse', ()), *getattr(node, 'finalbody', ())]))
+        elif isinstance(node, ast.Assign) or isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if any(isinstance(part, ast.Name) and isinstance(part.ctx, ast.Store) and part.id == symbol
+                   for target in targets for part in ast.walk(target)):
+                found.append(ast.dump(node))
+    return found
+
+
+def _declaration_edited(change, path, symbol, now):
+    """Whether this change edits the one declaration of constant `symbol` in `path` (fingerprint `now`): the file
+    is new, its baseline did not parse, or its baseline declarations of that name are not just that one."""
+    from ..structure.readers.registry import language_for
+    if change is None or not change.baseline or path not in change.files:
+        return False
+    old = {new: old for old, new in change.renamed().items()}.get(path, path)
+    data = change.graph._baseline_bytes(change.baseline, old)
+    if data is None or language_for(old) == 'python' and change.old_facts(old).get('parse_error'):
+        return True
+    return _declarations(old, data, symbol) != [now]
 
 
 def known_sites(graph, entries, change=None):
     """(entries, input findings): the known entries with their sites resolved on the map, and one input finding per
     entry with a site that names no single function, method, object.method, constant or Model.field of its file (that
     entry is left out). A Model.field is a field of a schema model (Prisma, SQL) of that file, or of a class the file
-    declares that the map binds writes to (a Python class written as `order.status = ...`). `Known.nodes` holds the
-    node of each function, method or constant site and, for a Model.field site, the functions that write that field
-    now and (with `change`) at its baseline; `Known.files` the schema or class file of each Model.field site (D31: a
-    site is touched when its node changes, or that file changes)."""
+    declares that the map binds writes to (a Python class written as `order.status = ...`). A constant is any
+    module-level declaration of a TS/JS or Python file (`_declarations`), whatever its value, or a constant node of
+    the map. `Known.nodes` holds the node of each function, method or constant site the map keeps a node for and, for
+    a Model.field site, the functions that write that field now and (with `change`) at its baseline; `Known.files` the
+    schema or class file of each Model.field site and the file of each other constant site whose declaration this
+    change edits (D31: a site is touched when its node changes, or that file changes)."""
     from .anchors import _agreement_positions
     from .owners import row_function
+    from ..structure.readers.registry import ECMA, language_for
     entries = list(entries)
     if not entries:
         return [], []
-    modules = {path: module for path, module in graph.con.execute('SELECT path, module FROM file')}
+    modules, errors = {}, {}
+    for path, module, error in graph.con.execute('SELECT path, module, parse_error FROM file'):
+        modules[path], errors[path] = module, error
     positions = _agreement_positions(graph, modules)
     schemas = {}
     for schema in graph.schemas():
@@ -613,8 +672,16 @@ def known_sites(graph, entries, change=None):
                 problems.append(f'site {site}: the map reads no {path} (excluded, or no source or schema file)')
                 continue
             found = list(positions[module].get(symbol, ()))
-            found += [row[0] for row in graph.con.execute("SELECT id FROM node WHERE module=? AND kind='const' AND qual=?",
+            mapped = [row[0] for row in graph.con.execute("SELECT id FROM node WHERE module=? AND kind='const' AND qual=?",
                                                           (module, symbol))]
+            declared = []
+            if '.' in symbol or language_for(path) not in ('python', *ECMA):
+                found += mapped
+            elif errors[path]:
+                problems.append(f'site {site}: {path} does not parse ({errors[path]})')
+                continue
+            else:
+                declared = _declarations(path, (graph.root / path).read_bytes(), symbol)
             model, dot, name = symbol.rpartition('.')
             fields = [symbol for schema in schemas.get(path, ()) for item in schema['models']
                       if dot and item['name'] == model and any(column['name'] == name for column in item['fields'])]
@@ -622,11 +689,17 @@ def known_sites(graph, entries, change=None):
                     "SELECT 1 FROM node WHERE module=? AND kind='class' AND qual=?", (module, model)).fetchone() \
                     and any(row['model'] == model and row['field'] == name for row in writes(symbol)):
                 fields.append(symbol)
-            if len(found) + len(fields) != 1:
-                problems.append(f'site {site} names ' + (f'{len(found) + len(fields)} declarations' if found or fields else 'nothing')
+            count = len(found) + len(declared) + len(fields)
+            if count != 1:
+                problems.append(f'site {site} names ' + (f'{count} declarations' if count else 'nothing')
                                 + f' in {path}: name one function, object.method, constant or Model.field of that file')
             elif found:
                 nodes.update(found)
+            elif declared:
+                if mapped:
+                    nodes.update(mapped)
+                elif _declaration_edited(change, path, symbol, declared[0]):
+                    files.add(path)
             else:
                 nodes.update(row_function(row) for row in writes(symbol))
                 if change is not None and change.baseline:

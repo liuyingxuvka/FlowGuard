@@ -313,6 +313,85 @@ class _Import:
         return child.namespace(self.member) if child is not None else _MISSING      # `from package import module`
 
 
+_FOLDED = {ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/', ast.FloorDiv: '//', ast.Mod: '%', ast.Pow: '**',
+           ast.UAdd: '+', ast.USub: '-'}
+
+
+def _foldable(node, env):
+    """Whether a right side is built only from literals, signs, + - * / // % ** and names, so that no value it reads
+    can be changed through the new binding: an operation gives a new value, and a bare name is folded only when it
+    names a number, a text or another fold (an alias of a list or a module could change it in place)."""
+    if isinstance(node, ast.Name):
+        return type(env.get(node.id)) in (int, float, str, _Fold)
+    return all(isinstance(part, (ast.Name, ast.Load, ast.Constant, ast.UnaryOp, ast.BinOp, *_FOLDED)) for part in ast.walk(node))
+
+
+class _Fold:
+    """A top-level constant whose right side is `_foldable` (design 4.5): folded by walking it, nothing runs, when a
+    sealed function reads it. `bindings` are the values its names had at its line (a literal, an `_Import`, an
+    earlier `_Fold`, or _MISSING); a name the module may rebind later (`global` in a function, `blocked` when the
+    whole top level is read) is no constant. `order` is its place in the source (line, column): it reads only earlier
+    folds."""
+    __slots__ = ('name', 'node', 'bindings', 'blocked', 'order', 'result')
+
+    def __init__(self, name, node, bindings, blocked, order):
+        self.name, self.node, self.bindings, self.blocked, self.order, self.result = name, node, bindings, blocked, order, None
+
+    def folded(self):
+        """(value, '') or (None, why it does not fold). The earlier folds it reads are computed first, in source order,
+        so a long chain needs no deep recursion; an imported name is read as `_Import.value` reads it (Refused when
+        loading its module could change it)."""
+        if self.result is None:
+            needed, todo = {}, [self]
+            while todo:
+                fold = todo.pop()
+                if fold.result is None and id(fold) not in needed:
+                    needed[id(fold)] = fold
+                    todo.extend(item for item in fold.bindings.values() if type(item) is _Fold)
+            for fold in sorted(needed.values(), key=lambda item: item.order):
+                fold.result = fold._compute()
+        return self.result
+
+    def value(self):
+        value, why = self.folded()
+        if why:
+            raise Refused(f'uses {self.name}: {why}')
+        return value
+
+    def _compute(self):
+        from ..structure.features import fold_step
+        stack, done = [(self.node, False)], []
+        while stack:
+            node, ready = stack.pop()
+            if isinstance(node, ast.Constant):
+                done.append(node.value)
+                continue
+            if isinstance(node, ast.Name):
+                found = self.bindings.get(node.id, _MISSING)
+                if type(found) is _Import:
+                    found = found.value()
+                if found is _MISSING or node.id in self.blocked:
+                    return None, f'{node.id} is not a number or text constant before it'
+                if type(found) is _Fold:
+                    value, why = found.result
+                    if why:
+                        return None, f'uses {node.id}: {why}'
+                    found = value
+                done.append(found)
+                continue
+            children = [node.operand] if isinstance(node, ast.UnaryOp) else [node.left, node.right]
+            if not ready:
+                stack.append((node, True))
+                stack.extend((child, False) for child in reversed(children))
+                continue
+            value, why = fold_step(_FOLDED[type(node.op)], done[-len(children):])
+            if why:
+                return None, why
+            del done[-len(children):]
+            done.append(value)
+        return done[0], ''
+
+
 def _receiver(function, arguments):
     """The parameter holding the receiver of a method call (self, or cls of a class method), or None: the
     function is that argument's class attribute as a plain or class method, found without running code."""
@@ -335,11 +414,12 @@ def _register(value, spaces):
 
 
 def _scope(tree, imports=None, *, imported=False):
-    """The sealed globals of one module's top level: its literal constants, the whitelisted modules, the
-    import bindings of project modules (`_Import`, when `imports` finds their source), its functions and the
-    names nothing may read. A name any function declares `global` may be rebound while the program runs and
-    is never a value. Returns (env, functions, blocked, namespaces by id, literal constant names). For an
-    `imported` module only its literal constants are read: a star import there hides the ones before it."""
+    """The sealed globals of one module's top level: its literal constants (`ast.literal_eval`, or a `_Fold` of
+    literals and constants above it), the whitelisted modules, the import bindings of project modules (`_Import`,
+    when `imports` finds their source), its functions and the names nothing may read. A name any function
+    declares `global` may be rebound while the program runs and is never a value. Returns (env, functions,
+    blocked, namespaces by id, literal constant names). For an `imported` module only its literal constants are
+    read: a star import there hides the ones before it."""
     modules = {'math': types.SimpleNamespace(**{name: value for name, value in _MATH.items()
                if vars(math).get(name) is value}), 'decimal': types.SimpleNamespace(Decimal=Decimal),
                'datetime': types.SimpleNamespace(date=_Date, datetime=_DateTime, timedelta=timedelta)}
@@ -385,7 +465,11 @@ def _scope(tree, imports=None, *, imported=False):
                 value = ast.literal_eval(n.value)
             except (ValueError, TypeError, SyntaxError):
                 value = _MISSING
-                names.update(p.id for p in ast.walk(n.value) if isinstance(p, ast.Name))
+                if all(isinstance(target, ast.Name) for target in targets) and _foldable(n.value, env):
+                    value = _Fold(targets[0].id, n.value, {p.id: env.get(p.id, _MISSING) for p in ast.walk(n.value)
+                                                           if isinstance(p, ast.Name)}, blocked, (n.lineno, n.col_offset))
+                else:
+                    names.update(p.id for p in ast.walk(n.value) if isinstance(p, ast.Name))
             for target in targets:
                 if value is not _MISSING and isinstance(target, ast.Name):
                     values[target.id] = value
@@ -440,7 +524,7 @@ def _closed(source, qual, imports=None):
         local = {p.arg for p in [*n.args.posonlyargs, *n.args.args, *n.args.kwonlyargs,
                                 *([n.args.vararg] if n.args.vararg else []), *([n.args.kwarg] if n.args.kwarg else [])]}
         local.update(p.id for p in ast.walk(n) if isinstance(p, ast.Name) and isinstance(p.ctx, ast.Store))
-        for part in ast.walk(n):        # an import is read only when the function or a helper reads its name
+        for part in ast.walk(n):        # an import or a fold is read only when the function or a helper reads its name
             if isinstance(part, ast.Name) and part.id not in local and type(env.get(part.id)) is _Import:
                 value = env[part.id].value()
                 if value is _MISSING:
@@ -449,6 +533,8 @@ def _closed(source, qual, imports=None):
                 else:
                     env[part.id] = value
                     _register(value, spaces)
+            elif isinstance(part, ast.Name) and part.id not in local and type(env.get(part.id)) is _Fold:
+                env[part.id] = env[part.id].value()
         def space(node):
             """The module namespace an attribute chain of global names reads (`math`, `shop.settings`), or None."""
             if isinstance(node, ast.Name):
@@ -480,7 +566,7 @@ def _closed(source, qual, imports=None):
         todo.extend(p.id for p in ast.walk(n) if isinstance(p, ast.Name) and isinstance(p.ctx, ast.Load)
                     and p.id in functions and p.id not in local)
         definitions.append(n)
-    for name in [name for name, value in env.items() if type(value) is _Import]:
+    for name in [name for name, value in env.items() if type(value) in (_Import, _Fold)]:
         del env[name]       # never read: the sealed code has no way to reach it
     exec(compile(ast.fix_missing_locations(ast.Module(body=definitions, type_ignores=[])),
                  '<flowguard-sealed>', 'exec'), env)
@@ -1010,12 +1096,13 @@ class Runtime:
 
     def _literals(self, file, old):
         """{name: value} of the literal constants a project module gives another module's sealed def: assigned
-        once at its top level to an immutable literal, never rebound and never `global` in a function (`_scope`
-        of an imported module). Read from its source once per runtime."""
+        once at its top level to an immutable literal or one that folds (`_Fold`), never rebound and never `global`
+        in a function (`_scope` of an imported module). Read from its source once per runtime."""
         if (file, old) not in self._exported:
             env, _, _, _, literals = _scope(self._tree(file, old), imported=True)
-            self._exported[file, old] = {name: env[name] for name in literals
-                                         if not name.startswith('_') and _immutable(env[name])}
+            values = {name: env[name].folded() if type(env[name]) is _Fold else (env[name], '') for name in literals}
+            self._exported[file, old] = {name: value for name, (value, why) in values.items()
+                                         if not name.startswith('_') and not why and _immutable(value)}
         return self._exported[file, old]
 
     def _loading(self, file, module, old):

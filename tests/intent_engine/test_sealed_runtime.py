@@ -352,6 +352,67 @@ def test_the_baseline_version_reads_the_baseline_constant(tmp_path):
     assert sealed(policy, 'allows', [5], {}, runtime.imports('shop/policy.py', 'shop.policy')) == {'status': 'ok', 'value': True}
 
 
+# Design 4.5: a constant whose right side is built from number and string literals, signs, + - * / // % ** and
+# constants above it is folded by walking its syntax; nothing runs. Round 23: `FACTOR = 10 ** DECIMALS` was
+# "uses unavailable binding FACTOR", so a careless change of the function reading it went unseen.
+ROUNDED = 'def rounded(value):\n    return round(value * FACTOR) / FACTOR\n'
+
+
+@pytest.mark.parametrize('constants', [
+    'DECIMALS = 4\nFACTOR = 10 ** DECIMALS\n',
+    'BASE = 10\nDECIMALS = BASE - 6\nFACTOR: int = BASE ** DECIMALS\n',            # a chain of three
+    'FACTOR = (7 // 2 + 7 % 3) * 5000 / 2 + -0.0 - +0\n',
+    'DECIMALS = 4\nFACTOR = 10 ** DECIMALS\nDECIMALS = 9\n',                       # its value at that line
+])
+def test_a_constant_built_from_literals_and_constants_above_it_is_folded(constants):
+    assert sealed(constants + ROUNDED, 'rounded', [0.01875], {}) == {'status': 'ok', 'value': 0.0188}
+
+
+def test_a_long_chain_of_constants_folds_without_deep_recursion():
+    source = 'C0 = 0\n' + ''.join(f'C{n + 1} = C{n} + 1\n' for n in range(3000)) + 'def answer():\n    return C3000\n'
+    assert sealed(source, 'answer', [], {}) == {'status': 'ok', 'value': 3000}
+
+
+def test_the_constants_a_folded_constant_reads_stay_readable_and_text_folds_too():
+    source = "DECIMALS = 4\nFACTOR = 10 ** DECIMALS\nLABEL = 'FTE' + '-' * 2\n" \
+             "def shown(value):\n    return LABEL + str(round(value * FACTOR) / FACTOR) + str(DECIMALS)\n"
+    assert sealed(source, 'shown', [0.01875], {}) == {'status': 'ok', 'value': 'FTE--0.01884'}
+
+
+@pytest.mark.parametrize('settings, policy', [
+    ('DECIMALS = 4\n', 'from shop.settings import DECIMALS\nFACTOR = 10 ** DECIMALS\n' + ROUNDED),
+    ('DECIMALS = 2 + 2\nFACTOR = 10 ** DECIMALS\n', 'from shop.settings import FACTOR\n' + ROUNDED),
+])
+def test_a_folded_constant_reads_and_gives_project_module_literals(tmp_path, settings, policy):
+    runtime, source, imports = _project_settings(tmp_path, settings, policy)
+    assert sealed(source, 'rounded', [0.01875], {}, imports) == {'status': 'ok', 'value': 0.0188}
+    assert 'shop.settings' not in sys.modules
+
+
+@pytest.mark.parametrize('constants, reason', [
+    ('A = B + 1\nB = A + 1\n', 'uses A: B is not a number or text constant before it'),          # a cycle
+    ('A = 2 ** 300\n', 'uses A: exponent 300 is above 64'),
+    ('A = 2 ** -65\n', 'uses A: exponent -65 is below -64'),
+    ('A = 2 ** 64 * 2 ** 64 * 2 ** 64 * 2 ** 64 * 2\n', 'uses A: result is above 2**256'),
+    ('A = 1.5 ** 64 ** 2\n', 'uses A: exponent 4096 is above 64'),
+    ('A = 10.0 ** 64 * 1e300\n', 'uses A: result is not finite'),
+    ("A = 'x' * 10001\n", 'uses A: text is longer than 10000 characters'),
+    ("T = '0123456789' * 1000\nA = T + T\n", 'uses A: text is longer than 10000 characters'),
+    ('HUGE = 2 ** 300\nA = HUGE / 2\n', 'uses A: uses HUGE: exponent 300 is above 64'),
+    ('A = 1 // 0\n', 'uses A: divides by zero'),
+    ("A = 'a' + 1\n", 'uses A: cannot fold str + int'),
+    ("A = '%s' % 2\n", 'uses A: cannot fold str % int'),
+    ('A = True + 1\n', 'uses A: cannot fold bool + int'),
+    ('A = (-8) ** 0.5\n', 'uses A: result is not a real number'),
+    ('A = len * 2\n', 'uses A: cannot fold builtin_function_or_method * int'),
+    ('D = 4\nA = 10 ** D\ndef bump():\n    global D\n    D = 5\n', 'uses A: D is not a number or text constant before it'),
+    ('A = 10 ** int("4")\n', 'uses unavailable binding A'),                                     # a call never runs
+])
+def test_a_constant_that_does_not_fold_stays_not_compared_with_why(constants, reason):
+    source = constants + 'def answer(x):\n    return x + A\n'
+    assert sealed(source, 'answer', [1], {}) == {'status': 'unavailable', 'reason': reason}
+
+
 def test_open_is_refused_before_the_call_starts(tmp_path, monkeypatch):
     from flowguard.intent import runtime as R
     target = tmp_path / 'written.txt'
