@@ -480,7 +480,7 @@ def test_check_uses_real_pytest_items_and_finds_the_regression(tmp_path, capsys)
     capsys.readouterr()
     assert cli_fixture.check(cfg) == 1
     text = capsys.readouterr().out
-    assert 'LIMIT' in text and 'rule F, code True' in text
+    assert 'LIMIT' in text and 'rule False, code True' in text
     assert len(text.splitlines()) <= 20
     stored = cache.read(cfg)
     assert stored['attempt']['sentinel'] == 'ok'

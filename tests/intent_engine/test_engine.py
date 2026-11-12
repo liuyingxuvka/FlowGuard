@@ -62,7 +62,7 @@ def test_a_later_session_regression_is_found_in_the_real_home(tmp_path):
     rule = model.rules['LIMIT']
     result = engine.run_home(rule, rule.homes[0], 'cells')
     assert result['verdict'] == 'red'
-    assert 'days=4' in result['red'][0] and 'rule F, code True' in result['red'][0]
+    assert 'days=4' in result['red'][0] and 'rule False, code True' in result['red'][0]
 
 
 def test_every_bound_copy_is_checked(tmp_path):

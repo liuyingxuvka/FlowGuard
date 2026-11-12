@@ -1071,13 +1071,13 @@ def judge(cfg, data, records, package=None):
                     break
                 if expected is CONFLICT or expected is None or outcome_eq(expected, actual):
                     continue
-                whats.append(f'{C.show_cell(cell)} -> rule {C.show(expected)}, code {C.show(actual)} at {site}')
+                whats.append(f'{C.show_cell(cell)} -> rule {C.show_value(expected)}, code {C.show_value(actual)} at {site}')
                 at.append(site)
                 break
         if whats:
             # One red line per rule (D30), its first step from `signals.rule_steps`, the others and the owner's words in
             # its detail, as pytest says a rule's red.
-            steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, ', '.join(sites), declared, whats)]
+            steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, at or sites or [rule.id + ' binding'], declared, whats)]
             source = cited(parse(rule.source), cfg)
             issues.append(signals.finding('rule', f'rule:{rule.id}', f'rule {rule.id}', whats, steps[0] if steps else '',
                                           places=tuple(dict.fromkeys((declared, *at, *sites))), files=(model.file_of[rule.id],),

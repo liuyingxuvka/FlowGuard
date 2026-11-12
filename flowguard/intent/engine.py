@@ -19,7 +19,7 @@ from pathlib import Path
 
 from . import probe as P
 from . import sites as S
-from .cells import (Kind, Raised, base_value, build_space, coerce, read_predicate, same, show, show_cell,
+from .cells import (Kind, Raised, base_value, build_space, coerce, read_predicate, same, show, show_cell, show_value,
                     smallest)
 from .config import project_code
 from .api import Refused, _AnchorBinding
@@ -1156,7 +1156,7 @@ class Engine:
             first = smallest([b[0] for b in bad], pts) if part == "cells" else bad[0][0]
             cell, exp, got, label = next(b for b in bad if b[0] is first)
             red.append(f"{home.short}: {len(bad)} of {len(cases)} {part} disagree; smallest {show_cell(cell)} -> "
-                       f"rule {show(exp)}, code {got!r}" + (f" ({label})" if label != "cell" else ""))
+                       f"rule {show_value(exp)}, code {got!r}" + (f" ({label})" if label != "cell" else ""))
         if not entered and cases and not witness_errors:
             errors = [got.error for _, _, got, _ in bad if isinstance(got, Raised)]
             first_error = f'; {len(errors)} raised, first {type(errors[0]).__name__}: {errors[0]}' if errors else ''
@@ -1228,7 +1228,7 @@ class Engine:
             first = smallest([b[0] for b in bad], self.rr_space(rule.decides)[2])
             cell, expected, got, label = next(b for b in bad if b[0] is first)
             red.append(f'{home.short}: {len(bad)} of {checked} calls disagree; smallest {show_cell(cell)} -> '
-                       f'rule {show(expected)}, code {got!r}' + (f' ({label})' if label != 'cell' else ''))
+                       f'rule {show_value(expected)}, code {got!r}' + (f' ({label})' if label != 'cell' else ''))
         if not checked and not grey:
             grey.append(f'{home.short}: no test-reached call with readable fields ({names}) and a rule result')
         info = [f'checked on {checked} calls the tests reached ({len(tests)} tests); fields {names} are read from each '

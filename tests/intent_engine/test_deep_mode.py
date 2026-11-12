@@ -35,7 +35,7 @@ def test_default_check_finds_a_new_code_boundary_without_dynamic_probe(sample):
     policy.write_text(policy.read_text().replace('return days <= 3', 'return days <= 3 or days == 91'))
     result = check(sample)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert 'days=91' in result.stdout and 'rule F, code True' in result.stdout
+    assert 'days=91' in result.stdout and 'rule False, code True' in result.stdout
     with database(sample) as connection:
         attempt = json.loads(connection.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
         assert attempt['deep'] is False
@@ -85,7 +85,7 @@ def test_unresolved_callee_boundaries_stay_grey_and_deep_finds_the_counterexampl
         assert any('hidden(days)' in reason for reason in cells[0]['grey'])
     deep = check(sample, '--deep')
     assert deep.returncode == 1, deep.stdout + deep.stderr
-    assert 'days=91' in deep.stdout and 'rule F, code True' in deep.stdout
+    assert 'days=91' in deep.stdout and 'rule False, code True' in deep.stdout
 
 
 def test_assumed_source_stays_grey_and_does_not_reuse_a_deep_receipt(sample):

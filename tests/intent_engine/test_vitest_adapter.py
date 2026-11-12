@@ -1096,8 +1096,9 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     # closest to the real lateFee(2, true); the new comments register them, the old code is compared (4.5).
     assert 'before: same LATE_FEE disagreed at task start on days=4, member=True: late-fee.ts:lateFee returns 6, ' \
            'fee-preview.ts:lateFee returns 7 -> leave it unless your task is about it' in block, block
+    # the step names where the code disagrees: the preview, not the copy that follows the rule
     rule = ('red: rule FEE_WINDOW: days=5 member=T -> rule 7, code 9 at fee-preview.ts:lateFee -> change the code so '
-            'late-fee.ts:lateFee, fee-preview.ts:lateFee follows rule FEE_WINDOW')
+            'fee-preview.ts:lateFee follows rule FEE_WINDOW')
     assert rule in block and 'Error: FlowGuard: 1 red, see the FlowGuard block at the end' in text, text
     shown = _cli_fixture.last(root)
     assert '    FEE_WINDOW source: assumed: three free days, then 5 plus 1 a day for members and 2 a day for others' in shown, shown
@@ -1113,7 +1114,7 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
         in block, block
     # one line per rule: the changed copy's red first, the preview's still in its detail
     assert ('red: rule FEE_WINDOW: days=3 member=F -> rule 0, code 5 at late-fee.ts:lateFee (+1 more) -> change the code so '
-            'late-fee.ts:lateFee, fee-preview.ts:lateFee follows rule FEE_WINDOW') in block, block
+            'late-fee.ts:lateFee and fee-preview.ts:lateFee follow rule FEE_WINDOW') in block, block
     # the copies agreed at 3 at the baseline and differ there now: the pair is red (its old difference at 4 is no line)
     assert [line for line in block if 'same LATE_FEE' in line] == [
         'red: same LATE_FEE: on days=3, member=False: late-fee.ts:lateFee returns 5, fee-preview.ts:lateFee returns 0 '

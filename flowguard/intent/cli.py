@@ -807,7 +807,7 @@ def _rule_finding(model, rid, values):
             if place and place not in at:
                 at.append(place)
     whats.sort(key=lambda text: not text.startswith(('self: ', 'row ', 'conflict ', 'gap in ')))
-    steps = [step.rstrip('; ') for step in rule_steps(rid, ', '.join(sites or at) or rid + ' binding', where, said)]
+    steps = [step.rstrip('; ') for step in rule_steps(rid, at or sites or [rid + ' binding'], where, said)]
     source = parse(rule.source)
     return finding('rule', f'rule:{rid}', f'rule {rid}', whats, steps[0] if steps else '', places=tuple(dict.fromkeys(places)),
                    files=[model.file_of[rid]] if rid in model.file_of else [],

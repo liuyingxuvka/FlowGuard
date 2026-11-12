@@ -322,6 +322,17 @@ def test_a_line_names_at_most_three_places_and_paths_are_file_names_unless_two_s
     places = tuple(f'src/a{number}.py:f' for number in range(5))
     line = Line('known', 'known.k', '', 'known.k at ' + ', '.join(places), 'ask owner (not asked yet)', places)
     assert _block([line])[1] == 'known: known.k at a0.py:f, a1.py:f, a2.py:f (+2 places) -> ask owner (not asked yet)'
+    # The step's places count too: the text names one, the step two more, the rest are counted.
+    homes = [f'src/a{number}.py:f' for number in range(5)]
+    step = signals.rule_steps('R', homes, 'tests/intent/r.py:3', ['days=4 -> rule False, code True'])[0].rstrip('; ')
+    assert step == 'change the code so src/a0.py:f, src/a1.py:f, src/a2.py:f, src/a3.py:f and src/a4.py:f follow rule R', step
+    line = Line('red', 'rule:R', '', 'rule R: days=4 -> rule False, code True at src/a0.py:f', step, tuple(homes))
+    assert _block([line])[1] == ('red: rule R: days=4 -> rule False, code True at a0.py:f -> change the code so a0.py:f, '
+                                 'a1.py:f, a2.py:f (+2 places) follow rule R')
+    code = ['days=4 -> rule False, code True']
+    one = Line('red', 'rule:R', '', 'rule R: x', signals.rule_steps('R', homes[:4], 'r.py:3', code)[0].rstrip('; '), tuple(homes[:4]))
+    assert _block([one])[1] == 'red: rule R: x -> change the code so a0.py:f, a1.py:f, a2.py:f (+1 place) follow rule R'
+    assert signals.rule_steps('R', homes[:1], 'r.py:3', code)[0] == 'change the code so src/a0.py:f follows rule R; '
     clash = [Line('red', 'x', 'f', 'same X: on n=1: web/api/util.ts:f returns 1, app/api/util.ts:f returns 2', 'decide',
                   ('web/api/util.ts:f', 'app/api/util.ts:f')),
              Line('before', 'y', 'g', 'together A at lib/util.ts:g was broken at task start', 'leave', ('lib/util.ts:g',))]
@@ -762,7 +773,7 @@ def test_a_rule_whose_source_does_not_parse_is_a_red_input_line_of_the_session_n
     load = ('red: load tests/intent/decisions.py:2: STANDING_RULE: source needs rule.<id> (a rule of .flowguard/rules.toml), '
             'R<id> "exact words", owner R-id, doc PATH "quoted words", assumed: or lesson: '
             '-> correct this declaration; until then none of its file is checked')
-    for options, rule in (((), ['red: rule STANDING_RULE: days=4 -> rule F, code True at policy.py:standing']),
+    for options, rule in (((), ['red: rule STANDING_RULE: days=4 -> rule False, code True at policy.py:standing']),
                           (('tests/test_case.py',), [])):          # with and without the rule's own items
         result = _run(tmp_path, *options)
         assert result.returncode == 1 and 'Traceback' not in result.stderr, result.stdout + result.stderr
@@ -772,3 +783,48 @@ def test_a_rule_whose_source_does_not_parse_is_a_red_input_line_of_the_session_n
             'red: load decisions.py:2: STANDING_RULE'], result.stdout
         assert load in last(tmp_path).splitlines(), last(tmp_path)
         assert 'changed: STANDING (policy.py:2)' in '\n'.join(block(result)), result.stdout
+
+
+def test_a_rule_red_spells_both_results_and_its_step_names_the_copy_that_disagrees_in_a_sentence(tmp_path):
+    """Two homes of one rule, one of them changed: the rule's result is spelled as the code's (`rule False, code True`,
+    never `rule F`) and the step names where the code disagrees (`so orders.py:preview_accept follows rule WINDOW`),
+    in pytest and in check alike."""
+    from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
+    from tests.intent_engine._cli_fixture import block
+    root = _project(tmp_path / 'p', {
+        'policy.txt': 'At most three days.\n',
+        'orders.py': '''
+            # flowguard: same ACCEPT ref(days: day) -> allowed: bool
+            def accept(days: int) -> bool:
+                return days <= 3
+
+            # flowguard: same ACCEPT(days: day) -> allowed: bool
+            def preview_accept(days: int) -> bool:
+                return days <= 3
+        ''',
+        'tests/test_orders.py': '''
+            from orders import accept, preview_accept
+
+            def test_accept():
+                assert accept(3) and not accept(5)
+                assert preview_accept(2)
+        ''',
+        'tests/intent/window.py': '''
+            from flowguard.intent import rule, row
+
+            @rule("WINDOW", decides="acceptance window", fields={"days": int},
+                  source='assumed: at most three days', anchor="ACCEPT")
+            def WINDOW(days):
+                return days <= 3
+
+            WINDOW.rows(row(days=4, expect=False, why="the fourth day was accepted"))
+        ''',
+    })
+    path = root / 'orders.py'
+    path.write_text(path.read_text(encoding='utf-8').replace(
+        'def preview_accept(days: int) -> bool:\n    return days <= 3', 'def preview_accept(days: int) -> bool:\n    return days <= 4'),
+        encoding='utf-8')
+    red = ('red: rule WINDOW: days=4 -> rule False, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) '
+           '-> change the code so orders.py:preview_accept follows rule WINDOW')
+    for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check'))):
+        assert result.returncode == 1 and red in block(result), (run, result.stdout)

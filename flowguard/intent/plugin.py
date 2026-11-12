@@ -832,7 +832,7 @@ class Observations:
                     if expected is CONFLICT:
                         continue  # The independent rule conflict above owns this red.
                     if expected is not None and not outcome_eq(expected, actual):
-                        said = f'{C.show_cell(inputs)} -> rule {C.show(expected)}, code {str(actual) if type(actual) is bool else C.show(actual)}'
+                        said = f'{C.show_cell(inputs)} -> rule {C.show_value(expected)}, code {C.show_value(actual)}'
                         self.red.append(f'{rule.id}: {said}')
                         self._rule_red(rule, f'{said} at {self._site(point["target"])}', place=self._site(point['target']))
                         if rule.id not in quoted:
@@ -952,7 +952,7 @@ class Observations:
         # Each violated rule names the next step: correct the code, or the rule first when the need changed.
         for rule in model.rules.values():
             if any(str(message).partition('：')[0].partition(': ')[0].partition(' source')[0].partition(' 出处')[0] == rule.id for message in self.red):
-                homes = '、'.join(self._place(home.target) for home in rule.homes if not hasattr(home, 'scenario')) or rule.id + ' binding'
+                homes = [self._place(home.target) for home in rule.homes if not hasattr(home, 'scenario')] or [rule.id + ' binding']
                 said = [str(message).partition('：')[2] for message in self.red if str(message).startswith(rule.id + '：')]
                 self.steps.setdefault(rule.id, signals.rule_steps(rule.id, homes, f'{model.file_of[rule.id]}:{rule.line}', said))
         syntax = []             # files that cannot be parsed: only they are unverified
@@ -1140,7 +1140,8 @@ class Observations:
         entry = self.findings[key]
         entry.setdefault('said', []).append(said)
         entry.setdefault('at', []).extend([place] if place and place not in entry['at'] else [])
-        homes = ', '.join(sites or entry['at']) or rule.id + ' binding'      # a scenario rule: the places its reds name
+        # where the code disagrees, else every home (a scenario rule: the places its reds name)
+        homes = entry['at'] or sites or [rule.id + ' binding']
         entry['whats'].sort(key=lambda text: not text.startswith(('self: ', 'row ', 'conflict ', 'gap in ')))
         steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, homes, where, entry['said'])]
         entry['step'] = steps[0] if steps else ''

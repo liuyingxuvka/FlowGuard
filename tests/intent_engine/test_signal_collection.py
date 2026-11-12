@@ -88,7 +88,7 @@ def _assert_rule_red_only_with_its_items(tmp_path):
     text = _text(complete)
     assert complete.returncode == 1, text
     red, = [line for line in block(complete) if line.startswith('red: ')]
-    assert red.startswith('red: rule STANDING_RULE: days=4 -> rule F, code True at policy.py:standing (') and red.endswith(
+    assert red.startswith('red: rule STANDING_RULE: days=4 -> rule False, code True at policy.py:standing (') and red.endswith(
         ' cells disagree) (+1 more) -> change the code so policy.py:standing follows rule STANDING_RULE'), text
     assert '    STANDING_RULE source: At most three days.' in last(tmp_path).splitlines()
     assert 'FAILED tests/intent/decisions.py::STANDING_RULE' in text, text

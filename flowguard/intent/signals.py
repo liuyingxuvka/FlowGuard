@@ -516,22 +516,37 @@ def _short_paths(paths, files=()):
 
 
 def _said(line, names, *, cap=True):
-    """One line of the block: `{kind}: {text} -> {step}`, its places' paths shortened, at most three places and 200
-    characters besides its paths (`cap`)."""
+    """One line of the block: `{kind}: {text} -> {step}`, its places' paths shortened, at most three places (the text's
+    first, then its step's; each one cut is counted, `(+2 places)`) and 200 characters besides its paths (`cap`)."""
     text, step = _one_line(line.text), _one_line(line.step)
     named = [place for place in dict.fromkeys(line.places) if place and place in text]
     if cap and len(named) > PLACES:
-        for place in named[PLACES:]:
-            for joined in (', ' + place, ' and ' + place, '  ' + place, ' ' + place, place):
-                if joined in text:
-                    text = text.replace(joined, '', 1)
-                    break
-        text += f' (+{len(named) - PLACES} places)'
+        text = _cut(text, named[PLACES:]) + ' ' + _more_places(len(named) - PLACES)
+    shown = named[:PLACES]
+    stepped = sorted((place for place in dict.fromkeys(line.places) if place and place in step and place not in shown), key=step.find)
+    if cap and len(stepped) > PLACES - len(shown):
+        room = PLACES - len(shown)
+        step = _cut(step, stepped[room:], _more_places(len(stepped) - room))
     said = _shorten(f'{line.kind}: {text}' + (f' -> {step}' if step else ''), line.places, names)
     if not cap:
         return said
     return _cap(said, [names.get(path, path) for path in map(_path_of, line.places) if path],
                 [_shorten(place, (place,), names) for place in line.places if place])
+
+
+def _more_places(number):
+    return f'(+{number} place{"s" * (number != 1)})'
+
+
+def _cut(text, places, counted=''):
+    """`text` without the mentions of `places` (with the comma or `and` that joins each to the one before); `counted`
+    takes the place of the first one cut."""
+    for number, place in enumerate(places):
+        for joined in (', ' + place, ' and ' + place, '  ' + place, ' ' + place, place):
+            if joined in text:
+                text = text.replace(joined, (' ' + counted) if counted and not number else '', 1)
+                break
+    return text
 
 
 def _shorten(text, places, names):
@@ -925,7 +940,8 @@ def copy_red(name, lines):
 def rule_steps(rule_id, homes, where, messages=()):
     """The next step of a violated rule by what its red `messages` say, in the same words in pytest, `check` and
     the vitest report (no messages: the code disagrees). The code disagrees with the rule (`-> rule X, code Y`):
-    correct the code at `homes`. The rule disagrees with its own regression rows (`self:`, `row`): correct the rows
+    correct the code at `homes`, the places where it disagrees (`change the code so a.py:f follows rule R`, `so
+    a.py:f and b.py:g follow rule R`). The rule disagrees with its own regression rows (`self:`, `row`): correct the rows
     or the rule at `where`; it leaves cells undecided (`gap in`): add the rule or rows. Two rules decide a cell
     differently (`conflict A vs B`): one of them stays, which the owner decides. Any other red without a step of
     its own: correct the rule's source, binding or rows. When the need changed, the owner's new words are stored
@@ -953,7 +969,7 @@ def rule_steps(rule_id, homes, where, messages=()):
             kinds.add('other')
     steps = list(dict.fromkeys(conflicts))
     steps += [step for kind, step in (
-        ('code', f'change the code so {homes} follows rule {rule_id}; '),
+        ('code', f'change the code so {_listed(homes)} {"follows" if len(set(homes)) == 1 else "follow"} rule {rule_id}; '),
         ('rows', f'correct regression rows or rule {where} so the rule and its regression rows agree; '),
         ('gap', f'add rules or regression rows at {where} so undecided cells have a rule result; '),
         ('other', f'inspect rule {where} and correct its source, binding or regression rows; ')) if kind in kinds]
@@ -962,6 +978,12 @@ def rule_steps(rule_id, homes, where, messages=()):
     elif steps:
         steps.append(f'if requirements changed, first store the new owner words with python -m flowguard req add, then update rule {where}')
     return steps
+
+
+def _listed(places):
+    """`a`, `a and b`, `a, b and c`: the places, each once, in their order."""
+    places = list(dict.fromkeys(places))
+    return places[0] if len(places) == 1 else ', '.join(places[:-1]) + ' and ' + places[-1]
 
 
 def _red_entry(message):
