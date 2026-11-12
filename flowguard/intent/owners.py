@@ -143,6 +143,21 @@ class Change:
                                                                   if _member(ident) != named(ident)}
         return self._touched
 
+    def edited(self, ident):
+        """Whether this change edits the text of the function or method `ident` (map id) of a file it changes: a line
+        from its first to its last differs from the baseline's, a comment or blank line inside it too, or the baseline
+        lacks it. Its code alone is `touched`; a known entry's site is touched by either (D31)."""
+        node = self.graph.node(ident)
+        if node is None or node['file'] not in self.files:
+            return False
+        file = node['file']
+        old = next((item for item in self.old_facts(file).get('nodes', ()) if item['qual'] == node['qual']), None)
+        then = self.old_text(file)
+        if old is None or then is None:
+            return True
+        now = read_source(self.graph.root / file).splitlines()
+        return now[node['line'] - 1:node['end_line']] != then.splitlines()[old['line'] - 1:old['end']]
+
     def delta(self, files):
         """The map's delta rows of these files against the baseline, in their order; each file's rows are read
         once per check (the touched functions and the changed-once leads both ask)."""

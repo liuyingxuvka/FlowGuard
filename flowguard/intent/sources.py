@@ -642,8 +642,10 @@ def known_sites(graph, entries, change=None):
     module-level declaration of a TS/JS or Python file (`_declarations`), whatever its value, or a constant node of
     the map. `Known.nodes` holds the node of each function, method or constant site the map keeps a node for and, for
     a Model.field site, the functions that write that field now and (with `change`) at its baseline; `Known.files` the
-    schema or class file of each Model.field site and the file of each other constant site whose declaration this
-    change edits (D31: a site is touched when its node changes, or that file changes)."""
+    schema or class file of each Model.field site, the file of each other constant site whose declaration this
+    change edits, and the file of each function or method site whose text this change edits although its code is
+    the same (a comment or blank line inside it: `Change.edited`) (D31: a site is touched when its node changes, or
+    that file changes)."""
     from .anchors import _agreement_positions
     from .owners import row_function
     from ..structure.readers.registry import ECMA, language_for
@@ -697,6 +699,8 @@ def known_sites(graph, entries, change=None):
                                 + f' in {path}: name one function, object.method, constant or Model.field of that file')
             elif found:
                 nodes.update(found)
+                if change is not None and change.baseline and path in change.files and any(map(change.edited, found)):
+                    files.add(path)
             elif declared:
                 if mapped:
                     nodes.update(mapped)

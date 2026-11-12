@@ -699,6 +699,7 @@ class _Own:
     def __init__(self):
         self.issues, self.lines, self.code, self.seconds, self.output, self.tail = [], [], 0, 0.0, None, []
         self.ran = set()        # what check's own checks judged in full (`signals.deliver`'s `ran`)
+        self.touched = set()    # the members of its own findings this change touches (`signals.deliver`)
 
     def red(self, family, name, subject, what, step, *, places=(), files=(), detail=()):
         from .signals import finding
@@ -714,7 +715,7 @@ class _Own:
 
     def delivery(self):
         from .signals import delivery
-        return delivery(self.issues, self.lines, ran=self.ran)
+        return delivery(self.issues, self.lines, touched_functions=self.touched, ran=self.ran)
 
 
 def _step_of(message, step):
@@ -908,54 +909,78 @@ def _judged_names(model, data):
 
 
 def _same_name_findings(cfg, index, compared, touched, baseline):
-    """D24: the same-name copies check's pytest batch did not compare (`compared`: the names it did), run on their
-    current code only (`differences._compare_pairs`): what each copy answers where they differ, the reference first
-    (`signals.copy_says`), in the words of a pytest session. Nothing ran them at the baseline: copies whose files
-    this change leaves alone already disagreed at task start (no line; before with --all), and copies one of whose
-    files it touches (`touched`) are this change's (red, fail-closed); never red because they are old. Without a
-    `baseline` no copy existed there, as a pytest session judges them: red. Copies of another signature are red where
-    they are this change's, and what could not be compared is not compared. (issues, lines, ran): `ran` names the
-    groups whose every pair was compared and agreed (`same:NAME`), whose known entry is then `known fixed?`."""
-    from .calibration import outcome_equal
+    """D24 and design 4.5: the same-name copies check's pytest batch did not compare (`compared`: the names it did).
+    Where their current code differs (`differences._compare_pairs`), the copies are compared as a pytest session
+    compares them (`plugin.compare_copies`): sealed, now and at `baseline`, on the inputs where they differ. A pair
+    that differs where it agreed at the baseline (or a copy the baseline lacks; without a baseline every copy) is red,
+    one that already differed there is old: `before` or `known` where this change touches a copy's file (the member
+    is touched then, as in a pytest session), else no line. Copies of another signature are red where they are this
+    change's, and what could not be compared is not compared. (issues, lines, ran, touched functions): `ran` names
+    the groups whose every pair was compared and agreed (`same:NAME`), whose known entry is then `known fixed?`."""
+    import math
+    from ..map.common import git_renames, read_source
     from .differences import _compare_pairs
-    from .signals import copies_issue, copy_lines, copy_says, finding, not_compared, value_text
-    issues, lines, ran = [], [], set()
+    from .plugin import _module_at, compare_copies
+    from .runtime import Runtime, sealed
+    from .signals import finding, not_compared
+    issues, lines, ran, members = [], [], set(), set()
+    runtime = Runtime(cfg.root, baseline) if baseline else None
+    renamed = git_renames(cfg.root, baseline) if baseline else {}
+    texts = {}
+    def source(point, old=False):
+        key = point['file'], old
+        if key not in texts:
+            texts[key] = (runtime._source(renamed.get(key[0], key[0])) if runtime else None) if old else read_source(cfg.root / key[0])
+        return texts[key]
+    def run(point, sample, old=False):
+        text = source(point, old)
+        file, module = point['file'], point['module']
+        if old and file in renamed:         # at the baseline a moved file imported from its old place
+            file, module = renamed[file], _module_at(renamed[file], file, module)
+        return sealed(text, point['qual'], sample['args'], sample['kwargs'], runtime.imports(file, module, old)) \
+            if text is not None else dict(status='unavailable', reason='no baseline source')
+    def json_input(row):
+        """A sealed comparison's input holds JSON values only: no Decimal, date or non-finite number."""
+        return all(value is None or type(value) in (bool, int, str) or type(value) is float and math.isfinite(value)
+                   for value in row.values())
     for name in sorted({anchor.name for anchor in index.entries if anchor.kind == 'sensor'} - compared):
         # A function owner is the reference its same-name copies are compared with.
         copies = sorted((anchor for anchor in index.named(name, 'sensor') if anchor.source_role == 'production'),
                         key=lambda anchor: not anchor.owner)
         if len(copies) < 2:
             continue
-        result = _compare_pairs(cfg.root, [(copies[0], other) for other in copies[1:]], answers=True)
-        place = {anchor.target: f'{anchor.file}:{anchor.qual}' for anchor in copies}
-        owner = next((place[anchor.target] for anchor in copies if anchor.owner), None)
-        said = copy_lines([(where, [(place[anchor.target], value) for anchor, value in seen]) for where, seen in result['answers']],
-                          outcome_equal, value_text, owner=owner, total=len(copies), words=copy_says)
-        shown = {pair for *_, pairs in said for pair in pairs}
-        for item in result['items']:
-            left, right = place[item['before_target']], place[item['after_target']]
-            if item['changes'] and frozenset((left, right)) not in shown:
-                # A pair the copies' answers do not show (one raised on its input): its first difference.
-                change = item['changes'][0]
-                said.append((', '.join(f'{key}={value}' for key, value in change['witness'].items()),
-                             f'{left} returns {change["before"]}, {right} returns {change["after"]}',
-                             'decide which copy is right, then make the other agree', {frozenset((left, right))}))
+        result = _compare_pairs(cfg.root, [(copies[0], other) for other in copies[1:]], witnesses=True)
         files = {anchor.file for anchor in copies}
         new = bool(files & touched) or baseline is None
-        if said:
-            issues.append(copies_issue(name, said if new else [], [] if new else said, places=list(place.values()), files=files))
+        differ = result['witnesses']
+        if differ:
+            points = [dict(anchor=anchor, target=anchor.target, file=anchor.file, module=anchor.module, qual=anchor.qual,
+                           name=anchor.name, kind='sensor', node=None) for anchor in copies]
+            lines_of = {anchor.target: f'{anchor.file}:{anchor.target_line}' for anchor in copies}
+            found = compare_copies(name, points, [row for row in differ if json_input(row)], source, run, lines_of.get,
+                                   no_inputs='the inputs where its copies differ are not JSON')
+            if found.issue is not None:
+                issues.append(found.issue)
+                if found.issue.files & touched:
+                    members.update(part[0] for part in found.issue.parts)
+            grey = [reason.removeprefix(name + ': ') for reason in found.grey]
+            if found.issue is None and not grey:
+                grey = ['its copies differ on their current code, not in the closed environment']
+            if grey:
+                lines.append(not_compared(name, grey))
         # what kept a pair from being compared; a pair shown to differ was compared
         differing = {reason for item in result['items'] if item['changes'] for reason in item['reasons']}
         reasons = [reason.removeprefix(name + ': ') for reason in result['reasons'] if reason not in differing]
         if result['status'] == 'red' and not result['changes']:
             if new:     # copies whose declared inputs or outputs no longer match: nothing compares them
                 issues.append(finding('same', f'same:{name}', f'same {name}', reasons, 'declare the same inputs and outputs on every copy',
-                                      function='signature', places=tuple(place.values()), files=files))
+                                      function='signature', places=tuple(f'{anchor.file}:{anchor.qual}' for anchor in copies),
+                                      files=files))
         elif reasons:
             lines.append(not_compared(name, reasons))
         elif result['status'] == 'ok' and result['complete']:
             ran.add(f'same:{name}')         # every copy compared on its current code, and they agree
-    return issues, lines, ran
+    return issues, lines, ran, members
 
 
 def _keep_last(cfg, payload):
@@ -1001,11 +1026,13 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
     # A same-name group the batch compared (a changed copy it observed, or copies it found differing) is its own.
     compared = {item['name'] for part in reports for item in part['items'] if item.get('file')}
     compared |= {issue.name.partition(':')[2] for part in deliveries for issue in part['issues'] if issue.family == 'same'}
+    compared |= {name.partition(':')[2] for part in deliveries for name in part['ran'] if name.startswith('same:')}
     from .owners import baseline as owner_baseline
-    issues, lines, ran = _same_name_findings(cfg, index, compared, touched, owner_baseline(cfg, base))
+    issues, lines, ran, members = _same_name_findings(cfg, index, compared, touched, owner_baseline(cfg, base))
     own.issues += issues
     own.lines += lines
     own.ran |= ran
+    own.touched |= members
     lines, ignored = signals.collect([*deliveries, own.delivery()], found, everything=everything)
     if own.code and not any(line.kind == 'red' for line in lines):
         # pytest failed where no finding says why (an internal or usage error, an interruption): never a quiet pass.

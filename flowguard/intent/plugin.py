@@ -393,6 +393,85 @@ def _module_at(path, file, module):
     return '.'.join(old[len(root):]) if old[:len(root)] == root and len(old) > len(root) else ''
 
 
+def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no recorded JSON inputs'):
+    """The sealed comparison of the copies of one same name (design 4.5), in pytest and in check alike: the copies
+    (`points`: anchor, target, file, module, qual of each) run in the closed environment, never imported, on the
+    inputs `signals.copy_inputs` makes of the `recorded` ones ({declared name: value}) and the numbers the copies use,
+    now and at the baseline. `source(point, old)` is a copy's source text (None: no baseline source), `run(point,
+    sample, old)` one sealed run of it, `place(target)` a copy's `path:line` for the legacy words. Returns what the
+    run reports: `grey` reasons (not compared), the legacy `red` and `before` lines, the `same:NAME` finding
+    (`signals.copies_issue`: a pair red where this change broke it, old where it already differed at the baseline)
+    or None, and `ran` when every copy answered every compared input. `no_inputs` says why nothing was compared
+    when no input could be made."""
+    import ast
+    from types import SimpleNamespace
+    from . import cells as C, runtime as R, signals
+    out = SimpleNamespace(grey=[], red=[], before=[], issue=None, ran=False)
+    def value(result):
+        return result.get('value') if result['status'] == 'ok' else {'raises': result.get('error')}
+    def equal(left, right):
+        return json.dumps(left, sort_keys=True, allow_nan=False) == json.dumps(right, sort_keys=True, allow_nan=False)
+    numbers = [number for point in points for number in _sealed_numbers(ast.parse(source(point)), point['qual']) or ()]
+    inputs, left = signals.copy_inputs(recorded, numbers)
+    if not inputs:
+        out.grey.append(name + ': ' + no_inputs)
+    if cut := signals.copy_cut(name, 64, left):
+        out.grey.append(cut)
+    places = {point['target']: place(point['target']) + ' ' + point['qual'] for point in points}
+    owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
+    named = {point['target']: f'{point["file"]}:{point["qual"]}' for point in points}     # the 4.3 places
+    rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
+    unavailable = False     # a copy that could not run sealed on an input: the copies were not all compared
+    for row in inputs:
+        answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
+        for point in points:
+            spelled = {_spelled(point, key): v for key, v in row.items()}
+            node = dict(R._functions(ast.parse(source(point)))).get(point['qual'])
+            positional = [spelled.pop(p.arg) for p in node.args.posonlyargs if p.arg in spelled] if node else []
+            sample = dict(args=positional, kwargs=spelled)
+            now = run(point, sample)
+            if now['status'] == 'unavailable':
+                # This copy is not compared; the copies that ran still are (design 4.5, 6.4).
+                out.grey.append(name + ': ' + places[point['target']] + ' ' + now.get('reason', ''))
+                unavailable = True
+                continue
+            past_text = source(point, True)
+            existed = past_text is not None and point['qual'] in dict(R._functions(ast.parse(past_text)))
+            answered.append((point, now, run(point, sample, True) if existed else None))
+        outcomes = [result for _, result, _ in answered]
+        if len(outcomes) < 2:
+            continue
+        if all(result['status'] == 'raised' for result in outcomes) and all(equal(result, outcomes[0]) for result in outcomes[1:]):
+            out.grey.append(name + ': copies raise exceptions')
+            continue
+        rows.append((row,
+                     [(point['target'], value(result)) for point, result, _ in answered],
+                     {point['target']: (value(past), past['status'] == 'raised') for point, _, past in answered
+                      if past is not None and past['status'] != 'unavailable'},
+                     {point['target'] for point, _, past in answered
+                      if past is not None and past['status'] == 'unavailable'}))
+    def spelled(labels, show):
+        """The rows with each input and copy's target spelled as `show` and `labels` write them."""
+        return [(', '.join(f'{key}={show(value)}' for key, value in row.items()), [(labels[target], value) for target, value in now],
+                 {labels[target]: past for target, past in old.items()}, {labels[target] for target in unknown})
+                for row, now, old, unknown in rows]
+    new_lines, previous_lines, open_lines = signals.copy_partition(spelled(places, C.show), equal, C.show, owner, len(points))
+    if previous_lines:
+        out.before.append(signals.copy_red(name, previous_lines))
+    if new_lines:
+        out.red.append(signals.copy_red(name, new_lines))
+    if open_lines:
+        out.grey.append(name + ': baseline comparison unavailable; current copies disagree ('
+                        + '; '.join(f'{where}, {text}' for where, text, _, _ in open_lines) + ')')
+    reference = next((named[point['target']] for point in points if point['anchor'].owner), None)
+    fresh, old, _ = signals.copy_partition(spelled(named, signals.value_text), equal, signals.value_text, reference, len(points),
+                                          words=signals.copy_says)
+    if fresh or old:
+        out.issue = signals.copies_issue(name, fresh, old, places=list(named.values()), files={point['file'] for point in points})
+    out.ran = bool(rows) and not unavailable and not open_lines
+    return out
+
+
 def _numeric(node):
     import ast
     return isinstance(node, ast.Constant) and type(node.value) in (int, float)
@@ -667,67 +746,14 @@ class Observations:
         for name, points in groups.items():
             if len(points) < 2:
                 continue
-            from . import signals, cells as C
-            numbers = [number for point in points for number in _sealed_numbers(ast.parse(source(point)), point['qual']) or ()]
-            inputs, left = signals.copy_inputs([_declared(point, sample['inputs']) for point in points
-                                                for sample in samples.get(point['target'], {}).values()], numbers)
-            if not inputs:
-                self.grey.append(name + ': no recorded JSON inputs')
-            if cut := signals.copy_cut(name, 64, left):
-                self.grey.append(cut)
-            places = {point['target']: self._place(point['target']) + ' ' + point['qual'] for point in points}
-            owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
-            named = {point['target']: f'{point["file"]}:{point["qual"]}' for point in points}     # the 4.3 places
-            rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
-            unavailable = False     # a copy that could not run sealed on an input: the copies were not all compared
-            for row in inputs:
-                answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
-                for point in points:
-                    spelled = {_spelled(point, key): v for key, v in row.items()}
-                    node = dict(R._functions(ast.parse(source(point)))).get(point['qual'])
-                    positional = [spelled.pop(p.arg) for p in node.args.posonlyargs if p.arg in spelled] if node else []
-                    sample = dict(args=positional, kwargs=spelled)
-                    now = run(point, sample)
-                    if now['status'] == 'unavailable':
-                        # This copy is not compared; the copies that ran still are (design 4.5, 6.4).
-                        self.grey.append(name + ': ' + places[point['target']] + ' ' + now.get('reason', ''))
-                        unavailable = True
-                        continue
-                    past_text = source(point, True)
-                    existed = past_text is not None and point['qual'] in dict(R._functions(ast.parse(past_text)))
-                    answered.append((point, now, run(point, sample, True) if existed else None))
-                outcomes = [out for _, out, _ in answered]
-                if len(outcomes) < 2:
-                    continue
-                if all(out['status'] == 'raised' for out in outcomes) and all(equal(out, outcomes[0]) for out in outcomes[1:]):
-                    self.grey.append(name + ': copies raise exceptions')
-                    continue
-                rows.append((row,
-                             [(point['target'], value(out)) for point, out, _ in answered],
-                             {point['target']: (value(past), past['status'] == 'raised') for point, _, past in answered
-                              if past is not None and past['status'] != 'unavailable'},
-                             {point['target'] for point, _, past in answered
-                              if past is not None and past['status'] == 'unavailable'}))
-            def spelled(labels, show):
-                """The rows with each input and copy's target spelled as `show` and `labels` write them."""
-                return [(', '.join(f'{key}={show(value)}' for key, value in row.items()), [(labels[target], value) for target, value in now],
-                         {labels[target]: past for target, past in old.items()}, {labels[target] for target in unknown})
-                        for row, now, old, unknown in rows]
-            new_lines, previous_lines, open_lines = signals.copy_partition(spelled(places, C.show), equal, C.show, owner, len(points))
-            if previous_lines:
-                before.append(signals.copy_red(name, previous_lines))
-            if new_lines:
-                self.red.append(signals.copy_red(name, new_lines))
-            if open_lines:
-                self.grey.append(name + ': baseline comparison unavailable; current copies disagree ('
-                                 + '; '.join(f'{where}, {text}' for where, text, _, _ in open_lines) + ')')
-            reference = next((named[point['target']] for point in points if point['anchor'].owner), None)
-            fresh, old, _ = signals.copy_partition(spelled(named, signals.value_text), equal, signals.value_text, reference, len(points),
-                                                  words=signals.copy_says)
-            if fresh or old:
-                self.copies.append(signals.copies_issue(name, fresh, old, places=list(named.values()),
-                                                        files={point['file'] for point in points}))
-            if rows and not unavailable and not open_lines:
+            recorded = [_declared(point, sample['inputs']) for point in points for sample in samples.get(point['target'], {}).values()]
+            found = compare_copies(name, points, recorded, source, run, self._place)
+            self.grey.extend(found.grey)
+            before.extend(found.before)
+            self.red.extend(found.red)
+            if found.issue is not None:
+                self.copies.append(found.issue)
+            if found.ran:
                 self.ran.add(f'same:{name}')        # every copy answered every compared input sealed
         return items, before
 

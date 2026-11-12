@@ -583,3 +583,56 @@ def test_the_repository_keeps_its_rules_in_force_each_quoting_stored_owner_words
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == 'FlowGuard rules: 6 in .flowguard/rules.toml, 0 known in .flowguard/known.toml, 0 input problems'
     assert sum(line.startswith('rule.') for line in lines) == 6 and sum(line.endswith('(holds)') for line in lines) == 6
+
+
+FEES = {
+    'fees.py': '''
+        # flowguard: same FEE
+        def late_fee(days: int) -> int:
+            if days <= 3:
+                return 0
+            return (days - 3) * 2
+
+
+        # flowguard: same FEE
+        def preview_fee(days: int) -> int:
+            if days <= 3:
+                return 0
+            return (days - 3) * 3
+    ''',
+    'tests/test_fees.py': '''
+        from fees import late_fee, preview_fee
+
+        def test_fee():
+            assert late_fee(5) == 4
+            assert preview_fee(2) == 0
+    ''',
+    '.flowguard/known.toml': '''
+        [known.fee-copies]
+        sites   = ["fees.py:late_fee", "fees.py:preview_fee"]
+        why     = "The preview charges 3 per late day, the invoice 2"
+        act     = "ask"
+        ask     = "Which daily late fee is right, 2 or 3?"
+        finding = "same:FEE"
+    ''',
+}
+
+
+@pytest.mark.parametrize('old, new', [
+    ('    return (days - 3) * ', '    late = days - 3\n    return late * '),         # both copies' code, not their answers
+    ('        return 0\n', '        return 0  # on time\n'),                           # a comment in each copy
+])
+def test_copies_that_disagreed_at_task_start_are_the_known_entry_s_in_pytest_check_and_check_static_alike(tmp_path, old, new):
+    """A known entry names the same-name disagreement the task started with, and the change touches both copies: each
+    run says `known` with the entry's step and nothing red; check compares the copies at the task start too."""
+    from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
+    from tests.intent_engine._cli_fixture import block
+    root = _project(tmp_path / 'p', FEES)
+    path = root / 'fees.py'
+    path.write_text(path.read_text(encoding='utf-8').replace(old, new), encoding='utf-8')
+    known = 'known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> ask owner (not asked yet)'
+    for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check')),
+                             ('check --static', _cli(root, 'check', '--static'))):
+        shown = block(result)
+        assert result.returncode == 0 and ': 0 red, 1 known; ' in shown[0], (run, shown)
+        assert shown[1:] == [known], (run, result.stdout)

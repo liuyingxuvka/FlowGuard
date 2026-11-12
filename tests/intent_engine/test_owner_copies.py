@@ -383,19 +383,20 @@ def _split_copies(calendar):
     return source[:source.rindex('days <= 3')] + 'days < 3\n'
 
 
-# check runs copies no test reached on their current code alone: with a copy's file touched, every input where they
-# differ is this change's (D24, fail-closed); pytest compares each input with the baseline (before on days=3).
-SPLIT_RED = ['red: same LIMIT: on days=3: the reference limits.py:chart returns True, limits.py:report returns False; limits.py:calendar '
-             'differs from the reference on days=4 -> make limits.py:report agree with the reference',
-             'red: same LIMIT: on days=4: the reference limits.py:chart returns False, limits.py:calendar returns True; limits.py:report '
-             'differs from the reference on days=3 -> make limits.py:calendar agree with the reference']
+# report already differs at days=3; calendar newly differs at days=4. check compares the copies no test reached as
+# pytest compares them, each input with the baseline too (design 4.5): the old pair is before, the new one red.
+SPLIT_RED = ['red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:report return False, limits.py:calendar '
+             'returns True -> make limits.py:calendar agree with the reference']
+SPLIT_BEFORE = ['before: same LIMIT disagreed at task start on days=3: the reference limits.py:chart and limits.py:calendar return True, '
+                'limits.py:report returns False -> leave it unless your task is about it']
 
 
 def test_check_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp_path):
     _project(tmp_path, {'limits.py': _split_copies(3)})
     red, text = _checked_red(tmp_path, _split_copies(4))
     assert [line for line in red if line.startswith('red: same LIMIT: on ')] == SPLIT_RED, text
-    assert len(red) == 3, text          # and the changed calendar's own red; no pair is left to a line of its own
+    assert [line for line in text.splitlines() if line.startswith('before: same LIMIT')] == SPLIT_BEFORE, text
+    assert len(red) == 2, text          # and the changed calendar's own red; no pair is left to a line of its own
 
 
 def test_pytest_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp_path):
