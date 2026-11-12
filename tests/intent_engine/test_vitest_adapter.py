@@ -2654,3 +2654,19 @@ def test_existing_wrapper_without_the_timing_argument_receives_this_preparations
     _commit(root, message='legacy wrapper fixture')
     code, text = _vitest(root, vitest_home)
     assert code == 0, text
+
+
+def test_the_plan_key_covers_the_modules_of_the_records_the_plan_keeps(tmp_path, monkeypatch):
+    # Review of 4.3: the plan keeps health.Issue and sources.Known records by their fields; a change of either module
+    # alone must make a new plan, or a cached plan rebuilds records of fields the class no longer has.
+    from flowguard.intent import health, sources, vitest
+    from flowguard.intent.config import load_config
+    cfg = load_config(tmp_path)
+    before = vitest._key(cfg, 'c' * 40, [], 'task')
+    real = Path.read_bytes
+    for module in (health, sources, vitest):
+        target = Path(module.__file__).resolve()
+        monkeypatch.setattr(Path, 'read_bytes', lambda self: real(self) + (b'#' if self.resolve() == target else b''))
+        assert vitest._key(cfg, 'c' * 40, [], 'task') != before, module.__name__
+        monkeypatch.setattr(Path, 'read_bytes', real)
+    assert vitest._key(cfg, 'c' * 40, [], 'task') == before

@@ -52,10 +52,12 @@ def _digest(data):
 def _key(cfg, commit, changed, kind):
     """The plan's fingerprint; `kind` is part of it, as the plan's title says whether its commit is a recorded
     task start or HEAD, and so are rules.toml and known.toml, whose entries the plan keeps with their sites
-    resolved."""
+    resolved. The modules of the records the plan keeps by their fields (`health.Issue`, `sources.Known`) are part of
+    it too: a plan cached before one of them changed would rebuild records of fields that are no longer theirs."""
     from ..structure.store import reader_digest
+    from . import health, sources
     from .sources import CATALOG_FILES
-    own = [Path(__file__), *sorted(ADAPTER.glob('*.mjs'))]
+    own = [Path(__file__), Path(health.__file__), Path(sources.__file__), *sorted(ADAPTER.glob('*.mjs'))]
     parts = [commit, kind, reader_digest(), *(_digest(path.read_bytes()) for path in own)]
     for rel in [*changed, *CATALOG_FILES]:
         path = cfg.root / rel
