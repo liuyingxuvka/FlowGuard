@@ -1115,16 +1115,8 @@ def _tool(name):
     return found
 
 
-@pytest.fixture(scope='session')
-def vitest_home(tmp_path_factory):
-    """A folder with vitest installed; the test projects live in its subfolders and resolve it from there."""
-    home = tmp_path_factory.mktemp('vitest-home')
-    (home / 'package.json').write_text('{"name": "flowguard-vitest-tests", "private": true, "type": "module"}\n', encoding='utf-8')
-    run = subprocess.run([_tool('npm'), 'install', '--no-audit', '--no-fund', '--legacy-peer-deps', f'vitest@{VITEST}'],
-                         cwd=home, capture_output=True, encoding='utf-8', timeout=600)
-    assert run.returncode == 0 and (home / 'node_modules/vitest/vitest.mjs').is_file(), \
-        f'npm could not install vitest@{VITEST} for the adapter tests:\n{run.stdout}\n{run.stderr}'
-    return home
+# `vitest_home` (tests/conftest.py): a folder with vitest VITEST installed, once a session for every module that
+# runs vitest.
 
 
 def _vitest(project, home, *arguments):

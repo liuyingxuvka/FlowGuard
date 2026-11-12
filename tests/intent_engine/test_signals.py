@@ -549,12 +549,74 @@ def test_a_pytest_run_whose_changed_function_takes_a_list_prints_and_keeps_its_c
     assert changed in last(tmp_path).splitlines()
 
 
-def test_every_stdout_line_of_a_pytest_block_has_one_of_the_shapes(tmp_path):
-    """Design 4.7 over real pytest runs: the block is the last thing on stdout, each of its lines starts with the
-    first line, one of the kinds or `+N more:`; deprecation notices go to stderr only."""
-    from tests.intent_engine.test_default_runtime_signals import _project, _run
-    from tests.intent_engine._cli_fixture import display_text
-    policy = _project(tmp_path / 'copies', '''
+def _entry_point(root, *arguments, vitest=None):
+    """(exit code, stdout, stderr) of one real run in `root`: pytest (no arguments), `python -m flowguard ARGUMENTS`
+    (check, check --static) or, with `vitest` (the vitest home folder), `vitest run`; escapes decoded, and the
+    colours vitest writes where it detects CI removed."""
+    import os
+    import subprocess
+    import sys
+    from tests.intent_engine import _cli_fixture
+    from tests.intent_engine.test_default_runtime_signals import _run
+    from tests.intent_engine.test_vitest_adapter import ANSI, _environment, _tool
+    if vitest is not None:
+        result = subprocess.run([_tool('node'), str(vitest / 'node_modules/vitest/vitest.mjs'), 'run'], cwd=root,
+                                capture_output=True, encoding='utf-8', timeout=600, env=_environment())
+    elif arguments:
+        result = subprocess.run([sys.executable, '-c', _cli_fixture._BOOT, _cli_fixture.SOURCE, 'unused-marker', '', '--root',
+                                 str(root), *arguments], cwd=root, capture_output=True, encoding='utf-8', timeout=300,
+                                env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONIOENCODING='utf-8'))
+    else:
+        result = _run(root)
+    clean = lambda text: _cli_fixture.display_text(ANSI.sub('', text))
+    return result.returncode, clean(result.stdout), clean(result.stderr)
+
+
+def _shaped(stdout, stderr):
+    """The block a run printed last on stdout, after asserting design 4.7's shapes over a real run: every line is the
+    first line, one of the kinds or `+N more:`, with at most one ` -> ` (before its step); nothing follows it on
+    stdout; `deprecated:` is said on stderr only."""
+    lines = stdout.splitlines()
+    start = max(index for index, line in enumerate(lines) if _re.match(r'FlowGuard \d+\.\d+ \(', line))
+    block = lines[start:]
+    assert all(SHAPE.match(line) and line.count(' -> ') <= 1 for line in block), block
+    assert not any('deprecated' in line for line in lines), lines
+    assert any(line.startswith('deprecated: ') for line in stderr.splitlines()), stderr
+    return block
+
+
+def _counted(root, block):
+    """{(kind, finding name): lines} of the run `show --last` keeps, whose first line is the block's and counts every
+    kind as many times as the run has lines of it (before the budget)."""
+    from flowguard.intent import cache
+    from flowguard.intent.config import load_config
+    from collections import Counter
+    last = cache.read_last(load_config(root))
+    assert last['title'] == block[0], (last['title'], block)
+    kinds = Counter(line['kind'] for line in last['lines'])
+    counts = block[0].partition('): ')[2].rpartition('; ')[0]          # `1 red, 2 known; 3.4 s`: before the seconds
+    said = {kind: int(number) for number, kind in _re.findall(r'(\d+) (known fixed\?|not compared|[a-z]+)', counts)}
+    assert said == {kind: kinds[kind] for kind in [*kinds, 'red'] if kinds[kind] or kind == 'red'}, (said, kinds)
+    return Counter((line['kind'], line['name']) for line in last['lines'])
+
+
+def _alike(seen, situations):
+    """Each situation (a finding name) has the same kinds and counts in every entry point that can see it, and is
+    there: `situations` {name: the entry points that see it}."""
+    for name, runs in situations.items():
+        found = {run: sorted((kind, number) for (kind, other), number in seen[run].items() if other == name) for run in runs}
+        assert len(set(map(tuple, found.values()))) == 1 and all(found.values()), (name, found)
+
+
+def test_every_block_line_has_one_shape_and_each_entry_point_counts_a_situation_alike(tmp_path):
+    """Design 4.7 over real runs of one change through pytest, check and check --static: every line of each block
+    has one of the shapes and at most one ` -> `; the block is the last thing on stdout and `deprecated:` goes to
+    stderr only; the first line counts each kind of the run's lines; and a situation each of them can see (a pair
+    this change broke, the field impact of that write: all three; copies this change made disagree and a function
+    whose recorded call now answers otherwise: the two that run the tests) is the same kind, as often, in each."""
+    from tests.intent_engine.test_default_runtime_signals import _project
+    root = tmp_path / 'copies'
+    policy = _project(root, """
         import sqlite3
         # flowguard: same STANDING
         def standing(days: int) -> bool:
@@ -567,35 +629,68 @@ def test_every_stdout_line_of_a_pytest_block_has_one_of_the_shapes(tmp_path):
         # flowguard: sensor AVAILABLE
         def available(db: sqlite3.Connection, stock: int) -> bool:
             return stock > 0
-    ''', '''
+        # flowguard: together account.status account.changed
+        def close(db):
+            db.execute("UPDATE account SET status = 'closed', changed = 1")
+    """, """
         import sqlite3
         from policy import standing, preview, late_fee, available
         def test_native():
             assert standing(0) and preview(0) and late_fee(2) in (4, 6)
             with sqlite3.connect(':memory:') as db:
                 assert available(db, 1)
-    ''', rule='''
+    """, rule="""
         from flowguard.intent import rule, row
         @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING',
               source='doc policy.txt "At most three days."')
         def STANDING_RULE(days):
             return days <= 3
         STANDING_RULE.rows(row(days=4, expect=False, why='the fourth day must remain refused'))
-    ''')
-    policy.write_text(policy.read_text().replace('return days <= 3', 'return days <= 7', 1)
-                      .replace('days * 2', 'days * 3').replace('stock > 0', 'stock >= 0'))
-    result = _run(tmp_path / 'copies')
-    lines = display_text(result.stdout).splitlines()
-    start = next(index for index, line in enumerate(lines) if line.startswith('FlowGuard '))
-    block = lines[start:]
-    assert result.returncode == 1 and all(SHAPE.match(line) for line in block), block
-    kinds = {line.partition(': ')[0] for line in block[1:]}
-    assert {'red', 'changed', 'not compared'} <= kinds, block
-    assert not any(line.startswith('deprecated') for line in lines), lines
-    # stderr says the one deprecated spelling the project uses (`sensor`), once; the old-value lead FlowGuard makes
-    # itself says none
-    assert [line for line in result.stderr.splitlines() if 'deprecated' in line] == [
-        'deprecated: sensor goes in 5.0 -> write same NAME'], result.stderr
+    """)
+    policy.write_text(policy.read_text().replace('return days <= 3', 'return days <= 7', 1).replace('days * 2', 'days * 3')
+                      .replace('stock > 0', 'stock >= 0').replace(', changed = 1', ''))
+    seen = {}
+    for run in ('pytest', 'check', 'check --static'):
+        code, stdout, stderr = _entry_point(root, *([] if run == 'pytest' else run.split()))
+        block = _shaped(stdout, stderr)
+        assert code == 1, (run, stdout, stderr)
+        # stderr says the one deprecated spelling the project uses (`sensor`), once; the old-value lead FlowGuard
+        # makes itself says none
+        assert [line for line in stderr.splitlines() if 'deprecated' in line] == [
+            'deprecated: sensor goes in 5.0 -> write same NAME'], (run, stderr)
+        seen[run] = _counted(root, block)
+    assert {'red', 'changed', 'impact', 'not compared'} <= {kind for kind, _ in seen['pytest']}, seen
+    every, tests = ('pytest', 'check', 'check --static'), ('pytest', 'check')
+    _alike(seen, {'pair:account.status>account.changed': every, 'impact:policy:close': every,
+                  'same:STANDING': tests, 'changed:policy:late_fee': tests})
+
+
+def test_a_vitest_block_has_the_shapes_and_counts_the_map_checks_as_check_and_check_static_do(vitest_home):
+    """The same over a TypeScript change through check --static, check and a real vitest run, whose block joins the
+    map checks of its static test: two declarations this change made differ (all three), copies it made disagree
+    and a changed function's recorded call (vitest alone runs the TypeScript)."""
+    from tests.intent_engine.test_vitest_adapter import VITEST, _commit, _flowguard
+    root = vitest_home / 'shapes'
+    _commit(root, {
+        'package.json': '{"name":"shapes","private":true,"type":"module","scripts":{"test":"vitest run"},'
+                        '"devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': "export type Kind = 'a' | 'b';\n// flowguard: sensor LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n",
+        'src/b.ts': "export type Kind = 'a' | 'b';\n// flowguard: sensor LIMIT\nexport const enough = (x: number): boolean => x > 3;\n",
+        'tests/app.test.ts': ("import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nimport { enough } from '../src/b';\n"
+                              "it('real', () => { expect(over(4)).toBe(true); expect(typeof enough(4)).toBe('boolean'); });\n"),
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    other = root / 'src/b.ts'
+    other.write_text(other.read_text(encoding='utf-8').replace("'a' | 'b';", "'a' | 'b' | 'c';").replace('x > 3', 'x > 4'),
+                     encoding='utf-8', newline='\n')
+    seen = {}
+    for run in ('check --static', 'check', 'vitest'):
+        code, stdout, stderr = (_entry_point(root, vitest=vitest_home) if run == 'vitest' else _entry_point(root, *run.split()))
+        assert code == (run == 'vitest'), (run, stdout, stderr)
+        seen[run] = _counted(root, _shaped(stdout, stderr))
+    _alike(seen, {'declarations:Kind': ('check --static', 'check', 'vitest'), 'same:LIMIT': ('vitest',),
+                  'changed:typescript/src/b.ts:enough': ('vitest',)})
 
 
 def test_the_block_follows_pytests_summary_with_every_reporter_option_and_after_an_interrupt(tmp_path):
