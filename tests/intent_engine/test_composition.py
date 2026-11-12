@@ -237,3 +237,17 @@ def test_inputs_the_scenario_test_passes_through_its_own_dict_are_never_a_comple
     model, engine = _with_body(tmp_path / 'standing', ALIASED)
     parts, contract = _contract(model, engine, 'STANDING')
     assert not any(part['red'] for part in parts) and contract['verdict'] == 'grey', (parts, contract)
+
+
+def test_a_later_scenario_call_after_a_return_on_an_earlier_result_is_not_compared_at_another_input(tmp_path):
+    # The test returns early when refusal blocks. At ended=4 the real test never calls checkout, so checkout's
+    # sealed answer at ended=4 is not what the test does; at another stock it calls checkout as recorded.
+    returning = '    reason=app.refusal(ended,suspended,owed)\n    if reason is not None:\n        return\n'
+    model, engine = _with_body(tmp_path / 'returning', returning)
+    parts, contract = _contract(model, engine, 'STANDING')
+    assert all(part['verdict'] == 'ok' for part in parts) and contract['verdict'] == 'ok', (parts, contract)
+    parts, contract = _contract(model, engine, 'CHECKOUT')
+    assert not any(part['red'] for part in parts) and contract['verdict'] == 'grey', (parts, contract)
+    reason = ('not compared: the scenario test reads reason before its call of CHECKOUT_RESULT, in code the sealed '
+              'point does not evaluate; what it does then at another input was not recorded')
+    assert any(reason in line for part in parts for line in part['grey']), parts

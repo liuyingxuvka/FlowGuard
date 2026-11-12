@@ -415,10 +415,9 @@ def _sealed_point(scope, item, binding, test, definition, events, entry, changed
         fixed = {sources[name] for name, value in entry.values.items() if name not in changed and _inert(value)}
         immutable = fixed | {name for name, value in test.__globals__.items()
                              if isinstance(value, (types.ModuleType, types.FunctionType, type))}
-        stored = _stored(definition)
+        stored, tainted = _stored(definition), _tainted(definition, set(passed), immutable)
         # An unchanged inert input the test never assigns has its recorded value at every input.
-        scope.sealed[facts] = (sorted(set(passed) & stored), _tainted(definition, set(passed), immutable),
-                               _spans(definition), fixed - stored)
+        scope.sealed[facts] = (sorted(set(passed) & stored), tainted, _spans(definition, tainted), fixed - stored)
     assigned, tainted, calls, kept = scope.sealed[facts]
     if assigned:
         return _unavailable(f'not compared: the scenario test assigns {assigned[0]}; another input cannot be put '
@@ -429,17 +428,16 @@ def _sealed_point(scope, item, binding, test, definition, events, entry, changed
     read |= {relation.on or flow.nodes[-1].name for relation in relations}
     nodes = [node for node in flow.nodes if node.name in read]
     begun = entry.anchor, entry.site, entry.occurrence
+    reads = [event for event in events if event.phase == 'call' and (event.anchor, event.site, event.occurrence) != begun
+             and any(node.reference == event.anchor and node.occurrence in (None, event.occurrence)
+                     and _caller_matches(node, event, flow, events, index) for node in nodes)]
+    made = {tuple(event.caller[3]) for event in reads if len(event.caller) >= 4}    # the calls evaluated here
     evaluated = {}
-    for event in events:
-        identity = event.anchor, event.site, event.occurrence
-        if event.phase != 'call' or identity == begun or not any(
-                node.reference == event.anchor and node.occurrence in (None, event.occurrence)
-                and _caller_matches(node, event, flow, events, index) for node in nodes):
-            continue
-        point = _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted, kept)
+    for event in reads:
+        point = _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted, kept, made)
         if isinstance(point, dict):
             return point
-        evaluated[identity] = point
+        evaluated[event.anchor, event.site, event.occurrence] = point
     substituted, raised = [], None
     for event in events:
         identity = event.anchor, event.site, event.occurrence
@@ -477,12 +475,14 @@ def _sealed_point(scope, item, binding, test, definition, events, entry, changed
     return observed
 
 
-def _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted, kept):
+def _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted, kept, made):
     """(anchor values, outcome, whether its error leaves the test) of one production anchor call the scenario
     test made itself: its recorded JSON call with each argument the test passes straight from a changed input
     replaced, evaluated sealed. Every other argument must be a literal or an unchanged input in `kept`, so that
-    its recorded value is its value at every input. The recorded call's own sealed outcome must be the recorded
-    one first. Or why it is not compared. `calls`: the test's call expressions by source span."""
+    its recorded value is its value at every input, and nothing the changed inputs may steer decides whether or
+    how often the test makes the call, except the earlier calls this point evaluates itself (`made`, by span).
+    The recorded call's own sealed outcome must be the recorded one first. Or why it is not compared. `calls`:
+    the test's call expressions by source span (`_spans`)."""
     from .flow import _resolved
     anchors = [anchor for anchor in index.named(event.anchor) if anchor.target == event.site]
     if len(anchors) != 1:
@@ -525,10 +525,13 @@ def _sealed_call(scope, item, index, test, calls, event, passed, changed, tainte
     if span not in calls:
         return _unavailable(f'not compared: the scenario test\'s call of {anchor.name} is not one call expression '
                             'in its source')
-    call, propagates = calls[span]
+    call, propagates, steering = calls[span]
     arguments, failure = _passed_arguments(call, signature, passed, tainted, kept, anchor.name)
     if failure:
         return failure
+    for how, names, statement in steering:
+        if statement is None or statement not in made:
+            return _unavailable(_STEERED[how].format(call=anchor.name, names=', '.join(sorted(names))))
     if not arguments:
         return dict(event.values), expected, propagates
     requested = inspect.BoundArguments(signature, dict(bound.arguments))
@@ -749,18 +752,91 @@ def _tainted(definition, seed, immutable):
             return tainted
 
 
-def _spans(definition):
-    """Each call expression of the test `definition` by its source span, with whether an error it raises leaves
-    the test: no try or with block of the test encloses it."""
+_STEERED = {
+    'choice': 'not compared: the scenario test chooses whether to call {call} by {names}; what it does at another '
+              'input was not recorded',
+    'loop': 'not compared: the scenario test calls {call} in a loop that reads {names}; how often it calls it at '
+            'another input was not recorded',
+    'before': 'not compared: the scenario test reads {names} before its call of {call}, in code the sealed point does '
+              'not evaluate; what it does then at another input was not recorded'}
+
+
+def _spans(definition, tainted):
+    """Each call expression of the test `definition` by its source span: (the call, whether an error it raises
+    leaves the test, what the changed inputs may steer it by). An error leaves the test when no try or with block
+    of the test encloses the call. What may steer it is a list of (how, names, made) for the `tainted` names that
+    a loop around it reads ('loop'), that the test of a branch, conditional expression, match or boolean operand
+    deciding whether it runs reads ('choice'), or that a statement before it in the source reads ('before'): such
+    a statement may return, raise, break or change state on another input. `made` is the span of the one call a
+    statement makes from names and literals, which a sealed point may evaluate itself, else None."""
+    def reads(*nodes):
+        return {part.id for node in nodes if node is not None for part in ast.walk(node)
+                if isinstance(part, ast.Name) and part.id in tainted and isinstance(part.ctx, ast.Load)}
+    def span(node):
+        return node.lineno, node.end_lineno, node.col_offset, node.end_col_offset
     spans = {}
-    def visit(node, enclosed):
+    def visit(node, enclosed, steered):
         if isinstance(node, ast.Call):
-            spans[node.lineno, node.end_lineno, node.col_offset, node.end_col_offset] = node, not enclosed
+            spans[span(node)] = node, not enclosed, steered
         enclosed = enclosed or isinstance(node, (ast.Try, ast.TryStar, ast.With, ast.AsyncWith))
-        for child in ast.iter_child_nodes(node):
-            visit(child, enclosed)
-    visit(definition, False)
+        def inner(how, names):
+            return steered + ((how, frozenset(names), None),) if names else steered
+        if isinstance(node, (ast.For, ast.AsyncFor)):
+            visit(node.iter, enclosed, steered)            # evaluated once, before the loop
+            for child in (node.target, *node.body, *node.orelse):
+                visit(child, enclosed, inner('loop', reads(node)))
+        elif isinstance(node, (ast.While, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            for child in ast.iter_child_nodes(node):
+                visit(child, enclosed, inner('loop', reads(node)))
+        elif isinstance(node, (ast.If, ast.IfExp)):
+            visit(node.test, enclosed, steered)
+            for child in (node.body, node.orelse) if isinstance(node, ast.IfExp) else (*node.body, *node.orelse):
+                visit(child, enclosed, inner('choice', reads(node.test)))
+        elif isinstance(node, ast.BoolOp):
+            for position, value in enumerate(node.values):
+                visit(value, enclosed, inner('choice', reads(*node.values[:position])))
+        elif isinstance(node, ast.Match):
+            visit(node.subject, enclosed, steered)
+            for position, case in enumerate(node.cases):
+                deciding = reads(node.subject, *(part for earlier in node.cases[:position + 1]
+                                                 for part in (earlier.pattern, earlier.guard)))
+                visit(case, enclosed, inner('choice', deciding))
+        else:
+            for child in ast.iter_child_nodes(node):
+                visit(child, enclosed, steered)
+    visit(definition, False, ())
+    # Every read of a tainted name by a statement of the test, at its source position, with the one call that
+    # statement makes when it only makes a call from names and literals.
+    before = []
+    for statement in ast.walk(definition):
+        if not isinstance(statement, ast.stmt) or statement is definition:
+            continue
+        value = statement.value if isinstance(statement, (ast.Expr, ast.Assign)) else None
+        made = span(value) if (isinstance(value, ast.Call) and not reads(value.func)
+                               and all(isinstance(target, ast.Name) for target in getattr(statement, 'targets', ()))
+                               and all(isinstance(argument, ast.Name) or _literal(argument) for argument in
+                                       (*value.args, *(keyword.value for keyword in value.keywords)))
+                               and all(keyword.arg for keyword in value.keywords)) else None
+        for part in _own(statement):
+            if isinstance(part, ast.Name) and part.id in tainted and (
+                    isinstance(part.ctx, ast.Load) or isinstance(statement, ast.AugAssign) and part is statement.target):
+                before.append(((part.lineno, part.col_offset), part.id, made))
+    for key, (call, propagates, steered) in spans.items():
+        earlier = {}
+        for position, name, made in before:
+            if position < (call.lineno, call.col_offset):
+                earlier.setdefault(made, set()).add(name)
+        spans[key] = call, propagates, steered + tuple(('before', frozenset(names), made) for made, names in sorted(
+            earlier.items(), key=lambda pair: (pair[0] is not None, pair[0] or ())))
     return spans
+
+
+def _own(node):
+    """The nodes of `node` outside the statements it contains."""
+    for child in ast.iter_child_nodes(node):
+        if not isinstance(child, ast.stmt):
+            yield child
+            yield from _own(child)
 
 
 def _scenario_key(binding):

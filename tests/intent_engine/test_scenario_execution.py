@@ -104,6 +104,40 @@ def test_an_argument_that_is_not_a_literal_or_an_unchanged_input_is_not_compared
         'input of a fixed value that the test never assigns, is known at another input',), actual.reasons
 
 
+CHOSEN = 'not compared: the scenario test chooses whether to call choice by x; what it does at another input was not recorded'
+LOOP = ('not compared: the scenario test calls choice in a loop that reads x; how often it calls it at another input '
+        'was not recorded')
+BEFORE = ('not compared: the scenario test reads x before its call of choice, in code the sealed point does not '
+          'evaluate; what it does then at another input was not recorded')
+
+
+@pytest.mark.parametrize('call,reason', [
+    # At x=4 the real test calls choice(9), which is False, not the recorded choice(2).
+    ("None\n    if x <= 3:\n        answer = choice(2)\n    else:\n        answer = choice(9)", CHOSEN),
+    # At x=4 the real test calls choice(0), which is True, not choice(4).
+    ("None\n    if x <= 3:\n        answer = choice(x)\n    else:\n        answer = choice(0)", CHOSEN),
+    # A conditional expression and a boolean operand decide the same way whether choice runs.
+    ('choice(2) if x <= 3 else choice(9)', CHOSEN),
+    ('x <= 3 and choice(2)', CHOSEN),
+    ("None\n    match x:\n        case 2:\n            answer = choice(2)", CHOSEN),
+    # A loop over the input decides how often choice runs.
+    ("None\n    for limit in (x,):\n        answer = choice(2)", LOOP),
+    # An earlier return, assert or call on the input may end the test before its call.
+    ("None\n    if x > 3:\n        return\n    answer = choice(2)", BEFORE),
+    ("None\n    assert x <= 3\n    answer = choice(2)", BEFORE),
+    ("None\n    str(x)\n    answer = choice(2)", BEFORE),
+])
+def test_a_call_the_changed_input_may_steer_is_not_compared_at_another_input(tmp_path, call, reason):
+    # What the test does at another input is what its source does with that input; only the calls it makes the
+    # same way at every input are put in place and evaluated sealed.
+    binding = scenario(tmp_path, call=call)
+    bind_scenario(tmp_path, binding)
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
+    assert actual.status == 'ok' and actual.value is True, actual.reasons       # the recorded input is observed
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
+    assert actual.status == 'grey' and actual.value is None and actual.reasons == (reason,), actual.reasons
+
+
 def test_a_literal_argument_is_the_recorded_call_at_every_input(tmp_path):
     # choice(2) does not read x: at x=4 the real test calls choice(2) again, which is True.
     binding = scenario(tmp_path, call='choice(2)')
