@@ -123,9 +123,10 @@ def test_static_findings_take_the_catalog_loosened_and_impact_findings_and_carry
         cfg, index = load_config(root), anchors.collect(graph)
         plain = owners.static_findings(cfg, graph, index)
         assert plain.known == [] and all(issue.family for issue in plain.issues)
-        # The catalog's stub adds nothing (loosened and field_impact have their own tests); what each hook returns
-        # joins the one list.
-        assert sources.findings(cfg, graph, None) == owners.Findings()
+        # Without rules.toml or known.toml, now or at the baseline, the catalog adds nothing, not even a loosened line
+        # (loosened and field_impact have their own tests); what each hook returns joins the one list.
+        assert sources.findings(cfg, graph, owners.Change(cfg, graph, 'HEAD')) == owners.Findings()
+        assert sources.findings(cfg, graph, owners.Change(cfg, graph, None)) == owners.Findings()
         entry = sources.Known('k', ('app/a.ts:setState',), 'why', 'leave')
         catalog = Issue('input:known.k', 1, 'known.k', 'text', 'step', family='input', subject='known.k',
                         parts=(('', '.flowguard/known.toml:1', 'is invalid', 'fix it'),), fresh=frozenset({''}))

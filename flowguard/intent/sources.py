@@ -660,13 +660,15 @@ def findings(cfg, graph, change):
     entry whose source does not hold, and the valid known entries with their sites resolved (`Findings.known`). A
     source finding is new (fresh, so red) unless the same source of the same entry already failed at the baseline,
     judged with that commit's archive, documents and authority_docs (design 4.7: a request stored in this task that
-    supersedes or retires the cited one makes it new, D27); without a baseline none is new (D13)."""
+    supersedes or retires the cited one makes it new, D27); without a baseline none is new (D13). What the change
+    loosened in the two files (`catalog_loosened`, also when it deleted them) are lines of their kind."""
     from .owners import Findings
+    loosened_lines = catalog_loosened(cfg, change)
     if not catalog_files(cfg):
-        return Findings()
+        return Findings(lines=loosened_lines)
     now = catalog(cfg)
     known, unresolved = known_sites(graph, now.known.values(), change)
-    found = Findings(issues=[*now.issues, *unresolved], known=known)
+    found = Findings(issues=[*now.issues, *unresolved], known=known, lines=loosened_lines)
     archive, baseline = shared_archive(cfg.root), change.baseline
     then = catalog(cfg, baseline) if baseline else Catalog()
     words = {(table, entry.id): parse(entry.source, strict=True) for table, entries in (('rule', now.rules), ('known', now.known))

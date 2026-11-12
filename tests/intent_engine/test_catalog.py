@@ -324,6 +324,24 @@ def test_without_a_catalog_file_static_findings_read_nothing_of_it(tmp_path):
     assert (found.issues, found.known) == ([], [])
 
 
+def test_the_static_findings_carry_what_the_change_loosened_in_the_catalog(tmp_path):
+    cfg = _project(tmp_path)
+    _commit(tmp_path)
+    base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    _write(tmp_path, {'.flowguard/known.toml': KNOWN.replace('why = "two week counts"', 'why = "one week count"')})
+    with closing(build(tmp_path, workers=1)) as graph:
+        found = owners.static_findings(cfg, graph, anchors.collect(graph), base)
+    assert [(line.kind, line.text) for line in found.lines if line.name.startswith('loosened:known')] == [
+        ('loosened', 'known.weeks changed (why)')], found.lines
+    # Both files deleted: every rule and entry they held is loosened.
+    (tmp_path / '.flowguard/rules.toml').unlink()
+    (tmp_path / '.flowguard/known.toml').unlink()
+    with closing(build(tmp_path, workers=1)) as graph:
+        found = owners.static_findings(cfg, graph, anchors.collect(graph), base)
+    assert [line.name for line in found.lines if line.kind == 'loosened'] == [
+        'loosened:rule.three-days', 'loosened:rule.members', 'loosened:known.scale', 'loosened:known.weeks'], found.lines
+
+
 def _lines(old, new):
     return [(line.kind, line.name, line.text, line.step) for line in sources.loosened(old, new)]
 
