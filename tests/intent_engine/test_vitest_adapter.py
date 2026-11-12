@@ -397,6 +397,42 @@ def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tm
     assert (point['fn'], point['bounds']) == ('over', [4]), point     # the folded value of the changed constant
 
 
+DERIVED = ('const BASE = 10;\nconst LIMIT = BASE * 2;\n\nexport function over(x: number): boolean {\n  return x > LIMIT;\n}\n\n'
+           'export function same(x: number): number {\n  return x;\n}\n')
+
+
+@pytest.mark.parametrize('edit', [('BASE = 10', 'BASE = 9'), ('LIMIT = BASE * 2', 'LIMIT = BASE * 2 - 2')])
+def test_a_function_reading_a_constant_derived_from_a_changed_one_is_changed(tmp_path, edit):
+    # BASE changed and LIMIT = BASE * 2 did not: over reads LIMIT, whose value changed with BASE, as the pytest side
+    # says (test_default_runtime_signals.test_a_function_reading_a_constant_derived_from_a_changed_one_is_changed).
+    # A derived constant's own right side edited is a changed constant too.
+    _commit(tmp_path, {'src/limits.ts': DERIVED})
+    limits = tmp_path / 'src/limits.ts'
+    limits.write_text(DERIVED.replace(*edit), encoding='utf-8', newline='\n')
+    plan = _prepare(tmp_path)['plan']
+    points = [point for entry in json.loads(Path(plan).read_text(encoding='utf-8'))['files'].values() for point in entry['points']]
+    assert [(point['fn'], point['changed']) for point in points] == [('over', True)], points
+    code, text = _report(tmp_path, plan, records=[dict(id='typescript/src/limits.ts:over', args=[20], result=False)])
+    assert code == 0 and _cli_fixture.block(text)[1:] == [
+        'changed: over (limits.ts:4): (x=20) was False, now True; 1/1 inputs differ -> if you meant it, say so'], text
+
+
+@pytest.mark.parametrize('edit', [('BASE = 10', 'BASE = 9'), ('LIMIT = BASE * 2', 'LIMIT = BASE * 2 - 2')])
+def test_a_constant_derived_from_an_imported_changed_one_marks_its_readers_in_both_files(tmp_path, edit):
+    # limits.ts: BASE changed and LIMIT = BASE * 2 did not, or LIMIT's own right side changed; use.ts imports LIMIT,
+    # and its own CAP = MAX + 1 reads it. Only capped, which reads CAP, is planned.
+    _commit(tmp_path, {
+        'src/limits.ts': 'export const BASE = 10;\nexport const LIMIT = BASE * 2;\n',
+        'src/use.ts': "import { LIMIT as MAX } from './limits';\n\nconst CAP = MAX + 1;\n\n"
+                      'export function capped(x: number): boolean {\n  return x > CAP;\n}\n\n'
+                      'export function same(x: number): number {\n  return x;\n}\n',
+    })
+    limits = tmp_path / 'src/limits.ts'
+    limits.write_text(limits.read_text(encoding='utf-8').replace(*edit), encoding='utf-8', newline='\n')
+    plan = json.loads(Path(_prepare(tmp_path)['plan']).read_text(encoding='utf-8'))
+    assert sorted(point['fn'] for entry in plan['files'].values() for point in entry['points']) == ['capped'], plan['files']
+
+
 def test_a_function_that_names_a_database_client_is_not_executed_in_a_project_module(tmp_path):
     _commit(tmp_path, {'src/effects/audited.ts': FEES['src/effects/audited.ts']})
     _sensor(tmp_path, 'src/effects/audited.ts', 'export function activeCount', 'ACTIVE_COUNT')

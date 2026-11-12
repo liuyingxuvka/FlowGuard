@@ -380,19 +380,6 @@ def _sealed_numbers(tree, qual):
     return list({(type(number), number): number for number in [*numbers, *read]}.values())
 
 
-def _module_at(path, file, module):
-    """The module name `path` has under the import root that names `file` `module` (a moved file's name at
-    the baseline); '' when `path` is outside that root, so no project import resolves from it."""
-    def names(rel):
-        parts = list(Path(rel).with_suffix('').parts)
-        return parts[:-1] if parts and parts[-1] == '__init__' else parts
-    own, old, dotted = names(file), names(path), module.split('.') if module else []
-    if not dotted or own[len(own) - len(dotted):] != dotted:
-        return ''
-    root = own[:len(own) - len(dotted)]
-    return '.'.join(old[len(root):]) if old[:len(root)] == root and len(old) > len(root) else ''
-
-
 def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no recorded JSON inputs'):
     """The sealed comparison of the copies of one same name (design 4.5), in pytest and in check alike: the copies
     (`points`: anchor, target, file, module, qual of each) run in the closed environment, never imported, on the
@@ -500,7 +487,7 @@ class Observations:
     def __init__(self, state):
         import ast
         from . import anchors, cache, differences
-        from .runtime import Runtime, _functions, _binding_facts
+        from .runtime import Runtime, _functions, _binding_facts, _binding_reads, _read_through
         from ..map.common import MapError, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
@@ -573,18 +560,21 @@ class Observations:
         views = {}
         def function(file, qual):
             """The current node of `qual` in a changed `file` and whether the function changed since the baseline:
-            its body, or a top-level binding it reads (a module constant). A function new since then changed."""
+            its body, or a top-level binding it reads (a module constant), also through the constants that binding
+            reads (LIMIT = BASE * 2 changes with BASE, as `vitest._constants_changed` reads it). A function new since
+            then changed."""
             if file not in views:
                 tree = ast.parse(read_source(self.cfg.root / file))
                 old = self.runtime._source(self.renamed.get(file, file))
                 old_tree = ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
-                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree))
-            current_functions, prior_functions, old_facts, facts = views[file]
+                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree),
+                               _binding_reads(tree))
+            current_functions, prior_functions, old_facts, facts, reads = views[file]
             node, prior = current_functions.get(qual), prior_functions.get(qual)
             if node is None or prior is None or ast.dump(prior, include_attributes=False) != ast.dump(node, include_attributes=False):
                 return node, True
             loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
-            return node, any(old_facts.get(name) != facts.get(name) for name in loaded)
+            return node, any(old_facts.get(name) != facts.get(name) for name in _read_through(loaded, reads))
         def reaches(file, qual):
             """Whether `qual` or a same-file function it calls, at any depth, changed: its sealed run executes them
             all (design 4.5), as the vitest plan compares the closed source with its helpers."""
@@ -696,7 +686,7 @@ class Observations:
             text = source(point, old)
             file, module = point['file'], point['module']
             if old and file in self.renamed:        # at the baseline a moved file imported from its old place
-                file, module = self.renamed[file], _module_at(self.renamed[file], file, module)
+                file, module = self.renamed[file], R._module_at(self.renamed[file], file, module)
             return R.sealed(text, point['qual'], sample['args'], sample['kwargs'], self.runtime.imports(file, module, old)) \
                 if text is not None else dict(status='unavailable', reason='no baseline source')
         def value(out):

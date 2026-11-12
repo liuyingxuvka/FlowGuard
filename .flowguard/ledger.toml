@@ -662,8 +662,8 @@ rule = "旧账"
 
 ["flowguard/intent/runtime.py:Runtime._constants:(ValueError, TypeError, SyntaxError, ArithmeticError)"]
 count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
+reason = "Leaves an old module constant that does not fold out of the constants and keeps the error text in reasons, so a previous-code proof says why it is unknown and never invents new code."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/runtime.py:_ObserverHub.add:Exception"]
 count = 1

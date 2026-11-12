@@ -129,9 +129,10 @@ def git_blob(root, revision: str, relative: str) -> bytes | None:
 
 def git_renames(root, revision: str) -> dict[str, str]:
     """{path now: path at `revision`} of each file Git's rename detection (`diff -M`) finds moved since that
-    commit. Git compares only the files it tracks, so a file moved without `git add` (an untracked one) is no
-    rename."""
-    parts = git_run(root, "diff", "-M", "--name-status", "-z", "--diff-filter=R", revision, "--").stdout.split(b"\0")
+    commit, both paths relative to root (`--relative`: below the repository's top folder a move across root's edge
+    is none). Git compares only the files it tracks, so a file moved without `git add` (an untracked one) is no
+    rename. The one reader of renames: the map's `Change.renamed` and the comparisons read it."""
+    parts = git_run(root, "diff", "-M", "--name-status", "-z", "--relative", "--diff-filter=R", revision, "--").stdout.split(b"\0")
     return {os.fsdecode(parts[index + 2]): os.fsdecode(parts[index + 1])
             for index in range(0, len(parts) - 2, 3) if parts[index].startswith(b"R")}
 

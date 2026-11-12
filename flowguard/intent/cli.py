@@ -920,8 +920,8 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     import math
     from ..map.common import git_renames, read_source
     from .differences import _compare_pairs
-    from .plugin import _module_at, compare_copies
-    from .runtime import Runtime, sealed
+    from .plugin import compare_copies
+    from .runtime import Runtime, _module_at, sealed
     from .signals import finding, not_compared
     issues, lines, ran, members = [], [], set(), set()
     runtime = Runtime(cfg.root, baseline) if baseline else None

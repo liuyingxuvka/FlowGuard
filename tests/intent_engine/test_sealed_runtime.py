@@ -413,6 +413,36 @@ def test_a_constant_that_does_not_fold_stays_not_compared_with_why(constants, re
     assert sealed(source, 'answer', [1], {}) == {'status': 'unavailable', 'reason': reason}
 
 
+# The old module constants a previous-code proof reads (`Runtime._constants`, `history._historical_home`) fold with
+# the same bounded walker and the same reasons; they once ran `eval`, so 10 ** 10 ** 10 never finished there.
+@pytest.mark.parametrize('constant', [
+    'A = 10 ** 10 ** 10', 'A = 2 ** 300', 'A = 2 ** -65', 'A = 2 ** 64 * 2 ** 64 * 2 ** 64 * 2 ** 64 * 2',
+    'A = 1.5 ** 64 ** 2', 'A = 10.0 ** 64 * 1e300', "A = 'x' * 10 ** 10", "A = ('0123456789' * 1000) + 'x'",
+    'A = 1 // 0', "A = 'a' + 1", "A = '%s' % 2", 'A = True + 1', 'A = (-8) ** 0.5',
+])
+def test_an_old_module_constant_folds_with_the_bounds_and_reasons_of_the_sealed_run(constant):
+    import ast
+    reasons = {}
+    assert Runtime('.', previous={})._constants(ast.parse(constant), 'policy', reasons=reasons) == {}
+    assert sealed(constant + '\ndef answer(x):\n    return x + A\n', 'answer', [1], {}) == {
+        'status': 'unavailable', 'reason': 'uses A: ' + reasons['A']}
+
+
+def test_an_old_module_constant_still_reads_literals_containers_constants_and_inert_constructors():
+    import ast
+    from datetime import timedelta
+    from decimal import Decimal
+    source = ("from decimal import Decimal\nfrom datetime import timedelta\nLIMIT = 3\nFACTOR = 10 ** LIMIT\n"
+              "Amount = Decimal\nSHARE = Amount('0.25')\nGRACE = timedelta(days=LIMIT * 2)\nNAMES = {'a', 'b'}\n"
+              "TABLE = {'a': (SHARE, -LIMIT, FACTOR // 7), 'b': [GRACE, None, b'x']}\nLATER = int('4')\n")
+    reasons = {}
+    constants = Runtime('.', previous={})._constants(ast.parse(source), 'policy', reasons=reasons)
+    assert {name: value for name, value in constants.items() if name not in ('Decimal', 'timedelta')} == dict(
+        LIMIT=3, Amount=Decimal, FACTOR=1000, SHARE=Decimal('0.25'), GRACE=timedelta(days=6), NAMES={'a', 'b'},
+        TABLE={'a': (Decimal('0.25'), -3, 142), 'b': [timedelta(days=6), None, b'x']})
+    assert reasons == {'LATER': 'old constant/default is not an inert expression'}     # a call of int never runs
+
+
 def test_open_is_refused_before_the_call_starts(tmp_path, monkeypatch):
     from flowguard.intent import runtime as R
     target = tmp_path / 'written.txt'
