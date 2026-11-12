@@ -574,8 +574,10 @@ def test_every_stdout_line_of_a_pytest_block_has_one_of_the_shapes(tmp_path):
     kinds = {line.partition(': ')[0] for line in block[1:]}
     assert {'red', 'changed', 'not compared'} <= kinds, block
     assert not any(line.startswith('deprecated') for line in lines), lines
-    # the project uses nothing deprecated: the old-value lead FlowGuard makes itself prints no notice
-    assert 'deprecated' not in result.stderr, result.stderr
+    # stderr says the one deprecated spelling the project uses (`sensor`), once; the old-value lead FlowGuard makes
+    # itself says none
+    assert [line for line in result.stderr.splitlines() if 'deprecated' in line] == [
+        'deprecated: sensor goes in 5.0 -> write same NAME'], result.stderr
 
 
 def test_the_block_follows_pytests_summary_with_every_reporter_option_and_after_an_interrupt(tmp_path):

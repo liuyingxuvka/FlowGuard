@@ -1346,7 +1346,7 @@ def test_a_run_with_nothing_to_observe_still_prints_the_map_checks_and_a_run_wit
     block = _block(text)
     assert code == 1 and 'Error: FlowGuard: 1 red, see the FlowGuard block at the end' in text, text
     assert [line for line in block if line.startswith('red: ')] == [
-        'red: known.limit: known.toml:known.limit act = "ask" needs ask: the question for the owner -> correct [known.limit] in known.toml'], block
+        'red: known.limit: act = "ask" needs ask: the question for the owner -> correct [known.limit] in known.toml'], block
     # copies that disagree, compared with a recorded task start this repository lacks, and outside Git
     copies = vitest_home / 'unborn'
     _commit(copies, {
@@ -1462,15 +1462,18 @@ def test_deprecation_notices_print_once_on_stderr_after_the_block(vitest_home):
     assert 'deprecated features used (5.0): sensor, precedes' in _cli_fixture.last(root), _cli_fixture.last(root)
 
 
-def test_an_edit_of_spacing_alone_touches_no_known_site_as_in_pytest(vitest_home):
-    # Review of 4.3: a trailing space inside a known entry's site changed the function's sealed text, which vitest
-    # counted as touching the site (`known: ...`), while pytest, which counts only the node delta (D31), said nothing.
+def test_a_known_site_is_touched_by_an_edit_of_its_text_and_not_by_an_edit_beside_it_as_in_pytest(vitest_home):
+    # Review of 4.3: vitest counted a change of a function's sealed text as touching its site, and pytest only a
+    # change of its code; both now read D31 alike: a site is touched when the change edits its text (a comment or its
+    # spacing too) or its code, and an edit beside the sites touches none (test_catalog's pytest and check case).
     root = vitest_home / 'spacing'
     _commit(root, {
         'package.json': '{"name":"spacing","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
         'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
         'src/b.ts': '// flowguard: same LIMIT\nexport const enough = (x: number): boolean => x >= 3;\n',
-        'tests/app.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nit('real', () => { expect(over(4)).toBe(true); });\n",
+        'src/fee.ts': 'export function fee(days: number): number {\n  return days * 2;\n}\n',
+        'tests/app.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nimport { fee } from '../src/fee';\n"
+                             "it('real', () => { expect(over(4)).toBe(true); expect(fee(1)).toBe(2); });\n",
         '.flowguard/known.toml': '''
             [known.limit]
             sites = ["src/a.ts:over", "src/b.ts:enough"]
@@ -1478,18 +1481,38 @@ def test_an_edit_of_spacing_alone_touches_no_known_site_as_in_pytest(vitest_home
             act = "ask"
             ask = "which limit is right?"
             finding = "same:LIMIT"
+
+            [known.fee]
+            sites = ["src/fee.ts:fee"]
+            why = "the fee has no cap yet"
+            act = "leave"
         ''',
     })
     assert _flowguard(root, 'init')[0] == 0
     _commit(root, message='wired')
     assert _flowguard(root, 'new-task')[0] == 0
-    first = root / 'src/a.ts'
-    first.write_text(first.read_text(encoding='utf-8').replace('return x > 3;', 'return x  >  3; '), encoding='utf-8', newline='\n')
+    # an entry naming no finding is said when its site is touched: an edit of the site's spacing alone touches it
+    fee = root / 'src/fee.ts'
+    fee.write_text('export function fee(days: number): number {\n  return days  *  2;\n}\n', encoding='utf-8', newline='\n')
     code, text = _vitest(root, vitest_home)
+    assert code == 0 and [line for line in _block(text) if 'known.' in line] == [
+        'known: known.fee at fee.ts:fee -> leave it (the owner deferred it)'], text
+    fee.write_text('export function fee(days: number): number {\n  return days * 2;\n}\n// no cap yet\n', encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)       # beside it: nothing
+    assert code == 0 and not [line for line in _block(text) if 'known.' in line], text
+    fee.write_text('export function fee(days: number): number {\n  return days * 2;\n}\n', encoding='utf-8', newline='\n')
+    known = 'known: known.limit at a.ts:over, b.ts:enough -> ask owner (not asked yet)'
+    first = root / 'src/a.ts'
+    original = first.read_text(encoding='utf-8')
+    first.write_text(original + '\n// a note beside the copies\n', encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)       # beside the sites: nothing
     assert code == 0 and not [line for line in _block(text) if 'known.limit' in line], text
-    first.write_text(first.read_text(encoding='utf-8').replace('return x  >  3; ', 'return 3 < x;'), encoding='utf-8', newline='\n')
-    code, text = _vitest(root, vitest_home)       # the node changed: the site is touched
-    assert code == 0 and 'known: known.limit at a.ts:over, b.ts:enough -> ask owner (not asked yet)' in _block(text), text
+    first.write_text(original.replace('return x > 3;', 'return x  >  3; '), encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)       # its spacing: the site's text is edited
+    assert code == 0 and known in _block(text), text
+    first.write_text(original.replace('return x > 3;', 'return 3 < x;'), encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)       # its code
+    assert code == 0 and known in _block(text), text
 
 
 def test_init_says_npm_test_runs_the_static_test_only_when_the_vitest_config_includes_it(vitest_home):

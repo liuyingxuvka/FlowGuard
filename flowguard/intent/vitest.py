@@ -1286,9 +1286,10 @@ def judge(cfg, data, records, package=None):
     lines += [signals.not_compared(subject, entry['reasons'], function=function, places=entry['places'])
               for (subject, function), entry in unchecked.items()]
     # What the change touches: the files it changed (read now: an intent file's or a document's change does not
-    # change the plan), the TS/JS declarations whose node it added, edited or removed (D31, as pytest reads them: an
-    # edit of a function's spacing alone, which changes its sealed text, touches nothing), and the members of
-    # same-name copies one of whose files it changed (a before line needs that, 4.7).
+    # change the plan), the TS/JS declarations whose code it added, changed or removed (not a change of what a function
+    # reads alone, which changes its sealed text), and the members of same-name copies one of whose files it changed
+    # (a before line needs that, 4.7). A known entry's own sites are read by the catalog as in pytest (D31: an edit of
+    # a site's text, a comment or its spacing too, touches it; `owners.Change.edited`).
     touched_files = frozenset(_differs(cfg, commit)) if commit else frozenset()
     touched = set(data['touched'])
     touched |= {part[0] for issue in issues if issue.family == 'same' and issue.files & touched_files for part in issue.parts}
